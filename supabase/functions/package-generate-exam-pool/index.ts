@@ -2111,8 +2111,8 @@ Deno.serve(async (req) => {
             gate_failed_distractor: _qualityMetrics.candidates_gate_failed_distractor,
             avg_quality_score: Math.round(_qualityMetrics.avg_quality_score * 100) / 100,
           },
+          models_attempted: _qualityMetrics.models_attempted,
           models_used: _qualityMetrics.models_used,
-          rejection_reasons: _qualityMetrics.rejection_reasons,
           accept_rate_pct: _qualityMetrics.candidates_generated > 0
             ? Math.round((_qualityMetrics.candidates_accepted_exam / _qualityMetrics.candidates_generated) * 10000) / 100
             : 0,
