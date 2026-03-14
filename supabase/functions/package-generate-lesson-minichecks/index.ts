@@ -406,30 +406,22 @@ Deno.serve(async (req) => {
         );
 
         if (validRows.length > 0) {
-          // Use upsert with ignoreDuplicates to leverage the unique index guard
-          const { data: inserted, error: insertErr } = await sb
-            .from("minicheck_questions")
-            .upsert(validRows, { onConflict: "lesson_id,md5(question_text)", ignoreDuplicates: true })
-            .select("id");
-
-          if (insertErr) {
-            // Fallback: unique constraint violation is expected — count non-dupes
-            if (insertErr.code === "23505") {
-              console.log(`[MiniChecks] Dedup guard caught duplicates for ${target.id.slice(0, 8)}`);
-              // Insert one-by-one to get partial success
-              let partialOk = 0;
-              for (const row of validRows) {
-                const { error: singleErr } = await sb.from("minicheck_questions").insert(row);
-                if (!singleErr) partialOk++;
+          // Row-by-row insert with dedup guard (unique index rejects exact duplicates)
+          let insertOk = 0;
+          for (const row of validRows) {
+            const { error: singleErr } = await sb.from("minicheck_questions").insert(row);
+            if (singleErr) {
+              if (singleErr.code === "23505") {
+                console.log(`[MiniChecks] Dedup guard: duplicate skipped for ${target.id.slice(0, 8)}`);
+              } else {
+                console.warn(`[MiniChecks] Insert error: ${singleErr.message}`);
               }
-              totalGenerated += partialOk;
             } else {
-              console.warn(`[MiniChecks] Insert error for ${target.id.slice(0, 8)}: ${insertErr.message}`);
-              totalFailed++;
+              insertOk++;
             }
-          } else {
-            totalGenerated += inserted?.length ?? validRows.length;
           }
+          totalGenerated += insertOk;
+          if (insertOk === 0) totalFailed++;
         } else {
           totalFailed++;
         }
