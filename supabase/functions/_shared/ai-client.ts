@@ -208,7 +208,7 @@ export async function callAI(opts: AIRequestOptions): Promise<AIResponse> {
       signal: combinedSignal,
     });
   } else if (cfg.format === "google") {
-    // Google Gemini uses OpenAI-compatible endpoint with API key in header
+    // Google provider — currently disabled, kept for infrastructure compatibility
     const body: Record<string, unknown> = {
       model,
       messages: opts.messages,

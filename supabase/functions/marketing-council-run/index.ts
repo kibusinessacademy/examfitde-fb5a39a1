@@ -54,7 +54,7 @@ Deno.serve(async (req) => {
       return json({ ok: true, versionId: ver!.id, phase: "proposed" });
     }
 
-    // ── CRITIQUE (Google Gemini) ──
+    // ── CRITIQUE (Anthropic Haiku) ──
     if (action === "marketing_critique") {
       if (!assetId) throw new Error("assetId required");
       const versionId = body.versionId || body.version_id;

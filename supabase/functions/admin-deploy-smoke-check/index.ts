@@ -41,7 +41,7 @@ const RULES: SmokeRule[] = [
   {
     jobTypes: ["lesson_generate_content", "package_generate_learning_content"],
     expectedChainSize: 3,
-    forbidModelSubstrings: ["nano"],  // v12: Gemini allowed as plain-JSON fallback; nano banned (empty responses)
+    forbidModelSubstrings: ["nano", "gemini"],  // v13: Gemini globally banned; nano banned (empty responses)
     lookbackMinutes: 360,
   },
   {

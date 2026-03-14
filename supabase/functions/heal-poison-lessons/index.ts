@@ -11,7 +11,7 @@ import { canonicalStepKey } from "../_shared/step-keys.ts";
  * heal-poison-lessons — Auto-Heal for persistently failing lessons
  *
  * Called after generate_learning_content completes with poison pills.
- * Uses escalation model chain (repair_content intent: gemini-2.5-pro → gpt-5)
+ * Uses escalation model chain (repair_content intent: haiku → gpt-5.2)
  * to retry each failed lesson with a different model/prompt strategy.
  *
  * If ALL retries fail → marks package for manual review.

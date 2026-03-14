@@ -89,7 +89,7 @@ export async function runLessonLLM(
     if (errMsg.includes("No parseable tool response") && !plainRetry) {
       plainRetry = true;
       try {
-        const plainChainCandidates = runtime.fullChain.filter(c => !c.model.includes("gemini")).slice(0, 1);
+        const plainChainCandidates = runtime.fullChain.slice(0, 1);
         const retryChain = plainChainCandidates.length > 0 ? plainChainCandidates : runtime.chain;
         console.warn(`[lesson-gen] TOOL_PARSE_FAIL → plain retry provider=${retryChain[0]?.provider} model=${retryChain[0]?.model} lesson=${req.lessonId.slice(0, 8)} isMiniCheck=${req.isMiniCheck}`);
 
