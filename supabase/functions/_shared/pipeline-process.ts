@@ -16,6 +16,7 @@ import {
 import { handleJobFailed } from "./pipeline-handlers.ts";
 import { handleEnqueue } from "./pipeline-handlers.ts";
 import { enqueueJob } from "./enqueue.ts";
+import { updateLoopGuardMeta } from "./loop-guard.ts";
 import { backfillPipelinePool } from "./pipeline-backfill.ts";
 export { backfillPipelinePool } from "./pipeline-backfill.ts";
 
@@ -1282,13 +1283,23 @@ async function handleJobCompleted(
 
   // ── BATCH CONTINUATION GUARD ──
   if (result.batch_complete === false) {
+    // ── LOOP GUARD: Track zero-progress runs for batch steps ──
+    const loopMeta = updateLoopGuardMeta(
+      (currentStep?.meta ?? {}) as Record<string, unknown>,
+      {
+        generated: typeof result.generated === "number" ? result.generated : undefined,
+        inserted: typeof result.inserted === "number" ? result.inserted : undefined,
+        noop_reason: typeof result.noop_reason === "string" ? result.noop_reason : null,
+      },
+    );
+
     if (!result.batch_cursor) {
       console.log(`[runner] 🔄 Step ${stepKey} batch incomplete (cursorless/idempotent) — re-queued`);
       await safeQuery(
         sb.from("package_steps").update({
           status: "queued", job_id: null, runner_id: null, last_error: null,
           meta: {
-            ...(currentStep?.meta ?? {}),
+            ...loopMeta,
             last_batch_at: new Date().toISOString(),
             progress: result.progress ?? null,
             total_populated: result.total_populated ?? null,

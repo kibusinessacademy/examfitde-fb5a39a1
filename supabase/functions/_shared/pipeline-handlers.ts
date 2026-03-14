@@ -11,6 +11,7 @@ import {
   type StepKey, type StepRow, type StepClassContext,
   safeRpc, safeQuery, isTransientStepError,
 } from "./pipeline-helpers.ts";
+import { checkLoopGuard, applyLoopGuardBlock, updateLoopGuardMeta } from "./loop-guard.ts";
 
 // ── Sanitize error messages (strip HTML from 502/503 Cloudflare pages) ──
 function sanitizeErrorMsg(msg: string): string {
@@ -376,6 +377,25 @@ export async function handleEnqueue(
       }
     }
     return { packageId, stepKey, skipped: true, reason, active_jobs: activeJobCount, recent_completed: recentCompletedCount, fanout_subs: activeFanOutCount };
+  }
+
+  // ── LOOP GUARD: prevent infinite retry/fan-out loops ──
+  {
+    const loopCheck = await checkLoopGuard(sb, packageId, stepKey, jobType, (currentStep?.meta ?? null) as Record<string, unknown> | null);
+    if (loopCheck.blocked) {
+      await applyLoopGuardBlock(sb, packageId, stepKey, runnerId, loopCheck);
+      return { packageId, stepKey, loop_guard_blocked: true, reason: loopCheck.reason, metrics: loopCheck.metrics };
+    }
+  }
+
+  // ── Track first enqueue time for stagnation detection ──
+  if (!currentStep?.meta?.first_enqueue_at) {
+    await safeQuery(
+      sb.from("package_steps").update({
+        meta: { ...(currentStep?.meta ?? {}), first_enqueue_at: new Date().toISOString() },
+      }).eq("package_id", packageId).eq("step_key", stepKey),
+      "set_first_enqueue_at",
+    );
   }
 
   console.log(`[runner] Enqueuing ${jobType} for step ${stepKey} (pkg ${shortId})`);
