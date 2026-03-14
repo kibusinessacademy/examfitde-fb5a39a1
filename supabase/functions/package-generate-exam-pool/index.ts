@@ -787,7 +787,7 @@ async function generateRawCandidates(
       break;
     } catch (e: unknown) {
       const errMsg = (e as Error)?.message || String(e);
-      const isRate = errMsg.includes("Rate limit") || errMsg.includes("429") || errMsg.includes("409");
+      const isRate = errMsg.includes("Rate limit") || errMsg.includes("429") || errMsg.includes("409") || errMsg.includes("proactively blocked");
       const isTimeout = errMsg.includes("timed out") || errMsg.includes("TimeoutError") || errMsg.includes("AbortError");
 
       _qualityMetrics.total_llm_calls++;
