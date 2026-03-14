@@ -47,46 +47,56 @@ const GPT4O_MINI: ModelChoice     = { provider: "openai",    model: MODEL_ALIASE
 const HAIKU_FALLBACK: ModelChoice = { provider: "anthropic", model: MODEL_ALIASES.anthropic_cheap_fast, is_fallback: true };
 const GPT5_2_FALLBACK: ModelChoice = { provider: "openai",  model: MODEL_ALIASES.openai_strong, is_fallback: true };
 const GPT5_MINI_FALLBACK: ModelChoice = { provider: "openai", model: MODEL_ALIASES.openai_balanced, is_fallback: true };
+const GEMINI_PRO_FALLBACK: ModelChoice = { provider: "google", model: MODEL_ALIASES.google_strong, is_fallback: true };
 
 // ── Tiered Fallback Strategy ─────────────────────────────────
-// COMPLEX intents (fachlich-sensitiv): GPT-4o mini → GPT-5.2 (NO cheap Haiku fallback)
+// COMPLEX intents (fachlich-sensitiv): GPT-4o mini → Gemini Pro (CROSS-PROVIDER!) → GPT-5.2
+// The cross-provider fallback breaks the OpenAI rate-limit death spiral.
 // STANDARD intents: GPT-4o mini → Haiku → GPT-5-mini
 // SIMPLE intents: GPT-4o mini → Haiku → GPT-5-mini (cost-optimized)
 
 const ROUTING_TABLE: Record<PipelineIntent, ModelChoice[]> = {
-  // ── COMPLEX: Need strong reasoning — NO Haiku fallback ──
-  // These intents require high accuracy; a cheap fast model could
-  // produce low-quality output that passes quality gates marginally.
+  // ── COMPLEX: Need strong reasoning — cross-provider fallback ──
+  // These intents require high accuracy; cheap models produce low-quality output.
+  // Gemini Pro provides cross-provider resilience against OpenAI rate limits.
   learning_course: [
     GPT4O_MINI,
+    GEMINI_PRO_FALLBACK,
     GPT5_2_FALLBACK,
   ],
   learning_content: [
     GPT4O_MINI,
+    GEMINI_PRO_FALLBACK,
     GPT5_2_FALLBACK,
   ],
   exam_questions: [
     GPT4O_MINI,
+    GEMINI_PRO_FALLBACK,
     GPT5_2_FALLBACK,
   ],
   handbook: [
     GPT4O_MINI,
+    GEMINI_PRO_FALLBACK,
     GPT5_2_FALLBACK,
   ],
   council_review: [
     GPT4O_MINI,
+    GEMINI_PRO_FALLBACK,
     GPT5_2_FALLBACK,
   ],
   quality_audit: [
     GPT4O_MINI,
+    GEMINI_PRO_FALLBACK,
     GPT5_2_FALLBACK,
   ],
   repair_content: [
     GPT4O_MINI,
+    GEMINI_PRO_FALLBACK,
     GPT5_2_FALLBACK,
   ],
   council_validator: [
     GPT4O_MINI,
+    GEMINI_PRO_FALLBACK,
     GPT5_2_FALLBACK,
   ],
 
