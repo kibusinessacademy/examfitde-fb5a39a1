@@ -154,12 +154,15 @@ export default function QueueDashboard() {
   return (
     <div className="space-y-4">
       {/* Status Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
         <StatusCard label="Pending" value={statusCounts['pending'] || 0} color="text-muted-foreground" />
         <StatusCard label="Processing" value={statusCounts['processing'] || 0} color="text-primary" />
-        <StatusCard label="Completed" value={statusCounts['completed'] || 0} color="text-emerald-500" />
+        <StatusCard label="Completed" value={(statusCounts['completed'] || 0) - hollowCompleted} color="text-emerald-500"
+          subtitle={hollowCompleted > 0 ? `${hollowCompleted} hollow` : undefined} />
         <StatusCard label="Failed" value={statusCounts['failed'] || 0} color="text-destructive"
           subtitle={gen0Count ? `${gen0Count} gen=0` : undefined} />
+        <StatusCard label="Hollow" value={hollowCompleted} color="text-orange-500"
+          subtitle="completed, gen=0" />
         <StatusCard label="Blocked" value={blockedCount} color="text-amber-500"
           subtitle={blockedCount ? 'cancelled+blocked' : undefined} />
         <StatusCard label="Gen=0" value={gen0Count} color="text-orange-500"
