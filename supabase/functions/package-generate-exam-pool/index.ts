@@ -1413,6 +1413,7 @@ Deno.serve(async (req) => {
   const blueprintIds: string[] | null = p.blueprint_ids || null;
 
   (globalThis as any).__examPoolSb = sb;
+  (globalThis as any).__examPoolPackageId = packageId;
   console.log(`[ExamPool-v5] Using DB-routed provider chain for exam_questions`);
   // SSOT: lf_target_total = absolute Zielzahl pro LF (nie Gap!)
   // Fallback: legacy lf_target (könnte Gap sein) oder examTarget
