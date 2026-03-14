@@ -435,47 +435,112 @@ Deno.serve(async (req) => {
     const softStopped = shouldSoftStop(startMs, "lesson_minichecks");
     console.log(`[MiniChecks] ${softStopped ? "⏱️ Soft-stopped" : "✅ Done"}: ${totalGenerated} questions generated, ${totalFailed} failed, ${elapsed}ms`);
 
-    // batch_complete=false triggers runner re-enqueue (line 939 in job-runner)
-    // hasMore is the definitive "+1 probe" signal — no false positives
+    // batch_complete=false triggers runner re-enqueue
     const batchComplete = !softStopped && totalFailed === 0 && !hasMore;
+
+    // ── Fresh remaining_targets_after from DB (not estimated) ──
+    let freshRemaining = 0;
+    if (effectiveMode === "lesson" && effectiveCourseId) {
+      // Re-run the same paginated count query post-inserts
+      const { data: modules2 } = await sb.from("modules").select("id").eq("course_id", effectiveCourseId);
+      const modIds2 = (modules2 || []).map((m: any) => m.id);
+      if (modIds2.length > 0) {
+        const { data: allL2 } = await sb
+          .from("lessons").select("id, content, step")
+          .in("module_id", modIds2)
+          .not("content", "is", null)
+          .neq("step", "mini_check");
+
+        if (allL2?.length) {
+          const lIds2 = allL2.filter(l => {
+            const ct = typeof l.content === "string" ? l.content : JSON.stringify(l.content || {});
+            return ct.length >= 200 && !ct.includes('"_placeholder":true') && !ct.includes('"_placeholder": true');
+          }).map(l => l.id);
+
+          const postCount = new Map<string, number>();
+          for (let i = 0; i < lIds2.length; i += 200) {
+            const chunk = lIds2.slice(i, i + 200);
+            let from = 0;
+            const PAGE = 1000;
+            while (true) {
+              const { data: rows } = await sb
+                .from("minicheck_questions").select("lesson_id")
+                .in("lesson_id", chunk)
+                .eq("curriculum_id", curriculumId)
+                .eq("mode", "lesson")
+                .range(from, from + PAGE - 1);
+              if (!rows || rows.length === 0) break;
+              for (const r of rows) {
+                if (!r.lesson_id) continue;
+                postCount.set(r.lesson_id, (postCount.get(r.lesson_id) || 0) + 1);
+              }
+              if (rows.length < PAGE) break;
+              from += PAGE;
+            }
+          }
+          for (const lid of lIds2) {
+            if ((postCount.get(lid) || 0) < MIN_ITEMS_PER_LESSON) freshRemaining++;
+          }
+        }
+      }
+    }
 
     // ── Progress Guard & Meta Logging ──
     const { data: stepRow } = await sb
-      .from("package_steps")
-      .select("meta")
+      .from("package_steps").select("meta")
       .eq("package_id", packageId)
       .eq("step_key", "generate_lesson_minichecks")
       .maybeSingle();
 
     const prevMeta = (stepRow?.meta as Record<string, unknown>) ?? {};
-    const prevTargets = Number(prevMeta.remaining_targets_after ?? Infinity);
+    const prevRemaining = Number(prevMeta.remaining_targets_after ?? Infinity);
     const prevStallRuns = Number(prevMeta.stall_runs ?? 0);
 
-    // Stall detection: if targets_found didn't decrease vs last run's remaining_targets_after
-    const isStalled = targetsFound > 0 && targetsFound >= prevTargets && totalGenerated === 0;
+    // Stall = remaining didn't decrease AND nothing was generated
+    const isStalled = freshRemaining > 0 && freshRemaining >= prevRemaining && totalGenerated === 0;
     const stallRuns = isStalled ? prevStallRuns + 1 : 0;
     const MAX_STALL_RUNS = 3;
 
     const progressNote = totalGenerated > 0
-      ? `${totalGenerated} generated, ${totalFailed} failed, remaining=${targetsFound - targets.length}, elapsed=${elapsed}ms`
-      : `0 generated, targets=${targetsFound}, stall_runs=${stallRuns}/${MAX_STALL_RUNS}, elapsed=${elapsed}ms`;
+      ? `${totalGenerated} generated, ${totalFailed} failed, remaining=${freshRemaining}, elapsed=${elapsed}ms`
+      : `0 generated, remaining=${freshRemaining}, stall=${stallRuns}/${MAX_STALL_RUNS}, elapsed=${elapsed}ms`;
 
-    const nextMeta = {
+    const nextMeta: Record<string, unknown> = {
       ...prevMeta,
       last_progress_note: progressNote,
       remaining_targets_before: targetsFound,
-      remaining_targets_after: Math.max(0, targetsFound - targets.length + totalFailed),
+      remaining_targets_after: freshRemaining,
       stall_runs: stallRuns,
       last_run_generated: totalGenerated,
       last_run_at: new Date().toISOString(),
     };
 
-    // Stall escalation: if targets_found hasn't decreased for MAX_STALL_RUNS consecutive runs → mark anomalous
+    // ── Stall escalation: block step instead of forcing false completion ──
     if (stallRuns >= MAX_STALL_RUNS) {
-      console.error(`[MiniChecks] ⚠️ STALL ESCALATION: targets_found=${targetsFound} unchanged for ${stallRuns} runs — marking anomalous`);
+      console.error(`[MiniChecks] ⚠️ STALL BLOCKED: remaining=${freshRemaining} unchanged for ${stallRuns} runs`);
       nextMeta.stall_escalated = true;
       nextMeta.stall_escalated_at = new Date().toISOString();
-      nextMeta.stall_note = `targets_found=${targetsFound} did not decrease over ${stallRuns} consecutive runs`;
+      nextMeta.blocked_reason = `Stall: ${freshRemaining} lessons below minimum, no progress over ${stallRuns} runs`;
+
+      // Set step to blocked — pipeline stops visibly, never silently passes
+      await sb.from("package_steps")
+        .update({
+          status: "blocked",
+          meta: nextMeta,
+        })
+        .eq("package_id", packageId)
+        .eq("step_key", "generate_lesson_minichecks");
+
+      return json({
+        ok: false,
+        batch_complete: false,
+        stall_escalated: true,
+        blocked: true,
+        blocked_reason: nextMeta.blocked_reason,
+        remaining_targets: freshRemaining,
+        stall_runs: stallRuns,
+        elapsed_ms: elapsed,
+      });
     }
 
     await sb.from("package_steps")
@@ -483,21 +548,16 @@ Deno.serve(async (req) => {
       .eq("package_id", packageId)
       .eq("step_key", "generate_lesson_minichecks");
 
-    // Stall escalation forces batch_complete=true to break the infinite loop
-    const forceComplete = stallRuns >= MAX_STALL_RUNS;
-    const finalBatchComplete = batchComplete || forceComplete;
-
     return json({
       ok: true,
-      batch_complete: finalBatchComplete,
+      batch_complete: batchComplete,
       mode: effectiveMode,
       generated: totalGenerated,
       failed: totalFailed,
       targets_found: targetsFound,
       targets_processed: targets.length,
-      remaining_targets_after: Math.max(0, targetsFound - targets.length + totalFailed),
+      remaining_targets_after: freshRemaining,
       stall_runs: stallRuns,
-      stall_escalated: forceComplete || undefined,
       elapsed_ms: elapsed,
       soft_stopped: softStopped,
       has_more: hasMore,
