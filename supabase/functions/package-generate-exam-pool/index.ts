@@ -2215,7 +2215,7 @@ Deno.serve(async (req) => {
         if (!isFanOut) await sb.from("course_packages").update({ build_progress: 55 }).eq("id", packageId);
         return json(withMetrics(
           { ok: true, batch_complete: true, total_questions: actualTotal, loop_capped: true, ...resultMeta },
-          { generated: questionsThisChunk, inserted: actualTotal, blueprints_found: bps.length, blueprints_used: bpsProcessed },
+          { generated: generatedThisRun, inserted: insertedThisRun, blueprints_found: bps.length, blueprints_used: bpsProcessed },
         ));
       }
       return json(withMetrics(
