@@ -830,10 +830,11 @@ Deno.serve(async (req) => {
       hard_fail_reasons: gate.hardFails,
     };
 
+    const CURRENT_REPORT_VERSION = "COURSE_READY_v1.5";
     const report = {
       score: gate.score,
       generated_at: new Date().toISOString(),
-      gate_version: "COURSE_READY_v1.4",
+      gate_version: CURRENT_REPORT_VERSION,
       v3: {
         hard_fail_reasons: gate.hardFails,
         warnings: gate.warnings,
