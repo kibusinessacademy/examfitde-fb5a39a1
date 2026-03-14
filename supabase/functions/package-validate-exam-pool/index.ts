@@ -333,10 +333,14 @@ Deno.serve(async (req) => {
     let pageAfterId = startAfterId;
 
     while (timeLeft() > 10_000) { // Keep 10s buffer for DB writes
+      // FIX: Only validate 'pending' questions — never re-validate already-processed ones.
+      // Re-validating tier1_failed questions caused infinite QG fail loops because
+      // the same questions kept failing and the pass-rate stayed below 70%.
       let query = sb
         .from("exam_questions")
-        .select("id, question_text, options, correct_answer, explanation, difficulty, blueprint_id")
+        .select("id, question_text, options, correct_answer, explanation, difficulty, blueprint_id, competency_id")
         .eq("curriculum_id", curriculumId)
+        .eq("qc_status", "pending")
         .order("id")
         .limit(PAGE_SIZE);
 
