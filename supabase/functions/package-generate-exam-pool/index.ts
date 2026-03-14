@@ -1297,8 +1297,8 @@ Deno.serve(async (req) => {
     if (!isFanOut && bpIndex === 0) {
       const uniqueLFs = new Set(bps.map(b => (b as BlueprintInfo).learning_field_id).filter(Boolean));
       if (uniqueLFs.size > 1) {
-        const { enqueued, learningFields, skipped, errors: enqErrors } = await enqueueLearningFieldJobs(sb, packageId, curriculumId, bps as BlueprintInfo[], examTarget);
-        console.log(`[ExamPool-v5] GUARD: Multi-LF detected (${uniqueLFs.size} LFs) → Fan-Out ONLY. Enqueued=${enqueued}, skipped=${skipped}, errors=${enqErrors.length}`);
+        const { enqueued, learningFields, skipped, skipped_covered, skipped_cooldown, skipped_dedup, errors: enqErrors, lf_details } = await enqueueLearningFieldJobs(sb, packageId, curriculumId, bps as BlueprintInfo[], examTarget);
+        console.log(`[ExamPool-v5] GUARD: Multi-LF detected (${uniqueLFs.size} LFs) → Fan-Out ONLY. Enqueued=${enqueued}, skipped=${skipped} (covered=${skipped_covered}, cooldown=${skipped_cooldown}, dedup=${skipped_dedup}), errors=${enqErrors.length}`);
 
         // ── P0 HOLLOW GUARD: check if we actually have questions before declaring "covered" ──
         const { count: currentTotal } = await sb.from("exam_questions")
@@ -1306,47 +1306,69 @@ Deno.serve(async (req) => {
           .eq("curriculum_id", curriculumId);
         const totalNow = currentTotal ?? 0;
 
+        // Enriched metrics for ops visibility
+        const enrichedMetrics = {
+          fan_out: true,
+          existing_before: totalNow,
+          generated_new: 0, // root fan-out doesn't generate directly
+          total_after: totalNow,
+          exam_target: examTarget,
+          target_reached: totalNow >= examTarget,
+          learning_fields_total: learningFields,
+          learning_fields_enqueued: enqueued,
+          learning_fields_skipped_covered: skipped_covered,
+          learning_fields_skipped_cooldown: skipped_cooldown,
+          learning_fields_skipped_dedup: skipped_dedup,
+          learning_fields_errors: enqErrors.length,
+        };
+
         if (enqueued === 0 && totalNow === 0) {
-          // CRITICAL: No sub-jobs created AND no questions exist.
-          // This is the hollow completion bug — must NOT return ok:true/batch_complete:true.
           if (enqErrors.length > 0) {
-            // Enqueue errors prevented fan-out
             console.error(`[ExamPool-v5] HOLLOW_FANOUT_GUARD: 0 enqueued, 0 questions, ${enqErrors.length} enqueue errors → transient backoff`);
             return transientBackoff(
               `FANOUT_ENQUEUE_FAILED: ${enqErrors[0]?.slice(0, 200)}`,
               180,
-              { fan_out: true, learning_fields_total: learningFields, learning_fields_enqueued: 0, learning_fields_errors: enqErrors.length, reason: "FANOUT_ENQUEUE_FAILED" },
+              { ...enrichedMetrics, reason: "FANOUT_ENQUEUE_FAILED" },
             );
           }
-          // All LFs "skipped" as covered, but 0 questions exist — upstream data issue
           console.error(`[ExamPool-v5] HOLLOW_FANOUT_GUARD: all ${skipped} LFs skipped as covered but totalNow=0 → transient backoff (upstream gap calc wrong)`);
           return transientBackoff(
             `HOLLOW_FANOUT: all LFs skipped but 0 questions exist — gap calc drift`,
             300,
-            { fan_out: true, learning_fields_total: learningFields, learning_fields_skipped: skipped, inserted: 0, reason: "HOLLOW_FANOUT_GAP_DRIFT" },
+            { ...enrichedMetrics, reason: "HOLLOW_FANOUT_GAP_DRIFT" },
           );
         }
 
-        // ── P0 FIX: batch_complete requires BOTH no pending work AND target reached ──
-        // Previously: `enqueued === 0 && totalNow > 0` → declared batch_complete even with 216/500 questions
-        // because all LFs were skipped due to cooldown, not because they were actually at target.
-        // Now: batch_complete only if totalNow >= examTarget (the actual production goal).
         const targetReached = totalNow >= examTarget;
-        const allLfsCovered = enqueued === 0 && skipped === learningFields;
 
+        // ── P1 UNDERPRODUCTION GUARD: all LFs skipped but target not reached ──
+        // This catches the exact bug: cooldown/dedup blocked re-production while
+        // existing question count was far below target.
         if (enqueued === 0 && totalNow > 0 && !targetReached) {
-          // All LFs skipped (cooldown or dedup) but target NOT reached — NOT complete
-          console.warn(`[ExamPool-v5] UNDERPRODUCTION_GUARD: all LFs skipped but totalNow=${totalNow} < target=${examTarget} → batch NOT complete (cooldown/dedup artifact)`);
+          // Distinguish: if ALL skips were coverage-based, it means per-LF targets
+          // are met but global target isn't (rounding artifact). If cooldown/dedup
+          // caused the skips, we must retry after cooldown expires.
+          if (skipped_cooldown > 0 || skipped_dedup > 0) {
+            const waitSec = skipped_cooldown > 0 ? 900 : 120; // 15min if cooldown, 2min if dedup
+            console.warn(`[ExamPool-v5] UNDERPRODUCTION_GUARD: totalNow=${totalNow} < target=${examTarget}, ${skipped_cooldown} cooldown + ${skipped_dedup} dedup skips → transient backoff ${waitSec}s`);
+            return transientBackoff(
+              `UNDERPRODUCTION: ${totalNow}/${examTarget} questions, ${skipped_cooldown} LFs blocked by cooldown, ${skipped_dedup} by dedup`,
+              waitSec,
+              { ...enrichedMetrics, reason: "UNDERPRODUCTION_COOLDOWN_BLOCK", lf_details },
+            );
+          }
+          // All skips were coverage-based but global target not met — possible rounding issue
+          console.warn(`[ExamPool-v5] UNDERPRODUCTION_GUARD: all LFs at per-LF target but totalNow=${totalNow} < examTarget=${examTarget} — rounding gap, forcing re-fan-out`);
         }
 
         if (enqueued === 0 && targetReached) {
-          console.log(`[ExamPool-v5] GUARD: fan_out_skipped=true, totalNow=${totalNow} >= target=${examTarget} — alle LFs haben Target erreicht`);
+          console.log(`[ExamPool-v5] GUARD: fan_out complete, totalNow=${totalNow} >= target=${examTarget}`);
         }
 
         return json(
           withMetrics(
             { ok: true, batch_complete: targetReached, fan_out: true, fan_out_skipped: enqueued === 0, sub_jobs: enqueued, learningFields, totalNow, examTarget },
-            { fan_out: true, learning_fields_total: learningFields, learning_fields_enqueued: enqueued, learning_fields_skipped: skipped, learning_fields_errors: enqErrors.length, inserted: totalNow },
+            enrichedMetrics,
           ),
         );
       }
