@@ -44,15 +44,15 @@ export interface ModelChoice {
 
 // ── Resolved model shortcuts ─────────────────────────────────
 const GPT4O_MINI: ModelChoice     = { provider: "openai",    model: MODEL_ALIASES.openai_workhorse };
-const HAIKU_FALLBACK: ModelChoice = { provider: "anthropic", model: MODEL_ALIASES.anthropic_cheap_fast, is_fallback: true };
+const HAIKU_FALLBACK: ModelChoice = { provider: "openai", model: MODEL_ALIASES.openai_balanced, is_fallback: true }; // v14: Anthropic 404 → rerouted to gpt-5-mini
 const GPT5_2_FALLBACK: ModelChoice = { provider: "openai",  model: MODEL_ALIASES.openai_strong, is_fallback: true };
 const GPT5_MINI_FALLBACK: ModelChoice = { provider: "openai", model: MODEL_ALIASES.openai_balanced, is_fallback: true };
 
 // ── Tiered Fallback Strategy ─────────────────────────────────
-// COMPLEX intents (fachlich-sensitiv): GPT-4o mini → Haiku (cross-provider) → GPT-5.2
-// The cross-provider fallback (Anthropic) breaks the OpenAI rate-limit death spiral.
-// STANDARD intents: GPT-4o mini → Haiku → GPT-5-mini
-// SIMPLE intents: GPT-4o mini → Haiku → GPT-5-mini (cost-optimized)
+// ALL intents: GPT-4o mini → GPT-5-mini → GPT-5.2
+// Note: Anthropic removed, Gemini removed. All OpenAI chain.
+// STANDARD intents: GPT-4o mini → GPT-5-mini
+// SIMPLE intents: GPT-4o mini → GPT-5-mini (cost-optimized)
 
 const ROUTING_TABLE: Record<PipelineIntent, ModelChoice[]> = {
   // ── COMPLEX: Need strong reasoning — cross-provider fallback (Anthropic) ──
