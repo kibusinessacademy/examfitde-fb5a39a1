@@ -111,6 +111,7 @@ Deno.serve(async (req) => {
       await sb.from("autofix_runs").update({
         status: "stopped",
         stop_reason: `Structural gate failed: ${structuralCheck.reason}`,
+        stop_reason_code: "STRUCTURAL_FAIL",
         last_report: structuralCheck as any,
       }).eq("id", run.id);
       return json({
@@ -120,6 +121,100 @@ Deno.serve(async (req) => {
         structural: structuralCheck,
         autofix_run_id: run.id,
       }, 200, origin);
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // GUARDRAIL C: Baseline Guard — reject autofix if gap is too large
+    // Autofix is only for small residual gaps, not structural underproduction.
+    // ═══════════════════════════════════════════════════════════
+    if (run.current_round <= 1) {
+      const baseline = {
+        questions: structuralCheck.exam,
+        oral: structuralCheck.oral,
+        handbook_sections: structuralCheck.handbook_sections,
+      };
+
+      // Run quick integrity to get current score + coverage
+      const { data: baselineReport } = await sb.rpc("validate_course_integrity_v2", {
+        p_curriculum_id: curriculumId,
+      });
+      const baselineScore = Number((baselineReport as any)?.score ?? 0);
+      const examTarget = (baselineReport as any)?.exam?.target || 500;
+      const competencyCoverage = Number((baselineReport as any)?.competency_coverage?.pct ?? 0);
+
+      const baselineSnapshot = {
+        ...baseline,
+        score: baselineScore,
+        competency_coverage_pct: competencyCoverage,
+        exam_target: examTarget,
+        exam_fill_pct: examTarget > 0 ? Math.round((baseline.questions / examTarget) * 100) : 0,
+      };
+
+      // Save baseline for later delta tracking
+      await sb.from("autofix_runs").update({
+        baseline_snapshot: baselineSnapshot as any,
+      }).eq("id", run.id);
+
+      // Minimum thresholds for autofix eligibility
+      const MIN_EXAM_FILL_PCT = 50;       // At least 50% of questions already exist
+      const MIN_COMPETENCY_PCT = 40;      // At least 40% competency coverage
+      const MIN_BASELINE_SCORE = 35;      // At least score 35
+
+      const rejections: string[] = [];
+      if (baselineSnapshot.exam_fill_pct < MIN_EXAM_FILL_PCT) {
+        rejections.push(`exam_fill=${baselineSnapshot.exam_fill_pct}%<${MIN_EXAM_FILL_PCT}%`);
+      }
+      if (competencyCoverage < MIN_COMPETENCY_PCT) {
+        rejections.push(`competency_coverage=${competencyCoverage}%<${MIN_COMPETENCY_PCT}%`);
+      }
+      if (baselineScore < MIN_BASELINE_SCORE) {
+        rejections.push(`score=${baselineScore}<${MIN_BASELINE_SCORE}`);
+      }
+
+      if (rejections.length > 0) {
+        const rejectReason = `INSUFFICIENT_BASELINE: ${rejections.join(", ")}. Full production run required.`;
+        console.warn(`[AutoGap] BASELINE GUARD: ${rejectReason}`);
+
+        await sb.from("autofix_runs").update({
+          status: "failed",
+          stop_reason: rejectReason,
+          stop_reason_code: "INSUFFICIENT_BASELINE",
+          last_score: baselineScore,
+          last_report: baselineReport as any,
+          baseline_snapshot: baselineSnapshot as any,
+        }).eq("id", run.id);
+
+        // Set package to quality_gate_failed immediately
+        await sb.from("course_packages").update({
+          status: "quality_gate_failed",
+        }).eq("id", packageId);
+
+        await alertAdmin(sb, {
+          title: `🚫 Autofix abgelehnt: Baseline zu niedrig`,
+          body: [
+            `Auto-Gap-Closer wurde **nicht gestartet**, weil die Ausgangslage zu weit unter dem Ziel liegt.`,
+            ``,
+            `**Paket:** ${packageId}`,
+            `**Score:** ${baselineScore}/100`,
+            `**Fragen:** ${baseline.questions}/${examTarget} (${baselineSnapshot.exam_fill_pct}%)`,
+            `**Kompetenzabdeckung:** ${competencyCoverage}%`,
+            ``,
+            `**Ablehnungsgründe:** ${rejections.join(", ")}`,
+            ``,
+            `→ Ein neuer Produktionslauf ist erforderlich.`,
+          ].join("\n"),
+          severity: "warning",
+          category: "baseline_guard",
+        });
+
+        return json({
+          ok: false,
+          status: "insufficient_baseline",
+          reason: rejectReason,
+          baseline: baselineSnapshot,
+          autofix_run_id: run.id,
+        }, 200, origin);
+      }
     }
 
     // 3) Run integrity check
