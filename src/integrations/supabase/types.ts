@@ -32141,6 +32141,14 @@ export type Database = {
           },
         ]
       }
+      ops_step_mapping_drift: {
+        Row: {
+          job_history: string | null
+          step_key: string | null
+          view_status: string | null
+        }
+        Relationships: []
+      }
       ops_throughput_hourly: {
         Row: {
           hour: string | null
