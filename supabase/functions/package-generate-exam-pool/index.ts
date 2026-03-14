@@ -1094,6 +1094,8 @@ async function dedupeValidateAndInsert(
         qc_status: "tier1_failed",
       });
       gateFailed++;
+      _qualityMetrics.candidates_gate_failed_distractor++;
+      _qualityMetrics.rejection_reasons[`distractor_${qcReason}`] = (_qualityMetrics.rejection_reasons[`distractor_${qcReason}`] ?? 0) + 1;
     } else {
       const targetBatch = assignedPool === "exam" ? examBatch : trainingBatch;
       targetBatch.push({
@@ -1102,8 +1104,18 @@ async function dedupeValidateAndInsert(
         status,
         qc_status: assignedPool === "exam" ? "approved" : "pending",
       });
-      if (assignedPool === "exam") saved++;
-      else training++;
+      if (assignedPool === "exam") {
+        saved++;
+        _qualityMetrics.candidates_accepted_exam++;
+      } else {
+        training++;
+        _qualityMetrics.candidates_accepted_training++;
+      }
+      // Track quality scores for average
+      _qualityMetrics.avg_quality_score = (
+        (_qualityMetrics.avg_quality_score * (_qualityMetrics.candidates_accepted_exam + _qualityMetrics.candidates_accepted_training - 1) + qualityResult.score)
+        / (_qualityMetrics.candidates_accepted_exam + _qualityMetrics.candidates_accepted_training)
+      ) || 0;
     }
   }
 
