@@ -19,7 +19,7 @@ export type AIProvider = "openai" | "anthropic" | "google";
 
 /** Max requests per minute per provider (conservative defaults) */
 const RPM_LIMITS: Record<AIProvider, number> = {
-  openai: 80,
+  openai: 250,     // gpt-4o-mini supports 500 RPM; conservative limit for shared isolates
   anthropic: 40,
   google: 60,
   lovable: 60,
