@@ -37,8 +37,8 @@ function StatusCard({ label, value, color, subtitle }: { label: string; value: n
 function JobBadge({ status, meta, lastError, result }: { status: string; meta: any; lastError?: string; result?: any }) {
   const outcome = meta?.outcome;
   const isBlocked = status === 'cancelled' && outcome === 'blocked';
-  const isGen0 = lastError?.includes('gen=0') || (status === 'completed' && result?.generated === 0 && !result?.noop);
-  const isEffectiveFail = status === 'completed' && result?.effective_success === false;
+  const isGen0 = lastError?.includes('gen=0') || (status === 'completed' && (result?.generated ?? null) === 0 && !result?.noop);
+  const isEffectiveFail = status === 'completed' && (result?.effective_success === false || ((result?.generated ?? null) === 0 && !result?.noop));
   const isNoop = status === 'completed' && result?.noop === true;
   const reason = meta?.soft_stopped_reason || meta?.softStoppedReason || meta?.reason;
   const attempted = meta?.attempted;
