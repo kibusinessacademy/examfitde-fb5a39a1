@@ -48,75 +48,75 @@ export interface ModelChoice {
 const ROUTING_TABLE: Record<PipelineIntent, ModelChoice[]> = {
   // ── COMPLEX: Need strong reasoning ──
   learning_course: [
-    { provider: "anthropic", model: "claude-3-5-haiku-20241022" },
+    { provider: "openai", model: "gpt-4o-mini" },
     { provider: "openai", model: "gpt-5.2", is_fallback: true },
   ],
   learning_content: [
-    { provider: "anthropic", model: "claude-3-5-haiku-20241022" },
+    { provider: "openai", model: "gpt-4o-mini" },
     { provider: "openai", model: "gpt-5.2", is_fallback: true },
   ],
   exam_questions: [
-    { provider: "anthropic", model: "claude-3-5-haiku-20241022" },
+    { provider: "openai", model: "gpt-4o-mini" },
     { provider: "openai", model: "gpt-5.2", is_fallback: true },
   ],
   handbook: [
-    { provider: "anthropic", model: "claude-3-5-haiku-20241022" },
+    { provider: "openai", model: "gpt-4o-mini" },
     { provider: "openai", model: "gpt-5.2", is_fallback: true },
   ],
   council_review: [
-    { provider: "anthropic", model: "claude-3-5-haiku-20241022" },
+    { provider: "openai", model: "gpt-4o-mini" },
     { provider: "openai", model: "gpt-5.2", is_fallback: true },
   ],
   quality_audit: [
-    { provider: "anthropic", model: "claude-3-5-haiku-20241022" },
+    { provider: "openai", model: "gpt-4o-mini" },
     { provider: "openai", model: "gpt-5.2", is_fallback: true },
   ],
   repair_content: [
-    { provider: "anthropic", model: "claude-3-5-haiku-20241022" },
+    { provider: "openai", model: "gpt-4o-mini" },
     { provider: "openai", model: "gpt-5.2", is_fallback: true },
   ],
 
   // ── STANDARD: Structured output, moderate complexity ──
   oral_exam: [
-    { provider: "anthropic", model: "claude-3-5-haiku-20241022" },
+    { provider: "openai", model: "gpt-4o-mini" },
     { provider: "openai", model: "gpt-5-mini", is_fallback: true },
   ],
   minicheck: [
-    { provider: "anthropic", model: "claude-3-5-haiku-20241022" },
+    { provider: "openai", model: "gpt-4o-mini" },
     { provider: "openai", model: "gpt-5-mini", is_fallback: true },
   ],
   seo_content: [
-    { provider: "anthropic", model: "claude-3-5-haiku-20241022" },
+    { provider: "openai", model: "gpt-4o-mini" },
     { provider: "openai", model: "gpt-5-mini", is_fallback: true },
   ],
   council_proposer: [
-    { provider: "anthropic", model: "claude-3-5-haiku-20241022" },
+    { provider: "openai", model: "gpt-4o-mini" },
     { provider: "openai", model: "gpt-5-mini", is_fallback: true },
   ],
   council_validator: [
-    { provider: "anthropic", model: "claude-3-5-haiku-20241022" },
+    { provider: "openai", model: "gpt-4o-mini" },
     { provider: "openai", model: "gpt-5-mini", is_fallback: true },
   ],
   curriculum_import: [
-    { provider: "anthropic", model: "claude-3-5-haiku-20241022" },
+    { provider: "openai", model: "gpt-4o-mini" },
     { provider: "openai", model: "gpt-5-mini", is_fallback: true },
   ],
 
   // ── SIMPLE: Classification, summary, low complexity ──
   support: [
-    { provider: "anthropic", model: "claude-3-5-haiku-20241022" },
+    { provider: "openai", model: "gpt-4o-mini" },
     { provider: "openai", model: "gpt-5-mini", is_fallback: true },
   ],
   summary: [
-    { provider: "anthropic", model: "claude-3-5-haiku-20241022" },
+    { provider: "openai", model: "gpt-4o-mini" },
     { provider: "openai", model: "gpt-5-mini", is_fallback: true },
   ],
   repair: [
-    { provider: "anthropic", model: "claude-3-5-haiku-20241022" },
+    { provider: "openai", model: "gpt-4o-mini" },
     { provider: "openai", model: "gpt-5-mini", is_fallback: true },
   ],
   blooms_classify: [
-    { provider: "anthropic", model: "claude-3-5-haiku-20241022" },
+    { provider: "openai", model: "gpt-4o-mini" },
     { provider: "openai", model: "gpt-5-mini", is_fallback: true },
   ],
 
@@ -360,7 +360,7 @@ export function getEscalationModel(
 
   const escalationMap: Partial<Record<PipelineIntent, ModelChoice>> = {
     exam_questions: { provider: "openai", model: "gpt-5.2" },
-    oral_exam: { provider: "openai", model: "gpt-5-mini" },
+    oral_exam: { provider: "openai", model: "gpt-4o-mini" },
     minicheck: { provider: "openai", model: "gpt-5-mini" },
     support: { provider: "openai", model: "gpt-5-mini" },
     summary: { provider: "openai", model: "gpt-5-mini" },
