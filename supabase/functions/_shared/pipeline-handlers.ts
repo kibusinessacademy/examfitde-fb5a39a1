@@ -11,7 +11,7 @@ import {
   type StepKey, type StepRow, type StepClassContext,
   safeRpc, safeQuery, isTransientStepError,
 } from "./pipeline-helpers.ts";
-import { checkLoopGuard, applyLoopGuardBlock, updateLoopGuardMeta } from "./loop-guard.ts";
+import { checkLoopGuard, checkRetryLoopGuard, applyLoopGuardBlock, updateLoopGuardMeta, updateRetryLoopGuardMeta } from "./loop-guard.ts";
 
 // ── Sanitize error messages (strip HTML from 502/503 Cloudflare pages) ──
 function sanitizeErrorMsg(msg: string): string {
