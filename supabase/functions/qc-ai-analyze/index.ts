@@ -97,12 +97,6 @@ Deno.serve(async (req) => {
           stream: true,
         }),
       });
-    } else {
-      return new Response(JSON.stringify({ error: `Unknown provider: ${provider}` }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
 
     if (!aiResponse.ok) {
       const status = aiResponse.status;
