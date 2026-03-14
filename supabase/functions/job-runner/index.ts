@@ -1139,7 +1139,6 @@ Deno.serve(async (req) => {
                 attempts: newAttempts,
               },
             };
-          }
           } else {
             // Reset predecessor step to queued with targeted LF info
             console.log(`[job-runner] 🔄 Auto-heal: resetting ${predecessorStep} for targeted re-seed (cycle ${healCycles + 1}/${MAX_HEAL_CYCLES})${missingLfIds ? ` [${missingLfIds.length} missing LFs]` : ""}`);
