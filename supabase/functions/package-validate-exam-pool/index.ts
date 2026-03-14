@@ -84,7 +84,7 @@ interface T1Result {
 let questions_total_hint = 0;
 
 function tier1Check(
-  q: { id: string; question_text: string; options: any; correct_answer: number; explanation: string | null; difficulty: string | null },
+  q: { id: string; question_text: string; options: any; correct_answer: number; explanation: string | null; difficulty: string | null; competency_id?: string },
   professionName: string,
   recentNgrams: Array<{ id: string; ngrams: Set<string> }>,
 ): T1Result {
