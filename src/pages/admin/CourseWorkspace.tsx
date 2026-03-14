@@ -535,7 +535,7 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
         </TabsContent>
 
         <TabsContent value="modules">
-          <ProductModuleStatus packageId={packageId} courseId={pkg.course_id || null} certificationId={pkg.certification_id || null} featureFlags={(pkg as any)?.feature_flags} />
+          <ProductModuleStatus packageId={packageId} courseId={pkg.course_id || null} curriculumId={(pkg as any)?.curriculum_id || null} certificationId={pkg.certification_id || null} featureFlags={(pkg as any)?.feature_flags} />
         </TabsContent>
 
         <TabsContent value="council">
