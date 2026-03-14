@@ -108,7 +108,7 @@ Ausbildungsdauer: ${beruf.ausbildungsdauer_monate} Monate`;
     // v11: Failover chain — policy-first, then model-routing chain
     let chain: Array<{ provider: string; model: string }> = [];
     if (providerOverride) {
-      const overrideModel = providerOverride === "google" ? "gemini-2.5-flash" : "gpt-5-mini";
+      const overrideModel = providerOverride === "anthropic" ? "claude-3-5-haiku-latest" : "gpt-5-mini";
       chain.push({ provider: providerOverride, model: overrideModel });
     } else {
       const policyRoute = await resolveAvailableRoute("curriculum_enrichment");

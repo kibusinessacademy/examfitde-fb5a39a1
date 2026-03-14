@@ -2,7 +2,7 @@
  * admin-deploy-smoke-check
  *
  * Post-deploy validation: queries LIVE llm_cost_events to prove
- * no forbidden models (e.g. Gemini) are running in critical pipelines,
+ * no forbidden models (e.g. Gemini, nano) are running in critical pipelines,
  * and chain_size matches expectations.
  *
  * Auth: x-job-runner-key (internal shared secret)
@@ -41,7 +41,7 @@ const RULES: SmokeRule[] = [
   {
     jobTypes: ["lesson_generate_content", "package_generate_learning_content"],
     expectedChainSize: 3,
-    forbidModelSubstrings: ["nano"],  // v12: Gemini allowed as plain-JSON fallback; nano banned (empty responses)
+    forbidModelSubstrings: ["nano", "gemini"],  // v13: Gemini globally banned; nano banned (empty responses)
     lookbackMinutes: 360,
   },
   {

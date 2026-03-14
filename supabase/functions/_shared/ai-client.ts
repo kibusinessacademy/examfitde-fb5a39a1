@@ -74,7 +74,7 @@ const PROVIDER_DEFAULTS: Record<AIProvider, { url: string; model: string; keyEnv
   },
   google: {
     url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-    model: "gemini-2.5-flash",
+    model: "claude-3-5-haiku-latest", // DISABLED: Google provider not in active use
     keyEnv: "GOOGLE_AI_API_KEY",
     format: "google",
   },
@@ -208,7 +208,7 @@ export async function callAI(opts: AIRequestOptions): Promise<AIResponse> {
       signal: combinedSignal,
     });
   } else if (cfg.format === "google") {
-    // Google Gemini uses OpenAI-compatible endpoint with API key in header
+    // Google provider — currently disabled, kept for infrastructure compatibility
     const body: Record<string, unknown> = {
       model,
       messages: opts.messages,
