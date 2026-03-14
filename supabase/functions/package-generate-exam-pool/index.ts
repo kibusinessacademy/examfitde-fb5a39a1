@@ -2086,6 +2086,7 @@ Deno.serve(async (req) => {
             successful: _qualityMetrics.successful_llm_calls,
             failed: _qualityMetrics.failed_llm_calls,
             retried: _qualityMetrics.retried_llm_calls,
+            blocked: _qualityMetrics.blocked_llm_calls,
           },
           output: {
             total_chars: _qualityMetrics.total_output_chars,
