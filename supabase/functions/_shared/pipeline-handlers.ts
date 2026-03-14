@@ -95,6 +95,32 @@ export async function handleJobFailed(
     return { packageId, stepKey, terminal_escalation: true, error: errorMsg };
   }
 
+  // ── v2 LOOP GUARD: Check retry path BEFORE any requeue ──
+  {
+    const updatedMeta = updateRetryLoopGuardMeta(stepMeta, errorMsg);
+    const retryGuard = checkRetryLoopGuard(updatedMeta, errorMsg, stepAttempts);
+    if (retryGuard.blocked) {
+      // Persist the updated meta before blocking
+      await safeQuery(
+        sb.from("package_steps").update({ meta: updatedMeta })
+          .eq("package_id", packageId).eq("step_key", stepKey),
+        "loop_guard_meta_update",
+      );
+      await applyLoopGuardBlock(sb, packageId, stepKey, runnerId, retryGuard);
+      return { packageId, stepKey, loop_guard_blocked: true, reason: retryGuard.reason, metrics: retryGuard.metrics };
+    }
+    // Always persist the updated zero_generation_streak even if not blocked
+    if (updatedMeta !== stepMeta) {
+      await safeQuery(
+        sb.from("package_steps").update({ meta: updatedMeta })
+          .eq("package_id", packageId).eq("step_key", stepKey),
+        "loop_guard_retry_meta_update",
+      );
+      // Update stepMeta reference for downstream use
+      Object.assign(stepMeta, updatedMeta);
+    }
+  }
+
   if (transient) {
     const transientNext = (Number(stepMeta.transient_attempts ?? 0) || 0) + 1;
     const rawFta = stepMeta.first_transient_at;
