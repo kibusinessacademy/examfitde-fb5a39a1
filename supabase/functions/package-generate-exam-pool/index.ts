@@ -888,7 +888,10 @@ async function dedupeValidateAndInsert(
   const trainingBatch: any[] = [];
 
   for (const { question: q, bp, difficulty, questionType, cognitiveLevel, lfData } of rawCandidates) {
-    if (!q.question_text || !Array.isArray(q.options) || q.options.length < 4) continue;
+    if (!q.question_text || !Array.isArray(q.options) || q.options.length < 4) {
+      _qualityMetrics.rejection_reasons["invalid_structure"] = (_qualityMetrics.rejection_reasons["invalid_structure"] ?? 0) + 1;
+      continue;
+    }
 
     // HARD GATE: correct_answer must be valid index
     const correctIdx = Array.isArray(q.correct_answer) ? q.correct_answer[0] : (q.correct_answer ?? 0);
