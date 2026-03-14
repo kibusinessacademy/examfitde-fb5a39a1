@@ -1,13 +1,16 @@
 /**
- * loop-guard.ts — Systemwide Loop Prevention Guard
+ * loop-guard.ts — Systemwide Loop Prevention Guard (v2)
  *
  * Prevents infinite retry/fan-out loops by tracking:
  * 1. Consecutive zero-progress runs (ZERO_GENERATION, generated=0)
  * 2. Cumulative job count per step/package in a rolling window
  * 3. Time-based stagnation (no new artifacts produced over N hours)
+ * 4. Cumulative attempts across ALL jobs for a step (v2: retry-path guard)
  *
- * When thresholds are breached, the step is blocked with a clear reason
- * and the package is flagged to prevent further resource waste.
+ * v2 changes:
+ * - Added checkRetryLoopGuard() for the retry path in handleJobFailed
+ * - Added cumulative attempts tracking across all jobs
+ * - ZERO_GENERATION errors now counted as zero-progress even on retry path
  */
 
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
@@ -24,6 +27,10 @@ const LOOP_GUARD_CONFIG = {
   JOB_COUNT_WINDOW_HOURS: 24,
   /** If step has been in non-done state for this many hours with no progress, block */
   MAX_STAGNATION_HOURS: 8,
+  /** Max cumulative attempts across ALL jobs for a step/package in 24h */
+  MAX_CUMULATIVE_ATTEMPTS_24H: 50,
+  /** Max consecutive ZERO_GENERATION failures before blocking (retry-path) */
+  MAX_ZERO_GENERATION_STREAK: 4,
 } as const;
 
 export interface LoopGuardResult {
@@ -57,11 +64,23 @@ export async function checkLoopGuard(
     };
   }
 
-  // ── Check 2: Cumulative job count in rolling window ──
+  // ── Check 1b: ZERO_GENERATION streak (v2) ──
+  const zeroGenStreak = typeof meta.zero_generation_streak === "number"
+    ? meta.zero_generation_streak : 0;
+
+  if (zeroGenStreak >= LOOP_GUARD_CONFIG.MAX_ZERO_GENERATION_STREAK) {
+    return {
+      blocked: true,
+      reason: `LOOP_GUARD: ${zeroGenStreak} consecutive ZERO_GENERATION failures (limit: ${LOOP_GUARD_CONFIG.MAX_ZERO_GENERATION_STREAK})`,
+      metrics: { zero_generation_streak: zeroGenStreak, limit: LOOP_GUARD_CONFIG.MAX_ZERO_GENERATION_STREAK },
+    };
+  }
+
   const windowCutoff = new Date(
     Date.now() - LOOP_GUARD_CONFIG.JOB_COUNT_WINDOW_HOURS * 3600 * 1000,
   ).toISOString();
 
+  // ── Check 2: Cumulative job count in rolling window ──
   const { count: totalJobsInWindow } = await sb
     .from("job_queue")
     .select("id", { count: "exact", head: true })
@@ -94,7 +113,27 @@ export async function checkLoopGuard(
     };
   }
 
-  // ── Check 4: Time-based stagnation ──
+  // ── Check 4: Cumulative attempts across all jobs (v2) ──
+  const { data: attemptRows } = await sb
+    .from("job_queue")
+    .select("attempts")
+    .eq("job_type", jobType)
+    .eq("package_id", packageId)
+    .gte("created_at", windowCutoff);
+
+  const totalAttempts = (attemptRows ?? []).reduce(
+    (sum: number, r: { attempts: number }) => sum + (r.attempts || 0), 0
+  );
+
+  if (totalAttempts >= LOOP_GUARD_CONFIG.MAX_CUMULATIVE_ATTEMPTS_24H) {
+    return {
+      blocked: true,
+      reason: `LOOP_GUARD: ${totalAttempts} cumulative attempts across all jobs for ${stepKey} in 24h (limit: ${LOOP_GUARD_CONFIG.MAX_CUMULATIVE_ATTEMPTS_24H})`,
+      metrics: { cumulative_attempts_24h: totalAttempts, limit: LOOP_GUARD_CONFIG.MAX_CUMULATIVE_ATTEMPTS_24H },
+    };
+  }
+
+  // ── Check 5: Time-based stagnation ──
   const lastProgressAt = typeof meta.last_progress_at === "string"
     ? meta.last_progress_at
     : typeof meta.first_enqueue_at === "string"
@@ -111,6 +150,46 @@ export async function checkLoopGuard(
         metrics: { stagnation_hours: stagnationHours, zero_progress_runs: zeroProgressRuns },
       };
     }
+  }
+
+  return { blocked: false };
+}
+
+/**
+ * v2: Retry-path loop guard — called from handleJobFailed BEFORE requeueing a step.
+ * Checks the error pattern and step meta to decide if the retry should be blocked.
+ * This is lighter than checkLoopGuard (no DB queries) for hot-path performance.
+ */
+export function checkRetryLoopGuard(
+  stepMeta: Record<string, unknown>,
+  errorMsg: string,
+  stepAttempts: number,
+): LoopGuardResult {
+  const meta = stepMeta ?? {};
+
+  // ── Check A: ZERO_GENERATION streak ──
+  const isZeroGen = /ZERO_GENERATION|EFFECTIVE_FAILURE.*generated.*0/i.test(errorMsg);
+  const zeroGenStreak = typeof meta.zero_generation_streak === "number"
+    ? meta.zero_generation_streak : 0;
+  const effectiveStreak = isZeroGen ? zeroGenStreak + 1 : zeroGenStreak;
+
+  if (effectiveStreak >= LOOP_GUARD_CONFIG.MAX_ZERO_GENERATION_STREAK) {
+    return {
+      blocked: true,
+      reason: `LOOP_GUARD_RETRY: ${effectiveStreak} consecutive ZERO_GENERATION failures — LLM cannot produce content for this step`,
+      metrics: { zero_generation_streak: effectiveStreak, error_pattern: "ZERO_GENERATION", step_attempts: stepAttempts },
+    };
+  }
+
+  // ── Check B: Zero-progress runs ──
+  const zeroProgressRuns = typeof meta.zero_progress_runs === "number"
+    ? meta.zero_progress_runs : 0;
+  if (zeroProgressRuns >= LOOP_GUARD_CONFIG.MAX_ZERO_PROGRESS_RUNS) {
+    return {
+      blocked: true,
+      reason: `LOOP_GUARD_RETRY: ${zeroProgressRuns} zero-progress runs detected at retry time`,
+      metrics: { zero_progress_runs: zeroProgressRuns },
+    };
   }
 
   return { blocked: false };
@@ -158,7 +237,7 @@ export async function applyLoopGuardBlock(
     })
     .eq("id", packageId);
 
-  // Cancel any remaining jobs
+  // Cancel any remaining jobs for this step
   const jobType = await getJobTypeForStep(sb, stepKey);
   if (jobType) {
     await sb
@@ -212,6 +291,7 @@ export function updateLoopGuardMeta(
     return {
       ...currentMeta,
       zero_progress_runs: 0,
+      zero_generation_streak: 0,
       last_progress_at: new Date().toISOString(),
       total_progress_runs: (typeof currentMeta.total_progress_runs === "number"
         ? currentMeta.total_progress_runs : 0) + 1,
@@ -225,12 +305,38 @@ export function updateLoopGuardMeta(
   }
 }
 
+/**
+ * v2: Update loop guard meta specifically for ZERO_GENERATION errors on retry path.
+ * This tracks the streak of ZERO_GENERATION failures separately from generic zero-progress.
+ */
+export function updateRetryLoopGuardMeta(
+  currentMeta: Record<string, unknown>,
+  errorMsg: string,
+): Record<string, unknown> {
+  const isZeroGen = /ZERO_GENERATION|EFFECTIVE_FAILURE.*generated.*0/i.test(errorMsg);
+  const prevStreak = typeof currentMeta.zero_generation_streak === "number"
+    ? currentMeta.zero_generation_streak : 0;
+  const prevZeroRuns = typeof currentMeta.zero_progress_runs === "number"
+    ? currentMeta.zero_progress_runs : 0;
+
+  if (isZeroGen) {
+    return {
+      ...currentMeta,
+      zero_generation_streak: prevStreak + 1,
+      zero_progress_runs: prevZeroRuns + 1,
+      last_zero_generation_at: new Date().toISOString(),
+      last_zero_progress_at: new Date().toISOString(),
+    };
+  }
+
+  return currentMeta;
+}
+
 // ── Helper: resolve job_type for a step_key ──
 async function getJobTypeForStep(
   sb: ReturnType<typeof createClient>,
   stepKey: string,
 ): Promise<string | null> {
-  // Use the mapping view if available, fallback to convention
   const { data } = await sb
     .from("ops_jobtype_step_map")
     .select("job_type")
