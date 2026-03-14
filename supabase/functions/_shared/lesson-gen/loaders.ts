@@ -50,9 +50,14 @@ export async function loadLessonGenerationData(
   // These depend on lesson/profession but are independent of each other
   const lfId = (lesson as any).modules?.learning_field_id;
 
+  // Fetch beruf_id once (needed for glossary)
+  const berufPromise = sb.from("curricula").select("beruf_id").eq("id", req.curriculumId).maybeSingle()
+    .then((r: any) => r.data?.beruf_id || null)
+    .catch(() => null);
+
   const phase2Promises: [
     Promise<any>,                         // LF data
-    Promise<string>,                      // glossary context
+    Promise<string | null>,               // beruf_id
     Promise<any>,                         // mastery context
   ] = [
     // LF data
@@ -64,17 +69,8 @@ export async function loadLessonGenerationData(
           .then((r: any) => r.data)
       : Promise.resolve(null),
 
-    // Glossary
-    (async () => {
-      try {
-        const { data: cu } = await sb.from("curricula").select("beruf_id").eq("id", req.curriculumId).maybeSingle();
-        if (cu?.beruf_id) {
-          const glossary = await loadCachedGlossary(sb, cu.beruf_id, professionName);
-          if (glossary) return formatGlossaryForPrompt(glossary, null); // lfCode applied later if needed
-        }
-      } catch { /* no glossary — proceed */ }
-      return "";
-    })(),
+    // beruf_id (for glossary, resolved after)
+    berufPromise,
 
     // Mastery context (moved here from context.ts to parallelize)
     (async () => {
@@ -84,19 +80,15 @@ export async function loadLessonGenerationData(
     })(),
   ];
 
-  const [lfData, glossaryContext, masteryCtx] = await Promise.all(phase2Promises);
+  const [lfData, berufId, masteryCtx] = await Promise.all(phase2Promises);
 
-  // Re-format glossary with LF code if available
-  let finalGlossaryContext = glossaryContext;
-  if (glossaryContext && lfData?.code) {
-    // If we have lfCode, re-format (the glossary was formatted without it)
+  // Glossary: uses beruf_id + lfCode (both now available)
+  let finalGlossaryContext = "";
+  if (berufId) {
     try {
-      const { data: cu } = await sb.from("curricula").select("beruf_id").eq("id", req.curriculumId).maybeSingle();
-      if (cu?.beruf_id) {
-        const glossary = await loadCachedGlossary(sb, cu.beruf_id, professionName);
-        if (glossary) finalGlossaryContext = formatGlossaryForPrompt(glossary, lfData.code);
-      }
-    } catch { /* keep original */ }
+      const glossary = await loadCachedGlossary(sb, berufId, professionName);
+      if (glossary) finalGlossaryContext = formatGlossaryForPrompt(glossary, lfData?.code || null);
+    } catch { /* no glossary — proceed */ }
   }
 
   return {
