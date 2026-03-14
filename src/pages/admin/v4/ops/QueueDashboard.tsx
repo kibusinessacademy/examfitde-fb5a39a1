@@ -37,8 +37,8 @@ function StatusCard({ label, value, color, subtitle }: { label: string; value: n
 function JobBadge({ status, meta, lastError, result }: { status: string; meta: any; lastError?: string; result?: any }) {
   const outcome = meta?.outcome;
   const isBlocked = status === 'cancelled' && outcome === 'blocked';
-  const isGen0 = lastError?.includes('gen=0') || (status === 'completed' && result?.generated === 0 && !result?.noop);
-  const isEffectiveFail = status === 'completed' && result?.effective_success === false;
+  const isGen0 = lastError?.includes('gen=0') || (status === 'completed' && (result?.generated ?? null) === 0 && !result?.noop);
+  const isEffectiveFail = status === 'completed' && (result?.effective_success === false || ((result?.generated ?? null) === 0 && !result?.noop));
   const isNoop = status === 'completed' && result?.noop === true;
   const reason = meta?.soft_stopped_reason || meta?.softStoppedReason || meta?.reason;
   const attempted = meta?.attempted;
@@ -149,7 +149,12 @@ export default function QueueDashboard() {
   ).length;
   const blockedCount = jobs.filter(j => j.status === 'cancelled' && j.meta?.outcome === 'blocked').length;
   const exhaustedCount = jobs.filter(j => j.status === 'failed' && j.attempts >= j.max_attempts).length;
-  const hollowCompleted = jobs.filter(j => j.status === 'completed' && j.result?.generated === 0 && !j.result?.noop).length;
+  const hollowCompleted = jobs.filter(j =>
+    j.status === 'completed' && (
+      j.result?.effective_success === false ||
+      ((j.result?.generated ?? null) === 0 && !j.result?.noop)
+    )
+  ).length;
 
   return (
     <div className="space-y-4">

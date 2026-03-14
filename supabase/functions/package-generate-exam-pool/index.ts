@@ -404,7 +404,7 @@ async function loadExamProviderChain(): Promise<ModelChoice[]> {
   } catch (e) {
     console.warn(`[ExamPool-v5] DB routing failed, using hardcoded fallback: ${e}`);
     _examProviderChain = [
-      { provider: "anthropic" as AIProvider, model: "claude-3-5-haiku-20241022" },
+      { provider: "openai" as AIProvider, model: "gpt-4o-mini" },
       { provider: "openai" as AIProvider, model: "gpt-5.2" },
     ];
   }
@@ -2112,30 +2112,37 @@ Deno.serve(async (req) => {
     // ── EFFECTIVE SUCCESS GUARD (P1-A) ───────────────────────────────────
     // Determines whether the job *actually* produced value.
     // generated: 0 without a valid noop_reason is ALWAYS a failure.
+    // Delta metrics: existingBefore = globalTotal (captured BEFORE generation),
+    //   insertedThisRun = existingAfter - existingBefore (actual DB delta).
     // ══════════════════════════════════════════════════════════════════════
 
-    const existingBefore = actualTotal - questionsThisChunk;
+    const existingBefore = globalTotal; // captured at pre-check before generation loop
+    const existingAfter = actualTotal;  // captured after generation
+    const insertedThisRun = Math.max(0, existingAfter - existingBefore);
+    const generatedThisRun = questionsThisChunk; // exam-approved questions this chunk
     const llmAttempted = _qualityMetrics.total_llm_calls > 0;
 
     // Determine noop_reason (legitimate cases where generated=0 is OK)
     let noopReason: string | null = null;
-    if (questionsThisChunk === 0 && !llmAttempted && targetReached) {
+    if (generatedThisRun === 0 && insertedThisRun === 0 && !llmAttempted && targetReached) {
       noopReason = "TARGET_ALREADY_REACHED";
     }
 
     const effectiveSuccess =
-      questionsThisChunk > 0 ||
-      (questionsThisChunk === 0 && typeof noopReason === "string" && noopReason.length > 0);
+      generatedThisRun > 0 ||
+      insertedThisRun > 0 ||
+      (generatedThisRun === 0 && insertedThisRun === 0 && !!noopReason);
 
     let failureReason: string | null = null;
     let failureStage: string | null = null;
     if (!effectiveSuccess) {
-      if (_qualityMetrics.empty_responses > 0 && _qualityMetrics.candidates_generated === 0) {
-        failureReason = "ZERO_GENERATION";
-        failureStage = "llm_generation";
-      } else if (_qualityMetrics.candidates_generated > 0 && questionsThisChunk === 0) {
+      // Priority ordering: most specific → least specific
+      if (_qualityMetrics.candidates_generated > 0) {
         failureReason = "ALL_CANDIDATES_REJECTED";
         failureStage = "quality_gate";
+      } else if (_qualityMetrics.empty_responses > 0) {
+        failureReason = "ZERO_GENERATION";
+        failureStage = "llm_generation";
       } else if (llmAttempted && _qualityMetrics.failed_llm_calls === _qualityMetrics.total_llm_calls) {
         failureReason = "ALL_LLM_CALLS_FAILED";
         failureStage = "llm_call";
@@ -2149,11 +2156,11 @@ Deno.serve(async (req) => {
     // Build enriched result base with effective_success metadata
     const resultMeta = {
       effective_success: effectiveSuccess,
-      generated: questionsThisChunk,
-      inserted: actualTotal,
+      generated: generatedThisRun,
+      inserted: insertedThisRun,
       existing_before: existingBefore,
-      existing_after: actualTotal,
-      noop: questionsThisChunk === 0 && effectiveSuccess,
+      existing_after: existingAfter,
+      noop: generatedThisRun === 0 && insertedThisRun === 0 && !!noopReason,
       noop_reason: noopReason,
       failure_reason: failureReason,
       failure_stage: failureStage,
@@ -2180,7 +2187,7 @@ Deno.serve(async (req) => {
           target: examTarget,
           ...resultMeta,
         },
-        { generated: questionsThisChunk, inserted: actualTotal, blueprints_found: bps.length, blueprints_used: bpsProcessed },
+        { generated: generatedThisRun, inserted: insertedThisRun, blueprints_found: bps.length, blueprints_used: bpsProcessed },
       ), 500);
     }
 
@@ -2191,7 +2198,7 @@ Deno.serve(async (req) => {
       }
       return json(withMetrics(
         { ok: true, batch_complete: true, engine: "v5-ihk-quality", total_questions: actualTotal, training_pool: trainingThisChunk, target: examTarget, ...resultMeta },
-        { generated: questionsThisChunk, inserted: actualTotal, blueprints_found: bps.length, blueprints_used: bpsProcessed },
+        { generated: generatedThisRun, inserted: insertedThisRun, blueprints_found: bps.length, blueprints_used: bpsProcessed },
       ));
     } else if (allBlueprintsProcessed) {
       const currentLoop = (batchCursor?.loop_count ?? 0) + 1;
@@ -2208,17 +2215,17 @@ Deno.serve(async (req) => {
         if (!isFanOut) await sb.from("course_packages").update({ build_progress: 55 }).eq("id", packageId);
         return json(withMetrics(
           { ok: true, batch_complete: true, total_questions: actualTotal, loop_capped: true, ...resultMeta },
-          { generated: questionsThisChunk, inserted: actualTotal, blueprints_found: bps.length, blueprints_used: bpsProcessed },
+          { generated: generatedThisRun, inserted: insertedThisRun, blueprints_found: bps.length, blueprints_used: bpsProcessed },
         ));
       }
       return json(withMetrics(
         { ok: true, batch_complete: false, batch_cursor: { generated: actualTotal, blueprint_index: 0, target: examTarget, blueprints_total: bps.length, loop_count: currentLoop }, ...resultMeta },
-        { generated: questionsThisChunk, inserted: actualTotal, blueprints_found: bps.length, blueprints_used: bpsProcessed },
+        { generated: generatedThisRun, inserted: insertedThisRun, blueprints_found: bps.length, blueprints_used: bpsProcessed },
       ));
     } else {
       return json(withMetrics(
         { ok: true, batch_complete: false, batch_cursor: { generated: actualTotal, blueprint_index: currentBpIndex, target: examTarget, blueprints_total: bps.length, loop_count: batchCursor?.loop_count ?? 0 }, ...resultMeta },
-        { generated: questionsThisChunk, inserted: actualTotal, blueprints_found: bps.length, blueprints_used: bpsProcessed },
+        { generated: generatedThisRun, inserted: insertedThisRun, blueprints_found: bps.length, blueprints_used: bpsProcessed },
       ));
     }
   } catch (e: unknown) {
