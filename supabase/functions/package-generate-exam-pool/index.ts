@@ -725,6 +725,7 @@ async function generateRawCandidates(
   const chain = await loadExamProviderChain();
   let usedProvider = "";
   let usedModel = "";
+  const pkgId = (globalThis as any).__examPoolPackageId || null;
 
   for (let attempt = 1; attempt <= 3; attempt++) {
     const { provider, model } = pickProvider(chain, exclude);
