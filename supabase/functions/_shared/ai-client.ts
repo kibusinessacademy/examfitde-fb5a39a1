@@ -421,6 +421,18 @@ export {
  * Skips providers that are in cooldown or at RPM limit.
  * Falls through the chain until one succeeds or all fail.
  */
+export interface FailoverTelemetry {
+  route: string; // "chain" | "plain_json_fallback"
+  provider: string;
+  model: string;
+  fallback_rank: number; // 0-based index in chain
+  resolved_via: "db_policy" | "hardcoded_fallback" | "plain_json_fallback";
+  finish_reason?: string;
+  raw_text_length: number;
+  is_drift_prone: boolean;
+  attempts_before: number; // how many providers were skipped/failed before this one
+}
+
 export async function callAIWithFailover(
   chain: Array<{ provider: AIProvider; model: string }>,
   opts: Omit<AIRequestOptions, "provider" | "model"> & { timeout_ms?: number },
@@ -431,6 +443,7 @@ export async function callAIWithFailover(
   model: string;
   usage?: { input_tokens?: number; output_tokens?: number; total_tokens?: number };
   estimatedUsage?: { tokens_in: number; tokens_out: number; cost_eur: number; estimated: boolean };
+  telemetry?: FailoverTelemetry;
 }> {
   const PROVIDER_KEYS: Record<string, string> = {
     openai: "OPENAI_API_KEY",
@@ -444,16 +457,19 @@ export async function callAIWithFailover(
   }
 
   const errors: string[] = [];
+  let attemptIndex = 0;
 
   for (const candidate of chain) {
     if (!keyAvailability[candidate.provider]) {
       errors.push(`${candidate.provider}: no API key`);
+      attemptIndex++;
       continue;
     }
 
     const health = getProviderHealth(candidate.provider);
     if (!health.available) {
       errors.push(`${candidate.provider}: ${health.reason}`);
+      attemptIndex++;
       continue;
     }
 
@@ -476,14 +492,29 @@ export async function callAIWithFailover(
       });
 
       // v5.4: Detect empty AI responses (HTTP 200 but no usable content)
-      // and fall through to the next provider instead of returning garbage.
       const hasToolCalls = result.toolCalls && result.toolCalls.length > 0;
       const hasContent = result.content && result.content.trim().length > 0;
       if (!hasToolCalls && !hasContent) {
         const msg = `Empty response from ${candidate.provider}/${candidate.model} — falling through to next provider`;
         console.warn(`[AI-CLIENT] ${msg}`);
         errors.push(msg);
+        attemptIndex++;
         continue;
+      }
+
+      const telemetry: FailoverTelemetry = {
+        route: "chain",
+        provider: candidate.provider,
+        model: candidate.model,
+        fallback_rank: attemptIndex,
+        resolved_via: attemptIndex === 0 ? "db_policy" : "hardcoded_fallback",
+        raw_text_length: (result.content || "").length,
+        is_drift_prone: isDriftProneModel(candidate.model),
+        attempts_before: attemptIndex,
+      };
+
+      if (attemptIndex > 0) {
+        console.log(`[AI-CLIENT] FAILOVER_TELEMETRY: resolved via rank=${attemptIndex} ${candidate.provider}/${candidate.model} (drift_prone=${telemetry.is_drift_prone}, text_len=${telemetry.raw_text_length})`);
       }
 
       return {
@@ -493,27 +524,27 @@ export async function callAIWithFailover(
         model: candidate.model,
         usage: result.usage,
         estimatedUsage: result.estimatedUsage,
+        telemetry,
       };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       errors.push(`${candidate.provider}/${candidate.model}: ${msg}`);
       warnIfUnclassifiedLlmError(err, { provider: candidate.provider, model: candidate.model });
+      attemptIndex++;
     }
   }
 
   // ── v5.6 SAFETY NET: Plain-text JSON fallback (no tools/tool_choice) ──
-  // If ALL providers returned empty with tool-calling, retry the FIRST
-  // available provider WITHOUT tools — forces raw text completion.
   if (opts.tools && opts.tools.length > 0) {
     console.warn(`[AI-CLIENT] All tool-call providers empty — trying plain-text JSON fallback`);
 
+    let fallbackAttempt = 0;
     for (const candidate of chain) {
       if (!keyAvailability[candidate.provider]) continue;
       const health2 = getProviderHealth(candidate.provider);
       if (!health2.available) continue;
 
       try {
-        // Strip tools/tool_choice, add JSON-only instruction
         const fallbackMessages = [
           ...opts.messages,
           {
@@ -522,15 +553,6 @@ export async function callAIWithFailover(
           },
         ];
 
-        const result = await callAIJSON({
-          ...opts,
-          provider: candidate.provider,
-          model: candidate.model,
-          tools: undefined,
-          tool_choice: undefined,
-        } as any);
-
-        // Override messages with fallback messages
         const fallbackResult = await callAIJSON({
           provider: candidate.provider,
           model: candidate.model,
@@ -541,7 +563,17 @@ export async function callAIWithFailover(
         });
 
         if (fallbackResult.content && fallbackResult.content.trim().length > 0) {
-          console.log(`[AI-CLIENT] ✅ Plain-text fallback succeeded via ${candidate.provider}/${candidate.model} (${fallbackResult.content.length} chars)`);
+          const telemetry: FailoverTelemetry = {
+            route: "plain_json_fallback",
+            provider: candidate.provider,
+            model: candidate.model,
+            fallback_rank: chain.length + fallbackAttempt,
+            resolved_via: "plain_json_fallback",
+            raw_text_length: fallbackResult.content.length,
+            is_drift_prone: isDriftProneModel(candidate.model),
+            attempts_before: attemptIndex + fallbackAttempt,
+          };
+          console.log(`[AI-CLIENT] ✅ Plain-text fallback succeeded via ${candidate.provider}/${candidate.model} (${fallbackResult.content.length} chars, drift_prone=${telemetry.is_drift_prone})`);
           return {
             content: fallbackResult.content,
             toolCalls: undefined,
@@ -549,12 +581,14 @@ export async function callAIWithFailover(
             model: candidate.model,
             usage: fallbackResult.usage,
             estimatedUsage: fallbackResult.estimatedUsage,
+            telemetry,
           };
         }
       } catch (err2) {
         const msg2 = err2 instanceof Error ? err2.message : String(err2);
         errors.push(`FALLBACK ${candidate.provider}/${candidate.model}: ${msg2}`);
       }
+      fallbackAttempt++;
     }
   }
 
