@@ -898,6 +898,8 @@ async function dedupeValidateAndInsert(
     if (typeof correctIdx !== 'number' || correctIdx < 0 || correctIdx >= q.options.length) {
       console.log(`[ExamPool-v5] REJECTED INVALID_INDEX: correct_answer=${q.correct_answer} for ${q.options.length} options`);
       rejectedOther++;
+      _qualityMetrics.candidates_rejected_invalid_index++;
+      _qualityMetrics.rejection_reasons["invalid_index"] = (_qualityMetrics.rejection_reasons["invalid_index"] ?? 0) + 1;
       continue;
     }
 
