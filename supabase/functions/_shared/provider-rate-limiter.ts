@@ -110,11 +110,15 @@ export function getProviderHealth(provider: AIProvider): ProviderHealth {
     const prev = s.cooldownCount;
     s.cooldownUntil = null;
     s.cooldownCount = Math.max(0, s.cooldownCount - 1);
-    console.info(`[RATE-LIMITER] ✅ Provider ${provider} cooldown expired (step ${prev} → ${s.cooldownCount})`);
+    // Also clear rate limit timestamps on cooldown expiry to allow fresh start
+    s.rateLimitTimestamps = [];
+    console.info(`[RATE-LIMITER] ✅ Provider ${provider} cooldown expired (step ${prev} → ${s.cooldownCount}), rate limit history cleared`);
   }
 
   // Check active cooldown
   if (s.cooldownUntil && now < s.cooldownUntil) {
+    // IMPORTANT: Do NOT increment any counters for blocked requests.
+    // This prevents the death spiral where blocked calls re-trigger cooldowns.
     return {
       provider,
       available: false,
@@ -128,8 +132,9 @@ export function getProviderHealth(provider: AIProvider): ProviderHealth {
     };
   }
 
-  // Check RPM limit (leave 10% headroom)
-  if (rpm >= Math.floor(rpmLimit * 0.9)) {
+  // Check RPM limit — only count ACTUAL requests (not blocked ones)
+  // Use 85% threshold but DON'T trigger cooldown from RPM alone
+  if (rpm >= Math.floor(rpmLimit * 0.85)) {
     return {
       provider,
       available: false,

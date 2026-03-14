@@ -107,15 +107,26 @@ export async function callAI(opts: AIRequestOptions): Promise<AIResponse> {
 
   // ── Proactive rate-limit check (with cooldown wait) ──
   let health = getProviderHealth(opts.provider);
-  if (!health.available && health.cooldownRemainingMs > 0 && health.cooldownRemainingMs <= 20_000) {
-    // Wait for short cooldowns instead of instantly failing (prevents tight-loop spam)
+  
+  // Wait for cooldowns up to 30s (prevents death spiral from tight-loop retries)
+  if (!health.available && health.cooldownRemainingMs > 0 && health.cooldownRemainingMs <= 30_000) {
     const waitMs = health.cooldownRemainingMs + 500; // +500ms buffer
     console.info(`[AI-CLIENT] Provider ${opts.provider} on cooldown — waiting ${Math.round(waitMs / 1000)}s (step ${health.cooldownStep})`);
     await new Promise(r => setTimeout(r, waitMs));
     health = getProviderHealth(opts.provider); // Re-check after wait
   }
+  
+  // If RPM-limited (not cooldown), wait 2-5s for slot to free up
+  if (!health.available && health.cooldownRemainingMs === 0 && health.reason?.startsWith("rpm_limit")) {
+    const waitMs = 2000 + Math.random() * 3000; // jittered 2-5s
+    console.info(`[AI-CLIENT] Provider ${opts.provider} RPM-limited (${health.rpm}/${health.rpmLimit}) — waiting ${Math.round(waitMs / 1000)}s`);
+    await new Promise(r => setTimeout(r, waitMs));
+    health = getProviderHealth(opts.provider); // Re-check after wait
+  }
+  
   if (!health.available) {
-    console.warn(`[AI-CLIENT] Provider ${opts.provider} blocked: ${health.reason}`);
+    // Don't record blocked calls as requests — this was causing the death spiral
+    console.warn(`[AI-CLIENT] Provider ${opts.provider} still blocked after wait: ${health.reason}`);
     throw new RateLimitError(`Provider ${opts.provider} proactively blocked: ${health.reason}`);
   }
   recordRequest(opts.provider);
