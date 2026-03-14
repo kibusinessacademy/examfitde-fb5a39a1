@@ -290,9 +290,6 @@ export function pickParallelActions(steps: StepRow[], stepOrder: StepKey[]): Ste
     } else if (retryable && s.attempts >= s.max_attempts) {
       actions.push({ action: "exhausted", stepKey: k });
     }
-    } else if (retryable && s.attempts >= s.max_attempts) {
-      actions.push({ action: "exhausted", stepKey: k });
-    }
   }
 
   return actions;
