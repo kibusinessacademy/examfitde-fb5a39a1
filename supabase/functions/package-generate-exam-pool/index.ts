@@ -741,6 +741,10 @@ async function generateTurboQuestions(
   let rejectedOther = 0;
   const generatedTotal = questions.length;
 
+  // ── OPT-1: Collect rows for batch insert instead of per-question inserts ──
+  const examBatch: any[] = [];
+  const trainingBatch: any[] = [];
+
   for (const q of questions) {
     if (!q.question_text || !Array.isArray(q.options) || q.options.length < 4) continue;
 
@@ -806,19 +810,16 @@ async function generateTurboQuestions(
     const praxisScore = calculatePraxisScore(q);
     if (praxisScore < 1) {
       console.log(`[ExamPool-v5] REJECTED LOW_PRAXIS (${praxisScore}): "${q.question_text.slice(0, 40)}…"`);
-      continue; // HARD gate: must have at least some context
+      continue;
     }
 
-    // Explanation quality: soft gate (low quality → training pool, not rejected)
     const hasGoodExplanation = hasQualityExplanation(q);
 
-    // Style gate: kill AI-typical phrases
     if (!passesStyleGate(q)) {
       console.log(`[ExamPool-v5] REJECTED AI_STYLE: "${q.question_text.slice(0, 40)}…"`);
       continue;
     }
 
-    // v2: Hallucination risk check on explanation
     const halluRisk = computeHallucinationRisk(
       q.question_text + " " + (q.explanation || ""), [], [],
     );
@@ -828,36 +829,23 @@ async function generateTurboQuestions(
     }
 
     const difficultyValid = validateDifficulty(q);
-    // Difficulty mismatch: soft gate (wrong difficulty → training, not rejected)
-
     const qualityResult = calculateQualityScore(q);
-    // Downgrade to training if explanation or difficulty is weak
     const forceTraining = !hasGoodExplanation || !difficultyValid;
     const assignedPool = forceTraining ? "training" : qualityResult.pool;
-    const status = "draft"; // all go as draft, qc_status differentiates
+    const status = "draft";
 
-    // Map generator cognitive levels to DB enum values
-    // FIX: FORCE the requested cognitive level from distribution instead of
-    // trusting the AI response. The AI almost always returns "understand"
-    // regardless of what was requested, causing a Bloom monoculture.
     const cogLevelMap: Record<string, string> = {
       recall: "remember", apply: "apply", analyze: "analyze", decide: "evaluate",
       remember: "remember", understand: "understand", evaluate: "evaluate", create: "create",
     };
-    // Use the REQUESTED level (from distribution), not AI's self-report
     const forcedCogLevel = (cognitiveLevel || "understand").toLowerCase();
     const mappedCogLevel = cogLevelMap[forcedCogLevel] || forcedCogLevel;
 
-    // ── S4: Resolve propagated fields from blueprint + LF ──
     const SCENARIO_TYPE_MAP: Record<string, string> = {
-      isolated_knowledge: "isolated_knowledge",
-      applied_case: "applied_case",
-      multi_step_case: "multi_step_case",
-      prioritization: "prioritization",
-      error_detection: "error_detection",
-      documentation_analysis: "documentation_analysis",
-      legal_evaluation: "legal_evaluation",
-      communication_scenario: "communication_scenario",
+      isolated_knowledge: "isolated_knowledge", applied_case: "applied_case",
+      multi_step_case: "multi_step_case", prioritization: "prioritization",
+      error_detection: "error_detection", documentation_analysis: "documentation_analysis",
+      legal_evaluation: "legal_evaluation", communication_scenario: "communication_scenario",
     };
     const resolvedScenarioType = bp.exam_context_type && SCENARIO_TYPE_MAP[bp.exam_context_type]
       ? SCENARIO_TYPE_MAP[bp.exam_context_type] : null;
@@ -866,12 +854,10 @@ async function generateTurboQuestions(
     const resolvedTypicalErrors = Array.isArray(bp.typical_errors) && bp.typical_errors.length > 0
       ? bp.typical_errors : (Array.isArray(q.typical_errors) ? q.typical_errors.filter(Boolean).map(String) : []);
 
-    // Normalize trap_tags: lowercase, replace spaces/hyphens with underscore, then match vocabulary
     const normalizedTags: string[] = Array.isArray(q.trap_tags) 
       ? q.trap_tags.map((t: string) => String(t).toLowerCase().replace(/[\s-]+/g, "_").trim())
       : [];
     const rawTrapTags: string[] = normalizedTags.filter((t: string) => ERROR_TAG_VOCABULARY.includes(t as any));
-    // Debug: log filtered-out tags (max 5 unique per run to avoid spam)
     const filteredOut = normalizedTags.filter(t => !ERROR_TAG_VOCABULARY.includes(t as any));
     if (filteredOut.length > 0) {
       if (!((globalThis as any).__filteredTagsLogged)) (globalThis as any).__filteredTagsLogged = new Set();
@@ -883,14 +869,14 @@ async function generateTurboQuestions(
         }
       }
     }
-    // correctIdx already declared above (line ~609)
+
     const rawDistractorMeta: Array<{option_index: number; error_tag: string; why_wrong: string; why_tempting?: string; examiner_intention?: string}> = 
       Array.isArray(q.distractor_meta) ? q.distractor_meta.filter((d: any) => 
         typeof d.option_index === "number" 
         && typeof d.error_tag === "string"
-        && d.option_index !== correctIdx               // must not tag the correct answer
+        && d.option_index !== correctIdx
         && typeof d.why_wrong === "string"
-        && d.why_wrong.length >= 20                    // min explanation depth
+        && d.why_wrong.length >= 20
       ).map((d: any) => ({
         option_index: d.option_index,
         error_tag: d.error_tag,
@@ -899,16 +885,14 @@ async function generateTurboQuestions(
         examiner_intention: typeof d.examiner_intention === "string" && d.examiner_intention.length >= 15 ? d.examiner_intention : null,
       })) : [];
 
-    // ── Resolve final question_type BEFORE gate (so gate uses correct type) ──
     const finalQuestionType = questionType === "best_option" ? "transfer"
       : questionType === "error_detection" ? "transfer"
       : questionType === "risk_assessment" ? "case_study"
       : questionType === "compliance_check" ? "concept"
-      : questionType; // calculation, case_study pass through
+      : questionType;
 
-    // ── Distractor Quality Gate (hard for calculation, soft for others) ──
     const isCalculation = finalQuestionType === "calculation";
-    const requiredMeta = isCalculation ? 3 : 2; // 3 wrong options need meta for calc
+    const requiredMeta = isCalculation ? 3 : 2;
     const distractorGateFailed = rawDistractorMeta.length < requiredMeta;
     
     let qcReason: string | null = null;
@@ -918,56 +902,7 @@ async function generateTurboQuestions(
       else qcReason = "weak_distractors";
     }
 
-    if (distractorGateFailed) {
-      console.log(`[ExamPool-v5] ${qcReason}: ${finalQuestionType} question has ${rawDistractorMeta.length}/${requiredMeta} valid distractor_meta`);
-      
-      // Store gate failure info in distractor_meta for auditability
-      const auditedMeta = {
-        raw: rawDistractorMeta,
-        gate_fail: true,
-        qc_reason: qcReason,
-        required: requiredMeta,
-        actual: rawDistractorMeta.length,
-        source_type: questionType,
-        final_type: finalQuestionType,
-      };
-
-      const { error } = await sb.from("exam_questions").insert({
-        curriculum_id: bp.curriculum_id,
-        learning_field_id: bp.learning_field_id,
-        competency_id: bp.competency_id,
-        blueprint_id: bp.id,
-        question_text: q.question_text,
-        options: q.options,
-        correct_answer: correctIdx,
-        explanation: q.explanation || "",
-        difficulty: difficulty,
-        cognitive_level: mappedCogLevel,
-        question_type: finalQuestionType,
-        trap_tags: rawTrapTags,
-        distractor_meta: auditedMeta,
-        ai_generated: true,
-        status: "training",
-        qc_status: "tier1_failed",
-        // S4: Blueprint propagation
-        exam_part: resolvedExamPart,
-        scenario_type: resolvedScenarioType,
-        time_estimate_seconds: resolvedTimeEstimate,
-        typical_errors: resolvedTypicalErrors.length > 0 ? resolvedTypicalErrors : null,
-      });
-      if (error) {
-        if (error.code === "23505") { /* duplicate, skip */ }
-        else {
-          const r = await handleDbFailure({ supabase: sb }, error);
-          if (r?.permanent) throw new Error(`SSOT_GUARD_PERMANENT:${r.hintKey || "unknown"}`);
-        }
-      } else {
-        gateFailed++;
-      }
-      continue;
-    }
-
-    const { error } = await sb.from("exam_questions").insert({
+    const baseRow = {
       curriculum_id: bp.curriculum_id,
       learning_field_id: bp.learning_field_id,
       competency_id: bp.competency_id,
@@ -980,36 +915,62 @@ async function generateTurboQuestions(
       cognitive_level: mappedCogLevel,
       question_type: finalQuestionType,
       trap_tags: rawTrapTags,
-      distractor_meta: {
-        raw: rawDistractorMeta,
-        gate_fail: false,
-        qc_reason: null,
-        required: requiredMeta,
-        actual: rawDistractorMeta.length,
-        source_type: questionType,
-        final_type: finalQuestionType,
-      },
       ai_generated: true,
-      status,
-      qc_status: assignedPool === "exam" ? "approved" : "pending",
-      // S4: Blueprint propagation
       exam_part: resolvedExamPart,
       scenario_type: resolvedScenarioType,
       time_estimate_seconds: resolvedTimeEstimate,
       typical_errors: resolvedTypicalErrors.length > 0 ? resolvedTypicalErrors : null,
-    });
+    };
 
-    if (error) {
-      if (error.code === "23505") { /* duplicate, skip */ }
-      else {
-        const r = await handleDbFailure({ supabase: sb }, error);
-        if (r?.permanent) throw new Error(`SSOT_GUARD_PERMANENT:${r.hintKey || "unknown"}`);
-      }
+    if (distractorGateFailed) {
+      console.log(`[ExamPool-v5] ${qcReason}: ${finalQuestionType} question has ${rawDistractorMeta.length}/${requiredMeta} valid distractor_meta`);
+      trainingBatch.push({
+        ...baseRow,
+        distractor_meta: { raw: rawDistractorMeta, gate_fail: true, qc_reason: qcReason, required: requiredMeta, actual: rawDistractorMeta.length, source_type: questionType, final_type: finalQuestionType },
+        status: "training",
+        qc_status: "tier1_failed",
+      });
+      gateFailed++;
     } else {
+      const targetBatch = assignedPool === "exam" ? examBatch : trainingBatch;
+      targetBatch.push({
+        ...baseRow,
+        distractor_meta: { raw: rawDistractorMeta, gate_fail: false, qc_reason: null, required: requiredMeta, actual: rawDistractorMeta.length, source_type: questionType, final_type: finalQuestionType },
+        status,
+        qc_status: assignedPool === "exam" ? "approved" : "pending",
+      });
       if (assignedPool === "exam") saved++;
       else training++;
     }
   }
+
+  // ── OPT-1: Batch insert all collected rows (exam + training) ──
+  const allRows = [...examBatch, ...trainingBatch];
+  if (allRows.length > 0) {
+    // Insert in chunks of 50 to avoid payload limits
+    const BATCH_SIZE = 50;
+    for (let i = 0; i < allRows.length; i += BATCH_SIZE) {
+      const chunk = allRows.slice(i, i + BATCH_SIZE);
+      const { error } = await sb.from("exam_questions").insert(chunk);
+      if (error) {
+        if (error.code === "23505") {
+          // Batch had duplicates — fall back to individual inserts for this chunk
+          console.log(`[ExamPool-v5] BATCH_DUP: falling back to individual inserts for ${chunk.length} rows`);
+          for (const row of chunk) {
+            const { error: singleErr } = await sb.from("exam_questions").insert(row);
+            if (singleErr && singleErr.code !== "23505") {
+              const r = await handleDbFailure({ supabase: sb }, singleErr);
+              if (r?.permanent) throw new Error(`SSOT_GUARD_PERMANENT:${r.hintKey || "unknown"}`);
+            }
+          }
+        } else {
+          const r = await handleDbFailure({ supabase: sb }, error);
+          if (r?.permanent) throw new Error(`SSOT_GUARD_PERMANENT:${r.hintKey || "unknown"}`);
+        }
+      }
+    }
+  }
+
   const acceptedTotal = saved + training + gateFailed;
   const acceptRate = generatedTotal > 0 ? ((acceptedTotal / generatedTotal) * 100).toFixed(1) : "0.0";
   console.log(`[ExamPool-v5] YIELD: generated=${generatedTotal}, accepted=${acceptedTotal}, saved=${saved}, training=${training}, gateFailed=${gateFailed}, rejectedContamination=${rejectedContamination}, rejectedOther=${rejectedOther}, acceptRate=${acceptRate}%`);
