@@ -42,15 +42,15 @@ export interface ModelChoice {
   budget_cap_eur?: number;
 }
 
-// ── Resolved model shortcuts ─────────────────────────────────
-const GPT5_MINI: ModelChoice       = { provider: "openai",    model: MODEL_ALIASES.openai_balanced };
-const HAIKU_FALLBACK: ModelChoice  = { provider: "anthropic", model: MODEL_ALIASES.anthropic_cheap_fast, is_fallback: true }; // v15: Primary→gpt-5-mini, Fallback→Haiku pinned
+// ── Resolved model shortcuts (v16) ───────────────────────────
+const HAIKU45_PRIMARY: ModelChoice = { provider: "anthropic", model: MODEL_ALIASES.anthropic_primary }; // v16: Claude Haiku 4.5 primary
+const GPT5_MINI_FALLBACK: ModelChoice = { provider: "openai", model: MODEL_ALIASES.openai_balanced, is_fallback: true };
 const GPT5_2_FALLBACK: ModelChoice = { provider: "openai",   model: MODEL_ALIASES.openai_strong, is_fallback: true };
 
-// ── Tiered Fallback Strategy (v15) ───────────────────────────
-// ALL intents: GPT-5-mini → Haiku 3.5 (cross-provider) → GPT-5.2
-// STANDARD intents: GPT-5-mini → Haiku 3.5
-// SIMPLE intents: GPT-5-mini → Haiku 3.5
+// ── Tiered Fallback Strategy (v16) ───────────────────────────
+// ALL intents: Haiku 4.5 → GPT-5-mini (cross-provider) → GPT-5.2
+// STANDARD intents: Haiku 4.5 → GPT-5-mini
+// SIMPLE intents: Haiku 4.5 → GPT-5-mini
 
 const ROUTING_TABLE: Record<PipelineIntent, ModelChoice[]> = {
   // ── COMPLEX: Need strong reasoning — cross-provider fallback (Anthropic) ──
