@@ -149,7 +149,12 @@ export default function QueueDashboard() {
   ).length;
   const blockedCount = jobs.filter(j => j.status === 'cancelled' && j.meta?.outcome === 'blocked').length;
   const exhaustedCount = jobs.filter(j => j.status === 'failed' && j.attempts >= j.max_attempts).length;
-  const hollowCompleted = jobs.filter(j => j.status === 'completed' && j.result?.generated === 0 && !j.result?.noop).length;
+  const hollowCompleted = jobs.filter(j =>
+    j.status === 'completed' && (
+      j.result?.effective_success === false ||
+      ((j.result?.generated ?? null) === 0 && !j.result?.noop)
+    )
+  ).length;
 
   return (
     <div className="space-y-4">
