@@ -86,6 +86,32 @@ for (const file of files) {
       // Only flag if it looks like a direct data mutation pattern
     }
   }
+
+  // SSOT Guard: direct .from('exam_questions') outside allowed files must use view/RPC
+  // See docs/SSOT_RULES.md — Tier 2 (exam_relevant)
+  const EXAM_Q_ALLOWED_FILES = [
+    "v_exam_relevant_questions",       // the view definition itself
+    "artifact-resolver",               // Tier 1 existence checks
+    "exam-pool-validator",             // validator loads pending for review
+    "package-generate-exam-pool",      // generator inserts new rows
+    "migrations",                      // migration files
+  ];
+  const isExamAllowed = EXAM_Q_ALLOWED_FILES.some((f) => file.includes(f));
+
+  if (!isExamAllowed) {
+    const examFromMatches = content.matchAll(/\.from\(\s*['"`]exam_questions['"`]\s*\)/g);
+    for (const _m of examFromMatches) {
+      // Check if this is a count/select pattern (not an insert/update/delete)
+      const surroundingCode = content.slice(Math.max(0, _m.index - 100), _m.index + 200);
+      const isCountOrSelect = /\.(select|count|eq|filter|gte|lte)/.test(surroundingCode);
+      const isWriteOp = /\.(insert|upsert|update|delete)/.test(surroundingCode);
+
+      if (isCountOrSelect && !isWriteOp) {
+        console.error(`❌ HARD FAIL: Direct .from('exam_questions') read in ${file} — use v_exam_relevant_questions view or count_exam_relevant() RPC instead. See docs/SSOT_RULES.md`);
+        hardFail = true;
+      }
+    }
+  }
 }
 
 if (hardFail) {
