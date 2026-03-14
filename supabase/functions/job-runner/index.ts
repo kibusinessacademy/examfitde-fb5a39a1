@@ -1091,19 +1091,34 @@ Deno.serve(async (req) => {
           const healCycles = (stepRow?.meta as any)?.heal_cycles ?? 0;
 
           if (healCycles >= MAX_HEAL_CYCLES) {
-            // Kill-switch: too many heal cycles — escalate
-            console.error(`[job-runner] 🛑 Kill-switch: ${predecessorStep} healed ${healCycles}x but ${job.job_type} still fails — escalating`);
-            // FIX #3: Use SSOT step_key, not string-derived
+            console.error(`[job-runner] 🛑 Kill-switch: ${predecessorStep} healed ${healCycles}x — BLOCKING PACKAGE`);
             if (validationStepKey) {
               await sb.from("package_steps")
                 .update({
                   status: "failed",
+                  attempts: 99,
                   last_error: `Kill-switch: ${MAX_HEAL_CYCLES} heal cycles exhausted. ${issuesSummary}`,
+                  meta: { terminal_escalation: true, kill_switch_at: tsNow, heal_cycles_exhausted: healCycles },
                 })
                 .eq("package_id", packageId)
                 .eq("step_key", validationStepKey);
             }
-
+            await sb.from("course_packages")
+              .update({
+                status: "blocked",
+                blocked_reason: `kill_switch: ${validationStepKey} failed after ${healCycles} heal cycles`,
+                last_error: `Kill-switch: ${validationStepKey} exhausted ${healCycles} heal cycles. ${issuesSummary.slice(0, 300)}`,
+              })
+              .eq("id", packageId);
+            try {
+              const cancelTypes = [jobType, STEP_TO_JOB_TYPE[predecessorStep as keyof typeof STEP_TO_JOB_TYPE]].filter(Boolean);
+              for (const ct of cancelTypes) {
+                await sb.rpc("cancel_jobs_for_package" as any, {
+                  p_package_id: packageId, p_job_type: ct, p_statuses: ["pending", "processing"],
+                  p_reason: `kill_switch_escalation: ${validationStepKey}`,
+                });
+              }
+            } catch (_cancelErr) { /* best-effort */ }
             try {
               await sb.from("auto_heal_log").insert({
                 action_type: "qg_heal_kill_switch",
@@ -1111,11 +1126,10 @@ Deno.serve(async (req) => {
                 target_type: "package_step",
                 target_id: packageId,
                 result_status: "escalated",
-                result_detail: `${job.job_type} failed ${healCycles}x heal cycles — stopping`,
+                result_detail: `${job.job_type} failed ${healCycles}x heal cycles — package BLOCKED`,
                 metadata: { step: job.job_type, step_key: validationStepKey, predecessor: predecessorStep, heal_cycles: healCycles, missing_lf_ids: missingLfIds, issues: parsed.issues?.slice(0, 5) },
               });
             } catch (_e) { /* best-effort */ }
-
             finalState = {
               status: "failed",
               patch: {
@@ -1125,6 +1139,7 @@ Deno.serve(async (req) => {
                 attempts: newAttempts,
               },
             };
+          }
           } else {
             // Reset predecessor step to queued with targeted LF info
             console.log(`[job-runner] 🔄 Auto-heal: resetting ${predecessorStep} for targeted re-seed (cycle ${healCycles + 1}/${MAX_HEAL_CYCLES})${missingLfIds ? ` [${missingLfIds.length} missing LFs]` : ""}`);
