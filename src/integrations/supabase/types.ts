@@ -1399,6 +1399,7 @@ export type Database = {
       }
       autofix_runs: {
         Row: {
+          baseline_snapshot: Json | null
           budget_eur: number
           budget_used_eur: number
           course_id: string | null
@@ -1413,10 +1414,12 @@ export type Database = {
           package_id: string
           status: string
           stop_reason: string | null
+          stop_reason_code: string | null
           target_score: number
           updated_at: string
         }
         Insert: {
+          baseline_snapshot?: Json | null
           budget_eur?: number
           budget_used_eur?: number
           course_id?: string | null
@@ -1431,10 +1434,12 @@ export type Database = {
           package_id: string
           status?: string
           stop_reason?: string | null
+          stop_reason_code?: string | null
           target_score?: number
           updated_at?: string
         }
         Update: {
+          baseline_snapshot?: Json | null
           budget_eur?: number
           budget_used_eur?: number
           course_id?: string | null
@@ -1449,6 +1454,7 @@ export type Database = {
           package_id?: string
           status?: string
           stop_reason?: string | null
+          stop_reason_code?: string | null
           target_score?: number
           updated_at?: string
         }
