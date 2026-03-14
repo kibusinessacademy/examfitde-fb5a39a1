@@ -20,6 +20,7 @@ import { shouldSoftStop, getTimeBudget } from "../_shared/time-budget.ts";
 
 const ITEMS_PER_LESSON = 7;
 const ITEMS_PER_DRILL = 5;
+const MIN_ITEMS_PER_LESSON = 3;
 const MAX_TARGETS_PER_RUN = 3;
 
 function json(body: unknown, status = 200) {
@@ -239,23 +240,40 @@ Deno.serve(async (req) => {
           }
 
           const lessonIds = allLessons.map(l => l.id);
-          // FIX: Use .limit(5000) to avoid Supabase 1000-row default limit
-          // which caused infinite loops when >142 lessons had minichecks (7 rows each > 1000)
-          const existingSet = new Set<string>();
+
+          // Robust per-lesson counts with pagination (prevents hidden row-limit drift)
+          const countByLesson = new Map<string, number>();
           for (let i = 0; i < lessonIds.length; i += 200) {
             const chunk = lessonIds.slice(i, i + 200);
-            const { data: existing } = await sb
-              .from("minicheck_questions")
-              .select("lesson_id")
-              .in("lesson_id", chunk)
-              .eq("curriculum_id", curriculumId)
-              .eq("mode", "lesson")
-              .limit(5000);
-            for (const e of existing || []) existingSet.add(e.lesson_id);
+            let from = 0;
+            const PAGE = 1000;
+
+            while (true) {
+              const { data: existing, error: existingErr } = await sb
+                .from("minicheck_questions")
+                .select("lesson_id")
+                .in("lesson_id", chunk)
+                .eq("curriculum_id", curriculumId)
+                .eq("mode", "lesson")
+                .range(from, from + PAGE - 1);
+
+              if (existingErr) throw existingErr;
+              if (!existing || existing.length === 0) break;
+
+              for (const e of existing) {
+                if (!e.lesson_id) continue;
+                countByLesson.set(e.lesson_id, (countByLesson.get(e.lesson_id) || 0) + 1);
+              }
+
+              if (existing.length < PAGE) break;
+              from += PAGE;
+            }
           }
 
           for (const lesson of allLessons) {
-            if (existingSet.has(lesson.id)) continue;
+            const existingCount = countByLesson.get(lesson.id) || 0;
+            // Only target lessons below the didactic minimum required by validator
+            if (existingCount >= MIN_ITEMS_PER_LESSON) continue;
             const contentText = typeof lesson.content === "string"
               ? lesson.content
               : JSON.stringify(lesson.content || {});
