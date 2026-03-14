@@ -74,7 +74,7 @@ const PROVIDER_DEFAULTS: Record<AIProvider, { url: string; model: string; keyEnv
   },
   google: {
     url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-    model: "gemini-2.5-flash",
+    model: "claude-3-5-haiku-latest", // DISABLED: Google provider not in active use
     keyEnv: "GOOGLE_AI_API_KEY",
     format: "google",
   },

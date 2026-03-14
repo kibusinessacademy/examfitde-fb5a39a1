@@ -15,7 +15,7 @@ const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
  */
 
 const GENERATOR_MODEL = "openai/gpt-5-mini";
-const VALIDATOR_MODEL = "google/gemini-2.5-flash";
+const VALIDATOR_MODEL = "openai/gpt-5-mini";
 
 type SB = ReturnType<typeof createClient>;
 type Role = "explainer" | "coach" | "examiner" | "feedback";
