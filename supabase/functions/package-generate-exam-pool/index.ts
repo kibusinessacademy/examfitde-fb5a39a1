@@ -721,32 +721,66 @@ async function generateRawCandidates(
   const maxTokens = count <= 2 ? 2200 : count <= 5 ? 3500 : 4096;
 
   let exclude: string[] = [];
-  let result: { content: string } | undefined;
+  let result: { content: string; estimatedUsage?: { tokens_in: number; tokens_out: number; cost_eur: number; estimated: boolean }; usage?: { input_tokens?: number; output_tokens?: number; total_tokens?: number } } | undefined;
   const chain = await loadExamProviderChain();
+  let usedProvider = "";
+  let usedModel = "";
 
   for (let attempt = 1; attempt <= 3; attempt++) {
     const { provider, model } = pickProvider(chain, exclude);
+    usedProvider = provider;
+    usedModel = model;
     try {
-      result = await callAIJSON({
+      const aiResult = await callAIJSON({
         provider, model,
         messages: [{ role: "system", content: system }, { role: "user", content: user }],
         temperature: 0.85,
         max_tokens: maxTokens,
         timeout_ms: 45_000,
       });
-      const estimatedTokensIn = Math.ceil((system.length + user.length) / 3.5);
-      const estimatedTokensOut = Math.ceil((result.content?.length ?? 200) / 3.5);
+      result = aiResult;
+
+      // ── Observability: track output metrics ──
+      const outputLen = result.content?.length ?? 0;
+      const tokOut = result.estimatedUsage?.tokens_out ?? Math.ceil(outputLen / 3.5);
+      const tokIn = result.estimatedUsage?.tokens_in ?? Math.ceil((system.length + user.length) / 3.5);
+
+      _qualityMetrics.total_llm_calls++;
+      _qualityMetrics.successful_llm_calls++;
+      _qualityMetrics.total_output_chars += outputLen;
+      _qualityMetrics.total_tokens_out_estimated += tokOut;
+      _qualityMetrics.models_used[`${provider}/${model}`] = (_qualityMetrics.models_used[`${provider}/${model}`] ?? 0) + 1;
+
+      // Detect empty responses
+      if (outputLen === 0) {
+        _qualityMetrics.empty_responses++;
+        console.warn(`[ExamPool-v5] EMPTY_RESPONSE: ${provider}/${model} returned 0 chars (attempt ${attempt})`);
+      }
+
+      // Detect potential truncation (output near max_tokens)
+      const isTruncated = tokOut >= maxTokens * 0.95;
+      if (isTruncated) {
+        _qualityMetrics.truncated_responses++;
+        console.warn(`[ExamPool-v5] TRUNCATION_RISK: ${provider}/${model} output ${tokOut} tokens ≈ maxTokens ${maxTokens} (attempt ${attempt})`);
+      }
+
       const costSb = (globalThis as any).__examPoolSb;
       if (costSb) {
         await logLLMCostEvent(costSb, {
           job_type: "package_generate_exam_pool",
           provider, model,
-          tokens_in: estimatedTokensIn,
-          tokens_out: estimatedTokensOut,
-          package_id: bp.curriculum_id ? undefined : undefined,
+          tokens_in: tokIn,
+          tokens_out: tokOut,
+          package_id: packageId || null,
+          estimatedUsage: result.estimatedUsage,
           status: "success",
           attempt,
-          meta: { blueprint_id: bp.id, count, difficulty, questionType, cognitiveLevel },
+          meta: {
+            blueprint_id: bp.id, count, difficulty, questionType, cognitiveLevel,
+            output_length: outputLen,
+            truncated: isTruncated,
+            empty: outputLen === 0,
+          },
         });
       }
       break;
@@ -755,12 +789,20 @@ async function generateRawCandidates(
       const isRate = errMsg.includes("Rate limit") || errMsg.includes("429") || errMsg.includes("409");
       const isTimeout = errMsg.includes("timed out") || errMsg.includes("TimeoutError") || errMsg.includes("AbortError");
 
+      _qualityMetrics.total_llm_calls++;
+      if (isRate || isTimeout) {
+        _qualityMetrics.retried_llm_calls++;
+      } else {
+        _qualityMetrics.failed_llm_calls++;
+      }
+
       const costSb = (globalThis as any).__examPoolSb;
       if (costSb) {
         await logLLMCostEvent(costSb, {
           job_type: "package_generate_exam_pool",
           provider, model,
           tokens_in: 0, tokens_out: 0,
+          package_id: packageId || null,
           status: isRate || isTimeout ? "retry" : "fail",
           error_message: errMsg.slice(0, 500),
           attempt,
@@ -778,15 +820,35 @@ async function generateRawCandidates(
     }
   }
 
-  if (!result?.content) return { candidates: [], lfData };
+  if (!result?.content) {
+    _qualityMetrics.empty_responses++;
+    return { candidates: [], lfData };
+  }
 
   const parsed = repairJSON(result.content);
   if (!parsed) {
-    console.log(`[ExamPool-v5] JSON repair failed for BP ${bp.id.slice(0, 8)}`);
+    _qualityMetrics.json_repair_failures++;
+    console.log(`[ExamPool-v5] JSON repair failed for BP ${bp.id.slice(0, 8)} (output ${result.content.length} chars)`);
+    
+    // Log the failed parse to llm_cost_events for visibility
+    const costSb = (globalThis as any).__examPoolSb;
+    if (costSb) {
+      await logLLMCostEvent(costSb, {
+        job_type: "package_generate_exam_pool",
+        provider: usedProvider, model: usedModel,
+        tokens_in: 0, tokens_out: 0,
+        package_id: packageId || null,
+        status: "fail",
+        error_message: `JSON_REPAIR_FAILED: output_length=${result.content.length}, first_100=${result.content.slice(0, 100)}`,
+        meta: { blueprint_id: bp.id, json_repair_failure: true, output_length: result.content.length },
+      });
+    }
     return { candidates: [], lfData };
   }
 
   const questions = Array.isArray(parsed) ? parsed : [parsed];
+  _qualityMetrics.candidates_generated += questions.length;
+  
   const candidates: RawCandidate[] = questions.map(q => ({
     question: q,
     bp,
