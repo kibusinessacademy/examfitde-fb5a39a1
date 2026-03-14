@@ -141,17 +141,22 @@ function tier1Check(
     }
   }
 
-  // Duplicate check via Jaccard — sliding window only
+  // Duplicate check via Jaccard — sliding window, SAME COMPETENCY only.
+  // FIX: Büromanagement calculation questions (Rabatt/Skonto/MwSt) share heavy
+  // structural similarity across competencies but are didactically distinct.
+  // Only flag duplicates within the same competency to avoid false positives.
   if (q.question_text) {
     const ngrams = textNgrams(q.question_text);
     for (const existing of recentNgrams) {
       if (existing.id === q.id) continue;
+      // Skip cross-competency comparison — different competencies = different context
+      if (q.competency_id && existing.competencyId && q.competency_id !== existing.competencyId) continue;
       if (jaccardSim(ngrams, existing.ngrams) >= JACCARD_THRESHOLD) {
         issues.push(`NEAR_DUPLICATE_OF: ${existing.id.slice(0, 8)}`);
         break;
       }
     }
-    recentNgrams.push({ id: q.id, ngrams });
+    recentNgrams.push({ id: q.id, ngrams, competencyId: q.competency_id });
     if (recentNgrams.length > JACCARD_WINDOW) recentNgrams.shift();
   }
 
