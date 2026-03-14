@@ -68,7 +68,7 @@ Deno.serve(async (req) => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: model || "claude-3-5-haiku-latest",
+          model: model || "claude-3-5-haiku-20241022",
           max_tokens: 4096,
           system: systemPrompt,
           messages: [

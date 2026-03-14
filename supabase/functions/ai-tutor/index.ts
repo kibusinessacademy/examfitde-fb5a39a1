@@ -272,7 +272,7 @@ Antworte NUR mit JSON:
 
     await supabase.from("ai_validations").insert({
       generation_id: generationId,
-      validator_model: "anthropic/claude-3-5-haiku-latest",
+      validator_model: "anthropic/claude-3-5-haiku-20241022",
       validation_mode: "automatic",
       overall_score: result.score || 0,
       decision: result.decision || "approve",

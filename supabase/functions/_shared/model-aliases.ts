@@ -39,7 +39,7 @@ export const MODEL_ALIASES = {
 
 // ── Drift-prone aliases (for governance/telemetry alerts) ────
 export const DRIFT_PRONE_ALIASES = new Set<string>([
-  "claude-3-5-haiku-latest",
+  "claude-3-5-haiku-20241022",
   // Add any future "latest" or "preview" aliases here
 ]);
 
