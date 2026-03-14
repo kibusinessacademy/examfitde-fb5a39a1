@@ -16205,6 +16205,7 @@ export type Database = {
       }
       model_routing_rules: {
         Row: {
+          ab_weight: number
           budget_cap_eur: number | null
           created_at: string
           enabled: boolean
@@ -16220,6 +16221,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          ab_weight?: number
           budget_cap_eur?: number | null
           created_at?: string
           enabled?: boolean
@@ -16235,6 +16237,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          ab_weight?: number
           budget_cap_eur?: number | null
           created_at?: string
           enabled?: boolean
