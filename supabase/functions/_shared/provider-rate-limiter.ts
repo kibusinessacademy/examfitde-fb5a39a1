@@ -19,18 +19,18 @@ export type AIProvider = "openai" | "anthropic" | "google";
 
 /** Max requests per minute per provider (conservative defaults) */
 const RPM_LIMITS: Record<AIProvider, number> = {
-  openai: 250,     // gpt-4o-mini supports 500 RPM; conservative limit for shared isolates
+  openai: 400,     // gpt-4o-mini supports 500 RPM; raised from 250 — fan-out bursts need headroom
   anthropic: 40,
   google: 60,
   lovable: 60,
 };
 
-/** Number of 429s within COOLDOWN_WINDOW_MS to trigger cooldown */
-const COOLDOWN_TRIGGER_COUNT = 6;
+/** Number of REAL 429s (from provider) within COOLDOWN_WINDOW_MS to trigger cooldown */
+const COOLDOWN_TRIGGER_COUNT = 8;
 /** Window in which COOLDOWN_TRIGGER_COUNT 429s trigger a cooldown */
 const COOLDOWN_WINDOW_MS = 60_000;
-/** Progressive cooldown durations — each consecutive trigger escalates */
-const COOLDOWN_STEPS_MS = [15_000, 30_000, 60_000, 120_000];
+/** Progressive cooldown durations — shorter first step to recover faster */
+const COOLDOWN_STEPS_MS = [10_000, 20_000, 45_000, 120_000];
 
 /** Hard caps to prevent unbounded memory growth */
 const MAX_REQUEST_TIMESTAMPS = 500;
