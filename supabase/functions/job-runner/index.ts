@@ -605,7 +605,7 @@ Deno.serve(async (req) => {
             console.warn(`[job-runner] 🛑 AUTO_PUBLISH_GATE: terminating stalled autofix ${activeAutofix.id.slice(0, 8)} — ${stallReason} (pkg ${jobPackageId.slice(0, 8)})`);
             
             await sb.from("autofix_runs").update({
-              status: "stalled",
+              status: "failed",
               stop_reason: stallReason,
             }).eq("id", activeAutofix.id);
 
