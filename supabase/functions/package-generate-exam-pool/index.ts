@@ -834,6 +834,7 @@ async function dedupeValidateAndInsert(
     }
     if (tooSimilar) {
       console.log(`[ExamPool-v5] NEAR-DUP skipped: "${q.question_text.slice(0, 50)}…"`);
+      near_duplicates_skipped++;
       continue;
     }
     existingNgramSets.push(qNgrams);
