@@ -159,10 +159,12 @@ Deno.serve(async (req) => {
       }
 
       // Track last sync timestamp
-      await sb.from("admin_actions").insert({
-        action: "wp_content_sync",
-        payload: { synced, errors: errors.length, total: posts.length, since, page },
-      }).catch(() => {});
+      try {
+        await sb.from("admin_actions").insert({
+          action: "wp_content_sync",
+          payload: { synced, errors: errors.length, total: posts.length, since, page },
+        });
+      } catch { /* best-effort */ }
 
       return json({ ok: true, synced, errors: errors.length ? errors : undefined, total: posts.length, hasMore: posts.length === perPage });
     }

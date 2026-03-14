@@ -179,16 +179,18 @@ Antworte NUR als JSON: {"enrichments": [{...}]}`;
         const parsed = safeJsonParse(aiResp.content);
         if (!parsed) {
           // Patch 10: Persist parse errors to ai_validations
-          await sb.from("ai_validations").insert({
-            generation_id: crypto.randomUUID(),
-            validation_mode: "elite_enrichment_phase2",
-            decision: "fail",
-            overall_score: 0,
-            dimension_scores: {},
-            critical_issues: [{ type: "parse_error", sample: aiResp.content.slice(0, 300) }],
-            validator_model: "system",
-            validated_at: new Date().toISOString(),
-          }).catch(() => { /* best-effort persist */ });
+          try {
+            await sb.from("ai_validations").insert({
+              generation_id: crypto.randomUUID(),
+              validation_mode: "elite_enrichment_phase2",
+              decision: "fail",
+              overall_score: 0,
+              dimension_scores: {},
+              critical_issues: [{ type: "parse_error", sample: aiResp.content.slice(0, 300) }],
+              validator_model: "system",
+              validated_at: new Date().toISOString(),
+            });
+          } catch { /* best-effort persist */ }
 
           results.push({ batch: i / batchSize + 1, status: "parse_error", raw: aiResp.content.slice(0, 200) });
           continue;

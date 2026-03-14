@@ -182,12 +182,14 @@ Deno.serve(async (req) => {
 
         // NO direct lesson write — content reaches lessons.content ONLY via publish_approved_version()
         // Council proposal message
-        await sb.from("council_messages").insert({
-          content_version_id: newVersion!.id,
-          agent_name: "heal-poison-lessons",
-          message_type: "proposal",
-          message_json: { source: "heal-poison", reason: "poison_pill_repair" },
-        }).catch(() => {});
+        try {
+          await sb.from("council_messages").insert({
+            content_version_id: newVersion!.id,
+            agent_name: "heal-poison-lessons",
+            message_type: "proposal",
+            message_json: { source: "heal-poison", reason: "poison_pill_repair" },
+          });
+        } catch { /* best-effort */ }
 
         await logLLMCostEvent(sb, {
           job_type: "heal_poison_lesson",
@@ -228,14 +230,16 @@ Deno.serve(async (req) => {
       }
 
       // Create admin notification
-      await sb.from("admin_notifications").insert({
-        title: `⚠️ ${stillFailed} Lektionen benötigen manuelle Nachbearbeitung`,
-        body: `Paket ${packageId.slice(0, 8)}: Auto-Heal konnte ${stillFailed} Lektionen nicht reparieren. Bitte manuell unter Quality → Nachbearbeitung prüfen.`,
-        category: "quality",
-        severity: "warning",
-        entity_type: "course_package",
-        entity_id: packageId,
-      }).catch(() => {});
+      try {
+        await sb.from("admin_notifications").insert({
+          title: `⚠️ ${stillFailed} Lektionen benötigen manuelle Nachbearbeitung`,
+          body: `Paket ${packageId.slice(0, 8)}: Auto-Heal konnte ${stillFailed} Lektionen nicht reparieren. Bitte manuell unter Quality → Nachbearbeitung prüfen.`,
+          category: "quality",
+          severity: "warning",
+          entity_type: "course_package",
+          entity_id: packageId,
+        });
+      } catch { /* best-effort */ }
     }
 
     const allHealed = stillFailed === 0;

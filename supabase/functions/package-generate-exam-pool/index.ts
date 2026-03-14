@@ -1080,10 +1080,14 @@ async function enqueueLearningFieldJobs(
   const existingPerLf = new Map<string, number>();
 
   // ── OPT-2: Single aggregated query instead of N sequential count queries ──
-  const { data: lfCounts } = await sb.rpc("get_exam_question_counts_by_lf", {
-    p_curriculum_id: curriculumId,
-    p_lf_ids: lfIds,
-  }).catch(() => ({ data: null }));
+  let lfCounts: any[] | null = null;
+  try {
+    const { data } = await sb.rpc("get_exam_question_counts_by_lf", {
+      p_curriculum_id: curriculumId,
+      p_lf_ids: lfIds,
+    });
+    lfCounts = data;
+  } catch { lfCounts = null; }
   
   if (lfCounts && Array.isArray(lfCounts)) {
     for (const row of lfCounts) existingPerLf.set(row.learning_field_id, row.cnt);
