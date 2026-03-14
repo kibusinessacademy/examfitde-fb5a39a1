@@ -84,7 +84,8 @@ Deno.serve(async (req) => {
         if (intStep?.status !== "running" && intStep?.status !== "processing") {
           await sb.from("package_steps").update({ status: "queued" })
             .eq("package_id", packageId)
-          .eq("step_key", "run_integrity_check");
+            .eq("step_key", "run_integrity_check");
+        }
         action.applied = true;
       }
       actions.push(action);
