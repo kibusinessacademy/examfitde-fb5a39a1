@@ -64,8 +64,9 @@ Deno.serve(async (req) => {
       if (autofixRunId) {
         await sb.from("autofix_runs").update({
           status: "stopped",
-          stop_reason: `Budget Circuit-Breaker: €${dailyCost.toFixed(2)} today >= €${DAILY_BUDGET_LIMIT_EUR} limit`,
-        }).eq("id", autofixRunId);
+        stop_reason: `Budget Circuit-Breaker: €${dailyCost.toFixed(2)} today >= €${DAILY_BUDGET_LIMIT_EUR} limit`,
+        stop_reason_code: "CIRCUIT_BREAKER",
+      }).eq("id", autofixRunId);
       }
 
       return json({
