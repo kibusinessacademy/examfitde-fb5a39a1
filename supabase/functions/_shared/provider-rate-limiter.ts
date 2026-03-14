@@ -19,18 +19,18 @@ export type AIProvider = "openai" | "anthropic" | "google";
 
 /** Max requests per minute per provider (conservative defaults) */
 const RPM_LIMITS: Record<AIProvider, number> = {
-  openai: 250,     // gpt-4o-mini supports 500 RPM; conservative limit for shared isolates
+  openai: 400,     // gpt-4o-mini supports 500 RPM; raised from 250 — fan-out bursts need headroom
   anthropic: 40,
   google: 60,
   lovable: 60,
 };
 
-/** Number of 429s within COOLDOWN_WINDOW_MS to trigger cooldown */
-const COOLDOWN_TRIGGER_COUNT = 6;
+/** Number of REAL 429s (from provider) within COOLDOWN_WINDOW_MS to trigger cooldown */
+const COOLDOWN_TRIGGER_COUNT = 8;
 /** Window in which COOLDOWN_TRIGGER_COUNT 429s trigger a cooldown */
 const COOLDOWN_WINDOW_MS = 60_000;
-/** Progressive cooldown durations — each consecutive trigger escalates */
-const COOLDOWN_STEPS_MS = [15_000, 30_000, 60_000, 120_000];
+/** Progressive cooldown durations — shorter first step to recover faster */
+const COOLDOWN_STEPS_MS = [10_000, 20_000, 45_000, 120_000];
 
 /** Hard caps to prevent unbounded memory growth */
 const MAX_REQUEST_TIMESTAMPS = 500;
@@ -110,11 +110,15 @@ export function getProviderHealth(provider: AIProvider): ProviderHealth {
     const prev = s.cooldownCount;
     s.cooldownUntil = null;
     s.cooldownCount = Math.max(0, s.cooldownCount - 1);
-    console.info(`[RATE-LIMITER] ✅ Provider ${provider} cooldown expired (step ${prev} → ${s.cooldownCount})`);
+    // Also clear rate limit timestamps on cooldown expiry to allow fresh start
+    s.rateLimitTimestamps = [];
+    console.info(`[RATE-LIMITER] ✅ Provider ${provider} cooldown expired (step ${prev} → ${s.cooldownCount}), rate limit history cleared`);
   }
 
   // Check active cooldown
   if (s.cooldownUntil && now < s.cooldownUntil) {
+    // IMPORTANT: Do NOT increment any counters for blocked requests.
+    // This prevents the death spiral where blocked calls re-trigger cooldowns.
     return {
       provider,
       available: false,
@@ -128,8 +132,9 @@ export function getProviderHealth(provider: AIProvider): ProviderHealth {
     };
   }
 
-  // Check RPM limit (leave 10% headroom)
-  if (rpm >= Math.floor(rpmLimit * 0.9)) {
+  // Check RPM limit — only count ACTUAL requests (not blocked ones)
+  // Use 85% threshold but DON'T trigger cooldown from RPM alone
+  if (rpm >= Math.floor(rpmLimit * 0.85)) {
     return {
       provider,
       available: false,

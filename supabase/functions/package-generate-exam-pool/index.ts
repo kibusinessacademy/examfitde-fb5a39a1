@@ -320,6 +320,7 @@ interface InvocationQualityMetrics {
   successful_llm_calls: number;
   failed_llm_calls: number;
   retried_llm_calls: number;
+  blocked_llm_calls: number;       // NEW: proactively blocked (cooldown/rpm)
   total_output_chars: number;
   total_tokens_out_estimated: number;
   truncated_responses: number;
@@ -339,13 +340,15 @@ interface InvocationQualityMetrics {
   candidates_duplicates_ngram: number;
   candidates_gate_failed_distractor: number;
   avg_quality_score: number;
-  models_used: Record<string, number>;
+  models_attempted: Record<string, number>;  // NEW: every attempt, including failures
+  models_used: Record<string, number>;       // only successful calls with output
   rejection_reasons: Record<string, number>;
 }
 
 function createEmptyQualityMetrics(): InvocationQualityMetrics {
   return {
     total_llm_calls: 0, successful_llm_calls: 0, failed_llm_calls: 0, retried_llm_calls: 0,
+    blocked_llm_calls: 0,
     total_output_chars: 0, total_tokens_out_estimated: 0,
     truncated_responses: 0, empty_responses: 0, json_repair_failures: 0,
     candidates_generated: 0, candidates_accepted_exam: 0, candidates_accepted_training: 0,
@@ -355,7 +358,7 @@ function createEmptyQualityMetrics(): InvocationQualityMetrics {
     candidates_rejected_placeholder: 0,
     candidates_duplicates_hash: 0, candidates_duplicates_ngram: 0,
     candidates_gate_failed_distractor: 0,
-    avg_quality_score: 0, models_used: {}, rejection_reasons: {},
+    avg_quality_score: 0, models_attempted: {}, models_used: {}, rejection_reasons: {},
   };
 }
 
@@ -731,6 +734,12 @@ async function generateRawCandidates(
     const { provider, model } = pickProvider(chain, exclude);
     usedProvider = provider;
     usedModel = model;
+    
+    // Track attempt BEFORE the call (models_attempted)
+    const attemptKey = `${provider}/${model}`;
+    _qualityMetrics.models_attempted[attemptKey] = (_qualityMetrics.models_attempted[attemptKey] ?? 0) + 1;
+    _qualityMetrics.total_llm_calls++;
+    
     try {
       const aiResult = await callAIJSON({
         provider, model,
@@ -741,21 +750,23 @@ async function generateRawCandidates(
       });
       result = aiResult;
 
-      // ── Observability: track output metrics ──
+      // ── Observability: track output metrics (only on SUCCESS) ──
       const outputLen = result.content?.length ?? 0;
       const tokOut = result.estimatedUsage?.tokens_out ?? Math.ceil(outputLen / 3.5);
       const tokIn = result.estimatedUsage?.tokens_in ?? Math.ceil((system.length + user.length) / 3.5);
 
-      _qualityMetrics.total_llm_calls++;
       _qualityMetrics.successful_llm_calls++;
       _qualityMetrics.total_output_chars += outputLen;
       _qualityMetrics.total_tokens_out_estimated += tokOut;
-      _qualityMetrics.models_used[`${provider}/${model}`] = (_qualityMetrics.models_used[`${provider}/${model}`] ?? 0) + 1;
+      // models_used = only successful calls with actual output
+      if (outputLen > 0) {
+        _qualityMetrics.models_used[attemptKey] = (_qualityMetrics.models_used[attemptKey] ?? 0) + 1;
+      }
 
       // Detect empty responses
       if (outputLen === 0) {
         _qualityMetrics.empty_responses++;
-        console.warn(`[ExamPool-v5] EMPTY_RESPONSE: ${provider}/${model} returned 0 chars (attempt ${attempt})`);
+        console.warn(`[ExamPool-v5] EMPTY_RESPONSE: ${provider}/${model} returned 0 chars (attempt ${attempt}), raw_status=success`);
       }
 
       // Detect potential truncation (output near max_tokens)
@@ -790,8 +801,13 @@ async function generateRawCandidates(
       const isRate = errMsg.includes("Rate limit") || errMsg.includes("429") || errMsg.includes("409") || errMsg.includes("proactively blocked");
       const isTimeout = errMsg.includes("timed out") || errMsg.includes("TimeoutError") || errMsg.includes("AbortError");
 
-      _qualityMetrics.total_llm_calls++;
-      if (isRate || isTimeout) {
+      if (isRate) {
+        _qualityMetrics.retried_llm_calls++;
+        // Distinguish proactive block (our limiter) from real 429 (provider)
+        if (errMsg.includes("proactively blocked")) {
+          _qualityMetrics.blocked_llm_calls++;
+        }
+      } else if (isTimeout) {
         _qualityMetrics.retried_llm_calls++;
       } else {
         _qualityMetrics.failed_llm_calls++;
@@ -814,8 +830,8 @@ async function generateRawCandidates(
         console.log(`[ExamPool-v5] ${isTimeout ? "Timeout" : "RateLimit"} ${provider}/${model} attempt ${attempt}/3`);
         if ((globalThis as any).__examPoolSb) await markRateLimited((globalThis as any).__examPoolSb, provider, errMsg);
         exclude.push(`${provider}:${model}`);
-        // Backoff before retry to prevent tight-loop spam during cooldowns
-        const backoffMs = isRate ? 3000 * attempt : 2000 * attempt;
+        // Backoff before retry — jittered to desynchronize concurrent sub-jobs
+        const backoffMs = isRate ? (3000 + Math.random() * 2000) * attempt : (2000 + Math.random() * 1000) * attempt;
         await new Promise(r => setTimeout(r, backoffMs));
         continue;
       }
@@ -2070,6 +2086,7 @@ Deno.serve(async (req) => {
             successful: _qualityMetrics.successful_llm_calls,
             failed: _qualityMetrics.failed_llm_calls,
             retried: _qualityMetrics.retried_llm_calls,
+            blocked: _qualityMetrics.blocked_llm_calls,
           },
           output: {
             total_chars: _qualityMetrics.total_output_chars,
@@ -2094,8 +2111,8 @@ Deno.serve(async (req) => {
             gate_failed_distractor: _qualityMetrics.candidates_gate_failed_distractor,
             avg_quality_score: Math.round(_qualityMetrics.avg_quality_score * 100) / 100,
           },
+          models_attempted: _qualityMetrics.models_attempted,
           models_used: _qualityMetrics.models_used,
-          rejection_reasons: _qualityMetrics.rejection_reasons,
           accept_rate_pct: _qualityMetrics.candidates_generated > 0
             ? Math.round((_qualityMetrics.candidates_accepted_exam / _qualityMetrics.candidates_generated) * 10000) / 100
             : 0,
@@ -2165,8 +2182,12 @@ Deno.serve(async (req) => {
       failure_reason: failureReason,
       failure_stage: failureStage,
       llm_calls_attempted: _qualityMetrics.total_llm_calls,
+      llm_calls_successful: _qualityMetrics.successful_llm_calls,
       llm_calls_failed: _qualityMetrics.failed_llm_calls,
+      llm_calls_blocked: _qualityMetrics.blocked_llm_calls,
       empty_responses: _qualityMetrics.empty_responses,
+      models_attempted: _qualityMetrics.models_attempted,
+      models_used: _qualityMetrics.models_used,
     };
 
     // ── HOLLOW COMPLETION GUARD (existing, enhanced) ─────────────────────
