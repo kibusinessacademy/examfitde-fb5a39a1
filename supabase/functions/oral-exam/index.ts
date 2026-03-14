@@ -181,12 +181,14 @@ Deno.serve(async (req) => {
 
     // Store idempotency response
     if (idemKey && idemKey.length >= 8) {
-      await sbAdmin.rpc("set_idempotency_response", {
-        p_user_id: userId,
-        p_endpoint: "oral-exam",
-        p_idem_key: idemKey,
-        p_response: result,
-      }).catch(() => {}); // tolerate failures
+      try {
+        await sbAdmin.rpc("set_idempotency_response", {
+          p_user_id: userId,
+          p_endpoint: "oral-exam",
+          p_idem_key: idemKey,
+          p_response: result,
+        });
+      } catch { /* tolerate failures */ }
     }
 
     return json(result, origin);
