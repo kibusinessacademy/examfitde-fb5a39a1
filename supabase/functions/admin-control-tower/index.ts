@@ -545,6 +545,26 @@ async function getDashboard(sb: SB) {
     updated_at: pkg.updated_at,
   }));
 
+  // Drift finder summary
+  const driftRows = await safeFrom(sb, "ops_drift_finder", "drift_type,package_id,title,detail");
+  const driftSummary: Record<string, number> = {};
+  for (const r of driftRows) {
+    const t = String(r.drift_type);
+    driftSummary[t] = (driftSummary[t] || 0) + 1;
+  }
+  const totalDrift = driftRows.length;
+
+  // Add drift to health signals
+  if (totalDrift > 0) {
+    health.push({
+      key: "trust",
+      label: "Trust",
+      tone: totalDrift > 20 ? "red" : totalDrift > 5 ? "yellow" : "green",
+      count: totalDrift,
+      hint: `${Object.entries(driftSummary).map(([k, v]) => `${k}:${v}`).join(", ")}`,
+    });
+  }
+
   return {
     health,
     kpis: {
@@ -576,5 +596,10 @@ async function getDashboard(sb: SB) {
       reason: r.reason,
       until_at: r.until_at,
     })),
+    drift: {
+      total: totalDrift,
+      by_type: driftSummary,
+      items: driftRows.slice(0, 50), // Top 50 for UI
+    },
   };
 }

@@ -548,24 +548,35 @@ Deno.serve(async (req) => {
     // This eliminates premature 422/guard failures that inflate error metrics.
     // RECONCILIATION: Also checks integrity_report as fallback for write-race conditions.
     if (job.job_type === "package_auto_publish" && jobPackageId) {
-      const REQUIRED_REPORT_VERSION = "COURSE_READY_v1.5";
+      const REQUIRED_REPORT_VERSION_NUM = 15; // COURSE_READY_v1.5
       const { data: pubGate } = await sb
         .from("course_packages")
-        .select("integrity_passed, integrity_report, integrity_report_version")
+        .select("integrity_passed, integrity_report, integrity_report_version_num")
         .eq("id", jobPackageId)
         .maybeSingle();
 
       let integrityOk = !!pubGate?.integrity_passed;
+      const reportVersionNum = Number((pubGate as any)?.integrity_report_version_num) || 0;
 
       // ── REPORT VERSION GUARD: reject stale/legacy integrity reports ──
-      const reportVersion = (pubGate as any)?.integrity_report_version as string | null;
-      if (integrityOk && (!reportVersion || reportVersion < REQUIRED_REPORT_VERSION)) {
-        console.warn(`[job-runner] 🔄 STALE_REPORT_GUARD: integrity_report_version=${reportVersion ?? "null"} < ${REQUIRED_REPORT_VERSION} — forcing re-check (pkg ${jobPackageId.slice(0, 8)})`);
-        // Reset integrity_passed and re-enqueue integrity check
-        await sb.from("course_packages").update({ integrity_passed: false }).eq("id", jobPackageId);
-        // Reset step to trigger re-run
-        await sb.from("package_steps").update({ status: "queued" }).eq("package_id", jobPackageId).eq("step_key", "run_integrity_check");
-        const gateReason = `STALE_REPORT: version=${reportVersion ?? "null"}, required=${REQUIRED_REPORT_VERSION}`;
+      if (integrityOk && reportVersionNum < REQUIRED_REPORT_VERSION_NUM) {
+        console.warn(`[job-runner] 🔄 STALE_REPORT_GUARD: integrity_report_version_num=${reportVersionNum} < ${REQUIRED_REPORT_VERSION_NUM} — forcing re-check (pkg ${jobPackageId.slice(0, 8)})`);
+        // Only reset step if NOT currently running (prevent overwriting active integrity check)
+        const { data: intStep } = await sb.from("package_steps")
+          .select("status")
+          .eq("package_id", jobPackageId)
+          .eq("step_key", "run_integrity_check")
+          .maybeSingle();
+        const stepStatus = intStep?.status as string | undefined;
+        if (stepStatus === "running" || stepStatus === "processing") {
+          console.log(`[job-runner] STALE_REPORT_GUARD: integrity step already running — skipping reset (pkg ${jobPackageId.slice(0, 8)})`);
+        } else {
+          await sb.from("course_packages").update({ integrity_passed: false }).eq("id", jobPackageId);
+          await sb.from("package_steps").update({ status: "queued" })
+            .eq("package_id", jobPackageId)
+            .eq("step_key", "run_integrity_check");
+        }
+        const gateReason = `STALE_REPORT: version_num=${reportVersionNum}, required=${REQUIRED_REPORT_VERSION_NUM}`;
         await requeueWithBackoff(sb, job.id, job.meta, 120_000, gateReason, tsNow);
         results.push({ id: job.id, status: "requeued", reason: "stale_integrity_report" });
         continue;
@@ -577,8 +588,8 @@ Deno.serve(async (req) => {
         const report = pubGate.integrity_report as Record<string, unknown>;
         const score = typeof report.score === "number" ? report.score : 0;
         const hardFails = (report as any)?.v3?.hard_fail_reasons ?? [];
-        if (score >= 85 && Array.isArray(hardFails) && hardFails.length === 0 && reportVersion === REQUIRED_REPORT_VERSION) {
-          console.warn(`[job-runner] 🔧 RECONCILE: integrity_passed=false but report.score=${score}, hardFails=0 — auto-fixing`);
+        if (score >= 85 && Array.isArray(hardFails) && hardFails.length === 0 && reportVersionNum >= REQUIRED_REPORT_VERSION_NUM) {
+          console.warn(`[job-runner] 🔧 RECONCILE: integrity_passed=false but report.score=${score}, hardFails=0, version=${reportVersionNum} — auto-fixing`);
           await sb.from("course_packages").update({ integrity_passed: true }).eq("id", jobPackageId);
           integrityOk = true;
         }
