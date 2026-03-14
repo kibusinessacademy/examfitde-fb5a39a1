@@ -313,17 +313,20 @@ export async function callAIJSON(opts: Omit<AIRequestOptions, "stream">): Promis
         toolCalls: toolUseBlock ? [{ function: { name: toolUseBlock.name, arguments: JSON.stringify(toolUseBlock.input) } }] : undefined,
         usage: rawUsage,
         estimatedUsage: fillUsage(rawUsage, model, opts.messages, content),
+        finish_reason: data.stop_reason || undefined,
       };
     }
 
     // OpenAI-compatible
-    const choice = data.choices?.[0]?.message;
+    const choice0 = data.choices?.[0];
+    const choice = choice0?.message;
     const content = choice?.content || "";
     const rawUsage = data.usage;
     return {
       content,
       toolCalls: choice?.tool_calls,
       usage: rawUsage,
+      finish_reason: choice0?.finish_reason || undefined,
       estimatedUsage: fillUsage(
         rawUsage ? { input_tokens: rawUsage.prompt_tokens ?? rawUsage.input_tokens, output_tokens: rawUsage.completion_tokens ?? rawUsage.output_tokens } : undefined,
         model,
