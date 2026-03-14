@@ -330,6 +330,7 @@ Deno.serve(async (req) => {
       await sb.from("autofix_runs").update({
         status: "stopped",
         stop_reason: `Per-run budget exhausted: €${run.budget_used_eur} >= €${budgetEur}`,
+        stop_reason_code: "BUDGET_EXHAUSTED",
       }).eq("id", run.id);
       return json({ ok: false, status: "stopped", score, reason: "budget_exhausted", autofix_run_id: run.id }, 200, origin);
     }
