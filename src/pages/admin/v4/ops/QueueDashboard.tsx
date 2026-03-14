@@ -227,6 +227,7 @@ export default function QueueDashboard() {
             <tr className="border-b border-border text-muted-foreground">
               <th className="text-left py-2 px-3">Job Type</th>
               <th className="text-left py-2 px-3">Status</th>
+              <th className="text-right py-2 px-2">Gen</th>
               <th className="text-left py-2 px-3">Attempts</th>
               <th className="text-left py-2 px-3">Package</th>
               <th className="text-left py-2 px-3">Fehler</th>
@@ -234,34 +235,47 @@ export default function QueueDashboard() {
             </tr>
           </thead>
           <tbody>
-            {jobs.slice(0, 50).map(j => (
-              <tr key={j.id} className="border-b border-border/30 hover:bg-muted/30">
-                <td className="py-2 px-3 font-mono">{j.job_type}</td>
-                <td className="py-2 px-3">
-                  <JobBadge status={j.status} meta={j.meta} lastError={j.last_error || j.error} />
-                </td>
-                <td className="py-2 px-3">{j.attempts}/{j.max_attempts}</td>
-                <td className="py-2 px-3 truncate max-w-[160px]" title={j.package_id || j.payload?.package_id || ''}>
-                  {(() => {
-                    const pid = j.package_id || j.payload?.package_id;
-                    const name = pid ? pkgNames[pid] : null;
-                    return name || pid?.substring(0, 8) || '–';
-                  })()}
-                </td>
-                <td className={cn(
-                  "py-2 px-3 truncate max-w-[200px]",
-                  j.status === 'completed' ? 'text-muted-foreground/50 line-through' : 'text-destructive'
-                )}>
-                  {j.status === 'completed' && j.last_error
-                    ? <span className="text-muted-foreground/40 text-[10px]">(historisch) {j.last_error}</span>
-                    : (j.last_error || j.error || '–')
-                  }
-                </td>
-                <td className="py-2 px-3 text-muted-foreground">
-                  {new Date(j.created_at).toLocaleString('de-DE', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}
-                </td>
-              </tr>
-            ))}
+            {jobs.slice(0, 50).map(j => {
+              const res = j.result;
+              const gen = res?.generated ?? res?.metrics?.generated;
+              const isHollow = j.status === 'completed' && gen === 0 && !res?.noop;
+              return (
+                <tr key={j.id} className={cn("border-b border-border/30 hover:bg-muted/30", isHollow && "bg-orange-500/5")}>
+                  <td className="py-2 px-3 font-mono">{j.job_type}</td>
+                  <td className="py-2 px-3">
+                    <JobBadge status={j.status} meta={j.meta} lastError={j.last_error || j.error} result={res} />
+                  </td>
+                  <td className={cn(
+                    "py-2 px-2 text-right font-mono tabular-nums",
+                    gen > 0 ? "text-emerald-500" : gen === 0 ? "text-orange-500" : "text-muted-foreground"
+                  )}>
+                    {gen != null ? gen : '–'}
+                  </td>
+                  <td className="py-2 px-3">{j.attempts}/{j.max_attempts}</td>
+                  <td className="py-2 px-3 truncate max-w-[140px]" title={j.package_id || j.payload?.package_id || ''}>
+                    {(() => {
+                      const pid = j.package_id || j.payload?.package_id;
+                      const name = pid ? pkgNames[pid] : null;
+                      return name || pid?.substring(0, 8) || '–';
+                    })()}
+                  </td>
+                  <td className={cn(
+                    "py-2 px-3 truncate max-w-[180px]",
+                    isHollow ? 'text-orange-500' : j.status === 'completed' ? 'text-muted-foreground/50' : 'text-destructive'
+                  )}>
+                    {isHollow
+                      ? <span className="text-orange-500 text-[10px]">⚠ {res?.failure_reason || 'HOLLOW (gen=0)'}</span>
+                      : j.status === 'completed' && j.last_error
+                        ? <span className="text-muted-foreground/40 text-[10px]">(historisch) {j.last_error}</span>
+                        : (j.last_error || j.error || '–')
+                    }
+                  </td>
+                  <td className="py-2 px-3 text-muted-foreground">
+                    {new Date(j.created_at).toLocaleString('de-DE', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
