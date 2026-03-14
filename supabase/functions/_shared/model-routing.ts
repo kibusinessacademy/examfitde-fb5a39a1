@@ -43,10 +43,9 @@ export interface ModelChoice {
 }
 
 // ── Resolved model shortcuts ─────────────────────────────────
-const GPT4O_MINI: ModelChoice     = { provider: "openai",    model: MODEL_ALIASES.openai_workhorse };
-const HAIKU_FALLBACK: ModelChoice = { provider: "openai", model: MODEL_ALIASES.openai_balanced, is_fallback: true }; // v14: Anthropic 404 → rerouted to gpt-5-mini
-const GPT5_2_FALLBACK: ModelChoice = { provider: "openai",  model: MODEL_ALIASES.openai_strong, is_fallback: true };
-const GPT5_MINI_FALLBACK: ModelChoice = { provider: "openai", model: MODEL_ALIASES.openai_balanced, is_fallback: true };
+const GPT5_MINI: ModelChoice       = { provider: "openai",    model: MODEL_ALIASES.openai_balanced };
+const HAIKU_FALLBACK: ModelChoice  = { provider: "anthropic", model: MODEL_ALIASES.anthropic_cheap_fast, is_fallback: true }; // v15: Primary→gpt-5-mini, Fallback→Haiku pinned
+const GPT5_2_FALLBACK: ModelChoice = { provider: "openai",   model: MODEL_ALIASES.openai_strong, is_fallback: true };
 
 // ── Tiered Fallback Strategy ─────────────────────────────────
 // ALL intents: GPT-4o mini → GPT-5-mini → GPT-5.2
