@@ -1596,8 +1596,10 @@ Deno.serve(async (req) => {
       const maxCallsPerBp = Math.min(callsPerBp, isFanOut ? 2 : 6);
 
       let brokeMidBp = false;
-      for (let callIdx = 0; callIdx < maxCallsPerBp; callIdx++) {
-        // Time checks inside inner loop too
+      
+      // ── OPT-4: Parallel AI calls (2 concurrent) within time budget ──
+      const PARALLEL_AI_CALLS = 2;
+      for (let callIdx = 0; callIdx < maxCallsPerBp; callIdx += PARALLEL_AI_CALLS) {
         if (Date.now() - invocationStart > TIME_BUDGET_MS) {
           console.log(`[ExamPool-v5] TIME_BUDGET inner: breaking mid-blueprint`);
           brokeMidBp = true;
@@ -1609,24 +1611,39 @@ Deno.serve(async (req) => {
           break;
         }
 
-        const globalIdx = (currentBpIndex * maxCallsPerBp + callIdx);
-        const typeIdx = globalIdx % typeEntries.length;
-        const questionType = typeEntries[typeIdx][0];
-        const difficulty = pickDifficulty();
-        const cognitiveLevel = pickCognitiveLevel();
+        // Prepare up to PARALLEL_AI_CALLS concurrent tasks
+        const parallelTasks: Array<{ difficulty: string; cognitiveLevel: string; questionType: string; promise: Promise<any> }> = [];
+        
+        for (let pi = 0; pi < PARALLEL_AI_CALLS && (callIdx + pi) < maxCallsPerBp; pi++) {
+          const globalIdx = (currentBpIndex * maxCallsPerBp + callIdx + pi);
+          const typeIdx = globalIdx % typeEntries.length;
+          const questionType = typeEntries[typeIdx][0];
+          const difficulty = pickDifficulty();
+          const cognitiveLevel = pickCognitiveLevel();
 
-        try {
-          const genResult = await generateTurboQuestions(
-            sb, bp, AI_QUESTIONS_PER_CALL, difficulty, questionType, cognitiveLevel, existingHashes, existingNgramSets, professionName, glossaryContext
-          );
+          parallelTasks.push({
+            difficulty, cognitiveLevel, questionType,
+            promise: generateTurboQuestions(
+              sb, bp, AI_QUESTIONS_PER_CALL, difficulty, questionType, cognitiveLevel,
+              existingHashes, existingNgramSets, professionName, glossaryContext
+            ).catch((e: unknown) => {
+              console.log(`[ExamPool-v5] BP ${bp.id.slice(0, 8)} call ${callIdx + pi} FAIL: ${(e as Error)?.message}`);
+              return { saved: 0, training: 0, gateFailed: 0 };
+            }),
+          });
+        }
+
+        // Await all parallel calls
+        const results = await Promise.all(parallelTasks.map(t => t.promise));
+        
+        for (let ri = 0; ri < results.length; ri++) {
+          const genResult = results[ri];
+          const task = parallelTasks[ri];
           questionsThisChunk += genResult.saved;
           trainingThisChunk += genResult.training;
-          // FIX: Count ALL inserted questions for quota tracking
-          const totalInserted = genResult.saved + genResult.training + genResult.gateFailed;
-          diffMade[difficulty] = (diffMade[difficulty] ?? 0) + totalInserted;
-          cogMade[cognitiveLevel] = (cogMade[cognitiveLevel] ?? 0) + totalInserted;
-        } catch (e: unknown) {
-          console.log(`[ExamPool-v5] BP ${bp.id.slice(0, 8)} call ${callIdx} FAIL: ${(e as Error)?.message}`);
+          const totalInserted = genResult.saved + genResult.training + (genResult.gateFailed ?? 0);
+          diffMade[task.difficulty] = (diffMade[task.difficulty] ?? 0) + totalInserted;
+          cogMade[task.cognitiveLevel] = (cogMade[task.cognitiveLevel] ?? 0) + totalInserted;
         }
       }
 
