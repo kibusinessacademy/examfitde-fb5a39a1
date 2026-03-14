@@ -1023,7 +1023,17 @@ Deno.serve(async (req) => {
       }
       // ── 4. Quality-Gate failure: ok=false + batch_complete=true ──
       else if (parsed && parsed.ok === false && parsed.batch_complete === true) {
-        const issuesSummary = Array.isArray(parsed.issues) ? parsed.issues.join("; ").slice(0, 400) : "Validation failed";
+        const summaryParts: string[] = [];
+        if (Array.isArray(parsed?.issues) && parsed.issues.length > 0) {
+          summaryParts.push(parsed.issues.join("; "));
+        }
+        if (typeof parsed?.message === "string" && parsed.message.trim()) {
+          summaryParts.push(parsed.message.trim());
+        }
+        if (typeof parsed?.error === "string" && parsed.error.trim()) {
+          summaryParts.push(parsed.error.trim());
+        }
+        const issuesSummary = (summaryParts.join(" | ").slice(0, 400) || "Validation failed");
         console.warn(`[job-runner] ${fnName} quality-gate FAILED: ${issuesSummary}`);
 
         const maxAttempts = job.max_attempts || 3;
@@ -1054,10 +1064,17 @@ Deno.serve(async (req) => {
           Array.isArray((parsed as any).missing_learning_field_ids) ? (parsed as any).missing_learning_field_ids :
           undefined;
 
-        // FIX #4: Detect MISSING_LF_COVERAGE immediately → reseed on first fail, not after max attempts
-        const hasMissingCoverage = Array.isArray(parsed.issues) &&
-          parsed.issues.some((i: string) => typeof i === "string" && i.includes("MISSING_LF_COVERAGE"));
-        const shouldHealNow = predecessorStep && packageId && (hasMissingCoverage || newAttempts >= maxAttempts);
+        // FIX #4: Deterministic reseed triggers (coverage gap / no-pending dead-end)
+        const hasMissingCoverage =
+          (Array.isArray(parsed?.issues) && parsed.issues.some((i: string) => typeof i === "string" && i.includes("MISSING_LF_COVERAGE"))) ||
+          (typeof parsed?.message === "string" && parsed.message.includes("MISSING_LF_COVERAGE"));
+
+        const shouldForceReseed =
+          parsed?.reseed_required === true ||
+          parsed?.no_pending_questions === true ||
+          (typeof parsed?.error === "string" && parsed.error.includes("NO_QUESTIONS_TO_VALIDATE"));
+
+        const shouldHealNow = predecessorStep && packageId && (hasMissingCoverage || shouldForceReseed || newAttempts >= maxAttempts);
 
         if (shouldHealNow) {
           // Trigger targeted re-seed via predecessor reset
@@ -1156,7 +1173,7 @@ Deno.serve(async (req) => {
                 target_id: packageId,
                 result_status: "ok",
                 result_detail: `${job.job_type} QG fail → reset ${predecessorStep} (cycle ${healCycles + 1})`,
-                metadata: { step: job.job_type, step_key: validationStepKey, predecessor: predecessorStep, heal_cycles: healCycles + 1, missing_lf_ids: missingLfIds, trigger: hasMissingCoverage ? "MISSING_LF_COVERAGE" : "max_attempts", issues: parsed.issues?.slice(0, 5) },
+                metadata: { step: job.job_type, step_key: validationStepKey, predecessor: predecessorStep, heal_cycles: healCycles + 1, missing_lf_ids: missingLfIds, trigger: hasMissingCoverage ? "MISSING_LF_COVERAGE" : shouldForceReseed ? "RESEED_REQUIRED" : "max_attempts", issues: parsed.issues?.slice(0, 5), no_pending_questions: parsed?.no_pending_questions === true },
               });
             } catch (_e) { /* best-effort */ }
 

@@ -50,6 +50,50 @@ export async function handleJobFailed(
   const transient = isTransientStepError(errorMsg);
   const backoffSec = Math.max(15, inferBackoffSeconds(errorMsg));
 
+  // ── Terminal loop-breaker for escalated validation failures ──
+  // If job-runner already escalated a validation QG failure, never requeue here.
+  const terminalValidationEscalation =
+    stepKey.startsWith("validate_") &&
+    /(QG FAIL ESCALATED|kill-switch|auto-heal exhausted|AUTO_HEAL_EXHAUSTED)/i.test(errorMsg);
+
+  if (terminalValidationEscalation) {
+    console.error(`[runner] 🛑 Terminal validation escalation for ${stepKey}: ${errorMsg.slice(0, 180)}`);
+    await safeRpc(sb, "step_fail", {
+      p_package_id: packageId,
+      p_step_key: stepKey,
+      p_error: `Terminal escalation: ${errorMsg.slice(0, 300)}`,
+    });
+    await safeQuery(
+      sb.from("package_steps").update({
+        status: "failed",
+        job_id: null,
+        runner_id: null,
+        started_at: null,
+        last_error: `Terminal escalation: ${errorMsg.slice(0, 300)}`,
+      }).eq("package_id", packageId).eq("step_key", stepKey),
+      "terminal_validation_escalation_step_fail",
+    );
+    await safeQuery(
+      sb.from("course_packages").update({
+        status: "blocked",
+        blocked_reason: `${stepKey}_terminal_escalation`,
+        last_error: `Terminal escalation at ${stepKey}: ${errorMsg.slice(0, 300)}`,
+      }).eq("id", packageId),
+      "terminal_validation_escalation_pkg_block",
+    );
+    await safeQuery(sb.from("auto_heal_log").insert({
+      action_type: "validation_terminal_escalation",
+      trigger_source: "pipeline_runner",
+      target_type: "package_step",
+      target_id: packageId,
+      result_status: "escalated",
+      result_detail: `${stepKey} terminal escalation detected — package blocked to prevent requeue loop`,
+      metadata: { step: stepKey, error: errorMsg.slice(0, 400) },
+    }));
+    await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
+    return { packageId, stepKey, terminal_escalation: true, error: errorMsg };
+  }
+
   if (transient) {
     const transientNext = (Number(stepMeta.transient_attempts ?? 0) || 0) + 1;
     const rawFta = stepMeta.first_transient_at;
