@@ -1034,7 +1034,7 @@ async function enqueueLearningFieldJobs(
   curriculumId: string,
   bps: BlueprintInfo[],
   examTarget: number,
-): Promise<{ enqueued: number; learningFields: number; skipped: number; errors: string[] }> {
+): Promise<{ enqueued: number; learningFields: number; skipped: number; skipped_covered: number; skipped_cooldown: number; skipped_dedup: number; errors: string[]; lf_details: Array<{ lf_id: string; existing: number; target: number; gap: number; skip_reason?: string }> }> {
   const lfGroups = new Map<string, BlueprintInfo[]>();
   for (const bp of bps) {
     const lfId = bp.learning_field_id || "unknown";
@@ -1043,7 +1043,7 @@ async function enqueueLearningFieldJobs(
   }
 
   const lfCount = lfGroups.size;
-  if (lfCount === 0) return { enqueued: 0, learningFields: 0, skipped: 0, errors: [] };
+  if (lfCount === 0) return { enqueued: 0, learningFields: 0, skipped: 0, skipped_covered: 0, skipped_cooldown: 0, skipped_dedup: 0, errors: [], lf_details: [] };
 
   const totalBps = bps.length;
   const MIN_LF_SHARE = 0.06;
@@ -1078,25 +1078,28 @@ async function enqueueLearningFieldJobs(
   });
 
   let enqueued = 0;
-  let skipped = 0;
+  let skipped_covered = 0;
+  let skipped_cooldown = 0;
+  let skipped_dedup = 0;
   const errors: string[] = [];
+  const lf_details: Array<{ lf_id: string; existing: number; target: number; gap: number; skip_reason?: string }> = [];
 
   for (const [lfId, lfBps] of lfEntries) {
     const weight = lfWeights.get(lfId) ?? (1 / lfCount);
     const proportionalTarget = Math.ceil(examTarget * weight);
     const existing = existingPerLf.get(lfId) ?? 0;
     const gap = Math.max(0, proportionalTarget - existing);
+    const lfDetail = { lf_id: lfId, existing, target: proportionalTarget, gap, skip_reason: undefined as string | undefined };
 
     if (gap <= 0) {
       console.log(`[ExamPool-v5] LF ${lfId.slice(0, 8)}: target=${proportionalTarget}, existing=${existing} → SKIP (covered)`);
-      skipped++;
+      lfDetail.skip_reason = "covered";
+      lf_details.push(lfDetail);
+      skipped_covered++;
       continue;
     }
 
-    // ── FAN-OUT DEDUP GUARD v2: skip if active OR recently completed sub-jobs exist ──
-    // v2 fix: checking only pending/processing caused infinite re-fan-out loops
-    // because completed jobs were invisible to the guard. Now we also check for
-    // jobs completed in the last 15 minutes to prevent re-enqueue storms.
+    // ── FAN-OUT DEDUP GUARD v2 ──
     const { count: activeLfJobs } = await sb.from("job_queue")
       .select("id", { count: "exact", head: true })
       .eq("job_type", "package_generate_exam_pool")
@@ -1106,24 +1109,41 @@ async function enqueueLearningFieldJobs(
     
     if ((activeLfJobs ?? 0) > 0) {
       console.log(`[ExamPool-v5] LF ${lfId.slice(0, 8)}: ${activeLfJobs} active sub-jobs → SKIP (dedup)`);
-      skipped++;
+      lfDetail.skip_reason = "dedup";
+      lf_details.push(lfDetail);
+      skipped_dedup++;
       continue;
     }
 
-    // Check for recently completed sub-jobs (cooldown: 15 min)
+    // ── COOLDOWN GUARD v3: only honor cooldown if recent job actually produced questions ──
     const recentCutoff = new Date(Date.now() - 15 * 60 * 1000).toISOString();
-    const { count: recentCompletedLfJobs } = await sb.from("job_queue")
-      .select("id", { count: "exact", head: true })
+    const { data: recentCompletedJobs } = await sb.from("job_queue")
+      .select("id, result")
       .eq("job_type", "package_generate_exam_pool")
       .eq("package_id", packageId)
       .eq("status", "completed")
       .gte("completed_at", recentCutoff)
-      .contains("payload", { learning_field_filter: lfId, _fan_out: true });
+      .contains("payload", { learning_field_filter: lfId, _fan_out: true })
+      .limit(3);
 
-    if ((recentCompletedLfJobs ?? 0) > 0) {
-      console.log(`[ExamPool-v5] LF ${lfId.slice(0, 8)}: ${recentCompletedLfJobs} sub-jobs completed in last 15min → SKIP (cooldown)`);
-      skipped++;
+    // v3 FIX: Only respect cooldown if the recent job actually generated new questions.
+    // Previously, a job that reported ok:true but generated:0 would still trigger cooldown,
+    // permanently blocking LFs with existing-but-insufficient questions.
+    const productiveCooldown = (recentCompletedJobs ?? []).some((j: any) => {
+      const gen = j.result?.metrics?.generated ?? j.result?.generated;
+      return typeof gen === "number" && gen > 0;
+    });
+
+    if (productiveCooldown) {
+      console.log(`[ExamPool-v5] LF ${lfId.slice(0, 8)}: productive sub-job in last 15min → SKIP (cooldown)`);
+      lfDetail.skip_reason = "cooldown";
+      lf_details.push(lfDetail);
+      skipped_cooldown++;
       continue;
+    }
+
+    if ((recentCompletedJobs ?? []).length > 0 && !productiveCooldown) {
+      console.warn(`[ExamPool-v5] LF ${lfId.slice(0, 8)}: recent job(s) completed but generated=0 → IGNORING cooldown (zero-production)`);
     }
 
     const priority = existing === 0 ? 0 : 1;
@@ -1156,16 +1176,20 @@ async function enqueueLearningFieldJobs(
       });
 
       if (enq.status === "pending" || enq.status === "processing") enqueued++;
+      lf_details.push(lfDetail);
       console.log(`[ExamPool-v5] LF ${lfId.slice(0, 8)}: weight=${(weight * 100).toFixed(1)}%, target=${proportionalTarget}, existing=${existing}, gap=${gap}, enqueue_status=${enq.status}`);
     } catch (e) {
       const errMsg = (e as Error).message || String(e);
       console.warn(`[ExamPool-v5] LF ${lfId.slice(0, 8)} enqueue FAILED: ${errMsg}`);
+      lfDetail.skip_reason = "error";
+      lf_details.push(lfDetail);
       errors.push(`${lfId.slice(0, 8)}:${errMsg.slice(0, 200)}`);
     }
   }
 
-  console.log(`[ExamPool-v5] Proportional fan-out: ${enqueued} active, ${skipped} skipped, ${errors.length} errors for ${lfCount} LFs`);
-  return { enqueued, learningFields: lfCount, skipped, errors };
+  const skipped = skipped_covered + skipped_cooldown + skipped_dedup;
+  console.log(`[ExamPool-v5] Proportional fan-out: ${enqueued} active, ${skipped} skipped (covered=${skipped_covered}, cooldown=${skipped_cooldown}, dedup=${skipped_dedup}), ${errors.length} errors for ${lfCount} LFs`);
+  return { enqueued, learningFields: lfCount, skipped, skipped_covered, skipped_cooldown, skipped_dedup, errors, lf_details };
 }
 
 async function allFanOutSubJobsDone(sb: ReturnType<typeof createClient>, packageId: string): Promise<boolean> {
