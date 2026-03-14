@@ -919,11 +919,17 @@ async function dedupeValidateAndInsert(
     if (hasMetaText) {
       console.log(`[ExamPool-v5] REJECTED META_TEXT: "${explanationText.slice(0, 60)}…"`);
       rejectedOther++;
+      _qualityMetrics.candidates_rejected_meta_text++;
+      _qualityMetrics.rejection_reasons["meta_text"] = (_qualityMetrics.rejection_reasons["meta_text"] ?? 0) + 1;
       continue;
     }
 
     // Reject unresolved placeholders
-    if (/\{[a-z_]+\}/i.test(q.question_text)) continue;
+    if (/\{[a-z_]+\}/i.test(q.question_text)) {
+      _qualityMetrics.candidates_rejected_placeholder++;
+      _qualityMetrics.rejection_reasons["placeholder"] = (_qualityMetrics.rejection_reasons["placeholder"] ?? 0) + 1;
+      continue;
+    }
 
     const contam = checkContamination(q.question_text + " " + (q.explanation || ""), professionName);
     if (contam.isContaminated) {
