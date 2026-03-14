@@ -212,6 +212,7 @@ verify_jwt = false
 
 [functions.package-generate-exam-pool]
 verify_jwt = false
+wall_clock_limit_sec = 300
 
 [functions.package-generate-oral-exam]
 verify_jwt = false
