@@ -231,27 +231,6 @@ export async function persistLessonResult(
     })(),
   ]);
 
-    // Cost logging
-    logLLMCostEvent(sb, {
-      job_type: "lesson_generate_content",
-      provider: llm.result.provider,
-      model: llm.result.model,
-      tokens_in: llm.result.usage?.input_tokens || 0,
-      tokens_out: llm.result.usage?.output_tokens || 0,
-      package_id: req.packageId,
-      certification_id: req.certificationId,
-      course_id: req.courseId,
-      estimatedUsage: llm.result.estimatedUsage,
-      meta: {
-        plain_retry: llm.plainRetry,
-        step_key: req.stepKey,
-        autopilot: runtime.autopilotAction,
-        attempt_index: req.attemptIndex,
-      },
-    }).catch((e: Error) => {
-      console.warn(`[lesson-gen] cost_log failed: ${e?.message?.slice(0, 100)}`);
-    }),
-  ]);
 
   return json({
     ok: true,
