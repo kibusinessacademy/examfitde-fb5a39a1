@@ -242,6 +242,7 @@ Deno.serve(async (req) => {
         const freezeReason = scoreDelta < 0
           ? `REGRESSION: Score dropped from ${run.last_score} to ${score} (Δ${scoreDelta})`
           : `STAGNATION: Score unchanged at ${score} (Δ${scoreDelta})`;
+        const reasonCode = scoreDelta < 0 ? "REGRESSION" : "STAGNATION";
 
         console.warn(`[AutoGap] REGRESSION FREEZE: ${freezeReason}`);
 
@@ -249,6 +250,7 @@ Deno.serve(async (req) => {
         await sb.from("autofix_runs").update({
           status: "frozen",
           stop_reason: freezeReason,
+          stop_reason_code: reasonCode,
           last_score: score,
           last_report: report as any,
         }).eq("id", run.id);
