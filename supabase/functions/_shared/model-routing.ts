@@ -185,7 +185,7 @@ async function loadRulesFromDb(): Promise<Record<string, ModelChoice[]>> {
 
     const { data, error } = await supabase
       .from("model_routing_rules")
-      .select("intent,provider,model,priority,is_fallback,enabled,budget_cap_eur,max_output_tokens,temperature")
+      .select("intent,provider,model,priority,is_fallback,enabled,budget_cap_eur,max_output_tokens,temperature,ab_weight")
       .eq("enabled", true)
       .order("intent", { ascending: true })
       .order("priority", { ascending: true });
