@@ -21,6 +21,8 @@ export interface LessonData {
   lfId: string | null;
   professionName: string;
   glossaryContext: string;
+  /** Pre-loaded mastery context (OPT-1: parallelized with LF/glossary) */
+  masteryCtx: any | null;
 }
 
 export interface LessonContext {

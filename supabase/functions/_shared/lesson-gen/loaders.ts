@@ -1,68 +1,104 @@
 /**
  * lesson-gen/loaders.ts — Database reads only. No prompt logic.
+ * OPT-1: Parallelized DB reads for maximum throughput.
  */
 
 import { resolveProfession } from "../profession-resolver.ts";
 import { loadCachedGlossary, formatGlossaryForPrompt } from "../glossary-loader.ts";
+import {
+  loadMasteryContext,
+} from "../prompt-kit.ts";
 import type { LessonRequest, LessonData } from "./types.ts";
 
 /**
- * Load all data needed for lesson generation:
+ * Load all data needed for lesson generation in parallel:
  * - Lesson metadata (with module join)
- * - Learning field data
- * - Profession name
- * - Glossary context
+ * - Learning field data (after lesson, needs lfId)
+ * - Profession name + glossary (parallel with LF)
+ * - Mastery context (parallel with LF)
  */
 export async function loadLessonGenerationData(
   sb: any,
   req: LessonRequest,
   json: (body: unknown, status?: number) => Response,
 ): Promise<{ data: LessonData } | { error: Response }> {
-  // Load lesson metadata
-  const { data: lesson, error: lErr } = await sb
-    .from("lessons")
-    .select("id, title, step, module_id, content, qc_status, modules!inner(course_id, title, learning_field_id)")
-    .eq("id", req.lessonId)
-    .single();
+  // ── Phase 1: Lesson + Profession resolution in parallel ──
+  // These two are independent and can run concurrently
+  const [lessonResult, profResult] = await Promise.all([
+    sb
+      .from("lessons")
+      .select("id, title, step, module_id, content, qc_status, modules!inner(course_id, title, learning_field_id)")
+      .eq("id", req.lessonId)
+      .single(),
+    resolveProfession(sb, {
+      certificationId: req.certificationId,
+      curriculumId: req.curriculumId,
+    }).catch((e: Error) => ({ _error: e })),
+  ]);
 
+  const { data: lesson, error: lErr } = lessonResult;
   if (lErr || !lesson) {
     return { error: json({ error: "Lesson not found", details: lErr?.message }, 404) };
   }
 
-  // Load LF context
-  const lfId = (lesson as any).modules?.learning_field_id;
-  let lfData: any = null;
-  if (lfId) {
-    const { data } = await sb
-      .from("learning_fields")
-      .select("id, title, code, weight_percent, exam_part, difficulty_tier, ihk_focus_areas")
-      .eq("id", lfId)
-      .maybeSingle();
-    lfData = data;
+  if (profResult && "_error" in profResult) {
+    return { error: json({ error: (profResult._error as Error).message }, 400) };
   }
+  const professionName = profResult.professionName;
 
-  // Resolve profession + glossary
-  let professionName: string;
-  let glossaryContext = "";
-  try {
-    const prof = await resolveProfession(sb, {
-      certificationId: req.certificationId,
-      curriculumId: req.curriculumId,
-    });
-    professionName = prof.professionName;
+  // ── Phase 2: LF data + Glossary + Mastery — all parallel ──
+  // These depend on lesson/profession but are independent of each other
+  const lfId = (lesson as any).modules?.learning_field_id;
 
-    const { data: cu } = await sb.from("curricula").select("beruf_id").eq("id", req.curriculumId).maybeSingle();
-    if (cu?.beruf_id) {
+  // Fetch beruf_id once (needed for glossary)
+  const berufPromise = sb.from("curricula").select("beruf_id").eq("id", req.curriculumId).maybeSingle()
+    .then((r: any) => r.data?.beruf_id || null)
+    .catch(() => null);
+
+  const phase2Promises: [
+    Promise<any>,                         // LF data
+    Promise<string | null>,               // beruf_id
+    Promise<any>,                         // mastery context
+  ] = [
+    // LF data
+    lfId
+      ? sb.from("learning_fields")
+          .select("id, title, code, weight_percent, exam_part, difficulty_tier, ihk_focus_areas")
+          .eq("id", lfId)
+          .maybeSingle()
+          .then((r: any) => r.data)
+      : Promise.resolve(null),
+
+    // beruf_id (for glossary, resolved after)
+    berufPromise,
+
+    // Mastery context (moved here from context.ts to parallelize)
+    (async () => {
       try {
-        const glossary = await loadCachedGlossary(sb, cu.beruf_id, professionName);
-        if (glossary) glossaryContext = formatGlossaryForPrompt(glossary, lfData?.code || null);
-      } catch { /* no glossary — proceed */ }
-    }
-  } catch (e) {
-    return { error: json({ error: (e as Error).message }, 400) };
+        return await loadMasteryContext(sb, req.curriculumId, lfId || null);
+      } catch { return null; }
+    })(),
+  ];
+
+  const [lfData, berufId, masteryCtx] = await Promise.all(phase2Promises);
+
+  // Glossary: uses beruf_id + lfCode (both now available)
+  let finalGlossaryContext = "";
+  if (berufId) {
+    try {
+      const glossary = await loadCachedGlossary(sb, berufId, professionName);
+      if (glossary) finalGlossaryContext = formatGlossaryForPrompt(glossary, lfData?.code || null);
+    } catch { /* no glossary — proceed */ }
   }
 
   return {
-    data: { lesson, lfData, lfId: lfId || null, professionName, glossaryContext },
+    data: {
+      lesson,
+      lfData,
+      lfId: lfId || null,
+      professionName,
+      glossaryContext: finalGlossaryContext,
+      masteryCtx,
+    },
   };
 }

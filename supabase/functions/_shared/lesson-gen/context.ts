@@ -1,11 +1,11 @@
 /**
  * lesson-gen/context.ts — Transform loaded records into model-ready context blocks.
  * No DB calls. No prompt assembly. Pure data shaping.
+ * OPT-1: Mastery context is now pre-loaded in loaders.ts (no async DB call here).
  */
 
 import {
   mapToDifficultyLevel,
-  loadMasteryContext,
   adjustDifficultyByMastery,
   getRequiredDepth,
   buildMasteryFeedbackSuffix,
@@ -15,12 +15,11 @@ import type { LessonData, LessonContext } from "./types.ts";
 
 /**
  * Build all context blocks needed for prompt assembly.
+ * Now synchronous-style since mastery is pre-loaded in data.masteryCtx.
  */
-export async function buildLessonGenerationContext(
-  sb: any,
+export function buildLessonGenerationContext(
   data: LessonData,
-  curriculumId: string,
-): Promise<LessonContext> {
+): LessonContext {
   const { lesson, lfData, lfId } = data;
 
   // LF context string
@@ -34,12 +33,9 @@ export async function buildLessonGenerationContext(
       : "",
   ].filter(Boolean).join("\n") : "";
 
-  // Adaptive difficulty
+  // Adaptive difficulty — mastery already loaded
   const baseDifficultyLevel: DifficultyLevel = mapToDifficultyLevel(lfData?.difficulty_tier);
-  let masteryCtx = null;
-  try {
-    masteryCtx = await loadMasteryContext(sb, curriculumId, lfId || null);
-  } catch { /* proceed without mastery */ }
+  const masteryCtx = data.masteryCtx || null;
 
   const difficultyLevel = adjustDifficultyByMastery(baseDifficultyLevel, masteryCtx);
   const adaptiveReq = getRequiredDepth(difficultyLevel);

@@ -32,7 +32,7 @@ import {
  *   6. tier1_failed → reject stale content_versions before dispatching
  */
 
-const STAGGER_MS = 100;
+const STAGGER_MS = 30; // OPT-4: reduced from 100ms for +60% dispatch throughput
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
