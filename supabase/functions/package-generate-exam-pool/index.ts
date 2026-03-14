@@ -2108,12 +2108,80 @@ Deno.serve(async (req) => {
     const progress = Math.min(55, Math.round(25 + (actualTotal / examTarget) * 30));
     await sb.from("course_packages").update({ build_progress: progress }).eq("id", packageId);
 
-    // ── HOLLOW COMPLETION GUARD ──────────────────────────────────────────
-    // NEVER mark batch_complete if 0 questions were persisted.
-    // This prevents the pipeline from marking the step "done" with no artifacts.
+    // ══════════════════════════════════════════════════════════════════════
+    // ── EFFECTIVE SUCCESS GUARD (P1-A) ───────────────────────────────────
+    // Determines whether the job *actually* produced value.
+    // generated: 0 without a valid noop_reason is ALWAYS a failure.
+    // ══════════════════════════════════════════════════════════════════════
+
+    const existingBefore = actualTotal - questionsThisChunk;
+    const llmAttempted = _qualityMetrics.total_llm_calls > 0;
+
+    // Determine noop_reason (legitimate cases where generated=0 is OK)
+    let noopReason: string | null = null;
+    if (questionsThisChunk === 0 && !llmAttempted && targetReached) {
+      noopReason = "TARGET_ALREADY_REACHED";
+    }
+
+    const effectiveSuccess =
+      questionsThisChunk > 0 ||
+      (questionsThisChunk === 0 && typeof noopReason === "string" && noopReason.length > 0);
+
+    let failureReason: string | null = null;
+    let failureStage: string | null = null;
+    if (!effectiveSuccess) {
+      if (_qualityMetrics.empty_responses > 0 && _qualityMetrics.candidates_generated === 0) {
+        failureReason = "ZERO_GENERATION";
+        failureStage = "llm_generation";
+      } else if (_qualityMetrics.candidates_generated > 0 && questionsThisChunk === 0) {
+        failureReason = "ALL_CANDIDATES_REJECTED";
+        failureStage = "quality_gate";
+      } else if (llmAttempted && _qualityMetrics.failed_llm_calls === _qualityMetrics.total_llm_calls) {
+        failureReason = "ALL_LLM_CALLS_FAILED";
+        failureStage = "llm_call";
+      } else {
+        failureReason = "ZERO_GENERATION";
+        failureStage = "unknown";
+      }
+      console.error(`[ExamPool-v5] EFFECTIVE_FAILURE: ${failureReason} (stage=${failureStage}, llm_calls=${_qualityMetrics.total_llm_calls}, candidates=${_qualityMetrics.candidates_generated}, empty=${_qualityMetrics.empty_responses})`);
+    }
+
+    // Build enriched result base with effective_success metadata
+    const resultMeta = {
+      effective_success: effectiveSuccess,
+      generated: questionsThisChunk,
+      inserted: actualTotal,
+      existing_before: existingBefore,
+      existing_after: actualTotal,
+      noop: questionsThisChunk === 0 && effectiveSuccess,
+      noop_reason: noopReason,
+      failure_reason: failureReason,
+      failure_stage: failureStage,
+      llm_calls_attempted: _qualityMetrics.total_llm_calls,
+      llm_calls_failed: _qualityMetrics.failed_llm_calls,
+      empty_responses: _qualityMetrics.empty_responses,
+    };
+
+    // ── HOLLOW COMPLETION GUARD (existing, enhanced) ─────────────────────
     if (actualTotal <= 0) {
       console.error(`[ExamPool-v5] HOLLOW_COMPLETION_GUARD: 0 questions persisted for curriculum ${curriculumId?.slice(0,8)}. Refusing batch_complete.`);
-      return json({ ok: false, batch_complete: false, error: "HOLLOW_COMPLETION: no exam_questions persisted", total_questions: 0 }, 500);
+      return json({ ok: false, batch_complete: false, error: "HOLLOW_COMPLETION: no exam_questions persisted", total_questions: 0, ...resultMeta }, 500);
+    }
+
+    // ── EFFECTIVE FAILURE → return ok: false (the core P1-A fix) ─────────
+    if (!effectiveSuccess) {
+      console.error(`[ExamPool-v5] EFFECTIVE_FAILURE_GUARD: generated=0, no valid noop_reason → returning ok: false`);
+      return json(withMetrics(
+        {
+          ok: false,
+          batch_complete: false,
+          error: `EFFECTIVE_FAILURE: ${failureReason}`,
+          total_questions: actualTotal,
+          target: examTarget,
+          ...resultMeta,
+        },
+        { generated: questionsThisChunk, inserted: actualTotal, blueprints_found: bps.length, blueprints_used: bpsProcessed },
+      ), 500);
     }
 
     if (targetReached) {
@@ -2122,7 +2190,7 @@ Deno.serve(async (req) => {
         await sb.from("course_packages").update({ build_progress: 55 }).eq("id", packageId);
       }
       return json(withMetrics(
-        { ok: true, batch_complete: true, engine: "v5-ihk-quality", total_questions: actualTotal, training_pool: trainingThisChunk, target: examTarget },
+        { ok: true, batch_complete: true, engine: "v5-ihk-quality", total_questions: actualTotal, training_pool: trainingThisChunk, target: examTarget, ...resultMeta },
         { generated: questionsThisChunk, inserted: actualTotal, blueprints_found: bps.length, blueprints_used: bpsProcessed },
       ));
     } else if (allBlueprintsProcessed) {
@@ -2139,17 +2207,17 @@ Deno.serve(async (req) => {
         }
         if (!isFanOut) await sb.from("course_packages").update({ build_progress: 55 }).eq("id", packageId);
         return json(withMetrics(
-          { ok: true, batch_complete: true, total_questions: actualTotal, loop_capped: true },
+          { ok: true, batch_complete: true, total_questions: actualTotal, loop_capped: true, ...resultMeta },
           { generated: questionsThisChunk, inserted: actualTotal, blueprints_found: bps.length, blueprints_used: bpsProcessed },
         ));
       }
       return json(withMetrics(
-        { ok: true, batch_complete: false, batch_cursor: { generated: actualTotal, blueprint_index: 0, target: examTarget, blueprints_total: bps.length, loop_count: currentLoop } },
+        { ok: true, batch_complete: false, batch_cursor: { generated: actualTotal, blueprint_index: 0, target: examTarget, blueprints_total: bps.length, loop_count: currentLoop }, ...resultMeta },
         { generated: questionsThisChunk, inserted: actualTotal, blueprints_found: bps.length, blueprints_used: bpsProcessed },
       ));
     } else {
       return json(withMetrics(
-        { ok: true, batch_complete: false, batch_cursor: { generated: actualTotal, blueprint_index: currentBpIndex, target: examTarget, blueprints_total: bps.length, loop_count: batchCursor?.loop_count ?? 0 } },
+        { ok: true, batch_complete: false, batch_cursor: { generated: actualTotal, blueprint_index: currentBpIndex, target: examTarget, blueprints_total: bps.length, loop_count: batchCursor?.loop_count ?? 0 }, ...resultMeta },
         { generated: questionsThisChunk, inserted: actualTotal, blueprints_found: bps.length, blueprints_used: bpsProcessed },
       ));
     }
