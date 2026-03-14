@@ -1303,14 +1303,25 @@ Deno.serve(async (req) => {
           );
         }
 
-        if (enqueued === 0 && totalNow > 0) {
-          // Legitimately covered: all LFs at target and questions exist
-          console.log(`[ExamPool-v5] GUARD: fan_out_skipped=true, totalNow=${totalNow} — alle LFs haben Target erreicht`);
+        // ── P0 FIX: batch_complete requires BOTH no pending work AND target reached ──
+        // Previously: `enqueued === 0 && totalNow > 0` → declared batch_complete even with 216/500 questions
+        // because all LFs were skipped due to cooldown, not because they were actually at target.
+        // Now: batch_complete only if totalNow >= examTarget (the actual production goal).
+        const targetReached = totalNow >= examTarget;
+        const allLfsCovered = enqueued === 0 && skipped === learningFields;
+
+        if (enqueued === 0 && totalNow > 0 && !targetReached) {
+          // All LFs skipped (cooldown or dedup) but target NOT reached — NOT complete
+          console.warn(`[ExamPool-v5] UNDERPRODUCTION_GUARD: all LFs skipped but totalNow=${totalNow} < target=${examTarget} → batch NOT complete (cooldown/dedup artifact)`);
+        }
+
+        if (enqueued === 0 && targetReached) {
+          console.log(`[ExamPool-v5] GUARD: fan_out_skipped=true, totalNow=${totalNow} >= target=${examTarget} — alle LFs haben Target erreicht`);
         }
 
         return json(
           withMetrics(
-            { ok: true, batch_complete: enqueued === 0 && totalNow > 0, fan_out: true, fan_out_skipped: enqueued === 0, sub_jobs: enqueued, learningFields },
+            { ok: true, batch_complete: targetReached, fan_out: true, fan_out_skipped: enqueued === 0, sub_jobs: enqueued, learningFields, totalNow, examTarget },
             { fan_out: true, learning_fields_total: learningFields, learning_fields_enqueued: enqueued, learning_fields_skipped: skipped, learning_fields_errors: enqErrors.length, inserted: totalNow },
           ),
         );
