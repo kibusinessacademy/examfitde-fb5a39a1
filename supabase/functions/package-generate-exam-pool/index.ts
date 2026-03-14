@@ -986,6 +986,8 @@ async function dedupeValidateAndInsert(
     );
     if (halluRisk.verdict === "regenerate") {
       console.log(`[ExamPool-v5] REJECTED HALLUCINATION_RISK (${halluRisk.riskScore}): suspicious=[${halluRisk.suspiciousRegulatory.join(", ")}]`);
+      _qualityMetrics.candidates_rejected_hallucination++;
+      _qualityMetrics.rejection_reasons["hallucination_risk"] = (_qualityMetrics.rejection_reasons["hallucination_risk"] ?? 0) + 1;
       continue;
     }
 
