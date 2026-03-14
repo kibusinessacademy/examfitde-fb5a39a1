@@ -1091,6 +1091,47 @@ async function enqueueLearningFieldJobs(
   const errors: string[] = [];
   const lf_details: Array<{ lf_id: string; existing: number; target: number; gap: number; skip_reason?: string }> = [];
 
+  // ── OPT-3: Batch load all active + recent jobs for all LFs in 2 queries ──
+  const activeJobsByLf = new Map<string, number>();
+  const productiveCooldownLfs = new Set<string>();
+  const recentJobLfs = new Set<string>();
+  
+  // Query 1: active (pending/processing) fan-out jobs
+  const { data: activeJobs } = await sb.from("job_queue")
+    .select("payload")
+    .eq("job_type", "package_generate_exam_pool")
+    .eq("package_id", packageId)
+    .in("status", ["pending", "processing"])
+    .contains("payload", { _fan_out: true });
+  
+  if (activeJobs) {
+    for (const job of activeJobs) {
+      const lfId = (job.payload as any)?.learning_field_filter;
+      if (lfId) activeJobsByLf.set(lfId, (activeJobsByLf.get(lfId) ?? 0) + 1);
+    }
+  }
+
+  // Query 2: recently completed fan-out jobs (for cooldown check)
+  const recentCutoff = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+  const { data: recentJobs } = await sb.from("job_queue")
+    .select("payload, result")
+    .eq("job_type", "package_generate_exam_pool")
+    .eq("package_id", packageId)
+    .eq("status", "completed")
+    .gte("completed_at", recentCutoff)
+    .contains("payload", { _fan_out: true })
+    .limit(100);
+
+  if (recentJobs) {
+    for (const job of recentJobs) {
+      const lfId = (job.payload as any)?.learning_field_filter;
+      if (!lfId) continue;
+      recentJobLfs.add(lfId);
+      const gen = (job.result as any)?.metrics?.generated ?? (job.result as any)?.generated;
+      if (typeof gen === "number" && gen > 0) productiveCooldownLfs.add(lfId);
+    }
+  }
+
   for (const [lfId, lfBps] of lfEntries) {
     const weight = lfWeights.get(lfId) ?? (1 / lfCount);
     const proportionalTarget = Math.ceil(examTarget * weight);
