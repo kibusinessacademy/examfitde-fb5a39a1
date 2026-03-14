@@ -1099,38 +1099,38 @@ async function enqueueLearningFieldJobs(
   const productiveCooldownLfs = new Set<string>();
   const recentJobLfs = new Set<string>();
   
-  // Query 1: active (pending/processing) fan-out jobs
+  // Query 1: active (pending/processing) fan-out jobs — minimal fields
   const { data: activeJobs } = await sb.from("job_queue")
-    .select("payload")
+    .select("payload->learning_field_filter")
     .eq("job_type", "package_generate_exam_pool")
     .eq("package_id", packageId)
     .in("status", ["pending", "processing"])
-    .contains("payload", { _fan_out: true });
+    .not("payload->_fan_out", "is", null);
   
   if (activeJobs) {
     for (const job of activeJobs) {
-      const lfId = (job.payload as any)?.learning_field_filter;
+      const lfId = (job as any).learning_field_filter;
       if (lfId) activeJobsByLf.set(lfId, (activeJobsByLf.get(lfId) ?? 0) + 1);
     }
   }
 
-  // Query 2: recently completed fan-out jobs (for cooldown check)
+  // Query 2: recently completed fan-out jobs (cooldown) — only metrics needed
   const recentCutoff = new Date(Date.now() - 15 * 60 * 1000).toISOString();
   const { data: recentJobs } = await sb.from("job_queue")
-    .select("payload, result")
+    .select("payload->learning_field_filter, result->metrics->generated, result->generated")
     .eq("job_type", "package_generate_exam_pool")
     .eq("package_id", packageId)
     .eq("status", "completed")
     .gte("completed_at", recentCutoff)
-    .contains("payload", { _fan_out: true })
+    .not("payload->_fan_out", "is", null)
     .limit(100);
 
   if (recentJobs) {
     for (const job of recentJobs) {
-      const lfId = (job.payload as any)?.learning_field_filter;
+      const lfId = (job as any).learning_field_filter;
       if (!lfId) continue;
       recentJobLfs.add(lfId);
-      const gen = (job.result as any)?.metrics?.generated ?? (job.result as any)?.generated;
+      const gen = (job as any).generated;
       if (typeof gen === "number" && gen > 0) productiveCooldownLfs.add(lfId);
     }
   }
