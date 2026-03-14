@@ -663,6 +663,13 @@ export type Database = {
             foreignKeyName: "ai_tutor_context_index_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "ops_legacy_package_audit"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "ai_tutor_context_index_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "ops_recent_building_without_lease"
             referencedColumns: ["package_id"]
           },
@@ -5639,6 +5646,13 @@ export type Database = {
             foreignKeyName: "council_sessions_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "ops_legacy_package_audit"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "council_sessions_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "ops_recent_building_without_lease"
             referencedColumns: ["package_id"]
           },
@@ -6372,6 +6386,13 @@ export type Database = {
             foreignKeyName: "course_package_build_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "ops_legacy_package_audit"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_build_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "ops_recent_building_without_lease"
             referencedColumns: ["package_id"]
           },
@@ -6529,6 +6550,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: true
             referencedRelation: "ops_course_build_progress"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_locks_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_legacy_package_audit"
             referencedColumns: ["package_id"]
           },
           {
@@ -6713,6 +6741,13 @@ export type Database = {
             foreignKeyName: "course_package_outputs_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "ops_legacy_package_audit"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_outputs_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "ops_recent_building_without_lease"
             referencedColumns: ["package_id"]
           },
@@ -6885,6 +6920,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_course_build_progress"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_plans_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_legacy_package_audit"
             referencedColumns: ["package_id"]
           },
           {
@@ -7081,6 +7123,13 @@ export type Database = {
             foreignKeyName: "course_package_reviews_course_package_id_fkey"
             columns: ["course_package_id"]
             isOneToOne: true
+            referencedRelation: "ops_legacy_package_audit"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_reviews_course_package_id_fkey"
+            columns: ["course_package_id"]
+            isOneToOne: true
             referencedRelation: "ops_recent_building_without_lease"
             referencedColumns: ["package_id"]
           },
@@ -7218,6 +7267,7 @@ export type Database = {
           id: string
           integrity_passed: boolean
           integrity_report: Json | null
+          integrity_report_version: string | null
           is_published: boolean
           is_rebuild: boolean
           last_error: string | null
@@ -7268,6 +7318,7 @@ export type Database = {
           id?: string
           integrity_passed?: boolean
           integrity_report?: Json | null
+          integrity_report_version?: string | null
           is_published?: boolean
           is_rebuild?: boolean
           last_error?: string | null
@@ -7318,6 +7369,7 @@ export type Database = {
           id?: string
           integrity_passed?: boolean
           integrity_report?: Json | null
+          integrity_report_version?: string | null
           is_published?: boolean
           is_rebuild?: boolean
           last_error?: string | null
@@ -10646,6 +10698,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_course_build_progress"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "duplicate_detection_log_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_legacy_package_audit"
             referencedColumns: ["package_id"]
           },
           {
@@ -17026,6 +17085,13 @@ export type Database = {
             foreignKeyName: "oral_exam_session_templates_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "ops_legacy_package_audit"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "oral_exam_session_templates_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "ops_recent_building_without_lease"
             referencedColumns: ["package_id"]
           },
@@ -17300,6 +17366,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: true
             referencedRelation: "ops_course_build_progress"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "oral_exam_sessionsets_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_legacy_package_audit"
             referencedColumns: ["package_id"]
           },
           {
@@ -18186,6 +18259,13 @@ export type Database = {
             foreignKeyName: "package_leases_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: true
+            referencedRelation: "ops_legacy_package_audit"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_leases_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
             referencedRelation: "ops_recent_building_without_lease"
             referencedColumns: ["package_id"]
           },
@@ -18528,6 +18608,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "ops_legacy_package_audit"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "ops_recent_building_without_lease"
             referencedColumns: ["package_id"]
           },
@@ -18685,6 +18772,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_course_build_progress"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_tags_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_legacy_package_audit"
             referencedColumns: ["package_id"]
           },
           {
@@ -19186,6 +19280,13 @@ export type Database = {
             columns: ["active_package_id"]
             isOneToOne: false
             referencedRelation: "ops_course_build_progress"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "pipeline_lock_active_package_id_fkey"
+            columns: ["active_package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_legacy_package_audit"
             referencedColumns: ["package_id"]
           },
           {
@@ -19716,6 +19817,13 @@ export type Database = {
             foreignKeyName: "premium_upgrade_runs_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "ops_legacy_package_audit"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "premium_upgrade_runs_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "ops_recent_building_without_lease"
             referencedColumns: ["package_id"]
           },
@@ -20215,6 +20323,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_course_build_progress"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "production_quality_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_legacy_package_audit"
             referencedColumns: ["package_id"]
           },
           {
@@ -29728,6 +29843,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "ops_legacy_package_audit"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "ops_recent_building_without_lease"
             referencedColumns: ["package_id"]
           },
@@ -31024,6 +31146,18 @@ export type Database = {
         }
         Relationships: []
       }
+      ops_drift_finder: {
+        Row: {
+          detail: Json | null
+          drift_type: string | null
+          package_id: string | null
+          package_status: string | null
+          step_key: string | null
+          step_status: string | null
+          title: string | null
+        }
+        Relationships: []
+      }
       ops_heal_effectiveness: {
         Row: {
           action_type: string | null
@@ -31137,6 +31271,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_course_build_progress"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_legacy_package_audit"
             referencedColumns: ["package_id"]
           },
           {
@@ -31289,6 +31430,63 @@ export type Database = {
         }
         Relationships: []
       }
+      ops_legacy_package_audit: {
+        Row: {
+          exam_actual: number | null
+          exam_target: number | null
+          gate_version: string | null
+          integrity_passed: boolean | null
+          integrity_report_version: string | null
+          integrity_score: number | null
+          needs_production_run: boolean | null
+          needs_report_refresh: boolean | null
+          package_id: string | null
+          report_generated_at: string | null
+          status: string | null
+          steps_done: number | null
+          steps_total: number | null
+          title: string | null
+          track: Database["public"]["Enums"]["product_track"] | null
+          updated_at: string | null
+        }
+        Insert: {
+          exam_actual?: never
+          exam_target?: never
+          gate_version?: never
+          integrity_passed?: boolean | null
+          integrity_report_version?: string | null
+          integrity_score?: never
+          needs_production_run?: never
+          needs_report_refresh?: never
+          package_id?: string | null
+          report_generated_at?: never
+          status?: string | null
+          steps_done?: never
+          steps_total?: never
+          title?: string | null
+          track?: Database["public"]["Enums"]["product_track"] | null
+          updated_at?: string | null
+        }
+        Update: {
+          exam_actual?: never
+          exam_target?: never
+          gate_version?: never
+          integrity_passed?: boolean | null
+          integrity_report_version?: string | null
+          integrity_score?: never
+          needs_production_run?: never
+          needs_report_refresh?: never
+          package_id?: string | null
+          report_generated_at?: never
+          status?: string | null
+          steps_done?: never
+          steps_total?: never
+          title?: string | null
+          track?: Database["public"]["Enums"]["product_track"] | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       ops_next_step_queued_no_job: {
         Row: {
           package_id: string | null
@@ -31331,6 +31529,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_course_build_progress"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_legacy_package_audit"
             referencedColumns: ["package_id"]
           },
           {
@@ -31491,6 +31696,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_course_build_progress"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_legacy_package_audit"
             referencedColumns: ["package_id"]
           },
           {
@@ -31737,6 +31949,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_course_build_progress"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_legacy_package_audit"
             referencedColumns: ["package_id"]
           },
           {
@@ -32037,6 +32256,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "ops_legacy_package_audit"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "ops_recent_building_without_lease"
             referencedColumns: ["package_id"]
           },
@@ -32289,6 +32515,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_course_build_progress"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_legacy_package_audit"
             referencedColumns: ["package_id"]
           },
           {
@@ -36857,6 +37090,7 @@ export type Database = {
           id: string
           integrity_passed: boolean
           integrity_report: Json | null
+          integrity_report_version: string | null
           is_published: boolean
           is_rebuild: boolean
           last_error: string | null
@@ -37151,6 +37385,7 @@ export type Database = {
           id: string
           integrity_passed: boolean
           integrity_report: Json | null
+          integrity_report_version: string | null
           is_published: boolean
           is_rebuild: boolean
           last_error: string | null
