@@ -772,7 +772,7 @@ async function generateRawCandidates(
           provider, model,
           tokens_in: tokIn,
           tokens_out: tokOut,
-          package_id: packageId || null,
+          package_id: pkgId,
           estimatedUsage: result.estimatedUsage,
           status: "success",
           attempt,
