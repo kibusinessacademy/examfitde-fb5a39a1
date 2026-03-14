@@ -759,12 +759,19 @@ async function dedupeValidateAndInsert(
   existingHashes: Set<string>,
   existingNgramSets: Set<string>[],
   professionName: string,
-): Promise<{ saved: number; training: number; gateFailed: number; generatedTotal: number; rejectedContamination: number; rejectedOther: number; acceptRate: number }> {
+): Promise<{
+  saved: number; training: number; gateFailed: number; generatedTotal: number;
+  rejectedContamination: number; rejectedOther: number; acceptRate: number;
+  exam_approved: number; training_total: number; persisted_total: number;
+  duplicates_skipped: number; near_duplicates_skipped: number;
+}> {
   let saved = 0;
   let training = 0;
   let gateFailed = 0;
   let rejectedContamination = 0;
   let rejectedOther = 0;
+  let duplicates_skipped = 0;
+  let near_duplicates_skipped = 0;
   const generatedTotal = rawCandidates.length;
 
   const examBatch: any[] = [];
@@ -812,7 +819,7 @@ async function dedupeValidateAndInsert(
 
     // Hash dedup (sequential — safe against intra-batch duplicates)
     const hash = simpleHash(q.question_text);
-    if (existingHashes.has(hash)) continue;
+    if (existingHashes.has(hash)) { duplicates_skipped++; continue; }
     existingHashes.add(hash);
 
     // Text-similarity dedup (Jaccard n-gram) — sequential, sees all prior additions
@@ -827,6 +834,7 @@ async function dedupeValidateAndInsert(
     }
     if (tooSimilar) {
       console.log(`[ExamPool-v5] NEAR-DUP skipped: "${q.question_text.slice(0, 50)}…"`);
+      near_duplicates_skipped++;
       continue;
     }
     existingNgramSets.push(qNgrams);
@@ -952,7 +960,7 @@ async function dedupeValidateAndInsert(
       trainingBatch.push({
         ...baseRow,
         distractor_meta: { raw: rawDistractorMeta, gate_fail: true, qc_reason: qcReason, required: requiredMeta, actual: rawDistractorMeta.length, source_type: questionType, final_type: finalQuestionType },
-        status: "training",
+        status: "draft",
         qc_status: "tier1_failed",
       });
       gateFailed++;
@@ -994,10 +1002,16 @@ async function dedupeValidateAndInsert(
     }
   }
 
+  const persisted_total = examBatch.length + trainingBatch.length;
   const acceptedTotal = saved + training + gateFailed;
   const acceptRate = generatedTotal > 0 ? ((acceptedTotal / generatedTotal) * 100).toFixed(1) : "0.0";
-  console.log(`[ExamPool-v5] YIELD: generated=${generatedTotal}, accepted=${acceptedTotal}, saved=${saved}, training=${training}, gateFailed=${gateFailed}, rejectedContamination=${rejectedContamination}, rejectedOther=${rejectedOther}, acceptRate=${acceptRate}%`);
-  return { saved, training, gateFailed, generatedTotal, rejectedContamination, rejectedOther, acceptRate: parseFloat(acceptRate) };
+  console.log(`[ExamPool-v5] YIELD: generated=${generatedTotal}, persisted=${persisted_total}, exam_approved=${saved}, training=${training}, gateFailed=${gateFailed}, dups_skipped=${duplicates_skipped}, near_dups=${near_duplicates_skipped}, contamination=${rejectedContamination}, other=${rejectedOther}, acceptRate=${acceptRate}%`);
+  return {
+    saved, training, gateFailed, generatedTotal, rejectedContamination, rejectedOther,
+    acceptRate: parseFloat(acceptRate),
+    exam_approved: saved, training_total: training + gateFailed,
+    persisted_total, duplicates_skipped, near_duplicates_skipped,
+  };
 }
 
 // ─── Legacy wrapper: generate + dedup + insert in one call (for backfill paths) ──
