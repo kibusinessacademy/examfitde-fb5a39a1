@@ -1002,10 +1002,16 @@ async function dedupeValidateAndInsert(
     }
   }
 
+  const persisted_total = examBatch.length + trainingBatch.length;
   const acceptedTotal = saved + training + gateFailed;
   const acceptRate = generatedTotal > 0 ? ((acceptedTotal / generatedTotal) * 100).toFixed(1) : "0.0";
-  console.log(`[ExamPool-v5] YIELD: generated=${generatedTotal}, accepted=${acceptedTotal}, saved=${saved}, training=${training}, gateFailed=${gateFailed}, rejectedContamination=${rejectedContamination}, rejectedOther=${rejectedOther}, acceptRate=${acceptRate}%`);
-  return { saved, training, gateFailed, generatedTotal, rejectedContamination, rejectedOther, acceptRate: parseFloat(acceptRate) };
+  console.log(`[ExamPool-v5] YIELD: generated=${generatedTotal}, persisted=${persisted_total}, exam_approved=${saved}, training=${training}, gateFailed=${gateFailed}, dups_skipped=${duplicates_skipped}, near_dups=${near_duplicates_skipped}, contamination=${rejectedContamination}, other=${rejectedOther}, acceptRate=${acceptRate}%`);
+  return {
+    saved, training, gateFailed, generatedTotal, rejectedContamination, rejectedOther,
+    acceptRate: parseFloat(acceptRate),
+    exam_approved: saved, training_total: training + gateFailed,
+    persisted_total, duplicates_skipped, near_duplicates_skipped,
+  };
 }
 
 // ─── Legacy wrapper: generate + dedup + insert in one call (for backfill paths) ──
