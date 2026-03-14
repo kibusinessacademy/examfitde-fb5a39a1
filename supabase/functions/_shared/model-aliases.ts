@@ -33,6 +33,9 @@ export const MODEL_ALIASES = {
   /** Google cheap+fast. Pinned snapshot. */
   google_fast: "gemini-2.5-flash",
 
+  /** Google strong reasoning. For cross-provider fallback on sensitive intents. Pinned. */
+  google_strong: "gemini-2.5-pro",
+
   /** OpenAI embeddings. Pinned. */
   openai_embeddings: "text-embedding-3-large",
 

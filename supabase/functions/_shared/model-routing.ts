@@ -47,6 +47,7 @@ const GPT4O_MINI: ModelChoice     = { provider: "openai",    model: MODEL_ALIASE
 const HAIKU_FALLBACK: ModelChoice = { provider: "anthropic", model: MODEL_ALIASES.anthropic_cheap_fast, is_fallback: true };
 const GPT5_2_FALLBACK: ModelChoice = { provider: "openai",  model: MODEL_ALIASES.openai_strong, is_fallback: true };
 const GPT5_MINI_FALLBACK: ModelChoice = { provider: "openai", model: MODEL_ALIASES.openai_balanced, is_fallback: true };
+const GEMINI_PRO_FALLBACK: ModelChoice = { provider: "google", model: MODEL_ALIASES.google_strong, is_fallback: true };
 
 // ── Tiered Fallback Strategy ─────────────────────────────────
 // COMPLEX intents (fachlich-sensitiv): GPT-4o mini → GPT-5.2 (NO cheap Haiku fallback)
