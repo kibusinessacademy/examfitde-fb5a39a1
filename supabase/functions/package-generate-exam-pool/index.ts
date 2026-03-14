@@ -838,7 +838,7 @@ async function generateRawCandidates(
         job_type: "package_generate_exam_pool",
         provider: usedProvider, model: usedModel,
         tokens_in: 0, tokens_out: 0,
-        package_id: packageId || null,
+        package_id: pkgId,
         status: "fail",
         error_message: `JSON_REPAIR_FAILED: output_length=${result.content.length}, first_100=${result.content.slice(0, 100)}`,
         meta: { blueprint_id: bp.id, json_repair_failure: true, output_length: result.content.length },
