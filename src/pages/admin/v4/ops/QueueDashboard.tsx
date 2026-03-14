@@ -143,9 +143,13 @@ export default function QueueDashboard() {
   if (loading) return <Loading />;
 
   const statusCounts = jobs.reduce((acc: any, j) => { acc[j.status] = (acc[j.status] || 0) + 1; return acc; }, {});
-  const gen0Count = jobs.filter(j => j.status === 'failed' && (j.last_error?.includes('gen=0') || j.error?.includes('gen=0'))).length;
+  const gen0Count = jobs.filter(j =>
+    (j.status === 'failed' && (j.last_error?.includes('gen=0') || j.error?.includes('gen=0'))) ||
+    (j.status === 'completed' && j.result?.effective_success === false)
+  ).length;
   const blockedCount = jobs.filter(j => j.status === 'cancelled' && j.meta?.outcome === 'blocked').length;
   const exhaustedCount = jobs.filter(j => j.status === 'failed' && j.attempts >= j.max_attempts).length;
+  const hollowCompleted = jobs.filter(j => j.status === 'completed' && j.result?.generated === 0 && !j.result?.noop).length;
 
   return (
     <div className="space-y-4">
