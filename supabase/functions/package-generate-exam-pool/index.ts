@@ -759,12 +759,19 @@ async function dedupeValidateAndInsert(
   existingHashes: Set<string>,
   existingNgramSets: Set<string>[],
   professionName: string,
-): Promise<{ saved: number; training: number; gateFailed: number; generatedTotal: number; rejectedContamination: number; rejectedOther: number; acceptRate: number }> {
+): Promise<{
+  saved: number; training: number; gateFailed: number; generatedTotal: number;
+  rejectedContamination: number; rejectedOther: number; acceptRate: number;
+  exam_approved: number; training_total: number; persisted_total: number;
+  duplicates_skipped: number; near_duplicates_skipped: number;
+}> {
   let saved = 0;
   let training = 0;
   let gateFailed = 0;
   let rejectedContamination = 0;
   let rejectedOther = 0;
+  let duplicates_skipped = 0;
+  let near_duplicates_skipped = 0;
   const generatedTotal = rawCandidates.length;
 
   const examBatch: any[] = [];
