@@ -312,6 +312,82 @@ Deno.serve(async (req) => {
     return json({ ok: false, transient: true, backoff_seconds: 120, error: "NO_QUESTIONS_EXIST_YET" });
   }
 
+  // ── Deterministic no-pending guard (prevents 409 retry loops) ──
+  // If nothing is pending, decide deterministically:
+  // - all clean & approved => idempotent success
+  // - unresolved quality flags => deterministic fail with reseed signal
+  const { data: qcRows, error: qcErr } = await sb
+    .from("exam_questions")
+    .select("qc_status, learning_field_id")
+    .eq("curriculum_id", curriculumId);
+
+  if (qcErr) return json({ error: qcErr.message }, 500);
+
+  const qcCounts: Record<string, number> = {};
+  for (const row of (qcRows || []) as any[]) {
+    const key = row.qc_status || "null";
+    qcCounts[key] = (qcCounts[key] || 0) + 1;
+  }
+
+  const pendingQcCount = qcCounts.pending || 0;
+  if (pendingQcCount === 0) {
+    const approvedCount = qcCounts.approved || 0;
+    const unresolvedCount = Math.max(0, (totalQuestionCount ?? 0) - approvedCount);
+
+    // Idempotent success: already fully validated
+    if (unresolvedCount === 0 && approvedCount > 0) {
+      console.log(`[validate-exam] IDEMPOTENT_SUCCESS: no pending + all approved (${approvedCount})`);
+      return json({
+        ok: true,
+        batch_complete: true,
+        validation_passed: true,
+        idempotent_already_validated: true,
+        qc_counts: qcCounts,
+        message: `✅ Exam QC bereits abgeschlossen (${approvedCount} approved, 0 unresolved).`,
+      });
+    }
+
+    // Derive missing LF coverage for targeted re-seed
+    let missingLfIds: string[] = [];
+    try {
+      const { data: lfs } = await sb
+        .from("learning_fields")
+        .select("id")
+        .eq("curriculum_id", curriculumId);
+
+      const approvedLf = new Set(
+        (qcRows || [])
+          .filter((r: any) => r.qc_status === "approved" && r.learning_field_id)
+          .map((r: any) => r.learning_field_id as string),
+      );
+
+      missingLfIds = (lfs || [])
+        .map((lf: any) => lf.id as string)
+        .filter((id: string) => !approvedLf.has(id));
+    } catch (lfErr) {
+      console.warn(`[validate-exam] LF coverage derivation failed: ${(lfErr as Error)?.message}`);
+    }
+
+    const issues = [
+      "NO_PENDING_QUESTIONS",
+      `UNRESOLVED_QUALITY_FLAGS:${unresolvedCount}`,
+      ...(missingLfIds.length > 0 ? [`MISSING_LF_COVERAGE:${missingLfIds.length}`] : []),
+    ];
+
+    console.warn(`[validate-exam] NO_PENDING_WITH_UNRESOLVED: approved=${approvedCount}, unresolved=${unresolvedCount}, missingLF=${missingLfIds.length}`);
+    return json({
+      ok: false,
+      batch_complete: true,
+      validation_passed: false,
+      reseed_required: true,
+      no_pending_questions: true,
+      issues,
+      missing_lf_ids: missingLfIds.slice(0, 50),
+      qc_counts: qcCounts,
+      message: `❌ Keine pending Fragen, aber ${unresolvedCount} unresolved QC-Fälle vorhanden. Re-Seed erforderlich.`,
+    });
+  }
+
   // ── Cursor from previous partial run ──
   const cursor = p.batch_cursor as { phase?: string; last_id?: string; t1_stats?: any; t1_pass_ids?: string[] } | null;
   const startPhase = cursor?.phase || "tier1";
