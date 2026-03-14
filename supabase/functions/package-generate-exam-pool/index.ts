@@ -2033,7 +2033,72 @@ Deno.serve(async (req) => {
     }
 
     const elapsedS = ((Date.now() - invocationStart) / 1000).toFixed(1);
+    const elapsedMs = Date.now() - invocationStart;
     console.log(`[ExamPool-v5] +${questionsThisChunk} exam, +${trainingThisChunk} training, total=${actualTotal}/${examTarget} (cap=${HARD_CAP_QUESTIONS}), BPs ${currentBpIndex}/${bps.length}, elapsed=${elapsedS}s`);
+
+    // ── P1 Observability: Log ai_generations entry with quality metrics ──
+    console.log(`[ExamPool-v5] QUALITY_METRICS: ${JSON.stringify(_qualityMetrics)}`);
+    try {
+      await sb.from("ai_generations").insert({
+        entity_type: "exam_pool",
+        entity_id: packageId,
+        generator_model: Object.keys(_qualityMetrics.models_used).join(", ") || "unknown",
+        status: questionsThisChunk > 0 ? "accepted" : (_qualityMetrics.empty_responses > 0 ? "empty" : "rejected"),
+        input_tokens: _qualityMetrics.total_tokens_out_estimated > 0 ? Math.ceil(_qualityMetrics.total_output_chars / 3.5) : 0,
+        output_tokens: _qualityMetrics.total_tokens_out_estimated,
+        latency_ms: elapsedMs,
+        cost_eur: null, // aggregated from individual llm_cost_events
+        validation_score: _qualityMetrics.avg_quality_score,
+        validation_decision: questionsThisChunk > 0 ? "pass" : "fail",
+        output_content: {
+          exam_approved: _qualityMetrics.candidates_accepted_exam,
+          training_pool: _qualityMetrics.candidates_accepted_training,
+          total_generated: _qualityMetrics.candidates_generated,
+          total_persisted: _qualityMetrics.candidates_accepted_exam + _qualityMetrics.candidates_accepted_training + _qualityMetrics.candidates_gate_failed_distractor,
+        },
+        metadata: {
+          version: "v5-observability",
+          is_fan_out: isFanOut,
+          learning_field_id: p.learning_field_filter || null,
+          llm_calls: {
+            total: _qualityMetrics.total_llm_calls,
+            successful: _qualityMetrics.successful_llm_calls,
+            failed: _qualityMetrics.failed_llm_calls,
+            retried: _qualityMetrics.retried_llm_calls,
+          },
+          output: {
+            total_chars: _qualityMetrics.total_output_chars,
+            tokens_out_estimated: _qualityMetrics.total_tokens_out_estimated,
+            truncated_responses: _qualityMetrics.truncated_responses,
+            empty_responses: _qualityMetrics.empty_responses,
+            json_repair_failures: _qualityMetrics.json_repair_failures,
+          },
+          quality_gates: {
+            candidates_generated: _qualityMetrics.candidates_generated,
+            accepted_exam: _qualityMetrics.candidates_accepted_exam,
+            accepted_training: _qualityMetrics.candidates_accepted_training,
+            rejected_contamination: _qualityMetrics.candidates_rejected_contamination,
+            rejected_low_praxis: _qualityMetrics.candidates_rejected_low_praxis,
+            rejected_ai_style: _qualityMetrics.candidates_rejected_ai_style,
+            rejected_hallucination: _qualityMetrics.candidates_rejected_hallucination,
+            rejected_invalid_index: _qualityMetrics.candidates_rejected_invalid_index,
+            rejected_meta_text: _qualityMetrics.candidates_rejected_meta_text,
+            rejected_placeholder: _qualityMetrics.candidates_rejected_placeholder,
+            duplicates_hash: _qualityMetrics.candidates_duplicates_hash,
+            duplicates_ngram: _qualityMetrics.candidates_duplicates_ngram,
+            gate_failed_distractor: _qualityMetrics.candidates_gate_failed_distractor,
+            avg_quality_score: Math.round(_qualityMetrics.avg_quality_score * 100) / 100,
+          },
+          models_used: _qualityMetrics.models_used,
+          rejection_reasons: _qualityMetrics.rejection_reasons,
+          accept_rate_pct: _qualityMetrics.candidates_generated > 0
+            ? Math.round((_qualityMetrics.candidates_accepted_exam / _qualityMetrics.candidates_generated) * 10000) / 100
+            : 0,
+        },
+      });
+    } catch (e) {
+      console.warn(`[ExamPool-v5] ai_generations insert failed (non-blocking): ${(e as Error)?.message}`);
+    }
 
     const progress = Math.min(55, Math.round(25 + (actualTotal / examTarget) * 30));
     await sb.from("course_packages").update({ build_progress: progress }).eq("id", packageId);
