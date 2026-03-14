@@ -35919,6 +35919,13 @@ export type Database = {
         Args: { p_curriculum_id: string }
         Returns: Json
       }
+      get_exam_question_counts_by_lf: {
+        Args: { p_curriculum_id: string; p_lf_ids: string[] }
+        Returns: {
+          cnt: number
+          learning_field_id: string
+        }[]
+      }
       get_exam_readiness: {
         Args: { p_curriculum_id: string; p_user_id: string }
         Returns: Json
