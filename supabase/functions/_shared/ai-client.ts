@@ -105,8 +105,15 @@ export async function callAI(opts: AIRequestOptions): Promise<AIResponse> {
   const apiKey = Deno.env.get(cfg.keyEnv);
   if (!apiKey) throw new Error(`${cfg.keyEnv} not configured`);
 
-  // ── Proactive rate-limit check ──
-  const health = getProviderHealth(opts.provider);
+  // ── Proactive rate-limit check (with cooldown wait) ──
+  let health = getProviderHealth(opts.provider);
+  if (!health.available && health.cooldownRemainingMs > 0 && health.cooldownRemainingMs <= 20_000) {
+    // Wait for short cooldowns instead of instantly failing (prevents tight-loop spam)
+    const waitMs = health.cooldownRemainingMs + 500; // +500ms buffer
+    console.info(`[AI-CLIENT] Provider ${opts.provider} on cooldown — waiting ${Math.round(waitMs / 1000)}s (step ${health.cooldownStep})`);
+    await new Promise(r => setTimeout(r, waitMs));
+    health = getProviderHealth(opts.provider); // Re-check after wait
+  }
   if (!health.available) {
     console.warn(`[AI-CLIENT] Provider ${opts.provider} blocked: ${health.reason}`);
     throw new RateLimitError(`Provider ${opts.provider} proactively blocked: ${health.reason}`);
