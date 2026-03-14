@@ -734,6 +734,12 @@ async function generateRawCandidates(
     const { provider, model } = pickProvider(chain, exclude);
     usedProvider = provider;
     usedModel = model;
+    
+    // Track attempt BEFORE the call (models_attempted)
+    const attemptKey = `${provider}/${model}`;
+    _qualityMetrics.models_attempted[attemptKey] = (_qualityMetrics.models_attempted[attemptKey] ?? 0) + 1;
+    _qualityMetrics.total_llm_calls++;
+    
     try {
       const aiResult = await callAIJSON({
         provider, model,
@@ -744,21 +750,23 @@ async function generateRawCandidates(
       });
       result = aiResult;
 
-      // ── Observability: track output metrics ──
+      // ── Observability: track output metrics (only on SUCCESS) ──
       const outputLen = result.content?.length ?? 0;
       const tokOut = result.estimatedUsage?.tokens_out ?? Math.ceil(outputLen / 3.5);
       const tokIn = result.estimatedUsage?.tokens_in ?? Math.ceil((system.length + user.length) / 3.5);
 
-      _qualityMetrics.total_llm_calls++;
       _qualityMetrics.successful_llm_calls++;
       _qualityMetrics.total_output_chars += outputLen;
       _qualityMetrics.total_tokens_out_estimated += tokOut;
-      _qualityMetrics.models_used[`${provider}/${model}`] = (_qualityMetrics.models_used[`${provider}/${model}`] ?? 0) + 1;
+      // models_used = only successful calls with actual output
+      if (outputLen > 0) {
+        _qualityMetrics.models_used[attemptKey] = (_qualityMetrics.models_used[attemptKey] ?? 0) + 1;
+      }
 
       // Detect empty responses
       if (outputLen === 0) {
         _qualityMetrics.empty_responses++;
-        console.warn(`[ExamPool-v5] EMPTY_RESPONSE: ${provider}/${model} returned 0 chars (attempt ${attempt})`);
+        console.warn(`[ExamPool-v5] EMPTY_RESPONSE: ${provider}/${model} returned 0 chars (attempt ${attempt}), raw_status=success`);
       }
 
       // Detect potential truncation (output near max_tokens)
@@ -793,8 +801,13 @@ async function generateRawCandidates(
       const isRate = errMsg.includes("Rate limit") || errMsg.includes("429") || errMsg.includes("409") || errMsg.includes("proactively blocked");
       const isTimeout = errMsg.includes("timed out") || errMsg.includes("TimeoutError") || errMsg.includes("AbortError");
 
-      _qualityMetrics.total_llm_calls++;
-      if (isRate || isTimeout) {
+      if (isRate) {
+        _qualityMetrics.retried_llm_calls++;
+        // Distinguish proactive block (our limiter) from real 429 (provider)
+        if (errMsg.includes("proactively blocked")) {
+          _qualityMetrics.blocked_llm_calls++;
+        }
+      } else if (isTimeout) {
         _qualityMetrics.retried_llm_calls++;
       } else {
         _qualityMetrics.failed_llm_calls++;
@@ -817,8 +830,8 @@ async function generateRawCandidates(
         console.log(`[ExamPool-v5] ${isTimeout ? "Timeout" : "RateLimit"} ${provider}/${model} attempt ${attempt}/3`);
         if ((globalThis as any).__examPoolSb) await markRateLimited((globalThis as any).__examPoolSb, provider, errMsg);
         exclude.push(`${provider}:${model}`);
-        // Backoff before retry to prevent tight-loop spam during cooldowns
-        const backoffMs = isRate ? 3000 * attempt : 2000 * attempt;
+        // Backoff before retry — jittered to desynchronize concurrent sub-jobs
+        const backoffMs = isRate ? (3000 + Math.random() * 2000) * attempt : (2000 + Math.random() * 1000) * attempt;
         await new Promise(r => setTimeout(r, backoffMs));
         continue;
       }
