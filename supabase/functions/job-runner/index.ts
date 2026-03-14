@@ -548,13 +548,28 @@ Deno.serve(async (req) => {
     // This eliminates premature 422/guard failures that inflate error metrics.
     // RECONCILIATION: Also checks integrity_report as fallback for write-race conditions.
     if (job.job_type === "package_auto_publish" && jobPackageId) {
+      const REQUIRED_REPORT_VERSION = "COURSE_READY_v1.5";
       const { data: pubGate } = await sb
         .from("course_packages")
-        .select("integrity_passed, integrity_report")
+        .select("integrity_passed, integrity_report, integrity_report_version")
         .eq("id", jobPackageId)
         .maybeSingle();
 
       let integrityOk = !!pubGate?.integrity_passed;
+
+      // ── REPORT VERSION GUARD: reject stale/legacy integrity reports ──
+      const reportVersion = (pubGate as any)?.integrity_report_version as string | null;
+      if (integrityOk && (!reportVersion || reportVersion < REQUIRED_REPORT_VERSION)) {
+        console.warn(`[job-runner] 🔄 STALE_REPORT_GUARD: integrity_report_version=${reportVersion ?? "null"} < ${REQUIRED_REPORT_VERSION} — forcing re-check (pkg ${jobPackageId.slice(0, 8)})`);
+        // Reset integrity_passed and re-enqueue integrity check
+        await sb.from("course_packages").update({ integrity_passed: false }).eq("id", jobPackageId);
+        // Reset step to trigger re-run
+        await sb.from("package_steps").update({ status: "queued" }).eq("package_id", jobPackageId).eq("step_key", "run_integrity_check");
+        const gateReason = `STALE_REPORT: version=${reportVersion ?? "null"}, required=${REQUIRED_REPORT_VERSION}`;
+        await requeueWithBackoff(sb, job.id, job.meta, 120_000, gateReason, tsNow);
+        results.push({ id: job.id, status: "requeued", reason: "stale_integrity_report" });
+        continue;
+      }
 
       // Reconciliation: if integrity_passed=false but integrity_report confirms passing,
       // auto-heal the flag (race condition between integrity-check write and pipeline-process)
@@ -562,7 +577,7 @@ Deno.serve(async (req) => {
         const report = pubGate.integrity_report as Record<string, unknown>;
         const score = typeof report.score === "number" ? report.score : 0;
         const hardFails = (report as any)?.v3?.hard_fail_reasons ?? [];
-        if (score >= 85 && Array.isArray(hardFails) && hardFails.length === 0) {
+        if (score >= 85 && Array.isArray(hardFails) && hardFails.length === 0 && reportVersion === REQUIRED_REPORT_VERSION) {
           console.warn(`[job-runner] 🔧 RECONCILE: integrity_passed=false but report.score=${score}, hardFails=0 — auto-fixing`);
           await sb.from("course_packages").update({ integrity_passed: true }).eq("id", jobPackageId);
           integrityOk = true;
