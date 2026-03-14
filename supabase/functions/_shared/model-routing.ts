@@ -3,9 +3,12 @@
  *
  * Liest Routing-Regeln aus `model_routing_rules` (TTL-Cache 60s).
  * Wenn DB leer oder nicht erreichbar → Fallback auf Hardcoded-Tabelle.
+ *
+ * GOVERNANCE: All model names resolved via MODEL_ALIASES to prevent drift.
  */
 
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
+import { MODEL_ALIASES } from "./model-aliases.ts";
 
 export type AIProvider = "openai" | "anthropic" | "google";
 
@@ -39,112 +42,109 @@ export interface ModelChoice {
   budget_cap_eur?: number;
 }
 
-// ── Hardcoded Fallback Table ──────────────────────────────────
-// ── Tiered Fallback Strategy ──────────────────────────────────
-// COMPLEX intents: GPT-4o mini → Haiku 3.5 → gpt-5.2 (expensive last-resort)
-// STANDARD intents: GPT-4o mini → Haiku 3.5 → gpt-5-mini
-// SIMPLE intents: GPT-4o mini → Haiku 3.5 → gpt-5-mini (cost-optimized)
+// ── Resolved model shortcuts ─────────────────────────────────
+const GPT4O_MINI: ModelChoice     = { provider: "openai",    model: MODEL_ALIASES.openai_workhorse };
+const HAIKU_FALLBACK: ModelChoice = { provider: "anthropic", model: MODEL_ALIASES.anthropic_cheap_fast, is_fallback: true };
+const GPT5_2_FALLBACK: ModelChoice = { provider: "openai",  model: MODEL_ALIASES.openai_strong, is_fallback: true };
+const GPT5_MINI_FALLBACK: ModelChoice = { provider: "openai", model: MODEL_ALIASES.openai_balanced, is_fallback: true };
 
-const HAIKU_FALLBACK: ModelChoice = { provider: "anthropic", model: "claude-3-5-haiku-latest", is_fallback: true };
+// ── Tiered Fallback Strategy ─────────────────────────────────
+// COMPLEX intents (fachlich-sensitiv): GPT-4o mini → GPT-5.2 (NO cheap Haiku fallback)
+// STANDARD intents: GPT-4o mini → Haiku → GPT-5-mini
+// SIMPLE intents: GPT-4o mini → Haiku → GPT-5-mini (cost-optimized)
 
 const ROUTING_TABLE: Record<PipelineIntent, ModelChoice[]> = {
-  // ── COMPLEX: Need strong reasoning ──
+  // ── COMPLEX: Need strong reasoning — NO Haiku fallback ──
+  // These intents require high accuracy; a cheap fast model could
+  // produce low-quality output that passes quality gates marginally.
   learning_course: [
-    { provider: "openai", model: "gpt-4o-mini" },
-    HAIKU_FALLBACK,
-    { provider: "openai", model: "gpt-5.2", is_fallback: true },
+    GPT4O_MINI,
+    GPT5_2_FALLBACK,
   ],
   learning_content: [
-    { provider: "openai", model: "gpt-4o-mini" },
-    HAIKU_FALLBACK,
-    { provider: "openai", model: "gpt-5.2", is_fallback: true },
+    GPT4O_MINI,
+    GPT5_2_FALLBACK,
   ],
   exam_questions: [
-    { provider: "openai", model: "gpt-4o-mini" },
-    HAIKU_FALLBACK,
-    { provider: "openai", model: "gpt-5.2", is_fallback: true },
+    GPT4O_MINI,
+    GPT5_2_FALLBACK,
   ],
   handbook: [
-    { provider: "openai", model: "gpt-4o-mini" },
-    HAIKU_FALLBACK,
-    { provider: "openai", model: "gpt-5.2", is_fallback: true },
+    GPT4O_MINI,
+    GPT5_2_FALLBACK,
   ],
   council_review: [
-    { provider: "openai", model: "gpt-4o-mini" },
-    HAIKU_FALLBACK,
-    { provider: "openai", model: "gpt-5.2", is_fallback: true },
+    GPT4O_MINI,
+    GPT5_2_FALLBACK,
   ],
   quality_audit: [
-    { provider: "openai", model: "gpt-4o-mini" },
-    HAIKU_FALLBACK,
-    { provider: "openai", model: "gpt-5.2", is_fallback: true },
+    GPT4O_MINI,
+    GPT5_2_FALLBACK,
   ],
   repair_content: [
-    { provider: "openai", model: "gpt-4o-mini" },
-    HAIKU_FALLBACK,
-    { provider: "openai", model: "gpt-5.2", is_fallback: true },
-  ],
-
-  // ── STANDARD: Structured output, moderate complexity ──
-  oral_exam: [
-    { provider: "openai", model: "gpt-4o-mini" },
-    HAIKU_FALLBACK,
-    { provider: "openai", model: "gpt-5-mini", is_fallback: true },
-  ],
-  minicheck: [
-    { provider: "openai", model: "gpt-4o-mini" },
-    HAIKU_FALLBACK,
-    { provider: "openai", model: "gpt-5-mini", is_fallback: true },
-  ],
-  seo_content: [
-    { provider: "openai", model: "gpt-4o-mini" },
-    HAIKU_FALLBACK,
-    { provider: "openai", model: "gpt-5-mini", is_fallback: true },
-  ],
-  council_proposer: [
-    { provider: "openai", model: "gpt-4o-mini" },
-    HAIKU_FALLBACK,
-    { provider: "openai", model: "gpt-5-mini", is_fallback: true },
+    GPT4O_MINI,
+    GPT5_2_FALLBACK,
   ],
   council_validator: [
-    { provider: "openai", model: "gpt-4o-mini" },
-    HAIKU_FALLBACK,
-    { provider: "openai", model: "gpt-5-mini", is_fallback: true },
-  ],
-  curriculum_import: [
-    { provider: "openai", model: "gpt-4o-mini" },
-    HAIKU_FALLBACK,
-    { provider: "openai", model: "gpt-5-mini", is_fallback: true },
+    GPT4O_MINI,
+    GPT5_2_FALLBACK,
   ],
 
-  // ── SIMPLE: Classification, summary, low complexity ──
-  support: [
-    { provider: "openai", model: "gpt-4o-mini" },
+  // ── STANDARD: Structured output, moderate complexity — Haiku OK ──
+  oral_exam: [
+    GPT4O_MINI,
     HAIKU_FALLBACK,
-    { provider: "openai", model: "gpt-5-mini", is_fallback: true },
+    GPT5_MINI_FALLBACK,
+  ],
+  minicheck: [
+    GPT4O_MINI,
+    HAIKU_FALLBACK,
+    GPT5_MINI_FALLBACK,
+  ],
+  seo_content: [
+    GPT4O_MINI,
+    HAIKU_FALLBACK,
+    GPT5_MINI_FALLBACK,
+  ],
+  council_proposer: [
+    GPT4O_MINI,
+    HAIKU_FALLBACK,
+    GPT5_MINI_FALLBACK,
+  ],
+  curriculum_import: [
+    GPT4O_MINI,
+    HAIKU_FALLBACK,
+    GPT5_MINI_FALLBACK,
+  ],
+
+  // ── SIMPLE: Classification, summary, low complexity — Haiku OK ──
+  support: [
+    GPT4O_MINI,
+    HAIKU_FALLBACK,
+    GPT5_MINI_FALLBACK,
   ],
   summary: [
-    { provider: "openai", model: "gpt-4o-mini" },
+    GPT4O_MINI,
     HAIKU_FALLBACK,
-    { provider: "openai", model: "gpt-5-mini", is_fallback: true },
+    GPT5_MINI_FALLBACK,
   ],
   repair: [
-    { provider: "openai", model: "gpt-4o-mini" },
+    GPT4O_MINI,
     HAIKU_FALLBACK,
-    { provider: "openai", model: "gpt-5-mini", is_fallback: true },
+    GPT5_MINI_FALLBACK,
   ],
   blooms_classify: [
-    { provider: "openai", model: "gpt-4o-mini" },
+    GPT4O_MINI,
     HAIKU_FALLBACK,
-    { provider: "openai", model: "gpt-5-mini", is_fallback: true },
+    GPT5_MINI_FALLBACK,
   ],
 
   // ── SPECIAL: Fixed models ──
   embeddings: [
-    { provider: "openai", model: "text-embedding-3-large" },
+    { provider: "openai", model: MODEL_ALIASES.openai_embeddings },
   ],
   images: [
-    { provider: "openai", model: "gpt-image-1" },
+    { provider: "openai", model: MODEL_ALIASES.openai_images },
   ],
 };
 
@@ -378,13 +378,13 @@ export function getEscalationModel(
   if (validationScore >= threshold) return null;
 
   const escalationMap: Partial<Record<PipelineIntent, ModelChoice>> = {
-    exam_questions: { provider: "openai", model: "gpt-5.2" },
-    oral_exam: { provider: "openai", model: "gpt-4o-mini" },
-    minicheck: { provider: "openai", model: "gpt-5-mini" },
-    support: { provider: "openai", model: "gpt-5-mini" },
-    summary: { provider: "openai", model: "gpt-5-mini" },
-    repair: { provider: "openai", model: "gpt-5-mini" },
-    blooms_classify: { provider: "openai", model: "gpt-5-mini" },
+    exam_questions: { provider: "openai", model: MODEL_ALIASES.openai_strong },
+    oral_exam:      { provider: "openai", model: MODEL_ALIASES.openai_workhorse },
+    minicheck:      { provider: "openai", model: MODEL_ALIASES.openai_balanced },
+    support:        { provider: "openai", model: MODEL_ALIASES.openai_balanced },
+    summary:        { provider: "openai", model: MODEL_ALIASES.openai_balanced },
+    repair:         { provider: "openai", model: MODEL_ALIASES.openai_balanced },
+    blooms_classify:{ provider: "openai", model: MODEL_ALIASES.openai_balanced },
   };
 
   return escalationMap[intent] || null;
