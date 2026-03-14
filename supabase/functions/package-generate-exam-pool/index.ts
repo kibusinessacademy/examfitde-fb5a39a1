@@ -314,6 +314,54 @@ type ExamPoolMetrics = {
   reason?: string;
 };
 
+// ── Observability: Invocation-level quality tracking ──────────────────────────
+interface InvocationQualityMetrics {
+  total_llm_calls: number;
+  successful_llm_calls: number;
+  failed_llm_calls: number;
+  retried_llm_calls: number;
+  total_output_chars: number;
+  total_tokens_out_estimated: number;
+  truncated_responses: number;
+  empty_responses: number;
+  json_repair_failures: number;
+  candidates_generated: number;
+  candidates_accepted_exam: number;
+  candidates_accepted_training: number;
+  candidates_rejected_contamination: number;
+  candidates_rejected_low_praxis: number;
+  candidates_rejected_ai_style: number;
+  candidates_rejected_hallucination: number;
+  candidates_rejected_invalid_index: number;
+  candidates_rejected_meta_text: number;
+  candidates_rejected_placeholder: number;
+  candidates_duplicates_hash: number;
+  candidates_duplicates_ngram: number;
+  candidates_gate_failed_distractor: number;
+  avg_quality_score: number;
+  models_used: Record<string, number>;
+  rejection_reasons: Record<string, number>;
+}
+
+function createEmptyQualityMetrics(): InvocationQualityMetrics {
+  return {
+    total_llm_calls: 0, successful_llm_calls: 0, failed_llm_calls: 0, retried_llm_calls: 0,
+    total_output_chars: 0, total_tokens_out_estimated: 0,
+    truncated_responses: 0, empty_responses: 0, json_repair_failures: 0,
+    candidates_generated: 0, candidates_accepted_exam: 0, candidates_accepted_training: 0,
+    candidates_rejected_contamination: 0, candidates_rejected_low_praxis: 0,
+    candidates_rejected_ai_style: 0, candidates_rejected_hallucination: 0,
+    candidates_rejected_invalid_index: 0, candidates_rejected_meta_text: 0,
+    candidates_rejected_placeholder: 0,
+    candidates_duplicates_hash: 0, candidates_duplicates_ngram: 0,
+    candidates_gate_failed_distractor: 0,
+    avg_quality_score: 0, models_used: {}, rejection_reasons: {},
+  };
+}
+
+// Global invocation-level metrics tracker
+let _qualityMetrics: InvocationQualityMetrics = createEmptyQualityMetrics();
+
 function withMetrics(base: Record<string, unknown>, metrics: ExamPoolMetrics): Record<string, unknown> {
   return { ...base, metrics: { ...(base.metrics as Record<string, unknown> ?? {}), ...metrics } };
 }
