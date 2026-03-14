@@ -168,7 +168,7 @@ Regeln:
 - NUR das JSON-Array zurückgeben, KEIN Markdown`;
 
   let provider = "anthropic";
-  let model = "claude-3-5-haiku-latest";
+  let model = "claude-3-5-haiku-20241022";
 
   try {
     const policyRoute = await resolveAvailableRoute("exam_questions");
