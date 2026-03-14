@@ -34187,6 +34187,7 @@ export type Database = {
       assert_contract_registry_consistency: { Args: never; Returns: Json }
       assert_enum_registry_consistency: { Args: never; Returns: Json }
       assert_job_payload: { Args: { job: Json }; Returns: undefined }
+      assert_ops_jobtype_step_map_complete: { Args: never; Returns: undefined }
       assert_pipeline_status_integrity: { Args: never; Returns: Json }
       assert_profiles_rls_secure: { Args: never; Returns: undefined }
       assert_publish_unlock: { Args: never; Returns: undefined }
