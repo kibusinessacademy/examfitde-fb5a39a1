@@ -123,7 +123,7 @@ Deno.serve(async (req) => {
         const curriculumId = (courseData as any)?.curriculum_id;
         let liveQuestionCount = 0;
         if (curriculumId) {
-          const { count } = await sb.from("exam_questions").select("id", { count: "exact", head: true }).eq("curriculum_id", curriculumId);
+          const { count } = await sb.from("exam_questions").select("id", { count: "exact", head: true }).eq("curriculum_id", curriculumId).neq("status", "rejected").not("qc_status", "in", "(tier1_failed,rejected)");
           liveQuestionCount = count ?? 0;
         }
         const FACTORY_MIN_QUESTIONS = 850;

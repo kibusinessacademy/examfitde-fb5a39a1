@@ -96,7 +96,9 @@ Deno.serve(async (req) => {
       const { count } = await sb
         .from("exam_questions")
         .select("id", { count: "exact", head: true })
-        .eq("curriculum_id", pkg.curriculum_id);
+        .eq("curriculum_id", pkg.curriculum_id)
+        .neq("status", "rejected")
+        .not("qc_status", "in", "(tier1_failed,rejected)");
 
       const actual = count ?? 0;
       if (actual < EXAM_TARGET) {

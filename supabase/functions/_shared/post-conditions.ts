@@ -181,7 +181,9 @@ export async function assertStepPostConditions(sb: SB, args: {
     const { count, error } = await sb
       .from("exam_questions")
       .select("id", { count: "exact", head: true })
-      .eq("curriculum_id", pkg.curriculum_id);
+      .eq("curriculum_id", pkg.curriculum_id)
+      .neq("status", "rejected")
+      .not("qc_status", "in", "(tier1_failed,rejected)");
     if (error) throw error;
 
     // Dynamic threshold: use exam_target from package meta, floor at 50

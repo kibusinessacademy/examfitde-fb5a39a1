@@ -78,7 +78,7 @@ export async function detectAndFixZombieSteps(sb: SupabaseClient) {
     if (zs.step_key === "generate_exam_pool") {
       const { data: pkg } = await sb.from("course_packages").select("curriculum_id, meta").eq("id", zs.package_id).maybeSingle();
       if (pkg?.curriculum_id) {
-        const { count: qCount } = await sb.from("exam_questions").select("id", { count: "exact", head: true }).eq("curriculum_id", pkg.curriculum_id);
+        const { count: qCount } = await sb.from("exam_questions").select("id", { count: "exact", head: true }).eq("curriculum_id", pkg.curriculum_id).neq("status", "rejected").not("qc_status", "in", "(tier1_failed,rejected)");
         const pkgMeta = (pkg.meta ?? {}) as Record<string, unknown>;
         const examTarget = Number(pkgMeta?.exam_target ?? 1000);
         const minRequired = Math.max(50, Math.floor(examTarget * 0.05));
