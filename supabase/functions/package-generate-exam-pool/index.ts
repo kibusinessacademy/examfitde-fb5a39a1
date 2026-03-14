@@ -1639,7 +1639,7 @@ Deno.serve(async (req) => {
 
       let brokeMidBp = false;
       
-      // ── OPT-4: Parallel AI calls (2 concurrent) within time budget ──
+      // ── OPT-4: Parallel AI generation → central sequential dedup ──
       const PARALLEL_AI_CALLS = 2;
       for (let callIdx = 0; callIdx < maxCallsPerBp; callIdx += PARALLEL_AI_CALLS) {
         if (Date.now() - invocationStart > TIME_BUDGET_MS) {
@@ -1653,8 +1653,9 @@ Deno.serve(async (req) => {
           break;
         }
 
-        // Prepare up to PARALLEL_AI_CALLS concurrent tasks
-        const parallelTasks: Array<{ difficulty: string; cognitiveLevel: string; questionType: string; promise: Promise<any> }> = [];
+        // Phase 1: Parallel AI generation (no shared mutable state)
+        const parallelMeta: Array<{ difficulty: string; cognitiveLevel: string; questionType: string }> = [];
+        const parallelPromises: Promise<{ candidates: RawCandidate[]; lfData: any }>[] = [];
         
         for (let pi = 0; pi < PARALLEL_AI_CALLS && (callIdx + pi) < maxCallsPerBp; pi++) {
           const globalIdx = (currentBpIndex * maxCallsPerBp + callIdx + pi);
@@ -1663,29 +1664,34 @@ Deno.serve(async (req) => {
           const difficulty = pickDifficulty();
           const cognitiveLevel = pickCognitiveLevel();
 
-          parallelTasks.push({
-            difficulty, cognitiveLevel, questionType,
-            promise: generateTurboQuestions(
+          parallelMeta.push({ difficulty, cognitiveLevel, questionType });
+          parallelPromises.push(
+            generateRawCandidates(
               sb, bp, AI_QUESTIONS_PER_CALL, difficulty, questionType, cognitiveLevel,
-              existingHashes, existingNgramSets, professionName, glossaryContext
+              professionName, glossaryContext
             ).catch((e: unknown) => {
               console.log(`[ExamPool-v5] BP ${bp.id.slice(0, 8)} call ${callIdx + pi} FAIL: ${(e as Error)?.message}`);
-              return { saved: 0, training: 0, gateFailed: 0 };
+              return { candidates: [], lfData: null };
             }),
-          });
+          );
         }
 
-        // Await all parallel calls
-        const results = await Promise.all(parallelTasks.map(t => t.promise));
+        // Await all parallel AI calls
+        const parallelResults = await Promise.all(parallelPromises);
+
+        // Phase 2: Sequential dedup + validate + insert (safe against intra-batch duplicates)
+        const allCandidates = parallelResults.flatMap(r => r.candidates);
+        const mergeResult = await dedupeValidateAndInsert(sb, allCandidates, existingHashes, existingNgramSets, professionName);
         
-        for (let ri = 0; ri < results.length; ri++) {
-          const genResult = results[ri];
-          const task = parallelTasks[ri];
-          questionsThisChunk += genResult.saved;
-          trainingThisChunk += genResult.training;
-          const totalInserted = genResult.saved + genResult.training + (genResult.gateFailed ?? 0);
-          diffMade[task.difficulty] = (diffMade[task.difficulty] ?? 0) + totalInserted;
-          cogMade[task.cognitiveLevel] = (cogMade[task.cognitiveLevel] ?? 0) + totalInserted;
+        questionsThisChunk += mergeResult.saved;
+        trainingThisChunk += mergeResult.training;
+        const totalInserted = mergeResult.saved + mergeResult.training + mergeResult.gateFailed;
+        
+        // Distribute counts proportionally to each parallel task for quota tracking
+        const perTask = parallelMeta.length > 0 ? Math.ceil(totalInserted / parallelMeta.length) : 0;
+        for (const meta of parallelMeta) {
+          diffMade[meta.difficulty] = (diffMade[meta.difficulty] ?? 0) + perTask;
+          cogMade[meta.cognitiveLevel] = (cogMade[meta.cognitiveLevel] ?? 0) + perTask;
         }
       }
 
