@@ -1099,38 +1099,38 @@ async function enqueueLearningFieldJobs(
   const productiveCooldownLfs = new Set<string>();
   const recentJobLfs = new Set<string>();
   
-  // Query 1: active (pending/processing) fan-out jobs — minimal fields
+  // Query 1: active (pending/processing) fan-out jobs — only payload needed
   const { data: activeJobs } = await sb.from("job_queue")
-    .select("payload->learning_field_filter")
+    .select("payload")
     .eq("job_type", "package_generate_exam_pool")
     .eq("package_id", packageId)
     .in("status", ["pending", "processing"])
-    .not("payload->_fan_out", "is", null);
+    .contains("payload", { _fan_out: true });
   
   if (activeJobs) {
     for (const job of activeJobs) {
-      const lfId = (job as any).learning_field_filter;
+      const lfId = (job.payload as any)?.learning_field_filter;
       if (lfId) activeJobsByLf.set(lfId, (activeJobsByLf.get(lfId) ?? 0) + 1);
     }
   }
 
-  // Query 2: recently completed fan-out jobs (cooldown) — only metrics needed
+  // Query 2: recently completed fan-out jobs (cooldown) — payload + result.metrics.generated
   const recentCutoff = new Date(Date.now() - 15 * 60 * 1000).toISOString();
   const { data: recentJobs } = await sb.from("job_queue")
-    .select("payload->learning_field_filter, result->metrics->generated, result->generated")
+    .select("payload, result")
     .eq("job_type", "package_generate_exam_pool")
     .eq("package_id", packageId)
     .eq("status", "completed")
     .gte("completed_at", recentCutoff)
-    .not("payload->_fan_out", "is", null)
+    .contains("payload", { _fan_out: true })
     .limit(100);
 
   if (recentJobs) {
     for (const job of recentJobs) {
-      const lfId = (job as any).learning_field_filter;
+      const lfId = (job.payload as any)?.learning_field_filter;
       if (!lfId) continue;
       recentJobLfs.add(lfId);
-      const gen = (job as any).generated;
+      const gen = (job.result as any)?.metrics?.generated ?? (job.result as any)?.generated;
       if (typeof gen === "number" && gen > 0) productiveCooldownLfs.add(lfId);
     }
   }
