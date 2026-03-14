@@ -1106,15 +1106,9 @@ async function enqueueLearningFieldJobs(
       continue;
     }
 
-    // ── FAN-OUT DEDUP GUARD v2 ──
-    const { count: activeLfJobs } = await sb.from("job_queue")
-      .select("id", { count: "exact", head: true })
-      .eq("job_type", "package_generate_exam_pool")
-      .eq("package_id", packageId)
-      .in("status", ["pending", "processing"])
-      .contains("payload", { learning_field_filter: lfId, _fan_out: true });
-    
-    if ((activeLfJobs ?? 0) > 0) {
+    // ── OPT-3: Batch cooldown+dedup check (pre-loaded above loop) ──
+    const activeLfJobs = activeJobsByLf.get(lfId) ?? 0;
+    if (activeLfJobs > 0) {
       console.log(`[ExamPool-v5] LF ${lfId.slice(0, 8)}: ${activeLfJobs} active sub-jobs → SKIP (dedup)`);
       lfDetail.skip_reason = "dedup";
       lf_details.push(lfDetail);
@@ -1122,24 +1116,8 @@ async function enqueueLearningFieldJobs(
       continue;
     }
 
-    // ── COOLDOWN GUARD v3: only honor cooldown if recent job actually produced questions ──
-    const recentCutoff = new Date(Date.now() - 15 * 60 * 1000).toISOString();
-    const { data: recentCompletedJobs } = await sb.from("job_queue")
-      .select("id, result")
-      .eq("job_type", "package_generate_exam_pool")
-      .eq("package_id", packageId)
-      .eq("status", "completed")
-      .gte("completed_at", recentCutoff)
-      .contains("payload", { learning_field_filter: lfId, _fan_out: true })
-      .limit(3);
-
-    // v3 FIX: Only respect cooldown if the recent job actually generated new questions.
-    // Previously, a job that reported ok:true but generated:0 would still trigger cooldown,
-    // permanently blocking LFs with existing-but-insufficient questions.
-    const productiveCooldown = (recentCompletedJobs ?? []).some((j: any) => {
-      const gen = j.result?.metrics?.generated ?? j.result?.generated;
-      return typeof gen === "number" && gen > 0;
-    });
+    const productiveCooldown = productiveCooldownLfs.has(lfId);
+    const hadRecentJobs = recentJobLfs.has(lfId);
 
     if (productiveCooldown) {
       console.log(`[ExamPool-v5] LF ${lfId.slice(0, 8)}: productive sub-job in last 15min → SKIP (cooldown)`);
@@ -1149,7 +1127,7 @@ async function enqueueLearningFieldJobs(
       continue;
     }
 
-    if ((recentCompletedJobs ?? []).length > 0 && !productiveCooldown) {
+    if (hadRecentJobs && !productiveCooldown) {
       console.warn(`[ExamPool-v5] LF ${lfId.slice(0, 8)}: recent job(s) completed but generated=0 → IGNORING cooldown (zero-production)`);
     }
 
