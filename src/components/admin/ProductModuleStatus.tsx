@@ -37,24 +37,32 @@ const MODULE_FLAG_MAP: Record<string, string> = {
   handbook: 'has_handbook',
 };
 
-export default function ProductModuleStatus({ packageId, courseId, certificationId, featureFlags }: Props) {
+export default function ProductModuleStatus({ packageId, courseId, curriculumId, certificationId, featureFlags }: Props) {
   const [modules, setModules] = useState<ModuleStats[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!packageId) return;
     loadModuleStats();
-  }, [packageId, courseId]);
+  }, [packageId, courseId, curriculumId]);
 
   const loadModuleStats = async () => {
     setLoading(true);
     const results: ModuleStats[] = [];
 
-    // 1. Learning Course - count lessons
-    const { count: lessonCount } = await (supabase as any)
-      .from('lessons').select('id', { count: 'exact', head: true })
-      .eq('course_id', courseId || '');
-    const lc = lessonCount || 0;
+    // 1. Learning Course - count lessons via modules (lessons has no course_id column)
+    let lc = 0;
+    if (courseId) {
+      const { data: moduleIds } = await (supabase as any)
+        .from('modules').select('id').eq('course_id', courseId);
+      if (moduleIds && moduleIds.length > 0) {
+        const ids = moduleIds.map((m: any) => m.id);
+        const { count: lessonCount } = await (supabase as any)
+          .from('lessons').select('id', { count: 'exact', head: true })
+          .in('module_id', ids);
+        lc = lessonCount || 0;
+      }
+    }
     results.push({
       key: 'learning_course', label: 'Lernkurs', icon: BookOpen,
       status: lc >= 20 ? 'ok' : lc > 0 ? 'warning' : 'missing',
@@ -62,10 +70,10 @@ export default function ProductModuleStatus({ packageId, courseId, certification
       detail: `${lc} Lektionen`,
     });
 
-    // 2. Exam Pool - count questions
+    // 2. Exam Pool - count questions (uses curriculum_id, NOT course_id)
     const { count: examCount } = await (supabase as any)
       .from('exam_questions').select('id', { count: 'exact', head: true })
-      .eq('course_id', courseId || '');
+      .eq('curriculum_id', curriculumId || '');
     const eq = examCount || 0;
     results.push({
       key: 'exam_pool', label: 'Prüfungstrainer', icon: ClipboardCheck,
@@ -74,10 +82,10 @@ export default function ProductModuleStatus({ packageId, courseId, certification
       detail: `${eq} Fragen (Ziel: 1000)`,
     });
 
-    // 3. Oral Exam - count blueprints
+    // 3. Oral Exam - count blueprints (uses curriculum_id, NOT package_id)
     const { count: oralCount } = await (supabase as any)
       .from('oral_exam_blueprints').select('id', { count: 'exact', head: true })
-      .eq('package_id', packageId);
+      .eq('curriculum_id', curriculumId || '');
     const oc = oralCount || 0;
     results.push({
       key: 'oral_exam', label: 'Mündliche Prüfung', icon: MessageSquare,
@@ -98,10 +106,10 @@ export default function ProductModuleStatus({ packageId, courseId, certification
       detail: tutorIdx ? `Index v${tutorIdx.index_version}` : 'Kein Index',
     });
 
-    // 5. Handbook - count chapters
+    // 5. Handbook - count chapters (uses curriculum_id, NOT package_id)
     const { count: hbCount } = await (supabase as any)
       .from('handbook_chapters').select('id', { count: 'exact', head: true })
-      .eq('package_id', packageId);
+      .eq('curriculum_id', curriculumId || '');
     const hc = hbCount || 0;
     results.push({
       key: 'handbook', label: 'Handbuch', icon: FileText,
