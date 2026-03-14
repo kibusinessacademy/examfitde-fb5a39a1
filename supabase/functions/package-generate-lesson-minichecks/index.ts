@@ -436,7 +436,8 @@ Deno.serve(async (req) => {
     console.log(`[MiniChecks] ${softStopped ? "⏱️ Soft-stopped" : "✅ Done"}: ${totalGenerated} questions generated, ${totalFailed} failed, ${elapsed}ms`);
 
     // batch_complete=false triggers runner re-enqueue
-    const batchComplete = !softStopped && totalFailed === 0 && !hasMore;
+    // NOTE: will be overridden below if DB confirms freshRemaining === 0
+    let batchComplete = !softStopped && totalFailed === 0 && !hasMore;
 
     // ── Fresh remaining_targets_after from DB (not estimated) ──
     let freshRemaining = 0;
