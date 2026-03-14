@@ -314,6 +314,54 @@ type ExamPoolMetrics = {
   reason?: string;
 };
 
+// ── Observability: Invocation-level quality tracking ──────────────────────────
+interface InvocationQualityMetrics {
+  total_llm_calls: number;
+  successful_llm_calls: number;
+  failed_llm_calls: number;
+  retried_llm_calls: number;
+  total_output_chars: number;
+  total_tokens_out_estimated: number;
+  truncated_responses: number;
+  empty_responses: number;
+  json_repair_failures: number;
+  candidates_generated: number;
+  candidates_accepted_exam: number;
+  candidates_accepted_training: number;
+  candidates_rejected_contamination: number;
+  candidates_rejected_low_praxis: number;
+  candidates_rejected_ai_style: number;
+  candidates_rejected_hallucination: number;
+  candidates_rejected_invalid_index: number;
+  candidates_rejected_meta_text: number;
+  candidates_rejected_placeholder: number;
+  candidates_duplicates_hash: number;
+  candidates_duplicates_ngram: number;
+  candidates_gate_failed_distractor: number;
+  avg_quality_score: number;
+  models_used: Record<string, number>;
+  rejection_reasons: Record<string, number>;
+}
+
+function createEmptyQualityMetrics(): InvocationQualityMetrics {
+  return {
+    total_llm_calls: 0, successful_llm_calls: 0, failed_llm_calls: 0, retried_llm_calls: 0,
+    total_output_chars: 0, total_tokens_out_estimated: 0,
+    truncated_responses: 0, empty_responses: 0, json_repair_failures: 0,
+    candidates_generated: 0, candidates_accepted_exam: 0, candidates_accepted_training: 0,
+    candidates_rejected_contamination: 0, candidates_rejected_low_praxis: 0,
+    candidates_rejected_ai_style: 0, candidates_rejected_hallucination: 0,
+    candidates_rejected_invalid_index: 0, candidates_rejected_meta_text: 0,
+    candidates_rejected_placeholder: 0,
+    candidates_duplicates_hash: 0, candidates_duplicates_ngram: 0,
+    candidates_gate_failed_distractor: 0,
+    avg_quality_score: 0, models_used: {}, rejection_reasons: {},
+  };
+}
+
+// Global invocation-level metrics tracker
+let _qualityMetrics: InvocationQualityMetrics = createEmptyQualityMetrics();
+
 function withMetrics(base: Record<string, unknown>, metrics: ExamPoolMetrics): Record<string, unknown> {
   return { ...base, metrics: { ...(base.metrics as Record<string, unknown> ?? {}), ...metrics } };
 }
@@ -673,32 +721,67 @@ async function generateRawCandidates(
   const maxTokens = count <= 2 ? 2200 : count <= 5 ? 3500 : 4096;
 
   let exclude: string[] = [];
-  let result: { content: string } | undefined;
+  let result: { content: string; estimatedUsage?: { tokens_in: number; tokens_out: number; cost_eur: number; estimated: boolean }; usage?: { input_tokens?: number; output_tokens?: number; total_tokens?: number } } | undefined;
   const chain = await loadExamProviderChain();
+  let usedProvider = "";
+  let usedModel = "";
+  const pkgId = (globalThis as any).__examPoolPackageId || null;
 
   for (let attempt = 1; attempt <= 3; attempt++) {
     const { provider, model } = pickProvider(chain, exclude);
+    usedProvider = provider;
+    usedModel = model;
     try {
-      result = await callAIJSON({
+      const aiResult = await callAIJSON({
         provider, model,
         messages: [{ role: "system", content: system }, { role: "user", content: user }],
         temperature: 0.85,
         max_tokens: maxTokens,
         timeout_ms: 45_000,
       });
-      const estimatedTokensIn = Math.ceil((system.length + user.length) / 3.5);
-      const estimatedTokensOut = Math.ceil((result.content?.length ?? 200) / 3.5);
+      result = aiResult;
+
+      // ── Observability: track output metrics ──
+      const outputLen = result.content?.length ?? 0;
+      const tokOut = result.estimatedUsage?.tokens_out ?? Math.ceil(outputLen / 3.5);
+      const tokIn = result.estimatedUsage?.tokens_in ?? Math.ceil((system.length + user.length) / 3.5);
+
+      _qualityMetrics.total_llm_calls++;
+      _qualityMetrics.successful_llm_calls++;
+      _qualityMetrics.total_output_chars += outputLen;
+      _qualityMetrics.total_tokens_out_estimated += tokOut;
+      _qualityMetrics.models_used[`${provider}/${model}`] = (_qualityMetrics.models_used[`${provider}/${model}`] ?? 0) + 1;
+
+      // Detect empty responses
+      if (outputLen === 0) {
+        _qualityMetrics.empty_responses++;
+        console.warn(`[ExamPool-v5] EMPTY_RESPONSE: ${provider}/${model} returned 0 chars (attempt ${attempt})`);
+      }
+
+      // Detect potential truncation (output near max_tokens)
+      const isTruncated = tokOut >= maxTokens * 0.95;
+      if (isTruncated) {
+        _qualityMetrics.truncated_responses++;
+        console.warn(`[ExamPool-v5] TRUNCATION_RISK: ${provider}/${model} output ${tokOut} tokens ≈ maxTokens ${maxTokens} (attempt ${attempt})`);
+      }
+
       const costSb = (globalThis as any).__examPoolSb;
       if (costSb) {
         await logLLMCostEvent(costSb, {
           job_type: "package_generate_exam_pool",
           provider, model,
-          tokens_in: estimatedTokensIn,
-          tokens_out: estimatedTokensOut,
-          package_id: bp.curriculum_id ? undefined : undefined,
+          tokens_in: tokIn,
+          tokens_out: tokOut,
+          package_id: pkgId,
+          estimatedUsage: result.estimatedUsage,
           status: "success",
           attempt,
-          meta: { blueprint_id: bp.id, count, difficulty, questionType, cognitiveLevel },
+          meta: {
+            blueprint_id: bp.id, count, difficulty, questionType, cognitiveLevel,
+            output_length: outputLen,
+            truncated: isTruncated,
+            empty: outputLen === 0,
+          },
         });
       }
       break;
@@ -707,12 +790,20 @@ async function generateRawCandidates(
       const isRate = errMsg.includes("Rate limit") || errMsg.includes("429") || errMsg.includes("409");
       const isTimeout = errMsg.includes("timed out") || errMsg.includes("TimeoutError") || errMsg.includes("AbortError");
 
+      _qualityMetrics.total_llm_calls++;
+      if (isRate || isTimeout) {
+        _qualityMetrics.retried_llm_calls++;
+      } else {
+        _qualityMetrics.failed_llm_calls++;
+      }
+
       const costSb = (globalThis as any).__examPoolSb;
       if (costSb) {
         await logLLMCostEvent(costSb, {
           job_type: "package_generate_exam_pool",
           provider, model,
           tokens_in: 0, tokens_out: 0,
+          package_id: pkgId,
           status: isRate || isTimeout ? "retry" : "fail",
           error_message: errMsg.slice(0, 500),
           attempt,
@@ -730,15 +821,35 @@ async function generateRawCandidates(
     }
   }
 
-  if (!result?.content) return { candidates: [], lfData };
+  if (!result?.content) {
+    _qualityMetrics.empty_responses++;
+    return { candidates: [], lfData };
+  }
 
   const parsed = repairJSON(result.content);
   if (!parsed) {
-    console.log(`[ExamPool-v5] JSON repair failed for BP ${bp.id.slice(0, 8)}`);
+    _qualityMetrics.json_repair_failures++;
+    console.log(`[ExamPool-v5] JSON repair failed for BP ${bp.id.slice(0, 8)} (output ${result.content.length} chars)`);
+    
+    // Log the failed parse to llm_cost_events for visibility
+    const costSb = (globalThis as any).__examPoolSb;
+    if (costSb) {
+      await logLLMCostEvent(costSb, {
+        job_type: "package_generate_exam_pool",
+        provider: usedProvider, model: usedModel,
+        tokens_in: 0, tokens_out: 0,
+        package_id: pkgId,
+        status: "fail",
+        error_message: `JSON_REPAIR_FAILED: output_length=${result.content.length}, first_100=${result.content.slice(0, 100)}`,
+        meta: { blueprint_id: bp.id, json_repair_failure: true, output_length: result.content.length },
+      });
+    }
     return { candidates: [], lfData };
   }
 
   const questions = Array.isArray(parsed) ? parsed : [parsed];
+  _qualityMetrics.candidates_generated += questions.length;
+  
   const candidates: RawCandidate[] = questions.map(q => ({
     question: q,
     bp,
@@ -778,13 +889,18 @@ async function dedupeValidateAndInsert(
   const trainingBatch: any[] = [];
 
   for (const { question: q, bp, difficulty, questionType, cognitiveLevel, lfData } of rawCandidates) {
-    if (!q.question_text || !Array.isArray(q.options) || q.options.length < 4) continue;
+    if (!q.question_text || !Array.isArray(q.options) || q.options.length < 4) {
+      _qualityMetrics.rejection_reasons["invalid_structure"] = (_qualityMetrics.rejection_reasons["invalid_structure"] ?? 0) + 1;
+      continue;
+    }
 
     // HARD GATE: correct_answer must be valid index
     const correctIdx = Array.isArray(q.correct_answer) ? q.correct_answer[0] : (q.correct_answer ?? 0);
     if (typeof correctIdx !== 'number' || correctIdx < 0 || correctIdx >= q.options.length) {
       console.log(`[ExamPool-v5] REJECTED INVALID_INDEX: correct_answer=${q.correct_answer} for ${q.options.length} options`);
       rejectedOther++;
+      _qualityMetrics.candidates_rejected_invalid_index++;
+      _qualityMetrics.rejection_reasons["invalid_index"] = (_qualityMetrics.rejection_reasons["invalid_index"] ?? 0) + 1;
       continue;
     }
 
@@ -804,22 +920,30 @@ async function dedupeValidateAndInsert(
     if (hasMetaText) {
       console.log(`[ExamPool-v5] REJECTED META_TEXT: "${explanationText.slice(0, 60)}…"`);
       rejectedOther++;
+      _qualityMetrics.candidates_rejected_meta_text++;
+      _qualityMetrics.rejection_reasons["meta_text"] = (_qualityMetrics.rejection_reasons["meta_text"] ?? 0) + 1;
       continue;
     }
 
     // Reject unresolved placeholders
-    if (/\{[a-z_]+\}/i.test(q.question_text)) continue;
+    if (/\{[a-z_]+\}/i.test(q.question_text)) {
+      _qualityMetrics.candidates_rejected_placeholder++;
+      _qualityMetrics.rejection_reasons["placeholder"] = (_qualityMetrics.rejection_reasons["placeholder"] ?? 0) + 1;
+      continue;
+    }
 
     const contam = checkContamination(q.question_text + " " + (q.explanation || ""), professionName);
     if (contam.isContaminated) {
       console.log(`[ExamPool-v5] CONTAMINATION: ${contam.detectedIndustry} in "${q.question_text.slice(0, 50)}"`);
       rejectedContamination++;
+      _qualityMetrics.candidates_rejected_contamination++;
+      _qualityMetrics.rejection_reasons["contamination"] = (_qualityMetrics.rejection_reasons["contamination"] ?? 0) + 1;
       continue;
     }
 
     // Hash dedup (sequential — safe against intra-batch duplicates)
     const hash = simpleHash(q.question_text);
-    if (existingHashes.has(hash)) { duplicates_skipped++; continue; }
+    if (existingHashes.has(hash)) { duplicates_skipped++; _qualityMetrics.candidates_duplicates_hash++; continue; }
     existingHashes.add(hash);
 
     // Text-similarity dedup (Jaccard n-gram) — sequential, sees all prior additions
@@ -835,6 +959,7 @@ async function dedupeValidateAndInsert(
     if (tooSimilar) {
       console.log(`[ExamPool-v5] NEAR-DUP skipped: "${q.question_text.slice(0, 50)}…"`);
       near_duplicates_skipped++;
+      _qualityMetrics.candidates_duplicates_ngram++;
       continue;
     }
     existingNgramSets.push(qNgrams);
@@ -843,6 +968,8 @@ async function dedupeValidateAndInsert(
     const praxisScore = calculatePraxisScore(q);
     if (praxisScore < 1) {
       console.log(`[ExamPool-v5] REJECTED LOW_PRAXIS (${praxisScore}): "${q.question_text.slice(0, 40)}…"`);
+      _qualityMetrics.candidates_rejected_low_praxis++;
+      _qualityMetrics.rejection_reasons["low_praxis"] = (_qualityMetrics.rejection_reasons["low_praxis"] ?? 0) + 1;
       continue;
     }
 
@@ -850,6 +977,8 @@ async function dedupeValidateAndInsert(
 
     if (!passesStyleGate(q)) {
       console.log(`[ExamPool-v5] REJECTED AI_STYLE: "${q.question_text.slice(0, 40)}…"`);
+      _qualityMetrics.candidates_rejected_ai_style++;
+      _qualityMetrics.rejection_reasons["ai_style"] = (_qualityMetrics.rejection_reasons["ai_style"] ?? 0) + 1;
       continue;
     }
 
@@ -858,6 +987,8 @@ async function dedupeValidateAndInsert(
     );
     if (halluRisk.verdict === "regenerate") {
       console.log(`[ExamPool-v5] REJECTED HALLUCINATION_RISK (${halluRisk.riskScore}): suspicious=[${halluRisk.suspiciousRegulatory.join(", ")}]`);
+      _qualityMetrics.candidates_rejected_hallucination++;
+      _qualityMetrics.rejection_reasons["hallucination_risk"] = (_qualityMetrics.rejection_reasons["hallucination_risk"] ?? 0) + 1;
       continue;
     }
 
@@ -964,6 +1095,8 @@ async function dedupeValidateAndInsert(
         qc_status: "tier1_failed",
       });
       gateFailed++;
+      _qualityMetrics.candidates_gate_failed_distractor++;
+      _qualityMetrics.rejection_reasons[`distractor_${qcReason}`] = (_qualityMetrics.rejection_reasons[`distractor_${qcReason}`] ?? 0) + 1;
     } else {
       const targetBatch = assignedPool === "exam" ? examBatch : trainingBatch;
       targetBatch.push({
@@ -972,8 +1105,18 @@ async function dedupeValidateAndInsert(
         status,
         qc_status: assignedPool === "exam" ? "approved" : "pending",
       });
-      if (assignedPool === "exam") saved++;
-      else training++;
+      if (assignedPool === "exam") {
+        saved++;
+        _qualityMetrics.candidates_accepted_exam++;
+      } else {
+        training++;
+        _qualityMetrics.candidates_accepted_training++;
+      }
+      // Track quality scores for average
+      _qualityMetrics.avg_quality_score = (
+        (_qualityMetrics.avg_quality_score * (_qualityMetrics.candidates_accepted_exam + _qualityMetrics.candidates_accepted_training - 1) + qualityResult.score)
+        / (_qualityMetrics.candidates_accepted_exam + _qualityMetrics.candidates_accepted_training)
+      ) || 0;
     }
   }
 
@@ -1252,6 +1395,9 @@ async function allFanOutSubJobsDone(sb: ReturnType<typeof createClient>, package
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "Use POST" }, 405);
 
+  // Reset invocation-level quality metrics
+  _qualityMetrics = createEmptyQualityMetrics();
+
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
   const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const sb = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
@@ -1267,6 +1413,7 @@ Deno.serve(async (req) => {
   const blueprintIds: string[] | null = p.blueprint_ids || null;
 
   (globalThis as any).__examPoolSb = sb;
+  (globalThis as any).__examPoolPackageId = packageId;
   console.log(`[ExamPool-v5] Using DB-routed provider chain for exam_questions`);
   // SSOT: lf_target_total = absolute Zielzahl pro LF (nie Gap!)
   // Fallback: legacy lf_target (könnte Gap sein) oder examTarget
@@ -1888,7 +2035,72 @@ Deno.serve(async (req) => {
     }
 
     const elapsedS = ((Date.now() - invocationStart) / 1000).toFixed(1);
+    const elapsedMs = Date.now() - invocationStart;
     console.log(`[ExamPool-v5] +${questionsThisChunk} exam, +${trainingThisChunk} training, total=${actualTotal}/${examTarget} (cap=${HARD_CAP_QUESTIONS}), BPs ${currentBpIndex}/${bps.length}, elapsed=${elapsedS}s`);
+
+    // ── P1 Observability: Log ai_generations entry with quality metrics ──
+    console.log(`[ExamPool-v5] QUALITY_METRICS: ${JSON.stringify(_qualityMetrics)}`);
+    try {
+      await sb.from("ai_generations").insert({
+        entity_type: "exam_pool",
+        entity_id: packageId,
+        generator_model: Object.keys(_qualityMetrics.models_used).join(", ") || "unknown",
+        status: questionsThisChunk > 0 ? "accepted" : (_qualityMetrics.empty_responses > 0 ? "empty" : "rejected"),
+        input_tokens: _qualityMetrics.total_tokens_out_estimated > 0 ? Math.ceil(_qualityMetrics.total_output_chars / 3.5) : 0,
+        output_tokens: _qualityMetrics.total_tokens_out_estimated,
+        latency_ms: elapsedMs,
+        cost_eur: null, // aggregated from individual llm_cost_events
+        validation_score: _qualityMetrics.avg_quality_score,
+        validation_decision: questionsThisChunk > 0 ? "pass" : "fail",
+        output_content: {
+          exam_approved: _qualityMetrics.candidates_accepted_exam,
+          training_pool: _qualityMetrics.candidates_accepted_training,
+          total_generated: _qualityMetrics.candidates_generated,
+          total_persisted: _qualityMetrics.candidates_accepted_exam + _qualityMetrics.candidates_accepted_training + _qualityMetrics.candidates_gate_failed_distractor,
+        },
+        metadata: {
+          version: "v5-observability",
+          is_fan_out: isFanOut,
+          learning_field_id: p.learning_field_filter || null,
+          llm_calls: {
+            total: _qualityMetrics.total_llm_calls,
+            successful: _qualityMetrics.successful_llm_calls,
+            failed: _qualityMetrics.failed_llm_calls,
+            retried: _qualityMetrics.retried_llm_calls,
+          },
+          output: {
+            total_chars: _qualityMetrics.total_output_chars,
+            tokens_out_estimated: _qualityMetrics.total_tokens_out_estimated,
+            truncated_responses: _qualityMetrics.truncated_responses,
+            empty_responses: _qualityMetrics.empty_responses,
+            json_repair_failures: _qualityMetrics.json_repair_failures,
+          },
+          quality_gates: {
+            candidates_generated: _qualityMetrics.candidates_generated,
+            accepted_exam: _qualityMetrics.candidates_accepted_exam,
+            accepted_training: _qualityMetrics.candidates_accepted_training,
+            rejected_contamination: _qualityMetrics.candidates_rejected_contamination,
+            rejected_low_praxis: _qualityMetrics.candidates_rejected_low_praxis,
+            rejected_ai_style: _qualityMetrics.candidates_rejected_ai_style,
+            rejected_hallucination: _qualityMetrics.candidates_rejected_hallucination,
+            rejected_invalid_index: _qualityMetrics.candidates_rejected_invalid_index,
+            rejected_meta_text: _qualityMetrics.candidates_rejected_meta_text,
+            rejected_placeholder: _qualityMetrics.candidates_rejected_placeholder,
+            duplicates_hash: _qualityMetrics.candidates_duplicates_hash,
+            duplicates_ngram: _qualityMetrics.candidates_duplicates_ngram,
+            gate_failed_distractor: _qualityMetrics.candidates_gate_failed_distractor,
+            avg_quality_score: Math.round(_qualityMetrics.avg_quality_score * 100) / 100,
+          },
+          models_used: _qualityMetrics.models_used,
+          rejection_reasons: _qualityMetrics.rejection_reasons,
+          accept_rate_pct: _qualityMetrics.candidates_generated > 0
+            ? Math.round((_qualityMetrics.candidates_accepted_exam / _qualityMetrics.candidates_generated) * 10000) / 100
+            : 0,
+        },
+      });
+    } catch (e) {
+      console.warn(`[ExamPool-v5] ai_generations insert failed (non-blocking): ${(e as Error)?.message}`);
+    }
 
     const progress = Math.min(55, Math.round(25 + (actualTotal / examTarget) * 30));
     await sb.from("course_packages").update({ build_progress: progress }).eq("id", packageId);
