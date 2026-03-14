@@ -512,6 +512,7 @@ export async function callAIWithFailover(
         model: candidate.model,
         fallback_rank: attemptIndex,
         resolved_via: attemptIndex === 0 ? "db_policy" : "hardcoded_fallback",
+        finish_reason: result.finish_reason,
         raw_text_length: (result.content || "").length,
         is_drift_prone: isDriftProneModel(candidate.model),
         attempts_before: attemptIndex,
