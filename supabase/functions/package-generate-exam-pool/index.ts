@@ -942,7 +942,7 @@ async function dedupeValidateAndInsert(
 
     // Hash dedup (sequential — safe against intra-batch duplicates)
     const hash = simpleHash(q.question_text);
-    if (existingHashes.has(hash)) { duplicates_skipped++; continue; }
+    if (existingHashes.has(hash)) { duplicates_skipped++; _qualityMetrics.candidates_duplicates_hash++; continue; }
     existingHashes.add(hash);
 
     // Text-similarity dedup (Jaccard n-gram) — sequential, sees all prior additions
