@@ -570,9 +570,38 @@ export async function processPackage(
       if (!step) continue;
       if (!["queued", "running", "enqueued"].includes(step.status)) continue;
 
+      // ── DEADLOCK PREVENTION GUARD (v2): Don't require started_at if completed jobs exist ──
+      // The status-lag-healer can reset started_at to null, causing permanent deadlocks.
+      // If there are completed jobs for this step, finalization should still be attempted.
       const DISPATCHER_DRIVEN_STEPS = new Set(["generate_learning_content"]);
       if (!step.started_at && !DISPATCHER_DRIVEN_STEPS.has(rule.stepKey)) {
-        continue;
+        // Check if completed jobs exist — if so, the step DID start even though started_at is null
+        const { data: completedCnt } = await safeRpc(sb, "count_active_jobs", {
+          p_package_id: packageId,
+          p_job_type: rule.jobType,
+        });
+        // count_active_jobs returns active (pending/processing) count.
+        // We need to check for completed jobs separately.
+        const { count: completedJobCount } = await sb
+          .from("job_queue")
+          .select("id", { count: "exact", head: true })
+          .eq("package_id", packageId)
+          .eq("job_type", rule.jobType)
+          .eq("status", "completed");
+
+        if ((completedJobCount ?? 0) === 0) {
+          continue; // Truly never started — skip finalization
+        }
+
+        // Auto-heal: set started_at to prevent future deadlocks
+        console.warn(`[runner] 🩹 DEADLOCK GUARD: ${shortId}/${rule.stepKey} has ${completedJobCount} completed jobs but started_at=null — healing`);
+        await safeQuery(
+          sb.from("package_steps").update({
+            started_at: new Date().toISOString(),
+          }).eq("package_id", packageId).eq("step_key", rule.stepKey),
+          "deadlock_guard_heal_started_at",
+        );
+        step.started_at = new Date().toISOString();
       }
 
       const meta = (step.meta ?? {}) as any;
