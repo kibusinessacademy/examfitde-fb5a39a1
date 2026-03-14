@@ -900,18 +900,45 @@ Deno.serve(async (req) => {
           });
         } catch (_) { /* non-critical */ }
       } else {
-        // Pre-publish: failing gate is authoritative
-        updatePayload.status = "quality_gate_failed";
-        try {
-          await sb.from("admin_notifications").insert({
-            title: "🛑 COURSE_READY Gate: Release blocked",
-            body: `${gate.hardFails.length} blocker(s): ${gate.hardFails.slice(0, 3).join("; ")}`,
-            category: "quality",
-            severity: "error",
-            entity_type: "course_package",
-            entity_id: packageId,
-          });
-        } catch (_) { /* non-critical */ }
+        // ── AUTOFIX-AWARE GATE ──
+        // If an active autofix run exists, do NOT set quality_gate_failed.
+        // The autofix will re-trigger integrity check after gap-close.
+        const { data: activeAutofix } = await sb
+          .from("autofix_runs")
+          .select("id, current_round, status")
+          .eq("package_id", packageId)
+          .eq("status", "running")
+          .limit(1)
+          .maybeSingle();
+
+        if (activeAutofix) {
+          // Keep package in building — autofix is still working
+          console.log(`[integrity-check] pkg=${packageId.slice(0, 8)} AUTOFIX_ACTIVE (run=${activeAutofix.id.slice(0,8)}, round=${activeAutofix.current_round}) — NOT setting quality_gate_failed, staying in building`);
+          updatePayload.status = "building";
+          try {
+            await sb.from("admin_notifications").insert({
+              title: "ℹ️ Integrity check: autofix active — staying in building",
+              body: `Score=${gate.score}, ${gate.hardFails.length} blocker(s), but autofix run ${activeAutofix.id.slice(0,8)} round ${activeAutofix.current_round} is active. Will re-check after gap-close.`,
+              category: "quality",
+              severity: "info",
+              entity_type: "course_package",
+              entity_id: packageId,
+            });
+          } catch (_) { /* non-critical */ }
+        } else {
+          // Pre-publish: failing gate is authoritative
+          updatePayload.status = "quality_gate_failed";
+          try {
+            await sb.from("admin_notifications").insert({
+              title: "🛑 COURSE_READY Gate: Release blocked",
+              body: `${gate.hardFails.length} blocker(s): ${gate.hardFails.slice(0, 3).join("; ")}`,
+              category: "quality",
+              severity: "error",
+              entity_type: "course_package",
+              entity_id: packageId,
+            });
+          } catch (_) { /* non-critical */ }
+        }
       }
     } else if (policyViolation) {
       // Policy violation: do NOT mutate status, report only
