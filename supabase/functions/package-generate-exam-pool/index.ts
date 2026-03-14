@@ -2198,7 +2198,7 @@ Deno.serve(async (req) => {
       }
       return json(withMetrics(
         { ok: true, batch_complete: true, engine: "v5-ihk-quality", total_questions: actualTotal, training_pool: trainingThisChunk, target: examTarget, ...resultMeta },
-        { generated: questionsThisChunk, inserted: actualTotal, blueprints_found: bps.length, blueprints_used: bpsProcessed },
+        { generated: generatedThisRun, inserted: insertedThisRun, blueprints_found: bps.length, blueprints_used: bpsProcessed },
       ));
     } else if (allBlueprintsProcessed) {
       const currentLoop = (batchCursor?.loop_count ?? 0) + 1;
