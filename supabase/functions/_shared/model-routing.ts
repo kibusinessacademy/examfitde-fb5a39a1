@@ -41,9 +41,9 @@ export interface ModelChoice {
 
 // ── Hardcoded Fallback Table ──────────────────────────────────
 // ── Tiered Fallback Strategy ──────────────────────────────────
-// COMPLEX intents (reasoning-heavy): Haiku → gpt-5.2 (expensive but accurate)
-// STANDARD intents (structured output): Haiku → gpt-5-mini (70% cheaper than gpt-5.2)
-// SIMPLE intents (classification/summary): Haiku → gpt-5-mini (cost-optimized)
+// COMPLEX intents (reasoning-heavy): Haiku 3.5 → gpt-5.2 (expensive but accurate)
+// STANDARD intents (structured output): Haiku 3.5 → gpt-5-mini (70% cheaper than gpt-5.2)
+// SIMPLE intents (classification/summary): Haiku 3.5 → gpt-5-mini (cost-optimized)
 
 const ROUTING_TABLE: Record<PipelineIntent, ModelChoice[]> = {
   // ── COMPLEX: Need strong reasoning ──
