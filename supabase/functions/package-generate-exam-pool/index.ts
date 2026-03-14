@@ -803,7 +803,7 @@ async function generateRawCandidates(
           job_type: "package_generate_exam_pool",
           provider, model,
           tokens_in: 0, tokens_out: 0,
-          package_id: packageId || null,
+          package_id: pkgId,
           status: isRate || isTimeout ? "retry" : "fail",
           error_message: errMsg.slice(0, 500),
           attempt,
