@@ -1,5 +1,6 @@
 /**
  * lesson-gen/routing.ts — Provider selection, autopilot, cooldown filtering
+ * OPT-3: Module-level P95 latency cache to skip redundant RPC per cold start.
  */
 
 import { getModelChainAsync } from "../model-routing.ts";
@@ -14,6 +15,32 @@ import {
   TOKEN_CLAMP_MINICHECK,
 } from "./constants.ts";
 import type { LessonRequest, LessonRuntime } from "./types.ts";
+
+// ── OPT-3: P95 latency cache (per cold start, ~30min TTL) ──
+let _p95Cache: { p95Ms: number | null; fetchedAt: number } | null = null;
+const P95_CACHE_TTL_MS = 30 * 60 * 1000; // 30 min
+
+async function getCachedP95Latency(sb: any): Promise<number | null> {
+  const now = Date.now();
+  if (_p95Cache && (now - _p95Cache.fetchedAt) < P95_CACHE_TTL_MS) {
+    return _p95Cache.p95Ms;
+  }
+
+  try {
+    const { data: latencyStats } = await sb.rpc("get_provider_p95_latency", {
+      p_job_type: "lesson_generate_content",
+      p_window_minutes: 30,
+    }).maybeSingle();
+
+    const p95Ms = latencyStats?.p95_ms ?? null;
+    _p95Cache = { p95Ms, fetchedAt: now };
+    return p95Ms;
+  } catch {
+    // RPC doesn't exist yet or failed — cache the miss too
+    _p95Cache = { p95Ms: null, fetchedAt: now };
+    return null;
+  }
+}
 
 /**
  * Resolve the LLM runtime configuration:
@@ -43,43 +70,41 @@ export async function resolveLessonRuntime(
     };
   }
 
-  // Autopilot: p95 latency check
+  // Autopilot: p95 latency check (OPT-3: cached)
   let maxTokensOverride: number | null = null;
   let autopilotAction: string | null = null;
 
   const workloadKey = req.isMiniCheck ? "minicheck" : "learning_content";
-  let rawChain: Awaited<ReturnType<typeof getModelChainAsync>>;
 
-  const policyRoute = await resolveAvailableRoute(workloadKey);
-  if (policyRoute.ok && policyRoute.provider && policyRoute.model) {
-    console.log(`[lesson-gen] POLICY_ROUTE: ${workloadKey} → ${policyRoute.provider}/${policyRoute.model}`);
-    const hardcodedChain = await getModelChainAsync(req.isMiniCheck ? "minicheck" : "learning_content");
-    rawChain = [
-      { provider: policyRoute.provider as any, model: policyRoute.model },
-      ...hardcodedChain.filter(c => c.model !== policyRoute.model),
-    ];
-  } else {
-    console.log(`[lesson-gen] POLICY_MISS: ${workloadKey} (${policyRoute.reason}) → hardcoded chain`);
-    rawChain = await getModelChainAsync(req.isMiniCheck ? "minicheck" : "learning_content");
+  // Chain resolution + P95 latency — run in parallel
+  const [rawChainResult, p95Ms] = await Promise.all([
+    (async () => {
+      const policyRoute = await resolveAvailableRoute(workloadKey);
+      if (policyRoute.ok && policyRoute.provider && policyRoute.model) {
+        console.log(`[lesson-gen] POLICY_ROUTE: ${workloadKey} → ${policyRoute.provider}/${policyRoute.model}`);
+        const hardcodedChain = await getModelChainAsync(req.isMiniCheck ? "minicheck" : "learning_content");
+        return [
+          { provider: policyRoute.provider as any, model: policyRoute.model },
+          ...hardcodedChain.filter(c => c.model !== policyRoute.model),
+        ];
+      } else {
+        console.log(`[lesson-gen] POLICY_MISS: ${workloadKey} (${policyRoute.reason}) → hardcoded chain`);
+        return await getModelChainAsync(req.isMiniCheck ? "minicheck" : "learning_content");
+      }
+    })(),
+    getCachedP95Latency(sb),
+  ]);
+
+  const rawChain = rawChainResult;
+
+  if (p95Ms && p95Ms > 35_000) {
+    const originalMax = req.isMiniCheck ? 2200 : 3200;
+    maxTokensOverride = Math.round(originalMax * 0.65);
+    autopilotAction = `p95_clamp: ${p95Ms}ms → tokens ${originalMax}→${maxTokensOverride}`;
+    console.log(`[lesson-gen] AUTOPILOT: ${autopilotAction}`);
   }
 
   const fullChain = await filterCooledDownProviders(rawChain);
-
-  try {
-    const { data: latencyStats } = await sb.rpc("get_provider_p95_latency", {
-      p_job_type: "lesson_generate_content",
-      p_window_minutes: 30,
-    }).maybeSingle();
-
-    if (latencyStats?.p95_ms && latencyStats.p95_ms > 35_000) {
-      const originalMax = req.isMiniCheck ? 2200 : 3200;
-      maxTokensOverride = Math.round(originalMax * 0.65);
-      autopilotAction = `p95_clamp: ${latencyStats.p95_ms}ms → tokens ${originalMax}→${maxTokensOverride}`;
-      console.log(`[lesson-gen] AUTOPILOT: ${autopilotAction}`);
-    }
-  } catch {
-    // RPC doesn't exist yet or failed — proceed without autopilot
-  }
 
   // Single-provider per edge run
   const providerIndex = (req.jobHash + req.attemptIndex) % fullChain.length;

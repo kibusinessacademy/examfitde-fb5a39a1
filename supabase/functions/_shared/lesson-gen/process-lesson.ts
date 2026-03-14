@@ -1,6 +1,7 @@
 /**
  * lesson-gen/process-lesson.ts — Main orchestrator
- * Reads like a clean pipeline. All implementation details are in sub-modules.
+ * OPT-1: Parallelized idempotency + data loading.
+ * Context building is now synchronous (mastery pre-loaded).
  */
 
 import { canonicalStepKey } from "../step-keys.ts";
@@ -45,17 +46,19 @@ export async function processLesson(sb: any, p: any, startMs: number): Promise<R
     jobId: p.job_id || "unknown",
   };
 
-  // ── 2. Idempotency check ──
-  const idem = await checkIdempotency(sb, lessonId, stepKey, stepKeyRaw, json);
+  // ── 2+3. Idempotency + Data loading — PARALLEL ──
+  // These are independent DB reads that can run concurrently (~400ms savings)
+  const [idem, loadResult] = await Promise.all([
+    checkIdempotency(sb, lessonId, stepKey, stepKeyRaw, json),
+    loadLessonGenerationData(sb, req, json),
+  ]);
+
   if (idem.skip) return idem.response!;
+  if ("error" in loadResult) return loadResult.error;
+  const data = loadResult.data;
 
-  // ── 3. Load data ──
-  const loaded = await loadLessonGenerationData(sb, req, json);
-  if ("error" in loaded) return loaded.error;
-  const data = loaded.data;
-
-  // ── 4. Build context ──
-  const ctx = await buildLessonGenerationContext(sb, data, curriculumId);
+  // ── 4. Build context (now sync — mastery pre-loaded in loaders) ──
+  const ctx = buildLessonGenerationContext(data);
 
   // ── 5. Soft-stop check ──
   if (shouldSoftStop(startMs, "lesson_single")) {

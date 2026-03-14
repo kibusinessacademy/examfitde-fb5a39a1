@@ -1,5 +1,6 @@
 /**
  * lesson-gen/persistence.ts — Save content versions, cleanup, audit, cost logging
+ * OPT-2: Audit, cost-log, cleanup run in parallel after insert.
  */
 
 import { logLLMCostEvent } from "../ai-client.ts";
@@ -107,6 +108,7 @@ export function buildFinalContent(
 
 /**
  * Persist content version, sync to lesson, cleanup checkpoint, audit + cost log.
+ * OPT-2: After the critical insert, all side-effects run in parallel.
  */
 export async function persistLessonResult(
   sb: any,
@@ -131,7 +133,7 @@ export async function persistLessonResult(
 
   const stepKeyCanonical = canonicalStepKey(req.stepKey);
 
-  // Insert content version
+  // ── Critical path: Insert content version (must succeed) ──
   const { data: newVersion, error: vErr } = await sb.from("content_versions").insert({
     course_id: req.courseId,
     lesson_id: req.lessonId,
@@ -157,56 +159,62 @@ export async function persistLessonResult(
     }, isConstraint ? 500 : 503);
   }
 
-  // Direct sync to lessons.content
-  try {
-    await sb.rpc("pipeline_write_lesson_content", { p_lesson_id: req.lessonId, p_content: finalContent });
-  } catch (_syncErr) {
-    console.warn(`[lesson-gen] direct sync fallback failed for ${req.lessonId.slice(0, 8)}: ${(_syncErr as Error)?.message?.slice(0, 100)}`);
-  }
+  // ── OPT-2: All side-effects in parallel (fire-and-await-all) ──
+  // These are independent: sync, cleanup, audit, cost-log
+  await Promise.all([
+    // Direct sync to lessons.content
+    sb.rpc("pipeline_write_lesson_content", { p_lesson_id: req.lessonId, p_content: finalContent })
+      .catch((_syncErr: Error) => {
+        console.warn(`[lesson-gen] direct sync fallback failed for ${req.lessonId.slice(0, 8)}: ${_syncErr?.message?.slice(0, 100)}`);
+      }),
 
-  // Cleanup checkpoint
-  try {
-    await sb.from("content_versions")
+    // Cleanup checkpoint
+    sb.from("content_versions")
       .delete()
       .eq("lesson_id", req.lessonId)
       .eq("step_key", stepKeyCanonical)
       .eq("created_by_agent", "lesson-gen-checkpoint")
-      .eq("status", "draft");
-  } catch { /* best-effort */ }
+      .eq("status", "draft")
+      .catch(() => { /* best-effort */ }),
 
-  // Audit: council message
-  await sb.from("council_messages").insert({
-    content_version_id: newVersion!.id,
-    agent_name: "lesson-generate-content",
-    message_type: "proposal",
-    message_json: {
-      source: "single-unit-worker",
-      profession: data.professionName,
-      used_provider: llm.result.provider,
-      used_model: llm.result.model,
-      plain_retry: llm.plainRetry,
-      autopilot: runtime.autopilotAction,
-    },
-  });
+    // Audit: council message
+    sb.from("council_messages").insert({
+      content_version_id: newVersion!.id,
+      agent_name: "lesson-generate-content",
+      message_type: "proposal",
+      message_json: {
+        source: "single-unit-worker",
+        profession: data.professionName,
+        used_provider: llm.result.provider,
+        used_model: llm.result.model,
+        plain_retry: llm.plainRetry,
+        autopilot: runtime.autopilotAction,
+      },
+    }).catch((e: Error) => {
+      console.warn(`[lesson-gen] council_message insert failed: ${e?.message?.slice(0, 100)}`);
+    }),
 
-  // Cost logging
-  await logLLMCostEvent(sb, {
-    job_type: "lesson_generate_content",
-    provider: llm.result.provider,
-    model: llm.result.model,
-    tokens_in: llm.result.usage?.input_tokens || 0,
-    tokens_out: llm.result.usage?.output_tokens || 0,
-    package_id: req.packageId,
-    certification_id: req.certificationId,
-    course_id: req.courseId,
-    estimatedUsage: llm.result.estimatedUsage,
-    meta: {
-      plain_retry: llm.plainRetry,
-      step_key: req.stepKey,
-      autopilot: runtime.autopilotAction,
-      attempt_index: req.attemptIndex,
-    },
-  });
+    // Cost logging
+    logLLMCostEvent(sb, {
+      job_type: "lesson_generate_content",
+      provider: llm.result.provider,
+      model: llm.result.model,
+      tokens_in: llm.result.usage?.input_tokens || 0,
+      tokens_out: llm.result.usage?.output_tokens || 0,
+      package_id: req.packageId,
+      certification_id: req.certificationId,
+      course_id: req.courseId,
+      estimatedUsage: llm.result.estimatedUsage,
+      meta: {
+        plain_retry: llm.plainRetry,
+        step_key: req.stepKey,
+        autopilot: runtime.autopilotAction,
+        attempt_index: req.attemptIndex,
+      },
+    }).catch((e: Error) => {
+      console.warn(`[lesson-gen] cost_log failed: ${e?.message?.slice(0, 100)}`);
+    }),
+  ]);
 
   return json({
     ok: true,
