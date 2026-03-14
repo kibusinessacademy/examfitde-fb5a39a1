@@ -42,39 +42,39 @@ export interface ModelChoice {
   budget_cap_eur?: number;
 }
 
-// ── Resolved model shortcuts ─────────────────────────────────
-const GPT5_MINI: ModelChoice       = { provider: "openai",    model: MODEL_ALIASES.openai_balanced };
-const HAIKU_FALLBACK: ModelChoice  = { provider: "anthropic", model: MODEL_ALIASES.anthropic_cheap_fast, is_fallback: true }; // v15: Primary→gpt-5-mini, Fallback→Haiku pinned
+// ── Resolved model shortcuts (v16) ───────────────────────────
+const HAIKU45_PRIMARY: ModelChoice = { provider: "anthropic", model: MODEL_ALIASES.anthropic_primary }; // v16: Claude Haiku 4.5 primary
+const GPT5_MINI_FALLBACK: ModelChoice = { provider: "openai", model: MODEL_ALIASES.openai_balanced, is_fallback: true };
 const GPT5_2_FALLBACK: ModelChoice = { provider: "openai",   model: MODEL_ALIASES.openai_strong, is_fallback: true };
 
-// ── Tiered Fallback Strategy (v15) ───────────────────────────
-// ALL intents: GPT-5-mini → Haiku 3.5 (cross-provider) → GPT-5.2
-// STANDARD intents: GPT-5-mini → Haiku 3.5
-// SIMPLE intents: GPT-5-mini → Haiku 3.5
+// ── Tiered Fallback Strategy (v16) ───────────────────────────
+// ALL intents: Haiku 4.5 → GPT-5-mini (cross-provider) → GPT-5.2
+// STANDARD intents: Haiku 4.5 → GPT-5-mini
+// SIMPLE intents: Haiku 4.5 → GPT-5-mini
 
 const ROUTING_TABLE: Record<PipelineIntent, ModelChoice[]> = {
-  // ── COMPLEX: Need strong reasoning — cross-provider fallback (Anthropic) ──
-  learning_course:    [GPT5_MINI, HAIKU_FALLBACK, GPT5_2_FALLBACK],
-  learning_content:   [GPT5_MINI, HAIKU_FALLBACK, GPT5_2_FALLBACK],
-  exam_questions:     [GPT5_MINI, HAIKU_FALLBACK, GPT5_2_FALLBACK],
-  handbook:           [GPT5_MINI, HAIKU_FALLBACK, GPT5_2_FALLBACK],
-  council_review:     [GPT5_MINI, HAIKU_FALLBACK, GPT5_2_FALLBACK],
-  quality_audit:      [GPT5_MINI, HAIKU_FALLBACK, GPT5_2_FALLBACK],
-  repair_content:     [GPT5_MINI, HAIKU_FALLBACK, GPT5_2_FALLBACK],
-  council_validator:  [GPT5_MINI, HAIKU_FALLBACK, GPT5_2_FALLBACK],
+  // ── COMPLEX: Need strong reasoning — cross-provider fallback ──
+  learning_course:    [HAIKU45_PRIMARY, GPT5_MINI_FALLBACK, GPT5_2_FALLBACK],
+  learning_content:   [HAIKU45_PRIMARY, GPT5_MINI_FALLBACK, GPT5_2_FALLBACK],
+  exam_questions:     [HAIKU45_PRIMARY, GPT5_MINI_FALLBACK, GPT5_2_FALLBACK],
+  handbook:           [HAIKU45_PRIMARY, GPT5_MINI_FALLBACK, GPT5_2_FALLBACK],
+  council_review:     [HAIKU45_PRIMARY, GPT5_MINI_FALLBACK, GPT5_2_FALLBACK],
+  quality_audit:      [HAIKU45_PRIMARY, GPT5_MINI_FALLBACK, GPT5_2_FALLBACK],
+  repair_content:     [HAIKU45_PRIMARY, GPT5_MINI_FALLBACK, GPT5_2_FALLBACK],
+  council_validator:  [HAIKU45_PRIMARY, GPT5_MINI_FALLBACK, GPT5_2_FALLBACK],
 
   // ── STANDARD: Structured output, moderate complexity ──
-  oral_exam:          [GPT5_MINI, HAIKU_FALLBACK],
-  minicheck:          [GPT5_MINI, HAIKU_FALLBACK],
-  seo_content:        [GPT5_MINI, HAIKU_FALLBACK],
-  council_proposer:   [GPT5_MINI, HAIKU_FALLBACK],
-  curriculum_import:  [GPT5_MINI, HAIKU_FALLBACK],
+  oral_exam:          [HAIKU45_PRIMARY, GPT5_MINI_FALLBACK],
+  minicheck:          [HAIKU45_PRIMARY, GPT5_MINI_FALLBACK],
+  seo_content:        [HAIKU45_PRIMARY, GPT5_MINI_FALLBACK],
+  council_proposer:   [HAIKU45_PRIMARY, GPT5_MINI_FALLBACK],
+  curriculum_import:  [HAIKU45_PRIMARY, GPT5_MINI_FALLBACK],
 
   // ── SIMPLE: Classification, summary, low complexity ──
-  support:            [GPT5_MINI, HAIKU_FALLBACK],
-  summary:            [GPT5_MINI, HAIKU_FALLBACK],
-  repair:             [GPT5_MINI, HAIKU_FALLBACK],
-  blooms_classify:    [GPT5_MINI, HAIKU_FALLBACK],
+  support:            [HAIKU45_PRIMARY, GPT5_MINI_FALLBACK],
+  summary:            [HAIKU45_PRIMARY, GPT5_MINI_FALLBACK],
+  repair:             [HAIKU45_PRIMARY, GPT5_MINI_FALLBACK],
+  blooms_classify:    [HAIKU45_PRIMARY, GPT5_MINI_FALLBACK],
 
   // ── SPECIAL: Fixed models ──
   embeddings: [{ provider: "openai", model: MODEL_ALIASES.openai_embeddings }],

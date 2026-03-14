@@ -15,11 +15,14 @@
 // Mark each entry with its drift risk level.
 
 export const MODEL_ALIASES = {
-  /** Anthropic cheap+fast fallback. Pinned snapshot — stable. */
+  /** Anthropic cheap+fast (Haiku 3.5). Pinned snapshot — stable. */
   anthropic_cheap_fast: "claude-3-5-haiku-20241022",
 
-  /** Anthropic primary (Sonnet). Pinned snapshot — stable. */
-  anthropic_primary: "claude-sonnet-4-5-20250929",
+  /** Anthropic primary workhorse (Haiku 4.5). Pinned snapshot — stable. */
+  anthropic_primary: "claude-haiku-4-5-20251001",
+
+  /** Anthropic strong (Sonnet). Pinned snapshot — stable. */
+  anthropic_strong: "claude-sonnet-4-5-20250929",
 
   /** OpenAI workhorse — cheap, fast, good structured output. Pinned. */
   openai_workhorse: "gpt-4o-mini",
