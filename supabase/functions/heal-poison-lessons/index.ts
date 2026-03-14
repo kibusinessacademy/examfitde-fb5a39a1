@@ -182,12 +182,14 @@ Deno.serve(async (req) => {
 
         // NO direct lesson write — content reaches lessons.content ONLY via publish_approved_version()
         // Council proposal message
-        await sb.from("council_messages").insert({
-          content_version_id: newVersion!.id,
-          agent_name: "heal-poison-lessons",
-          message_type: "proposal",
-          message_json: { source: "heal-poison", reason: "poison_pill_repair" },
-        }).catch(() => {});
+        try {
+          await sb.from("council_messages").insert({
+            content_version_id: newVersion!.id,
+            agent_name: "heal-poison-lessons",
+            message_type: "proposal",
+            message_json: { source: "heal-poison", reason: "poison_pill_repair" },
+          });
+        } catch { /* best-effort */ }
 
         await logLLMCostEvent(sb, {
           job_type: "heal_poison_lesson",
