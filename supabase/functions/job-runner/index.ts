@@ -572,17 +572,63 @@ Deno.serve(async (req) => {
       if (!integrityOk) {
         const { data: activeAutofix } = await sb
           .from("autofix_runs")
-          .select("id, current_round, max_rounds, target_score, budget_eur, course_id, curriculum_id")
+          .select("id, current_round, max_rounds, last_score, target_score, budget_eur, course_id, curriculum_id")
           .eq("package_id", jobPackageId)
           .eq("status", "running")
           .order("updated_at", { ascending: false })
           .limit(1)
           .maybeSingle();
 
-        // Self-heal: if auto-publish is gated while an autofix run is active,
-        // ensure there is at least one auto_gap_close self-check job alive.
-        let healedGapClose = false;
         if (activeAutofix) {
+          // ── Stagnation detection: terminate autofix if it's past max_rounds
+          // or if recent gap-close jobs returned frozen/stagnation ──
+          const isOverMaxRounds = activeAutofix.current_round > (activeAutofix.max_rounds ?? 3);
+          
+          // Check if last gap-close was frozen (stagnation)
+          const { data: lastGapClose } = await sb
+            .from("job_queue")
+            .select("result")
+            .eq("job_type", "auto_gap_close")
+            .eq("package_id", jobPackageId)
+            .eq("status", "completed")
+            .order("completed_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          const lastGapResult = lastGapClose?.result as Record<string, unknown> | null;
+          const isFrozen = lastGapResult?.status === "frozen";
+
+          if (isOverMaxRounds || isFrozen) {
+            // Terminate the stalled autofix run
+            const stallReason = isFrozen
+              ? `STAGNATION: score=${activeAutofix.last_score}, no delta after round ${activeAutofix.current_round}`
+              : `Exceeded max_rounds: ${activeAutofix.current_round}/${activeAutofix.max_rounds}`;
+            console.warn(`[job-runner] 🛑 AUTO_PUBLISH_GATE: terminating stalled autofix ${activeAutofix.id.slice(0, 8)} — ${stallReason} (pkg ${jobPackageId.slice(0, 8)})`);
+            
+            await sb.from("autofix_runs").update({
+              status: "stalled",
+              stop_reason: stallReason,
+            }).eq("id", activeAutofix.id);
+
+            // Set package to quality_gate_failed so it's visible in ops
+            await sb.from("course_packages").update({
+              status: "quality_gate_failed",
+            }).eq("id", jobPackageId);
+
+            const gateReason = `AUTO_PUBLISH_BLOCKED: autofix stalled (${stallReason})`;
+            await sb.from("job_queue").update({
+              status: "cancelled",
+              completed_at: tsNow,
+              last_error: gateReason,
+              meta: { ...(job.meta || {}), outcome: "blocked", blocked_reason: gateReason },
+              ...lockRelease(tsNow),
+            }).eq("id", job.id).eq("status", "processing");
+            results.push({ id: job.id, status: "cancelled", reason: "autofix_stalled" });
+            continue;
+          }
+
+          // Self-heal: if autofix is still progressing,
+          // ensure there is at least one auto_gap_close self-check job alive.
+          let healedGapClose = false;
           const { count: activeGapCloseCount } = await sb
             .from("job_queue")
             .select("id", { count: "exact", head: true })
