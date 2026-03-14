@@ -47,113 +47,38 @@ const GPT5_MINI: ModelChoice       = { provider: "openai",    model: MODEL_ALIAS
 const HAIKU_FALLBACK: ModelChoice  = { provider: "anthropic", model: MODEL_ALIASES.anthropic_cheap_fast, is_fallback: true }; // v15: Primary→gpt-5-mini, Fallback→Haiku pinned
 const GPT5_2_FALLBACK: ModelChoice = { provider: "openai",   model: MODEL_ALIASES.openai_strong, is_fallback: true };
 
-// ── Tiered Fallback Strategy ─────────────────────────────────
-// ALL intents: GPT-4o mini → GPT-5-mini → GPT-5.2
-// Note: Anthropic removed, Gemini removed. All OpenAI chain.
-// STANDARD intents: GPT-4o mini → GPT-5-mini
-// SIMPLE intents: GPT-4o mini → GPT-5-mini (cost-optimized)
+// ── Tiered Fallback Strategy (v15) ───────────────────────────
+// ALL intents: GPT-5-mini → Haiku 3.5 (cross-provider) → GPT-5.2
+// STANDARD intents: GPT-5-mini → Haiku 3.5
+// SIMPLE intents: GPT-5-mini → Haiku 3.5
 
 const ROUTING_TABLE: Record<PipelineIntent, ModelChoice[]> = {
   // ── COMPLEX: Need strong reasoning — cross-provider fallback (Anthropic) ──
-  // Haiku provides cross-provider resilience against OpenAI rate limits.
-  // GPT-5.2 as final escalation for maximum quality.
-  learning_course: [
-    GPT4O_MINI,
-    HAIKU_FALLBACK,
-    GPT5_2_FALLBACK,
-  ],
-  learning_content: [
-    GPT4O_MINI,
-    HAIKU_FALLBACK,
-    GPT5_2_FALLBACK,
-  ],
-  exam_questions: [
-    GPT4O_MINI,
-    HAIKU_FALLBACK,
-    GPT5_2_FALLBACK,
-  ],
-  handbook: [
-    GPT4O_MINI,
-    HAIKU_FALLBACK,
-    GPT5_2_FALLBACK,
-  ],
-  council_review: [
-    GPT4O_MINI,
-    HAIKU_FALLBACK,
-    GPT5_2_FALLBACK,
-  ],
-  quality_audit: [
-    GPT4O_MINI,
-    HAIKU_FALLBACK,
-    GPT5_2_FALLBACK,
-  ],
-  repair_content: [
-    GPT4O_MINI,
-    HAIKU_FALLBACK,
-    GPT5_2_FALLBACK,
-  ],
-  council_validator: [
-    GPT4O_MINI,
-    HAIKU_FALLBACK,
-    GPT5_2_FALLBACK,
-  ],
+  learning_course:    [GPT5_MINI, HAIKU_FALLBACK, GPT5_2_FALLBACK],
+  learning_content:   [GPT5_MINI, HAIKU_FALLBACK, GPT5_2_FALLBACK],
+  exam_questions:     [GPT5_MINI, HAIKU_FALLBACK, GPT5_2_FALLBACK],
+  handbook:           [GPT5_MINI, HAIKU_FALLBACK, GPT5_2_FALLBACK],
+  council_review:     [GPT5_MINI, HAIKU_FALLBACK, GPT5_2_FALLBACK],
+  quality_audit:      [GPT5_MINI, HAIKU_FALLBACK, GPT5_2_FALLBACK],
+  repair_content:     [GPT5_MINI, HAIKU_FALLBACK, GPT5_2_FALLBACK],
+  council_validator:  [GPT5_MINI, HAIKU_FALLBACK, GPT5_2_FALLBACK],
 
-  // ── STANDARD: Structured output, moderate complexity — Haiku OK ──
-  oral_exam: [
-    GPT4O_MINI,
-    HAIKU_FALLBACK,
-    GPT5_MINI_FALLBACK,
-  ],
-  minicheck: [
-    GPT4O_MINI,
-    HAIKU_FALLBACK,
-    GPT5_MINI_FALLBACK,
-  ],
-  seo_content: [
-    GPT4O_MINI,
-    HAIKU_FALLBACK,
-    GPT5_MINI_FALLBACK,
-  ],
-  council_proposer: [
-    GPT4O_MINI,
-    HAIKU_FALLBACK,
-    GPT5_MINI_FALLBACK,
-  ],
-  curriculum_import: [
-    GPT4O_MINI,
-    HAIKU_FALLBACK,
-    GPT5_MINI_FALLBACK,
-  ],
+  // ── STANDARD: Structured output, moderate complexity ──
+  oral_exam:          [GPT5_MINI, HAIKU_FALLBACK],
+  minicheck:          [GPT5_MINI, HAIKU_FALLBACK],
+  seo_content:        [GPT5_MINI, HAIKU_FALLBACK],
+  council_proposer:   [GPT5_MINI, HAIKU_FALLBACK],
+  curriculum_import:  [GPT5_MINI, HAIKU_FALLBACK],
 
-  // ── SIMPLE: Classification, summary, low complexity — Haiku OK ──
-  support: [
-    GPT4O_MINI,
-    HAIKU_FALLBACK,
-    GPT5_MINI_FALLBACK,
-  ],
-  summary: [
-    GPT4O_MINI,
-    HAIKU_FALLBACK,
-    GPT5_MINI_FALLBACK,
-  ],
-  repair: [
-    GPT4O_MINI,
-    HAIKU_FALLBACK,
-    GPT5_MINI_FALLBACK,
-  ],
-  blooms_classify: [
-    GPT4O_MINI,
-    HAIKU_FALLBACK,
-    GPT5_MINI_FALLBACK,
-  ],
+  // ── SIMPLE: Classification, summary, low complexity ──
+  support:            [GPT5_MINI, HAIKU_FALLBACK],
+  summary:            [GPT5_MINI, HAIKU_FALLBACK],
+  repair:             [GPT5_MINI, HAIKU_FALLBACK],
+  blooms_classify:    [GPT5_MINI, HAIKU_FALLBACK],
 
   // ── SPECIAL: Fixed models ──
-  embeddings: [
-    { provider: "openai", model: MODEL_ALIASES.openai_embeddings },
-  ],
-  images: [
-    { provider: "openai", model: MODEL_ALIASES.openai_images },
-  ],
+  embeddings: [{ provider: "openai", model: MODEL_ALIASES.openai_embeddings }],
+  images:     [{ provider: "openai", model: MODEL_ALIASES.openai_images }],
 };
 
 // ── Budget Caps ──────────────────────────────────────────────
