@@ -1394,6 +1394,9 @@ async function allFanOutSubJobsDone(sb: ReturnType<typeof createClient>, package
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "Use POST" }, 405);
 
+  // Reset invocation-level quality metrics
+  _qualityMetrics = createEmptyQualityMetrics();
+
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
   const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const sb = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
