@@ -483,14 +483,21 @@ Deno.serve(async (req) => {
       .eq("package_id", packageId)
       .eq("step_key", "generate_lesson_minichecks");
 
+    // Stall escalation forces batch_complete=true to break the infinite loop
+    const forceComplete = stallRuns >= MAX_STALL_RUNS;
+    const finalBatchComplete = batchComplete || forceComplete;
+
     return json({
       ok: true,
-      batch_complete: batchComplete,
+      batch_complete: finalBatchComplete,
       mode: effectiveMode,
       generated: totalGenerated,
       failed: totalFailed,
       targets_found: targetsFound,
       targets_processed: targets.length,
+      remaining_targets_after: Math.max(0, targetsFound - targets.length + totalFailed),
+      stall_runs: stallRuns,
+      stall_escalated: forceComplete || undefined,
       elapsed_ms: elapsed,
       soft_stopped: softStopped,
       has_more: hasMore,
