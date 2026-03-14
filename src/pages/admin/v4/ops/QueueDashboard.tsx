@@ -34,18 +34,29 @@ function StatusCard({ label, value, color, subtitle }: { label: string; value: n
   );
 }
 
-function JobBadge({ status, meta, lastError }: { status: string; meta: any; lastError?: string }) {
+function JobBadge({ status, meta, lastError, result }: { status: string; meta: any; lastError?: string; result?: any }) {
   const outcome = meta?.outcome;
   const isBlocked = status === 'cancelled' && outcome === 'blocked';
-  const isGen0 = lastError?.includes('gen=0');
+  const isGen0 = lastError?.includes('gen=0') || (status === 'completed' && result?.generated === 0 && !result?.noop);
+  const isEffectiveFail = status === 'completed' && result?.effective_success === false;
+  const isNoop = status === 'completed' && result?.noop === true;
   const reason = meta?.soft_stopped_reason || meta?.softStoppedReason || meta?.reason;
   const attempted = meta?.attempted;
   const consecutiveTransient = meta?.consecutive_transient;
+  const failureReason = result?.failure_reason;
 
   let badgeClass = '';
   let label = status;
 
-  if (isBlocked) {
+  if (isEffectiveFail) {
+    badgeClass = 'bg-destructive/10 text-destructive border-destructive/20';
+    label = failureReason === 'ALL_LLM_CALLS_FAILED' ? 'llm_failed'
+      : failureReason === 'ALL_CANDIDATES_REJECTED' ? 'all_rejected'
+      : 'gen=0';
+  } else if (isNoop) {
+    badgeClass = 'bg-amber-500/10 text-amber-600 border-amber-500/20';
+    label = 'noop';
+  } else if (isBlocked) {
     badgeClass = 'bg-amber-500/10 text-amber-600 border-amber-500/20';
     label = 'blocked';
   } else if (status === 'cancelled') {
@@ -63,12 +74,12 @@ function JobBadge({ status, meta, lastError }: { status: string; meta: any; last
     badgeClass = '';
   }
 
-  const hasTooltip = reason || attempted || isBlocked || isGen0;
+  const hasTooltip = reason || attempted || isBlocked || isGen0 || isEffectiveFail || isNoop || failureReason;
 
   const badge = (
     <Badge variant="outline" className={cn("text-[10px] gap-1", badgeClass)}>
       {isBlocked && <Ban className="h-2.5 w-2.5" />}
-      {isGen0 && <AlertTriangle className="h-2.5 w-2.5" />}
+      {(isGen0 || isEffectiveFail) && <AlertTriangle className="h-2.5 w-2.5" />}
       {label}
     </Badge>
   );
@@ -80,11 +91,15 @@ function JobBadge({ status, meta, lastError }: { status: string; meta: any; last
       <Tooltip>
         <TooltipTrigger asChild>{badge}</TooltipTrigger>
         <TooltipContent side="top" className="max-w-xs text-xs space-y-1">
+          {failureReason && <p><span className="font-medium">Failure:</span> {failureReason} ({result?.failure_stage})</p>}
+          {isNoop && <p><span className="font-medium">No-Op:</span> {result?.noop_reason}</p>}
+          {result?.generated != null && <p><span className="font-medium">Generated:</span> {result.generated}</p>}
+          {result?.llm_calls_attempted != null && <p><span className="font-medium">LLM calls:</span> {result.llm_calls_attempted} ({result.llm_calls_failed} failed)</p>}
+          {result?.empty_responses > 0 && <p className="text-orange-600">Empty responses: {result.empty_responses}</p>}
           {reason && <p><span className="font-medium">Reason:</span> {reason}</p>}
           {attempted != null && <p><span className="font-medium">Attempted:</span> {attempted}</p>}
           {consecutiveTransient != null && <p><span className="font-medium">Transient streak:</span> {consecutiveTransient}</p>}
           {isBlocked && <p className="text-amber-600">Job blocked — wird später erneut geprüft</p>}
-          {isGen0 && <p className="text-orange-600">LLM lieferte leeres Ergebnis (gen=0)</p>}
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
