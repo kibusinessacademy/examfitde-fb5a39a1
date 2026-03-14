@@ -83,7 +83,8 @@ async function runAudit(sb: ReturnType<typeof createClient>): Promise<AuditResul
     const { count } = await sb.from("exam_questions")
       .select("id", { count: "exact", head: true })
       .eq("competency_id", comp.id)
-      .or("status.eq.approved,qc_status.eq.approved");
+      .neq("status", "rejected")
+      .not("qc_status", "in", "(tier1_failed,rejected)");
     const approved = count || 0;
     
     // Fetch blueprint IDs for gap competencies
