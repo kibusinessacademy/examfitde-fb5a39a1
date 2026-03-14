@@ -334,7 +334,7 @@ Deno.serve(async (req) => {
   let allQuestionsLoaded = false;
 
   if (startPhase === "tier1") {
-    const recentNgrams: Array<{ id: string; ngrams: Set<string> }> = [];
+    const recentNgrams: Array<{ id: string; ngrams: Set<string>; competencyId?: string }> = [];
     let pageAfterId = startAfterId;
 
     while (timeLeft() > 10_000) { // Keep 10s buffer for DB writes
