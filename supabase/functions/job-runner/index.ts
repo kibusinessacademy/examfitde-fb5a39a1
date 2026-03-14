@@ -570,11 +570,73 @@ Deno.serve(async (req) => {
       }
 
       if (!integrityOk) {
-        const gateReason = `AUTO_PUBLISH_GATE: integrity_passed=${pubGate?.integrity_passed ?? "null"} — not ready`;
-        console.log(`[job-runner] ${gateReason} (pkg ${jobPackageId.slice(0, 8)})`);
-        // Long backoff (5 min) — integrity won't flip in seconds
-        await requeueWithBackoff(sb, job.id, job.meta, 300_000, gateReason, tsNow);
-        results.push({ id: job.id, status: "requeued", reason: "auto_publish_gate" });
+        const { data: activeAutofix } = await sb
+          .from("autofix_runs")
+          .select("id, current_round, max_rounds, target_score, budget_eur, course_id, curriculum_id")
+          .eq("package_id", jobPackageId)
+          .eq("status", "running")
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        // Self-heal: if auto-publish is gated while an autofix run is active,
+        // ensure there is at least one auto_gap_close self-check job alive.
+        let healedGapClose = false;
+        if (activeAutofix) {
+          const { count: activeGapCloseCount } = await sb
+            .from("job_queue")
+            .select("id", { count: "exact", head: true })
+            .eq("job_type", "auto_gap_close")
+            .eq("package_id", jobPackageId)
+            .in("status", ["pending", "processing"]);
+
+          if ((activeGapCloseCount ?? 0) === 0) {
+            try {
+              const payload = {
+                package_id: jobPackageId,
+                course_id: activeAutofix.course_id ?? job.payload?.course_id ?? null,
+                curriculum_id: activeAutofix.curriculum_id ?? job.payload?.curriculum_id ?? null,
+                autofix_run_id: activeAutofix.id,
+                target_score: activeAutofix.target_score ?? 85,
+                max_rounds: activeAutofix.max_rounds ?? 3,
+                budget_eur: activeAutofix.budget_eur ?? 2,
+              };
+
+              await enqueueJob(sb, {
+                job_type: "auto_gap_close",
+                payload,
+                package_id: jobPackageId,
+                max_attempts: 3,
+                priority: 10,
+                run_after: new Date(Date.now() + 15_000).toISOString(),
+              });
+              healedGapClose = true;
+              console.warn(`[job-runner] 🔧 AUTO_PUBLISH_GATE self-heal: enqueued auto_gap_close for active autofix run ${activeAutofix.id.slice(0, 8)} (pkg ${jobPackageId.slice(0, 8)})`);
+            } catch (healErr) {
+              console.warn(`[job-runner] auto_gap_close self-heal enqueue failed for pkg ${jobPackageId.slice(0, 8)}: ${(healErr as Error).message}`);
+            }
+          }
+
+          const gateReason = `AUTO_PUBLISH_GATE: integrity_passed=${pubGate?.integrity_passed ?? "null"} — autofix_active=${activeAutofix.id.slice(0, 8)}${healedGapClose ? ", self_heal=queued_auto_gap_close" : ""}`;
+          console.log(`[job-runner] ${gateReason} (pkg ${jobPackageId.slice(0, 8)})`);
+          // Long backoff (5 min) — integrity won't flip in seconds
+          await requeueWithBackoff(sb, job.id, job.meta, 300_000, gateReason, tsNow);
+          results.push({ id: job.id, status: "requeued", reason: healedGapClose ? "auto_publish_gate_self_heal" : "auto_publish_gate" });
+          continue;
+        }
+
+        // No active autofix run and integrity still failing => deterministic block.
+        // Cancel instead of infinite requeue-loop.
+        const gateReason = `AUTO_PUBLISH_BLOCKED: integrity_passed=${pubGate?.integrity_passed ?? "null"} and no active autofix run`;
+        console.warn(`[job-runner] ${gateReason} (pkg ${jobPackageId.slice(0, 8)})`);
+        await sb.from("job_queue").update({
+          status: "cancelled",
+          completed_at: tsNow,
+          last_error: gateReason,
+          meta: { ...(job.meta || {}), outcome: "blocked", blocked_reason: gateReason },
+          ...lockRelease(tsNow),
+        }).eq("id", job.id).eq("status", "processing");
+        results.push({ id: job.id, status: "cancelled", reason: "auto_publish_blocked_no_autofix" });
         continue;
       }
     }
