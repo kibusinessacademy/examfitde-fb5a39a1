@@ -7268,6 +7268,7 @@ export type Database = {
           integrity_passed: boolean
           integrity_report: Json | null
           integrity_report_version: string | null
+          integrity_report_version_num: number | null
           is_published: boolean
           is_rebuild: boolean
           last_error: string | null
@@ -7319,6 +7320,7 @@ export type Database = {
           integrity_passed?: boolean
           integrity_report?: Json | null
           integrity_report_version?: string | null
+          integrity_report_version_num?: number | null
           is_published?: boolean
           is_rebuild?: boolean
           last_error?: string | null
@@ -7370,6 +7372,7 @@ export type Database = {
           integrity_passed?: boolean
           integrity_report?: Json | null
           integrity_report_version?: string | null
+          integrity_report_version_num?: number | null
           is_published?: boolean
           is_rebuild?: boolean
           last_error?: string | null
@@ -37091,6 +37094,7 @@ export type Database = {
           integrity_passed: boolean
           integrity_report: Json | null
           integrity_report_version: string | null
+          integrity_report_version_num: number | null
           is_published: boolean
           is_rebuild: boolean
           last_error: string | null
@@ -37386,6 +37390,7 @@ export type Database = {
           integrity_passed: boolean
           integrity_report: Json | null
           integrity_report_version: string | null
+          integrity_report_version_num: number | null
           is_published: boolean
           is_rebuild: boolean
           last_error: string | null
