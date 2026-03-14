@@ -274,9 +274,22 @@ export function pickParallelActions(steps: StepRow[], stepOrder: StepKey[]): Ste
       continue;
     }
 
+    // Terminal escalation guard (same as pickNextAction)
+    if (s.status === "failed") {
+      const lastErr = String(s.last_error || "");
+      const sMeta = (s.meta ?? {}) as Record<string, unknown>;
+      const isTerminal =
+        sMeta.terminal_escalation === true ||
+        /kill-switch|QG FAIL ESCALATED|terminal.escalation|AUTO_HEAL_EXHAUSTED/i.test(lastErr);
+      if (isTerminal) continue;
+    }
+
     const retryable = s.status === "queued" || s.status === "failed" || s.status === "timeout";
     if (retryable && s.attempts < s.max_attempts) {
       actions.push({ action: "enqueue", stepKey: k });
+    } else if (retryable && s.attempts >= s.max_attempts) {
+      actions.push({ action: "exhausted", stepKey: k });
+    }
     } else if (retryable && s.attempts >= s.max_attempts) {
       actions.push({ action: "exhausted", stepKey: k });
     }
