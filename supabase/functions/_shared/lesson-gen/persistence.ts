@@ -161,38 +161,75 @@ export async function persistLessonResult(
 
   // ── OPT-2: All side-effects in parallel (fire-and-await-all) ──
   // These are independent: sync, cleanup, audit, cost-log
+  // Note: Supabase query builders are Thenables, not Promises — wrap in async for .catch()
   await Promise.all([
     // Direct sync to lessons.content
-    sb.rpc("pipeline_write_lesson_content", { p_lesson_id: req.lessonId, p_content: finalContent })
-      .catch((_syncErr: Error) => {
-        console.warn(`[lesson-gen] direct sync fallback failed for ${req.lessonId.slice(0, 8)}: ${_syncErr?.message?.slice(0, 100)}`);
-      }),
+    (async () => {
+      try {
+        await sb.rpc("pipeline_write_lesson_content", { p_lesson_id: req.lessonId, p_content: finalContent });
+      } catch (_syncErr: unknown) {
+        console.warn(`[lesson-gen] direct sync fallback failed for ${req.lessonId.slice(0, 8)}: ${(_syncErr as Error)?.message?.slice(0, 100)}`);
+      }
+    })(),
 
     // Cleanup checkpoint
-    sb.from("content_versions")
-      .delete()
-      .eq("lesson_id", req.lessonId)
-      .eq("step_key", stepKeyCanonical)
-      .eq("created_by_agent", "lesson-gen-checkpoint")
-      .eq("status", "draft")
-      .catch(() => { /* best-effort */ }),
+    (async () => {
+      try {
+        await sb.from("content_versions")
+          .delete()
+          .eq("lesson_id", req.lessonId)
+          .eq("step_key", stepKeyCanonical)
+          .eq("created_by_agent", "lesson-gen-checkpoint")
+          .eq("status", "draft");
+      } catch { /* best-effort */ }
+    })(),
 
     // Audit: council message
-    sb.from("council_messages").insert({
-      content_version_id: newVersion!.id,
-      agent_name: "lesson-generate-content",
-      message_type: "proposal",
-      message_json: {
-        source: "single-unit-worker",
-        profession: data.professionName,
-        used_provider: llm.result.provider,
-        used_model: llm.result.model,
-        plain_retry: llm.plainRetry,
-        autopilot: runtime.autopilotAction,
-      },
-    }).catch((e: Error) => {
-      console.warn(`[lesson-gen] council_message insert failed: ${e?.message?.slice(0, 100)}`);
-    }),
+    (async () => {
+      try {
+        await sb.from("council_messages").insert({
+          content_version_id: newVersion!.id,
+          agent_name: "lesson-generate-content",
+          message_type: "proposal",
+          message_json: {
+            source: "single-unit-worker",
+            profession: data.professionName,
+            used_provider: llm.result.provider,
+            used_model: llm.result.model,
+            plain_retry: llm.plainRetry,
+            autopilot: runtime.autopilotAction,
+          },
+        });
+      } catch (e: unknown) {
+        console.warn(`[lesson-gen] council_message insert failed: ${(e as Error)?.message?.slice(0, 100)}`);
+      }
+    })(),
+
+    // Cost logging
+    (async () => {
+      try {
+        await logLLMCostEvent(sb, {
+          job_type: "lesson_generate_content",
+          provider: llm.result.provider,
+          model: llm.result.model,
+          tokens_in: llm.result.usage?.input_tokens || 0,
+          tokens_out: llm.result.usage?.output_tokens || 0,
+          package_id: req.packageId,
+          certification_id: req.certificationId,
+          course_id: req.courseId,
+          estimatedUsage: llm.result.estimatedUsage,
+          meta: {
+            plain_retry: llm.plainRetry,
+            step_key: req.stepKey,
+            autopilot: runtime.autopilotAction,
+            attempt_index: req.attemptIndex,
+          },
+        });
+      } catch (e: unknown) {
+        console.warn(`[lesson-gen] cost_log failed: ${(e as Error)?.message?.slice(0, 100)}`);
+      }
+    })(),
+  ]);
 
     // Cost logging
     logLLMCostEvent(sb, {
