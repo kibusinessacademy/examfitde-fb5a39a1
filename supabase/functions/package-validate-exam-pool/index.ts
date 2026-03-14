@@ -333,8 +333,9 @@ Deno.serve(async (req) => {
   if (pendingQcCount === 0) {
     const approvedCount = qcCounts.approved || 0;
     const unresolvedCount = Math.max(0, (totalQuestionCount ?? 0) - approvedCount);
+    const failedCount = (qcCounts.tier1_failed || 0) + (qcCounts.needs_revision || 0);
 
-    // Idempotent success: already fully validated
+    // Idempotent success: already fully validated (0 unresolved)
     if (unresolvedCount === 0 && approvedCount > 0) {
       console.log(`[validate-exam] IDEMPOTENT_SUCCESS: no pending + all approved (${approvedCount})`);
       return json({
@@ -366,6 +367,38 @@ Deno.serve(async (req) => {
         .filter((id: string) => !approvedLf.has(id));
     } catch (lfErr) {
       console.warn(`[validate-exam] LF coverage derivation failed: ${(lfErr as Error)?.message}`);
+    }
+
+    // ── SYSTEM-WIDE FIX: Prevent infinite re-seed loop ──
+    // When approved pool is sufficient AND all LFs are covered,
+    // the few tier1_failed/needs_revision questions are terminal waste —
+    // reject them and pass validation instead of looping forever.
+    const MIN_APPROVED_FOR_PASS = 500; // Elite threshold
+    const unresolvedRatio = approvedCount > 0 ? failedCount / approvedCount : 1;
+    const poolSufficient = approvedCount >= MIN_APPROVED_FOR_PASS && missingLfIds.length === 0 && unresolvedRatio < 0.05;
+
+    if (poolSufficient && failedCount > 0) {
+      console.log(`[validate-exam] TERMINAL_CLEANUP: rejecting ${failedCount} unresolvable questions (approved=${approvedCount}, ratio=${(unresolvedRatio * 100).toFixed(1)}%)`);
+      // Mark terminal failures as 'rejected' so they stop blocking
+      try {
+        await sb
+          .from("exam_questions")
+          .update({ qc_status: "rejected", status: "rejected" })
+          .eq("curriculum_id", curriculumId)
+          .in("qc_status", ["tier1_failed", "needs_revision"]);
+      } catch (rejectErr) {
+        console.warn(`[validate-exam] REJECT_CLEANUP_FAIL: ${(rejectErr as Error)?.message?.slice(0, 100)}`);
+      }
+
+      return json({
+        ok: true,
+        batch_complete: true,
+        validation_passed: true,
+        terminal_cleanup: true,
+        rejected_count: failedCount,
+        qc_counts: { ...qcCounts, rejected: failedCount },
+        message: `✅ Exam Pool validiert (${approvedCount} approved). ${failedCount} unresolvable Fragen als rejected markiert.`,
+      });
     }
 
     const issues = [
