@@ -97,6 +97,7 @@ Deno.serve(async (req) => {
           stream: true,
         }),
       });
+    }
 
     if (!aiResponse.ok) {
       const status = aiResponse.status;
