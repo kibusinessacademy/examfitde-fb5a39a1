@@ -404,7 +404,7 @@ async function loadExamProviderChain(): Promise<ModelChoice[]> {
   } catch (e) {
     console.warn(`[ExamPool-v5] DB routing failed, using hardcoded fallback: ${e}`);
     _examProviderChain = [
-      { provider: "anthropic" as AIProvider, model: "claude-3-5-haiku-20241022" },
+      { provider: "openai" as AIProvider, model: "gpt-4o-mini" },
       { provider: "openai" as AIProvider, model: "gpt-5.2" },
     ];
   }
