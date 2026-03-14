@@ -35991,6 +35991,22 @@ export type Database = {
       }
       generate_invite_code: { Args: never; Returns: string }
       generate_invoice_number: { Args: never; Returns: string }
+      get_ab_test_report: {
+        Args: { p_job_types?: string[]; p_window_hours?: number }
+        Returns: {
+          avg_cost_eur: number
+          avg_tokens_out: number
+          calls: number
+          first_call: string
+          job_type: string
+          last_call: string
+          model: string
+          provider: string
+          total_cost_eur: number
+          total_tokens_in: number
+          total_tokens_out: number
+        }[]
+      }
       get_active_package_count: { Args: never; Returns: number }
       get_active_package_for_curriculum: {
         Args: { p_curriculum_id: string }
@@ -36819,6 +36835,7 @@ export type Database = {
         Args: { p_code: string; p_lock_seconds?: number; p_max_fail?: number }
         Returns: Json
       }
+      notify_ab_test_daily: { Args: never; Returns: undefined }
       ops_cancel_pending_non_building_jobs: { Args: never; Returns: number }
       ops_expire_orphan_leases: { Args: never; Returns: number }
       ops_hash_dedupe: {
