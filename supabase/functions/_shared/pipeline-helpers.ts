@@ -165,6 +165,18 @@ export function pickNextAction(steps: StepRow[], stepOrder: StepKey[]): StepActi
       return { action: "exhausted", stepKey: k };
     }
 
+    // Terminal escalation guard: never re-dispatch steps with kill-switch or terminal errors
+    if (s.status === "failed") {
+      const lastErr = String(s.last_error || "");
+      const sMeta = (s.meta ?? {}) as Record<string, unknown>;
+      const isTerminal =
+        sMeta.terminal_escalation === true ||
+        /kill-switch|QG FAIL ESCALATED|terminal.escalation|AUTO_HEAL_EXHAUSTED/i.test(lastErr);
+      if (isTerminal) {
+        continue; // Skip — terminally failed, must not be re-dispatched
+      }
+    }
+
     const retryable = s.status === "queued" || s.status === "failed" || s.status === "timeout";
     if (retryable && s.attempts < s.max_attempts) {
       return { action: "enqueue", stepKey: k };
