@@ -21,6 +21,9 @@ export const MODEL_ALIASES = {
   /** Anthropic primary workhorse (Haiku 4.5). Pinned snapshot — stable. */
   anthropic_primary: "claude-haiku-4-5-20251001",
 
+  /** OpenAI cheap+fast primary workhorse. Pinned. */
+  openai_primary: "gpt-4o-mini",
+
   /** Anthropic strong (Sonnet). Pinned snapshot — stable. */
   anthropic_strong: "claude-sonnet-4-5-20250929",
 
