@@ -34,18 +34,29 @@ function StatusCard({ label, value, color, subtitle }: { label: string; value: n
   );
 }
 
-function JobBadge({ status, meta, lastError }: { status: string; meta: any; lastError?: string }) {
+function JobBadge({ status, meta, lastError, result }: { status: string; meta: any; lastError?: string; result?: any }) {
   const outcome = meta?.outcome;
   const isBlocked = status === 'cancelled' && outcome === 'blocked';
-  const isGen0 = lastError?.includes('gen=0');
+  const isGen0 = lastError?.includes('gen=0') || (status === 'completed' && result?.generated === 0 && !result?.noop);
+  const isEffectiveFail = status === 'completed' && result?.effective_success === false;
+  const isNoop = status === 'completed' && result?.noop === true;
   const reason = meta?.soft_stopped_reason || meta?.softStoppedReason || meta?.reason;
   const attempted = meta?.attempted;
   const consecutiveTransient = meta?.consecutive_transient;
+  const failureReason = result?.failure_reason;
 
   let badgeClass = '';
   let label = status;
 
-  if (isBlocked) {
+  if (isEffectiveFail) {
+    badgeClass = 'bg-destructive/10 text-destructive border-destructive/20';
+    label = failureReason === 'ALL_LLM_CALLS_FAILED' ? 'llm_failed'
+      : failureReason === 'ALL_CANDIDATES_REJECTED' ? 'all_rejected'
+      : 'gen=0';
+  } else if (isNoop) {
+    badgeClass = 'bg-amber-500/10 text-amber-600 border-amber-500/20';
+    label = 'noop';
+  } else if (isBlocked) {
     badgeClass = 'bg-amber-500/10 text-amber-600 border-amber-500/20';
     label = 'blocked';
   } else if (status === 'cancelled') {
@@ -63,12 +74,12 @@ function JobBadge({ status, meta, lastError }: { status: string; meta: any; last
     badgeClass = '';
   }
 
-  const hasTooltip = reason || attempted || isBlocked || isGen0;
+  const hasTooltip = reason || attempted || isBlocked || isGen0 || isEffectiveFail || isNoop || failureReason;
 
   const badge = (
     <Badge variant="outline" className={cn("text-[10px] gap-1", badgeClass)}>
       {isBlocked && <Ban className="h-2.5 w-2.5" />}
-      {isGen0 && <AlertTriangle className="h-2.5 w-2.5" />}
+      {(isGen0 || isEffectiveFail) && <AlertTriangle className="h-2.5 w-2.5" />}
       {label}
     </Badge>
   );
@@ -80,11 +91,15 @@ function JobBadge({ status, meta, lastError }: { status: string; meta: any; last
       <Tooltip>
         <TooltipTrigger asChild>{badge}</TooltipTrigger>
         <TooltipContent side="top" className="max-w-xs text-xs space-y-1">
+          {failureReason && <p><span className="font-medium">Failure:</span> {failureReason} ({result?.failure_stage})</p>}
+          {isNoop && <p><span className="font-medium">No-Op:</span> {result?.noop_reason}</p>}
+          {result?.generated != null && <p><span className="font-medium">Generated:</span> {result.generated}</p>}
+          {result?.llm_calls_attempted != null && <p><span className="font-medium">LLM calls:</span> {result.llm_calls_attempted} ({result.llm_calls_failed} failed)</p>}
+          {result?.empty_responses > 0 && <p className="text-orange-600">Empty responses: {result.empty_responses}</p>}
           {reason && <p><span className="font-medium">Reason:</span> {reason}</p>}
           {attempted != null && <p><span className="font-medium">Attempted:</span> {attempted}</p>}
           {consecutiveTransient != null && <p><span className="font-medium">Transient streak:</span> {consecutiveTransient}</p>}
           {isBlocked && <p className="text-amber-600">Job blocked — wird später erneut geprüft</p>}
-          {isGen0 && <p className="text-orange-600">LLM lieferte leeres Ergebnis (gen=0)</p>}
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
@@ -128,19 +143,26 @@ export default function QueueDashboard() {
   if (loading) return <Loading />;
 
   const statusCounts = jobs.reduce((acc: any, j) => { acc[j.status] = (acc[j.status] || 0) + 1; return acc; }, {});
-  const gen0Count = jobs.filter(j => j.status === 'failed' && (j.last_error?.includes('gen=0') || j.error?.includes('gen=0'))).length;
+  const gen0Count = jobs.filter(j =>
+    (j.status === 'failed' && (j.last_error?.includes('gen=0') || j.error?.includes('gen=0'))) ||
+    (j.status === 'completed' && j.result?.effective_success === false)
+  ).length;
   const blockedCount = jobs.filter(j => j.status === 'cancelled' && j.meta?.outcome === 'blocked').length;
   const exhaustedCount = jobs.filter(j => j.status === 'failed' && j.attempts >= j.max_attempts).length;
+  const hollowCompleted = jobs.filter(j => j.status === 'completed' && j.result?.generated === 0 && !j.result?.noop).length;
 
   return (
     <div className="space-y-4">
       {/* Status Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
         <StatusCard label="Pending" value={statusCounts['pending'] || 0} color="text-muted-foreground" />
         <StatusCard label="Processing" value={statusCounts['processing'] || 0} color="text-primary" />
-        <StatusCard label="Completed" value={statusCounts['completed'] || 0} color="text-emerald-500" />
+        <StatusCard label="Completed" value={(statusCounts['completed'] || 0) - hollowCompleted} color="text-emerald-500"
+          subtitle={hollowCompleted > 0 ? `${hollowCompleted} hollow` : undefined} />
         <StatusCard label="Failed" value={statusCounts['failed'] || 0} color="text-destructive"
           subtitle={gen0Count ? `${gen0Count} gen=0` : undefined} />
+        <StatusCard label="Hollow" value={hollowCompleted} color="text-orange-500"
+          subtitle="completed, gen=0" />
         <StatusCard label="Blocked" value={blockedCount} color="text-amber-500"
           subtitle={blockedCount ? 'cancelled+blocked' : undefined} />
         <StatusCard label="Gen=0" value={gen0Count} color="text-orange-500"
@@ -205,6 +227,7 @@ export default function QueueDashboard() {
             <tr className="border-b border-border text-muted-foreground">
               <th className="text-left py-2 px-3">Job Type</th>
               <th className="text-left py-2 px-3">Status</th>
+              <th className="text-right py-2 px-2">Gen</th>
               <th className="text-left py-2 px-3">Attempts</th>
               <th className="text-left py-2 px-3">Package</th>
               <th className="text-left py-2 px-3">Fehler</th>
@@ -212,34 +235,47 @@ export default function QueueDashboard() {
             </tr>
           </thead>
           <tbody>
-            {jobs.slice(0, 50).map(j => (
-              <tr key={j.id} className="border-b border-border/30 hover:bg-muted/30">
-                <td className="py-2 px-3 font-mono">{j.job_type}</td>
-                <td className="py-2 px-3">
-                  <JobBadge status={j.status} meta={j.meta} lastError={j.last_error || j.error} />
-                </td>
-                <td className="py-2 px-3">{j.attempts}/{j.max_attempts}</td>
-                <td className="py-2 px-3 truncate max-w-[160px]" title={j.package_id || j.payload?.package_id || ''}>
-                  {(() => {
-                    const pid = j.package_id || j.payload?.package_id;
-                    const name = pid ? pkgNames[pid] : null;
-                    return name || pid?.substring(0, 8) || '–';
-                  })()}
-                </td>
-                <td className={cn(
-                  "py-2 px-3 truncate max-w-[200px]",
-                  j.status === 'completed' ? 'text-muted-foreground/50 line-through' : 'text-destructive'
-                )}>
-                  {j.status === 'completed' && j.last_error
-                    ? <span className="text-muted-foreground/40 text-[10px]">(historisch) {j.last_error}</span>
-                    : (j.last_error || j.error || '–')
-                  }
-                </td>
-                <td className="py-2 px-3 text-muted-foreground">
-                  {new Date(j.created_at).toLocaleString('de-DE', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}
-                </td>
-              </tr>
-            ))}
+            {jobs.slice(0, 50).map(j => {
+              const res = j.result;
+              const gen = res?.generated ?? res?.metrics?.generated;
+              const isHollow = j.status === 'completed' && gen === 0 && !res?.noop;
+              return (
+                <tr key={j.id} className={cn("border-b border-border/30 hover:bg-muted/30", isHollow && "bg-orange-500/5")}>
+                  <td className="py-2 px-3 font-mono">{j.job_type}</td>
+                  <td className="py-2 px-3">
+                    <JobBadge status={j.status} meta={j.meta} lastError={j.last_error || j.error} result={res} />
+                  </td>
+                  <td className={cn(
+                    "py-2 px-2 text-right font-mono tabular-nums",
+                    gen > 0 ? "text-emerald-500" : gen === 0 ? "text-orange-500" : "text-muted-foreground"
+                  )}>
+                    {gen != null ? gen : '–'}
+                  </td>
+                  <td className="py-2 px-3">{j.attempts}/{j.max_attempts}</td>
+                  <td className="py-2 px-3 truncate max-w-[140px]" title={j.package_id || j.payload?.package_id || ''}>
+                    {(() => {
+                      const pid = j.package_id || j.payload?.package_id;
+                      const name = pid ? pkgNames[pid] : null;
+                      return name || pid?.substring(0, 8) || '–';
+                    })()}
+                  </td>
+                  <td className={cn(
+                    "py-2 px-3 truncate max-w-[180px]",
+                    isHollow ? 'text-orange-500' : j.status === 'completed' ? 'text-muted-foreground/50' : 'text-destructive'
+                  )}>
+                    {isHollow
+                      ? <span className="text-orange-500 text-[10px]">⚠ {res?.failure_reason || 'HOLLOW (gen=0)'}</span>
+                      : j.status === 'completed' && j.last_error
+                        ? <span className="text-muted-foreground/40 text-[10px]">(historisch) {j.last_error}</span>
+                        : (j.last_error || j.error || '–')
+                    }
+                  </td>
+                  <td className="py-2 px-3 text-muted-foreground">
+                    {new Date(j.created_at).toLocaleString('de-DE', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
