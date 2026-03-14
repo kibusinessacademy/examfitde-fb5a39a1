@@ -2220,7 +2220,7 @@ Deno.serve(async (req) => {
       }
       return json(withMetrics(
         { ok: true, batch_complete: false, batch_cursor: { generated: actualTotal, blueprint_index: 0, target: examTarget, blueprints_total: bps.length, loop_count: currentLoop }, ...resultMeta },
-        { generated: questionsThisChunk, inserted: actualTotal, blueprints_found: bps.length, blueprints_used: bpsProcessed },
+        { generated: generatedThisRun, inserted: insertedThisRun, blueprints_found: bps.length, blueprints_used: bpsProcessed },
       ));
     } else {
       return json(withMetrics(
