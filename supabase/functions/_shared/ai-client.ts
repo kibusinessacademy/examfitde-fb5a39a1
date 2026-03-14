@@ -21,6 +21,7 @@ import {
 import { warnIfUnclassifiedLlmError } from "./llm/normalize.ts";
 
 import { fillUsage, estimateCostEur } from "./token-estimator.ts";
+import { isDriftProneModel } from "./model-aliases.ts";
 
 export type { AIProvider };
 
