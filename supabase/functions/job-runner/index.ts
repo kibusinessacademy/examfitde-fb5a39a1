@@ -580,33 +580,49 @@ Deno.serve(async (req) => {
           .maybeSingle();
 
         if (activeAutofix) {
-          // ── Stagnation detection: terminate autofix if it's past max_rounds
-          // or if recent gap-close jobs returned frozen/stagnation ──
+          // ── Delta-based stagnation detection ──
+          // Check last 2-3 completed auto_gap_close rounds for score/progress delta
           const isOverMaxRounds = activeAutofix.current_round > (activeAutofix.max_rounds ?? 3);
           
-          // Check if last gap-close was frozen (stagnation)
-          const { data: lastGapClose } = await sb
+          // Fetch last 3 completed gap-close results for delta analysis
+          const { data: recentGapCloses } = await sb
             .from("job_queue")
-            .select("result")
+            .select("result, completed_at")
             .eq("job_type", "auto_gap_close")
             .eq("package_id", jobPackageId)
             .eq("status", "completed")
             .order("completed_at", { ascending: false })
-            .limit(1)
-            .maybeSingle();
-          const lastGapResult = lastGapClose?.result as Record<string, unknown> | null;
-          const isFrozen = lastGapResult?.status === "frozen";
+            .limit(3);
+          
+          const recentResults = (recentGapCloses ?? []).map((r: any) => r.result as Record<string, unknown> | null).filter(Boolean);
+          const isFrozen = recentResults.some(r => r?.status === "frozen");
+          
+          // Delta stagnation: if last 2+ rounds show no score improvement
+          let isDeltaStagnant = false;
+          if (recentResults.length >= 2) {
+            const scores = recentResults
+              .map(r => typeof r?.score === "number" ? r.score : null)
+              .filter((s): s is number => s !== null);
+            if (scores.length >= 2) {
+              const maxDelta = Math.max(...scores.slice(0, -1).map((s, i) => s - scores[i + 1]));
+              isDeltaStagnant = maxDelta <= 0;
+            }
+          }
 
-          if (isOverMaxRounds || isFrozen) {
-            // Terminate the stalled autofix run
+          if (isOverMaxRounds || isFrozen || isDeltaStagnant) {
             const stallReason = isFrozen
-              ? `STAGNATION: score=${activeAutofix.last_score}, no delta after round ${activeAutofix.current_round}`
+              ? `STAGNATION: score=${activeAutofix.last_score}, frozen after round ${activeAutofix.current_round}`
+              : isDeltaStagnant
+              ? `STAGNATION: no score delta across last ${recentResults.length} rounds (score=${activeAutofix.last_score})`
               : `Exceeded max_rounds: ${activeAutofix.current_round}/${activeAutofix.max_rounds}`;
+            const reasonCode = (isFrozen || isDeltaStagnant) ? "STAGNATION" : "MAX_ROUNDS_EXCEEDED";
+            
             console.warn(`[job-runner] 🛑 AUTO_PUBLISH_GATE: terminating stalled autofix ${activeAutofix.id.slice(0, 8)} — ${stallReason} (pkg ${jobPackageId.slice(0, 8)})`);
             
             await sb.from("autofix_runs").update({
               status: "failed",
               stop_reason: stallReason,
+              stop_reason_code: reasonCode,
             }).eq("id", activeAutofix.id);
 
             // Set package to quality_gate_failed so it's visible in ops
