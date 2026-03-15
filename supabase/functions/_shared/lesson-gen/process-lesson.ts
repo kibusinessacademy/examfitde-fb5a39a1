@@ -196,7 +196,8 @@ async function enqueueLessonBatch(
   // Use the first model from the chain, or fall back to batch default
   const model = runtime.chain[0]?.model || BATCH_DEFAULT_MODEL;
 
-  const customId = `lesson_${req.lessonId}_${req.stepKey}_${Date.now()}`;
+  // Deterministic custom_id for idempotency — same lesson+step+jobHash always produces same ID
+  const customId = `lesson_${req.lessonId}_${req.stepKey}_${req.jobHash || 0}`;
 
   const batchRequests = buildBatchRequests([{
     customId,
