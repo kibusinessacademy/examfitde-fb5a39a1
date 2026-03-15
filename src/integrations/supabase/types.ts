@@ -12597,6 +12597,95 @@ export type Database = {
           },
         ]
       }
+      exam_readiness_snapshots: {
+        Row: {
+          based_on_attempts: number
+          based_on_competencies: number
+          calculated_at: string
+          confidence_score: number
+          curriculum_id: string
+          id: string
+          last_exam_sim_score: number | null
+          mastered_count: number
+          meta: Json
+          not_mastered_count: number
+          partial_count: number
+          readiness_score: number
+          risk_level: string
+          strong_competencies: Json
+          user_id: string
+          version: string
+          weak_competencies: Json
+        }
+        Insert: {
+          based_on_attempts?: number
+          based_on_competencies?: number
+          calculated_at?: string
+          confidence_score?: number
+          curriculum_id: string
+          id?: string
+          last_exam_sim_score?: number | null
+          mastered_count?: number
+          meta?: Json
+          not_mastered_count?: number
+          partial_count?: number
+          readiness_score?: number
+          risk_level?: string
+          strong_competencies?: Json
+          user_id: string
+          version?: string
+          weak_competencies?: Json
+        }
+        Update: {
+          based_on_attempts?: number
+          based_on_competencies?: number
+          calculated_at?: string
+          confidence_score?: number
+          curriculum_id?: string
+          id?: string
+          last_exam_sim_score?: number | null
+          mastered_count?: number
+          meta?: Json
+          not_mastered_count?: number
+          partial_count?: number
+          readiness_score?: number
+          risk_level?: string
+          strong_competencies?: Json
+          user_id?: string
+          version?: string
+          weak_competencies?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_readiness_snapshots_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_readiness_snapshots_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "exam_readiness_snapshots_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "exam_readiness_snapshots_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
+        ]
+      }
       exam_session_questions: {
         Row: {
           answered_at: string | null
@@ -15191,6 +15280,129 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      learning_events: {
+        Row: {
+          competency_id: string | null
+          course_id: string | null
+          created_at: string
+          curriculum_id: string | null
+          duration_seconds: number | null
+          event_source: string
+          event_type: string
+          id: string
+          lesson_id: string | null
+          payload: Json
+          score: number | null
+          user_id: string
+        }
+        Insert: {
+          competency_id?: string | null
+          course_id?: string | null
+          created_at?: string
+          curriculum_id?: string | null
+          duration_seconds?: number | null
+          event_source?: string
+          event_type: string
+          id?: string
+          lesson_id?: string | null
+          payload?: Json
+          score?: number | null
+          user_id: string
+        }
+        Update: {
+          competency_id?: string | null
+          course_id?: string | null
+          created_at?: string
+          curriculum_id?: string | null
+          duration_seconds?: number | null
+          event_source?: string
+          event_type?: string
+          id?: string
+          lesson_id?: string | null
+          payload?: Json
+          score?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learning_events_competency_id_fkey"
+            columns: ["competency_id"]
+            isOneToOne: false
+            referencedRelation: "competencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "learning_events_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "learning_events_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "ops_recovery_impact"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "learning_events_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "v_course_display_ssot"
+            referencedColumns: ["course_row_id"]
+          },
+          {
+            foreignKeyName: "learning_events_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_build_priority"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "learning_events_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "learning_events_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "learning_events_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "learning_events_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "learning_events_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lesson_qc_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "learning_events_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       learning_field_elite_policies: {
         Row: {
@@ -29392,6 +29604,86 @@ export type Database = {
           },
         ]
       }
+      user_recommendations: {
+        Row: {
+          clicked_at: string | null
+          curriculum_id: string
+          expires_at: string | null
+          generated_at: string
+          id: string
+          is_active: boolean
+          meta: Json
+          priority_score: number
+          reason_code: string
+          reason_text: string
+          recommendation_type: string
+          target_id: string | null
+          target_meta: Json
+          user_id: string
+        }
+        Insert: {
+          clicked_at?: string | null
+          curriculum_id: string
+          expires_at?: string | null
+          generated_at?: string
+          id?: string
+          is_active?: boolean
+          meta?: Json
+          priority_score?: number
+          reason_code: string
+          reason_text?: string
+          recommendation_type: string
+          target_id?: string | null
+          target_meta?: Json
+          user_id: string
+        }
+        Update: {
+          clicked_at?: string | null
+          curriculum_id?: string
+          expires_at?: string | null
+          generated_at?: string
+          id?: string
+          is_active?: boolean
+          meta?: Json
+          priority_score?: number
+          reason_code?: string
+          reason_text?: string
+          recommendation_type?: string
+          target_id?: string | null
+          target_meta?: Json
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_recommendations_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_recommendations_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "user_recommendations_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "user_recommendations_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
+        ]
+      }
       user_remediation_queue: {
         Row: {
           competency_id: string
@@ -36621,6 +36913,201 @@ export type Database = {
             referencedColumns: ["curriculum_id"]
           },
         ]
+      }
+      v_user_active_recommendations: {
+        Row: {
+          curriculum_id: string | null
+          expires_at: string | null
+          generated_at: string | null
+          id: string | null
+          priority_score: number | null
+          reason_code: string | null
+          reason_text: string | null
+          recommendation_type: string | null
+          target_id: string | null
+          target_meta: Json | null
+          user_id: string | null
+        }
+        Insert: {
+          curriculum_id?: string | null
+          expires_at?: string | null
+          generated_at?: string | null
+          id?: string | null
+          priority_score?: number | null
+          reason_code?: string | null
+          reason_text?: string | null
+          recommendation_type?: string | null
+          target_id?: string | null
+          target_meta?: Json | null
+          user_id?: string | null
+        }
+        Update: {
+          curriculum_id?: string | null
+          expires_at?: string | null
+          generated_at?: string | null
+          id?: string | null
+          priority_score?: number | null
+          reason_code?: string | null
+          reason_text?: string | null
+          recommendation_type?: string | null
+          target_id?: string | null
+          target_meta?: Json | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_recommendations_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_recommendations_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "user_recommendations_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "user_recommendations_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
+        ]
+      }
+      v_user_current_readiness: {
+        Row: {
+          based_on_attempts: number | null
+          based_on_competencies: number | null
+          calculated_at: string | null
+          confidence_score: number | null
+          curriculum_id: string | null
+          id: string | null
+          last_exam_sim_score: number | null
+          mastered_count: number | null
+          not_mastered_count: number | null
+          partial_count: number | null
+          readiness_score: number | null
+          risk_level: string | null
+          strong_competencies: Json | null
+          user_id: string | null
+          weak_competencies: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_readiness_snapshots_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_readiness_snapshots_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "exam_readiness_snapshots_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "exam_readiness_snapshots_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
+        ]
+      }
+      v_user_readiness_trend: {
+        Row: {
+          calculated_at: string | null
+          curriculum_id: string | null
+          mastered_count: number | null
+          readiness_score: number | null
+          risk_level: string | null
+          user_id: string | null
+        }
+        Insert: {
+          calculated_at?: string | null
+          curriculum_id?: string | null
+          mastered_count?: number | null
+          readiness_score?: number | null
+          risk_level?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          calculated_at?: string | null
+          curriculum_id?: string | null
+          mastered_count?: number | null
+          readiness_score?: number | null
+          risk_level?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_readiness_snapshots_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_readiness_snapshots_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "exam_readiness_snapshots_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "exam_readiness_snapshots_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
+        ]
+      }
+      v_user_top_gaps: {
+        Row: {
+          accuracy_pct: number | null
+          competency_code: string | null
+          competency_id: string | null
+          competency_title: string | null
+          correct_attempts: number | null
+          curriculum_id: string | null
+          gap_type: string | null
+          learning_field_code: string | null
+          learning_field_title: string | null
+          mastery_score: number | null
+          mastery_state: string | null
+          total_attempts: number | null
+          user_id: string | null
+          weakness_score: number | null
+        }
+        Relationships: []
       }
       v_vat_monthly: {
         Row: {

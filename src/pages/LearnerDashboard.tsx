@@ -17,6 +17,9 @@ import ProgressNarrative from '@/components/dashboard/ProgressNarrative';
 import { BadgeHistory } from '@/components/dashboard/BadgeHistory';
 import { ExamReadinessGauge } from '@/components/dashboard/ExamReadinessGauge';
 import { WeaknessLoopWidget } from '@/components/dashboard/WeaknessLoopWidget';
+import { TopGapsCard } from '@/components/dashboard/TopGapsCard';
+import { SmartRecommendationsCard } from '@/components/dashboard/SmartRecommendationsCard';
+import { ReadinessTrendCard } from '@/components/dashboard/ReadinessTrendCard';
 import { useSimulationGate } from '@/hooks/useExamReadiness';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -218,9 +221,10 @@ export default function LearnerDashboard() {
           <NextBestActionCard />
         </div>
 
-        {/* ━━━ SECTION 1: Next Best Action + Coach Hint ━━━ */}
+        {/* ━━━ SECTION 1: Smart Recommendations + Next Best Action + Coach Hint ━━━ */}
         {activeCurriculumId && (
           <div className="space-y-4 mb-6">
+            <SmartRecommendationsCard curriculumId={activeCurriculumId} />
             <NextBestAction curriculumId={activeCurriculumId} />
             <CoachHint curriculumId={activeCurriculumId} />
           </div>
@@ -240,12 +244,16 @@ export default function LearnerDashboard() {
           </div>
         )}
 
-        {/* ━━━ SECTION 3: Readiness Gauge + Radar + Streak ━━━ */}
+        {/* ━━━ SECTION 3: Readiness Gauge + Radar + Trend + Gaps ━━━ */}
         {activeCurriculumId && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mb-6">
-            <ExamReadinessGauge curriculumId={activeCurriculumId} />
-            <div className="lg:col-span-2">
+            <div className="space-y-4">
+              <ExamReadinessGauge curriculumId={activeCurriculumId} />
+              <ReadinessTrendCard curriculumId={activeCurriculumId} />
+            </div>
+            <div className="lg:col-span-2 space-y-4">
               <ReadinessRadar curriculumId={activeCurriculumId} />
+              <TopGapsCard curriculumId={activeCurriculumId} />
             </div>
           </div>
         )}
