@@ -46,24 +46,12 @@ Deno.serve(async (req) => {
     if (!requests.length) return json({ ok: false, error: "requests[] required" }, 400);
     if (requests.length > 50_000) return json({ ok: false, error: "Max 50,000 requests per batch" }, 400);
 
-    // ── P2 Guard: Provider-Model Compatibility Check ──
-    // Anthropic models MUST NOT be submitted to OpenAI batch endpoint and vice versa.
-    const isAnthropicModel = (m: string) =>
-      m.startsWith("claude") || m.includes("anthropic");
-    const isOpenAIModel = (m: string) =>
-      !isAnthropicModel(m); // everything non-Anthropic routes to OpenAI for now
-
-    if (provider === "openai" && isAnthropicModel(model)) {
+    // ── P2 Guard: Provider-Model Compatibility Check (SSOT) ──
+    const mismatchErr = validateProviderModelCompat(provider, model);
+    if (mismatchErr) {
       return json({
         ok: false,
-        error: `Provider-Model mismatch: model "${model}" is Anthropic but provider is "openai". Batch rejected.`,
-        code: "PROVIDER_MODEL_MISMATCH",
-      }, 422);
-    }
-    if (provider === "anthropic" && !isAnthropicModel(model)) {
-      return json({
-        ok: false,
-        error: `Provider-Model mismatch: model "${model}" is not Anthropic but provider is "anthropic". Batch rejected.`,
+        error: `${mismatchErr}. Batch rejected.`,
         code: "PROVIDER_MODEL_MISMATCH",
       }, 422);
     }
