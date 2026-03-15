@@ -15,6 +15,12 @@ import {
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import {
+  retryPackageStep as retryStepAction,
+  cancelPackageBuild as cancelBuildAction,
+  forceUnlockPackage as forceUnlockAction,
+  approveStepException as approveExceptionAction,
+} from '@/integrations/supabase/admin-ops-actions';
 import BuildLiveLog from '@/components/admin/BuildLiveLog';
 import ProductModuleStatus from '@/components/admin/ProductModuleStatus';
 import CouncilTimeline from '@/components/admin/CouncilTimeline';
