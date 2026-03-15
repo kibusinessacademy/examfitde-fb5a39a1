@@ -165,7 +165,7 @@ export default function KnowledgeGraphDashboard() {
         <Card>
           <CardContent className="pt-4 pb-4">
             <div className="flex items-center gap-2">
-              <Target className="h-4 w-4 text-emerald-500" />
+              <Target className="h-4 w-4 text-primary" />
               <span className="text-sm text-muted-foreground">Kompetenzen</span>
             </div>
             {isLoading ? <Skeleton className="h-8 w-20 mt-1" /> : (
