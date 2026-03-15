@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { ALL_PIPELINE_STEPS_UI, getActivePipelineStepsUI } from '@/lib/pipeline-ui-registry';
 
 export type CertificationType = 
   | 'ausbildung' 
@@ -63,35 +64,12 @@ export const DEFAULT_FLAGS: Record<ProductTrack, FeatureFlags> = {
   },
 };
 
-// Pipeline steps filtered by feature_flags — full 17-step pipeline matching DB
-export const ALL_PIPELINE_STEPS = [
-  { key: 'scaffold_learning_course', label: 'Lernkurs Scaffold', shortLabel: 'Scaffold', flag: 'has_learning_course' },
-  { key: 'generate_glossary',        label: 'Glossar',           shortLabel: 'Glossar',  flag: 'has_learning_course' },
-  { key: 'generate_learning_content',label: 'Lerninhalte',       shortLabel: 'Inhalt',   flag: 'has_learning_course' },
-  { key: 'validate_learning_content',label: 'QG Lerninhalte',    shortLabel: 'QG Lern',  flag: 'has_learning_course' },
-  { key: 'auto_seed_exam_blueprints',label: 'Exam Blueprints',   shortLabel: 'BP Seed',  flag: 'has_exam_trainer' },
-  { key: 'validate_blueprints',      label: 'QG Blueprints',     shortLabel: 'QG BP',    flag: 'has_exam_trainer' },
-  { key: 'generate_exam_pool',       label: 'Prüfungsfragen',    shortLabel: 'Exam',     flag: 'has_exam_trainer' },
-  { key: 'validate_exam_pool',       label: 'QG Exam Pool',      shortLabel: 'QG Exam',  flag: 'has_exam_trainer' },
-  { key: 'build_ai_tutor_index',     label: 'AI Tutor',          shortLabel: 'Tutor',    flag: 'has_ai_tutor' },
-  { key: 'validate_tutor_index',     label: 'QG Tutor',          shortLabel: 'QG Tut',   flag: 'has_ai_tutor' },
-  { key: 'generate_oral_exam',       label: 'Mündliche',         shortLabel: 'Oral',     flag: 'has_oral_exam_trainer' },
-  { key: 'validate_oral_exam',       label: 'QG Mündliche',      shortLabel: 'QG Oral',  flag: 'has_oral_exam_trainer' },
-  { key: 'generate_lesson_minichecks', label: 'MiniChecks',      shortLabel: 'Mini',     flag: 'has_minichecks' },
-  { key: 'validate_lesson_minichecks', label: 'QG MiniChecks',   shortLabel: 'QG Mini',  flag: 'has_minichecks' },
-  { key: 'generate_handbook',        label: 'Handbuch',          shortLabel: 'Buch',     flag: 'has_handbook' },
-  { key: 'validate_handbook',        label: 'QG Handbuch',       shortLabel: 'QG Buch',  flag: 'has_handbook' },
-  { key: 'elite_harden',             label: 'Elite Hardening',   shortLabel: 'Elite',    flag: null },
-  { key: 'run_integrity_check',      label: 'Qualitätsprüfung',  shortLabel: 'QA',       flag: null },
-  { key: 'quality_council',          label: 'QA Council',        shortLabel: 'Council',  flag: null },
-  { key: 'auto_publish',             label: 'Veröffentlichen',   shortLabel: 'Pub',      flag: null },
-] as const;
+/** @deprecated Use ALL_PIPELINE_STEPS_UI from pipeline-ui-registry.ts */
+export const ALL_PIPELINE_STEPS = ALL_PIPELINE_STEPS_UI;
 
+/** @deprecated Use getActivePipelineStepsUI from pipeline-ui-registry.ts */
 export function getActiveSteps(flags: FeatureFlags | null | undefined) {
-  if (!flags) return ALL_PIPELINE_STEPS;
-  return ALL_PIPELINE_STEPS.filter(s => 
-    s.flag === null || (flags as any)[s.flag] === true
-  );
+  return getActivePipelineStepsUI(flags as Record<string, boolean> | null | undefined);
 }
 
 // ── SSOT Track Interpreter ─────────────────────────────────
@@ -116,7 +94,7 @@ export function useTrackConfig(pkg: { track?: string; feature_flags?: any; certi
     const track = (pkg?.track || 'AUSBILDUNG_VOLL') as ProductTrack;
     const certType = (pkg?.certification_type || 'ausbildung') as CertificationType;
     const flags: FeatureFlags = pkg?.feature_flags || DEFAULT_FLAGS[track];
-    const activeSteps = getActiveSteps(flags);
+    const activeSteps = getActivePipelineStepsUI(flags as Record<string, boolean>);
     const isExamFirst = track === 'EXAM_FIRST';
 
     return { track, certType, flags, activeSteps, isExamFirst };
