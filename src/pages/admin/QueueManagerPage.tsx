@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useCanonicalTitles, resolveTitle } from '@/hooks/useCanonicalTitles';
 import {
   DndContext,
   closestCenter,
