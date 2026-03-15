@@ -1629,6 +1629,16 @@ Deno.serve(async (req) => {
       console.log(`[ExamPool-v5] Start "${professionName}": target=${examTarget}, engine=v5-ihk-quality`);
     }
 
+    // ── BATCH ROUTING: Collect all blueprint prompts and submit as one batch ──
+    const forceSyncMode = p._force_sync === true || p.force_sync === true;
+    if (isFanOut && shouldUseBatch("package_generate_exam_pool", { forceSyncMode, itemCount: bps.length })) {
+      return await submitExamPoolBatch(sb, bps as BlueprintInfo[], {
+        packageId, curriculumId, professionName, glossaryContext,
+        examTarget, lfTarget, learningFieldFilter: p.learning_field_filter,
+        jobId: p.job_id || body.job_id,
+      });
+    }
+
     // Load existing hashes for dedup
     const { data: existingQs } = await sb.from("exam_questions").select("question_text").eq("curriculum_id", curriculumId).limit(5000);
     const existingHashes = new Set<string>();
