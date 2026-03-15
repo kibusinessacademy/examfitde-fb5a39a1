@@ -447,3 +447,6 @@ verify_jwt = false
 
 [functions.batch-result-importer]
 verify_jwt = false
+
+[functions.knowledge-graph-build-ssot]
+verify_jwt = false
