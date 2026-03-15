@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Network, GitBranch, AlertTriangle, BookOpen, Target, Layers, Sparkles } from 'lucide-react';
+import { Network, GitBranch, AlertTriangle, BookOpen, Target, Layers, Sparkles, FlaskConical, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 
 export default function KnowledgeGraphDashboard() {
   const { data: nodeCounts, isLoading: nodesLoading } = useQuery({
@@ -70,6 +70,22 @@ export default function KnowledgeGraphDashboard() {
         counts[row.provenance] = (counts[row.provenance] || 0) + 1;
       }
       return counts;
+    },
+    refetchInterval: 30_000,
+  });
+
+  // Canary A/B test results
+  const { data: canaryResults } = useQuery({
+    queryKey: ['kg-canary-results'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('ai_generations')
+        .select('id, created_at, validation_decision, validation_score, metadata, output_content')
+        .eq('entity_type', 'kg_canary_test')
+        .order('created_at', { ascending: false })
+        .limit(5);
+      if (error) throw error;
+      return data;
     },
     refetchInterval: 30_000,
   });
@@ -337,6 +353,89 @@ export default function KnowledgeGraphDashboard() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* KG Canary A/B Test Results */}
+      {canaryResults && canaryResults.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <FlaskConical className="h-4 w-4 text-primary" />
+              Canary A/B Tests — KG vs. Baseline
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {canaryResults.map((run: any) => {
+                const meta = run.metadata as any;
+                const summary = meta?.summary;
+                if (!summary) return null;
+                const delta = summary.delta_quality || 0;
+                const verdict = summary.verdict;
+                const VerdictIcon = verdict === 'kg_wins' ? TrendingUp : verdict === 'baseline_wins' ? TrendingDown : Minus;
+                const verdictColor = verdict === 'kg_wins' ? 'text-green-600' : verdict === 'baseline_wins' ? 'text-red-500' : 'text-muted-foreground';
+                return (
+                  <div key={run.id} className="border rounded-lg p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <VerdictIcon className={`h-4 w-4 ${verdictColor}`} />
+                        <Badge variant={verdict === 'kg_wins' ? 'default' : verdict === 'baseline_wins' ? 'destructive' : 'secondary'}>
+                          {verdict === 'kg_wins' ? 'KG gewinnt' : verdict === 'baseline_wins' ? 'Baseline gewinnt' : 'Gleichstand'}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">
+                          {meta.blueprints_tested} Blueprints · {new Date(run.created_at).toLocaleDateString('de-DE')}
+                        </span>
+                      </div>
+                      <span className={`text-sm font-mono font-bold ${verdictColor}`}>
+                        Δ {delta > 0 ? '+' : ''}{delta.toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground font-medium">Variante A (mit KG)</p>
+                        <div className="flex justify-between">
+                          <span>Qualität</span>
+                          <span className="font-mono">{summary.variant_a_with_kg?.avg_quality?.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Distraktoren</span>
+                          <span className="font-mono">{summary.variant_a_with_kg?.avg_distractor?.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Fragen</span>
+                          <span className="font-mono">{summary.variant_a_with_kg?.total_questions}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Latenz</span>
+                          <span className="font-mono text-muted-foreground">{summary.variant_a_with_kg?.avg_latency_ms}ms</span>
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground font-medium">Variante B (Baseline)</p>
+                        <div className="flex justify-between">
+                          <span>Qualität</span>
+                          <span className="font-mono">{summary.variant_b_baseline?.avg_quality?.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Distraktoren</span>
+                          <span className="font-mono">{summary.variant_b_baseline?.avg_distractor?.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Fragen</span>
+                          <span className="font-mono">{summary.variant_b_baseline?.total_questions}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Latenz</span>
+                          <span className="font-mono text-muted-foreground">{summary.variant_b_baseline?.avg_latency_ms}ms</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

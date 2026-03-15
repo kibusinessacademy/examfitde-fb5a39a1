@@ -347,6 +347,9 @@ interface InvocationQualityMetrics {
   models_attempted: Record<string, number>;  // NEW: every attempt, including failures
   models_used: Record<string, number>;       // only successful calls with output
   rejection_reasons: Record<string, number>;
+  kg_context_hits: number;   // blueprints where KG context was available
+  kg_context_misses: number; // blueprints where KG context was absent
+  kg_errors_injected: number; // total common_errors injected across all calls
 }
 
 function createEmptyQualityMetrics(): InvocationQualityMetrics {
@@ -363,6 +366,7 @@ function createEmptyQualityMetrics(): InvocationQualityMetrics {
     candidates_duplicates_hash: 0, candidates_duplicates_ngram: 0,
     candidates_gate_failed_distractor: 0,
     avg_quality_score: 0, models_attempted: {}, models_used: {}, rejection_reasons: {},
+    kg_context_hits: 0, kg_context_misses: 0, kg_errors_injected: 0,
   };
 }
 
@@ -740,6 +744,12 @@ async function generateRawCandidates(
   try {
     graphCtx = await getGraphContextForBlueprint(sb, bp.id);
   } catch { /* KG is optional — never blocks generation */ }
+  if (graphCtx?.common_errors?.length) {
+    _qualityMetrics.kg_context_hits++;
+    _qualityMetrics.kg_errors_injected += Math.min(graphCtx.common_errors.length, 5);
+  } else {
+    _qualityMetrics.kg_context_misses++;
+  }
 
   const { system, user } = buildTurboPrompt(bp, difficulty, questionType, cognitiveLevel, count, lfTitle, compTitle, compDesc, professionName, depthTopics, glossaryContext, masteryInjection, graphCtx);
 
@@ -1488,6 +1498,12 @@ async function submitExamPoolBatch(
     try {
       graphCtx = await getGraphContextForBlueprint(sb, bp.id);
     } catch { /* KG is optional */ }
+    if (graphCtx?.common_errors?.length) {
+      _qualityMetrics.kg_context_hits++;
+      _qualityMetrics.kg_errors_injected += Math.min(graphCtx.common_errors.length, 5);
+    } else {
+      _qualityMetrics.kg_context_misses++;
+    }
 
     const { system, user } = buildTurboPrompt(
       bp, difficulty, questionType, cognitiveLevel,
@@ -2270,6 +2286,14 @@ Deno.serve(async (req) => {
             duplicates_ngram: _qualityMetrics.candidates_duplicates_ngram,
             gate_failed_distractor: _qualityMetrics.candidates_gate_failed_distractor,
             avg_quality_score: Math.round(_qualityMetrics.avg_quality_score * 100) / 100,
+          },
+          knowledge_graph: {
+            context_hits: _qualityMetrics.kg_context_hits,
+            context_misses: _qualityMetrics.kg_context_misses,
+            errors_injected: _qualityMetrics.kg_errors_injected,
+            coverage_pct: (_qualityMetrics.kg_context_hits + _qualityMetrics.kg_context_misses) > 0
+              ? Math.round((_qualityMetrics.kg_context_hits / (_qualityMetrics.kg_context_hits + _qualityMetrics.kg_context_misses)) * 100)
+              : 0,
           },
           models_attempted: _qualityMetrics.models_attempted,
           models_used: _qualityMetrics.models_used,
