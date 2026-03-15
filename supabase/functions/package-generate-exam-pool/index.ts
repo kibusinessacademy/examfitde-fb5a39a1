@@ -16,6 +16,8 @@ import { EXPLANATION_TEMPLATE, CALCULATION_GUARD, REGULATORY_GUARD, computeHallu
 import { ERROR_TAG_VOCABULARY } from "../_shared/error-tag-vocabulary.ts";
 import { getTimeBudget, shouldSoftStop } from "../_shared/time-budget.ts";
 import { handleDbFailure } from "../_shared/job-fail.ts";
+import { shouldUseBatch, BATCH_EXAM_MODEL } from "../_shared/batch/routing-config.ts";
+import { buildBatchRequests, submitBatchViaFunction } from "../_shared/batch/enqueue-openai.ts";
 
 /**
  * DOMINANZ-ENGINE v5: IHK-REALISTIC QUALITY GATES
@@ -1410,6 +1412,128 @@ async function allFanOutSubJobsDone(sb: ReturnType<typeof createClient>, package
   return (count ?? 0) === 0;
 }
 
+// ── Batch Submission for Exam Pool (OpenAI Batch API — 50% cost savings) ─────
+
+async function submitExamPoolBatch(
+  sb: ReturnType<typeof createClient>,
+  bps: BlueprintInfo[],
+  ctx: {
+    packageId: string;
+    curriculumId: string;
+    professionName: string;
+    glossaryContext: string;
+    examTarget: number;
+    lfTarget: number;
+    learningFieldFilter?: string;
+    jobId?: string;
+  },
+): Promise<Response> {
+  const model = BATCH_EXAM_MODEL;
+  const typeEntries = Object.entries(QUESTION_TYPE_MIX) as [QuestionTypeKey, number][];
+  const diffEntries = Object.entries(DIFFICULTY_DISTRIBUTION) as [DifficultyKey, number][];
+  const cogEntries = Object.entries(COGNITIVE_LEVEL_DISTRIBUTION) as [CognitiveLevelKey, number][];
+
+  const batchItems: Array<{
+    customId: string;
+    sourceJobId?: string | null;
+    sourceRef?: Record<string, unknown>;
+    jobType: string;
+    model: string;
+    messages: Array<{ role: string; content: string }>;
+    temperature?: number;
+    maxTokens?: number;
+  }> = [];
+
+  for (let i = 0; i < bps.length; i++) {
+    const bp = bps[i];
+    const difficulty = diffEntries[i % diffEntries.length][0];
+    const questionType = typeEntries[i % typeEntries.length][0];
+    const cognitiveLevel = cogEntries[i % cogEntries.length][0];
+
+    // Load context for this blueprint (lightweight)
+    let compTitle = bp.name;
+    let compDesc = bp.canonical_statement;
+    let lfTitle = "";
+
+    if (bp.competency_id) {
+      const { data: comp } = await sb.from("competencies").select("title, description").eq("id", bp.competency_id).maybeSingle();
+      if (comp) { compTitle = comp.title || compTitle; compDesc = comp.description || compDesc; }
+    }
+    if (bp.learning_field_id) {
+      const { data: lf } = await sb.from("learning_fields").select("title").eq("id", bp.learning_field_id).maybeSingle();
+      if (lf) lfTitle = lf.title || "";
+    }
+
+    const { system, user } = buildTurboPrompt(
+      bp, difficulty, questionType, cognitiveLevel,
+      AI_QUESTIONS_PER_CALL, lfTitle, compTitle, compDesc,
+      ctx.professionName, [], ctx.glossaryContext, "",
+    );
+
+    const customId = `exam_${ctx.curriculumId.slice(0, 8)}_bp${bp.id.slice(0, 8)}_${i}_${Date.now()}`;
+
+    batchItems.push({
+      customId,
+      sourceJobId: ctx.jobId || null,
+      sourceRef: {
+        blueprint_id: bp.id,
+        curriculum_id: ctx.curriculumId,
+        learning_field_id: bp.learning_field_id,
+        competency_id: bp.competency_id,
+        difficulty,
+        cognitive_level: cognitiveLevel,
+        question_type: questionType,
+        package_id: ctx.packageId,
+      },
+      jobType: "exam_pool_generate",
+      model,
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: user },
+      ],
+      temperature: 0.85,
+      maxTokens: AI_QUESTIONS_PER_CALL <= 2 ? 2200 : AI_QUESTIONS_PER_CALL <= 5 ? 3500 : 4096,
+    });
+  }
+
+  const requests = buildBatchRequests(batchItems);
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+  const submitResult = await submitBatchViaFunction(supabaseUrl, serviceRoleKey, {
+    jobType: "exam_pool_generate",
+    model,
+    requests,
+    metadata: {
+      curriculum_id: ctx.curriculumId,
+      package_id: ctx.packageId,
+      learning_field_filter: ctx.learningFieldFilter,
+      blueprint_count: bps.length,
+      exam_target: ctx.examTarget,
+    },
+  });
+
+  if (!submitResult.ok) {
+    console.error(`[ExamPool-v5] BATCH_SUBMIT_FAILED: ${submitResult.error} — will retry sync`);
+    return json({
+      ok: false, retry: true, transient: true,
+      error: `BATCH_SUBMIT_FAILED: ${submitResult.error}`,
+    }, 503);
+  }
+
+  console.log(`[ExamPool-v5] BATCH_ENQUEUED: ${bps.length} blueprints → batch_id=${submitResult.batchId} model=${model}`);
+
+  return json({
+    ok: true,
+    batch_mode: true,
+    batch_id: submitResult.batchId,
+    blueprints_submitted: bps.length,
+    model,
+    batch_complete: false, // Signal: don't mark step as done yet
+  });
+}
+
 // ─── Main Handler ──────────────────────────────────────────────────────────────
 
 Deno.serve(async (req) => {
@@ -1625,6 +1749,16 @@ Deno.serve(async (req) => {
 
     if (generatedSoFar === 0 && !isFanOut) {
       console.log(`[ExamPool-v5] Start "${professionName}": target=${examTarget}, engine=v5-ihk-quality`);
+    }
+
+    // ── BATCH ROUTING: Collect all blueprint prompts and submit as one batch ──
+    const forceSyncMode = p._force_sync === true || p.force_sync === true;
+    if (isFanOut && shouldUseBatch("package_generate_exam_pool", { forceSyncMode, itemCount: bps.length })) {
+      return await submitExamPoolBatch(sb, bps as BlueprintInfo[], {
+        packageId, curriculumId, professionName, glossaryContext,
+        examTarget, lfTarget, learningFieldFilter: p.learning_field_filter,
+        jobId: p.job_id || body.job_id,
+      });
     }
 
     // Load existing hashes for dedup

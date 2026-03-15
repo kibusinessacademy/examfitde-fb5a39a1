@@ -2,6 +2,9 @@
  * lesson-gen/process-lesson.ts — Main orchestrator
  * OPT-1: Parallelized idempotency + data loading.
  * Context building is now synchronous (mastery pre-loaded).
+ *
+ * v2: Dual-path — batch mode routes LLM call through OpenAI Batch API (50% cost savings).
+ *     Sync fallback always available via forceSyncMode or urgency=high.
  */
 
 import { canonicalStepKey } from "../step-keys.ts";
@@ -14,6 +17,8 @@ import { resolveLessonRuntime } from "./routing.ts";
 import { buildLessonPrompts } from "./prompt-builder.ts";
 import { runLessonLLM } from "./llm-runner.ts";
 import { runQualityGate, buildFinalContent, persistLessonResult } from "./persistence.ts";
+import { shouldUseBatch, BATCH_DEFAULT_MODEL } from "../batch/routing-config.ts";
+import { buildBatchRequests, submitBatchViaFunction } from "../batch/enqueue-openai.ts";
 import type { LessonRequest } from "./types.ts";
 
 export async function processLesson(sb: any, p: any, startMs: number): Promise<Response> {
@@ -73,7 +78,15 @@ export async function processLesson(sb: any, p: any, startMs: number): Promise<R
   // ── 7. Build prompts ──
   const prompts = buildLessonPrompts(req, data, ctx);
 
-  // ── 8. Execute LLM ──
+  // ── 7.5. BATCH ROUTING DECISION ──
+  const forceSyncMode = p._force_sync === true || p.force_sync === true;
+  const urgency = p.urgency || "normal";
+
+  if (shouldUseBatch("lesson_generate_content", { forceSyncMode, urgency })) {
+    return await enqueueLessonBatch(sb, req, prompts, runtime, data, startMs, json);
+  }
+
+  // ── 8. Execute LLM (sync path) ──
   const llmResult = await runLessonLLM(sb, req, runtime, prompts, data.professionName, startMs, json);
   if ("error" in llmResult) return llmResult.error;
   const llm = llmResult.result;
@@ -87,4 +100,99 @@ export async function processLesson(sb: any, p: any, startMs: number): Promise<R
 
   // ── 11. Persist ──
   return persistLessonResult(sb, req, data, runtime, llm, finalContent, startMs, json);
+}
+
+// ── Batch Enqueue Path ──────────────────────────────────────────────────────
+
+async function enqueueLessonBatch(
+  sb: any,
+  req: LessonRequest,
+  prompts: { systemPrompt: string; userPrompt: string },
+  runtime: { effectiveMaxTokens: number; chain: Array<{ provider: any; model: string }> },
+  data: { professionName: string },
+  startMs: number,
+  json: (body: unknown, status?: number) => Response,
+): Promise<Response> {
+  // Use the first model from the chain, or fall back to batch default
+  const model = runtime.chain[0]?.model || BATCH_DEFAULT_MODEL;
+
+  const customId = `lesson_${req.lessonId}_${req.stepKey}_${Date.now()}`;
+
+  const batchRequests = buildBatchRequests([{
+    customId,
+    sourceJobId: req.jobId !== "unknown" ? req.jobId : null,
+    sourceRef: {
+      lesson_id: req.lessonId,
+      course_id: req.courseId,
+      package_id: req.packageId,
+      curriculum_id: req.curriculumId,
+      certification_id: req.certificationId,
+      step_key: req.stepKey,
+      is_mini_check: req.isMiniCheck,
+      profession_name: data.professionName,
+    },
+    jobType: "lesson_generate_content",
+    model,
+    messages: [
+      { role: "system", content: prompts.systemPrompt },
+      { role: "user", content: prompts.userPrompt },
+    ],
+    temperature: 0.7,
+    maxTokens: runtime.effectiveMaxTokens,
+  }]);
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+  const submitResult = await submitBatchViaFunction(supabaseUrl, serviceRoleKey, {
+    jobType: "lesson_generate_content",
+    model,
+    requests: batchRequests,
+    metadata: {
+      package_id: req.packageId,
+      course_id: req.courseId,
+      curriculum_id: req.curriculumId,
+      lesson_id: req.lessonId,
+      step_key: req.stepKey,
+      profession_name: data.professionName,
+    },
+  });
+
+  if (!submitResult.ok) {
+    console.error(`[lesson-gen] BATCH_SUBMIT_FAILED: ${submitResult.error} — falling through to sync`);
+    // On batch submit failure, DON'T fail the job — just log and let it retry
+    // The retry will re-enter and either batch again or sync-fallback
+    return json({
+      ok: false,
+      retry: true,
+      transient: true,
+      error: `BATCH_SUBMIT_FAILED: ${submitResult.error}`,
+      elapsed_ms: Date.now() - startMs,
+    }, 503);
+  }
+
+  console.log(`[lesson-gen] BATCH_ENQUEUED: lesson=${req.lessonId.slice(0, 8)} step=${req.stepKey} batch_id=${submitResult.batchId} model=${model}`);
+
+  // Mark the job as batch_pending — the content-runner should interpret this
+  // as "don't requeue immediately, batch-poll will handle completion"
+  if (req.jobId && req.jobId !== "unknown") {
+    try {
+      await sb.from("job_queue").update({
+        meta: sb.rpc ? undefined : { batch_id: submitResult.batchId, batch_mode: true },
+      }).eq("id", req.jobId);
+    } catch { /* best-effort meta update */ }
+  }
+
+  return json({
+    ok: true,
+    batch_mode: true,
+    batch_id: submitResult.batchId,
+    custom_id: customId,
+    lesson_id: req.lessonId,
+    step_key: req.stepKey,
+    model,
+    elapsed_ms: Date.now() - startMs,
+    // Signal to job-runner: batch_complete = false means "don't mark step as done yet"
+    batch_complete: false,
+  });
 }

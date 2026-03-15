@@ -263,7 +263,7 @@ async function importExamPoolBatch(
   return { successCount, failCount, details };
 }
 
-// ── Stub Importers (Phase C) ─────────────────────────────────────────────────
+// ── Learning Content Importer (Production) ───────────────────────────────────
 
 async function importLearningContentBatch(
   sb: SupabaseClient,
@@ -271,12 +271,157 @@ async function importLearningContentBatch(
   batch: Record<string, unknown>,
 ): Promise<{ successCount: number; failCount: number; details: ImportResult[] }> {
   const details: ImportResult[] = [];
+  let successCount = 0;
+  let failCount = 0;
+  const now = new Date().toISOString();
+
   for (const row of rows) {
     const customId = String(row.custom_id);
-    console.log(`[batch-import] learning_content stub: ${customId}`);
-    details.push({ ok: true, custom_id: customId });
+    try {
+      const body = row.response_body as any;
+      if (!body) {
+        details.push({ ok: false, custom_id: customId, error: "No response body" });
+        failCount++;
+        continue;
+      }
+
+      // Extract AI response content (OpenAI chat completion format)
+      const rawContent = body?.choices?.[0]?.message?.content;
+      if (!rawContent) {
+        details.push({ ok: false, custom_id: customId, error: "No choices in response" });
+        failCount++;
+        continue;
+      }
+
+      // Parse JSON response (with fence stripping)
+      let parsed: any;
+      try {
+        const cleaned = String(rawContent).replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+        const fb = cleaned.indexOf("{");
+        const lb = cleaned.lastIndexOf("}");
+        if (fb !== -1 && lb > fb) {
+          parsed = JSON.parse(cleaned.slice(fb, lb + 1));
+        } else {
+          parsed = JSON.parse(cleaned);
+        }
+      } catch {
+        details.push({ ok: false, custom_id: customId, error: "Response not valid JSON" });
+        failCount++;
+        continue;
+      }
+
+      // Extract source references
+      const sourceRef = row.source_ref as any;
+      const lessonId = sourceRef?.lesson_id;
+      const courseId = sourceRef?.course_id;
+      const packageId = sourceRef?.package_id;
+      const stepKey = sourceRef?.step_key || "verstehen";
+      const isMiniCheck = sourceRef?.is_mini_check === true;
+      const professionName = sourceRef?.profession_name || "";
+
+      if (!lessonId || !courseId) {
+        details.push({ ok: false, custom_id: customId, error: "Missing lesson_id or course_id in source_ref" });
+        failCount++;
+        continue;
+      }
+
+      // Validate content structure
+      const hasContent = isMiniCheck
+        ? (parsed?.questions && Array.isArray(parsed.questions) && parsed.questions.length > 0)
+        : (parsed?.html && parsed.html.length > 200);
+
+      if (!hasContent) {
+        details.push({ ok: false, custom_id: customId, error: `Content validation failed: ${isMiniCheck ? "no questions" : "html too short or missing"}` });
+        failCount++;
+        continue;
+      }
+
+      // Build final content payload (mirrors persistence.ts buildFinalContent)
+      const finalContent = isMiniCheck
+        ? {
+            type: "mini_check",
+            questions: Array.isArray(parsed.questions)
+              ? parsed.questions.map((q: any) => ({
+                  question: q.question || q.question_text || "",
+                  options: q.options || [],
+                  correct_answer: q.correct_answer ?? q.correctIndex ?? 0,
+                  explanation: q.explanation || "",
+                  difficulty: q.difficulty || "mittel",
+                  bloom_level: q.bloom_level || "apply",
+                  trap_type: q.trap_type || null,
+                }))
+              : parsed.questions,
+            objectives: parsed.objectives || [],
+            bloom_level: "apply",
+            generated_at: now,
+            version: 6,
+            source: "batch_import",
+          }
+        : {
+            type: "text",
+            html: parsed.html,
+            objectives: parsed.objectives || [],
+            key_terms: parsed.key_terms || [],
+            common_mistakes: parsed.common_mistakes || [],
+            exam_triggers: parsed.exam_triggers || [],
+            transfer_questions: parsed.transfer_questions || [],
+            step: stepKey,
+            generated_at: now,
+            version: 5,
+            source: "batch_import",
+          };
+
+      // Insert into content_versions (SSOT) — idempotent via unique constraint
+      const { data: newVersion, error: vErr } = await sb.from("content_versions").insert({
+        course_id: courseId,
+        lesson_id: lessonId,
+        step_key: stepKey,
+        content_json: finalContent,
+        created_by_agent: "batch-result-importer",
+        status: "approved",
+        council_round: 1,
+        entity_type: isMiniCheck ? "minicheck" : "lesson_step",
+        published_at: now,
+        published_by: "batch-auto-import",
+        meta: { source: "pipeline", batch_id: (batch as any).id },
+      }).select("id").single();
+
+      if (vErr) {
+        // Duplicate = already imported (idempotent success)
+        if (vErr.code === "23505") {
+          details.push({ ok: true, custom_id: customId, imported_count: 0 });
+          successCount++;
+        } else {
+          details.push({ ok: false, custom_id: customId, error: `content_versions insert: ${vErr.message}` });
+          failCount++;
+        }
+      } else {
+        // Sync to lessons.content via RPC (same as sync path)
+        try {
+          await sb.rpc("pipeline_write_lesson_content", { p_lesson_id: lessonId, p_content: finalContent });
+        } catch (syncErr) {
+          console.warn(`[batch-import] lesson sync failed for ${lessonId}: ${(syncErr as Error)?.message?.slice(0, 100)}`);
+        }
+
+        details.push({ ok: true, custom_id: customId, imported_count: 1 });
+        successCount++;
+        console.log(`[batch-import] learning_content imported: lesson=${lessonId} step=${stepKey} version=${newVersion?.id}`);
+      }
+
+      // Mark request row as domain-imported
+      await sb
+        .from("llm_batch_requests")
+        .update({ domain_imported_at: now })
+        .eq("batch_id", (batch as any).id)
+        .eq("custom_id", customId);
+
+    } catch (e) {
+      details.push({ ok: false, custom_id: customId, error: String((e as Error)?.message || e) });
+      failCount++;
+    }
   }
-  return { successCount: rows.length, failCount: 0, details };
+
+  return { successCount, failCount, details };
 }
 
 async function importHandbookSectionBatch(
