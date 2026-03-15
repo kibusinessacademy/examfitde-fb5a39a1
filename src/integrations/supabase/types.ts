@@ -14333,6 +14333,7 @@ export type Database = {
           payload: Json
           provenance: string
           source_id: string | null
+          source_key: string | null
           source_table: string | null
           updated_at: string
         }
@@ -14347,6 +14348,7 @@ export type Database = {
           payload?: Json
           provenance?: string
           source_id?: string | null
+          source_key?: string | null
           source_table?: string | null
           updated_at?: string
         }
@@ -14361,6 +14363,7 @@ export type Database = {
           payload?: Json
           provenance?: string
           source_id?: string | null
+          source_key?: string | null
           source_table?: string | null
           updated_at?: string
         }
