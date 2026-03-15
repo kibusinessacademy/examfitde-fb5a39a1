@@ -8,6 +8,7 @@ import { buildRequestFingerprint, checkDuplicateRequest } from "../_shared/ai-ga
 import { logGatewayDecision, logCostSaving } from "../_shared/ai-gateway/observability.ts";
 import type { GatewayRequest, GatewayResult, RoutingDecision } from "../_shared/ai-gateway/types.ts";
 import { buildBatchRequests, submitBatchViaFunction } from "../_shared/batch/enqueue-openai.ts";
+import { batchSafeModel } from "../_shared/batch/routing-config.ts";
 import { executeSyncDispatch } from "../_shared/ai-gateway/sync-executor.ts";
 
 /**
@@ -216,7 +217,8 @@ Deno.serve(async (req) => {
 
     // BATCH
     if (routingMode === "batch" && body.messages?.length) {
-      const model = policy.defaultModel;
+      // CRITICAL: Ensure model is batch-compatible (Phase A: OpenAI only)
+      const model = batchSafeModel(policy.defaultModel);
       const customId = `gw_${body.jobType}_${requestId.slice(0, 8)}_${Date.now()}`;
 
       const batchRequests = buildBatchRequests([{
