@@ -383,7 +383,6 @@ async function importLearningContentBatch(
         entity_type: isMiniCheck ? "minicheck" : "lesson_step",
         published_at: now,
         published_by: "batch-auto-import",
-        meta: { source: "pipeline", batch_id: (batch as any).id },
       }).select("id").single();
 
       if (vErr) {
@@ -391,9 +390,15 @@ async function importLearningContentBatch(
         if (vErr.code === "23505") {
           details.push({ ok: true, custom_id: customId, imported_count: 0 });
           successCount++;
+          // Fix: Only set domain_imported_at on idempotent success
+          await sb.from("llm_batch_requests")
+            .update({ domain_imported_at: now })
+            .eq("batch_id", (batch as any).id)
+            .eq("custom_id", customId);
         } else {
           details.push({ ok: false, custom_id: customId, error: `content_versions insert: ${vErr.message}` });
           failCount++;
+          // Fix: Do NOT set domain_imported_at on failure — allows retry
         }
       } else {
         // Sync to lessons.content via RPC (same as sync path)
@@ -406,14 +411,13 @@ async function importLearningContentBatch(
         details.push({ ok: true, custom_id: customId, imported_count: 1 });
         successCount++;
         console.log(`[batch-import] learning_content imported: lesson=${lessonId} step=${stepKey} version=${newVersion?.id}`);
-      }
 
-      // Mark request row as domain-imported
-      await sb
-        .from("llm_batch_requests")
-        .update({ domain_imported_at: now })
-        .eq("batch_id", (batch as any).id)
-        .eq("custom_id", customId);
+        // Mark request row as domain-imported only on actual success
+        await sb.from("llm_batch_requests")
+          .update({ domain_imported_at: now })
+          .eq("batch_id", (batch as any).id)
+          .eq("custom_id", customId);
+      }
 
     } catch (e) {
       details.push({ ok: false, custom_id: customId, error: String((e as Error)?.message || e) });
