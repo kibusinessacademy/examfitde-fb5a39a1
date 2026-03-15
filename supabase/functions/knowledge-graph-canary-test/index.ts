@@ -108,10 +108,15 @@ Deno.serve(async (req) => {
       const startA = Date.now();
       let resultA: unknown = null;
       try {
-        const resp = await callAIJSON(provider, model, [
-          { role: "system", content: "Du bist ein IHK-Prüfungsexperte. Generiere realistische Multiple-Choice-Fragen im JSON-Array-Format." },
-          { role: "user", content: promptA },
-        ], { maxTokens: 2200 });
+        const resp = await callAIJSON({
+          provider,
+          model,
+          messages: [
+            { role: "system", content: "Du bist ein IHK-Prüfungsexperte. Generiere realistische Multiple-Choice-Fragen im JSON-Array-Format." },
+            { role: "user", content: promptA },
+          ],
+          max_tokens: 2200,
+        });
         resultA = JSON.parse(resp.content);
       } catch (e) {
         resultA = { error: (e as Error)?.message };
