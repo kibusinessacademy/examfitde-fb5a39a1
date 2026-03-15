@@ -140,7 +140,7 @@ Deno.serve(async (req) => {
       validation_score: summary.avgA,
       validation_decision: finalStatus === "failed" ? "no_data" : summary.verdict,
       metadata: {
-        version: "kg-canary-v3-sync",
+        version: "kg-canary-v4-parallel",
         run_id: runId,
         blueprints_tested: shuffled.length,
         blueprints_completed: bpCompleted,
