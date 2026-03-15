@@ -25,6 +25,7 @@ const TestDashboard = lazy(() => import('./ops/TestDashboard'));
 const SchemaDriftDashboard = lazy(() => import('./ops/SchemaDriftDashboard'));
 const AIGatewayDashboard = lazy(() => import('./ops/AIGatewayDashboard'));
 const KnowledgeGraphDashboard = lazy(() => import('./ops/KnowledgeGraphDashboard'));
+const BatchRecoveryDashboard = lazy(() => import('./ops/BatchRecoveryDashboard'));
 
 const Loading = () => (
   <div className="flex items-center justify-center py-16">
