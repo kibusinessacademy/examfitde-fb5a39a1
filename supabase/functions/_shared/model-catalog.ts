@@ -76,7 +76,9 @@ export type RouteProfile = {
 
 /**
  * Pipeline Step → Model Routing.
- * Use in model_routing_rules DB table for SSOT configuration.
+ *
+ * Step names are canonical — used in EXAMFIT_COURSE_PROFILE, telemetry,
+ * and pipeline job_type. Do NOT rename without updating all references.
  *
  * Changes from v1 (based on production review):
  * - exam_pool: fallback1 → openai_strong (distractor quality > speed)
@@ -141,38 +143,46 @@ export const PIPELINE_MODEL_MAP: Record<string, RouteProfile> = {
 // ── Course Cost Calculator (SSOT-coupled) ────────────────────
 
 export type PipelineStepEstimate = {
+  /** Must match a key in PIPELINE_MODEL_MAP for routing-coupled costing */
   step: string;
   calls: number;
   avg_input_tokens: number;
   avg_output_tokens: number;
-  model_alias: ModelAlias;
+  /**
+   * Optional override. If omitted, model is resolved from
+   * PIPELINE_MODEL_MAP[step].primary — keeping costing coupled to routing.
+   */
+  model_alias?: ModelAlias;
 };
 
 /**
  * Standard ExamFit course profile:
  * 1 Curriculum, ~14 LF, ~80 Kompetenzen
+ *
+ * Step names MUST match PIPELINE_MODEL_MAP keys exactly.
  */
 export const EXAMFIT_COURSE_PROFILE: PipelineStepEstimate[] = [
-  { step: "scaffold",          calls: 1,   avg_input_tokens: 2000,  avg_output_tokens: 1000,  model_alias: "openai_nano" },
-  { step: "glossary",          calls: 14,  avg_input_tokens: 3000,  avg_output_tokens: 2000,  model_alias: "openai_nano" },
-  { step: "learning_content",  calls: 400, avg_input_tokens: 5000,  avg_output_tokens: 6000,  model_alias: "openai_primary" },
-  { step: "validate_content",  calls: 400, avg_input_tokens: 4000,  avg_output_tokens: 1000,  model_alias: "openai_balanced" },
-  { step: "exam_pool",         calls: 160, avg_input_tokens: 8000,  avg_output_tokens: 10000, model_alias: "openai_balanced" },
-  { step: "handbook",          calls: 14,  avg_input_tokens: 4000,  avg_output_tokens: 8000,  model_alias: "openai_primary" },
-  { step: "minichecks",        calls: 400, avg_input_tokens: 2000,  avg_output_tokens: 2000,  model_alias: "openai_nano" },
-  { step: "elite_harden",      calls: 100, avg_input_tokens: 6000,  avg_output_tokens: 2000,  model_alias: "openai_premium" },
-  { step: "council_propose",   calls: 50,  avg_input_tokens: 4000,  avg_output_tokens: 3000,  model_alias: "openai_balanced" },
-  { step: "council_critique",  calls: 50,  avg_input_tokens: 5000,  avg_output_tokens: 2000,  model_alias: "openai_balanced" },
-  { step: "auto_fix",          calls: 20,  avg_input_tokens: 4000,  avg_output_tokens: 3000,  model_alias: "openai_primary" },
+  { step: "scaffold_learning_course", calls: 1,   avg_input_tokens: 2000,  avg_output_tokens: 1000  },
+  { step: "generate_glossary",        calls: 14,  avg_input_tokens: 3000,  avg_output_tokens: 2000  },
+  { step: "generate_learning_content",calls: 400, avg_input_tokens: 5000,  avg_output_tokens: 6000  },
+  { step: "validate_content",         calls: 400, avg_input_tokens: 4000,  avg_output_tokens: 1000  },
+  { step: "generate_exam_pool",       calls: 160, avg_input_tokens: 8000,  avg_output_tokens: 10000 },
+  { step: "generate_handbook",        calls: 14,  avg_input_tokens: 4000,  avg_output_tokens: 8000  },
+  { step: "generate_minichecks",      calls: 400, avg_input_tokens: 2000,  avg_output_tokens: 2000  },
+  { step: "elite_harden",             calls: 100, avg_input_tokens: 6000,  avg_output_tokens: 2000  },
+  { step: "council_propose",          calls: 50,  avg_input_tokens: 4000,  avg_output_tokens: 3000  },
+  { step: "council_critique",         calls: 50,  avg_input_tokens: 5000,  avg_output_tokens: 2000  },
+  { step: "auto_fix",                 calls: 20,  avg_input_tokens: 4000,  avg_output_tokens: 3000  },
 ];
 
 /**
  * Calculate total course cost in EUR from pipeline step estimates.
+ * Resolves model from PIPELINE_MODEL_MAP[step].primary unless overridden.
  * Uses SSOT pricing from model-pricing.ts — never hardcoded values.
  */
 export function calcCourseCostEur(steps: PipelineStepEstimate[] = EXAMFIT_COURSE_PROFILE): number {
   return steps.reduce((sum, s) => {
-    const model = resolveAlias(s.model_alias);
+    const model = resolveStepModel(s);
     return sum + s.calls * estimateCostEur(model, s.avg_input_tokens, s.avg_output_tokens);
   }, 0);
 }
@@ -182,32 +192,48 @@ export function calcCourseCostEur(steps: PipelineStepEstimate[] = EXAMFIT_COURSE
  */
 export function getStepCostBreakdown(steps: PipelineStepEstimate[] = EXAMFIT_COURSE_PROFILE) {
   return steps.map(s => {
-    const model = resolveAlias(s.model_alias);
+    const model = resolveStepModel(s);
+    const alias = s.model_alias ?? PIPELINE_MODEL_MAP[s.step]?.primary ?? "openai_balanced";
     const costPerCall = estimateCostEur(model, s.avg_input_tokens, s.avg_output_tokens);
     return {
       step: s.step,
       calls: s.calls,
       model,
-      model_alias: s.model_alias,
+      model_alias: alias,
       cost_per_call: costPerCall,
       total_cost: s.calls * costPerCall,
     };
   });
 }
 
-// ── Drift-prone aliases (for governance/telemetry alerts) ────
+/** Resolve the concrete model for a pipeline step estimate. */
+function resolveStepModel(s: PipelineStepEstimate): string {
+  // Explicit override takes priority
+  if (s.model_alias) return MODEL_ALIASES[s.model_alias];
+  // Otherwise couple to routing
+  const route = PIPELINE_MODEL_MAP[s.step];
+  if (route) return MODEL_ALIASES[route.primary];
+  // Fallback for unknown steps
+  return MODEL_ALIASES["openai_balanced"];
+}
 
-export const DRIFT_PRONE_ALIASES = new Set<string>([
+// ── Drift-prone models (for governance/telemetry alerts) ─────
+
+/**
+ * Explicit set of known drift-prone model IDs.
+ * Preview/latest models are also caught dynamically by isDriftProneModel().
+ */
+export const EXPLICIT_DRIFT_PRONE_MODELS = new Set<string>([
   "claude-3-5-haiku-20241022",
-  // All Google preview models are drift-prone by definition
 ]);
 
 /**
- * Check if a model string is a drift-prone alias.
+ * Check if a model string is drift-prone.
+ * Catches: explicit list, "-latest" suffix, "-preview" suffix.
  * Use in telemetry to flag calls that may silently change behavior.
  */
 export function isDriftProneModel(model: string): boolean {
-  return DRIFT_PRONE_ALIASES.has(model) ||
+  return EXPLICIT_DRIFT_PRONE_MODELS.has(model) ||
     model.endsWith("-latest") ||
     model.includes("-preview");
 }
