@@ -11,8 +11,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { callAIJSON } from "../_shared/ai-client.ts";
-import { getModelChainAsync } from "../_shared/model-routing.ts";
-import { resolveAvailableRoute } from "../_shared/llm/provider-load-balancer.ts";
 import { getGraphContextForBlueprint } from "../_shared/knowledge-graph/query.ts";
 import type { GraphContext } from "../_shared/knowledge-graph/types.ts";
 
@@ -61,114 +59,73 @@ Deno.serve(async (req) => {
     const professionName = curriculum?.title || "Kaufmann/-frau";
 
     // Pick random blueprints that have competency + learning field
-    const { data: blueprints } = await sb
+    const { data: blueprints, error: bpErr } = await sb
       .from("question_blueprints")
-      .select("id, canonical_statement, competency_id, learning_field_id, bloom_level, question_type, typical_exam_trap")
+      .select("id, canonical_statement, competency_id, learning_field_id, cognitive_level, allowed_question_types, typical_exam_trap")
       .eq("curriculum_id", curriculum_id)
       .not("competency_id", "is", null)
       .not("learning_field_id", "is", null)
       .limit(100);
 
-    if (!blueprints?.length) return json({ error: "No blueprints found" }, 404);
+    console.log(`[KG-Canary] Blueprint query: found=${blueprints?.length || 0}, error=${bpErr?.message || 'none'}`);
+    if (bpErr) return json({ error: "Blueprint query failed: " + bpErr.message }, 500);
+    if (!blueprints?.length) return json({ error: "No blueprints found for curriculum " + curriculum_id }, 404);
 
     // Shuffle and take N
     const shuffled = blueprints.sort(() => Math.random() - 0.5).slice(0, max_blueprints);
     console.log(`[KG-Canary] Testing ${shuffled.length} blueprints from curriculum ${curriculum_id}`);
 
-    // Load model chain
-    const chain = await getModelChainAsync(sb, "package_generate_exam_pool");
-    const route = resolveAvailableRoute(chain);
-    const provider = route.provider as "openai" | "anthropic" | "google";
-    const model = route.model;
+    // Use openai/gpt-5-mini for canary (reliable, cost-efficient)
+    const provider = "openai" as const;
+    const model = "gpt-5-mini";
 
-    const results: CanaryResult[] = [];
     const runId = crypto.randomUUID();
 
+    // Process blueprints sequentially (2 AI calls per BP in parallel)
+    const results: CanaryResult[] = [];
     for (const bp of shuffled) {
-      // Load competency + LF titles
-      const { data: comp } = await sb.from("competencies").select("title, description").eq("id", bp.competency_id).maybeSingle();
-      const { data: lf } = await sb.from("learning_fields").select("title").eq("id", bp.learning_field_id).maybeSingle();
+      const [{ data: comp }, { data: lf }] = await Promise.all([
+        sb.from("competencies").select("title, description").eq("id", bp.competency_id).maybeSingle(),
+        sb.from("learning_fields").select("title").eq("id", bp.learning_field_id).maybeSingle(),
+      ]);
       const compTitle = comp?.title || "Kompetenz";
       const compDesc = comp?.description || "";
       const lfTitle = lf?.title || "Lernfeld";
 
-      // Fetch KG context
       let graphCtx: GraphContext | null = null;
-      try {
-        graphCtx = await getGraphContextForBlueprint(sb, bp.id);
-      } catch { /* optional */ }
+      try { graphCtx = await getGraphContextForBlueprint(sb, bp.id); } catch { /* optional */ }
 
-      // Build base prompt (shared)
       const basePrompt = buildCanaryPrompt(bp, compTitle, compDesc, lfTitle, professionName, questions_per_bp);
-
-      // ── Variant A: WITH KG context ──
       const promptA = graphCtx?.common_errors?.length
         ? basePrompt + buildKGBlock(graphCtx)
         : basePrompt + "\n\n[KG: keine Fehlermuster verfügbar]";
+      const sysMsg = { role: "system" as const, content: "Du bist ein IHK-Prüfungsexperte. Generiere realistische Multiple-Choice-Fragen im JSON-Array-Format." };
 
-      const startA = Date.now();
-      let resultA: unknown = null;
-      try {
-        const resp = await callAIJSON(provider, model, [
-          { role: "system", content: "Du bist ein IHK-Prüfungsexperte. Generiere realistische Multiple-Choice-Fragen im JSON-Array-Format." },
-          { role: "user", content: promptA },
-        ], { maxTokens: 2200 });
-        resultA = JSON.parse(resp.content);
-      } catch (e) {
-        resultA = { error: (e as Error)?.message };
-      }
-      const latencyA = Date.now() - startA;
+      const [aResult, bResult] = await Promise.all([
+        (async () => {
+          const start = Date.now();
+          try {
+            const resp = await callAIJSON({ provider, model, messages: [sysMsg, { role: "user", content: promptA }], max_tokens: 2200 });
+            return { data: JSON.parse(resp.content), latency: Date.now() - start };
+          } catch (e) { return { data: { error: (e as Error)?.message }, latency: Date.now() - start }; }
+        })(),
+        (async () => {
+          const start = Date.now();
+          try {
+            const resp = await callAIJSON({ provider, model, messages: [sysMsg, { role: "user", content: basePrompt }], max_tokens: 2200 });
+            return { data: JSON.parse(resp.content), latency: Date.now() - start };
+          } catch (e) { return { data: { error: (e as Error)?.message }, latency: Date.now() - start }; }
+        })(),
+      ]);
 
-      // ── Variant B: WITHOUT KG context ──
-      const promptB = basePrompt;
-      const startB = Date.now();
-      let resultB: unknown = null;
-      try {
-        const resp = await callAIJSON(provider, model, [
-          { role: "system", content: "Du bist ein IHK-Prüfungsexperte. Generiere realistische Multiple-Choice-Fragen im JSON-Array-Format." },
-          { role: "user", content: promptB },
-        ], { maxTokens: 2200 });
-        resultB = JSON.parse(resp.content);
-      } catch (e) {
-        resultB = { error: (e as Error)?.message };
-      }
-      const latencyB = Date.now() - startB;
-
-      // Score both variants
-      const scoreA = scoreQuestions(resultA);
-      const scoreB = scoreQuestions(resultB);
-
-      results.push({
-        blueprint_id: bp.id,
-        blueprint_label: bp.canonical_statement?.slice(0, 80) || bp.id,
-        competency_title: compTitle,
-        variant: "A_with_kg",
-        kg_errors_count: graphCtx?.common_errors?.length || 0,
-        questions_generated: scoreA.count,
-        avg_quality_score: scoreA.avgQuality,
-        distractor_quality: scoreA.distractorScore,
-        praxis_score: scoreA.praxisScore,
-        raw_output: resultA,
-        model_used: `${provider}/${model}`,
-        latency_ms: latencyA,
-      });
-
-      results.push({
-        blueprint_id: bp.id,
-        blueprint_label: bp.canonical_statement?.slice(0, 80) || bp.id,
-        competency_title: compTitle,
-        variant: "B_without_kg",
-        kg_errors_count: 0,
-        questions_generated: scoreB.count,
-        avg_quality_score: scoreB.avgQuality,
-        distractor_quality: scoreB.distractorScore,
-        praxis_score: scoreB.praxisScore,
-        raw_output: resultB,
-        model_used: `${provider}/${model}`,
-        latency_ms: latencyB,
-      });
-
+      const scoreA = scoreQuestions(aResult.data);
+      const scoreB = scoreQuestions(bResult.data);
       console.log(`[KG-Canary] ${bp.id.slice(0,8)}: A(kg=${graphCtx?.common_errors?.length || 0})=${scoreA.avgQuality.toFixed(1)} vs B=${scoreB.avgQuality.toFixed(1)}`);
+
+      results.push(
+        { blueprint_id: bp.id, blueprint_label: bp.canonical_statement?.slice(0, 80) || bp.id, competency_title: compTitle, variant: "A_with_kg", kg_errors_count: graphCtx?.common_errors?.length || 0, questions_generated: scoreA.count, avg_quality_score: scoreA.avgQuality, distractor_quality: scoreA.distractorScore, praxis_score: scoreA.praxisScore, raw_output: aResult.data, model_used: `${provider}/${model}`, latency_ms: aResult.latency },
+        { blueprint_id: bp.id, blueprint_label: bp.canonical_statement?.slice(0, 80) || bp.id, competency_title: compTitle, variant: "B_without_kg", kg_errors_count: 0, questions_generated: scoreB.count, avg_quality_score: scoreB.avgQuality, distractor_quality: scoreB.distractorScore, praxis_score: scoreB.praxisScore, raw_output: bResult.data, model_used: `${provider}/${model}`, latency_ms: bResult.latency },
+      );
     }
 
     // Persist to ai_generations for dashboard access
@@ -232,15 +189,15 @@ Deno.serve(async (req) => {
 // ── Prompt builder (simplified for canary — not full v5 pipeline) ──
 
 function buildCanaryPrompt(
-  bp: { canonical_statement?: string; bloom_level?: string; question_type?: string; typical_exam_trap?: string },
+  bp: { canonical_statement?: string; cognitive_level?: string; allowed_question_types?: string[]; typical_exam_trap?: string },
   compTitle: string, compDesc: string, lfTitle: string, professionName: string, count: number,
 ): string {
   return `${count} Multiple-Choice-Frage(n) für "${professionName}".
 Lernfeld: ${lfTitle}
 Kompetenz: ${compTitle} — ${compDesc}
 Blueprint: ${bp.canonical_statement || ""}
-Bloom-Stufe: ${bp.bloom_level || "apply"}
-Fragetyp: ${bp.question_type || "best_option"}
+Kognitive Stufe: ${bp.cognitive_level || "apply"}
+Fragetyp: ${bp.allowed_question_types?.[0] || "best_option"}
 ${bp.typical_exam_trap ? `Typische Falle: ${bp.typical_exam_trap}` : ""}
 
 Ausgabe als JSON-Array mit Objekten:
