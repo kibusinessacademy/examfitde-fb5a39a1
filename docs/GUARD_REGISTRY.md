@@ -164,8 +164,19 @@ Diese Scripts werden von CI-Workflows und dem Meta-Runner `run-all.mjs` ausgefü
 
 ---
 
+## 5. Runtime Guards (DB-Level)
+
+| Guard | Zweck | Level | Mechanismus |
+|-------|-------|-------|-------------|
+| `enqueue_job_if_absent()` | Verhindert aktive Job-Dubletten | **HARD BLOCK** | RPC: idempotenter Insert mit Dedupe-Check |
+| `v_ops_job_failure_classification` | Klassifiziert Failures in protected_stop vs real_failure | **INFO** | DB View auf `job_queue` |
+| `v_ops_job_failure_summary_24h` | 24h-KPI-Zusammenfassung | **INFO** | Aggregat-View |
+
+---
+
 ## Änderungshistorie
 
 | Datum | Änderung |
 |-------|----------|
 | 2026-03-15 | Initial Registry erstellt |
+| 2026-03-15 | Runtime Guards: enqueue_job_if_absent, Failure Classification Views |
