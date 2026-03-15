@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import {
   ArrowRight, CheckCircle2, Clock, XCircle, Wrench, Shield,
   Brain, Package, Rocket, Plus, Filter, Search, AlertTriangle,
-  Zap, Eye, RefreshCw
+  Zap, Eye, RefreshCw, Ban
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import PageExplainer from '@/components/admin/PageExplainer';
@@ -24,6 +24,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.
   published: { label: 'Live', color: 'bg-success/20 text-success', icon: CheckCircle2 },
   building: { label: 'Build läuft', color: 'bg-primary/20 text-primary', icon: Wrench },
   queued: { label: 'Queued', color: 'bg-muted text-muted-foreground', icon: Clock },
+  blocked: { label: 'Blockiert', color: 'bg-warning/20 text-warning', icon: Ban },
   planning: { label: 'Draft', color: 'bg-muted text-muted-foreground', icon: Clock },
   quality_gate_failed: { label: 'QG Failed', color: 'bg-destructive/20 text-destructive', icon: XCircle },
   failed: { label: 'Fehlgeschlagen', color: 'bg-destructive/20 text-destructive', icon: XCircle },
@@ -33,7 +34,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.
 };
 
 const FILTER_OPTIONS = [
-  'all', 'published', 'building', 'stuck', 'queued', 'planning', 'failed', 'quality_gate_failed', 'qa', 'council_review',
+  'all', 'published', 'building', 'stuck', 'blocked', 'queued', 'planning', 'failed', 'quality_gate_failed', 'qa', 'council_review',
 ] as const;
 
 const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
@@ -354,7 +355,7 @@ export default function CoursePackagesList() {
                           <span className="font-mono text-[10px] opacity-60" title={pkg.id}>
                             {pkg.id.substring(0, 8)}
                           </span>
-                          {pkg.council_approved && pkg.status !== 'building' && pkg.status !== 'queued' && (
+                          {pkg.council_approved && pkg.council_approved_at && pkg.status === 'published' && (
                             <span className="flex items-center gap-1">
                               <CheckCircle2 className="h-3 w-3 text-success" /> Council OK
                             </span>
