@@ -11,6 +11,7 @@ export interface KGNode {
   node_type: NodeType;
   source_table: string | null;
   source_id: string | null;
+  source_key: string | null;
   label: string;
   normalized_label: string;
   payload: Record<string, unknown>;
