@@ -1,12 +1,14 @@
 /**
- * batch/enqueue-openai.ts — Helper to enqueue requests for OpenAI Batch API.
+ * batch/enqueue.ts — Helper to enqueue requests for batch API (provider-agnostic).
  *
  * Collects batch requests into llm_batch_requests via batch-submit,
  * or can directly invoke batch-submit for immediate submission.
+ * Provider is auto-detected from the model via providerForModel().
  */
 
 import type { NormalizedBatchRequest } from "./types.ts";
 import { buildBatchChatRequest } from "./routing-config.ts";
+import { providerForModel } from "../model-catalog.ts";
 
 export interface BatchRequestItem {
   /** Unique correlation ID for this request */
