@@ -87,6 +87,9 @@ function BuildingPackageRow({ pkg, canonicalTitles }: { pkg: DashboardBuildingPa
 
 export default function AdminExecutiveHomePage() {
   const { data, isLoading, error, dataUpdatedAt } = useAdminDashboard();
+  const { data: canonicalTitles } = useCanonicalTitles(
+    (data?.building_packages || []).map(p => p.id),
+  );
 
   if (isLoading) {
     return (
