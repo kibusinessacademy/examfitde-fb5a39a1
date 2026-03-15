@@ -7,6 +7,8 @@
  * Dual-path: sync fallback always available. Batch mode activated per job_type.
  */
 
+import { providerForModel } from "../model-catalog.ts";
+
 /** Per-job-type batch routing flags. Set to true to activate batch path. */
 const BATCH_ROUTING_FLAGS: Record<string, boolean> = {
   lesson_generate_content: true,
@@ -24,6 +26,34 @@ export const BATCH_DEFAULT_MODEL = "gpt-4o-mini";
 
 /** Model for exam pool batch (needs stronger reasoning) */
 export const BATCH_EXAM_MODEL = "gpt-5-mini";
+
+/** Fallback mapping: when a non-OpenAI model is selected for batch, remap to OpenAI equivalent */
+const BATCH_MODEL_REMAP: Record<string, string> = {
+  "claude-haiku-4-5-20251001": "gpt-4o-mini",
+  "claude-3-5-haiku-20241022": "gpt-4o-mini",
+  "claude-sonnet-4-5-20250929": "gpt-5-mini",
+};
+
+/**
+ * Ensure a model is batch-compatible (OpenAI only in Phase A).
+ * If the model is from a non-OpenAI provider, remap to an equivalent OpenAI model.
+ * Returns the original model if already compatible.
+ */
+export function batchSafeModel(model: string): string {
+  // Already OpenAI-compatible
+  if (providerForModel(model) === "openai") return model;
+
+  // Known remap
+  const remapped = BATCH_MODEL_REMAP[model];
+  if (remapped) {
+    console.log(`[batch-routing] MODEL_REMAP: ${model} → ${remapped} (batch requires OpenAI)`);
+    return remapped;
+  }
+
+  // Unknown non-OpenAI model — fall back to default
+  console.warn(`[batch-routing] UNKNOWN_MODEL_REMAP: ${model} → ${BATCH_DEFAULT_MODEL} (no remap entry)`);
+  return BATCH_DEFAULT_MODEL;
+}
 
 /**
  * Determine if a job should use the batch path.
