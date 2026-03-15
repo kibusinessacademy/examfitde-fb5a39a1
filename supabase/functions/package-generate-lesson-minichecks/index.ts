@@ -152,6 +152,7 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "Use POST" }, 405);
 
   const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  bootstrapLLMLogging(sb, "package_generate_lesson_minichecks");
   const body = await req.json().catch(() => ({}));
   const p = body.payload || body;
 
