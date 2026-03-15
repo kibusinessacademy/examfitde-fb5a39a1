@@ -114,13 +114,15 @@ Deno.serve(async (req) => {
           results.push(...pair);
 
           // ── Step 3: Incremental checkpoint after each blueprint ──
+          const completed = results.length / 2;
           await sb.from("ai_generations").update({
             output_content: { results, run_id: runId },
             metadata: {
               version: "kg-canary-v2-async",
               run_id: runId,
               blueprints_tested: shuffled.length,
-              blueprints_completed: results.length / 2,
+              blueprints_completed: completed,
+              progress_pct: Math.round((completed / shuffled.length) * 100),
               questions_per_bp,
               last_checkpoint: new Date().toISOString(),
             },
