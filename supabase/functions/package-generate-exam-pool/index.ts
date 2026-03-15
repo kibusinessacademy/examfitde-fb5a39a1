@@ -657,10 +657,20 @@ Nutze diese Fallen gezielt für die 3 Distraktoren!`;
     trapSpecBlock = `\n\nTypische Prüfungsfalle: ${bp.typical_exam_trap}`;
   }
 
+  // ── Inject Knowledge Graph context (Phase 2 — compact enrichment) ──
+  let graphBlock = "";
+  if (graphContext?.common_errors?.length) {
+    const errList = graphContext.common_errors.slice(0, 5).map((e) => `- ${e}`).join("\n");
+    graphBlock = `\n\n═══ HÄUFIGE FEHLER (Knowledge Graph) ═══
+Typische Fehler/Missverständnisse von Auszubildenden bei dieser Kompetenz:
+${errList}
+Nutze diese Fehlermuster gezielt für realistische Distraktoren!`;
+  }
+
   const user = `${count} Frage(n) für "${professionName}".
 Lernfeld: ${lfTitle}
 Thema: ${compTitle} — ${compDesc}
-Blueprint: ${bp.canonical_statement}${depthBlock}${trapSpecBlock}
+Blueprint: ${bp.canonical_statement}${depthBlock}${trapSpecBlock}${graphBlock}
 
 Kognitive Stufe: ${cognitiveLevel}
 Fragetyp: ${questionType}
