@@ -346,13 +346,57 @@ export async function callAIJSON(opts: Omit<AIRequestOptions, "stream">): Promis
   }
 }
 
+// ── Usage normalizer: handles all provider quirks centrally ──
+function normalizeUsage(
+  usage?: Record<string, any>,
+  estimatedUsage?: { tokens_in: number; tokens_out: number; cost_eur: number; estimated: boolean },
+): {
+  tokens_in: number;
+  tokens_out: number;
+  total_tokens: number;
+  cache_creation_input_tokens: number;
+  cache_read_input_tokens: number;
+  is_estimated: boolean;
+} {
+  const tokensIn =
+    usage?.input_tokens ??
+    usage?.prompt_tokens ??
+    0;
+
+  const tokensOut =
+    usage?.output_tokens ??
+    usage?.completion_tokens ??
+    0;
+
+  const total =
+    usage?.total_tokens ??
+    ((tokensIn || 0) + (tokensOut || 0));
+
+  // Handle total_tokens-only cases (some providers return only total)
+  const normalizedIn = tokensIn || (tokensOut === 0 && total > 0 ? total : 0);
+  const normalizedOut = tokensOut;
+
+  const finalIn = normalizedIn || estimatedUsage?.tokens_in || 0;
+  const finalOut = normalizedOut || estimatedUsage?.tokens_out || 0;
+  const isEstimated = (finalIn !== normalizedIn || finalOut !== normalizedOut) || (!tokensIn && !tokensOut);
+
+  return {
+    tokens_in: finalIn,
+    tokens_out: finalOut,
+    total_tokens: total || ((estimatedUsage?.tokens_in || 0) + (estimatedUsage?.tokens_out || 0)),
+    cache_creation_input_tokens: usage?.cache_creation_input_tokens || 0,
+    cache_read_input_tokens: usage?.cache_read_input_tokens || 0,
+    is_estimated: isEstimated,
+  };
+}
+
+/** Canonical status set for LLM cost events */
+export type LLMCostStatus = "success" | "error" | "retry" | "timeout" | "rate_limited" | "aborted" | "skipped";
+
 /**
  * Log an LLM cost event to llm_cost_events table.
- * Call this after every AI call (success, fail, retry) for ROI tracking.
- *
- * @param opts.status - "success" | "fail" | "retry" (default: "success")
- * @param opts.error_message - Error text for failed calls
- * @param opts.attempt - Which attempt number (for retry tracking)
+ * NEVER throws — safe to await directly without try/catch wrapping.
+ * Call this after every AI call (success, error, retry) for ROI tracking.
  */
 export async function logLLMCostEvent(
   sb: { from: (table: string) => any },
@@ -367,7 +411,7 @@ export async function logLLMCostEvent(
     package_id?: string | null;
     certification_id?: string | null;
     course_id?: string | null;
-    status?: "success" | "fail" | "retry" | "error" | "timeout" | "rate_limited" | "aborted";
+    status?: LLMCostStatus;
     error_message?: string | null;
     attempt?: number;
     meta?: Record<string, unknown>;
@@ -383,16 +427,15 @@ export async function logLLMCostEvent(
   }
 ): Promise<void> {
   try {
-    // FIX: If provider returned 0 tokens, use estimated values
-    let tokensIn = opts.tokens_in;
-    let tokensOut = opts.tokens_out;
-    let isEstimated = opts.estimated ?? false;
+    // Normalize usage through central function
+    const norm = normalizeUsage(
+      { input_tokens: opts.tokens_in, output_tokens: opts.tokens_out, cache_creation_input_tokens: opts.cache_creation_input_tokens, cache_read_input_tokens: opts.cache_read_input_tokens },
+      opts.estimatedUsage,
+    );
 
-    if (tokensIn === 0 && tokensOut === 0 && opts.estimatedUsage) {
-      tokensIn = opts.estimatedUsage.tokens_in;
-      tokensOut = opts.estimatedUsage.tokens_out;
-      isEstimated = opts.estimatedUsage.estimated;
-    }
+    const tokensIn = norm.tokens_in;
+    const tokensOut = norm.tokens_out;
+    const isEstimated = opts.estimated ?? norm.is_estimated;
 
     // Use estimated cost if no real cost provided
     const costEur = (tokensIn > 0 || tokensOut > 0)
@@ -417,15 +460,14 @@ export async function logLLMCostEvent(
         ...(isEstimated ? { estimated: true } : {}),
         ...(opts.latency_ms !== undefined ? { latency_ms: opts.latency_ms } : {}),
         ...(opts.finish_reason ? { finish_reason: opts.finish_reason } : {}),
-        ...(opts.cached_input_tokens ? { cached_input_tokens: opts.cached_input_tokens } : {}),
-        ...(opts.cache_creation_input_tokens ? { cache_creation_input_tokens: opts.cache_creation_input_tokens } : {}),
-        ...(opts.cache_read_input_tokens ? { cache_read_input_tokens: opts.cache_read_input_tokens } : {}),
+        ...(norm.cache_creation_input_tokens ? { cache_creation_input_tokens: norm.cache_creation_input_tokens } : {}),
+        ...(norm.cache_read_input_tokens ? { cache_read_input_tokens: norm.cache_read_input_tokens } : {}),
         ...(opts.trace_id ? { trace_id: opts.trace_id } : {}),
       },
     });
 
     if (insertErr) {
-      console.error(`[llm-cost-log-FAILED] job=${opts.job_type} provider=${opts.provider} model=${opts.model} err=${insertErr.message?.slice(0, 200)}`);
+      console.error(`[llm-cost-log-FAILED] job=${opts.job_type} provider=${opts.provider} model=${opts.model} trace=${opts.trace_id || "?"} err=${insertErr.message?.slice(0, 200)}`);
       // Fallback: try ops_events as safety net
       try {
         await sb.from("ops_events").insert({
@@ -438,13 +480,15 @@ export async function logLLMCostEvent(
             tokens_in: tokensIn,
             tokens_out: tokensOut,
             cost_eur: costEur,
+            trace_id: opts.trace_id || null,
             insert_error: insertErr.message?.slice(0, 200),
           },
         });
       } catch { /* double-fallback best-effort */ }
     }
   } catch (outerErr) {
-    console.error(`[llm-cost-log-FAILED] OUTER job=${opts.job_type} provider=${opts.provider} model=${opts.model} err=${(outerErr as Error)?.message?.slice(0, 200)}`);
+    // NEVER throw — this function is safe to await without wrapping
+    console.error(`[llm-cost-log-FAILED] OUTER job=${opts.job_type} provider=${opts.provider} model=${opts.model} trace=${opts.trace_id || "?"} err=${(outerErr as Error)?.message?.slice(0, 200)}`);
   }
 }
 
