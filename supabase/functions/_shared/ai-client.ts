@@ -346,13 +346,57 @@ export async function callAIJSON(opts: Omit<AIRequestOptions, "stream">): Promis
   }
 }
 
+// ── Usage normalizer: handles all provider quirks centrally ──
+function normalizeUsage(
+  usage?: Record<string, any>,
+  estimatedUsage?: { tokens_in: number; tokens_out: number; cost_eur: number; estimated: boolean },
+): {
+  tokens_in: number;
+  tokens_out: number;
+  total_tokens: number;
+  cache_creation_input_tokens: number;
+  cache_read_input_tokens: number;
+  is_estimated: boolean;
+} {
+  const tokensIn =
+    usage?.input_tokens ??
+    usage?.prompt_tokens ??
+    0;
+
+  const tokensOut =
+    usage?.output_tokens ??
+    usage?.completion_tokens ??
+    0;
+
+  const total =
+    usage?.total_tokens ??
+    ((tokensIn || 0) + (tokensOut || 0));
+
+  // Handle total_tokens-only cases (some providers return only total)
+  const normalizedIn = tokensIn || (tokensOut === 0 && total > 0 ? total : 0);
+  const normalizedOut = tokensOut;
+
+  const finalIn = normalizedIn || estimatedUsage?.tokens_in || 0;
+  const finalOut = normalizedOut || estimatedUsage?.tokens_out || 0;
+  const isEstimated = (finalIn !== normalizedIn || finalOut !== normalizedOut) || (!tokensIn && !tokensOut);
+
+  return {
+    tokens_in: finalIn,
+    tokens_out: finalOut,
+    total_tokens: total || ((estimatedUsage?.tokens_in || 0) + (estimatedUsage?.tokens_out || 0)),
+    cache_creation_input_tokens: usage?.cache_creation_input_tokens || 0,
+    cache_read_input_tokens: usage?.cache_read_input_tokens || 0,
+    is_estimated: isEstimated,
+  };
+}
+
+/** Canonical status set for LLM cost events */
+export type LLMCostStatus = "success" | "error" | "retry" | "timeout" | "rate_limited" | "aborted" | "skipped";
+
 /**
  * Log an LLM cost event to llm_cost_events table.
- * Call this after every AI call (success, fail, retry) for ROI tracking.
- *
- * @param opts.status - "success" | "fail" | "retry" (default: "success")
- * @param opts.error_message - Error text for failed calls
- * @param opts.attempt - Which attempt number (for retry tracking)
+ * NEVER throws — safe to await directly without try/catch wrapping.
+ * Call this after every AI call (success, error, retry) for ROI tracking.
  */
 export async function logLLMCostEvent(
   sb: { from: (table: string) => any },
@@ -367,7 +411,7 @@ export async function logLLMCostEvent(
     package_id?: string | null;
     certification_id?: string | null;
     course_id?: string | null;
-    status?: "success" | "fail" | "retry" | "error" | "timeout" | "rate_limited" | "aborted";
+    status?: LLMCostStatus;
     error_message?: string | null;
     attempt?: number;
     meta?: Record<string, unknown>;
@@ -383,16 +427,15 @@ export async function logLLMCostEvent(
   }
 ): Promise<void> {
   try {
-    // FIX: If provider returned 0 tokens, use estimated values
-    let tokensIn = opts.tokens_in;
-    let tokensOut = opts.tokens_out;
-    let isEstimated = opts.estimated ?? false;
+    // Normalize usage through central function
+    const norm = normalizeUsage(
+      { input_tokens: opts.tokens_in, output_tokens: opts.tokens_out, cache_creation_input_tokens: opts.cache_creation_input_tokens, cache_read_input_tokens: opts.cache_read_input_tokens },
+      opts.estimatedUsage,
+    );
 
-    if (tokensIn === 0 && tokensOut === 0 && opts.estimatedUsage) {
-      tokensIn = opts.estimatedUsage.tokens_in;
-      tokensOut = opts.estimatedUsage.tokens_out;
-      isEstimated = opts.estimatedUsage.estimated;
-    }
+    const tokensIn = norm.tokens_in;
+    const tokensOut = norm.tokens_out;
+    const isEstimated = opts.estimated ?? norm.is_estimated;
 
     // Use estimated cost if no real cost provided
     const costEur = (tokensIn > 0 || tokensOut > 0)
@@ -417,15 +460,14 @@ export async function logLLMCostEvent(
         ...(isEstimated ? { estimated: true } : {}),
         ...(opts.latency_ms !== undefined ? { latency_ms: opts.latency_ms } : {}),
         ...(opts.finish_reason ? { finish_reason: opts.finish_reason } : {}),
-        ...(opts.cached_input_tokens ? { cached_input_tokens: opts.cached_input_tokens } : {}),
-        ...(opts.cache_creation_input_tokens ? { cache_creation_input_tokens: opts.cache_creation_input_tokens } : {}),
-        ...(opts.cache_read_input_tokens ? { cache_read_input_tokens: opts.cache_read_input_tokens } : {}),
+        ...(norm.cache_creation_input_tokens ? { cache_creation_input_tokens: norm.cache_creation_input_tokens } : {}),
+        ...(norm.cache_read_input_tokens ? { cache_read_input_tokens: norm.cache_read_input_tokens } : {}),
         ...(opts.trace_id ? { trace_id: opts.trace_id } : {}),
       },
     });
 
     if (insertErr) {
-      console.error(`[llm-cost-log-FAILED] job=${opts.job_type} provider=${opts.provider} model=${opts.model} err=${insertErr.message?.slice(0, 200)}`);
+      console.error(`[llm-cost-log-FAILED] job=${opts.job_type} provider=${opts.provider} model=${opts.model} trace=${opts.trace_id || "?"} err=${insertErr.message?.slice(0, 200)}`);
       // Fallback: try ops_events as safety net
       try {
         await sb.from("ops_events").insert({
@@ -438,13 +480,15 @@ export async function logLLMCostEvent(
             tokens_in: tokensIn,
             tokens_out: tokensOut,
             cost_eur: costEur,
+            trace_id: opts.trace_id || null,
             insert_error: insertErr.message?.slice(0, 200),
           },
         });
       } catch { /* double-fallback best-effort */ }
     }
   } catch (outerErr) {
-    console.error(`[llm-cost-log-FAILED] OUTER job=${opts.job_type} provider=${opts.provider} model=${opts.model} err=${(outerErr as Error)?.message?.slice(0, 200)}`);
+    // NEVER throw — this function is safe to await without wrapping
+    console.error(`[llm-cost-log-FAILED] OUTER job=${opts.job_type} provider=${opts.provider} model=${opts.model} trace=${opts.trace_id || "?"} err=${(outerErr as Error)?.message?.slice(0, 200)}`);
   }
 }
 
@@ -551,51 +595,62 @@ export async function callAIWithFailover(
   }
 
   const errors: string[] = [];
-  let attemptIndex = 0;
+  let candidateRank = 0;  // position in chain (includes skips)
+  let actualAttempt = 0;  // only real HTTP calls
   const traceId = generateTraceId();
 
   // Resolve logging client: explicit sb > globalThis > auto-create
   const logSb = jobContext?.sb || (globalThis as any).__llmLogSb || getAutoLogSb();
   const jobType = jobContext?.job_type || (globalThis as any).__llmJobType || "unknown";
 
-  // Helper: auto-log an attempt (non-blocking, never throws)
-  const autoLog = (p: string, m: string, attempt: number, status: string, latencyMs: number, usage?: any, estimatedUsage?: any, finishReason?: string, errorMsg?: string) => {
+  // Helper: auto-log an attempt — awaited (logLLMCostEvent never throws)
+  const autoLog = async (
+    p: string, m: string, status: LLMCostStatus, latencyMs: number,
+    opts2: { usage?: any; estimatedUsage?: any; finishReason?: string; errorMsg?: string; wasCalled: boolean; skipReason?: string },
+  ) => {
     if (!logSb) return;
-    logLLMCostEvent(logSb, {
+    const norm = normalizeUsage(opts2.usage, opts2.estimatedUsage);
+    await logLLMCostEvent(logSb, {
       job_type: jobType,
       provider: p,
       model: m,
-      tokens_in: usage?.input_tokens || usage?.prompt_tokens || 0,
-      tokens_out: usage?.output_tokens || usage?.completion_tokens || 0,
-      status: status as any,
-      attempt,
+      tokens_in: norm.tokens_in,
+      tokens_out: norm.tokens_out,
+      status,
+      attempt: opts2.wasCalled ? actualAttempt : undefined,
       latency_ms: latencyMs,
-      finish_reason: finishReason,
-      error_message: errorMsg,
+      finish_reason: opts2.finishReason,
+      error_message: opts2.errorMsg,
       package_id: jobContext?.package_id,
       course_id: jobContext?.course_id,
       certification_id: jobContext?.certification_id,
-      estimatedUsage,
-      cached_input_tokens: usage?.cache_read_input_tokens || 0,
-      cache_creation_input_tokens: usage?.cache_creation_input_tokens || 0,
-      cache_read_input_tokens: usage?.cache_read_input_tokens || 0,
+      estimatedUsage: opts2.estimatedUsage,
+      cache_creation_input_tokens: norm.cache_creation_input_tokens,
+      cache_read_input_tokens: norm.cache_read_input_tokens,
       trace_id: traceId,
-      meta: { chain_size: chain.length, fallback_rank: attempt },
-    }).catch(() => {}); // fire-and-forget but logLLMCostEvent itself now logs errors
+      meta: {
+        chain_size: chain.length,
+        candidate_rank: candidateRank,
+        attempt_no: opts2.wasCalled ? actualAttempt : undefined,
+        was_called: opts2.wasCalled,
+        ...(opts2.skipReason ? { skip_reason: opts2.skipReason } : {}),
+      },
+    });
   };
 
   for (const candidate of chain) {
     if (!keyAvailability[candidate.provider]) {
       errors.push(`${candidate.provider}: no API key`);
-      attemptIndex++;
+      await autoLog(candidate.provider, candidate.model, "skipped", 0, { wasCalled: false, skipReason: "no_api_key" });
+      candidateRank++;
       continue;
     }
 
     const health = getProviderHealth(candidate.provider);
     if (!health.available) {
       errors.push(`${candidate.provider}: ${health.reason}`);
-      autoLog(candidate.provider, candidate.model, attemptIndex, "rate_limited", 0, undefined, undefined, undefined, health.reason);
-      attemptIndex++;
+      await autoLog(candidate.provider, candidate.model, "rate_limited", 0, { wasCalled: false, skipReason: health.reason, errorMsg: health.reason });
+      candidateRank++;
       continue;
     }
 
@@ -627,28 +682,29 @@ export async function callAIWithFailover(
         const msg = `Empty response from ${candidate.provider}/${candidate.model} — falling through to next provider`;
         console.warn(`[AI-CLIENT] ${msg}`);
         errors.push(msg);
-        autoLog(candidate.provider, candidate.model, attemptIndex, "error", latencyMs, result.usage, result.estimatedUsage, result.finish_reason, "empty_response");
-        attemptIndex++;
+        await autoLog(candidate.provider, candidate.model, "error", latencyMs, { usage: result.usage, estimatedUsage: result.estimatedUsage, finishReason: result.finish_reason, errorMsg: "empty_response", wasCalled: true });
+        actualAttempt++;
+        candidateRank++;
         continue;
       }
 
       // ── SUCCESS: auto-log this attempt ──
-      autoLog(candidate.provider, candidate.model, attemptIndex, "success", latencyMs, result.usage, result.estimatedUsage, result.finish_reason);
+      await autoLog(candidate.provider, candidate.model, "success", latencyMs, { usage: result.usage, estimatedUsage: result.estimatedUsage, finishReason: result.finish_reason, wasCalled: true });
 
       const telemetry: FailoverTelemetry = {
         route: "chain",
         provider: candidate.provider,
         model: candidate.model,
-        fallback_rank: attemptIndex,
-        resolved_via: attemptIndex === 0 ? "db_policy" : "hardcoded_fallback",
+        fallback_rank: candidateRank,
+        resolved_via: candidateRank === 0 ? "db_policy" : "hardcoded_fallback",
         finish_reason: result.finish_reason,
         raw_text_length: (result.content || "").length,
         is_drift_prone: isDriftProneModel(candidate.model),
-        attempts_before: attemptIndex,
+        attempts_before: actualAttempt,
       };
 
-      if (attemptIndex > 0) {
-        console.log(`[AI-CLIENT] FAILOVER_TELEMETRY: resolved via rank=${attemptIndex} ${candidate.provider}/${candidate.model} (drift_prone=${telemetry.is_drift_prone}, text_len=${telemetry.raw_text_length})`);
+      if (candidateRank > 0) {
+        console.log(`[AI-CLIENT] FAILOVER_TELEMETRY: resolved via rank=${candidateRank} ${candidate.provider}/${candidate.model} (drift_prone=${telemetry.is_drift_prone}, text_len=${telemetry.raw_text_length})`);
       }
 
       return {
@@ -667,13 +723,14 @@ export async function callAIWithFailover(
       warnIfUnclassifiedLlmError(err, { provider: candidate.provider, model: candidate.model });
 
       // ── FAIL: auto-log this attempt ──
-      const errStatus = err instanceof RateLimitError ? "rate_limited"
+      const errStatus: LLMCostStatus = err instanceof RateLimitError ? "rate_limited"
         : err instanceof AITimeoutError ? "timeout"
         : msg.includes("AbortError") ? "aborted"
         : "error";
-      autoLog(candidate.provider, candidate.model, attemptIndex, errStatus, latencyMs, undefined, undefined, undefined, msg.slice(0, 300));
+      await autoLog(candidate.provider, candidate.model, errStatus, latencyMs, { errorMsg: msg.slice(0, 300), wasCalled: true });
 
-      attemptIndex++;
+      actualAttempt++;
+      candidateRank++;
     }
   }
 
@@ -681,7 +738,7 @@ export async function callAIWithFailover(
   if (opts.tools && opts.tools.length > 0) {
     console.warn(`[AI-CLIENT] All tool-call providers empty — trying plain-text JSON fallback`);
 
-    let fallbackAttempt = 0;
+    let fallbackRank = 0;
     for (const candidate of chain) {
       if (!keyAvailability[candidate.provider]) continue;
       const health2 = getProviderHealth(candidate.provider);
@@ -707,19 +764,20 @@ export async function callAIWithFailover(
         });
 
         const latencyMs = Date.now() - attemptStart;
+        actualAttempt++;
 
         if (fallbackResult.content && fallbackResult.content.trim().length > 0) {
-          autoLog(candidate.provider, candidate.model, chain.length + fallbackAttempt, "success", latencyMs, fallbackResult.usage, fallbackResult.estimatedUsage, fallbackResult.finish_reason);
+          await autoLog(candidate.provider, candidate.model, "success", latencyMs, { usage: fallbackResult.usage, estimatedUsage: fallbackResult.estimatedUsage, finishReason: fallbackResult.finish_reason, wasCalled: true });
 
           const telemetry: FailoverTelemetry = {
             route: "plain_json_fallback",
             provider: candidate.provider,
             model: candidate.model,
-            fallback_rank: chain.length + fallbackAttempt,
+            fallback_rank: chain.length + fallbackRank,
             resolved_via: "plain_json_fallback",
             raw_text_length: fallbackResult.content.length,
             is_drift_prone: isDriftProneModel(candidate.model),
-            attempts_before: attemptIndex + fallbackAttempt,
+            attempts_before: actualAttempt,
           };
           console.log(`[AI-CLIENT] ✅ Plain-text fallback succeeded via ${candidate.provider}/${candidate.model} (${fallbackResult.content.length} chars, drift_prone=${telemetry.is_drift_prone})`);
           return {
@@ -736,9 +794,10 @@ export async function callAIWithFailover(
         const latencyMs = Date.now() - attemptStart;
         const msg2 = err2 instanceof Error ? err2.message : String(err2);
         errors.push(`FALLBACK ${candidate.provider}/${candidate.model}: ${msg2}`);
-        autoLog(candidate.provider, candidate.model, chain.length + fallbackAttempt, "error", latencyMs, undefined, undefined, undefined, msg2.slice(0, 300));
+        await autoLog(candidate.provider, candidate.model, "error", latencyMs, { errorMsg: msg2.slice(0, 300), wasCalled: true });
+        actualAttempt++;
       }
-      fallbackAttempt++;
+      fallbackRank++;
     }
   }
 
