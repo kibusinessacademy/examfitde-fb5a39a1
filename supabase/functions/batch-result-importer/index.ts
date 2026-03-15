@@ -299,7 +299,7 @@ async function importExamPoolBatch(
           explanation: explanation || "",
           difficulty,
           cognitive_level: mappedCogLevel,
-          question_type: questionType,
+          question_type: mappedQuestionType,
           question_fingerprint: fingerprint,
           trap_tags: Array.isArray(q.trap_tags) ? q.trap_tags : [],
           ai_generated: true,
