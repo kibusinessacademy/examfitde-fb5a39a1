@@ -746,7 +746,7 @@ async function generateRawCandidates(
 
   // ── Phase 2: Load Knowledge Graph context (gated by rollout config) ──
   let graphCtx: GraphContext | null = null;
-  const kgDecision = await shouldInjectKG(sb, bp.id);
+  const kgDecision = await shouldInjectKG(sb, bp.id, bp.curriculum_id);
   _qualityMetrics.kg_rollout_enabled = kgDecision.enabled;
   _qualityMetrics.kg_rollout_pct = kgDecision.rolloutPct;
   if (kgDecision.blueprintInRollout) {
