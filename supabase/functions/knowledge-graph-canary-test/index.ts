@@ -83,91 +83,55 @@ Deno.serve(async (req) => {
     const results: CanaryResult[] = [];
     const runId = crypto.randomUUID();
 
-    for (const bp of shuffled) {
-      // Load competency + LF titles
-      const { data: comp } = await sb.from("competencies").select("title, description").eq("id", bp.competency_id).maybeSingle();
-      const { data: lf } = await sb.from("learning_fields").select("title").eq("id", bp.learning_field_id).maybeSingle();
+    // Process all blueprints with parallel A/B calls per blueprint
+    const bpPromises = shuffled.map(async (bp) => {
+      const [{ data: comp }, { data: lf }] = await Promise.all([
+        sb.from("competencies").select("title, description").eq("id", bp.competency_id).maybeSingle(),
+        sb.from("learning_fields").select("title").eq("id", bp.learning_field_id).maybeSingle(),
+      ]);
       const compTitle = comp?.title || "Kompetenz";
       const compDesc = comp?.description || "";
       const lfTitle = lf?.title || "Lernfeld";
 
-      // Fetch KG context
       let graphCtx: GraphContext | null = null;
-      try {
-        graphCtx = await getGraphContextForBlueprint(sb, bp.id);
-      } catch { /* optional */ }
+      try { graphCtx = await getGraphContextForBlueprint(sb, bp.id); } catch { /* optional */ }
 
-      // Build base prompt (shared)
       const basePrompt = buildCanaryPrompt(bp, compTitle, compDesc, lfTitle, professionName, questions_per_bp);
-
-      // ── Variant A: WITH KG context ──
       const promptA = graphCtx?.common_errors?.length
         ? basePrompt + buildKGBlock(graphCtx)
         : basePrompt + "\n\n[KG: keine Fehlermuster verfügbar]";
+      const sysMsg = { role: "system" as const, content: "Du bist ein IHK-Prüfungsexperte. Generiere realistische Multiple-Choice-Fragen im JSON-Array-Format." };
 
-      const startA = Date.now();
-      let resultA: unknown = null;
-      try {
-        const resp = await callAIJSON({
-          provider,
-          model,
-          messages: [
-            { role: "system", content: "Du bist ein IHK-Prüfungsexperte. Generiere realistische Multiple-Choice-Fragen im JSON-Array-Format." },
-            { role: "user", content: promptA },
-          ],
-          max_tokens: 2200,
-        });
-        resultA = JSON.parse(resp.content);
-      } catch (e) {
-        resultA = { error: (e as Error)?.message };
-      }
-      const latencyA = Date.now() - startA;
+      // Run A and B in parallel
+      const [aResult, bResult] = await Promise.all([
+        (async () => {
+          const start = Date.now();
+          try {
+            const resp = await callAIJSON({ provider, model, messages: [sysMsg, { role: "user", content: promptA }], max_tokens: 2200 });
+            return { data: JSON.parse(resp.content), latency: Date.now() - start };
+          } catch (e) { return { data: { error: (e as Error)?.message }, latency: Date.now() - start }; }
+        })(),
+        (async () => {
+          const start = Date.now();
+          try {
+            const resp = await callAIJSON({ provider, model, messages: [sysMsg, { role: "user", content: basePrompt }], max_tokens: 2200 });
+            return { data: JSON.parse(resp.content), latency: Date.now() - start };
+          } catch (e) { return { data: { error: (e as Error)?.message }, latency: Date.now() - start }; }
+        })(),
+      ]);
 
-      // ── Variant B: WITHOUT KG context ──
-      const promptB = basePrompt;
-      const startB = Date.now();
-      let resultB: unknown = null;
-      try {
-        const resp = await callAIJSON({
-          provider,
-          model,
-          messages: [
-            { role: "system", content: "Du bist ein IHK-Prüfungsexperte. Generiere realistische Multiple-Choice-Fragen im JSON-Array-Format." },
-            { role: "user", content: promptB },
-          ],
-          max_tokens: 2200,
-        });
-        resultB = JSON.parse(resp.content);
-      } catch (e) {
-        resultB = { error: (e as Error)?.message };
-      }
-      const latencyB = Date.now() - startB;
+      const scoreA = scoreQuestions(aResult.data);
+      const scoreB = scoreQuestions(bResult.data);
+      console.log(`[KG-Canary] ${bp.id.slice(0,8)}: A(kg=${graphCtx?.common_errors?.length || 0})=${scoreA.avgQuality.toFixed(1)} vs B=${scoreB.avgQuality.toFixed(1)}`);
 
-      // Score both variants
-      const scoreA = scoreQuestions(resultA);
-      const scoreB = scoreQuestions(resultB);
+      return [
+        { blueprint_id: bp.id, blueprint_label: bp.canonical_statement?.slice(0, 80) || bp.id, competency_title: compTitle, variant: "A_with_kg" as const, kg_errors_count: graphCtx?.common_errors?.length || 0, questions_generated: scoreA.count, avg_quality_score: scoreA.avgQuality, distractor_quality: scoreA.distractorScore, praxis_score: scoreA.praxisScore, raw_output: aResult.data, model_used: `${provider}/${model}`, latency_ms: aResult.latency },
+        { blueprint_id: bp.id, blueprint_label: bp.canonical_statement?.slice(0, 80) || bp.id, competency_title: compTitle, variant: "B_without_kg" as const, kg_errors_count: 0, questions_generated: scoreB.count, avg_quality_score: scoreB.avgQuality, distractor_quality: scoreB.distractorScore, praxis_score: scoreB.praxisScore, raw_output: bResult.data, model_used: `${provider}/${model}`, latency_ms: bResult.latency },
+      ];
+    });
 
-      results.push({
-        blueprint_id: bp.id,
-        blueprint_label: bp.canonical_statement?.slice(0, 80) || bp.id,
-        competency_title: compTitle,
-        variant: "A_with_kg",
-        kg_errors_count: graphCtx?.common_errors?.length || 0,
-        questions_generated: scoreA.count,
-        avg_quality_score: scoreA.avgQuality,
-        distractor_quality: scoreA.distractorScore,
-        praxis_score: scoreA.praxisScore,
-        raw_output: resultA,
-        model_used: `${provider}/${model}`,
-        latency_ms: latencyA,
-      });
-
-      results.push({
-        blueprint_id: bp.id,
-        blueprint_label: bp.canonical_statement?.slice(0, 80) || bp.id,
-        competency_title: compTitle,
-        variant: "B_without_kg",
-        kg_errors_count: 0,
+    const allPairs = await Promise.all(bpPromises);
+    const results: CanaryResult[] = allPairs.flat();
         questions_generated: scoreB.count,
         avg_quality_score: scoreB.avgQuality,
         distractor_quality: scoreB.distractorScore,
