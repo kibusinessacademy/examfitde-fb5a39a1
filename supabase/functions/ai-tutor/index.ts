@@ -218,26 +218,28 @@ async function loadSSOTContext(
     resolved.miniCheckScore = miniCheckScore;
   }
 
-  // ── Learning Intelligence Context ──
-  // Load readiness, gaps, and recommendations for richer tutor responses
-  if (curriculumId) {
+  // ── Learning Intelligence Context via build-learning-context ──
+  if (curriculumId && context._userId) {
     try {
-      const authHeader = `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`;
-      
-      // Fetch user ID from the calling context (passed via resolved or context)
-      // We'll load using service role since we have the curriculum
-      const [readinessRes, gapsRes] = await Promise.all([
+      const [readinessRes, gapsRes, recsRes] = await Promise.all([
         supabase
           .from('v_user_current_readiness')
-          .select('readiness_score, risk_level, confidence_score, mastered_count, not_mastered_count, weak_competencies')
+          .select('readiness_score, risk_level, confidence_score, mastered_count, partial_count, not_mastered_count, weak_competencies')
+          .eq('user_id', context._userId)
           .eq('curriculum_id', curriculumId)
-          .limit(1)
           .maybeSingle(),
         supabase
           .from('v_user_top_gaps')
-          .select('competency_title, competency_code, learning_field_code, accuracy_pct, gap_type, weakness_score')
+          .select('competency_title, competency_code, learning_field_code, learning_field_title, accuracy_pct, gap_type, weakness_score')
+          .eq('user_id', context._userId)
           .eq('curriculum_id', curriculumId)
           .order('weakness_score', { ascending: false })
+          .limit(5),
+        supabase
+          .from('v_user_active_recommendations')
+          .select('recommendation_type, target_meta, reason_text, reason_code')
+          .eq('user_id', context._userId)
+          .eq('curriculum_id', curriculumId)
           .limit(3),
       ]);
 
@@ -245,16 +247,29 @@ async function loadSSOTContext(
         const r = readinessRes.data;
         resolved.readiness = r;
         parts.push(`\nPRÜFUNGSREIFE: ${r.readiness_score}% (${r.risk_level})`);
-        parts.push(`Beherrschte Kompetenzen: ${r.mastered_count}, nicht beherrscht: ${r.not_mastered_count}`);
+        parts.push(`Beherrschte Kompetenzen: ${r.mastered_count}, teilweise: ${r.partial_count}, nicht beherrscht: ${r.not_mastered_count}`);
+        
+        // Coaching mode hint based on readiness
+        const suggestedRole = !r.readiness_score || r.readiness_score < 40 ? 'explainer'
+          : r.readiness_score < 70 ? 'coach' : 'examiner';
+        parts.push(`EMPFOHLENER MODUS: ${suggestedRole}`);
       }
 
       if (gapsRes.data && gapsRes.data.length > 0) {
         resolved.topGaps = gapsRes.data;
         const gapLines = gapsRes.data.map((g: Record<string, unknown>) =>
-          `- ${g.competency_code} ${g.competency_title}: ${g.accuracy_pct}% (${g.gap_type})`
+          `- ${g.competency_code} ${g.competency_title} (${g.learning_field_code}): ${g.accuracy_pct}% Trefferquote, Typ: ${g.gap_type}`
         );
         parts.push(`\nTOP-SCHWÄCHEN des Lernenden:\n${gapLines.join('\n')}`);
-        parts.push('WICHTIG: Beziehe dich auf diese Schwächen, wenn es thematisch passt.');
+        parts.push('WICHTIG: Beziehe dich auf diese Schwächen, wenn es thematisch passt. Erkläre gezielt Themen, in denen der Lernende Lücken hat.');
+      }
+
+      if (recsRes.data && recsRes.data.length > 0) {
+        resolved.recommendations = recsRes.data;
+        const recLines = recsRes.data.map((r: Record<string, unknown>) =>
+          `- ${r.recommendation_type}: ${r.reason_text}`
+        );
+        parts.push(`\nAKTIVE EMPFEHLUNGEN:\n${recLines.join('\n')}`);
       }
     } catch (e) {
       console.warn('[ai-tutor] Learning context enrichment failed:', e);
