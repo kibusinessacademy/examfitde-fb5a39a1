@@ -97,6 +97,7 @@ Deno.serve(async (req) => {
           .from("course_packages")
           .insert({
             course_id: courseId,
+            curriculum_id: c.curriculum_id,
             status: "queued",
             priority: Math.round(c.promotion_priority || 5),
             track: "AUSBILDUNG_VOLL",
