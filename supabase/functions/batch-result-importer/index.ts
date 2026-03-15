@@ -51,6 +51,13 @@ function simpleHash(text: string): string {
   return hash.toString(36);
 }
 
+async function sha256(input: string): Promise<string> {
+  const encoded = new TextEncoder().encode(input);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", encoded);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
 function textNgrams(text: string, n = 3): Set<string> {
   const cleaned = text.toLowerCase().replace(/[^a-zäöüß0-9\s]/g, "").trim();
   const words = cleaned.split(/\s+/);
@@ -68,6 +75,10 @@ function jaccardSimilarity(a: Set<string>, b: Set<string>): number {
     if (b.has(item)) intersection++;
   }
   return intersection / (a.size + b.size - intersection);
+}
+
+function normalizeText(text: string): string {
+  return text.toLowerCase().replace(/\s+/g, " ").trim();
 }
 
 const TEXT_SIMILARITY_THRESHOLD = 0.55;
