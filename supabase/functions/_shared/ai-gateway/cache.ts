@@ -54,7 +54,7 @@ export async function checkCache(
   try {
     const { data, error } = await sb
       .from("ai_generation_cache")
-      .select("id, response_body, model")
+      .select("id, response_body, model, hit_count")
       .eq("cache_key", cacheKey)
       .maybeSingle();
 

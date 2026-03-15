@@ -11,15 +11,21 @@ export async function buildRequestFingerprint(parts: {
   sourceId?: string;
   targetArtifact: string;
   model?: string;
-  promptSnippet?: string;
+  /** Full prompt text — will be hashed, not truncated */
+  promptText?: string;
+  /** Additional deterministic payload keys for uniqueness */
+  payloadKeys?: Record<string, string | undefined>;
 }): Promise<string> {
   const raw = [
     parts.jobType,
     parts.sourceId || "",
     parts.targetArtifact,
     parts.model || "",
-    // Use first 200 chars of prompt for fingerprinting
-    (parts.promptSnippet || "").slice(0, 200),
+    parts.promptText || "",
+    // Sort payload keys for deterministic ordering
+    ...(parts.payloadKeys
+      ? Object.keys(parts.payloadKeys).sort().map(k => `${k}=${parts.payloadKeys![k] || ""}`)
+      : []),
   ].join("|");
 
   const encoded = new TextEncoder().encode(raw);
