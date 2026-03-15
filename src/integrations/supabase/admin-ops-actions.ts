@@ -71,3 +71,21 @@ export async function getWorkspaceSnapshot(packageId: string) {
 export async function unblockPackage(packageId: string, reason: string) {
   return runAdminOpsAction('unblock_package', { package_id: packageId, reason });
 }
+
+/* ── v2 Loop Smoke Test ── */
+
+export async function runV2LoopSmokeTest(curriculumId: string, userId?: string, dryRun = false) {
+  const { data: { session } } = await supabase.auth.getSession();
+  const { data, error } = await supabase.functions.invoke('ops-smoke-test-v2-loop', {
+    body: {
+      curriculum_id: curriculumId,
+      ...(userId ? { user_id: userId } : {}),
+      dry_run: dryRun,
+    },
+    headers: session?.access_token
+      ? { Authorization: `Bearer ${session.access_token}` }
+      : {},
+  });
+  if (error) throw error;
+  return data;
+}
