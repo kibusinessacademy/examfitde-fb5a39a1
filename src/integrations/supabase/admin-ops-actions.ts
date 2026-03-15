@@ -65,3 +65,7 @@ export async function approveStepException(packageId: string, stepKey: string, r
 export async function getWorkspaceSnapshot(packageId: string) {
   return runAdminOpsAction('workspace_snapshot', { package_id: packageId });
 }
+
+export async function unblockPackage(packageId: string, reason: string) {
+  return runAdminOpsAction('unblock_package', { package_id: packageId, reason });
+}
