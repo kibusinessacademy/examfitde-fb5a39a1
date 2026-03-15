@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
 import { Loader2, Lock, ArrowLeft } from 'lucide-react';
+import { recordLearningEvent, snapshotExamReadiness } from '@/lib/learning-telemetry';
 
 import type { Json } from '@/integrations/supabase/types';
 import type { LessonStatus } from '@/hooks/useCourseProgress';
@@ -38,6 +39,7 @@ interface Module {
 interface Course {
   id: string;
   title: string;
+  curriculum_id: string | null;
 }
 
 interface LessonProgress {
@@ -142,7 +144,7 @@ export default function LessonPlayer() {
         const [courseResult, lessonsResult] = await Promise.all([
           supabase
             .from('courses')
-            .select('id, title')
+            .select('id, title, curriculum_id')
             .eq('id', moduleData.course_id)
             .single(),
           supabase
@@ -265,6 +267,20 @@ export default function LessonPlayer() {
     setProgress({ ...progress, completed: true, score: scorePercent });
     toast({ title: 'Lektion abgeschlossen!', description: 'Gut gemacht!' });
     setCompleting(false);
+
+    // ── Telemetry: record lesson completion + trigger readiness recalc ──
+    const curriculumId = course?.curriculum_id;
+    recordLearningEvent({
+      event_type: 'lesson_completed',
+      curriculum_id: curriculumId ?? undefined,
+      lesson_id: lesson.id,
+      competency_id: lesson.competency_id ?? undefined,
+      duration_seconds: timeSpent,
+      score: scorePercent ?? undefined,
+    });
+    if (curriculumId) {
+      snapshotExamReadiness(curriculumId);
+    }
   };
 
   const handleH5PCompleted = (score?: number, maxScore?: number) => {
@@ -277,6 +293,21 @@ export default function LessonPlayer() {
     if (!progress?.completed) {
       await completeLesson(score, maxScore);
     }
+
+    // ── Telemetry: record minicheck completion ──
+    const curriculumId = course?.curriculum_id;
+    const scorePercent = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0;
+    recordLearningEvent({
+      event_type: 'minicheck_completed',
+      curriculum_id: curriculumId ?? undefined,
+      lesson_id: lessonId ?? undefined,
+      score: scorePercent,
+      payload: { correct_count: score, total_count: maxScore },
+    });
+    if (curriculumId) {
+      snapshotExamReadiness(curriculumId);
+    }
+
     // Fetch updated outcome and show feedback
     if (lessonId) {
       await fetchLessonOutcome(lessonId);
