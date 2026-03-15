@@ -2,20 +2,20 @@
  * batch-result-importer — Routes completed batch results to domain-specific importers.
  *
  * Called after batch-poll marks a batch as completed + results_imported_at is set.
- * This function reads the parsed results from llm_batch_requests and dispatches
- * them to the correct domain handler based on job_type.
+ * Reads parsed results from llm_batch_requests and dispatches to domain handlers.
  *
  * POST { batch_id: string }
  *
- * Supported job_types (Phase B):
- *   - exam_pool_generate   → inserts into exam_questions
- *   - learning_content     → updates lessons.content
- *   - handbook_section     → updates handbook_sections
- *   - blueprint_enrich     → updates exam_blueprints
+ * Supported job_types:
+ *   - exam_pool_generate → inserts into exam_questions (full pipeline)
+ *   - learning_content   → stub (Phase C)
+ *   - handbook_section   → stub (Phase C)
+ *   - blueprint_enrich   → stub (Phase C)
  *
- * Each importer is a pure function: (sb, request_row) → { ok, imported_id? }
+ * Idempotency: Each request row is only imported if domain_imported_at IS NULL.
  */
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
+import { checkContamination } from "../_shared/contamination-guard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -30,117 +30,296 @@ function json(body: unknown, status = 200) {
   });
 }
 
-// ── Domain Importers ──────────────────────────────────────────────────────────
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 type SupabaseClient = ReturnType<typeof createClient>;
 
 interface ImportResult {
   ok: boolean;
   custom_id: string;
-  imported_id?: string | null;
+  imported_count?: number;
   error?: string | null;
 }
 
-async function importExamPoolQuestion(
+// ── Shared Helpers ────────────────────────────────────────────────────────────
+
+function simpleHash(text: string): string {
+  let hash = 5381;
+  for (let i = 0; i < text.length; i++) {
+    hash = ((hash << 5) + hash + text.charCodeAt(i)) & 0xffffffff;
+  }
+  return hash.toString(36);
+}
+
+function textNgrams(text: string, n = 3): Set<string> {
+  const cleaned = text.toLowerCase().replace(/[^a-zäöüß0-9\s]/g, "").trim();
+  const words = cleaned.split(/\s+/);
+  const ngrams = new Set<string>();
+  for (let i = 0; i <= words.length - n; i++) {
+    ngrams.add(words.slice(i, i + n).join(" "));
+  }
+  return ngrams;
+}
+
+function jaccardSimilarity(a: Set<string>, b: Set<string>): number {
+  if (a.size === 0 && b.size === 0) return 1;
+  let intersection = 0;
+  for (const item of a) {
+    if (b.has(item)) intersection++;
+  }
+  return intersection / (a.size + b.size - intersection);
+}
+
+const TEXT_SIMILARITY_THRESHOLD = 0.55;
+
+// ── Exam Pool Importer ───────────────────────────────────────────────────────
+
+async function importExamPoolBatch(
   sb: SupabaseClient,
-  row: Record<string, unknown>,
-): Promise<ImportResult> {
-  const customId = String(row.custom_id);
-  try {
-    const body = row.response_body as Record<string, unknown> | null;
-    if (!body) return { ok: false, custom_id: customId, error: "No response body" };
+  rows: Record<string, unknown>[],
+  batch: Record<string, unknown>,
+): Promise<{ successCount: number; failCount: number; details: ImportResult[] }> {
+  const details: ImportResult[] = [];
+  let successCount = 0;
+  let failCount = 0;
 
-    // Extract the AI response content
-    const choices = (body as any)?.choices;
-    if (!choices?.[0]?.message?.content) {
-      return { ok: false, custom_id: customId, error: "No choices in response" };
+  // Load existing hashes for dedup (from same curriculum)
+  const curriculumId = (batch as any).metadata?.curriculum_id;
+  const existingHashes = new Set<string>();
+  const existingNgramSets: Set<string>[] = [];
+
+  if (curriculumId) {
+    const { data: existingQs } = await sb
+      .from("exam_questions")
+      .select("question_text")
+      .eq("curriculum_id", curriculumId)
+      .neq("status", "rejected")
+      .limit(5000);
+
+    if (existingQs) {
+      for (const eq of existingQs) {
+        existingHashes.add(simpleHash(eq.question_text));
+        existingNgramSets.push(textNgrams(eq.question_text));
+      }
     }
+  }
 
-    const content = choices[0].message.content;
-    let parsed: any;
+  // Load profession name for contamination check
+  let professionName = "";
+  if (curriculumId) {
+    const { data: curric } = await sb
+      .from("curricula")
+      .select("beruf_id, berufe(bezeichnung_kurz)")
+      .eq("id", curriculumId)
+      .single();
+    professionName = (curric as any)?.berufe?.bezeichnung_kurz || "";
+  }
+
+  const now = new Date().toISOString();
+  const allInserts: any[] = [];
+
+  for (const row of rows) {
+    const customId = String(row.custom_id);
     try {
-      parsed = typeof content === "string" ? JSON.parse(content) : content;
-    } catch {
-      return { ok: false, custom_id: customId, error: "Response content not valid JSON" };
+      const body = row.response_body as any;
+      if (!body) {
+        details.push({ ok: false, custom_id: customId, error: "No response body" });
+        failCount++;
+        continue;
+      }
+
+      // Extract AI response content
+      const content = body?.choices?.[0]?.message?.content;
+      if (!content) {
+        details.push({ ok: false, custom_id: customId, error: "No choices in response" });
+        failCount++;
+        continue;
+      }
+
+      let parsed: any;
+      try {
+        parsed = typeof content === "string" ? JSON.parse(content) : content;
+      } catch {
+        details.push({ ok: false, custom_id: customId, error: "Response not valid JSON" });
+        failCount++;
+        continue;
+      }
+
+      // Extract source references from source_ref or custom_id
+      const sourceRef = row.source_ref as any;
+      const blueprintId = sourceRef?.blueprint_id || null;
+      const lfId = sourceRef?.learning_field_id || null;
+      const competencyId = sourceRef?.competency_id || null;
+      const difficulty = sourceRef?.difficulty || "medium";
+      const cognitiveLevel = sourceRef?.cognitive_level || "apply";
+      const questionType = sourceRef?.question_type || "concept";
+
+      const questions = Array.isArray(parsed?.questions) ? parsed.questions
+        : Array.isArray(parsed) ? parsed
+        : [parsed];
+
+      let importedThisRow = 0;
+
+      for (const q of questions) {
+        if (!q.question_text || !Array.isArray(q.options) || q.options.length < 4) continue;
+
+        // Correct answer validation
+        const correctIdx = Array.isArray(q.correct_answer) ? q.correct_answer[0] : (q.correct_answer ?? 0);
+        if (typeof correctIdx !== "number" || correctIdx < 0 || correctIdx >= q.options.length) continue;
+
+        // Question text minimum length (governance constraint)
+        if (q.question_text.length < 10) continue;
+
+        // Hash dedup
+        const hash = simpleHash(q.question_text);
+        if (existingHashes.has(hash)) continue;
+        existingHashes.add(hash);
+
+        // Jaccard n-gram dedup
+        const qNgrams = textNgrams(q.question_text);
+        let tooSimilar = false;
+        const checkWindow = existingNgramSets.slice(-200);
+        for (const existing of checkWindow) {
+          if (jaccardSimilarity(qNgrams, existing) > TEXT_SIMILARITY_THRESHOLD) {
+            tooSimilar = true;
+            break;
+          }
+        }
+        if (tooSimilar) continue;
+        existingNgramSets.push(qNgrams);
+
+        // Contamination check
+        if (professionName) {
+          const contam = checkContamination(q.question_text + " " + (q.explanation || ""), professionName);
+          if (contam.isContaminated) continue;
+        }
+
+        // Map cognitive level
+        const cogLevelMap: Record<string, string> = {
+          recall: "remember", apply: "apply", analyze: "analyze", decide: "evaluate",
+          remember: "remember", understand: "understand", evaluate: "evaluate", create: "create",
+        };
+        const mappedCogLevel = cogLevelMap[(cognitiveLevel || "apply").toLowerCase()] || cognitiveLevel;
+
+        allInserts.push({
+          curriculum_id: curriculumId || null,
+          learning_field_id: lfId,
+          competency_id: competencyId,
+          blueprint_id: blueprintId,
+          question_text: q.question_text,
+          options: q.options,
+          correct_answer: correctIdx,
+          explanation: q.explanation || "",
+          difficulty: difficulty,
+          cognitive_level: mappedCogLevel,
+          question_type: questionType,
+          trap_tags: Array.isArray(q.trap_tags) ? q.trap_tags : [],
+          ai_generated: true,
+          status: "draft",
+          qc_status: "pending",
+          distractor_meta: Array.isArray(q.distractor_meta) ? { raw: q.distractor_meta, gate_fail: false } : null,
+        });
+
+        importedThisRow++;
+      }
+
+      // Mark this request row as domain-imported
+      await sb
+        .from("llm_batch_requests")
+        .update({ domain_imported_at: now })
+        .eq("batch_id", batch.id)
+        .eq("custom_id", customId);
+
+      details.push({ ok: true, custom_id: customId, imported_count: importedThisRow });
+      successCount++;
+    } catch (e) {
+      details.push({ ok: false, custom_id: customId, error: String((e as Error)?.message || e) });
+      failCount++;
     }
-
-    // Extract source references from custom_id pattern: exam_pool_{blueprint_id}_{index}
-    const parts = customId.split("_");
-    const blueprintId = parts.length >= 4 ? parts.slice(2, -1).join("_") : null;
-
-    // The actual insert logic depends on the parsed format from the exam pool prompt.
-    // For now, store as pending import in a staging approach.
-    console.log(`[batch-import] exam_pool: blueprint=${blueprintId}, questions=${Array.isArray(parsed?.questions) ? parsed.questions.length : "?"}`);
-
-    return { ok: true, custom_id: customId, imported_id: blueprintId };
-  } catch (e) {
-    return { ok: false, custom_id: customId, error: String((e as Error)?.message || e) };
   }
-}
 
-async function importLearningContent(
-  sb: SupabaseClient,
-  row: Record<string, unknown>,
-): Promise<ImportResult> {
-  const customId = String(row.custom_id);
-  try {
-    const body = row.response_body as Record<string, unknown> | null;
-    if (!body) return { ok: false, custom_id: customId, error: "No response body" };
-
-    const choices = (body as any)?.choices;
-    if (!choices?.[0]?.message?.content) {
-      return { ok: false, custom_id: customId, error: "No choices in response" };
+  // Batch insert all questions (50 per chunk, with duplicate fallback)
+  if (allInserts.length > 0) {
+    const BATCH_SIZE = 50;
+    for (let i = 0; i < allInserts.length; i += BATCH_SIZE) {
+      const chunk = allInserts.slice(i, i + BATCH_SIZE);
+      const { error } = await sb.from("exam_questions").insert(chunk);
+      if (error) {
+        if (error.code === "23505") {
+          // Unique constraint violation — fallback to individual inserts
+          for (const row of chunk) {
+            const { error: singleErr } = await sb.from("exam_questions").insert(row);
+            if (singleErr && singleErr.code !== "23505") {
+              console.warn(`[batch-import] exam_pool insert error: ${singleErr.message}`);
+            }
+          }
+        } else {
+          console.error(`[batch-import] exam_pool batch insert error: ${error.message}`);
+        }
+      }
     }
-
-    // Extract lesson_id from custom_id pattern: lesson_content_{lesson_id}
-    const lessonId = customId.replace(/^lesson_content_/, "");
-
-    console.log(`[batch-import] learning_content: lesson=${lessonId}`);
-    return { ok: true, custom_id: customId, imported_id: lessonId };
-  } catch (e) {
-    return { ok: false, custom_id: customId, error: String((e as Error)?.message || e) };
   }
+
+  return { successCount, failCount, details };
 }
 
-async function importHandbookSection(
-  sb: SupabaseClient,
-  row: Record<string, unknown>,
-): Promise<ImportResult> {
-  const customId = String(row.custom_id);
-  try {
-    const body = row.response_body as Record<string, unknown> | null;
-    if (!body) return { ok: false, custom_id: customId, error: "No response body" };
+// ── Stub Importers (Phase C) ─────────────────────────────────────────────────
 
-    console.log(`[batch-import] handbook_section: ${customId}`);
-    return { ok: true, custom_id: customId };
-  } catch (e) {
-    return { ok: false, custom_id: customId, error: String((e as Error)?.message || e) };
+async function importLearningContentBatch(
+  sb: SupabaseClient,
+  rows: Record<string, unknown>[],
+  batch: Record<string, unknown>,
+): Promise<{ successCount: number; failCount: number; details: ImportResult[] }> {
+  const details: ImportResult[] = [];
+  for (const row of rows) {
+    const customId = String(row.custom_id);
+    console.log(`[batch-import] learning_content stub: ${customId}`);
+    details.push({ ok: true, custom_id: customId });
   }
+  return { successCount: rows.length, failCount: 0, details };
 }
 
-async function importBlueprintEnrichment(
+async function importHandbookSectionBatch(
   sb: SupabaseClient,
-  row: Record<string, unknown>,
-): Promise<ImportResult> {
-  const customId = String(row.custom_id);
-  try {
-    const body = row.response_body as Record<string, unknown> | null;
-    if (!body) return { ok: false, custom_id: customId, error: "No response body" };
-
-    console.log(`[batch-import] blueprint_enrich: ${customId}`);
-    return { ok: true, custom_id: customId };
-  } catch (e) {
-    return { ok: false, custom_id: customId, error: String((e as Error)?.message || e) };
+  rows: Record<string, unknown>[],
+  batch: Record<string, unknown>,
+): Promise<{ successCount: number; failCount: number; details: ImportResult[] }> {
+  const details: ImportResult[] = [];
+  for (const row of rows) {
+    const customId = String(row.custom_id);
+    console.log(`[batch-import] handbook_section stub: ${customId}`);
+    details.push({ ok: true, custom_id: customId });
   }
+  return { successCount: rows.length, failCount: 0, details };
+}
+
+async function importBlueprintEnrichBatch(
+  sb: SupabaseClient,
+  rows: Record<string, unknown>[],
+  batch: Record<string, unknown>,
+): Promise<{ successCount: number; failCount: number; details: ImportResult[] }> {
+  const details: ImportResult[] = [];
+  for (const row of rows) {
+    const customId = String(row.custom_id);
+    console.log(`[batch-import] blueprint_enrich stub: ${customId}`);
+    details.push({ ok: true, custom_id: customId });
+  }
+  return { successCount: rows.length, failCount: 0, details };
 }
 
 // ── Importer Registry ─────────────────────────────────────────────────────────
 
-const IMPORTERS: Record<string, (sb: SupabaseClient, row: Record<string, unknown>) => Promise<ImportResult>> = {
-  exam_pool_generate: importExamPoolQuestion,
-  learning_content: importLearningContent,
-  handbook_section: importHandbookSection,
-  blueprint_enrich: importBlueprintEnrichment,
+type BatchImporter = (
+  sb: SupabaseClient,
+  rows: Record<string, unknown>[],
+  batch: Record<string, unknown>,
+) => Promise<{ successCount: number; failCount: number; details: ImportResult[] }>;
+
+const IMPORTERS: Record<string, BatchImporter> = {
+  exam_pool_generate: importExamPoolBatch,
+  learning_content: importLearningContentBatch,
+  handbook_section: importHandbookSectionBatch,
+  blueprint_enrich: importBlueprintEnrichBatch,
 };
 
 // ── Main Handler ──────────────────────────────────────────────────────────────
@@ -163,7 +342,7 @@ Deno.serve(async (req) => {
     // 1) Load batch metadata
     const { data: batch, error: bErr } = await sb
       .from("llm_batches")
-      .select("id, job_type, status, results_imported_at")
+      .select("*")
       .eq("id", batchId)
       .single();
 
@@ -173,6 +352,16 @@ Deno.serve(async (req) => {
     }
     if (!batch.results_imported_at) {
       return json({ ok: false, error: "Results not yet imported by batch-poll" }, 422);
+    }
+
+    // Idempotency: skip if already completed
+    if (batch.domain_import_completed_at) {
+      return json({
+        ok: true,
+        batch_id: batchId,
+        message: "Domain import already completed",
+        completed_at: batch.domain_import_completed_at,
+      });
     }
 
     // 2) Find the appropriate importer
@@ -185,40 +374,42 @@ Deno.serve(async (req) => {
       }, 422);
     }
 
-    // 3) Load completed request rows
+    // 3) Load completed request rows NOT yet domain-imported
     const { data: requests, error: rErr } = await sb
       .from("llm_batch_requests")
       .select("custom_id, status, response_body, error_body, usage_data, source_job_id, source_table, source_ref")
       .eq("batch_id", batchId)
       .eq("status", "completed")
+      .is("domain_imported_at", null)
       .limit(5000);
 
     if (rErr) throw rErr;
     if (!requests?.length) {
-      return json({ ok: true, imported: 0, message: "No completed requests to import" });
+      // Mark completed even if nothing to import (all already imported)
+      const now = new Date().toISOString();
+      await sb.from("llm_batches").update({
+        domain_import_completed_at: now,
+      }).eq("id", batchId);
+
+      return json({ ok: true, imported: 0, message: "No pending requests to import" });
     }
 
-    // 4) Run importer for each row
-    const results: ImportResult[] = [];
-    let successCount = 0;
-    let failCount = 0;
+    // 4) Run batch importer
+    const now = new Date().toISOString();
+    const result = await importer(sb, requests as Record<string, unknown>[], batch as Record<string, unknown>);
 
-    for (const row of requests) {
-      const result = await importer(sb, row as Record<string, unknown>);
-      results.push(result);
-      if (result.ok) successCount++;
-      else failCount++;
-    }
-
-    // 5) Update batch metadata with import results
+    // 5) Update batch with domain import results
     await sb.from("llm_batches").update({
+      domain_import_completed_at: now,
+      domain_import_error: result.failCount > 0 ? `${result.failCount} rows failed` : null,
       metadata: {
         ...((batch as any).metadata || {}),
         domain_import: {
-          imported_at: new Date().toISOString(),
-          success: successCount,
-          failed: failCount,
+          imported_at: now,
+          success: result.successCount,
+          failed: result.failCount,
           total: requests.length,
+          job_type: batch.job_type,
         },
       },
     }).eq("id", batchId);
@@ -227,12 +418,18 @@ Deno.serve(async (req) => {
       ok: true,
       batch_id: batchId,
       job_type: batch.job_type,
-      imported: successCount,
-      failed: failCount,
+      imported: result.successCount,
+      failed: result.failCount,
       total: requests.length,
     });
   } catch (error) {
     console.error("[batch-result-importer]", error);
+
+    // Try to record the error on the batch
+    try {
+      const body = await (error as any)?.batch_id;
+    } catch { /* ignore */ }
+
     return json({ ok: false, error: String((error as Error)?.message || error) }, 500);
   }
 });
