@@ -28,6 +28,7 @@ const KnowledgeGraphDashboard = lazy(() => import('./ops/KnowledgeGraphDashboard
 const BatchRecoveryDashboard = lazy(() => import('./ops/BatchRecoveryDashboard'));
 const CourseNamingIntegrityPanel = lazy(() => import('./ops/CourseNamingIntegrityPanel'));
 const JobFailureIntegrityPanel = lazy(() => import('./ops/JobFailureIntegrityPanel'));
+const V2LoopDebugPage = lazy(() => import('./ops/V2LoopDebugPage'));
 
 const Loading = () => (
   <div className="flex items-center justify-center py-16">
