@@ -58,7 +58,6 @@ Deno.serve(async (req) => {
     } else if (body.batch_id) {
       query = query.eq("llm_batch_id", body.batch_id);
     } else if (body.sweep) {
-      // Sweep: find records that completed but may not have had post-processing
       const maxAge = body.sweep_max_age_minutes || 30;
       const cutoff = new Date(Date.now() - maxAge * 60_000).toISOString();
       query = query
@@ -88,19 +87,53 @@ Deno.serve(async (req) => {
           updated_at: now,
         }).eq("id", rec.id);
 
-        // 2. Update linked job_queue entries
+        // 2. Find and update linked job_queue entry
         const jobStatus = rec.status === "completed" ? "completed" : "failed";
         const sourceRef = rec.source_ref as Record<string, unknown> | null;
+        let jobId: string | null = null;
 
-        // Find job by source correlation
-        if (rec.source_id || sourceRef?.job_id) {
-          const jobId = (sourceRef?.job_id as string) || rec.source_id;
-          if (jobId) {
+        // Priority 1: explicit job_id in source_ref (set by caller)
+        if (sourceRef?.job_id && typeof sourceRef.job_id === "string") {
+          jobId = sourceRef.job_id;
+        }
+
+        // Priority 2: for batch cases, look up via llm_batch_requests.source_job_id
+        if (!jobId && rec.llm_batch_id) {
+          const { data: batchReqs } = await sb
+            .from("llm_batch_requests")
+            .select("source_job_id")
+            .eq("ai_generation_request_id", rec.id)
+            .not("source_job_id", "is", null)
+            .limit(1);
+          if (batchReqs?.[0]?.source_job_id) {
+            jobId = batchReqs[0].source_job_id;
+          }
+        }
+
+        // NOTE: source_id is typically a lesson_id / entity_id, NOT a job_queue id.
+        // Do NOT use it for job lookup.
+
+        if (jobId) {
+          const { data: jobRow } = await sb
+            .from("job_queue")
+            .select("id, meta")
+            .eq("id", jobId)
+            .in("status", ["batch_pending", "processing", "running"])
+            .maybeSingle();
+
+          if (jobRow) {
+            const existingMeta = (jobRow.meta && typeof jobRow.meta === "object") ? jobRow.meta as Record<string, unknown> : {};
             await sb.from("job_queue").update({
               status: jobStatus,
               updated_at: now,
-              meta: sb.rpc ? undefined : undefined, // preserve existing meta
-            }).eq("id", jobId).in("status", ["batch_pending", "processing", "running"]);
+              meta: {
+                ...existingMeta,
+                finalized_at: now,
+                finalized_by: "ai-generation-finalizer",
+                gateway_request_id: rec.id,
+              },
+            }).eq("id", jobId);
+            console.log(`[finalizer] job ${jobId.slice(0, 8)} → ${jobStatus}`);
           }
         }
 
