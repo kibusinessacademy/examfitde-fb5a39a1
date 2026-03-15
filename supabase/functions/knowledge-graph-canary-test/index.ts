@@ -13,7 +13,6 @@ import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { callAIJSON } from "../_shared/ai-client.ts";
 import { getGraphContextForBlueprint } from "../_shared/knowledge-graph/query.ts";
 import type { GraphContext } from "../_shared/knowledge-graph/types.ts";
-import type { GraphContext } from "../_shared/knowledge-graph/types.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
