@@ -81,8 +81,9 @@ Deno.serve(async (req) => {
 
     const runId = crypto.randomUUID();
 
-    // Process all blueprints with parallel A/B calls per blueprint
-    const bpPromises = shuffled.map(async (bp) => {
+    // Process blueprints sequentially (2 AI calls per BP in parallel)
+    const results: CanaryResult[] = [];
+    for (const bp of shuffled) {
       const [{ data: comp }, { data: lf }] = await Promise.all([
         sb.from("competencies").select("title, description").eq("id", bp.competency_id).maybeSingle(),
         sb.from("learning_fields").select("title").eq("id", bp.learning_field_id).maybeSingle(),
@@ -100,7 +101,6 @@ Deno.serve(async (req) => {
         : basePrompt + "\n\n[KG: keine Fehlermuster verfügbar]";
       const sysMsg = { role: "system" as const, content: "Du bist ein IHK-Prüfungsexperte. Generiere realistische Multiple-Choice-Fragen im JSON-Array-Format." };
 
-      // Run A and B in parallel
       const [aResult, bResult] = await Promise.all([
         (async () => {
           const start = Date.now();
@@ -122,14 +122,11 @@ Deno.serve(async (req) => {
       const scoreB = scoreQuestions(bResult.data);
       console.log(`[KG-Canary] ${bp.id.slice(0,8)}: A(kg=${graphCtx?.common_errors?.length || 0})=${scoreA.avgQuality.toFixed(1)} vs B=${scoreB.avgQuality.toFixed(1)}`);
 
-      return [
-        { blueprint_id: bp.id, blueprint_label: bp.canonical_statement?.slice(0, 80) || bp.id, competency_title: compTitle, variant: "A_with_kg" as const, kg_errors_count: graphCtx?.common_errors?.length || 0, questions_generated: scoreA.count, avg_quality_score: scoreA.avgQuality, distractor_quality: scoreA.distractorScore, praxis_score: scoreA.praxisScore, raw_output: aResult.data, model_used: `${provider}/${model}`, latency_ms: aResult.latency },
-        { blueprint_id: bp.id, blueprint_label: bp.canonical_statement?.slice(0, 80) || bp.id, competency_title: compTitle, variant: "B_without_kg" as const, kg_errors_count: 0, questions_generated: scoreB.count, avg_quality_score: scoreB.avgQuality, distractor_quality: scoreB.distractorScore, praxis_score: scoreB.praxisScore, raw_output: bResult.data, model_used: `${provider}/${model}`, latency_ms: bResult.latency },
-      ];
-    });
-
-    const allPairs = await Promise.all(bpPromises);
-    const results: CanaryResult[] = allPairs.flat();
+      results.push(
+        { blueprint_id: bp.id, blueprint_label: bp.canonical_statement?.slice(0, 80) || bp.id, competency_title: compTitle, variant: "A_with_kg", kg_errors_count: graphCtx?.common_errors?.length || 0, questions_generated: scoreA.count, avg_quality_score: scoreA.avgQuality, distractor_quality: scoreA.distractorScore, praxis_score: scoreA.praxisScore, raw_output: aResult.data, model_used: `${provider}/${model}`, latency_ms: aResult.latency },
+        { blueprint_id: bp.id, blueprint_label: bp.canonical_statement?.slice(0, 80) || bp.id, competency_title: compTitle, variant: "B_without_kg", kg_errors_count: 0, questions_generated: scoreB.count, avg_quality_score: scoreB.avgQuality, distractor_quality: scoreB.distractorScore, praxis_score: scoreB.praxisScore, raw_output: bResult.data, model_used: `${provider}/${model}`, latency_ms: bResult.latency },
+      );
+    }
 
     // Persist to ai_generations for dashboard access
     const variantA = results.filter(r => r.variant === "A_with_kg");
