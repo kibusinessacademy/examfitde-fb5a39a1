@@ -78,4 +78,4 @@ jobs:
 
       - name: Success summary
         run: |
-          echo "✅ Edge CI passed: deno check + deno lint + edge guards + SSOT guards + model guards"
+          echo "✅ Edge CI passed: deno check + deno lint + edge guards + SSOT guards + model guards + LLM fetch guards"
