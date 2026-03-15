@@ -77,7 +77,8 @@ Deno.serve(async (req) => {
       enrichment_progress,
       berufe!inner(
         id,
-        titel,
+        bezeichnung_kurz,
+        bezeichnung_lang,
         beruf_market_data(fit_score, demand_percentile)
       )
     `)
@@ -141,7 +142,10 @@ Deno.serve(async (req) => {
     candidates.push({
       curriculum_id: c.id,
       title: c.title,
-      beruf_titel: (c as any).berufe?.titel ?? "",
+      beruf_titel:
+        (c as any).berufe?.bezeichnung_kurz ??
+        (c as any).berufe?.bezeichnung_lang ??
+        "",
       track: c.track ?? "AUSBILDUNG_VOLL",
       fit_score: fitScore,
       demand_percentile: demandPct,
@@ -231,7 +235,7 @@ Deno.serve(async (req) => {
           .from("courses")
           .insert({
             curriculum_id: cand.curriculum_id,
-            title: cand.title || cand.beruf_titel,
+            title: cand.beruf_titel || cand.title,
             status: "draft",
           })
           .select("id")

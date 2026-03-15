@@ -33139,8 +33139,10 @@ export type Database = {
       v_admin_visible_course_packages: {
         Row: {
           archived: boolean | null
+          beruf_id: string | null
           blocked_reason: string | null
           build_progress: number | null
+          canonical_title: string | null
           category_id: string | null
           certification_id: string | null
           certification_type:
@@ -33259,6 +33261,34 @@ export type Database = {
             columns: ["subcategory_id"]
             isOneToOne: false
             referencedRelation: "product_subcategories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "curricula_beruf_id_fkey"
+            columns: ["beruf_id"]
+            isOneToOne: false
+            referencedRelation: "berufe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "curricula_beruf_id_fkey"
+            columns: ["beruf_id"]
+            isOneToOne: false
+            referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["beruf_id"]
+          },
+          {
+            foreignKeyName: "curricula_beruf_id_fkey"
+            columns: ["beruf_id"]
+            isOneToOne: false
+            referencedRelation: "v_beruf_priority"
+            referencedColumns: ["beruf_id"]
+          },
+          {
+            foreignKeyName: "curricula_beruf_id_fkey"
+            columns: ["beruf_id"]
+            isOneToOne: false
+            referencedRelation: "v_berufe_public_safe"
             referencedColumns: ["id"]
           },
         ]
