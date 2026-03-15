@@ -43,13 +43,13 @@ export default function KnowledgeGraphDashboard() {
     refetchInterval: 30_000,
   });
 
-  // Recent error patterns sample
+  // Recent error patterns sample (with provenance)
   const { data: errorPatterns } = useQuery({
     queryKey: ['kg-error-patterns-sample'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('knowledge_graph_nodes')
-        .select('id, label, source_key, created_at')
+        .select('id, label, source_key, provenance, confidence, created_at')
         .eq('node_type', 'error_pattern')
         .eq('is_active', true)
         .order('created_at', { ascending: false })
@@ -57,6 +57,25 @@ export default function KnowledgeGraphDashboard() {
       if (error) throw error;
       return data;
     },
+  });
+
+  // Provenance breakdown for error_pattern nodes
+  const { data: provenanceCounts } = useQuery({
+    queryKey: ['kg-provenance-counts'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('knowledge_graph_nodes')
+        .select('provenance')
+        .eq('node_type', 'error_pattern')
+        .eq('is_active', true);
+      if (error) throw error;
+      const counts: Record<string, number> = {};
+      for (const row of data || []) {
+        counts[row.provenance] = (counts[row.provenance] || 0) + 1;
+      }
+      return counts;
+    },
+    refetchInterval: 30_000,
   });
 
   // Coverage: competencies with lowest question counts
