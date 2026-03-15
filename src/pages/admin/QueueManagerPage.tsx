@@ -55,6 +55,11 @@ export default function QueueManagerPage() {
     refetchInterval: 30000,
   });
 
+  // Canonical title overlay from SSOT view
+  const { data: canonicalTitles } = useCanonicalTitles(
+    (packages || []).map(p => p.id),
+  );
+
   // Local order state for drag & drop
   const [localOrder, setLocalOrder] = useState<QueuePackage[] | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
