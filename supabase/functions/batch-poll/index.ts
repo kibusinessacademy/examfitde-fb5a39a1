@@ -250,6 +250,10 @@ Deno.serve(async (req) => {
 
             await sb.from("llm_batches").update({
               error_imported_at: now,
+              metadata: {
+                ...((batch.metadata as any) || {}),
+                error_file_row_count: errRows.length,
+              },
             }).eq("id", batch.id);
 
             errorImported = true;
