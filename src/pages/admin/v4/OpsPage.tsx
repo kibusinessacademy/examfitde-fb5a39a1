@@ -128,6 +128,7 @@ export default function OpsPage() {
           <Route path="security" element={<SecurityFreezePage />} />
           <Route path="tests" element={<TestDashboard />} />
           <Route path="schema" element={<SchemaDriftDashboard />} />
+          <Route path="ai-gateway" element={<AIGatewayDashboard />} />
         </Routes>
       </Suspense>
     </div>
