@@ -206,6 +206,28 @@ export default function AIGatewayDashboard() {
         </Card>
       </div>
 
+      {/* Status KPIs */}
+      <div className="grid grid-cols-3 gap-3">
+        <Card>
+          <CardContent className="pt-4 pb-3 px-4">
+            <div className="text-xs text-muted-foreground mb-1">✅ Completed</div>
+            <div className="text-2xl font-bold text-emerald-600">{stats?.completedCount ?? '–'}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4 pb-3 px-4">
+            <div className="text-xs text-muted-foreground mb-1">❌ Failed</div>
+            <div className="text-2xl font-bold text-destructive">{stats?.failedCount ?? '–'}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4 pb-3 px-4">
+            <div className="text-xs text-muted-foreground mb-1">⏳ Pending</div>
+            <div className="text-2xl font-bold">{stats?.pendingCount ?? '–'}</div>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Cache Summary */}
       {cacheStats && (
         <Card>
