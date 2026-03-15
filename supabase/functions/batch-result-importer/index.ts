@@ -266,9 +266,27 @@ async function importExamPoolBatch(
         // Map cognitive level to canonical values
         const cogLevelMap: Record<string, string> = {
           recall: "remember", apply: "apply", analyze: "analyze", decide: "evaluate",
-          remember: "remember", understand: "understand", evaluate: "evaluate", create: "create",
+          remember: "remember", understand: "understand", evaluate: "evaluate", create: "evaluate",
         };
-        const mappedCogLevel = cogLevelMap[(cognitiveLevel || "apply").toLowerCase()] || cognitiveLevel;
+        const mappedCogLevel = cogLevelMap[(cognitiveLevel || "apply").toLowerCase()] || "apply";
+
+        // Map question_type to DB-allowed values (chk_question_type constraint)
+        // DB allows: concept, procedure, calculation, case_study, transfer
+        const questionTypeMap: Record<string, string> = {
+          best_option: "concept",
+          error_detection: "procedure",
+          risk_assessment: "concept",
+          compliance_check: "procedure",
+          mc_single: "concept",
+          mc_multi: "concept",
+          // Already valid:
+          concept: "concept",
+          procedure: "procedure",
+          calculation: "calculation",
+          case_study: "case_study",
+          transfer: "transfer",
+        };
+        const mappedQuestionType = questionTypeMap[questionType.toLowerCase()] || "concept";
 
         allInserts.push({
           curriculum_id: resolvedCurriculumId,
@@ -281,7 +299,7 @@ async function importExamPoolBatch(
           explanation: explanation || "",
           difficulty,
           cognitive_level: mappedCogLevel,
-          question_type: questionType,
+          question_type: mappedQuestionType,
           question_fingerprint: fingerprint,
           trap_tags: Array.isArray(q.trap_tags) ? q.trap_tags : [],
           ai_generated: true,
