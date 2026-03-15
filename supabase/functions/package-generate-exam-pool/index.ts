@@ -1497,11 +1497,14 @@ async function submitExamPoolBatch(
       if (lf) lfTitle = lf.title || "";
     }
 
-    // ── Phase 2: Load Knowledge Graph context for batch (non-blocking) ──
+    // ── Phase 2: Load Knowledge Graph context for batch (gated by rollout) ──
     let graphCtx: GraphContext | null = null;
-    try {
-      graphCtx = await getGraphContextForBlueprint(sb, bp.id);
-    } catch { /* KG is optional */ }
+    const kgDecision = await shouldInjectKG(sb, bp.id);
+    if (kgDecision.blueprintInRollout) {
+      try {
+        graphCtx = await getGraphContextForBlueprint(sb, bp.id);
+      } catch { /* KG is optional */ }
+    }
     if (graphCtx?.common_errors?.length) {
       _qualityMetrics.kg_context_hits++;
       _qualityMetrics.kg_errors_injected += Math.min(graphCtx.common_errors.length, 5);
