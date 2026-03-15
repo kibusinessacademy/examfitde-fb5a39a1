@@ -1,22 +1,24 @@
 /**
- * batch-poll — Generic multi-provider batch result poller (hardened).
- * Phase A: OpenAI only.
+ * batch-poll — Generic multi-provider batch result poller (v3 hardened).
  *
  * POST {}             — polls all active batches (cron mode)
  * POST { batch_id }   — polls a specific batch
  *
- * Fixes applied:
- *  #1: Correct pricing ($0.15/$0.075/$0.60 for gpt-4o-mini batch)
- *  #2: Idempotent import via results_imported_at
- *  #3: Separate error file parsing
- *  #4: Robust 2xx success check
- *  #5: Terminal state reconciliation for all statuses (expired/cancelled/failed)
- *  #7: Structured metadata (last_poll_raw, import_stats)
- *  #8: Poll error cooldown via poll_error_count + next_poll_after
+ * v3 Hardening:
+ *  #1: completed-Reconciliation getrennt von failed/expired/cancelled
+ *  #2: results_imported_at erst nach Output+Error-Import
+ *  #3: lte statt lt für next_poll_after Query
+ *  #4: import_attempts Zähler für Observability
+ *  #5: error_summary immer gemerged
+ *  #6: Request-Updates idempotent (nur completed_at IS NULL)
+ *  #7: parseErrorJsonl aus Adapter nutzen
+ *  #8: next_poll_after bei nicht-terminalem Poll auf 5min setzen
+ *  #9: Kostenberechnung aus SSOT model-pricing.ts
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getBatchAdapter } from "../_shared/batch/router.ts";
-import type { BatchProvider } from "../_shared/batch/types.ts";
+import { estimateCostEur, PRICING_META } from "../_shared/model-pricing.ts";
+import type { BatchProvider, ParsedBatchOutputRow } from "../_shared/batch/types.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -31,28 +33,14 @@ function json(body: unknown, status = 200) {
   });
 }
 
-/**
- * Fix #1: Correct gpt-4o-mini Batch pricing.
- * Official: $0.15/1M input, $0.075/1M cached, $0.60/1M output.
- * These ARE the batch prices (already 50% off realtime).
- */
-function estimateCostUsd(
+/** Fix #9: Use SSOT pricing. Returns EUR directly. */
+function estimateCostForRequest(
   model: string,
   inputTokens = 0,
   outputTokens = 0,
   cachedInputTokens = 0,
-): number | null {
-  if (!model.includes("gpt-4o-mini")) return null;
-  const uncachedIn = Math.max(0, inputTokens - cachedInputTokens);
-  const usd =
-    (uncachedIn / 1_000_000) * 0.15 +
-    (cachedInputTokens / 1_000_000) * 0.075 +
-    (outputTokens / 1_000_000) * 0.60;
-  return Math.round(usd * 1e6) / 1e6;
-}
-
-function eurFromUsd(usd: number | null): number | null {
-  return usd != null ? Math.round(usd * 0.92 * 1e6) / 1e6 : null;
+): number {
+  return estimateCostEur(model, inputTokens, outputTokens, cachedInputTokens);
 }
 
 /** Fix #4: Robust success check */
@@ -65,11 +53,18 @@ function isSuccessResponse(row: { response_http_status?: number | null; error_bo
   );
 }
 
-/** Fix #8: Exponential backoff for poll errors */
+/** Exponential backoff for poll errors */
 function getNextPollAfter(errorCount: number): string {
   const backoffMinutes = Math.min(60, Math.pow(2, Math.min(errorCount, 6)));
   return new Date(Date.now() + backoffMinutes * 60_000).toISOString();
 }
+
+/** Fix #5: Always merge error_summary */
+function mergeErrorSummary(existing: any, patch: Record<string, unknown>): Record<string, unknown> {
+  return { ...(existing || {}), ...patch };
+}
+
+const POLL_INTERVAL_MS = 5 * 60_000; // 5 minutes
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -94,8 +89,8 @@ Deno.serve(async (req) => {
     if (specificBatchId) {
       query = query.eq("id", specificBatchId);
     } else {
-      // Fix #8: Skip batches in cooldown
-      query = query.or(`next_poll_after.is.null,next_poll_after.lt.${now}`);
+      // Fix #3: lte instead of lt to avoid edge-case skips
+      query = query.or(`next_poll_after.is.null,next_poll_after.lte.${now}`);
     }
 
     const { data: batches, error: bErr } = await query.limit(50);
@@ -121,10 +116,13 @@ Deno.serve(async (req) => {
           last_polled_at: now,
           output_file_id: poll.output_file_id || batch.output_file_id,
           error_file_id: poll.error_file_id || batch.error_file_id,
-          // Fix #8: Reset error count on successful poll
+          // Reset error count on successful poll
           poll_error_count: 0,
           last_poll_error: null,
-          next_poll_after: null,
+          // Fix #8: Set next poll interval for non-terminal batches
+          next_poll_after: isTerminal
+            ? null
+            : new Date(Date.now() + POLL_INTERVAL_MS).toISOString(),
           metadata: {
             ...((batch.metadata as any) || {}),
             last_poll_raw: poll.raw,
@@ -143,31 +141,38 @@ Deno.serve(async (req) => {
 
         await sb.from("llm_batches").update(batchUpdate).eq("id", batch.id);
 
-        // Fix #2: Only import results if not already imported
+        // Idempotent import check
         let processedCount = 0;
         const alreadyImported = !!(batch as any).results_imported_at;
+        let outputImported = !poll.output_file_id || alreadyImported;
+        let errorImported = !poll.error_file_id || alreadyImported;
 
+        // ── Output file import ──
         if (poll.status === "completed" && poll.output_file_id && !alreadyImported) {
           try {
+            // Fix #4: Increment import_attempts
+            await sb.from("llm_batches").update({
+              import_attempts: ((batch as any).import_attempts || 0) + 1,
+            }).eq("id", batch.id);
+
             const content = await adapter.downloadOutput(poll.output_file_id);
             const rows = adapter.parseOutputJsonl(content);
 
-            let totalCostUsd = 0;
+            let totalCostEur = 0;
 
             for (const row of rows) {
               const usage = row.usage_data;
-              const costUsd = estimateCostUsd(
+              const costEur = estimateCostForRequest(
                 batch.model,
                 usage?.input_tokens ?? 0,
                 usage?.output_tokens ?? 0,
                 usage?.cached_input_tokens ?? 0,
               );
 
-              if (costUsd) totalCostUsd += costUsd;
-
-              // Fix #4: Robust success determination
+              totalCostEur += costEur;
               const succeeded = isSuccessResponse(row);
 
+              // Fix #6: Only update rows not yet completed (idempotent)
               await sb
                 .from("llm_batch_requests")
                 .update({
@@ -180,100 +185,136 @@ Deno.serve(async (req) => {
                   tokens_out: usage?.output_tokens ?? null,
                   cached_input_tokens: usage?.cached_input_tokens ?? null,
                   total_tokens: usage?.total_tokens ?? null,
-                  cost_usd: costUsd,
-                  cost_eur: eurFromUsd(costUsd),
+                  cost_usd: null, // deprecated, use cost_eur
+                  cost_eur: costEur,
                   completed_at: now,
                 })
                 .eq("batch_id", batch.id)
-                .eq("custom_id", row.custom_id);
+                .eq("custom_id", row.custom_id)
+                .is("completed_at", null); // Fix #6: idempotent guard
 
               processedCount++;
             }
 
-            // Fix #2: Mark as imported
+            // Mark output as imported
             await sb.from("llm_batches").update({
-              results_imported_at: now,
+              output_imported_at: now,
               metadata: {
                 ...((batch.metadata as any) || {}),
                 last_poll_raw: poll.raw,
                 import_stats: {
                   rows_processed: processedCount,
-                  total_cost_usd: Math.round(totalCostUsd * 1e6) / 1e6,
+                  total_cost_eur: Math.round(totalCostEur * 1e6) / 1e6,
+                  pricing_source: PRICING_META.source,
+                  pricing_date: PRICING_META.effective_date,
                   imported_at: now,
                 },
               },
             }).eq("id", batch.id);
 
-            // Auto-trigger domain importer (fire-and-forget)
-            try {
-              const importUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/batch-result-importer`;
-              fetch(importUrl, {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-                },
-                body: JSON.stringify({ batch_id: batch.id }),
-              }).catch((e) => console.warn(`[batch-poll] batch-result-importer fire-and-forget failed: ${e}`));
-            } catch { /* non-fatal */ }
+            outputImported = true;
           } catch (dlErr) {
             console.error(`[batch-poll] Download/process failed for batch ${batch.id}:`, dlErr);
+            // Fix #5: Merge error_summary instead of overwriting
             await sb.from("llm_batches").update({
-              error_summary: { download_error: String(dlErr) },
+              error_summary: mergeErrorSummary(
+                (batch as any).error_summary,
+                { download_error: String(dlErr), download_error_at: now },
+              ),
             }).eq("id", batch.id);
           }
         }
 
-        // Fix #3: Handle error file separately with defensive parsing
+        // ── Error file import ──
         if (isTerminal && poll.error_file_id && !alreadyImported) {
           try {
             const errContent = await adapter.downloadOutput(poll.error_file_id);
-            // Use adapter's error parser if available, otherwise defensive parse
-            const errRows = errContent
-              .split("\n")
-              .map((l) => l.trim())
-              .filter(Boolean)
-              .map((line) => {
-                try {
-                  return JSON.parse(line);
-                } catch {
-                  return null;
-                }
-              })
-              .filter(Boolean);
+            // Fix #7: Use adapter's parseErrorJsonl
+            const errRows: ParsedBatchOutputRow[] = adapter.parseErrorJsonl(errContent);
 
             for (const row of errRows) {
               if (!row.custom_id) continue;
+              // Fix #6: Only update rows not yet completed
               await sb
                 .from("llm_batch_requests")
                 .update({
                   status: "failed",
-                  error_body: row.error || { code: "batch_error", message: "Error in batch error file" },
+                  error_body: row.error_body || { code: "batch_error", message: "Error in batch error file" },
                   completed_at: now,
                 })
                 .eq("batch_id", batch.id)
-                .eq("custom_id", row.custom_id);
+                .eq("custom_id", row.custom_id)
+                .is("completed_at", null);
             }
+
+            await sb.from("llm_batches").update({
+              error_imported_at: now,
+            }).eq("id", batch.id);
+
+            errorImported = true;
           } catch (errDlErr) {
             console.warn(`[batch-poll] Error file download failed for batch ${batch.id}:`, errDlErr);
+            await sb.from("llm_batches").update({
+              error_summary: mergeErrorSummary(
+                (batch as any).error_summary,
+                { error_file_download_error: String(errDlErr), error_file_error_at: now },
+              ),
+            }).eq("id", batch.id);
           }
         }
 
-        // Fix #5: Terminal state reconciliation — catch ALL orphaned requests
-        if (isTerminal) {
-          const terminalStatus = poll.status === "expired" ? "expired"
-            : poll.status === "cancelled" ? "cancelled"
-            : "failed";
+        // Fix #2: Only set results_imported_at when BOTH output and error are done
+        if (outputImported && errorImported && !alreadyImported && isTerminal) {
+          await sb.from("llm_batches").update({
+            results_imported_at: now,
+          }).eq("id", batch.id);
 
-          await sb
-            .from("llm_batch_requests")
-            .update({
-              status: terminalStatus,
-              completed_at: now,
-              error_body: { code: `batch_${poll.status}`, message: `Batch ended with status: ${poll.status}` },
-            })
-            .eq("batch_id", batch.id)
-            .in("status", ["queued", "submitted"]);
+          // Auto-trigger domain importer (fire-and-forget)
+          try {
+            const importUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/batch-result-importer`;
+            fetch(importUrl, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+              },
+              body: JSON.stringify({ batch_id: batch.id }),
+            }).catch((e) => console.warn(`[batch-poll] batch-result-importer fire-and-forget failed: ${e}`));
+          } catch { /* non-fatal */ }
+        }
+
+        // ── Terminal state reconciliation ──
+        if (isTerminal) {
+          if (poll.status === "failed" || poll.status === "expired" || poll.status === "cancelled") {
+            // Fix #1: Hard terminal — all remaining open requests get the batch's terminal status
+            const terminalStatus = poll.status === "expired" ? "expired"
+              : poll.status === "cancelled" ? "cancelled"
+              : "failed";
+
+            await sb
+              .from("llm_batch_requests")
+              .update({
+                status: terminalStatus,
+                completed_at: now,
+                error_body: { code: `batch_${poll.status}`, message: `Batch ended with status: ${poll.status}` },
+              })
+              .eq("batch_id", batch.id)
+              .in("status", ["queued", "submitted"]);
+          } else if (poll.status === "completed") {
+            // Fix #1: Completed batch — orphaned requests = missing from output/error files
+            await sb
+              .from("llm_batch_requests")
+              .update({
+                status: "failed",
+                completed_at: now,
+                error_body: {
+                  code: "missing_batch_result",
+                  message: "Batch completed but no output/error row was found for this request",
+                },
+              })
+              .eq("batch_id", batch.id)
+              .in("status", ["queued", "submitted"]);
+          }
         }
 
         results.push({
@@ -287,13 +328,17 @@ Deno.serve(async (req) => {
         const errMsg = String((pollErr as Error)?.message || pollErr);
         console.error(`[batch-poll] Error polling batch ${batch.id}:`, errMsg);
 
-        // Fix #8: Increment error count + set cooldown
         const newErrorCount = ((batch as any).poll_error_count || 0) + 1;
         await sb.from("llm_batches").update({
           poll_error_count: newErrorCount,
           last_poll_error: errMsg,
           next_poll_after: getNextPollAfter(newErrorCount),
           last_polled_at: now,
+          // Fix #5: Merge error_summary
+          error_summary: mergeErrorSummary(
+            (batch as any).error_summary,
+            { poll_error: errMsg, poll_error_at: now },
+          ),
         }).eq("id", batch.id);
 
         results.push({

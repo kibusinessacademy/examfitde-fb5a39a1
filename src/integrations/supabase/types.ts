@@ -15524,10 +15524,12 @@ export type Database = {
           created_by: string | null
           endpoint: string
           error_file_id: string | null
+          error_imported_at: string | null
           error_summary: Json
           expires_at: string | null
           failed_count: number
           id: string
+          import_attempts: number
           input_file_id: string | null
           input_file_path: string | null
           job_type: string
@@ -15537,6 +15539,7 @@ export type Database = {
           model: string
           next_poll_after: string | null
           output_file_id: string | null
+          output_imported_at: string | null
           poll_error_count: number
           provider: string
           provider_batch_id: string | null
@@ -15555,10 +15558,12 @@ export type Database = {
           created_by?: string | null
           endpoint?: string
           error_file_id?: string | null
+          error_imported_at?: string | null
           error_summary?: Json
           expires_at?: string | null
           failed_count?: number
           id?: string
+          import_attempts?: number
           input_file_id?: string | null
           input_file_path?: string | null
           job_type: string
@@ -15568,6 +15573,7 @@ export type Database = {
           model: string
           next_poll_after?: string | null
           output_file_id?: string | null
+          output_imported_at?: string | null
           poll_error_count?: number
           provider: string
           provider_batch_id?: string | null
@@ -15586,10 +15592,12 @@ export type Database = {
           created_by?: string | null
           endpoint?: string
           error_file_id?: string | null
+          error_imported_at?: string | null
           error_summary?: Json
           expires_at?: string | null
           failed_count?: number
           id?: string
+          import_attempts?: number
           input_file_id?: string | null
           input_file_path?: string | null
           job_type?: string
@@ -15599,6 +15607,7 @@ export type Database = {
           model?: string
           next_poll_after?: string | null
           output_file_id?: string | null
+          output_imported_at?: string | null
           poll_error_count?: number
           provider?: string
           provider_batch_id?: string | null
@@ -34388,8 +34397,10 @@ export type Database = {
           completed_count: number | null
           created_at: string | null
           error_file_id: string | null
+          error_imported_at: string | null
           failed_count: number | null
           id: string | null
+          import_attempts: number | null
           input_file_id: string | null
           job_type: string | null
           last_poll_error: string | null
@@ -34397,6 +34408,7 @@ export type Database = {
           model: string | null
           next_poll_after: string | null
           output_file_id: string | null
+          output_imported_at: string | null
           poll_error_count: number | null
           provider: string | null
           provider_batch_id: string | null
@@ -34411,8 +34423,10 @@ export type Database = {
           completed_count?: number | null
           created_at?: string | null
           error_file_id?: string | null
+          error_imported_at?: string | null
           failed_count?: number | null
           id?: string | null
+          import_attempts?: number | null
           input_file_id?: string | null
           job_type?: string | null
           last_poll_error?: string | null
@@ -34420,6 +34434,7 @@ export type Database = {
           model?: string | null
           next_poll_after?: string | null
           output_file_id?: string | null
+          output_imported_at?: string | null
           poll_error_count?: number | null
           provider?: string | null
           provider_batch_id?: string | null
@@ -34434,8 +34449,10 @@ export type Database = {
           completed_count?: number | null
           created_at?: string | null
           error_file_id?: string | null
+          error_imported_at?: string | null
           failed_count?: number | null
           id?: string | null
+          import_attempts?: number | null
           input_file_id?: string | null
           job_type?: string | null
           last_poll_error?: string | null
@@ -34443,6 +34460,7 @@ export type Database = {
           model?: string | null
           next_poll_after?: string | null
           output_file_id?: string | null
+          output_imported_at?: string | null
           poll_error_count?: number | null
           provider?: string | null
           provider_batch_id?: string | null
