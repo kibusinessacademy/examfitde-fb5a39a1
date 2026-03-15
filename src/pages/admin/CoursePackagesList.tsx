@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useCoursePackages } from '@/hooks/useCoursePackages';
+import { useAdminVisiblePackages } from '@/hooks/useAdminVisiblePackages';
+import { dedupeVisiblePackages } from '@/lib/admin/dedupeVisiblePackages';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -46,7 +47,8 @@ function isStuck(pkg: { status: string; updated_at: string; build_progress: numb
 }
 
 export default function CoursePackagesList() {
-  const { data: packages, isLoading } = useCoursePackages();
+  const { data: rawPackages, isLoading } = useAdminVisiblePackages();
+  const packages = dedupeVisiblePackages(rawPackages || []);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const queryClient = useQueryClient();
@@ -326,7 +328,7 @@ export default function CoursePackagesList() {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-semibold text-sm text-foreground truncate">
-                            {pkg.title || pkg.id.substring(0, 12)}
+                            {pkg.canonical_title || pkg.title || pkg.id.substring(0, 12)}
                           </p>
                           <Badge variant="outline" className={cn("text-xs", cfg.color)}>
                             {cfg.label}
@@ -355,7 +357,7 @@ export default function CoursePackagesList() {
                           <span className="font-mono text-[10px] opacity-60" title={pkg.id}>
                             {pkg.id.substring(0, 8)}
                           </span>
-                          {pkg.council_approved && pkg.council_approved_at && pkg.status === 'published' && (
+                          {pkg.council_approved_at && pkg.status === 'published' && (
                             <span className="flex items-center gap-1">
                               <CheckCircle2 className="h-3 w-3 text-success" /> Council OK
                             </span>
