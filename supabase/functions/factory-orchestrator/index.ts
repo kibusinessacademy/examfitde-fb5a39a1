@@ -175,11 +175,12 @@ Deno.serve(async (req) => {
 
     // ── Strict Priority Tier Gating ──
     // Only allow packages whose priority equals the minimum incomplete priority.
-    // Prio 1 must ALL finish before Prio 2 starts, etc.
+    // FIX: 'blocked' is EXCLUDED — blocked packages are terminal and must not
+    // prevent lower-priority packages from progressing.
     const { data: minPrioRow } = await sb
       .from("course_packages")
       .select("priority")
-      .in("status", ["queued", "building", "failed", "setup_complete", "blocked"])
+      .in("status", ["queued", "building", "failed", "setup_complete"])
       .order("priority", { ascending: true })
       .limit(1)
       .maybeSingle();
@@ -187,7 +188,6 @@ Deno.serve(async (req) => {
     const minIncompletePrio = minPrioRow?.priority ?? 999;
     
     // Demote any queued packages that have a higher priority number than the min
-    // (they shouldn't start until all lower-number priority packages are done)
     const { data: wrongTierQueued } = await sb
       .from("course_packages")
       .select("id, priority")
