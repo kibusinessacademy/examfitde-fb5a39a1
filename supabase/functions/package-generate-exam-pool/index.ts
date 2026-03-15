@@ -1508,10 +1508,14 @@ async function submitExamPoolBatch(
     // ── Phase 2: Load Knowledge Graph context for batch (gated by rollout) ──
     let graphCtx: GraphContext | null = null;
     const kgDecision = await shouldInjectKG(sb, bp.id);
+    _qualityMetrics.kg_rollout_enabled = kgDecision.enabled;
+    _qualityMetrics.kg_rollout_pct = kgDecision.rolloutPct;
     if (kgDecision.blueprintInRollout) {
       try {
         graphCtx = await getGraphContextForBlueprint(sb, bp.id);
       } catch { /* KG is optional */ }
+    } else if (kgDecision.enabled) {
+      _qualityMetrics.kg_blueprints_gated++;
     }
     if (graphCtx?.common_errors?.length) {
       _qualityMetrics.kg_context_hits++;
