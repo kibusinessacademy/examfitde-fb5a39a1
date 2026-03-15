@@ -14220,6 +14220,152 @@ export type Database = {
         }
         Relationships: []
       }
+      knowledge_graph_edges: {
+        Row: {
+          confidence: number | null
+          created_at: string
+          edge_type: string
+          from_node_id: string
+          id: string
+          is_active: boolean
+          payload: Json
+          provenance: string
+          to_node_id: string
+          updated_at: string
+          weight: number | null
+        }
+        Insert: {
+          confidence?: number | null
+          created_at?: string
+          edge_type: string
+          from_node_id: string
+          id?: string
+          is_active?: boolean
+          payload?: Json
+          provenance?: string
+          to_node_id: string
+          updated_at?: string
+          weight?: number | null
+        }
+        Update: {
+          confidence?: number | null
+          created_at?: string
+          edge_type?: string
+          from_node_id?: string
+          id?: string
+          is_active?: boolean
+          payload?: Json
+          provenance?: string
+          to_node_id?: string
+          updated_at?: string
+          weight?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_graph_edges_from_node_id_fkey"
+            columns: ["from_node_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_graph_nodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knowledge_graph_edges_to_node_id_fkey"
+            columns: ["to_node_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_graph_nodes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      knowledge_graph_enrichment_queue: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          enrichment_type: string
+          error_summary: Json
+          id: string
+          request_payload: Json
+          result_payload: Json
+          status: string
+          target_node_id: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          enrichment_type: string
+          error_summary?: Json
+          id?: string
+          request_payload?: Json
+          result_payload?: Json
+          status?: string
+          target_node_id?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          enrichment_type?: string
+          error_summary?: Json
+          id?: string
+          request_payload?: Json
+          result_payload?: Json
+          status?: string
+          target_node_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_graph_enrichment_queue_target_node_id_fkey"
+            columns: ["target_node_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_graph_nodes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      knowledge_graph_nodes: {
+        Row: {
+          confidence: number | null
+          created_at: string
+          id: string
+          is_active: boolean
+          label: string
+          node_type: string
+          normalized_label: string
+          payload: Json
+          provenance: string
+          source_id: string | null
+          source_table: string | null
+          updated_at: string
+        }
+        Insert: {
+          confidence?: number | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          label: string
+          node_type: string
+          normalized_label: string
+          payload?: Json
+          provenance?: string
+          source_id?: string | null
+          source_table?: string | null
+          updated_at?: string
+        }
+        Update: {
+          confidence?: number | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          label?: string
+          node_type?: string
+          normalized_label?: string
+          payload?: Json
+          provenance?: string
+          source_id?: string | null
+          source_table?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       kpi_daily_rollup: {
         Row: {
           avg_build_minutes: number | null
