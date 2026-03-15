@@ -740,11 +740,14 @@ async function generateRawCandidates(
     masteryInjection = buildMasteryFeedbackSuffix(masteryCtx);
   } catch { /* non-blocking */ }
 
-  // ── Phase 2: Load Knowledge Graph context (non-blocking) ──
+  // ── Phase 2: Load Knowledge Graph context (gated by rollout config) ──
   let graphCtx: GraphContext | null = null;
-  try {
-    graphCtx = await getGraphContextForBlueprint(sb, bp.id);
-  } catch { /* KG is optional — never blocks generation */ }
+  const kgDecision = await shouldInjectKG(sb, bp.id);
+  if (kgDecision.blueprintInRollout) {
+    try {
+      graphCtx = await getGraphContextForBlueprint(sb, bp.id);
+    } catch { /* KG is optional — never blocks generation */ }
+  }
   if (graphCtx?.common_errors?.length) {
     _qualityMetrics.kg_context_hits++;
     _qualityMetrics.kg_errors_injected += Math.min(graphCtx.common_errors.length, 5);
