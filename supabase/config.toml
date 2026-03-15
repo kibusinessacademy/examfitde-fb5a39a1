@@ -432,3 +432,9 @@ verify_jwt = false
 
 [functions.package-validate-handbook-depth]
 verify_jwt = false
+
+[functions.anthropic-batch-submit]
+verify_jwt = false
+
+[functions.anthropic-batch-poll]
+verify_jwt = false
