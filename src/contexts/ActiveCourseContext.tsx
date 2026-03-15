@@ -40,8 +40,13 @@ export function ActiveCourseProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     try {
       const sb = supabase as any;
-      const pkgRes = await sb.from('course_packages').select('id, title, status, build_progress, integrity_passed, council_approved, updated_at, curriculum_id, current_step').eq('id', courseId).single();
+      // Get canonical title from SSOT view
+      const [pkgRes, ssotRes] = await Promise.all([
+        sb.from('course_packages').select('id, title, status, build_progress, integrity_passed, council_approved, updated_at, curriculum_id, current_step').eq('id', courseId).single(),
+        sb.from('v_course_display_ssot').select('canonical_title').eq('package_id', courseId).maybeSingle(),
+      ]);
       const pkg = pkgRes.data;
+      const canonicalTitle = ssotRes.data?.canonical_title;
       if (!pkg) { setCourse(null); setLoading(false); return; }
 
       // Use curriculum_id for question count (exam_questions has curriculum_id, NOT course_id/package_id)
@@ -72,7 +77,7 @@ export function ActiveCourseProvider({ children }: { children: ReactNode }) {
 
       setCourse({
         id: pkg.id,
-        title: pkg.title || pkg.id.substring(0, 12),
+        title: canonicalTitle || pkg.title || pkg.id.substring(0, 12),
         status: pkg.status,
         buildProgress: pkg.build_progress,
         integrityPassed: pkg.integrity_passed,
