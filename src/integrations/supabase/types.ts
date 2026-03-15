@@ -708,6 +708,13 @@ export type Database = {
             referencedRelation: "v_llm_batch_overview"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "ai_generation_requests_llm_batch_id_fkey"
+            columns: ["llm_batch_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_batch_recovery_backlog"
+            referencedColumns: ["id"]
+          },
         ]
       }
       ai_generations: {
@@ -15895,6 +15902,13 @@ export type Database = {
             columns: ["batch_id"]
             isOneToOne: false
             referencedRelation: "v_llm_batch_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "llm_batch_requests_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_batch_recovery_backlog"
             referencedColumns: ["id"]
           },
         ]
@@ -34886,6 +34900,70 @@ export type Database = {
           unique_certifications: number | null
           upsells: number | null
           user_id: string | null
+        }
+        Relationships: []
+      }
+      v_ops_batch_recovery_backlog: {
+        Row: {
+          created_at: string | null
+          domain_import_completed_at: string | null
+          error_reason: string | null
+          id: string | null
+          last_polled_at: string | null
+          model: string | null
+          provider: string | null
+          results_imported_at: string | null
+          status: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          domain_import_completed_at?: string | null
+          error_reason?: never
+          id?: string | null
+          last_polled_at?: string | null
+          model?: string | null
+          provider?: string | null
+          results_imported_at?: string | null
+          status?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          domain_import_completed_at?: string | null
+          error_reason?: never
+          id?: string | null
+          last_polled_at?: string | null
+          model?: string | null
+          provider?: string | null
+          results_imported_at?: string | null
+          status?: string | null
+        }
+        Relationships: []
+      }
+      v_ops_batch_recovery_health: {
+        Row: {
+          checked_at: string | null
+          completed_batches_24h: number | null
+          completed_batches_90m: number | null
+          content_versions_90m: number | null
+          domain_import_completed_6h: number | null
+          domain_imported_requests_90m: number | null
+          exam_questions_90m: number | null
+          failed_batches_24h: number | null
+          import_health: string | null
+          import_pending_requests_24h: number | null
+          latest_poll_at: string | null
+          lesson_jobs_completed_90m: number | null
+          output_health: string | null
+          overall_health: string | null
+          polled_batches_6h: number | null
+          polling_health: string | null
+          provider_model_mismatches_6h: number | null
+          queue_health: string | null
+          results_imported_6h: number | null
+          routing_health: string | null
+          stale_processing_jobs: number | null
+          validating_batches_24h: number | null
+          validating_batches_90m: number | null
         }
         Relationships: []
       }
