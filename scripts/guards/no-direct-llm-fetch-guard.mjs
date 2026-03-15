@@ -24,6 +24,7 @@ const ALLOWED_FILES = [
   "_shared/ai-client.ts",
   "ai-healthcheck/index.ts",
   "generate-image/index.ts",
+  "ai-generation-gateway/index.ts",
 ];
 
 const violations = [];
