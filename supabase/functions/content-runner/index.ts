@@ -271,6 +271,32 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
     const { ok, result, error: dispatchError, terminal } = await dispatchJob(job, supabaseUrl, serviceKey);
 
     if (ok) {
+      // ── BATCH MODE GUARD ──
+      // If the job returned batch_mode=true with batch_complete=false,
+      // it was enqueued for async batch processing. Don't mark as completed
+      // or treat as zero-progress — park it as batch_pending.
+      const isBatchEnqueued = result && typeof result === "object"
+        && result.batch_mode === true
+        && result.batch_complete === false;
+
+      if (isBatchEnqueued) {
+        const now = new Date().toISOString();
+        await sb.from("job_queue").update({
+          status: "batch_pending",
+          updated_at: now,
+          locked_at: null,
+          locked_by: null,
+          meta: {
+            ...(job.meta || {}),
+            batch_id: result.batch_id,
+            batch_mode: true,
+            batch_enqueued_at: now,
+          },
+        }).eq("id", job.id);
+        console.log(`[content-runner] 📦 ${job.job_type} (${shortId}) → batch_pending (batch=${result.batch_id})`);
+        return { id: job.id, ok: true, batch_pending: true };
+      }
+
       // ── ZERO-PROGRESS GUARD ──
       // A job that returns ok=true but batch_complete=false with 0 sections written
       // is NOT a real success — it must be treated as transient to allow retry.

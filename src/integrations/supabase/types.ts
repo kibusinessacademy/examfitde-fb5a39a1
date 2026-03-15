@@ -15650,7 +15650,7 @@ export type Database = {
           response_body: Json | null
           response_http_status: number | null
           source_job_id: string | null
-          source_ref: string | null
+          source_ref: Json | null
           source_table: string | null
           status: string
           tokens_in: number | null
@@ -15679,7 +15679,7 @@ export type Database = {
           response_body?: Json | null
           response_http_status?: number | null
           source_job_id?: string | null
-          source_ref?: string | null
+          source_ref?: Json | null
           source_table?: string | null
           status?: string
           tokens_in?: number | null
@@ -15708,7 +15708,7 @@ export type Database = {
           response_body?: Json | null
           response_http_status?: number | null
           source_job_id?: string | null
-          source_ref?: string | null
+          source_ref?: Json | null
           source_table?: string | null
           status?: string
           tokens_in?: number | null

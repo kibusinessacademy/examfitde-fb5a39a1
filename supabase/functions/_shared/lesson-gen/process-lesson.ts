@@ -196,7 +196,8 @@ async function enqueueLessonBatch(
   // Use the first model from the chain, or fall back to batch default
   const model = runtime.chain[0]?.model || BATCH_DEFAULT_MODEL;
 
-  const customId = `lesson_${req.lessonId}_${req.stepKey}_${Date.now()}`;
+  // Deterministic custom_id for idempotency — same lesson+step+jobHash always produces same ID
+  const customId = `lesson_${req.lessonId}_${req.stepKey}_${req.jobHash || 0}`;
 
   const batchRequests = buildBatchRequests([{
     customId,
@@ -253,14 +254,27 @@ async function enqueueLessonBatch(
 
   console.log(`[lesson-gen] BATCH_ENQUEUED: lesson=${req.lessonId.slice(0, 8)} step=${req.stepKey} batch_id=${submitResult.batchId} model=${model}`);
 
-  // Mark the job as batch_pending — the content-runner should interpret this
-  // as "don't requeue immediately, batch-poll will handle completion"
+  // Mark the job meta with batch info — use direct JSONB merge
   if (req.jobId && req.jobId !== "unknown") {
     try {
-      await sb.from("job_queue").update({
-        meta: sb.rpc ? undefined : { batch_id: submitResult.batchId, batch_mode: true },
-      }).eq("id", req.jobId);
-    } catch { /* best-effort meta update */ }
+      await sb.rpc("merge_job_meta", {
+        p_job_id: req.jobId,
+        p_patch: { batch_id: submitResult.batchId, batch_mode: true, batch_enqueued_at: new Date().toISOString() },
+      });
+    } catch {
+      // Fallback: direct update with spread
+      try {
+        const { data: currentJob } = await sb.from("job_queue").select("meta").eq("id", req.jobId).maybeSingle();
+        await sb.from("job_queue").update({
+          meta: {
+            ...(currentJob?.meta || {}),
+            batch_id: submitResult.batchId,
+            batch_mode: true,
+            batch_enqueued_at: new Date().toISOString(),
+          },
+        }).eq("id", req.jobId);
+      } catch { /* best-effort */ }
+    }
   }
 
   return json({
