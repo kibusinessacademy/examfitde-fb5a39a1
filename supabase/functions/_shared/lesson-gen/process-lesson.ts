@@ -3,8 +3,8 @@
  * OPT-1: Parallelized idempotency + data loading.
  * Context building is now synchronous (mastery pre-loaded).
  *
- * v2: Dual-path — batch mode routes LLM call through OpenAI Batch API (50% cost savings).
- *     Sync fallback always available via forceSyncMode or urgency=high.
+ * v3: Gateway-aware — deficit + cache checks before LLM dispatch.
+ *     Dual-path (batch/sync) retained with gateway policy governance.
  */
 
 import { canonicalStepKey } from "../step-keys.ts";
@@ -19,6 +19,10 @@ import { runLessonLLM } from "./llm-runner.ts";
 import { runQualityGate, buildFinalContent, persistLessonResult } from "./persistence.ts";
 import { shouldUseBatch, BATCH_DEFAULT_MODEL } from "../batch/routing-config.ts";
 import { buildBatchRequests, submitBatchViaFunction } from "../batch/enqueue-openai.ts";
+import { resolvePolicy } from "../ai-gateway/policies.ts";
+import { computeDeficit } from "../ai-gateway/deficits.ts";
+import { buildCacheKey, hashPrompt, checkCache, storeInCache } from "../ai-gateway/cache.ts";
+import { logCostSaving } from "../ai-gateway/observability.ts";
 import type { LessonRequest } from "./types.ts";
 
 export async function processLesson(sb: any, p: any, startMs: number): Promise<Response> {
