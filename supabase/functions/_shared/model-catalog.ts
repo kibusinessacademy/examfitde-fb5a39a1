@@ -248,3 +248,29 @@ export function isDriftProneModel(model: string): boolean {
 export function resolveAlias(aliasKey: ModelAlias): string {
   return MODEL_ALIASES[aliasKey];
 }
+
+// ── Provider-Model Compatibility Guard ───────────────────────
+
+/**
+ * Determine the correct batch provider for a given model.
+ * Used by batch-submit to prevent provider-model mismatches.
+ */
+export function providerForModel(model: string): "openai" | "anthropic" {
+  if (model.startsWith("claude") || model.includes("anthropic")) return "anthropic";
+  return "openai";
+}
+
+/**
+ * Validate that a model is compatible with the specified provider.
+ * Returns null if valid, or an error string if mismatched.
+ */
+export function validateProviderModelCompat(
+  provider: "openai" | "anthropic",
+  model: string,
+): string | null {
+  const expected = providerForModel(model);
+  if (provider !== expected) {
+    return `Provider-Model mismatch: model "${model}" requires provider "${expected}" but got "${provider}"`;
+  }
+  return null;
+}
