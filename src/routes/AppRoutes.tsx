@@ -93,6 +93,7 @@ const SyntheticProbeCenterPage = lazy(() => import('@/pages/admin/control/Synthe
 const SchedulerGovernancePage = lazy(() => import('@/pages/admin/control/SchedulerGovernancePage'));
 const UnifiedLeitstellePage = lazy(() => import('@/pages/admin/control/UnifiedLeitstellePage'));
 const AdminOpsQueuePage = lazy(() => import('@/pages/admin/AdminOpsQueuePage'));
+const V2LoopDebugPage = lazy(() => import('@/pages/admin/V2LoopDebugPage'));
 const AdminProviderHealthPage = lazy(() => import('@/pages/admin/AdminProviderHealthPage'));
 const AdminPackageRiskPage = lazy(() => import('@/pages/admin/AdminPackageRiskPage'));
 const AdminRevenuePage = lazy(() => import('@/pages/admin/AdminRevenuePage'));
@@ -279,6 +280,7 @@ const AppRoutes = () => {
           <Route path="probes" element={<SyntheticProbeCenterPage />} />
           <Route path="scheduler" element={<SchedulerGovernancePage />} />
           <Route path="leitstelle" element={<UnifiedLeitstellePage />} />
+          <Route path="v2-loop-debug" element={<V2LoopDebugPage />} />
           <Route path="intake/qualification-discovery" element={<QualificationDiscoveryPage />} />
           <Route path="intake/curriculum" element={<CurriculumIntakePage />} />
 
