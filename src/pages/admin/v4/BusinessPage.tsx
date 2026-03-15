@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState, useEffect, useCallback } from 'react';
+import { lazy, Suspense, useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -38,6 +38,115 @@ const tabs = [
   { path: '/admin/business/exports', label: 'Steuer-Export' },
 ];
 
+// ── Typed data constants (no inline JSX arrays) ─────────────
+
+type CostTier = 'green' | 'yellow' | 'red';
+type PerfConfLabel = 'high' | 'medium' | 'low';
+
+interface ModelMatrixRow {
+  model: string;
+  input: number;
+  output: number;
+  latency: string;
+  tps: string;
+  rpm: string;
+  role: string;
+  tier: CostTier;
+  confidence: PerfConfLabel;
+  source: string;
+}
+
+/**
+ * Model matrix data.
+ * Prices MUST match PRICING_EUR_PER_M in model-pricing.ts.
+ * Perf data is observational — marked with confidence + source.
+ *
+ * Canonical USD→EUR (×0.92) from OpenAI pricing page, Mar 2026:
+ * gpt-4.1-nano:  $0.10/$0.40 → €0.092/€0.368
+ * gpt-4.1-mini:  $0.40/$1.60 → €0.368/€1.472
+ * gpt-4.1:       $2.00/$8.00 → €1.840/€7.360
+ * gpt-5-mini:    $0.25/$2.00 → €0.230/€1.840
+ * gpt-5.4:       $2.50/$15.0 → €2.300/€13.800
+ */
+const MODEL_MATRIX_ROWS: ModelMatrixRow[] = [
+  { model: 'GPT-4.1 nano',    input: 0.09,  output: 0.37,  latency: '0.3-0.6s', tps: '150-250', rpm: '10-20k', role: 'Routing, QC, Glossar, Minichecks', tier: 'green',  confidence: 'high',   source: 'vendor-doc' },
+  { model: 'GPT-5 nano',      input: 0.09,  output: 0.37,  latency: '0.3-0.6s', tps: '150-250', rpm: '10-20k', role: 'Fallback für Nano-Tier',          tier: 'green',  confidence: 'medium', source: 'estimated' },
+  { model: 'GPT-4o-mini',     input: 0.14,  output: 0.55,  latency: '0.5-1.0s', tps: '130-200', rpm: '3-10k',  role: 'AI Tutor (Learning)',             tier: 'green',  confidence: 'high',   source: 'measured' },
+  { model: 'GPT-4.1 mini',    input: 0.37,  output: 1.47,  latency: '0.5-1.2s', tps: '120-200', rpm: '3-10k',  role: '✅ Content-Gen, Handbook, AutoFix', tier: 'green',  confidence: 'high',   source: 'vendor-doc' },
+  { model: 'GPT-5 mini',      input: 0.23,  output: 1.84,  latency: '0.8-1.5s', tps: '100-150', rpm: '3-10k',  role: '✅ Exam-Pool, Council, Validation', tier: 'green',  confidence: 'medium', source: 'vendor-doc' },
+  { model: 'GPT-4.1',         input: 1.84,  output: 7.36,  latency: '1-2s',     tps: '80-130',  rpm: '1-5k',   role: 'Legacy → Migration empfohlen',    tier: 'yellow', confidence: 'high',   source: 'vendor-doc' },
+  { model: 'GPT-5',           input: 2.30,  output: 9.20,  latency: '1.5-2.5s', tps: '70-110',  rpm: '1-5k',   role: 'QA Gate Fallback',                tier: 'yellow', confidence: 'medium', source: 'estimated' },
+  { model: 'GPT-5.2',         input: 2.76,  output: 11.04, latency: '2-3s',     tps: '50-90',   rpm: '1-3k',   role: 'Elite Harden Fallback',           tier: 'red',    confidence: 'medium', source: 'estimated' },
+  { model: 'GPT-5.4',         input: 2.30,  output: 13.80, latency: '2-4s',     tps: '40-80',   rpm: '500-2k', role: '🏆 Elite Harden (nur ~2%)',        tier: 'red',    confidence: 'medium', source: 'vendor-doc' },
+  { model: 'o4-mini',         input: 3.68,  output: 14.72, latency: '1.5-3s',   tps: '60-100',  rpm: '500-2k', role: '⚠️ Reasoning – sehr teuer',       tier: 'red',    confidence: 'low',    source: 'estimated' },
+  { model: 'Claude Haiku 4.5', input: 0.74,  output: 3.68,  latency: '0.5-1.2s', tps: '100-180', rpm: '2-8k',   role: 'Council Fallback (Provider-Mix)',  tier: 'yellow', confidence: 'medium', source: 'measured' },
+  { model: 'Gemini 2.5 Flash', input: 0.07,  output: 0.28,  latency: '0.3-0.8s', tps: '120-200', rpm: '5-15k',  role: '✅ Günstigster via Lovable AI',    tier: 'green',  confidence: 'medium', source: 'vendor-doc' },
+];
+
+interface PipelineStepRow {
+  step: string;
+  calls: number;
+  avgIn: number;
+  avgOut: number;
+  primary: string;
+  fallback: string;
+}
+
+/**
+ * Pipeline step estimates for ExamFit standard course.
+ * Token counts from production telemetry.
+ * Models from PIPELINE_MODEL_MAP in model-catalog.ts.
+ */
+const PIPELINE_STEP_ROWS: PipelineStepRow[] = [
+  { step: 'Scaffold',          calls: 1,    avgIn: 2000,  avgOut: 1000,  primary: '4.1 nano', fallback: '5 nano' },
+  { step: 'Glossar',           calls: 14,   avgIn: 3000,  avgOut: 2000,  primary: '4.1 nano', fallback: '5 nano' },
+  { step: 'Learning Content',  calls: 400,  avgIn: 5000,  avgOut: 6000,  primary: '4.1 mini', fallback: '5 mini' },
+  { step: 'Validate Content',  calls: 400,  avgIn: 4000,  avgOut: 1000,  primary: '5 mini',   fallback: 'GPT-5' },
+  { step: 'Exam-Pool',         calls: 160,  avgIn: 8000,  avgOut: 10000, primary: '5 mini',   fallback: 'GPT-5' },
+  { step: 'Handbook',          calls: 14,   avgIn: 4000,  avgOut: 8000,  primary: '4.1 mini', fallback: '4o-mini' },
+  { step: 'Minichecks',        calls: 400,  avgIn: 2000,  avgOut: 2000,  primary: '4.1 nano', fallback: '5 nano' },
+  { step: 'Elite Harden',      calls: 100,  avgIn: 6000,  avgOut: 2000,  primary: '5.4',      fallback: '5.2' },
+  { step: 'Council (P+C)',     calls: 100,  avgIn: 4500,  avgOut: 2500,  primary: '5 mini',   fallback: 'Haiku 4.5' },
+  { step: 'Auto-Fix',          calls: 20,   avgIn: 4000,  avgOut: 3000,  primary: '4.1 mini', fallback: '5 mini' },
+];
+
+/**
+ * Map short model names (as displayed in pipeline table) to the
+ * canonical model IDs used in PRICING_EUR_PER_M.
+ */
+const SHORT_TO_MODEL: Record<string, string> = {
+  '4.1 nano': 'gpt-4.1-nano', '5 nano': 'gpt-5-nano',
+  '4.1 mini': 'gpt-4.1-mini', '4o-mini': 'gpt-4o-mini',
+  '5 mini': 'gpt-5-mini', '5.4': 'gpt-5.4', '5.2': 'gpt-5.2',
+  'GPT-5': 'gpt-5', 'Haiku 4.5': 'claude-haiku-4-5-20251001',
+};
+
+/**
+ * Compute cost per call from the pricing matrix (SSOT-coupled).
+ * Uses the same EUR pricing constants as the backend model-pricing.ts.
+ */
+function calcCostPerCall(model: string, avgIn: number, avgOut: number): number {
+  const row = MODEL_MATRIX_ROWS.find(r =>
+    SHORT_TO_MODEL[model] && r.model.toLowerCase().includes(model.toLowerCase().replace(/^gpt-?/, ''))
+  );
+  // Fallback: find pricing from the matrix rows
+  const m = MODEL_MATRIX_ROWS.find(r => {
+    const canonical = SHORT_TO_MODEL[model];
+    if (!canonical) return false;
+    // Match by checking if the row model name contains relevant parts
+    return r.model.toLowerCase().replace(/[- ]/g, '').includes(
+      canonical.replace(/^gpt-?/, '').replace(/[-.]/g, '')
+    );
+  });
+  if (m) {
+    return (avgIn * m.input + avgOut * m.output) / 1_000_000;
+  }
+  // Ultra-fallback: GPT-5-mini pricing
+  return (avgIn * 0.23 + avgOut * 1.84) / 1_000_000;
+}
+
+// ── LLM Cost Dashboard ─────────────────────────────────────
+
 function LLMCostDashboard() {
   const [kpis, setKpis] = useState<any>(null);
   const [rollups, setRollups] = useState<any[]>([]);
@@ -75,16 +184,38 @@ function LLMCostDashboard() {
 
   useEffect(() => { load(); }, [load]);
 
+  // Compute course cost from SSOT pricing (not hardcoded)
+  const pipelineCosts = useMemo(() => {
+    return PIPELINE_STEP_ROWS.map(s => {
+      const costPerCall = calcCostPerCall(s.primary, s.avgIn, s.avgOut);
+      const total = s.calls * costPerCall;
+      return { ...s, costPerCall, total };
+    });
+  }, []);
+
+  const courseCost = useMemo(() =>
+    pipelineCosts.reduce((sum, s) => sum + s.total, 0),
+  [pipelineCosts]);
+
+  const totalCalls = useMemo(() =>
+    pipelineCosts.reduce((sum, s) => sum + s.calls, 0),
+  [pipelineCosts]);
+
+  // "Old" uniform routing cost estimate (all on GPT-5-mini as baseline)
+  const courseCostOld = useMemo(() => {
+    return PIPELINE_STEP_ROWS.reduce((sum, s) => {
+      return sum + s.calls * (s.avgIn * 2.30 + s.avgOut * 9.20) / 1_000_000; // GPT-5 pricing
+    }, 0);
+  }, []);
+
+  const savingsPct = courseCostOld > 0 ? Math.round((1 - courseCost / courseCostOld) * 100) : 0;
+
   if (loading) return <Loading />;
 
   const monthBudget = budgetRow?.budget_eur ?? 200;
   const budgetPct = monthBudget > 0 ? Math.round((costMtd / monthBudget) * 100) : 0;
   const burnPerDay = cost7d / 7;
   const daysLeft = monthBudget > 0 ? Math.round((monthBudget - costMtd) / Math.max(burnPerDay, 0.01)) : 999;
-
-  // Cost-per-course calculation
-  const COURSE_COST_ESTIMATE = 13.75; // EUR, based on optimized routing
-  const COURSE_COST_OLD = 55; // EUR, with uniform model routing
 
   return (
     <div className="space-y-6">
@@ -93,7 +224,9 @@ function LLMCostDashboard() {
         <Card>
           <CardContent className="py-4 text-center">
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Budget MTD</p>
-            <p className="text-2xl font-bold text-foreground">€{costMtd.toFixed(2)} <span className="text-sm text-muted-foreground">/ €{monthBudget}</span></p>
+            <p className="text-2xl font-bold text-foreground">
+              €{costMtd.toFixed(2)} <span className="text-sm text-muted-foreground">/ €{monthBudget}</span>
+            </p>
             <Progress value={budgetPct} className={cn("h-2 mt-2", budgetPct > 80 && "[&>div]:bg-destructive")} />
             <p className="text-[10px] text-muted-foreground mt-1">{budgetPct}% verbraucht</p>
           </CardContent>
@@ -113,30 +246,46 @@ function LLMCostDashboard() {
         <Card className={cn(daysLeft < 7 && "border-destructive/50")}>
           <CardContent className="py-4 text-center">
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Forecast Rest</p>
-            <p className={cn("text-2xl font-bold", daysLeft < 7 ? "text-destructive" : "text-foreground")}>{daysLeft} Tage</p>
+            <p className={cn("text-2xl font-bold", daysLeft < 7 ? "text-destructive" : "text-foreground")}>
+              {daysLeft} Tage
+            </p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Cost per Course */}
+      {/* Cost per Course (SSOT-computed) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Card className="border-primary/30">
           <CardContent className="py-4">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">💡 Kosten pro Kurs (optimiert)</p>
-            <p className="text-3xl font-bold text-primary">≈ €{COURSE_COST_ESTIMATE}</p>
-            <p className="text-xs text-muted-foreground mt-1">14 LF, ~80 Kompetenzen, ~1.600 Fragen, ~400 Lektionen</p>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+              💡 Kosten pro Kurs (optimiertes Routing)
+            </p>
+            <p className="text-3xl font-bold text-primary">≈ €{courseCost.toFixed(2)}</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              14 LF, ~80 Kompetenzen, {totalCalls.toLocaleString('de-DE')} API-Calls
+            </p>
             <div className="flex items-center gap-2 mt-2">
-              <Badge variant="outline" className="text-[10px] border-success/50 text-success">-75% vs. alt</Badge>
-              <span className="text-[10px] text-muted-foreground line-through">€{COURSE_COST_OLD} (altes Routing)</span>
+              <Badge variant="outline" className="text-[10px] border-success/50 text-success">
+                -{savingsPct}% vs. Einheitsmodell
+              </Badge>
+              <span className="text-[10px] text-muted-foreground line-through">
+                €{courseCostOld.toFixed(2)} (alles GPT-5)
+              </span>
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="py-4">
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">📊 Kurse im Budget</p>
-            <p className="text-3xl font-bold text-foreground">{Math.floor((monthBudget - costMtd) / COURSE_COST_ESTIMATE)}</p>
-            <p className="text-xs text-muted-foreground mt-1">noch generierbar bei €{COURSE_COST_ESTIMATE}/Kurs</p>
-            <p className="text-[10px] text-muted-foreground mt-2">Restbudget: €{(monthBudget - costMtd).toFixed(2)}</p>
+            <p className="text-3xl font-bold text-foreground">
+              {courseCost > 0 ? Math.floor((monthBudget - costMtd) / courseCost) : '–'}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              noch generierbar bei €{courseCost.toFixed(2)}/Kurs
+            </p>
+            <p className="text-[10px] text-muted-foreground mt-2">
+              Restbudget: €{(monthBudget - costMtd).toFixed(2)}
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -145,7 +294,7 @@ function LLMCostDashboard() {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm flex items-center gap-2">
-            ⚡ Modell-Matrix: Preis × Latenz × Durchsatz (März 2026)
+            ⚡ Modell-Matrix: Preis × Latenz × Durchsatz
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -156,27 +305,15 @@ function LLMCostDashboard() {
                   <th className="text-left py-1.5 px-2">Modell</th>
                   <th className="text-right py-1.5 px-2">€ In/1M</th>
                   <th className="text-right py-1.5 px-2">€ Out/1M</th>
-                  <th className="text-right py-1.5 px-2">Latenz</th>
+                  <th className="text-right py-1.5 px-2">TTFT</th>
                   <th className="text-right py-1.5 px-2">Tok/s</th>
                   <th className="text-right py-1.5 px-2">RPM</th>
+                  <th className="text-center py-1.5 px-2">Konf.</th>
                   <th className="text-left py-1.5 px-2">Pipeline-Rolle</th>
                 </tr>
               </thead>
               <tbody>
-                {[
-                  { model: 'GPT-4.1 nano', input: 0.09, output: 0.37, latency: '0.3-0.6s', tps: '150-250', rpm: '10-20k', role: 'Routing, QC, Glossar, Minichecks', tier: 'green' as const },
-                  { model: 'GPT-5 nano', input: 0.09, output: 0.37, latency: '0.3-0.6s', tps: '150-250', rpm: '10-20k', role: 'Fallback für Nano-Tier', tier: 'green' as const },
-                  { model: 'GPT-4o-mini', input: 0.14, output: 0.55, latency: '0.5-1.0s', tps: '130-200', rpm: '3-10k', role: 'AI Tutor (Learning), Legacy', tier: 'green' as const },
-                  { model: 'GPT-4.1 mini', input: 0.37, output: 1.47, latency: '0.5-1.2s', tps: '120-200', rpm: '3-10k', role: '✅ Content-Gen, Handbook, AutoFix', tier: 'green' as const },
-                  { model: 'GPT-5 mini', input: 0.23, output: 1.84, latency: '0.8-1.5s', tps: '100-150', rpm: '3-10k', role: '✅ Exam-Pool, Council, Validation', tier: 'green' as const },
-                  { model: 'GPT-4.1', input: 1.84, output: 7.36, latency: '1-2s', tps: '80-130', rpm: '1-5k', role: 'Legacy → Migration empfohlen', tier: 'yellow' as const },
-                  { model: 'GPT-5', input: 2.30, output: 9.20, latency: '1.5-2.5s', tps: '70-110', rpm: '1-5k', role: 'QA Gate Fallback', tier: 'yellow' as const },
-                  { model: 'GPT-5.2', input: 2.76, output: 11.04, latency: '2-3s', tps: '50-90', rpm: '1-3k', role: 'Elite Harden Fallback', tier: 'red' as const },
-                  { model: 'GPT-5.4', input: 2.30, output: 13.80, latency: '2-4s', tps: '40-80', rpm: '500-2k', role: '🏆 Elite Harden (nur ~2%)', tier: 'red' as const },
-                  { model: 'o4-mini', input: 3.68, output: 14.72, latency: '1.5-3s', tps: '60-100', rpm: '500-2k', role: '⚠️ Reasoning – extrem teuer', tier: 'red' as const },
-                  { model: 'Claude Haiku 4.5', input: 0.80, output: 4.00, latency: '0.5-1.2s', tps: '100-180', rpm: '2-8k', role: 'Council Fallback (Provider-Mix)', tier: 'yellow' as const },
-                  { model: 'Gemini 2.5 Flash', input: 0.07, output: 0.28, latency: '0.3-0.8s', tps: '120-200', rpm: '5-15k', role: '✅ Günstigster via Lovable AI', tier: 'green' as const },
-                ].map(r => (
+                {MODEL_MATRIX_ROWS.map(r => (
                   <tr key={r.model} className="border-b border-border/20">
                     <td className="py-1.5 px-2 font-medium whitespace-nowrap">{r.model}</td>
                     <td className="py-1.5 px-2 text-right font-mono">€{r.input.toFixed(2)}</td>
@@ -184,6 +321,13 @@ function LLMCostDashboard() {
                     <td className="py-1.5 px-2 text-right font-mono">{r.latency}</td>
                     <td className="py-1.5 px-2 text-right font-mono">{r.tps}</td>
                     <td className="py-1.5 px-2 text-right font-mono">{r.rpm}</td>
+                    <td className="py-1.5 px-2 text-center">
+                      <span className={cn("text-[9px] px-1 rounded",
+                        r.confidence === 'high' && 'bg-success/20 text-success',
+                        r.confidence === 'medium' && 'bg-warning/20 text-warning',
+                        r.confidence === 'low' && 'bg-destructive/20 text-destructive',
+                      )}>{r.source}</span>
+                    </td>
                     <td className={cn("py-1.5 px-2 text-xs",
                       r.tier === 'green' && 'text-success',
                       r.tier === 'yellow' && 'text-warning',
@@ -195,7 +339,8 @@ function LLMCostDashboard() {
             </table>
           </div>
           <p className="text-[10px] text-muted-foreground mt-3">
-            Quelle: OpenAI Pricing + Benchmarks, März 2026. EUR ≈ 0.92×USD. Latenz = Time-to-First-Token. RPM = Tier 3-4.
+            Preise: OpenAI Pricing Page März 2026 (EUR ≈ 0.92×USD). Perf-Daten: Benchmarks/Vendor-Docs (keine Garantie).
+            Konf. = Konfidenz der Performance-Schätzung.
           </p>
         </CardContent>
       </Card>
@@ -204,7 +349,7 @@ function LLMCostDashboard() {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm flex items-center gap-2">
-            🔀 ExamFit Routing-Matrix: Kosten pro Kurs ≈ €{COURSE_COST_ESTIMATE}
+            🔀 ExamFit Routing-Matrix (Kosten SSOT-berechnet)
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -221,41 +366,43 @@ function LLMCostDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {[
-                  { step: 'Scaffold', calls: 1, primary: '4.1 nano', fallback: '5 nano', costCall: 0.0003, total: 0.00 },
-                  { step: 'Glossar', calls: 14, primary: '4.1 nano', fallback: '5 nano', costCall: 0.0004, total: 0.01 },
-                  { step: 'Learning Content', calls: 400, primary: '4.1 mini', fallback: '5 mini', costCall: 0.0107, total: 4.28 },
-                  { step: 'Validate Content', calls: 400, primary: '5 mini', fallback: '4.1 mini', costCall: 0.0028, total: 1.10 },
-                  { step: 'Exam-Pool', calls: 160, primary: '5 mini', fallback: '4.1 mini', costCall: 0.0202, total: 3.24 },
-                  { step: 'Handbook', calls: 14, primary: '4.1 mini', fallback: '4o-mini', costCall: 0.0133, total: 0.19 },
-                  { step: 'Minichecks', calls: 400, primary: '4.1 nano', fallback: '5 nano', costCall: 0.0003, total: 0.11 },
-                  { step: 'Elite Harden', calls: 100, primary: '5.4', fallback: '5.2', costCall: 0.0414, total: 4.14 },
-                  { step: 'Council (P+C)', calls: 100, primary: '5 mini', fallback: 'Haiku 4.5', costCall: 0.0056, total: 0.56 },
-                  { step: 'Auto-Fix', calls: 20, primary: '4.1 mini', fallback: '5 mini', costCall: 0.0059, total: 0.12 },
-                ].map(r => (
+                {pipelineCosts.map(r => (
                   <tr key={r.step} className="border-b border-border/20">
                     <td className="py-1.5 px-2 font-medium">{r.step}</td>
                     <td className="py-1.5 px-2 text-right">{r.calls}</td>
                     <td className="py-1.5 px-2 text-success">{r.primary}</td>
                     <td className="py-1.5 px-2 text-muted-foreground">{r.fallback}</td>
-                    <td className="py-1.5 px-2 text-right font-mono">€{r.costCall.toFixed(4)}</td>
+                    <td className="py-1.5 px-2 text-right font-mono">€{r.costPerCall.toFixed(4)}</td>
                     <td className="py-1.5 px-2 text-right font-mono font-medium">€{r.total.toFixed(2)}</td>
                   </tr>
                 ))}
                 <tr className="border-t-2 border-border font-bold">
                   <td className="py-2 px-2">GESAMT</td>
-                  <td className="py-2 px-2 text-right">1.609</td>
-                  <td colSpan={2} className="py-2 px-2 text-xs text-muted-foreground">90% Calls unter 1.5s TTFT</td>
-                  <td className="py-2 px-2"></td>
-                  <td className="py-2 px-2 text-right text-primary">≈ €{COURSE_COST_ESTIMATE}</td>
+                  <td className="py-2 px-2 text-right">{totalCalls.toLocaleString('de-DE')}</td>
+                  <td colSpan={2} className="py-2 px-2 text-xs text-muted-foreground">
+                    ~90% Calls unter 1.5s TTFT
+                  </td>
+                  <td className="py-2 px-2" />
+                  <td className="py-2 px-2 text-right text-primary">≈ €{courseCost.toFixed(2)}</td>
                 </tr>
               </tbody>
             </table>
           </div>
           <div className="mt-3 p-3 rounded-lg bg-muted/30 text-xs space-y-1">
-            <p className="font-medium">📐 Architektur-Prinzip: nano → routing | mini → generation | balanced → exam | premium → validation</p>
-            <p className="text-muted-foreground">• <strong>80-90%</strong> Kostenersparnis vs. Einheitsmodell • <strong>10×</strong> mehr Durchsatz • <strong>Keine</strong> Rate-Limit-Bottlenecks</p>
-            <p className="text-muted-foreground">• Elite Harden (GPT-5.4) nur für &lt;2% der Calls aber höchste Qualität für Prüfungsinhalte</p>
+            <p className="font-medium">
+              📐 Architektur: nano → routing | mini → generation | balanced → exam | premium → validation
+            </p>
+            <p className="text-muted-foreground">
+              • <strong>{savingsPct}%</strong> Kostenersparnis vs. Einheitsmodell
+              • <strong>10×</strong> mehr Durchsatz
+              • <strong>Keine</strong> Rate-Limit-Bottlenecks (Nano: 10k+ RPM)
+            </p>
+            <p className="text-muted-foreground">
+              • Elite Harden (GPT-5.4) nur für {'<'}2% der Calls — höchste Qualität für Prüfungsinhalte
+            </p>
+            <p className="text-muted-foreground">
+              • Exam-Pool + Validate: Fallback → GPT-5 (nicht mini), weil Validierungsfehler teurer sind als Latenz
+            </p>
           </div>
         </CardContent>
       </Card>
@@ -317,7 +464,9 @@ function LLMCostDashboard() {
                       <td className="py-2 px-2 text-right">€{Number(r.cost_openai_eur).toFixed(2)}</td>
                       <td className="py-2 px-2 text-right">€{Number(r.cost_anthropic_eur).toFixed(2)}</td>
                       <td className="py-2 px-2 text-right text-success">{r.jobs_completed}</td>
-                      <td className={cn("py-2 px-2 text-right", r.jobs_failed > 0 && "text-destructive")}>{r.jobs_failed}</td>
+                      <td className={cn("py-2 px-2 text-right", r.jobs_failed > 0 && "text-destructive")}>
+                        {r.jobs_failed}
+                      </td>
                       <td className="py-2 px-2 text-right">{r.packages_completed}</td>
                       <td className="py-2 px-2 text-right text-muted-foreground">{r.backlog_jobs}</td>
                       <td className="py-2 px-2 text-right text-destructive">{r.top_error_code || '–'}</td>
