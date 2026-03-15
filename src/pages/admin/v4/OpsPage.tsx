@@ -137,6 +137,7 @@ export default function OpsPage() {
           <Route path="ai-gateway" element={<AIGatewayDashboard />} />
           <Route path="knowledge-graph" element={<KnowledgeGraphDashboard />} />
           <Route path="batch-recovery" element={<BatchRecoveryDashboard />} />
+          <Route path="course-naming" element={<CourseNamingIntegrityPanel />} />
         </Routes>
       </Suspense>
     </div>
