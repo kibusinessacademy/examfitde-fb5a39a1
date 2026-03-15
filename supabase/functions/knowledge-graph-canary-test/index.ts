@@ -63,7 +63,7 @@ Deno.serve(async (req) => {
     // Pick random blueprints that have competency + learning field
     const { data: blueprints, error: bpErr } = await sb
       .from("question_blueprints")
-      .select("id, canonical_statement, competency_id, learning_field_id, bloom_level, question_type, typical_exam_trap")
+      .select("id, canonical_statement, competency_id, learning_field_id, cognitive_level, allowed_question_types, typical_exam_trap")
       .eq("curriculum_id", curriculum_id)
       .not("competency_id", "is", null)
       .not("learning_field_id", "is", null)
