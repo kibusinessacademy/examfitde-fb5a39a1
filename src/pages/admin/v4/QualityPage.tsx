@@ -53,6 +53,8 @@ function IntegrityOverview() {
     })();
   }, []);
 
+  const { data: canonicalTitles } = useCanonicalTitles(packages.map((p: any) => p.id));
+
   if (loading) return <Loading />;
 
   const failed = packages.filter(p => !p.integrity_passed && p.status !== 'published');
