@@ -11,6 +11,10 @@ export {
   estimateInputTokens,
   estimateCostEur,
   fillUsage,
+  IMAGE_COST_USD,
+  estimateImageCostEur,
+  TOOL_COST_USD,
+  estimateToolCostEur,
 } from "./model-pricing.ts";
 
 export type { ModelPricing, UsageLike, FilledUsage } from "./model-pricing.ts";

@@ -49,6 +49,10 @@ const RAW_USD: Record<string, { input: number; output: number; cached: number }>
   "o4-mini":       { input: 4.00,  output: 16.00, cached: 1.00  },
   // Embeddings
   "text-embedding-3-large": { input: 0.13, output: 0.00, cached: 0.00 },
+  // Image Generation (text-mode token prices)
+  "gpt-image-1.5": { input: 5.00, output: 10.00, cached: 1.25 },
+  "gpt-image-1":   { input: 5.00, output: 0.00,  cached: 1.25 },
+  "gpt-image-1-mini": { input: 2.00, output: 0.00, cached: 0.20 },
   // Anthropic
   "claude-3-5-haiku-20241022":  { input: 0.25,  output: 1.25,  cached: 0.025 },
   "claude-haiku-4-5-20251001":  { input: 0.80,  output: 4.00,  cached: 0.08  },
@@ -79,7 +83,7 @@ for (const [model, usd] of Object.entries(RAW_USD)) {
   PRICING_EUR_PER_M[model] = eur;
 
   // Add "openai/" prefix for Lovable Gateway models
-  if (model.startsWith("gpt-") || model.startsWith("o4-") || model.startsWith("text-")) {
+  if (model.startsWith("gpt-") || model.startsWith("o4-") || model.startsWith("text-") || model.startsWith("gpt-image")) {
     PRICING_EUR_PER_M[`openai/${model}`] = eur;
   }
   if (model.startsWith("gemini-")) {
@@ -103,6 +107,60 @@ for (const alias of GOOGLE_PREVIEW_ALIASES) {
   } else if (alias.includes("pro")) {
     PRICING_EUR_PER_M[alias] = PRICING_EUR_PER_M["gemini-2.5-pro"];
   }
+}
+
+// ── Image Generation Cost (per-image, not per-token) ────────
+
+/**
+ * Per-image costs from OpenAI pricing page (Mar 2026).
+ * Image output is billed per generated image, not per token.
+ * quality: low ~$0.01, medium ~$0.04, high ~$0.17 (square)
+ */
+export const IMAGE_COST_USD: Record<string, Record<string, number>> = {
+  "gpt-image-1": { low: 0.01, medium: 0.04, high: 0.17 },
+  "gpt-image-1-mini": { low: 0.005, medium: 0.02, high: 0.08 },
+  "gpt-image-1.5": { low: 0.01, medium: 0.04, high: 0.17 },
+};
+
+export function estimateImageCostEur(
+  model: string,
+  quality: "low" | "medium" | "high" = "medium",
+  count = 1,
+): number {
+  const costs = IMAGE_COST_USD[model];
+  if (!costs) return count * 0.04 * PRICING_META.fx_rate_applied; // fallback
+  return count * costs[quality] * PRICING_META.fx_rate_applied;
+}
+
+// ── Tool Usage Costs (Web Search, File Search) ──────────────
+
+/**
+ * Tool invocation costs from OpenAI pricing page (Mar 2026).
+ * These are ADDITIONAL costs on top of token costs.
+ */
+export const TOOL_COST_USD = {
+  /** Web search: $10 / 1k calls + search content tokens at model input rate */
+  web_search: { per_1k_calls: 10.00 },
+  /** Web search preview (reasoning models): $10 / 1k calls */
+  web_search_preview_reasoning: { per_1k_calls: 10.00 },
+  /** Web search preview (non-reasoning): $25 / 1k calls, search tokens free */
+  web_search_preview_non_reasoning: { per_1k_calls: 25.00 },
+  /** File search: $2.50 / 1k calls */
+  file_search: { per_1k_calls: 2.50 },
+  /** File search storage: $0.10 / GB / day (first 1 GB free) */
+  file_search_storage_per_gb_day: 0.10,
+} as const;
+
+/**
+ * Estimate tool invocation cost in EUR.
+ */
+export function estimateToolCostEur(
+  tool: keyof typeof TOOL_COST_USD,
+  calls: number,
+): number {
+  const entry = TOOL_COST_USD[tool];
+  if (!entry || typeof entry !== "object" || !("per_1k_calls" in entry)) return 0;
+  return (calls / 1000) * entry.per_1k_calls * PRICING_META.fx_rate_applied;
 }
 
 // ── Estimation helpers ──────────────────────────────────────

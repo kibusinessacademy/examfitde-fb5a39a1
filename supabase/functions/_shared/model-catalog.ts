@@ -56,8 +56,12 @@ export const MODEL_ALIASES = {
   // ── Embeddings & Images ────────────────────────────────────
   /** OpenAI embeddings. Pinned. */
   openai_embeddings: "text-embedding-3-large",
-  /** OpenAI image generation. Pinned. */
+  /** OpenAI image generation (standard). */
   openai_images: "gpt-image-1",
+  /** OpenAI image generation (premium). */
+  openai_images_premium: "gpt-image-1.5",
+  /** OpenAI image generation (mini/cheap). */
+  openai_images_mini: "gpt-image-1-mini",
 } as const;
 
 // ── Type helpers ─────────────────────────────────────────────
