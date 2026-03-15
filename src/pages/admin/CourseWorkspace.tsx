@@ -26,6 +26,8 @@ import IntegrityReportCard from './workspace/IntegrityReportCard';
 import AutoGapCloserPanel from './workspace/AutoGapCloserPanel';
 import ExportTab from './workspace/ExportTab';
 import { ALL_PIPELINE_STEPS, diagnoseError } from './workspace/workspaceConfig';
+import type { PipelineStepUI } from '@/lib/pipeline-ui-registry';
+import { getActivePipelineStepsUI } from '@/lib/pipeline-ui-registry';
 import { useQuery } from '@tanstack/react-query';
 
 export default function CourseWorkspace() {
