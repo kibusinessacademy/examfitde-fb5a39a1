@@ -69,7 +69,7 @@ export const ALL_PIPELINE_STEPS = ALL_PIPELINE_STEPS_UI;
 
 /** @deprecated Use getActivePipelineStepsUI from pipeline-ui-registry.ts */
 export function getActiveSteps(flags: FeatureFlags | null | undefined) {
-  return getActivePipelineStepsUI(flags as Record<string, boolean> | null | undefined);
+  return getActivePipelineStepsUI(flags as unknown as Record<string, boolean> | null | undefined);
 }
 
 // ── SSOT Track Interpreter ─────────────────────────────────
