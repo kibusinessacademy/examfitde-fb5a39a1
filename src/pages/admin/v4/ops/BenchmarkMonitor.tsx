@@ -63,7 +63,7 @@ export default function BenchmarkMonitor() {
     // Load actively building packages via SSOT view
     const { data: pkgs } = await (supabase as any)
       .from('v_admin_visible_course_packages')
-      .select('id, title, status, priority, created_at, updated_at, curriculum_id')
+      .select('id, canonical_title, title, status, priority, created_at, updated_at, curriculum_id')
       .in('status', ['building', 'queued', 'failed'])
       .order('priority', { ascending: true, nullsFirst: false })
       .order('updated_at', { ascending: false })
