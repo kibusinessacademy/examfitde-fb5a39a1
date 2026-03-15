@@ -161,7 +161,41 @@ export default function ProductModuleStatus({ packageId, courseId, curriculumId,
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="border rounded-lg overflow-hidden">
+        {/* Mobile: Card layout */}
+        <div className="space-y-2 sm:hidden">
+          {modules.map(m => {
+            const Icon = m.icon;
+            const StatusIcon = m.status === 'ok' ? CheckCircle2 :
+              m.status === 'warning' ? AlertTriangle :
+              m.status === 'error' ? XCircle : XCircle;
+            const statusColor = m.status === 'ok' ? 'text-success' :
+              m.status === 'warning' ? 'text-warning' : 'text-destructive';
+            return (
+              <div key={m.key} className="border rounded-lg p-3 flex items-center gap-3">
+                <div className={cn("w-8 h-8 rounded-full flex items-center justify-center shrink-0",
+                  m.status === 'ok' ? 'bg-success/10' :
+                  m.status === 'warning' ? 'bg-warning/10' : 'bg-destructive/10'
+                )}>
+                  <Icon className={cn("h-4 w-4", statusColor)} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-foreground">{m.label}</span>
+                    <StatusIcon className={cn("h-3.5 w-3.5 shrink-0", statusColor)} />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">{m.detail}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Progress value={m.health} className="h-1 flex-1" />
+                    <span className="text-[10px] font-mono text-muted-foreground">{m.health}%</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Desktop: Table layout */}
+        <div className="hidden sm:block border rounded-lg overflow-hidden">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-muted/30">

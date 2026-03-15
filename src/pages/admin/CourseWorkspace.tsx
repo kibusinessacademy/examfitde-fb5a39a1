@@ -26,6 +26,8 @@ import IntegrityReportCard from './workspace/IntegrityReportCard';
 import AutoGapCloserPanel from './workspace/AutoGapCloserPanel';
 import ExportTab from './workspace/ExportTab';
 import { ALL_PIPELINE_STEPS, diagnoseError } from './workspace/workspaceConfig';
+import type { PipelineStepUI } from '@/lib/pipeline-ui-registry';
+import { getActivePipelineStepsUI } from '@/lib/pipeline-ui-registry';
 import { useQuery } from '@tanstack/react-query';
 
 export default function CourseWorkspace() {
@@ -39,7 +41,7 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
   const { setCourseId, refresh: refreshContext } = useActiveCourse();
   const { package: pkg, packageLoading, buildSteps, councils, startBuild, initCouncils, approveCouncils, invalidate } = useCoursePackageDetail(packageId);
   const { track, certType, flags } = useTrackConfig(pkg as any);
-  const PIPELINE_STEPS = ALL_PIPELINE_STEPS.filter(s => s.flag === null || (flags as any)[s.flag] === true);
+  const PIPELINE_STEPS = getActivePipelineStepsUI(flags as unknown as Record<string, boolean>);
 
   // Real-time content progress from lessons table
   const contentProgressQuery = useQuery({
@@ -191,107 +193,94 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
   const progressPct = buildSteps.length > 0 ? Math.round((doneCount / Math.max(totalCount, 1)) * 100) : (pkg.build_progress || 0);
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex items-center">
         <Button variant="ghost" size="sm" onClick={onBack} className="shrink-0"><ArrowLeft className="h-4 w-4 mr-1" /> Kursliste</Button>
       </div>
 
-      <PageExplainer
-        title="Wie funktioniert der Course Workspace?"
-        description="Der zentrale Arbeitsplatz für ein einzelnes Kurspaket. Hier steuerst du den gesamten Produktions-Workflow: Von der Council-Freigabe über den 17-Step-Build bis zur Veröffentlichung."
-        workflow={[{ label: 'Curriculum' }, { label: 'Council' }, { label: '17-Step Build', active: true }, { label: 'Integrity' }, { label: 'Publish' }]}
-        actions={[
-          '"Pipeline starten" – Ein Klick startet: Council → Build (17 Steps) → Quality Gate → Auto-Publish',
-          '"Build Pipeline" Tab – Visueller 17-Schritte-Stepper mit allen Generierungs- und Validierungsschritten',
-          '"Produktmodule" Tab – Status aller 6 Module (Learning, Exam, Oral, Tutor, Handbook) mit Counts und Health',
-          '"Council" Tab – Council-Diskussionen, Votes, Empfehlungen. Admin kann Approve/Reject überschreiben',
-        ]}
-        tips={[
-          'Der Health Score (0-100%) berechnet sich aus: Integrity (30%), Council (10%), Build-Fortschritt (40%), Fehlerfreiheit (20%)',
-          'Fehlerdiagnose: Jeder fehlgeschlagene Step zeigt Ursache + Lösungsvorschlag',
-        ]}
-      />
-
-      {/* Elite Upgrade Warning */}
-      {(() => {
-        const ff = (pkg as any).feature_flags || {};
-        const needsElite = 
-          (pkg as any).track !== 'AUSBILDUNG_VOLL' ||
-          !ff.has_learning_course ||
-          !ff.has_minichecks ||
-          !ff.has_handbook;
-        if (!needsElite) return null;
-        const handleUpgrade = async () => {
-          setUpgrading(true);
-          try {
-            const { data: { session } } = await supabase.auth.getSession();
-            const { data, error } = await supabase.functions.invoke('admin-ops', {
-              body: { action: 'upgrade_to_elite', package_id: packageId },
-              headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {},
-            });
-            if (error) throw error;
-            toast.success(`Elite-Upgrade: ${data?.steps_injected ?? data?.count ?? 0} Steps injiziert`);
-            refreshAll();
-          } catch (e: any) { toast.error(`Upgrade fehlgeschlagen: ${e.message}`); }
-          finally { setUpgrading(false); }
-        };
-        return (
-          <Card className="border-warning/50 bg-warning/5">
-            <CardContent className="flex items-center justify-between py-3 px-4">
-              <div className="flex items-center gap-2 text-warning">
-                <AlertTriangle className="h-4 w-4 shrink-0" />
-                <span className="text-sm font-medium">
-                  Didaktik fehlt — Track: {(pkg as any).track || 'unbekannt'} | Flags: 
-                  {!ff.has_learning_course && ' ⚠️ Learning'}{!ff.has_minichecks && ' ⚠️ MiniChecks'}{!ff.has_handbook && ' ⚠️ Handbook'}
-                </span>
+      {/* ── Workspace Header Card ─────────────────────────── */}
+      <Card className="border-border/50">
+        <CardContent className="py-4 px-4 sm:px-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="min-w-0">
+              <h1 className="text-lg sm:text-xl font-display font-bold text-foreground truncate">{pkg.title || 'Kurspaket'}</h1>
+              <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                <TrackBadge track={track} certType={certType} showCertType />
+                <Badge variant="outline" className={cn("text-xs", pkg.status === 'published' ? 'bg-success/20 text-success' : (pkg.status === 'failed' || pkg.status === 'quality_gate_failed') ? 'bg-destructive/20 text-destructive' : isBuilding ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground')}>
+                  {pkg.status === 'published' ? 'Live' : isBuilding ? 'Build läuft' : pkg.status === 'quality_gate_failed' ? 'QG Failed' : pkg.status === 'failed' ? 'Fehler' : pkg.status === 'qa' ? 'QA' : pkg.status === 'done' ? 'Done' : 'Draft'}
+                </Badge>
+                <div className={cn("flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold", healthScore >= 95 ? 'bg-success/10 text-success' : healthScore >= 80 ? 'bg-warning/10 text-warning' : 'bg-destructive/10 text-destructive')}>
+                  <Activity className="h-3 w-3" /> {healthScore}%
+                </div>
               </div>
-              <Button size="sm" variant="default" onClick={handleUpgrade} disabled={upgrading} className="shrink-0">
-                {upgrading ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Zap className="h-3.5 w-3.5 mr-1" />}
-                Upgrade to Elite
-              </Button>
-            </CardContent>
-          </Card>
-        );
-      })()}
-
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-display font-bold text-foreground">{pkg.title || 'Kurspaket'}</h1>
-          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-            <TrackBadge track={track} certType={certType} showCertType />
-            <Badge variant="outline" className={cn("text-xs", pkg.status === 'published' ? 'bg-success/20 text-success' : (pkg.status === 'failed' || pkg.status === 'quality_gate_failed') ? 'bg-destructive/20 text-destructive' : isBuilding ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground')}>
-              {pkg.status === 'published' ? 'Live' : isBuilding ? 'Build läuft' : pkg.status === 'quality_gate_failed' ? 'QG Failed' : pkg.status === 'failed' ? 'Fehler' : pkg.status === 'qa' ? 'QA' : pkg.status === 'done' ? 'Done' : 'Draft'}
-            </Badge>
-            <div className={cn("flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold", healthScore >= 95 ? 'bg-success/10 text-success' : healthScore >= 80 ? 'bg-warning/10 text-warning' : 'bg-destructive/10 text-destructive')}>
-              <Activity className="h-3 w-3" /> {healthScore}%
             </div>
-            {isBuilding && runningStep && (
-              <Badge variant="outline" className="text-xs bg-primary/10 text-primary">Step {currentStepIdx + 1}/{PIPELINE_STEPS.length}: {PIPELINE_STEPS[currentStepIdx]?.label || runningStep.step_key}</Badge>
-            )}
+            <div className="flex items-center gap-2 shrink-0">
+              {isBuilding && (
+                <>
+                  <Button variant="outline" size="sm" onClick={handleCancelPipeline} disabled={cancelling} className="text-destructive border-destructive/30">
+                    {cancelling ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <StopCircle className="h-3.5 w-3.5 mr-1" />} <span className="hidden sm:inline">Abbrechen</span>
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={handleForceUnlock} className="text-warning border-warning/30"><Unlock className="h-3.5 w-3.5 sm:mr-1" /> <span className="hidden sm:inline">Unlock</span></Button>
+                </>
+              )}
+              <Button variant="outline" size="sm" onClick={refreshAll}><RefreshCw className="h-3.5 w-3.5 sm:mr-1" /> <span className="hidden sm:inline">Aktualisieren</span></Button>
+            </div>
           </div>
-        </div>
-        <div className="flex items-center gap-2">
-          {isBuilding && (
-            <>
-              <Button variant="outline" size="sm" onClick={handleCancelPipeline} disabled={cancelling} className="text-destructive border-destructive/30">
-                {cancelling ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <StopCircle className="h-3.5 w-3.5 mr-1" />} Abbrechen
-              </Button>
-              <Button variant="outline" size="sm" onClick={handleForceUnlock} className="text-warning border-warning/30"><Unlock className="h-3.5 w-3.5 mr-1" /> Force Unlock</Button>
-            </>
-          )}
-          <Button variant="outline" size="sm" onClick={refreshAll}><RefreshCw className="h-3.5 w-3.5 mr-1" /> Aktualisieren</Button>
-        </div>
+        </CardContent>
+      </Card>
+
+      {/* ── KPI Cards ─────────────────────────────────────── */}
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+        <Card className="border-border/40">
+          <CardContent className="py-3 px-4">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Pipeline</p>
+            <p className="text-xl font-bold text-foreground mt-0.5">{progressPct}%</p>
+            <Progress value={progressPct} className="h-1 mt-1.5" />
+            <p className="text-[10px] text-muted-foreground mt-1">{doneCount}/{totalCount} Steps</p>
+          </CardContent>
+        </Card>
+        <Card className="border-border/40">
+          <CardContent className="py-3 px-4">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Lerninhalte</p>
+            <p className="text-xl font-bold text-foreground mt-0.5">
+              {contentProgressQuery.data ? `${contentProgressQuery.data.content_done}/${contentProgressQuery.data.total_lessons}` : '–'}
+            </p>
+            {contentProgressQuery.data && contentProgressQuery.data.total_lessons > 0 && (
+              <Progress value={Math.round(contentProgressQuery.data.content_done / contentProgressQuery.data.total_lessons * 100)} className="h-1 mt-1.5" />
+            )}
+            <p className="text-[10px] text-muted-foreground mt-1">Lektionen fertig</p>
+          </CardContent>
+        </Card>
+        <Card className="border-border/40">
+          <CardContent className="py-3 px-4">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Fehler</p>
+            <p className={cn("text-xl font-bold mt-0.5", failedSteps.length > 0 ? "text-destructive" : "text-success")}>{failedSteps.length}</p>
+            <p className="text-[10px] text-muted-foreground mt-1">{failedSteps.length === 0 ? 'Keine Fehler' : `${failedSteps.length} Step(s) fehlgeschlagen`}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-border/40">
+          <CardContent className="py-3 px-4">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Status</p>
+            <p className="text-xl font-bold text-foreground mt-0.5">
+              {isBuilding && runningStep ? `Step ${currentStepIdx + 1}` : pkg.integrity_passed ? '✓ QA' : '–'}
+            </p>
+            <p className="text-[10px] text-muted-foreground mt-1">
+              {isBuilding && runningStep ? (PIPELINE_STEPS[currentStepIdx]?.shortLabel || runningStep.step_key) : pkg.integrity_passed ? 'Integrität bestanden' : 'Warte auf Build'}
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Tabs */}
+      {/* Tabs — horizontal scrollable on mobile */}
       <Tabs defaultValue="build" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="build">Build Pipeline</TabsTrigger>
-          <TabsTrigger value="modules">Produktmodule</TabsTrigger>
-          <TabsTrigger value="council">Council</TabsTrigger>
-          <TabsTrigger value="export">Export</TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+          <TabsList className="w-max sm:w-auto">
+            <TabsTrigger value="build">Build Pipeline</TabsTrigger>
+            <TabsTrigger value="modules">Produktmodule</TabsTrigger>
+            <TabsTrigger value="council">Council</TabsTrigger>
+            <TabsTrigger value="export">Export</TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="build" className="space-y-6">
           {/* Progress stepper */}

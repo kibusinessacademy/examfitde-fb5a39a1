@@ -168,7 +168,7 @@ export default function BuildLiveLog({ packageId, isBuilding }: BuildLiveLogProp
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <ScrollArea className="h-[280px] rounded-md border border-border/30 bg-muted/20 p-0" ref={scrollRef}>
+        <ScrollArea className="h-[180px] sm:h-[280px] rounded-md border border-border/30 bg-muted/20 p-0" ref={scrollRef}>
           <div className="font-mono text-xs p-3 space-y-1.5">
             {logs.map((entry, i) => (
               <div key={`${entry.id}-${i}`}>
