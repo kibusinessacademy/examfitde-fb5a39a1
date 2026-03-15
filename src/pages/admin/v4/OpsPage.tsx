@@ -27,6 +27,7 @@ const AIGatewayDashboard = lazy(() => import('./ops/AIGatewayDashboard'));
 const KnowledgeGraphDashboard = lazy(() => import('./ops/KnowledgeGraphDashboard'));
 const BatchRecoveryDashboard = lazy(() => import('./ops/BatchRecoveryDashboard'));
 const CourseNamingIntegrityPanel = lazy(() => import('./ops/CourseNamingIntegrityPanel'));
+const JobFailureIntegrityPanel = lazy(() => import('./ops/JobFailureIntegrityPanel'));
 
 const Loading = () => (
   <div className="flex items-center justify-center py-16">
@@ -57,6 +58,7 @@ const tabs = [
   { path: '/admin/ops/knowledge-graph', label: '🧠 Knowledge Graph' },
   { path: '/admin/ops/batch-recovery', label: '🔄 Batch Recovery' },
   { path: '/admin/ops/course-naming', label: '📛 Course Naming' },
+  { path: '/admin/ops/failure-integrity', label: '🛡️ Failure Integrity' },
 ];
 
 export default function OpsPage() {
@@ -138,6 +140,7 @@ export default function OpsPage() {
           <Route path="knowledge-graph" element={<KnowledgeGraphDashboard />} />
           <Route path="batch-recovery" element={<BatchRecoveryDashboard />} />
           <Route path="course-naming" element={<CourseNamingIntegrityPanel />} />
+          <Route path="failure-integrity" element={<JobFailureIntegrityPanel />} />
         </Routes>
       </Suspense>
     </div>

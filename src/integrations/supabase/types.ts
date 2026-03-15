@@ -35998,6 +35998,66 @@ export type Database = {
         }
         Relationships: []
       }
+      v_ops_job_failure_classification: {
+        Row: {
+          attempts: number | null
+          completed_at: string | null
+          created_at: string | null
+          failure_class: string | null
+          failure_reason: string | null
+          id: string | null
+          job_type: string | null
+          last_error: string | null
+          last_error_code: string | null
+          max_attempts: number | null
+          package_id: string | null
+          result: Json | null
+          started_at: string | null
+          status: string | null
+        }
+        Insert: {
+          attempts?: number | null
+          completed_at?: string | null
+          created_at?: string | null
+          failure_class?: never
+          failure_reason?: never
+          id?: string | null
+          job_type?: string | null
+          last_error?: string | null
+          last_error_code?: string | null
+          max_attempts?: number | null
+          package_id?: string | null
+          result?: Json | null
+          started_at?: string | null
+          status?: string | null
+        }
+        Update: {
+          attempts?: number | null
+          completed_at?: string | null
+          created_at?: string | null
+          failure_class?: never
+          failure_reason?: never
+          id?: string | null
+          job_type?: string | null
+          last_error?: string | null
+          last_error_code?: string | null
+          max_attempts?: number | null
+          package_id?: string | null
+          result?: Json | null
+          started_at?: string | null
+          status?: string | null
+        }
+        Relationships: []
+      }
+      v_ops_job_failure_summary_24h: {
+        Row: {
+          completed_24h: number | null
+          protected_stop_24h: number | null
+          real_failure_24h: number | null
+          unknown_failure_24h: number | null
+        }
+        Relationships: []
+      }
       v_package_build_priority: {
         Row: {
           beruf_id: string | null
@@ -37827,6 +37887,22 @@ export type Database = {
       enqueue_integrity_rechecks: {
         Args: { p_cap?: number; p_reason?: string }
         Returns: Json
+      }
+      enqueue_job_if_absent: {
+        Args: {
+          p_job_type: string
+          p_max_attempts?: number
+          p_package_id?: string
+          p_payload?: Json
+          p_priority?: number
+          p_run_after?: string
+        }
+        Returns: {
+          created: boolean
+          deduped: boolean
+          existing_status: string
+          job_id: string
+        }[]
       }
       enqueue_qualification_fetch: {
         Args: {

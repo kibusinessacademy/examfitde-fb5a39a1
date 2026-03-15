@@ -153,6 +153,20 @@ Jede Invariante referenziert ihren Enforcement-Mechanismus.
 - [ssot-allowlist.md](ssot-allowlist.md) — Erlaubte Ausnahmen
 - [SYSTEM_INTEGRITY_PLAYBOOK.md](SYSTEM_INTEGRITY_PLAYBOOK.md) — Ops-Runbook
 
+### INV-053: Job-Failure-Klassifikation
+**Regel:** Failed/cancelled Jobs werden in `protected_stop`, `real_failure` und `unknown_failure` klassifiziert. Ops-KPIs zeigen nur `real_failure` + `unknown_failure` als rote Zahl.  
+**Enforcement:** `v_ops_job_failure_classification` (DB View), `JobFailureIntegrityPanel` (UI)  
+**Verstöße:** Falsche Failure-Zählung im Dashboard
+
+### INV-054: Enqueue-Dedupe-Guard
+**Regel:** Pro `(job_type, package_id, step_key)` darf maximal ein aktiver Job existieren (`pending`/`queued`/`processing`/`running`/`batch_pending`).  
+**Enforcement:** `enqueue_job_if_absent()` RPC (Runtime), Caller-Umstellung  
+**Verstöße:** Duplicate Job → Idempotent Return statt Insert
+
+### INV-055: Protected Stops sind keine Failures
+**Regel:** `STALE_LOCK_RECOVERY`, `Auto-healed duplicate job cancelled` und `OPS_GUARD: NON_BUILDING_PACKAGE` sind Schutzmechanismen, keine echten Fehler.  
+**Enforcement:** `v_ops_job_failure_classification` (DB), `JobFailureIntegrityPanel` (UI)
+
 ---
 
 ## Änderungshistorie
@@ -160,3 +174,4 @@ Jede Invariante referenziert ihren Enforcement-Mechanismus.
 | Datum | Änderung |
 |-------|----------|
 | 2026-03-15 | Initial Invariants erstellt |
+| 2026-03-15 | INV-053–055: Failure Classification, Enqueue Dedupe, Protected Stops |
