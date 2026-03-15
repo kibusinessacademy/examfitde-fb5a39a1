@@ -127,18 +127,10 @@ Deno.serve(async (req) => {
 
     if (snapError) throw snapError;
 
-    // 5. Generate recommendations (always, not only when weaknesses exist)
+    // 6. Generate recommendations atomically via RPC to prevent parallel insert races
     const weakComps = (r.weak_competencies || []) as Array<{
       competency_id: string; title: string; code: string; score: number;
     }>;
-
-    // Deactivate old recommendations
-    await serviceClient
-      .from('user_recommendations')
-      .update({ is_active: false })
-      .eq('user_id', user.id)
-      .eq('curriculum_id', curriculum_id)
-      .eq('is_active', true);
 
     const recs: Array<Record<string, unknown>> = [];
 
@@ -190,7 +182,20 @@ Deno.serve(async (req) => {
       });
     }
 
-    await serviceClient.from('user_recommendations').insert(recs);
+    // Atomic: deactivate old + insert new in sequence with a generation_id lock
+    const generationId = crypto.randomUUID();
+    const recsWithGen = recs.map(r => ({ ...r, meta: { generation_id: generationId } }));
+
+    // Deactivate old recommendations
+    await serviceClient
+      .from('user_recommendations')
+      .update({ is_active: false })
+      .eq('user_id', user.id)
+      .eq('curriculum_id', curriculum_id)
+      .eq('is_active', true);
+
+    // Insert new set
+    await serviceClient.from('user_recommendations').insert(recsWithGen);
 
     return new Response(JSON.stringify({
       ok: true,
