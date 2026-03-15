@@ -352,6 +352,8 @@ export default function KnowledgeGraphDashboard() {
             </TableBody>
           </Table>
         </CardContent>
+      </Card>
+
       {/* KG Canary A/B Test Results */}
       {canaryResults && canaryResults.length > 0 && (
         <Card>
