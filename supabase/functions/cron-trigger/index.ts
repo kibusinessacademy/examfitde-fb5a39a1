@@ -41,11 +41,26 @@ const SCHEDULE_TIERS: Record<string, { functions: string[]; bodies: Record<strin
     },
   },
   hourly: {
-    functions: ["unified-audit-runner"],
+    functions: ["unified-audit-runner", "knowledge-graph-rollout-orchestrator"],
     bodies: {
       "unified-audit-runner": JSON.stringify({
         scope: "hourly",
         mode: "safe_autofix",
+      }),
+      "knowledge-graph-rollout-orchestrator": JSON.stringify({
+        scope: "pending",
+        max_curricula: 5,
+        max_competencies_per_enrichment: 15,
+      }),
+    },
+  },
+  nightly: {
+    functions: ["knowledge-graph-rollout-orchestrator"],
+    bodies: {
+      "knowledge-graph-rollout-orchestrator": JSON.stringify({
+        scope: "all",
+        max_curricula: 50,
+        max_competencies_per_enrichment: 25,
       }),
     },
   },
