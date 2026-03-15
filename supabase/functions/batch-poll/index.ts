@@ -203,6 +203,19 @@ Deno.serve(async (req) => {
                 },
               },
             }).eq("id", batch.id);
+
+            // Auto-trigger domain importer (fire-and-forget)
+            try {
+              const importUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/batch-result-importer`;
+              fetch(importUrl, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+                },
+                body: JSON.stringify({ batch_id: batch.id }),
+              }).catch((e) => console.warn(`[batch-poll] batch-result-importer fire-and-forget failed: ${e}`));
+            } catch { /* non-fatal */ }
           } catch (dlErr) {
             console.error(`[batch-poll] Download/process failed for batch ${batch.id}:`, dlErr);
             await sb.from("llm_batches").update({
