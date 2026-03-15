@@ -18,6 +18,8 @@ import { getTimeBudget, shouldSoftStop } from "../_shared/time-budget.ts";
 import { handleDbFailure } from "../_shared/job-fail.ts";
 import { shouldUseBatch, BATCH_EXAM_MODEL } from "../_shared/batch/routing-config.ts";
 import { buildBatchRequests, submitBatchViaFunction } from "../_shared/batch/enqueue-openai.ts";
+import { getGraphContextForBlueprint } from "../_shared/knowledge-graph/query.ts";
+import type { GraphContext } from "../_shared/knowledge-graph/types.ts";
 
 /**
  * DOMINANZ-ENGINE v5: IHK-REALISTIC QUALITY GATES
@@ -542,6 +544,7 @@ function buildTurboPrompt(
   depthTopics: string[],
   glossaryContext?: string,
   masteryInjection?: string,
+  graphContext?: GraphContext | null,
 ): { system: string; user: string } {
   const diffLabel: Record<string, string> = {
     easy: "leicht", medium: "mittel", hard: "schwer", very_hard: "sehr schwer",
@@ -654,10 +657,20 @@ Nutze diese Fallen gezielt für die 3 Distraktoren!`;
     trapSpecBlock = `\n\nTypische Prüfungsfalle: ${bp.typical_exam_trap}`;
   }
 
+  // ── Inject Knowledge Graph context (Phase 2 — compact enrichment) ──
+  let graphBlock = "";
+  if (graphContext?.common_errors?.length) {
+    const errList = graphContext.common_errors.slice(0, 5).map((e) => `- ${e}`).join("\n");
+    graphBlock = `\n\n═══ HÄUFIGE FEHLER (Knowledge Graph) ═══
+Typische Fehler/Missverständnisse von Auszubildenden bei dieser Kompetenz:
+${errList}
+Nutze diese Fehlermuster gezielt für realistische Distraktoren!`;
+  }
+
   const user = `${count} Frage(n) für "${professionName}".
 Lernfeld: ${lfTitle}
 Thema: ${compTitle} — ${compDesc}
-Blueprint: ${bp.canonical_statement}${depthBlock}${trapSpecBlock}
+Blueprint: ${bp.canonical_statement}${depthBlock}${trapSpecBlock}${graphBlock}
 
 Kognitive Stufe: ${cognitiveLevel}
 Fragetyp: ${questionType}
@@ -722,7 +735,13 @@ async function generateRawCandidates(
     masteryInjection = buildMasteryFeedbackSuffix(masteryCtx);
   } catch { /* non-blocking */ }
 
-  const { system, user } = buildTurboPrompt(bp, difficulty, questionType, cognitiveLevel, count, lfTitle, compTitle, compDesc, professionName, depthTopics, glossaryContext, masteryInjection);
+  // ── Phase 2: Load Knowledge Graph context (non-blocking) ──
+  let graphCtx: GraphContext | null = null;
+  try {
+    graphCtx = await getGraphContextForBlueprint(sb, bp.id);
+  } catch { /* KG is optional — never blocks generation */ }
+
+  const { system, user } = buildTurboPrompt(bp, difficulty, questionType, cognitiveLevel, count, lfTitle, compTitle, compDesc, professionName, depthTopics, glossaryContext, masteryInjection, graphCtx);
 
   const maxTokens = count <= 2 ? 2200 : count <= 5 ? 3500 : 4096;
 
@@ -1464,10 +1483,16 @@ async function submitExamPoolBatch(
       if (lf) lfTitle = lf.title || "";
     }
 
+    // ── Phase 2: Load Knowledge Graph context for batch (non-blocking) ──
+    let graphCtx: GraphContext | null = null;
+    try {
+      graphCtx = await getGraphContextForBlueprint(sb, bp.id);
+    } catch { /* KG is optional */ }
+
     const { system, user } = buildTurboPrompt(
       bp, difficulty, questionType, cognitiveLevel,
       AI_QUESTIONS_PER_CALL, lfTitle, compTitle, compDesc,
-      ctx.professionName, [], ctx.glossaryContext, "",
+      ctx.professionName, [], ctx.glossaryContext, "", graphCtx,
     );
 
     const customId = `exam_${ctx.curriculumId.slice(0, 8)}_bp${bp.id.slice(0, 8)}_${i}_${Date.now()}`;
