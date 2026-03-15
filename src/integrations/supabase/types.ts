@@ -12007,6 +12007,7 @@ export type Database = {
           normalized_hash: string | null
           options: Json
           qc_status: string | null
+          question_fingerprint: string | null
           question_text: string
           question_type: string
           reviewed_at: string | null
@@ -12055,6 +12056,7 @@ export type Database = {
           normalized_hash?: string | null
           options: Json
           qc_status?: string | null
+          question_fingerprint?: string | null
           question_text: string
           question_type?: string
           reviewed_at?: string | null
@@ -12103,6 +12105,7 @@ export type Database = {
           normalized_hash?: string | null
           options?: Json
           qc_status?: string | null
+          question_fingerprint?: string | null
           question_text?: string
           question_type?: string
           reviewed_at?: string | null
