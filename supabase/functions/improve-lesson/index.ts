@@ -6,6 +6,11 @@ import { getModelChainAsync } from "../_shared/model-routing.ts";
 import { resolveProfessionFromCourse } from "../_shared/profession-resolver.ts";
 import { measureDepth } from "../_shared/prompt-kit.ts";
 import { canonicalStepKey } from "../_shared/step-keys.ts";
+import { bootstrapLLMLogging } from "../_shared/llm-log-bootstrap.ts";
+import { getModelChainAsync } from "../_shared/model-routing.ts";
+import { resolveProfessionFromCourse } from "../_shared/profession-resolver.ts";
+import { measureDepth } from "../_shared/prompt-kit.ts";
+import { canonicalStepKey } from "../_shared/step-keys.ts";
 
 /**
  * AI Lesson Improvement Agent (Council-Compliant, Profession-Aware)
