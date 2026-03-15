@@ -132,6 +132,7 @@ Deno.serve(async (req) => {
 
   try {
     const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+    bootstrapLLMLogging(supabase, "improve_lesson");
 
     const body = await req.json().catch(() => ({}));
     const { courseId, auditId, maxLessons = 3 } = body;

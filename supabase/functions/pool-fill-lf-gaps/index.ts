@@ -3,6 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { callAIJSON } from "../_shared/ai-client.ts";
 import { getModelChainAsync } from "../_shared/model-routing.ts";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
+import { bootstrapLLMLogging } from "../_shared/llm-log-bootstrap.ts";
 
 /**
  * pool-fill-lf-gaps — Targeted LF gap-fill worker
