@@ -194,15 +194,26 @@ export default function KnowledgeGraphDashboard() {
         </Card>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Node distribution */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Knoten nach Typ</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? <Skeleton className="h-32" /> : (
-              <div className="space-y-2">
+      {/* Provenance breakdown */}
+      {provenanceCounts && Object.keys(provenanceCounts).length > 0 && (
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
+          {Object.entries(provenanceCounts).sort(([,a], [,b]) => b - a).map(([prov, count]) => (
+            <Card key={prov}>
+              <CardContent className="pt-3 pb-3">
+                <div className="flex items-center gap-2">
+                  {prov === 'ai_enriched' ? (
+                    <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+                  ) : (
+                    <AlertTriangle className="h-3.5 w-3.5 text-muted-foreground" />
+                  )}
+                  <span className="text-xs text-muted-foreground">error_pattern · {prov}</span>
+                </div>
+                <p className="text-xl font-bold text-foreground mt-1">{count}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
                 {Object.entries(nodeCounts || {}).sort(([,a], [,b]) => b - a).map(([type, count]) => {
                   const Icon = nodeTypeIcons[type] || Network;
                   const pct = totalNodes ? Math.round((count / totalNodes) * 100) : 0;
