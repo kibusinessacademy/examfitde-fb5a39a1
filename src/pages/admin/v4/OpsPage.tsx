@@ -54,6 +54,7 @@ const tabs = [
   { path: '/admin/ops/schema', label: '🛡️ Schema SSOT' },
   { path: '/admin/ops/ai-gateway', label: '🚀 AI Gateway' },
   { path: '/admin/ops/knowledge-graph', label: '🧠 Knowledge Graph' },
+  { path: '/admin/ops/batch-recovery', label: '🔄 Batch Recovery' },
 ];
 
 export default function OpsPage() {
