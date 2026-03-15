@@ -13,6 +13,7 @@ type AdminOpsAction =
   | 'retry_package_step'
   | 'cancel_package_build'
   | 'force_unlock_package'
+  | 'unblock_package'
   | 'approve_step_exception'
   | 'workspace_snapshot';
 
@@ -63,4 +64,8 @@ export async function approveStepException(packageId: string, stepKey: string, r
 
 export async function getWorkspaceSnapshot(packageId: string) {
   return runAdminOpsAction('workspace_snapshot', { package_id: packageId });
+}
+
+export async function unblockPackage(packageId: string, reason: string) {
+  return runAdminOpsAction('unblock_package', { package_id: packageId, reason });
 }

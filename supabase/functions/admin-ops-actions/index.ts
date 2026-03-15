@@ -144,6 +144,15 @@ Deno.serve(async (req) => {
         result = await forceUnlockPackage(sb, pid);
         break;
       }
+      case "unblock_package": {
+        const pid = String(body.package_id || "");
+        if (!pid) return json({ error: "package_id required" }, 400);
+        const reason = String(body.reason || "admin_manual_unblock");
+        beforeState = { package_id: pid };
+        affectedIds = [pid];
+        result = await unblockPackage(sb, pid, reason);
+        break;
+      }
       case "approve_step_exception": {
         const pid = String(body.package_id || "");
         const sk = String(body.step_key || "");
@@ -464,6 +473,43 @@ async function forceUnlockPackage(sb: SB, packageId: string) {
     .select("package_id");
   if (error) throw error;
   return { ok: true, locks_removed: data?.length ?? 0, scope: "single_package" };
+}
+
+/* ── unblock_package — sets blocked → building, clears loop guards on steps ── */
+async function unblockPackage(sb: SB, packageId: string, reason: string) {
+  // 1. Set package status from blocked → building
+  const { error: pkgErr } = await sb.from("course_packages")
+    .update({ status: "building", updated_at: new Date().toISOString() })
+    .eq("id", packageId)
+    .eq("status", "blocked");
+  if (pkgErr) throw pkgErr;
+
+  // 2. Remove locks
+  await sb.from("course_package_locks").delete().eq("package_id", packageId);
+
+  // 3. Reset any blocked steps back to queued, clear loop guard meta
+  const { data: blockedSteps } = await sb.from("package_steps")
+    .select("step_key, meta")
+    .eq("package_id", packageId)
+    .eq("status", "blocked");
+
+  const resetStepKeys: string[] = [];
+  for (const step of (blockedSteps || [])) {
+    const meta = (step as any).meta || {};
+    const cleanedMeta = {
+      ...meta,
+      loop_guard_blocked: false,
+      unblocked_at: new Date().toISOString(),
+      unblock_reason: reason,
+    };
+    await sb.from("package_steps")
+      .update({ status: "queued", meta: cleanedMeta, updated_at: new Date().toISOString() })
+      .eq("package_id", packageId)
+      .eq("step_key", (step as any).step_key);
+    resetStepKeys.push((step as any).step_key);
+  }
+
+  return { ok: true, reset_steps: resetStepKeys, reason, scope: "single_package" };
 }
 
 /* ── approve_step_exception ── */
