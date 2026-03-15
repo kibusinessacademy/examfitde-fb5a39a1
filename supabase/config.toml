@@ -438,3 +438,9 @@ verify_jwt = false
 
 [functions.anthropic-batch-poll]
 verify_jwt = false
+
+[functions.batch-submit]
+verify_jwt = false
+
+[functions.batch-poll]
+verify_jwt = false
