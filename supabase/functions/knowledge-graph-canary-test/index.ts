@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
     const professionName = curriculum?.title || "Kaufmann/-frau";
 
     // Pick random blueprints that have competency + learning field
-    const { data: blueprints } = await sb
+    const { data: blueprints, error: bpErr } = await sb
       .from("question_blueprints")
       .select("id, canonical_statement, competency_id, learning_field_id, bloom_level, question_type, typical_exam_trap")
       .eq("curriculum_id", curriculum_id)
@@ -69,7 +69,9 @@ Deno.serve(async (req) => {
       .not("learning_field_id", "is", null)
       .limit(100);
 
-    if (!blueprints?.length) return json({ error: "No blueprints found" }, 404);
+    console.log(`[KG-Canary] Blueprint query: found=${blueprints?.length || 0}, error=${bpErr?.message || 'none'}`);
+    if (bpErr) return json({ error: "Blueprint query failed: " + bpErr.message }, 500);
+    if (!blueprints?.length) return json({ error: "No blueprints found for curriculum " + curriculum_id }, 404);
 
     // Shuffle and take N
     const shuffled = blueprints.sort(() => Math.random() - 0.5).slice(0, max_blueprints);
