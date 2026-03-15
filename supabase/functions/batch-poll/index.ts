@@ -196,13 +196,14 @@ Deno.serve(async (req) => {
               processedCount++;
             }
 
-            // Mark output as imported
+            // Mark output as imported with observability counters
             await sb.from("llm_batches").update({
               output_imported_at: now,
               metadata: {
                 ...((batch.metadata as any) || {}),
                 last_poll_raw: poll.raw,
                 import_stats: {
+                  output_row_count: rows.length,
                   rows_processed: processedCount,
                   total_cost_eur: Math.round(totalCostEur * 1e6) / 1e6,
                   pricing_source: PRICING_META.source,
@@ -249,6 +250,10 @@ Deno.serve(async (req) => {
 
             await sb.from("llm_batches").update({
               error_imported_at: now,
+              metadata: {
+                ...((batch.metadata as any) || {}),
+                error_file_row_count: errRows.length,
+              },
             }).eq("id", batch.id);
 
             errorImported = true;
@@ -265,22 +270,47 @@ Deno.serve(async (req) => {
 
         // Fix #2: Only set results_imported_at when BOTH output and error are done
         if (outputImported && errorImported && !alreadyImported && isTerminal) {
+          // Count missing results for observability
+          const { count: missingCount } = await sb
+            .from("llm_batch_requests")
+            .select("id", { count: "exact", head: true })
+            .eq("batch_id", batch.id)
+            .in("status", ["queued", "submitted"]);
+
           await sb.from("llm_batches").update({
             results_imported_at: now,
+            metadata: {
+              ...((batch.metadata as any) || {}),
+              missing_result_count: missingCount ?? 0,
+            },
           }).eq("id", batch.id);
 
-          // Auto-trigger domain importer (fire-and-forget)
-          try {
-            const importUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/batch-result-importer`;
-            fetch(importUrl, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-              },
-              body: JSON.stringify({ batch_id: batch.id }),
-            }).catch((e) => console.warn(`[batch-poll] batch-result-importer fire-and-forget failed: ${e}`));
-          } catch { /* non-fatal */ }
+          // Auto-trigger domain importer with atomicity guard
+          // Only trigger if domain_import_started_at is still NULL
+          const { data: guardCheck } = await sb
+            .from("llm_batches")
+            .select("domain_import_started_at")
+            .eq("id", batch.id)
+            .is("domain_import_started_at", null)
+            .single();
+
+          if (guardCheck) {
+            await sb.from("llm_batches").update({
+              domain_import_started_at: now,
+            }).eq("id", batch.id);
+
+            try {
+              const importUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/batch-result-importer`;
+              fetch(importUrl, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+                },
+                body: JSON.stringify({ batch_id: batch.id }),
+              }).catch((e) => console.warn(`[batch-poll] batch-result-importer fire-and-forget failed: ${e}`));
+            } catch { /* non-fatal */ }
+          }
         }
 
         // ── Terminal state reconciliation ──

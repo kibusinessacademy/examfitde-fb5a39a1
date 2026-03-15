@@ -15422,6 +15422,7 @@ export type Database = {
           cost_usd: number | null
           created_at: string
           custom_id: string
+          domain_imported_at: string | null
           endpoint: string
           error_body: Json | null
           id: string
@@ -15450,6 +15451,7 @@ export type Database = {
           cost_usd?: number | null
           created_at?: string
           custom_id: string
+          domain_imported_at?: string | null
           endpoint?: string
           error_body?: Json | null
           id?: string
@@ -15478,6 +15480,7 @@ export type Database = {
           cost_usd?: number | null
           created_at?: string
           custom_id?: string
+          domain_imported_at?: string | null
           endpoint?: string
           error_body?: Json | null
           id?: string
@@ -15522,6 +15525,9 @@ export type Database = {
           completion_window: string
           created_at: string
           created_by: string | null
+          domain_import_completed_at: string | null
+          domain_import_error: string | null
+          domain_import_started_at: string | null
           endpoint: string
           error_file_id: string | null
           error_imported_at: string | null
@@ -15556,6 +15562,9 @@ export type Database = {
           completion_window?: string
           created_at?: string
           created_by?: string | null
+          domain_import_completed_at?: string | null
+          domain_import_error?: string | null
+          domain_import_started_at?: string | null
           endpoint?: string
           error_file_id?: string | null
           error_imported_at?: string | null
@@ -15590,6 +15599,9 @@ export type Database = {
           completion_window?: string
           created_at?: string
           created_by?: string | null
+          domain_import_completed_at?: string | null
+          domain_import_error?: string | null
+          domain_import_started_at?: string | null
           endpoint?: string
           error_file_id?: string | null
           error_imported_at?: string | null
@@ -34396,6 +34408,9 @@ export type Database = {
           completed_at: string | null
           completed_count: number | null
           created_at: string | null
+          domain_import_completed_at: string | null
+          domain_import_error: string | null
+          domain_import_started_at: string | null
           error_file_id: string | null
           error_imported_at: string | null
           failed_count: number | null
@@ -34422,6 +34437,9 @@ export type Database = {
           completed_at?: string | null
           completed_count?: number | null
           created_at?: string | null
+          domain_import_completed_at?: string | null
+          domain_import_error?: string | null
+          domain_import_started_at?: string | null
           error_file_id?: string | null
           error_imported_at?: string | null
           failed_count?: number | null
@@ -34448,6 +34466,9 @@ export type Database = {
           completed_at?: string | null
           completed_count?: number | null
           created_at?: string | null
+          domain_import_completed_at?: string | null
+          domain_import_error?: string | null
+          domain_import_started_at?: string | null
           error_file_id?: string | null
           error_imported_at?: string | null
           failed_count?: number | null
