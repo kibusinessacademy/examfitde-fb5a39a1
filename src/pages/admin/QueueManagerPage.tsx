@@ -191,7 +191,7 @@ export default function QueueManagerPage() {
                 <div className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-muted/50 transition-colors">
                   <div className="w-6" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{pkg.title || pkg.id.substring(0, 12)}</p>
+                    <p className="text-sm font-medium truncate">{resolveTitle(canonicalTitles, pkg.id, pkg.title)}</p>
                     <p className="text-xs text-muted-foreground">Prio {pkg.priority} · {pkg.build_progress}%</p>
                   </div>
                   <Badge variant="outline" className="bg-primary/10 text-primary text-xs">
