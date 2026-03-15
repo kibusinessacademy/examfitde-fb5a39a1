@@ -217,7 +217,14 @@ export default function LearnerDashboard() {
           </div>
         )}
 
-        {/* ━━━ SECTION 0: Growth Council Nudge ━━━ */}
+        {/* ━━━ SECTION 0: ExamFit v2 Insights ━━━ */}
+        {activeCurriculumId && (
+          <div className="mb-6">
+            <ExamFitInsightsPanel curriculumId={activeCurriculumId} />
+          </div>
+        )}
+
+        {/* ━━━ SECTION 0b: Growth Council Nudge ━━━ */}
         <div className="mb-4">
           <NextBestActionCard />
         </div>
