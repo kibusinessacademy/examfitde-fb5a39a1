@@ -461,8 +461,14 @@ type BatchImporter = (
 ) => Promise<{ successCount: number; failCount: number; details: ImportResult[] }>;
 
 const IMPORTERS: Record<string, BatchImporter> = {
+  // Canonical job_type names — MUST match BATCH_JOB_TYPES constants
+  lesson_generate_content: importLearningContentBatch,
+  package_generate_exam_pool: importExamPoolBatch,
+  // Legacy aliases (to be removed after migration)
   exam_pool_generate: importExamPoolBatch,
   learning_content: importLearningContentBatch,
+  // Stubs
+  expand_handbook_section: importHandbookSectionBatch,
   handbook_section: importHandbookSectionBatch,
   blueprint_enrich: importBlueprintEnrichBatch,
 };

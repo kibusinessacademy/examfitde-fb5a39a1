@@ -13,7 +13,7 @@ export interface BuildChatCompletionArgs {
   responseFormat?: Record<string, unknown> | null;
   sourceJobId?: string | null;
   sourceTable?: string | null;
-  sourceRef?: string | null;
+  sourceRef?: Record<string, unknown> | null;
   jobType: string;
 }
 

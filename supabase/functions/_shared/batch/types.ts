@@ -22,7 +22,7 @@ export interface NormalizedBatchRequest {
   custom_id: string;
   source_job_id?: string | null;
   source_table?: string | null;
-  source_ref?: string | null;
+  source_ref?: Record<string, unknown> | null;
   job_type: string;
   model: string;
   endpoint: string;
