@@ -145,7 +145,7 @@ export default function LessonPlayer() {
         const [courseResult, lessonsResult] = await Promise.all([
           supabase
             .from('courses')
-            .select('id, title')
+            .select('id, title, curriculum_id')
             .eq('id', moduleData.course_id)
             .single(),
           supabase
