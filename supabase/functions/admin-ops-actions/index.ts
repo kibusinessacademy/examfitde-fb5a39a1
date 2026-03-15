@@ -118,12 +118,54 @@ Deno.serve(async (req) => {
       case "root_cause_summary":
         result = await rootCauseSummary(sb, body);
         break;
+
+      /* ── Workspace SSOT Actions ── */
+      case "retry_package_step": {
+        const pid = String(body.package_id || "");
+        const sk = String(body.step_key || "");
+        if (!pid || !sk) return json({ error: "package_id and step_key required" }, 400);
+        beforeState = { package_id: pid, step_key: sk };
+        affectedIds = [`${pid}:${sk}`];
+        result = await retryPackageStep(sb, pid, sk, body);
+        break;
+      }
+      case "cancel_package_build": {
+        const pid = String(body.package_id || "");
+        if (!pid) return json({ error: "package_id required" }, 400);
+        beforeState = { package_id: pid };
+        affectedIds = [pid];
+        result = await cancelPackageBuild(sb, pid);
+        break;
+      }
+      case "force_unlock_package": {
+        const pid = String(body.package_id || "");
+        if (!pid) return json({ error: "package_id required" }, 400);
+        affectedIds = [pid];
+        result = await forceUnlockPackage(sb, pid);
+        break;
+      }
+      case "approve_step_exception": {
+        const pid = String(body.package_id || "");
+        const sk = String(body.step_key || "");
+        const reason = String(body.reason || "");
+        if (!pid || !sk || !reason) return json({ error: "package_id, step_key, and reason required" }, 400);
+        affectedIds = [`${pid}:${sk}`];
+        result = await approveStepException(sb, pid, sk, reason, user.id);
+        break;
+      }
+      case "workspace_snapshot": {
+        const pid = String(body.package_id || "");
+        if (!pid) return json({ error: "package_id required" }, 400);
+        result = await workspaceSnapshot(sb, pid);
+        break;
+      }
+
       default:
         return json({ error: `Unknown action: ${action}` }, 400);
     }
 
     // Audit log with before/after (fire-and-forget) — skip read-only
-    if (action !== "root_cause_summary") {
+    if (action !== "root_cause_summary" && action !== "workspace_snapshot") {
       auditLog(sb, user.id, action, body, result, beforeState, affectedIds);
     }
 
@@ -351,4 +393,149 @@ async function recoverFailedPackages(sb: SB, body: JsonRow) {
   }
 
   return { ok: true, recovered: details.length, details, scope: body.package_id ? "single" : "global" };
+}
+
+/* ── retry_package_step ── */
+async function retryPackageStep(sb: SB, packageId: string, stepKey: string, body: JsonRow) {
+  // Reset the step
+  const { error: stepErr } = await sb.from("package_steps")
+    .update({ status: "queued", last_error: null, meta: null, started_at: null, finished_at: null, attempts: 0, updated_at: new Date().toISOString() })
+    .eq("package_id", packageId).eq("step_key", stepKey);
+  if (stepErr) throw stepErr;
+
+  // Fetch package context for job payload
+  const { data: pkg } = await sb.from("course_packages")
+    .select("course_id, curriculum_id, certification_id")
+    .eq("id", packageId).single();
+
+  // Enqueue a new job
+  const { error: jobErr } = await sb.from("job_queue").insert({
+    job_type: `package_${stepKey}`,
+    status: "pending",
+    attempts: 0,
+    max_attempts: 3,
+    run_after: new Date().toISOString(),
+    payload: {
+      job_version: "course_studio_v2",
+      package_id: packageId,
+      step_key: stepKey,
+      course_id: (pkg as any)?.course_id || null,
+      curriculum_id: (pkg as any)?.curriculum_id || null,
+      certification_id: (pkg as any)?.certification_id || null,
+    },
+  });
+  if (jobErr) throw jobErr;
+
+  return { ok: true, step_key: stepKey, scope: "single_step" };
+}
+
+/* ── cancel_package_build ── */
+async function cancelPackageBuild(sb: SB, packageId: string) {
+  // Cancel pending/processing jobs
+  const { data: jobs } = await sb.from("job_queue")
+    .select("id")
+    .or(`payload->>package_id.eq.${packageId}`)
+    .in("status", ["pending", "processing"]);
+  
+  if (jobs?.length) {
+    const ids = (jobs as any[]).map((j: any) => j.id);
+    await sb.from("job_queue")
+      .update({ status: "failed", last_error: "Cancelled by admin", updated_at: new Date().toISOString() })
+      .in("id", ids);
+  }
+
+  // Reset package status
+  const { error: pkgErr } = await sb.from("course_packages")
+    .update({ status: "draft", build_progress: 0, updated_at: new Date().toISOString() })
+    .eq("id", packageId);
+  if (pkgErr) throw pkgErr;
+
+  // Remove locks
+  await sb.from("course_package_locks").delete().eq("package_id", packageId);
+
+  return { ok: true, jobs_cancelled: jobs?.length ?? 0, scope: "single_package" };
+}
+
+/* ── force_unlock_package ── */
+async function forceUnlockPackage(sb: SB, packageId: string) {
+  const { data, error } = await sb.from("course_package_locks")
+    .delete()
+    .eq("package_id", packageId)
+    .select("package_id");
+  if (error) throw error;
+  return { ok: true, locks_removed: data?.length ?? 0, scope: "single_package" };
+}
+
+/* ── approve_step_exception ── */
+async function approveStepException(sb: SB, packageId: string, stepKey: string, reason: string, userId: string) {
+  const { error } = await sb.from("package_steps")
+    .update({
+      status: "done",
+      exception_approved: true,
+      exception_reason: reason,
+      exception_approved_by: userId,
+      exception_approved_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("package_id", packageId)
+    .eq("step_key", stepKey);
+  if (error) throw error;
+  return { ok: true, step_key: stepKey, scope: "single_step" };
+}
+
+/* ── workspace_snapshot (read-only) ── */
+async function workspaceSnapshot(sb: SB, packageId: string) {
+  // Package info
+  const { data: pkg, error: pkgErr } = await sb.from("course_packages")
+    .select("id, title, status, build_progress, integrity_passed, council_approved, council_approved_at, track, feature_flags, certification_id, course_id, curriculum_id, created_at, updated_at")
+    .eq("id", packageId).single();
+  if (pkgErr) throw pkgErr;
+
+  // Steps
+  const { data: steps } = await sb.from("package_steps")
+    .select("step_key, status, attempts, max_attempts, last_error, started_at, finished_at, meta")
+    .eq("package_id", packageId)
+    .order("sort_order", { ascending: true });
+
+  // Active locks
+  const { data: locks } = await sb.from("course_package_locks")
+    .select("lock_type, locked_at, locked_by")
+    .eq("package_id", packageId);
+
+  // Active jobs
+  const { data: jobs } = await sb.from("job_queue")
+    .select("id, job_type, status, attempts, last_error, created_at")
+    .or(`payload->>package_id.eq.${packageId}`)
+    .in("status", ["pending", "processing"])
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  // Councils
+  const { data: councils } = await sb.from("council_sessions")
+    .select("council_type, status, decision, decided_at")
+    .eq("package_id", packageId);
+
+  // Compute derived KPIs
+  const allSteps = (steps || []) as any[];
+  const doneCount = allSteps.filter((s: any) => s.status === "done" || s.status === "skipped").length;
+  const failedCount = allSteps.filter((s: any) => s.status === "failed").length;
+  const totalCount = allSteps.length;
+  const progressPct = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
+
+  return {
+    ok: true,
+    package: pkg,
+    steps: steps || [],
+    locks: locks || [],
+    active_jobs: jobs || [],
+    councils: councils || [],
+    kpi: {
+      progress_pct: progressPct,
+      done: doneCount,
+      failed: failedCount,
+      total: totalCount,
+      has_locks: (locks?.length ?? 0) > 0,
+      active_jobs_count: jobs?.length ?? 0,
+    },
+  };
 }
