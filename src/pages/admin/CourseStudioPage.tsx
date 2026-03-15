@@ -109,7 +109,7 @@ function PackageList({ onSelect }: { onSelect: (id: string) => void }) {
                 <CardContent className="p-4 flex flex-col sm:flex-row items-start sm:items-center gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-semibold text-sm truncate">{pkg.title || 'Unbenannt'}</h3>
+                      <h3 className="font-semibold text-sm truncate">{pkg.canonical_title || pkg.title || 'Unbenannt'}</h3>
                       <Badge variant="outline" className={cn("text-xs shrink-0", statusInfo.color)}>
                         <StatusIcon className="h-3 w-3 mr-1" />{statusInfo.label}
                       </Badge>

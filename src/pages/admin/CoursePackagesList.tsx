@@ -357,7 +357,7 @@ export default function CoursePackagesList() {
                           <span className="font-mono text-[10px] opacity-60" title={pkg.id}>
                             {pkg.id.substring(0, 8)}
                           </span>
-                          {pkg.council_approved && pkg.council_approved_at && pkg.status === 'published' && (
+                          {pkg.council_approved_at && pkg.status === 'published' && (
                             <span className="flex items-center gap-1">
                               <CheckCircle2 className="h-3 w-3 text-success" /> Council OK
                             </span>
