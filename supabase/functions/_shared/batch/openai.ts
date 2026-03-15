@@ -1,6 +1,6 @@
 /**
- * OpenAI Batch API adapter.
- * Handles: JSONL build → File upload → Batch create → Poll → Download + parse results.
+ * OpenAI Batch API adapter — hardened.
+ * JSONL build → File upload (with 200MB guard) → Batch create → Poll → Download + parse.
  */
 import type {
   BatchCreateInput,
@@ -13,6 +13,8 @@ import type {
 
 const OPENAI_BASE_URL =
   Deno.env.get("OPENAI_BASE_URL") || "https://api.openai.com/v1";
+
+const MAX_INPUT_BYTES = 200 * 1024 * 1024; // 200 MB OpenAI limit
 
 function getApiKey(): string {
   const key = Deno.env.get("OPENAI_API_KEY");
@@ -49,8 +51,17 @@ function toJsonl(input: BatchCreateInput): string {
 
 async function uploadFile(
   jsonl: string,
-): Promise<{ id: string; raw: Record<string, unknown> }> {
+): Promise<{ id: string; bytes: number; raw: Record<string, unknown> }> {
   const key = getApiKey();
+
+  // Fix #6: 200 MB guard
+  const bytes = new TextEncoder().encode(jsonl).byteLength;
+  if (bytes > MAX_INPUT_BYTES) {
+    throw new Error(
+      `Batch input exceeds 200 MB limit (${(bytes / 1024 / 1024).toFixed(1)} MB)`,
+    );
+  }
+
   const form = new FormData();
   form.append("purpose", "batch");
   form.append(
@@ -67,7 +78,7 @@ async function uploadFile(
 
   const raw = await res.json();
   if (!res.ok) throw new Error(`OpenAI file upload failed: ${JSON.stringify(raw)}`);
-  return { id: raw.id, raw };
+  return { id: raw.id, bytes, raw };
 }
 
 export const openAIBatchAdapter: BatchProviderAdapter = {
@@ -105,7 +116,7 @@ export const openAIBatchAdapter: BatchProviderAdapter = {
       error_file_id: raw.error_file_id ?? null,
       status: mapStatus(raw.status),
       request_count: input.requests.length,
-      raw,
+      raw: { ...raw, input_bytes: upload.bytes },
     };
   },
 
@@ -162,12 +173,22 @@ export const openAIBatchAdapter: BatchProviderAdapter = {
       .map((l) => l.trim())
       .filter(Boolean)
       .map((line) => {
-        const row = JSON.parse(line);
+        try {
+          return JSON.parse(line);
+        } catch {
+          console.warn("[openai-batch] Skipping unparseable JSONL line");
+          return null;
+        }
+      })
+      .filter(Boolean)
+      .map((row: any) => {
         const body = row.response?.body ?? null;
         const usage = body?.usage ?? null;
+        // Fix #4: robust success check
+        const httpStatus = row.response?.status_code ?? null;
         return {
           custom_id: row.custom_id,
-          response_http_status: row.response?.status_code ?? null,
+          response_http_status: httpStatus,
           response_body: body,
           error_body: row.error ?? null,
           usage_data: usage
@@ -187,4 +208,29 @@ export const openAIBatchAdapter: BatchProviderAdapter = {
         };
       });
   },
-};
+
+  /** Fix #3: Separate error file parser — more defensive */
+  parseErrorJsonl(content: string): ParsedBatchOutputRow[] {
+    return content
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .map((line) => {
+        try {
+          const row = JSON.parse(line);
+          return {
+            custom_id: row.custom_id,
+            response_http_status: row.response?.status_code ?? null,
+            response_body: null,
+            error_body: row.error ?? { code: "unknown", message: "Parse error" },
+            usage_data: null,
+            raw: row,
+          };
+        } catch {
+          console.warn("[openai-batch] Skipping unparseable error JSONL line");
+          return null;
+        }
+      })
+      .filter(Boolean) as ParsedBatchOutputRow[];
+  },
+} as BatchProviderAdapter & { parseErrorJsonl: (content: string) => ParsedBatchOutputRow[] };

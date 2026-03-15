@@ -15531,14 +15531,18 @@ export type Database = {
           input_file_id: string | null
           input_file_path: string | null
           job_type: string
+          last_poll_error: string | null
           last_polled_at: string | null
           metadata: Json
           model: string
+          next_poll_after: string | null
           output_file_id: string | null
+          poll_error_count: number
           provider: string
           provider_batch_id: string | null
           provider_request_counts: Json
           request_count: number
+          results_imported_at: string | null
           status: string
           submitted_at: string | null
           updated_at: string
@@ -15558,14 +15562,18 @@ export type Database = {
           input_file_id?: string | null
           input_file_path?: string | null
           job_type: string
+          last_poll_error?: string | null
           last_polled_at?: string | null
           metadata?: Json
           model: string
+          next_poll_after?: string | null
           output_file_id?: string | null
+          poll_error_count?: number
           provider: string
           provider_batch_id?: string | null
           provider_request_counts?: Json
           request_count?: number
+          results_imported_at?: string | null
           status?: string
           submitted_at?: string | null
           updated_at?: string
@@ -15585,14 +15593,18 @@ export type Database = {
           input_file_id?: string | null
           input_file_path?: string | null
           job_type?: string
+          last_poll_error?: string | null
           last_polled_at?: string | null
           metadata?: Json
           model?: string
+          next_poll_after?: string | null
           output_file_id?: string | null
+          poll_error_count?: number
           provider?: string
           provider_batch_id?: string | null
           provider_request_counts?: Json
           request_count?: number
+          results_imported_at?: string | null
           status?: string
           submitted_at?: string | null
           updated_at?: string
@@ -34350,12 +34362,16 @@ export type Database = {
           id: string | null
           input_file_id: string | null
           job_type: string | null
+          last_poll_error: string | null
           last_polled_at: string | null
           model: string | null
+          next_poll_after: string | null
           output_file_id: string | null
+          poll_error_count: number | null
           provider: string | null
           provider_batch_id: string | null
           request_count: number | null
+          results_imported_at: string | null
           status: string | null
           submitted_at: string | null
           updated_at: string | null
@@ -34369,12 +34385,16 @@ export type Database = {
           id?: string | null
           input_file_id?: string | null
           job_type?: string | null
+          last_poll_error?: string | null
           last_polled_at?: string | null
           model?: string | null
+          next_poll_after?: string | null
           output_file_id?: string | null
+          poll_error_count?: number | null
           provider?: string | null
           provider_batch_id?: string | null
           request_count?: number | null
+          results_imported_at?: string | null
           status?: string | null
           submitted_at?: string | null
           updated_at?: string | null
@@ -34388,12 +34408,16 @@ export type Database = {
           id?: string | null
           input_file_id?: string | null
           job_type?: string | null
+          last_poll_error?: string | null
           last_polled_at?: string | null
           model?: string | null
+          next_poll_after?: string | null
           output_file_id?: string | null
+          poll_error_count?: number | null
           provider?: string | null
           provider_batch_id?: string | null
           request_count?: number | null
+          results_imported_at?: string | null
           status?: string | null
           submitted_at?: string | null
           updated_at?: string | null
