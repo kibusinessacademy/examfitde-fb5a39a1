@@ -1099,6 +1099,141 @@ export type Database = {
         }
         Relationships: []
       }
+      anthropic_batch_requests: {
+        Row: {
+          batch_id: string | null
+          cache_creation_input_tokens: number | null
+          cache_read_input_tokens: number | null
+          completed_at: string | null
+          cost_eur: number | null
+          created_at: string
+          custom_id: string
+          error_message: string | null
+          expires_at: string | null
+          id: string
+          intent: string | null
+          job_id: string | null
+          job_type: string
+          model: string
+          package_id: string | null
+          priority: number | null
+          request_params: Json
+          result_content: string | null
+          result_stop_reason: string | null
+          result_usage: Json | null
+          status: string
+          submitted_at: string | null
+          tokens_in: number | null
+          tokens_out: number | null
+        }
+        Insert: {
+          batch_id?: string | null
+          cache_creation_input_tokens?: number | null
+          cache_read_input_tokens?: number | null
+          completed_at?: string | null
+          cost_eur?: number | null
+          created_at?: string
+          custom_id: string
+          error_message?: string | null
+          expires_at?: string | null
+          id?: string
+          intent?: string | null
+          job_id?: string | null
+          job_type: string
+          model?: string
+          package_id?: string | null
+          priority?: number | null
+          request_params?: Json
+          result_content?: string | null
+          result_stop_reason?: string | null
+          result_usage?: Json | null
+          status?: string
+          submitted_at?: string | null
+          tokens_in?: number | null
+          tokens_out?: number | null
+        }
+        Update: {
+          batch_id?: string | null
+          cache_creation_input_tokens?: number | null
+          cache_read_input_tokens?: number | null
+          completed_at?: string | null
+          cost_eur?: number | null
+          created_at?: string
+          custom_id?: string
+          error_message?: string | null
+          expires_at?: string | null
+          id?: string
+          intent?: string | null
+          job_id?: string | null
+          job_type?: string
+          model?: string
+          package_id?: string | null
+          priority?: number | null
+          request_params?: Json
+          result_content?: string | null
+          result_stop_reason?: string | null
+          result_usage?: Json | null
+          status?: string
+          submitted_at?: string | null
+          tokens_in?: number | null
+          tokens_out?: number | null
+        }
+        Relationships: []
+      }
+      anthropic_batches: {
+        Row: {
+          batch_id: string
+          completed_count: number | null
+          created_at: string
+          ended_at: string | null
+          expires_at: string | null
+          failed_count: number | null
+          id: string
+          meta: Json | null
+          model: string
+          request_count: number
+          status: string
+          submitted_at: string | null
+          total_cost_eur: number | null
+          total_tokens_in: number | null
+          total_tokens_out: number | null
+        }
+        Insert: {
+          batch_id: string
+          completed_count?: number | null
+          created_at?: string
+          ended_at?: string | null
+          expires_at?: string | null
+          failed_count?: number | null
+          id?: string
+          meta?: Json | null
+          model?: string
+          request_count?: number
+          status?: string
+          submitted_at?: string | null
+          total_cost_eur?: number | null
+          total_tokens_in?: number | null
+          total_tokens_out?: number | null
+        }
+        Update: {
+          batch_id?: string
+          completed_count?: number | null
+          created_at?: string
+          ended_at?: string | null
+          expires_at?: string | null
+          failed_count?: number | null
+          id?: string
+          meta?: Json | null
+          model?: string
+          request_count?: number
+          status?: string
+          submitted_at?: string | null
+          total_cost_eur?: number | null
+          total_tokens_in?: number | null
+          total_tokens_out?: number | null
+        }
+        Relationships: []
+      }
       api_rate_limits: {
         Row: {
           action_key: string
