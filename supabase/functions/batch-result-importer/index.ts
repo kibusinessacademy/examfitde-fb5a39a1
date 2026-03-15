@@ -270,6 +270,24 @@ async function importExamPoolBatch(
         };
         const mappedCogLevel = cogLevelMap[(cognitiveLevel || "apply").toLowerCase()] || cognitiveLevel;
 
+        // Map question_type to DB-allowed values (chk_question_type constraint)
+        // DB allows: concept, procedure, calculation, case_study, transfer
+        const questionTypeMap: Record<string, string> = {
+          best_option: "concept",
+          error_detection: "procedure",
+          risk_assessment: "concept",
+          compliance_check: "procedure",
+          mc_single: "concept",
+          mc_multi: "concept",
+          // Already valid:
+          concept: "concept",
+          procedure: "procedure",
+          calculation: "calculation",
+          case_study: "case_study",
+          transfer: "transfer",
+        };
+        const mappedQuestionType = questionTypeMap[questionType.toLowerCase()] || "concept";
+
         allInserts.push({
           curriculum_id: resolvedCurriculumId,
           learning_field_id: lfId,
