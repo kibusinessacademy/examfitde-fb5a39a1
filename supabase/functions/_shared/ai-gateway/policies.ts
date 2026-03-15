@@ -124,6 +124,7 @@ export async function resolvePolicy(
         allowedModels: data.allowed_models ?? [],
         defaultModel: data.default_model ?? "gpt-4o-mini",
         dailyBudgetEur: data.daily_budget_eur ?? undefined,
+        batchRolloutPct: data.batch_rollout_pct ?? 100,
       };
     }
   } catch {
