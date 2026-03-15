@@ -15631,6 +15631,7 @@ export type Database = {
       }
       llm_batch_requests: {
         Row: {
+          ai_generation_request_id: string | null
           batch_id: string
           cached_input_tokens: number | null
           completed_at: string | null
@@ -15660,6 +15661,7 @@ export type Database = {
           usage_data: Json | null
         }
         Insert: {
+          ai_generation_request_id?: string | null
           batch_id: string
           cached_input_tokens?: number | null
           completed_at?: string | null
@@ -15689,6 +15691,7 @@ export type Database = {
           usage_data?: Json | null
         }
         Update: {
+          ai_generation_request_id?: string | null
           batch_id?: string
           cached_input_tokens?: number | null
           completed_at?: string | null
@@ -15718,6 +15721,13 @@ export type Database = {
           usage_data?: Json | null
         }
         Relationships: [
+          {
+            foreignKeyName: "llm_batch_requests_ai_generation_request_id_fkey"
+            columns: ["ai_generation_request_id"]
+            isOneToOne: false
+            referencedRelation: "ai_generation_requests"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "llm_batch_requests_batch_id_fkey"
             columns: ["batch_id"]

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -71,7 +71,7 @@ export default function AIGatewayDashboard() {
     refetchInterval: 15000,
   });
 
-  // Aggregate stats (same time filter)
+  // Aggregate stats (same time filter) — also provides distinct values for filters
   const { data: stats } = useQuery({
     queryKey: ['ai-gateway-stats', filterTime],
     queryFn: async () => {
@@ -89,19 +89,29 @@ export default function AIGatewayDashboard() {
       const byRouting: Record<string, number> = {};
       const byStatus: Record<string, number> = {};
       const jobTypes = new Set<string>();
+      const routingModes = new Set<string>();
+      const statuses = new Set<string>();
 
       for (const r of data || []) {
         byRouting[r.routing_mode] = (byRouting[r.routing_mode] || 0) + 1;
         byStatus[r.status] = (byStatus[r.status] || 0) + 1;
         if (r.job_type) jobTypes.add(r.job_type);
+        if (r.routing_mode) routingModes.add(r.routing_mode);
+        if (r.status) statuses.add(r.status);
       }
 
       const pct = (key: string) => total > 0 ? ((byRouting[key] || 0) / total * 100).toFixed(1) : '0';
 
       return {
-        total, byRouting, byStatus, jobTypes: Array.from(jobTypes).sort(),
+        total, byRouting, byStatus,
+        jobTypes: Array.from(jobTypes).sort(),
+        routingModes: Array.from(routingModes).sort(),
+        statuses: Array.from(statuses).sort(),
         skipRate: pct('skipped'), cacheRate: pct('cache_hit'),
         batchRate: pct('batch'), syncRate: pct('sync'),
+        completedCount: byStatus['completed'] || 0,
+        failedCount: byStatus['failed'] || 0,
+        pendingCount: (byStatus['queued'] || 0) + (byStatus['batch_pending'] || 0),
       };
     },
     refetchInterval: 30000,
@@ -136,18 +146,9 @@ export default function AIGatewayDashboard() {
     },
   });
 
-  // Distinct values for filter dropdowns
-  const routingModes = useMemo(() => {
-    const modes = new Set<string>();
-    requests?.forEach(r => { if (r.routing_mode) modes.add(r.routing_mode); });
-    return Array.from(modes).sort();
-  }, [requests]);
-
-  const statuses = useMemo(() => {
-    const s = new Set<string>();
-    requests?.forEach(r => { if (r.status) s.add(r.status); });
-    return Array.from(s).sort();
-  }, [requests]);
+  // Filter dropdown values come from stats (unfiltered by routing/status/jobType)
+  const routingModes = stats?.routingModes || [];
+  const statuses = stats?.statuses || [];
 
   return (
     <div className="space-y-6">
@@ -201,6 +202,28 @@ export default function AIGatewayDashboard() {
               <Zap className="h-3.5 w-3.5" /> Sync
             </div>
             <div className="text-2xl font-bold">{stats?.syncRate ?? '–'}%</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Status KPIs */}
+      <div className="grid grid-cols-3 gap-3">
+        <Card>
+          <CardContent className="pt-4 pb-3 px-4">
+            <div className="text-xs text-muted-foreground mb-1">✅ Completed</div>
+            <div className="text-2xl font-bold text-emerald-600">{stats?.completedCount ?? '–'}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4 pb-3 px-4">
+            <div className="text-xs text-muted-foreground mb-1">❌ Failed</div>
+            <div className="text-2xl font-bold text-destructive">{stats?.failedCount ?? '–'}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4 pb-3 px-4">
+            <div className="text-xs text-muted-foreground mb-1">⏳ Pending</div>
+            <div className="text-2xl font-bold">{stats?.pendingCount ?? '–'}</div>
           </CardContent>
         </Card>
       </div>

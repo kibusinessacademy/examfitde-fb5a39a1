@@ -221,6 +221,7 @@ Deno.serve(async (req) => {
         customId,
         sourceJobId: null,
         sourceRef: body.sourceRef || null,
+        aiGenerationRequestId: requestId,
         jobType: body.jobType,
         model,
         messages: body.messages as Array<{ role: string; content: string }>,

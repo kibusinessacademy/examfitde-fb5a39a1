@@ -15,6 +15,8 @@ export interface BatchRequestItem {
   sourceJobId?: string | null;
   /** Source reference data (e.g. lesson_id, blueprint_id) */
   sourceRef?: Record<string, unknown> | null;
+  /** Link back to ai_generation_requests */
+  aiGenerationRequestId?: string | null;
   /** Job type for routing in the importer */
   jobType: string;
   /** Model to use */
@@ -37,6 +39,7 @@ export function buildBatchRequests(
     custom_id: item.customId,
     source_job_id: item.sourceJobId || null,
     source_ref: item.sourceRef as any,
+    ai_generation_request_id: item.aiGenerationRequestId || null,
     job_type: item.jobType,
     model: item.model,
     endpoint: "/v1/chat/completions",

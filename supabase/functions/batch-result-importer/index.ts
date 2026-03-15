@@ -565,43 +565,78 @@ Deno.serve(async (req) => {
       },
     }).eq("id", batchId);
 
-    // 6) Reconcile ai_generation_requests — per-request, not batch-wide
+    // 6) Reconcile ai_generation_requests — truly per-request via FK
     try {
-      const { data: gwRequests } = await sb
-        .from("ai_generation_requests")
-        .select("id, result_summary, request_fingerprint")
-        .eq("llm_batch_id", batchId)
-        .in("status", ["queued", "batch_pending"]);
+      // Load batch request rows with their gateway FK
+      const { data: batchReqRows } = await sb
+        .from("llm_batch_requests")
+        .select("custom_id, status, domain_imported_at, error_body, ai_generation_request_id")
+        .eq("batch_id", batchId);
 
-      if (gwRequests?.length) {
-        // Build a map of custom_id → import result for per-request status
-        const detailMap = new Map<string, ImportResult>();
-        for (const d of result.details) {
-          detailMap.set(d.custom_id, d);
-        }
+      // Group by gateway request ID
+      const grouped = new Map<string, any[]>();
+      for (const row of batchReqRows || []) {
+        const gwId = row.ai_generation_request_id;
+        if (!gwId) continue;
+        const arr = grouped.get(gwId) || [];
+        arr.push(row);
+        grouped.set(gwId, arr);
+      }
 
-        for (const gw of gwRequests as any[]) {
-          // Determine per-request outcome: check if ANY detail matched this gw request
-          // For now, if batch had mixed results, mark completed if any succeeded
+      if (grouped.size > 0) {
+        // Load existing result_summary for merge
+        const gwIds = Array.from(grouped.keys());
+        const { data: gwRecords } = await sb
+          .from("ai_generation_requests")
+          .select("id, result_summary")
+          .in("id", gwIds)
+          .in("status", ["queued", "batch_pending"]);
+
+        for (const gw of gwRecords || []) {
+          const rows = grouped.get(gw.id);
+          if (!rows) continue;
+
+          const allFailed = rows.every((r: any) => r.status === "failed");
+          const anyImported = rows.some((r: any) => r.domain_imported_at != null);
+          const gwStatus = anyImported ? "completed" : allFailed ? "failed" : "batch_pending";
+
           const existingSummary = (gw.result_summary && typeof gw.result_summary === "object") ? gw.result_summary : {};
-          const batchImportMeta = {
-            success: result.successCount,
-            failed: result.failCount,
-            total: requests.length,
-            reconciled_at: now,
-          };
-
-          // Determine status: failed only if ALL requests in the batch failed
-          const gwStatus = result.failCount === requests.length ? "failed" : "completed";
 
           await sb.from("ai_generation_requests").update({
             status: gwStatus,
-            completed_at: now,
-            result_summary: { ...existingSummary, batch_import: batchImportMeta },
+            completed_at: (gwStatus === "completed" || gwStatus === "failed") ? now : null,
+            result_summary: {
+              ...existingSummary,
+              batch_import: {
+                total: rows.length,
+                imported: rows.filter((r: any) => r.domain_imported_at != null).length,
+                failed: rows.filter((r: any) => r.status === "failed").length,
+                reconciled_at: now,
+              },
+            },
           }).eq("id", gw.id);
         }
+        console.log(`[batch-result-importer] Reconciled ${grouped.size} gateway request(s) via FK`);
+      } else {
+        // Fallback: reconcile via llm_batch_id (legacy requests without FK)
+        const { data: legacyGw } = await sb
+          .from("ai_generation_requests")
+          .select("id, result_summary")
+          .eq("llm_batch_id", batchId)
+          .in("status", ["queued", "batch_pending"]);
 
-        console.log(`[batch-result-importer] Reconciled ${gwRequests.length} gateway request(s) individually`);
+        if (legacyGw?.length) {
+          const gwStatus = result.failCount === requests.length ? "failed" : "completed";
+          for (const gw of legacyGw) {
+            const existingSummary = (gw.result_summary && typeof gw.result_summary === "object") ? gw.result_summary : {};
+            await sb.from("ai_generation_requests").update({
+              status: gwStatus,
+              completed_at: now,
+              result_summary: { ...existingSummary, batch_import: { success: result.successCount, failed: result.failCount, total: requests.length, reconciled_at: now } },
+            }).eq("id", gw.id);
+          }
+          console.log(`[batch-result-importer] Reconciled ${legacyGw.length} gateway request(s) via llm_batch_id (legacy)`);
+        }
       }
     } catch (gwErr) {
       console.warn(`[batch-result-importer] Gateway reconciliation failed: ${(gwErr as Error)?.message?.slice(0, 100)}`);
