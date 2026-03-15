@@ -223,6 +223,29 @@ export default function KGRolloutPanel() {
         </Card>
       </div>
 
+      {/* Drift Alert Banner */}
+      {driftCurricula.length > 0 && (
+        <Card className="border-destructive/50 bg-destructive/5">
+          <CardContent className="py-3 px-4">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-destructive">
+                  {driftCurricula.length} Curriculum{driftCurricula.length > 1 ? 'a' : ''} mit Drift
+                </p>
+                <ul className="mt-1 space-y-0.5">
+                  {driftCurricula.map(c => (
+                    <li key={c.curriculum_id} className="text-xs text-muted-foreground">
+                      <span className="font-medium text-foreground">{c.curriculum_title}</span> — {c.driftHint}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Curricula Readiness Table */}
       <Card>
         <CardHeader className="pb-3">
