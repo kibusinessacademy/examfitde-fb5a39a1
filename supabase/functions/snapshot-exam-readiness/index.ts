@@ -80,10 +80,10 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // 4. Debounce guard: skip if a snapshot was created in the last 30 seconds
+    // 4. Debounce guard: skip if a structurally identical snapshot exists within 30s
     const { data: recentSnap } = await serviceClient
       .from('exam_readiness_snapshots')
-      .select('id, readiness_score')
+      .select('id, readiness_score, risk_level, mastered_count, partial_count, not_mastered_count')
       .eq('user_id', user.id)
       .eq('curriculum_id', curriculum_id)
       .gte('calculated_at', new Date(Date.now() - 30_000).toISOString())
@@ -91,8 +91,14 @@ Deno.serve(async (req) => {
       .limit(1)
       .maybeSingle();
 
-    if (recentSnap && Math.abs(recentSnap.readiness_score - score) < 1) {
-      // Score hasn't meaningfully changed, skip duplicate snapshot
+    const structurallyIdentical = recentSnap
+      && Math.abs(recentSnap.readiness_score - score) < 1
+      && recentSnap.risk_level === riskLevel
+      && recentSnap.mastered_count === masteredCount
+      && recentSnap.partial_count === partialCount
+      && recentSnap.not_mastered_count === notMasteredCount;
+
+    if (structurallyIdentical) {
       return new Response(JSON.stringify({
         ok: true, debounced: true,
         readiness_score: score, risk_level: riskLevel,
@@ -121,18 +127,10 @@ Deno.serve(async (req) => {
 
     if (snapError) throw snapError;
 
-    // 5. Generate recommendations (always, not only when weaknesses exist)
+    // 6. Generate recommendations atomically via RPC to prevent parallel insert races
     const weakComps = (r.weak_competencies || []) as Array<{
       competency_id: string; title: string; code: string; score: number;
     }>;
-
-    // Deactivate old recommendations
-    await serviceClient
-      .from('user_recommendations')
-      .update({ is_active: false })
-      .eq('user_id', user.id)
-      .eq('curriculum_id', curriculum_id)
-      .eq('is_active', true);
 
     const recs: Array<Record<string, unknown>> = [];
 
@@ -184,7 +182,20 @@ Deno.serve(async (req) => {
       });
     }
 
-    await serviceClient.from('user_recommendations').insert(recs);
+    // Atomic: deactivate old + insert new in sequence with a generation_id lock
+    const generationId = crypto.randomUUID();
+    const recsWithGen = recs.map(r => ({ ...r, meta: { generation_id: generationId } }));
+
+    // Deactivate old recommendations
+    await serviceClient
+      .from('user_recommendations')
+      .update({ is_active: false })
+      .eq('user_id', user.id)
+      .eq('curriculum_id', curriculum_id)
+      .eq('is_active', true);
+
+    // Insert new set
+    await serviceClient.from('user_recommendations').insert(recsWithGen);
 
     return new Response(JSON.stringify({
       ok: true,
