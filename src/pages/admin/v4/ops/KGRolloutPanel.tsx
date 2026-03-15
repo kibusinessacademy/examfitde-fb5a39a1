@@ -267,35 +267,46 @@ export default function KGRolloutPanel() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {(data?.curricula || []).map((c) => (
-                  <TableRow key={c.curriculum_id} className={cn(c.is_ready && 'bg-emerald-500/5')}>
-                    <TableCell className="text-sm max-w-xs truncate font-medium">{c.curriculum_title}</TableCell>
-                    <TableCell className="text-right text-sm font-mono text-muted-foreground">{c.competencies_total}</TableCell>
-                    <TableCell className="text-right text-sm font-mono text-muted-foreground">{c.competencies_with_enough_errors}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <div className="w-16 h-2 rounded-full bg-muted overflow-hidden">
-                          <div
-                            className={cn('h-full rounded-full', c.pct_ready >= 60 ? 'bg-emerald-500' : c.pct_ready >= 40 ? 'bg-yellow-500' : 'bg-destructive')}
-                            style={{ width: `${Math.min(c.pct_ready, 100)}%` }}
-                          />
-                        </div>
-                        <span className="text-xs font-mono w-12 text-right">{c.pct_ready}%</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right text-sm font-mono text-muted-foreground">{c.total_error_patterns}</TableCell>
-                    <TableCell className="text-center">
-                      {c.flag_status
-                        ? <CheckCircle2 className="h-4 w-4 text-emerald-500 inline" />
-                        : <XCircle className="h-4 w-4 text-muted-foreground inline" />}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Badge variant={c.is_ready ? 'default' : c.pct_ready >= 40 ? 'secondary' : 'outline'} className="text-[10px]">
-                        {c.is_ready ? 'READY' : c.pct_ready >= 40 ? 'BALD' : 'NIEDRIG'}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                 {(data?.curricula || []).map((c) => (
+                   <TableRow key={c.curriculum_id} className={cn(c.drift === 'red' && 'bg-destructive/5', c.drift === 'green' && c.is_ready && 'bg-emerald-500/5')}>
+                     <TableCell className="text-sm max-w-xs truncate font-medium">{c.curriculum_title}</TableCell>
+                     <TableCell className="text-right text-sm font-mono text-muted-foreground">{c.competencies_total}</TableCell>
+                     <TableCell className="text-right text-sm font-mono text-muted-foreground">{c.competencies_with_enough_errors}</TableCell>
+                     <TableCell className="text-right">
+                       <div className="flex items-center justify-end gap-2">
+                         <div className="w-16 h-2 rounded-full bg-muted overflow-hidden">
+                           <div
+                             className={cn('h-full rounded-full', c.pct_ready >= 60 ? 'bg-emerald-500' : c.pct_ready >= 40 ? 'bg-amber-500' : 'bg-destructive')}
+                             style={{ width: `${Math.min(c.pct_ready, 100)}%` }}
+                           />
+                         </div>
+                         <span className="text-xs font-mono w-12 text-right">{c.pct_ready}%</span>
+                       </div>
+                     </TableCell>
+                     <TableCell className="text-right text-sm font-mono text-muted-foreground">{c.total_error_patterns}</TableCell>
+                     <TableCell className="text-center">
+                       {c.flag_status
+                         ? <CheckCircle2 className="h-4 w-4 text-emerald-500 inline" />
+                         : <XCircle className="h-4 w-4 text-muted-foreground inline" />}
+                     </TableCell>
+                     <TableCell className="text-center">
+                       <Badge variant={c.is_ready ? 'default' : c.pct_ready >= 40 ? 'secondary' : 'outline'} className="text-[10px]">
+                         {c.is_ready ? 'READY' : c.pct_ready >= 40 ? 'BALD' : 'NIEDRIG'}
+                       </Badge>
+                     </TableCell>
+                     <TableCell className="text-center">
+                       {c.drift !== 'green' ? (
+                         <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium', driftClasses[c.drift])} title={c.driftHint}>
+                           {c.drift === 'red' ? '⚠ DRIFT' : '⏳ NEAR'}
+                         </span>
+                       ) : c.is_ready ? (
+                         <span className={cn('inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium', driftClasses.green)}>
+                           ✓ OK
+                         </span>
+                       ) : null}
+                     </TableCell>
+                   </TableRow>
+                 ))}
               </TableBody>
             </Table>
           )}
