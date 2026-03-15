@@ -261,8 +261,9 @@ export default function KGRolloutPanel() {
                   <TableHead className="w-20 text-right">≥2 Err</TableHead>
                   <TableHead className="w-24 text-right">Coverage</TableHead>
                   <TableHead className="w-20 text-right">Errors</TableHead>
-                  <TableHead className="w-20 text-center">Flag</TableHead>
-                  <TableHead className="w-20 text-center">Status</TableHead>
+                   <TableHead className="w-20 text-center">Flag</TableHead>
+                   <TableHead className="w-20 text-center">Status</TableHead>
+                   <TableHead className="w-20 text-center">Drift</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
