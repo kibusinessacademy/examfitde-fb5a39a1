@@ -281,11 +281,19 @@ Deno.serve(async (req) => {
       }
     }
 
-    // SYNC — request is queued, dispatcher or caller picks it up
-    await sb.from("ai_generation_requests").update({
-      status: "queued",
-      started_at: new Date().toISOString(),
-    }).eq("id", requestId);
+    // SYNC — execute via domain function call (Phase C1)
+    const syncResult = await executeSyncDispatch(sb, {
+      requestId,
+      jobType: body.jobType,
+      payload: body.payload || {},
+      sourceRef: body.sourceRef as Record<string, unknown> | undefined,
+      sourceId: body.sourceId,
+      packageId: body.packageId,
+      courseId: body.courseId,
+      curriculumId: body.curriculumId,
+      certificationId: body.certificationId,
+      model: policy.defaultModel,
+    });
 
     logGatewayDecision({
       jobType: body.jobType, routingMode, deficitResult: deficit,
@@ -294,9 +302,16 @@ Deno.serve(async (req) => {
     });
 
     return json({
-      ok: true, requestId, status: "queued", routingMode,
-      cacheHit: false, skipped: false, deficitResult: deficit,
-    } satisfies GatewayResult);
+      ok: syncResult.ok,
+      requestId,
+      status: syncResult.status,
+      routingMode,
+      cacheHit: false,
+      skipped: false,
+      deficitResult: deficit,
+      ...(syncResult.resultSummary ? { resultSummary: syncResult.resultSummary } : {}),
+      ...(syncResult.errorSummary ? { error: (syncResult.errorSummary as any).domain_error || "sync_execution_failed" } : {}),
+    } satisfies GatewayResult, syncResult.ok ? 200 : 502);
 
   } catch (err) {
     const msg = (err as Error).message || String(err);
