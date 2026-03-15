@@ -60,6 +60,7 @@ const tabs = [
   { path: '/admin/ops/batch-recovery', label: '🔄 Batch Recovery' },
   { path: '/admin/ops/course-naming', label: '📛 Course Naming' },
   { path: '/admin/ops/failure-integrity', label: '🛡️ Failure Integrity' },
+  { path: '/admin/ops/v2-loop-debug', label: '🧪 V2 Loop Debug' },
 ];
 
 export default function OpsPage() {
