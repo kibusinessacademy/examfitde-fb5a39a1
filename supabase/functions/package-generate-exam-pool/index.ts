@@ -1483,10 +1483,16 @@ async function submitExamPoolBatch(
       if (lf) lfTitle = lf.title || "";
     }
 
+    // ── Phase 2: Load Knowledge Graph context for batch (non-blocking) ──
+    let graphCtx: GraphContext | null = null;
+    try {
+      graphCtx = await getGraphContextForBlueprint(sb, bp.id);
+    } catch { /* KG is optional */ }
+
     const { system, user } = buildTurboPrompt(
       bp, difficulty, questionType, cognitiveLevel,
       AI_QUESTIONS_PER_CALL, lfTitle, compTitle, compDesc,
-      ctx.professionName, [], ctx.glossaryContext, "",
+      ctx.professionName, [], ctx.glossaryContext, "", graphCtx,
     );
 
     const customId = `exam_${ctx.curriculumId.slice(0, 8)}_bp${bp.id.slice(0, 8)}_${i}_${Date.now()}`;
