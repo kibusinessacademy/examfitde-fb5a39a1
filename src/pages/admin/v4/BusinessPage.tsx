@@ -350,10 +350,10 @@ function LLMCostDashboard() {
               <tbody>
                 {pipelineCosts.map(r => (
                   <tr key={r.step} className="border-b border-border/20">
-                    <td className="py-1.5 px-2 font-medium">{r.step}</td>
+                    <td className="py-1.5 px-2 font-medium">{r.stepLabel}</td>
                     <td className="py-1.5 px-2 text-right">{r.calls}</td>
-                    <td className="py-1.5 px-2 text-success">{r.primary}</td>
-                    <td className="py-1.5 px-2 text-muted-foreground">{r.fallback}</td>
+                    <td className="py-1.5 px-2 text-success">{r.primaryLabel}</td>
+                    <td className="py-1.5 px-2 text-muted-foreground">{r.fallbackLabel}</td>
                     <td className="py-1.5 px-2 text-right font-mono">€{r.costPerCall.toFixed(4)}</td>
                     <td className="py-1.5 px-2 text-right font-mono font-medium">€{r.total.toFixed(2)}</td>
                   </tr>
