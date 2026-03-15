@@ -1498,6 +1498,12 @@ async function submitExamPoolBatch(
     try {
       graphCtx = await getGraphContextForBlueprint(sb, bp.id);
     } catch { /* KG is optional */ }
+    if (graphCtx?.common_errors?.length) {
+      _qualityMetrics.kg_context_hits++;
+      _qualityMetrics.kg_errors_injected += Math.min(graphCtx.common_errors.length, 5);
+    } else {
+      _qualityMetrics.kg_context_misses++;
+    }
 
     const { system, user } = buildTurboPrompt(
       bp, difficulty, questionType, cognitiveLevel,
