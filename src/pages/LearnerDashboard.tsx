@@ -244,12 +244,16 @@ export default function LearnerDashboard() {
           </div>
         )}
 
-        {/* ━━━ SECTION 3: Readiness Gauge + Radar + Streak ━━━ */}
+        {/* ━━━ SECTION 3: Readiness Gauge + Radar + Trend + Gaps ━━━ */}
         {activeCurriculumId && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mb-6">
-            <ExamReadinessGauge curriculumId={activeCurriculumId} />
-            <div className="lg:col-span-2">
+            <div className="space-y-4">
+              <ExamReadinessGauge curriculumId={activeCurriculumId} />
+              <ReadinessTrendCard curriculumId={activeCurriculumId} />
+            </div>
+            <div className="lg:col-span-2 space-y-4">
               <ReadinessRadar curriculumId={activeCurriculumId} />
+              <TopGapsCard curriculumId={activeCurriculumId} />
             </div>
           </div>
         )}
