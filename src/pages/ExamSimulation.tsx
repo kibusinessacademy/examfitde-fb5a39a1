@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { recordLearningEvent, snapshotExamReadiness } from '@/lib/learning-telemetry';
 import { 
   useExamSimulation, 
   useExamBlueprints, 
