@@ -15,7 +15,9 @@ type AdminOpsAction =
   | 'force_unlock_package'
   | 'unblock_package'
   | 'approve_step_exception'
-  | 'workspace_snapshot';
+  | 'workspace_snapshot'
+  // v2 loop smoke test
+  | 'smoke_test_v2_loop';
 
 export interface ScopedPayload {
   limit?: number;
