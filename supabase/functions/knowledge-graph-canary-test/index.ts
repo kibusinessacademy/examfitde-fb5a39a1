@@ -108,51 +108,59 @@ Deno.serve(async (req) => {
         else console.error(`[KG-Canary] Blueprint failed:`, r.reason);
       }
 
-      // ── Step 3: Incremental checkpoint after each batch ──
+      // ── Step 3: Checkpoint — include finalize data on last batch ──
       const completed = results.length / 2;
-      await sb.from("ai_generations").update({
-        output_content: { results, run_id: runId },
-        metadata: {
-          version: "kg-canary-v4-parallel",
-          run_id: runId,
-          blueprints_tested: shuffled.length,
-          blueprints_completed: completed,
-          progress_pct: Math.round((completed / shuffled.length) * 100),
-          questions_per_bp,
-          last_checkpoint: new Date().toISOString(),
-        },
-      }).eq("id", genId);
+      const isLastBatch = i + CONCURRENCY >= shuffled.length;
+
+      if (isLastBatch) {
+        // Final checkpoint: compute summary and persist everything in one write
+        const progressPct = Math.round((completed / shuffled.length) * 100);
+        const finalStatus = completed === 0
+          ? "failed"
+          : completed < shuffled.length
+            ? "accepted_with_errors"
+            : "accepted";
+        const summary = computeSummary(results);
+
+        await sb.from("ai_generations").update({
+          status: finalStatus,
+          output_content: { results, run_id: runId },
+          validation_score: summary.avgA,
+          validation_decision: finalStatus === "failed" ? "no_data" : summary.verdict,
+          metadata: {
+            version: "kg-canary-v5",
+            run_id: runId,
+            blueprints_tested: shuffled.length,
+            blueprints_completed: completed,
+            blueprints_failed: shuffled.length - completed,
+            progress_pct: progressPct,
+            questions_per_bp,
+            completed_at: new Date().toISOString(),
+            summary: summary.full,
+          },
+        }).eq("id", genId);
+
+        console.log(`[KG-Canary] ✅ Run ${runId.slice(0, 8)} finalized: ${finalStatus} / ${summary.verdict} (Δ=${summary.full.delta_quality}, ${progressPct}%)`);
+      } else {
+        // Intermediate checkpoint
+        await sb.from("ai_generations").update({
+          output_content: { results, run_id: runId },
+          metadata: {
+            version: "kg-canary-v5",
+            run_id: runId,
+            blueprints_tested: shuffled.length,
+            blueprints_completed: completed,
+            progress_pct: Math.round((completed / shuffled.length) * 100),
+            questions_per_bp,
+            last_checkpoint: new Date().toISOString(),
+          },
+        }).eq("id", genId);
+      }
     }
 
-    // ── Step 4: Finalize with summary ──
-    const bpCompleted = results.length / 2;
-    const progressPct = Math.round((bpCompleted / shuffled.length) * 100);
-    const finalStatus = bpCompleted === 0
-      ? "failed"
-      : bpCompleted < shuffled.length
-        ? "accepted_with_errors"
-        : "accepted";
-
+    // Summary for response (may already be persisted above)
     const summary = computeSummary(results);
-    await sb.from("ai_generations").update({
-      status: finalStatus,
-      output_content: { results, run_id: runId },
-      validation_score: summary.avgA,
-      validation_decision: finalStatus === "failed" ? "no_data" : summary.verdict,
-      metadata: {
-        version: "kg-canary-v4-parallel",
-        run_id: runId,
-        blueprints_tested: shuffled.length,
-        blueprints_completed: bpCompleted,
-        blueprints_failed: shuffled.length - bpCompleted,
-        progress_pct: progressPct,
-        questions_per_bp,
-        completed_at: new Date().toISOString(),
-        summary: summary.full,
-      },
-    }).eq("id", genId);
-
-    console.log(`[KG-Canary] ✅ Run ${runId.slice(0, 8)} finalized: ${finalStatus} / ${summary.verdict} (Δ=${summary.full.delta_quality}, ${progressPct}%)`);
+    const bpCompleted = results.length / 2;
 
     return json({
       ok: true,
