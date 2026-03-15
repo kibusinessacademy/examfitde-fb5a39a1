@@ -47,7 +47,8 @@ function isStuck(pkg: { status: string; updated_at: string; build_progress: numb
 }
 
 export default function CoursePackagesList() {
-  const { data: packages, isLoading } = useCoursePackages();
+  const { data: rawPackages, isLoading } = useAdminVisiblePackages();
+  const packages = dedupeVisiblePackages(rawPackages || []);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const queryClient = useQueryClient();
