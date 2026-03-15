@@ -110,13 +110,7 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
   const handleRebuildStep = async (stepKey: string) => {
     setRebuildingStep(stepKey);
     try {
-      await (supabase as any).from('package_steps')
-        .update({ status: 'queued', last_error: null, meta: null, started_at: null, finished_at: null, attempts: 0 })
-        .eq('package_id', packageId).eq('step_key', stepKey);
-      await (supabase as any).from('job_queue').insert({
-        job_type: `package_${stepKey}`, status: 'pending', attempts: 0, max_attempts: 3, run_after: new Date().toISOString(),
-        payload: { job_version: 'course_studio_v2', package_id: packageId, step_key: stepKey, course_id: pkg?.course_id, curriculum_id: (pkg as any)?.curriculum_id, certification_id: pkg?.certification_id },
-      });
+      await retryStepAction(packageId, stepKey);
       toast.success(`Step "${stepKey}" wird erneut ausgeführt`);
       refreshAll();
     } catch (e: any) { toast.error(`Rebuild fehlgeschlagen: ${e.message}`); }
@@ -128,16 +122,7 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
     if (!reason) return;
     setRebuildingStep(stepKey);
     try {
-      await (supabase as any).from('package_steps')
-        .update({
-          status: 'done',
-          exception_approved: true,
-          exception_reason: reason,
-          exception_approved_by: 'admin',
-          exception_approved_at: new Date().toISOString(),
-        })
-        .eq('package_id', packageId)
-        .eq('step_key', stepKey);
+      await approveExceptionAction(packageId, stepKey, reason);
       toast.success(`Step "${stepKey}" als Ausnahme genehmigt`);
       refreshAll();
     } catch (e: any) { toast.error(`Ausnahme fehlgeschlagen: ${e.message}`); }
@@ -147,16 +132,14 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
   const handleCancelPipeline = async () => {
     setCancelling(true);
     try {
-      await (supabase as any).from('job_queue').update({ status: 'failed', error: 'Cancelled by admin', last_error: 'Cancelled by admin' }).like('payload->>package_id', packageId).in('status', ['pending', 'processing']);
-      await (supabase as any).from('course_packages').update({ status: 'draft', build_progress: 0 }).eq('id', packageId);
-      await (supabase as any).from('course_package_locks').delete().eq('package_id', packageId);
+      await cancelBuildAction(packageId);
       toast.success('Pipeline abgebrochen'); refreshAll();
     } catch (e: any) { toast.error(`Abbruch fehlgeschlagen: ${e.message}`); }
     finally { setCancelling(false); }
   };
 
   const handleForceUnlock = async () => {
-    try { await (supabase as any).from('course_package_locks').delete().eq('package_id', packageId); toast.success('Lock aufgehoben'); refreshAll(); }
+    try { await forceUnlockAction(packageId); toast.success('Lock aufgehoben'); refreshAll(); }
     catch (e: any) { toast.error(`Unlock fehlgeschlagen: ${e.message}`); }
   };
 
