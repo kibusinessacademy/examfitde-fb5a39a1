@@ -131,7 +131,7 @@ export default function KGRolloutPanel() {
         const pctReady = compIds.length > 0 ? Math.round((withEnough / compIds.length) * 1000) / 10 : 0;
         const isReady = compIds.length >= 20 && pctReady >= 60;
 
-        results.push({
+        const base = {
           curriculum_id: curr.id,
           curriculum_title: curr.title,
           competencies_total: compIds.length,
@@ -140,7 +140,9 @@ export default function KGRolloutPanel() {
           total_error_patterns: totalErrors,
           flag_status: flags[curr.id] || false,
           is_ready: isReady,
-        });
+        };
+        const { drift, driftHint } = computeDrift(base);
+        results.push({ ...base, drift, driftHint });
       }
 
       results.sort((a, b) => b.pct_ready - a.pct_ready);
