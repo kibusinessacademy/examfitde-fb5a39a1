@@ -82,4 +82,6 @@ export interface BatchProviderAdapter {
   poll(providerBatchId: string): Promise<BatchPollResult>;
   downloadOutput(fileId: string): Promise<string>;
   parseOutputJsonl(content: string): ParsedBatchOutputRow[];
+  /** Separate error file parser — more defensive than output parser */
+  parseErrorJsonl(content: string): ParsedBatchOutputRow[];
 }
