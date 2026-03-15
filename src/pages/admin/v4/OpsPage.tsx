@@ -143,6 +143,7 @@ export default function OpsPage() {
           <Route path="batch-recovery" element={<BatchRecoveryDashboard />} />
           <Route path="course-naming" element={<CourseNamingIntegrityPanel />} />
           <Route path="failure-integrity" element={<JobFailureIntegrityPanel />} />
+          <Route path="v2-loop-debug" element={<V2LoopDebugPage />} />
         </Routes>
       </Suspense>
     </div>
