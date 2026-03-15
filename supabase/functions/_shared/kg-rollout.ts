@@ -1,10 +1,11 @@
 /**
- * kg-rollout.ts — Deterministic KG rollout gate.
+ * kg-rollout.ts — Deterministic KG rollout gate (3-layer check).
  *
- * Reads `kg_exam_pool_enabled` and `kg_exam_pool_rollout_pct` from
- * ops_pipeline_config. Uses a deterministic hash on the blueprint ID
- * so the same blueprint always gets the same decision within a rollout
- * percentage (stable, reproducible).
+ * Gate logic (ALL must be true):
+ *   1. kg_exam_pool_enabled = true          (global kill-switch)
+ *   2. kg_exam_pool_rollout_pct > 0         (% rollout)
+ *   3. kg_rollout_curriculum_<id> = true    (curriculum has enough KG data)
+ *   4. stableHash(blueprintId) % 100 < pct  (deterministic bucket)
  *
  * Kill-switch: set `kg_exam_pool_enabled` to `false` in DB — no redeploy.
  */
@@ -12,6 +13,7 @@
 export interface KGRolloutDecision {
   enabled: boolean;
   rolloutPct: number;
+  curriculumReady: boolean;
   blueprintInRollout: boolean;
 }
 
@@ -27,60 +29,73 @@ function stableHash(input: string): number {
 
 // ── Config cache (per-invocation, avoids N queries for N blueprints) ──
 
-let _cachedConfig: { enabled: boolean; pct: number } | null = null;
+let _cachedConfig: { enabled: boolean; pct: number; readyCurricula: Set<string> } | null = null;
 let _cachedAt = 0;
 const CACHE_TTL_MS = 60_000; // 1 min
 
-async function loadConfig(sb: any): Promise<{ enabled: boolean; pct: number }> {
+async function loadConfig(sb: any): Promise<{ enabled: boolean; pct: number; readyCurricula: Set<string> }> {
   const now = Date.now();
   if (_cachedConfig && now - _cachedAt < CACHE_TTL_MS) return _cachedConfig;
 
   let enabled = false;
   let pct = 0;
+  const readyCurricula = new Set<string>();
 
   try {
     const { data } = await sb
       .from("ops_pipeline_config")
       .select("key, value")
-      .in("key", ["kg_exam_pool_enabled", "kg_exam_pool_rollout_pct"]);
+      .or("key.eq.kg_exam_pool_enabled,key.eq.kg_exam_pool_rollout_pct,key.like.kg_rollout_curriculum_%");
 
     for (const row of data || []) {
       const val = typeof row.value === "string" ? row.value : String(row.value ?? "");
-      const clean = val.replace(/^"|"$/g, ""); // strip JSON string quotes
+      const clean = val.replace(/^"|"$/g, "");
       if (row.key === "kg_exam_pool_enabled") enabled = clean === "true";
-      if (row.key === "kg_exam_pool_rollout_pct") pct = parseInt(clean, 10) || 0;
+      else if (row.key === "kg_exam_pool_rollout_pct") pct = parseInt(clean, 10) || 0;
+      else if (row.key.startsWith("kg_rollout_curriculum_") && clean === "true") {
+        const currId = row.key.replace("kg_rollout_curriculum_", "");
+        readyCurricula.add(currId);
+      }
     }
   } catch (e) {
     console.warn(`[kg-rollout] Config load failed: ${(e as Error).message}`);
   }
 
-  _cachedConfig = { enabled, pct };
+  _cachedConfig = { enabled, pct, readyCurricula };
   _cachedAt = now;
   return _cachedConfig;
 }
 
 /**
  * Check if KG context injection should be used for a given blueprint.
+ * Requires curriculumId to check the curriculum-level ready flag.
  */
 export async function shouldInjectKG(
   sb: any,
   blueprintId: string,
+  curriculumId?: string,
 ): Promise<KGRolloutDecision> {
-  const { enabled, pct } = await loadConfig(sb);
+  const { enabled, pct, readyCurricula } = await loadConfig(sb);
 
   if (!enabled || pct <= 0) {
-    return { enabled, rolloutPct: pct, blueprintInRollout: false };
+    return { enabled, rolloutPct: pct, curriculumReady: false, blueprintInRollout: false };
   }
 
-  // 100% = always on
+  // Layer 2: Curriculum must be KG-ready
+  const currReady = curriculumId ? readyCurricula.has(curriculumId) : readyCurricula.size === 0;
+  if (!currReady) {
+    return { enabled: true, rolloutPct: pct, curriculumReady: false, blueprintInRollout: false };
+  }
+
+  // Layer 3: Deterministic blueprint bucket
   if (pct >= 100) {
-    return { enabled: true, rolloutPct: pct, blueprintInRollout: true };
+    return { enabled: true, rolloutPct: pct, curriculumReady: true, blueprintInRollout: true };
   }
 
   const hash = stableHash(blueprintId);
   const inRollout = (hash % 100) < pct;
 
-  return { enabled: true, rolloutPct: pct, blueprintInRollout: inRollout };
+  return { enabled: true, rolloutPct: pct, curriculumReady: true, blueprintInRollout: inRollout };
 }
 
 /**
