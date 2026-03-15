@@ -2,6 +2,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { callAIWithFailover } from "../_shared/ai-client.ts";
 import { getModelChainAsync } from "../_shared/model-routing.ts";
+import { bootstrapLLMLogging } from "../_shared/llm-log-bootstrap.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -14,6 +15,7 @@ Deno.serve(async (req) => {
   try {
     const { action, month, campaign_id, asset_id } = await req.json();
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    bootstrapLLMLogging(supabase, "marketing_council");
 
     // ── GENERATE MONTHLY STRATEGY ──
     if (action === "generate_strategy") {

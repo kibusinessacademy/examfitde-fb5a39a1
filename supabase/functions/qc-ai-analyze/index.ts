@@ -1,10 +1,12 @@
 // Deno.serve is built-in
 import { validateAuth, unauthorizedResponse, forbiddenResponse } from "../_shared/auth.ts";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
+import { callAI, logLLMCostEvent } from "../_shared/ai-client.ts";
+import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 
 /**
  * QC AI Analyze – Sends snapshot to AI for quality analysis.
- * Supports: Lovable AI (gateway), OpenAI, Anthropic
+ * Supports: OpenAI, Anthropic (via shared ai-client).
  * Admin-only. Streams response.
  */
 
@@ -54,55 +56,42 @@ Deno.serve(async (req) => {
       });
     }
 
-    let aiResponse: Response;
+    const effectiveProvider = provider || "openai";
+    const effectiveModel = model || (effectiveProvider === "anthropic" ? "claude-3-5-haiku-20241022" : "gpt-5-mini");
+    const startMs = Date.now();
 
-    if (provider === "anthropic") {
-      const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
-      if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY not configured");
+    // Use shared ai-client for streaming — ensures rate limiting and health tracking
+    const aiResponse = await callAI({
+      provider: effectiveProvider as any,
+      model: effectiveModel,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      stream: true,
+      max_tokens: 4096,
+    });
 
-      aiResponse = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "x-api-key": ANTHROPIC_API_KEY,
-          "anthropic-version": "2023-06-01",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: model || "claude-3-5-haiku-20241022",
-          max_tokens: 4096,
-          system: systemPrompt,
-          messages: [
-            { role: "user", content: userPrompt },
-          ],
-          stream: true,
-        }),
-      });
-    } else {
-      // Default: OpenAI direct
-      const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-      if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY not configured");
+    const latencyMs = Date.now() - startMs;
 
-      aiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${OPENAI_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: model || "gpt-5-mini",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt },
-          ],
-          stream: true,
-        }),
-      });
-    }
+    // Log cost event (estimated for streaming — we don't get exact tokens)
+    const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    logLLMCostEvent(sb, {
+      job_type: "qc_ai_analyze",
+      provider: effectiveProvider,
+      model: effectiveModel,
+      tokens_in: Math.ceil(systemPrompt.length / 4) + Math.ceil(userPrompt.length / 4),
+      tokens_out: 1000, // estimated for streaming
+      status: aiResponse.ok ? "success" : "error",
+      latency_ms: latencyMs,
+      estimated: true,
+      error_message: aiResponse.ok ? null : `HTTP ${aiResponse.status}`,
+    }).catch(() => {});
 
     if (!aiResponse.ok) {
       const status = aiResponse.status;
-      const errText = await aiResponse.text();
-      console.error(`[qc-ai-analyze] ${provider} error ${status}:`, errText);
+      const errText = await aiResponse.raw.text();
+      console.error(`[qc-ai-analyze] ${effectiveProvider} error ${status}:`, errText);
 
       if (status === 429) {
         return new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again later." }), {
@@ -119,8 +108,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    // OpenAI & Google: pass through SSE directly (all OpenAI-compatible)
-    return new Response(aiResponse.body, {
+    // Pass through SSE stream directly
+    return new Response(aiResponse.raw.body, {
       headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
     });
   } catch (e) {

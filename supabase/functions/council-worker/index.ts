@@ -3,6 +3,8 @@ import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 import { callAIWithFailover } from "../_shared/ai-client.ts";
 import { getModelChainAsync } from "../_shared/model-routing.ts";
+import { bootstrapLLMLogging } from "../_shared/llm-log-bootstrap.ts";
+import { getModelChainAsync } from "../_shared/model-routing.ts";
 
 /**
  * Council Worker v3 – Consolidated Governance Layer
@@ -45,6 +47,7 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const db = createClient(supabaseUrl, serviceKey);
+    bootstrapLLMLogging(db, "council_worker");
 
     // Validate SSOT
     if (!payload?.curriculum_id) {

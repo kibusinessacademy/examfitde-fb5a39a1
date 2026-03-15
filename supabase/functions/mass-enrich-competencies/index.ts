@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { callAIWithFailover } from "../_shared/ai-client.ts";
 import { getModelChainAsync } from "../_shared/model-routing.ts";
+import { bootstrapLLMLogging } from "../_shared/llm-log-bootstrap.ts";
 
 /**
  * Mass Competency Enrichment v2 — RPC-only, no nested joins
@@ -175,6 +176,7 @@ Deno.serve(async (req) => {
     { db: { schema: "public" }, global: { headers: { "x-statement-timeout": "25000" } } },
   );
 
+  bootstrapLLMLogging(sb, "mass_enrich_competencies");
   const body = await req.json().catch(() => ({}));
   const COMP_BATCH = Math.min(body.batch_size || 6, 8); // 6 default for higher throughput
   const MAX_CURRICULA = Math.min(body.max_curricula || 5, 6); // 5 curricula per invocation

@@ -4,6 +4,7 @@ import { callAIWithFailover } from "../_shared/ai-client.ts";
 import type { AIProvider } from "../_shared/ai-client.ts";
 import { getModelChainAsync } from "../_shared/model-routing.ts";
 import { shouldSoftStop, getTimeBudget } from "../_shared/time-budget.ts";
+import { bootstrapLLMLogging } from "../_shared/llm-log-bootstrap.ts";
 
 /**
  * package-generate-lesson-minichecks
@@ -151,6 +152,7 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "Use POST" }, 405);
 
   const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  bootstrapLLMLogging(sb, "package_generate_lesson_minichecks");
   const body = await req.json().catch(() => ({}));
   const p = body.payload || body;
 

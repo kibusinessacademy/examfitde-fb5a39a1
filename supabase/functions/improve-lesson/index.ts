@@ -6,6 +6,11 @@ import { getModelChainAsync } from "../_shared/model-routing.ts";
 import { resolveProfessionFromCourse } from "../_shared/profession-resolver.ts";
 import { measureDepth } from "../_shared/prompt-kit.ts";
 import { canonicalStepKey } from "../_shared/step-keys.ts";
+import { bootstrapLLMLogging } from "../_shared/llm-log-bootstrap.ts";
+import { getModelChainAsync } from "../_shared/model-routing.ts";
+import { resolveProfessionFromCourse } from "../_shared/profession-resolver.ts";
+import { measureDepth } from "../_shared/prompt-kit.ts";
+import { canonicalStepKey } from "../_shared/step-keys.ts";
 
 /**
  * AI Lesson Improvement Agent (Council-Compliant, Profession-Aware)
@@ -127,6 +132,7 @@ Deno.serve(async (req) => {
 
   try {
     const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+    bootstrapLLMLogging(supabase, "improve_lesson");
 
     const body = await req.json().catch(() => ({}));
     const { courseId, auditId, maxLessons = 3 } = body;
