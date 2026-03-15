@@ -32965,7 +32965,10 @@ export type Database = {
           id: string | null
           integrity_passed: boolean | null
           integrity_report: Json | null
+          integrity_report_version: string | null
+          integrity_report_version_num: number | null
           is_published: boolean | null
+          is_rebuild: boolean | null
           last_error: string | null
           last_progress_at: string | null
           locked_at: string | null
@@ -32975,6 +32978,7 @@ export type Database = {
           published_at: string | null
           quality_report: Json | null
           queue_position: number | null
+          ready_since: string | null
           retry_count: number | null
           rn: number | null
           started_at: string | null
