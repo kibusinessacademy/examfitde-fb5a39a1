@@ -20,11 +20,42 @@ const PATTERNS = [
   { regex: /\.chat\.completions\.create\(/g, label: "OpenAI SDK completions.create" },
 ];
 
+/**
+ * Phase 2 patterns: block callAIWithFailover / callAIJSON outside allowed modules.
+ * These must go through the AI Generation Gateway for routing, caching, and cost control.
+ */
+const PHASE2_PATTERNS = [
+  { regex: /\bcallAIWithFailover\s*\(/g, label: "callAIWithFailover (must use Gateway)" },
+  { regex: /\bcallAIJSON\s*\(/g, label: "callAIJSON (must use Gateway)" },
+];
+
 const ALLOWED_FILES = [
   "_shared/ai-client.ts",
   "ai-healthcheck/index.ts",
   "generate-image/index.ts",
   "ai-generation-gateway/index.ts",
+];
+
+/**
+ * Files allowed to use callAIWithFailover / callAIJSON directly.
+ * These are either the shared wrapper itself, or legacy producers that
+ * have not yet been migrated to the Gateway.
+ *
+ * When migrating a function to the Gateway, REMOVE it from this list.
+ */
+const PHASE2_ALLOWED_FILES = [
+  "_shared/ai-client.ts",
+  "_shared/lesson-gen/llm-runner.ts",
+  "ai-healthcheck/index.ts",
+  "generate-image/index.ts",
+  "ai-generation-gateway/index.ts",
+  // Legacy — scheduled for Gateway migration:
+  "create-song-texts/index.ts",
+  "package-generate-lesson-minichecks/index.ts",
+  "enrich-mfa-competencies/index.ts",
+  "compliance-council-remediate/index.ts",
+  "elite-hardening/index.ts",
+  "generate-questions/index.ts",
 ];
 
 const violations = [];
