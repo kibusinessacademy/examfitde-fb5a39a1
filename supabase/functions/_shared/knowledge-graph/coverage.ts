@@ -24,12 +24,31 @@ export async function getGraphCoverage(
   sb: SB,
   curriculumId: string,
 ): Promise<CoverageEntry[]> {
-  // Get all competency nodes for this curriculum
+  // Get competency IDs for this curriculum via learning_fields join
+  // (competencies has no direct curriculum_id — SSOT governance mandate)
+  const { data: lfIds } = await sb
+    .from("learning_fields")
+    .select("id")
+    .eq("curriculum_id", curriculumId);
+
+  if (!lfIds?.length) return [];
+
+  const { data: compIds } = await sb
+    .from("competencies")
+    .select("id")
+    .in("learning_field_id", lfIds.map((l: any) => l.id));
+
+  if (!compIds?.length) return [];
+
+  const compSourceIds = compIds.map((c: any) => c.id);
+
+  // Get all competency nodes matching those source_ids
   const { data: compNodes } = await sb
     .from("knowledge_graph_nodes")
     .select("id, label, source_id, payload")
     .eq("node_type", "competency")
-    .eq("is_active", true);
+    .eq("is_active", true)
+    .in("source_id", compSourceIds);
 
   if (!compNodes?.length) return [];
 
