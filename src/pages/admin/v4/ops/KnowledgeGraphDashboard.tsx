@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Network, GitBranch, AlertTriangle, BookOpen, Target, Layers, Sparkles, FlaskConical, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import KGRolloutPanel from './KGRolloutPanel';
 
 export default function KnowledgeGraphDashboard() {
   const { data: nodeCounts, isLoading: nodesLoading } = useQuery({
