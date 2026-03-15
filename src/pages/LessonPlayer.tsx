@@ -34,6 +34,7 @@ interface Module {
   id: string;
   title: string;
   course_id: string;
+  curriculum_id: string | null;
 }
 
 interface Course {
