@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { RefreshCw, Loader2, Zap, Database, SkipForward, Clock, Layers, Filter } from 'lucide-react';
+import { RefreshCw, Loader2, Zap, Database, SkipForward, Clock, Layers, Filter, AlertTriangle, Timer, Upload } from 'lucide-react';
 import { formatDistanceToNow, subDays, subHours } from 'date-fns';
 import { de } from 'date-fns/locale';
 
@@ -71,7 +71,7 @@ export default function AIGatewayDashboard() {
     refetchInterval: 15000,
   });
 
-  // Aggregate stats (same time filter) — also provides distinct values for filters
+  // Aggregate stats
   const { data: stats } = useQuery({
     queryKey: ['ai-gateway-stats', filterTime],
     queryFn: async () => {
@@ -101,6 +101,8 @@ export default function AIGatewayDashboard() {
       }
 
       const pct = (key: string) => total > 0 ? ((byRouting[key] || 0) / total * 100).toFixed(1) : '0';
+      const failedCount = byStatus['failed'] || 0;
+      const failRate = total > 0 ? (failedCount / total * 100).toFixed(1) : '0';
 
       return {
         total, byRouting, byStatus,
@@ -110,8 +112,55 @@ export default function AIGatewayDashboard() {
         skipRate: pct('skipped'), cacheRate: pct('cache_hit'),
         batchRate: pct('batch'), syncRate: pct('sync'),
         completedCount: byStatus['completed'] || 0,
-        failedCount: byStatus['failed'] || 0,
+        failedCount,
+        failRate,
         pendingCount: (byStatus['queued'] || 0) + (byStatus['batch_pending'] || 0),
+        batchPendingCount: byStatus['batch_pending'] || 0,
+      };
+    },
+    refetchInterval: 30000,
+  });
+
+  // Rollout KPIs: batch latency + import pending
+  const { data: rolloutKpis } = useQuery({
+    queryKey: ['ai-gateway-rollout-kpis', filterTime],
+    queryFn: async () => {
+      const cutoff = getTimeCutoff(filterTime);
+
+      // Batch latency from llm_batches
+      let batchQuery = supabase
+        .from('llm_batches')
+        .select('created_at, completed_at, status')
+        .eq('status', 'completed');
+      if (cutoff) batchQuery = batchQuery.gte('created_at', cutoff);
+      const { data: batches } = await batchQuery.limit(200);
+
+      let avgBatchLatencySec = 0;
+      let batchCount = 0;
+      if (batches?.length) {
+        let totalSec = 0;
+        for (const b of batches) {
+          if (b.completed_at && b.created_at) {
+            totalSec += (new Date(b.completed_at).getTime() - new Date(b.created_at).getTime()) / 1000;
+            batchCount++;
+          }
+        }
+        avgBatchLatencySec = batchCount > 0 ? Math.round(totalSec / batchCount) : 0;
+      }
+
+      // Import pending from llm_batch_requests
+      let importQuery = supabase
+        .from('llm_batch_requests')
+        .select('id', { count: 'exact', head: true })
+        .is('domain_imported_at', null)
+        .eq('status', 'completed');
+      if (cutoff) importQuery = importQuery.gte('created_at', cutoff);
+      const { count: importPending } = await importQuery;
+
+      return {
+        avgBatchLatencySec,
+        batchCount,
+        importPending: importPending || 0,
       };
     },
     refetchInterval: 30000,
@@ -146,16 +195,17 @@ export default function AIGatewayDashboard() {
     },
   });
 
-  // Filter dropdown values come from stats (unfiltered by routing/status/jobType)
   const routingModes = stats?.routingModes || [];
   const statuses = stats?.statuses || [];
+  const failRateNum = parseFloat(stats?.failRate || '0');
+  const batchLatencyMin = rolloutKpis ? Math.round(rolloutKpis.avgBatchLatencySec / 60) : 0;
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-bold">AI Generation Gateway</h2>
-          <p className="text-sm text-muted-foreground">Routing · Deficit · Cache · Batch/Sync · Observability</p>
+          <p className="text-sm text-muted-foreground">Routing · Deficit · Cache · Batch/Sync · Rollout</p>
         </div>
         <Button variant="outline" size="sm" onClick={() => refetch()}>
           <RefreshCw className="h-4 w-4 mr-1" /> Aktualisieren
@@ -206,24 +256,54 @@ export default function AIGatewayDashboard() {
         </Card>
       </div>
 
-      {/* Status KPIs */}
-      <div className="grid grid-cols-3 gap-3">
+      {/* Rollout Health KPIs */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <Card>
           <CardContent className="pt-4 pb-3 px-4">
             <div className="text-xs text-muted-foreground mb-1">✅ Completed</div>
             <div className="text-2xl font-bold text-emerald-600">{stats?.completedCount ?? '–'}</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className={failRateNum > 5 ? 'border-destructive' : ''}>
           <CardContent className="pt-4 pb-3 px-4">
-            <div className="text-xs text-muted-foreground mb-1">❌ Failed</div>
-            <div className="text-2xl font-bold text-destructive">{stats?.failedCount ?? '–'}</div>
+            <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
+              <AlertTriangle className="h-3 w-3" /> Fail-Rate
+            </div>
+            <div className={`text-2xl font-bold ${failRateNum > 5 ? 'text-destructive' : failRateNum > 2 ? 'text-amber-600' : 'text-emerald-600'}`}>
+              {stats?.failRate ?? '–'}%
+            </div>
+            <div className="text-xs text-muted-foreground">{stats?.failedCount ?? 0} failed</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className={(stats?.batchPendingCount || 0) > 50 ? 'border-amber-500' : ''}>
           <CardContent className="pt-4 pb-3 px-4">
-            <div className="text-xs text-muted-foreground mb-1">⏳ Pending</div>
-            <div className="text-2xl font-bold">{stats?.pendingCount ?? '–'}</div>
+            <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
+              <Clock className="h-3 w-3" /> Batch Pending
+            </div>
+            <div className={`text-2xl font-bold ${(stats?.batchPendingCount || 0) > 50 ? 'text-amber-600' : ''}`}>
+              {stats?.batchPendingCount ?? '–'}
+            </div>
+          </CardContent>
+        </Card>
+        <Card className={(rolloutKpis?.importPending || 0) > 20 ? 'border-amber-500' : ''}>
+          <CardContent className="pt-4 pb-3 px-4">
+            <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
+              <Upload className="h-3 w-3" /> Import Pending
+            </div>
+            <div className={`text-2xl font-bold ${(rolloutKpis?.importPending || 0) > 20 ? 'text-amber-600' : ''}`}>
+              {rolloutKpis?.importPending ?? '–'}
+            </div>
+          </CardContent>
+        </Card>
+        <Card className={batchLatencyMin > 10 ? 'border-destructive' : ''}>
+          <CardContent className="pt-4 pb-3 px-4">
+            <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
+              <Timer className="h-3 w-3" /> Batch Latenz
+            </div>
+            <div className={`text-2xl font-bold ${batchLatencyMin > 10 ? 'text-destructive' : batchLatencyMin > 5 ? 'text-amber-600' : 'text-emerald-600'}`}>
+              {rolloutKpis ? `${batchLatencyMin}m` : '–'}
+            </div>
+            <div className="text-xs text-muted-foreground">{rolloutKpis?.batchCount ?? 0} batches</div>
           </CardContent>
         </Card>
       </div>
@@ -256,6 +336,7 @@ export default function AIGatewayDashboard() {
                   <TableHead>Job-Type</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Batch</TableHead>
+                  <TableHead>Rollout %</TableHead>
                   <TableHead>Deficit</TableHead>
                   <TableHead>Cache</TableHead>
                   <TableHead>Template</TableHead>
@@ -273,6 +354,11 @@ export default function AIGatewayDashboard() {
                       </Badge>
                     </TableCell>
                     <TableCell>{p.prefer_batch ? '✅' : '–'}</TableCell>
+                    <TableCell>
+                      <Badge variant={p.batch_rollout_pct >= 100 ? 'default' : p.batch_rollout_pct > 0 ? 'secondary' : 'destructive'}>
+                        {p.batch_rollout_pct ?? 100}%
+                      </Badge>
+                    </TableCell>
                     <TableCell>{p.require_deficit ? '✅' : '–'}</TableCell>
                     <TableCell>{p.use_cache ? '✅' : '–'}</TableCell>
                     <TableCell>{p.template_first ? '✅' : '–'}</TableCell>
@@ -281,7 +367,7 @@ export default function AIGatewayDashboard() {
                   </TableRow>
                 ))}
                 {!policies?.length && (
-                  <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">Keine Policies</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground">Keine Policies</TableCell></TableRow>
                 )}
               </TableBody>
             </Table>
