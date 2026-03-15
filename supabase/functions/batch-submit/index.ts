@@ -72,6 +72,7 @@ Deno.serve(async (req) => {
       source_job_id: r.source_job_id || null,
       source_table: r.source_table || null,
       source_ref: r.source_ref || null,
+      ai_generation_request_id: r.ai_generation_request_id || null,
       job_type: r.job_type || jobType,
       model: r.model || model,
       endpoint: r.endpoint || endpoint,
