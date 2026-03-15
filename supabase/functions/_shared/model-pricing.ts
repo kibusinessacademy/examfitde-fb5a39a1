@@ -83,7 +83,7 @@ for (const [model, usd] of Object.entries(RAW_USD)) {
   PRICING_EUR_PER_M[model] = eur;
 
   // Add "openai/" prefix for Lovable Gateway models
-  if (model.startsWith("gpt-") || model.startsWith("o4-") || model.startsWith("text-")) {
+  if (model.startsWith("gpt-") || model.startsWith("o4-") || model.startsWith("text-") || model.startsWith("gpt-image")) {
     PRICING_EUR_PER_M[`openai/${model}`] = eur;
   }
   if (model.startsWith("gemini-")) {
