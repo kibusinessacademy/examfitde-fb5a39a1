@@ -24,6 +24,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.
   published: { label: 'Live', color: 'bg-success/20 text-success', icon: CheckCircle2 },
   building: { label: 'Build läuft', color: 'bg-primary/20 text-primary', icon: Wrench },
   queued: { label: 'Queued', color: 'bg-muted text-muted-foreground', icon: Clock },
+  blocked: { label: 'Blockiert', color: 'bg-warning/20 text-warning', icon: Ban },
   planning: { label: 'Draft', color: 'bg-muted text-muted-foreground', icon: Clock },
   quality_gate_failed: { label: 'QG Failed', color: 'bg-destructive/20 text-destructive', icon: XCircle },
   failed: { label: 'Fehlgeschlagen', color: 'bg-destructive/20 text-destructive', icon: XCircle },
@@ -33,7 +34,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.
 };
 
 const FILTER_OPTIONS = [
-  'all', 'published', 'building', 'stuck', 'queued', 'planning', 'failed', 'quality_gate_failed', 'qa', 'council_review',
+  'all', 'published', 'building', 'stuck', 'blocked', 'queued', 'planning', 'failed', 'quality_gate_failed', 'qa', 'council_review',
 ] as const;
 
 const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
