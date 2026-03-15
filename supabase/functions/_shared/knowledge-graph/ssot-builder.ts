@@ -4,7 +4,7 @@
  * Phase 1: learning_fields, competencies, question_blueprints
  * All nodes are provenance='ssot', derived deterministically.
  *
- * Optimized: Uses batch upserts instead of sequential individual calls.
+ * Optimized: Uses batch fetch + batch insert (no onConflict needed).
  */
 
 import type { BuildResult } from "./types.ts";
@@ -16,13 +16,14 @@ function normalize(text: string): string {
 }
 
 /**
- * Batch upsert nodes. Returns a map of sourceKey → node id.
+ * Batch upsert nodes by checking existing first, then inserting new / updating old.
+ * Returns map of sourceId → node.id
  */
 async function batchUpsertNodes(
   sb: SB,
+  sourceTable: string,
   nodes: Array<{
     nodeType: string;
-    sourceTable: string;
     sourceId: string;
     label: string;
     payload: Record<string, unknown>;
@@ -30,46 +31,35 @@ async function batchUpsertNodes(
 ): Promise<{ nodeMap: Map<string, string>; created: number; updated: number }> {
   if (!nodes.length) return { nodeMap: new Map(), created: 0, updated: 0 };
 
-  const sourceKeys = nodes.map((n) => n.sourceId);
-  const sourceTable = nodes[0].sourceTable;
-
-  // Fetch all existing nodes for this source_table in one query
+  // Fetch all existing nodes for this source_table
   const { data: existing } = await sb
     .from("knowledge_graph_nodes")
     .select("id, source_id")
     .eq("source_table", sourceTable)
-    .in("source_id", sourceKeys);
+    .in("source_id", nodes.map((n) => n.sourceId));
 
   const existingMap = new Map<string, string>();
   for (const e of existing || []) {
     existingMap.set(e.source_id, e.id);
   }
 
-  // Split into inserts and updates
-  const toInsert = [];
-  const toUpdate = [];
-  for (const n of nodes) {
-    const existingId = existingMap.get(n.sourceId);
-    if (existingId) {
-      toUpdate.push({ id: existingId, ...n });
-    } else {
-      toInsert.push(n);
-    }
-  }
-
+  const nodeMap = new Map<string, string>();
   let created = 0;
   let updated = 0;
-  const nodeMap = new Map<string, string>();
 
-  // Batch insert new nodes (chunks of 50)
+  // Separate new vs existing
+  const toInsert = nodes.filter((n) => !existingMap.has(n.sourceId));
+  const toUpdate = nodes.filter((n) => existingMap.has(n.sourceId));
+
+  // Batch insert new nodes in chunks of 50
   for (let i = 0; i < toInsert.length; i += 50) {
     const chunk = toInsert.slice(i, i + 50);
     const { data: inserted, error } = await sb
       .from("knowledge_graph_nodes")
-      .upsert(
+      .insert(
         chunk.map((n) => ({
           node_type: n.nodeType,
-          source_table: n.sourceTable,
+          source_table: sourceTable,
           source_id: n.sourceId,
           label: n.label,
           normalized_label: normalize(n.label),
@@ -78,11 +68,23 @@ async function batchUpsertNodes(
           confidence: 1.0,
           is_active: true,
         })),
-        { onConflict: "source_table,source_id", ignoreDuplicates: false },
       )
       .select("id, source_id");
 
     if (error) {
+      // Handle individual constraint violations by falling back to sequential
+      if (error.code === "23505") {
+        for (const n of chunk) {
+          const { data: retry } = await sb
+            .from("knowledge_graph_nodes")
+            .select("id")
+            .eq("source_table", sourceTable)
+            .eq("source_id", n.sourceId)
+            .maybeSingle();
+          if (retry) nodeMap.set(n.sourceId, retry.id);
+        }
+        continue;
+      }
       console.error(`Batch insert error: ${error.message}`);
       continue;
     }
@@ -92,21 +94,26 @@ async function batchUpsertNodes(
     created += (inserted || []).length;
   }
 
-  // Batch update existing nodes (chunks of 50)
+  // Batch update existing (label/payload) in chunks
   for (let i = 0; i < toUpdate.length; i += 50) {
     const chunk = toUpdate.slice(i, i + 50);
-    for (const n of chunk) {
-      await sb
-        .from("knowledge_graph_nodes")
-        .update({
-          label: n.label,
-          normalized_label: normalize(n.label),
-          payload: n.payload,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", n.id);
-      nodeMap.set(n.sourceId, n.id);
-    }
+    const now = new Date().toISOString();
+    // Parallel updates within chunk
+    await Promise.all(
+      chunk.map((n) => {
+        const id = existingMap.get(n.sourceId)!;
+        nodeMap.set(n.sourceId, id);
+        return sb
+          .from("knowledge_graph_nodes")
+          .update({
+            label: n.label,
+            normalized_label: normalize(n.label),
+            payload: n.payload,
+            updated_at: now,
+          })
+          .eq("id", id);
+      }),
+    );
     updated += chunk.length;
   }
 
@@ -114,9 +121,9 @@ async function batchUpsertNodes(
 }
 
 /**
- * Batch upsert edges. Skips duplicates via onConflict.
+ * Batch insert edges, skipping duplicates via constraint.
  */
-async function batchUpsertEdges(
+async function batchInsertEdges(
   sb: SB,
   edges: Array<{
     fromNodeId: string;
@@ -135,7 +142,7 @@ async function batchUpsertEdges(
     const chunk = edges.slice(i, i + 50);
     const { data, error } = await sb
       .from("knowledge_graph_edges")
-      .upsert(
+      .insert(
         chunk.map((e) => ({
           from_node_id: e.fromNodeId,
           to_node_id: e.toNodeId,
@@ -146,17 +153,35 @@ async function batchUpsertEdges(
           confidence: 1.0,
           is_active: true,
         })),
-        { onConflict: "from_node_id,to_node_id,edge_type", ignoreDuplicates: true },
       )
       .select("id");
 
     if (error) {
+      if (error.code === "23505") {
+        // Duplicate constraint — try one-by-one
+        for (const e of chunk) {
+          const { error: singleErr } = await sb
+            .from("knowledge_graph_edges")
+            .insert({
+              from_node_id: e.fromNodeId,
+              to_node_id: e.toNodeId,
+              edge_type: e.edgeType,
+              weight: e.weight ?? null,
+              payload: e.payload ?? {},
+              provenance: "ssot",
+              confidence: 1.0,
+              is_active: true,
+            });
+          if (singleErr) skipped++;
+          else created++;
+        }
+        continue;
+      }
       console.error(`Batch edge error: ${error.message}`);
       skipped += chunk.length;
       continue;
     }
     created += (data || []).length;
-    skipped += chunk.length - (data || []).length;
   }
 
   return { created, skipped };
@@ -192,9 +217,9 @@ export async function buildSSOTGraph(
 
   const lfResult = await batchUpsertNodes(
     sb,
+    "learning_fields",
     lfs.map((lf: any) => ({
       nodeType: "learning_field",
-      sourceTable: "learning_fields",
       sourceId: lf.id,
       label: lf.title,
       payload: { code: lf.code, description: lf.description, curriculum_id: lf.curriculum_id },
@@ -214,9 +239,9 @@ export async function buildSSOTGraph(
 
   const compResult = await batchUpsertNodes(
     sb,
+    "competencies",
     (comps || []).map((c: any) => ({
       nodeType: "competency",
-      sourceTable: "competencies",
       sourceId: c.id,
       label: c.title,
       payload: { code: c.code, description: c.description, bloom_level: c.bloom_level },
@@ -235,46 +260,9 @@ export async function buildSSOTGraph(
       belongsToEdges.push({ fromNodeId: compNodeId, toNodeId: lfNodeId, edgeType: "belongs_to" });
     }
   }
-  const btResult = await batchUpsertEdges(sb, belongsToEdges);
+  const btResult = await batchInsertEdges(sb, belongsToEdges);
   result.edgesCreated += btResult.created;
   result.edgesSkipped += btResult.skipped;
-
-  // Error patterns from typical_misconceptions
-  const miscNodes = [];
-  for (const comp of comps || []) {
-    if (comp.typical_misconceptions && Array.isArray(comp.typical_misconceptions)) {
-      for (const misc of comp.typical_misconceptions) {
-        const miscLabel = typeof misc === "string" ? misc : (misc as any)?.text || (misc as any)?.label || "";
-        if (!miscLabel || miscLabel.length < 5) continue;
-        miscNodes.push({
-          nodeType: "error_pattern",
-          sourceTable: "competencies",
-          sourceId: `${comp.id}_misc_${normalize(miscLabel).slice(0, 40)}`,
-          label: miscLabel,
-          payload: { source_competency_id: comp.id },
-          _compId: comp.id,
-        });
-      }
-    }
-  }
-
-  if (miscNodes.length) {
-    console.log(`[ssot-builder] ${miscNodes.length} error patterns from misconceptions`);
-    const miscResult = await batchUpsertNodes(sb, miscNodes);
-    result.nodesCreated += miscResult.created;
-
-    const miscEdges = [];
-    for (const mn of miscNodes) {
-      const errNodeId = miscResult.nodeMap.get(mn.sourceId);
-      const compNodeId = compNodeMap.get(mn._compId);
-      if (errNodeId && compNodeId) {
-        miscEdges.push({ fromNodeId: errNodeId, toNodeId: compNodeId, edgeType: "causes_error" });
-      }
-    }
-    const meResult = await batchUpsertEdges(sb, miscEdges);
-    result.edgesCreated += meResult.created;
-    result.edgesSkipped += meResult.skipped;
-  }
 
   // ── 3. Question Blueprints ──
   const { data: bps } = await sb
@@ -287,9 +275,9 @@ export async function buildSSOTGraph(
 
   const bpResult = await batchUpsertNodes(
     sb,
+    "question_blueprints",
     (bps || []).map((bp: any) => ({
       nodeType: "blueprint",
-      sourceTable: "question_blueprints",
       sourceId: bp.id,
       label: bp.name,
       payload: { canonical_statement: bp.canonical_statement },
@@ -310,48 +298,13 @@ export async function buildSSOTGraph(
       }
     }
   }
-  const tbResult = await batchUpsertEdges(sb, testedByEdges);
+  const tbResult = await batchInsertEdges(sb, testedByEdges);
   result.edgesCreated += tbResult.created;
   result.edgesSkipped += tbResult.skipped;
 
-  // Error patterns from typical_errors
-  const errNodes = [];
-  for (const bp of bps || []) {
-    if (bp.typical_errors && Array.isArray(bp.typical_errors)) {
-      for (const err of bp.typical_errors) {
-        const errLabel = typeof err === "string" ? err : (err as any)?.text || (err as any)?.label || "";
-        if (!errLabel || errLabel.length < 5) continue;
-        errNodes.push({
-          nodeType: "error_pattern",
-          sourceTable: "question_blueprints",
-          sourceId: `${bp.id}_err_${normalize(errLabel).slice(0, 40)}`,
-          label: errLabel,
-          payload: { source_blueprint_id: bp.id },
-          _compId: bp.competency_id,
-        });
-      }
-    }
-  }
-
-  if (errNodes.length) {
-    console.log(`[ssot-builder] ${errNodes.length} error patterns from blueprints`);
-    const errResult = await batchUpsertNodes(sb, errNodes);
-    result.nodesCreated += errResult.created;
-
-    const errEdges = [];
-    for (const en of errNodes) {
-      if (en._compId) {
-        const errNodeId = errResult.nodeMap.get(en.sourceId);
-        const compNodeId = compNodeMap.get(en._compId);
-        if (errNodeId && compNodeId) {
-          errEdges.push({ fromNodeId: errNodeId, toNodeId: compNodeId, edgeType: "causes_error" });
-        }
-      }
-    }
-    const eeResult = await batchUpsertEdges(sb, errEdges);
-    result.edgesCreated += eeResult.created;
-    result.edgesSkipped += eeResult.skipped;
-  }
+  // Note: error_pattern nodes from typical_misconceptions/typical_errors
+  // are deferred to Phase 2 (AI Enrichment) since they require text-based
+  // composite source_ids which don't fit the uuid source_id column.
 
   return result;
 }
