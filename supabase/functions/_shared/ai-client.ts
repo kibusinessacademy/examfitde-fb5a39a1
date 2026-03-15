@@ -497,9 +497,19 @@ export interface FailoverTelemetry {
   attempts_before: number; // how many providers were skipped/failed before this one
 }
 
+/** Optional context for automatic cost logging inside callAIWithFailover */
+export interface LLMJobContext {
+  sb?: { from: (table: string) => any };
+  job_type?: string;
+  package_id?: string | null;
+  course_id?: string | null;
+  certification_id?: string | null;
+}
+
 export async function callAIWithFailover(
   chain: Array<{ provider: AIProvider; model: string }>,
   opts: Omit<AIRequestOptions, "provider" | "model"> & { timeout_ms?: number },
+  jobContext?: LLMJobContext,
 ): Promise<{
   content: string;
   toolCalls?: Array<{ function: { name: string; arguments: string } }>;
@@ -522,6 +532,37 @@ export async function callAIWithFailover(
 
   const errors: string[] = [];
   let attemptIndex = 0;
+  const traceId = generateTraceId();
+
+  // Resolve logging client: explicit sb > globalThis > auto-create
+  const logSb = jobContext?.sb || (globalThis as any).__llmLogSb || getAutoLogSb();
+  const jobType = jobContext?.job_type || (globalThis as any).__llmJobType || "unknown";
+
+  // Helper: auto-log an attempt (non-blocking, never throws)
+  const autoLog = (p: string, m: string, attempt: number, status: string, latencyMs: number, usage?: any, estimatedUsage?: any, finishReason?: string, errorMsg?: string) => {
+    if (!logSb) return;
+    logLLMCostEvent(logSb, {
+      job_type: jobType,
+      provider: p,
+      model: m,
+      tokens_in: usage?.input_tokens || usage?.prompt_tokens || 0,
+      tokens_out: usage?.output_tokens || usage?.completion_tokens || 0,
+      status: status as any,
+      attempt,
+      latency_ms: latencyMs,
+      finish_reason: finishReason,
+      error_message: errorMsg,
+      package_id: jobContext?.package_id,
+      course_id: jobContext?.course_id,
+      certification_id: jobContext?.certification_id,
+      estimatedUsage,
+      cached_input_tokens: usage?.cache_read_input_tokens || 0,
+      cache_creation_input_tokens: usage?.cache_creation_input_tokens || 0,
+      cache_read_input_tokens: usage?.cache_read_input_tokens || 0,
+      trace_id: traceId,
+      meta: { chain_size: chain.length, fallback_rank: attempt },
+    }).catch(() => {}); // fire-and-forget but logLLMCostEvent itself now logs errors
+  };
 
   for (const candidate of chain) {
     if (!keyAvailability[candidate.provider]) {
@@ -533,10 +574,12 @@ export async function callAIWithFailover(
     const health = getProviderHealth(candidate.provider);
     if (!health.available) {
       errors.push(`${candidate.provider}: ${health.reason}`);
+      autoLog(candidate.provider, candidate.model, attemptIndex, "rate_limited", 0, undefined, undefined, undefined, health.reason);
       attemptIndex++;
       continue;
     }
 
+    const attemptStart = Date.now();
     try {
       // v16: Per-provider timeout support — each provider gets its own AbortController
       let perProviderAbort: AbortController | undefined;
@@ -555,6 +598,8 @@ export async function callAIWithFailover(
         if (perProviderTimer) clearTimeout(perProviderTimer);
       });
 
+      const latencyMs = Date.now() - attemptStart;
+
       // v5.4: Detect empty AI responses (HTTP 200 but no usable content)
       const hasToolCalls = result.toolCalls && result.toolCalls.length > 0;
       const hasContent = result.content && result.content.trim().length > 0;
@@ -562,9 +607,13 @@ export async function callAIWithFailover(
         const msg = `Empty response from ${candidate.provider}/${candidate.model} — falling through to next provider`;
         console.warn(`[AI-CLIENT] ${msg}`);
         errors.push(msg);
+        autoLog(candidate.provider, candidate.model, attemptIndex, "error", latencyMs, result.usage, result.estimatedUsage, result.finish_reason, "empty_response");
         attemptIndex++;
         continue;
       }
+
+      // ── SUCCESS: auto-log this attempt ──
+      autoLog(candidate.provider, candidate.model, attemptIndex, "success", latencyMs, result.usage, result.estimatedUsage, result.finish_reason);
 
       const telemetry: FailoverTelemetry = {
         route: "chain",
@@ -592,9 +641,18 @@ export async function callAIWithFailover(
         telemetry,
       };
     } catch (err) {
+      const latencyMs = Date.now() - attemptStart;
       const msg = err instanceof Error ? err.message : String(err);
       errors.push(`${candidate.provider}/${candidate.model}: ${msg}`);
       warnIfUnclassifiedLlmError(err, { provider: candidate.provider, model: candidate.model });
+
+      // ── FAIL: auto-log this attempt ──
+      const errStatus = err instanceof RateLimitError ? "rate_limited"
+        : err instanceof AITimeoutError ? "timeout"
+        : msg.includes("AbortError") ? "aborted"
+        : "error";
+      autoLog(candidate.provider, candidate.model, attemptIndex, errStatus, latencyMs, undefined, undefined, undefined, msg.slice(0, 300));
+
       attemptIndex++;
     }
   }
@@ -609,6 +667,7 @@ export async function callAIWithFailover(
       const health2 = getProviderHealth(candidate.provider);
       if (!health2.available) continue;
 
+      const attemptStart = Date.now();
       try {
         const fallbackMessages = [
           ...opts.messages,
@@ -627,7 +686,11 @@ export async function callAIWithFailover(
           signal: opts.signal,
         });
 
+        const latencyMs = Date.now() - attemptStart;
+
         if (fallbackResult.content && fallbackResult.content.trim().length > 0) {
+          autoLog(candidate.provider, candidate.model, chain.length + fallbackAttempt, "success", latencyMs, fallbackResult.usage, fallbackResult.estimatedUsage, fallbackResult.finish_reason);
+
           const telemetry: FailoverTelemetry = {
             route: "plain_json_fallback",
             provider: candidate.provider,
@@ -650,8 +713,10 @@ export async function callAIWithFailover(
           };
         }
       } catch (err2) {
+        const latencyMs = Date.now() - attemptStart;
         const msg2 = err2 instanceof Error ? err2.message : String(err2);
         errors.push(`FALLBACK ${candidate.provider}/${candidate.model}: ${msg2}`);
+        autoLog(candidate.provider, candidate.model, chain.length + fallbackAttempt, "error", latencyMs, undefined, undefined, undefined, msg2.slice(0, 300));
       }
       fallbackAttempt++;
     }
