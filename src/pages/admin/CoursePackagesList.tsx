@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import {
   ArrowRight, CheckCircle2, Clock, XCircle, Wrench, Shield,
   Brain, Package, Rocket, Plus, Filter, Search, AlertTriangle,
-  Zap, Eye, RefreshCw
+  Zap, Eye, RefreshCw, Ban
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import PageExplainer from '@/components/admin/PageExplainer';
