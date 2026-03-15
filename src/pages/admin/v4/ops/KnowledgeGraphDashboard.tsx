@@ -74,6 +74,22 @@ export default function KnowledgeGraphDashboard() {
     refetchInterval: 30_000,
   });
 
+  // Canary A/B test results
+  const { data: canaryResults } = useQuery({
+    queryKey: ['kg-canary-results'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('ai_generations')
+        .select('id, created_at, validation_decision, validation_score, metadata, output_content')
+        .eq('entity_type', 'kg_canary_test')
+        .order('created_at', { ascending: false })
+        .limit(5);
+      if (error) throw error;
+      return data;
+    },
+    refetchInterval: 30_000,
+  });
+
   const { data: coverageGaps } = useQuery({
     queryKey: ['kg-coverage-gaps'],
     queryFn: async () => {
