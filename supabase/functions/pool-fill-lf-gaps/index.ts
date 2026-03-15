@@ -105,6 +105,7 @@ Deno.serve(async (req) => {
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
+  bootstrapLLMLogging(sb, "pool_fill_lf_gaps");
 
   let payload: any;
   try {
