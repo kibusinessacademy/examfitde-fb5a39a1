@@ -58,6 +58,7 @@ const tabs = [
   { path: '/admin/ops/knowledge-graph', label: '🧠 Knowledge Graph' },
   { path: '/admin/ops/batch-recovery', label: '🔄 Batch Recovery' },
   { path: '/admin/ops/course-naming', label: '📛 Course Naming' },
+  { path: '/admin/ops/failure-integrity', label: '🛡️ Failure Integrity' },
 ];
 
 export default function OpsPage() {
