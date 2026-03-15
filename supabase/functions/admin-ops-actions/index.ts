@@ -475,6 +475,43 @@ async function forceUnlockPackage(sb: SB, packageId: string) {
   return { ok: true, locks_removed: data?.length ?? 0, scope: "single_package" };
 }
 
+/* ── unblock_package — sets blocked → building, clears loop guards on steps ── */
+async function unblockPackage(sb: SB, packageId: string, reason: string) {
+  // 1. Set package status from blocked → building
+  const { error: pkgErr } = await sb.from("course_packages")
+    .update({ status: "building", updated_at: new Date().toISOString() })
+    .eq("id", packageId)
+    .eq("status", "blocked");
+  if (pkgErr) throw pkgErr;
+
+  // 2. Remove locks
+  await sb.from("course_package_locks").delete().eq("package_id", packageId);
+
+  // 3. Reset any blocked steps back to queued, clear loop guard meta
+  const { data: blockedSteps } = await sb.from("package_steps")
+    .select("step_key, meta")
+    .eq("package_id", packageId)
+    .eq("status", "blocked");
+
+  const resetStepKeys: string[] = [];
+  for (const step of (blockedSteps || [])) {
+    const meta = (step as any).meta || {};
+    const cleanedMeta = {
+      ...meta,
+      loop_guard_blocked: false,
+      unblocked_at: new Date().toISOString(),
+      unblock_reason: reason,
+    };
+    await sb.from("package_steps")
+      .update({ status: "queued", meta: cleanedMeta, updated_at: new Date().toISOString() })
+      .eq("package_id", packageId)
+      .eq("step_key", (step as any).step_key);
+    resetStepKeys.push((step as any).step_key);
+  }
+
+  return { ok: true, reset_steps: resetStepKeys, reason, scope: "single_package" };
+}
+
 /* ── approve_step_exception ── */
 async function approveStepException(sb: SB, packageId: string, stepKey: string, reason: string, userId: string) {
   const { error } = await sb.from("package_steps")

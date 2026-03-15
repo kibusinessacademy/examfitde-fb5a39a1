@@ -13,6 +13,7 @@ type AdminOpsAction =
   | 'retry_package_step'
   | 'cancel_package_build'
   | 'force_unlock_package'
+  | 'unblock_package'
   | 'approve_step_exception'
   | 'workspace_snapshot';
 
