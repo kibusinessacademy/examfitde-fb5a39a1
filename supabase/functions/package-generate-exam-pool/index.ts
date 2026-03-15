@@ -544,6 +544,7 @@ function buildTurboPrompt(
   depthTopics: string[],
   glossaryContext?: string,
   masteryInjection?: string,
+  graphContext?: GraphContext | null,
 ): { system: string; user: string } {
   const diffLabel: Record<string, string> = {
     easy: "leicht", medium: "mittel", hard: "schwer", very_hard: "sehr schwer",
