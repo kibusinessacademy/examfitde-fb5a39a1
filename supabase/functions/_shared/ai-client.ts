@@ -308,6 +308,9 @@ export async function callAIJSON(opts: Omit<AIRequestOptions, "stream">): Promis
         input_tokens: data.usage?.input_tokens,
         output_tokens: data.usage?.output_tokens,
         total_tokens: (data.usage?.input_tokens || 0) + (data.usage?.output_tokens || 0),
+        // Prompt caching telemetry (GA since Dec 2024)
+        cache_creation_input_tokens: data.usage?.cache_creation_input_tokens || 0,
+        cache_read_input_tokens: data.usage?.cache_read_input_tokens || 0,
       };
       return {
         content,
