@@ -67,6 +67,9 @@ export async function submitBatchViaFunction(
   },
 ): Promise<{ ok: boolean; batchId?: string; error?: string }> {
   try {
+    // Auto-detect provider from model to prevent mismatch
+    const detectedProvider = providerForModel(opts.model);
+    
     const resp = await fetch(`${supabaseUrl}/functions/v1/batch-submit`, {
       method: "POST",
       headers: {
@@ -74,7 +77,7 @@ export async function submitBatchViaFunction(
         Authorization: `Bearer ${serviceRoleKey}`,
       },
       body: JSON.stringify({
-        provider: "openai",
+        provider: detectedProvider,
         model: opts.model,
         endpoint: "/v1/chat/completions",
         job_type: opts.jobType,
