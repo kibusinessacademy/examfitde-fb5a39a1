@@ -20,6 +20,7 @@ import { shouldUseBatch, BATCH_EXAM_MODEL } from "../_shared/batch/routing-confi
 import { buildBatchRequests, submitBatchViaFunction } from "../_shared/batch/enqueue-openai.ts";
 import { getGraphContextForBlueprint } from "../_shared/knowledge-graph/query.ts";
 import type { GraphContext } from "../_shared/knowledge-graph/types.ts";
+import { shouldInjectKG } from "../_shared/kg-rollout.ts";
 
 /**
  * DOMINANZ-ENGINE v5: IHK-REALISTIC QUALITY GATES
@@ -350,6 +351,9 @@ interface InvocationQualityMetrics {
   kg_context_hits: number;   // blueprints where KG context was available
   kg_context_misses: number; // blueprints where KG context was absent
   kg_errors_injected: number; // total common_errors injected across all calls
+  kg_rollout_enabled: boolean; // whether KG rollout is active
+  kg_rollout_pct: number;     // configured rollout percentage
+  kg_blueprints_gated: number; // blueprints excluded by rollout gate
 }
 
 function createEmptyQualityMetrics(): InvocationQualityMetrics {
@@ -367,6 +371,7 @@ function createEmptyQualityMetrics(): InvocationQualityMetrics {
     candidates_gate_failed_distractor: 0,
     avg_quality_score: 0, models_attempted: {}, models_used: {}, rejection_reasons: {},
     kg_context_hits: 0, kg_context_misses: 0, kg_errors_injected: 0,
+    kg_rollout_enabled: false, kg_rollout_pct: 0, kg_blueprints_gated: 0,
   };
 }
 
@@ -739,11 +744,18 @@ async function generateRawCandidates(
     masteryInjection = buildMasteryFeedbackSuffix(masteryCtx);
   } catch { /* non-blocking */ }
 
-  // ── Phase 2: Load Knowledge Graph context (non-blocking) ──
+  // ── Phase 2: Load Knowledge Graph context (gated by rollout config) ──
   let graphCtx: GraphContext | null = null;
-  try {
-    graphCtx = await getGraphContextForBlueprint(sb, bp.id);
-  } catch { /* KG is optional — never blocks generation */ }
+  const kgDecision = await shouldInjectKG(sb, bp.id);
+  _qualityMetrics.kg_rollout_enabled = kgDecision.enabled;
+  _qualityMetrics.kg_rollout_pct = kgDecision.rolloutPct;
+  if (kgDecision.blueprintInRollout) {
+    try {
+      graphCtx = await getGraphContextForBlueprint(sb, bp.id);
+    } catch { /* KG is optional — never blocks generation */ }
+  } else if (kgDecision.enabled) {
+    _qualityMetrics.kg_blueprints_gated++;
+  }
   if (graphCtx?.common_errors?.length) {
     _qualityMetrics.kg_context_hits++;
     _qualityMetrics.kg_errors_injected += Math.min(graphCtx.common_errors.length, 5);
@@ -1493,11 +1505,18 @@ async function submitExamPoolBatch(
       if (lf) lfTitle = lf.title || "";
     }
 
-    // ── Phase 2: Load Knowledge Graph context for batch (non-blocking) ──
+    // ── Phase 2: Load Knowledge Graph context for batch (gated by rollout) ──
     let graphCtx: GraphContext | null = null;
-    try {
-      graphCtx = await getGraphContextForBlueprint(sb, bp.id);
-    } catch { /* KG is optional */ }
+    const kgDecision = await shouldInjectKG(sb, bp.id);
+    _qualityMetrics.kg_rollout_enabled = kgDecision.enabled;
+    _qualityMetrics.kg_rollout_pct = kgDecision.rolloutPct;
+    if (kgDecision.blueprintInRollout) {
+      try {
+        graphCtx = await getGraphContextForBlueprint(sb, bp.id);
+      } catch { /* KG is optional */ }
+    } else if (kgDecision.enabled) {
+      _qualityMetrics.kg_blueprints_gated++;
+    }
     if (graphCtx?.common_errors?.length) {
       _qualityMetrics.kg_context_hits++;
       _qualityMetrics.kg_errors_injected += Math.min(graphCtx.common_errors.length, 5);
