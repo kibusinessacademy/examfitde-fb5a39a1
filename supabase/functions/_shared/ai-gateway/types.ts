@@ -16,6 +16,8 @@ export interface AIGenerationPolicy {
   allowedModels: string[];
   defaultModel: string;
   dailyBudgetEur?: number;
+  /** Canary rollout: 0-100, percentage of packages routed to batch */
+  batchRolloutPct: number;
 }
 
 export interface DeficitResult {

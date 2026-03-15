@@ -142,5 +142,6 @@ export async function resolvePolicy(
     maxRetries: 1,
     allowedModels: ["gpt-4o-mini"],
     defaultModel: "gpt-4o-mini",
+    batchRolloutPct: 100,
   };
 }
