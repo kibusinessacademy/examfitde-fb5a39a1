@@ -738,7 +738,7 @@ export async function callAIWithFailover(
   if (opts.tools && opts.tools.length > 0) {
     console.warn(`[AI-CLIENT] All tool-call providers empty — trying plain-text JSON fallback`);
 
-    let fallbackAttempt = 0;
+    let fallbackRank = 0;
     for (const candidate of chain) {
       if (!keyAvailability[candidate.provider]) continue;
       const health2 = getProviderHealth(candidate.provider);
@@ -764,19 +764,20 @@ export async function callAIWithFailover(
         });
 
         const latencyMs = Date.now() - attemptStart;
+        actualAttempt++;
 
         if (fallbackResult.content && fallbackResult.content.trim().length > 0) {
-          autoLog(candidate.provider, candidate.model, chain.length + fallbackAttempt, "success", latencyMs, fallbackResult.usage, fallbackResult.estimatedUsage, fallbackResult.finish_reason);
+          await autoLog(candidate.provider, candidate.model, "success", latencyMs, { usage: fallbackResult.usage, estimatedUsage: fallbackResult.estimatedUsage, finishReason: fallbackResult.finish_reason, wasCalled: true });
 
           const telemetry: FailoverTelemetry = {
             route: "plain_json_fallback",
             provider: candidate.provider,
             model: candidate.model,
-            fallback_rank: chain.length + fallbackAttempt,
+            fallback_rank: chain.length + fallbackRank,
             resolved_via: "plain_json_fallback",
             raw_text_length: fallbackResult.content.length,
             is_drift_prone: isDriftProneModel(candidate.model),
-            attempts_before: attemptIndex + fallbackAttempt,
+            attempts_before: actualAttempt,
           };
           console.log(`[AI-CLIENT] ✅ Plain-text fallback succeeded via ${candidate.provider}/${candidate.model} (${fallbackResult.content.length} chars, drift_prone=${telemetry.is_drift_prone})`);
           return {
@@ -793,9 +794,10 @@ export async function callAIWithFailover(
         const latencyMs = Date.now() - attemptStart;
         const msg2 = err2 instanceof Error ? err2.message : String(err2);
         errors.push(`FALLBACK ${candidate.provider}/${candidate.model}: ${msg2}`);
-        autoLog(candidate.provider, candidate.model, chain.length + fallbackAttempt, "error", latencyMs, undefined, undefined, undefined, msg2.slice(0, 300));
+        await autoLog(candidate.provider, candidate.model, "error", latencyMs, { errorMsg: msg2.slice(0, 300), wasCalled: true });
+        actualAttempt++;
       }
-      fallbackAttempt++;
+      fallbackRank++;
     }
   }
 
