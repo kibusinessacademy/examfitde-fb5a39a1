@@ -116,6 +116,24 @@ export default function ExamSimulation() {
           p_session_id: currentSessionId,
         });
       }
+
+      // ── Telemetry: record exam completion + trigger readiness recalc ──
+      const curriculumId = session?.curriculum_id;
+      const scorePercentage = typeof result === 'object' && result !== null
+        ? (result as any).score_percentage ?? (result as any).score ?? null
+        : null;
+      recordLearningEvent({
+        event_type: 'exam_sim_completed',
+        curriculum_id: curriculumId ?? undefined,
+        score: scorePercentage ?? undefined,
+        payload: {
+          exam_session_id: currentSessionId,
+          passed: typeof result === 'object' ? (result as any).passed : undefined,
+        },
+      });
+      if (curriculumId) {
+        snapshotExamReadiness(curriculumId);
+      }
     }
     setShowFinishDialog(false);
   };
