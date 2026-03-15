@@ -77,7 +77,8 @@ Deno.serve(async (req) => {
       enrichment_progress,
       berufe!inner(
         id,
-        titel,
+        bezeichnung_kurz,
+        bezeichnung_lang,
         beruf_market_data(fit_score, demand_percentile)
       )
     `)
