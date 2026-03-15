@@ -268,7 +268,7 @@ export default function LessonPlayer() {
     toast({ title: 'Lektion abgeschlossen!', description: 'Gut gemacht!' });
     setCompleting(false);
 
-    // ── Telemetry: record lesson completion + trigger readiness recalc ──
+    // ── Telemetry: record lesson completion (snapshot triggered by caller) ──
     const curriculumId = course?.curriculum_id;
     recordLearningEvent({
       event_type: 'lesson_completed',
@@ -278,9 +278,6 @@ export default function LessonPlayer() {
       duration_seconds: timeSpent,
       score: scorePercent ?? undefined,
     });
-    if (curriculumId) {
-      snapshotExamReadiness(curriculumId);
-    }
   };
 
   const handleH5PCompleted = (score?: number, maxScore?: number) => {
