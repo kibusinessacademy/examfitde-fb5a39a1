@@ -153,6 +153,9 @@ export default function KnowledgeGraphDashboard() {
 
   return (
     <div className="space-y-6">
+      {/* KG Rollout Orchestrator Panel */}
+      <KGRolloutPanel />
+
       {/* Summary KPIs */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Card>
