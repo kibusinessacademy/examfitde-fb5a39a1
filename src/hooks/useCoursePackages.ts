@@ -120,9 +120,14 @@ function dedupeVisiblePackages(rows: CoursePackage[]): CoursePackage[] {
   const grouped = new Map<string, CoursePackage[]>();
 
   for (const pkg of nonArchived) {
-    const key = normalizePackageTitle(pkg.title || pkg.id);
+    // Use canonical_title from view (SSOT berufe.bezeichnung_kurz) if available
+    const canonical = (pkg as any).canonical_title || pkg.title || pkg.id;
+    const key = normalizePackageTitle(canonical);
     const bucket = grouped.get(key) || [];
-    bucket.push(pkg);
+    bucket.push({
+      ...pkg,
+      title: canonical,  // Ensure UI always shows canonical form
+    });
     grouped.set(key, bucket);
   }
 

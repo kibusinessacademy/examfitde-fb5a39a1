@@ -235,7 +235,7 @@ Deno.serve(async (req) => {
           .from("courses")
           .insert({
             curriculum_id: cand.curriculum_id,
-            title: cand.title || cand.beruf_titel,
+            title: cand.beruf_titel || cand.title,
             status: "draft",
           })
           .select("id")

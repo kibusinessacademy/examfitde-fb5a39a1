@@ -93,14 +93,22 @@ Deno.serve(async (req) => {
       if (existingPkg) {
         packageId = existingPkg.id;
       } else {
+        const canonicalTitle =
+          (c as any).qualification_catalog?.canonical_title ||
+          (c as any).draft?.title ||
+          catalogTitle;
+
         const { data: pkg, error: pkgErr } = await sb
           .from("course_packages")
           .insert({
             course_id: courseId,
             curriculum_id: c.curriculum_id,
+            title: canonicalTitle,
             status: "queued",
             priority: Math.round(c.promotion_priority || 5),
             track: "AUSBILDUNG_VOLL",
+            version: 1,
+            build_progress: 0,
           })
           .select("id")
           .single();
