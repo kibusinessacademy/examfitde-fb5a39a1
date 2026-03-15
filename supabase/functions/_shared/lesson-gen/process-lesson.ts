@@ -69,6 +69,30 @@ export async function processLesson(sb: any, p: any, startMs: number): Promise<R
   // ── 4. Build context (now sync — mastery pre-loaded in loaders) ──
   const ctx = buildLessonGenerationContext(data);
 
+  // ── 4.5. GATEWAY: Policy + Deficit + Cache ──
+  const [policy, deficit] = await Promise.all([
+    resolvePolicy(sb, "lesson_generate_content"),
+    computeDeficit(sb, "lesson_generate_content", {
+      lessonId: req.lessonId,
+      stepKey: req.stepKey,
+      packageId: req.packageId,
+      courseId: req.courseId,
+    }),
+  ]);
+
+  // Deficit guard: skip if approved content already exists
+  if (policy.requireDeficit && !deficit.shouldGenerate) {
+    logCostSaving("lesson_generate_content", "deficit_skip", policy.maxTokensOut || 1400);
+    console.log(`[lesson-gen] DEFICIT_SKIP: lesson=${req.lessonId.slice(0, 8)} step=${req.stepKey} reason=${deficit.reason}`);
+    return json({
+      ok: true,
+      skipped: true,
+      reason: deficit.reason,
+      deficit: deficit,
+      elapsed_ms: Date.now() - startMs,
+    });
+  }
+
   // ── 5. Soft-stop check ──
   if (shouldSoftStop(startMs, "lesson_single")) {
     return json({ ok: false, retry: true, error: "SOFTSTOP: budget_exhausted_pre", elapsed_ms: Date.now() - startMs }, 503);
@@ -81,6 +105,37 @@ export async function processLesson(sb: any, p: any, startMs: number): Promise<R
 
   // ── 7. Build prompts ──
   const prompts = buildLessonPrompts(req, data, ctx);
+
+  // ── 7.3. GATEWAY: Cache check ──
+  if (policy.useCache) {
+    try {
+      const promptText = prompts.systemPrompt + "\n" + prompts.userPrompt;
+      const promptHash = await hashPrompt(promptText);
+      const cacheKey = await buildCacheKey({
+        jobType: "lesson_generate_content",
+        model: policy.defaultModel,
+        promptHash,
+      });
+
+      const cached = await checkCache(sb, cacheKey);
+      if (cached.found && cached.responseBody) {
+        logCostSaving("lesson_generate_content", "cache_hit", policy.maxTokensOut || 1400);
+        console.log(`[lesson-gen] CACHE_HIT: lesson=${req.lessonId.slice(0, 8)} step=${req.stepKey}`);
+        // Use cached content — run through normal persist path
+        const cachedContent = cached.responseBody as any;
+        if (cachedContent?.html || cachedContent?.questions) {
+          const finalContent = buildFinalContent(cachedContent, req, data, ctx, false);
+          return persistLessonResult(sb, req, data, runtime, {
+            content: cachedContent,
+            result: { provider: "cache", model: cached.model || "cached", content: JSON.stringify(cachedContent) },
+            plainRetry: false,
+          }, finalContent, startMs, json);
+        }
+      }
+    } catch (cacheErr) {
+      console.warn(`[lesson-gen] CACHE_CHECK_FAIL: ${(cacheErr as Error)?.message?.slice(0, 100)}`);
+    }
+  }
 
   // ── 7.5. BATCH ROUTING DECISION ──
   const forceSyncMode = p._force_sync === true || p.force_sync === true;
