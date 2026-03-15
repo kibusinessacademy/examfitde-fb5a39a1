@@ -27,10 +27,22 @@ export async function recordLearningEvent(params: {
   }
 }
 
+// Client-side debounce to prevent rapid duplicate snapshot calls
+let _lastSnapshotCall: Record<string, number> = {};
+const SNAPSHOT_DEBOUNCE_MS = 5_000;
+
 /**
  * Trigger a readiness snapshot + recommendation generation.
+ * Debounced client-side (5s) + server-side (30s same-score guard).
  */
 export async function snapshotExamReadiness(curriculumId: string) {
+  const now = Date.now();
+  if (_lastSnapshotCall[curriculumId] && now - _lastSnapshotCall[curriculumId] < SNAPSHOT_DEBOUNCE_MS) {
+    console.debug('[snapshotExamReadiness] Debounced (client-side)');
+    return null;
+  }
+  _lastSnapshotCall[curriculumId] = now;
+
   try {
     const { data, error } = await supabase.functions.invoke('snapshot-exam-readiness', {
       body: { curriculum_id: curriculumId },

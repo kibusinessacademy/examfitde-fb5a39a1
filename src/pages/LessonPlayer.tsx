@@ -283,6 +283,9 @@ export default function LessonPlayer() {
   const handleH5PCompleted = (score?: number, maxScore?: number) => {
     if (!progress?.completed) {
       completeLesson(score, maxScore);
+      // Trigger snapshot after H5P-only completion
+      const curriculumId = course?.curriculum_id;
+      if (curriculumId) snapshotExamReadiness(curriculumId);
     }
   };
 
