@@ -62,7 +62,7 @@ export default function SortableQueueItem({ pkg, index, canonicalTitles }: Props
 
       {/* Info */}
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate">{pkg.title || pkg.id.substring(0, 12)}</p>
+        <p className="text-sm font-medium truncate">{resolveTitle(canonicalTitles, pkg.id, pkg.title)}</p>
         <p className="text-xs text-muted-foreground">
           {pkg.build_progress > 0 ? `${pkg.build_progress}% fertig · ` : ''}
           {new Date(pkg.created_at).toLocaleDateString('de-DE')}

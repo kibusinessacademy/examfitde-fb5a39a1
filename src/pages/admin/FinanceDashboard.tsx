@@ -660,7 +660,7 @@ function PipelineControllingTab() {
       <TableRow key={pkg.id} className={pkg.status === 'building' ? 'bg-blue-500/5' : pkg.status === 'failed' ? 'bg-destructive/5' : ''}>
         <TableCell className="font-mono text-muted-foreground text-xs">{i + 1}</TableCell>
         <TableCell>
-          <div className="font-medium text-sm">{pkg.title?.replace('ExamFit – ', '')}</div>
+          <div className="font-medium text-sm">{resolveTitle(canonicalTitles, pkg.id, pkg.title)?.replace('ExamFit – ', '')}</div>
           {pkg.track && <div className="text-xs text-muted-foreground">{pkg.track}</div>}
         </TableCell>
         <TableCell>{getStatusBadge(pkg.status)}</TableCell>

@@ -228,7 +228,7 @@ export default function QueueManagerPage() {
               >
                 <div className="space-y-1">
                   {queuedPackages.map((pkg, index) => (
-                    <SortableQueueItem key={pkg.id} pkg={pkg} index={index} />
+                    <SortableQueueItem key={pkg.id} pkg={pkg} index={index} canonicalTitles={canonicalTitles} />
                   ))}
                 </div>
               </SortableContext>

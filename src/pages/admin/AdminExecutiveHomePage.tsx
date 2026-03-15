@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useAdminDashboard } from '@/components/admin/hooks/useAdminDashboard';
+import { useCanonicalTitles, resolveTitle } from '@/hooks/useCanonicalTitles';
 import { cn } from '@/lib/utils';
 import {
   BookOpen, Brain, CircleDollarSign, GraduationCap,
