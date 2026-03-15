@@ -146,18 +146,9 @@ export default function AIGatewayDashboard() {
     },
   });
 
-  // Distinct values for filter dropdowns
-  const routingModes = useMemo(() => {
-    const modes = new Set<string>();
-    requests?.forEach(r => { if (r.routing_mode) modes.add(r.routing_mode); });
-    return Array.from(modes).sort();
-  }, [requests]);
-
-  const statuses = useMemo(() => {
-    const s = new Set<string>();
-    requests?.forEach(r => { if (r.status) s.add(r.status); });
-    return Array.from(s).sort();
-  }, [requests]);
+  // Filter dropdown values come from stats (unfiltered by routing/status/jobType)
+  const routingModes = stats?.routingModes || [];
+  const statuses = stats?.statuses || [];
 
   return (
     <div className="space-y-6">
