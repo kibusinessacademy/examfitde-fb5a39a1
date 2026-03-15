@@ -234,15 +234,15 @@ Deno.serve(async (req) => {
 // ── Prompt builder (simplified for canary — not full v5 pipeline) ──
 
 function buildCanaryPrompt(
-  bp: { canonical_statement?: string; bloom_level?: string; question_type?: string; typical_exam_trap?: string },
+  bp: { canonical_statement?: string; cognitive_level?: string; allowed_question_types?: string[]; typical_exam_trap?: string },
   compTitle: string, compDesc: string, lfTitle: string, professionName: string, count: number,
 ): string {
   return `${count} Multiple-Choice-Frage(n) für "${professionName}".
 Lernfeld: ${lfTitle}
 Kompetenz: ${compTitle} — ${compDesc}
 Blueprint: ${bp.canonical_statement || ""}
-Bloom-Stufe: ${bp.bloom_level || "apply"}
-Fragetyp: ${bp.question_type || "best_option"}
+Kognitive Stufe: ${bp.cognitive_level || "apply"}
+Fragetyp: ${bp.allowed_question_types?.[0] || "best_option"}
 ${bp.typical_exam_trap ? `Typische Falle: ${bp.typical_exam_trap}` : ""}
 
 Ausgabe als JSON-Array mit Objekten:
