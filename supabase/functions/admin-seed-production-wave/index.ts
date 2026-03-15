@@ -142,7 +142,10 @@ Deno.serve(async (req) => {
     candidates.push({
       curriculum_id: c.id,
       title: c.title,
-      beruf_titel: (c as any).berufe?.titel ?? "",
+      beruf_titel:
+        (c as any).berufe?.bezeichnung_kurz ??
+        (c as any).berufe?.bezeichnung_lang ??
+        "",
       track: c.track ?? "AUSBILDUNG_VOLL",
       fit_score: fitScore,
       demand_percentile: demandPct,
