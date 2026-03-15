@@ -71,7 +71,7 @@ export default function AIGatewayDashboard() {
     refetchInterval: 15000,
   });
 
-  // Aggregate stats (same time filter)
+  // Aggregate stats (same time filter) — also provides distinct values for filters
   const { data: stats } = useQuery({
     queryKey: ['ai-gateway-stats', filterTime],
     queryFn: async () => {
@@ -89,19 +89,29 @@ export default function AIGatewayDashboard() {
       const byRouting: Record<string, number> = {};
       const byStatus: Record<string, number> = {};
       const jobTypes = new Set<string>();
+      const routingModes = new Set<string>();
+      const statuses = new Set<string>();
 
       for (const r of data || []) {
         byRouting[r.routing_mode] = (byRouting[r.routing_mode] || 0) + 1;
         byStatus[r.status] = (byStatus[r.status] || 0) + 1;
         if (r.job_type) jobTypes.add(r.job_type);
+        if (r.routing_mode) routingModes.add(r.routing_mode);
+        if (r.status) statuses.add(r.status);
       }
 
       const pct = (key: string) => total > 0 ? ((byRouting[key] || 0) / total * 100).toFixed(1) : '0';
 
       return {
-        total, byRouting, byStatus, jobTypes: Array.from(jobTypes).sort(),
+        total, byRouting, byStatus,
+        jobTypes: Array.from(jobTypes).sort(),
+        routingModes: Array.from(routingModes).sort(),
+        statuses: Array.from(statuses).sort(),
         skipRate: pct('skipped'), cacheRate: pct('cache_hit'),
         batchRate: pct('batch'), syncRate: pct('sync'),
+        completedCount: byStatus['completed'] || 0,
+        failedCount: byStatus['failed'] || 0,
+        pendingCount: (byStatus['queued'] || 0) + (byStatus['batch_pending'] || 0),
       };
     },
     refetchInterval: 30000,
