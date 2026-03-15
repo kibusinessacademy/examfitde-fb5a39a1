@@ -169,6 +169,7 @@ export default function KGRolloutPanel() {
 
   const readyCurricula = data?.curricula?.filter(c => c.is_ready) || [];
   const pendingCurricula = data?.curricula?.filter(c => !c.is_ready && c.pct_ready > 0) || [];
+  const driftCurricula = data?.curricula?.filter(c => c.drift === 'red') || [];
 
   return (
     <div className="space-y-6">
