@@ -51,6 +51,13 @@ function simpleHash(text: string): string {
   return hash.toString(36);
 }
 
+async function sha256(input: string): Promise<string> {
+  const encoded = new TextEncoder().encode(input);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", encoded);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
 function textNgrams(text: string, n = 3): Set<string> {
   const cleaned = text.toLowerCase().replace(/[^a-zäöüß0-9\s]/g, "").trim();
   const words = cleaned.split(/\s+/);
@@ -70,9 +77,13 @@ function jaccardSimilarity(a: Set<string>, b: Set<string>): number {
   return intersection / (a.size + b.size - intersection);
 }
 
+function normalizeText(text: string): string {
+  return text.toLowerCase().replace(/\s+/g, " ").trim();
+}
+
 const TEXT_SIMILARITY_THRESHOLD = 0.55;
 
-// ── Exam Pool Importer ───────────────────────────────────────────────────────
+// ── Exam Pool Importer (Production — with fingerprint dedup) ─────────────────
 
 async function importExamPoolBatch(
   sb: SupabaseClient,
@@ -83,15 +94,16 @@ async function importExamPoolBatch(
   let successCount = 0;
   let failCount = 0;
 
-  // Load existing hashes for dedup (from same curriculum)
+  // Load existing hashes + n-grams for Jaccard dedup (from same curriculum)
   const curriculumId = (batch as any).metadata?.curriculum_id;
   const existingHashes = new Set<string>();
   const existingNgramSets: Set<string>[] = [];
+  const existingFingerprints = new Set<string>();
 
   if (curriculumId) {
     const { data: existingQs } = await sb
       .from("exam_questions")
-      .select("question_text")
+      .select("question_text, question_fingerprint")
       .eq("curriculum_id", curriculumId)
       .neq("status", "rejected")
       .limit(5000);
@@ -100,6 +112,7 @@ async function importExamPoolBatch(
       for (const eq of existingQs) {
         existingHashes.add(simpleHash(eq.question_text));
         existingNgramSets.push(textNgrams(eq.question_text));
+        if (eq.question_fingerprint) existingFingerprints.add(eq.question_fingerprint);
       }
     }
   }
@@ -138,45 +151,101 @@ async function importExamPoolBatch(
 
       let parsed: any;
       try {
-        parsed = typeof content === "string" ? JSON.parse(content) : content;
+        const raw = typeof content === "string" ? content : JSON.stringify(content);
+        const cleaned = raw.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+        const fb = cleaned.indexOf("{");
+        const lb = cleaned.lastIndexOf("}");
+        if (fb !== -1 && lb > fb) {
+          parsed = JSON.parse(cleaned.slice(fb, lb + 1));
+        } else {
+          parsed = JSON.parse(cleaned);
+        }
       } catch {
         details.push({ ok: false, custom_id: customId, error: "Response not valid JSON" });
         failCount++;
         continue;
       }
 
-      // Extract source references from source_ref or custom_id
+      // ── Source references from source_ref (SSOT) ──
       const sourceRef = row.source_ref as any;
+      const batchMeta = (batch as any).metadata || {};
       const blueprintId = sourceRef?.blueprint_id || null;
       const lfId = sourceRef?.learning_field_id || null;
       const competencyId = sourceRef?.competency_id || null;
-      const difficulty = sourceRef?.difficulty || "medium";
-      const cognitiveLevel = sourceRef?.cognitive_level || "apply";
-      const questionType = sourceRef?.question_type || "concept";
+      const resolvedCurriculumId = sourceRef?.curriculum_id || curriculumId;
+      const packageId = sourceRef?.package_id || batchMeta.package_id || null;
+      const fallbackDifficulty = sourceRef?.difficulty || "medium";
+      const fallbackCognitiveLevel = sourceRef?.cognitive_level || "apply";
+      const fallbackQuestionType = sourceRef?.question_type || "concept";
 
-      const questions = Array.isArray(parsed?.questions) ? parsed.questions
+      if (!resolvedCurriculumId) {
+        details.push({ ok: false, custom_id: customId, error: "Missing curriculum_id in source_ref and batch metadata" });
+        failCount++;
+        continue;
+      }
+
+      // ── Normalize question array (alias support) ──
+      const questions =
+        Array.isArray(parsed?.questions) ? parsed.questions
+        : Array.isArray(parsed?.items) ? parsed.items
+        : Array.isArray(parsed?.results) ? parsed.results
         : Array.isArray(parsed) ? parsed
         : [parsed];
 
       let importedThisRow = 0;
 
       for (const q of questions) {
-        if (!q.question_text || !Array.isArray(q.options) || q.options.length < 4) continue;
+        // ── Field alias normalization ──
+        const questionText = String(q.question_text || q.question || "").trim();
+        const rawOptions = Array.isArray(q.options) ? q.options
+          : Array.isArray(q.answers) ? q.answers
+          : [];
 
-        // Correct answer validation
-        const correctIdx = Array.isArray(q.correct_answer) ? q.correct_answer[0] : (q.correct_answer ?? 0);
-        if (typeof correctIdx !== "number" || correctIdx < 0 || correctIdx >= q.options.length) continue;
+        if (!questionText || rawOptions.length < 4) continue;
+
+        // Correct answer: support index (number) or text match
+        let correctIdx: number;
+        if (typeof q.correct_answer === "number") {
+          correctIdx = q.correct_answer;
+        } else if (typeof q.correct_option === "number") {
+          correctIdx = q.correct_option;
+        } else if (typeof q.correctIndex === "number") {
+          correctIdx = q.correctIndex;
+        } else if (typeof q.correct_answer === "string") {
+          // Text-based correct answer → find matching option index
+          const matchIdx = rawOptions.findIndex((o: any) =>
+            normalizeText(String(o)) === normalizeText(q.correct_answer));
+          correctIdx = matchIdx >= 0 ? matchIdx : 0;
+        } else {
+          correctIdx = 0;
+        }
+
+        if (correctIdx < 0 || correctIdx >= rawOptions.length) continue;
 
         // Question text minimum length (governance constraint)
-        if (q.question_text.length < 10) continue;
+        if (questionText.length < 10) continue;
 
-        // Hash dedup
-        const hash = simpleHash(q.question_text);
+        const explanation = q.explanation ?? q.reasoning ?? null;
+        const difficulty = q.difficulty || fallbackDifficulty;
+        const questionType = q.question_type || q.type || fallbackQuestionType;
+        const cognitiveLevel = q.cognitive_level || q.bloom_level || fallbackCognitiveLevel;
+
+        // ── SHA-256 fingerprint for idempotent dedup ──
+        const normalizedQ = normalizeText(questionText);
+        const normalizedA = normalizeText(String(correctIdx));
+        const fingerprint = await sha256(`${blueprintId || "no-bp"}|${normalizedQ}|${normalizedA}`);
+
+        // Skip if fingerprint already exists (in-memory fast check)
+        if (existingFingerprints.has(fingerprint)) continue;
+        existingFingerprints.add(fingerprint);
+
+        // Hash dedup (fast structural)
+        const hash = simpleHash(questionText);
         if (existingHashes.has(hash)) continue;
         existingHashes.add(hash);
 
-        // Jaccard n-gram dedup
-        const qNgrams = textNgrams(q.question_text);
+        // Jaccard n-gram dedup (semantic similarity)
+        const qNgrams = textNgrams(questionText);
         let tooSimilar = false;
         const checkWindow = existingNgramSets.slice(-200);
         for (const existing of checkWindow) {
@@ -190,11 +259,11 @@ async function importExamPoolBatch(
 
         // Contamination check
         if (professionName) {
-          const contam = checkContamination(q.question_text + " " + (q.explanation || ""), professionName);
+          const contam = checkContamination(questionText + " " + (explanation || ""), professionName);
           if (contam.isContaminated) continue;
         }
 
-        // Map cognitive level
+        // Map cognitive level to canonical values
         const cogLevelMap: Record<string, string> = {
           recall: "remember", apply: "apply", analyze: "analyze", decide: "evaluate",
           remember: "remember", understand: "understand", evaluate: "evaluate", create: "create",
@@ -202,17 +271,18 @@ async function importExamPoolBatch(
         const mappedCogLevel = cogLevelMap[(cognitiveLevel || "apply").toLowerCase()] || cognitiveLevel;
 
         allInserts.push({
-          curriculum_id: curriculumId || null,
+          curriculum_id: resolvedCurriculumId,
           learning_field_id: lfId,
           competency_id: competencyId,
           blueprint_id: blueprintId,
-          question_text: q.question_text,
-          options: q.options,
+          question_text: questionText,
+          options: rawOptions,
           correct_answer: correctIdx,
-          explanation: q.explanation || "",
-          difficulty: difficulty,
+          explanation: explanation || "",
+          difficulty,
           cognitive_level: mappedCogLevel,
           question_type: questionType,
+          question_fingerprint: fingerprint,
           trap_tags: Array.isArray(q.trap_tags) ? q.trap_tags : [],
           ai_generated: true,
           status: "draft",
@@ -238,7 +308,7 @@ async function importExamPoolBatch(
     }
   }
 
-  // Batch insert all questions (50 per chunk, with duplicate fallback)
+  // Batch insert all questions (50 per chunk, with duplicate fallback via fingerprint unique index)
   if (allInserts.length > 0) {
     const BATCH_SIZE = 50;
     for (let i = 0; i < allInserts.length; i += BATCH_SIZE) {
@@ -247,8 +317,8 @@ async function importExamPoolBatch(
       if (error) {
         if (error.code === "23505") {
           // Unique constraint violation — fallback to individual inserts
-          for (const row of chunk) {
-            const { error: singleErr } = await sb.from("exam_questions").insert(row);
+          for (const singleRow of chunk) {
+            const { error: singleErr } = await sb.from("exam_questions").insert(singleRow);
             if (singleErr && singleErr.code !== "23505") {
               console.warn(`[batch-import] exam_pool insert error: ${singleErr.message}`);
             }
@@ -260,6 +330,7 @@ async function importExamPoolBatch(
     }
   }
 
+  console.log(`[batch-import] exam_pool: ${allInserts.length} questions inserted, ${successCount} rows processed, ${failCount} failed`);
   return { successCount, failCount, details };
 }
 

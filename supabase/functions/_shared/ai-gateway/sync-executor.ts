@@ -31,6 +31,7 @@ export interface SyncExecutionResult {
  */
 const JOB_TYPE_TO_FUNCTION: Record<string, string> = {
   lesson_generate_content: "lesson-generate-content",
+  package_generate_exam_pool: "package-generate-exam-pool",
   // Future: expand_handbook_section, package_generate_glossary, etc.
 };
 
