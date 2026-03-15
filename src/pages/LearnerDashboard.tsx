@@ -221,9 +221,10 @@ export default function LearnerDashboard() {
           <NextBestActionCard />
         </div>
 
-        {/* ━━━ SECTION 1: Next Best Action + Coach Hint ━━━ */}
+        {/* ━━━ SECTION 1: Smart Recommendations + Next Best Action + Coach Hint ━━━ */}
         {activeCurriculumId && (
           <div className="space-y-4 mb-6">
+            <SmartRecommendationsCard curriculumId={activeCurriculumId} />
             <NextBestAction curriculumId={activeCurriculumId} />
             <CoachHint curriculumId={activeCurriculumId} />
           </div>
