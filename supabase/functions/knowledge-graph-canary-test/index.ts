@@ -131,24 +131,34 @@ Deno.serve(async (req) => {
       }
 
       // ── Step 4: Finalize with summary ──
+      const bpCompleted = results.length / 2;
+      const progressPct = Math.round((bpCompleted / shuffled.length) * 100);
+      const finalStatus = bpCompleted === 0
+        ? "failed"
+        : bpCompleted < shuffled.length
+          ? "accepted_with_errors"
+          : "accepted";
+
       const summary = computeSummary(results);
       await sb.from("ai_generations").update({
-        status: "accepted",
+        status: finalStatus,
         output_content: { results, run_id: runId },
         validation_score: summary.avgA,
-        validation_decision: summary.verdict,
+        validation_decision: finalStatus === "failed" ? "no_data" : summary.verdict,
         metadata: {
           version: "kg-canary-v2-async",
           run_id: runId,
           blueprints_tested: shuffled.length,
-          blueprints_completed: results.length / 2,
+          blueprints_completed: bpCompleted,
+          blueprints_failed: shuffled.length - bpCompleted,
+          progress_pct: progressPct,
           questions_per_bp,
           completed_at: new Date().toISOString(),
           summary: summary.full,
         },
       }).eq("id", genId);
 
-      console.log(`[KG-Canary] ✅ Run ${runId.slice(0, 8)} finalized: ${summary.verdict} (Δ=${summary.full.delta_quality})`);
+      console.log(`[KG-Canary] ✅ Run ${runId.slice(0, 8)} finalized: ${finalStatus} / ${summary.verdict} (Δ=${summary.full.delta_quality}, ${progressPct}%)`);
     })();
 
     // Wait for background work but still return the response
