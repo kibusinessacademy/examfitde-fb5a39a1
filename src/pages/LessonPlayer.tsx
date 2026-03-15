@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
 import { Loader2, Lock, ArrowLeft } from 'lucide-react';
+import { recordLearningEvent, snapshotExamReadiness } from '@/lib/learning-telemetry';
 
 import type { Json } from '@/integrations/supabase/types';
 import type { LessonStatus } from '@/hooks/useCourseProgress';
