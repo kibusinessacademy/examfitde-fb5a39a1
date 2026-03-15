@@ -8,12 +8,13 @@ import { buildRequestFingerprint, checkDuplicateRequest } from "../_shared/ai-ga
 import { logGatewayDecision, logCostSaving } from "../_shared/ai-gateway/observability.ts";
 import type { GatewayRequest, GatewayResult, RoutingDecision } from "../_shared/ai-gateway/types.ts";
 import { buildBatchRequests, submitBatchViaFunction } from "../_shared/batch/enqueue-openai.ts";
+import { executeSyncDispatch } from "../_shared/ai-gateway/sync-executor.ts";
 
 /**
  * ai-generation-gateway — Central entry point for all AI generation requests.
  *
- * Enforces: Policy → Deficit → Cache → Dedup → Routing → Dispatch
- * No LLM calls happen here — only routing decisions and record-keeping.
+ * Enforces: Policy → Deficit → Cache → Dedup → Routing → Dispatch → Finalize
+ * Phase C1: Sync paths are now executed inline via domain function calls.
  */
 
 const corsHeaders = {
