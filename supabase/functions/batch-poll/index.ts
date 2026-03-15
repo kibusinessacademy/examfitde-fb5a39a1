@@ -196,13 +196,14 @@ Deno.serve(async (req) => {
               processedCount++;
             }
 
-            // Mark output as imported
+            // Mark output as imported with observability counters
             await sb.from("llm_batches").update({
               output_imported_at: now,
               metadata: {
                 ...((batch.metadata as any) || {}),
                 last_poll_raw: poll.raw,
                 import_stats: {
+                  output_row_count: rows.length,
                   rows_processed: processedCount,
                   total_cost_eur: Math.round(totalCostEur * 1e6) / 1e6,
                   pricing_source: PRICING_META.source,
