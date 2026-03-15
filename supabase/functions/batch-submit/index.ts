@@ -8,6 +8,7 @@
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getBatchAdapter } from "../_shared/batch/router.ts";
+import { validateProviderModelCompat } from "../_shared/model-catalog.ts";
 import type { BatchCreateInput, BatchProvider, NormalizedBatchRequest } from "../_shared/batch/types.ts";
 
 const corsHeaders = {
@@ -44,6 +45,16 @@ Deno.serve(async (req) => {
 
     if (!requests.length) return json({ ok: false, error: "requests[] required" }, 400);
     if (requests.length > 50_000) return json({ ok: false, error: "Max 50,000 requests per batch" }, 400);
+
+    // ── P2 Guard: Provider-Model Compatibility Check (SSOT) ──
+    const mismatchErr = validateProviderModelCompat(provider, model);
+    if (mismatchErr) {
+      return json({
+        ok: false,
+        error: `${mismatchErr}. Batch rejected.`,
+        code: "PROVIDER_MODEL_MISMATCH",
+      }, 422);
+    }
 
     // 1) Create batch record
     const { data: batch, error: bErr } = await sb
