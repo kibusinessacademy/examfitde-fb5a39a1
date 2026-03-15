@@ -2287,6 +2287,14 @@ Deno.serve(async (req) => {
             gate_failed_distractor: _qualityMetrics.candidates_gate_failed_distractor,
             avg_quality_score: Math.round(_qualityMetrics.avg_quality_score * 100) / 100,
           },
+          knowledge_graph: {
+            context_hits: _qualityMetrics.kg_context_hits,
+            context_misses: _qualityMetrics.kg_context_misses,
+            errors_injected: _qualityMetrics.kg_errors_injected,
+            coverage_pct: (_qualityMetrics.kg_context_hits + _qualityMetrics.kg_context_misses) > 0
+              ? Math.round((_qualityMetrics.kg_context_hits / (_qualityMetrics.kg_context_hits + _qualityMetrics.kg_context_misses)) * 100)
+              : 0,
+          },
           models_attempted: _qualityMetrics.models_attempted,
           models_used: _qualityMetrics.models_used,
           accept_rate_pct: _qualityMetrics.candidates_generated > 0
