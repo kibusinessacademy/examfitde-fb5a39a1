@@ -50,6 +50,7 @@ const tabs = [
   { path: '/admin/ops/security', label: '🔐 Security' },
   { path: '/admin/ops/tests', label: '🧪 Tests' },
   { path: '/admin/ops/schema', label: '🛡️ Schema SSOT' },
+  { path: '/admin/ops/ai-gateway', label: '🚀 AI Gateway' },
 ];
 
 export default function OpsPage() {
