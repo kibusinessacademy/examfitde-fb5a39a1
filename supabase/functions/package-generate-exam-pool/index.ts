@@ -347,6 +347,9 @@ interface InvocationQualityMetrics {
   models_attempted: Record<string, number>;  // NEW: every attempt, including failures
   models_used: Record<string, number>;       // only successful calls with output
   rejection_reasons: Record<string, number>;
+  kg_context_hits: number;   // blueprints where KG context was available
+  kg_context_misses: number; // blueprints where KG context was absent
+  kg_errors_injected: number; // total common_errors injected across all calls
 }
 
 function createEmptyQualityMetrics(): InvocationQualityMetrics {
