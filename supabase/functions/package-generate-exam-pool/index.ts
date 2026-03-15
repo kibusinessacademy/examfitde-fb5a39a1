@@ -735,7 +735,13 @@ async function generateRawCandidates(
     masteryInjection = buildMasteryFeedbackSuffix(masteryCtx);
   } catch { /* non-blocking */ }
 
-  const { system, user } = buildTurboPrompt(bp, difficulty, questionType, cognitiveLevel, count, lfTitle, compTitle, compDesc, professionName, depthTopics, glossaryContext, masteryInjection);
+  // ── Phase 2: Load Knowledge Graph context (non-blocking) ──
+  let graphCtx: GraphContext | null = null;
+  try {
+    graphCtx = await getGraphContextForBlueprint(sb, bp.id);
+  } catch { /* KG is optional — never blocks generation */ }
+
+  const { system, user } = buildTurboPrompt(bp, difficulty, questionType, cognitiveLevel, count, lfTitle, compTitle, compDesc, professionName, depthTopics, glossaryContext, masteryInjection, graphCtx);
 
   const maxTokens = count <= 2 ? 2200 : count <= 5 ? 3500 : 4096;
 
