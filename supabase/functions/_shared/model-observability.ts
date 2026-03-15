@@ -143,15 +143,24 @@ export const MODEL_PERF_ESTIMATES: Record<string, ModelPerfEstimate> = {
     source: "estimated",
   },
 
-  // ── Anthropic ──────────────────────────────────────────────
+  // ── Anthropic (Tier 4 — verified from Claude Console 2026-03-15) ──
   "claude-haiku-4-5-20251001": {
     ttft_s_p50: [0.5, 1.2],
     output_tps_observed: [100, 180],
-    rpm_observed: [2000, 8000],
-    tpm_observed: 1_500_000,
+    rpm_observed: [4000, 4000],     // Tier 4 actual: 4,000 RPM (was 2000-8000 estimated)
+    tpm_observed: 4_000_000,        // Tier 4 actual: 4M input tokens/min
     tier: "mini",
-    confidence: "medium",
-    source: "measured",
+    confidence: "high",
+    source: "measured",             // Verified from Anthropic Console Limits page
+  },
+  "claude-sonnet-4-5-20250929": {
+    ttft_s_p50: [1.0, 2.0],
+    output_tps_observed: [60, 120],
+    rpm_observed: [4000, 4000],     // Tier 4 actual: 4,000 RPM
+    tpm_observed: 2_000_000,        // Tier 4 actual: 2M input tokens/min (incl. cache reads)
+    tier: "standard",
+    confidence: "high",
+    source: "measured",             // Verified from Anthropic Console Limits page
   },
 
   // ── Google ─────────────────────────────────────────────────

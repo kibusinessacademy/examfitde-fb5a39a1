@@ -201,7 +201,8 @@ export async function callAI(opts: AIRequestOptions): Promise<AIResponse> {
       headers: {
         "x-api-key": apiKey,
         "anthropic-version": "2023-06-01",
-        "anthropic-beta": "prompt-caching-2024-07-31",
+        // NOTE: prompt-caching-2024-07-31 beta header REMOVED — caching is GA since Dec 2024.
+        // The deprecated beta header was being rejected by newer models, preventing caching entirely.
         "Content-Type": "application/json",
       },
       body: JSON.stringify(body),
@@ -307,6 +308,9 @@ export async function callAIJSON(opts: Omit<AIRequestOptions, "stream">): Promis
         input_tokens: data.usage?.input_tokens,
         output_tokens: data.usage?.output_tokens,
         total_tokens: (data.usage?.input_tokens || 0) + (data.usage?.output_tokens || 0),
+        // Prompt caching telemetry (GA since Dec 2024)
+        cache_creation_input_tokens: data.usage?.cache_creation_input_tokens || 0,
+        cache_read_input_tokens: data.usage?.cache_read_input_tokens || 0,
       };
       return {
         content,

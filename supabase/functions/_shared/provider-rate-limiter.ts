@@ -17,10 +17,10 @@ export type AIProvider = "openai" | "anthropic" | "google";
 
 // ── Configuration ───────────────────────────────────────────────────
 
-/** Max requests per minute per provider (conservative defaults) */
+/** Max requests per minute per provider (based on actual account tier limits) */
 const RPM_LIMITS: Record<AIProvider, number> = {
-  openai: 400,     // gpt-4o-mini supports 500 RPM; raised from 250 — fan-out bursts need headroom
-  anthropic: 40,
+  openai: 400,       // gpt-4o-mini supports 500 RPM; raised from 250 — fan-out bursts need headroom
+  anthropic: 4000,   // Tier 4 actual limit: 4,000 RPM (was 40 — 100x too low!)
   google: 60,
   lovable: 60,
 };
