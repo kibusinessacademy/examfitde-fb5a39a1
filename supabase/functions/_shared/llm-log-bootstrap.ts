@@ -14,12 +14,6 @@ export function bootstrapLLMLogging(
 ) {
   (globalThis as any).__llmLogSb = sb;
   (globalThis as any).__llmJobType = jobType;
-
-  // Also register the supabase client module for auto-log fallback
-  try {
-    const mod = { createClient: () => sb };
-    (globalThis as any).__supabaseClientModule = (globalThis as any).__supabaseClientModule || mod;
-  } catch { /* best-effort */ }
 }
 
 /**
