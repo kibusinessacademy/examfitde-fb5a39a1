@@ -555,6 +555,10 @@ function PipelineControllingTab() {
     refetchInterval: 30000,
   });
 
+  const { data: canonicalTitles } = useCanonicalTitles(
+    (packages || []).map((p: any) => p.id),
+  );
+
   const { data: costData } = useQuery({
     queryKey: ['pipeline-cost-data'],
     queryFn: async () => {
