@@ -132,17 +132,6 @@ Deno.serve(async (req) => {
 
     const allPairs = await Promise.all(bpPromises);
     const results: CanaryResult[] = allPairs.flat();
-        questions_generated: scoreB.count,
-        avg_quality_score: scoreB.avgQuality,
-        distractor_quality: scoreB.distractorScore,
-        praxis_score: scoreB.praxisScore,
-        raw_output: resultB,
-        model_used: `${provider}/${model}`,
-        latency_ms: latencyB,
-      });
-
-      console.log(`[KG-Canary] ${bp.id.slice(0,8)}: A(kg=${graphCtx?.common_errors?.length || 0})=${scoreA.avgQuality.toFixed(1)} vs B=${scoreB.avgQuality.toFixed(1)}`);
-    }
 
     // Persist to ai_generations for dashboard access
     const variantA = results.filter(r => r.variant === "A_with_kg");
