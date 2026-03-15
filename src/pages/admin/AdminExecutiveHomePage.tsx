@@ -311,7 +311,7 @@ export default function AdminExecutiveHomePage() {
           </CardHeader>
           <CardContent className="space-y-2">
             {data.building_packages.map((pkg) => (
-              <BuildingPackageRow key={pkg.id} pkg={pkg} />
+              <BuildingPackageRow key={pkg.id} pkg={pkg} canonicalTitles={canonicalTitles} />
             ))}
           </CardContent>
         </Card>
