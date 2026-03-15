@@ -93,78 +93,70 @@ Deno.serve(async (req) => {
     if (genErr) return json({ error: "Failed to create run record: " + genErr.message }, 500);
     const genId = genRecord.id;
 
-    // ── Step 2: Fire-and-forget background processing ──
-    // EdgeRuntime keeps alive until all promises settle, but we must
-    // NOT await the background work — return the response immediately.
-    const backgroundWork = (async () => {
-      const results: CanaryResult[] = [];
+    // ── Step 2: Process synchronously (record already persisted for resilience) ──
+    const results: CanaryResult[] = [];
 
-      for (const bp of shuffled) {
-        try {
-          const pair = await processOneBlueprint(sb, bp, professionName, questions_per_bp, provider, model);
-          results.push(...pair);
+    for (const bp of shuffled) {
+      try {
+        const pair = await processOneBlueprint(sb, bp, professionName, questions_per_bp, provider, model);
+        results.push(...pair);
 
-          // ── Step 3: Incremental checkpoint after each blueprint ──
-          const completed = results.length / 2;
-          await sb.from("ai_generations").update({
-            output_content: { results, run_id: runId },
-            metadata: {
-              version: "kg-canary-v2-async",
-              run_id: runId,
-              blueprints_tested: shuffled.length,
-              blueprints_completed: completed,
-              progress_pct: Math.round((completed / shuffled.length) * 100),
-              questions_per_bp,
-              last_checkpoint: new Date().toISOString(),
-            },
-          }).eq("id", genId);
-        } catch (e) {
-          console.error(`[KG-Canary] Blueprint ${bp.id.slice(0, 8)} failed:`, e);
-        }
+        // ── Step 3: Incremental checkpoint after each blueprint ──
+        const completed = results.length / 2;
+        await sb.from("ai_generations").update({
+          output_content: { results, run_id: runId },
+          metadata: {
+            version: "kg-canary-v3-sync",
+            run_id: runId,
+            blueprints_tested: shuffled.length,
+            blueprints_completed: completed,
+            progress_pct: Math.round((completed / shuffled.length) * 100),
+            questions_per_bp,
+            last_checkpoint: new Date().toISOString(),
+          },
+        }).eq("id", genId);
+      } catch (e) {
+        console.error(`[KG-Canary] Blueprint ${bp.id.slice(0, 8)} failed:`, e);
       }
+    }
 
-      // ── Step 4: Finalize with summary ──
-      const bpCompleted = results.length / 2;
-      const progressPct = Math.round((bpCompleted / shuffled.length) * 100);
-      const finalStatus = bpCompleted === 0
-        ? "failed"
-        : bpCompleted < shuffled.length
-          ? "accepted_with_errors"
-          : "accepted";
+    // ── Step 4: Finalize with summary ──
+    const bpCompleted = results.length / 2;
+    const progressPct = Math.round((bpCompleted / shuffled.length) * 100);
+    const finalStatus = bpCompleted === 0
+      ? "failed"
+      : bpCompleted < shuffled.length
+        ? "accepted_with_errors"
+        : "accepted";
 
-      const summary = computeSummary(results);
-      await sb.from("ai_generations").update({
-        status: finalStatus,
-        output_content: { results, run_id: runId },
-        validation_score: summary.avgA,
-        validation_decision: finalStatus === "failed" ? "no_data" : summary.verdict,
-        metadata: {
-          version: "kg-canary-v2-async",
-          run_id: runId,
-          blueprints_tested: shuffled.length,
-          blueprints_completed: bpCompleted,
-          blueprints_failed: shuffled.length - bpCompleted,
-          progress_pct: progressPct,
-          questions_per_bp,
-          completed_at: new Date().toISOString(),
-          summary: summary.full,
-        },
-      }).eq("id", genId);
+    const summary = computeSummary(results);
+    await sb.from("ai_generations").update({
+      status: finalStatus,
+      output_content: { results, run_id: runId },
+      validation_score: summary.avgA,
+      validation_decision: finalStatus === "failed" ? "no_data" : summary.verdict,
+      metadata: {
+        version: "kg-canary-v3-sync",
+        run_id: runId,
+        blueprints_tested: shuffled.length,
+        blueprints_completed: bpCompleted,
+        blueprints_failed: shuffled.length - bpCompleted,
+        progress_pct: progressPct,
+        questions_per_bp,
+        completed_at: new Date().toISOString(),
+        summary: summary.full,
+      },
+    }).eq("id", genId);
 
-      console.log(`[KG-Canary] ✅ Run ${runId.slice(0, 8)} finalized: ${finalStatus} / ${summary.verdict} (Δ=${summary.full.delta_quality}, ${progressPct}%)`);
-    })();
-
-    // Don't await backgroundWork — let it run while we return
-    // Suppress unhandled rejection warnings
-    backgroundWork.catch((e) => console.error("[KG-Canary] background fatal:", e));
+    console.log(`[KG-Canary] ✅ Run ${runId.slice(0, 8)} finalized: ${finalStatus} / ${summary.verdict} (Δ=${summary.full.delta_quality}, ${progressPct}%)`);
 
     return json({
       ok: true,
-      async: true,
-      run_id: runId,
       generation_id: genId,
-      blueprints_queued: shuffled.length,
-      message: "Canary test started. Results will be persisted to ai_generations.",
+      run_id: runId,
+      status: finalStatus,
+      verdict: summary.verdict,
+      summary: summary.full,
     });
   } catch (e: unknown) {
     console.error("[KG-Canary] error", e);
