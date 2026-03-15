@@ -328,7 +328,7 @@ export default function CoursePackagesList() {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-semibold text-sm text-foreground truncate">
-                            {pkg.title || pkg.id.substring(0, 12)}
+                            {pkg.canonical_title || pkg.title || pkg.id.substring(0, 12)}
                           </p>
                           <Badge variant="outline" className={cn("text-xs", cfg.color)}>
                             {cfg.label}
