@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Network, GitBranch, AlertTriangle, BookOpen, Target, Layers } from 'lucide-react';
+import { Network, GitBranch, AlertTriangle, BookOpen, Target, Layers, Sparkles } from 'lucide-react';
 
 export default function KnowledgeGraphDashboard() {
   // Node counts by type
