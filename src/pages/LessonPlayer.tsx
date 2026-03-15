@@ -40,6 +40,7 @@ interface Module {
 interface Course {
   id: string;
   title: string;
+  curriculum_id: string | null;
 }
 
 interface LessonProgress {
