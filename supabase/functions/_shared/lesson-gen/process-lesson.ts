@@ -157,6 +157,27 @@ export async function processLesson(sb: any, p: any, startMs: number): Promise<R
   // ── 10. Build final content ──
   const finalContent = buildFinalContent(llm.content, req, data, ctx, llm.plainRetry);
 
+  // ── 10.5. Store in cache (best-effort, after QC pass) ──
+  if (policy.useCache && llm.content) {
+    try {
+      const promptText = prompts.systemPrompt + "\n" + prompts.userPrompt;
+      const promptHash = await hashPrompt(promptText);
+      const cacheKey = await buildCacheKey({
+        jobType: "lesson_generate_content",
+        model: policy.defaultModel,
+        promptHash,
+      });
+      await storeInCache(sb, {
+        cacheKey,
+        jobType: "lesson_generate_content",
+        provider: llm.result?.provider,
+        model: llm.result?.model,
+        requestFingerprint: promptHash,
+        responseBody: llm.content,
+      });
+    } catch { /* best-effort cache store */ }
+  }
+
   // ── 11. Persist ──
   return persistLessonResult(sb, req, data, runtime, llm, finalContent, startMs, json);
 }
