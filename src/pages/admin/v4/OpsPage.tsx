@@ -140,6 +140,7 @@ export default function OpsPage() {
           <Route path="knowledge-graph" element={<KnowledgeGraphDashboard />} />
           <Route path="batch-recovery" element={<BatchRecoveryDashboard />} />
           <Route path="course-naming" element={<CourseNamingIntegrityPanel />} />
+          <Route path="failure-integrity" element={<JobFailureIntegrityPanel />} />
         </Routes>
       </Suspense>
     </div>
