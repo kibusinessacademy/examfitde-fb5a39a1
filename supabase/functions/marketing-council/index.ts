@@ -15,6 +15,7 @@ Deno.serve(async (req) => {
   try {
     const { action, month, campaign_id, asset_id } = await req.json();
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    bootstrapLLMLogging(supabase, "marketing_council");
 
     // ── GENERATE MONTHLY STRATEGY ──
     if (action === "generate_strategy") {
