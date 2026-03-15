@@ -221,7 +221,12 @@ Deno.serve(async (req) => {
       const batchRequests = buildBatchRequests([{
         customId,
         sourceJobId: null,
-        sourceRef: body.sourceRef || null,
+        sourceRef: {
+          ...(body.sourceRef || {}),
+          course_id: body.courseId || (body.sourceRef as any)?.course_id || null,
+          package_id: body.packageId || (body.sourceRef as any)?.package_id || null,
+          lesson_id: body.sourceId || (body.sourceRef as any)?.lesson_id || null,
+        },
         aiGenerationRequestId: requestId,
         jobType: body.jobType,
         model,
