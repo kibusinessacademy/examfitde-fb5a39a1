@@ -280,6 +280,7 @@ const AppRoutes = () => {
           <Route path="probes" element={<SyntheticProbeCenterPage />} />
           <Route path="scheduler" element={<SchedulerGovernancePage />} />
           <Route path="leitstelle" element={<UnifiedLeitstellePage />} />
+          <Route path="v2-loop-debug" element={<V2LoopDebugPage />} />
           <Route path="intake/qualification-discovery" element={<QualificationDiscoveryPage />} />
           <Route path="intake/curriculum" element={<CurriculumIntakePage />} />
 
