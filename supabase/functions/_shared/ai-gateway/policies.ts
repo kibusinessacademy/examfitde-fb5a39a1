@@ -21,6 +21,7 @@ export const DEFAULT_POLICIES: Record<string, AIGenerationPolicy> = {
     maxBatchSize: 500,
     allowedModels: ["gpt-4o-mini"],
     defaultModel: "gpt-4o-mini",
+    batchRolloutPct: 100,
   },
   package_generate_exam_pool: {
     jobType: "package_generate_exam_pool",
@@ -35,6 +36,7 @@ export const DEFAULT_POLICIES: Record<string, AIGenerationPolicy> = {
     maxBatchSize: 5000,
     allowedModels: ["gpt-4o-mini", "gpt-5-mini"],
     defaultModel: "gpt-4o-mini",
+    batchRolloutPct: 100,
   },
   expand_handbook_section: {
     jobType: "expand_handbook_section",
@@ -49,6 +51,7 @@ export const DEFAULT_POLICIES: Record<string, AIGenerationPolicy> = {
     maxBatchSize: 200,
     allowedModels: ["gpt-4o-mini", "gpt-4.1"],
     defaultModel: "gpt-4o-mini",
+    batchRolloutPct: 100,
   },
   package_generate_oral_exam: {
     jobType: "package_generate_oral_exam",
@@ -63,6 +66,7 @@ export const DEFAULT_POLICIES: Record<string, AIGenerationPolicy> = {
     maxBatchSize: 200,
     allowedModels: ["gpt-4o-mini"],
     defaultModel: "gpt-4o-mini",
+    batchRolloutPct: 100,
   },
   package_generate_lesson_minichecks: {
     jobType: "package_generate_lesson_minichecks",
@@ -77,6 +81,7 @@ export const DEFAULT_POLICIES: Record<string, AIGenerationPolicy> = {
     maxBatchSize: 500,
     allowedModels: ["gpt-4o-mini"],
     defaultModel: "gpt-4o-mini",
+    batchRolloutPct: 100,
   },
   package_generate_glossary: {
     jobType: "package_generate_glossary",
@@ -91,6 +96,7 @@ export const DEFAULT_POLICIES: Record<string, AIGenerationPolicy> = {
     maxBatchSize: 200,
     allowedModels: ["gpt-4o-mini"],
     defaultModel: "gpt-4o-mini",
+    batchRolloutPct: 100,
   },
 };
 
