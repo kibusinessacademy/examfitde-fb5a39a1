@@ -224,13 +224,25 @@ export function useCoursePackageDetail(packageId: string | undefined) {
     queryKey: ['course-package', packageId],
     queryFn: async () => {
       if (!packageId) return null;
+      // Use SSOT view for canonical title, fall back to course_packages for full data
+      const { data: ssotData } = await (supabase as any)
+        .from('v_course_display_ssot')
+        .select('canonical_title')
+        .eq('package_id', packageId)
+        .maybeSingle();
+
       const { data, error } = await supabase
         .from('course_packages')
         .select('*')
         .eq('id', packageId)
         .single();
       if (error) throw error;
-      return data as CoursePackage;
+      // Overlay canonical title from SSOT view
+      const pkg = data as CoursePackage;
+      if (ssotData?.canonical_title) {
+        pkg.title = ssotData.canonical_title;
+      }
+      return pkg;
     },
     enabled: !!packageId,
   });

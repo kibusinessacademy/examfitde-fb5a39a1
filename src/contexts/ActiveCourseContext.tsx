@@ -77,7 +77,7 @@ export function ActiveCourseProvider({ children }: { children: ReactNode }) {
 
       setCourse({
         id: pkg.id,
-        title: pkg.title || pkg.id.substring(0, 12),
+        title: canonicalTitle || pkg.title || pkg.id.substring(0, 12),
         status: pkg.status,
         buildProgress: pkg.build_progress,
         integrityPassed: pkg.integrity_passed,
