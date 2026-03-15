@@ -169,7 +169,7 @@ function LLMCostDashboard() {
   // Compute course cost from SSOT pricing (not hardcoded)
   const pipelineCosts = useMemo(() => {
     return PIPELINE_STEP_ROWS.map(s => {
-      const costPerCall = calcCostPerCall(s.primary, s.avgIn, s.avgOut);
+      const costPerCall = calcCostPerCall(s.primaryId, s.avgIn, s.avgOut);
       const total = s.calls * costPerCall;
       return { ...s, costPerCall, total };
     });
