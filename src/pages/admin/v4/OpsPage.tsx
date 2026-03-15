@@ -56,6 +56,7 @@ const tabs = [
   { path: '/admin/ops/ai-gateway', label: '🚀 AI Gateway' },
   { path: '/admin/ops/knowledge-graph', label: '🧠 Knowledge Graph' },
   { path: '/admin/ops/batch-recovery', label: '🔄 Batch Recovery' },
+  { path: '/admin/ops/course-naming', label: '📛 Course Naming' },
 ];
 
 export default function OpsPage() {
