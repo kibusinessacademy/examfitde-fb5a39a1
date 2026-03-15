@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
+import { callAIJSON, logLLMCostEvent } from "../_shared/ai-client.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
