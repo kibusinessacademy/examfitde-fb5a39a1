@@ -54,7 +54,8 @@ const GPT5_2_FALLBACK: ModelChoice = { provider: "openai",   model: MODEL_ALIASE
 // SIMPLE intents: gpt-4o-mini → Haiku 4.5
 
 const ROUTING_TABLE: Record<PipelineIntent, ModelChoice[]> = {
-  // ── COMPLEX: Need strong reasoning — cross-provider fallback ──
+  // ── ALL intents: gpt-4o-mini → Haiku 4.5 (cross-provider) → GPT-5-mini → GPT-5.2 ──
+  // CRITICAL: Every intent MUST have Anthropic fallback to prevent OpenAI death spirals
   learning_course:    [GPT4O_MINI_PRIMARY, HAIKU45_FALLBACK, GPT5_MINI_FALLBACK, GPT5_2_FALLBACK],
   learning_content:   [GPT4O_MINI_PRIMARY, HAIKU45_FALLBACK, GPT5_MINI_FALLBACK, GPT5_2_FALLBACK],
   exam_questions:     [GPT4O_MINI_PRIMARY, HAIKU45_FALLBACK, GPT5_MINI_FALLBACK, GPT5_2_FALLBACK],
@@ -63,21 +64,17 @@ const ROUTING_TABLE: Record<PipelineIntent, ModelChoice[]> = {
   quality_audit:      [GPT4O_MINI_PRIMARY, HAIKU45_FALLBACK, GPT5_MINI_FALLBACK, GPT5_2_FALLBACK],
   repair_content:     [GPT4O_MINI_PRIMARY, HAIKU45_FALLBACK, GPT5_MINI_FALLBACK, GPT5_2_FALLBACK],
   council_validator:  [GPT4O_MINI_PRIMARY, HAIKU45_FALLBACK, GPT5_MINI_FALLBACK, GPT5_2_FALLBACK],
+  oral_exam:          [GPT4O_MINI_PRIMARY, HAIKU45_FALLBACK, GPT5_MINI_FALLBACK, GPT5_2_FALLBACK],
+  minicheck:          [GPT4O_MINI_PRIMARY, HAIKU45_FALLBACK, GPT5_MINI_FALLBACK, GPT5_2_FALLBACK],
+  seo_content:        [GPT4O_MINI_PRIMARY, HAIKU45_FALLBACK, GPT5_MINI_FALLBACK, GPT5_2_FALLBACK],
+  council_proposer:   [GPT4O_MINI_PRIMARY, HAIKU45_FALLBACK, GPT5_MINI_FALLBACK, GPT5_2_FALLBACK],
+  curriculum_import:  [GPT4O_MINI_PRIMARY, HAIKU45_FALLBACK, GPT5_MINI_FALLBACK, GPT5_2_FALLBACK],
+  support:            [GPT4O_MINI_PRIMARY, HAIKU45_FALLBACK, GPT5_MINI_FALLBACK],
+  summary:            [GPT4O_MINI_PRIMARY, HAIKU45_FALLBACK, GPT5_MINI_FALLBACK],
+  repair:             [GPT4O_MINI_PRIMARY, HAIKU45_FALLBACK, GPT5_MINI_FALLBACK],
+  blooms_classify:    [GPT4O_MINI_PRIMARY, HAIKU45_FALLBACK, GPT5_MINI_FALLBACK],
 
-  // ── STANDARD: Structured output, moderate complexity ──
-  oral_exam:          [GPT4O_MINI_PRIMARY, HAIKU45_FALLBACK],
-  minicheck:          [GPT4O_MINI_PRIMARY, HAIKU45_FALLBACK],
-  seo_content:        [GPT4O_MINI_PRIMARY, HAIKU45_FALLBACK],
-  council_proposer:   [GPT4O_MINI_PRIMARY, HAIKU45_FALLBACK],
-  curriculum_import:  [GPT4O_MINI_PRIMARY, HAIKU45_FALLBACK],
-
-  // ── SIMPLE: Classification, summary, low complexity ──
-  support:            [GPT4O_MINI_PRIMARY, HAIKU45_FALLBACK],
-  summary:            [GPT4O_MINI_PRIMARY, HAIKU45_FALLBACK],
-  repair:             [GPT4O_MINI_PRIMARY, HAIKU45_FALLBACK],
-  blooms_classify:    [GPT4O_MINI_PRIMARY, HAIKU45_FALLBACK],
-
-  // ── SPECIAL: Fixed models ──
+  // ── SPECIAL: Fixed models (provider-locked) ──
   embeddings: [{ provider: "openai", model: MODEL_ALIASES.openai_embeddings }],
   images:     [{ provider: "openai", model: MODEL_ALIASES.openai_images }],
 };
