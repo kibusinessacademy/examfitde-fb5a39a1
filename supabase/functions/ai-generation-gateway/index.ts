@@ -110,12 +110,18 @@ Deno.serve(async (req) => {
     });
 
     // ── 6. Fingerprint + dedup ──
+    const promptText = body.messages?.map(m => m.content).join("\n") || "";
     const fingerprint = await buildRequestFingerprint({
       jobType: body.jobType,
       sourceId: body.sourceId,
       targetArtifact: body.targetArtifact,
       model: policy.defaultModel,
-      promptSnippet: body.messages?.[0]?.content,
+      promptText,
+      payloadKeys: {
+        blueprint_id: (body.payload?.blueprint_id as string) || undefined,
+        step_key: (body.payload?.step_key as string) || undefined,
+        difficulty: (body.payload?.difficulty as string) || undefined,
+      },
     });
 
     if (routingMode !== "skipped" && routingMode !== "cache_hit") {
