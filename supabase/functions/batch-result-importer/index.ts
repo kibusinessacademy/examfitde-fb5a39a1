@@ -565,6 +565,34 @@ Deno.serve(async (req) => {
       },
     }).eq("id", batchId);
 
+    // 6) Reconcile ai_generation_requests — update gateway records linked to this batch
+    try {
+      const { data: gwRequests } = await sb
+        .from("ai_generation_requests")
+        .select("id")
+        .eq("llm_batch_id", batchId)
+        .in("status", ["queued", "batch_pending"]);
+
+      if (gwRequests?.length) {
+        const gwIds = gwRequests.map((r: any) => r.id);
+        const gwStatus = result.failCount === requests.length ? "failed" : "completed";
+        await sb.from("ai_generation_requests").update({
+          status: gwStatus,
+          completed_at: now,
+          result_summary: {
+            batch_import: {
+              success: result.successCount,
+              failed: result.failCount,
+              total: requests.length,
+            },
+          },
+        }).in("id", gwIds);
+        console.log(`[batch-result-importer] Reconciled ${gwIds.length} gateway request(s) → ${gwStatus}`);
+      }
+    } catch (gwErr) {
+      console.warn(`[batch-result-importer] Gateway reconciliation failed: ${(gwErr as Error)?.message?.slice(0, 100)}`);
+    }
+
     return json({
       ok: true,
       batch_id: batchId,

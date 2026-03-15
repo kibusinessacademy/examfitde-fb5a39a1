@@ -23,6 +23,7 @@ const LiveLogs = lazy(() => import('./ops/LiveLogs'));
 const DeadLetterCenter = lazy(() => import('./ops/DeadLetterCenter'));
 const TestDashboard = lazy(() => import('./ops/TestDashboard'));
 const SchemaDriftDashboard = lazy(() => import('./ops/SchemaDriftDashboard'));
+const AIGatewayDashboard = lazy(() => import('./ops/AIGatewayDashboard'));
 
 const Loading = () => (
   <div className="flex items-center justify-center py-16">
@@ -49,6 +50,7 @@ const tabs = [
   { path: '/admin/ops/security', label: '🔐 Security' },
   { path: '/admin/ops/tests', label: '🧪 Tests' },
   { path: '/admin/ops/schema', label: '🛡️ Schema SSOT' },
+  { path: '/admin/ops/ai-gateway', label: '🚀 AI Gateway' },
 ];
 
 export default function OpsPage() {
@@ -126,6 +128,7 @@ export default function OpsPage() {
           <Route path="security" element={<SecurityFreezePage />} />
           <Route path="tests" element={<TestDashboard />} />
           <Route path="schema" element={<SchemaDriftDashboard />} />
+          <Route path="ai-gateway" element={<AIGatewayDashboard />} />
         </Routes>
       </Suspense>
     </div>
