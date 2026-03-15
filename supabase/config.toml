@@ -444,3 +444,6 @@ verify_jwt = false
 
 [functions.batch-poll]
 verify_jwt = false
+
+[functions.batch-result-importer]
+verify_jwt = false
