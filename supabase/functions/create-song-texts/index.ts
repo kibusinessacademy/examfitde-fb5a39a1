@@ -136,30 +136,40 @@ Antworte NUR mit dem Songtext.`;
       }
 
       if (OPENAI_API_KEY) {
+        const startMs = Date.now();
         try {
-          const aiRes = await fetch("https://api.openai.com/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${OPENAI_API_KEY}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              model: "gpt-5.2",
-              messages: [
-                { role: "system", content: "Du erstellst Lernsongs für deutsche Auszubildende. Antworte nur mit dem Songtext." },
-                { role: "user", content: prompt },
-              ],
-            }),
+          const aiResult = await callAIJSON({
+            provider: "openai",
+            model: "gpt-5.2",
+            messages: [
+              { role: "system", content: "Du erstellst Lernsongs für deutsche Auszubildende. Antworte nur mit dem Songtext." },
+              { role: "user", content: prompt },
+            ],
           });
 
-          if (aiRes.ok) {
-            const aiData = await aiRes.json();
-            lyrics = aiData.choices?.[0]?.message?.content?.trim() || "";
-          } else {
-            console.warn(`[SongGen] AI error ${aiRes.status} for LF ${lf.code}`);
-          }
+          lyrics = aiResult.content?.trim() || "";
+
+          await logLLMCostEvent(sb, {
+            job_type: "create_song_text",
+            provider: "openai",
+            model: "gpt-5.2",
+            tokens_in: aiResult.usage?.input_tokens || aiResult.usage?.prompt_tokens || 0,
+            tokens_out: aiResult.usage?.output_tokens || aiResult.usage?.completion_tokens || 0,
+            status: lyrics ? "success" : "error",
+            latency_ms: Date.now() - startMs,
+            estimatedUsage: aiResult.estimatedUsage,
+          }).catch(() => {});
         } catch (aiErr) {
           console.warn(`[SongGen] AI call failed for LF ${lf.code}:`, aiErr);
+          await logLLMCostEvent(sb, {
+            job_type: "create_song_text",
+            provider: "openai",
+            model: "gpt-5.2",
+            tokens_in: 0, tokens_out: 0,
+            status: "error",
+            latency_ms: Date.now() - startMs,
+            error_message: (aiErr as Error)?.message?.slice(0, 200),
+          }).catch(() => {});
         }
       }
 
