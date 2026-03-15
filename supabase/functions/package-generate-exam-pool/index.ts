@@ -1507,7 +1507,7 @@ async function submitExamPoolBatch(
 
     // ── Phase 2: Load Knowledge Graph context for batch (gated by rollout) ──
     let graphCtx: GraphContext | null = null;
-    const kgDecision = await shouldInjectKG(sb, bp.id);
+    const kgDecision = await shouldInjectKG(sb, bp.id, ctx.curriculumId);
     _qualityMetrics.kg_rollout_enabled = kgDecision.enabled;
     _qualityMetrics.kg_rollout_pct = kgDecision.rolloutPct;
     if (kgDecision.blueprintInRollout) {
