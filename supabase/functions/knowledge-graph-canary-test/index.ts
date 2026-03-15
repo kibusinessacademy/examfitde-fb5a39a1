@@ -166,7 +166,7 @@ Deno.serve(async (req) => {
       ok: true,
       generation_id: genId,
       run_id: runId,
-      status: finalStatus,
+      blueprints_completed: bpCompleted,
       verdict: summary.verdict,
       summary: summary.full,
     });
