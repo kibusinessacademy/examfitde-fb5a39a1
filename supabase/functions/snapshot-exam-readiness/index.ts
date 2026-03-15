@@ -100,52 +100,70 @@ Deno.serve(async (req) => {
 
     if (snapError) throw snapError;
 
-    // 5. Generate recommendations from weaknesses
+    // 5. Generate recommendations (always, not only when weaknesses exist)
     const weakComps = (r.weak_competencies || []) as Array<{
       competency_id: string; title: string; code: string; score: number;
     }>;
 
-    if (weakComps.length > 0) {
-      // Deactivate old recommendations
-      await serviceClient
-        .from('user_recommendations')
-        .update({ is_active: false })
-        .eq('user_id', user.id)
-        .eq('curriculum_id', curriculum_id)
-        .eq('is_active', true);
+    // Deactivate old recommendations
+    await serviceClient
+      .from('user_recommendations')
+      .update({ is_active: false })
+      .eq('user_id', user.id)
+      .eq('curriculum_id', curriculum_id)
+      .eq('is_active', true);
 
-      // Insert new recommendations
-      const recs = weakComps.slice(0, 5).map((wc, i) => ({
+    const recs: Array<Record<string, unknown>> = [];
+
+    // Weakness-driven lesson recommendations
+    for (const [i, wc] of weakComps.slice(0, 3).entries()) {
+      recs.push({
         user_id: user.id,
         curriculum_id,
         recommendation_type: 'lesson',
         target_id: wc.competency_id,
         target_meta: { competency_title: wc.title, competency_code: wc.code, score: wc.score },
         reason_code: wc.score < 40 ? 'LOW_MASTERY_HIGH_WEIGHT' : 'WEAKNESS_CLUSTER_DETECTED',
-        reason_text: `${wc.title} (${wc.code}): nur ${wc.score}% – Training empfohlen`,
-        priority_score: 100 - wc.score + (5 - i), // lower score = higher priority
+        reason_text: `${wc.title} (${wc.code}) gezielt wiederholen – aktueller Stand ${wc.score}%`,
+        priority_score: 100 - wc.score + (3 - i),
         is_active: true,
         expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-      }));
-
-      // Add exam sim recommendation if readiness >= 65
-      if (score >= 65 && Number(r.last_simulation_score || 0) < 70) {
-        recs.push({
-          user_id: user.id,
-          curriculum_id,
-          recommendation_type: 'exam_sim',
-          target_id: null as any,
-          target_meta: {},
-          reason_code: 'PRE_EXAM_SIM_REQUIRED',
-          reason_text: 'Deine Prüfungsreife ist hoch genug für eine Simulation',
-          priority_score: 95,
-          is_active: true,
-          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-        });
-      }
-
-      await serviceClient.from('user_recommendations').insert(recs);
+      });
     }
+
+    // Exam simulation recommendation when readiness is high enough
+    if (score >= 65) {
+      recs.push({
+        user_id: user.id,
+        curriculum_id,
+        recommendation_type: 'exam_sim',
+        target_id: null,
+        target_meta: {},
+        reason_code: 'PRE_EXAM_SIM_REQUIRED',
+        reason_text: 'Deine aktuelle Prüfungsreife reicht für eine Prüfungssimulation.',
+        priority_score: 90,
+        is_active: true,
+        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      });
+    }
+
+    // Fallback: always have at least one recommendation
+    if (recs.length === 0) {
+      recs.push({
+        user_id: user.id,
+        curriculum_id,
+        recommendation_type: 'review',
+        target_id: null,
+        target_meta: {},
+        reason_code: 'REVIEW_DUE',
+        reason_text: 'Wiederhole jetzt ein prüfungsrelevantes Thema, um deine Prüfungsreife zu stabilisieren.',
+        priority_score: 70,
+        is_active: true,
+        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      });
+    }
+
+    await serviceClient.from('user_recommendations').insert(recs);
 
     return new Response(JSON.stringify({
       ok: true,
