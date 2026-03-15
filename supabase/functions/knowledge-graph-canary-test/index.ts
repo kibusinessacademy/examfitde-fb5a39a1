@@ -122,13 +122,13 @@ Deno.serve(async (req) => {
             : "accepted";
         const summary = computeSummary(results);
 
-        await sb.from("ai_generations").update({
+        const finalPayload = {
           status: finalStatus,
           output_content: { results, run_id: runId },
           validation_score: summary.avgA,
           validation_decision: finalStatus === "failed" ? "no_data" : summary.verdict,
           metadata: {
-            version: "kg-canary-v5",
+            version: "kg-canary-v6",
             run_id: runId,
             blueprints_tested: shuffled.length,
             blueprints_completed: completed,
@@ -138,15 +138,25 @@ Deno.serve(async (req) => {
             completed_at: new Date().toISOString(),
             summary: summary.full,
           },
-        }).eq("id", genId);
+        };
 
-        console.log(`[KG-Canary] ✅ Run ${runId.slice(0, 8)} finalized: ${finalStatus} / ${summary.verdict} (Δ=${summary.full.delta_quality}, ${progressPct}%)`);
+        // Explicit error check on final persist
+        const { error: finalErr } = await sb.from("ai_generations").update(finalPayload).eq("id", genId);
+        if (finalErr) {
+          console.error(`[KG-Canary] ❌ Final persist FAILED: ${finalErr.message}`);
+          // Retry once
+          const { error: retryErr } = await sb.from("ai_generations").update(finalPayload).eq("id", genId);
+          if (retryErr) console.error(`[KG-Canary] ❌ Retry also failed: ${retryErr.message}`);
+          else console.log(`[KG-Canary] ✅ Retry succeeded`);
+        } else {
+          console.log(`[KG-Canary] ✅ Run ${runId.slice(0, 8)} finalized: ${finalStatus} / ${summary.verdict} (Δ=${summary.full.delta_quality}, ${progressPct}%)`);
+        }
       } else {
         // Intermediate checkpoint
-        await sb.from("ai_generations").update({
+        const { error: cpErr } = await sb.from("ai_generations").update({
           output_content: { results, run_id: runId },
           metadata: {
-            version: "kg-canary-v5",
+            version: "kg-canary-v6",
             run_id: runId,
             blueprints_tested: shuffled.length,
             blueprints_completed: completed,
@@ -155,6 +165,7 @@ Deno.serve(async (req) => {
             last_checkpoint: new Date().toISOString(),
           },
         }).eq("id", genId);
+        if (cpErr) console.error(`[KG-Canary] Checkpoint error: ${cpErr.message}`);
       }
     }
 
