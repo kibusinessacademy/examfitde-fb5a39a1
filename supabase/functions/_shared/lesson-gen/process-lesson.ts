@@ -240,16 +240,15 @@ async function enqueueLessonBatch(
   });
 
   if (!submitResult.ok) {
-    console.error(`[lesson-gen] BATCH_SUBMIT_FAILED: ${submitResult.error} — falling through to sync`);
-    // On batch submit failure, DON'T fail the job — just log and let it retry
-    // The retry will re-enter and either batch again or sync-fallback
+    const isPermanent = submitResult.error?.includes("PROVIDER_MODEL_MISMATCH");
+    console.error(`[lesson-gen] BATCH_SUBMIT_FAILED: ${submitResult.error} — ${isPermanent ? 'permanent, no retry' : 'transient, will retry'}`);
     return json({
       ok: false,
-      retry: true,
-      transient: true,
+      retry: !isPermanent,
+      transient: !isPermanent,
       error: `BATCH_SUBMIT_FAILED: ${submitResult.error}`,
       elapsed_ms: Date.now() - startMs,
-    }, 503);
+    }, isPermanent ? 422 : 503);
   }
 
   console.log(`[lesson-gen] BATCH_ENQUEUED: lesson=${req.lessonId.slice(0, 8)} step=${req.stepKey} batch_id=${submitResult.batchId} model=${model}`);
