@@ -167,6 +167,26 @@ Jede Invariante referenziert ihren Enforcement-Mechanismus.
 **Regel:** `STALE_LOCK_RECOVERY`, `Auto-healed duplicate job cancelled` und `OPS_GUARD: NON_BUILDING_PACKAGE` sind Schutzmechanismen, keine echten Fehler.  
 **Enforcement:** `v_ops_job_failure_classification` (DB), `JobFailureIntegrityPanel` (UI)
 
+### INV-056: Learning Events sind pflicht-telemetrie
+**Regel:** Jedes Lernereignis (Lesson Start/Complete, MiniCheck, Exam-Sim, Tutor-Interaktion) muss in `learning_events` persistiert werden.  
+**Enforcement:** `record-learning-event` Edge Function, `recordLearningEvent()` Client Helper
+
+### INV-057: Readiness Snapshots sind abgeleitete Read-Models
+**Regel:** `exam_readiness_snapshots` sind berechnete Ableitungen aus `calculate_exam_readiness` RPC. Kein direktes Schreiben aus dem Frontend.  
+**Enforcement:** RLS (nur service_role INSERT), `snapshot-exam-readiness` Edge Function
+
+### INV-058: Recommendations sind kurzlebig und erklärbar
+**Regel:** Jede `user_recommendation` muss einen `reason_code` und `reason_text` haben. Empfehlungen verfallen nach 7 Tagen.  
+**Enforcement:** `snapshot-exam-readiness` setzt `expires_at`, DB-Views filtern abgelaufene
+
+### INV-059: Tutor-Kontext ist serverseitig und SSOT-gebunden
+**Regel:** Der AI-Tutor erhält Readiness, Top-Gaps und Recommendations ausschließlich serverseitig über `loadSSOTContext()`. Client darf keinen Shadow-State injizieren.  
+**Enforcement:** `ai-tutor/index.ts` SSOT Context Loader, `build-learning-context` Edge Function
+
+### INV-060: Gap-Typen sind systemdefiniert
+**Regel:** Schwächen werden in drei Kategorien klassifiziert: `acute` (niedrige Accuracy + hohe Relevanz), `unstable` (Trend-Einbruch), `blind` (zu wenige Versuche). Keine Custom-Typen.  
+**Enforcement:** `v_user_top_gaps` View (DB), `TopGapsCard` (UI)
+
 ---
 
 ## Änderungshistorie
@@ -175,3 +195,4 @@ Jede Invariante referenziert ihren Enforcement-Mechanismus.
 |-------|----------|
 | 2026-03-15 | Initial Invariants erstellt |
 | 2026-03-15 | INV-053–055: Failure Classification, Enqueue Dedupe, Protected Stops |
+| 2026-03-15 | INV-056–060: ExamFit v2 Learning Intelligence Layer |
