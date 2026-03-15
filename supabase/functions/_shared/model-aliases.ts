@@ -8,7 +8,7 @@
 export {
   MODEL_ALIASES,
   PIPELINE_MODEL_MAP,
-  DRIFT_PRONE_ALIASES,
+  EXPLICIT_DRIFT_PRONE_MODELS,
   isDriftProneModel,
   resolveAlias,
   calcCourseCostEur,
@@ -22,3 +22,6 @@ export type {
   RouteProfile,
   PipelineStepEstimate,
 } from "./model-catalog.ts";
+
+// Legacy alias for backward compat
+export { EXPLICIT_DRIFT_PRONE_MODELS as DRIFT_PRONE_ALIASES } from "./model-catalog.ts";

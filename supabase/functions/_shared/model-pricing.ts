@@ -23,7 +23,16 @@
  * ══════════════════════════════════════════════════════════════
  */
 
-const USD_TO_EUR = 0.92;
+// ── Pricing metadata (for audit trail & governance) ─────────
+
+export const PRICING_META = {
+  source_currency: "USD" as const,
+  fx_rate_applied: 0.92,
+  effective_date: "2026-03-15",
+  source: "OpenAI pricing page + vendor docs",
+} as const;
+
+const USD_TO_EUR = PRICING_META.fx_rate_applied;
 
 // ── Raw USD prices (canonical source) ───────────────────────
 
@@ -78,17 +87,21 @@ for (const [model, usd] of Object.entries(RAW_USD)) {
   }
 }
 
-// Additional Lovable Gateway Google models (preview = same price tier as base)
+// Additional Lovable Gateway Google models — match family pricing
 const GOOGLE_PREVIEW_ALIASES = [
   "google/gemini-3-flash-preview",
   "google/gemini-3-pro-preview",
+  "google/gemini-3-pro-image-preview",
   "google/gemini-3.1-pro-preview",
   "google/gemini-3.1-flash-image-preview",
 ];
 for (const alias of GOOGLE_PREVIEW_ALIASES) {
-  // Preview models: use flash pricing as conservative estimate
-  if (!PRICING_EUR_PER_M[alias]) {
+  if (PRICING_EUR_PER_M[alias]) continue;
+  // Match by family: flash → flash pricing, pro → pro pricing
+  if (alias.includes("flash")) {
     PRICING_EUR_PER_M[alias] = PRICING_EUR_PER_M["gemini-2.5-flash"];
+  } else if (alias.includes("pro")) {
+    PRICING_EUR_PER_M[alias] = PRICING_EUR_PER_M["gemini-2.5-pro"];
   }
 }
 
@@ -130,7 +143,12 @@ export function estimateCostEur(
   if (!pricing) {
     // Unknown model fallback: use GPT-5-mini pricing as mid-range estimate
     const fb = PRICING_EUR_PER_M["gpt-5-mini"];
-    return (tokensIn * fb.input + tokensOut * fb.output) / 1_000_000;
+    const billableIn = Math.max(0, tokensIn - cachedIn);
+    return (
+      billableIn * fb.input +
+      cachedIn * fb.cached +
+      tokensOut * fb.output
+    ) / 1_000_000;
   }
   const billableIn = Math.max(0, tokensIn - cachedIn);
   return (
@@ -196,12 +214,14 @@ export function fillUsage(
     // Heuristic split: ~70% input, ~30% output for typical chat
     const tokIn = Math.round(total * 0.7);
     const tokOut = total - tokIn;
+    // Carry through cached if available and plausible
+    const effectiveCached = cached > 0 && cached <= tokIn ? cached : 0;
     return {
       tokens_in: tokIn,
       tokens_out: tokOut,
       total_tokens: total,
-      cached_tokens_in: 0,
-      cost_eur: estimateCostEur(model, tokIn, tokOut),
+      cached_tokens_in: effectiveCached,
+      cost_eur: estimateCostEur(model, tokIn, tokOut, effectiveCached),
       estimated: true, // split is estimated even though total is real
     };
   }
