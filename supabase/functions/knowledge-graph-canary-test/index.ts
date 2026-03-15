@@ -93,31 +93,35 @@ Deno.serve(async (req) => {
     if (genErr) return json({ error: "Failed to create run record: " + genErr.message }, 500);
     const genId = genRecord.id;
 
-    // ── Step 2: Process synchronously (record already persisted for resilience) ──
+    // ── Step 2: Process blueprints in parallel pairs (max 2 concurrent) ──
     const results: CanaryResult[] = [];
+    const CONCURRENCY = 2;
 
-    for (const bp of shuffled) {
-      try {
-        const pair = await processOneBlueprint(sb, bp, professionName, questions_per_bp, provider, model);
-        results.push(...pair);
+    for (let i = 0; i < shuffled.length; i += CONCURRENCY) {
+      const batch = shuffled.slice(i, i + CONCURRENCY);
+      const batchResults = await Promise.allSettled(
+        batch.map(bp => processOneBlueprint(sb, bp, professionName, questions_per_bp, provider, model))
+      );
 
-        // ── Step 3: Incremental checkpoint after each blueprint ──
-        const completed = results.length / 2;
-        await sb.from("ai_generations").update({
-          output_content: { results, run_id: runId },
-          metadata: {
-            version: "kg-canary-v3-sync",
-            run_id: runId,
-            blueprints_tested: shuffled.length,
-            blueprints_completed: completed,
-            progress_pct: Math.round((completed / shuffled.length) * 100),
-            questions_per_bp,
-            last_checkpoint: new Date().toISOString(),
-          },
-        }).eq("id", genId);
-      } catch (e) {
-        console.error(`[KG-Canary] Blueprint ${bp.id.slice(0, 8)} failed:`, e);
+      for (const r of batchResults) {
+        if (r.status === "fulfilled") results.push(...r.value);
+        else console.error(`[KG-Canary] Blueprint failed:`, r.reason);
       }
+
+      // ── Step 3: Incremental checkpoint after each batch ──
+      const completed = results.length / 2;
+      await sb.from("ai_generations").update({
+        output_content: { results, run_id: runId },
+        metadata: {
+          version: "kg-canary-v4-parallel",
+          run_id: runId,
+          blueprints_tested: shuffled.length,
+          blueprints_completed: completed,
+          progress_pct: Math.round((completed / shuffled.length) * 100),
+          questions_per_bp,
+          last_checkpoint: new Date().toISOString(),
+        },
+      }).eq("id", genId);
     }
 
     // ── Step 4: Finalize with summary ──
