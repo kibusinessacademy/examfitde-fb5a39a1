@@ -114,6 +114,58 @@ function LLMCostDashboard() {
         </Card>
       </div>
 
+      {/* Model Pricing Reference (Mar 2026) */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm flex items-center gap-2">
+            💰 OpenAI Modell-Preise (März 2026, EUR/1M Tokens)
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-border text-muted-foreground">
+                  <th className="text-left py-1.5 px-2">Modell</th>
+                  <th className="text-right py-1.5 px-2">Input</th>
+                  <th className="text-right py-1.5 px-2">Output</th>
+                  <th className="text-left py-1.5 px-2">Empfehlung</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  { model: 'GPT-5.4', input: '€2.30', output: '€13.80', rec: 'Nur Audit/Compliance', tier: 'red' },
+                  { model: 'GPT-5.2', input: '€2.76', output: '€11.04', rec: 'Sensitive Intents (Fallback)', tier: 'red' },
+                  { model: 'GPT-5', input: '€2.30', output: '€9.20', rec: 'Exam Validation / QA Gates', tier: 'yellow' },
+                  { model: 'GPT-5 mini', input: '€0.23', output: '€1.84', rec: '✅ Exam-Pool, Council, Tutor (Prüfung)', tier: 'green' },
+                  { model: 'GPT-5 nano', input: '€0.09', output: '€0.37', rec: '✅ Einfache Jobs, Glossar, Fallback', tier: 'green' },
+                  { model: 'GPT-4.1', input: '€1.84', output: '€7.36', rec: 'Legacy – Migration zu GPT-5 empfohlen', tier: 'yellow' },
+                  { model: 'GPT-4.1 mini', input: '€0.37', output: '€1.47', rec: 'Exam-Pool Fallback', tier: 'green' },
+                  { model: 'GPT-4o-mini', input: '€0.14', output: '€0.55', rec: '✅ Primär für Volumen-Pipeline', tier: 'green' },
+                  { model: 'o4-mini', input: '€3.68', output: '€14.72', rec: '⚠️ Reasoning – sehr teuer', tier: 'red' },
+                  { model: 'Claude Haiku 4.5', input: '€0.80', output: '€4.00', rec: 'Provider-Diversität Fallback', tier: 'yellow' },
+                  { model: 'Gemini 2.5 Flash', input: '€0.07', output: '€0.28', rec: '✅ Günstigster (via Lovable AI)', tier: 'green' },
+                ].map(r => (
+                  <tr key={r.model} className="border-b border-border/20">
+                    <td className="py-1.5 px-2 font-medium">{r.model}</td>
+                    <td className="py-1.5 px-2 text-right font-mono">{r.input}</td>
+                    <td className="py-1.5 px-2 text-right font-mono">{r.output}</td>
+                    <td className={cn("py-1.5 px-2 text-xs", 
+                      r.tier === 'green' && 'text-emerald-400',
+                      r.tier === 'yellow' && 'text-amber-400',
+                      r.tier === 'red' && 'text-rose-400',
+                    )}>{r.rec}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-3">
+            Quelle: OpenAI Pricing Page, März 2026. EUR-Kurs ≈ 0.92. Cached-Input-Preise ~90% günstiger (nicht dargestellt).
+          </p>
+        </CardContent>
+      </Card>
+
       {/* Provider costs (from rate_limits) */}
       {kpis?.rate_limits?.length > 0 && (
         <Card>
