@@ -39,12 +39,14 @@ const tabs = [
 ];
 
 // ── Typed data constants (no inline JSX arrays) ─────────────
+// Prices derived from model-pricing.ts SSOT (USD×0.92 = EUR, Mar 2026)
 
 type CostTier = 'green' | 'yellow' | 'red';
 type PerfConfLabel = 'high' | 'medium' | 'low';
 
 interface ModelMatrixRow {
   model: string;
+  canonicalId: string;
   input: number;
   output: number;
   latency: string;
@@ -57,92 +59,72 @@ interface ModelMatrixRow {
 }
 
 /**
- * Model matrix data.
- * Prices MUST match PRICING_EUR_PER_M in model-pricing.ts.
- * Perf data is observational — marked with confidence + source.
+ * EUR prices: computed from USD × 0.92 (PRICING_META.fx_rate_applied).
+ * These values MUST match PRICING_EUR_PER_M in model-pricing.ts.
  *
- * Canonical USD→EUR (×0.92) from OpenAI pricing page, Mar 2026:
- * gpt-4.1-nano:  $0.10/$0.40 → €0.092/€0.368
- * gpt-4.1-mini:  $0.40/$1.60 → €0.368/€1.472
- * gpt-4.1:       $2.00/$8.00 → €1.840/€7.360
- * gpt-5-mini:    $0.25/$2.00 → €0.230/€1.840
- * gpt-5.4:       $2.50/$15.0 → €2.300/€13.800
+ * To verify: input_eur = round(input_usd × 0.92, 3)
+ *   gpt-4.1-nano:  $0.10 → €0.092  |  $0.40 → €0.368
+ *   gpt-4.1-mini:  $0.40 → €0.368  |  $1.60 → €1.472
+ *   gpt-4.1:       $2.00 → €1.840  |  $8.00 → €7.360
+ *   gpt-5-mini:    $0.25 → €0.230  |  $2.00 → €1.840
+ *   gpt-5.4:       $2.50 → €2.300  | $15.00 → €13.800
  */
 const MODEL_MATRIX_ROWS: ModelMatrixRow[] = [
-  { model: 'GPT-4.1 nano',    input: 0.09,  output: 0.37,  latency: '0.3-0.6s', tps: '150-250', rpm: '10-20k', role: 'Routing, QC, Glossar, Minichecks', tier: 'green',  confidence: 'high',   source: 'vendor-doc' },
-  { model: 'GPT-5 nano',      input: 0.09,  output: 0.37,  latency: '0.3-0.6s', tps: '150-250', rpm: '10-20k', role: 'Fallback für Nano-Tier',          tier: 'green',  confidence: 'medium', source: 'estimated' },
-  { model: 'GPT-4o-mini',     input: 0.14,  output: 0.55,  latency: '0.5-1.0s', tps: '130-200', rpm: '3-10k',  role: 'AI Tutor (Learning)',             tier: 'green',  confidence: 'high',   source: 'measured' },
-  { model: 'GPT-4.1 mini',    input: 0.37,  output: 1.47,  latency: '0.5-1.2s', tps: '120-200', rpm: '3-10k',  role: '✅ Content-Gen, Handbook, AutoFix', tier: 'green',  confidence: 'high',   source: 'vendor-doc' },
-  { model: 'GPT-5 mini',      input: 0.23,  output: 1.84,  latency: '0.8-1.5s', tps: '100-150', rpm: '3-10k',  role: '✅ Exam-Pool, Council, Validation', tier: 'green',  confidence: 'medium', source: 'vendor-doc' },
-  { model: 'GPT-4.1',         input: 1.84,  output: 7.36,  latency: '1-2s',     tps: '80-130',  rpm: '1-5k',   role: 'Legacy → Migration empfohlen',    tier: 'yellow', confidence: 'high',   source: 'vendor-doc' },
-  { model: 'GPT-5',           input: 2.30,  output: 9.20,  latency: '1.5-2.5s', tps: '70-110',  rpm: '1-5k',   role: 'QA Gate Fallback',                tier: 'yellow', confidence: 'medium', source: 'estimated' },
-  { model: 'GPT-5.2',         input: 2.76,  output: 11.04, latency: '2-3s',     tps: '50-90',   rpm: '1-3k',   role: 'Elite Harden Fallback',           tier: 'red',    confidence: 'medium', source: 'estimated' },
-  { model: 'GPT-5.4',         input: 2.30,  output: 13.80, latency: '2-4s',     tps: '40-80',   rpm: '500-2k', role: '🏆 Elite Harden (nur ~2%)',        tier: 'red',    confidence: 'medium', source: 'vendor-doc' },
-  { model: 'o4-mini',         input: 3.68,  output: 14.72, latency: '1.5-3s',   tps: '60-100',  rpm: '500-2k', role: '⚠️ Reasoning – sehr teuer',       tier: 'red',    confidence: 'low',    source: 'estimated' },
-  { model: 'Claude Haiku 4.5', input: 0.74,  output: 3.68,  latency: '0.5-1.2s', tps: '100-180', rpm: '2-8k',   role: 'Council Fallback (Provider-Mix)',  tier: 'yellow', confidence: 'medium', source: 'measured' },
-  { model: 'Gemini 2.5 Flash', input: 0.07,  output: 0.28,  latency: '0.3-0.8s', tps: '120-200', rpm: '5-15k',  role: '✅ Günstigster via Lovable AI',    tier: 'green',  confidence: 'medium', source: 'vendor-doc' },
+  { model: 'GPT-4.1 nano',    canonicalId: 'gpt-4.1-nano',              input: 0.092, output: 0.368, latency: '0.3-0.6s', tps: '150-250', rpm: '10-20k', role: 'Routing, QC, Glossar, Minichecks', tier: 'green',  confidence: 'high',   source: 'vendor-doc' },
+  { model: 'GPT-5 nano',      canonicalId: 'gpt-5-nano',                input: 0.092, output: 0.368, latency: '0.3-0.6s', tps: '150-250', rpm: '10-20k', role: 'Fallback für Nano-Tier',          tier: 'green',  confidence: 'medium', source: 'estimated' },
+  { model: 'GPT-4o-mini',     canonicalId: 'gpt-4o-mini',               input: 0.138, output: 0.552, latency: '0.5-1.0s', tps: '130-200', rpm: '3-10k',  role: 'AI Tutor (Learning)',             tier: 'green',  confidence: 'high',   source: 'measured' },
+  { model: 'GPT-4.1 mini',    canonicalId: 'gpt-4.1-mini',              input: 0.368, output: 1.472, latency: '0.5-1.2s', tps: '120-200', rpm: '3-10k',  role: '✅ Content-Gen, Handbook, AutoFix', tier: 'green',  confidence: 'high',   source: 'vendor-doc' },
+  { model: 'GPT-5 mini',      canonicalId: 'gpt-5-mini',                input: 0.230, output: 1.840, latency: '0.8-1.5s', tps: '100-150', rpm: '3-10k',  role: '✅ Exam-Pool, Council, Validation', tier: 'green',  confidence: 'medium', source: 'vendor-doc' },
+  { model: 'GPT-4.1',         canonicalId: 'gpt-4.1',                   input: 1.840, output: 7.360, latency: '1-2s',     tps: '80-130',  rpm: '1-5k',   role: 'Legacy → Migration empfohlen',    tier: 'yellow', confidence: 'high',   source: 'vendor-doc' },
+  { model: 'GPT-5',           canonicalId: 'gpt-5',                     input: 2.300, output: 9.200, latency: '1.5-2.5s', tps: '70-110',  rpm: '1-5k',   role: 'QA Gate Fallback',                tier: 'yellow', confidence: 'medium', source: 'estimated' },
+  { model: 'GPT-5.2',         canonicalId: 'gpt-5.2',                   input: 2.760, output: 11.040,latency: '2-3s',     tps: '50-90',   rpm: '1-3k',   role: 'Elite Harden Fallback',           tier: 'red',    confidence: 'medium', source: 'estimated' },
+  { model: 'GPT-5.4',         canonicalId: 'gpt-5.4',                   input: 2.300, output: 13.800,latency: '2-4s',     tps: '40-80',   rpm: '500-2k', role: '🏆 Elite Harden (nur ~2%)',        tier: 'red',    confidence: 'medium', source: 'vendor-doc' },
+  { model: 'o4-mini',         canonicalId: 'o4-mini',                   input: 3.680, output: 14.720,latency: '1.5-3s',   tps: '60-100',  rpm: '500-2k', role: '⚠️ Reasoning – sehr teuer',       tier: 'red',    confidence: 'low',    source: 'estimated' },
+  { model: 'Claude Haiku 4.5', canonicalId: 'claude-haiku-4-5-20251001', input: 0.736, output: 3.680, latency: '0.5-1.2s', tps: '100-180', rpm: '2-8k',   role: 'Council Fallback (Provider-Mix)',  tier: 'yellow', confidence: 'medium', source: 'measured' },
+  { model: 'Gemini 2.5 Flash', canonicalId: 'gemini-2.5-flash',          input: 0.069, output: 0.276, latency: '0.3-0.8s', tps: '120-200', rpm: '5-15k',  role: '✅ Günstigster via Lovable AI',    tier: 'green',  confidence: 'medium', source: 'vendor-doc' },
 ];
 
 interface PipelineStepRow {
   step: string;
+  stepLabel: string;
   calls: number;
   avgIn: number;
   avgOut: number;
-  primary: string;
-  fallback: string;
+  primaryLabel: string;
+  fallbackLabel: string;
+  primaryId: string;
 }
 
 /**
  * Pipeline step estimates for ExamFit standard course.
+ * Step names match PIPELINE_MODEL_MAP keys in model-catalog.ts.
  * Token counts from production telemetry.
- * Models from PIPELINE_MODEL_MAP in model-catalog.ts.
  */
 const PIPELINE_STEP_ROWS: PipelineStepRow[] = [
-  { step: 'Scaffold',          calls: 1,    avgIn: 2000,  avgOut: 1000,  primary: '4.1 nano', fallback: '5 nano' },
-  { step: 'Glossar',           calls: 14,   avgIn: 3000,  avgOut: 2000,  primary: '4.1 nano', fallback: '5 nano' },
-  { step: 'Learning Content',  calls: 400,  avgIn: 5000,  avgOut: 6000,  primary: '4.1 mini', fallback: '5 mini' },
-  { step: 'Validate Content',  calls: 400,  avgIn: 4000,  avgOut: 1000,  primary: '5 mini',   fallback: 'GPT-5' },
-  { step: 'Exam-Pool',         calls: 160,  avgIn: 8000,  avgOut: 10000, primary: '5 mini',   fallback: 'GPT-5' },
-  { step: 'Handbook',          calls: 14,   avgIn: 4000,  avgOut: 8000,  primary: '4.1 mini', fallback: '4o-mini' },
-  { step: 'Minichecks',        calls: 400,  avgIn: 2000,  avgOut: 2000,  primary: '4.1 nano', fallback: '5 nano' },
-  { step: 'Elite Harden',      calls: 100,  avgIn: 6000,  avgOut: 2000,  primary: '5.4',      fallback: '5.2' },
-  { step: 'Council (P+C)',     calls: 100,  avgIn: 4500,  avgOut: 2500,  primary: '5 mini',   fallback: 'Haiku 4.5' },
-  { step: 'Auto-Fix',          calls: 20,   avgIn: 4000,  avgOut: 3000,  primary: '4.1 mini', fallback: '5 mini' },
+  { step: 'scaffold_learning_course', stepLabel: 'Scaffold',         calls: 1,    avgIn: 2000,  avgOut: 1000,  primaryLabel: '4.1 nano', fallbackLabel: '5 nano',    primaryId: 'gpt-4.1-nano' },
+  { step: 'generate_glossary',        stepLabel: 'Glossar',          calls: 14,   avgIn: 3000,  avgOut: 2000,  primaryLabel: '4.1 nano', fallbackLabel: '5 nano',    primaryId: 'gpt-4.1-nano' },
+  { step: 'generate_learning_content',stepLabel: 'Learning Content', calls: 400,  avgIn: 5000,  avgOut: 6000,  primaryLabel: '4.1 mini', fallbackLabel: '5 mini',    primaryId: 'gpt-4.1-mini' },
+  { step: 'validate_content',         stepLabel: 'Validate Content', calls: 400,  avgIn: 4000,  avgOut: 1000,  primaryLabel: '5 mini',   fallbackLabel: 'GPT-5',     primaryId: 'gpt-5-mini' },
+  { step: 'generate_exam_pool',       stepLabel: 'Exam-Pool',        calls: 160,  avgIn: 8000,  avgOut: 10000, primaryLabel: '5 mini',   fallbackLabel: 'GPT-5',     primaryId: 'gpt-5-mini' },
+  { step: 'generate_handbook',        stepLabel: 'Handbook',         calls: 14,   avgIn: 4000,  avgOut: 8000,  primaryLabel: '4.1 mini', fallbackLabel: '4o-mini',   primaryId: 'gpt-4.1-mini' },
+  { step: 'generate_minichecks',      stepLabel: 'Minichecks',       calls: 400,  avgIn: 2000,  avgOut: 2000,  primaryLabel: '4.1 nano', fallbackLabel: '5 nano',    primaryId: 'gpt-4.1-nano' },
+  { step: 'elite_harden',             stepLabel: 'Elite Harden',     calls: 100,  avgIn: 6000,  avgOut: 2000,  primaryLabel: '5.4',      fallbackLabel: '5.2',       primaryId: 'gpt-5.4' },
+  { step: 'council_propose',          stepLabel: 'Council Propose',  calls: 50,   avgIn: 4000,  avgOut: 3000,  primaryLabel: '5 mini',   fallbackLabel: 'Haiku 4.5', primaryId: 'gpt-5-mini' },
+  { step: 'council_critique',         stepLabel: 'Council Critique', calls: 50,   avgIn: 5000,  avgOut: 2000,  primaryLabel: '5 mini',   fallbackLabel: 'Haiku 4.5', primaryId: 'gpt-5-mini' },
+  { step: 'auto_fix',                 stepLabel: 'Auto-Fix',         calls: 20,   avgIn: 4000,  avgOut: 3000,  primaryLabel: '4.1 mini', fallbackLabel: '5 mini',    primaryId: 'gpt-4.1-mini' },
 ];
 
 /**
- * Map short model names (as displayed in pipeline table) to the
- * canonical model IDs used in PRICING_EUR_PER_M.
+ * Compute cost per call from model matrix (SSOT-coupled).
+ * Looks up the canonical model pricing from MODEL_MATRIX_ROWS.
  */
-const SHORT_TO_MODEL: Record<string, string> = {
-  '4.1 nano': 'gpt-4.1-nano', '5 nano': 'gpt-5-nano',
-  '4.1 mini': 'gpt-4.1-mini', '4o-mini': 'gpt-4o-mini',
-  '5 mini': 'gpt-5-mini', '5.4': 'gpt-5.4', '5.2': 'gpt-5.2',
-  'GPT-5': 'gpt-5', 'Haiku 4.5': 'claude-haiku-4-5-20251001',
-};
-
-/**
- * Compute cost per call from the pricing matrix (SSOT-coupled).
- * Uses the same EUR pricing constants as the backend model-pricing.ts.
- */
-function calcCostPerCall(model: string, avgIn: number, avgOut: number): number {
-  const row = MODEL_MATRIX_ROWS.find(r =>
-    SHORT_TO_MODEL[model] && r.model.toLowerCase().includes(model.toLowerCase().replace(/^gpt-?/, ''))
-  );
-  // Fallback: find pricing from the matrix rows
-  const m = MODEL_MATRIX_ROWS.find(r => {
-    const canonical = SHORT_TO_MODEL[model];
-    if (!canonical) return false;
-    // Match by checking if the row model name contains relevant parts
-    return r.model.toLowerCase().replace(/[- ]/g, '').includes(
-      canonical.replace(/^gpt-?/, '').replace(/[-.]/g, '')
-    );
-  });
-  if (m) {
-    return (avgIn * m.input + avgOut * m.output) / 1_000_000;
+function calcCostPerCall(primaryId: string, avgIn: number, avgOut: number): number {
+  const row = MODEL_MATRIX_ROWS.find(r => r.canonicalId === primaryId);
+  if (row) {
+    return (avgIn * row.input + avgOut * row.output) / 1_000_000;
   }
-  // Ultra-fallback: GPT-5-mini pricing
-  return (avgIn * 0.23 + avgOut * 1.84) / 1_000_000;
+  // Fallback: GPT-5-mini pricing from SSOT
+  return (avgIn * 0.230 + avgOut * 1.840) / 1_000_000;
 }
 
 // ── LLM Cost Dashboard ─────────────────────────────────────
