@@ -233,4 +233,4 @@ export const openAIBatchAdapter: BatchProviderAdapter = {
       })
       .filter(Boolean) as ParsedBatchOutputRow[];
   },
-} as BatchProviderAdapter & { parseErrorJsonl: (content: string) => ParsedBatchOutputRow[] };
+};
