@@ -41,7 +41,7 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
   const { setCourseId, refresh: refreshContext } = useActiveCourse();
   const { package: pkg, packageLoading, buildSteps, councils, startBuild, initCouncils, approveCouncils, invalidate } = useCoursePackageDetail(packageId);
   const { track, certType, flags } = useTrackConfig(pkg as any);
-  const PIPELINE_STEPS = ALL_PIPELINE_STEPS.filter(s => s.flag === null || (flags as any)[s.flag] === true);
+  const PIPELINE_STEPS = getActivePipelineStepsUI(flags as unknown as Record<string, boolean>);
 
   // Real-time content progress from lessons table
   const contentProgressQuery = useQuery({
