@@ -595,51 +595,62 @@ export async function callAIWithFailover(
   }
 
   const errors: string[] = [];
-  let attemptIndex = 0;
+  let candidateRank = 0;  // position in chain (includes skips)
+  let actualAttempt = 0;  // only real HTTP calls
   const traceId = generateTraceId();
 
   // Resolve logging client: explicit sb > globalThis > auto-create
   const logSb = jobContext?.sb || (globalThis as any).__llmLogSb || getAutoLogSb();
   const jobType = jobContext?.job_type || (globalThis as any).__llmJobType || "unknown";
 
-  // Helper: auto-log an attempt (non-blocking, never throws)
-  const autoLog = (p: string, m: string, attempt: number, status: string, latencyMs: number, usage?: any, estimatedUsage?: any, finishReason?: string, errorMsg?: string) => {
+  // Helper: auto-log an attempt — awaited (logLLMCostEvent never throws)
+  const autoLog = async (
+    p: string, m: string, status: LLMCostStatus, latencyMs: number,
+    opts2: { usage?: any; estimatedUsage?: any; finishReason?: string; errorMsg?: string; wasCalled: boolean; skipReason?: string },
+  ) => {
     if (!logSb) return;
-    logLLMCostEvent(logSb, {
+    const norm = normalizeUsage(opts2.usage, opts2.estimatedUsage);
+    await logLLMCostEvent(logSb, {
       job_type: jobType,
       provider: p,
       model: m,
-      tokens_in: usage?.input_tokens || usage?.prompt_tokens || 0,
-      tokens_out: usage?.output_tokens || usage?.completion_tokens || 0,
-      status: status as any,
-      attempt,
+      tokens_in: norm.tokens_in,
+      tokens_out: norm.tokens_out,
+      status,
+      attempt: opts2.wasCalled ? actualAttempt : undefined,
       latency_ms: latencyMs,
-      finish_reason: finishReason,
-      error_message: errorMsg,
+      finish_reason: opts2.finishReason,
+      error_message: opts2.errorMsg,
       package_id: jobContext?.package_id,
       course_id: jobContext?.course_id,
       certification_id: jobContext?.certification_id,
-      estimatedUsage,
-      cached_input_tokens: usage?.cache_read_input_tokens || 0,
-      cache_creation_input_tokens: usage?.cache_creation_input_tokens || 0,
-      cache_read_input_tokens: usage?.cache_read_input_tokens || 0,
+      estimatedUsage: opts2.estimatedUsage,
+      cache_creation_input_tokens: norm.cache_creation_input_tokens,
+      cache_read_input_tokens: norm.cache_read_input_tokens,
       trace_id: traceId,
-      meta: { chain_size: chain.length, fallback_rank: attempt },
-    }).catch(() => {}); // fire-and-forget but logLLMCostEvent itself now logs errors
+      meta: {
+        chain_size: chain.length,
+        candidate_rank: candidateRank,
+        attempt_no: opts2.wasCalled ? actualAttempt : undefined,
+        was_called: opts2.wasCalled,
+        ...(opts2.skipReason ? { skip_reason: opts2.skipReason } : {}),
+      },
+    });
   };
 
   for (const candidate of chain) {
     if (!keyAvailability[candidate.provider]) {
       errors.push(`${candidate.provider}: no API key`);
-      attemptIndex++;
+      await autoLog(candidate.provider, candidate.model, "skipped", 0, { wasCalled: false, skipReason: "no_api_key" });
+      candidateRank++;
       continue;
     }
 
     const health = getProviderHealth(candidate.provider);
     if (!health.available) {
       errors.push(`${candidate.provider}: ${health.reason}`);
-      autoLog(candidate.provider, candidate.model, attemptIndex, "rate_limited", 0, undefined, undefined, undefined, health.reason);
-      attemptIndex++;
+      await autoLog(candidate.provider, candidate.model, "rate_limited", 0, { wasCalled: false, skipReason: health.reason, errorMsg: health.reason });
+      candidateRank++;
       continue;
     }
 
