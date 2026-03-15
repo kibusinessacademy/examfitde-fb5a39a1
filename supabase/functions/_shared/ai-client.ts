@@ -201,7 +201,8 @@ export async function callAI(opts: AIRequestOptions): Promise<AIResponse> {
       headers: {
         "x-api-key": apiKey,
         "anthropic-version": "2023-06-01",
-        "anthropic-beta": "prompt-caching-2024-07-31",
+        // NOTE: prompt-caching-2024-07-31 beta header REMOVED — caching is GA since Dec 2024.
+        // The deprecated beta header was being rejected by newer models, preventing caching entirely.
         "Content-Type": "application/json",
       },
       body: JSON.stringify(body),
