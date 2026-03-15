@@ -491,6 +491,222 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_generation_cache: {
+        Row: {
+          cache_key: string
+          cost_eur: number | null
+          created_at: string
+          hit_count: number
+          id: string
+          job_type: string
+          last_hit_at: string | null
+          model: string | null
+          provider: string | null
+          request_fingerprint: string
+          response_body: Json
+          usage_data: Json | null
+        }
+        Insert: {
+          cache_key: string
+          cost_eur?: number | null
+          created_at?: string
+          hit_count?: number
+          id?: string
+          job_type: string
+          last_hit_at?: string | null
+          model?: string | null
+          provider?: string | null
+          request_fingerprint: string
+          response_body: Json
+          usage_data?: Json | null
+        }
+        Update: {
+          cache_key?: string
+          cost_eur?: number | null
+          created_at?: string
+          hit_count?: number
+          id?: string
+          job_type?: string
+          last_hit_at?: string | null
+          model?: string | null
+          provider?: string | null
+          request_fingerprint?: string
+          response_body?: Json
+          usage_data?: Json | null
+        }
+        Relationships: []
+      }
+      ai_generation_policies: {
+        Row: {
+          allow_sync: boolean
+          allowed_models: string[]
+          daily_budget_eur: number | null
+          default_model: string | null
+          is_enabled: boolean
+          job_type: string
+          max_batch_size: number | null
+          max_retries: number
+          max_tokens_out: number | null
+          notes: string | null
+          prefer_batch: boolean
+          require_deficit: boolean
+          template_first: boolean
+          updated_at: string
+          use_cache: boolean
+        }
+        Insert: {
+          allow_sync?: boolean
+          allowed_models?: string[]
+          daily_budget_eur?: number | null
+          default_model?: string | null
+          is_enabled?: boolean
+          job_type: string
+          max_batch_size?: number | null
+          max_retries?: number
+          max_tokens_out?: number | null
+          notes?: string | null
+          prefer_batch?: boolean
+          require_deficit?: boolean
+          template_first?: boolean
+          updated_at?: string
+          use_cache?: boolean
+        }
+        Update: {
+          allow_sync?: boolean
+          allowed_models?: string[]
+          daily_budget_eur?: number | null
+          default_model?: string | null
+          is_enabled?: boolean
+          job_type?: string
+          max_batch_size?: number | null
+          max_retries?: number
+          max_tokens_out?: number | null
+          notes?: string | null
+          prefer_batch?: boolean
+          require_deficit?: boolean
+          template_first?: boolean
+          updated_at?: string
+          use_cache?: boolean
+        }
+        Relationships: []
+      }
+      ai_generation_requests: {
+        Row: {
+          cache_key: string | null
+          certification_id: string | null
+          completed_at: string | null
+          course_id: string | null
+          created_at: string
+          deficit_required: boolean
+          deficit_result: Json
+          error_summary: Json
+          id: string
+          job_type: string
+          llm_batch_id: string | null
+          llm_request_id: string | null
+          max_retries: number
+          model: string | null
+          package_id: string | null
+          policy_snapshot: Json
+          provider: string | null
+          quality_tier: string
+          request_fingerprint: string | null
+          request_payload: Json
+          result_summary: Json
+          retry_count: number
+          routing_mode: string
+          source_id: string | null
+          source_ref: Json | null
+          source_table: string | null
+          started_at: string | null
+          status: string
+          target_artifact: string
+          updated_at: string
+          urgency: string
+        }
+        Insert: {
+          cache_key?: string | null
+          certification_id?: string | null
+          completed_at?: string | null
+          course_id?: string | null
+          created_at?: string
+          deficit_required?: boolean
+          deficit_result?: Json
+          error_summary?: Json
+          id?: string
+          job_type: string
+          llm_batch_id?: string | null
+          llm_request_id?: string | null
+          max_retries?: number
+          model?: string | null
+          package_id?: string | null
+          policy_snapshot?: Json
+          provider?: string | null
+          quality_tier?: string
+          request_fingerprint?: string | null
+          request_payload?: Json
+          result_summary?: Json
+          retry_count?: number
+          routing_mode?: string
+          source_id?: string | null
+          source_ref?: Json | null
+          source_table?: string | null
+          started_at?: string | null
+          status?: string
+          target_artifact: string
+          updated_at?: string
+          urgency?: string
+        }
+        Update: {
+          cache_key?: string | null
+          certification_id?: string | null
+          completed_at?: string | null
+          course_id?: string | null
+          created_at?: string
+          deficit_required?: boolean
+          deficit_result?: Json
+          error_summary?: Json
+          id?: string
+          job_type?: string
+          llm_batch_id?: string | null
+          llm_request_id?: string | null
+          max_retries?: number
+          model?: string | null
+          package_id?: string | null
+          policy_snapshot?: Json
+          provider?: string | null
+          quality_tier?: string
+          request_fingerprint?: string | null
+          request_payload?: Json
+          result_summary?: Json
+          retry_count?: number
+          routing_mode?: string
+          source_id?: string | null
+          source_ref?: Json | null
+          source_table?: string | null
+          started_at?: string | null
+          status?: string
+          target_artifact?: string
+          updated_at?: string
+          urgency?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_generation_requests_llm_batch_id_fkey"
+            columns: ["llm_batch_id"]
+            isOneToOne: false
+            referencedRelation: "llm_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_generation_requests_llm_batch_id_fkey"
+            columns: ["llm_batch_id"]
+            isOneToOne: false
+            referencedRelation: "v_llm_batch_overview"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_generations: {
         Row: {
           cost_eur: number | null
