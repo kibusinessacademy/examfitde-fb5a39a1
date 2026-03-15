@@ -7,6 +7,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Shield, CheckCircle2, XCircle, Clock, AlertTriangle, Rocket } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+type DriftTone = 'green' | 'yellow' | 'red';
+
 interface CurriculumReadiness {
   curriculum_id: string;
   curriculum_title: string;
@@ -16,7 +18,35 @@ interface CurriculumReadiness {
   total_error_patterns: number;
   flag_status: boolean;
   is_ready: boolean;
+  drift: DriftTone;
+  driftHint: string;
 }
+
+function computeDrift(c: Omit<CurriculumReadiness, 'drift' | 'driftHint'>): { drift: DriftTone; driftHint: string } {
+  // RED: flag=true but not actually ready → dangerous drift
+  if (c.flag_status && !c.is_ready) {
+    return { drift: 'red', driftHint: 'Flag aktiv, aber Readiness nicht erreicht — Drift!' };
+  }
+  // RED: ready but flag missing → missed activation
+  if (c.is_ready && !c.flag_status) {
+    return { drift: 'red', driftHint: 'Ready, aber Flag fehlt — Orchestrator-Problem?' };
+  }
+  // YELLOW: close to threshold (40-59%) and no flag
+  if (!c.is_ready && c.pct_ready >= 40) {
+    return { drift: 'yellow', driftHint: `Coverage ${c.pct_ready}% — knapp unter Schwelle` };
+  }
+  // GREEN: consistent state
+  if (c.flag_status && c.is_ready) {
+    return { drift: 'green', driftHint: 'Aktiv und ready — konsistent' };
+  }
+  return { drift: 'green', driftHint: '' };
+}
+
+const driftClasses: Record<DriftTone, string> = {
+  green: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-500',
+  yellow: 'border-amber-500/30 bg-amber-500/10 text-amber-500',
+  red: 'border-destructive/30 bg-destructive/10 text-destructive',
+};
 
 export default function KGRolloutPanel() {
   // Load all curricula readiness + flags
