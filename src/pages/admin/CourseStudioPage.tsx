@@ -24,7 +24,9 @@ const STATUS_MAP: Record<string, { label: string; color: string; icon: any }> = 
 };
 
 function PackageList({ onSelect }: { onSelect: (id: string) => void }) {
-  const { data: packages, isLoading, createPackage } = useCoursePackages();
+  const { data: rawPackages, isLoading } = useAdminVisiblePackages();
+  const packages = dedupeVisiblePackages(rawPackages || []);
+  const { createPackage } = useCoursePackages();
   const [showCreate, setShowCreate] = useState(false);
   const [title, setTitle] = useState('');
   const [certId, setCertId] = useState('');
