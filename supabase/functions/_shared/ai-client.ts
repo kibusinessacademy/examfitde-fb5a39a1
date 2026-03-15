@@ -448,7 +448,7 @@ export async function logLLMCostEvent(
   }
 }
 
-// ── Internal: create a service-role Supabase client for auto-logging ──
+// ── Internal: lightweight REST-based auto-log client (no createClient dependency) ──
 let _autoLogSb: { from: (table: string) => any } | null = null;
 function getAutoLogSb(): { from: (table: string) => any } | null {
   if (_autoLogSb) return _autoLogSb;
@@ -456,13 +456,33 @@ function getAutoLogSb(): { from: (table: string) => any } | null {
     const url = Deno.env.get("SUPABASE_URL");
     const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     if (!url || !key) return null;
-    // Dynamic import would be ideal but we need sync access;
-    // Use the globally available createClient from the edge function context
-    const { createClient } = (globalThis as any).__supabaseClientModule;
-    if (createClient) {
-      _autoLogSb = createClient(url, key);
-      return _autoLogSb;
-    }
+    // Minimal REST wrapper — only supports .insert() for llm_cost_events
+    _autoLogSb = {
+      from: (table: string) => ({
+        insert: async (row: Record<string, unknown>) => {
+          try {
+            const resp = await fetch(`${url}/rest/v1/${table}`, {
+              method: "POST",
+              headers: {
+                "apikey": key,
+                "Authorization": `Bearer ${key}`,
+                "Content-Type": "application/json",
+                "Prefer": "return=minimal",
+              },
+              body: JSON.stringify(row),
+            });
+            if (!resp.ok) {
+              const errText = await resp.text().catch(() => "");
+              return { error: { message: `REST insert failed: ${resp.status} ${errText.slice(0, 100)}` } };
+            }
+            return { error: null };
+          } catch (e) {
+            return { error: { message: (e as Error)?.message || "fetch failed" } };
+          }
+        },
+      }),
+    };
+    return _autoLogSb;
   } catch { /* no auto-log client available */ }
   return null;
 }
