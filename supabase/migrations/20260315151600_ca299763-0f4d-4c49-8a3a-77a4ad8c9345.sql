@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX IF NOT EXISTS uq_kg_nodes_source ON public.knowledge_graph_nodes(source_table, source_id);
