@@ -144,6 +144,15 @@ Deno.serve(async (req) => {
         result = await forceUnlockPackage(sb, pid);
         break;
       }
+      case "unblock_package": {
+        const pid = String(body.package_id || "");
+        if (!pid) return json({ error: "package_id required" }, 400);
+        const reason = String(body.reason || "admin_manual_unblock");
+        beforeState = { package_id: pid };
+        affectedIds = [pid];
+        result = await unblockPackage(sb, pid, reason);
+        break;
+      }
       case "approve_step_exception": {
         const pid = String(body.package_id || "");
         const sk = String(body.step_key || "");
