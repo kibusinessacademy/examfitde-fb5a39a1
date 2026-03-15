@@ -7,6 +7,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Shield, CheckCircle2, XCircle, Clock, AlertTriangle, Rocket } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+type DriftTone = 'green' | 'yellow' | 'red';
+
 interface CurriculumReadiness {
   curriculum_id: string;
   curriculum_title: string;
@@ -16,7 +18,35 @@ interface CurriculumReadiness {
   total_error_patterns: number;
   flag_status: boolean;
   is_ready: boolean;
+  drift: DriftTone;
+  driftHint: string;
 }
+
+function computeDrift(c: Omit<CurriculumReadiness, 'drift' | 'driftHint'>): { drift: DriftTone; driftHint: string } {
+  // RED: flag=true but not actually ready → dangerous drift
+  if (c.flag_status && !c.is_ready) {
+    return { drift: 'red', driftHint: 'Flag aktiv, aber Readiness nicht erreicht — Drift!' };
+  }
+  // RED: ready but flag missing → missed activation
+  if (c.is_ready && !c.flag_status) {
+    return { drift: 'red', driftHint: 'Ready, aber Flag fehlt — Orchestrator-Problem?' };
+  }
+  // YELLOW: close to threshold (40-59%) and no flag
+  if (!c.is_ready && c.pct_ready >= 40) {
+    return { drift: 'yellow', driftHint: `Coverage ${c.pct_ready}% — knapp unter Schwelle` };
+  }
+  // GREEN: consistent state
+  if (c.flag_status && c.is_ready) {
+    return { drift: 'green', driftHint: 'Aktiv und ready — konsistent' };
+  }
+  return { drift: 'green', driftHint: '' };
+}
+
+const driftClasses: Record<DriftTone, string> = {
+  green: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-500',
+  yellow: 'border-amber-500/30 bg-amber-500/10 text-amber-500',
+  red: 'border-destructive/30 bg-destructive/10 text-destructive',
+};
 
 export default function KGRolloutPanel() {
   // Load all curricula readiness + flags
@@ -101,7 +131,7 @@ export default function KGRolloutPanel() {
         const pctReady = compIds.length > 0 ? Math.round((withEnough / compIds.length) * 1000) / 10 : 0;
         const isReady = compIds.length >= 20 && pctReady >= 60;
 
-        results.push({
+        const base = {
           curriculum_id: curr.id,
           curriculum_title: curr.title,
           competencies_total: compIds.length,
@@ -110,7 +140,9 @@ export default function KGRolloutPanel() {
           total_error_patterns: totalErrors,
           flag_status: flags[curr.id] || false,
           is_ready: isReady,
-        });
+        };
+        const { drift, driftHint } = computeDrift(base);
+        results.push({ ...base, drift, driftHint });
       }
 
       results.sort((a, b) => b.pct_ready - a.pct_ready);
@@ -137,6 +169,7 @@ export default function KGRolloutPanel() {
 
   const readyCurricula = data?.curricula?.filter(c => c.is_ready) || [];
   const pendingCurricula = data?.curricula?.filter(c => !c.is_ready && c.pct_ready > 0) || [];
+  const driftCurricula = data?.curricula?.filter(c => c.drift === 'red') || [];
 
   return (
     <div className="space-y-6">
@@ -190,6 +223,29 @@ export default function KGRolloutPanel() {
         </Card>
       </div>
 
+      {/* Drift Alert Banner */}
+      {driftCurricula.length > 0 && (
+        <Card className="border-destructive/50 bg-destructive/5">
+          <CardContent className="py-3 px-4">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-destructive">
+                  {driftCurricula.length} Curriculum{driftCurricula.length > 1 ? 'a' : ''} mit Drift
+                </p>
+                <ul className="mt-1 space-y-0.5">
+                  {driftCurricula.map(c => (
+                    <li key={c.curriculum_id} className="text-xs text-muted-foreground">
+                      <span className="font-medium text-foreground">{c.curriculum_title}</span> — {c.driftHint}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Curricula Readiness Table */}
       <Card>
         <CardHeader className="pb-3">
@@ -205,40 +261,52 @@ export default function KGRolloutPanel() {
                   <TableHead className="w-20 text-right">≥2 Err</TableHead>
                   <TableHead className="w-24 text-right">Coverage</TableHead>
                   <TableHead className="w-20 text-right">Errors</TableHead>
-                  <TableHead className="w-20 text-center">Flag</TableHead>
-                  <TableHead className="w-20 text-center">Status</TableHead>
+                   <TableHead className="w-20 text-center">Flag</TableHead>
+                   <TableHead className="w-20 text-center">Status</TableHead>
+                   <TableHead className="w-20 text-center">Drift</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {(data?.curricula || []).map((c) => (
-                  <TableRow key={c.curriculum_id} className={cn(c.is_ready && 'bg-emerald-500/5')}>
-                    <TableCell className="text-sm max-w-xs truncate font-medium">{c.curriculum_title}</TableCell>
-                    <TableCell className="text-right text-sm font-mono text-muted-foreground">{c.competencies_total}</TableCell>
-                    <TableCell className="text-right text-sm font-mono text-muted-foreground">{c.competencies_with_enough_errors}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <div className="w-16 h-2 rounded-full bg-muted overflow-hidden">
-                          <div
-                            className={cn('h-full rounded-full', c.pct_ready >= 60 ? 'bg-emerald-500' : c.pct_ready >= 40 ? 'bg-yellow-500' : 'bg-destructive')}
-                            style={{ width: `${Math.min(c.pct_ready, 100)}%` }}
-                          />
-                        </div>
-                        <span className="text-xs font-mono w-12 text-right">{c.pct_ready}%</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right text-sm font-mono text-muted-foreground">{c.total_error_patterns}</TableCell>
-                    <TableCell className="text-center">
-                      {c.flag_status
-                        ? <CheckCircle2 className="h-4 w-4 text-emerald-500 inline" />
-                        : <XCircle className="h-4 w-4 text-muted-foreground inline" />}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Badge variant={c.is_ready ? 'default' : c.pct_ready >= 40 ? 'secondary' : 'outline'} className="text-[10px]">
-                        {c.is_ready ? 'READY' : c.pct_ready >= 40 ? 'BALD' : 'NIEDRIG'}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                 {(data?.curricula || []).map((c) => (
+                   <TableRow key={c.curriculum_id} className={cn(c.drift === 'red' && 'bg-destructive/5', c.drift === 'green' && c.is_ready && 'bg-emerald-500/5')}>
+                     <TableCell className="text-sm max-w-xs truncate font-medium">{c.curriculum_title}</TableCell>
+                     <TableCell className="text-right text-sm font-mono text-muted-foreground">{c.competencies_total}</TableCell>
+                     <TableCell className="text-right text-sm font-mono text-muted-foreground">{c.competencies_with_enough_errors}</TableCell>
+                     <TableCell className="text-right">
+                       <div className="flex items-center justify-end gap-2">
+                         <div className="w-16 h-2 rounded-full bg-muted overflow-hidden">
+                           <div
+                             className={cn('h-full rounded-full', c.pct_ready >= 60 ? 'bg-emerald-500' : c.pct_ready >= 40 ? 'bg-amber-500' : 'bg-destructive')}
+                             style={{ width: `${Math.min(c.pct_ready, 100)}%` }}
+                           />
+                         </div>
+                         <span className="text-xs font-mono w-12 text-right">{c.pct_ready}%</span>
+                       </div>
+                     </TableCell>
+                     <TableCell className="text-right text-sm font-mono text-muted-foreground">{c.total_error_patterns}</TableCell>
+                     <TableCell className="text-center">
+                       {c.flag_status
+                         ? <CheckCircle2 className="h-4 w-4 text-emerald-500 inline" />
+                         : <XCircle className="h-4 w-4 text-muted-foreground inline" />}
+                     </TableCell>
+                     <TableCell className="text-center">
+                       <Badge variant={c.is_ready ? 'default' : c.pct_ready >= 40 ? 'secondary' : 'outline'} className="text-[10px]">
+                         {c.is_ready ? 'READY' : c.pct_ready >= 40 ? 'BALD' : 'NIEDRIG'}
+                       </Badge>
+                     </TableCell>
+                     <TableCell className="text-center">
+                       {c.drift !== 'green' ? (
+                         <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium', driftClasses[c.drift])} title={c.driftHint}>
+                           {c.drift === 'red' ? '⚠ DRIFT' : '⏳ NEAR'}
+                         </span>
+                       ) : c.is_ready ? (
+                         <span className={cn('inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium', driftClasses.green)}>
+                           ✓ OK
+                         </span>
+                       ) : null}
+                     </TableCell>
+                   </TableRow>
+                 ))}
               </TableBody>
             </Table>
           )}
