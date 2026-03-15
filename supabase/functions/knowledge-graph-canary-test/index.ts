@@ -76,11 +76,9 @@ Deno.serve(async (req) => {
     const shuffled = blueprints.sort(() => Math.random() - 0.5).slice(0, max_blueprints);
     console.log(`[KG-Canary] Testing ${shuffled.length} blueprints from curriculum ${curriculum_id}`);
 
-    // Load model chain
-    const chain = await getModelChainAsync(sb, "package_generate_exam_pool");
-    const route = resolveAvailableRoute(chain);
-    const provider = route.provider as "openai" | "anthropic" | "google";
-    const model = route.model;
+    // Use openai/gpt-5-mini for canary (reliable, cost-efficient)
+    const provider = "openai" as const;
+    const model = "gpt-5-mini";
 
     const results: CanaryResult[] = [];
     const runId = crypto.randomUUID();
