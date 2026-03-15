@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { GripVertical, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { resolveTitle } from '@/hooks/useCanonicalTitles';
 
 interface QueuePackage {
   id: string;
@@ -17,9 +18,10 @@ interface QueuePackage {
 interface Props {
   pkg: QueuePackage;
   index: number;
+  canonicalTitles?: Map<string, string>;
 }
 
-export default function SortableQueueItem({ pkg, index }: Props) {
+export default function SortableQueueItem({ pkg, index, canonicalTitles }: Props) {
   const {
     attributes,
     listeners,
@@ -60,7 +62,7 @@ export default function SortableQueueItem({ pkg, index }: Props) {
 
       {/* Info */}
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate">{pkg.title || pkg.id.substring(0, 12)}</p>
+        <p className="text-sm font-medium truncate">{resolveTitle(canonicalTitles, pkg.id, pkg.title)}</p>
         <p className="text-xs text-muted-foreground">
           {pkg.build_progress > 0 ? `${pkg.build_progress}% fertig · ` : ''}
           {new Date(pkg.created_at).toLocaleDateString('de-DE')}

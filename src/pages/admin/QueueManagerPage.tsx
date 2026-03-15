@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useCanonicalTitles, resolveTitle } from '@/hooks/useCanonicalTitles';
 import {
   DndContext,
   closestCenter,
@@ -53,6 +54,11 @@ export default function QueueManagerPage() {
     },
     refetchInterval: 30000,
   });
+
+  // Canonical title overlay from SSOT view
+  const { data: canonicalTitles } = useCanonicalTitles(
+    (packages || []).map(p => p.id),
+  );
 
   // Local order state for drag & drop
   const [localOrder, setLocalOrder] = useState<QueuePackage[] | null>(null);
@@ -185,7 +191,7 @@ export default function QueueManagerPage() {
                 <div className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-muted/50 transition-colors">
                   <div className="w-6" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{pkg.title || pkg.id.substring(0, 12)}</p>
+                    <p className="text-sm font-medium truncate">{resolveTitle(canonicalTitles, pkg.id, pkg.title)}</p>
                     <p className="text-xs text-muted-foreground">Prio {pkg.priority} · {pkg.build_progress}%</p>
                   </div>
                   <Badge variant="outline" className="bg-primary/10 text-primary text-xs">
@@ -222,7 +228,7 @@ export default function QueueManagerPage() {
               >
                 <div className="space-y-1">
                   {queuedPackages.map((pkg, index) => (
-                    <SortableQueueItem key={pkg.id} pkg={pkg} index={index} />
+                    <SortableQueueItem key={pkg.id} pkg={pkg} index={index} canonicalTitles={canonicalTitles} />
                   ))}
                 </div>
               </SortableContext>

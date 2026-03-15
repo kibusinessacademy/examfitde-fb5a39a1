@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useAdminDashboard } from '@/components/admin/hooks/useAdminDashboard';
+import { useCanonicalTitles, resolveTitle } from '@/hooks/useCanonicalTitles';
 import { cn } from '@/lib/utils';
 import {
   BookOpen, Brain, CircleDollarSign, GraduationCap,
@@ -54,13 +55,13 @@ function HealthBar({ items }: { items: GlobalHealthItem[] }) {
   );
 }
 
-function BuildingPackageRow({ pkg }: { pkg: DashboardBuildingPackage }) {
+function BuildingPackageRow({ pkg, canonicalTitles }: { pkg: DashboardBuildingPackage; canonicalTitles?: Map<string, string> }) {
   const stepStatuses = pkg.step_status_json || {};
   return (
     <div className="rounded-xl border border-border/70 bg-background/50 p-3">
       <div className="flex items-center justify-between gap-3 mb-2">
         <Link to={`/admin/studio/${pkg.id}`} className="text-sm font-medium hover:text-primary transition-colors truncate">
-          {pkg.title || pkg.id.slice(0, 12)}
+          {resolveTitle(canonicalTitles, pkg.id, pkg.title)}
         </Link>
         <div className="flex items-center gap-2 shrink-0">
           <Progress value={pkg.build_progress} className="h-1.5 w-16" />
@@ -86,6 +87,9 @@ function BuildingPackageRow({ pkg }: { pkg: DashboardBuildingPackage }) {
 
 export default function AdminExecutiveHomePage() {
   const { data, isLoading, error, dataUpdatedAt } = useAdminDashboard();
+  const { data: canonicalTitles } = useCanonicalTitles(
+    (data?.building_packages || []).map(p => p.id),
+  );
 
   if (isLoading) {
     return (
@@ -307,7 +311,7 @@ export default function AdminExecutiveHomePage() {
           </CardHeader>
           <CardContent className="space-y-2">
             {data.building_packages.map((pkg) => (
-              <BuildingPackageRow key={pkg.id} pkg={pkg} />
+              <BuildingPackageRow key={pkg.id} pkg={pkg} canonicalTitles={canonicalTitles} />
             ))}
           </CardContent>
         </Card>

@@ -4,6 +4,7 @@ import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useCanonicalTitles, resolveTitle } from '@/hooks/useCanonicalTitles';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -52,6 +53,8 @@ function IntegrityOverview() {
     })();
   }, []);
 
+  const { data: canonicalTitles } = useCanonicalTitles(packages.map((p: any) => p.id));
+
   if (loading) return <Loading />;
 
   const failed = packages.filter(p => !p.integrity_passed && p.status !== 'published');
@@ -95,7 +98,7 @@ function IntegrityOverview() {
                     <XCircle className="h-4 w-4 text-destructive shrink-0" />
                   }
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-foreground truncate">{pkg.title || pkg.id.substring(0, 12)}</p>
+                    <p className="text-sm font-medium text-foreground truncate">{resolveTitle(canonicalTitles, pkg.id, pkg.title)}</p>
                     <div className="flex items-center gap-2 mt-1">
                       <Progress value={score} className="h-1.5 max-w-32" />
                       <span className={cn("text-xs font-mono",

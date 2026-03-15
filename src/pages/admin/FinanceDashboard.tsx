@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useCanonicalTitles, resolveTitle } from '@/hooks/useCanonicalTitles';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -554,6 +555,10 @@ function PipelineControllingTab() {
     refetchInterval: 30000,
   });
 
+  const { data: canonicalTitles } = useCanonicalTitles(
+    (packages || []).map((p: any) => p.id),
+  );
+
   const { data: costData } = useQuery({
     queryKey: ['pipeline-cost-data'],
     queryFn: async () => {
@@ -655,7 +660,7 @@ function PipelineControllingTab() {
       <TableRow key={pkg.id} className={pkg.status === 'building' ? 'bg-blue-500/5' : pkg.status === 'failed' ? 'bg-destructive/5' : ''}>
         <TableCell className="font-mono text-muted-foreground text-xs">{i + 1}</TableCell>
         <TableCell>
-          <div className="font-medium text-sm">{pkg.title?.replace('ExamFit – ', '')}</div>
+          <div className="font-medium text-sm">{resolveTitle(canonicalTitles, pkg.id, pkg.title)?.replace('ExamFit – ', '')}</div>
           {pkg.track && <div className="text-xs text-muted-foreground">{pkg.track}</div>}
         </TableCell>
         <TableCell>{getStatusBadge(pkg.status)}</TableCell>
