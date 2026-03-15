@@ -217,7 +217,8 @@ Deno.serve(async (req) => {
 
     // BATCH
     if (routingMode === "batch" && body.messages?.length) {
-      const model = policy.defaultModel;
+      // CRITICAL: Ensure model is batch-compatible (Phase A: OpenAI only)
+      const model = batchSafeModel(policy.defaultModel);
       const customId = `gw_${body.jobType}_${requestId.slice(0, 8)}_${Date.now()}`;
 
       const batchRequests = buildBatchRequests([{
