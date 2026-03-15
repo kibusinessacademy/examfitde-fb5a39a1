@@ -93,18 +93,9 @@ Deno.serve(async (req) => {
     if (genErr) return json({ error: "Failed to create run record: " + genErr.message }, 500);
     const genId = genRecord.id;
 
-    // ── Step 2: Return immediately — processing continues in background ──
-    // Use waitUntil pattern: respond first, then continue
-    const responsePromise = json({
-      ok: true,
-      async: true,
-      run_id: runId,
-      generation_id: genId,
-      blueprints_queued: shuffled.length,
-      message: "Canary test started. Results will be persisted to ai_generations.",
-    });
-
-    // Background processing (runs after response is sent)
+    // ── Step 2: Fire-and-forget background processing ──
+    // EdgeRuntime keeps alive until all promises settle, but we must
+    // NOT await the background work — return the response immediately.
     const backgroundWork = (async () => {
       const results: CanaryResult[] = [];
 
@@ -163,11 +154,18 @@ Deno.serve(async (req) => {
       console.log(`[KG-Canary] ✅ Run ${runId.slice(0, 8)} finalized: ${finalStatus} / ${summary.verdict} (Δ=${summary.full.delta_quality}, ${progressPct}%)`);
     })();
 
-    // Wait for background work but still return the response
-    // EdgeRuntime keeps the function alive until all promises resolve
-    await Promise.all([responsePromise, backgroundWork]);
+    // Don't await backgroundWork — let it run while we return
+    // Suppress unhandled rejection warnings
+    backgroundWork.catch((e) => console.error("[KG-Canary] background fatal:", e));
 
-    return responsePromise;
+    return json({
+      ok: true,
+      async: true,
+      run_id: runId,
+      generation_id: genId,
+      blueprints_queued: shuffled.length,
+      message: "Canary test started. Results will be persisted to ai_generations.",
+    });
   } catch (e: unknown) {
     console.error("[KG-Canary] error", e);
     return json({ error: (e as Error)?.message || String(e) }, 500);
