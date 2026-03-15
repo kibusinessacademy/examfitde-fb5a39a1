@@ -20,6 +20,7 @@ import { shouldUseBatch, BATCH_EXAM_MODEL } from "../_shared/batch/routing-confi
 import { buildBatchRequests, submitBatchViaFunction } from "../_shared/batch/enqueue-openai.ts";
 import { getGraphContextForBlueprint } from "../_shared/knowledge-graph/query.ts";
 import type { GraphContext } from "../_shared/knowledge-graph/types.ts";
+import { shouldInjectKG } from "../_shared/kg-rollout.ts";
 
 /**
  * DOMINANZ-ENGINE v5: IHK-REALISTIC QUALITY GATES
