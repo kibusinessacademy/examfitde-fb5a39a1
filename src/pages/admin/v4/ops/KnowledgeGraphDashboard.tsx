@@ -7,7 +7,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Network, GitBranch, AlertTriangle, BookOpen, Target, Layers, Sparkles } from 'lucide-react';
 
 export default function KnowledgeGraphDashboard() {
-  // Node counts by type
   const { data: nodeCounts, isLoading: nodesLoading } = useQuery({
     queryKey: ['kg-node-counts'],
     queryFn: async () => {
@@ -25,7 +24,6 @@ export default function KnowledgeGraphDashboard() {
     refetchInterval: 30_000,
   });
 
-  // Edge counts by type
   const { data: edgeCounts, isLoading: edgesLoading } = useQuery({
     queryKey: ['kg-edge-counts'],
     queryFn: async () => {
@@ -43,7 +41,6 @@ export default function KnowledgeGraphDashboard() {
     refetchInterval: 30_000,
   });
 
-  // Recent error patterns sample (with provenance)
   const { data: errorPatterns } = useQuery({
     queryKey: ['kg-error-patterns-sample'],
     queryFn: async () => {
@@ -59,7 +56,6 @@ export default function KnowledgeGraphDashboard() {
     },
   });
 
-  // Provenance breakdown for error_pattern nodes
   const { data: provenanceCounts } = useQuery({
     queryKey: ['kg-provenance-counts'],
     queryFn: async () => {
@@ -78,11 +74,9 @@ export default function KnowledgeGraphDashboard() {
     refetchInterval: 30_000,
   });
 
-  // Coverage: competencies with lowest question counts
   const { data: coverageGaps } = useQuery({
     queryKey: ['kg-coverage-gaps'],
     queryFn: async () => {
-      // Get competency nodes
       const { data: compNodes, error: compErr } = await supabase
         .from('knowledge_graph_nodes')
         .select('id, label, source_id')
@@ -91,7 +85,6 @@ export default function KnowledgeGraphDashboard() {
         .limit(500);
       if (compErr) throw compErr;
 
-      // Get tested_by edges (blueprint → competency) to count blueprints per competency
       const { data: edges, error: edgeErr } = await supabase
         .from('knowledge_graph_edges')
         .select('to_node_id')
@@ -105,7 +98,6 @@ export default function KnowledgeGraphDashboard() {
         bpCountMap.set(e.to_node_id, (bpCountMap.get(e.to_node_id) || 0) + 1);
       }
 
-      // Also count causes_error edges per competency
       const { data: errEdges, error: errEdgeErr } = await supabase
         .from('knowledge_graph_edges')
         .select('to_node_id')
@@ -132,7 +124,6 @@ export default function KnowledgeGraphDashboard() {
   });
 
   const isLoading = nodesLoading || edgesLoading;
-
   const nodeTypeIcons: Record<string, typeof Network> = {
     learning_field: Layers,
     competency: Target,
@@ -140,7 +131,6 @@ export default function KnowledgeGraphDashboard() {
     error_pattern: AlertTriangle,
     concept: Network,
   };
-
   const totalNodes = Object.values(nodeCounts || {}).reduce((a, b) => a + b, 0);
   const totalEdges = Object.values(edgeCounts || {}).reduce((a, b) => a + b, 0);
 
@@ -194,7 +184,7 @@ export default function KnowledgeGraphDashboard() {
         </Card>
       </div>
 
-      {/* Provenance breakdown */}
+      {/* Provenance breakdown for error_patterns */}
       {provenanceCounts && Object.keys(provenanceCounts).length > 0 && (
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
           {Object.entries(provenanceCounts).sort(([,a], [,b]) => b - a).map(([prov, count]) => (
@@ -202,7 +192,7 @@ export default function KnowledgeGraphDashboard() {
               <CardContent className="pt-3 pb-3">
                 <div className="flex items-center gap-2">
                   {prov === 'ai_enriched' ? (
-                    <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+                    <Sparkles className="h-3.5 w-3.5 text-primary" />
                   ) : (
                     <AlertTriangle className="h-3.5 w-3.5 text-muted-foreground" />
                   )}
@@ -214,6 +204,16 @@ export default function KnowledgeGraphDashboard() {
           ))}
         </div>
       )}
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Node distribution */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium">Knoten nach Typ</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? <Skeleton className="h-32" /> : (
+              <div className="space-y-2">
                 {Object.entries(nodeCounts || {}).sort(([,a], [,b]) => b - a).map(([type, count]) => {
                   const Icon = nodeTypeIcons[type] || Network;
                   const pct = totalNodes ? Math.round((count / totalNodes) * 100) : 0;
@@ -311,6 +311,8 @@ export default function KnowledgeGraphDashboard() {
             <TableHeader>
               <TableRow>
                 <TableHead>Label</TableHead>
+                <TableHead className="w-28">Provenance</TableHead>
+                <TableHead className="w-20 text-right">Conf.</TableHead>
                 <TableHead className="w-48">Source Key</TableHead>
               </TableRow>
             </TableHeader>
@@ -318,6 +320,14 @@ export default function KnowledgeGraphDashboard() {
               {(errorPatterns || []).map((ep: any) => (
                 <TableRow key={ep.id}>
                   <TableCell className="text-sm max-w-lg truncate">{ep.label}</TableCell>
+                  <TableCell>
+                    <Badge variant={ep.provenance === 'ai_enriched' ? 'secondary' : 'outline'} className="text-xs">
+                      {ep.provenance === 'ai_enriched' ? '✨ AI' : 'SSOT'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right text-xs text-muted-foreground font-mono">
+                    {ep.confidence != null ? (ep.confidence * 100).toFixed(0) + '%' : '—'}
+                  </TableCell>
                   <TableCell className="text-xs text-muted-foreground font-mono truncate max-w-48">
                     {ep.source_key?.slice(0, 40)}…
                   </TableCell>
