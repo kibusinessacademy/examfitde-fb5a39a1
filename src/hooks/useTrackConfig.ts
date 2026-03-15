@@ -94,7 +94,7 @@ export function useTrackConfig(pkg: { track?: string; feature_flags?: any; certi
     const track = (pkg?.track || 'AUSBILDUNG_VOLL') as ProductTrack;
     const certType = (pkg?.certification_type || 'ausbildung') as CertificationType;
     const flags: FeatureFlags = pkg?.feature_flags || DEFAULT_FLAGS[track];
-    const activeSteps = getActivePipelineStepsUI(flags as Record<string, boolean>);
+    const activeSteps = getActivePipelineStepsUI(flags as unknown as Record<string, boolean>);
     const isExamFirst = track === 'EXAM_FIRST';
 
     return { track, certType, flags, activeSteps, isExamFirst };
