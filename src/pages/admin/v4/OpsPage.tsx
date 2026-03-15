@@ -131,6 +131,7 @@ export default function OpsPage() {
           <Route path="tests" element={<TestDashboard />} />
           <Route path="schema" element={<SchemaDriftDashboard />} />
           <Route path="ai-gateway" element={<AIGatewayDashboard />} />
+          <Route path="knowledge-graph" element={<KnowledgeGraphDashboard />} />
         </Routes>
       </Suspense>
     </div>
