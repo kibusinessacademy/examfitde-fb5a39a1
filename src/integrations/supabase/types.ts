@@ -15413,6 +15413,192 @@ export type Database = {
           },
         ]
       }
+      llm_batch_requests: {
+        Row: {
+          batch_id: string
+          cached_input_tokens: number | null
+          completed_at: string | null
+          cost_eur: number | null
+          cost_usd: number | null
+          created_at: string
+          custom_id: string
+          endpoint: string
+          error_body: Json | null
+          id: string
+          job_type: string
+          model: string
+          provider: string
+          request_hash: string | null
+          request_payload: Json
+          response_body: Json | null
+          response_http_status: number | null
+          source_job_id: string | null
+          source_ref: string | null
+          source_table: string | null
+          status: string
+          tokens_in: number | null
+          tokens_out: number | null
+          total_tokens: number | null
+          updated_at: string
+          usage_data: Json | null
+        }
+        Insert: {
+          batch_id: string
+          cached_input_tokens?: number | null
+          completed_at?: string | null
+          cost_eur?: number | null
+          cost_usd?: number | null
+          created_at?: string
+          custom_id: string
+          endpoint?: string
+          error_body?: Json | null
+          id?: string
+          job_type: string
+          model: string
+          provider: string
+          request_hash?: string | null
+          request_payload: Json
+          response_body?: Json | null
+          response_http_status?: number | null
+          source_job_id?: string | null
+          source_ref?: string | null
+          source_table?: string | null
+          status?: string
+          tokens_in?: number | null
+          tokens_out?: number | null
+          total_tokens?: number | null
+          updated_at?: string
+          usage_data?: Json | null
+        }
+        Update: {
+          batch_id?: string
+          cached_input_tokens?: number | null
+          completed_at?: string | null
+          cost_eur?: number | null
+          cost_usd?: number | null
+          created_at?: string
+          custom_id?: string
+          endpoint?: string
+          error_body?: Json | null
+          id?: string
+          job_type?: string
+          model?: string
+          provider?: string
+          request_hash?: string | null
+          request_payload?: Json
+          response_body?: Json | null
+          response_http_status?: number | null
+          source_job_id?: string | null
+          source_ref?: string | null
+          source_table?: string | null
+          status?: string
+          tokens_in?: number | null
+          tokens_out?: number | null
+          total_tokens?: number | null
+          updated_at?: string
+          usage_data?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "llm_batch_requests_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "llm_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "llm_batch_requests_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "v_llm_batch_overview"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      llm_batches: {
+        Row: {
+          completed_at: string | null
+          completed_count: number
+          completion_window: string
+          created_at: string
+          created_by: string | null
+          endpoint: string
+          error_file_id: string | null
+          error_summary: Json
+          expires_at: string | null
+          failed_count: number
+          id: string
+          input_file_id: string | null
+          input_file_path: string | null
+          job_type: string
+          last_polled_at: string | null
+          metadata: Json
+          model: string
+          output_file_id: string | null
+          provider: string
+          provider_batch_id: string | null
+          provider_request_counts: Json
+          request_count: number
+          status: string
+          submitted_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          completed_count?: number
+          completion_window?: string
+          created_at?: string
+          created_by?: string | null
+          endpoint?: string
+          error_file_id?: string | null
+          error_summary?: Json
+          expires_at?: string | null
+          failed_count?: number
+          id?: string
+          input_file_id?: string | null
+          input_file_path?: string | null
+          job_type: string
+          last_polled_at?: string | null
+          metadata?: Json
+          model: string
+          output_file_id?: string | null
+          provider: string
+          provider_batch_id?: string | null
+          provider_request_counts?: Json
+          request_count?: number
+          status?: string
+          submitted_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          completed_count?: number
+          completion_window?: string
+          created_at?: string
+          created_by?: string | null
+          endpoint?: string
+          error_file_id?: string | null
+          error_summary?: Json
+          expires_at?: string | null
+          failed_count?: number
+          id?: string
+          input_file_id?: string | null
+          input_file_path?: string | null
+          job_type?: string
+          last_polled_at?: string | null
+          metadata?: Json
+          model?: string
+          output_file_id?: string | null
+          provider?: string
+          provider_batch_id?: string | null
+          provider_request_counts?: Json
+          request_count?: number
+          status?: string
+          submitted_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       llm_budget: {
         Row: {
           budget_eur: number
@@ -34151,6 +34337,66 @@ export type Database = {
           product_key: string | null
           product_name: string | null
           recommended_price_cents: number | null
+        }
+        Relationships: []
+      }
+      v_llm_batch_overview: {
+        Row: {
+          completed_at: string | null
+          completed_count: number | null
+          created_at: string | null
+          error_file_id: string | null
+          failed_count: number | null
+          id: string | null
+          input_file_id: string | null
+          job_type: string | null
+          last_polled_at: string | null
+          model: string | null
+          output_file_id: string | null
+          provider: string | null
+          provider_batch_id: string | null
+          request_count: number | null
+          status: string | null
+          submitted_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          completed_count?: number | null
+          created_at?: string | null
+          error_file_id?: string | null
+          failed_count?: number | null
+          id?: string | null
+          input_file_id?: string | null
+          job_type?: string | null
+          last_polled_at?: string | null
+          model?: string | null
+          output_file_id?: string | null
+          provider?: string | null
+          provider_batch_id?: string | null
+          request_count?: number | null
+          status?: string | null
+          submitted_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          completed_count?: number | null
+          created_at?: string | null
+          error_file_id?: string | null
+          failed_count?: number | null
+          id?: string | null
+          input_file_id?: string | null
+          job_type?: string | null
+          last_polled_at?: string | null
+          model?: string | null
+          output_file_id?: string | null
+          provider?: string | null
+          provider_batch_id?: string | null
+          request_count?: number | null
+          status?: string | null
+          submitted_at?: string | null
+          updated_at?: string | null
         }
         Relationships: []
       }
