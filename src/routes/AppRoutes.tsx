@@ -93,6 +93,7 @@ const SyntheticProbeCenterPage = lazy(() => import('@/pages/admin/control/Synthe
 const SchedulerGovernancePage = lazy(() => import('@/pages/admin/control/SchedulerGovernancePage'));
 const UnifiedLeitstellePage = lazy(() => import('@/pages/admin/control/UnifiedLeitstellePage'));
 const AdminOpsQueuePage = lazy(() => import('@/pages/admin/AdminOpsQueuePage'));
+const V2LoopDebugPage = lazy(() => import('@/pages/admin/V2LoopDebugPage'));
 const AdminProviderHealthPage = lazy(() => import('@/pages/admin/AdminProviderHealthPage'));
 const AdminPackageRiskPage = lazy(() => import('@/pages/admin/AdminPackageRiskPage'));
 const AdminRevenuePage = lazy(() => import('@/pages/admin/AdminRevenuePage'));
