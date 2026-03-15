@@ -80,7 +80,28 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // 4. Persist snapshot
+    // 4. Debounce guard: skip if a snapshot was created in the last 30 seconds
+    const { data: recentSnap } = await serviceClient
+      .from('exam_readiness_snapshots')
+      .select('id, readiness_score')
+      .eq('user_id', user.id)
+      .eq('curriculum_id', curriculum_id)
+      .gte('calculated_at', new Date(Date.now() - 30_000).toISOString())
+      .order('calculated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (recentSnap && Math.abs(recentSnap.readiness_score - score) < 1) {
+      // Score hasn't meaningfully changed, skip duplicate snapshot
+      return new Response(JSON.stringify({
+        ok: true, debounced: true,
+        readiness_score: score, risk_level: riskLevel,
+      }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // 5. Persist snapshot
     const { error: snapError } = await serviceClient
       .from('exam_readiness_snapshots')
       .insert({
