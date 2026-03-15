@@ -165,7 +165,7 @@ Deno.serve(async (req) => {
     }
 
     // Audit log with before/after (fire-and-forget) — skip read-only
-    if (action !== "root_cause_summary") {
+    if (action !== "root_cause_summary" && action !== "workspace_snapshot") {
       auditLog(sb, user.id, action, body, result, beforeState, affectedIds);
     }
 
