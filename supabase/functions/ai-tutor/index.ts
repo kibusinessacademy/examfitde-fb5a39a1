@@ -218,6 +218,49 @@ async function loadSSOTContext(
     resolved.miniCheckScore = miniCheckScore;
   }
 
+  // ── Learning Intelligence Context ──
+  // Load readiness, gaps, and recommendations for richer tutor responses
+  if (curriculumId) {
+    try {
+      const authHeader = `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`;
+      
+      // Fetch user ID from the calling context (passed via resolved or context)
+      // We'll load using service role since we have the curriculum
+      const [readinessRes, gapsRes] = await Promise.all([
+        supabase
+          .from('v_user_current_readiness')
+          .select('readiness_score, risk_level, confidence_score, mastered_count, not_mastered_count, weak_competencies')
+          .eq('curriculum_id', curriculumId)
+          .limit(1)
+          .maybeSingle(),
+        supabase
+          .from('v_user_top_gaps')
+          .select('competency_title, competency_code, learning_field_code, accuracy_pct, gap_type, weakness_score')
+          .eq('curriculum_id', curriculumId)
+          .order('weakness_score', { ascending: false })
+          .limit(3),
+      ]);
+
+      if (readinessRes.data) {
+        const r = readinessRes.data;
+        resolved.readiness = r;
+        parts.push(`\nPRÜFUNGSREIFE: ${r.readiness_score}% (${r.risk_level})`);
+        parts.push(`Beherrschte Kompetenzen: ${r.mastered_count}, nicht beherrscht: ${r.not_mastered_count}`);
+      }
+
+      if (gapsRes.data && gapsRes.data.length > 0) {
+        resolved.topGaps = gapsRes.data;
+        const gapLines = gapsRes.data.map((g: Record<string, unknown>) =>
+          `- ${g.competency_code} ${g.competency_title}: ${g.accuracy_pct}% (${g.gap_type})`
+        );
+        parts.push(`\nTOP-SCHWÄCHEN des Lernenden:\n${gapLines.join('\n')}`);
+        parts.push('WICHTIG: Beziehe dich auf diese Schwächen, wenn es thematisch passt.');
+      }
+    } catch (e) {
+      console.warn('[ai-tutor] Learning context enrichment failed:', e);
+    }
+  }
+
   const contextPrompt = parts.length > 0
     ? `\n\n--- SSOT-KONTEXT (serverseitig geladen) ---\n${parts.join('\n')}`
     : '';
