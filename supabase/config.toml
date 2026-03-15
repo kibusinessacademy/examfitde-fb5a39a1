@@ -453,3 +453,6 @@ verify_jwt = false
 
 [functions.knowledge-graph-query-test]
 verify_jwt = false
+
+[functions.knowledge-graph-enrich-errors]
+verify_jwt = false
