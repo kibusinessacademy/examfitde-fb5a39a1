@@ -1,11 +1,13 @@
+import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Loader2, Zap, Database, SkipForward, Clock, Layers } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { RefreshCw, Loader2, Zap, Database, SkipForward, Clock, Layers, Filter } from 'lucide-react';
+import { formatDistanceToNow, subDays, subHours } from 'date-fns';
 import { de } from 'date-fns/locale';
 
 const routingBadge: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
@@ -25,44 +27,82 @@ const statusBadge: Record<string, { variant: 'default' | 'secondary' | 'destruct
   failed: { variant: 'destructive' },
 };
 
+const TIME_RANGES = [
+  { value: 'all', label: 'Alle' },
+  { value: '24h', label: '24 Stunden' },
+  { value: '7d', label: '7 Tage' },
+  { value: '30d', label: '30 Tage' },
+] as const;
+
+function getTimeCutoff(range: string): string | null {
+  if (range === '24h') return subHours(new Date(), 24).toISOString();
+  if (range === '7d') return subDays(new Date(), 7).toISOString();
+  if (range === '30d') return subDays(new Date(), 30).toISOString();
+  return null;
+}
+
 export default function AIGatewayDashboard() {
-  // Recent requests
+  const [filterJobType, setFilterJobType] = useState<string>('all');
+  const [filterRouting, setFilterRouting] = useState<string>('all');
+  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterTime, setFilterTime] = useState<string>('24h');
+
+  // Recent requests with filters
   const { data: requests, isLoading, refetch } = useQuery({
-    queryKey: ['ai-gateway-requests'],
+    queryKey: ['ai-gateway-requests', filterJobType, filterRouting, filterStatus, filterTime],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('ai_generation_requests')
         .select('id, job_type, routing_mode, status, cache_key, deficit_result, created_at, completed_at, model, urgency, quality_tier')
         .order('created_at', { ascending: false })
-        .limit(50);
+        .limit(100);
+
+      if (filterJobType !== 'all') query = query.eq('job_type', filterJobType);
+      if (filterRouting !== 'all') query = query.eq('routing_mode', filterRouting);
+      if (filterStatus !== 'all') query = query.eq('status', filterStatus);
+
+      const cutoff = getTimeCutoff(filterTime);
+      if (cutoff) query = query.gte('created_at', cutoff);
+
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
     refetchInterval: 15000,
   });
 
-  // Aggregate stats
+  // Aggregate stats (same time filter)
   const { data: stats } = useQuery({
-    queryKey: ['ai-gateway-stats'],
+    queryKey: ['ai-gateway-stats', filterTime],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('ai_generation_requests')
-        .select('routing_mode, status');
+        .select('routing_mode, status, job_type');
+
+      const cutoff = getTimeCutoff(filterTime);
+      if (cutoff) query = query.gte('created_at', cutoff);
+
+      const { data, error } = await query;
       if (error) throw error;
 
       const total = data?.length || 0;
       const byRouting: Record<string, number> = {};
       const byStatus: Record<string, number> = {};
+      const jobTypes = new Set<string>();
+
       for (const r of data || []) {
         byRouting[r.routing_mode] = (byRouting[r.routing_mode] || 0) + 1;
         byStatus[r.status] = (byStatus[r.status] || 0) + 1;
+        if (r.job_type) jobTypes.add(r.job_type);
       }
-      const skipRate = total > 0 ? ((byRouting['skipped'] || 0) / total * 100).toFixed(1) : '0';
-      const cacheRate = total > 0 ? ((byRouting['cache_hit'] || 0) / total * 100).toFixed(1) : '0';
-      const batchRate = total > 0 ? ((byRouting['batch'] || 0) / total * 100).toFixed(1) : '0';
-      const syncRate = total > 0 ? ((byRouting['sync'] || 0) / total * 100).toFixed(1) : '0';
 
-      return { total, byRouting, byStatus, skipRate, cacheRate, batchRate, syncRate };
+      const pct = (key: string) => total > 0 ? ((byRouting[key] || 0) / total * 100).toFixed(1) : '0';
+
+      return {
+        total, byRouting, byStatus, jobTypes: Array.from(jobTypes).sort(),
+        skipRate: pct('skipped'), cacheRate: pct('cache_hit'),
+        batchRate: pct('batch'), syncRate: pct('sync'),
+      };
     },
     refetchInterval: 30000,
   });
@@ -95,6 +135,19 @@ export default function AIGatewayDashboard() {
       return { entries: totalEntries, totalHits, top: data?.slice(0, 5) };
     },
   });
+
+  // Distinct values for filter dropdowns
+  const routingModes = useMemo(() => {
+    const modes = new Set<string>();
+    requests?.forEach(r => { if (r.routing_mode) modes.add(r.routing_mode); });
+    return Array.from(modes).sort();
+  }, [requests]);
+
+  const statuses = useMemo(() => {
+    const s = new Set<string>();
+    requests?.forEach(r => { if (r.status) s.add(r.status); });
+    return Array.from(s).sort();
+  }, [requests]);
 
   return (
     <div className="space-y-6">
@@ -209,6 +262,56 @@ export default function AIGatewayDashboard() {
                 )}
               </TableBody>
             </Table>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Filters */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm flex items-center gap-2"><Filter className="h-4 w-4" /> Filter</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Zeitraum</label>
+              <Select value={filterTime} onValueChange={setFilterTime}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {TIME_RANGES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Job-Type</label>
+              <Select value={filterJobType} onValueChange={setFilterJobType}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Alle</SelectItem>
+                  {(stats?.jobTypes || []).map(jt => <SelectItem key={jt} value={jt}>{jt}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Routing</label>
+              <Select value={filterRouting} onValueChange={setFilterRouting}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Alle</SelectItem>
+                  {routingModes.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Status</label>
+              <Select value={filterStatus} onValueChange={setFilterStatus}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Alle</SelectItem>
+                  {statuses.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardContent>
       </Card>
