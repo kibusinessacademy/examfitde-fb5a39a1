@@ -118,6 +118,48 @@ Deno.serve(async (req) => {
       case "root_cause_summary":
         result = await rootCauseSummary(sb, body);
         break;
+
+      /* ── Workspace SSOT Actions ── */
+      case "retry_package_step": {
+        const pid = String(body.package_id || "");
+        const sk = String(body.step_key || "");
+        if (!pid || !sk) return json({ error: "package_id and step_key required" }, 400);
+        beforeState = { package_id: pid, step_key: sk };
+        affectedIds = [`${pid}:${sk}`];
+        result = await retryPackageStep(sb, pid, sk, body);
+        break;
+      }
+      case "cancel_package_build": {
+        const pid = String(body.package_id || "");
+        if (!pid) return json({ error: "package_id required" }, 400);
+        beforeState = { package_id: pid };
+        affectedIds = [pid];
+        result = await cancelPackageBuild(sb, pid);
+        break;
+      }
+      case "force_unlock_package": {
+        const pid = String(body.package_id || "");
+        if (!pid) return json({ error: "package_id required" }, 400);
+        affectedIds = [pid];
+        result = await forceUnlockPackage(sb, pid);
+        break;
+      }
+      case "approve_step_exception": {
+        const pid = String(body.package_id || "");
+        const sk = String(body.step_key || "");
+        const reason = String(body.reason || "");
+        if (!pid || !sk || !reason) return json({ error: "package_id, step_key, and reason required" }, 400);
+        affectedIds = [`${pid}:${sk}`];
+        result = await approveStepException(sb, pid, sk, reason, user.id);
+        break;
+      }
+      case "workspace_snapshot": {
+        const pid = String(body.package_id || "");
+        if (!pid) return json({ error: "package_id required" }, 400);
+        result = await workspaceSnapshot(sb, pid);
+        break;
+      }
+
       default:
         return json({ error: `Unknown action: ${action}` }, 400);
     }
