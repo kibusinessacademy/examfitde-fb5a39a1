@@ -21,7 +21,7 @@ interface Props {
   canonicalTitles?: Map<string, string>;
 }
 
-export default function SortableQueueItem({ pkg, index }: Props) {
+export default function SortableQueueItem({ pkg, index, canonicalTitles }: Props) {
   const {
     attributes,
     listeners,
