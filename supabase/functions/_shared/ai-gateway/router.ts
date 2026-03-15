@@ -2,6 +2,7 @@
  * ai-gateway/router.ts — Central routing decision engine.
  *
  * Determines execution path: skipped | cache_hit | template_only | batch | sync
+ * Supports canary rollout via hash(packageId) % 100 < batchRolloutPct.
  */
 
 import type { AIGenerationPolicy, DeficitResult, RoutingDecision } from "./types.ts";
@@ -13,6 +14,20 @@ export interface RoutingInput {
   urgency: "sync" | "async";
   forceSyncMode: boolean;
   templatePossible: boolean;
+  /** Package ID used for deterministic canary gating */
+  packageId?: string;
+}
+
+/**
+ * Simple deterministic hash for canary gating.
+ * Returns 0–99 based on package ID string.
+ */
+function canaryBucket(packageId: string): number {
+  let hash = 0;
+  for (let i = 0; i < packageId.length; i++) {
+    hash = ((hash << 5) - hash + packageId.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash) % 100;
 }
 
 /**
@@ -34,13 +49,27 @@ export function decideRouting(input: RoutingInput): RoutingDecision {
   // Force sync overrides batch preference
   if (input.forceSyncMode) return "sync";
 
-  // Batch preferred for async work
+  // Batch preferred for async work — with canary gate
   if (input.policy.preferBatch && input.urgency === "async" && input.policy.allowSync !== false) {
-    return "batch";
+    const rolloutPct = input.policy.batchRolloutPct ?? 100;
+    if (rolloutPct >= 100) return "batch";
+    if (rolloutPct <= 0) return "sync";
+    // Deterministic canary: hash(packageId) decides
+    if (input.packageId) {
+      return canaryBucket(input.packageId) < rolloutPct ? "batch" : "sync";
+    }
+    // No packageId → fall back to random
+    return Math.random() * 100 < rolloutPct ? "batch" : "sync";
   }
 
-  // Batch-only jobs (allowSync = false)
+  // Batch-only jobs (allowSync = false) — canary gate still applies
   if (input.policy.preferBatch && !input.policy.allowSync) {
+    const rolloutPct = input.policy.batchRolloutPct ?? 100;
+    if (rolloutPct >= 100) return "batch";
+    if (rolloutPct <= 0) return "sync";
+    if (input.packageId) {
+      return canaryBucket(input.packageId) < rolloutPct ? "batch" : "sync";
+    }
     return "batch";
   }
 

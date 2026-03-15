@@ -108,6 +108,7 @@ Deno.serve(async (req) => {
       urgency,
       forceSyncMode,
       templatePossible: false, // Template engine Phase 3
+      packageId: body.packageId || undefined,
     });
 
     // ── 6. Fingerprint + dedup ──

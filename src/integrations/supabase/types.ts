@@ -540,6 +540,7 @@ export type Database = {
         Row: {
           allow_sync: boolean
           allowed_models: string[]
+          batch_rollout_pct: number
           daily_budget_eur: number | null
           default_model: string | null
           is_enabled: boolean
@@ -557,6 +558,7 @@ export type Database = {
         Insert: {
           allow_sync?: boolean
           allowed_models?: string[]
+          batch_rollout_pct?: number
           daily_budget_eur?: number | null
           default_model?: string | null
           is_enabled?: boolean
@@ -574,6 +576,7 @@ export type Database = {
         Update: {
           allow_sync?: boolean
           allowed_models?: string[]
+          batch_rollout_pct?: number
           daily_budget_eur?: number | null
           default_model?: string | null
           is_enabled?: boolean

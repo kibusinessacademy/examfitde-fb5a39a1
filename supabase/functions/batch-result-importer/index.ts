@@ -16,6 +16,7 @@
  */
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { checkContamination } from "../_shared/contamination-guard.ts";
+import { isTemplateResponse, expandAllTemplates } from "../_shared/template-engine/exam-template-expander.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -184,13 +185,41 @@ async function importExamPoolBatch(
         continue;
       }
 
-      // ── Normalize question array (alias support) ──
-      const questions =
-        Array.isArray(parsed?.questions) ? parsed.questions
-        : Array.isArray(parsed?.items) ? parsed.items
-        : Array.isArray(parsed?.results) ? parsed.results
-        : Array.isArray(parsed) ? parsed
-        : [parsed];
+      // ── Template-first: detect and expand templates before processing ──
+      let questions: any[];
+      let isTemplateExpanded = false;
+
+      if (isTemplateResponse(parsed) || parsed?.templates) {
+        const expanded = expandAllTemplates(parsed, {
+          question_type: fallbackQuestionType,
+          difficulty: fallbackDifficulty,
+          cognitive_level: fallbackCognitiveLevel,
+        });
+        if (expanded.length > 0) {
+          isTemplateExpanded = true;
+          questions = expanded.map(eq => ({
+            question_text: eq.question_text,
+            options: eq.options,
+            correct_answer: eq.correct_answer,
+            explanation: eq.explanation,
+            question_type: eq.question_type,
+            difficulty: eq.difficulty,
+            cognitive_level: eq.cognitive_level,
+            is_template_expanded: true,
+          }));
+          console.log(`[batch-import] template-first: expanded ${expanded.length} questions from template (${customId})`);
+        } else {
+          questions = [parsed];
+        }
+      } else {
+        // ── Standard: normalize question array (alias support) ──
+        questions =
+          Array.isArray(parsed?.questions) ? parsed.questions
+          : Array.isArray(parsed?.items) ? parsed.items
+          : Array.isArray(parsed?.results) ? parsed.results
+          : Array.isArray(parsed) ? parsed
+          : [parsed];
+      }
 
       let importedThisRow = 0;
 
