@@ -313,8 +313,9 @@ async function importLearningContentBatch(
       // Extract source references
       const sourceRef = row.source_ref as any;
       const lessonId = sourceRef?.lesson_id;
-      const courseId = sourceRef?.course_id;
-      const packageId = sourceRef?.package_id;
+      // Fallback: look up course_id from batch metadata or ai_generation_requests
+      const courseId = sourceRef?.course_id || (batch as any)?.metadata?.course_id || null;
+      const packageId = sourceRef?.package_id || (batch as any)?.metadata?.package_id || null;
       const stepKey = sourceRef?.step_key || "verstehen";
       const isMiniCheck = sourceRef?.is_mini_check === true;
       const professionName = sourceRef?.profession_name || "";
@@ -323,6 +324,11 @@ async function importLearningContentBatch(
         details.push({ ok: false, custom_id: customId, error: "Missing lesson_id or course_id in source_ref" });
         failCount++;
         continue;
+      }
+
+      // Normalize field aliases (LLM may return content_html instead of html)
+      if (!parsed.html && parsed.content_html) {
+        parsed.html = parsed.content_html;
       }
 
       // Validate content structure
