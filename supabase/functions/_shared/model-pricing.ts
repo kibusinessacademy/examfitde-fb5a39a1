@@ -49,6 +49,10 @@ const RAW_USD: Record<string, { input: number; output: number; cached: number }>
   "o4-mini":       { input: 4.00,  output: 16.00, cached: 1.00  },
   // Embeddings
   "text-embedding-3-large": { input: 0.13, output: 0.00, cached: 0.00 },
+  // Image Generation (text-mode token prices)
+  "gpt-image-1.5": { input: 5.00, output: 10.00, cached: 1.25 },
+  "gpt-image-1":   { input: 5.00, output: 0.00,  cached: 1.25 },
+  "gpt-image-1-mini": { input: 2.00, output: 0.00, cached: 0.20 },
   // Anthropic
   "claude-3-5-haiku-20241022":  { input: 0.25,  output: 1.25,  cached: 0.025 },
   "claude-haiku-4-5-20251001":  { input: 0.80,  output: 4.00,  cached: 0.08  },
