@@ -16,6 +16,8 @@ import { EXPLANATION_TEMPLATE, CALCULATION_GUARD, REGULATORY_GUARD, computeHallu
 import { ERROR_TAG_VOCABULARY } from "../_shared/error-tag-vocabulary.ts";
 import { getTimeBudget, shouldSoftStop } from "../_shared/time-budget.ts";
 import { handleDbFailure } from "../_shared/job-fail.ts";
+import { shouldUseBatch, BATCH_EXAM_MODEL } from "../_shared/batch/routing-config.ts";
+import { buildBatchRequests, submitBatchViaFunction } from "../_shared/batch/enqueue-openai.ts";
 
 /**
  * DOMINANZ-ENGINE v5: IHK-REALISTIC QUALITY GATES
