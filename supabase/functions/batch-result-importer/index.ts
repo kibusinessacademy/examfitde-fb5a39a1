@@ -325,6 +325,11 @@ async function importLearningContentBatch(
         continue;
       }
 
+      // Normalize field aliases (LLM may return content_html instead of html)
+      if (!parsed.html && parsed.content_html) {
+        parsed.html = parsed.content_html;
+      }
+
       // Validate content structure
       const hasContent = isMiniCheck
         ? (parsed?.questions && Array.isArray(parsed.questions) && parsed.questions.length > 0)
