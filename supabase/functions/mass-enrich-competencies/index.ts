@@ -176,6 +176,7 @@ Deno.serve(async (req) => {
     { db: { schema: "public" }, global: { headers: { "x-statement-timeout": "25000" } } },
   );
 
+  bootstrapLLMLogging(sb, "mass_enrich_competencies");
   const body = await req.json().catch(() => ({}));
   const COMP_BATCH = Math.min(body.batch_size || 6, 8); // 6 default for higher throughput
   const MAX_CURRICULA = Math.min(body.max_curricula || 5, 6); // 5 curricula per invocation
