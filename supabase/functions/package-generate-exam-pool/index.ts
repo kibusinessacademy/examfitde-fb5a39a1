@@ -366,6 +366,7 @@ function createEmptyQualityMetrics(): InvocationQualityMetrics {
     candidates_duplicates_hash: 0, candidates_duplicates_ngram: 0,
     candidates_gate_failed_distractor: 0,
     avg_quality_score: 0, models_attempted: {}, models_used: {}, rejection_reasons: {},
+    kg_context_hits: 0, kg_context_misses: 0, kg_errors_injected: 0,
   };
 }
 
