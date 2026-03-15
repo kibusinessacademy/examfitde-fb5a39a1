@@ -79,7 +79,6 @@ Deno.serve(async (req) => {
     const provider = "openai" as const;
     const model = "gpt-5-mini";
 
-    const results: CanaryResult[] = [];
     const runId = crypto.randomUUID();
 
     // Process all blueprints with parallel A/B calls per blueprint
