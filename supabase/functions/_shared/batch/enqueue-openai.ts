@@ -1,12 +1,14 @@
 /**
- * batch/enqueue-openai.ts — Helper to enqueue requests for OpenAI Batch API.
+ * batch/enqueue.ts — Helper to enqueue requests for batch API (provider-agnostic).
  *
  * Collects batch requests into llm_batch_requests via batch-submit,
  * or can directly invoke batch-submit for immediate submission.
+ * Provider is auto-detected from the model via providerForModel().
  */
 
 import type { NormalizedBatchRequest } from "./types.ts";
 import { buildBatchChatRequest } from "./routing-config.ts";
+import { providerForModel } from "../model-catalog.ts";
 
 export interface BatchRequestItem {
   /** Unique correlation ID for this request */
@@ -65,6 +67,9 @@ export async function submitBatchViaFunction(
   },
 ): Promise<{ ok: boolean; batchId?: string; error?: string }> {
   try {
+    // Auto-detect provider from model to prevent mismatch
+    const detectedProvider = providerForModel(opts.model);
+    
     const resp = await fetch(`${supabaseUrl}/functions/v1/batch-submit`, {
       method: "POST",
       headers: {
@@ -72,7 +77,7 @@ export async function submitBatchViaFunction(
         Authorization: `Bearer ${serviceRoleKey}`,
       },
       body: JSON.stringify({
-        provider: "openai",
+        provider: detectedProvider,
         model: opts.model,
         endpoint: "/v1/chat/completions",
         job_type: opts.jobType,
