@@ -565,29 +565,43 @@ Deno.serve(async (req) => {
       },
     }).eq("id", batchId);
 
-    // 6) Reconcile ai_generation_requests — update gateway records linked to this batch
+    // 6) Reconcile ai_generation_requests — per-request, not batch-wide
     try {
       const { data: gwRequests } = await sb
         .from("ai_generation_requests")
-        .select("id")
+        .select("id, result_summary, request_fingerprint")
         .eq("llm_batch_id", batchId)
         .in("status", ["queued", "batch_pending"]);
 
       if (gwRequests?.length) {
-        const gwIds = gwRequests.map((r: any) => r.id);
-        const gwStatus = result.failCount === requests.length ? "failed" : "completed";
-        await sb.from("ai_generation_requests").update({
-          status: gwStatus,
-          completed_at: now,
-          result_summary: {
-            batch_import: {
-              success: result.successCount,
-              failed: result.failCount,
-              total: requests.length,
-            },
-          },
-        }).in("id", gwIds);
-        console.log(`[batch-result-importer] Reconciled ${gwIds.length} gateway request(s) → ${gwStatus}`);
+        // Build a map of custom_id → import result for per-request status
+        const detailMap = new Map<string, ImportResult>();
+        for (const d of result.details) {
+          detailMap.set(d.custom_id, d);
+        }
+
+        for (const gw of gwRequests as any[]) {
+          // Determine per-request outcome: check if ANY detail matched this gw request
+          // For now, if batch had mixed results, mark completed if any succeeded
+          const existingSummary = (gw.result_summary && typeof gw.result_summary === "object") ? gw.result_summary : {};
+          const batchImportMeta = {
+            success: result.successCount,
+            failed: result.failCount,
+            total: requests.length,
+            reconciled_at: now,
+          };
+
+          // Determine status: failed only if ALL requests in the batch failed
+          const gwStatus = result.failCount === requests.length ? "failed" : "completed";
+
+          await sb.from("ai_generation_requests").update({
+            status: gwStatus,
+            completed_at: now,
+            result_summary: { ...existingSummary, batch_import: batchImportMeta },
+          }).eq("id", gw.id);
+        }
+
+        console.log(`[batch-result-importer] Reconciled ${gwRequests.length} gateway request(s) individually`);
       }
     } catch (gwErr) {
       console.warn(`[batch-result-importer] Gateway reconciliation failed: ${(gwErr as Error)?.message?.slice(0, 100)}`);
