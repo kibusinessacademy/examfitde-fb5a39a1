@@ -682,28 +682,29 @@ export async function callAIWithFailover(
         const msg = `Empty response from ${candidate.provider}/${candidate.model} — falling through to next provider`;
         console.warn(`[AI-CLIENT] ${msg}`);
         errors.push(msg);
-        autoLog(candidate.provider, candidate.model, attemptIndex, "error", latencyMs, result.usage, result.estimatedUsage, result.finish_reason, "empty_response");
-        attemptIndex++;
+        await autoLog(candidate.provider, candidate.model, "error", latencyMs, { usage: result.usage, estimatedUsage: result.estimatedUsage, finishReason: result.finish_reason, errorMsg: "empty_response", wasCalled: true });
+        actualAttempt++;
+        candidateRank++;
         continue;
       }
 
       // ── SUCCESS: auto-log this attempt ──
-      autoLog(candidate.provider, candidate.model, attemptIndex, "success", latencyMs, result.usage, result.estimatedUsage, result.finish_reason);
+      await autoLog(candidate.provider, candidate.model, "success", latencyMs, { usage: result.usage, estimatedUsage: result.estimatedUsage, finishReason: result.finish_reason, wasCalled: true });
 
       const telemetry: FailoverTelemetry = {
         route: "chain",
         provider: candidate.provider,
         model: candidate.model,
-        fallback_rank: attemptIndex,
-        resolved_via: attemptIndex === 0 ? "db_policy" : "hardcoded_fallback",
+        fallback_rank: candidateRank,
+        resolved_via: candidateRank === 0 ? "db_policy" : "hardcoded_fallback",
         finish_reason: result.finish_reason,
         raw_text_length: (result.content || "").length,
         is_drift_prone: isDriftProneModel(candidate.model),
-        attempts_before: attemptIndex,
+        attempts_before: actualAttempt,
       };
 
-      if (attemptIndex > 0) {
-        console.log(`[AI-CLIENT] FAILOVER_TELEMETRY: resolved via rank=${attemptIndex} ${candidate.provider}/${candidate.model} (drift_prone=${telemetry.is_drift_prone}, text_len=${telemetry.raw_text_length})`);
+      if (candidateRank > 0) {
+        console.log(`[AI-CLIENT] FAILOVER_TELEMETRY: resolved via rank=${candidateRank} ${candidate.provider}/${candidate.model} (drift_prone=${telemetry.is_drift_prone}, text_len=${telemetry.raw_text_length})`);
       }
 
       return {
@@ -722,13 +723,14 @@ export async function callAIWithFailover(
       warnIfUnclassifiedLlmError(err, { provider: candidate.provider, model: candidate.model });
 
       // ── FAIL: auto-log this attempt ──
-      const errStatus = err instanceof RateLimitError ? "rate_limited"
+      const errStatus: LLMCostStatus = err instanceof RateLimitError ? "rate_limited"
         : err instanceof AITimeoutError ? "timeout"
         : msg.includes("AbortError") ? "aborted"
         : "error";
-      autoLog(candidate.provider, candidate.model, attemptIndex, errStatus, latencyMs, undefined, undefined, undefined, msg.slice(0, 300));
+      await autoLog(candidate.provider, candidate.model, errStatus, latencyMs, { errorMsg: msg.slice(0, 300), wasCalled: true });
 
-      attemptIndex++;
+      actualAttempt++;
+      candidateRank++;
     }
   }
 
