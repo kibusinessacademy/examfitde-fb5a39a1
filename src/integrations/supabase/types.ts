@@ -36700,6 +36700,39 @@ export type Database = {
         }
         Relationships: []
       }
+      v_ops_executive_kpis: {
+        Row: {
+          active_jobs: number | null
+          avg_jobs_per_package: number | null
+          building_packages: number | null
+          building_without_job: number | null
+          completed_package_sample: number | null
+          cost_24h_eur: number | null
+          cost_7d_eur: number | null
+          cost_total_eur: number | null
+          eta_days: number | null
+          first_pass_jobs_24h: number | null
+          first_pass_yield_pct: number | null
+          first_pass_yield_signal: string | null
+          jobs_per_package_signal: string | null
+          max_slots: number | null
+          median_jobs_per_package: number | null
+          overall_signal: string | null
+          pkg_blocked: number | null
+          pkg_building: number | null
+          pkg_completed: number | null
+          pkg_failed: number | null
+          pkg_queued: number | null
+          pkg_total: number | null
+          runner_utilization_pct: number | null
+          runner_utilization_signal: string | null
+          throughput_2h: number | null
+          throughput_per_hour: number | null
+          total_completed_24h: number | null
+          total_failed_24h: number | null
+        }
+        Relationships: []
+      }
       v_ops_invalid_course_titles: {
         Row: {
           canonical_title: string | null
