@@ -34,13 +34,15 @@ function json(body: unknown, status = 200) {
 /** Check if lesson already has usable content (skip regeneration) */
 function hasUsableContent(content: unknown): boolean {
   if (content == null) return false;
-  if (typeof content === "object" && (content as any)?._placeholder === true) return false;
+  if (typeof content === "object" && (content as Record<string, unknown>)?._placeholder === true) return false;
   const txt = typeof content === "string" ? content : JSON.stringify(content);
+  if (!txt || txt === "null" || txt === "{}" || txt === "[]") return false;
   return txt.length >= 300;
 }
 
 // ── Shard helpers ──
 
+// deno-lint-ignore no-explicit-any
 async function updateShardProgress(
   sb: any, packageId: string, lfId: string, fanoutId: string, chunk: number, generated: number,
 ) {
@@ -53,6 +55,7 @@ async function updateShardProgress(
     .eq("chunk_index", chunk);
 }
 
+// deno-lint-ignore no-explicit-any
 async function updateShardError(
   sb: any, packageId: string, lfId: string, fanoutId: string, chunk: number, error: string,
 ) {
@@ -69,6 +72,7 @@ async function updateShardError(
     .eq("chunk_index", chunk);
 }
 
+// deno-lint-ignore no-explicit-any
 async function mergeShardMeta(
   sb: any, packageId: string, lfId: string, fanoutId: string, chunk: number,
   patch: Record<string, unknown>,
@@ -93,6 +97,7 @@ async function mergeShardMeta(
     .eq("chunk_index", chunk);
 }
 
+// deno-lint-ignore no-explicit-any
 async function markLessonStatus(sb: any, lessonId: string, status: string) {
   await sb
     .from("lessons")
@@ -136,13 +141,16 @@ Deno.serve(async (req) => {
       return json({ ok: false, error: "Missing lesson_ids in shard payload" }, 400);
     }
 
+    // ── Unified claimJobId — used everywhere for consistency ──
+    const claimJobId = jobId || crypto.randomUUID();
+
     // ── Mark shard as processing ──
     await sb
       .from("package_content_shards")
       .update({
         status: "processing",
         started_at: new Date().toISOString(),
-        claimed_by_job_id: jobId || null,
+        claimed_by_job_id: claimJobId,
         updated_at: new Date().toISOString(),
       })
       .eq("package_id", packageId)
@@ -151,7 +159,6 @@ Deno.serve(async (req) => {
       .eq("chunk_index", chunkIndex);
 
     // ── Atomically claim lessons (chunk-scoped via lesson_ids) ──
-    const claimJobId = jobId || crypto.randomUUID();
     const { data: claimedIds, error: claimErr } = await sb.rpc("claim_lessons_for_shard", {
       p_lesson_ids: lessonIdsFromPayload,
       p_job_id: claimJobId,
@@ -165,22 +172,26 @@ Deno.serve(async (req) => {
 
     const claimedLessonIds = ((claimedIds || []) as { id: string }[]).map(r => r.id);
 
-    // ── Load lesson data for all claimed + already-ok lessons ──
-    const { data: allLessons } = await sb
+    // ── Load lesson data for all payload lessons ──
+    const { data: allLessonsRaw } = await sb
       .from("lessons")
       .select("id, title, module_id, competency_id, step, content, generation_status")
       .in("id", lessonIdsFromPayload);
+
+    // Build Map for O(1) lookups instead of O(n²) .find() in loop
+    // deno-lint-ignore no-explicit-any
+    const lessonMap = new Map((allLessonsRaw || []).map((l: any) => [l.id, l]));
 
     // Check which lessons already have usable content
     let skippedWithContent = 0;
     const lessonsToGenerate: string[] = [];
 
-    for (const lesson of (allLessons || [])) {
+    for (const [, lesson] of lessonMap) {
       if (hasUsableContent(lesson.content) && lesson.generation_status !== "failed") {
-        // Already has good content — mark as generated, skip AI call
+        // Already has good content — mark as generated (don't touch content_version)
         await sb
           .from("lessons")
-          .update({ generation_status: "generated", content_version: 1 })
+          .update({ generation_status: "generated" })
           .eq("id", lesson.id);
         skippedWithContent++;
       } else if (claimedLessonIds.includes(lesson.id)) {
@@ -255,7 +266,7 @@ Deno.serve(async (req) => {
 
     for (const lessonId of lessonsToGenerate) {
       try {
-        const lesson = (allLessons || []).find((l: any) => l.id === lessonId);
+        const lesson = lessonMap.get(lessonId);
         if (!lesson) {
           await markLessonStatus(sb, lessonId, "failed");
           failed++;
@@ -287,6 +298,7 @@ Deno.serve(async (req) => {
               resOk = result.ok;
             }
           } else {
+            // deno-lint-ignore no-explicit-any
             resOk = (result as any).ok !== false;
           }
 
