@@ -36,8 +36,10 @@ function hasUsableContent(content: unknown): boolean {
   if (content == null) return false;
   if (typeof content === "object" && (content as Record<string, unknown>)?._placeholder === true) return false;
   const txt = typeof content === "string" ? content : JSON.stringify(content);
-  if (!txt || txt === "null" || txt === "{}" || txt === "[]") return false;
-  return txt.length >= 300;
+  const normalized = txt.trim();
+  if (!normalized || normalized === "null" || normalized === "{}" || normalized === "[]") return false;
+  if (normalized.includes("_placeholder")) return false;
+  return normalized.length >= 300;
 }
 
 // ── Shard helpers ──
@@ -77,32 +79,44 @@ async function mergeShardMeta(
   sb: any, packageId: string, lfId: string, fanoutId: string, chunk: number,
   patch: Record<string, unknown>,
 ) {
-  const { data: row } = await sb
-    .from("package_content_shards")
-    .select("meta")
-    .eq("package_id", packageId)
-    .eq("learning_field_id", lfId)
-    .eq("fanout_id", fanoutId)
-    .eq("chunk_index", chunk)
-    .maybeSingle();
-
-  const nextMeta = { ...(row?.meta || {}), ...patch };
-
-  await sb
-    .from("package_content_shards")
-    .update({ meta: nextMeta, updated_at: new Date().toISOString() })
-    .eq("package_id", packageId)
-    .eq("learning_field_id", lfId)
-    .eq("fanout_id", fanoutId)
-    .eq("chunk_index", chunk);
+  // Use atomic JSONB merge RPC to avoid read-modify-write race conditions
+  const { error } = await sb.rpc("merge_package_content_shard_meta", {
+    p_package_id: packageId,
+    p_learning_field_id: lfId,
+    p_fanout_id: fanoutId,
+    p_chunk_index: chunk,
+    p_patch: patch,
+  });
+  if (error) {
+    console.warn(`[shard] mergeShardMeta RPC failed, falling back: ${error.message}`);
+    // Fallback: non-atomic merge (better than nothing)
+    const { data: row } = await sb
+      .from("package_content_shards")
+      .select("meta")
+      .eq("package_id", packageId)
+      .eq("learning_field_id", lfId)
+      .eq("fanout_id", fanoutId)
+      .eq("chunk_index", chunk)
+      .maybeSingle();
+    await sb
+      .from("package_content_shards")
+      .update({ meta: { ...(row?.meta || {}), ...patch }, updated_at: new Date().toISOString() })
+      .eq("package_id", packageId)
+      .eq("learning_field_id", lfId)
+      .eq("fanout_id", fanoutId)
+      .eq("chunk_index", chunk);
+  }
 }
 
 // deno-lint-ignore no-explicit-any
 async function markLessonStatus(sb: any, lessonId: string, status: string) {
-  await sb
-    .from("lessons")
-    .update({ generation_status: status })
-    .eq("id", lessonId);
+  const patch: Record<string, unknown> = { generation_status: status };
+  // Clear claim fields when transitioning away from "claimed"
+  if (status === "generated" || status === "failed" || status === "pending") {
+    patch.generation_job_id = null;
+    patch.generation_claimed_at = null;
+  }
+  await sb.from("lessons").update(patch).eq("id", lessonId);
 }
 
 Deno.serve(async (req) => {
@@ -188,10 +202,10 @@ Deno.serve(async (req) => {
 
     for (const [, lesson] of lessonMap) {
       if (hasUsableContent(lesson.content) && lesson.generation_status !== "failed") {
-        // Already has good content — mark as generated (don't touch content_version)
+        // Already has good content — mark as generated + clear stale claim fields
         await sb
           .from("lessons")
-          .update({ generation_status: "generated" })
+          .update({ generation_status: "generated", generation_job_id: null, generation_claimed_at: null })
           .eq("id", lesson.id);
         skippedWithContent++;
       } else if (claimedLessonIds.includes(lesson.id)) {

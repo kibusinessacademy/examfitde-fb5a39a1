@@ -41,6 +41,35 @@ function json(body: unknown, status = 200) {
   });
 }
 
+/** SSOT: job_type → step_key (inverted from STEP_TO_JOB_TYPE in job-map.ts) */
+const JOB_TYPE_TO_STEP_KEY: Record<string, string> = {
+  package_scaffold_learning_course: "scaffold_learning_course",
+  package_generate_glossary: "generate_glossary",
+  package_fanout_learning_content: "fanout_learning_content",
+  lesson_generate_content_shard: "generate_learning_content",
+  package_finalize_learning_content: "finalize_learning_content",
+  package_validate_learning_content: "validate_learning_content",
+  package_auto_seed_exam_blueprints: "auto_seed_exam_blueprints",
+  package_validate_blueprints: "validate_blueprints",
+  package_generate_exam_pool: "generate_exam_pool",
+  package_validate_exam_pool: "validate_exam_pool",
+  package_build_ai_tutor_index: "build_ai_tutor_index",
+  package_validate_tutor_index: "validate_tutor_index",
+  package_generate_oral_exam: "generate_oral_exam",
+  package_validate_oral_exam: "validate_oral_exam",
+  package_generate_lesson_minichecks: "generate_lesson_minichecks",
+  package_validate_lesson_minichecks: "validate_lesson_minichecks",
+  package_generate_handbook: "generate_handbook",
+  package_validate_handbook: "validate_handbook",
+  package_enqueue_handbook_expand: "enqueue_handbook_expand",
+  handbook_expand_section: "expand_handbook",
+  package_validate_handbook_depth: "validate_handbook_depth",
+  package_elite_harden: "elite_harden",
+  package_run_integrity_check: "run_integrity_check",
+  package_quality_council: "quality_council",
+  package_auto_publish: "auto_publish",
+};
+
 /**
  * Enqueue a downstream job only if no active instance exists.
  * Prevents duplicate fan-outs when finalize runs multiple times.
@@ -63,18 +92,20 @@ async function enqueueJobOnce(sb: any, opts: Parameters<typeof enqueueJob>[1]): 
       return false;
     }
 
-    // Also check if step is already done
-    const stepKey = opts.job_type.replace(/^package_/, "").replace(/_/g, "_");
-    const { data: step } = await sb
-      .from("package_steps")
-      .select("status")
-      .eq("package_id", packageId)
-      .eq("step_key", stepKey)
-      .maybeSingle();
+    // Also check if step is already done — use explicit SSOT mapping
+    const stepKey = JOB_TYPE_TO_STEP_KEY[opts.job_type];
+    if (stepKey) {
+      const { data: step } = await sb
+        .from("package_steps")
+        .select("status")
+        .eq("package_id", packageId)
+        .eq("step_key", stepKey)
+        .maybeSingle();
 
-    if (step && step.status === "done") {
-      console.log(`[finalize] SKIP: step ${stepKey} already done for ${packageId.slice(0, 8)}`);
-      return false;
+      if (step && step.status === "done") {
+        console.log(`[finalize] SKIP: step ${stepKey} already done for ${packageId.slice(0, 8)}`);
+        return false;
+      }
     }
   }
 
@@ -308,17 +339,56 @@ Deno.serve(async (req) => {
 
     const healableLessonIds = failedLessonIds.filter((id: string) => !exhaustedShardLessonIds.has(id));
     if (healableLessonIds.length > 0) {
-      // Reset orphan failed lessons to pending so next shard retry picks them up
+      // Reset orphan failed lessons to pending
       await sb
         .from("lessons")
         .update({ generation_status: "pending", generation_job_id: null, generation_claimed_at: null })
         .in("id", healableLessonIds);
 
+      // Find and re-activate the shards that own these lessons so workers pick them up
+      const healableSet = new Set(healableLessonIds);
+      for (const shard of allShards) {
+        if (shard.status !== "completed" && shard.status !== "processing" && shard.status !== "pending") {
+          const shardLessonIds: string[] = shard.meta?.lesson_ids || [];
+          const hasHealable = shardLessonIds.some((lid: string) => healableSet.has(lid));
+          if (hasHealable) {
+            const retryCount = Number(shard.meta?.retry_count || 0);
+            if (retryCount < MAX_SHARD_RETRIES) {
+              await sb
+                .from("package_content_shards")
+                .update({
+                  status: "pending",
+                  last_error: null,
+                  updated_at: new Date().toISOString(),
+                  meta: { ...(shard.meta || {}), retry_count: retryCount + 1, last_requeued_at: new Date().toISOString() },
+                })
+                .eq("id", shard.id);
+
+              await enqueueJob(sb, {
+                job_type: "lesson_generate_content_shard",
+                package_id: packageId,
+                payload: {
+                  package_id: packageId,
+                  course_id: courseId,
+                  curriculum_id: curriculumId,
+                  learning_field_id: shard.learning_field_id,
+                  chunk_index: shard.chunk_index,
+                  fanout_id: fanoutId,
+                  lesson_ids: shardLessonIds,
+                },
+                priority: 12,
+                max_attempts: 5,
+              });
+            }
+          }
+        }
+      }
+
       return json({
         ok: true,
         batch_complete: false,
         transient: true,
-        message: `Reset ${healableLessonIds.length} healable failed lessons to pending`,
+        message: `Reset ${healableLessonIds.length} healable failed lessons + re-activated parent shards`,
       });
     }
     // If all failed lessons are from exhausted shards, accept and proceed
@@ -366,44 +436,49 @@ Deno.serve(async (req) => {
     `${withContent}/${totalLessons} lessons, avg_len=${avgLength}`,
   );
 
-  // Mark fanout_learning_content as done
+  const now = new Date().toISOString();
+
+  // Mark fanout_learning_content as done (upsert — safe if row doesn't exist yet)
   await sb
     .from("package_steps")
-    .update({ status: "done", updated_at: new Date().toISOString() })
-    .eq("package_id", packageId)
-    .eq("step_key", "fanout_learning_content");
+    .upsert({
+      package_id: packageId,
+      step_key: "fanout_learning_content",
+      status: "done",
+      updated_at: now,
+    }, { onConflict: "package_id,step_key" });
 
   // Mark generate_learning_content as done
   await sb
     .from("package_steps")
-    .update({
+    .upsert({
+      package_id: packageId,
+      step_key: "generate_learning_content",
       status: "done",
-      updated_at: new Date().toISOString(),
+      updated_at: now,
       meta: {
         fanout_id: fanoutId,
         total_shards: totalShards,
         total_lessons: totalLessons,
         good_lessons: withContent,
         avg_length: avgLength,
-        finalized_at: new Date().toISOString(),
+        finalized_at: now,
       },
-    })
-    .eq("package_id", packageId)
-    .eq("step_key", "generate_learning_content");
+    }, { onConflict: "package_id,step_key" });
 
   // Mark finalize_learning_content as done
   await sb
     .from("package_steps")
-    .update({
+    .upsert({
+      package_id: packageId,
+      step_key: "finalize_learning_content",
       status: "done",
-      updated_at: new Date().toISOString(),
+      updated_at: now,
       meta: {
         fanout_id: fanoutId,
-        finalized_at: new Date().toISOString(),
+        finalized_at: now,
       },
-    })
-    .eq("package_id", packageId)
-    .eq("step_key", "finalize_learning_content");
+    }, { onConflict: "package_id,step_key" });
 
   // ── 9. Enqueue downstream — deduplicated via enqueueJobOnce ──
   const downstreamJobs = [
