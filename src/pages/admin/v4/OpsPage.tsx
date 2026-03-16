@@ -30,6 +30,7 @@ const CourseNamingIntegrityPanel = lazy(() => import('./ops/CourseNamingIntegrit
 const JobFailureIntegrityPanel = lazy(() => import('./ops/JobFailureIntegrityPanel'));
 const V2LoopDebugPage = lazy(() => import('./ops/V2LoopDebugPage'));
 const ReentryMissesPanel = lazy(() => import('./ops/ReentryMissesPanel'));
+const PipelineMapDashboard = lazy(() => import('./ops/PipelineMapDashboard'));
 
 const Loading = () => (
   <div className="flex items-center justify-center py-16">
@@ -63,6 +64,7 @@ const tabs = [
   { path: '/admin/ops/failure-integrity', label: '🛡️ Failure Integrity' },
   { path: '/admin/ops/v2-loop-debug', label: '🧪 V2 Loop Debug' },
   { path: '/admin/ops/reentry-misses', label: '⚠️ Re-Entry Misses' },
+  { path: '/admin/ops/pipeline-map', label: '🗺️ Pipeline Map' },
 ];
 
 export default function OpsPage() {
@@ -147,6 +149,7 @@ export default function OpsPage() {
           <Route path="failure-integrity" element={<JobFailureIntegrityPanel />} />
           <Route path="v2-loop-debug" element={<V2LoopDebugPage />} />
           <Route path="reentry-misses" element={<ReentryMissesPanel />} />
+          <Route path="pipeline-map" element={<PipelineMapDashboard />} />
         </Routes>
       </Suspense>
     </div>
