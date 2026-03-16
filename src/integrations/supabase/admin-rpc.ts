@@ -34,4 +34,7 @@ export const adminRpc = {
 
   dashboard: () =>
     callEdge<DashboardResponse>("admin-control-tower", { action: "dashboard" }),
+
+  executiveKpis: () =>
+    callEdge<Record<string, unknown>>("admin-control-tower", { action: "executive_kpis" }),
 };
