@@ -804,21 +804,28 @@ Deno.serve(async (req) => {
         .in("submit_health", ["CRITICAL", "DEGRADED", "WARNING"]);
 
       for (const b of batchHealth ?? []) {
-        const fingerprint = `batch:${b.provider ?? "?"}:${b.model ?? "?"}:${b.job_type ?? "?"}:${b.submit_health}`;
+        const entityId = `${b.provider ?? "?"}:${b.model ?? "?"}:${b.job_type ?? "?"}`;
+        const fingerprint = `batch:${entityId}:${b.submit_health}`;
         const thirtyMinAgo = new Date(Date.now() - 30 * 60_000).toISOString();
+
+        // Fingerprint-specific dedupe: filter by entity_id (provider:model:job_type)
         const { data: existing } = await sb.from("admin_notifications")
           .select("id")
           .eq("category", "pipeline")
           .eq("entity_type", "batch_submit_guard")
+          .eq("entity_id", entityId)
           .gte("created_at", thirtyMinAgo)
           .limit(1);
 
         if (!existing || existing.length === 0) {
-          const severity = b.submit_health === "CRITICAL" ? "critical" : "warning";
-          // P0 only with real volume: CRITICAL needs total>=10, DEGRADED needs total>=20
+          // Granular severity: CRITICAL→critical, DEGRADED→warning, WARNING→info
+          const severity = b.submit_health === "CRITICAL" ? "critical"
+            : b.submit_health === "DEGRADED" ? "warning" : "info";
+
+          // Volume thresholds: CRITICAL>=10, DEGRADED>=20, WARNING>=10
           const isRealVolume = (b.submit_health === "CRITICAL" && (b.total ?? 0) >= 10)
             || (b.submit_health === "DEGRADED" && (b.total ?? 0) >= 20)
-            || b.submit_health === "WARNING";
+            || (b.submit_health === "WARNING" && (b.total ?? 0) >= 10);
 
           if (isRealVolume) {
             await sb.from("admin_notifications").insert({
@@ -827,6 +834,7 @@ Deno.serve(async (req) => {
               category: "pipeline",
               severity,
               entity_type: "batch_submit_guard",
+              entity_id: entityId,
               metadata: { ...b, fingerprint },
             });
             warnings.push(`G2: ${b.submit_health} — ${b.provider}/${b.model} ${b.failure_pct}%`);
