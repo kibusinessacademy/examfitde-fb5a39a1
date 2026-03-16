@@ -51,6 +51,11 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
   const { track, certType, flags } = useTrackConfig(pkg as any);
   const PIPELINE_STEPS = getActivePipelineStepsUI(flags as unknown as Record<string, boolean>);
 
+  // SSOT data from canonical view
+  const { data: allSsot } = useAdminPackagesSSOT();
+  const ssot = useMemo(() => allSsot?.find(p => p.package_id === packageId) ?? null, [allSsot, packageId]);
+  const PIPELINE_STEPS = getActivePipelineStepsUI(flags as unknown as Record<string, boolean>);
+
   // Real-time content progress from lessons table
   const contentProgressQuery = useQuery({
     queryKey: ['content-progress', packageId],
