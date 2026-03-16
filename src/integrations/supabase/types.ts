@@ -41664,20 +41664,30 @@ export type Database = {
           isSetofReturn: true
         }
       }
-      claim_lessons_for_shard: {
-        Args: {
-          p_course_id: string
-          p_job_id: string
-          p_learning_field_id: string
-          p_limit?: number
-          p_shard_id: string
-        }
-        Returns: {
-          lesson_id: string
-          module_id: string
-          title: string
-        }[]
-      }
+      claim_lessons_for_shard:
+        | {
+            Args: {
+              p_course_id: string
+              p_job_id: string
+              p_learning_field_id: string
+              p_limit?: number
+            }
+            Returns: string[]
+          }
+        | {
+            Args: {
+              p_course_id: string
+              p_job_id: string
+              p_learning_field_id: string
+              p_limit?: number
+              p_shard_id: string
+            }
+            Returns: {
+              lesson_id: string
+              module_id: string
+              title: string
+            }[]
+          }
       claim_license_seat: { Args: { p_invite_code: string }; Returns: string }
       claim_next_job:
         | { Args: { p_worker_id: string }; Returns: Json }
@@ -42618,6 +42628,22 @@ export type Database = {
           valid_lessons: number
         }[]
       }
+      get_content_shard_overview: {
+        Args: { p_package_id: string }
+        Returns: {
+          chunk_count: number
+          chunk_index: number
+          completed_at: string
+          fanout_id: string
+          last_error: string
+          learning_field_id: string
+          lesson_generated_count: number
+          lesson_target_count: number
+          shard_id: string
+          started_at: string
+          status: string
+        }[]
+      }
       get_course_package_build_state: {
         Args: { p_package_id: string }
         Returns: Json
@@ -43025,6 +43051,7 @@ export type Database = {
         }[]
       }
       get_security_spike_score: { Args: { p_minutes?: number }; Returns: Json }
+      get_shard_progress: { Args: { p_fanout_id: string }; Returns: Json }
       get_ship_level: { Args: { p_authority_index: number }; Returns: string }
       get_step_prerequisite: { Args: { p_step_key: string }; Returns: string }
       get_track_pipeline_steps: {

@@ -78,7 +78,8 @@ const GENERATION_JOB_TYPES = new Set([
   "package_generate_exam_pool", "package_generate_oral_exam",
   "package_elite_harden",
   "package_auto_seed_exam_blueprints",
-  "package_generate_lesson_minichecks",  // was Tier 3 (55s) — real runtime 61-67s → caused systematic timeouts
+  "package_generate_lesson_minichecks",
+  "lesson_generate_content_shard",  // Shard jobs need full LLM budget
 ]);
 
 // Tier 2 (90s): LLM validation / DB-heavy — needs more than 55s but not full 130s
@@ -150,6 +151,7 @@ async function dispatchJob(job: any, supabaseUrl: string, serviceKey: string): P
 const WORKLOAD_KEY_MAP: Record<string, string> = {
   package_generate_learning_content: "learning_content",
   lesson_generate_content: "learning_content",
+  lesson_generate_content_shard: "learning_content",
   package_generate_handbook: "handbook",
   package_generate_exam_pool: "exam_pool",
   package_generate_oral_exam: "oral_exam",

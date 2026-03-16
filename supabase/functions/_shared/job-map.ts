@@ -8,7 +8,9 @@
 export type PipelineStepKey =
   | "scaffold_learning_course"
   | "generate_glossary"
+  | "fanout_learning_content"
   | "generate_learning_content"
+  | "finalize_learning_content"
   | "validate_learning_content"
   | "auto_seed_exam_blueprints"
   | "validate_blueprints"
@@ -34,7 +36,9 @@ export type PipelineStepKey =
 export const STEP_TO_JOB_TYPE: Record<PipelineStepKey, string> = {
   scaffold_learning_course: "package_scaffold_learning_course",
   generate_glossary: "package_generate_glossary",
+  fanout_learning_content: "package_fanout_learning_content",
   generate_learning_content: "package_generate_learning_content",
+  finalize_learning_content: "package_finalize_learning_content",
   validate_learning_content: "package_validate_learning_content",
   auto_seed_exam_blueprints: "package_auto_seed_exam_blueprints",
   validate_blueprints: "package_validate_blueprints",
@@ -64,7 +68,9 @@ export const STEP_TO_JOB_TYPE: Record<PipelineStepKey, string> = {
 export const FULL_STEP_ORDER: PipelineStepKey[] = [
   "scaffold_learning_course",
   "generate_glossary",
+  "fanout_learning_content",
   "generate_learning_content",
+  "finalize_learning_content",
   "validate_learning_content",
   "auto_seed_exam_blueprints",
   "validate_blueprints",
@@ -144,6 +150,14 @@ export interface FanOutStepConfig {
  * The runner, watchdog, and stuck-scan all consume this config.
  */
 export const FAN_OUT_CONFIG: FanOutStepConfig[] = [
+  {
+    stepKey: "fanout_learning_content",
+    subjobTypes: ["lesson_generate_content_shard"],
+    completionMode: "subjob_count",
+    wipPerPackage: 3,
+    subjobPriority: 15,
+    useBatchCursor: false,
+  },
   {
     stepKey: "generate_learning_content",
     subjobTypes: ["lesson_generate_competency_bundle", "lesson_generate_content", "package_generate_learning_content"],
@@ -237,7 +251,10 @@ export interface JobDefinition {
  */
 export const JOB_DEFINITIONS: Record<string, JobDefinition> = {
   // ── content / heavy ─────────────────────────────────────────
+  package_fanout_learning_content:   { pool: "core", edgeFunction: "fanout-learning-content" },
   package_generate_learning_content: { pool: "content", edgeFunction: "package-generate-learning-content" },
+  lesson_generate_content_shard:     { pool: "content", edgeFunction: "lesson-generate-content-shard" },
+  package_finalize_learning_content: { pool: "core", edgeFunction: "finalize-learning-content" },
   package_generate_handbook:         { pool: "content", edgeFunction: "package-generate-handbook" },
   package_generate_glossary:         { pool: "content", edgeFunction: "package-generate-glossary" },
   package_generate_oral_exam:        { pool: "content", edgeFunction: "package-generate-oral-exam" },
@@ -465,8 +482,10 @@ export interface PipelineNode {
 export const PIPELINE_GRAPH: PipelineNode[] = [
   { key: "scaffold_learning_course", produces: ["course_scaffold"], weight: 2 },
   { key: "generate_glossary", dependsOn: ["scaffold_learning_course"], requires: ["course_scaffold"], produces: ["glossary"], weight: 3 },
-  { key: "generate_learning_content", dependsOn: ["scaffold_learning_course"], requires: ["course_scaffold"], produces: ["learning_content"], weight: 10 },
-  { key: "validate_learning_content", dependsOn: ["generate_learning_content"], requires: ["learning_content"], produces: ["validated_learning_content"], weight: 3 },
+  { key: "fanout_learning_content", dependsOn: ["scaffold_learning_course"], requires: ["course_scaffold"], produces: ["content_shards"], weight: 2 },
+  { key: "generate_learning_content", dependsOn: ["fanout_learning_content"], requires: ["content_shards"], produces: ["learning_content"], weight: 10 },
+  { key: "finalize_learning_content", dependsOn: ["generate_learning_content"], requires: ["learning_content"], produces: ["finalized_learning_content"], weight: 2 },
+  { key: "validate_learning_content", dependsOn: ["finalize_learning_content"], requires: ["finalized_learning_content"], produces: ["validated_learning_content"], weight: 3 },
   { key: "auto_seed_exam_blueprints", dependsOn: ["validate_learning_content"], requires: ["validated_learning_content"], produces: ["exam_blueprints"], weight: 6 },
   { key: "validate_blueprints", dependsOn: ["auto_seed_exam_blueprints"], requires: ["exam_blueprints"], produces: ["validated_blueprints"], weight: 2 },
   { key: "generate_exam_pool", dependsOn: ["validate_blueprints"], requires: ["validated_blueprints"], produces: ["exam_questions"], weight: 8 },
