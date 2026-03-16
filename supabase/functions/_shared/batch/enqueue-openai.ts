@@ -69,6 +69,12 @@ export async function submitBatchViaFunction(
   try {
     // Auto-detect provider from model to prevent mismatch
     const detectedProvider = providerForModel(opts.model);
+
+    // OpenAI requires ALL metadata values to be strings
+    const sanitizedMetadata: Record<string, string> = {};
+    for (const [k, v] of Object.entries(opts.metadata || {})) {
+      sanitizedMetadata[k] = String(v ?? "");
+    }
     
     const resp = await fetch(`${supabaseUrl}/functions/v1/batch-submit`, {
       method: "POST",
@@ -82,7 +88,7 @@ export async function submitBatchViaFunction(
         endpoint: "/v1/chat/completions",
         job_type: opts.jobType,
         requests: opts.requests,
-        metadata: opts.metadata || {},
+        metadata: sanitizedMetadata,
       }),
     });
 
