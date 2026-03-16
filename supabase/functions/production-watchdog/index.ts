@@ -348,6 +348,10 @@ Deno.serve(async (req) => {
     // ═══════════════════════════════════════════════════════════
     let fireForgetFixed = 0;
     for (const pkg of buildingPkgs || []) {
+      // GRACE: Skip if recently recovered or < 10min old
+      const ffAge = now.getTime() - new Date(pkg.updated_at).getTime();
+      if (ffAge < 10 * 60_000 || recoverySet.has(pkg.id)) continue;
+
       const { count: totalJobs } = await sb
         .from("job_queue")
         .select("id", { count: "exact", head: true })
