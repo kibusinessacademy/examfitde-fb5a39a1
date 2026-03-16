@@ -526,8 +526,8 @@ Deno.serve(async (req) => {
         packageStateCache.set(jobPackageId, pkgState);
       }
 
-      // HARDENED: Allow council_review for quality_council jobs
-      const COUNCIL_ALLOWED_STATUSES = new Set(["building", "council_review"]);
+      // HARDENED: Allow council_review + quality_gate_failed for quality_council jobs
+      const COUNCIL_ALLOWED_STATUSES = new Set(["building", "council_review", "quality_gate_failed"]);
       const isCouncilJob = job.job_type === "package_quality_council";
       const allowedStatuses = isCouncilJob ? COUNCIL_ALLOWED_STATUSES : new Set(["building"]);
       const notExecutable = !!pkgState.published_at || !allowedStatuses.has(pkgState.status ?? "");

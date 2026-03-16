@@ -76,10 +76,10 @@ export async function enqueueJob(
     if (pkgErr) throw pkgErr;
     if (!pkg) throw new Error(`PACKAGE_NOT_FOUND:${packageId}`);
 
-    // HARDENED: Allow council_review for council jobs
+    // HARDENED: Allow council_review + quality_gate_failed for council jobs
     const COUNCIL_JOB_TYPES = new Set(["package_quality_council"]);
     const allowedStatuses = COUNCIL_JOB_TYPES.has(opts.job_type)
-      ? new Set(["building", "council_review"])
+      ? new Set(["building", "council_review", "quality_gate_failed"])
       : new Set(["building"]);
     if (pkg.published_at || !allowedStatuses.has(pkg.status)) {
       // Fire-and-forget alert for observability
