@@ -99,10 +99,13 @@ async function mergeShardMeta(
 
 // deno-lint-ignore no-explicit-any
 async function markLessonStatus(sb: any, lessonId: string, status: string) {
-  await sb
-    .from("lessons")
-    .update({ generation_status: status })
-    .eq("id", lessonId);
+  const patch: Record<string, unknown> = { generation_status: status };
+  // Clear claim fields when transitioning away from "claimed"
+  if (status === "generated" || status === "failed" || status === "pending") {
+    patch.generation_job_id = null;
+    patch.generation_claimed_at = null;
+  }
+  await sb.from("lessons").update(patch).eq("id", lessonId);
 }
 
 Deno.serve(async (req) => {
