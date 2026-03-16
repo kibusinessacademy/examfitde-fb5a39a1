@@ -343,10 +343,11 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
         </div>
 
         <TabsContent value="build" className="space-y-6">
-          {/* Progress stepper */}
+          {/* Progress stepper — Build-Historie, nicht aktueller Freigabestatus */}
           {buildSteps.length > 0 && (
             <Card>
               <CardContent className="py-4">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-3">Build-Historie (nicht Freigabestatus)</p>
                 <div className="flex items-center gap-0 overflow-x-auto pb-3">
                   {PIPELINE_STEPS.map((step, i) => {
                     const buildStep = stepMap.get(step.key);
