@@ -322,9 +322,10 @@ async function healResetStuck(sb: SB, policy: PolicyRow): Promise<HealResult> {
 
 /* ── Heal: Cancel zombie packages ── */
 async function healCancelZombies(sb: SB, policy: PolicyRow): Promise<HealResult> {
+  // View already filters: building >10min, no jobs/leases, no recent recovery
   const { data: zombies, error } = await sb
     .from("ops_building_without_job_or_lease")
-    .select("package_id")
+    .select("package_id, updated_at")
     .limit(policy.max_per_run);
 
   if (error) throw error;
