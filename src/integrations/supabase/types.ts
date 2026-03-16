@@ -868,13 +868,6 @@ export type Database = {
             foreignKeyName: "ai_tutor_context_index_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
-            referencedRelation: "ops_artifact_build_progress"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "ai_tutor_context_index_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
             referencedRelation: "ops_blocked_packages"
             referencedColumns: ["package_id"]
           },
@@ -903,13 +896,6 @@ export type Database = {
             foreignKeyName: "ai_tutor_context_index_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
-            referencedRelation: "ops_learner_visible_readiness"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "ai_tutor_context_index_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
             referencedRelation: "ops_legacy_package_audit"
             referencedColumns: ["package_id"]
           },
@@ -918,27 +904,6 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_package_blockers"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "ai_tutor_context_index_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_content_depth"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "ai_tutor_context_index_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_downstream_missing"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "ai_tutor_context_index_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_qc_matrix"
             referencedColumns: ["package_id"]
           },
           {
@@ -6196,13 +6161,6 @@ export type Database = {
             foreignKeyName: "council_sessions_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
-            referencedRelation: "ops_artifact_build_progress"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "council_sessions_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
             referencedRelation: "ops_blocked_packages"
             referencedColumns: ["package_id"]
           },
@@ -6231,13 +6189,6 @@ export type Database = {
             foreignKeyName: "council_sessions_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
-            referencedRelation: "ops_learner_visible_readiness"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "council_sessions_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
             referencedRelation: "ops_legacy_package_audit"
             referencedColumns: ["package_id"]
           },
@@ -6246,27 +6197,6 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_package_blockers"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "council_sessions_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_content_depth"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "council_sessions_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_downstream_missing"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "council_sessions_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_qc_matrix"
             referencedColumns: ["package_id"]
           },
           {
@@ -7076,13 +7006,6 @@ export type Database = {
             foreignKeyName: "course_package_build_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
-            referencedRelation: "ops_artifact_build_progress"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "course_package_build_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
             referencedRelation: "ops_blocked_packages"
             referencedColumns: ["package_id"]
           },
@@ -7111,13 +7034,6 @@ export type Database = {
             foreignKeyName: "course_package_build_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
-            referencedRelation: "ops_learner_visible_readiness"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "course_package_build_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
             referencedRelation: "ops_legacy_package_audit"
             referencedColumns: ["package_id"]
           },
@@ -7126,27 +7042,6 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_package_blockers"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "course_package_build_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_content_depth"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "course_package_build_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_downstream_missing"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "course_package_build_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_qc_matrix"
             referencedColumns: ["package_id"]
           },
           {
@@ -7351,13 +7246,6 @@ export type Database = {
             foreignKeyName: "course_package_locks_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: true
-            referencedRelation: "ops_artifact_build_progress"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "course_package_locks_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: true
             referencedRelation: "ops_blocked_packages"
             referencedColumns: ["package_id"]
           },
@@ -7386,13 +7274,6 @@ export type Database = {
             foreignKeyName: "course_package_locks_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: true
-            referencedRelation: "ops_learner_visible_readiness"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "course_package_locks_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: true
             referencedRelation: "ops_legacy_package_audit"
             referencedColumns: ["package_id"]
           },
@@ -7401,27 +7282,6 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: true
             referencedRelation: "ops_package_blockers"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "course_package_locks_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: true
-            referencedRelation: "ops_package_content_depth"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "course_package_locks_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: true
-            referencedRelation: "ops_package_downstream_missing"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "course_package_locks_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: true
-            referencedRelation: "ops_package_qc_matrix"
             referencedColumns: ["package_id"]
           },
           {
@@ -7641,13 +7501,6 @@ export type Database = {
             foreignKeyName: "course_package_outputs_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
-            referencedRelation: "ops_artifact_build_progress"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "course_package_outputs_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
             referencedRelation: "ops_blocked_packages"
             referencedColumns: ["package_id"]
           },
@@ -7676,13 +7529,6 @@ export type Database = {
             foreignKeyName: "course_package_outputs_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
-            referencedRelation: "ops_learner_visible_readiness"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "course_package_outputs_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
             referencedRelation: "ops_legacy_package_audit"
             referencedColumns: ["package_id"]
           },
@@ -7691,27 +7537,6 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_package_blockers"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "course_package_outputs_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_content_depth"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "course_package_outputs_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_downstream_missing"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "course_package_outputs_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_qc_matrix"
             referencedColumns: ["package_id"]
           },
           {
@@ -7931,13 +7756,6 @@ export type Database = {
             foreignKeyName: "course_package_plans_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
-            referencedRelation: "ops_artifact_build_progress"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "course_package_plans_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
             referencedRelation: "ops_blocked_packages"
             referencedColumns: ["package_id"]
           },
@@ -7966,13 +7784,6 @@ export type Database = {
             foreignKeyName: "course_package_plans_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
-            referencedRelation: "ops_learner_visible_readiness"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "course_package_plans_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
             referencedRelation: "ops_legacy_package_audit"
             referencedColumns: ["package_id"]
           },
@@ -7981,27 +7792,6 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_package_blockers"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "course_package_plans_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_content_depth"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "course_package_plans_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_downstream_missing"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "course_package_plans_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_qc_matrix"
             referencedColumns: ["package_id"]
           },
           {
@@ -8233,13 +8023,6 @@ export type Database = {
             foreignKeyName: "course_package_reviews_course_package_id_fkey"
             columns: ["course_package_id"]
             isOneToOne: true
-            referencedRelation: "ops_artifact_build_progress"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "course_package_reviews_course_package_id_fkey"
-            columns: ["course_package_id"]
-            isOneToOne: true
             referencedRelation: "ops_blocked_packages"
             referencedColumns: ["package_id"]
           },
@@ -8268,13 +8051,6 @@ export type Database = {
             foreignKeyName: "course_package_reviews_course_package_id_fkey"
             columns: ["course_package_id"]
             isOneToOne: true
-            referencedRelation: "ops_learner_visible_readiness"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "course_package_reviews_course_package_id_fkey"
-            columns: ["course_package_id"]
-            isOneToOne: true
             referencedRelation: "ops_legacy_package_audit"
             referencedColumns: ["package_id"]
           },
@@ -8283,27 +8059,6 @@ export type Database = {
             columns: ["course_package_id"]
             isOneToOne: true
             referencedRelation: "ops_package_blockers"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "course_package_reviews_course_package_id_fkey"
-            columns: ["course_package_id"]
-            isOneToOne: true
-            referencedRelation: "ops_package_content_depth"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "course_package_reviews_course_package_id_fkey"
-            columns: ["course_package_id"]
-            isOneToOne: true
-            referencedRelation: "ops_package_downstream_missing"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "course_package_reviews_course_package_id_fkey"
-            columns: ["course_package_id"]
-            isOneToOne: true
-            referencedRelation: "ops_package_qc_matrix"
             referencedColumns: ["package_id"]
           },
           {
@@ -12026,13 +11781,6 @@ export type Database = {
             foreignKeyName: "duplicate_detection_log_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
-            referencedRelation: "ops_artifact_build_progress"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "duplicate_detection_log_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
             referencedRelation: "ops_blocked_packages"
             referencedColumns: ["package_id"]
           },
@@ -12061,13 +11809,6 @@ export type Database = {
             foreignKeyName: "duplicate_detection_log_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
-            referencedRelation: "ops_learner_visible_readiness"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "duplicate_detection_log_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
             referencedRelation: "ops_legacy_package_audit"
             referencedColumns: ["package_id"]
           },
@@ -12076,27 +11817,6 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_package_blockers"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "duplicate_detection_log_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_content_depth"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "duplicate_detection_log_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_downstream_missing"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "duplicate_detection_log_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_qc_matrix"
             referencedColumns: ["package_id"]
           },
           {
@@ -19166,13 +18886,6 @@ export type Database = {
             foreignKeyName: "oral_exam_session_templates_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
-            referencedRelation: "ops_artifact_build_progress"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "oral_exam_session_templates_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
             referencedRelation: "ops_blocked_packages"
             referencedColumns: ["package_id"]
           },
@@ -19201,13 +18914,6 @@ export type Database = {
             foreignKeyName: "oral_exam_session_templates_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
-            referencedRelation: "ops_learner_visible_readiness"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "oral_exam_session_templates_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
             referencedRelation: "ops_legacy_package_audit"
             referencedColumns: ["package_id"]
           },
@@ -19216,27 +18922,6 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_package_blockers"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "oral_exam_session_templates_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_content_depth"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "oral_exam_session_templates_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_downstream_missing"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "oral_exam_session_templates_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_qc_matrix"
             referencedColumns: ["package_id"]
           },
           {
@@ -19558,13 +19243,6 @@ export type Database = {
             foreignKeyName: "oral_exam_sessionsets_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: true
-            referencedRelation: "ops_artifact_build_progress"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "oral_exam_sessionsets_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: true
             referencedRelation: "ops_blocked_packages"
             referencedColumns: ["package_id"]
           },
@@ -19593,13 +19271,6 @@ export type Database = {
             foreignKeyName: "oral_exam_sessionsets_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: true
-            referencedRelation: "ops_learner_visible_readiness"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "oral_exam_sessionsets_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: true
             referencedRelation: "ops_legacy_package_audit"
             referencedColumns: ["package_id"]
           },
@@ -19608,27 +19279,6 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: true
             referencedRelation: "ops_package_blockers"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "oral_exam_sessionsets_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: true
-            referencedRelation: "ops_package_content_depth"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "oral_exam_sessionsets_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: true
-            referencedRelation: "ops_package_downstream_missing"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "oral_exam_sessionsets_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: true
-            referencedRelation: "ops_package_qc_matrix"
             referencedColumns: ["package_id"]
           },
           {
@@ -20617,13 +20267,6 @@ export type Database = {
             foreignKeyName: "package_content_shards_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
-            referencedRelation: "ops_artifact_build_progress"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_content_shards_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
             referencedRelation: "ops_blocked_packages"
             referencedColumns: ["package_id"]
           },
@@ -20652,13 +20295,6 @@ export type Database = {
             foreignKeyName: "package_content_shards_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
-            referencedRelation: "ops_learner_visible_readiness"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_content_shards_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
             referencedRelation: "ops_legacy_package_audit"
             referencedColumns: ["package_id"]
           },
@@ -20667,27 +20303,6 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_package_blockers"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_content_shards_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_content_depth"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_content_shards_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_downstream_missing"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_content_shards_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_qc_matrix"
             referencedColumns: ["package_id"]
           },
           {
@@ -20901,13 +20516,6 @@ export type Database = {
             foreignKeyName: "package_leases_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: true
-            referencedRelation: "ops_artifact_build_progress"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_leases_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: true
             referencedRelation: "ops_blocked_packages"
             referencedColumns: ["package_id"]
           },
@@ -20936,13 +20544,6 @@ export type Database = {
             foreignKeyName: "package_leases_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: true
-            referencedRelation: "ops_learner_visible_readiness"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_leases_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: true
             referencedRelation: "ops_legacy_package_audit"
             referencedColumns: ["package_id"]
           },
@@ -20951,27 +20552,6 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: true
             referencedRelation: "ops_package_blockers"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_leases_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: true
-            referencedRelation: "ops_package_content_depth"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_leases_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: true
-            referencedRelation: "ops_package_downstream_missing"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_leases_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: true
-            referencedRelation: "ops_package_qc_matrix"
             referencedColumns: ["package_id"]
           },
           {
@@ -21355,13 +20935,6 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
-            referencedRelation: "ops_artifact_build_progress"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
             referencedRelation: "ops_blocked_packages"
             referencedColumns: ["package_id"]
           },
@@ -21390,13 +20963,6 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
-            referencedRelation: "ops_learner_visible_readiness"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
             referencedRelation: "ops_legacy_package_audit"
             referencedColumns: ["package_id"]
           },
@@ -21405,27 +20971,6 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_package_blockers"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_content_depth"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_downstream_missing"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_qc_matrix"
             referencedColumns: ["package_id"]
           },
           {
@@ -21630,13 +21175,6 @@ export type Database = {
             foreignKeyName: "package_tags_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
-            referencedRelation: "ops_artifact_build_progress"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_tags_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
             referencedRelation: "ops_blocked_packages"
             referencedColumns: ["package_id"]
           },
@@ -21665,13 +21203,6 @@ export type Database = {
             foreignKeyName: "package_tags_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
-            referencedRelation: "ops_learner_visible_readiness"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_tags_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
             referencedRelation: "ops_legacy_package_audit"
             referencedColumns: ["package_id"]
           },
@@ -21680,27 +21211,6 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_package_blockers"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_tags_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_content_depth"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_tags_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_downstream_missing"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_tags_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_qc_matrix"
             referencedColumns: ["package_id"]
           },
           {
@@ -22243,13 +21753,6 @@ export type Database = {
             foreignKeyName: "pipeline_lock_active_package_id_fkey"
             columns: ["active_package_id"]
             isOneToOne: false
-            referencedRelation: "ops_artifact_build_progress"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "pipeline_lock_active_package_id_fkey"
-            columns: ["active_package_id"]
-            isOneToOne: false
             referencedRelation: "ops_blocked_packages"
             referencedColumns: ["package_id"]
           },
@@ -22278,13 +21781,6 @@ export type Database = {
             foreignKeyName: "pipeline_lock_active_package_id_fkey"
             columns: ["active_package_id"]
             isOneToOne: false
-            referencedRelation: "ops_learner_visible_readiness"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "pipeline_lock_active_package_id_fkey"
-            columns: ["active_package_id"]
-            isOneToOne: false
             referencedRelation: "ops_legacy_package_audit"
             referencedColumns: ["package_id"]
           },
@@ -22293,27 +21789,6 @@ export type Database = {
             columns: ["active_package_id"]
             isOneToOne: false
             referencedRelation: "ops_package_blockers"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "pipeline_lock_active_package_id_fkey"
-            columns: ["active_package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_content_depth"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "pipeline_lock_active_package_id_fkey"
-            columns: ["active_package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_downstream_missing"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "pipeline_lock_active_package_id_fkey"
-            columns: ["active_package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_qc_matrix"
             referencedColumns: ["package_id"]
           },
           {
@@ -22907,13 +22382,6 @@ export type Database = {
             foreignKeyName: "premium_upgrade_runs_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
-            referencedRelation: "ops_artifact_build_progress"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "premium_upgrade_runs_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
             referencedRelation: "ops_blocked_packages"
             referencedColumns: ["package_id"]
           },
@@ -22942,13 +22410,6 @@ export type Database = {
             foreignKeyName: "premium_upgrade_runs_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
-            referencedRelation: "ops_learner_visible_readiness"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "premium_upgrade_runs_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
             referencedRelation: "ops_legacy_package_audit"
             referencedColumns: ["package_id"]
           },
@@ -22957,27 +22418,6 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_package_blockers"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "premium_upgrade_runs_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_content_depth"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "premium_upgrade_runs_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_downstream_missing"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "premium_upgrade_runs_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_qc_matrix"
             referencedColumns: ["package_id"]
           },
           {
@@ -23524,13 +22964,6 @@ export type Database = {
             foreignKeyName: "production_quality_snapshots_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
-            referencedRelation: "ops_artifact_build_progress"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "production_quality_snapshots_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
             referencedRelation: "ops_blocked_packages"
             referencedColumns: ["package_id"]
           },
@@ -23559,13 +22992,6 @@ export type Database = {
             foreignKeyName: "production_quality_snapshots_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
-            referencedRelation: "ops_learner_visible_readiness"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "production_quality_snapshots_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
             referencedRelation: "ops_legacy_package_audit"
             referencedColumns: ["package_id"]
           },
@@ -23574,27 +23000,6 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_package_blockers"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "production_quality_snapshots_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_content_depth"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "production_quality_snapshots_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_downstream_missing"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "production_quality_snapshots_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_qc_matrix"
             referencedColumns: ["package_id"]
           },
           {
@@ -33384,13 +32789,6 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
-            referencedRelation: "ops_artifact_build_progress"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
             referencedRelation: "ops_blocked_packages"
             referencedColumns: ["package_id"]
           },
@@ -33419,13 +32817,6 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
-            referencedRelation: "ops_learner_visible_readiness"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
             referencedRelation: "ops_legacy_package_audit"
             referencedColumns: ["package_id"]
           },
@@ -33434,27 +32825,6 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_package_blockers"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_content_depth"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_downstream_missing"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_qc_matrix"
             referencedColumns: ["package_id"]
           },
           {
@@ -34542,26 +33912,6 @@ export type Database = {
           },
         ]
       }
-      ops_artifact_build_progress: {
-        Row: {
-          content_pct: number | null
-          drift_severity: string | null
-          exam_pct: number | null
-          handbook_pct: number | null
-          minicheck_pct: number | null
-          package_id: string | null
-          package_title: string | null
-          priority: number | null
-          progress_drift: number | null
-          qc_pct: number | null
-          real_progress: number | null
-          status: string | null
-          steps_done_pct: number | null
-          stored_progress: number | null
-          structure_pct: number | null
-        }
-        Relationships: []
-      }
       ops_batch_cursor_stuck: {
         Row: {
           batch_cursor: Json | null
@@ -34950,13 +34300,6 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
-            referencedRelation: "ops_artifact_build_progress"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
             referencedRelation: "ops_blocked_packages"
             referencedColumns: ["package_id"]
           },
@@ -34985,13 +34328,6 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
-            referencedRelation: "ops_learner_visible_readiness"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
             referencedRelation: "ops_legacy_package_audit"
             referencedColumns: ["package_id"]
           },
@@ -35000,27 +34336,6 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_package_blockers"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_content_depth"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_downstream_missing"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_qc_matrix"
             referencedColumns: ["package_id"]
           },
           {
@@ -35236,31 +34551,6 @@ export type Database = {
         }
         Relationships: []
       }
-      ops_learner_visible_readiness: {
-        Row: {
-          course_title: string | null
-          dead_ends: string[] | null
-          exam_questions_count: number | null
-          exam_training_usable: boolean | null
-          handbook_available: boolean | null
-          handbook_section_count: number | null
-          is_published: boolean | null
-          learner_tier: string | null
-          lesson_coverage_pct: number | null
-          lessons_readable: boolean | null
-          minicheck_questions_available: number | null
-          minichecks_usable: boolean | null
-          package_id: string | null
-          package_title: string | null
-          priority: number | null
-          readable_lesson_count: number | null
-          status: string | null
-          structure_visible: boolean | null
-          total_lesson_count: number | null
-          usable_minicheck_count: number | null
-        }
-        Relationships: []
-      }
       ops_legacy_package_audit: {
         Row: {
           exam_actual: number | null
@@ -35338,13 +34628,6 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
-            referencedRelation: "ops_artifact_build_progress"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
             referencedRelation: "ops_blocked_packages"
             referencedColumns: ["package_id"]
           },
@@ -35373,13 +34656,6 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
-            referencedRelation: "ops_learner_visible_readiness"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
             referencedRelation: "ops_legacy_package_audit"
             referencedColumns: ["package_id"]
           },
@@ -35388,27 +34664,6 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_package_blockers"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_content_depth"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_downstream_missing"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_qc_matrix"
             referencedColumns: ["package_id"]
           },
           {
@@ -35610,103 +34865,6 @@ export type Database = {
         }
         Relationships: []
       }
-      ops_package_content_depth: {
-        Row: {
-          avg_content_chars: number | null
-          competencies_with_content: number | null
-          curriculum_id: string | null
-          distinct_steps_with_content: number | null
-          elite_depth_lessons: number | null
-          has_exam_traps: number | null
-          has_practical_examples: number | null
-          materialization_pct: number | null
-          max_content_chars: number | null
-          min_content_chars: number | null
-          package_id: string | null
-          package_title: string | null
-          placeholder_lessons: number | null
-          priority: number | null
-          real_lessons: number | null
-          status: string | null
-          total_competencies: number | null
-          total_lessons: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "course_packages_curriculum_id_fkey"
-            columns: ["curriculum_id"]
-            isOneToOne: false
-            referencedRelation: "curricula"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "course_packages_curriculum_id_fkey"
-            columns: ["curriculum_id"]
-            isOneToOne: false
-            referencedRelation: "elite_readiness_per_curriculum"
-            referencedColumns: ["curriculum_id"]
-          },
-          {
-            foreignKeyName: "course_packages_curriculum_id_fkey"
-            columns: ["curriculum_id"]
-            isOneToOne: false
-            referencedRelation: "ops_curriculum_quality_dashboard"
-            referencedColumns: ["curriculum_id"]
-          },
-          {
-            foreignKeyName: "course_packages_curriculum_id_fkey"
-            columns: ["curriculum_id"]
-            isOneToOne: false
-            referencedRelation: "ops_curriculum_quality_dashboard_mv"
-            referencedColumns: ["curriculum_id"]
-          },
-        ]
-      }
-      ops_package_downstream_missing: {
-        Row: {
-          content_gap: number | null
-          exam_approved: number | null
-          exam_gap: number | null
-          handbook_chapters: number | null
-          handbook_sections: number | null
-          handbook_status: string | null
-          lessons_total: number | null
-          lessons_with_content: number | null
-          minicheck_gap: number | null
-          missing_artifacts: string[] | null
-          package_id: string | null
-          package_title: string | null
-          priority: number | null
-          qc_gap: number | null
-          status: string | null
-          step_map: Json | null
-        }
-        Relationships: []
-      }
-      ops_package_qc_matrix: {
-        Row: {
-          cv_approved: number | null
-          exam_approved: number | null
-          exam_draft: number | null
-          exam_rejected: number | null
-          exam_review: number | null
-          handbook_chapters: number | null
-          handbook_sections_real: number | null
-          lessons_qc_approved: number | null
-          lessons_qc_failed: number | null
-          lessons_qc_pending: number | null
-          lessons_qc_tier1: number | null
-          lessons_total: number | null
-          minicheck_questions_total: number | null
-          minichecks_missing: number | null
-          minichecks_parsed: number | null
-          package_id: string | null
-          package_title: string | null
-          priority: number | null
-          status: string | null
-        }
-        Relationships: []
-      }
       ops_package_readiness: {
         Row: {
           blocked_reason: string | null
@@ -35808,13 +34966,6 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
-            referencedRelation: "ops_artifact_build_progress"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
             referencedRelation: "ops_blocked_packages"
             referencedColumns: ["package_id"]
           },
@@ -35843,13 +34994,6 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
-            referencedRelation: "ops_learner_visible_readiness"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
             referencedRelation: "ops_legacy_package_audit"
             referencedColumns: ["package_id"]
           },
@@ -35858,27 +35002,6 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_package_blockers"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_content_depth"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_downstream_missing"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_qc_matrix"
             referencedColumns: ["package_id"]
           },
           {
@@ -36273,13 +35396,6 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
-            referencedRelation: "ops_artifact_build_progress"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
             referencedRelation: "ops_blocked_packages"
             referencedColumns: ["package_id"]
           },
@@ -36308,13 +35424,6 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
-            referencedRelation: "ops_learner_visible_readiness"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
             referencedRelation: "ops_legacy_package_audit"
             referencedColumns: ["package_id"]
           },
@@ -36323,27 +35432,6 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_package_blockers"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_content_depth"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_downstream_missing"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_qc_matrix"
             referencedColumns: ["package_id"]
           },
           {
@@ -36679,13 +35767,6 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
-            referencedRelation: "ops_artifact_build_progress"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
             referencedRelation: "ops_blocked_packages"
             referencedColumns: ["package_id"]
           },
@@ -36714,13 +35795,6 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
-            referencedRelation: "ops_learner_visible_readiness"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
             referencedRelation: "ops_legacy_package_audit"
             referencedColumns: ["package_id"]
           },
@@ -36729,27 +35803,6 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_package_blockers"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_content_depth"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_downstream_missing"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_qc_matrix"
             referencedColumns: ["package_id"]
           },
           {
@@ -37056,13 +36109,6 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
-            referencedRelation: "ops_artifact_build_progress"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
             referencedRelation: "ops_blocked_packages"
             referencedColumns: ["package_id"]
           },
@@ -37091,13 +36137,6 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
-            referencedRelation: "ops_learner_visible_readiness"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
             referencedRelation: "ops_legacy_package_audit"
             referencedColumns: ["package_id"]
           },
@@ -37106,27 +36145,6 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_package_blockers"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_content_depth"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_downstream_missing"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_qc_matrix"
             referencedColumns: ["package_id"]
           },
           {
@@ -39196,13 +38214,6 @@ export type Database = {
             foreignKeyName: "package_content_shards_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
-            referencedRelation: "ops_artifact_build_progress"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_content_shards_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
             referencedRelation: "ops_blocked_packages"
             referencedColumns: ["package_id"]
           },
@@ -39231,13 +38242,6 @@ export type Database = {
             foreignKeyName: "package_content_shards_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
-            referencedRelation: "ops_learner_visible_readiness"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_content_shards_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
             referencedRelation: "ops_legacy_package_audit"
             referencedColumns: ["package_id"]
           },
@@ -39246,27 +38250,6 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_package_blockers"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_content_shards_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_content_depth"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_content_shards_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_downstream_missing"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_content_shards_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_qc_matrix"
             referencedColumns: ["package_id"]
           },
           {
@@ -39541,13 +38524,6 @@ export type Database = {
             foreignKeyName: "package_content_shards_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
-            referencedRelation: "ops_artifact_build_progress"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_content_shards_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
             referencedRelation: "ops_blocked_packages"
             referencedColumns: ["package_id"]
           },
@@ -39576,13 +38552,6 @@ export type Database = {
             foreignKeyName: "package_content_shards_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
-            referencedRelation: "ops_learner_visible_readiness"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_content_shards_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
             referencedRelation: "ops_legacy_package_audit"
             referencedColumns: ["package_id"]
           },
@@ -39591,27 +38560,6 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_package_blockers"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_content_shards_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_content_depth"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_content_shards_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_downstream_missing"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_content_shards_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_qc_matrix"
             referencedColumns: ["package_id"]
           },
           {
