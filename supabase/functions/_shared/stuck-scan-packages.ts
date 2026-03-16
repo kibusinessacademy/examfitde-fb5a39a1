@@ -116,6 +116,27 @@ export async function checkBuildingOrphans(sb: SupabaseClient) {
         .limit(1).maybeSingle();
 
       if ((activeJobs ?? 0) === 0 && !activeLease) {
+        // ── Grace period: skip if recently recovered via RPC ──
+        const { count: recentRecovery } = await sb
+          .from("auto_heal_log")
+          .select("id", { count: "exact", head: true })
+          .eq("action_type", "recover_and_reenter_package")
+          .eq("target_id", pkg.id)
+          .eq("result_status", "success")
+          .gt("created_at", new Date(Date.now() - 15 * 60_000).toISOString());
+
+        if ((recentRecovery ?? 0) > 0) {
+          buildingPkgResults.push({ package_id: pkg.id, action: "Skipped zombie check: recent recovery grace period" });
+          continue;
+        }
+
+        // ── Grace period: skip if package was set to building < 10 minutes ago ──
+        const pkgAge = (Date.now() - new Date(pkg.updated_at).getTime()) / 60_000;
+        if (pkgAge < 10) {
+          buildingPkgResults.push({ package_id: pkg.id, action: `Skipped zombie check: building for only ${Math.round(pkgAge)}m (grace <10m)` });
+          continue;
+        }
+
         const { data: lastDone } = await sb
           .from("package_steps").select("finished_at")
           .eq("package_id", pkg.id).eq("status", "done")
@@ -125,21 +146,13 @@ export async function checkBuildingOrphans(sb: SupabaseClient) {
           ? (Date.now() - new Date(lastDone.finished_at).getTime()) / 60_000 : 999;
 
         if (lastDoneAge >= 3) {
-          // ── STRUCTURAL FIX: Reset package to 'queued' directly ──
-          // The old approach only triggered pipeline-runner, but the runner's
-          // acquire_next_package_lease_v2 only picks up 'queued' packages.
-          // Building packages without leases were stuck because the orphan
-          // reclaim's updated_at threshold was constantly refreshed by triggers.
-          // Now we reset to 'queued' directly so the runner can acquire them.
           await sb.from("course_packages").update({
             status: "queued",
-            updated_at: new Date(Date.now() - 5 * 60_000).toISOString(), // set old to pass orphan guard
+            updated_at: new Date(Date.now() - 5 * 60_000).toISOString(),
           }).eq("id", pkg.id).eq("status", "building");
 
-          // Delete any stale leases
           await sb.from("package_leases").delete().eq("package_id", pkg.id);
 
-          // Also trigger the runner to pick it up immediately
           try {
             const pipelineUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/pipeline-runner`;
             await fetch(pipelineUrl, {
