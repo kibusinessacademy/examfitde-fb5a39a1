@@ -292,44 +292,41 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
         </CardContent>
       </Card>
 
-      {/* ── KPI Cards ─────────────────────────────────────── */}
+      {/* ── SSOT Freigabe-Status ─────────────────────────── */}
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
-        <Card className="border-border/40">
+        <Card className={cn("border-border/40", councilComplete ? 'border-success/30' : ssot && ssot.council_sessions_pending > 0 ? 'border-warning/30' : '')}>
           <CardContent className="py-3 px-4">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Pipeline</p>
-            <p className="text-xl font-bold text-foreground mt-0.5">{progressPct}%</p>
-            <Progress value={progressPct} className="h-1 mt-1.5" />
-            <p className="text-[10px] text-muted-foreground mt-1">{doneCount}/{totalCount} Steps</p>
-          </CardContent>
-        </Card>
-        <Card className="border-border/40">
-          <CardContent className="py-3 px-4">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Lerninhalte</p>
-            <p className="text-xl font-bold text-foreground mt-0.5">
-              {contentProgressQuery.data ? `${contentProgressQuery.data.content_done}/${contentProgressQuery.data.total_lessons}` : '–'}
-            </p>
-            {contentProgressQuery.data && contentProgressQuery.data.total_lessons > 0 && (
-              <Progress value={Math.round(contentProgressQuery.data.content_done / contentProgressQuery.data.total_lessons * 100)} className="h-1 mt-1.5" />
-            )}
-            <p className="text-[10px] text-muted-foreground mt-1">Lektionen fertig</p>
-          </CardContent>
-        </Card>
-        <Card className="border-border/40">
-          <CardContent className="py-3 px-4">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Fehler</p>
-            <p className={cn("text-xl font-bold mt-0.5", failedSteps.length > 0 ? "text-destructive" : "text-success")}>{failedSteps.length}</p>
-            <p className="text-[10px] text-muted-foreground mt-1">{failedSteps.length === 0 ? 'Keine Fehler' : `${failedSteps.length} Step(s) fehlgeschlagen`}</p>
-          </CardContent>
-        </Card>
-        <Card className="border-border/40">
-          <CardContent className="py-3 px-4">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Status</p>
-            <p className="text-xl font-bold text-foreground mt-0.5">
-              {isBuilding && runningStep ? `Step ${currentStepIdx + 1}` : pkg.integrity_passed ? '✓ QA' : '–'}
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium flex items-center gap-1"><Shield className="h-3 w-3" /> Council</p>
+            <p className={cn("text-xl font-bold mt-0.5", councilComplete && councilApproved ? 'text-success' : councilComplete ? 'text-warning' : 'text-foreground')}>
+              {councilComplete && councilApproved ? '✓ Approved' : councilComplete ? '✓ Fertig' : ssot ? `${ssot.council_sessions_completed}/${ssot.council_sessions_total}` : '–'}
             </p>
             <p className="text-[10px] text-muted-foreground mt-1">
-              {isBuilding && runningStep ? (PIPELINE_STEPS[currentStepIdx]?.shortLabel || runningStep.step_key) : pkg.integrity_passed ? 'Integrität bestanden' : 'Warte auf Build'}
+              {ssot && ssot.council_sessions_pending > 0 ? `${ssot.council_sessions_pending} pending` : councilComplete && !councilApproved ? 'Warte auf Approval' : councilApproved ? 'Freigegeben' : 'Sessions'}
             </p>
+          </CardContent>
+        </Card>
+        <Card className={cn("border-border/40", integrityPassed ? 'border-success/30' : '')}>
+          <CardContent className="py-3 px-4">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Integrität</p>
+            <p className={cn("text-xl font-bold mt-0.5", integrityPassed ? 'text-success' : 'text-muted-foreground')}>{integrityPassed ? '✓ Bestanden' : '✗ Offen'}</p>
+            <p className="text-[10px] text-muted-foreground mt-1">{integrityPassed ? 'Quality Gate OK' : 'Noch nicht bestanden'}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-border/40">
+          <CardContent className="py-3 px-4">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Fragen</p>
+            <p className={cn("text-xl font-bold mt-0.5", ssot && ssot.approved_questions >= 100 ? 'text-success' : 'text-foreground')}>
+              {ssot ? `${ssot.approved_questions}` : '–'}
+            </p>
+            <p className="text-[10px] text-muted-foreground mt-1">{ssot ? `von ${ssot.total_questions} total · ${ssot.approved_questions >= 100 ? '✓' : '✗'} Gate (≥100)` : 'Approved'}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-border/40">
+          <CardContent className="py-3 px-4">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Build-Historie</p>
+            <p className="text-xl font-bold text-foreground mt-0.5">{progressPct}%</p>
+            <Progress value={progressPct} className="h-1 mt-1.5" />
+            <p className="text-[10px] text-muted-foreground mt-1">{doneCount}/{totalCount} Steps (historisch)</p>
           </CardContent>
         </Card>
       </div>
