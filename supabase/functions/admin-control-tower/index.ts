@@ -95,6 +95,8 @@ Deno.serve(async (req) => {
         return json(await getRevenue(sb));
       case "dashboard":
         return json(await getDashboard(sb));
+      case "executive_kpis":
+        return json(await getExecutiveKpis(sb));
       default:
         return json({ error: `Unknown action: ${action}` }, 400);
     }
