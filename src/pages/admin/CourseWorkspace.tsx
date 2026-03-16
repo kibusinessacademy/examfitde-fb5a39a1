@@ -214,6 +214,41 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
   const isBuilding = pkg.status === 'building';
   const progressPct = buildSteps.length > 0 ? Math.round((doneCount / Math.max(totalCount, 1)) * 100) : (pkg.build_progress || 0);
 
+  return (
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex items-center">
+        <Button variant="ghost" size="sm" onClick={onBack} className="shrink-0"><ArrowLeft className="h-4 w-4 mr-1" /> Kursliste</Button>
+      </div>
+
+      {/* SSOT Drift Warnings */}
+      {hasStalePublish && (
+        <div className="rounded-xl border border-warning/30 bg-warning/5 p-3 flex items-start gap-3">
+          <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
+          <div>
+            <div className="text-sm font-semibold text-foreground">Stale-Publish-Signal erkannt</div>
+            <div className="text-xs text-muted-foreground">Historisches published_at gesetzt, aber Paket ist aktuell nicht veröffentlicht.</div>
+          </div>
+        </div>
+      )}
+      {hasPublishDrift && (
+        <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 flex items-start gap-3">
+          <TrendingDown className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+          <div>
+            <div className="text-sm font-semibold text-foreground">Publish Drift</div>
+            <div className="text-xs text-muted-foreground">Status ist „published", aber Publish-Gate inhaltlich nicht bestanden.</div>
+          </div>
+        </div>
+      )}
+      {isStuck && (
+        <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 flex items-start gap-3">
+          <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+          <div>
+            <div className="text-sm font-semibold text-foreground">Paket festgefahren</div>
+            <div className="text-xs text-muted-foreground">Kein Fortschritt seit über 30 Minuten (alle Aktivitätsquellen geprüft).</div>
+          </div>
+        </div>
+      )}
+
       {/* ── Workspace Header Card ─────────────────────────── */}
       <Card className="border-border/50">
         <CardContent className="py-4 px-4 sm:px-6">
@@ -222,8 +257,20 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
               <h1 className="text-lg sm:text-xl font-display font-bold text-foreground truncate">{pkg.title || 'Kurspaket'}</h1>
               <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                 <TrackBadge track={track} certType={certType} showCertType />
-                <Badge variant="outline" className={cn("text-xs", pkg.status === 'published' ? 'bg-success/20 text-success' : (pkg.status === 'failed' || pkg.status === 'quality_gate_failed') ? 'bg-destructive/20 text-destructive' : isBuilding ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground')}>
-                  {pkg.status === 'published' ? 'Live' : isBuilding ? 'Build läuft' : pkg.status === 'quality_gate_failed' ? 'QG Failed' : pkg.status === 'failed' ? 'Fehler' : pkg.status === 'qa' ? 'QA' : pkg.status === 'done' ? 'Done' : 'Draft'}
+                <Badge variant="outline" className={cn("text-xs",
+                  releaseState === 'published' ? 'bg-success/20 text-success' :
+                  releaseState === 'publish_drift' ? 'bg-destructive/20 text-destructive' :
+                  releaseState === 'council_review' ? 'bg-warning/20 text-warning' :
+                  releaseState === 'building' ? 'bg-primary/20 text-primary' :
+                  releaseState === 'ready_to_publish' ? 'bg-success/20 text-success' :
+                  'bg-muted text-muted-foreground'
+                )}>
+                  {releaseState === 'published' ? 'Live' :
+                   releaseState === 'publish_drift' ? 'Publish Drift' :
+                   releaseState === 'council_review' ? 'Council Review' :
+                   releaseState === 'building' ? 'Build läuft' :
+                   releaseState === 'ready_to_publish' ? 'Bereit' :
+                   pkg.status}
                 </Badge>
                 <div className={cn("flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold", healthScore >= 95 ? 'bg-success/10 text-success' : healthScore >= 80 ? 'bg-warning/10 text-warning' : 'bg-destructive/10 text-destructive')}>
                   <Activity className="h-3 w-3" /> {healthScore}%
