@@ -95,6 +95,8 @@ Deno.serve(async (req) => {
         return json(await getRevenue(sb));
       case "dashboard":
         return json(await getDashboard(sb));
+      case "executive_kpis":
+        return json(await getExecutiveKpis(sb));
       default:
         return json({ error: `Unknown action: ${action}` }, 400);
     }
@@ -602,4 +604,9 @@ async function getDashboard(sb: SB) {
       items: driftRows.slice(0, 50), // Top 50 for UI
     },
   };
+}
+
+async function getExecutiveKpis(sb: SB) {
+  const rows = await safeFrom(sb, "v_ops_executive_kpis", "*");
+  return rows[0] ?? {};
 }

@@ -31,6 +31,7 @@ const JobFailureIntegrityPanel = lazy(() => import('./ops/JobFailureIntegrityPan
 const V2LoopDebugPage = lazy(() => import('./ops/V2LoopDebugPage'));
 const ReentryMissesPanel = lazy(() => import('./ops/ReentryMissesPanel'));
 const PipelineMapDashboard = lazy(() => import('./ops/PipelineMapDashboard'));
+const ExecutiveReportDashboard = lazy(() => import('./ops/ExecutiveReportDashboard'));
 
 const Loading = () => (
   <div className="flex items-center justify-center py-16">
@@ -65,6 +66,7 @@ const tabs = [
   { path: '/admin/ops/v2-loop-debug', label: '🧪 V2 Loop Debug' },
   { path: '/admin/ops/reentry-misses', label: '⚠️ Re-Entry Misses' },
   { path: '/admin/ops/pipeline-map', label: '🗺️ Pipeline Map' },
+  { path: '/admin/ops/executive', label: '📊 Executive Report' },
 ];
 
 export default function OpsPage() {
@@ -150,6 +152,7 @@ export default function OpsPage() {
           <Route path="v2-loop-debug" element={<V2LoopDebugPage />} />
           <Route path="reentry-misses" element={<ReentryMissesPanel />} />
           <Route path="pipeline-map" element={<PipelineMapDashboard />} />
+          <Route path="executive" element={<ExecutiveReportDashboard />} />
         </Routes>
       </Suspense>
     </div>
