@@ -380,21 +380,36 @@ Deno.serve(async (req) => {
                 })
                 .eq("id", shard.id);
 
-              await enqueueJob(sb, {
-                job_type: "lesson_generate_content_shard",
-                package_id: packageId,
-                payload: {
+              // Dedup: don't re-enqueue if shard job already active
+              const { data: existingHealJob } = await sb
+                .from("job_queue")
+                .select("id")
+                .eq("package_id", packageId)
+                .eq("job_type", "lesson_generate_content_shard")
+                .in("status", ["pending", "queued", "processing", "running", "batch_pending"])
+                .filter("payload->>fanout_id", "eq", fanoutId)
+                .filter("payload->>chunk_index", "eq", String(shard.chunk_index))
+                .filter("payload->>learning_field_id", "eq", shard.learning_field_id)
+                .limit(1)
+                .maybeSingle();
+
+              if (!existingHealJob) {
+                await enqueueJob(sb, {
+                  job_type: "lesson_generate_content_shard",
                   package_id: packageId,
-                  course_id: courseId,
-                  curriculum_id: curriculumId,
-                  learning_field_id: shard.learning_field_id,
-                  chunk_index: shard.chunk_index,
-                  fanout_id: fanoutId,
-                  lesson_ids: shardLessonIds,
-                },
-                priority: 12,
-                max_attempts: 5,
-              });
+                  payload: {
+                    package_id: packageId,
+                    course_id: courseId,
+                    curriculum_id: curriculumId,
+                    learning_field_id: shard.learning_field_id,
+                    chunk_index: shard.chunk_index,
+                    fanout_id: fanoutId,
+                    lesson_ids: shardLessonIds,
+                  },
+                  priority: 12,
+                  max_attempts: 5,
+                });
+              }
             }
           }
         }
