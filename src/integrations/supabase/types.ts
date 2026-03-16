@@ -39437,7 +39437,7 @@ export type Database = {
           failed_jobs_60m: number | null
           last_completion_at: string | null
           last_step_done_at: string | null
-          minutes_since_progress: number | null
+          minutes_since_real_progress: number | null
           package_id: string | null
           priority: number | null
           progress_state: string | null
