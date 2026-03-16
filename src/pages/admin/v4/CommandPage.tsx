@@ -14,6 +14,7 @@ const RealtimePipelineMonitor = lazy(() => import('@/components/admin/RealtimePi
 const QualityCockpitTab = lazy(() => import('@/components/admin/command/QualityCockpitTab'));
 const OpsMonitoringTab = lazy(() => import('@/pages/admin/v4/OpsMonitoringTab'));
 const DailyCommandBriefing = lazy(() => import('@/components/admin/command/DailyCommandBriefing'));
+const DailyOpsReport = lazy(() => import('@/components/admin/command/DailyOpsReport'));
 const ForensicMonitorPanel = lazy(() => import('@/components/admin/command/ForensicMonitorPanel'));
 
 const Fallback = () => <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>;
