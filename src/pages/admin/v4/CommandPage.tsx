@@ -61,6 +61,7 @@ export default function CommandPage() {
           </TabsTrigger>
         </TabsList>
 
+        <TabsContent value="ops-report" className="mt-4"><Suspense fallback={<Fallback />}><DailyOpsReport /></Suspense></TabsContent>
         <TabsContent value="briefing" className="mt-4"><Suspense fallback={<Fallback />}><DailyCommandBriefing /></Suspense></TabsContent>
         <TabsContent value="leitstelle" className="mt-4"><Leitstelle /></TabsContent>
         <TabsContent value="ops-monitor" className="mt-4"><Suspense fallback={<Fallback />}><OpsMonitoringTab /></Suspense></TabsContent>
