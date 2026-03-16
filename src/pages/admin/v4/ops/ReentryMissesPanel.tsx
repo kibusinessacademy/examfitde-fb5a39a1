@@ -67,7 +67,7 @@ export default function ReentryMissesPanel() {
             {missCount > 0 ? (
               <AlertTriangle className="h-5 w-5 text-destructive" />
             ) : (
-              <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+              <CheckCircle2 className="h-5 w-5 text-primary" />
             )}
             Re-Entry Misses
           </CardTitle>
