@@ -151,6 +151,14 @@ export interface FanOutStepConfig {
  */
 export const FAN_OUT_CONFIG: FanOutStepConfig[] = [
   {
+    stepKey: "fanout_learning_content",
+    subjobTypes: ["lesson_generate_content_shard"],
+    completionMode: "subjob_count",
+    wipPerPackage: 3,
+    subjobPriority: 15,
+    useBatchCursor: false,
+  },
+  {
     stepKey: "generate_learning_content",
     subjobTypes: ["lesson_generate_competency_bundle", "lesson_generate_content", "package_generate_learning_content"],
     completionMode: "hybrid",
