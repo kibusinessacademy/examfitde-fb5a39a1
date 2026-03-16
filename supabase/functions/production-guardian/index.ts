@@ -711,8 +711,8 @@ Deno.serve(async (req) => {
       // Also increase jobtype limits back
       for (const jt of ["generate_curriculum_content", "package_generate_exam_pool"]) {
         const { data: jtLimit } = await sb.from("jobtype_limits").select("max_processing").eq("job_type", jt).maybeSingle();
-        if (jtLimit && jtLimit.max_processing < 6) {
-          await sb.from("jobtype_limits").update({ max_processing: Math.min(6, jtLimit.max_processing + 1) }).eq("job_type", jt);
+        if (jtLimit && jtLimit.max_processing < 20) {
+          await sb.from("jobtype_limits").update({ max_processing: Math.min(20, jtLimit.max_processing + 1) }).eq("job_type", jt);
           actions.push(`Scaled up ${jt} concurrency → ${jtLimit.max_processing + 1}`);
         }
       }
