@@ -750,7 +750,7 @@ Deno.serve(async (req) => {
       const shadowStalled = (progressData ?? []).filter((p: any) => p.progress_state === "SHADOW_STALLED");
 
       for (const pkg of shadowStalled) {
-        // Per-package dedup with 60min cooldown
+        // Per-package + per-state dedup with 60min cooldown
         const fingerprint = `progress:${pkg.package_id}:SHADOW_STALLED`;
         const sixtyMinAgo = new Date(Date.now() - 60 * 60_000).toISOString();
         const { data: existing } = await sb.from("admin_notifications")
@@ -758,6 +758,7 @@ Deno.serve(async (req) => {
           .eq("category", "pipeline")
           .eq("entity_id", pkg.package_id)
           .eq("entity_type", "progress_guard")
+          .contains("metadata", { fingerprint })
           .gte("created_at", sixtyMinAgo)
           .limit(1);
 
@@ -789,6 +790,36 @@ Deno.serve(async (req) => {
       const slowing = (progressData ?? []).filter((p: any) => p.progress_state === "SLOWING");
       for (const pkg of slowing) {
         actions.push(`G1: SLOWING — ${pkg.title} (${pkg.active_jobs} jobs, completed_60m=${pkg.completed_jobs_60m})`);
+      }
+
+      // G1 extension: IDLE_WITH_LEASE as ops signal (warning, not P0)
+      const idleWithLease = (progressData ?? []).filter((p: any) => p.progress_state === "IDLE_WITH_LEASE");
+      for (const pkg of idleWithLease) {
+        if ((pkg.minutes_since_real_progress ?? 0) > 30) {
+          const fingerprint = `progress:${pkg.package_id}:IDLE_WITH_LEASE`;
+          const thirtyMinAgo = new Date(Date.now() - 30 * 60_000).toISOString();
+          const { data: existing } = await sb.from("admin_notifications")
+            .select("id")
+            .eq("category", "pipeline")
+            .eq("entity_id", pkg.package_id)
+            .eq("entity_type", "progress_guard")
+            .contains("metadata", { fingerprint })
+            .gte("created_at", thirtyMinAgo)
+            .limit(1);
+
+          if (!existing || existing.length === 0) {
+            await sb.from("admin_notifications").insert({
+              title: `⚠️ IDLE_WITH_LEASE: ${pkg.title}`,
+              body: `Package "${pkg.title}" has ${pkg.active_leases} active leases but 0 active jobs for ${Math.round(pkg.minutes_since_real_progress)}min. Possible lease leak.`,
+              category: "pipeline",
+              severity: "warning",
+              entity_type: "progress_guard",
+              entity_id: pkg.package_id,
+              metadata: { ...pkg, fingerprint },
+            });
+            actions.push(`G1: IDLE_WITH_LEASE — ${pkg.title} (${pkg.active_leases} leases, 0 jobs)`);
+          }
+        }
       }
     } catch (e) {
       console.error("[Guardian] G1 progress guard error:", (e as Error).message);
