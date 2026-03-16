@@ -703,16 +703,16 @@ Deno.serve(async (req) => {
         }
       }
     } else if (errorRate < 0.05 && recentOk > 20 && (dc < 50 || frozenCount > 150)) {
-      // Stable + productive → scale UP (max 6)
-      newMaxWip = Math.min(6, currentMaxWip + 1);
+      // Stable + productive → scale UP (max 20)
+      newMaxWip = Math.min(20, currentMaxWip + 1);
       scalingReason.action = "scale_up";
       scalingReason.trigger = "stable_throughput";
 
       // Also increase jobtype limits back
       for (const jt of ["generate_curriculum_content", "package_generate_exam_pool"]) {
         const { data: jtLimit } = await sb.from("jobtype_limits").select("max_processing").eq("job_type", jt).maybeSingle();
-        if (jtLimit && jtLimit.max_processing < 6) {
-          await sb.from("jobtype_limits").update({ max_processing: Math.min(6, jtLimit.max_processing + 1) }).eq("job_type", jt);
+        if (jtLimit && jtLimit.max_processing < 20) {
+          await sb.from("jobtype_limits").update({ max_processing: Math.min(20, jtLimit.max_processing + 1) }).eq("job_type", jt);
           actions.push(`Scaled up ${jt} concurrency → ${jtLimit.max_processing + 1}`);
         }
       }
