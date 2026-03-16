@@ -703,8 +703,8 @@ Deno.serve(async (req) => {
         }
       }
     } else if (errorRate < 0.05 && recentOk > 20 && (dc < 50 || frozenCount > 150)) {
-      // Stable + productive → scale UP (max 6)
-      newMaxWip = Math.min(6, currentMaxWip + 1);
+      // Stable + productive → scale UP (max 20)
+      newMaxWip = Math.min(20, currentMaxWip + 1);
       scalingReason.action = "scale_up";
       scalingReason.trigger = "stable_throughput";
 
