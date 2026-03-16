@@ -70,10 +70,10 @@ function JobRow({ job }: { job: AdminQueueJob }) {
           </div>
           <div className="flex items-center gap-2 mt-1 flex-wrap">
             <span className="text-[10px] text-muted-foreground font-mono">{job.job_id.slice(0, 8)}</span>
-            <span className="text-[10px] text-muted-foreground">⏱ {formatAge(job.age_seconds)}</span>
+            <span className="text-[10px] text-muted-foreground">⏱ {formatAge(job.age_minutes * 60)}</span>
             <span className="text-[10px] text-muted-foreground">{job.attempts}/{job.max_attempts}</span>
-            {job.package_raw_title && (
-              <span className="text-[10px] text-muted-foreground truncate max-w-[120px]">📦 {job.package_raw_title}</span>
+            {job.package_title && (
+              <span className="text-[10px] text-muted-foreground truncate max-w-[120px]">📦 {job.package_title}</span>
             )}
           </div>
         </div>
