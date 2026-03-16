@@ -56,8 +56,8 @@ function useShardProgress(packageId: string) {
           .maybeSingle(),
       ]);
       return {
-        shards: (detailRes.data ?? []) as ShardRow[],
-        summary: summaryRes.data as ShardSummary | null,
+        shards: (detailRes.data ?? []) as unknown as ShardRow[],
+        summary: summaryRes.data as unknown as ShardSummary | null,
       };
     },
     refetchInterval: 8_000,
