@@ -146,6 +146,7 @@ export default function OpsPage() {
           <Route path="course-naming" element={<CourseNamingIntegrityPanel />} />
           <Route path="failure-integrity" element={<JobFailureIntegrityPanel />} />
           <Route path="v2-loop-debug" element={<V2LoopDebugPage />} />
+          <Route path="reentry-misses" element={<ReentryMissesPanel />} />
         </Routes>
       </Suspense>
     </div>
