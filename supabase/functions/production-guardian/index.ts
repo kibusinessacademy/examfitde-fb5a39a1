@@ -739,6 +739,191 @@ Deno.serve(async (req) => {
     // frozenCount already fetched above in section 5
 
     // ═══════════════════════════════════════════════════════════════
+    // 10.5 G1: PROGRESS GUARD — detect shadow-stalled packages
+    // ═══════════════════════════════════════════════════════════════
+    try {
+      const { data: progressData } = await sb
+        .from("v_ops_package_progress_guard")
+        .select("*")
+        .in("progress_state", ["SHADOW_STALLED", "SLOWING"]);
+
+      const shadowStalled = (progressData ?? []).filter((p: any) => p.progress_state === "SHADOW_STALLED");
+
+      if (shadowStalled.length > 0) {
+        // Dedup: check if we already alerted in the last 30 min
+        const thirtyMinAgo = new Date(Date.now() - 30 * 60_000).toISOString();
+        const { data: recentAlert } = await sb.from("admin_notifications")
+          .select("id")
+          .eq("category", "pipeline")
+          .ilike("title", "%SHADOW_STALLED%")
+          .gte("created_at", thirtyMinAgo)
+          .limit(1);
+
+        if (!recentAlert || recentAlert.length === 0) {
+          const pkgNames = shadowStalled.map((p: any) => `${p.title} (${p.active_jobs} jobs, 0 completions)`).join(", ");
+          await sb.from("admin_notifications").insert({
+            title: `🚨 SHADOW_STALLED: ${shadowStalled.length} Paket(e) aktiv ohne Fortschritt`,
+            body: `Pakete haben aktive Jobs/Leases aber seit >30min keinen echten Output: ${pkgNames}`,
+            category: "pipeline",
+            severity: "critical",
+            entity_type: "progress_guard",
+          });
+          warnings.push(`G1: SHADOW_STALLED — ${shadowStalled.length} packages: ${pkgNames}`);
+        }
+
+        // Log each stalled package
+        for (const pkg of shadowStalled) {
+          await sb.from("auto_heal_log").insert({
+            action_type: "progress_guard_shadow_stalled",
+            target_type: "course_package",
+            target_id: pkg.package_id,
+            trigger_source: "production-guardian",
+            result_status: "detected",
+            result_detail: JSON.stringify(pkg),
+            metadata: pkg,
+          });
+        }
+      }
+    } catch (e) {
+      console.error("[Guardian] G1 progress guard error:", (e as Error).message);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 10.6 G2: BATCH SUBMIT HEALTH GUARD — detect submit failures
+    // ═══════════════════════════════════════════════════════════════
+    try {
+      const { data: batchHealth } = await sb
+        .from("v_ops_batch_submit_health")
+        .select("*")
+        .in("submit_health", ["CRITICAL", "DEGRADED"]);
+
+      const criticalSubmits = (batchHealth ?? []).filter((b: any) => b.submit_health === "CRITICAL");
+      const degradedSubmits = (batchHealth ?? []).filter((b: any) => b.submit_health === "DEGRADED");
+
+      if (criticalSubmits.length > 0 || degradedSubmits.length > 0) {
+        const thirtyMinAgo = new Date(Date.now() - 30 * 60_000).toISOString();
+        const { data: recentAlert } = await sb.from("admin_notifications")
+          .select("id")
+          .eq("category", "pipeline")
+          .ilike("title", "%BATCH_SUBMIT%")
+          .gte("created_at", thirtyMinAgo)
+          .limit(1);
+
+        if (!recentAlert || recentAlert.length === 0) {
+          const severity = criticalSubmits.length > 0 ? "critical" : "warning";
+          const details = [...criticalSubmits, ...degradedSubmits]
+            .map((b: any) => `${b.provider}/${b.model}: ${b.failure_pct}% fail (${b.failed}/${b.total})`)
+            .join("; ");
+          
+          await sb.from("admin_notifications").insert({
+            title: `🚨 BATCH_SUBMIT_FAILURE: ${criticalSubmits.length} critical, ${degradedSubmits.length} degraded`,
+            body: `Batch-Submit-Fehlerrate zu hoch: ${details}. Sample: ${(criticalSubmits[0] || degradedSubmits[0])?.sample_error?.slice(0, 200)}`,
+            category: "pipeline",
+            severity,
+            entity_type: "batch_submit_guard",
+          });
+          warnings.push(`G2: BATCH_SUBMIT — ${details}`);
+        }
+      }
+    } catch (e) {
+      console.error("[Guardian] G2 batch submit guard error:", (e as Error).message);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 10.7 G3: HEALTH VIEW → NOTIFICATION BRIDGE
+    // ═══════════════════════════════════════════════════════════════
+    try {
+      const { data: recoveryHealth } = await sb
+        .from("v_ops_batch_recovery_health")
+        .select("*")
+        .limit(1)
+        .maybeSingle();
+
+      if (recoveryHealth) {
+        const redFields: string[] = [];
+        for (const field of ["polling_health", "import_health", "output_health", "routing_health", "queue_health", "overall_health"]) {
+          if ((recoveryHealth as any)[field] === "RED") {
+            redFields.push(field);
+          }
+        }
+
+        if (redFields.length > 0) {
+          const thirtyMinAgo = new Date(Date.now() - 30 * 60_000).toISOString();
+          const { data: recentAlert } = await sb.from("admin_notifications")
+            .select("id")
+            .eq("category", "pipeline")
+            .ilike("title", "%HEALTH_RED%")
+            .gte("created_at", thirtyMinAgo)
+            .limit(1);
+
+          if (!recentAlert || recentAlert.length === 0) {
+            await sb.from("admin_notifications").insert({
+              title: `🔴 HEALTH_RED: ${redFields.join(", ")}`,
+              body: `Batch Recovery Health zeigt RED für: ${redFields.join(", ")}. Overall: ${recoveryHealth.overall_health}. Output 90m: content=${recoveryHealth.content_versions_90m}, exam=${recoveryHealth.exam_questions_90m}, lessons=${recoveryHealth.lesson_jobs_completed_90m}`,
+              category: "pipeline",
+              severity: "critical",
+              entity_type: "health_bridge",
+            });
+            warnings.push(`G3: HEALTH_RED — ${redFields.join(", ")}`);
+          }
+        }
+      }
+    } catch (e) {
+      console.error("[Guardian] G3 health bridge error:", (e as Error).message);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 10.8 G4: SHADOW ZOMBIE DETECTION
+    // ═══════════════════════════════════════════════════════════════
+    try {
+      const { data: zombies } = await sb
+        .from("v_ops_shadow_zombies")
+        .select("*")
+        .in("zombie_class", ["SHADOW_ZOMBIE", "POISONED_LOOP", "HARD_STALLED"]);
+
+      const realZombies = (zombies ?? []).filter((z: any) => z.zombie_class !== "UNKNOWN");
+
+      if (realZombies.length > 0) {
+        const thirtyMinAgo = new Date(Date.now() - 30 * 60_000).toISOString();
+        const { data: recentAlert } = await sb.from("admin_notifications")
+          .select("id")
+          .eq("category", "pipeline")
+          .ilike("title", "%ZOMBIE%")
+          .gte("created_at", thirtyMinAgo)
+          .limit(1);
+
+        if (!recentAlert || recentAlert.length === 0) {
+          const details = realZombies.map((z: any) => 
+            `${z.title}: ${z.zombie_class} (jobs=${z.active_jobs}, completed_1h=${z.completed_jobs_1h}, batch_fails=${z.batch_submit_fails_1h})`
+          ).join("; ");
+
+          await sb.from("admin_notifications").insert({
+            title: `🧟 ZOMBIE: ${realZombies.length} Paket(e) mit ${realZombies.map((z:any) => z.zombie_class).join("/")}`,
+            body: details,
+            category: "pipeline",
+            severity: "critical",
+            entity_type: "zombie_guard",
+          });
+          warnings.push(`G4: ZOMBIE — ${details}`);
+        }
+
+        for (const z of realZombies) {
+          await sb.from("auto_heal_log").insert({
+            action_type: `zombie_detected_${z.zombie_class.toLowerCase()}`,
+            target_type: "course_package",
+            target_id: z.package_id,
+            trigger_source: "production-guardian",
+            result_status: "detected",
+            result_detail: JSON.stringify(z),
+            metadata: z,
+          });
+        }
+      }
+    } catch (e) {
+      console.error("[Guardian] G4 zombie guard error:", (e as Error).message);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
     // 11. QUEUE STATS SNAPSHOT
     // ═══════════════════════════════════════════════════════════════
     const counts: Record<string, number> = {};
