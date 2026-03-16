@@ -65,6 +65,10 @@ export default function AdminControlTowerPage() {
         <ReadinessSummaryCard />
         <CapacityCard />
       </div>
+
+      <div className="mt-6">
+        <ProblemPackagesCard />
+      </div>
     </>
   );
 }
