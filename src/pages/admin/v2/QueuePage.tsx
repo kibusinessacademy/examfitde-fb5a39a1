@@ -130,7 +130,7 @@ export default function QueuePage() {
       list = list.filter(j =>
         j.job_type.toLowerCase().includes(q) ||
         j.job_id.toLowerCase().includes(q) ||
-        (j.package_raw_title || '').toLowerCase().includes(q) ||
+        (j.package_title || '').toLowerCase().includes(q) ||
         (j.last_error || '').toLowerCase().includes(q)
       );
     }
