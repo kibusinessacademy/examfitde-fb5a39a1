@@ -39785,7 +39785,7 @@ export type Database = {
         Args: {
           p_actor_user_id?: string
           p_package_id: string
-          p_reason: string
+          p_reason?: string
           p_trigger_source?: string
         }
         Returns: Json
