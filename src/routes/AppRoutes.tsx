@@ -55,7 +55,17 @@ const FAQPage = lazy(() => import('@/pages/seo/FAQPage'));
 const DatenschutzPage = lazy(() => import('@/pages/seo/DatenschutzPage'));
 const ImpressumPage = lazy(() => import('@/pages/seo/ImpressumPage'));
 
-// Admin V4 Module Pages
+// Admin V2 SSOT Pages
+const AdminV2Layout = lazy(() => import('@/components/admin/v2/AdminV2Layout'));
+const LeitstellePage = lazy(() => import('@/pages/admin/v2/LeitstellePage'));
+const KursePage = lazy(() => import('@/pages/admin/v2/KursePage'));
+const QueuePage = lazy(() => import('@/pages/admin/v2/QueuePage'));
+const AdminDeactivatedPage = lazy(() => import('@/components/admin/v2/AdminDeactivatedPage'));
+
+// Keep CourseWorkspace for detail view
+const CourseWorkspace = lazy(() => import('@/pages/admin/CourseWorkspace'));
+
+// Legacy admin pages (kept for lazy reference only)
 const CommandPage = lazy(() => import('@/pages/admin/v4/CommandPage'));
 const StudioPage = lazy(() => import('@/pages/admin/v4/StudioPage'));
 const QualityPage = lazy(() => import('@/pages/admin/v4/QualityPage'));
@@ -86,7 +96,7 @@ const FactoryExecutiveDashboard = lazy(() => import('@/pages/admin/factory/Facto
 const QualificationDiscoveryPage = lazy(() => import('@/pages/admin/intake/QualificationDiscoveryPage'));
 const CurriculumIntakePage = lazy(() => import('@/pages/admin/intake/CurriculumIntakePage'));
 
-// Control Tower Pages (new SSOT Leitzentrale)
+// Control Tower Pages
 const AdminControlTowerPage = lazy(() => import('@/pages/admin/AdminControlTowerPage'));
 const SystemContractAuditPage = lazy(() => import('@/pages/admin/control/SystemContractAuditPage'));
 const SyntheticProbeCenterPage = lazy(() => import('@/pages/admin/control/SyntheticProbeCenterPage'));
