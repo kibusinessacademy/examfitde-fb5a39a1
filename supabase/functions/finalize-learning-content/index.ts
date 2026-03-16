@@ -41,6 +41,35 @@ function json(body: unknown, status = 200) {
   });
 }
 
+/** SSOT: job_type → step_key (inverted from STEP_TO_JOB_TYPE in job-map.ts) */
+const JOB_TYPE_TO_STEP_KEY: Record<string, string> = {
+  package_scaffold_learning_course: "scaffold_learning_course",
+  package_generate_glossary: "generate_glossary",
+  package_fanout_learning_content: "fanout_learning_content",
+  lesson_generate_content_shard: "generate_learning_content",
+  package_finalize_learning_content: "finalize_learning_content",
+  package_validate_learning_content: "validate_learning_content",
+  package_auto_seed_exam_blueprints: "auto_seed_exam_blueprints",
+  package_validate_blueprints: "validate_blueprints",
+  package_generate_exam_pool: "generate_exam_pool",
+  package_validate_exam_pool: "validate_exam_pool",
+  package_build_ai_tutor_index: "build_ai_tutor_index",
+  package_validate_tutor_index: "validate_tutor_index",
+  package_generate_oral_exam: "generate_oral_exam",
+  package_validate_oral_exam: "validate_oral_exam",
+  package_generate_lesson_minichecks: "generate_lesson_minichecks",
+  package_validate_lesson_minichecks: "validate_lesson_minichecks",
+  package_generate_handbook: "generate_handbook",
+  package_validate_handbook: "validate_handbook",
+  package_enqueue_handbook_expand: "enqueue_handbook_expand",
+  handbook_expand_section: "expand_handbook",
+  package_validate_handbook_depth: "validate_handbook_depth",
+  package_elite_harden: "elite_harden",
+  package_run_integrity_check: "run_integrity_check",
+  package_quality_council: "quality_council",
+  package_auto_publish: "auto_publish",
+};
+
 /**
  * Enqueue a downstream job only if no active instance exists.
  * Prevents duplicate fan-outs when finalize runs multiple times.
@@ -63,18 +92,20 @@ async function enqueueJobOnce(sb: any, opts: Parameters<typeof enqueueJob>[1]): 
       return false;
     }
 
-    // Also check if step is already done
-    const stepKey = opts.job_type.replace(/^package_/, "").replace(/_/g, "_");
-    const { data: step } = await sb
-      .from("package_steps")
-      .select("status")
-      .eq("package_id", packageId)
-      .eq("step_key", stepKey)
-      .maybeSingle();
+    // Also check if step is already done — use explicit SSOT mapping
+    const stepKey = JOB_TYPE_TO_STEP_KEY[opts.job_type];
+    if (stepKey) {
+      const { data: step } = await sb
+        .from("package_steps")
+        .select("status")
+        .eq("package_id", packageId)
+        .eq("step_key", stepKey)
+        .maybeSingle();
 
-    if (step && step.status === "done") {
-      console.log(`[finalize] SKIP: step ${stepKey} already done for ${packageId.slice(0, 8)}`);
-      return false;
+      if (step && step.status === "done") {
+        console.log(`[finalize] SKIP: step ${stepKey} already done for ${packageId.slice(0, 8)}`);
+        return false;
+      }
     }
   }
 
