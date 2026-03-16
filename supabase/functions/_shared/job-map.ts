@@ -251,7 +251,10 @@ export interface JobDefinition {
  */
 export const JOB_DEFINITIONS: Record<string, JobDefinition> = {
   // ── content / heavy ─────────────────────────────────────────
+  package_fanout_learning_content:   { pool: "core", edgeFunction: "fanout-learning-content" },
   package_generate_learning_content: { pool: "content", edgeFunction: "package-generate-learning-content" },
+  lesson_generate_content_shard:     { pool: "content", edgeFunction: "lesson-generate-content-shard" },
+  package_finalize_learning_content: { pool: "core", edgeFunction: "finalize-learning-content" },
   package_generate_handbook:         { pool: "content", edgeFunction: "package-generate-handbook" },
   package_generate_glossary:         { pool: "content", edgeFunction: "package-generate-glossary" },
   package_generate_oral_exam:        { pool: "content", edgeFunction: "package-generate-oral-exam" },
