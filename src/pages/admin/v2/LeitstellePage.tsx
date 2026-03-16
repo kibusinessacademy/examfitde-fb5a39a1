@@ -7,7 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Link } from 'react-router-dom';
 import {
   Activity, AlertTriangle, CheckCircle2, XCircle, Clock,
-  Package, Zap, Shield, ArrowRight, Cpu
+  Package, Zap, Shield, ArrowRight, Cpu, ListChecks
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
