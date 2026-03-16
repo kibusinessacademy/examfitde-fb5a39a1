@@ -62,6 +62,7 @@ const tabs = [
   { path: '/admin/ops/course-naming', label: '📛 Course Naming' },
   { path: '/admin/ops/failure-integrity', label: '🛡️ Failure Integrity' },
   { path: '/admin/ops/v2-loop-debug', label: '🧪 V2 Loop Debug' },
+  { path: '/admin/ops/reentry-misses', label: '⚠️ Re-Entry Misses' },
 ];
 
 export default function OpsPage() {
