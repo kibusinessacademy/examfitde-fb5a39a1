@@ -41675,6 +41675,12 @@ export type Database = {
             Returns: string[]
           }
         | {
+            Args: { p_job_id: string; p_lesson_ids: string[] }
+            Returns: {
+              id: string
+            }[]
+          }
+        | {
             Args: {
               p_course_id: string
               p_job_id: string
