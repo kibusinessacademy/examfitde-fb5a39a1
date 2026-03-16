@@ -897,10 +897,13 @@ Deno.serve(async (req) => {
         if (redFields.length > 0) {
           const thirtyMinAgo = new Date(Date.now() - 30 * 60_000).toISOString();
           const fingerprint = `health_red:${redFields.sort().join(",")}`;
+          // Fingerprint-specific dedupe: filter by entity_id = sorted RED fields
+          const entityId = redFields.sort().join(",");
           const { data: existing } = await sb.from("admin_notifications")
             .select("id")
             .eq("category", "pipeline")
             .eq("entity_type", "health_bridge")
+            .eq("entity_id", entityId)
             .gte("created_at", thirtyMinAgo)
             .limit(1);
 
@@ -911,6 +914,7 @@ Deno.serve(async (req) => {
               category: "pipeline",
               severity: "critical",
               entity_type: "health_bridge",
+              entity_id: entityId,
               metadata: { ...recoveryHealth, fingerprint, red_fields: redFields },
             });
             warnings.push(`G3: HEALTH_RED — ${redFields.join(", ")}`);
