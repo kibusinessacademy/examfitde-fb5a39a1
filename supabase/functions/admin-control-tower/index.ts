@@ -605,3 +605,8 @@ async function getDashboard(sb: SB) {
     },
   };
 }
+
+async function getExecutiveKpis(sb: SB) {
+  const rows = await safeFrom(sb, "v_ops_executive_kpis", "*");
+  return rows[0] ?? {};
+}
