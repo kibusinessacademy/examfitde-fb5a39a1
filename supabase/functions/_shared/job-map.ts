@@ -36,7 +36,9 @@ export type PipelineStepKey =
 export const STEP_TO_JOB_TYPE: Record<PipelineStepKey, string> = {
   scaffold_learning_course: "package_scaffold_learning_course",
   generate_glossary: "package_generate_glossary",
+  fanout_learning_content: "package_fanout_learning_content",
   generate_learning_content: "package_generate_learning_content",
+  finalize_learning_content: "package_finalize_learning_content",
   validate_learning_content: "package_validate_learning_content",
   auto_seed_exam_blueprints: "package_auto_seed_exam_blueprints",
   validate_blueprints: "package_validate_blueprints",
