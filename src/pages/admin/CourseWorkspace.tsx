@@ -182,16 +182,37 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
   const failedSteps = buildSteps.filter((s: any) => s.status === 'failed');
   const runningStep = buildSteps.find((s: any) => s.status === 'running');
   const currentStepIdx = runningStep ? PIPELINE_STEPS.findIndex(s => s.key === runningStep.step_key) : failedSteps.length > 0 ? PIPELINE_STEPS.findIndex(s => s.key === failedSteps[0].step_key) : doneCount > 0 ? doneCount - 1 : -1;
-  const healthScore = Math.max(0, Math.round((pkg.integrity_passed ? 30 : 0) + (pkg.council_approved ? 10 : 0) + (doneCount / Math.max(totalCount, 1) * 40) + (failedSteps.length === 0 ? 20 : Math.max(0, 20 - failedSteps.length * 5))));
-  const canPublish = pkg.integrity_passed && pkg.council_approved && buildSteps.every((s: any) => s.status === 'done');
+  // SSOT-first: derive health and publish readiness from canonical view, not step history
+  const councilComplete = ssot?.council_complete ?? false;
+  const councilApproved = ssot?.council_approved ?? pkg.council_approved ?? false;
+  const integrityPassed = ssot?.integrity_passed ?? pkg.integrity_passed ?? false;
+  const hasStalePublish = ssot?.has_stale_publish ?? false;
+  const hasPublishDrift = ssot?.has_publish_drift ?? false;
+  const isStuck = ssot?.is_stuck ?? false;
+
+  const releaseState = pkg.status === 'published' && !hasPublishDrift
+    ? 'published'
+    : pkg.status === 'published' && hasPublishDrift
+    ? 'publish_drift'
+    : pkg.status === 'council_review'
+    ? 'council_review'
+    : integrityPassed && councilApproved
+    ? 'ready_to_publish'
+    : pkg.status === 'building'
+    ? 'building'
+    : 'blocked';
+
+  const healthScore = Math.max(0, Math.round(
+    (integrityPassed ? 30 : 0) +
+    (councilApproved ? 15 : councilComplete ? 5 : 0) +
+    (doneCount / Math.max(totalCount, 1) * 35) +
+    (failedSteps.length === 0 ? 20 : Math.max(0, 20 - failedSteps.length * 5)) +
+    (hasStalePublish ? -10 : 0) +
+    (hasPublishDrift ? -15 : 0)
+  ));
+  const canPublish = integrityPassed && councilApproved && !hasPublishDrift && buildSteps.every((s: any) => s.status === 'done');
   const isBuilding = pkg.status === 'building';
   const progressPct = buildSteps.length > 0 ? Math.round((doneCount / Math.max(totalCount, 1)) * 100) : (pkg.build_progress || 0);
-
-  return (
-    <div className="space-y-4 sm:space-y-6">
-      <div className="flex items-center">
-        <Button variant="ghost" size="sm" onClick={onBack} className="shrink-0"><ArrowLeft className="h-4 w-4 mr-1" /> Kursliste</Button>
-      </div>
 
       {/* ── Workspace Header Card ─────────────────────────── */}
       <Card className="border-border/50">
