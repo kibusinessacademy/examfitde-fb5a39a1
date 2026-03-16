@@ -339,17 +339,56 @@ Deno.serve(async (req) => {
 
     const healableLessonIds = failedLessonIds.filter((id: string) => !exhaustedShardLessonIds.has(id));
     if (healableLessonIds.length > 0) {
-      // Reset orphan failed lessons to pending so next shard retry picks them up
+      // Reset orphan failed lessons to pending
       await sb
         .from("lessons")
         .update({ generation_status: "pending", generation_job_id: null, generation_claimed_at: null })
         .in("id", healableLessonIds);
 
+      // Find and re-activate the shards that own these lessons so workers pick them up
+      const healableSet = new Set(healableLessonIds);
+      for (const shard of allShards) {
+        if (shard.status !== "completed" && shard.status !== "processing" && shard.status !== "pending") {
+          const shardLessonIds: string[] = shard.meta?.lesson_ids || [];
+          const hasHealable = shardLessonIds.some((lid: string) => healableSet.has(lid));
+          if (hasHealable) {
+            const retryCount = Number(shard.meta?.retry_count || 0);
+            if (retryCount < MAX_SHARD_RETRIES) {
+              await sb
+                .from("package_content_shards")
+                .update({
+                  status: "pending",
+                  last_error: null,
+                  updated_at: new Date().toISOString(),
+                  meta: { ...(shard.meta || {}), retry_count: retryCount + 1, last_requeued_at: new Date().toISOString() },
+                })
+                .eq("id", shard.id);
+
+              await enqueueJob(sb, {
+                job_type: "lesson_generate_content_shard",
+                package_id: packageId,
+                payload: {
+                  package_id: packageId,
+                  course_id: courseId,
+                  curriculum_id: curriculumId,
+                  learning_field_id: shard.learning_field_id,
+                  chunk_index: shard.chunk_index,
+                  fanout_id: fanoutId,
+                  lesson_ids: shardLessonIds,
+                },
+                priority: 12,
+                max_attempts: 5,
+              });
+            }
+          }
+        }
+      }
+
       return json({
         ok: true,
         batch_complete: false,
         transient: true,
-        message: `Reset ${healableLessonIds.length} healable failed lessons to pending`,
+        message: `Reset ${healableLessonIds.length} healable failed lessons + re-activated parent shards`,
       });
     }
     // If all failed lessons are from exhausted shards, accept and proceed

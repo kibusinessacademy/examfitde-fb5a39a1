@@ -193,10 +193,10 @@ Deno.serve(async (req) => {
 
     for (const [, lesson] of lessonMap) {
       if (hasUsableContent(lesson.content) && lesson.generation_status !== "failed") {
-        // Already has good content — mark as generated (don't touch content_version)
+        // Already has good content — mark as generated + clear stale claim fields
         await sb
           .from("lessons")
-          .update({ generation_status: "generated" })
+          .update({ generation_status: "generated", generation_job_id: null, generation_claimed_at: null })
           .eq("id", lesson.id);
         skippedWithContent++;
       } else if (claimedLessonIds.includes(lesson.id)) {
