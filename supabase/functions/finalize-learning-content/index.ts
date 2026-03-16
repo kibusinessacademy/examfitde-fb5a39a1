@@ -397,44 +397,49 @@ Deno.serve(async (req) => {
     `${withContent}/${totalLessons} lessons, avg_len=${avgLength}`,
   );
 
-  // Mark fanout_learning_content as done
+  const now = new Date().toISOString();
+
+  // Mark fanout_learning_content as done (upsert — safe if row doesn't exist yet)
   await sb
     .from("package_steps")
-    .update({ status: "done", updated_at: new Date().toISOString() })
-    .eq("package_id", packageId)
-    .eq("step_key", "fanout_learning_content");
+    .upsert({
+      package_id: packageId,
+      step_key: "fanout_learning_content",
+      status: "done",
+      updated_at: now,
+    }, { onConflict: "package_id,step_key" });
 
   // Mark generate_learning_content as done
   await sb
     .from("package_steps")
-    .update({
+    .upsert({
+      package_id: packageId,
+      step_key: "generate_learning_content",
       status: "done",
-      updated_at: new Date().toISOString(),
+      updated_at: now,
       meta: {
         fanout_id: fanoutId,
         total_shards: totalShards,
         total_lessons: totalLessons,
         good_lessons: withContent,
         avg_length: avgLength,
-        finalized_at: new Date().toISOString(),
+        finalized_at: now,
       },
-    })
-    .eq("package_id", packageId)
-    .eq("step_key", "generate_learning_content");
+    }, { onConflict: "package_id,step_key" });
 
   // Mark finalize_learning_content as done
   await sb
     .from("package_steps")
-    .update({
+    .upsert({
+      package_id: packageId,
+      step_key: "finalize_learning_content",
       status: "done",
-      updated_at: new Date().toISOString(),
+      updated_at: now,
       meta: {
         fanout_id: fanoutId,
-        finalized_at: new Date().toISOString(),
+        finalized_at: now,
       },
-    })
-    .eq("package_id", packageId)
-    .eq("step_key", "finalize_learning_content");
+    }, { onConflict: "package_id,step_key" });
 
   // ── 9. Enqueue downstream — deduplicated via enqueueJobOnce ──
   const downstreamJobs = [
