@@ -66,6 +66,7 @@ const tabs = [
   { path: '/admin/ops/v2-loop-debug', label: '🧪 V2 Loop Debug' },
   { path: '/admin/ops/reentry-misses', label: '⚠️ Re-Entry Misses' },
   { path: '/admin/ops/pipeline-map', label: '🗺️ Pipeline Map' },
+  { path: '/admin/ops/executive', label: '📊 Executive Report' },
 ];
 
 export default function OpsPage() {
