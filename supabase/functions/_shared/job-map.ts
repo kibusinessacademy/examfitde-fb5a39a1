@@ -8,7 +8,9 @@
 export type PipelineStepKey =
   | "scaffold_learning_course"
   | "generate_glossary"
+  | "fanout_learning_content"
   | "generate_learning_content"
+  | "finalize_learning_content"
   | "validate_learning_content"
   | "auto_seed_exam_blueprints"
   | "validate_blueprints"
