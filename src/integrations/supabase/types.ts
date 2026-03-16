@@ -36710,26 +36710,34 @@ export type Database = {
           cost_24h_eur: number | null
           cost_7d_eur: number | null
           cost_total_eur: number | null
-          eta_days: number | null
-          first_pass_jobs_24h: number | null
+          eta_definition: string | null
+          first_pass_completed_24h: number | null
+          first_pass_yield_definition: string | null
           first_pass_yield_pct: number | null
           first_pass_yield_signal: string | null
+          jobs_per_package_definition: string | null
           jobs_per_package_signal: string | null
           max_slots: number | null
           median_jobs_per_package: number | null
+          observed_eta_days: number | null
           overall_signal: string | null
           pkg_blocked: number | null
           pkg_building: number | null
-          pkg_completed: number | null
+          pkg_done: number | null
           pkg_failed: number | null
+          pkg_published: number | null
           pkg_queued: number | null
           pkg_total: number | null
+          planning_eta_days: number | null
+          runner_utilization_definition: string | null
           runner_utilization_pct: number | null
           runner_utilization_signal: string | null
           throughput_2h: number | null
           throughput_per_hour: number | null
+          total_cancelled_24h: number | null
           total_completed_24h: number | null
           total_failed_24h: number | null
+          total_terminal_24h: number | null
         }
         Relationships: []
       }
