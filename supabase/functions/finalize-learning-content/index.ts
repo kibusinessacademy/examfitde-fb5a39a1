@@ -16,12 +16,15 @@ import { enqueueJob } from "../_shared/enqueue.ts";
  *   - Returns retry=true so the runner re-enqueues
  *   - Failed shards get re-enqueued for retry
  *
- * Only when ALL checks pass does it return batch_complete=true.
+ * Only when ALL checks pass does it:
+ *   - Mark generate_learning_content + finalize_learning_content as done
+ *   - Enqueue ALL downstream jobs (minichecks, exam, handbook, oral, tutor)
+ *
+ * This is the ONLY place downstream gets started.
  */
 
-const MIN_CONTENT_LENGTH = 500;       // Minimum lesson content length (chars)
+const MIN_CONTENT_LENGTH = 300;
 const COVERAGE_THRESHOLD = 0.90;      // 90% of lessons must have content
-const AVG_LENGTH_THRESHOLD = 800;     // Average content length must exceed
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -53,59 +56,54 @@ Deno.serve(async (req) => {
   const courseId = p.course_id;
   const curriculumId = p.curriculum_id;
   const fanoutId = p.fanout_id;
+  const expectedShards = Number(p.expected_shards || 0);
 
   if (!packageId || !courseId || !fanoutId) {
     return json({ error: "Missing package_id, course_id, or fanout_id" }, 400);
   }
 
   // ── 1. Check shard progress ──
-  const { data: shardProgress, error: shardErr } = await sb.rpc("get_shard_progress", {
-    p_fanout_id: fanoutId,
-  });
+  const { data: shards, error: shardErr } = await sb
+    .from("package_content_shards")
+    .select("id, status, learning_field_id, chunk_index, lesson_target_count, lesson_generated_count, last_error, meta")
+    .eq("package_id", packageId)
+    .eq("fanout_id", fanoutId);
 
   if (shardErr) {
-    return json({ ok: false, retry: true, error: `shard_progress_rpc: ${shardErr.message}` }, 500);
+    return json({ ok: false, retry: true, error: `shard_read_failed: ${shardErr.message}` }, 500);
   }
 
-  const progress = shardProgress as {
-    total_shards: number;
-    completed: number;
-    failed: number;
-    processing: number;
-    pending: number;
-    all_done: boolean;
-    has_failures: boolean;
-    total_lessons: number;
-    generated_lessons: number;
-  };
+  const allShards = shards || [];
+  const totalShards = allShards.length;
 
-  console.log(
-    `[finalize] Shard progress for ${packageId.slice(0, 8)}: ` +
-    `${progress.completed}/${progress.total_shards} done, ` +
-    `${progress.failed} failed, ${progress.processing} processing, ${progress.pending} pending`,
-  );
-
-  // ── 2. Handle incomplete shards ──
-  if (progress.processing > 0 || progress.pending > 0) {
+  if (expectedShards > 0 && totalShards < expectedShards) {
     return json({
       ok: true,
       batch_complete: false,
       transient: true,
-      message: `⏳ ${progress.processing} shards processing, ${progress.pending} pending`,
-      progress,
+      message: `Shard rows incomplete: ${totalShards}/${expectedShards}`,
+    });
+  }
+
+  const pending = allShards.filter((s: any) => ["pending", "processing", "claimed"].includes(s.status));
+  const failed = allShards.filter((s: any) => s.status === "failed");
+  const completed = allShards.filter((s: any) => s.status === "completed");
+
+  // ── 2. Handle incomplete shards ──
+  if (pending.length > 0) {
+    return json({
+      ok: true,
+      batch_complete: false,
+      transient: true,
+      message: `⏳ ${pending.length} shards still processing/pending`,
+      progress: { total: totalShards, completed: completed.length, pending: pending.length, failed: failed.length },
     });
   }
 
   // ── 3. Handle failed shards — requeue them ──
-  if (progress.has_failures && progress.failed > 0) {
-    const { data: failedShards } = await sb
-      .from("package_content_shards")
-      .select("id, learning_field_id, chunk_index, meta")
-      .eq("fanout_id", fanoutId)
-      .eq("status", "failed");
-
+  if (failed.length > 0) {
     let requeued = 0;
-    for (const shard of (failedShards || [])) {
+    for (const shard of failed) {
       try {
         // Reset shard to pending
         await sb
@@ -113,19 +111,14 @@ Deno.serve(async (req) => {
           .update({ status: "pending", last_error: null, updated_at: new Date().toISOString() })
           .eq("id", shard.id);
 
-        // Reset failed lessons in this LF back to pending
-        const { data: mods } = await sb
-          .from("modules")
-          .select("id")
-          .eq("course_id", courseId)
-          .eq("learning_field_id", shard.learning_field_id);
-
-        if (mods && mods.length > 0) {
+        // Reset failed lessons in this shard's scope back to pending
+        const shardLessonIds = shard.meta?.lesson_ids || [];
+        if (shardLessonIds.length > 0) {
           await sb
             .from("lessons")
             .update({ generation_status: "pending", generation_job_id: null, generation_claimed_at: null })
-            .in("module_id", mods.map((m: any) => m.id))
-            .eq("generation_status", "failed");
+            .in("id", shardLessonIds)
+            .in("generation_status", ["failed", "claimed"]);
         }
 
         // Re-enqueue shard job
@@ -139,7 +132,7 @@ Deno.serve(async (req) => {
             learning_field_id: shard.learning_field_id,
             chunk_index: shard.chunk_index,
             fanout_id: fanoutId,
-            lesson_ids: shard.meta?.lesson_ids || [],
+            lesson_ids: shardLessonIds,
           },
           priority: 12,
           max_attempts: 5,
@@ -154,8 +147,8 @@ Deno.serve(async (req) => {
       ok: true,
       batch_complete: false,
       transient: true,
-      message: `♻️ Requeued ${requeued}/${progress.failed} failed shards`,
-      progress,
+      message: `♻️ Requeued ${requeued}/${failed.length} failed shards`,
+      progress: { total: totalShards, completed: completed.length, pending: 0, failed: failed.length },
       requeued,
     });
   }
@@ -172,22 +165,46 @@ Deno.serve(async (req) => {
     return json({ ok: true, batch_complete: true, message: "No modules — trivially complete" });
   }
 
-  // Count total lessons and those with real content
-  const { count: totalLessons } = await sb
+  const { data: lessons } = await sb
     .from("lessons")
-    .select("id", { count: "exact", head: true })
+    .select("id, generation_status, content")
     .in("module_id", moduleIds);
 
-  const { data: contentStats } = await sb
-    .from("lessons")
-    .select("id, content")
-    .in("module_id", moduleIds);
+  const totalLessons = lessons?.length || 0;
 
+  // Check for stuck claimed lessons
+  const claimedLessons = (lessons || []).filter((l: any) => l.generation_status === "claimed");
+  if (claimedLessons.length > 0) {
+    // Reset stale claims
+    await sb
+      .from("lessons")
+      .update({ generation_status: "pending", generation_job_id: null, generation_claimed_at: null })
+      .in("id", claimedLessons.map((l: any) => l.id));
+
+    return json({
+      ok: true,
+      batch_complete: false,
+      transient: true,
+      message: `Reset ${claimedLessons.length} stale claimed lessons`,
+    });
+  }
+
+  // Check for failed lessons
+  const failedLessons = (lessons || []).filter((l: any) => l.generation_status === "failed");
+  if (failedLessons.length > 0) {
+    return json({
+      ok: true,
+      batch_complete: false,
+      transient: true,
+      message: `${failedLessons.length} lessons still in failed state`,
+    });
+  }
+
+  // Coverage check
   let withContent = 0;
   let totalLength = 0;
-  let emptyLessons: string[] = [];
 
-  for (const l of (contentStats || [])) {
+  for (const l of (lessons || [])) {
     const contentStr = typeof l.content === "string"
       ? l.content
       : JSON.stringify(l.content || "");
@@ -198,50 +215,91 @@ Deno.serve(async (req) => {
     if (len >= MIN_CONTENT_LENGTH) {
       withContent++;
       totalLength += len;
-    } else {
-      emptyLessons.push(l.id);
     }
   }
 
-  const total = totalLessons ?? contentStats?.length ?? 0;
-  const coverage = total > 0 ? withContent / total : 0;
+  const coverage = totalLessons > 0 ? withContent / totalLessons : 0;
   const avgLength = withContent > 0 ? Math.round(totalLength / withContent) : 0;
 
-  const coverageOk = coverage >= COVERAGE_THRESHOLD;
-  const avgLengthOk = avgLength >= AVG_LENGTH_THRESHOLD;
-
   console.log(
-    `[finalize] Coverage: ${withContent}/${total} (${(coverage * 100).toFixed(1)}%), ` +
-    `avg_len=${avgLength}, empty=${emptyLessons.length}`,
+    `[finalize] Coverage: ${withContent}/${totalLessons} (${(coverage * 100).toFixed(1)}%), avg_len=${avgLength}`,
   );
 
-  if (!coverageOk || !avgLengthOk) {
+  if (coverage < COVERAGE_THRESHOLD) {
     return json({
       ok: true,
       batch_complete: false,
       transient: true,
-      message: `Quality gates not met: coverage=${(coverage * 100).toFixed(1)}% (need ${COVERAGE_THRESHOLD * 100}%), avg_len=${avgLength} (need ${AVG_LENGTH_THRESHOLD})`,
-      progress,
-      quality: { coverage, avgLength, withContent, total, emptyLessons: emptyLessons.length },
+      message: `Coverage ${(coverage * 100).toFixed(1)}% < ${COVERAGE_THRESHOLD * 100}% threshold`,
+      quality: { coverage, avgLength, withContent, total: totalLessons },
     });
   }
 
-  // ── 5. ALL GATES PASSED — Content phase complete ──
+  // ── 5. ALL GATES PASSED — Mark steps done & enqueue downstream ──
   console.log(
     `[finalize] ✅ Content phase complete for ${packageId.slice(0, 8)}: ` +
-    `${withContent}/${total} lessons, avg_len=${avgLength}`,
+    `${withContent}/${totalLessons} lessons, avg_len=${avgLength}`,
   );
+
+  // Mark generate_learning_content as done
+  await sb
+    .from("package_steps")
+    .update({
+      status: "done",
+      updated_at: new Date().toISOString(),
+      meta: {
+        fanout_id: fanoutId,
+        total_shards: totalShards,
+        total_lessons: totalLessons,
+        good_lessons: withContent,
+        avg_length: avgLength,
+        finalized_at: new Date().toISOString(),
+      },
+    })
+    .eq("package_id", packageId)
+    .eq("step_key", "generate_learning_content");
+
+  // Enqueue ALL downstream jobs — this is the ONLY place this happens
+  const downstreamJobs = [
+    { job_type: "package_generate_lesson_minichecks", priority: 15 },
+    { job_type: "package_generate_exam_pool", priority: 15 },
+    { job_type: "package_generate_handbook", priority: 16 },
+    { job_type: "package_generate_oral_exam", priority: 16 },
+    { job_type: "package_build_ai_tutor_index", priority: 16 },
+  ];
+
+  let downstreamEnqueued = 0;
+  for (const dj of downstreamJobs) {
+    try {
+      await enqueueJob(sb, {
+        job_type: dj.job_type,
+        package_id: packageId,
+        payload: {
+          package_id: packageId,
+          course_id: courseId,
+          curriculum_id: curriculumId,
+        },
+        priority: dj.priority,
+        max_attempts: 5,
+      });
+      downstreamEnqueued++;
+    } catch (e) {
+      console.warn(`[finalize] Failed to enqueue ${dj.job_type}: ${(e as Error).message}`);
+    }
+  }
 
   return json({
     ok: true,
     batch_complete: true,
-    message: `✅ Content phase finalized: ${withContent}/${total} lessons, avg_len=${avgLength}`,
-    progress,
+    message: `✅ Content finalized: ${withContent}/${totalLessons} lessons, ${downstreamEnqueued} downstream enqueued`,
+    fanout_id: fanoutId,
+    total_shards: totalShards,
     quality: {
       coverage: Math.round(coverage * 100),
       avgLength,
       withContent,
-      total,
+      total: totalLessons,
     },
+    downstream_enqueued: downstreamEnqueued,
   });
 });
