@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useCoursePackageDetail } from '@/hooks/useCoursePackages';
 import { useActiveCourse } from '@/contexts/ActiveCourseContext';
+import { useAdminPackagesSSOT, AdminPackageSSOT } from '@/hooks/useAdminPackagesSSOT';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -10,7 +11,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
   Loader2, ArrowLeft, CheckCircle2, XCircle, Clock,
   RefreshCw, Download, RotateCcw, Rocket, Activity,
-  Unlock, AlertTriangle, Lightbulb, Zap, StopCircle, ChevronDown, ChevronRight, ShieldCheck
+  Unlock, AlertTriangle, Lightbulb, Zap, StopCircle, ChevronDown, ChevronRight, ShieldCheck,
+  TrendingDown, Shield
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -40,7 +42,7 @@ export default function CourseWorkspace() {
   const { packageId } = useParams<{ packageId: string }>();
   const navigate = useNavigate();
   if (!packageId) return <div className="p-8 text-center text-muted-foreground">Kein Paket ausgewählt.</div>;
-  return <WorkspaceContent packageId={packageId} onBack={() => navigate('/admin/courses')} />;
+  return <WorkspaceContent packageId={packageId} onBack={() => navigate('/admin/studio')} />;
 }
 
 function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: () => void }) {
@@ -48,6 +50,10 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
   const { package: pkg, packageLoading, buildSteps, councils, startBuild, initCouncils, approveCouncils, invalidate } = useCoursePackageDetail(packageId);
   const { track, certType, flags } = useTrackConfig(pkg as any);
   const PIPELINE_STEPS = getActivePipelineStepsUI(flags as unknown as Record<string, boolean>);
+
+  // SSOT data from canonical view
+  const { data: allSsot } = useAdminPackagesSSOT();
+  const ssot = useMemo(() => allSsot?.find(p => p.package_id === packageId) ?? null, [allSsot, packageId]);
 
   // Real-time content progress from lessons table
   const contentProgressQuery = useQuery({
@@ -176,8 +182,35 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
   const failedSteps = buildSteps.filter((s: any) => s.status === 'failed');
   const runningStep = buildSteps.find((s: any) => s.status === 'running');
   const currentStepIdx = runningStep ? PIPELINE_STEPS.findIndex(s => s.key === runningStep.step_key) : failedSteps.length > 0 ? PIPELINE_STEPS.findIndex(s => s.key === failedSteps[0].step_key) : doneCount > 0 ? doneCount - 1 : -1;
-  const healthScore = Math.max(0, Math.round((pkg.integrity_passed ? 30 : 0) + (pkg.council_approved ? 10 : 0) + (doneCount / Math.max(totalCount, 1) * 40) + (failedSteps.length === 0 ? 20 : Math.max(0, 20 - failedSteps.length * 5))));
-  const canPublish = pkg.integrity_passed && pkg.council_approved && buildSteps.every((s: any) => s.status === 'done');
+  // SSOT-first: derive health and publish readiness from canonical view, not step history
+  const councilComplete = ssot?.council_complete ?? false;
+  const councilApproved = ssot?.council_approved ?? pkg.council_approved ?? false;
+  const integrityPassed = ssot?.integrity_passed ?? pkg.integrity_passed ?? false;
+  const hasStalePublish = ssot?.has_stale_publish ?? false;
+  const hasPublishDrift = ssot?.has_publish_drift ?? false;
+  const isStuck = ssot?.is_stuck ?? false;
+
+  const releaseState = pkg.status === 'published' && !hasPublishDrift
+    ? 'published'
+    : pkg.status === 'published' && hasPublishDrift
+    ? 'publish_drift'
+    : pkg.status === 'council_review'
+    ? 'council_review'
+    : integrityPassed && councilApproved
+    ? 'ready_to_publish'
+    : pkg.status === 'building'
+    ? 'building'
+    : 'blocked';
+
+  const healthScore = Math.max(0, Math.round(
+    (integrityPassed ? 30 : 0) +
+    (councilApproved ? 15 : councilComplete ? 5 : 0) +
+    (doneCount / Math.max(totalCount, 1) * 35) +
+    (failedSteps.length === 0 ? 20 : Math.max(0, 20 - failedSteps.length * 5)) +
+    (hasStalePublish ? -10 : 0) +
+    (hasPublishDrift ? -15 : 0)
+  ));
+  const canPublish = integrityPassed && councilApproved && !hasPublishDrift && buildSteps.every((s: any) => s.status === 'done');
   const isBuilding = pkg.status === 'building';
   const progressPct = buildSteps.length > 0 ? Math.round((doneCount / Math.max(totalCount, 1)) * 100) : (pkg.build_progress || 0);
 
@@ -187,6 +220,35 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
         <Button variant="ghost" size="sm" onClick={onBack} className="shrink-0"><ArrowLeft className="h-4 w-4 mr-1" /> Kursliste</Button>
       </div>
 
+      {/* SSOT Drift Warnings */}
+      {hasStalePublish && (
+        <div className="rounded-xl border border-warning/30 bg-warning/5 p-3 flex items-start gap-3">
+          <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
+          <div>
+            <div className="text-sm font-semibold text-foreground">Stale-Publish-Signal erkannt</div>
+            <div className="text-xs text-muted-foreground">Historisches published_at gesetzt, aber Paket ist aktuell nicht veröffentlicht.</div>
+          </div>
+        </div>
+      )}
+      {hasPublishDrift && (
+        <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 flex items-start gap-3">
+          <TrendingDown className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+          <div>
+            <div className="text-sm font-semibold text-foreground">Publish Drift</div>
+            <div className="text-xs text-muted-foreground">Status ist „published", aber Publish-Gate inhaltlich nicht bestanden.</div>
+          </div>
+        </div>
+      )}
+      {isStuck && (
+        <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 flex items-start gap-3">
+          <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+          <div>
+            <div className="text-sm font-semibold text-foreground">Paket festgefahren</div>
+            <div className="text-xs text-muted-foreground">Kein Fortschritt seit über 30 Minuten (alle Aktivitätsquellen geprüft).</div>
+          </div>
+        </div>
+      )}
+
       {/* ── Workspace Header Card ─────────────────────────── */}
       <Card className="border-border/50">
         <CardContent className="py-4 px-4 sm:px-6">
@@ -195,8 +257,20 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
               <h1 className="text-lg sm:text-xl font-display font-bold text-foreground truncate">{pkg.title || 'Kurspaket'}</h1>
               <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                 <TrackBadge track={track} certType={certType} showCertType />
-                <Badge variant="outline" className={cn("text-xs", pkg.status === 'published' ? 'bg-success/20 text-success' : (pkg.status === 'failed' || pkg.status === 'quality_gate_failed') ? 'bg-destructive/20 text-destructive' : isBuilding ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground')}>
-                  {pkg.status === 'published' ? 'Live' : isBuilding ? 'Build läuft' : pkg.status === 'quality_gate_failed' ? 'QG Failed' : pkg.status === 'failed' ? 'Fehler' : pkg.status === 'qa' ? 'QA' : pkg.status === 'done' ? 'Done' : 'Draft'}
+                <Badge variant="outline" className={cn("text-xs",
+                  releaseState === 'published' ? 'bg-success/20 text-success' :
+                  releaseState === 'publish_drift' ? 'bg-destructive/20 text-destructive' :
+                  releaseState === 'council_review' ? 'bg-warning/20 text-warning' :
+                  releaseState === 'building' ? 'bg-primary/20 text-primary' :
+                  releaseState === 'ready_to_publish' ? 'bg-success/20 text-success' :
+                  'bg-muted text-muted-foreground'
+                )}>
+                  {releaseState === 'published' ? 'Live' :
+                   releaseState === 'publish_drift' ? 'Publish Drift' :
+                   releaseState === 'council_review' ? 'Council Review' :
+                   releaseState === 'building' ? 'Build läuft' :
+                   releaseState === 'ready_to_publish' ? 'Bereit' :
+                   pkg.status}
                 </Badge>
                 <div className={cn("flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold", healthScore >= 95 ? 'bg-success/10 text-success' : healthScore >= 80 ? 'bg-warning/10 text-warning' : 'bg-destructive/10 text-destructive')}>
                   <Activity className="h-3 w-3" /> {healthScore}%
@@ -218,44 +292,41 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
         </CardContent>
       </Card>
 
-      {/* ── KPI Cards ─────────────────────────────────────── */}
+      {/* ── SSOT Freigabe-Status ─────────────────────────── */}
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
-        <Card className="border-border/40">
+        <Card className={cn("border-border/40", councilComplete ? 'border-success/30' : ssot && ssot.council_sessions_pending > 0 ? 'border-warning/30' : '')}>
           <CardContent className="py-3 px-4">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Pipeline</p>
-            <p className="text-xl font-bold text-foreground mt-0.5">{progressPct}%</p>
-            <Progress value={progressPct} className="h-1 mt-1.5" />
-            <p className="text-[10px] text-muted-foreground mt-1">{doneCount}/{totalCount} Steps</p>
-          </CardContent>
-        </Card>
-        <Card className="border-border/40">
-          <CardContent className="py-3 px-4">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Lerninhalte</p>
-            <p className="text-xl font-bold text-foreground mt-0.5">
-              {contentProgressQuery.data ? `${contentProgressQuery.data.content_done}/${contentProgressQuery.data.total_lessons}` : '–'}
-            </p>
-            {contentProgressQuery.data && contentProgressQuery.data.total_lessons > 0 && (
-              <Progress value={Math.round(contentProgressQuery.data.content_done / contentProgressQuery.data.total_lessons * 100)} className="h-1 mt-1.5" />
-            )}
-            <p className="text-[10px] text-muted-foreground mt-1">Lektionen fertig</p>
-          </CardContent>
-        </Card>
-        <Card className="border-border/40">
-          <CardContent className="py-3 px-4">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Fehler</p>
-            <p className={cn("text-xl font-bold mt-0.5", failedSteps.length > 0 ? "text-destructive" : "text-success")}>{failedSteps.length}</p>
-            <p className="text-[10px] text-muted-foreground mt-1">{failedSteps.length === 0 ? 'Keine Fehler' : `${failedSteps.length} Step(s) fehlgeschlagen`}</p>
-          </CardContent>
-        </Card>
-        <Card className="border-border/40">
-          <CardContent className="py-3 px-4">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Status</p>
-            <p className="text-xl font-bold text-foreground mt-0.5">
-              {isBuilding && runningStep ? `Step ${currentStepIdx + 1}` : pkg.integrity_passed ? '✓ QA' : '–'}
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium flex items-center gap-1"><Shield className="h-3 w-3" /> Council</p>
+            <p className={cn("text-xl font-bold mt-0.5", councilComplete && councilApproved ? 'text-success' : councilComplete ? 'text-warning' : 'text-foreground')}>
+              {councilComplete && councilApproved ? '✓ Approved' : councilComplete ? '✓ Fertig' : ssot ? `${ssot.council_sessions_completed}/${ssot.council_sessions_total}` : '–'}
             </p>
             <p className="text-[10px] text-muted-foreground mt-1">
-              {isBuilding && runningStep ? (PIPELINE_STEPS[currentStepIdx]?.shortLabel || runningStep.step_key) : pkg.integrity_passed ? 'Integrität bestanden' : 'Warte auf Build'}
+              {ssot && ssot.council_sessions_pending > 0 ? `${ssot.council_sessions_pending} pending` : councilComplete && !councilApproved ? 'Warte auf Approval' : councilApproved ? 'Freigegeben' : 'Sessions'}
             </p>
+          </CardContent>
+        </Card>
+        <Card className={cn("border-border/40", integrityPassed ? 'border-success/30' : '')}>
+          <CardContent className="py-3 px-4">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Integrität</p>
+            <p className={cn("text-xl font-bold mt-0.5", integrityPassed ? 'text-success' : 'text-muted-foreground')}>{integrityPassed ? '✓ Bestanden' : '✗ Offen'}</p>
+            <p className="text-[10px] text-muted-foreground mt-1">{integrityPassed ? 'Quality Gate OK' : 'Noch nicht bestanden'}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-border/40">
+          <CardContent className="py-3 px-4">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Fragen</p>
+            <p className={cn("text-xl font-bold mt-0.5", ssot && ssot.approved_questions >= 100 ? 'text-success' : 'text-foreground')}>
+              {ssot ? `${ssot.approved_questions}` : '–'}
+            </p>
+            <p className="text-[10px] text-muted-foreground mt-1">{ssot ? `von ${ssot.total_questions} total · ${ssot.approved_questions >= 100 ? '✓' : '✗'} Gate (≥100)` : 'Approved'}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-border/40">
+          <CardContent className="py-3 px-4">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Build-Historie</p>
+            <p className="text-xl font-bold text-foreground mt-0.5">{progressPct}%</p>
+            <Progress value={progressPct} className="h-1 mt-1.5" />
+            <p className="text-[10px] text-muted-foreground mt-1">{doneCount}/{totalCount} Steps (historisch)</p>
           </CardContent>
         </Card>
       </div>
@@ -272,10 +343,11 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
         </div>
 
         <TabsContent value="build" className="space-y-6">
-          {/* Progress stepper */}
+          {/* Progress stepper — Build-Historie, nicht aktueller Freigabestatus */}
           {buildSteps.length > 0 && (
             <Card>
               <CardContent className="py-4">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-3">Build-Historie (nicht Freigabestatus)</p>
                 <div className="flex items-center gap-0 overflow-x-auto pb-3">
                   {PIPELINE_STEPS.map((step, i) => {
                     const buildStep = stepMap.get(step.key);

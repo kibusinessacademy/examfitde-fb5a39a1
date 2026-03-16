@@ -36091,7 +36091,6 @@ export type Database = {
       v_admin_packages_ssot: {
         Row: {
           approved_questions: number | null
-          archived: boolean | null
           beruf_display_name: string | null
           beruf_id: string | null
           blocked_reason: string | null
@@ -36108,7 +36107,7 @@ export type Database = {
           created_at: string | null
           current_step: number | null
           curriculum_id: string | null
-          dedup_rank: number | null
+          has_publish_drift: boolean | null
           has_stale_publish: boolean | null
           integrity_passed: boolean | null
           is_published: boolean | null

@@ -1,15 +1,10 @@
 import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAdminPackagesSSOT, AdminPackageSSOT } from '@/hooks/useAdminPackagesSSOT';
-import { useCanonicalTitles, resolveTitle } from '@/hooks/useCanonicalTitles';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-  ArrowRight, Search, AlertTriangle, CheckCircle2, Clock,
-  Shield, XCircle, Package, Filter
-} from 'lucide-react';
+import { ArrowRight, Search, Package } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const STATUS_FILTERS = [
@@ -21,12 +16,12 @@ const STATUS_FILTERS = [
   { key: 'blocked', label: 'Blocked' },
   { key: 'failed', label: 'Failed' },
   { key: 'stuck', label: 'Festgefahren' },
+  { key: 'publish_drift', label: 'Publish Drift' },
 ] as const;
 
 function statusBadge(pkg: AdminPackageSSOT) {
   const badges: { label: string; className: string }[] = [];
 
-  // Primary status
   const statusMap: Record<string, { label: string; className: string }> = {
     published: { label: 'Veröffentlicht', className: 'bg-success/10 text-success border-success/30' },
     building: { label: 'Building', className: 'bg-primary/10 text-primary border-primary/30' },
@@ -38,9 +33,10 @@ function statusBadge(pkg: AdminPackageSSOT) {
   const s = statusMap[pkg.status] || { label: pkg.status, className: 'bg-muted text-muted-foreground border-border' };
   badges.push(s);
 
-  // Warning badges
   if (pkg.is_stuck) badges.push({ label: 'Festgefahren', className: 'bg-destructive/10 text-destructive border-destructive/30' });
+  if (pkg.has_publish_drift) badges.push({ label: 'Publish Drift', className: 'bg-destructive/10 text-destructive border-destructive/30' });
   if (pkg.has_stale_publish) badges.push({ label: 'Stale Publish', className: 'bg-warning/10 text-warning border-warning/30' });
+  if (pkg.council_complete && !pkg.council_approved) badges.push({ label: 'Council ✓ / Approval ✗', className: 'bg-warning/10 text-warning border-warning/30' });
   if (pkg.council_sessions_pending > 0) badges.push({ label: `Council ${pkg.council_sessions_pending} offen`, className: 'bg-warning/10 text-warning border-warning/30' });
   if (pkg.jobs_failed > 0) badges.push({ label: `${pkg.jobs_failed} Jobs failed`, className: 'bg-destructive/10 text-destructive border-destructive/30' });
 
@@ -91,6 +87,8 @@ export default function KursePage() {
 
     if (statusFilter === 'stuck') {
       list = list.filter(p => p.is_stuck);
+    } else if (statusFilter === 'publish_drift') {
+      list = list.filter(p => p.has_publish_drift);
     } else if (statusFilter !== 'all') {
       list = list.filter(p => p.status === statusFilter);
     }
@@ -121,7 +119,6 @@ export default function KursePage() {
         <p className="text-xs text-muted-foreground mt-0.5">Kanonische Paketliste · SSOT</p>
       </div>
 
-      {/* Search + Filter */}
       <div className="space-y-2">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -149,6 +146,8 @@ export default function KursePage() {
                 <span className="ml-1 text-[10px] opacity-60">
                   {f.key === 'stuck'
                     ? packages.filter(p => p.is_stuck).length
+                    : f.key === 'publish_drift'
+                    ? packages.filter(p => p.has_publish_drift).length
                     : packages.filter(p => p.status === f.key).length
                   }
                 </span>
@@ -158,7 +157,6 @@ export default function KursePage() {
         </div>
       </div>
 
-      {/* List */}
       {isLoading ? (
         <div className="space-y-2">
           {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-20" />)}

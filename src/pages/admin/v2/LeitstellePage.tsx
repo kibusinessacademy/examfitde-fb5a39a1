@@ -1,13 +1,12 @@
 import { useMemo } from 'react';
 import { useAdminPackagesSSOT, AdminPackageSSOT } from '@/hooks/useAdminPackagesSSOT';
 import { useAdminQueueSSOT } from '@/hooks/useAdminQueueSSOT';
-import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Link } from 'react-router-dom';
 import {
   Activity, AlertTriangle, CheckCircle2, XCircle, Clock,
-  Package, Zap, Shield, ArrowRight, Cpu, ListChecks
+  Package, Zap, Shield, ArrowRight, Cpu, ListChecks, TrendingDown
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -39,8 +38,10 @@ function CriticalPackageCard({ pkg }: { pkg: AdminPackageSSOT }) {
   const warnings: { label: string; tone: 'red' | 'yellow' }[] = [];
   if (pkg.is_stuck) warnings.push({ label: 'Festgefahren', tone: 'red' });
   if (pkg.has_stale_publish) warnings.push({ label: 'Stale Publish', tone: 'yellow' });
+  if (pkg.has_publish_drift) warnings.push({ label: 'Publish Drift', tone: 'red' });
   if (pkg.jobs_failed > 0) warnings.push({ label: `${pkg.jobs_failed} Jobs fehlgeschlagen`, tone: 'red' });
   if (pkg.council_sessions_pending > 0) warnings.push({ label: `Council: ${pkg.council_sessions_pending} offen`, tone: 'yellow' });
+  if (pkg.council_complete && !pkg.council_approved) warnings.push({ label: 'Council fertig, nicht approved', tone: 'yellow' });
   if (pkg.blocked_reason) warnings.push({ label: 'Blockiert', tone: 'red' });
 
   return (
@@ -87,19 +88,26 @@ export default function LeitstellePage() {
     const stuck = packages.filter(p => p.is_stuck).length;
     const blocked = packages.filter(p => p.blocked_reason).length;
     const stalePublish = packages.filter(p => p.has_stale_publish).length;
+    const publishDrift = packages.filter(p => p.has_publish_drift).length;
+    const councilCompleteNotApproved = packages.filter(p => p.council_complete && !p.council_approved).length;
     const jobsPending = jobs.filter(j => j.job_status === 'pending' || j.job_status === 'queued').length;
-    const jobsProcessing = jobs.filter(j => j.job_status === 'processing').length;
+    const jobsProcessing = jobs.filter(j => ['processing', 'running', 'batch_pending'].includes(j.job_status)).length;
     const jobsFailed = jobs.filter(j => j.job_status === 'failed').length;
     const zombies = jobs.filter(j => j.health_signal === 'zombie').length;
-    return { building, councilReview, published, stuck, blocked, stalePublish, jobsPending, jobsProcessing, jobsFailed, zombies };
+    return { building, councilReview, published, stuck, blocked, stalePublish, publishDrift, councilCompleteNotApproved, jobsPending, jobsProcessing, jobsFailed, zombies };
   }, [packages, jobs]);
 
   const criticalPackages = useMemo(() => {
     if (!packages) return [];
-    return packages.filter(p => p.is_stuck || p.has_stale_publish || p.jobs_failed > 0 || p.blocked_reason || p.council_sessions_pending > 0)
+    return packages.filter(p =>
+      p.is_stuck || p.has_stale_publish || p.has_publish_drift ||
+      p.jobs_failed > 0 || p.blocked_reason ||
+      p.council_sessions_pending > 0 ||
+      (p.council_complete && !p.council_approved)
+    )
       .sort((a, b) => {
-        // stuck first, then failed, then blocked
         if (a.is_stuck !== b.is_stuck) return a.is_stuck ? -1 : 1;
+        if (a.has_publish_drift !== b.has_publish_drift) return a.has_publish_drift ? -1 : 1;
         if ((a.jobs_failed > 0) !== (b.jobs_failed > 0)) return a.jobs_failed > 0 ? -1 : 1;
         return 0;
       })
@@ -121,7 +129,6 @@ export default function LeitstellePage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div>
         <h1 className="text-xl font-bold text-foreground">Leitstelle</h1>
         <p className="text-xs text-muted-foreground mt-0.5">SSOT-Systemlage · Echtdaten</p>
@@ -129,37 +136,13 @@ export default function LeitstellePage() {
 
       {/* KPI Grid */}
       {kpis && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          <KpiTile
-            label="Builds aktiv"
-            value={kpis.building}
-            icon={<Activity className="h-4 w-4 text-primary" />}
-            tone={kpis.building > 0 ? 'green' : 'neutral'}
-          />
-          <KpiTile
-            label="Council Review"
-            value={kpis.councilReview}
-            icon={<Shield className="h-4 w-4 text-warning" />}
-            tone={kpis.councilReview > 0 ? 'yellow' : 'neutral'}
-          />
-          <KpiTile
-            label="Veröffentlicht"
-            value={kpis.published}
-            icon={<CheckCircle2 className="h-4 w-4 text-success" />}
-            tone="green"
-          />
-          <KpiTile
-            label="Festgefahren"
-            value={kpis.stuck}
-            icon={<AlertTriangle className="h-4 w-4 text-destructive" />}
-            tone={kpis.stuck > 0 ? 'red' : 'neutral'}
-          />
-          <KpiTile
-            label="Blockiert"
-            value={kpis.blocked}
-            icon={<XCircle className="h-4 w-4 text-destructive" />}
-            tone={kpis.blocked > 0 ? 'red' : 'neutral'}
-          />
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <KpiTile label="Builds aktiv" value={kpis.building} icon={<Activity className="h-4 w-4 text-primary" />} tone={kpis.building > 0 ? 'green' : 'neutral'} />
+          <KpiTile label="Council Review" value={kpis.councilReview} icon={<Shield className="h-4 w-4 text-warning" />} tone={kpis.councilReview > 0 ? 'yellow' : 'neutral'} />
+          <KpiTile label="Veröffentlicht" value={kpis.published} icon={<CheckCircle2 className="h-4 w-4 text-success" />} tone="green" />
+          <KpiTile label="Festgefahren" value={kpis.stuck} icon={<AlertTriangle className="h-4 w-4 text-destructive" />} tone={kpis.stuck > 0 ? 'red' : 'neutral'} />
+          <KpiTile label="Blockiert" value={kpis.blocked} icon={<XCircle className="h-4 w-4 text-destructive" />} tone={kpis.blocked > 0 ? 'red' : 'neutral'} />
+          <KpiTile label="Publish Drift" value={kpis.publishDrift} icon={<TrendingDown className="h-4 w-4 text-destructive" />} tone={kpis.publishDrift > 0 ? 'red' : 'neutral'} />
         </div>
       )}
 
@@ -178,15 +161,33 @@ export default function LeitstellePage() {
         </div>
       )}
 
-      {/* Stale Publish Warning */}
+      {/* Drift Warnings */}
       {kpis && kpis.stalePublish > 0 && (
         <div className="rounded-xl border border-warning/30 bg-warning/5 p-3 flex items-start gap-3">
           <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
           <div>
-            <div className="text-sm font-semibold text-foreground">{kpis.stalePublish} Paket(e) mit veralteten Publish-Signalen</div>
-            <div className="text-xs text-muted-foreground mt-0.5">
-              Diese Pakete haben historische Veröffentlichungsmarker, sind aber nicht veröffentlicht.
-            </div>
+            <div className="text-sm font-semibold text-foreground">{kpis.stalePublish} Paket(e) mit Stale-Publish-Signalen</div>
+            <div className="text-xs text-muted-foreground mt-0.5">Historische Veröffentlichungsmarker, aber Paket nicht veröffentlicht.</div>
+          </div>
+        </div>
+      )}
+
+      {kpis && kpis.publishDrift > 0 && (
+        <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 flex items-start gap-3">
+          <TrendingDown className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+          <div>
+            <div className="text-sm font-semibold text-foreground">{kpis.publishDrift} Paket(e) mit Publish Drift</div>
+            <div className="text-xs text-muted-foreground mt-0.5">Status „published", aber Publish-Gate inhaltlich nicht bestanden.</div>
+          </div>
+        </div>
+      )}
+
+      {kpis && kpis.councilCompleteNotApproved > 0 && (
+        <div className="rounded-xl border border-warning/30 bg-warning/5 p-3 flex items-start gap-3">
+          <Shield className="h-4 w-4 text-warning shrink-0 mt-0.5" />
+          <div>
+            <div className="text-sm font-semibold text-foreground">{kpis.councilCompleteNotApproved} Paket(e): Council fertig, nicht approved</div>
+            <div className="text-xs text-muted-foreground mt-0.5">Alle Sessions abgeschlossen, aber council_approved noch nicht gesetzt.</div>
           </div>
         </div>
       )}
@@ -207,20 +208,14 @@ export default function LeitstellePage() {
 
       {/* Quick Links */}
       <div className="grid grid-cols-2 gap-3">
-        <Link
-          to="/admin/studio"
-          className="rounded-xl border border-border bg-card p-4 hover:bg-muted/50 transition-colors flex items-center gap-3"
-        >
+        <Link to="/admin/studio" className="rounded-xl border border-border bg-card p-4 hover:bg-muted/50 transition-colors flex items-center gap-3">
           <Package className="h-5 w-5 text-primary" />
           <div>
             <div className="text-sm font-semibold">Alle Kurse</div>
             <div className="text-[11px] text-muted-foreground">{packages?.length || 0} Pakete</div>
           </div>
         </Link>
-        <Link
-          to="/admin/queue"
-          className="rounded-xl border border-border bg-card p-4 hover:bg-muted/50 transition-colors flex items-center gap-3"
-        >
+        <Link to="/admin/queue" className="rounded-xl border border-border bg-card p-4 hover:bg-muted/50 transition-colors flex items-center gap-3">
           <ListChecks className="h-5 w-5 text-primary" />
           <div>
             <div className="text-sm font-semibold">Queue</div>

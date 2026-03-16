@@ -107,7 +107,7 @@ export default function QueuePage() {
     if (!jobs) return null;
     return {
       pending: jobs.filter(j => j.job_status === 'pending' || j.job_status === 'queued').length,
-      processing: jobs.filter(j => j.job_status === 'processing').length,
+      processing: jobs.filter(j => ['processing', 'running', 'batch_pending'].includes(j.job_status)).length,
       failed: jobs.filter(j => j.job_status === 'failed').length,
       completed: jobs.filter(j => j.job_status === 'completed').length,
       zombies: jobs.filter(j => j.health_signal === 'zombie').length,
