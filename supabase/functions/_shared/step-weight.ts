@@ -44,6 +44,8 @@ const STEP_WEIGHT_MAP: Record<PipelineStepKey, StepWeightClass> = {
   quality_council:              "validation",
 
   // ── Light: minimal pressure ──
+  fanout_learning_content:      "light",     // Pure orchestration, creates shards
+  finalize_learning_content:    "light",     // Pure barrier check, no LLM
   build_ai_tutor_index:         "light",
   run_integrity_check:          "light",
   auto_publish:                 "light",
