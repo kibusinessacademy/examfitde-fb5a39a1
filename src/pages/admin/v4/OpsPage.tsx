@@ -149,6 +149,7 @@ export default function OpsPage() {
           <Route path="failure-integrity" element={<JobFailureIntegrityPanel />} />
           <Route path="v2-loop-debug" element={<V2LoopDebugPage />} />
           <Route path="reentry-misses" element={<ReentryMissesPanel />} />
+          <Route path="pipeline-map" element={<PipelineMapDashboard />} />
         </Routes>
       </Suspense>
     </div>
