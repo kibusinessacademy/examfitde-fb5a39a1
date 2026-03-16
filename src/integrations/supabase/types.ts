@@ -36105,7 +36105,7 @@ export type Database = {
           council_sessions_processing: number | null
           council_sessions_total: number | null
           created_at: string | null
-          current_step: number | null
+          current_step: string | null
           curriculum_id: string | null
           has_publish_drift: boolean | null
           has_stale_publish: boolean | null
@@ -36128,7 +36128,7 @@ export type Database = {
           status: string | null
           stuck_reason: string | null
           total_questions: number | null
-          track: Database["public"]["Enums"]["product_track"] | null
+          track: string | null
           updated_at: string | null
         }
         Relationships: [
@@ -36164,34 +36164,26 @@ export type Database = {
       }
       v_admin_queue_ssot: {
         Row: {
-          age_seconds: number | null
+          age_minutes: number | null
           attempts: number | null
-          fallback_count: number | null
+          completed_at: string | null
+          created_at: string | null
           health_signal: string | null
-          job_completed_at: string | null
-          job_created_at: string | null
           job_id: string | null
-          job_priority: number | null
-          job_started_at: string | null
           job_status: string | null
           job_type: string | null
           last_error: string | null
-          last_error_code: string | null
-          last_error_severity: string | null
-          last_heartbeat_at: string | null
-          liveness_status: string | null
           locked_at: string | null
           locked_by: string | null
           max_attempts: number | null
-          package_blocked_reason: string | null
-          package_current_step: number | null
+          meta: Json | null
           package_id: string | null
-          package_raw_title: string | null
           package_status: string | null
-          parent_job_id: string | null
-          rate_limited_until: string | null
+          package_title: string | null
+          priority: number | null
           run_after: string | null
-          worker_pool: string | null
+          started_at: string | null
+          updated_at: string | null
         }
         Relationships: []
       }
