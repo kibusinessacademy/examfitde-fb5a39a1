@@ -43374,6 +43374,16 @@ export type Database = {
         Args: { p_job_id: string; p_patch: Json }
         Returns: boolean
       }
+      merge_package_content_shard_meta: {
+        Args: {
+          p_chunk_index: number
+          p_fanout_id: string
+          p_learning_field_id: string
+          p_package_id: string
+          p_patch: Json
+        }
+        Returns: undefined
+      }
       month_start: { Args: { p_any: string }; Returns: string }
       next_package_queue_position: { Args: never; Returns: number }
       normalize_beruf_name: { Args: { input: string }; Returns: string }
