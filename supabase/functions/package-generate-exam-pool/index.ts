@@ -1568,9 +1568,9 @@ async function submitExamPoolBatch(
     metadata: {
       curriculum_id: ctx.curriculumId,
       package_id: ctx.packageId,
-      learning_field_filter: ctx.learningFieldFilter,
-      blueprint_count: bps.length,
-      exam_target: ctx.examTarget,
+      learning_field_filter: String(ctx.learningFieldFilter ?? ""),
+      blueprint_count: String(bps.length),
+      exam_target: String(ctx.examTarget),
     },
   });
 
