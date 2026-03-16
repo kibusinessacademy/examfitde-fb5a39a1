@@ -296,11 +296,12 @@ Deno.serve(async (req) => {
 
   // ═══════════════════════════════════════════════════════════════
   // T07: Lease Alignment — AUTO-HEAL: reset stranded to queued
+  //   ⚠️ Grace period: skip packages building < 10 min or recently recovered
   // ═══════════════════════════════════════════════════════════════
   {
     const { data: buildingPkgs } = await sb
       .from("course_packages" as any)
-      .select("id, title")
+      .select("id, title, updated_at")
       .eq("status", "building");
 
     let strandedPkgs: any[] = [];
@@ -321,7 +322,24 @@ Deno.serve(async (req) => {
         .in("status", ["pending", "processing"]);
       const jobSet = new Set((activeJobs || []).map((j: any) => j.package_id));
 
-      strandedPkgs = buildingPkgs.filter((p: any) => !leaseSet.has(p.id) && !jobSet.has(p.id));
+      // Check for recent recovery (grace period: 15 min)
+      const { data: recentRecoveries } = await sb
+        .from("auto_heal_log" as any)
+        .select("target_id")
+        .eq("action_type", "recover_and_reenter_package")
+        .eq("result_status", "success")
+        .gt("created_at", new Date(Date.now() - 15 * 60_000).toISOString());
+      const recoverySet = new Set((recentRecoveries || []).map((r: any) => r.target_id));
+
+      strandedPkgs = buildingPkgs.filter((p: any) => {
+        if (leaseSet.has(p.id) || jobSet.has(p.id)) return false;
+        // Grace: skip if recently recovered
+        if (recoverySet.has(p.id)) return false;
+        // Grace: skip if building for < 10 minutes
+        const ageMin = (Date.now() - new Date(p.updated_at).getTime()) / 60_000;
+        if (ageMin < 10) return false;
+        return true;
+      });
 
       // Auto-heal: packages with no lease AND no active jobs → queued
       for (const p of strandedPkgs) {
@@ -336,7 +354,7 @@ Deno.serve(async (req) => {
       severity: "critical",
       detail: strandedPkgs.length === 0
         ? "All building packages have leases or active jobs"
-        : `${strandedPkgs.length} stranded package(s)`,
+        : `${strandedPkgs.length} stranded package(s) (after grace filter)`,
       healed,
       heal_detail: healed > 0 ? `Reset ${healed} stranded package(s) to queued` : undefined,
       data: strandedPkgs.slice(0, 5),
