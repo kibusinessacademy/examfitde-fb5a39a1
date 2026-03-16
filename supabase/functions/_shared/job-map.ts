@@ -68,7 +68,9 @@ export const STEP_TO_JOB_TYPE: Record<PipelineStepKey, string> = {
 export const FULL_STEP_ORDER: PipelineStepKey[] = [
   "scaffold_learning_course",
   "generate_glossary",
+  "fanout_learning_content",
   "generate_learning_content",
+  "finalize_learning_content",
   "validate_learning_content",
   "auto_seed_exam_blueprints",
   "validate_blueprints",
