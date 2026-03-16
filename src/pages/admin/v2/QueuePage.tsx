@@ -70,10 +70,10 @@ function JobRow({ job }: { job: AdminQueueJob }) {
           </div>
           <div className="flex items-center gap-2 mt-1 flex-wrap">
             <span className="text-[10px] text-muted-foreground font-mono">{job.job_id.slice(0, 8)}</span>
-            <span className="text-[10px] text-muted-foreground">⏱ {formatAge(job.age_seconds)}</span>
+            <span className="text-[10px] text-muted-foreground">⏱ {formatAge(job.age_minutes * 60)}</span>
             <span className="text-[10px] text-muted-foreground">{job.attempts}/{job.max_attempts}</span>
-            {job.package_raw_title && (
-              <span className="text-[10px] text-muted-foreground truncate max-w-[120px]">📦 {job.package_raw_title}</span>
+            {job.package_title && (
+              <span className="text-[10px] text-muted-foreground truncate max-w-[120px]">📦 {job.package_title}</span>
             )}
           </div>
         </div>
@@ -89,9 +89,9 @@ function JobRow({ job }: { job: AdminQueueJob }) {
               {job.last_error}
             </div>
           )}
-          {job.last_error_code && <div><span className="font-medium text-foreground">Error Code:</span> {job.last_error_code}</div>}
-          {job.worker_pool && <div><span className="font-medium text-foreground">Worker Pool:</span> {job.worker_pool}</div>}
-          {job.liveness_status && <div><span className="font-medium text-foreground">Liveness:</span> {job.liveness_status}</div>}
+          {(job.meta as any)?.last_error_code && <div><span className="font-medium text-foreground">Error Code:</span> {(job.meta as any).last_error_code}</div>}
+          {(job.meta as any)?.worker_pool && <div><span className="font-medium text-foreground">Worker Pool:</span> {(job.meta as any).worker_pool}</div>}
+          {(job.meta as any)?.liveness_status && <div><span className="font-medium text-foreground">Liveness:</span> {(job.meta as any).liveness_status}</div>}
         </div>
       )}
     </div>
@@ -130,7 +130,7 @@ export default function QueuePage() {
       list = list.filter(j =>
         j.job_type.toLowerCase().includes(q) ||
         j.job_id.toLowerCase().includes(q) ||
-        (j.package_raw_title || '').toLowerCase().includes(q) ||
+        (j.package_title || '').toLowerCase().includes(q) ||
         (j.last_error || '').toLowerCase().includes(q)
       );
     }
