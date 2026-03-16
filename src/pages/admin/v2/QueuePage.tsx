@@ -89,9 +89,9 @@ function JobRow({ job }: { job: AdminQueueJob }) {
               {job.last_error}
             </div>
           )}
-          {job.last_error_code && <div><span className="font-medium text-foreground">Error Code:</span> {job.last_error_code}</div>}
-          {job.worker_pool && <div><span className="font-medium text-foreground">Worker Pool:</span> {job.worker_pool}</div>}
-          {job.liveness_status && <div><span className="font-medium text-foreground">Liveness:</span> {job.liveness_status}</div>}
+          {(job.meta as any)?.last_error_code && <div><span className="font-medium text-foreground">Error Code:</span> {(job.meta as any).last_error_code}</div>}
+          {(job.meta as any)?.worker_pool && <div><span className="font-medium text-foreground">Worker Pool:</span> {(job.meta as any).worker_pool}</div>}
+          {(job.meta as any)?.liveness_status && <div><span className="font-medium text-foreground">Liveness:</span> {(job.meta as any).liveness_status}</div>}
         </div>
       )}
     </div>
