@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useCoursePackageDetail } from '@/hooks/useCoursePackages';
 import { useActiveCourse } from '@/contexts/ActiveCourseContext';
+import { useAdminPackagesSSOT, AdminPackageSSOT } from '@/hooks/useAdminPackagesSSOT';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -10,7 +11,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
   Loader2, ArrowLeft, CheckCircle2, XCircle, Clock,
   RefreshCw, Download, RotateCcw, Rocket, Activity,
-  Unlock, AlertTriangle, Lightbulb, Zap, StopCircle, ChevronDown, ChevronRight, ShieldCheck
+  Unlock, AlertTriangle, Lightbulb, Zap, StopCircle, ChevronDown, ChevronRight, ShieldCheck,
+  TrendingDown, Shield
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -40,7 +42,7 @@ export default function CourseWorkspace() {
   const { packageId } = useParams<{ packageId: string }>();
   const navigate = useNavigate();
   if (!packageId) return <div className="p-8 text-center text-muted-foreground">Kein Paket ausgewählt.</div>;
-  return <WorkspaceContent packageId={packageId} onBack={() => navigate('/admin/courses')} />;
+  return <WorkspaceContent packageId={packageId} onBack={() => navigate('/admin/studio')} />;
 }
 
 function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: () => void }) {
