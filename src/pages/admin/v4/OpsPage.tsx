@@ -31,6 +31,7 @@ const JobFailureIntegrityPanel = lazy(() => import('./ops/JobFailureIntegrityPan
 const V2LoopDebugPage = lazy(() => import('./ops/V2LoopDebugPage'));
 const ReentryMissesPanel = lazy(() => import('./ops/ReentryMissesPanel'));
 const PipelineMapDashboard = lazy(() => import('./ops/PipelineMapDashboard'));
+const ExecutiveReportDashboard = lazy(() => import('./ops/ExecutiveReportDashboard'));
 
 const Loading = () => (
   <div className="flex items-center justify-center py-16">
