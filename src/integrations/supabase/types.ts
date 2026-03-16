@@ -35253,6 +35253,7 @@ export type Database = {
           package_id: string | null
           package_title: string | null
           priority: number | null
+          published_at: string | null
           readable_lesson_count: number | null
           status: string | null
           structure_visible: boolean | null
@@ -35615,10 +35616,15 @@ export type Database = {
           avg_content_chars: number | null
           competencies_with_content: number | null
           curriculum_id: string | null
+          deep_content_lessons: number | null
           distinct_steps_with_content: number | null
           elite_depth_lessons: number | null
-          has_exam_traps: number | null
-          has_practical_examples: number | null
+          gen_claimed: number | null
+          gen_generated: number | null
+          gen_pending: number | null
+          last_lesson_created_at: string | null
+          lessons_with_exam_traps: number | null
+          lessons_with_practical_examples: number | null
           materialization_pct: number | null
           max_content_chars: number | null
           min_content_chars: number | null
@@ -35666,9 +35672,10 @@ export type Database = {
         Row: {
           content_gap: number | null
           exam_approved: number | null
-          exam_gap: number | null
+          exam_gap_to_publish_gate: number | null
+          exam_total: number | null
           handbook_chapters: number | null
-          handbook_sections: number | null
+          handbook_sections_real: number | null
           handbook_status: string | null
           lessons_total: number | null
           lessons_with_content: number | null
@@ -35685,17 +35692,22 @@ export type Database = {
       }
       ops_package_qc_matrix: {
         Row: {
-          cv_approved: number | null
+          content_versions_approved: number | null
+          content_versions_total: number | null
+          content_versions_under_review: number | null
           exam_approved: number | null
           exam_draft: number | null
           exam_rejected: number | null
           exam_review: number | null
+          exam_total: number | null
           handbook_chapters: number | null
           handbook_sections_real: number | null
+          handbook_sections_total: number | null
           lessons_qc_approved: number | null
-          lessons_qc_failed: number | null
           lessons_qc_pending: number | null
-          lessons_qc_tier1: number | null
+          lessons_qc_review: number | null
+          lessons_qc_tier1_failed: number | null
+          lessons_qc_tier1_passed: number | null
           lessons_total: number | null
           minicheck_questions_total: number | null
           minichecks_missing: number | null
