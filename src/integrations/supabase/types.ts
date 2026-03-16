@@ -35725,12 +35725,15 @@ export type Database = {
           build_progress: number | null
           council_approved: boolean | null
           curriculum_id: string | null
+          dead_ends: string[] | null
           exam_risk_coverage_pct: number | null
           exam_risk_covered: number | null
           integrity_passed: boolean | null
           is_published: boolean | null
           learner_step_completeness_pct: number | null
+          likely_stale_progress: boolean | null
           materialization_pct: number | null
+          missing_artifacts: string[] | null
           package_id: string | null
           package_title: string | null
           placeholder_lessons: number | null
@@ -35743,11 +35746,10 @@ export type Database = {
           qc_tier1_passed: number | null
           readiness_band: string | null
           readiness_score: number | null
-          real_competency_steps: number | null
           real_lessons: number | null
+          real_progress: number | null
           status: string | null
           total_competencies: number | null
-          total_competency_steps: number | null
           total_lessons: number | null
           updated_at: string | null
         }
