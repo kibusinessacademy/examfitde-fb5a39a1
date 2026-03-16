@@ -106,8 +106,21 @@ Deno.serve(async (req) => {
       .select("id, title, course_id, build_progress, updated_at, status")
       .eq("status", "building");
 
+    // Grace period: skip packages recently recovered (standard 10min age + 15min recovery grace)
+    const { data: recentRecoveries } = await sb
+      .from("auto_heal_log")
+      .select("target_id")
+      .eq("action_type", "recover_and_reenter_package")
+      .eq("result_status", "success")
+      .gte("created_at", new Date(now.getTime() - 15 * 60_000).toISOString());
+    const recoverySet = new Set((recentRecoveries || []).map((r: { target_id: string }) => r.target_id));
+
     let orphanCount = 0;
     for (const pkg of buildingPkgs || []) {
+      // GRACE: Skip if recently recovered or < 10min old
+      const pkgAge = now.getTime() - new Date(pkg.updated_at).getTime();
+      if (pkgAge < 10 * 60_000 || recoverySet.has(pkg.id)) continue;
+
       const { count: activeJobs } = await sb
         .from("job_queue")
         .select("id", { count: "exact", head: true })
