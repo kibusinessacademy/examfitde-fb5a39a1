@@ -718,9 +718,24 @@ Deno.serve(async (req) => {
         }
 
         // No active autofix run and integrity still failing => deterministic block.
-        // Cancel instead of infinite requeue-loop.
-        const gateReason = `AUTO_PUBLISH_BLOCKED: integrity_passed=${pubGate?.integrity_passed ?? "null"} and no active autofix run`;
+        // ── LOOP GUARD: Count recent deterministic cancels to prevent spam ──
+        const TWO_HOURS_AGO = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+        const { count: recentCancelCount } = await sb
+          .from("job_queue")
+          .select("id", { count: "exact", head: true })
+          .eq("job_type", "package_auto_publish")
+          .eq("package_id", jobPackageId)
+          .eq("status", "cancelled")
+          .gte("completed_at", TWO_HOURS_AGO);
+
+        const cancelCount = (recentCancelCount ?? 0) + 1; // +1 for current
+        const AUTO_PUBLISH_MAX_DETERMINISTIC_CANCELS = 3;
+        const shouldBlockStep = cancelCount >= AUTO_PUBLISH_MAX_DETERMINISTIC_CANCELS;
+
+        const gateReason = `AUTO_PUBLISH_BLOCKED: integrity_passed=${pubGate?.integrity_passed ?? "null"} and no active autofix run (cancel ${cancelCount}/${AUTO_PUBLISH_MAX_DETERMINISTIC_CANCELS})`;
         console.warn(`[job-runner] ${gateReason} (pkg ${jobPackageId.slice(0, 8)})`);
+
+        // Cancel the job
         await sb.from("job_queue").update({
           status: "cancelled",
           completed_at: tsNow,
@@ -728,7 +743,71 @@ Deno.serve(async (req) => {
           meta: { ...(job.meta || {}), outcome: "blocked", blocked_reason: gateReason },
           ...lockRelease(tsNow),
         }).eq("id", job.id).eq("status", "processing");
-        results.push({ id: job.id, status: "cancelled", reason: "auto_publish_blocked_no_autofix" });
+
+        if (shouldBlockStep) {
+          // ── TERMINAL BLOCK: Step + Package become blocked ──
+          const blockReason = `AUTO_PUBLISH_GATE_BLOCKED: ${cancelCount} deterministic failures in 2h. integrity_passed=false, no active autofix.`;
+          console.warn(`[job-runner] 🛑 LOOP GUARD: blocking auto_publish step + package (pkg ${jobPackageId.slice(0, 8)})`);
+
+          // Block the step so pipeline-process won't re-enqueue
+          await sb.from("package_steps").update({
+            status: "blocked",
+            last_error: blockReason,
+            meta: {
+              auto_publish_block_reason: "deterministic_publish_gate_failure",
+              auto_publish_cancel_count: cancelCount,
+              blocked_at: tsNow,
+              last_gate_state: {
+                integrity_passed: pubGate?.integrity_passed ?? null,
+                report_version: Number((pubGate as any)?.integrity_report_version_num) || 0,
+              },
+            },
+          }).eq("package_id", jobPackageId).eq("step_key", "auto_publish");
+
+          // Mark package with visible blocker (keep building status for ops visibility)
+          await sb.from("course_packages").update({
+            blocked_reason: blockReason,
+          }).eq("id", jobPackageId);
+
+          // Cancel any remaining pending auto_publish jobs for this package
+          await sb.from("job_queue").update({
+            status: "cancelled",
+            completed_at: tsNow,
+            last_error: "LOOP_GUARD: step blocked after repeated deterministic failures",
+            ...lockRelease(tsNow),
+          }).eq("job_type", "package_auto_publish")
+            .eq("package_id", jobPackageId)
+            .in("status", ["pending"]);
+
+          // Notify ops
+          try {
+            await sb.from("admin_notifications").insert({
+              title: "🛑 Auto-Publish Loop Guard triggered",
+              body: `Package "${(job.payload as any)?.title ?? jobPackageId.slice(0, 8)}" blocked after ${cancelCount} deterministic auto_publish failures. Root cause: integrity_passed=false, no active autofix. Manual intervention required.`,
+              category: "pipeline",
+              severity: "critical",
+              entity_type: "auto_publish_loop_guard",
+              entity_id: jobPackageId,
+            });
+          } catch (_) { /* non-critical */ }
+
+          // Log to auto_heal_log
+          await sb.from("auto_heal_log").insert({
+            action_type: "auto_publish_loop_guard_block",
+            trigger_source: "job_runner",
+            target_type: "package",
+            target_id: jobPackageId,
+            result_status: "blocked",
+            result_detail: blockReason,
+            metadata: {
+              cancel_count: cancelCount,
+              integrity_passed: pubGate?.integrity_passed ?? null,
+              report_version: Number((pubGate as any)?.integrity_report_version_num) || 0,
+            },
+          });
+        }
+
+        results.push({ id: job.id, status: "cancelled", reason: shouldBlockStep ? "auto_publish_loop_guard_blocked" : "auto_publish_blocked_no_autofix" });
         continue;
       }
     }
