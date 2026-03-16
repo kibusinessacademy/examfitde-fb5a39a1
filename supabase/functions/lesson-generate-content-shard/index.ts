@@ -79,24 +79,33 @@ async function mergeShardMeta(
   sb: any, packageId: string, lfId: string, fanoutId: string, chunk: number,
   patch: Record<string, unknown>,
 ) {
-  const { data: row } = await sb
-    .from("package_content_shards")
-    .select("meta")
-    .eq("package_id", packageId)
-    .eq("learning_field_id", lfId)
-    .eq("fanout_id", fanoutId)
-    .eq("chunk_index", chunk)
-    .maybeSingle();
-
-  const nextMeta = { ...(row?.meta || {}), ...patch };
-
-  await sb
-    .from("package_content_shards")
-    .update({ meta: nextMeta, updated_at: new Date().toISOString() })
-    .eq("package_id", packageId)
-    .eq("learning_field_id", lfId)
-    .eq("fanout_id", fanoutId)
-    .eq("chunk_index", chunk);
+  // Use atomic JSONB merge RPC to avoid read-modify-write race conditions
+  const { error } = await sb.rpc("merge_package_content_shard_meta", {
+    p_package_id: packageId,
+    p_learning_field_id: lfId,
+    p_fanout_id: fanoutId,
+    p_chunk_index: chunk,
+    p_patch: patch,
+  });
+  if (error) {
+    console.warn(`[shard] mergeShardMeta RPC failed, falling back: ${error.message}`);
+    // Fallback: non-atomic merge (better than nothing)
+    const { data: row } = await sb
+      .from("package_content_shards")
+      .select("meta")
+      .eq("package_id", packageId)
+      .eq("learning_field_id", lfId)
+      .eq("fanout_id", fanoutId)
+      .eq("chunk_index", chunk)
+      .maybeSingle();
+    await sb
+      .from("package_content_shards")
+      .update({ meta: { ...(row?.meta || {}), ...patch }, updated_at: new Date().toISOString() })
+      .eq("package_id", packageId)
+      .eq("learning_field_id", lfId)
+      .eq("fanout_id", fanoutId)
+      .eq("chunk_index", chunk);
+  }
 }
 
 // deno-lint-ignore no-explicit-any
