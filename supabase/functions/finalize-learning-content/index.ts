@@ -14,7 +14,7 @@ import { enqueueJob } from "../_shared/enqueue.ts";
  *
  * If shards are still processing or have failures:
  *   - Returns retry=true so the runner re-enqueues
- *   - Failed shards get re-enqueued for retry
+ *   - Failed shards get re-enqueued for retry (with retry_count cap)
  *
  * Only when ALL checks pass does it:
  *   - Mark generate_learning_content + finalize_learning_content as done
@@ -25,6 +25,8 @@ import { enqueueJob } from "../_shared/enqueue.ts";
 
 const MIN_CONTENT_LENGTH = 300;
 const COVERAGE_THRESHOLD = 0.90;      // 90% of lessons must have content
+const MAX_SHARD_RETRIES = 3;          // Hard cap on per-shard requeues
+const STALE_CLAIM_MINUTES = 20;       // Claims older than this are reset
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -37,6 +39,47 @@ function json(body: unknown, status = 200) {
     status,
     headers: { ...corsHeaders, "content-type": "application/json" },
   });
+}
+
+/**
+ * Enqueue a downstream job only if no active instance exists.
+ * Prevents duplicate fan-outs when finalize runs multiple times.
+ */
+// deno-lint-ignore no-explicit-any
+async function enqueueJobOnce(sb: any, opts: Parameters<typeof enqueueJob>[1]): Promise<boolean> {
+  const packageId = opts.package_id ?? (opts.payload?.package_id as string);
+  if (packageId) {
+    const { data: existing } = await sb
+      .from("job_queue")
+      .select("id")
+      .eq("package_id", packageId)
+      .eq("job_type", opts.job_type)
+      .in("status", ["pending", "queued", "processing", "running", "batch_pending"])
+      .limit(1)
+      .maybeSingle();
+
+    if (existing) {
+      console.log(`[finalize] DEDUP: ${opts.job_type} already active for ${packageId.slice(0, 8)}`);
+      return false;
+    }
+
+    // Also check if step is already done
+    const stepKey = opts.job_type.replace(/^package_/, "").replace(/_/g, "_");
+    const { data: step } = await sb
+      .from("package_steps")
+      .select("status")
+      .eq("package_id", packageId)
+      .eq("step_key", stepKey)
+      .maybeSingle();
+
+    if (step && step.status === "done") {
+      console.log(`[finalize] SKIP: step ${stepKey} already done for ${packageId.slice(0, 8)}`);
+      return false;
+    }
+  }
+
+  await enqueueJob(sb, opts);
+  return true;
 }
 
 Deno.serve(async (req) => {
@@ -73,7 +116,8 @@ Deno.serve(async (req) => {
     return json({ ok: false, retry: true, error: `shard_read_failed: ${shardErr.message}` }, 500);
   }
 
-  const allShards = shards || [];
+  // deno-lint-ignore no-explicit-any
+  const allShards = (shards || []) as any[];
   const totalShards = allShards.length;
 
   if (expectedShards > 0 && totalShards < expectedShards) {
@@ -85,8 +129,11 @@ Deno.serve(async (req) => {
     });
   }
 
+  // deno-lint-ignore no-explicit-any
   const pending = allShards.filter((s: any) => ["pending", "processing", "claimed"].includes(s.status));
+  // deno-lint-ignore no-explicit-any
   const failed = allShards.filter((s: any) => s.status === "failed");
+  // deno-lint-ignore no-explicit-any
   const completed = allShards.filter((s: any) => s.status === "completed");
 
   // ── 2. Handle incomplete shards ──
@@ -100,15 +147,38 @@ Deno.serve(async (req) => {
     });
   }
 
-  // ── 3. Handle failed shards — requeue them ──
+  // ── 3. Handle failed shards — requeue with retry cap ──
   if (failed.length > 0) {
     let requeued = 0;
+    let exhausted = 0;
+
     for (const shard of failed) {
+      const retryCount = Number(shard.meta?.retry_count || 0);
+
+      // ── Retry cap: don't requeue permanently broken shards ──
+      if (retryCount >= MAX_SHARD_RETRIES) {
+        exhausted++;
+        console.warn(`[finalize] Shard ${shard.id} exhausted after ${retryCount} retries — leaving failed`);
+        continue;
+      }
+
       try {
-        // Reset shard to pending
+        // Reset shard to pending with incremented retry_count
+        const nextMeta = {
+          ...(shard.meta || {}),
+          retry_count: retryCount + 1,
+          last_requeued_at: new Date().toISOString(),
+          last_failure_kind: shard.last_error?.slice(0, 100) || "unknown",
+        };
+
         await sb
           .from("package_content_shards")
-          .update({ status: "pending", last_error: null, updated_at: new Date().toISOString() })
+          .update({
+            status: "pending",
+            last_error: null,
+            updated_at: new Date().toISOString(),
+            meta: nextMeta,
+          })
           .eq("id", shard.id);
 
         // Reset failed lessons in this shard's scope back to pending
@@ -143,22 +213,31 @@ Deno.serve(async (req) => {
       }
     }
 
-    return json({
-      ok: true,
-      batch_complete: false,
-      transient: true,
-      message: `♻️ Requeued ${requeued}/${failed.length} failed shards`,
-      progress: { total: totalShards, completed: completed.length, pending: 0, failed: failed.length },
-      requeued,
-    });
+    // If ALL failed shards are exhausted, we proceed to coverage check anyway
+    // (some content is better than blocking forever)
+    if (exhausted === failed.length) {
+      console.warn(`[finalize] All ${exhausted} failed shards exhausted — proceeding to coverage check`);
+      // Fall through to coverage check below
+    } else {
+      return json({
+        ok: true,
+        batch_complete: false,
+        transient: true,
+        message: `♻️ Requeued ${requeued}/${failed.length} failed shards (${exhausted} exhausted)`,
+        progress: { total: totalShards, completed: completed.length, pending: 0, failed: failed.length },
+        requeued,
+        exhausted,
+      });
+    }
   }
 
-  // ── 4. All shards completed — validate lesson coverage ──
+  // ── 4. All shards completed (or exhausted) — validate lesson coverage ──
   const { data: modules } = await sb
     .from("modules")
     .select("id")
     .eq("course_id", courseId);
 
+  // deno-lint-ignore no-explicit-any
   const moduleIds = (modules || []).map((m: any) => m.id);
 
   if (moduleIds.length === 0) {
@@ -167,40 +246,86 @@ Deno.serve(async (req) => {
 
   const { data: lessons } = await sb
     .from("lessons")
-    .select("id, generation_status, content")
+    .select("id, generation_status, generation_claimed_at, content")
     .in("module_id", moduleIds);
 
   const totalLessons = lessons?.length || 0;
+  const staleThreshold = Date.now() - STALE_CLAIM_MINUTES * 60 * 1000;
 
-  // Check for stuck claimed lessons
-  const claimedLessons = (lessons || []).filter((l: any) => l.generation_status === "claimed");
-  if (claimedLessons.length > 0) {
-    // Reset stale claims
+  // ── 5. Only reset STALE claims (>20 min old), not active workers ──
+  // deno-lint-ignore no-explicit-any
+  const staleClaimedLessons = (lessons || []).filter((l: any) => {
+    if (l.generation_status !== "claimed") return false;
+    if (!l.generation_claimed_at) return true; // no timestamp = definitely stale
+    return new Date(l.generation_claimed_at).getTime() < staleThreshold;
+  });
+
+  if (staleClaimedLessons.length > 0) {
     await sb
       .from("lessons")
       .update({ generation_status: "pending", generation_job_id: null, generation_claimed_at: null })
-      .in("id", claimedLessons.map((l: any) => l.id));
+      // deno-lint-ignore no-explicit-any
+      .in("id", staleClaimedLessons.map((l: any) => l.id));
 
     return json({
       ok: true,
       batch_complete: false,
       transient: true,
-      message: `Reset ${claimedLessons.length} stale claimed lessons`,
+      message: `Reset ${staleClaimedLessons.length} stale claimed lessons (>${STALE_CLAIM_MINUTES}min)`,
     });
   }
 
-  // Check for failed lessons
+  // Check for non-stale active claims — still working, wait
+  // deno-lint-ignore no-explicit-any
+  const activeClaimedCount = (lessons || []).filter((l: any) => l.generation_status === "claimed").length;
+  if (activeClaimedCount > 0) {
+    return json({
+      ok: true,
+      batch_complete: false,
+      transient: true,
+      message: `⏳ ${activeClaimedCount} lessons still being processed by active workers`,
+    });
+  }
+
+  // ── 6. Handle failed lessons — try to assign to a shard for healing ──
+  // deno-lint-ignore no-explicit-any
   const failedLessons = (lessons || []).filter((l: any) => l.generation_status === "failed");
   if (failedLessons.length > 0) {
-    return json({
-      ok: true,
-      batch_complete: false,
-      transient: true,
-      message: `${failedLessons.length} lessons still in failed state`,
-    });
+    // Check if these failed lessons belong to an exhausted shard
+    // If so, accept partial coverage. If not, reset them to pending.
+    // deno-lint-ignore no-explicit-any
+    const failedLessonIds = failedLessons.map((l: any) => l.id);
+    const exhaustedShardLessonIds = new Set<string>();
+
+    for (const shard of allShards) {
+      const retryCount = Number(shard.meta?.retry_count || 0);
+      if (shard.status === "failed" && retryCount >= MAX_SHARD_RETRIES) {
+        for (const lid of (shard.meta?.lesson_ids || [])) {
+          exhaustedShardLessonIds.add(lid);
+        }
+      }
+    }
+
+    const healableLessonIds = failedLessonIds.filter((id: string) => !exhaustedShardLessonIds.has(id));
+    if (healableLessonIds.length > 0) {
+      // Reset orphan failed lessons to pending so next shard retry picks them up
+      await sb
+        .from("lessons")
+        .update({ generation_status: "pending", generation_job_id: null, generation_claimed_at: null })
+        .in("id", healableLessonIds);
+
+      return json({
+        ok: true,
+        batch_complete: false,
+        transient: true,
+        message: `Reset ${healableLessonIds.length} healable failed lessons to pending`,
+      });
+    }
+    // If all failed lessons are from exhausted shards, accept and proceed
+    console.warn(`[finalize] ${failedLessonIds.length} failed lessons from exhausted shards — accepting partial`);
   }
 
-  // Coverage check
+  // ── 7. Coverage check ──
   let withContent = 0;
   let totalLength = 0;
 
@@ -235,11 +360,18 @@ Deno.serve(async (req) => {
     });
   }
 
-  // ── 5. ALL GATES PASSED — Mark steps done & enqueue downstream ──
+  // ── 8. ALL GATES PASSED — Mark steps done & enqueue downstream ──
   console.log(
     `[finalize] ✅ Content phase complete for ${packageId.slice(0, 8)}: ` +
     `${withContent}/${totalLessons} lessons, avg_len=${avgLength}`,
   );
+
+  // Mark fanout_learning_content as done
+  await sb
+    .from("package_steps")
+    .update({ status: "done", updated_at: new Date().toISOString() })
+    .eq("package_id", packageId)
+    .eq("step_key", "fanout_learning_content");
 
   // Mark generate_learning_content as done
   await sb
@@ -259,7 +391,21 @@ Deno.serve(async (req) => {
     .eq("package_id", packageId)
     .eq("step_key", "generate_learning_content");
 
-  // Enqueue ALL downstream jobs — this is the ONLY place this happens
+  // Mark finalize_learning_content as done
+  await sb
+    .from("package_steps")
+    .update({
+      status: "done",
+      updated_at: new Date().toISOString(),
+      meta: {
+        fanout_id: fanoutId,
+        finalized_at: new Date().toISOString(),
+      },
+    })
+    .eq("package_id", packageId)
+    .eq("step_key", "finalize_learning_content");
+
+  // ── 9. Enqueue downstream — deduplicated via enqueueJobOnce ──
   const downstreamJobs = [
     { job_type: "package_generate_lesson_minichecks", priority: 15 },
     { job_type: "package_generate_exam_pool", priority: 15 },
@@ -271,7 +417,7 @@ Deno.serve(async (req) => {
   let downstreamEnqueued = 0;
   for (const dj of downstreamJobs) {
     try {
-      await enqueueJob(sb, {
+      const didEnqueue = await enqueueJobOnce(sb, {
         job_type: dj.job_type,
         package_id: packageId,
         payload: {
@@ -282,7 +428,7 @@ Deno.serve(async (req) => {
         priority: dj.priority,
         max_attempts: 5,
       });
-      downstreamEnqueued++;
+      if (didEnqueue) downstreamEnqueued++;
     } catch (e) {
       console.warn(`[finalize] Failed to enqueue ${dj.job_type}: ${(e as Error).message}`);
     }
