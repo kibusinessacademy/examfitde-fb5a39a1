@@ -253,82 +253,61 @@ const AppRoutes = () => {
           </Route>
         </Route>
 
-        {/* ====== ADMIN (unified SSOT layout) ====== */}
-        <Route path="/admin" element={<AdminV4Layout />}>
-          <Route index element={<Navigate to="home" replace />} />
-          <Route path="home" element={<AdminExecutiveHomePage />} />
-          <Route path="control-tower" element={<AdminControlTowerPage />} />
-          <Route path="command" element={<CommandPage />} />
-          <Route path="studio/*" element={<StudioPage />} />
-          <Route path="quality/*" element={<QualityPage />} />
-          <Route path="ops/*" element={<OpsPage />} />
-          <Route path="business/*" element={<BusinessPage />} />
-          <Route path="growth/*" element={<GrowthPage />} />
-          <Route path="scale/*" element={<ScalePage />} />
-          <Route path="pipeline" element={<PipelineMonitorPage />} />
-          <Route path="pipeline/e2e" element={<PipelineE2ERunbookPage />} />
-          <Route path="load-control" element={<LoadControlPage />} />
-          <Route path="production" element={<ProductionWavesPage />} />
-          <Route path="production/executive" element={<FactoryExecutiveDashboard />} />
-          <Route path="production/detail" element={<ProductionWaveDetailPage />} />
-          <Route path="production/triage" element={<ProductionWaveTriagePage />} />
-          {/* Content with nested routes */}
-          <Route path="content" element={<ContentLayout />}>
-            <Route index element={<ContentPagesList />} />
-            <Route path="blog" element={<BlogPostsList />} />
-            <Route path="blocks" element={<ContentBlocksEditor />} />
-            <Route path="assets" element={<AssetsManager />} />
-            <Route path="media" element={<MediaAltManager />} />
-            <Route path="seo" element={<RedirectsManager />} />
-          </Route>
-          <Route path="crm/*" element={<CRMPage />} />
-          <Route path="support/*" element={<SupportPage />} />
-          <Route path="handbook" element={<SystemHandbookPage />} />
-          <Route path="queue" element={<QueueManagerPage />} />
-          <Route path="social" element={<SocialEnginePage />} />
-          <Route path="audit" element={<AuditDashboardPage />} />
-          <Route path="contracts" element={<SystemContractAuditPage />} />
-          <Route path="probes" element={<SyntheticProbeCenterPage />} />
-          <Route path="scheduler" element={<SchedulerGovernancePage />} />
-          <Route path="leitstelle" element={<UnifiedLeitstellePage />} />
-          <Route path="v2-loop-debug" element={<V2LoopDebugPage />} />
-          <Route path="readiness" element={<PackageReadinessPage />} />
-          <Route path="intake/qualification-discovery" element={<QualificationDiscoveryPage />} />
-          <Route path="intake/curriculum" element={<CurriculumIntakePage />} />
+        {/* ====== ADMIN V2 (SSOT-only) ====== */}
+        <Route path="/admin" element={<AdminV2Layout />}>
+          <Route index element={<Navigate to="command" replace />} />
+          <Route path="command" element={<LeitstellePage />} />
+          <Route path="studio" element={<KursePage />} />
+          <Route path="studio/:packageId" element={<CourseWorkspace />} />
+          <Route path="queue" element={<QueuePage />} />
 
-          {/* B2B Competency Views */}
-          <Route path="b2b/org" element={<OrgDashboardPage />} />
-          <Route path="b2b/cohort" element={<CohortOverviewPage />} />
-          <Route path="b2b/learner" element={<LearnerCompetencyPage />} />
-
-          {/* ExamFit@work Admin (email-gated) */}
-          <Route element={<AdminEmailGuard />}>
-            <Route path="work" element={<WorkAdminPage />} />
-            <Route path="work/pipeline" element={<WorkPipelinePage />} />
-            <Route path="work/templates" element={<WorkTemplatesPage />} />
-            <Route path="work/bundles" element={<WorkBundlesPage />} />
-            <Route path="work/licenses" element={<WorkLicensesPage />} />
-            <Route path="work/commerce" element={<WorkCommercePage />} />
-            <Route path="work/affiliates" element={<WorkAffiliateDashboard />} />
-          </Route>
+          {/* All deactivated routes → info page */}
+          <Route path="home" element={<AdminDeactivatedPage />} />
+          <Route path="control-tower" element={<AdminDeactivatedPage />} />
+          <Route path="quality/*" element={<AdminDeactivatedPage />} />
+          <Route path="ops/*" element={<AdminDeactivatedPage />} />
+          <Route path="business/*" element={<AdminDeactivatedPage />} />
+          <Route path="growth/*" element={<AdminDeactivatedPage />} />
+          <Route path="scale/*" element={<AdminDeactivatedPage />} />
+          <Route path="pipeline" element={<AdminDeactivatedPage />} />
+          <Route path="pipeline/*" element={<AdminDeactivatedPage />} />
+          <Route path="load-control" element={<AdminDeactivatedPage />} />
+          <Route path="production" element={<AdminDeactivatedPage />} />
+          <Route path="production/*" element={<AdminDeactivatedPage />} />
+          <Route path="content/*" element={<AdminDeactivatedPage />} />
+          <Route path="crm/*" element={<AdminDeactivatedPage />} />
+          <Route path="support/*" element={<AdminDeactivatedPage />} />
+          <Route path="handbook" element={<AdminDeactivatedPage />} />
+          <Route path="social" element={<AdminDeactivatedPage />} />
+          <Route path="audit" element={<AdminDeactivatedPage />} />
+          <Route path="contracts" element={<AdminDeactivatedPage />} />
+          <Route path="probes" element={<AdminDeactivatedPage />} />
+          <Route path="scheduler" element={<AdminDeactivatedPage />} />
+          <Route path="leitstelle" element={<AdminDeactivatedPage />} />
+          <Route path="v2-loop-debug" element={<AdminDeactivatedPage />} />
+          <Route path="readiness" element={<AdminDeactivatedPage />} />
+          <Route path="intake/*" element={<AdminDeactivatedPage />} />
+          <Route path="b2b/*" element={<AdminDeactivatedPage />} />
+          <Route path="work" element={<AdminDeactivatedPage />} />
+          <Route path="work/*" element={<AdminDeactivatedPage />} />
+          
+          {/* Catch-all for any other admin route */}
+          <Route path="*" element={<AdminDeactivatedPage />} />
         </Route>
 
-        {/* Legacy admin redirects */}
-        <Route path="/admin/control-tower" element={<Navigate to="/admin/command" replace />} />
+        {/* Legacy admin redirects → all go to new command */}
         <Route path="/admin/dashboard" element={<Navigate to="/admin/command" replace />} />
         <Route path="/admin/courses" element={<Navigate to="/admin/studio" replace />} />
-        <Route path="/admin/course-studio" element={<Navigate to="/admin/studio/new" replace />} />
+        <Route path="/admin/course-studio" element={<Navigate to="/admin/studio" replace />} />
         <Route path="/admin/course/:packageId" element={<Navigate to="/admin/studio" replace />} />
-        <Route path="/admin/jobs" element={<Navigate to="/admin/ops" replace />} />
-        <Route path="/admin/jobs/*" element={<Navigate to="/admin/ops" replace />} />
-        <Route path="/admin/system/*" element={<Navigate to="/admin/ops" replace />} />
-        <Route path="/admin/finance/*" element={<Navigate to="/admin/business" replace />} />
-        <Route path="/admin/council/*" element={<Navigate to="/admin/quality" replace />} />
+        <Route path="/admin/jobs" element={<Navigate to="/admin/queue" replace />} />
+        <Route path="/admin/jobs/*" element={<Navigate to="/admin/queue" replace />} />
+        <Route path="/admin/system/*" element={<Navigate to="/admin/command" replace />} />
+        <Route path="/admin/finance/*" element={<Navigate to="/admin/command" replace />} />
+        <Route path="/admin/council/*" element={<Navigate to="/admin/command" replace />} />
         <Route path="/admin-v2/*" element={<Navigate to="/admin/command" replace />} />
-        {/* Legacy berufski admin → work admin */}
-        <Route path="/admin/berufski" element={<Navigate to="/admin/work" replace />} />
-        <Route path="/admin/berufski/*" element={<Navigate to="/admin/work" replace />} />
-
+        <Route path="/admin/berufski" element={<Navigate to="/admin/command" replace />} />
+        <Route path="/admin/berufski/*" element={<Navigate to="/admin/command" replace />} />
         {/* 404 */}
         <Route path="*" element={<NotFound />} />
       </Routes>
