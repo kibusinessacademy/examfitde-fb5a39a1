@@ -749,40 +749,46 @@ Deno.serve(async (req) => {
 
       const shadowStalled = (progressData ?? []).filter((p: any) => p.progress_state === "SHADOW_STALLED");
 
-      if (shadowStalled.length > 0) {
-        // Dedup: check if we already alerted in the last 30 min
-        const thirtyMinAgo = new Date(Date.now() - 30 * 60_000).toISOString();
-        const { data: recentAlert } = await sb.from("admin_notifications")
+      for (const pkg of shadowStalled) {
+        // Per-package dedup with 60min cooldown
+        const fingerprint = `progress:${pkg.package_id}:SHADOW_STALLED`;
+        const sixtyMinAgo = new Date(Date.now() - 60 * 60_000).toISOString();
+        const { data: existing } = await sb.from("admin_notifications")
           .select("id")
           .eq("category", "pipeline")
-          .ilike("title", "%SHADOW_STALLED%")
-          .gte("created_at", thirtyMinAgo)
+          .eq("entity_id", pkg.package_id)
+          .eq("entity_type", "progress_guard")
+          .gte("created_at", sixtyMinAgo)
           .limit(1);
 
-        if (!recentAlert || recentAlert.length === 0) {
-          const pkgNames = shadowStalled.map((p: any) => `${p.title} (${p.active_jobs} jobs, 0 completions)`).join(", ");
+        if (!existing || existing.length === 0) {
           await sb.from("admin_notifications").insert({
-            title: `🚨 SHADOW_STALLED: ${shadowStalled.length} Paket(e) aktiv ohne Fortschritt`,
-            body: `Pakete haben aktive Jobs/Leases aber seit >30min keinen echten Output: ${pkgNames}`,
+            title: `🚨 SHADOW_STALLED: ${pkg.title}`,
+            body: `Package "${pkg.title}" has ${pkg.active_jobs} active jobs, ${pkg.active_leases} leases, but no real progress for ${Math.round(pkg.minutes_since_real_progress)}min. completed_30m=0, completed_60m=0.`,
             category: "pipeline",
             severity: "critical",
             entity_type: "progress_guard",
+            entity_id: pkg.package_id,
+            metadata: { ...pkg, fingerprint },
           });
-          warnings.push(`G1: SHADOW_STALLED — ${shadowStalled.length} packages: ${pkgNames}`);
+          warnings.push(`G1: SHADOW_STALLED — ${pkg.title} (${pkg.active_jobs} jobs, ${Math.round(pkg.minutes_since_real_progress)}min no progress)`);
         }
 
-        // Log each stalled package
-        for (const pkg of shadowStalled) {
-          await sb.from("auto_heal_log").insert({
-            action_type: "progress_guard_shadow_stalled",
-            target_type: "course_package",
-            target_id: pkg.package_id,
-            trigger_source: "production-guardian",
-            result_status: "detected",
-            result_detail: JSON.stringify(pkg),
-            metadata: pkg,
-          });
-        }
+        await sb.from("auto_heal_log").insert({
+          action_type: "progress_guard_shadow_stalled",
+          target_type: "course_package",
+          target_id: pkg.package_id,
+          trigger_source: "production-guardian",
+          result_status: "detected",
+          result_detail: `SHADOW_STALLED: ${pkg.active_jobs} jobs, ${Math.round(pkg.minutes_since_real_progress)}min`,
+          metadata: pkg,
+        });
+      }
+
+      // Log SLOWING as info (no P0)
+      const slowing = (progressData ?? []).filter((p: any) => p.progress_state === "SLOWING");
+      for (const pkg of slowing) {
+        actions.push(`G1: SLOWING — ${pkg.title} (${pkg.active_jobs} jobs, completed_60m=${pkg.completed_jobs_60m})`);
       }
     } catch (e) {
       console.error("[Guardian] G1 progress guard error:", (e as Error).message);
@@ -795,34 +801,36 @@ Deno.serve(async (req) => {
       const { data: batchHealth } = await sb
         .from("v_ops_batch_submit_health")
         .select("*")
-        .in("submit_health", ["CRITICAL", "DEGRADED"]);
+        .in("submit_health", ["CRITICAL", "DEGRADED", "WARNING"]);
 
-      const criticalSubmits = (batchHealth ?? []).filter((b: any) => b.submit_health === "CRITICAL");
-      const degradedSubmits = (batchHealth ?? []).filter((b: any) => b.submit_health === "DEGRADED");
-
-      if (criticalSubmits.length > 0 || degradedSubmits.length > 0) {
+      for (const b of batchHealth ?? []) {
+        const fingerprint = `batch:${b.provider ?? "?"}:${b.model ?? "?"}:${b.job_type ?? "?"}:${b.submit_health}`;
         const thirtyMinAgo = new Date(Date.now() - 30 * 60_000).toISOString();
-        const { data: recentAlert } = await sb.from("admin_notifications")
+        const { data: existing } = await sb.from("admin_notifications")
           .select("id")
           .eq("category", "pipeline")
-          .ilike("title", "%BATCH_SUBMIT%")
+          .eq("entity_type", "batch_submit_guard")
           .gte("created_at", thirtyMinAgo)
           .limit(1);
 
-        if (!recentAlert || recentAlert.length === 0) {
-          const severity = criticalSubmits.length > 0 ? "critical" : "warning";
-          const details = [...criticalSubmits, ...degradedSubmits]
-            .map((b: any) => `${b.provider}/${b.model}: ${b.failure_pct}% fail (${b.failed}/${b.total})`)
-            .join("; ");
-          
-          await sb.from("admin_notifications").insert({
-            title: `🚨 BATCH_SUBMIT_FAILURE: ${criticalSubmits.length} critical, ${degradedSubmits.length} degraded`,
-            body: `Batch-Submit-Fehlerrate zu hoch: ${details}. Sample: ${(criticalSubmits[0] || degradedSubmits[0])?.sample_error?.slice(0, 200)}`,
-            category: "pipeline",
-            severity,
-            entity_type: "batch_submit_guard",
-          });
-          warnings.push(`G2: BATCH_SUBMIT — ${details}`);
+        if (!existing || existing.length === 0) {
+          const severity = b.submit_health === "CRITICAL" ? "critical" : "warning";
+          // P0 only with real volume: CRITICAL needs total>=10, DEGRADED needs total>=20
+          const isRealVolume = (b.submit_health === "CRITICAL" && (b.total ?? 0) >= 10)
+            || (b.submit_health === "DEGRADED" && (b.total ?? 0) >= 20)
+            || b.submit_health === "WARNING";
+
+          if (isRealVolume) {
+            await sb.from("admin_notifications").insert({
+              title: `🚨 BATCH_SUBMIT_${b.submit_health}: ${b.provider}/${b.model}`,
+              body: `Provider=${b.provider} model=${b.model} job_type=${b.job_type} failure_rate=${b.failure_pct}% (${b.failed}/${b.total}). Sample: ${String(b.sample_error ?? "").slice(0, 200)}`,
+              category: "pipeline",
+              severity,
+              entity_type: "batch_submit_guard",
+              metadata: { ...b, fingerprint },
+            });
+            warnings.push(`G2: ${b.submit_health} — ${b.provider}/${b.model} ${b.failure_pct}%`);
+          }
         }
       }
     } catch (e) {
@@ -849,20 +857,22 @@ Deno.serve(async (req) => {
 
         if (redFields.length > 0) {
           const thirtyMinAgo = new Date(Date.now() - 30 * 60_000).toISOString();
-          const { data: recentAlert } = await sb.from("admin_notifications")
+          const fingerprint = `health_red:${redFields.sort().join(",")}`;
+          const { data: existing } = await sb.from("admin_notifications")
             .select("id")
             .eq("category", "pipeline")
-            .ilike("title", "%HEALTH_RED%")
+            .eq("entity_type", "health_bridge")
             .gte("created_at", thirtyMinAgo)
             .limit(1);
 
-          if (!recentAlert || recentAlert.length === 0) {
+          if (!existing || existing.length === 0) {
             await sb.from("admin_notifications").insert({
               title: `🔴 HEALTH_RED: ${redFields.join(", ")}`,
-              body: `Batch Recovery Health zeigt RED für: ${redFields.join(", ")}. Overall: ${recoveryHealth.overall_health}. Output 90m: content=${recoveryHealth.content_versions_90m}, exam=${recoveryHealth.exam_questions_90m}, lessons=${recoveryHealth.lesson_jobs_completed_90m}`,
+              body: `Batch Recovery Health zeigt RED für: ${redFields.join(", ")}. Overall: ${(recoveryHealth as any).overall_health}.`,
               category: "pipeline",
               severity: "critical",
               entity_type: "health_bridge",
+              metadata: { ...recoveryHealth, fingerprint, red_fields: redFields },
             });
             warnings.push(`G3: HEALTH_RED — ${redFields.join(", ")}`);
           }
@@ -881,43 +891,39 @@ Deno.serve(async (req) => {
         .select("*")
         .in("zombie_class", ["SHADOW_ZOMBIE", "POISONED_LOOP", "HARD_STALLED"]);
 
-      const realZombies = (zombies ?? []).filter((z: any) => z.zombie_class !== "UNKNOWN");
-
-      if (realZombies.length > 0) {
-        const thirtyMinAgo = new Date(Date.now() - 30 * 60_000).toISOString();
-        const { data: recentAlert } = await sb.from("admin_notifications")
+      for (const z of zombies ?? []) {
+        const fingerprint = `zombie:${z.package_id}:${z.zombie_class}`;
+        const sixtyMinAgo = new Date(Date.now() - 60 * 60_000).toISOString();
+        const { data: existing } = await sb.from("admin_notifications")
           .select("id")
           .eq("category", "pipeline")
-          .ilike("title", "%ZOMBIE%")
-          .gte("created_at", thirtyMinAgo)
+          .eq("entity_id", z.package_id)
+          .eq("entity_type", "zombie_guard")
+          .gte("created_at", sixtyMinAgo)
           .limit(1);
 
-        if (!recentAlert || recentAlert.length === 0) {
-          const details = realZombies.map((z: any) => 
-            `${z.title}: ${z.zombie_class} (jobs=${z.active_jobs}, completed_1h=${z.completed_jobs_1h}, batch_fails=${z.batch_submit_fails_1h})`
-          ).join("; ");
-
+        if (!existing || existing.length === 0) {
           await sb.from("admin_notifications").insert({
-            title: `🧟 ZOMBIE: ${realZombies.length} Paket(e) mit ${realZombies.map((z:any) => z.zombie_class).join("/")}`,
-            body: details,
+            title: `🧟 ${z.zombie_class}: ${z.title}`,
+            body: `Package "${z.title}" classified as ${z.zombie_class}. active_jobs=${z.active_jobs}, leases=${z.active_leases}, completed_1h=${z.completed_jobs_1h}, batch_ok=${z.batch_submit_ok_1h}, batch_fails=${z.batch_submit_fails_1h}, retries=${z.total_retry_attempts}.`,
             category: "pipeline",
             severity: "critical",
             entity_type: "zombie_guard",
+            entity_id: z.package_id,
+            metadata: { ...z, fingerprint },
           });
-          warnings.push(`G4: ZOMBIE — ${details}`);
+          warnings.push(`G4: ${z.zombie_class} — ${z.title}`);
         }
 
-        for (const z of realZombies) {
-          await sb.from("auto_heal_log").insert({
-            action_type: `zombie_detected_${z.zombie_class.toLowerCase()}`,
-            target_type: "course_package",
-            target_id: z.package_id,
-            trigger_source: "production-guardian",
-            result_status: "detected",
-            result_detail: JSON.stringify(z),
-            metadata: z,
-          });
-        }
+        await sb.from("auto_heal_log").insert({
+          action_type: `zombie_detected_${String(z.zombie_class).toLowerCase()}`,
+          target_type: "course_package",
+          target_id: z.package_id,
+          trigger_source: "production-guardian",
+          result_status: "detected",
+          result_detail: `${z.zombie_class}: jobs=${z.active_jobs}, completed_1h=${z.completed_jobs_1h}, batch_fails=${z.batch_submit_fails_1h}`,
+          metadata: z,
+        });
       }
     } catch (e) {
       console.error("[Guardian] G4 zombie guard error:", (e as Error).message);

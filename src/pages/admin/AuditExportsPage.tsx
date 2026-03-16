@@ -63,7 +63,7 @@ export default function AuditExportsPage() {
           enrolled_at,
           completed_at,
           profiles!inner (full_name, email)
-        `)
+        ` as '*')
         .eq('course_id', selectedCourse);
       if (error) throw error;
       return data;
