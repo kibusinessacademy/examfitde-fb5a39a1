@@ -45,7 +45,9 @@ export async function processPackage(
   }
 
   // ── Executability guard (self-heal status drift) ──
-  if (pkg.published_at || pkg.status !== "building") {
+  // HARDENED: Allow council_review for council-related processing
+  const PROCESS_ALLOWED_STATUSES = new Set(["building", "council_review"]);
+  if (pkg.published_at || !PROCESS_ALLOWED_STATUSES.has(pkg.status)) {
     const normalizedStatus = pkg.published_at ? "published" : pkg.status;
 
     if (pkg.published_at && pkg.status !== "published") {
