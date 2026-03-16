@@ -145,7 +145,11 @@ Deno.serve(async (req) => {
         status: "pending",
         lesson_target_count: chunkLessons.length,
         lesson_generated_count: 0,
-        meta: { lesson_ids: chunkLessons },
+        meta: {
+          lesson_ids: chunkLessons,
+          chunk_size: chunkLessons.length,
+          generation_version: 1,
+        },
       });
 
       shardJobs.push({
