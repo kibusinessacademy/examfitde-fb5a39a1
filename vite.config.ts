@@ -14,8 +14,9 @@ export default defineConfig(({ mode }) => ({
     react(),
     mode === "development" && componentTagger(),
     VitePWA({
+      selfDestroying: true,
       registerType: "autoUpdate",
-      injectRegister: "script-defer",
+      injectRegister: "script-defer", // unregister stale preview service worker / caches
       includeAssets: ["favicon.ico", "robots.txt", "apple-touch-icon.png", "pwa-192x192.png", "pwa-512x512.png", "pwa-maskable-512x512.png"],
       manifest: {
         name: "ExamFit.de - IHK Prüfungsvorbereitung",
