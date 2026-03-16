@@ -41,6 +41,7 @@ export interface AdminPackageSSOT {
   has_stale_publish: boolean;
   is_stuck: boolean;
   council_complete: boolean;
+  has_publish_drift: boolean;
 }
 
 export function useAdminPackagesSSOT() {
