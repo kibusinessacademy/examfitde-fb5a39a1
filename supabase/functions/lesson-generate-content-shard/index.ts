@@ -36,8 +36,10 @@ function hasUsableContent(content: unknown): boolean {
   if (content == null) return false;
   if (typeof content === "object" && (content as Record<string, unknown>)?._placeholder === true) return false;
   const txt = typeof content === "string" ? content : JSON.stringify(content);
-  if (!txt || txt === "null" || txt === "{}" || txt === "[]") return false;
-  return txt.length >= 300;
+  const normalized = txt.trim();
+  if (!normalized || normalized === "null" || normalized === "{}" || normalized === "[]") return false;
+  if (normalized.includes("_placeholder")) return false;
+  return normalized.length >= 300;
 }
 
 // ── Shard helpers ──
