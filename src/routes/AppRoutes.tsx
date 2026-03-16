@@ -4,7 +4,7 @@ import { Loader2 } from 'lucide-react';
 
 // Guards & Layouts
 import MainLayout from '@/components/layout/MainLayout';
-import AdminV4Layout from '@/components/layout/AdminV4Layout';
+// AdminV4Layout removed — V2 SSOT-only
 import SEOLayout from '@/components/layout/SEOLayout';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import AdminEmailGuard from '@/components/auth/AdminEmailGuard';
