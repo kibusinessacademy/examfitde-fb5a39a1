@@ -282,6 +282,7 @@ const AppRoutes = () => {
           <Route path="scheduler" element={<SchedulerGovernancePage />} />
           <Route path="leitstelle" element={<UnifiedLeitstellePage />} />
           <Route path="v2-loop-debug" element={<V2LoopDebugPage />} />
+          <Route path="readiness" element={<PackageReadinessPage />} />
           <Route path="intake/qualification-discovery" element={<QualificationDiscoveryPage />} />
           <Route path="intake/curriculum" element={<CurriculumIntakePage />} />
 
