@@ -150,6 +150,7 @@ async function dispatchJob(job: any, supabaseUrl: string, serviceKey: string): P
 const WORKLOAD_KEY_MAP: Record<string, string> = {
   package_generate_learning_content: "learning_content",
   lesson_generate_content: "learning_content",
+  lesson_generate_content_shard: "learning_content",
   package_generate_handbook: "handbook",
   package_generate_exam_pool: "exam_pool",
   package_generate_oral_exam: "oral_exam",
