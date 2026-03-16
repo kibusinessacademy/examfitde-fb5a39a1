@@ -10333,6 +10333,30 @@ export type Database = {
           },
         ]
       }
+      daily_ops_reports: {
+        Row: {
+          generated_at: string
+          id: string
+          report_date: string
+          report_json: Json
+          trigger_source: string
+        }
+        Insert: {
+          generated_at?: string
+          id?: string
+          report_date: string
+          report_json?: Json
+          trigger_source?: string
+        }
+        Update: {
+          generated_at?: string
+          id?: string
+          report_date?: string
+          report_json?: Json
+          trigger_source?: string
+        }
+        Relationships: []
+      }
       datev_export_config: {
         Row: {
           created_at: string
