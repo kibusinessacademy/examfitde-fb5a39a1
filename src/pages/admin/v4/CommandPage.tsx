@@ -1,5 +1,5 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Activity, DollarSign, AlertTriangle, Sparkles, Shield, LayoutDashboard, Radio, CalendarDays, HeartPulse } from 'lucide-react';
+import { Activity, DollarSign, AlertTriangle, Sparkles, Shield, LayoutDashboard, Radio, CalendarDays, HeartPulse, FileText } from 'lucide-react';
 import { lazy, Suspense } from 'react';
 import { Loader2 } from 'lucide-react';
 import Leitstelle from '@/components/admin/command/Leitstelle';
@@ -14,6 +14,7 @@ const RealtimePipelineMonitor = lazy(() => import('@/components/admin/RealtimePi
 const QualityCockpitTab = lazy(() => import('@/components/admin/command/QualityCockpitTab'));
 const OpsMonitoringTab = lazy(() => import('@/pages/admin/v4/OpsMonitoringTab'));
 const DailyCommandBriefing = lazy(() => import('@/components/admin/command/DailyCommandBriefing'));
+const DailyOpsReport = lazy(() => import('@/components/admin/command/DailyOpsReport'));
 const ForensicMonitorPanel = lazy(() => import('@/components/admin/command/ForensicMonitorPanel'));
 
 const Fallback = () => <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>;
@@ -23,8 +24,11 @@ export default function CommandPage() {
     <div className="space-y-4">
       <RealtimeAlerts />
       <PipelineHealthPanel />
-      <Tabs defaultValue="briefing" className="w-full">
+      <Tabs defaultValue="ops-report" className="w-full">
         <TabsList className="flex flex-wrap h-auto gap-1 bg-muted/50 p-1 rounded-xl">
+          <TabsTrigger value="ops-report" className="flex items-center gap-1.5 text-xs lg:text-sm py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-lg">
+            <FileText className="h-3.5 w-3.5" /><span className="hidden sm:inline">Tagesbericht</span>
+          </TabsTrigger>
           <TabsTrigger value="briefing" className="flex items-center gap-1.5 text-xs lg:text-sm py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-lg">
             <CalendarDays className="h-3.5 w-3.5" /><span className="hidden sm:inline">Tagesbriefing</span>
           </TabsTrigger>
@@ -57,6 +61,7 @@ export default function CommandPage() {
           </TabsTrigger>
         </TabsList>
 
+        <TabsContent value="ops-report" className="mt-4"><Suspense fallback={<Fallback />}><DailyOpsReport /></Suspense></TabsContent>
         <TabsContent value="briefing" className="mt-4"><Suspense fallback={<Fallback />}><DailyCommandBriefing /></Suspense></TabsContent>
         <TabsContent value="leitstelle" className="mt-4"><Leitstelle /></TabsContent>
         <TabsContent value="ops-monitor" className="mt-4"><Suspense fallback={<Fallback />}><OpsMonitoringTab /></Suspense></TabsContent>
