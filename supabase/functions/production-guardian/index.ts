@@ -750,7 +750,7 @@ Deno.serve(async (req) => {
       const shadowStalled = (progressData ?? []).filter((p: any) => p.progress_state === "SHADOW_STALLED");
 
       for (const pkg of shadowStalled) {
-        // Per-package dedup with 60min cooldown
+        // Per-package + per-state dedup with 60min cooldown
         const fingerprint = `progress:${pkg.package_id}:SHADOW_STALLED`;
         const sixtyMinAgo = new Date(Date.now() - 60 * 60_000).toISOString();
         const { data: existing } = await sb.from("admin_notifications")
@@ -758,6 +758,7 @@ Deno.serve(async (req) => {
           .eq("category", "pipeline")
           .eq("entity_id", pkg.package_id)
           .eq("entity_type", "progress_guard")
+          .contains("metadata", { fingerprint })
           .gte("created_at", sixtyMinAgo)
           .limit(1);
 
@@ -790,6 +791,36 @@ Deno.serve(async (req) => {
       for (const pkg of slowing) {
         actions.push(`G1: SLOWING — ${pkg.title} (${pkg.active_jobs} jobs, completed_60m=${pkg.completed_jobs_60m})`);
       }
+
+      // G1 extension: IDLE_WITH_LEASE as ops signal (warning, not P0)
+      const idleWithLease = (progressData ?? []).filter((p: any) => p.progress_state === "IDLE_WITH_LEASE");
+      for (const pkg of idleWithLease) {
+        if ((pkg.minutes_since_real_progress ?? 0) > 30) {
+          const fingerprint = `progress:${pkg.package_id}:IDLE_WITH_LEASE`;
+          const thirtyMinAgo = new Date(Date.now() - 30 * 60_000).toISOString();
+          const { data: existing } = await sb.from("admin_notifications")
+            .select("id")
+            .eq("category", "pipeline")
+            .eq("entity_id", pkg.package_id)
+            .eq("entity_type", "progress_guard")
+            .contains("metadata", { fingerprint })
+            .gte("created_at", thirtyMinAgo)
+            .limit(1);
+
+          if (!existing || existing.length === 0) {
+            await sb.from("admin_notifications").insert({
+              title: `⚠️ IDLE_WITH_LEASE: ${pkg.title}`,
+              body: `Package "${pkg.title}" has ${pkg.active_leases} active leases but 0 active jobs for ${Math.round(pkg.minutes_since_real_progress)}min. Possible lease leak.`,
+              category: "pipeline",
+              severity: "warning",
+              entity_type: "progress_guard",
+              entity_id: pkg.package_id,
+              metadata: { ...pkg, fingerprint },
+            });
+            actions.push(`G1: IDLE_WITH_LEASE — ${pkg.title} (${pkg.active_leases} leases, 0 jobs)`);
+          }
+        }
+      }
     } catch (e) {
       console.error("[Guardian] G1 progress guard error:", (e as Error).message);
     }
@@ -804,21 +835,28 @@ Deno.serve(async (req) => {
         .in("submit_health", ["CRITICAL", "DEGRADED", "WARNING"]);
 
       for (const b of batchHealth ?? []) {
-        const fingerprint = `batch:${b.provider ?? "?"}:${b.model ?? "?"}:${b.job_type ?? "?"}:${b.submit_health}`;
+        const entityId = `${b.provider ?? "?"}:${b.model ?? "?"}:${b.job_type ?? "?"}`;
+        const fingerprint = `batch:${entityId}:${b.submit_health}`;
         const thirtyMinAgo = new Date(Date.now() - 30 * 60_000).toISOString();
+
+        // Fingerprint-specific dedupe: filter by entity_id (provider:model:job_type)
         const { data: existing } = await sb.from("admin_notifications")
           .select("id")
           .eq("category", "pipeline")
           .eq("entity_type", "batch_submit_guard")
+          .eq("entity_id", entityId)
           .gte("created_at", thirtyMinAgo)
           .limit(1);
 
         if (!existing || existing.length === 0) {
-          const severity = b.submit_health === "CRITICAL" ? "critical" : "warning";
-          // P0 only with real volume: CRITICAL needs total>=10, DEGRADED needs total>=20
+          // Granular severity: CRITICAL→critical, DEGRADED→warning, WARNING→info
+          const severity = b.submit_health === "CRITICAL" ? "critical"
+            : b.submit_health === "DEGRADED" ? "warning" : "info";
+
+          // Volume thresholds: CRITICAL>=10, DEGRADED>=20, WARNING>=10
           const isRealVolume = (b.submit_health === "CRITICAL" && (b.total ?? 0) >= 10)
             || (b.submit_health === "DEGRADED" && (b.total ?? 0) >= 20)
-            || b.submit_health === "WARNING";
+            || (b.submit_health === "WARNING" && (b.total ?? 0) >= 10);
 
           if (isRealVolume) {
             await sb.from("admin_notifications").insert({
@@ -827,6 +865,7 @@ Deno.serve(async (req) => {
               category: "pipeline",
               severity,
               entity_type: "batch_submit_guard",
+              entity_id: entityId,
               metadata: { ...b, fingerprint },
             });
             warnings.push(`G2: ${b.submit_health} — ${b.provider}/${b.model} ${b.failure_pct}%`);
@@ -858,10 +897,13 @@ Deno.serve(async (req) => {
         if (redFields.length > 0) {
           const thirtyMinAgo = new Date(Date.now() - 30 * 60_000).toISOString();
           const fingerprint = `health_red:${redFields.sort().join(",")}`;
+          // Fingerprint-specific dedupe: filter by entity_id = sorted RED fields
+          const entityId = redFields.sort().join(",");
           const { data: existing } = await sb.from("admin_notifications")
             .select("id")
             .eq("category", "pipeline")
             .eq("entity_type", "health_bridge")
+            .eq("entity_id", entityId)
             .gte("created_at", thirtyMinAgo)
             .limit(1);
 
@@ -872,6 +914,7 @@ Deno.serve(async (req) => {
               category: "pipeline",
               severity: "critical",
               entity_type: "health_bridge",
+              entity_id: entityId,
               metadata: { ...recoveryHealth, fingerprint, red_fields: redFields },
             });
             warnings.push(`G3: HEALTH_RED — ${redFields.join(", ")}`);
