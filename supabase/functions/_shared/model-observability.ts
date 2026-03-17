@@ -132,6 +132,28 @@ export const MODEL_PERF_ESTIMATES: Record<string, ModelPerfEstimate> = {
     source: "vendor-doc",
   },
 
+  // ── GPT-5.4 Mini Tier (Mar 2026) ──────────────────────────
+  "gpt-5.4-mini": {
+    ttft_s_p50: [0.5, 1.2],
+    output_tps_observed: [110, 180],
+    rpm_observed: [3000, 10000],
+    tpm_observed: 2_000_000,
+    tier: "mini",
+    confidence: "medium",
+    source: "vendor-doc",
+  },
+
+  // ── GPT-5.4 Nano Tier (Mar 2026) ─────────────────────────
+  "gpt-5.4-nano": {
+    ttft_s_p50: [0.2, 0.5],
+    output_tps_observed: [160, 260],
+    rpm_observed: [10000, 20000],
+    tpm_observed: 4_000_000,
+    tier: "nano",
+    confidence: "medium",
+    source: "vendor-doc",
+  },
+
   // ── Reasoning Tier ─────────────────────────────────────────
   "o4-mini": {
     ttft_s_p50: [1.5, 3.0],
