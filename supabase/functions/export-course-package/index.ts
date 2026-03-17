@@ -772,22 +772,69 @@ Deno.serve(async (req) => {
     }
     console.log(`[export] ${contentVersions.length} content versions`);
 
-    // ── 15. MiniChecks (extracted from lessons) ──
+    // ── 15. MiniChecks (from minicheck_questions table + lesson content JSON) ──
     const minichecks: unknown[] = [];
-    for (const l of allLessons as Record<string, unknown>[]) {
-      if (l.minicheck_parsed || l.step === "mini_check") {
-        minichecks.push({
-          lesson_id: l.lesson_id,
-          lesson_title: l.title,
-          module_id: l.module_id,
-          learning_field_id: l.learning_field_id,
-          competency_id: l.competency_id,
-          minicheck_data: l.minicheck_parsed,
-          mastery_weight: l.mastery_weight,
-        });
+    const minicheckQuestions: unknown[] = [];
+    if (cid && moduleIds.length > 0) {
+      try {
+        // 15a: Load minicheck_questions from dedicated table (normalized SSOT)
+        const lessonIdBatches: string[][] = [];
+        for (let i = 0; i < moduleIds.length; i += 50) {
+          const modChunk = moduleIds.slice(i, i + 50);
+          const { data: lIds } = await sb.from("lessons").select("id").in("module_id", modChunk);
+          if (lIds) lessonIdBatches.push(lIds.map((l: any) => l.id as string));
+        }
+        const allLessonIds = lessonIdBatches.flat();
+
+        // Paginated fetch of minicheck_questions
+        const chunkSize = 200;
+        for (let ci = 0; ci < allLessonIds.length; ci += chunkSize) {
+          const chunk = allLessonIds.slice(ci, ci + chunkSize);
+          const pageSize = 500;
+          let offset = 0;
+          while (true) {
+            const { data: batch } = await sb
+              .from("minicheck_questions")
+              .select("id, lesson_id, question_text, options, correct_answer, explanation, difficulty, cognitive_level, trap_tags, distractor_meta, competency_id, sort_order, status, mode, created_at")
+              .in("lesson_id", chunk)
+              .order("lesson_id")
+              .range(offset, offset + pageSize - 1);
+            if (!batch || batch.length === 0) break;
+            minicheckQuestions.push(...batch);
+            if (batch.length < pageSize) break;
+            offset += pageSize;
+          }
+        }
+
+        // 15b: Load lesson content JSON for mini_check steps (contains embedded questions)
+        const { data: mcLessons } = await sb
+          .from("lessons")
+          .select("id, title, module_id, competency_id, content, qc_status, minicheck_parsed")
+          .in("module_id", moduleIds)
+          .eq("step", "mini_check");
+
+        for (const l of (mcLessons || []) as Record<string, unknown>[]) {
+          const contentObj = l.content as Record<string, unknown> | null;
+          const embeddedQuestions = contentObj?.questions as unknown[] | undefined;
+          const mcQsForLesson = (minicheckQuestions as Record<string, unknown>[]).filter(q => q.lesson_id === l.id);
+
+          minichecks.push({
+            lesson_id: l.id,
+            lesson_title: l.title,
+            module_id: l.module_id,
+            competency_id: l.competency_id,
+            qc_status: l.qc_status,
+            minicheck_parsed: l.minicheck_parsed,
+            embedded_question_count: embeddedQuestions?.length || 0,
+            embedded_questions: embeddedQuestions || [],
+            db_question_count: mcQsForLesson.length,
+          });
+        }
+      } catch (e) {
+        console.log(`[export] MiniCheck export error: ${(e as Error).message}`);
       }
     }
-    console.log(`[export] ${minichecks.length} minichecks extracted`);
+    console.log(`[export] ${minichecks.length} minicheck lessons, ${minicheckQuestions.length} minicheck questions from DB`);
 
     // ══════════════════════════════════════════════════════
     // ── TRACEABILITY PROTOCOL (question → blueprint → competency → LF) ──
@@ -1007,6 +1054,7 @@ Deno.serve(async (req) => {
     // ── Block 4: Didaktik (Lessons, MiniChecks, Mastery) ──
     zip.file("4_didaktik/lessons_all.json", JSON.stringify(allLessons, null, 2));
     zip.file("4_didaktik/minichecks.json", JSON.stringify(minichecks, null, 2));
+    zip.file("4_didaktik/minicheck_questions_all.json", JSON.stringify(minicheckQuestions));
     zip.file("4_didaktik/mastery_model.json", JSON.stringify(masteryModel, null, 2));
     zip.file("4_didaktik/course_snapshot.json", JSON.stringify(courseSnapshot || {}, null, 2));
     zip.file("4_didaktik/handbook.md", handbookMd);
@@ -1301,7 +1349,7 @@ Deno.serve(async (req) => {
         trap_coverage: { with_trap_tags: withTraps, without: totalQ - withTraps, percent: totalQ > 0 ? Math.round((withTraps / totalQ) * 1000) / 10 : 0 },
         distractor_meta_coverage: { with_meta: withDistractorMeta, without: totalQ - withDistractorMeta, percent: totalQ > 0 ? Math.round((withDistractorMeta / totalQ) * 1000) / 10 : 0 },
         didactic_step_distribution: stepDist,
-        minicheck_coverage: { with_minicheck: withMinicheck, total_lessons: allLessons.length, percent: allLessons.length > 0 ? Math.round((withMinicheck / allLessons.length) * 1000) / 10 : 0 },
+        minicheck_coverage: { minicheck_lessons: minichecks.length, minicheck_questions_db: minicheckQuestions.length, total_lessons: allLessons.length, lessons_with_minicheck_percent: allLessons.length > 0 ? Math.round((minichecks.length / (allLessons.length / 5)) * 1000) / 10 : 0, avg_questions_per_lesson: minichecks.length > 0 ? Math.round(minicheckQuestions.length / minichecks.length * 10) / 10 : 0 },
         blueprint_quality: { total: questionBlueprints.length, with_typical_errors: bpsWithTraps, with_exam_context_type: bpsWithContext, trap_coverage_percent: questionBlueprints.length > 0 ? Math.round((bpsWithTraps / questionBlueprints.length) * 1000) / 10 : 0 },
         competency_graph: { total_competencies: competencies.length, mastery_model: "three_tier", thresholds: { not_mastered: "<60%", partial: "60-80%", mastered: ">80%" } },
         lf_weight_distribution: lfDistribution,
@@ -1443,7 +1491,7 @@ Deno.serve(async (req) => {
         "1_curriculum": { curriculum: 1, learning_fields: learningFields.length, competencies: competencies.length },
         "2_blueprints": { total: questionBlueprints.length, constraints: blueprintConstraints.length, by_lf: Object.keys(bpsByLf).length },
         "3_exam_pool": { questions_all: allQuestions.length, questions_approved: approvedQuestions.length, exam_sessions: allExamSessions.length, trace_entries: traceProtocol.length },
-        "4_didaktik": { lessons: allLessons.length, minichecks: minichecks.length, handbook_chapters: handbookStructured.length },
+        "4_didaktik": { lessons: allLessons.length, minichecks: minichecks.length, minicheck_questions: minicheckQuestions.length, handbook_chapters: handbookStructured.length },
         "5_governance": { quality_gates: qualityGates.length, ai_validations: aiValidations.length, council_findings: councilFindings.length, content_versions: contentVersions.length, auto_heal: autoHealLog.length, patch_plans: patchPlans.length },
         "oral_exam": { sessionsets: (oralSessionsets || []).length, blueprints: oralBlueprints.length, sessions: allOralSessions.length },
         "tutor": { logs: allTutorLogs.length, policies: tutorPolicies.length, indices: (tutorIndices || []).length },
