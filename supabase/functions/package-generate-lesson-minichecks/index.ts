@@ -360,6 +360,73 @@ Deno.serve(async (req) => {
     const effectiveMode = targets[0]?.lessonId ? "lesson" : "drill";
     console.log(`[MiniChecks] ${effectiveMode} mode: ${targets.length} targets to generate for ${packageId.slice(0, 8)} (hasMore=${hasMore}, found=${targetsFound})`);
 
+    // ── BATCH ROUTING: Submit all targets as one batch instead of sync loop ──
+    const forceSyncMode = p._force_sync === true || p.force_sync === true;
+    if (shouldUseBatch("package_generate_lesson_minichecks", { forceSyncMode, itemCount: targets.length })) {
+      const model = BATCH_DEFAULT_MODEL;
+      const batchItems = targets.map((target, idx) => {
+        const itemCount = target.lessonId ? ITEMS_PER_LESSON : ITEMS_PER_DRILL;
+        const targetMode: "lesson" | "drill" = target.lessonId ? "lesson" : "drill";
+        const { system, user } = buildMiniCheckPrompt(
+          target.title, target.content, target.competencyTitle,
+          itemCount, targetMode, professionName,
+        );
+        const customId = `mc_${curriculumId.slice(0, 8)}_${(target.lessonId || target.competencyId || target.id).slice(0, 8)}_${idx}_${Date.now()}`;
+        return {
+          customId,
+          sourceJobId: p.job_id || null,
+          sourceRef: {
+            lesson_id: target.lessonId,
+            curriculum_id: curriculumId,
+            competency_id: target.competencyId,
+            package_id: packageId,
+            mode: targetMode,
+            profession_name: professionName,
+            title: target.title,
+          },
+          jobType: "package_generate_lesson_minichecks",
+          model,
+          messages: [
+            { role: "system", content: system },
+            { role: "user", content: user },
+          ],
+          temperature: 0.4,
+          maxTokens: 4000,
+        };
+      });
+
+      const requests = buildBatchRequests(batchItems);
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+      const submitResult = await submitBatchViaFunction(supabaseUrl, serviceRoleKey, {
+        jobType: "package_generate_lesson_minichecks",
+        model,
+        requests,
+        metadata: {
+          curriculum_id: curriculumId,
+          package_id: packageId,
+          target_count: String(targets.length),
+          mode: effectiveMode,
+        },
+      });
+
+      if (!submitResult.ok) {
+        console.error(`[MiniChecks] BATCH_SUBMIT_FAILED: ${submitResult.error} — falling back to sync`);
+        // Fall through to sync loop below
+      } else {
+        console.log(`[MiniChecks] BATCH_ENQUEUED: ${targets.length} targets → batch_id=${submitResult.batchId} model=${model}`);
+        return json({
+          ok: true,
+          batch_mode: true,
+          batch_id: submitResult.batchId,
+          targets_submitted: targets.length,
+          model,
+          batch_complete: false,
+        });
+      }
+    }
+
     for (const target of targets) {
       if (shouldSoftStop(startMs, "lesson_minichecks")) {
         console.log(`[MiniChecks] Soft-stop reached after ${totalGenerated} generated (${Date.now() - startMs}ms/${budget.softStopMs}ms)`);
