@@ -563,7 +563,9 @@ async function importLearningContentBatch(
       }
 
     } catch (e) {
-      details.push({ ok: false, custom_id: customId, error: String((e as Error)?.message || e) });
+      const errMsg = String((e as Error)?.message || e);
+      console.error(`[batch-import] learning_content error for ${customId}: ${errMsg.slice(0, 200)}`);
+      details.push({ ok: false, custom_id: customId, error: errMsg });
       failCount++;
     }
   }
