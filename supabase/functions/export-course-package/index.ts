@@ -310,11 +310,24 @@ Deno.serve(async (req) => {
     // CRITICAL: Use exam_questions_elite_v view to get *_eff fields from annotations
     // The base table's elite_level/elite_score are intentionally NULL for approved questions
     // (immutability principle). The view merges annotations via exam_question_elite_annotations.
+    // MEMORY OPTIMIZATION: Only load approved questions with full data.
+    // Non-approved counts are fetched via a lightweight count query.
     const allQuestions: unknown[] = [];
     const approvedQuestions: unknown[] = [];
     const seenQuestionIds = new Set<string>();
+    let totalQuestionCount = 0;
+    let pendingQuestionCount = 0;
     if (curriculumId) {
-      console.log(`[export] Collecting ALL exam questions via elite view for curriculum ${curriculumId}`);
+      console.log(`[export] Collecting APPROVED exam questions via elite view for curriculum ${curriculumId}`);
+      
+      // Lightweight count query for total/pending (no full row load)
+      try {
+        const { count: totalCount } = await sb.from("exam_questions_elite_v").select("id", { count: "exact", head: true }).eq("curriculum_id", curriculumId);
+        totalQuestionCount = totalCount ?? 0;
+        const { count: pendCount } = await sb.from("exam_questions_elite_v").select("id", { count: "exact", head: true }).eq("curriculum_id", curriculumId).eq("qc_status", "pending");
+        pendingQuestionCount = pendCount ?? 0;
+      } catch (_e) { /* best-effort */ }
+
       try {
         const pageSize = 500;
         let offset = 0;
@@ -324,6 +337,7 @@ Deno.serve(async (req) => {
             .from("exam_questions_elite_v")
             .select("id, question_text, options, correct_answer, explanation, difficulty, cognitive_level, learning_field_id, qc_status, blueprint_id, competency_id, question_type, trap_tags, distractor_meta, variant_group, variant_label, item_difficulty, item_discrimination, status, created_at, exam_part, scenario_type, bloom_level_validated, time_estimate_seconds, typical_errors, discrimination_tier, elite_level_eff, elite_score_eff, complexity_score, multi_variable_eff, conflict_type, dynamic_scenario, transfer_variant_eff, distractor_types_eff")
             .eq("curriculum_id", curriculumId)
+            .or("qc_status.eq.approved,status.eq.approved")
             .order("id")
             .range(offset, offset + pageSize - 1);
           if (qErr) {
@@ -376,9 +390,7 @@ Deno.serve(async (req) => {
               distractor_types: q.distractor_types_eff,
             };
             allQuestions.push(qObj);
-            if (q.qc_status === "approved" || q.status === "approved") {
-              approvedQuestions.push(qObj);
-            }
+            approvedQuestions.push(qObj);
           }
           if (batch.length < pageSize) break;
           offset += pageSize;
@@ -390,21 +402,17 @@ Deno.serve(async (req) => {
         console.log(`[export] Question export error: ${(e as Error).message}`);
       }
     }
-    console.log(`[export] Collected ${allQuestions.length} total questions, ${approvedQuestions.length} approved`);
+    console.log(`[export] Collected ${allQuestions.length} approved questions (${totalQuestionCount} total in DB)`);
 
-    // ── P0-B: Compute questionsSummary FROM the same approvedQuestions array (SSOT) ──
-    // This ensures summary counts, approved JSON, and quality gate all agree.
+    // ── P0-B: Compute questionsSummary ──
     if (curriculumId) {
-      const pendingCount = (allQuestions as any[]).filter(
-        (q: any) => q.qc_status === "pending" && q.status !== "approved"
-      ).length;
       questionsSummary = {
-        total_exam_questions: allQuestions.length,
+        total_exam_questions: totalQuestionCount,
         approved_questions: approvedQuestions.length,
-        pending_questions: pendingCount,
-        draft_questions: allQuestions.length - approvedQuestions.length - pendingCount,
+        pending_questions: pendingQuestionCount,
+        draft_questions: totalQuestionCount - approvedQuestions.length - pendingQuestionCount,
         curriculum_id: curriculumId,
-        note: "SSOT: derived from same filter as exam_questions_approved.json",
+        note: "SSOT: approved questions exported with full data; non-approved counted only",
         approval_filter: "qc_status=approved OR status=approved",
       };
     }
