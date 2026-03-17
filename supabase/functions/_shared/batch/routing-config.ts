@@ -7,7 +7,7 @@
  * Dual-path: sync fallback always available. Batch mode activated per job_type.
  */
 
-import { providerForModel } from "../model-catalog.ts";
+// providerForModel no longer needed — hard guard uses allowlist only
 
 /** Per-job-type batch routing flags. Set to true to activate batch path. */
 const BATCH_ROUTING_FLAGS: Record<string, boolean> = {
@@ -24,35 +24,31 @@ const BATCH_ROUTING_FLAGS: Record<string, boolean> = {
 /** Default model for batch processing (batch pricing applies) */
 export const BATCH_DEFAULT_MODEL = "gpt-4o-mini";
 
-/** Model for exam pool batch (needs stronger reasoning) */
-export const BATCH_EXAM_MODEL = "gpt-5-mini";
+/**
+ * HARD GUARD: Only gpt-4o-mini is allowed for batch processing.
+ * All other models are rejected — no silent remapping, no fallback.
+ * This prevents the 63k+ zombie-request problem from recurring.
+ *
+ * @returns gpt-4o-mini if input is allowed, otherwise throws
+ */
+const BATCH_ALLOWED_MODELS = new Set(["gpt-4o-mini"]);
 
-/** Fallback mapping: when a non-OpenAI model is selected for batch, remap to OpenAI equivalent */
-const BATCH_MODEL_REMAP: Record<string, string> = {
-  "claude-haiku-4-5-20251001": "gpt-4o-mini",
-  "claude-3-5-haiku-20241022": "gpt-4o-mini",
-  "claude-sonnet-4-5-20250929": "gpt-5-mini",
-};
+export function batchSafeModel(model: string): string {
+  if (BATCH_ALLOWED_MODELS.has(model)) return model;
+
+  // Hard reject — log and return default instead of silently accepting expensive models
+  console.error(`[batch-routing] BATCH_MODEL_REJECTED: "${model}" is not batch-allowed. Forcing gpt-4o-mini. Only allowed: ${[...BATCH_ALLOWED_MODELS].join(", ")}`);
+  return BATCH_DEFAULT_MODEL;
+}
 
 /**
- * Ensure a model is batch-compatible (OpenAI only in Phase A).
- * If the model is from a non-OpenAI provider, remap to an equivalent OpenAI model.
- * Returns the original model if already compatible.
+ * Strict validation: throws if model is not batch-allowed.
+ * Use this in gateway/enqueue paths where a 422 response is appropriate.
  */
-export function batchSafeModel(model: string): string {
-  // Already OpenAI-compatible
-  if (providerForModel(model) === "openai") return model;
-
-  // Known remap
-  const remapped = BATCH_MODEL_REMAP[model];
-  if (remapped) {
-    console.log(`[batch-routing] MODEL_REMAP: ${model} → ${remapped} (batch requires OpenAI)`);
-    return remapped;
+export function assertBatchModel(model: string): void {
+  if (!BATCH_ALLOWED_MODELS.has(model)) {
+    throw new Error(`BATCH_MODEL_NOT_ALLOWED: "${model}" rejected. Only ${[...BATCH_ALLOWED_MODELS].join(", ")} permitted for batch processing.`);
   }
-
-  // Unknown non-OpenAI model — fall back to default
-  console.warn(`[batch-routing] UNKNOWN_MODEL_REMAP: ${model} → ${BATCH_DEFAULT_MODEL} (no remap entry)`);
-  return BATCH_DEFAULT_MODEL;
 }
 
 /**

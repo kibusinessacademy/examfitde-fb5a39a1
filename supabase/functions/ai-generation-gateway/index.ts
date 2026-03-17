@@ -8,7 +8,7 @@ import { buildRequestFingerprint, checkDuplicateRequest } from "../_shared/ai-ga
 import { logGatewayDecision, logCostSaving } from "../_shared/ai-gateway/observability.ts";
 import type { GatewayRequest, GatewayResult, RoutingDecision } from "../_shared/ai-gateway/types.ts";
 import { buildBatchRequests, submitBatchViaFunction } from "../_shared/batch/enqueue-openai.ts";
-import { batchSafeModel } from "../_shared/batch/routing-config.ts";
+import { batchSafeModel, assertBatchModel } from "../_shared/batch/routing-config.ts";
 import { executeSyncDispatch } from "../_shared/ai-gateway/sync-executor.ts";
 
 /**
@@ -217,8 +217,14 @@ Deno.serve(async (req) => {
 
     // BATCH
     if (routingMode === "batch" && body.messages?.length) {
-      // CRITICAL: Ensure model is batch-compatible (Phase A: OpenAI only)
+      // HARD GUARD: Only gpt-4o-mini is allowed for batch. Reject everything else with 422.
       const model = batchSafeModel(policy.defaultModel);
+      try {
+        assertBatchModel(model);
+      } catch (guardErr) {
+        console.error(`[gateway] ${(guardErr as Error).message}`);
+        return json({ ok: false, error: (guardErr as Error).message, requestId }, 422);
+      }
       const customId = `gw_${body.jobType}_${requestId.slice(0, 8)}_${Date.now()}`;
 
       const batchRequests = buildBatchRequests([{
