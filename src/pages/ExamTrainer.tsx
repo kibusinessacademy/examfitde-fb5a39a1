@@ -14,7 +14,7 @@ import {
   RotateCcw, Sparkles, ChevronRight
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import TrainerStartPage, { type TrainingMode } from '@/components/exam/TrainerStartPage';
+import TrainerStartPage, { type TrainingMode, type TrainerStartPayload } from '@/components/exam/TrainerStartPage';
 
 interface Question {
   id: string;
