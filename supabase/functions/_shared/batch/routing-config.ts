@@ -13,12 +13,11 @@
 const BATCH_ROUTING_FLAGS: Record<string, boolean> = {
   lesson_generate_content: true,
   package_generate_exam_pool: true,
-  // Phase 3: activated
-  expand_handbook_section: false,      // Expand uses heavyweight models, not batch-suitable
-  package_generate_handbook: true,     // ✅ Batch activated
-  package_generate_oral_exam: false,   // No LLM calls — template-based
-  package_generate_lesson_minichecks: true,  // ✅ Batch activated
-  package_generate_glossary: false,    // Single cached call — not worth batching
+  expand_handbook_section: true,          // ✅ Batch activated (gpt-5.4-mini)
+  package_generate_handbook: true,        // ✅ Batch activated
+  package_generate_oral_exam: true,       // ✅ Batch activated (gpt-5.4-mini)
+  package_generate_lesson_minichecks: true,  // ✅ Batch activated (gpt-5.4-nano)
+  package_generate_glossary: true,        // ✅ Batch activated (gpt-5.4-nano)
 };
 
 /** Default model for batch processing (batch pricing applies — 50% of standard) */
