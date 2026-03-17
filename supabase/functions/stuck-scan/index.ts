@@ -126,6 +126,21 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ══ 1a2) Zombie completed-but-processing jobs ══
+    let zombieCompletedCount = 0;
+    try {
+      const { data: reaped } = await safeRpc(sb, "reap_zombie_completed_jobs", {
+        p_max_age_minutes: 30,
+        p_reason: "stuck-scan: completed_at set but still processing",
+      });
+      zombieCompletedCount = Array.isArray(reaped) ? reaped.length : 0;
+      if (zombieCompletedCount > 0) {
+        console.warn(`[stuck-scan] 🧟 Reaped ${zombieCompletedCount} zombie completed-but-processing jobs`);
+      }
+    } catch (e) {
+      console.warn(`[stuck-scan] zombie reaper error: ${(e as Error)?.message?.slice(0, 100)}`);
+    }
+
     // ══ 1b) Zombie steps ══
     const zombieResults = await detectAndFixZombieSteps(sb);
 
