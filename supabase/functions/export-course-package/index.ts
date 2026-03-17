@@ -172,18 +172,18 @@ Deno.serve(async (req) => {
       oralSessionTemplates = data || [];
     } catch (_e) { /* best-effort */ }
 
-    // ── Oral Exam: ALL user sessions (paginated, may be empty for fresh packages) ──
+    // ── Oral Exam: ALL user sessions (paginated, via blueprint_id) ──
     const allOralSessions: unknown[] = [];
-    if (oralSessionsets?.length) {
-      const setIds = (oralSessionsets as Record<string, unknown>[]).map(s => s.id as string);
+    if (oralBlueprints.length > 0) {
+      const bpIds = (oralBlueprints as Record<string, unknown>[]).map(b => b.id as string);
       const pageSize = 500;
       let offset = 0;
       while (true) {
         const { data: batch, error: oErr } = await sb
           .from("oral_exam_sessions")
-          .select("*")
-          .in("sessionset_id", setIds)
-          .order("sort_order")
+          .select("id, user_id, curriculum_id, blueprint_id, mode, total_questions, time_limit_minutes, current_question_index, started_at, finished_at, overall_score, passed, created_at")
+          .in("blueprint_id", bpIds)
+          .order("created_at", { ascending: false })
           .range(offset, offset + pageSize - 1);
         if (oErr) { console.log(`[export] Oral sessions error: ${oErr.message}`); break; }
         if (!batch || batch.length === 0) break;
