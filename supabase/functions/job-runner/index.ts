@@ -1394,6 +1394,32 @@ Deno.serve(async (req) => {
                 attempts: newAttempts,
               },
             };
+          } else if (poolActuallyHealthy) {
+            // Pool is healthy despite heal cycle exhaustion — reset cycles and mark step done
+            console.log(`[job-runner] ✅ STALE_SAFE_PASS: ${validationStepKey} pool healthy (${healCycles} stale cycles cleared)`);
+            await sb.from("package_steps")
+              .update({
+                status: "done",
+                meta: { stale_safe_passed: true, cleared_heal_cycles: healCycles, passed_at: tsNow },
+                last_error: null,
+              })
+              .eq("package_id", packageId)
+              .eq("step_key", validationStepKey);
+            // Also reset predecessor heal_cycles
+            await sb.from("package_steps")
+              .update({
+                meta: { ...(stepRow?.meta as Record<string, unknown> ?? {}), heal_cycles: 0, heal_reason: null },
+              })
+              .eq("package_id", packageId)
+              .eq("step_key", predecessorStep);
+            finalState = {
+              status: "completed",
+              patch: {
+                result: { stale_safe_pass: true, approved_pool_healthy: true },
+                completed_at: tsNow,
+                attempts: newAttempts,
+              },
+            };
           } else {
             // Reset predecessor step to queued with targeted LF info
             console.log(`[job-runner] 🔄 Auto-heal: resetting ${predecessorStep} for targeted re-seed (cycle ${healCycles + 1}/${MAX_HEAL_CYCLES})${missingLfIds ? ` [${missingLfIds.length} missing LFs]` : ""}`);
