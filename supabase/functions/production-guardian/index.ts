@@ -980,6 +980,21 @@ Deno.serve(async (req) => {
     }
 
     // ═══════════════════════════════════════════════════════════════
+    // G5. QC BACKLOG SLO ESCALATION
+    // ═══════════════════════════════════════════════════════════════
+    try {
+      const { data: qcResult, error: qcErr } = await sb.rpc("ops_escalate_qc_backlog");
+      if (qcErr) {
+        console.error("[Guardian] G5 QC backlog escalation error:", qcErr.message);
+      } else if (qcResult?.escalated > 0) {
+        console.log(`[Guardian] G5: ${qcResult.escalated} QC backlog alerts created`);
+        actions.push(`G5: ${qcResult.escalated} QC backlog SLO escalations`);
+      }
+    } catch (e) {
+      console.error("[Guardian] G5 QC backlog error:", (e as Error).message);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
     // 11. QUEUE STATS SNAPSHOT
     // ═══════════════════════════════════════════════════════════════
     const counts: Record<string, number> = {};
