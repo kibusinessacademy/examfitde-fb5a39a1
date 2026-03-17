@@ -20,7 +20,7 @@
  * GPT-5.2        | $3.00      | $12.00      | $0.75
  * GPT-5.4        | $2.50      | $15.00      | $0.25
  * GPT-5.4 mini   | $0.75      | $4.50       | $0.1875
- * GPT-5.4 nano   | $0.20      | $0.80       | $0.05
+ * GPT-5.4 nano   | $0.20      | $1.25       | $0.05
  * o4-mini        | $4.00      | $16.00      | $1.00
  * ══════════════════════════════════════════════════════════════
  */
@@ -49,7 +49,7 @@ const RAW_USD: Record<string, { input: number; output: number; cached: number }>
   "gpt-5.2":       { input: 3.00,  output: 12.00, cached: 0.75  },
   "gpt-5.4":       { input: 2.50,  output: 15.00, cached: 0.25  },
   "gpt-5.4-mini":  { input: 0.75,  output: 4.50,  cached: 0.1875 },
-  "gpt-5.4-nano":  { input: 0.20,  output: 0.80,  cached: 0.05  },
+  "gpt-5.4-nano":  { input: 0.20,  output: 1.25,  cached: 0.05  },
   "o4-mini":       { input: 4.00,  output: 16.00, cached: 1.00  },
   // Embeddings
   "text-embedding-3-large": { input: 0.13, output: 0.00, cached: 0.00 },

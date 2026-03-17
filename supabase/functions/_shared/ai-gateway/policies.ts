@@ -2,6 +2,9 @@
  * ai-gateway/policies.ts — Policy SSOT for AI generation governance.
  *
  * Code-side defaults; DB table `ai_generation_policies` can override at runtime.
+ *
+ * v18: Primary models upgraded to gpt-5.4-mini / gpt-5.4-nano.
+ *      gpt-4o-mini retained as batch-safe fallback.
  */
 
 import type { AIGenerationPolicy } from "./types.ts";
@@ -19,8 +22,8 @@ export const DEFAULT_POLICIES: Record<string, AIGenerationPolicy> = {
     maxRetries: 1,
     maxTokensOut: 1400,
     maxBatchSize: 500,
-    allowedModels: ["gpt-4o-mini"],
-    defaultModel: "gpt-4o-mini",
+    allowedModels: ["gpt-5.4-mini", "gpt-4o-mini"],
+    defaultModel: "gpt-5.4-mini",
     batchRolloutPct: 100,
   },
   package_generate_exam_pool: {
@@ -34,8 +37,8 @@ export const DEFAULT_POLICIES: Record<string, AIGenerationPolicy> = {
     maxRetries: 1,
     maxTokensOut: 900,
     maxBatchSize: 5000,
-    allowedModels: ["gpt-4o-mini", "gpt-5-mini"],
-    defaultModel: "gpt-4o-mini",
+    allowedModels: ["gpt-5.4-mini", "gpt-4o-mini", "gpt-5-mini"],
+    defaultModel: "gpt-5.4-mini",
     batchRolloutPct: 100,
   },
   expand_handbook_section: {
@@ -49,8 +52,8 @@ export const DEFAULT_POLICIES: Record<string, AIGenerationPolicy> = {
     maxRetries: 1,
     maxTokensOut: 2600,
     maxBatchSize: 200,
-    allowedModels: ["gpt-4o-mini", "gpt-4.1"],
-    defaultModel: "gpt-4o-mini",
+    allowedModels: ["gpt-5.4-mini", "gpt-4o-mini", "gpt-4.1"],
+    defaultModel: "gpt-5.4-mini",
     batchRolloutPct: 100,
   },
   package_generate_oral_exam: {
@@ -64,8 +67,8 @@ export const DEFAULT_POLICIES: Record<string, AIGenerationPolicy> = {
     maxRetries: 1,
     maxTokensOut: 1200,
     maxBatchSize: 200,
-    allowedModels: ["gpt-4o-mini"],
-    defaultModel: "gpt-4o-mini",
+    allowedModels: ["gpt-5.4-mini", "gpt-4o-mini"],
+    defaultModel: "gpt-5.4-mini",
     batchRolloutPct: 100,
   },
   package_generate_lesson_minichecks: {
@@ -79,8 +82,8 @@ export const DEFAULT_POLICIES: Record<string, AIGenerationPolicy> = {
     maxRetries: 1,
     maxTokensOut: 800,
     maxBatchSize: 500,
-    allowedModels: ["gpt-4o-mini"],
-    defaultModel: "gpt-4o-mini",
+    allowedModels: ["gpt-5.4-nano", "gpt-4o-mini"],
+    defaultModel: "gpt-5.4-nano",
     batchRolloutPct: 100,
   },
   package_generate_glossary: {
@@ -94,8 +97,8 @@ export const DEFAULT_POLICIES: Record<string, AIGenerationPolicy> = {
     maxRetries: 1,
     maxTokensOut: 1000,
     maxBatchSize: 200,
-    allowedModels: ["gpt-4o-mini"],
-    defaultModel: "gpt-4o-mini",
+    allowedModels: ["gpt-5.4-nano", "gpt-4o-mini"],
+    defaultModel: "gpt-5.4-nano",
     batchRolloutPct: 100,
   },
 };
@@ -128,7 +131,7 @@ export async function resolvePolicy(
         maxTokensOut: data.max_tokens_out ?? undefined,
         maxBatchSize: data.max_batch_size ?? undefined,
         allowedModels: data.allowed_models ?? [],
-        defaultModel: data.default_model ?? "gpt-4o-mini",
+        defaultModel: data.default_model ?? "gpt-5.4-mini",
         dailyBudgetEur: data.daily_budget_eur ?? undefined,
         batchRolloutPct: data.batch_rollout_pct ?? 100,
       };
@@ -146,8 +149,8 @@ export async function resolvePolicy(
     useCache: false,
     templateFirst: false,
     maxRetries: 1,
-    allowedModels: ["gpt-4o-mini"],
-    defaultModel: "gpt-4o-mini",
+    allowedModels: ["gpt-5.4-mini", "gpt-4o-mini"],
+    defaultModel: "gpt-5.4-mini",
     batchRolloutPct: 100,
   };
 }
