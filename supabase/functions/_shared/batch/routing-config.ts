@@ -38,7 +38,7 @@ export const BATCH_DEFAULT_MODEL = "gpt-5.4-mini";
  */
 const BATCH_ALLOWED_MODELS = new Set([
   "gpt-5.4-mini",
-  "gpt-5.4-nano",
+  // "gpt-5.4-nano",  // NOT batch-eligible: OpenAI returns model_not_found for "-batch" variant
   "gpt-5-mini",
   "gpt-4o-mini",
 ]);
