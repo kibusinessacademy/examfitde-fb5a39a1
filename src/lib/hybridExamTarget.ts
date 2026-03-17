@@ -5,7 +5,7 @@
  *   exam_target = (base_by_duration + complexity_bonus + domain_count_factor
  *                  + math_factor + oral_factor) * certification_multiplier
  * 
- * Hard-Cap: 2000
+ * Hard-Cap: MAX_QUESTIONS_PER_PACKAGE (2000) from examPoolLimits SSOT
  * Ship-Ready: ~85% des Targets
  * 
  * Genutzt von:
