@@ -84,6 +84,7 @@ REGELN:
 
 KOGNITIVE STUFEN (PFLICHT — jede Frage muss die zugewiesene Stufe erfüllen):
 - recall: Faktenwissen abrufen (Definitionen, Begriffe, Zuordnungen)
+- understand: Verstehen (Zusammenhänge erklären, Prinzipien erläutern, Bedeutung erfassen, Unterschiede beschreiben)
 - apply: Anwendung (Berechnungen mit konkreten Zahlen, Formeln einsetzen)
 - analyze: Analyse (Fehler finden, Situation beurteilen, Handlung ableiten)
 - decide: Bewertung (zwischen Optionen entscheiden, Risiken abwägen)
