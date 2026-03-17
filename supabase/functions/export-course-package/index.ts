@@ -271,12 +271,8 @@ Deno.serve(async (req) => {
             }
             if (!batch || batch.length === 0) break;
               for (const l of batch as Record<string, unknown>[]) {
-                // Derive bloom_level from step or content
-                const contentObj = l.content as Record<string, unknown> | null;
-                const bloomFromContent = contentObj?.bloom_level as string | null;
                 const stepBloomMap: Record<string, string> = { einstieg: "remember", verstehen: "understand", anwenden: "apply", wiederholen: "analyze", mini_check: "apply" };
-                const bloomLevel = bloomFromContent || stepBloomMap[(l.step as string) || ""] || "understand";
-                const examRelScore = (contentObj?.exam_relevance_score as number) || null;
+                const bloomLevel = stepBloomMap[(l.step as string) || ""] || "understand";
                 
                 allLessons.push({
                   module: mod.title,
@@ -288,16 +284,14 @@ Deno.serve(async (req) => {
                   step: l.step,
                   status: l.status,
                   bloom_level: bloomLevel,
-                  exam_relevance_score: examRelScore || l.exam_relevance_score,
-                  content: l.content,
-                  minicheck_parsed: l.minicheck_parsed,
+                  exam_relevance_score: l.exam_relevance_score,
                   sort_order: l.sort_order,
                   qc_status: l.qc_status,
                   duration_minutes: l.duration_minutes,
                   competency_id: l.competency_id,
                   exam_block: l.exam_block,
                   weight_tag: l.weight_tag,
-                  mastery_weight: (contentObj?.mastery_weight as string) || l.mastery_weight,
+                  mastery_weight: l.mastery_weight,
                   quality_gate_status: l.quality_gate_status,
                   quality_flags: l.quality_flags,
                 });
