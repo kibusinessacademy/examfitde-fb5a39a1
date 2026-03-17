@@ -21,17 +21,26 @@ const BATCH_ROUTING_FLAGS: Record<string, boolean> = {
   package_generate_glossary: false,    // Single cached call — not worth batching
 };
 
-/** Default model for batch processing (batch pricing applies) */
-export const BATCH_DEFAULT_MODEL = "gpt-4o-mini";
+/** Default model for batch processing (batch pricing applies — 50% of standard) */
+export const BATCH_DEFAULT_MODEL = "gpt-5.4-mini";
 
 /**
- * HARD GUARD: Only gpt-4o-mini is allowed for batch processing.
+ * HARD GUARD: Only explicitly verified batch-compatible models are allowed.
  * All other models are rejected — no silent remapping, no fallback.
  * This prevents the 63k+ zombie-request problem from recurring.
  *
- * @returns gpt-4o-mini if input is allowed, otherwise throws
+ * Verified batch support (OpenAI docs, Mar 2026):
+ *   gpt-5.4-mini  — confirmed v1/batch, 50% pricing ($0.375/$2.25)
+ *   gpt-5.4-nano  — confirmed v1/batch, 50% pricing ($0.10/$0.625)
+ *   gpt-5-mini    — confirmed v1/batch
+ *   gpt-4o-mini   — confirmed v1/batch (legacy fallback)
  */
-const BATCH_ALLOWED_MODELS = new Set(["gpt-4o-mini"]);
+const BATCH_ALLOWED_MODELS = new Set([
+  "gpt-5.4-mini",
+  "gpt-5.4-nano",
+  "gpt-5-mini",
+  "gpt-4o-mini",
+]);
 
 export function batchSafeModel(model: string): string {
   if (BATCH_ALLOWED_MODELS.has(model)) return model;
