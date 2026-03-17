@@ -193,7 +193,7 @@ async function enqueueLessonBatch(
   startMs: number,
   json: (body: unknown, status?: number) => Response,
 ): Promise<Response> {
-  // HARD GUARD: Batch only allows gpt-4o-mini. No exceptions.
+  // HARD GUARD: Batch only allows verified models (gpt-5.4-mini, gpt-5.4-nano, gpt-5-mini, gpt-4o-mini).
   const model = BATCH_DEFAULT_MODEL;
   assertBatchModel(model);
 
