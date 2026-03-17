@@ -13,9 +13,10 @@ function assertUuid(name: string, v: unknown) {
 /**
  * Paginated fetch: loads ALL rows matching a query, not just the default 1000.
  * Uses deterministic ordering by `id` to ensure stable, complete results.
- * PAGE_SIZE=5000 keeps each request well within Supabase response limits.
+ * PAGE_SIZE=1000 matches the PostgREST default max-rows limit to ensure
+ * each page returns exactly PAGE_SIZE rows (or fewer on the last page).
  */
-const PAGE_SIZE = 5000;
+const PAGE_SIZE = 1000;
 async function fetchAllApprovedQuestions(
   sb: ReturnType<typeof createClient>,
   currFilter: string,
