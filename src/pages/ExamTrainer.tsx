@@ -4,40 +4,23 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useCheckEntitlement } from '@/hooks/useEntitlements';
 import { Paywall } from '@/components/shop/Paywall';
 import { supabase } from '@/integrations/supabase/client';
 import { 
-  Brain, 
-  Target, 
-  CheckCircle, 
-  XCircle, 
-  ArrowRight, 
-  Loader2,
-  Trophy,
-  Flame,
-  RotateCcw,
-  Sparkles,
-  ChevronRight
+  Brain, CheckCircle, XCircle, Loader2, Trophy, Flame, 
+  RotateCcw, Sparkles, ChevronRight
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { Tables } from '@/integrations/supabase/types';
-import PageExplainer from '@/components/admin/PageExplainer';
-
-type Curriculum = Tables<'curricula'>;
-type LearningField = Tables<'learning_fields'>;
-type Competency = Tables<'competencies'>;
+import TrainerStartPage, { type TrainingMode } from '@/components/exam/TrainerStartPage';
 
 interface Question {
   id: string;
   question_text: string;
   options: string[];
   difficulty: 'easy' | 'medium' | 'hard';
-  // NOTE: correct_answer and explanation are NEVER stored client-side
-  // They are fetched via submit-exam-answer after answering
 }
 
 interface AnswerResult {
@@ -61,20 +44,14 @@ export default function ExamTrainer() {
   const navigate = useNavigate();
 
   // Selection state
-  const [curricula, setCurricula] = useState<Curriculum[]>([]);
-  const [learningFields, setLearningFields] = useState<LearningField[]>([]);
-  const [competencies, setCompetencies] = useState<Competency[]>([]);
   const [selectedCurriculumId, setSelectedCurriculumId] = useState('');
-  const [selectedLearningFieldId, setSelectedLearningFieldId] = useState('');
-  const [selectedCompetencyId, setSelectedCompetencyId] = useState('');
-  const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
+  const [selectedBerufName, setSelectedBerufName] = useState('');
 
   // Entitlement check
   const { data: hasAccess, isLoading: entitlementLoading } = useCheckEntitlement(
     selectedCurriculumId, 
     'exam_trainer'
   );
-  const selectedCurriculum = curricula.find(c => c.id === selectedCurriculumId);
 
   // Session state
   const [step, setStep] = useState<TrainerStep>('select');
@@ -86,28 +63,7 @@ export default function ExamTrainer() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmittingAnswer, setIsSubmittingAnswer] = useState(false);
   const [sessionId] = useState(() => crypto.randomUUID());
-
-  // Adaptive difficulty
   const [adaptiveDifficulty, setAdaptiveDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
-
-  useEffect(() => {
-    fetchCurricula();
-  }, []);
-
-  useEffect(() => {
-    if (selectedCurriculumId) {
-      fetchLearningFields(selectedCurriculumId);
-      setSelectedLearningFieldId('');
-      setSelectedCompetencyId('');
-    }
-  }, [selectedCurriculumId]);
-
-  useEffect(() => {
-    if (selectedLearningFieldId) {
-      fetchCompetencies(selectedLearningFieldId);
-      setSelectedCompetencyId('');
-    }
-  }, [selectedLearningFieldId]);
 
   // Adaptive difficulty adjustment
   useEffect(() => {
@@ -127,73 +83,66 @@ export default function ExamTrainer() {
     }
   }, [stats.streak, stats.incorrect, stats.correct]);
 
-  const fetchCurricula = async () => {
-    const { data } = await supabase
-      .from('curricula')
-      .select('*')
-      .eq('status', 'frozen')
-      .order('title');
-    if (data) setCurricula(data);
-  };
+  const handleStartFromBeruf = (curriculumId: string, berufName: string, mode: TrainingMode) => {
+    setSelectedCurriculumId(curriculumId);
+    setSelectedBerufName(berufName);
 
-  const fetchLearningFields = async (curriculumId: string) => {
-    const { data } = await supabase
-      .from('learning_fields')
-      .select('*')
-      .eq('curriculum_id', curriculumId)
-      .order('sort_order');
-    if (data) setLearningFields(data);
-  };
-
-  const fetchCompetencies = async (learningFieldId: string) => {
-    const { data } = await supabase
-      .from('competencies')
-      .select('*')
-      .eq('learning_field_id', learningFieldId)
-      .order('sort_order');
-    if (data) setCompetencies(data);
-  };
-
-  const startSession = async () => {
-    if (!selectedCompetencyId) {
-      toast({
-        title: 'Bitte Kompetenz auswählen',
-        description: 'Wähle ein Curriculum, Lernfeld und eine Kompetenz aus.',
-        variant: 'destructive',
-      });
+    if (mode === 'exam') {
+      // Navigate to exam simulation
+      navigate(`/exam-simulation?curriculum=${curriculumId}`);
       return;
     }
 
+    if (mode === 'quick') {
+      // Navigate to drill session
+      navigate(`/drill?curriculum=${curriculumId}`);
+      return;
+    }
+
+    // mode === 'learn' → start trainer inline
+    startLearningSession(curriculumId);
+  };
+
+  const startLearningSession = async (curriculumId: string) => {
     setIsLoading(true);
     setStep('loading');
 
     try {
-      // SSOT: Use edge function to get sanitized questions (no correct_answer/explanation)
-      // ONLY approved blueprint questions – NO free generation fallback
+      // Fetch curriculum structure to get competencies
+      const { data: structData, error: structError } = await supabase.functions.invoke('get-curriculum-structure', {
+        body: { curriculumId },
+      });
+
+      if (structError || !structData?.competencies?.length) {
+        throw new Error('Keine Kompetenzen für dieses Curriculum gefunden.');
+      }
+
+      // Pick a random competency
+      const comps = structData.competencies;
+      const randomComp = comps[Math.floor(Math.random() * comps.length)];
+
+      // Fetch questions for this competency
       const { data: questionsData, error: questionsError } = await supabase.functions.invoke('get-exam-questions', {
         body: {
-          competency_id: selectedCompetencyId,
-          difficulty: difficulty,
+          competency_id: randomComp.compId,
+          difficulty: 'medium',
           count: 5,
         },
       });
 
-      if (questionsError || !questionsData?.questions || questionsData.questions.length === 0) {
+      if (questionsError || !questionsData?.questions?.length) {
         throw new Error(
-          'Keine freigegebenen Prüfungsfragen für diese Kompetenz vorhanden. ' +
-          'Bitte wähle eine andere Kompetenz oder warte, bis Fragen freigegeben wurden.'
+          'Noch keine freigegebenen Prüfungsfragen verfügbar. Bitte versuche es später erneut.'
         );
       }
 
       setQuestions(questionsData.questions);
-
       setCurrentIndex(0);
       setSelectedAnswer(null);
       setAnswerResult(null);
       setStats({ correct: 0, incorrect: 0, streak: 0, maxStreak: 0 });
-      setAdaptiveDifficulty(difficulty);
+      setAdaptiveDifficulty('medium');
       setStep('question');
-
     } catch (error) {
       console.error('Start session error:', error);
       toast({
@@ -214,7 +163,6 @@ export default function ExamTrainer() {
     setIsSubmittingAnswer(true);
     
     try {
-      // SSOT: Submit answer to server for evaluation
       const { data: result, error } = await supabase.functions.invoke('submit-exam-answer', {
         body: {
           question_id: questions[currentIndex].id,
@@ -260,10 +208,6 @@ export default function ExamTrainer() {
     }
   };
 
-  // saveAttempt removed: individual attempts are already persisted server-side
-  // via submit-exam-answer edge function (question_attempts table).
-  // No client-side direct write needed.
-
   const restartSession = () => {
     setStep('select');
     setQuestions([]);
@@ -271,14 +215,12 @@ export default function ExamTrainer() {
     setSelectedAnswer(null);
     setAnswerResult(null);
     setStats({ correct: 0, incorrect: 0, streak: 0, maxStreak: 0 });
+    setSelectedCurriculumId('');
   };
 
   const currentQuestion = questions[currentIndex];
   const progressPercent = questions.length > 0 ? ((currentIndex + 1) / questions.length) * 100 : 0;
   const scorePercent = questions.length > 0 ? (stats.correct / questions.length) * 100 : 0;
-
-  const selectedLearningField = learningFields.find(lf => lf.id === selectedLearningFieldId);
-  const selectedCompetency = competencies.find(c => c.id === selectedCompetencyId);
 
   // Show paywall if curriculum selected but no access
   if (selectedCurriculumId && !entitlementLoading && hasAccess === false) {
@@ -286,163 +228,28 @@ export default function ExamTrainer() {
       <Paywall 
         feature="exam_trainer" 
         curriculumId={selectedCurriculumId}
-        curriculumTitle={selectedCurriculum?.title}
+        curriculumTitle={selectedBerufName}
       />
     );
   }
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
-      {/* Header */}
-      <div className="text-center mb-8">
-        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-subtle mb-4">
-          <Brain className="h-5 w-5 text-primary" />
-          <span className="text-sm font-medium">KI-Prüfungstrainer</span>
-        </div>
-        <h1 className="text-3xl md:text-4xl font-display font-bold text-foreground mb-2">
-          Prüfungs<span className="text-gradient">trainer</span>
-        </h1>
-        <p className="text-muted-foreground">
-          Adaptive Prüfungsvorbereitung mit KI-generierten Fragen
-        </p>
-      </div>
-
-      <PageExplainer
-        title="Wie funktioniert der Prüfungstrainer?"
-        description="Der KI-Prüfungstrainer stellt dir Fragen aus dem offiziellen Fragenpool deines Berufs. Die Schwierigkeit passt sich automatisch an deine Leistung an – bist du auf einer Serie, wird es schwerer."
-        workflow={[
-          { label: 'Thema wählen', active: step === 'select' },
-          { label: 'Fragen beantworten', active: step === 'question' || step === 'feedback' },
-          { label: 'Ergebnis', active: step === 'results' },
-        ]}
-        actions={[
-          'Curriculum → Lernfeld → Kompetenz wählen, dann "Training starten"',
-          'Die Schwierigkeit passt sich automatisch an (Leicht → Mittel → Schwer)',
-          'Nach 5 Fragen siehst du dein Ergebnis mit Score und Streak',
-        ]}
-        tips={[
-          'Nur freigegebene Blueprint-Fragen werden verwendet – keine zufällig generierten',
-          'Die Streak-Anzeige (🔥) motiviert dich bei aufeinanderfolgend richtigen Antworten',
-          'Wenn du 3x hintereinander richtig bist, wird die Schwierigkeit automatisch erhöht',
-        ]}
-      />
-
-      {/* Selection Step */}
+      {/* Selection Step — New Beruf-based Start Page */}
       {step === 'select' && (
-        <Card className="glass-card border-border/50">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Target className="h-5 w-5 text-primary" />
-              Thema auswählen
-            </CardTitle>
-            <CardDescription>
-              Wähle ein Lernfeld und eine Kompetenz für dein Training
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Curriculum Selection */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Curriculum</label>
-              <Select value={selectedCurriculumId} onValueChange={setSelectedCurriculumId}>
-                <SelectTrigger className="bg-muted/50">
-                  <SelectValue placeholder="Curriculum auswählen..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {curricula.map(c => (
-                    <SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Learning Field Selection */}
-            {selectedCurriculumId && (
-              <div className="space-y-2 animate-fade-in">
-                <label className="text-sm font-medium text-foreground">Lernfeld</label>
-                <Select value={selectedLearningFieldId} onValueChange={setSelectedLearningFieldId}>
-                  <SelectTrigger className="bg-muted/50">
-                    <SelectValue placeholder="Lernfeld auswählen..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {learningFields.map(lf => (
-                      <SelectItem key={lf.id} value={lf.id}>
-                        {lf.code}: {lf.title}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            {/* Competency Selection */}
-            {selectedLearningFieldId && (
-              <div className="space-y-2 animate-fade-in">
-                <label className="text-sm font-medium text-foreground">Kompetenz</label>
-                <Select value={selectedCompetencyId} onValueChange={setSelectedCompetencyId}>
-                  <SelectTrigger className="bg-muted/50">
-                    <SelectValue placeholder="Kompetenz auswählen..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {competencies.map(c => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.code}: {c.title}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            {/* Difficulty Selection */}
-            {selectedCompetencyId && (
-              <div className="space-y-2 animate-fade-in">
-                <label className="text-sm font-medium text-foreground">Startschwierigkeit</label>
-                <div className="grid grid-cols-3 gap-3">
-                  {(['easy', 'medium', 'hard'] as const).map(d => (
-                    <button
-                      key={d}
-                      onClick={() => setDifficulty(d)}
-                      className={cn(
-                        "p-3 rounded-xl border transition-all text-center",
-                        difficulty === d 
-                          ? "border-primary bg-primary/10 text-foreground" 
-                          : "border-border bg-muted/30 text-muted-foreground hover:border-border/80"
-                      )}
-                    >
-                      <span className="block text-sm font-medium">
-                        {d === 'easy' ? '🌱 Leicht' : d === 'medium' ? '🌿 Mittel' : '🌳 Schwer'}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Die Schwierigkeit passt sich automatisch an deine Leistung an.
-                </p>
-              </div>
-            )}
-
-            <Button
-              onClick={startSession}
-              disabled={!selectedCompetencyId || isLoading}
-              className="w-full gradient-primary text-primary-foreground shadow-glow"
-            >
-              <Sparkles className="h-4 w-4 mr-2" />
-              Training starten
-            </Button>
-          </CardContent>
-        </Card>
+        <TrainerStartPage onStart={handleStartFromBeruf} />
       )}
 
       {/* Loading Step */}
       {step === 'loading' && (
-        <Card className="glass-card border-border/50">
+        <Card className="glass-card border-border/50 max-w-2xl mx-auto">
           <CardContent className="py-16 text-center">
             <Sparkles className="h-16 w-16 text-primary mx-auto mb-6 animate-pulse" />
             <h3 className="text-xl font-display font-bold text-foreground mb-2">
-              Fragen werden generiert...
+              Fragen werden geladen...
             </h3>
             <p className="text-muted-foreground">
-              Die KI erstellt personalisierte Prüfungsfragen für dich.
+              Wir stellen dir Prüfungsfragen für {selectedBerufName || 'dein Training'} zusammen.
             </p>
           </CardContent>
         </Card>
@@ -450,7 +257,7 @@ export default function ExamTrainer() {
 
       {/* Question Step */}
       {(step === 'question' || step === 'feedback') && currentQuestion && (
-        <div className="space-y-6">
+        <div className="space-y-6 max-w-2xl mx-auto">
           {/* Progress Bar */}
           <div className="space-y-2">
             <div className="flex items-center justify-between text-sm">
@@ -483,7 +290,6 @@ export default function ExamTrainer() {
                 {currentQuestion.question_text}
               </p>
 
-              {/* Answer Options */}
               <div className="space-y-3">
                 {currentQuestion.options.map((option, idx) => {
                   const isSelected = selectedAnswer === idx;
@@ -524,7 +330,6 @@ export default function ExamTrainer() {
                 })}
               </div>
 
-              {/* Loading state during answer submission */}
               {isSubmittingAnswer && (
                 <div className="mt-6 p-4 rounded-xl bg-muted/30 border border-border animate-pulse">
                   <div className="flex items-center gap-2">
@@ -534,7 +339,6 @@ export default function ExamTrainer() {
                 </div>
               )}
 
-              {/* Feedback */}
               {step === 'feedback' && answerResult && (
                 <div className="mt-6 p-4 rounded-xl bg-muted/30 border border-border animate-fade-in">
                   <p className="text-sm font-medium text-foreground mb-2">
@@ -552,7 +356,6 @@ export default function ExamTrainer() {
             </CardContent>
           </Card>
 
-          {/* Next Button */}
           {step === 'feedback' && (
             <Button
               onClick={nextQuestion}
@@ -567,7 +370,7 @@ export default function ExamTrainer() {
 
       {/* Results Step */}
       {step === 'results' && (
-        <Card className="glass-card border-border/50">
+        <Card className="glass-card border-border/50 max-w-2xl mx-auto">
           <CardContent className="py-12 text-center">
             <div className={cn(
               "w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6",
@@ -586,7 +389,6 @@ export default function ExamTrainer() {
               Du hast {stats.correct} von {questions.length} Fragen richtig beantwortet.
             </p>
 
-            {/* Stats Grid */}
             <div className="grid grid-cols-3 gap-4 mb-8">
               <div className="p-4 rounded-xl bg-muted/30">
                 <p className="text-3xl font-bold text-green-500">{stats.correct}</p>
@@ -602,7 +404,6 @@ export default function ExamTrainer() {
               </div>
             </div>
 
-            {/* Score Bar */}
             <div className="max-w-md mx-auto mb-8">
               <div className="flex justify-between text-sm mb-2">
                 <span className="text-muted-foreground">Dein Ergebnis</span>
@@ -611,18 +412,17 @@ export default function ExamTrainer() {
               <Progress value={scorePercent} className="h-3" />
             </div>
 
-            {/* Actions */}
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <Button variant="outline" onClick={restartSession}>
                 <RotateCcw className="h-4 w-4 mr-2" />
                 Neues Training
               </Button>
               <Button 
-                onClick={startSession}
+                onClick={() => startLearningSession(selectedCurriculumId)}
                 className="gradient-primary text-primary-foreground"
               >
                 <Sparkles className="h-4 w-4 mr-2" />
-                Gleiche Kompetenz wiederholen
+                Nochmal trainieren
               </Button>
             </div>
           </CardContent>
