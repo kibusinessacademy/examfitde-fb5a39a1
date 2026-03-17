@@ -9,6 +9,54 @@ function assertUuid(name: string, v: unknown) {
   const re = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (!v || typeof v !== "string" || !re.test(v)) throw new Error(`INVALID_${name.toUpperCase()}`);
 }
+
+/**
+ * Paginated fetch: loads ALL rows matching a query, not just the default 1000.
+ * Uses deterministic ordering by `id` to ensure stable, complete results.
+ * PAGE_SIZE=5000 keeps each request well within Supabase response limits.
+ */
+const PAGE_SIZE = 5000;
+async function fetchAllApprovedQuestions(
+  sb: ReturnType<typeof createClient>,
+  currFilter: string,
+): Promise<{ rows: any[]; totalExpected: number; truncated: boolean }> {
+  // Step 1: Get exact count from DB
+  const { count: totalExpected } = await sb
+    .from("exam_questions")
+    .select("id", { count: "exact", head: true })
+    .eq("curriculum_id", currFilter)
+    .in("qc_status", ["approved", "tier1_passed"]);
+
+  const expectedCount = totalExpected ?? 0;
+
+  // Step 2: Paginated fetch with deterministic order
+  const allRows: any[] = [];
+  let offset = 0;
+  while (true) {
+    const { data, error } = await sb
+      .from("exam_questions")
+      .select("id, difficulty, cognitive_level, learning_field_id, competency_id, blueprint_id")
+      .eq("curriculum_id", currFilter)
+      .in("qc_status", ["approved", "tier1_passed"])
+      .order("id", { ascending: true })
+      .range(offset, offset + PAGE_SIZE - 1);
+
+    if (error) throw new Error(`EXAM_QUESTIONS_FETCH_ERROR: ${error.message}`);
+    const rows = data ?? [];
+    allRows.push(...rows);
+    if (rows.length < PAGE_SIZE) break; // last page
+    offset += PAGE_SIZE;
+  }
+
+  const truncated = allRows.length < expectedCount;
+  if (truncated) {
+    console.warn(
+      `[integrity-check] TRUNCATION WARNING: loaded ${allRows.length} but expected ${expectedCount} approved questions for curriculum=${currFilter.slice(0, 8)}`,
+    );
+  }
+
+  return { rows: allRows, totalExpected: expectedCount, truncated };
+}
 async function prereqDone(sb: ReturnType<typeof createClient>, packageId: string, stepKey: string) {
   // "skipped" counts as fulfilled — the step was intentionally bypassed by track logic
   const FULFILLED = ["done", "skipped"];
@@ -168,18 +216,20 @@ async function runCourseReadyGate(
   // FIX: Use correct DB enum values (easy/medium/hard/very_hard), NOT German translations
   // ═══════════════════════════════════════════════
   const currFilter = curriculumId ?? courseId;
-  // FIX: Count both "approved" AND "tier1_passed" as valid questions.
-  // tier1_passed means they passed structural QA (Tier 1) and will be promoted
-  // to "approved" by the quality_council step which runs AFTER this check.
-  // Without this, we have a chicken-and-egg deadlock: integrity requires approved,
-  // but council (which promotes) only runs after integrity passes.
-  const { data: approvedQs } = await sb
-    .from("exam_questions")
-    .select("id, difficulty, cognitive_level, learning_field_id, competency_id, blueprint_id")
-    .eq("curriculum_id", currFilter)
-    .in("qc_status", ["approved", "tier1_passed"]);
+  // FIX v2: Paginated full-pool fetch — prevents silent truncation at 1000 rows.
+  // The Supabase JS client defaults to LIMIT 1000 when no .range()/.limit() is set.
+  // This caused false Publish-Gate failures for large pools (9000+ questions).
+  const { rows: approvedQs, totalExpected: approvedCountExpected, truncated: sampleTruncated } =
+    await fetchAllApprovedQuestions(sb, currFilter);
 
-  const totalApproved = approvedQs?.length ?? 0;
+  const totalApproved = approvedQs.length;
+
+  // Hard-fail if we couldn't load the full pool (safety net)
+  if (sampleTruncated) {
+    console.error(
+      `[integrity-check] HARD TRUNCATION: loaded=${totalApproved} expected=${approvedCountExpected}. Report may be inaccurate.`,
+    );
+  }
   const easyCount = approvedQs?.filter((q: any) => q.difficulty === "easy").length ?? 0;
   const mediumCount = approvedQs?.filter((q: any) => q.difficulty === "medium").length ?? 0;
   const hardOnlyCount = approvedQs?.filter((q: any) => q.difficulty === "hard").length ?? 0;
@@ -686,6 +736,7 @@ async function runCourseReadyGate(
 
   return { results, hardFails, warnings, excellence, score, metrics: {
     totalApproved, approvedQs: approvedQs ?? [], uniqueLFs, moduleIds, totalCompetencies,
+    approvedCountExpected, sampleTruncated,
   } };
 }
 
@@ -775,14 +826,14 @@ Deno.serve(async (req) => {
     // ── Run COURSE_READY gate ──
     const gate = await runCourseReadyGate(sb, courseId, currId, packageId);
 
-    console.log(`[integrity-check] pkg=${packageId.slice(0, 8)} COURSE_READY score=${gate.score} hardFails=${gate.hardFails.length} warnings=${gate.warnings.length} excellence=${gate.excellence.length}`);
+    console.log(`[integrity-check] pkg=${packageId.slice(0, 8)} COURSE_READY score=${gate.score} hardFails=${gate.hardFails.length} warnings=${gate.warnings.length} excellence=${gate.excellence.length} pool_loaded=${gate.metrics.totalApproved}/${gate.metrics.approvedCountExpected} truncated=${gate.metrics.sampleTruncated}`);
     for (const hf of gate.hardFails) console.log(`  ❌ ${hf}`);
     for (const w of gate.warnings) console.log(`  ⚠️ ${w}`);
     for (const e of gate.excellence) console.log(`  🌟 ${e}`);
 
     // ── Build council-friendly v3.summary (SSOT for Council) ──
     // Council reads ONLY from summary — computed directly from gate metrics.
-    const { totalApproved, approvedQs, uniqueLFs, moduleIds, totalCompetencies } = gate.metrics;
+    const { totalApproved, approvedQs, uniqueLFs, moduleIds, totalCompetencies, approvedCountExpected, sampleTruncated } = gate.metrics;
 
     // Competency binding
     const summaryUnboundCount = approvedQs.filter((q: any) => !q.competency_id).length;
@@ -830,13 +881,19 @@ Deno.serve(async (req) => {
       hard_fail_reasons: gate.hardFails,
     };
 
-    const CURRENT_REPORT_VERSION = "COURSE_READY_v1.5";
-    const CURRENT_REPORT_VERSION_NUM = 15;
+    const CURRENT_REPORT_VERSION = "COURSE_READY_v1.6";
+    const CURRENT_REPORT_VERSION_NUM = 16;
     const report = {
       score: gate.score,
       generated_at: new Date().toISOString(),
       gate_version: CURRENT_REPORT_VERSION,
       version_num: CURRENT_REPORT_VERSION_NUM,
+      sample_metadata: {
+        approved_question_count_total: approvedCountExpected,
+        approved_question_count_loaded: totalApproved,
+        sample_truncated: sampleTruncated,
+        fetch_method: "paginated_full_pool",
+      },
       v3: {
         hard_fail_reasons: gate.hardFails,
         warnings: gate.warnings,
