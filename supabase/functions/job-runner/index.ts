@@ -1323,6 +1323,28 @@ Deno.serve(async (req) => {
 
           const healCycles = (stepRow?.meta as any)?.heal_cycles ?? 0;
 
+          // ═══ STALE-SAFE: Before kill-switch, verify current SSOT state ═══
+          // If the pool is actually healthy NOW (enough approved questions),
+          // don't kill — the error is stale/historical.
+          let poolActuallyHealthy = false;
+          if (healCycles >= MAX_HEAL_CYCLES && validationStepKey === "validate_exam_pool") {
+            try {
+              const { data: pkgData } = await sb.from("course_packages")
+                .select("curriculum_id").eq("id", packageId).maybeSingle();
+              if (pkgData?.curriculum_id) {
+                const { count: approvedCount } = await sb.from("exam_questions")
+                  .select("id", { count: "exact", head: true })
+                  .eq("curriculum_id", pkgData.curriculum_id)
+                  .eq("status", "approved");
+                // If we have 500+ approved questions, the pool is healthy regardless of historical flags
+                if ((approvedCount ?? 0) >= 500) {
+                  poolActuallyHealthy = true;
+                  console.log(`[job-runner] ✅ STALE_SAFE: Pool has ${approvedCount} approved questions — skipping kill-switch despite ${healCycles} heal cycles`);
+                }
+              }
+            } catch (_e) { /* best-effort SSOT check */ }
+          }
+
           if (healCycles >= MAX_HEAL_CYCLES) {
             console.error(`[job-runner] 🛑 Kill-switch: ${predecessorStep} healed ${healCycles}x — BLOCKING PACKAGE`);
             if (validationStepKey) {
