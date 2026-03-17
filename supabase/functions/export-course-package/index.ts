@@ -261,7 +261,7 @@ Deno.serve(async (req) => {
           while (true) {
             const { data: batch, error: lErr } = await sb
               .from("lessons")
-              .select("id, title, content, minicheck_parsed, sort_order, qc_status, step, status, duration_minutes, competency_id, exam_block, weight_tag, exam_relevance_score, mastery_weight, quality_gate_status, quality_flags")
+              .select("id, title, sort_order, qc_status, step, status, duration_minutes, competency_id, exam_block, weight_tag, exam_relevance_score, mastery_weight, quality_gate_status, quality_flags")
               .eq("module_id", mod.id as string)
               .order("sort_order")
               .range(offset, offset + pageSize - 1);
