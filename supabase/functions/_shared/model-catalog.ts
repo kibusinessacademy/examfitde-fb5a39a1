@@ -17,13 +17,17 @@ import { PRICING_EUR_PER_M, estimateCostEur } from "./model-pricing.ts";
 export const MODEL_ALIASES = {
   // ── Nano Tier: Routing, QC, Minichecks, Glossary ───────────
   /** Ultra-fast, ultra-cheap. Best for classification & simple gen. */
-  openai_nano: "gpt-4.1-nano",
-  /** GPT-5 nano — same price tier, newer architecture. */
+  openai_nano: "gpt-5.4-nano",
+  /** GPT-4.1-nano — legacy nano, still very fast. */
+  openai_nano_legacy: "gpt-4.1-nano",
+  /** GPT-5 nano — previous gen nano. */
   openai_nano_v5: "gpt-5-nano",
 
   // ── Mini Tier: Content Generation, Handbook, Auto-Fix ──────
-  /** Primary workhorse for volume generation. */
-  openai_primary: "gpt-4.1-mini",
+  /** Primary workhorse — GPT-5.4 mini: best accuracy/cost for agents. */
+  openai_primary: "gpt-5.4-mini",
+  /** GPT-4.1-mini — legacy primary, good fallback. */
+  openai_primary_legacy: "gpt-4.1-mini",
   /** GPT-4o-mini — legacy cheapest mini. Good for interactive chat. */
   openai_workhorse: "gpt-4o-mini",
 
