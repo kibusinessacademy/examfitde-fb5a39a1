@@ -217,8 +217,14 @@ Deno.serve(async (req) => {
 
     // BATCH
     if (routingMode === "batch" && body.messages?.length) {
-      // CRITICAL: Ensure model is batch-compatible (Phase A: OpenAI only)
+      // HARD GUARD: Only gpt-4o-mini is allowed for batch. Reject everything else with 422.
       const model = batchSafeModel(policy.defaultModel);
+      try {
+        assertBatchModel(model);
+      } catch (guardErr) {
+        console.error(`[gateway] ${(guardErr as Error).message}`);
+        return json({ ok: false, error: (guardErr as Error).message, requestId }, 422);
+      }
       const customId = `gw_${body.jobType}_${requestId.slice(0, 8)}_${Date.now()}`;
 
       const batchRequests = buildBatchRequests([{
