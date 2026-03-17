@@ -708,12 +708,18 @@ Deno.serve(async (req) => {
       scalingReason.action = "scale_up";
       scalingReason.trigger = "stable_throughput";
 
-      // Also increase jobtype limits back
-      for (const jt of ["generate_curriculum_content", "package_generate_exam_pool"]) {
+      // Also increase jobtype limits back — but respect finish-line ceilings
+      const SCALE_UP_CEILINGS: Record<string, number> = {
+        generate_curriculum_content: 20,
+        package_generate_exam_pool: 16,
+        lesson_generate_content: 10,  // CEILING: keep headroom for finish-line validation jobs
+      };
+      for (const jt of Object.keys(SCALE_UP_CEILINGS)) {
+        const ceiling = SCALE_UP_CEILINGS[jt];
         const { data: jtLimit } = await sb.from("jobtype_limits").select("max_processing").eq("job_type", jt).maybeSingle();
-        if (jtLimit && jtLimit.max_processing < 20) {
-          await sb.from("jobtype_limits").update({ max_processing: Math.min(20, jtLimit.max_processing + 1) }).eq("job_type", jt);
-          actions.push(`Scaled up ${jt} concurrency → ${jtLimit.max_processing + 1}`);
+        if (jtLimit && jtLimit.max_processing < ceiling) {
+          await sb.from("jobtype_limits").update({ max_processing: Math.min(ceiling, jtLimit.max_processing + 1) }).eq("job_type", jt);
+          actions.push(`Scaled up ${jt} concurrency → ${jtLimit.max_processing + 1} (ceiling: ${ceiling})`);
         }
       }
     } else {
