@@ -31,14 +31,12 @@ function json(body: unknown, status = 200) {
 // ── Schedule tier definitions ──
 const SCHEDULE_TIERS: Record<string, { functions: string[]; bodies: Record<string, string> }> = {
   minute: {
-    functions: ["pipeline-runner", "job-runner", "content-runner", "pipeline-forensic-test"],
+    functions: ["pipeline-runner", "job-runner", "content-runner", "pipeline-forensic-test", "batch-poll"],
     bodies: {},
   },
   "5min": {
-    functions: ["batch-poll"],
-    bodies: {
-      "batch-poll": JSON.stringify({}), // polls all active batches
-    },
+    functions: [],
+    bodies: {},
   },
   hourly: {
     functions: ["unified-audit-runner", "knowledge-graph-rollout-orchestrator"],
