@@ -1469,7 +1469,7 @@ async function submitExamPoolBatch(
     jobId?: string;
   },
 ): Promise<Response> {
-  const model = BATCH_EXAM_MODEL;
+  const model = BATCH_DEFAULT_MODEL; // HARD GUARD: only gpt-4o-mini for batch
   const typeEntries = Object.entries(QUESTION_TYPE_MIX) as [QuestionTypeKey, number][];
   const diffEntries = Object.entries(DIFFICULTY_DISTRIBUTION) as [DifficultyKey, number][];
   const cogEntries = Object.entries(COGNITIVE_LEVEL_DISTRIBUTION) as [CognitiveLevelKey, number][];

@@ -8,7 +8,7 @@ import { buildRequestFingerprint, checkDuplicateRequest } from "../_shared/ai-ga
 import { logGatewayDecision, logCostSaving } from "../_shared/ai-gateway/observability.ts";
 import type { GatewayRequest, GatewayResult, RoutingDecision } from "../_shared/ai-gateway/types.ts";
 import { buildBatchRequests, submitBatchViaFunction } from "../_shared/batch/enqueue-openai.ts";
-import { batchSafeModel } from "../_shared/batch/routing-config.ts";
+import { batchSafeModel, assertBatchModel } from "../_shared/batch/routing-config.ts";
 import { executeSyncDispatch } from "../_shared/ai-gateway/sync-executor.ts";
 
 /**
