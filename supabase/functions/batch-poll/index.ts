@@ -390,7 +390,7 @@ Deno.serve(async (req) => {
         .not("results_imported_at", "is", null)
         .is("domain_import_started_at", null)
         .is("domain_import_completed_at", null)
-        .limit(20);
+        .limit(40);
 
       if (pendingImport?.length) {
         const importUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/batch-result-importer`;
