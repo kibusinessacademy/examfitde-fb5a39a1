@@ -996,7 +996,8 @@ Deno.serve(async (req) => {
 
     // ── Block 3: Questions + Exam Pool ──
     // NOTE: allQuestions = approved only (memory optimization). Non-approved are counted in summary.
-    zip.file("3_exam_pool/exam_questions_approved.json", JSON.stringify(allQuestions, null, 2));
+    // Use compact JSON (no pretty-print) to reduce memory for large question sets
+    zip.file("3_exam_pool/exam_questions_approved.json", JSON.stringify(allQuestions));
     zip.file("3_exam_pool/difficulty_distribution.json", JSON.stringify(difficultyDistribution, null, 2));
     zip.file("3_exam_pool/lf_distribution.json", JSON.stringify(lfDistribution, null, 2));
     zip.file("3_exam_pool/exam_sessions_all.json", JSON.stringify(allExamSessions, null, 2));
