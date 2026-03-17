@@ -13,12 +13,12 @@
 const BATCH_ROUTING_FLAGS: Record<string, boolean> = {
   lesson_generate_content: true,
   package_generate_exam_pool: true,
-  // Phase 3 candidates (not yet activated):
-  expand_handbook_section: false,
-  package_generate_handbook: false,
-  package_generate_oral_exam: false,
-  package_generate_lesson_minichecks: false,
-  package_generate_glossary: false,
+  // Phase 3: activated
+  expand_handbook_section: false,      // Expand uses heavyweight models, not batch-suitable
+  package_generate_handbook: true,     // ✅ Batch activated
+  package_generate_oral_exam: false,   // No LLM calls — template-based
+  package_generate_lesson_minichecks: true,  // ✅ Batch activated
+  package_generate_glossary: false,    // Single cached call — not worth batching
 };
 
 /** Default model for batch processing (batch pricing applies) */

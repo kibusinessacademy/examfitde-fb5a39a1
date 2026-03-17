@@ -6,6 +6,8 @@ import { getModelChain } from "../_shared/model-routing.ts";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
 import { validateGeneratedSection, filterValidSections, verifyHandbookCoverage } from "../_shared/handbook-write-guard.ts";
 import { loadFieldCompetencies, loadFieldTopicDepth, loadExamQuestionSample, buildElitePrompt, type CompetencyContext } from "../_shared/handbook-context.ts";
+import { shouldUseBatch, BATCH_DEFAULT_MODEL } from "../_shared/batch/routing-config.ts";
+import { buildBatchRequests, submitBatchViaFunction } from "../_shared/batch/enqueue-openai.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -412,6 +414,89 @@ Deno.serve(async (req) => {
   let sectionOrder = (existingSections?.length || 0) + 1;
   let llmSuccessCount = 0;
   let llmFailCount = 0;
+
+  // ── BATCH ROUTING: Submit ALL remaining fields at once via batch API ──
+  const forceSyncMode = p._force_sync === true || p.force_sync === true;
+  if (fieldsNeedingGeneration.length > 0 && shouldUseBatch("package_generate_handbook", { forceSyncMode, itemCount: fieldsNeedingGeneration.length })) {
+    const model = BATCH_DEFAULT_MODEL;
+    const batchItems = [];
+
+    for (let i = 0; i < fieldsNeedingGeneration.length; i++) {
+      const lf = fieldsNeedingGeneration[i] as any;
+      const chapterSortOrder = fieldIdToChapterSort.get(lf.id) || 1;
+      const chapter = chapters.find((c: any) => c.sort_order === chapterSortOrder);
+      if (!chapter) continue;
+
+      const [subtopics, competencies, sampleQuestions] = await Promise.all([
+        loadFieldTopicDepth(sb, curriculumId, lf.title),
+        loadFieldCompetencies(sb, lf.id),
+        loadExamQuestionSample(sb, curriculumId, lf.id),
+      ]);
+
+      const wordTarget = lfWordTargets.get(lf.id) || MIN_WORD_TARGET;
+      const prompt = buildElitePrompt(professionName, lf.code, lf.title, lf.description || "", subtopics, competencies, sampleQuestions, wordTarget);
+      const systemMsg = `IHK-Prüfungscoach, ${professionName}. Handbuch-Abschnitt, ${wordTarget} Wörter. Pflicht: Grundlagen, Formeln, Prüfungsfallen, Merkschemata. Markdown, keine Meta-Kommentare.`;
+
+      const sectionKey = `lf-${String(lf.code).toLowerCase().replace(/\\s+/g, '-')}-${curriculumId.slice(0, 8)}`;
+      const customId = `hb_${curriculumId.slice(0, 8)}_lf${lf.id.slice(0, 8)}_${i}_${Date.now()}`;
+
+      batchItems.push({
+        customId,
+        sourceJobId: p.job_id || null,
+        sourceRef: {
+          curriculum_id: curriculumId,
+          package_id: packageId,
+          learning_field_id: lf.id,
+          chapter_id: chapter.id,
+          section_key: sectionKey,
+          lf_code: lf.code,
+          lf_title: lf.title,
+          word_target: wordTarget,
+          sort_order: sectionOrder + i,
+        },
+        jobType: "package_generate_handbook",
+        model,
+        messages: [
+          { role: "system", content: systemMsg },
+          { role: "user", content: prompt },
+        ],
+        temperature: 0.7,
+        maxTokens: Math.min(4096, Math.max(2048, Math.round(wordTarget * 3))),
+      });
+    }
+
+    if (batchItems.length > 0) {
+      const requests = buildBatchRequests(batchItems);
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+      const submitResult = await submitBatchViaFunction(supabaseUrl, serviceRoleKey, {
+        jobType: "package_generate_handbook",
+        model,
+        requests,
+        metadata: {
+          curriculum_id: curriculumId,
+          package_id: packageId,
+          field_count: String(batchItems.length),
+        },
+      });
+
+      if (!submitResult.ok) {
+        console.error(`[generate-handbook] BATCH_SUBMIT_FAILED: ${submitResult.error} — falling back to sync`);
+        // Fall through to sync loop below
+      } else {
+        console.log(`[generate-handbook] BATCH_ENQUEUED: ${batchItems.length} fields → batch_id=${submitResult.batchId} model=${model}`);
+        return json({
+          ok: true,
+          batch_mode: true,
+          batch_id: submitResult.batchId,
+          fields_submitted: batchItems.length,
+          model,
+          batch_complete: false,
+        });
+      }
+    }
+  }
 
   // Take at most BATCH_SIZE from the fields that still need generation
   const batchFields = fieldsNeedingGeneration.slice(0, BATCH_SIZE);
