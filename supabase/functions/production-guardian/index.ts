@@ -695,7 +695,7 @@ Deno.serve(async (req) => {
       scalingReason.trigger = errorRate > 0.3 ? "high_error_rate" : "rate_limit_spike";
 
       // Also reduce jobtype limits for content-heavy types
-      for (const jt of ["generate_curriculum_content", "package_generate_exam_pool", "package_generate_oral_exam"]) {
+      for (const jt of ["generate_curriculum_content", "package_generate_exam_pool", "package_generate_oral_exam", "lesson_generate_content"]) {
         const { data: jtLimit } = await sb.from("jobtype_limits").select("max_processing").eq("job_type", jt).maybeSingle();
         if (jtLimit && jtLimit.max_processing > 1) {
           await sb.from("jobtype_limits").update({ max_processing: Math.max(1, jtLimit.max_processing - 1) }).eq("job_type", jt);
