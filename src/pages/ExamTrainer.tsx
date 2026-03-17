@@ -83,18 +83,17 @@ export default function ExamTrainer() {
     }
   }, [stats.streak, stats.incorrect, stats.correct]);
 
-  const handleStartFromBeruf = (curriculumId: string, berufName: string, mode: TrainingMode) => {
+  const handleStartFromBeruf = (payload: TrainerStartPayload) => {
+    const { curriculumId, berufLabel, mode } = payload;
     setSelectedCurriculumId(curriculumId);
-    setSelectedBerufName(berufName);
+    setSelectedBerufName(berufLabel);
 
     if (mode === 'exam') {
-      // Navigate to exam simulation
       navigate(`/exam-simulation?curriculum=${curriculumId}`);
       return;
     }
 
     if (mode === 'quick') {
-      // Navigate to drill session
       navigate(`/drill?curriculum=${curriculumId}`);
       return;
     }
