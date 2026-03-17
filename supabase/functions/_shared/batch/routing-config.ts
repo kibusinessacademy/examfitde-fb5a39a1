@@ -4,7 +4,9 @@
  * Controls which job types are routed through the OpenAI Batch API (50% cost savings)
  * vs executed synchronously via callAIWithFailover.
  *
- * Dual-path: sync fallback always available. Batch mode activated per job_type.
+ * v2: GPT-5.4 family batch-enabled (confirmed OpenAI docs Mar 2026).
+ *     All 7 job types now batch-activated.
+ *     BATCH_DEFAULT_MODEL upgraded to gpt-5.4-mini.
  */
 
 // providerForModel no longer needed — hard guard uses allowlist only
