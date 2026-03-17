@@ -426,22 +426,10 @@ async function importLearningContentBatch(
         continue;
       }
 
-      // Parse JSON response (with fence stripping + array support)
+      // Parse JSON response using robust shared parser (handles arrays, truncation, concatenated objects)
       let parsed: any;
       try {
-        const cleaned = String(rawContent).replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
-        const firstBracket = cleaned.indexOf("[");
-        const firstBrace = cleaned.indexOf("{");
-        const isArray = firstBracket !== -1 && (firstBrace === -1 || firstBracket < firstBrace);
-        if (isArray) {
-          const lb = cleaned.lastIndexOf("]");
-          parsed = (lb > firstBracket) ? JSON.parse(cleaned.slice(firstBracket, lb + 1)) : JSON.parse(cleaned);
-        } else if (firstBrace !== -1) {
-          const lb = cleaned.lastIndexOf("}");
-          parsed = (lb > firstBrace) ? JSON.parse(cleaned.slice(firstBrace, lb + 1)) : JSON.parse(cleaned);
-        } else {
-          parsed = JSON.parse(cleaned);
-        }
+        parsed = parseLlmJson(String(rawContent));
       } catch (parseErr) {
         const errSnippet = String(rawContent).slice(0, 120);
         details.push({ ok: false, custom_id: customId, error: `Response not valid JSON: ${(parseErr as Error)?.message?.slice(0, 80)} | start: ${errSnippet}` });
