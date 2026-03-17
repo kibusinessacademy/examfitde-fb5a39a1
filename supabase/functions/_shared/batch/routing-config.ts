@@ -97,9 +97,7 @@ export function shouldUseBatch(
   return true;
 }
 
-/**
- * Build an OpenAI chat completion request payload for batch processing.
- */
+
 /**
  * GPT-5.x+ models reject `max_tokens` and require `max_completion_tokens`.
  * Legacy models (gpt-4o-*) still use `max_tokens`.
