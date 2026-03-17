@@ -31,8 +31,8 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-const BASE_CONCURRENCY = envInt("CONTENT_RUNNER_CONCURRENCY", 12);  // Phase B: 8→12 — all claimed jobs run via Promise.allSettled anyway
-const CLAIM_LIMIT = envInt("CONTENT_RUNNER_CLAIM_LIMIT", 25);      // Phase B: 16→25 — match perPackageMax for single-package WIP=1
+const BASE_CONCURRENCY = envInt("CONTENT_RUNNER_CONCURRENCY", 8);   // Phase C: 12→8 — reserve compute for finish-line validation jobs (WORKER_LIMIT fix)
+const CLAIM_LIMIT = envInt("CONTENT_RUNNER_CLAIM_LIMIT", 16);      // Phase C: 25→16 — match reduced concurrency, prevent edge-fn saturation
 const CONTENT_LOCK_TIMEOUT_MINUTES = 5;
 const STALE_LOCK_RECOVERY_MS = 3 * 60_000;
 const DISPATCH_TIMEOUT_MS = 55_000;          // Tier 3: structural/DB-only jobs
