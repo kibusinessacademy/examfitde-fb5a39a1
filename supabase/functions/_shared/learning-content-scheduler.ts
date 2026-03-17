@@ -26,9 +26,9 @@ function envInt(name: string, def: number): number {
 
 export function getSchedulerCaps(): SchedulerCaps {
   return {
-    globalWipMax: envInt("LC_GLOBAL_WIP_MAX", 60),         // Phase A: was 48 → +25%
-    perPackageMax: envInt("LC_PER_PACKAGE_MAX", 25),        // Phase B: 15 → 25 (+67%) — was THE dominant bottleneck
-    dispatchBatchMax: envInt("LC_DISPATCH_BATCH_MAX", 200), // Phase B: 150 → 200 — headroom for larger batches
+    globalWipMax: envInt("LC_GLOBAL_WIP_MAX", 80),         // Phase C: 60 → 80 aggressive growth
+    perPackageMax: envInt("LC_PER_PACKAGE_MAX", 30),        // Phase C: 25 → 30 more parallel per package
+    dispatchBatchMax: envInt("LC_DISPATCH_BATCH_MAX", 250), // Phase C: 200 → 250 headroom for throughput
   };
 }
 

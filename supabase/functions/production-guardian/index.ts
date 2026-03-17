@@ -712,7 +712,8 @@ Deno.serve(async (req) => {
       const SCALE_UP_CEILINGS: Record<string, number> = {
         generate_curriculum_content: 20,
         package_generate_exam_pool: 16,
-        lesson_generate_content: 10,  // CEILING: keep headroom for finish-line validation jobs
+        lesson_generate_content: 20,  // Phase C: raised 10→20 for aggressive growth
+        lesson_generate_content_shard: 12, // Phase C: raised 6→12 for shard parallelism
       };
       for (const jt of Object.keys(SCALE_UP_CEILINGS)) {
         const ceiling = SCALE_UP_CEILINGS[jt];
