@@ -379,6 +379,52 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── Catch-up: trigger domain import for completed batches missing it ──
+    // Handles batches that completed but whose domain import was never triggered
+    // (e.g. after cleanup migrations reset domain_import_started_at)
+    try {
+      const { data: pendingImport } = await sb
+        .from("llm_batches")
+        .select("id, job_type")
+        .eq("status", "completed")
+        .not("results_imported_at", "is", null)
+        .is("domain_import_started_at", null)
+        .is("domain_import_completed_at", null)
+        .limit(20);
+
+      if (pendingImport?.length) {
+        const importUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/batch-result-importer`;
+        const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+        let triggered = 0;
+
+        for (const b of pendingImport) {
+          // Set guard atomically
+          const { data: guard } = await sb
+            .from("llm_batches")
+            .update({ domain_import_started_at: now })
+            .eq("id", b.id)
+            .is("domain_import_started_at", null)
+            .select("id")
+            .single();
+
+          if (guard) {
+            fetch(importUrl, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "Authorization": `Bearer ${serviceKey}` },
+              body: JSON.stringify({ batch_id: b.id }),
+            }).catch((e) => console.warn(`[batch-poll] catchup import failed for ${b.id}: ${e}`));
+            triggered++;
+          }
+        }
+
+        if (triggered > 0) {
+          console.log(`[batch-poll] CATCHUP: triggered domain import for ${triggered} completed batches`);
+        }
+      }
+    } catch (catchupErr) {
+      console.warn(`[batch-poll] catchup error: ${(catchupErr as Error)?.message?.slice(0, 100)}`);
+    }
+
     return json({ ok: true, polled: results.length, results });
   } catch (error) {
     console.error("[batch-poll]", error);
