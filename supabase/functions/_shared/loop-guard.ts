@@ -81,11 +81,13 @@ export async function checkLoopGuard(
   ).toISOString();
 
   // ── Check 2: Cumulative job count in rolling window ──
+  // Exclude cancelled jobs — they are administratively terminated, not loop evidence
   const { count: totalJobsInWindow } = await sb
     .from("job_queue")
     .select("id", { count: "exact", head: true })
     .eq("job_type", jobType)
     .eq("package_id", packageId)
+    .neq("status", "cancelled")
     .gte("created_at", windowCutoff);
 
   if ((totalJobsInWindow ?? 0) >= LOOP_GUARD_CONFIG.MAX_JOBS_PER_STEP_24H) {
@@ -114,11 +116,14 @@ export async function checkLoopGuard(
   }
 
   // ── Check 4: Cumulative attempts across all jobs (v2) ──
+  // Exclude cancelled jobs from attempt counting — they represent
+  // administratively terminated work (e.g. wrong payload format), not real loops
   const { data: attemptRows } = await sb
     .from("job_queue")
     .select("attempts")
     .eq("job_type", jobType)
     .eq("package_id", packageId)
+    .neq("status", "cancelled")
     .gte("created_at", windowCutoff);
 
   const totalAttempts = (attemptRows ?? []).reduce(
