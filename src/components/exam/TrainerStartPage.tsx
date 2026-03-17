@@ -13,16 +13,10 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { useTrainerBerufe, CATEGORY_META, type BerufCategory, type TrainerBeruf } from '@/hooks/useTrainerBerufe';
+import type { TrainerStartPayload, TrainingMode } from '@/types/trainer';
+import { buildTrainerStartPayload } from '@/features/trainer/trainer-start-config';
 
-/* ─── Public types ─── */
-export type TrainingMode = 'learn' | 'exam' | 'quick';
-
-export interface TrainerStartPayload {
-  curriculumId: string;
-  berufLabel: string;
-  mode: TrainingMode;
-}
-
+/* ─── Props ─── */
 interface TrainerStartPageProps {
   onStart: (payload: TrainerStartPayload) => void;
 }
@@ -131,6 +125,7 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
   useEffect(() => {
     if (selectedBeruf && !filteredBerufe.some((b) => b.id === selectedBeruf.id)) {
       setSelectedBeruf(null);
+      setSelectedMode(null);
     }
   }, [filteredBerufe, selectedBeruf]);
 
@@ -140,13 +135,34 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
   const canStart = !!selectedBeruf && !!selectedMode && isBerufVisible;
   const selectedModeMeta = TRAINING_MODES.find((m) => m.id === selectedMode) ?? null;
 
+  /* ─── Handlers ─── */
+  const handleSelectCategory = (category: BerufCategory) => {
+    const isSelected = selectedCategory === category;
+    setSelectedCategory(isSelected ? null : category);
+    setSelectedBeruf(null);
+    setSelectedMode(null);
+  };
+
+  const handleSelectBeruf = (beruf: TrainerBeruf) => {
+    setSelectedBeruf(beruf);
+    setSelectedMode(null);
+  };
+
+  const handlePopularPick = (beruf: TrainerBeruf) => {
+    // Don't lock category — keep full list visible
+    setSelectedCategory(null);
+    setSelectedBeruf(beruf);
+    setSelectedMode(null);
+  };
+
   const handleStart = () => {
     if (!selectedBeruf || !selectedMode) return;
-    onStart({
+    const payload = buildTrainerStartPayload({
       curriculumId: selectedBeruf.curriculum_id,
       berufLabel: selectedBeruf.bezeichnung_kurz,
       mode: selectedMode,
     });
+    onStart(payload);
   };
 
   /* ─── Summary content (shared between desktop sidebar & mobile bottom) ─── */
@@ -256,7 +272,7 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
               {[
                 { label: 'Beruf auswählen', desc: 'Nur Berufe und Prüfungen, keine technischen Curricula.', done: !!selectedBeruf },
                 { label: 'Modus wählen', desc: 'Lernen, simulieren oder direkt ins Schnelltraining.', done: !!selectedMode },
-                { label: 'Training starten', desc: 'Direkter Einstieg in deinen prüfungsrelevanten Fragenpool.', done: false },
+                { label: 'Training starten', desc: 'Direkter Einstieg in deinen prüfungsrelevanten Fragenpool.', done: canStart },
               ].map((s, i) => (
                 <div
                   key={i}
@@ -291,13 +307,12 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
             {popularBerufe.map((b) => (
               <button
                 key={b.id}
-                onClick={() => {
-                  setSelectedBeruf(b);
-                  setSelectedCategory(b.category);
-                }}
+                type="button"
+                onClick={() => handlePopularPick(b)}
                 aria-pressed={selectedBeruf?.id === b.id}
                 className={cn(
                   'rounded-xl border p-3 text-left transition-all active:scale-[0.98]',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                   selectedBeruf?.id === b.id
                     ? 'border-accent bg-accent/10'
                     : 'border-border bg-card hover:border-primary/30 hover:bg-muted/50',
@@ -351,13 +366,12 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
                   return (
                     <button
                       key={key}
-                      onClick={() => {
-                        setSelectedCategory(isSelected ? null : key);
-                        setSelectedBeruf(null);
-                      }}
+                      type="button"
+                      onClick={() => handleSelectCategory(key)}
                       aria-pressed={isSelected}
                       className={cn(
                         'rounded-xl border p-4 text-left transition-all active:scale-[0.98]',
+                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                         isSelected
                           ? 'border-accent bg-accent/10'
                           : 'border-border bg-card hover:border-primary/30 hover:bg-muted/50',
@@ -409,10 +423,12 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
                       return (
                         <button
                           key={b.id}
-                          onClick={() => setSelectedBeruf(b)}
+                          type="button"
+                          onClick={() => handleSelectBeruf(b)}
                           aria-pressed={isActive}
                           className={cn(
                             'w-full rounded-xl border px-4 py-3 text-left transition-all active:scale-[0.99]',
+                            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                             isActive
                               ? 'border-accent bg-accent/10'
                               : 'border-transparent bg-card/50 hover:border-border hover:bg-card',
@@ -427,7 +443,11 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
                                 {CATEGORY_META[b.category].label}
                               </div>
                             </div>
-                            <ChevronRight className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                            {isActive ? (
+                              <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-accent" />
+                            ) : (
+                              <ChevronRight className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                            )}
                           </div>
                         </button>
                       );
@@ -441,8 +461,8 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
           {/* Step 2: Mode */}
           <Card
             className={cn(
-              'rounded-2xl border-border bg-card transition-opacity',
-              !canChooseMode && 'opacity-50 pointer-events-none',
+              'rounded-2xl border-border bg-card transition-all',
+              !canChooseMode && 'opacity-50 pointer-events-none cursor-not-allowed',
             )}
             aria-disabled={!canChooseMode}
           >
@@ -458,17 +478,26 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
               {TRAINING_MODES.map((mode) => {
                 const Icon = mode.icon;
                 const isSelected = selectedMode === mode.id;
+                const disabled = !canChooseMode;
                 return (
                   <button
                     key={mode.id}
-                    onClick={() => setSelectedMode(mode.id)}
-                    disabled={!canChooseMode}
+                    type="button"
+                    onClick={() => !disabled && setSelectedMode(mode.id)}
+                    disabled={disabled}
                     aria-pressed={isSelected}
+                    aria-disabled={disabled}
                     className={cn(
-                      'w-full rounded-xl border p-4 text-left transition-all active:scale-[0.99]',
+                      'w-full rounded-xl border p-4 text-left transition-all',
+                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                      disabled
+                        ? 'cursor-not-allowed'
+                        : 'active:scale-[0.99]',
                       isSelected
                         ? 'border-accent bg-accent/10'
-                        : 'border-border bg-card hover:border-primary/30 hover:bg-muted/50',
+                        : disabled
+                          ? 'border-border bg-card'
+                          : 'border-border bg-card hover:border-primary/30 hover:bg-muted/50',
                     )}
                   >
                     <div className="flex items-start gap-3">
