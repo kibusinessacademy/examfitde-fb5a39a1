@@ -7,7 +7,7 @@
  * Dual-path: sync fallback always available. Batch mode activated per job_type.
  */
 
-import { providerForModel } from "../model-catalog.ts";
+// providerForModel no longer needed — hard guard uses allowlist only
 
 /** Per-job-type batch routing flags. Set to true to activate batch path. */
 const BATCH_ROUTING_FLAGS: Record<string, boolean> = {
