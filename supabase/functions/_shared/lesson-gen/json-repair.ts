@@ -1,78 +1,20 @@
 /**
  * lesson-gen/json-repair.ts — Stack-based balanced JSON extraction and repair
  * Self-contained, no external dependencies. Easy to unit-test.
+ *
+ * NOTE: extractBalancedJson now supports both { and [ as root delimiters.
  */
+
+import { extractBalancedJsonSafe } from "../json-parse-safe.ts";
 
 /**
- * Balanced-brace JSON extraction: finds the first { and counts braces to find matching }.
+ * Balanced-brace JSON extraction: finds the first { or [ and counts braces to find matching closer.
  * If JSON is truncated, attempts stack-based repair.
+ *
+ * @deprecated Use extractBalancedJsonSafe from json-parse-safe.ts directly for new code.
  */
 export function extractBalancedJson(text: string): any | null {
-  const start = text.indexOf("{");
-  if (start === -1) return null;
-
-  let depth = 0;
-  let inString = false;
-  let escape = false;
-
-  for (let i = start; i < text.length; i++) {
-    const ch = text[i];
-    if (escape) { escape = false; continue; }
-    if (ch === "\\") { escape = true; continue; }
-    if (ch === '"') { inString = !inString; continue; }
-    if (inString) continue;
-    if (ch === "{") depth++;
-    else if (ch === "}") {
-      depth--;
-      if (depth === 0) {
-        try { return JSON.parse(text.slice(start, i + 1)); } catch { return null; }
-      }
-    }
-  }
-
-  // Truncated JSON — repair using nesting stack
-  const partial = text.slice(start);
-  const nestStack: string[] = [];
-  inString = false;
-  escape = false;
-
-  for (const ch of partial) {
-    if (escape) { escape = false; continue; }
-    if (ch === "\\") { escape = true; continue; }
-    if (ch === '"') { inString = !inString; continue; }
-    if (inString) continue;
-    if (ch === "{") nestStack.push("{");
-    else if (ch === "}") nestStack.pop();
-    else if (ch === "[") nestStack.push("[");
-    else if (ch === "]") nestStack.pop();
-  }
-
-  if (nestStack.length > 0 || inString) {
-    let repaired = partial;
-    repaired = repaired.replace(/,\s*$/, "");
-    repaired = repaired.replace(/:\s*$/, ": null");
-
-    let strOpen = false;
-    escape = false;
-    for (const ch of repaired) {
-      if (escape) { escape = false; continue; }
-      if (ch === "\\") { escape = true; continue; }
-      if (ch === '"') strOpen = !strOpen;
-    }
-    if (strOpen) repaired += '"';
-
-    for (let i = nestStack.length - 1; i >= 0; i--) {
-      repaired += nestStack[i] === "{" ? "}" : "]";
-    }
-
-    try {
-      const parsed = JSON.parse(repaired);
-      console.log(`[lesson-gen] extractBalancedJson: repaired truncated JSON (stack depth=${nestStack.length})`);
-      return parsed;
-    } catch { /* noop */ }
-  }
-
-  return null;
+  return extractBalancedJsonSafe(text);
 }
 
 /**

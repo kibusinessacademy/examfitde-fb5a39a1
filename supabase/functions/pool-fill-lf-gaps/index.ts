@@ -280,7 +280,7 @@ Antworte NUR als JSON-Objekt:
           cleaned = cleaned.replace(/^```(?:json)?\s*\n?/im, "").replace(/\n?```\s*$/im, "").trim();
           // If still not valid, try to extract JSON object
           if (!cleaned.startsWith("{") && !cleaned.startsWith("[")) {
-            const match = cleaned.match(/(\{[\s\S]*\})/);
+            const match = cleaned.match(/(\[[\s\S]*\]|\{[\s\S]*\})/);
             if (match) cleaned = match[1];
           }
           // Handle truncated JSON: try to salvage partial array

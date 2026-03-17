@@ -312,7 +312,7 @@ Antworte NUR als JSON:
         let cleaned = result.content;
         cleaned = cleaned.replace(/^```(?:json)?\s*\n?/im, "").replace(/\n?```\s*$/im, "").trim();
         if (!cleaned.startsWith("{") && !cleaned.startsWith("[")) {
-          const match = cleaned.match(/(\{[\s\S]*\})/);
+          const match = cleaned.match(/(\[[\s\S]*\]|\{[\s\S]*\})/);
           if (match) cleaned = match[1];
         }
 

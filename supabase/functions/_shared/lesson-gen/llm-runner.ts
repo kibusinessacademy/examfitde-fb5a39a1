@@ -111,10 +111,20 @@ export async function runLessonLLM(
 
         let plainContent: any;
         const rawPlain = (plainResult.content || "").replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
-        const fb = rawPlain.indexOf("{");
-        const lb = rawPlain.lastIndexOf("}");
-        if (fb !== -1 && lb > fb) {
-          try { plainContent = JSON.parse(rawPlain.slice(fb, lb + 1)); } catch { /* noop */ }
+        // Support both object {...} and array [...] responses
+        const firstBracket = rawPlain.indexOf("[");
+        const firstBrace = rawPlain.indexOf("{");
+        const isArray = firstBracket !== -1 && (firstBrace === -1 || firstBracket < firstBrace);
+        if (isArray) {
+          const lb = rawPlain.lastIndexOf("]");
+          if (lb > firstBracket) {
+            try { plainContent = JSON.parse(rawPlain.slice(firstBracket, lb + 1)); } catch { /* noop */ }
+          }
+        } else if (firstBrace !== -1) {
+          const lb = rawPlain.lastIndexOf("}");
+          if (lb > firstBrace) {
+            try { plainContent = JSON.parse(rawPlain.slice(firstBrace, lb + 1)); } catch { /* noop */ }
+          }
         }
 
         const plainSuccess = req.isMiniCheck
