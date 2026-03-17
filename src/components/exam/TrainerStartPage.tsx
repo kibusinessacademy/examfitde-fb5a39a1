@@ -1,9 +1,10 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search, GraduationCap, Briefcase, Laptop, Wrench, HeartPulse,
   Cog, Truck, UtensilsCrossed, MoreHorizontal,
   ChevronRight, Sparkles, Target, Brain, PlayCircle,
+  CheckCircle2, Zap, MessageSquare,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -13,10 +14,17 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { useTrainerBerufe, CATEGORY_META, type BerufCategory, type TrainerBeruf } from '@/hooks/useTrainerBerufe';
 
+/* ─── Public types ─── */
 export type TrainingMode = 'learn' | 'exam' | 'quick';
 
+export interface TrainerStartPayload {
+  curriculumId: string;
+  berufLabel: string;
+  mode: TrainingMode;
+}
+
 interface TrainerStartPageProps {
-  onStart: (curriculumId: string, berufName: string, mode: TrainingMode) => void;
+  onStart: (payload: TrainerStartPayload) => void;
 }
 
 /* ─── Category icon mapping ─── */
@@ -31,43 +39,49 @@ const CATEGORY_ICONS: Record<BerufCategory, React.ComponentType<{ className?: st
   sonstige: MoreHorizontal,
 };
 
-const CATEGORY_SUBTITLES: Record<BerufCategory, string> = {
-  kaufmaennisch: 'Handel, Büro, Finanzen',
-  it: 'Fachinformatik & IT-Berufe',
-  handwerk: 'Bau, Fertigung, Montage',
-  gesundheit: 'Medizin & Pharma',
-  technik: 'Industrie, Anlagen, Maschinen',
-  logistik: 'Lager, Spedition, Transport',
-  gastro: 'Küche, Hotel, Lebensmittel',
-  sonstige: 'Weitere Ausbildungsberufe',
-};
-
+/* ─── Training modes ─── */
 const TRAINING_MODES: {
   id: TrainingMode;
   title: string;
   subtitle: string;
+  summaryHint: string;
   icon: React.ComponentType<{ className?: string }>;
 }[] = [
   {
     id: 'learn',
     title: 'Lernmodus',
     subtitle: 'Mit Erklärungen, Feedback und didaktischer Begleitung',
+    summaryHint: 'Mit Erklärungen nach jeder Frage',
     icon: Brain,
   },
   {
     id: 'exam',
     title: 'Prüfungsmodus',
     subtitle: 'Prüfungsnahe Simulation mit Zeitdruck und Bewertung',
+    summaryHint: 'Echte Prüfungssimulation mit Zeitdruck',
     icon: Target,
   },
   {
     id: 'quick',
     title: 'Schnelltraining',
     subtitle: 'Direkt 10 gemischte Fragen starten',
+    summaryHint: '10 gemischte Fragen, sofort los',
     icon: PlayCircle,
   },
 ];
 
+/* ─── Popular berufe slugs (top picks for quick access) ─── */
+const POPULAR_SLUGS = [
+  'verkäufer', 'einzelhandel', 'industriekaufm', 'fachinformatik',
+  'medizinisch', 'mechatronik',
+];
+
+function isPopular(name: string): boolean {
+  const lower = name.toLowerCase();
+  return POPULAR_SLUGS.some((s) => lower.includes(s));
+}
+
+/* ─── Component ─── */
 export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
   const { data: berufe, isLoading } = useTrainerBerufe();
 
@@ -87,7 +101,7 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
     }
     return Array.from(groups.entries())
       .map(([key, items]) => ({ key, count: items.length, items }))
-      .sort((a, b) => (CATEGORY_META[a.key].order) - (CATEGORY_META[b.key].order));
+      .sort((a, b) => CATEGORY_META[a.key].order - CATEGORY_META[b.key].order);
   }, [berufe]);
 
   const categoryCounts = useMemo(() => {
@@ -108,12 +122,90 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
     return list.sort((a, b) => a.bezeichnung_kurz.localeCompare(b.bezeichnung_kurz, 'de'));
   }, [berufe, search, selectedCategory]);
 
-  const canStart = Boolean(selectedBeruf && selectedMode);
+  const popularBerufe = useMemo(() => {
+    if (!berufe) return [];
+    return berufe.filter((b) => isPopular(b.bezeichnung_kurz)).slice(0, 5);
+  }, [berufe]);
+
+  /* ─── Auto-reset beruf when filtered out ─── */
+  useEffect(() => {
+    if (selectedBeruf && !filteredBerufe.some((b) => b.id === selectedBeruf.id)) {
+      setSelectedBeruf(null);
+    }
+  }, [filteredBerufe, selectedBeruf]);
+
+  /* ─── Derived validity ─── */
+  const isBerufVisible = !!selectedBeruf && filteredBerufe.some((b) => b.id === selectedBeruf.id);
+  const canChooseMode = !!selectedBeruf;
+  const canStart = !!selectedBeruf && !!selectedMode && isBerufVisible;
+  const selectedModeMeta = TRAINING_MODES.find((m) => m.id === selectedMode) ?? null;
 
   const handleStart = () => {
     if (!selectedBeruf || !selectedMode) return;
-    onStart(selectedBeruf.curriculum_id, selectedBeruf.bezeichnung_kurz, selectedMode);
+    onStart({
+      curriculumId: selectedBeruf.curriculum_id,
+      berufLabel: selectedBeruf.bezeichnung_kurz,
+      mode: selectedMode,
+    });
   };
+
+  /* ─── Summary content (shared between desktop sidebar & mobile bottom) ─── */
+  const summaryContent = (
+    <>
+      <div className="space-y-4 rounded-xl border border-border bg-muted/30 p-4">
+        <div>
+          <div className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">Beruf</div>
+          <div className={cn('font-medium', selectedBeruf ? 'text-foreground' : 'text-muted-foreground')}>
+            {selectedBeruf?.bezeichnung_kurz || 'Noch nicht ausgewählt'}
+          </div>
+        </div>
+        <div>
+          <div className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">Modus</div>
+          <div className={cn('font-medium', selectedModeMeta ? 'text-foreground' : 'text-muted-foreground')}>
+            {selectedModeMeta?.title || 'Noch nicht ausgewählt'}
+          </div>
+          {selectedModeMeta && (
+            <p className="mt-0.5 text-xs text-muted-foreground">{selectedModeMeta.summaryHint}</p>
+          )}
+        </div>
+
+        <AnimatePresence mode="wait">
+          {selectedBeruf && (
+            <motion.div
+              key={selectedBeruf.id}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              className="rounded-lg border border-accent/20 bg-accent/5 p-3"
+            >
+              <div className="flex items-center gap-2 text-sm text-accent">
+                <GraduationCap className="h-4 w-4" />
+                <span className="font-medium">{selectedBeruf.bezeichnung_kurz}</span>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      <Button
+        onClick={handleStart}
+        disabled={!canStart}
+        className="mt-4 w-full h-12 text-base gradient-primary text-primary-foreground shadow-glow"
+        aria-label="Training starten"
+      >
+        <Sparkles className="h-5 w-5 mr-2" />
+        Training starten
+      </Button>
+
+      {!canStart && (
+        <p className="mt-3 text-center text-xs text-muted-foreground">
+          {!selectedBeruf
+            ? 'Wähle zuerst einen Beruf aus.'
+            : 'Wähle noch einen Trainingsmodus.'}
+        </p>
+      )}
+    </>
+  );
 
   return (
     <div className="min-h-[70vh] mx-auto w-full max-w-md px-4 pb-28 pt-2 sm:max-w-2xl sm:px-6 lg:max-w-5xl">
@@ -136,6 +228,19 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
           Wähle deinen Beruf, starte deinen Modus und bereite dich gezielt auf die
           IHK- oder Abschlussprüfung vor.
         </p>
+
+        {/* Outcome badges */}
+        <div className="flex flex-wrap items-center gap-3 mt-4 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1">
+            <CheckCircle2 className="h-3.5 w-3.5 text-accent" /> Prüfungsnahe Aufgaben
+          </span>
+          <span className="flex items-center gap-1">
+            <Zap className="h-3.5 w-3.5 text-accent" /> Sofort Feedback
+          </span>
+          <span className="flex items-center gap-1">
+            <MessageSquare className="h-3.5 w-3.5 text-accent" /> Schwächen gezielt erkennen
+          </span>
+        </div>
       </motion.div>
 
       {/* ─── Steps Overview ─── */}
@@ -149,13 +254,19 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
           <CardContent className="p-5 sm:p-6">
             <div className="grid gap-3 sm:grid-cols-3">
               {[
-                { label: 'Beruf auswählen', desc: 'Nur Berufe und Prüfungen, keine technischen Curricula.' },
-                { label: 'Modus wählen', desc: 'Lernen, simulieren oder direkt ins Schnelltraining.' },
-                { label: 'Training starten', desc: 'Direkter Einstieg in deinen prüfungsrelevanten Fragenpool.' },
+                { label: 'Beruf auswählen', desc: 'Nur Berufe und Prüfungen, keine technischen Curricula.', done: !!selectedBeruf },
+                { label: 'Modus wählen', desc: 'Lernen, simulieren oder direkt ins Schnelltraining.', done: !!selectedMode },
+                { label: 'Training starten', desc: 'Direkter Einstieg in deinen prüfungsrelevanten Fragenpool.', done: false },
               ].map((s, i) => (
-                <div key={i} className="rounded-xl border border-border bg-card/60 p-4">
+                <div
+                  key={i}
+                  className={cn(
+                    'rounded-xl border p-4 transition-colors',
+                    s.done ? 'border-accent/40 bg-accent/5' : 'border-border bg-card/60',
+                  )}
+                >
                   <div className="mb-2 flex items-center gap-2 text-accent">
-                    <Sparkles className="h-4 w-4" />
+                    {s.done ? <CheckCircle2 className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
                     <span className="text-sm font-medium">Schritt {i + 1}</span>
                   </div>
                   <div className="font-semibold text-foreground">{s.label}</div>
@@ -167,9 +278,49 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
         </Card>
       </motion.div>
 
+      {/* ─── Popular Berufe (quick access) ─── */}
+      {!isLoading && popularBerufe.length > 0 && !selectedCategory && !search.trim() && (
+        <div className="mb-6">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-foreground">Beliebte Berufe</h2>
+            <Badge variant="secondary" className="rounded-full text-xs">
+              Schnellzugriff
+            </Badge>
+          </div>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {popularBerufe.map((b) => (
+              <button
+                key={b.id}
+                onClick={() => {
+                  setSelectedBeruf(b);
+                  setSelectedCategory(b.category);
+                }}
+                aria-pressed={selectedBeruf?.id === b.id}
+                className={cn(
+                  'rounded-xl border p-3 text-left transition-all active:scale-[0.98]',
+                  selectedBeruf?.id === b.id
+                    ? 'border-accent bg-accent/10'
+                    : 'border-border bg-card hover:border-primary/30 hover:bg-muted/50',
+                )}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-medium text-foreground truncate">
+                    {b.bezeichnung_kurz}
+                  </span>
+                  <ChevronRight className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  {CATEGORY_META[b.category].label}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* ─── Main Content ─── */}
       <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-        {/* Left Column: Beruf + Mode selection */}
+        {/* Left Column */}
         <div className="space-y-6">
           {/* Step 1: Beruf */}
           <Card className="rounded-2xl border-border bg-card">
@@ -188,6 +339,7 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Beruf suchen, z. B. Verkäufer oder Fachinformatiker"
                   className="h-12 rounded-xl pl-10 text-base"
+                  aria-label="Beruf suchen"
                 />
               </div>
 
@@ -203,6 +355,7 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
                         setSelectedCategory(isSelected ? null : key);
                         setSelectedBeruf(null);
                       }}
+                      aria-pressed={isSelected}
                       className={cn(
                         'rounded-xl border p-4 text-left transition-all active:scale-[0.98]',
                         isSelected
@@ -228,9 +381,7 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
               <div>
                 <div className="mb-3 flex items-center justify-between">
                   <div className="text-sm font-medium text-muted-foreground">
-                    {selectedCategory
-                      ? CATEGORY_META[selectedCategory].label
-                      : 'Alle Berufe'}
+                    {selectedCategory ? CATEGORY_META[selectedCategory].label : 'Alle Berufe'}
                   </div>
                   <div className="text-xs text-muted-foreground">
                     {filteredBerufe.length} Treffer
@@ -247,7 +398,9 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
 
                     {!isLoading && filteredBerufe.length === 0 && (
                       <div className="rounded-xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
-                        Kein Beruf gefunden. Passe deine Suche oder Kategorie an.
+                        {berufe && berufe.length === 0
+                          ? 'Aktuell sind noch keine freigegebenen Prüfungstrainer verfügbar.'
+                          : 'Kein Beruf gefunden. Passe deine Suche oder Kategorie an.'}
                       </div>
                     )}
 
@@ -257,6 +410,7 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
                         <button
                           key={b.id}
                           onClick={() => setSelectedBeruf(b)}
+                          aria-pressed={isActive}
                           className={cn(
                             'w-full rounded-xl border px-4 py-3 text-left transition-all active:scale-[0.99]',
                             isActive
@@ -285,11 +439,19 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
           </Card>
 
           {/* Step 2: Mode */}
-          <Card className="rounded-2xl border-border bg-card">
+          <Card
+            className={cn(
+              'rounded-2xl border-border bg-card transition-opacity',
+              !canChooseMode && 'opacity-50 pointer-events-none',
+            )}
+            aria-disabled={!canChooseMode}
+          >
             <CardHeader className="pb-3">
               <CardTitle className="text-xl">2. Wähle deinen Modus</CardTitle>
               <CardDescription>
-                Passe dein Training an dein aktuelles Ziel an.
+                {canChooseMode
+                  ? 'Passe dein Training an dein aktuelles Ziel an.'
+                  : 'Wähle zuerst einen Beruf, um den Modus freizuschalten.'}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -300,6 +462,8 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
                   <button
                     key={mode.id}
                     onClick={() => setSelectedMode(mode.id)}
+                    disabled={!canChooseMode}
+                    aria-pressed={isSelected}
                     className={cn(
                       'w-full rounded-xl border p-4 text-left transition-all active:scale-[0.99]',
                       isSelected
@@ -328,10 +492,20 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
               })}
             </CardContent>
           </Card>
+
+          {/* ─── Mobile Summary (visible only on small screens) ─── */}
+          <div className="lg:hidden">
+            <Card className="rounded-2xl border-accent/20 bg-gradient-to-br from-primary/10 via-card to-card shadow-lg">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-xl">3. Training starten</CardTitle>
+              </CardHeader>
+              <CardContent>{summaryContent}</CardContent>
+            </Card>
+          </div>
         </div>
 
-        {/* Right Column: Summary + Start */}
-        <div>
+        {/* ─── Desktop Summary (right column, hidden on mobile) ─── */}
+        <div className="hidden lg:block">
           <Card className="sticky top-4 rounded-2xl border-accent/20 bg-gradient-to-br from-primary/10 via-card to-card shadow-lg">
             <CardHeader>
               <CardTitle className="text-xl">3. Training starten</CardTitle>
@@ -339,63 +513,7 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
                 Dein Einstieg wird erst aktiv, wenn Beruf und Modus gewählt sind.
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-4 rounded-xl border border-border bg-muted/30 p-4">
-                <div>
-                  <div className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">
-                    Beruf
-                  </div>
-                  <div className="font-medium text-foreground">
-                    {selectedBeruf?.bezeichnung_kurz || 'Noch nicht ausgewählt'}
-                  </div>
-                </div>
-
-                <div>
-                  <div className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">
-                    Modus
-                  </div>
-                  <div className="font-medium text-foreground">
-                    {selectedMode
-                      ? TRAINING_MODES.find((m) => m.id === selectedMode)?.title
-                      : 'Noch nicht ausgewählt'}
-                  </div>
-                </div>
-
-                <AnimatePresence mode="wait">
-                  {selectedBeruf && (
-                    <motion.div
-                      key={selectedBeruf.id}
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -8 }}
-                      className="rounded-lg border border-accent/20 bg-accent/5 p-3"
-                    >
-                      <div className="flex items-center gap-2 text-sm text-accent">
-                        <GraduationCap className="h-4 w-4" />
-                        <span className="font-medium">
-                          {selectedBeruf.bezeichnung_kurz}
-                        </span>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-
-              <Button
-                onClick={handleStart}
-                disabled={!canStart}
-                className="mt-4 w-full h-12 text-base gradient-primary text-primary-foreground shadow-glow"
-              >
-                <Sparkles className="h-5 w-5 mr-2" />
-                Training starten
-              </Button>
-
-              {!canStart && (
-                <p className="mt-3 text-center text-xs text-muted-foreground">
-                  Wähle oben zuerst einen Beruf und einen Trainingsmodus.
-                </p>
-              )}
-            </CardContent>
+            <CardContent>{summaryContent}</CardContent>
           </Card>
         </div>
       </div>
