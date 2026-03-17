@@ -43584,6 +43584,15 @@ export type Database = {
         }[]
       }
       reap_stale_locks: { Args: { p_max_age_minutes?: number }; Returns: Json }
+      reap_zombie_completed_jobs: {
+        Args: { p_max_age_minutes?: number; p_reason?: string }
+        Returns: {
+          completed_at: string
+          job_id: string
+          job_type: string
+          package_id: string
+        }[]
+      }
       rebuild_package_step_status_json: {
         Args: { p_package_id: string }
         Returns: undefined
@@ -43625,7 +43634,7 @@ export type Database = {
         Args: {
           p_actor_user_id?: string
           p_package_id: string
-          p_reason?: string
+          p_reason: string
           p_trigger_source?: string
         }
         Returns: Json
