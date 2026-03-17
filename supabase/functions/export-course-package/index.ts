@@ -1054,6 +1054,7 @@ Deno.serve(async (req) => {
     // ── Block 4: Didaktik (Lessons, MiniChecks, Mastery) ──
     zip.file("4_didaktik/lessons_all.json", JSON.stringify(allLessons, null, 2));
     zip.file("4_didaktik/minichecks.json", JSON.stringify(minichecks, null, 2));
+    zip.file("4_didaktik/minicheck_questions_all.json", JSON.stringify(minicheckQuestions));
     zip.file("4_didaktik/mastery_model.json", JSON.stringify(masteryModel, null, 2));
     zip.file("4_didaktik/course_snapshot.json", JSON.stringify(courseSnapshot || {}, null, 2));
     zip.file("4_didaktik/handbook.md", handbookMd);
