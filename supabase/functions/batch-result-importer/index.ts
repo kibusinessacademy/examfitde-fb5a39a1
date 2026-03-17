@@ -154,10 +154,24 @@ async function importExamPoolBatch(
       try {
         const raw = typeof content === "string" ? content : JSON.stringify(content);
         const cleaned = raw.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
-        const fb = cleaned.indexOf("{");
-        const lb = cleaned.lastIndexOf("}");
-        if (fb !== -1 && lb > fb) {
-          parsed = JSON.parse(cleaned.slice(fb, lb + 1));
+        // Handle both array [...] and object {...} responses
+        const firstBracket = cleaned.indexOf("[");
+        const firstBrace = cleaned.indexOf("{");
+        const isArray = firstBracket !== -1 && (firstBrace === -1 || firstBracket < firstBrace);
+        if (isArray) {
+          const lb = cleaned.lastIndexOf("]");
+          if (lb > firstBracket) {
+            parsed = JSON.parse(cleaned.slice(firstBracket, lb + 1));
+          } else {
+            parsed = JSON.parse(cleaned);
+          }
+        } else if (firstBrace !== -1) {
+          const lb = cleaned.lastIndexOf("}");
+          if (lb > firstBrace) {
+            parsed = JSON.parse(cleaned.slice(firstBrace, lb + 1));
+          } else {
+            parsed = JSON.parse(cleaned);
+          }
         } else {
           parsed = JSON.parse(cleaned);
         }
