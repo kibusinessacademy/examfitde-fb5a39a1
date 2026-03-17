@@ -1491,7 +1491,7 @@ Deno.serve(async (req) => {
         "1_curriculum": { curriculum: 1, learning_fields: learningFields.length, competencies: competencies.length },
         "2_blueprints": { total: questionBlueprints.length, constraints: blueprintConstraints.length, by_lf: Object.keys(bpsByLf).length },
         "3_exam_pool": { questions_all: allQuestions.length, questions_approved: approvedQuestions.length, exam_sessions: allExamSessions.length, trace_entries: traceProtocol.length },
-        "4_didaktik": { lessons: allLessons.length, minichecks: minichecks.length, handbook_chapters: handbookStructured.length },
+        "4_didaktik": { lessons: allLessons.length, minichecks: minichecks.length, minicheck_questions: minicheckQuestions.length, handbook_chapters: handbookStructured.length },
         "5_governance": { quality_gates: qualityGates.length, ai_validations: aiValidations.length, council_findings: councilFindings.length, content_versions: contentVersions.length, auto_heal: autoHealLog.length, patch_plans: patchPlans.length },
         "oral_exam": { sessionsets: (oralSessionsets || []).length, blueprints: oralBlueprints.length, sessions: allOralSessions.length },
         "tutor": { logs: allTutorLogs.length, policies: tutorPolicies.length, indices: (tutorIndices || []).length },
