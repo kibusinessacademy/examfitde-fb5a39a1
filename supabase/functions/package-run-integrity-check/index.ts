@@ -833,7 +833,7 @@ Deno.serve(async (req) => {
 
     // ── Build council-friendly v3.summary (SSOT for Council) ──
     // Council reads ONLY from summary — computed directly from gate metrics.
-    const { totalApproved, approvedQs, uniqueLFs, moduleIds, totalCompetencies } = gate.metrics;
+    const { totalApproved, approvedQs, uniqueLFs, moduleIds, totalCompetencies, approvedCountExpected, sampleTruncated } = gate.metrics;
 
     // Competency binding
     const summaryUnboundCount = approvedQs.filter((q: any) => !q.competency_id).length;
