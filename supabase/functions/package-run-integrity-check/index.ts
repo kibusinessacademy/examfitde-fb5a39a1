@@ -736,6 +736,7 @@ async function runCourseReadyGate(
 
   return { results, hardFails, warnings, excellence, score, metrics: {
     totalApproved, approvedQs: approvedQs ?? [], uniqueLFs, moduleIds, totalCompetencies,
+    approvedCountExpected, sampleTruncated,
   } };
 }
 
