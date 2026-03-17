@@ -45,7 +45,7 @@ export function batchSafeModel(model: string): string {
   if (BATCH_ALLOWED_MODELS.has(model)) return model;
 
   // Hard reject — log and return default instead of silently accepting expensive models
-  console.error(`[batch-routing] BATCH_MODEL_REJECTED: "${model}" is not batch-allowed. Forcing gpt-4o-mini. Only allowed: ${[...BATCH_ALLOWED_MODELS].join(", ")}`);
+  console.error(`[batch-routing] BATCH_MODEL_REJECTED: "${model}" is not batch-allowed. Forcing ${BATCH_DEFAULT_MODEL}. Only allowed: ${[...BATCH_ALLOWED_MODELS].join(", ")}`);
   return BATCH_DEFAULT_MODEL;
 }
 
