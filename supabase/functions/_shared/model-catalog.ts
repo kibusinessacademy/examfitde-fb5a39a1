@@ -96,55 +96,55 @@ export type RouteProfile = {
 export const PIPELINE_MODEL_MAP: Record<string, RouteProfile> = {
   scaffold_learning_course: {
     primary: "openai_nano", fallback1: "openai_nano_v5", fallback2: "openai_workhorse",
-    rationale: "Simple structure, minimal tokens",
+    rationale: "Simple structure, minimal tokens — nano-5.4 ideal",
   },
   generate_glossary: {
     primary: "openai_nano", fallback1: "openai_nano_v5", fallback2: "openai_workhorse",
-    rationale: "Term extraction, low complexity",
+    rationale: "Term extraction, low complexity — nano-5.4 ideal",
   },
   generate_learning_content: {
-    primary: "openai_primary", fallback1: "openai_balanced", fallback2: "openai_workhorse",
-    rationale: "Volume content gen, balanced quality",
+    primary: "openai_primary", fallback1: "openai_balanced", fallback2: "openai_primary_legacy",
+    rationale: "GPT-5.4 mini: +9pp accuracy, fewer retries, net cheaper",
   },
   validate_content: {
-    primary: "openai_balanced", fallback1: "openai_strong", fallback2: "openai_primary",
-    rationale: "Validation failures cost more than slightly slower calls",
+    primary: "openai_primary", fallback1: "openai_balanced", fallback2: "openai_primary_legacy",
+    rationale: "GPT-5.4 mini: tool-use +10pp, validation failures drop significantly",
   },
   generate_exam_pool: {
-    primary: "openai_balanced", fallback1: "openai_strong", fallback2: "openai_primary",
-    rationale: "Distractor quality + exam realism > pure speed",
+    primary: "openai_primary", fallback1: "openai_balanced", fallback2: "openai_strong",
+    rationale: "GPT-5.4 mini: intelligence 88% vs 81.6%, better distractors first-pass",
   },
   generate_handbook: {
-    primary: "openai_primary", fallback1: "openai_workhorse", fallback2: "openai_nano_v5",
-    rationale: "Structured text generation",
+    primary: "openai_primary", fallback1: "openai_primary_legacy", fallback2: "openai_workhorse",
+    rationale: "Structured text gen — GPT-5.4 mini long-context +12pp",
   },
   generate_minichecks: {
     primary: "openai_nano", fallback1: "openai_nano_v5", fallback2: "openai_workhorse",
-    rationale: "Simple Q&A, high volume",
+    rationale: "Simple Q&A, high volume — nano-5.4 with tool-use 56%",
   },
   elite_harden: {
     primary: "openai_premium", fallback1: "openai_strong_v2", fallback2: "openai_strong",
-    rationale: "Quality-critical, <2% of calls",
+    rationale: "Quality-critical, <2% of calls — GPT-5.4 orchestrator",
   },
   council_propose: {
-    primary: "openai_balanced", fallback1: "anthropic_primary", fallback2: "openai_primary",
-    rationale: "Provider diversity in fallback chain",
+    primary: "openai_primary", fallback1: "anthropic_primary", fallback2: "openai_balanced",
+    rationale: "GPT-5.4 mini as primary worker, provider diversity in fallback",
   },
   council_critique: {
-    primary: "openai_balanced", fallback1: "anthropic_primary", fallback2: "openai_strong",
-    rationale: "Cross-provider validation",
+    primary: "openai_primary", fallback1: "anthropic_primary", fallback2: "openai_strong",
+    rationale: "GPT-5.4 mini: cross-provider validation with better reasoning",
   },
   auto_fix: {
-    primary: "openai_primary", fallback1: "openai_balanced", fallback2: "openai_workhorse",
-    rationale: "Moderate reasoning, cost-efficient",
+    primary: "openai_primary", fallback1: "openai_balanced", fallback2: "openai_primary_legacy",
+    rationale: "GPT-5.4 mini: better tool-use for automated fixes",
   },
   ai_tutor_learning: {
-    primary: "openai_workhorse", fallback1: "openai_nano", fallback2: "openai_nano_v5",
-    rationale: "Fast interactive chat, low cost",
+    primary: "openai_primary", fallback1: "openai_workhorse", fallback2: "openai_nano",
+    rationale: "GPT-5.4 mini: better didactic quality, acceptable latency",
   },
   ai_tutor_exam: {
-    primary: "openai_balanced", fallback1: "openai_strong", fallback2: "openai_primary",
-    rationale: "Accuracy for exam context",
+    primary: "openai_primary", fallback1: "openai_balanced", fallback2: "openai_strong",
+    rationale: "GPT-5.4 mini: intelligence 88%, strong exam context",
   },
 };
 
