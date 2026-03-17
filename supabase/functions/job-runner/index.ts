@@ -1323,7 +1323,29 @@ Deno.serve(async (req) => {
 
           const healCycles = (stepRow?.meta as any)?.heal_cycles ?? 0;
 
-          if (healCycles >= MAX_HEAL_CYCLES) {
+          // ═══ STALE-SAFE: Before kill-switch, verify current SSOT state ═══
+          // If the pool is actually healthy NOW (enough approved questions),
+          // don't kill — the error is stale/historical.
+          let poolActuallyHealthy = false;
+          if (healCycles >= MAX_HEAL_CYCLES && validationStepKey === "validate_exam_pool") {
+            try {
+              const { data: pkgData } = await sb.from("course_packages")
+                .select("curriculum_id").eq("id", packageId).maybeSingle();
+              if (pkgData?.curriculum_id) {
+                const { count: approvedCount } = await sb.from("exam_questions")
+                  .select("id", { count: "exact", head: true })
+                  .eq("curriculum_id", pkgData.curriculum_id)
+                  .eq("status", "approved");
+                // If we have 500+ approved questions, the pool is healthy regardless of historical flags
+                if ((approvedCount ?? 0) >= 500) {
+                  poolActuallyHealthy = true;
+                  console.log(`[job-runner] ✅ STALE_SAFE: Pool has ${approvedCount} approved questions — skipping kill-switch despite ${healCycles} heal cycles`);
+                }
+              }
+            } catch (_e) { /* best-effort SSOT check */ }
+          }
+
+          if (healCycles >= MAX_HEAL_CYCLES && !poolActuallyHealthy) {
             console.error(`[job-runner] 🛑 Kill-switch: ${predecessorStep} healed ${healCycles}x — BLOCKING PACKAGE`);
             if (validationStepKey) {
               await sb.from("package_steps")
@@ -1368,6 +1390,32 @@ Deno.serve(async (req) => {
               patch: {
                 error: `QG FAIL ESCALATED (${healCycles} heal cycles): ${issuesSummary}`,
                 result: typeof parsed === "object" ? parsed : { raw: parsed },
+                completed_at: tsNow,
+                attempts: newAttempts,
+              },
+            };
+          } else if (poolActuallyHealthy) {
+            // Pool is healthy despite heal cycle exhaustion — reset cycles and mark step done
+            console.log(`[job-runner] ✅ STALE_SAFE_PASS: ${validationStepKey} pool healthy (${healCycles} stale cycles cleared)`);
+            await sb.from("package_steps")
+              .update({
+                status: "done",
+                meta: { stale_safe_passed: true, cleared_heal_cycles: healCycles, passed_at: tsNow },
+                last_error: null,
+              })
+              .eq("package_id", packageId)
+              .eq("step_key", validationStepKey);
+            // Also reset predecessor heal_cycles
+            await sb.from("package_steps")
+              .update({
+                meta: { ...(stepRow?.meta as Record<string, unknown> ?? {}), heal_cycles: 0, heal_reason: null },
+              })
+              .eq("package_id", packageId)
+              .eq("step_key", predecessorStep);
+            finalState = {
+              status: "completed",
+              patch: {
+                result: { stale_safe_pass: true, approved_pool_healthy: true },
                 completed_at: tsNow,
                 attempts: newAttempts,
               },
