@@ -772,22 +772,69 @@ Deno.serve(async (req) => {
     }
     console.log(`[export] ${contentVersions.length} content versions`);
 
-    // ── 15. MiniChecks (extracted from lessons) ──
+    // ── 15. MiniChecks (from minicheck_questions table + lesson content JSON) ──
     const minichecks: unknown[] = [];
-    for (const l of allLessons as Record<string, unknown>[]) {
-      if (l.minicheck_parsed || l.step === "mini_check") {
-        minichecks.push({
-          lesson_id: l.lesson_id,
-          lesson_title: l.title,
-          module_id: l.module_id,
-          learning_field_id: l.learning_field_id,
-          competency_id: l.competency_id,
-          minicheck_data: l.minicheck_parsed,
-          mastery_weight: l.mastery_weight,
-        });
+    const minicheckQuestions: unknown[] = [];
+    if (cid && moduleIds.length > 0) {
+      try {
+        // 15a: Load minicheck_questions from dedicated table (normalized SSOT)
+        const lessonIdBatches: string[][] = [];
+        for (let i = 0; i < moduleIds.length; i += 50) {
+          const modChunk = moduleIds.slice(i, i + 50);
+          const { data: lIds } = await sb.from("lessons").select("id").in("module_id", modChunk);
+          if (lIds) lessonIdBatches.push(lIds.map((l: any) => l.id as string));
+        }
+        const allLessonIds = lessonIdBatches.flat();
+
+        // Paginated fetch of minicheck_questions
+        const chunkSize = 200;
+        for (let ci = 0; ci < allLessonIds.length; ci += chunkSize) {
+          const chunk = allLessonIds.slice(ci, ci + chunkSize);
+          const pageSize = 500;
+          let offset = 0;
+          while (true) {
+            const { data: batch } = await sb
+              .from("minicheck_questions")
+              .select("id, lesson_id, question_text, options, correct_answer, explanation, difficulty, bloom_level, trap_type, sort_order, created_at")
+              .in("lesson_id", chunk)
+              .order("lesson_id")
+              .range(offset, offset + pageSize - 1);
+            if (!batch || batch.length === 0) break;
+            minicheckQuestions.push(...batch);
+            if (batch.length < pageSize) break;
+            offset += pageSize;
+          }
+        }
+
+        // 15b: Load lesson content JSON for mini_check steps (contains embedded questions)
+        const { data: mcLessons } = await sb
+          .from("lessons")
+          .select("id, title, module_id, competency_id, content, qc_status, minicheck_parsed")
+          .in("module_id", moduleIds)
+          .eq("step", "mini_check");
+
+        for (const l of (mcLessons || []) as Record<string, unknown>[]) {
+          const contentObj = l.content as Record<string, unknown> | null;
+          const embeddedQuestions = contentObj?.questions as unknown[] | undefined;
+          const mcQsForLesson = (minicheckQuestions as Record<string, unknown>[]).filter(q => q.lesson_id === l.id);
+
+          minichecks.push({
+            lesson_id: l.id,
+            lesson_title: l.title,
+            module_id: l.module_id,
+            competency_id: l.competency_id,
+            qc_status: l.qc_status,
+            minicheck_parsed: l.minicheck_parsed,
+            embedded_question_count: embeddedQuestions?.length || 0,
+            embedded_questions: embeddedQuestions || [],
+            db_question_count: mcQsForLesson.length,
+          });
+        }
+      } catch (e) {
+        console.log(`[export] MiniCheck export error: ${(e as Error).message}`);
       }
     }
-    console.log(`[export] ${minichecks.length} minichecks extracted`);
+    console.log(`[export] ${minichecks.length} minicheck lessons, ${minicheckQuestions.length} minicheck questions from DB`);
 
     // ══════════════════════════════════════════════════════
     // ── TRACEABILITY PROTOCOL (question → blueprint → competency → LF) ──
