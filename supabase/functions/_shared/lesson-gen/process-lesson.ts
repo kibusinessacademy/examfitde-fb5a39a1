@@ -193,11 +193,9 @@ async function enqueueLessonBatch(
   startMs: number,
   json: (body: unknown, status?: number) => Response,
 ): Promise<Response> {
-  // Use the first model from the chain, or fall back to batch default
-  // CRITICAL: batchSafeModel() ensures non-OpenAI models (e.g. Claude) are remapped
-  // to OpenAI equivalents, preventing provider_model_mismatch failures (Phase A: OpenAI only)
-  const rawModel = runtime.chain[0]?.model || BATCH_DEFAULT_MODEL;
-  const model = batchSafeModel(rawModel);
+  // HARD GUARD: Batch only allows gpt-4o-mini. No exceptions.
+  const model = BATCH_DEFAULT_MODEL;
+  assertBatchModel(model);
 
   // Deterministic custom_id for idempotency — same lesson+step+jobHash always produces same ID
   const customId = `lesson_${req.lessonId}_${req.stepKey}_${req.jobHash || 0}`;
