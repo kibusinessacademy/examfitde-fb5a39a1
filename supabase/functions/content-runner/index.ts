@@ -711,24 +711,25 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
         const cap = limitMap.get(jt);
         if (cap == null) continue; // no limit configured
         
-        // Count globally processing jobs of this type (excluding our just-claimed batch)
-        const { count: globalProcessing } = await sb
+        // Count ALL globally processing jobs of this type (including ours)
+        const { count: totalProcessing } = await sb
           .from("job_queue")
           .select("id", { count: "exact", head: true })
           .eq("job_type", jt)
-          .eq("status", "processing")
-          .neq("locked_by", WORKER_ID);
+          .eq("status", "processing");
         
-        const otherProcessing = globalProcessing ?? 0;
+        const global = totalProcessing ?? 0;
         const batchJobs = jobs.filter((j: any) => j.job_type === jt);
-        const allowed = Math.max(0, cap - otherProcessing);
+        const overLimit = global - cap;
         
-        if (batchJobs.length > allowed) {
-          const excess = batchJobs.slice(allowed);
+        if (overLimit > 0) {
+          // Release up to overLimit from OUR batch (oldest first = least progress)
+          const toRelease = Math.min(overLimit, batchJobs.length);
+          const excess = batchJobs.slice(0, toRelease);
           for (const ej of excess) {
             deferredIds.push(ej.id);
           }
-          console.warn(`[content-runner] FINISH_LINE_GUARD: ${jt} at ${otherProcessing}/${cap} globally → deferring ${excess.length} of ${batchJobs.length} claimed`);
+          console.warn(`[content-runner] FINISH_LINE_GUARD: ${jt} at ${global}/${cap} globally → releasing ${toRelease} of ${batchJobs.length} from this batch`);
         }
       }
       
