@@ -826,7 +826,7 @@ Deno.serve(async (req) => {
     // ── Run COURSE_READY gate ──
     const gate = await runCourseReadyGate(sb, courseId, currId, packageId);
 
-    console.log(`[integrity-check] pkg=${packageId.slice(0, 8)} COURSE_READY score=${gate.score} hardFails=${gate.hardFails.length} warnings=${gate.warnings.length} excellence=${gate.excellence.length}`);
+    console.log(`[integrity-check] pkg=${packageId.slice(0, 8)} COURSE_READY score=${gate.score} hardFails=${gate.hardFails.length} warnings=${gate.warnings.length} excellence=${gate.excellence.length} pool_loaded=${gate.metrics.totalApproved}/${gate.metrics.approvedCountExpected} truncated=${gate.metrics.sampleTruncated}`);
     for (const hf of gate.hardFails) console.log(`  ❌ ${hf}`);
     for (const w of gate.warnings) console.log(`  ⚠️ ${w}`);
     for (const e of gate.excellence) console.log(`  🌟 ${e}`);
