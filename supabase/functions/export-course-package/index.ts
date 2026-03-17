@@ -995,12 +995,13 @@ Deno.serve(async (req) => {
     }
 
     // ── Block 3: Questions + Exam Pool ──
-    zip.file("3_exam_pool/exam_questions_all.json", JSON.stringify(allQuestions, null, 2));
-    zip.file("3_exam_pool/exam_questions_approved.json", JSON.stringify(approvedQuestions, null, 2));
+    // NOTE: allQuestions = approved only (memory optimization). Non-approved are counted in summary.
+    zip.file("3_exam_pool/exam_questions_approved.json", JSON.stringify(allQuestions, null, 2));
     zip.file("3_exam_pool/difficulty_distribution.json", JSON.stringify(difficultyDistribution, null, 2));
     zip.file("3_exam_pool/lf_distribution.json", JSON.stringify(lfDistribution, null, 2));
     zip.file("3_exam_pool/exam_sessions_all.json", JSON.stringify(allExamSessions, null, 2));
-    zip.file("3_exam_pool/trace.json", JSON.stringify(traceProtocol, null, 2));
+    // Trace protocol written as NDJSON (one JSON line per entry) to reduce peak memory
+    zip.file("3_exam_pool/trace.ndjson", traceProtocol.map(t => JSON.stringify(t)).join("\n"));
 
     // ── Block 4: Didaktik (Lessons, MiniChecks, Mastery) ──
     zip.file("4_didaktik/lessons_all.json", JSON.stringify(allLessons, null, 2));
