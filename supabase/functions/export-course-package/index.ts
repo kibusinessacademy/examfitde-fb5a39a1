@@ -172,18 +172,18 @@ Deno.serve(async (req) => {
       oralSessionTemplates = data || [];
     } catch (_e) { /* best-effort */ }
 
-    // ── Oral Exam: ALL user sessions (paginated, may be empty for fresh packages) ──
+    // ── Oral Exam: ALL user sessions (paginated, via blueprint_id) ──
     const allOralSessions: unknown[] = [];
-    if (oralSessionsets?.length) {
-      const setIds = (oralSessionsets as Record<string, unknown>[]).map(s => s.id as string);
+    if (oralBlueprints.length > 0) {
+      const bpIds = (oralBlueprints as Record<string, unknown>[]).map(b => b.id as string);
       const pageSize = 500;
       let offset = 0;
       while (true) {
         const { data: batch, error: oErr } = await sb
           .from("oral_exam_sessions")
-          .select("*")
-          .in("sessionset_id", setIds)
-          .order("sort_order")
+          .select("id, user_id, curriculum_id, blueprint_id, mode, total_questions, time_limit_minutes, current_question_index, started_at, finished_at, overall_score, passed, created_at")
+          .in("blueprint_id", bpIds)
+          .order("created_at", { ascending: false })
           .range(offset, offset + pageSize - 1);
         if (oErr) { console.log(`[export] Oral sessions error: ${oErr.message}`); break; }
         if (!batch || batch.length === 0) break;
@@ -261,7 +261,7 @@ Deno.serve(async (req) => {
           while (true) {
             const { data: batch, error: lErr } = await sb
               .from("lessons")
-              .select("id, title, content, minicheck_parsed, sort_order, qc_status, step, status, duration_minutes, competency_id, exam_block, weight_tag, exam_relevance_score, mastery_weight, quality_gate_status, quality_flags")
+              .select("id, title, sort_order, qc_status, step, status, duration_minutes, competency_id, exam_block, weight_tag, exam_relevance_score, mastery_weight, quality_gate_status, quality_flags")
               .eq("module_id", mod.id as string)
               .order("sort_order")
               .range(offset, offset + pageSize - 1);
@@ -271,12 +271,8 @@ Deno.serve(async (req) => {
             }
             if (!batch || batch.length === 0) break;
               for (const l of batch as Record<string, unknown>[]) {
-                // Derive bloom_level from step or content
-                const contentObj = l.content as Record<string, unknown> | null;
-                const bloomFromContent = contentObj?.bloom_level as string | null;
                 const stepBloomMap: Record<string, string> = { einstieg: "remember", verstehen: "understand", anwenden: "apply", wiederholen: "analyze", mini_check: "apply" };
-                const bloomLevel = bloomFromContent || stepBloomMap[(l.step as string) || ""] || "understand";
-                const examRelScore = (contentObj?.exam_relevance_score as number) || null;
+                const bloomLevel = stepBloomMap[(l.step as string) || ""] || "understand";
                 
                 allLessons.push({
                   module: mod.title,
@@ -288,16 +284,14 @@ Deno.serve(async (req) => {
                   step: l.step,
                   status: l.status,
                   bloom_level: bloomLevel,
-                  exam_relevance_score: examRelScore || l.exam_relevance_score,
-                  content: l.content,
-                  minicheck_parsed: l.minicheck_parsed,
+                  exam_relevance_score: l.exam_relevance_score,
                   sort_order: l.sort_order,
                   qc_status: l.qc_status,
                   duration_minutes: l.duration_minutes,
                   competency_id: l.competency_id,
                   exam_block: l.exam_block,
                   weight_tag: l.weight_tag,
-                  mastery_weight: (contentObj?.mastery_weight as string) || l.mastery_weight,
+                  mastery_weight: l.mastery_weight,
                   quality_gate_status: l.quality_gate_status,
                   quality_flags: l.quality_flags,
                 });
@@ -316,11 +310,24 @@ Deno.serve(async (req) => {
     // CRITICAL: Use exam_questions_elite_v view to get *_eff fields from annotations
     // The base table's elite_level/elite_score are intentionally NULL for approved questions
     // (immutability principle). The view merges annotations via exam_question_elite_annotations.
+    // MEMORY OPTIMIZATION: Only load approved questions with full data.
+    // Non-approved counts are fetched via a lightweight count query.
     const allQuestions: unknown[] = [];
     const approvedQuestions: unknown[] = [];
     const seenQuestionIds = new Set<string>();
+    let totalQuestionCount = 0;
+    let pendingQuestionCount = 0;
     if (curriculumId) {
-      console.log(`[export] Collecting ALL exam questions via elite view for curriculum ${curriculumId}`);
+      console.log(`[export] Collecting APPROVED exam questions via elite view for curriculum ${curriculumId}`);
+      
+      // Lightweight count query for total/pending (no full row load)
+      try {
+        const { count: totalCount } = await sb.from("exam_questions_elite_v").select("id", { count: "exact", head: true }).eq("curriculum_id", curriculumId);
+        totalQuestionCount = totalCount ?? 0;
+        const { count: pendCount } = await sb.from("exam_questions_elite_v").select("id", { count: "exact", head: true }).eq("curriculum_id", curriculumId).eq("qc_status", "pending");
+        pendingQuestionCount = pendCount ?? 0;
+      } catch (_e) { /* best-effort */ }
+
       try {
         const pageSize = 500;
         let offset = 0;
@@ -330,6 +337,7 @@ Deno.serve(async (req) => {
             .from("exam_questions_elite_v")
             .select("id, question_text, options, correct_answer, explanation, difficulty, cognitive_level, learning_field_id, qc_status, blueprint_id, competency_id, question_type, trap_tags, distractor_meta, variant_group, variant_label, item_difficulty, item_discrimination, status, created_at, exam_part, scenario_type, bloom_level_validated, time_estimate_seconds, typical_errors, discrimination_tier, elite_level_eff, elite_score_eff, complexity_score, multi_variable_eff, conflict_type, dynamic_scenario, transfer_variant_eff, distractor_types_eff")
             .eq("curriculum_id", curriculumId)
+            .or("qc_status.eq.approved,status.eq.approved")
             .order("id")
             .range(offset, offset + pageSize - 1);
           if (qErr) {
@@ -382,9 +390,7 @@ Deno.serve(async (req) => {
               distractor_types: q.distractor_types_eff,
             };
             allQuestions.push(qObj);
-            if (q.qc_status === "approved" || q.status === "approved") {
-              approvedQuestions.push(qObj);
-            }
+            approvedQuestions.push(qObj);
           }
           if (batch.length < pageSize) break;
           offset += pageSize;
@@ -396,21 +402,17 @@ Deno.serve(async (req) => {
         console.log(`[export] Question export error: ${(e as Error).message}`);
       }
     }
-    console.log(`[export] Collected ${allQuestions.length} total questions, ${approvedQuestions.length} approved`);
+    console.log(`[export] Collected ${allQuestions.length} approved questions (${totalQuestionCount} total in DB)`);
 
-    // ── P0-B: Compute questionsSummary FROM the same approvedQuestions array (SSOT) ──
-    // This ensures summary counts, approved JSON, and quality gate all agree.
+    // ── P0-B: Compute questionsSummary ──
     if (curriculumId) {
-      const pendingCount = (allQuestions as any[]).filter(
-        (q: any) => q.qc_status === "pending" && q.status !== "approved"
-      ).length;
       questionsSummary = {
-        total_exam_questions: allQuestions.length,
+        total_exam_questions: totalQuestionCount,
         approved_questions: approvedQuestions.length,
-        pending_questions: pendingCount,
-        draft_questions: allQuestions.length - approvedQuestions.length - pendingCount,
+        pending_questions: pendingQuestionCount,
+        draft_questions: totalQuestionCount - approvedQuestions.length - pendingQuestionCount,
         curriculum_id: curriculumId,
-        note: "SSOT: derived from same filter as exam_questions_approved.json",
+        note: "SSOT: approved questions exported with full data; non-approved counted only",
         approval_filter: "qc_status=approved OR status=approved",
       };
     }
@@ -437,30 +439,34 @@ Deno.serve(async (req) => {
     }
     console.log(`[export] ${allExamSessions.length} exam sessions`);
 
-    // ── ALL AI Tutor Logs (paginated) ──
+    // ── AI Tutor Logs (limited to 1000 most recent, scoped to curriculum sessions) ──
     const allTutorLogs: unknown[] = [];
-    try {
-      const pageSize = 500;
-      let offset = 0;
-      while (true) {
-        const { data: batch, error: tErr } = await sb
-          .from("ai_tutor_logs")
-          .select("*")
+    if (curriculumId) {
+      try {
+        // Get session IDs for this curriculum to scope tutor logs
+        const { data: sessionIds } = await sb
+          .from("exam_sessions")
+          .select("id")
+          .eq("curriculum_id", curriculumId)
           .order("created_at", { ascending: false })
-          .range(offset, offset + pageSize - 1);
-        if (tErr) {
-          console.log(`[export] Tutor logs error at offset ${offset}: ${tErr.message}`);
-          break;
+          .limit(500);
+        if (sessionIds?.length) {
+          const sIds = (sessionIds as Record<string, unknown>[]).map(s => s.id as string);
+          const { data: batch, error: tErr } = await sb
+            .from("ai_tutor_logs")
+            .select("id, session_id, session_type, mode, prompt_length, response_length, tokens_used, was_blocked, block_reason, created_at")
+            .in("session_id", sIds)
+            .order("created_at", { ascending: false })
+            .limit(1000);
+          if (tErr) {
+            console.log(`[export] Tutor logs error: ${tErr.message}`);
+          } else if (batch) {
+            allTutorLogs.push(...batch);
+          }
         }
-        if (!batch || batch.length === 0) break;
-        for (const t of batch as Record<string, unknown>[]) {
-          allTutorLogs.push(t);
-        }
-        if (batch.length < pageSize) break;
-        offset += pageSize;
+      } catch (e) {
+        console.log(`[export] Tutor logs export error: ${(e as Error).message}`);
       }
-    } catch (e) {
-      console.log(`[export] Tutor logs export error: ${(e as Error).message}`);
     }
     console.log(`[export] Collected ${allTutorLogs.length} tutor logs`);
 
@@ -989,12 +995,14 @@ Deno.serve(async (req) => {
     }
 
     // ── Block 3: Questions + Exam Pool ──
-    zip.file("3_exam_pool/exam_questions_all.json", JSON.stringify(allQuestions, null, 2));
-    zip.file("3_exam_pool/exam_questions_approved.json", JSON.stringify(approvedQuestions, null, 2));
+    // NOTE: allQuestions = approved only (memory optimization). Non-approved are counted in summary.
+    // Use compact JSON (no pretty-print) to reduce memory for large question sets
+    zip.file("3_exam_pool/exam_questions_approved.json", JSON.stringify(allQuestions));
     zip.file("3_exam_pool/difficulty_distribution.json", JSON.stringify(difficultyDistribution, null, 2));
     zip.file("3_exam_pool/lf_distribution.json", JSON.stringify(lfDistribution, null, 2));
     zip.file("3_exam_pool/exam_sessions_all.json", JSON.stringify(allExamSessions, null, 2));
-    zip.file("3_exam_pool/trace.json", JSON.stringify(traceProtocol, null, 2));
+    // Trace protocol written as NDJSON (one JSON line per entry) to reduce peak memory
+    zip.file("3_exam_pool/trace.ndjson", traceProtocol.map(t => JSON.stringify(t)).join("\n"));
 
     // ── Block 4: Didaktik (Lessons, MiniChecks, Mastery) ──
     zip.file("4_didaktik/lessons_all.json", JSON.stringify(allLessons, null, 2));
