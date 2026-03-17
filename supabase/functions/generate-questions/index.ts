@@ -36,10 +36,11 @@ Deno.serve(async (req) => {
     const professionName = professionResult.professionName;
 
     // ── Enforce cognitive level distribution across batch ──
-    const COGNITIVE_LEVELS = ['recall', 'apply', 'analyze', 'decide'];
-    const COGNITIVE_DISTRIBUTION = { recall: 0.25, apply: 0.35, analyze: 0.25, decide: 0.15 };
+    const COGNITIVE_LEVELS = ['recall', 'understand', 'apply', 'analyze', 'decide'];
+    const COGNITIVE_DISTRIBUTION = { recall: 0.20, understand: 0.15, apply: 0.30, analyze: 0.20, decide: 0.15 };
     const COGNITIVE_HINTS: Record<string, string> = {
       recall: 'WISSENSABFRAGE: Definition, Begriff, Zuordnung — Fakten abrufen.',
+      understand: 'VERSTEHEN: Zusammenhänge erklären, Bedeutung erfassen, Prinzipien erläutern, Unterschiede beschreiben — KEIN reines Aufzählen, sondern Verständnis zeigen.',
       apply: 'ANWENDUNG: Berechnung, Verfahren anwenden, konkreter Rechenweg mit Zahlen.',
       analyze: 'ANALYSE: Fehler identifizieren, Sachverhalt beurteilen, richtige Handlung ableiten.',
       decide: 'BEWERTUNG: Best Practice wählen, Risiken abwägen, Handlungsempfehlung mit Begründung.',
@@ -83,6 +84,7 @@ REGELN:
 
 KOGNITIVE STUFEN (PFLICHT — jede Frage muss die zugewiesene Stufe erfüllen):
 - recall: Faktenwissen abrufen (Definitionen, Begriffe, Zuordnungen)
+- understand: Verstehen (Zusammenhänge erklären, Prinzipien erläutern, Bedeutung erfassen, Unterschiede beschreiben)
 - apply: Anwendung (Berechnungen mit konkreten Zahlen, Formeln einsetzen)
 - analyze: Analyse (Fehler finden, Situation beurteilen, Handlung ableiten)
 - decide: Bewertung (zwischen Optionen entscheiden, Risiken abwägen)
@@ -113,7 +115,7 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array:
     "correct_answer": 0,
     "explanation": "Fachliche Erklärung: Richtig ist A weil... B ist falsch weil... C ist falsch weil... D ist falsch weil... Tipp: ...",
     "difficulty": "easy|medium|hard",
-    "cognitive_level": "recall|apply|analyze|decide"
+    "cognitive_level": "recall|understand|apply|analyze|decide"
   }
 ]`;
 
