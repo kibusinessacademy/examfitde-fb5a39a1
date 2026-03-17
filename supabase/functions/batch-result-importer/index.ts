@@ -529,6 +529,7 @@ async function importLearningContentBatch(
       }).select("id").single();
 
       if (vErr) {
+        console.error(`[batch-import] content_versions insert error for ${customId}: code=${vErr.code} msg=${vErr.message?.slice(0, 200)}`);
         // Duplicate = already imported (idempotent success)
         if (vErr.code === "23505") {
           details.push({ ok: true, custom_id: customId, imported_count: 0 });
