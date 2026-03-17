@@ -1349,7 +1349,7 @@ Deno.serve(async (req) => {
         trap_coverage: { with_trap_tags: withTraps, without: totalQ - withTraps, percent: totalQ > 0 ? Math.round((withTraps / totalQ) * 1000) / 10 : 0 },
         distractor_meta_coverage: { with_meta: withDistractorMeta, without: totalQ - withDistractorMeta, percent: totalQ > 0 ? Math.round((withDistractorMeta / totalQ) * 1000) / 10 : 0 },
         didactic_step_distribution: stepDist,
-        minicheck_coverage: { with_minicheck: withMinicheck, total_lessons: allLessons.length, percent: allLessons.length > 0 ? Math.round((withMinicheck / allLessons.length) * 1000) / 10 : 0 },
+        minicheck_coverage: { minicheck_lessons: minichecks.length, minicheck_questions_db: minicheckQuestions.length, total_lessons: allLessons.length, lessons_with_minicheck_percent: allLessons.length > 0 ? Math.round((minichecks.length / (allLessons.length / 5)) * 1000) / 10 : 0, avg_questions_per_lesson: minichecks.length > 0 ? Math.round(minicheckQuestions.length / minichecks.length * 10) / 10 : 0 },
         blueprint_quality: { total: questionBlueprints.length, with_typical_errors: bpsWithTraps, with_exam_context_type: bpsWithContext, trap_coverage_percent: questionBlueprints.length > 0 ? Math.round((bpsWithTraps / questionBlueprints.length) * 1000) / 10 : 0 },
         competency_graph: { total_competencies: competencies.length, mastery_model: "three_tier", thresholds: { not_mastered: "<60%", partial: "60-80%", mastered: ">80%" } },
         lf_weight_distribution: lfDistribution,
