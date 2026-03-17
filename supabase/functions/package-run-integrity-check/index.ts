@@ -216,18 +216,20 @@ async function runCourseReadyGate(
   // FIX: Use correct DB enum values (easy/medium/hard/very_hard), NOT German translations
   // ═══════════════════════════════════════════════
   const currFilter = curriculumId ?? courseId;
-  // FIX: Count both "approved" AND "tier1_passed" as valid questions.
-  // tier1_passed means they passed structural QA (Tier 1) and will be promoted
-  // to "approved" by the quality_council step which runs AFTER this check.
-  // Without this, we have a chicken-and-egg deadlock: integrity requires approved,
-  // but council (which promotes) only runs after integrity passes.
-  const { data: approvedQs } = await sb
-    .from("exam_questions")
-    .select("id, difficulty, cognitive_level, learning_field_id, competency_id, blueprint_id")
-    .eq("curriculum_id", currFilter)
-    .in("qc_status", ["approved", "tier1_passed"]);
+  // FIX v2: Paginated full-pool fetch — prevents silent truncation at 1000 rows.
+  // The Supabase JS client defaults to LIMIT 1000 when no .range()/.limit() is set.
+  // This caused false Publish-Gate failures for large pools (9000+ questions).
+  const { rows: approvedQs, totalExpected: approvedCountExpected, truncated: sampleTruncated } =
+    await fetchAllApprovedQuestions(sb, currFilter);
 
-  const totalApproved = approvedQs?.length ?? 0;
+  const totalApproved = approvedQs.length;
+
+  // Hard-fail if we couldn't load the full pool (safety net)
+  if (sampleTruncated) {
+    console.error(
+      `[integrity-check] HARD TRUNCATION: loaded=${totalApproved} expected=${approvedCountExpected}. Report may be inaccurate.`,
+    );
+  }
   const easyCount = approvedQs?.filter((q: any) => q.difficulty === "easy").length ?? 0;
   const mediumCount = approvedQs?.filter((q: any) => q.difficulty === "medium").length ?? 0;
   const hardOnlyCount = approvedQs?.filter((q: any) => q.difficulty === "hard").length ?? 0;
