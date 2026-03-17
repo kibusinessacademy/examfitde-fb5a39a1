@@ -881,13 +881,19 @@ Deno.serve(async (req) => {
       hard_fail_reasons: gate.hardFails,
     };
 
-    const CURRENT_REPORT_VERSION = "COURSE_READY_v1.5";
-    const CURRENT_REPORT_VERSION_NUM = 15;
+    const CURRENT_REPORT_VERSION = "COURSE_READY_v1.6";
+    const CURRENT_REPORT_VERSION_NUM = 16;
     const report = {
       score: gate.score,
       generated_at: new Date().toISOString(),
       gate_version: CURRENT_REPORT_VERSION,
       version_num: CURRENT_REPORT_VERSION_NUM,
+      sample_metadata: {
+        approved_question_count_total: approvedCountExpected,
+        approved_question_count_loaded: totalApproved,
+        sample_truncated: sampleTruncated,
+        fetch_method: "paginated_full_pool",
+      },
       v3: {
         hard_fail_reasons: gate.hardFails,
         warnings: gate.warnings,
