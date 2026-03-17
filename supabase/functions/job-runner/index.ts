@@ -1345,7 +1345,7 @@ Deno.serve(async (req) => {
             } catch (_e) { /* best-effort SSOT check */ }
           }
 
-          if (healCycles >= MAX_HEAL_CYCLES) {
+          if (healCycles >= MAX_HEAL_CYCLES && !poolActuallyHealthy) {
             console.error(`[job-runner] 🛑 Kill-switch: ${predecessorStep} healed ${healCycles}x — BLOCKING PACKAGE`);
             if (validationStepKey) {
               await sb.from("package_steps")
