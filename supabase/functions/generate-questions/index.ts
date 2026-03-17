@@ -115,7 +115,7 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array:
     "correct_answer": 0,
     "explanation": "Fachliche Erklärung: Richtig ist A weil... B ist falsch weil... C ist falsch weil... D ist falsch weil... Tipp: ...",
     "difficulty": "easy|medium|hard",
-    "cognitive_level": "recall|apply|analyze|decide"
+    "cognitive_level": "recall|understand|apply|analyze|decide"
   }
 ]`;
 
