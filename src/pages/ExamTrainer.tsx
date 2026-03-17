@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
@@ -9,12 +9,13 @@ import { useAuth } from '@/hooks/useAuth';
 import { useCheckEntitlement } from '@/hooks/useEntitlements';
 import { Paywall } from '@/components/shop/Paywall';
 import { supabase } from '@/integrations/supabase/client';
-import { 
-  Brain, CheckCircle, XCircle, Loader2, Trophy, Flame, 
+import {
+  Brain, CheckCircle, XCircle, Loader2, Trophy, Flame,
   RotateCcw, Sparkles, ChevronRight
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import TrainerStartPage, { type TrainingMode, type TrainerStartPayload } from '@/components/exam/TrainerStartPage';
+import TrainerStartPage from '@/components/exam/TrainerStartPage';
+import type { TrainerStartPayload } from '@/types/trainer';
 
 interface Question {
   id: string;
@@ -49,7 +50,7 @@ export default function ExamTrainer() {
 
   // Entitlement check
   const { data: hasAccess, isLoading: entitlementLoading } = useCheckEntitlement(
-    selectedCurriculumId, 
+    selectedCurriculumId,
     'exam_trainer'
   );
 
@@ -84,22 +85,21 @@ export default function ExamTrainer() {
   }, [stats.streak, stats.incorrect, stats.correct]);
 
   const handleStartFromBeruf = (payload: TrainerStartPayload) => {
-    const { curriculumId, berufLabel, mode } = payload;
+    const { curriculumId, berufLabel, route } = payload;
     setSelectedCurriculumId(curriculumId);
     setSelectedBerufName(berufLabel);
 
-    if (mode === 'exam') {
-      navigate(`/exam-simulation?curriculum=${curriculumId}`);
-      return;
+    switch (route) {
+      case 'exam-simulation':
+        navigate(`/exam-simulation?curriculum=${curriculumId}`);
+        return;
+      case 'drill':
+        navigate(`/drill?curriculum=${curriculumId}`);
+        return;
+      case 'inline':
+      default:
+        startLearningSession(curriculumId);
     }
-
-    if (mode === 'quick') {
-      navigate(`/drill?curriculum=${curriculumId}`);
-      return;
-    }
-
-    // mode === 'learn' → start trainer inline
-    startLearningSession(curriculumId);
   };
 
   const startLearningSession = async (curriculumId: string) => {
@@ -107,7 +107,6 @@ export default function ExamTrainer() {
     setStep('loading');
 
     try {
-      // Fetch curriculum structure to get competencies
       const { data: structData, error: structError } = await supabase.functions.invoke('get-curriculum-structure', {
         body: { curriculumId },
       });
@@ -116,11 +115,9 @@ export default function ExamTrainer() {
         throw new Error('Keine Kompetenzen für dieses Curriculum gefunden.');
       }
 
-      // Pick a random competency
       const comps = structData.competencies;
       const randomComp = comps[Math.floor(Math.random() * comps.length)];
 
-      // Fetch questions for this competency
       const { data: questionsData, error: questionsError } = await supabase.functions.invoke('get-exam-questions', {
         body: {
           competency_id: randomComp.compId,
@@ -157,10 +154,10 @@ export default function ExamTrainer() {
 
   const handleAnswer = async (answerIndex: number) => {
     if (selectedAnswer !== null || isSubmittingAnswer) return;
-    
+
     setSelectedAnswer(answerIndex);
     setIsSubmittingAnswer(true);
-    
+
     try {
       const { data: result, error } = await supabase.functions.invoke('submit-exam-answer', {
         body: {
@@ -174,7 +171,7 @@ export default function ExamTrainer() {
 
       const isCorrect = result.is_correct;
       setAnswerResult(result);
-      
+
       setStats(prev => ({
         correct: prev.correct + (isCorrect ? 1 : 0),
         incorrect: prev.incorrect + (isCorrect ? 0 : 1),
@@ -224,8 +221,8 @@ export default function ExamTrainer() {
   // Show paywall if curriculum selected but no access
   if (selectedCurriculumId && !entitlementLoading && hasAccess === false) {
     return (
-      <Paywall 
-        feature="exam_trainer" 
+      <Paywall
+        feature="exam_trainer"
         curriculumId={selectedCurriculumId}
         curriculumTitle={selectedBerufName}
       />
@@ -234,7 +231,7 @@ export default function ExamTrainer() {
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
-      {/* Selection Step — New Beruf-based Start Page */}
+      {/* Selection Step */}
       {step === 'select' && (
         <TrainerStartPage onStart={handleStartFromBeruf} />
       )}
@@ -257,7 +254,6 @@ export default function ExamTrainer() {
       {/* Question Step */}
       {(step === 'question' || step === 'feedback') && currentQuestion && (
         <div className="space-y-6 max-w-2xl mx-auto">
-          {/* Progress Bar */}
           <div className="space-y-2">
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">
@@ -282,7 +278,6 @@ export default function ExamTrainer() {
             <Progress value={progressPercent} className="h-2" />
           </div>
 
-          {/* Question Card */}
           <Card className="glass-card border-border/50">
             <CardContent className="p-6 md:p-8">
               <p className="text-lg md:text-xl font-medium text-foreground mb-6 leading-relaxed">
@@ -373,14 +368,14 @@ export default function ExamTrainer() {
           <CardContent className="py-12 text-center">
             <div className={cn(
               "w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6",
-              scorePercent >= 80 ? "gradient-primary shadow-glow" : 
+              scorePercent >= 80 ? "gradient-primary shadow-glow" :
               scorePercent >= 50 ? "bg-yellow-500" : "bg-red-500"
             )}>
               <Trophy className="h-12 w-12 text-white" />
             </div>
 
             <h3 className="text-2xl font-display font-bold text-foreground mb-2">
-              {scorePercent >= 80 ? 'Hervorragend!' : 
+              {scorePercent >= 80 ? 'Hervorragend!' :
                scorePercent >= 50 ? 'Gut gemacht!' : 'Weiter üben!'}
             </h3>
 
@@ -416,7 +411,7 @@ export default function ExamTrainer() {
                 <RotateCcw className="h-4 w-4 mr-2" />
                 Neues Training
               </Button>
-              <Button 
+              <Button
                 onClick={() => startLearningSession(selectedCurriculumId)}
                 className="gradient-primary text-primary-foreground"
               >
