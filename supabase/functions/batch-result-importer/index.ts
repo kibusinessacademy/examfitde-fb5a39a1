@@ -441,8 +441,9 @@ async function importLearningContentBatch(
         } else {
           parsed = JSON.parse(cleaned);
         }
-      } catch {
-        details.push({ ok: false, custom_id: customId, error: "Response not valid JSON" });
+      } catch (parseErr) {
+        const errSnippet = String(rawContent).slice(0, 120);
+        details.push({ ok: false, custom_id: customId, error: `Response not valid JSON: ${(parseErr as Error)?.message?.slice(0, 80)} | start: ${errSnippet}` });
         failCount++;
         continue;
       }
