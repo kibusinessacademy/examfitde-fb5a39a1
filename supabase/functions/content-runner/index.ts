@@ -31,8 +31,8 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-const BASE_CONCURRENCY = envInt("CONTENT_RUNNER_CONCURRENCY", 12);  // Phase B: 8→12 — all claimed jobs run via Promise.allSettled anyway
-const CLAIM_LIMIT = envInt("CONTENT_RUNNER_CLAIM_LIMIT", 25);      // Phase B: 16→25 — match perPackageMax for single-package WIP=1
+const BASE_CONCURRENCY = envInt("CONTENT_RUNNER_CONCURRENCY", 8);   // Phase C: 12→8 — reserve compute for finish-line validation jobs (WORKER_LIMIT fix)
+const CLAIM_LIMIT = envInt("CONTENT_RUNNER_CLAIM_LIMIT", 16);      // Phase C: 25→16 — match reduced concurrency, prevent edge-fn saturation
 const CONTENT_LOCK_TIMEOUT_MINUTES = 5;
 const STALE_LOCK_RECOVERY_MS = 3 * 60_000;
 const DISPATCH_TIMEOUT_MS = 55_000;          // Tier 3: structural/DB-only jobs
@@ -695,6 +695,58 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
   }
 
   console.log(`[content-runner] Claimed ${jobs.length} job(s) [concurrency=${BASE_CONCURRENCY}, claimLimit=${claimCount}, worker=${WORKER_ID}]`);
+
+  // ── Finish-Line Guard: enforce jobtype_limits to prevent compute saturation ──
+  // Release excess jobs back to pending if a job_type exceeds its max_processing limit
+  {
+    const { data: limits } = await sb.from("jobtype_limits").select("job_type, max_processing");
+    if (limits && limits.length > 0) {
+      const limitMap = new Map(limits.map((l: any) => [l.job_type, l.max_processing as number]));
+      
+      // Count currently processing jobs per type (globally, not just this runner)
+      const typesInBatch = [...new Set(jobs.map((j: any) => j.job_type))];
+      const deferredIds: string[] = [];
+      
+      for (const jt of typesInBatch) {
+        const cap = limitMap.get(jt);
+        if (cap == null) continue; // no limit configured
+        
+        // Count globally processing jobs of this type (excluding our just-claimed batch)
+        const { count: globalProcessing } = await sb
+          .from("job_queue")
+          .select("id", { count: "exact", head: true })
+          .eq("job_type", jt)
+          .eq("status", "processing")
+          .neq("locked_by", WORKER_ID);
+        
+        const otherProcessing = globalProcessing ?? 0;
+        const batchJobs = jobs.filter((j: any) => j.job_type === jt);
+        const allowed = Math.max(0, cap - otherProcessing);
+        
+        if (batchJobs.length > allowed) {
+          const excess = batchJobs.slice(allowed);
+          for (const ej of excess) {
+            deferredIds.push(ej.id);
+          }
+          console.warn(`[content-runner] FINISH_LINE_GUARD: ${jt} at ${otherProcessing}/${cap} globally → deferring ${excess.length} of ${batchJobs.length} claimed`);
+        }
+      }
+      
+      if (deferredIds.length > 0) {
+        // Release excess back to pending
+        await sb.from("job_queue").update({
+          status: "pending",
+          locked_at: null,
+          locked_by: null,
+          updated_at: new Date().toISOString(),
+          meta: { deferred_by: WORKER_ID, deferred_reason: "jobtype_limit_exceeded" },
+        }).in("id", deferredIds);
+        
+        jobs = jobs.filter((j: any) => !deferredIds.includes(j.id));
+        console.log(`[content-runner] FINISH_LINE_GUARD: released ${deferredIds.length} excess job(s) back to pending`);
+      }
+    }
+  }
 
   // ── Cleanup expired cooldowns (once per first pass) ──
   if (isFirstPass) {
