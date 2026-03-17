@@ -564,18 +564,213 @@ async function importLearningContentBatch(
   return { successCount, failCount, details };
 }
 
+// ── Handbook Section Importer (Production) ───────────────────────────────────
+
 async function importHandbookSectionBatch(
   sb: SupabaseClient,
   rows: Record<string, unknown>[],
   batch: Record<string, unknown>,
 ): Promise<{ successCount: number; failCount: number; details: ImportResult[] }> {
   const details: ImportResult[] = [];
+  let successCount = 0;
+  let failCount = 0;
+  const now = new Date().toISOString();
+  const MIN_SECTION_CHARS = 800;
+
   for (const row of rows) {
     const customId = String(row.custom_id);
-    console.log(`[batch-import] handbook_section stub: ${customId}`);
-    details.push({ ok: true, custom_id: customId });
+    try {
+      const body = row.response_body as any;
+      if (!body) { details.push({ ok: false, custom_id: customId, error: "No response body" }); failCount++; continue; }
+
+      const rawContent = body?.choices?.[0]?.message?.content;
+      if (!rawContent) { details.push({ ok: false, custom_id: customId, error: "No choices in response" }); failCount++; continue; }
+
+      // Handbook returns markdown text, not JSON
+      let content = String(rawContent).replace(/^```(?:markdown)?\n?/g, "").replace(/\n?```$/g, "").trim();
+      // If LLM returned JSON-wrapped content, unwrap it
+      if (content.startsWith("{") || content.startsWith('"')) {
+        try {
+          const parsed = JSON.parse(content);
+          content = typeof parsed === "string" ? parsed : parsed.content || parsed.markdown || JSON.stringify(parsed);
+        } catch { /* use as-is */ }
+      }
+
+      if (content.length < MIN_SECTION_CHARS) {
+        details.push({ ok: false, custom_id: customId, error: `Content too short: ${content.length}/${MIN_SECTION_CHARS}` });
+        failCount++;
+        continue;
+      }
+
+      const sourceRef = row.source_ref as any;
+      const chapterId = sourceRef?.chapter_id;
+      const sectionKey = sourceRef?.section_key;
+      const learningFieldId = sourceRef?.learning_field_id;
+      const lfCode = sourceRef?.lf_code || "";
+      const lfTitle = sourceRef?.lf_title || "";
+      const wordTarget = sourceRef?.word_target || 600;
+      const sortOrder = sourceRef?.sort_order || 1;
+
+      if (!chapterId || !sectionKey) {
+        details.push({ ok: false, custom_id: customId, error: "Missing chapter_id or section_key in source_ref" });
+        failCount++;
+        continue;
+      }
+
+      const sectionRow = {
+        chapter_id: chapterId,
+        section_key: sectionKey,
+        title: `${lfCode}: ${lfTitle}`,
+        content_markdown: content,
+        basis_content: content,
+        basis_generated_at: now,
+        content_tier: "basis",
+        expand_status: content.length >= 800 ? "pending" : "not_ready",
+        content_type: "text",
+        sort_order: sortOrder,
+        learning_field_id: learningFieldId,
+        metadata: {
+          llm_generated: true,
+          word_target: wordTarget,
+          actual_chars: content.length,
+          source: "batch_import",
+          imported_at: now,
+        },
+      };
+
+      const { error: upsertErr } = await sb.from("handbook_sections").upsert(sectionRow, {
+        onConflict: "chapter_id,section_key",
+        ignoreDuplicates: false,
+      });
+
+      if (upsertErr) {
+        console.error(`[batch-import] handbook upsert error for ${customId}: ${upsertErr.message?.slice(0, 200)}`);
+        details.push({ ok: false, custom_id: customId, error: `handbook upsert: ${upsertErr.message}` });
+        failCount++;
+      } else {
+        details.push({ ok: true, custom_id: customId, imported_count: 1 });
+        successCount++;
+        console.log(`[batch-import] handbook imported: lf=${lfCode} section=${sectionKey} chars=${content.length}`);
+      }
+
+      await sb.from("llm_batch_requests").update({ domain_imported_at: now }).eq("batch_id", (batch as any).id).eq("custom_id", customId);
+    } catch (e) {
+      details.push({ ok: false, custom_id: customId, error: String((e as Error)?.message || e) });
+      failCount++;
+    }
   }
-  return { successCount: rows.length, failCount: 0, details };
+
+  return { successCount, failCount, details };
+}
+
+// ── Minichecks Importer (Production) ─────────────────────────────────────────
+
+async function importMinichecksBatch(
+  sb: SupabaseClient,
+  rows: Record<string, unknown>[],
+  batch: Record<string, unknown>,
+): Promise<{ successCount: number; failCount: number; details: ImportResult[] }> {
+  const details: ImportResult[] = [];
+  let successCount = 0;
+  let failCount = 0;
+  const now = new Date().toISOString();
+
+  for (const row of rows) {
+    const customId = String(row.custom_id);
+    try {
+      const body = row.response_body as any;
+      if (!body) { details.push({ ok: false, custom_id: customId, error: "No response body" }); failCount++; continue; }
+
+      const rawContent = body?.choices?.[0]?.message?.content;
+      if (!rawContent) { details.push({ ok: false, custom_id: customId, error: "No choices in response" }); failCount++; continue; }
+
+      // Parse JSON array of questions
+      let questions: any[];
+      try {
+        const cleaned = String(rawContent).replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+        const firstBracket = cleaned.indexOf("[");
+        if (firstBracket === -1) throw new Error("No JSON array found");
+        let depth = 0;
+        let endIdx = -1;
+        for (let ci = firstBracket; ci < cleaned.length; ci++) {
+          if (cleaned[ci] === "[") depth++;
+          if (cleaned[ci] === "]") { depth--; if (depth === 0) { endIdx = ci; break; } }
+        }
+        questions = endIdx > firstBracket ? JSON.parse(cleaned.slice(firstBracket, endIdx + 1)) : JSON.parse(cleaned);
+        if (!Array.isArray(questions)) questions = (questions as any)?.items || [questions];
+      } catch (parseErr) {
+        details.push({ ok: false, custom_id: customId, error: `Parse failed: ${(parseErr as Error)?.message?.slice(0, 80)}` });
+        failCount++;
+        continue;
+      }
+
+      const sourceRef = row.source_ref as any;
+      const lessonId = sourceRef?.lesson_id || null;
+      const curriculumId = sourceRef?.curriculum_id;
+      const competencyId = sourceRef?.competency_id || null;
+      const mode = sourceRef?.mode || "lesson";
+
+      if (!curriculumId) {
+        details.push({ ok: false, custom_id: customId, error: "Missing curriculum_id in source_ref" });
+        failCount++;
+        continue;
+      }
+
+      // Normalize options helper (inline)
+      const normalizeOpts = (opts: unknown): Array<{ text: string }> => {
+        if (!Array.isArray(opts)) return [];
+        return opts.map((o: unknown) => {
+          if (typeof o === "string") return { text: o.replace(/^[A-D]\)\s*/, "") };
+          if (o && typeof o === "object" && "text" in (o as any)) return { text: String((o as any).text) };
+          return { text: String(o) };
+        });
+      };
+
+      const mcRows = questions.map((q: any, idx: number) => ({
+        lesson_id: lessonId,
+        curriculum_id: curriculumId,
+        competency_id: competencyId,
+        question_text: q.question_text || q.text || "",
+        options: normalizeOpts(q.options),
+        correct_answer: typeof q.correct_answer === "number" ? q.correct_answer : 0,
+        explanation: q.explanation || "",
+        difficulty: q.difficulty || "medium",
+        cognitive_level: q.cognitive_level || "understand",
+        trap_tags: Array.isArray(q.trap_tags) ? q.trap_tags : [],
+        distractor_meta: {},
+        mode,
+        status: "draft",
+        sort_order: idx,
+      }));
+
+      const validRows = mcRows.filter((r: any) =>
+        r.question_text.length > 10 &&
+        Array.isArray(r.options) && r.options.length === 4 &&
+        r.explanation.length > 20
+      );
+
+      let insertOk = 0;
+      for (const mcRow of validRows) {
+        const { error: insertErr } = await sb.from("minicheck_questions").insert(mcRow);
+        if (insertErr) {
+          if (insertErr.code !== "23505") console.warn(`[batch-import] minicheck insert: ${insertErr.message}`);
+        } else {
+          insertOk++;
+        }
+      }
+
+      details.push({ ok: true, custom_id: customId, imported_count: insertOk });
+      successCount++;
+      if (insertOk > 0) console.log(`[batch-import] minichecks imported: ${insertOk}/${validRows.length} for ${lessonId ? `lesson=${lessonId.slice(0, 8)}` : `comp=${competencyId?.slice(0, 8)}`}`);
+
+      await sb.from("llm_batch_requests").update({ domain_imported_at: now }).eq("batch_id", (batch as any).id).eq("custom_id", customId);
+    } catch (e) {
+      details.push({ ok: false, custom_id: customId, error: String((e as Error)?.message || e) });
+      failCount++;
+    }
+  }
+
+  return { successCount, failCount, details };
 }
 
 async function importBlueprintEnrichBatch(
@@ -604,10 +799,11 @@ const IMPORTERS: Record<string, BatchImporter> = {
   // Canonical job_type names — MUST match BATCH_JOB_TYPES constants
   lesson_generate_content: importLearningContentBatch,
   package_generate_exam_pool: importExamPoolBatch,
-  // Legacy aliases (to be removed after migration)
+  package_generate_handbook: importHandbookSectionBatch,
+  package_generate_lesson_minichecks: importMinichecksBatch,
+  // Legacy aliases
   exam_pool_generate: importExamPoolBatch,
   learning_content: importLearningContentBatch,
-  // Stubs
   expand_handbook_section: importHandbookSectionBatch,
   handbook_section: importHandbookSectionBatch,
   blueprint_enrich: importBlueprintEnrichBatch,
