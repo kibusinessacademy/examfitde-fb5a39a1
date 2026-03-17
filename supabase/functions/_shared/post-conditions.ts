@@ -186,10 +186,11 @@ export async function assertStepPostConditions(sb: SB, args: {
       .not("qc_status", "in", "(tier1_failed,rejected)");
     if (error) throw error;
 
-    // Dynamic threshold: use exam_target from package meta, floor at 50
+    // Dynamic threshold: use exam_target from package meta, floor at MIN_QUESTIONS_PER_PACKAGE * 0.1
     const pkgMeta = (pkg.meta ?? {}) as Record<string, unknown>;
     const examTarget = num(pkgMeta.exam_target) || 1000;
     // Require at least 5% of target as absolute minimum (prevents hollow with 10 questions)
+    // Hard floor: 50 (MIN_QUESTIONS_PER_PACKAGE=500, so 5% = 25 → floor at 50)
     const minRequired = Math.max(50, Math.floor(examTarget * 0.05));
     const actual = count ?? 0;
 

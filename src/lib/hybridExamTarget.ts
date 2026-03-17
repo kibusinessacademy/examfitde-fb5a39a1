@@ -5,7 +5,7 @@
  *   exam_target = (base_by_duration + complexity_bonus + domain_count_factor
  *                  + math_factor + oral_factor) * certification_multiplier
  * 
- * Hard-Cap: 2000
+ * Hard-Cap: MAX_QUESTIONS_PER_PACKAGE (2000) from examPoolLimits SSOT
  * Ship-Ready: ~85% des Targets
  * 
  * Genutzt von:
@@ -69,7 +69,9 @@ export interface HybridTargetResult {
   };
 }
 
-const HARD_CAP = 2000;
+import { MAX_QUESTIONS_PER_PACKAGE } from './examPoolLimits';
+
+const HARD_CAP = MAX_QUESTIONS_PER_PACKAGE; // SSOT: 2000
 
 function getBaseByDuration(months: number | null | undefined, track: string): number {
   if (track === 'EXAM_FIRST') return 1000;
