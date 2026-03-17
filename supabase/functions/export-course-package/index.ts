@@ -795,7 +795,7 @@ Deno.serve(async (req) => {
           while (true) {
             const { data: batch } = await sb
               .from("minicheck_questions")
-              .select("id, lesson_id, question_text, options, correct_answer, explanation, difficulty, bloom_level, trap_type, sort_order, created_at")
+              .select("id, lesson_id, question_text, options, correct_answer, explanation, difficulty, cognitive_level, trap_tags, distractor_meta, competency_id, sort_order, status, mode, created_at")
               .in("lesson_id", chunk)
               .order("lesson_id")
               .range(offset, offset + pageSize - 1);
