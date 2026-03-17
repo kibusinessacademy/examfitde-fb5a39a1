@@ -5,6 +5,8 @@ import type { AIProvider } from "../_shared/ai-client.ts";
 import { getModelChainAsync } from "../_shared/model-routing.ts";
 import { shouldSoftStop, getTimeBudget } from "../_shared/time-budget.ts";
 import { bootstrapLLMLogging } from "../_shared/llm-log-bootstrap.ts";
+import { shouldUseBatch, BATCH_DEFAULT_MODEL } from "../_shared/batch/routing-config.ts";
+import { buildBatchRequests, submitBatchViaFunction } from "../_shared/batch/enqueue-openai.ts";
 
 /**
  * package-generate-lesson-minichecks
