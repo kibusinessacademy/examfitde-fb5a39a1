@@ -17,7 +17,7 @@ import { resolveLessonRuntime } from "./routing.ts";
 import { buildLessonPrompts } from "./prompt-builder.ts";
 import { runLessonLLM } from "./llm-runner.ts";
 import { runQualityGate, buildFinalContent, persistLessonResult } from "./persistence.ts";
-import { shouldUseBatch, BATCH_DEFAULT_MODEL, batchSafeModel } from "../batch/routing-config.ts";
+import { shouldUseBatch, BATCH_DEFAULT_MODEL, batchSafeModel, assertBatchModel } from "../batch/routing-config.ts";
 import { buildBatchRequests, submitBatchViaFunction } from "../batch/enqueue-openai.ts";
 import { resolvePolicy } from "../ai-gateway/policies.ts";
 import { computeDeficit } from "../ai-gateway/deficits.ts";
