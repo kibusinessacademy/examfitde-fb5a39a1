@@ -799,6 +799,8 @@ Deno.serve(async (req) => {
       imported: result.successCount,
       failed: result.failCount,
       total: requests.length,
+      // Debug: include failure details when there are failures
+      ...(result.failCount > 0 ? { failure_details: result.details.filter((d: any) => !d.ok) } : {}),
     });
   } catch (error) {
     console.error("[batch-result-importer]", error);
