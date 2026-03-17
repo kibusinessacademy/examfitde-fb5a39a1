@@ -437,30 +437,34 @@ Deno.serve(async (req) => {
     }
     console.log(`[export] ${allExamSessions.length} exam sessions`);
 
-    // ── ALL AI Tutor Logs (paginated) ──
+    // ── AI Tutor Logs (limited to 1000 most recent, scoped to curriculum sessions) ──
     const allTutorLogs: unknown[] = [];
-    try {
-      const pageSize = 500;
-      let offset = 0;
-      while (true) {
-        const { data: batch, error: tErr } = await sb
-          .from("ai_tutor_logs")
-          .select("*")
+    if (curriculumId) {
+      try {
+        // Get session IDs for this curriculum to scope tutor logs
+        const { data: sessionIds } = await sb
+          .from("exam_sessions")
+          .select("id")
+          .eq("curriculum_id", curriculumId)
           .order("created_at", { ascending: false })
-          .range(offset, offset + pageSize - 1);
-        if (tErr) {
-          console.log(`[export] Tutor logs error at offset ${offset}: ${tErr.message}`);
-          break;
+          .limit(500);
+        if (sessionIds?.length) {
+          const sIds = (sessionIds as Record<string, unknown>[]).map(s => s.id as string);
+          const { data: batch, error: tErr } = await sb
+            .from("ai_tutor_logs")
+            .select("id, session_id, session_type, mode, prompt_length, response_length, tokens_used, was_blocked, block_reason, created_at")
+            .in("session_id", sIds)
+            .order("created_at", { ascending: false })
+            .limit(1000);
+          if (tErr) {
+            console.log(`[export] Tutor logs error: ${tErr.message}`);
+          } else if (batch) {
+            allTutorLogs.push(...batch);
+          }
         }
-        if (!batch || batch.length === 0) break;
-        for (const t of batch as Record<string, unknown>[]) {
-          allTutorLogs.push(t);
-        }
-        if (batch.length < pageSize) break;
-        offset += pageSize;
+      } catch (e) {
+        console.log(`[export] Tutor logs export error: ${(e as Error).message}`);
       }
-    } catch (e) {
-      console.log(`[export] Tutor logs export error: ${(e as Error).message}`);
     }
     console.log(`[export] Collected ${allTutorLogs.length} tutor logs`);
 
