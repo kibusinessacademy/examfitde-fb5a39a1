@@ -1,15 +1,21 @@
 /**
  * lesson-gen/json-repair.ts — Stack-based balanced JSON extraction and repair
  * Self-contained, no external dependencies. Easy to unit-test.
+ *
+ * NOTE: extractBalancedJson now supports both { and [ as root delimiters.
  */
 
+import { extractBalancedJsonSafe } from "../json-parse-safe.ts";
+
 /**
- * Balanced-brace JSON extraction: finds the first { and counts braces to find matching }.
+ * Balanced-brace JSON extraction: finds the first { or [ and counts braces to find matching closer.
  * If JSON is truncated, attempts stack-based repair.
+ *
+ * @deprecated Use extractBalancedJsonSafe from json-parse-safe.ts directly for new code.
  */
 export function extractBalancedJson(text: string): any | null {
-  const start = text.indexOf("{");
-  if (start === -1) return null;
+  return extractBalancedJsonSafe(text);
+}
 
   let depth = 0;
   let inString = false;

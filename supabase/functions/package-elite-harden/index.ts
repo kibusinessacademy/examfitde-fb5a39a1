@@ -69,10 +69,18 @@ async function callAI(systemPrompt: string, userPrompt: string): Promise<string>
 
 function parseJSON(text: string): any {
   const cleaned = text.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
-  const first = cleaned.indexOf("{");
+  // Support both array [...] and object {...} responses
+  const firstBracket = cleaned.indexOf("[");
+  const firstBrace = cleaned.indexOf("{");
+  const isArray = firstBracket !== -1 && (firstBrace === -1 || firstBracket < firstBrace);
+  if (isArray) {
+    const last = cleaned.lastIndexOf("]");
+    if (last <= firstBracket) throw new Error("AI_JSON_NOT_FOUND");
+    return JSON.parse(cleaned.slice(firstBracket, last + 1));
+  }
   const last = cleaned.lastIndexOf("}");
-  if (first === -1 || last === -1 || last <= first) throw new Error("AI_JSON_NOT_FOUND");
-  return JSON.parse(cleaned.slice(first, last + 1));
+  if (firstBrace === -1 || last === -1 || last <= firstBrace) throw new Error("AI_JSON_NOT_FOUND");
+  return JSON.parse(cleaned.slice(firstBrace, last + 1));
 }
 
 /** QW #7: Strong JSON schema validation for AI exam question outputs */
