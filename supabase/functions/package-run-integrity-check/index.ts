@@ -9,6 +9,54 @@ function assertUuid(name: string, v: unknown) {
   const re = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (!v || typeof v !== "string" || !re.test(v)) throw new Error(`INVALID_${name.toUpperCase()}`);
 }
+
+/**
+ * Paginated fetch: loads ALL rows matching a query, not just the default 1000.
+ * Uses deterministic ordering by `id` to ensure stable, complete results.
+ * PAGE_SIZE=5000 keeps each request well within Supabase response limits.
+ */
+const PAGE_SIZE = 5000;
+async function fetchAllApprovedQuestions(
+  sb: ReturnType<typeof createClient>,
+  currFilter: string,
+): Promise<{ rows: any[]; totalExpected: number; truncated: boolean }> {
+  // Step 1: Get exact count from DB
+  const { count: totalExpected } = await sb
+    .from("exam_questions")
+    .select("id", { count: "exact", head: true })
+    .eq("curriculum_id", currFilter)
+    .in("qc_status", ["approved", "tier1_passed"]);
+
+  const expectedCount = totalExpected ?? 0;
+
+  // Step 2: Paginated fetch with deterministic order
+  const allRows: any[] = [];
+  let offset = 0;
+  while (true) {
+    const { data, error } = await sb
+      .from("exam_questions")
+      .select("id, difficulty, cognitive_level, learning_field_id, competency_id, blueprint_id")
+      .eq("curriculum_id", currFilter)
+      .in("qc_status", ["approved", "tier1_passed"])
+      .order("id", { ascending: true })
+      .range(offset, offset + PAGE_SIZE - 1);
+
+    if (error) throw new Error(`EXAM_QUESTIONS_FETCH_ERROR: ${error.message}`);
+    const rows = data ?? [];
+    allRows.push(...rows);
+    if (rows.length < PAGE_SIZE) break; // last page
+    offset += PAGE_SIZE;
+  }
+
+  const truncated = allRows.length < expectedCount;
+  if (truncated) {
+    console.warn(
+      `[integrity-check] TRUNCATION WARNING: loaded ${allRows.length} but expected ${expectedCount} approved questions for curriculum=${currFilter.slice(0, 8)}`,
+    );
+  }
+
+  return { rows: allRows, totalExpected: expectedCount, truncated };
+}
 async function prereqDone(sb: ReturnType<typeof createClient>, packageId: string, stepKey: string) {
   // "skipped" counts as fulfilled — the step was intentionally bypassed by track logic
   const FULFILLED = ["done", "skipped"];
