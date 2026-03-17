@@ -35,10 +35,8 @@ const SCHEDULE_TIERS: Record<string, { functions: string[]; bodies: Record<strin
     bodies: {},
   },
   "5min": {
-    functions: ["batch-poll"],
-    bodies: {
-      "batch-poll": JSON.stringify({}), // polls all active batches
-    },
+    functions: [],
+    bodies: {},
   },
   hourly: {
     functions: ["unified-audit-runner", "knowledge-graph-rollout-orchestrator"],
