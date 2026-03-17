@@ -313,27 +313,40 @@ Deno.serve(async (req) => {
   }
 
   // ── Deterministic no-pending guard (prevents 409 retry loops) ──
-  // If nothing is pending, decide deterministically:
-  // - all clean & approved => idempotent success
-  // - unresolved quality flags => deterministic fail with reseed signal
-  const { data: qcRows, error: qcErr } = await sb
-    .from("exam_questions")
-    .select("qc_status, learning_field_id")
-    .eq("curriculum_id", curriculumId);
-
-  if (qcErr) return json({ error: qcErr.message }, 500);
-
-  const qcCounts: Record<string, number> = {};
-  for (const row of (qcRows || []) as any[]) {
-    const key = row.qc_status || "null";
-    qcCounts[key] = (qcCounts[key] || 0) + 1;
+  // FIX v3.1: Use aggregate COUNT instead of loading all rows to prevent OOM on large curricula (41k+ questions)
+  const { data: qcAgg, error: qcAggErr } = await sb.rpc("count_exam_qc_status", { p_curriculum_id: curriculumId });
+  
+  let qcCounts: Record<string, number> = {};
+  if (!qcAggErr && qcAgg) {
+    // RPC returns array of {qc_status, cnt}
+    for (const row of (qcAgg as any[])) {
+      qcCounts[row.qc_status || "null"] = Number(row.cnt);
+    }
+  } else {
+    // Fallback: individual count queries (memory-safe)
+    console.warn(`[validate-exam] qcAgg RPC failed (${qcAggErr?.message}), using fallback counts`);
+    for (const qs of ["pending", "approved", "tier1_passed", "tier1_failed", "needs_revision", "pruned_quality", "retired", "rejected"]) {
+      const { count } = await sb
+        .from("exam_questions")
+        .select("id", { count: "exact", head: true })
+        .eq("curriculum_id", curriculumId)
+        .eq("qc_status", qs);
+      if ((count ?? 0) > 0) qcCounts[qs] = count!;
+    }
+    // Also count null qc_status
+    const { count: nullCount } = await sb
+      .from("exam_questions")
+      .select("id", { count: "exact", head: true })
+      .eq("curriculum_id", curriculumId)
+      .is("qc_status", null);
+    if ((nullCount ?? 0) > 0) qcCounts["null"] = nullCount!;
   }
 
   const pendingQcCount = qcCounts.pending || 0;
   if (pendingQcCount === 0) {
-    const approvedCount = qcCounts.approved || 0;
-    const unresolvedCount = Math.max(0, (totalQuestionCount ?? 0) - approvedCount);
+    const approvedCount = (qcCounts.approved || 0) + (qcCounts["null"] || 0);
     const failedCount = (qcCounts.tier1_failed || 0) + (qcCounts.needs_revision || 0);
+    const unresolvedCount = Math.max(0, (totalQuestionCount ?? 0) - approvedCount);
 
     // Idempotent success: already fully validated (0 unresolved)
     if (unresolvedCount === 0 && approvedCount > 0) {
@@ -356,10 +369,17 @@ Deno.serve(async (req) => {
         .select("id")
         .eq("curriculum_id", curriculumId);
 
+      // Memory-safe: count approved per LF with aggregate query
+      const { data: approvedLfRows } = await sb
+        .from("exam_questions")
+        .select("learning_field_id")
+        .eq("curriculum_id", curriculumId)
+        .in("qc_status", ["approved"])
+        .not("learning_field_id", "is", null)
+        .limit(1000);
+
       const approvedLf = new Set(
-        (qcRows || [])
-          .filter((r: any) => r.qc_status === "approved" && r.learning_field_id)
-          .map((r: any) => r.learning_field_id as string),
+        (approvedLfRows || []).map((r: any) => r.learning_field_id as string),
       );
 
       missingLfIds = (lfs || [])
@@ -370,16 +390,12 @@ Deno.serve(async (req) => {
     }
 
     // ── SYSTEM-WIDE FIX: Prevent infinite re-seed loop ──
-    // When approved pool is sufficient AND all LFs are covered,
-    // the few tier1_failed/needs_revision questions are terminal waste —
-    // reject them and pass validation instead of looping forever.
-    const MIN_APPROVED_FOR_PASS = 500; // Elite threshold
+    const MIN_APPROVED_FOR_PASS = 500;
     const unresolvedRatio = approvedCount > 0 ? failedCount / approvedCount : 1;
     const poolSufficient = approvedCount >= MIN_APPROVED_FOR_PASS && missingLfIds.length === 0 && unresolvedRatio < 0.05;
 
     if (poolSufficient && failedCount > 0) {
       console.log(`[validate-exam] TERMINAL_CLEANUP: rejecting ${failedCount} unresolvable questions (approved=${approvedCount}, ratio=${(unresolvedRatio * 100).toFixed(1)}%)`);
-      // Mark terminal failures as 'rejected' so they stop blocking
       try {
         await sb
           .from("exam_questions")
