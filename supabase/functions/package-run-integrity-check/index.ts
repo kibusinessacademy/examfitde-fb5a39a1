@@ -765,11 +765,12 @@ Deno.serve(async (req) => {
     // ── Payload normalization: accept both camelCase and snake_case ──
     const rawPackageId = p?.package_id || p?.packageId;
     const rawCourseId = p?.course_id || p?.courseId;
+    const forceRun = p?.force === true;
 
     assertUuid("package_id", rawPackageId);
     packageId = rawPackageId as string;
 
-    // ── Guard: only run for building packages ──
+    // ── Guard: only run for building packages (unless force=true) ──
     const { data: pkgData } = await sb
       .from("course_packages")
       .select("track, status, course_id, published_at")
@@ -781,15 +782,18 @@ Deno.serve(async (req) => {
     }
 
     const pkgStatus = (pkgData as any).status;
-    if (pkgStatus !== "building" && pkgStatus !== "done" && pkgStatus !== "published") {
+    if (pkgStatus !== "building" && pkgStatus !== "done" && pkgStatus !== "published" && !forceRun) {
       // Package not in an active build state — skip gracefully (not a failure)
       console.log(`[integrity-check] pkg=${packageId.slice(0, 8)} status=${pkgStatus} — skipping (not building/done/published)`);
       return json({
         ok: false,
         skipped: true,
         reason: `PACKAGE_STATUS_${pkgStatus?.toUpperCase() ?? "UNKNOWN"}`,
-        error: `Package status '${pkgStatus}' is not eligible for integrity check`,
+        error: `Package status '${pkgStatus}' is not eligible for integrity check. Use force=true to override.`,
       }, 200);
+    }
+    if (forceRun && pkgStatus !== "building" && pkgStatus !== "done" && pkgStatus !== "published") {
+      console.warn(`[integrity-check] FORCE mode: pkg=${packageId.slice(0, 8)} status=${pkgStatus} — running despite non-standard status`);
     }
 
     // ── Auto-resolve course_id from package if not provided ──
