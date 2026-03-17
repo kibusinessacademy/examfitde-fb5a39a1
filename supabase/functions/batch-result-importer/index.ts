@@ -154,10 +154,24 @@ async function importExamPoolBatch(
       try {
         const raw = typeof content === "string" ? content : JSON.stringify(content);
         const cleaned = raw.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
-        const fb = cleaned.indexOf("{");
-        const lb = cleaned.lastIndexOf("}");
-        if (fb !== -1 && lb > fb) {
-          parsed = JSON.parse(cleaned.slice(fb, lb + 1));
+        // Handle both array [...] and object {...} responses
+        const firstBracket = cleaned.indexOf("[");
+        const firstBrace = cleaned.indexOf("{");
+        const isArray = firstBracket !== -1 && (firstBrace === -1 || firstBracket < firstBrace);
+        if (isArray) {
+          const lb = cleaned.lastIndexOf("]");
+          if (lb > firstBracket) {
+            parsed = JSON.parse(cleaned.slice(firstBracket, lb + 1));
+          } else {
+            parsed = JSON.parse(cleaned);
+          }
+        } else if (firstBrace !== -1) {
+          const lb = cleaned.lastIndexOf("}");
+          if (lb > firstBrace) {
+            parsed = JSON.parse(cleaned.slice(firstBrace, lb + 1));
+          } else {
+            parsed = JSON.parse(cleaned);
+          }
         } else {
           parsed = JSON.parse(cleaned);
         }
@@ -411,14 +425,19 @@ async function importLearningContentBatch(
         continue;
       }
 
-      // Parse JSON response (with fence stripping)
+      // Parse JSON response (with fence stripping + array support)
       let parsed: any;
       try {
         const cleaned = String(rawContent).replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
-        const fb = cleaned.indexOf("{");
-        const lb = cleaned.lastIndexOf("}");
-        if (fb !== -1 && lb > fb) {
-          parsed = JSON.parse(cleaned.slice(fb, lb + 1));
+        const firstBracket = cleaned.indexOf("[");
+        const firstBrace = cleaned.indexOf("{");
+        const isArray = firstBracket !== -1 && (firstBrace === -1 || firstBracket < firstBrace);
+        if (isArray) {
+          const lb = cleaned.lastIndexOf("]");
+          parsed = (lb > firstBracket) ? JSON.parse(cleaned.slice(firstBracket, lb + 1)) : JSON.parse(cleaned);
+        } else if (firstBrace !== -1) {
+          const lb = cleaned.lastIndexOf("}");
+          parsed = (lb > firstBrace) ? JSON.parse(cleaned.slice(firstBrace, lb + 1)) : JSON.parse(cleaned);
         } else {
           parsed = JSON.parse(cleaned);
         }
@@ -510,6 +529,7 @@ async function importLearningContentBatch(
       }).select("id").single();
 
       if (vErr) {
+        console.error(`[batch-import] content_versions insert error for ${customId}: code=${vErr.code} msg=${vErr.message?.slice(0, 200)}`);
         // Duplicate = already imported (idempotent success)
         if (vErr.code === "23505") {
           details.push({ ok: true, custom_id: customId, imported_count: 0 });
@@ -544,7 +564,9 @@ async function importLearningContentBatch(
       }
 
     } catch (e) {
-      details.push({ ok: false, custom_id: customId, error: String((e as Error)?.message || e) });
+      const errMsg = String((e as Error)?.message || e);
+      console.error(`[batch-import] learning_content error for ${customId}: ${errMsg.slice(0, 200)}`);
+      details.push({ ok: false, custom_id: customId, error: errMsg });
       failCount++;
     }
   }
