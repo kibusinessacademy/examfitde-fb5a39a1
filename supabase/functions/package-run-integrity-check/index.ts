@@ -824,9 +824,37 @@ Deno.serve(async (req) => {
       }, 200);
     }
 
+    // ── BACKLOG GATE: Don't run integrity if large QC backlog still pending ──
+    // Prevents premature integrity checks that produce false negatives and wasteful retries
+    const { data: courseForCurr } = await sb.from("courses").select("curriculum_id").eq("id", courseId!).single();
+    const currIdForBacklog = courseForCurr?.curriculum_id;
+    if (currIdForBacklog && !forceRun) {
+      const { data: backlogAgg } = await sb.rpc("count_exam_qc_status", { p_curriculum_id: currIdForBacklog });
+      const backlogCounts: Record<string, number> = {};
+      for (const row of (backlogAgg || []) as any[]) {
+        backlogCounts[row.qc_status || "null"] = Number(row.cnt);
+      }
+      const reviewPending = backlogCounts.pending || 0;
+      const tier1Passed = backlogCounts.tier1_passed || 0;
+      const totalApproved = (backlogCounts.approved || 0) + (backlogCounts["null"] || 0);
+      
+      // Block if significant backlog exists relative to approved pool
+      const significantBacklog = reviewPending > 500 || (tier1Passed > 200 && tier1Passed > totalApproved * 0.1);
+      if (significantBacklog) {
+        console.log(`[integrity-check] BACKLOG_GATE: pkg=${packageId!.slice(0, 8)} review_pending=${reviewPending}, tier1_passed=${tier1Passed}, approved=${totalApproved} — deferring`);
+        return json({
+          ok: false,
+          retry: true,
+          transient: true,
+          backoff_seconds: 120,
+          error: `BACKLOG_GATE: ${reviewPending} review/pending + ${tier1Passed} tier1_passed still unprocessed. Integrity check deferred until QC backlog is resolved.`,
+          backlog: { review_pending: reviewPending, tier1_passed: tier1Passed, approved: totalApproved },
+        }, 200);
+      }
+    }
+
     // Get curriculum_id from course
-    const { data: courseData } = await sb.from("courses").select("curriculum_id").eq("id", courseId).single();
-    const currId = courseData?.curriculum_id;
+    const currId = currIdForBacklog;
 
     // ── Run COURSE_READY gate ──
     const gate = await runCourseReadyGate(sb, courseId, currId, packageId);

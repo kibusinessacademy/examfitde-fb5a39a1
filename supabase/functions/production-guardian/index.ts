@@ -995,6 +995,21 @@ Deno.serve(async (req) => {
     }
 
     // ═══════════════════════════════════════════════════════════════
+    // G6. AUTO-PROMOTE STALE DRAFTS → REVIEW
+    // ═══════════════════════════════════════════════════════════════
+    try {
+      const { data: promoResult, error: promoErr } = await sb.rpc("ops_auto_promote_stale_drafts", { p_max_per_run: 2000 });
+      if (promoErr) {
+        console.error("[Guardian] G6 auto-promote error:", promoErr.message);
+      } else if (promoResult?.promoted_total > 0) {
+        console.log(`[Guardian] G6: ${promoResult.promoted_total} drafts auto-promoted to review`);
+        actions.push(`G6: ${promoResult.promoted_total} stale drafts promoted to review`);
+      }
+    } catch (e) {
+      console.error("[Guardian] G6 auto-promote error:", (e as Error).message);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
     // 11. QUEUE STATS SNAPSHOT
     // ═══════════════════════════════════════════════════════════════
     const counts: Record<string, number> = {};

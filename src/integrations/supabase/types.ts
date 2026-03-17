@@ -43836,6 +43836,13 @@ export type Database = {
           status: string
         }[]
       }
+      count_exam_qc_status: {
+        Args: { p_curriculum_id: string }
+        Returns: {
+          cnt: number
+          qc_status: string
+        }[]
+      }
       count_exam_relevant: {
         Args: { p_curriculum_id: string; p_learning_field_id?: string }
         Returns: number
@@ -45039,6 +45046,10 @@ export type Database = {
         Returns: Json
       }
       notify_ab_test_daily: { Args: never; Returns: undefined }
+      ops_auto_promote_stale_drafts: {
+        Args: { p_max_per_run?: number }
+        Returns: Json
+      }
       ops_cancel_pending_non_building_jobs: { Args: never; Returns: number }
       ops_escalate_qc_backlog: { Args: never; Returns: Json }
       ops_expire_orphan_leases: { Args: never; Returns: number }
