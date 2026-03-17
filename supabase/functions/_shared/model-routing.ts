@@ -42,16 +42,16 @@ export interface ModelChoice {
   budget_cap_eur?: number;
 }
 
-// ── Resolved model shortcuts (v17 — gpt-4o-mini primary) ────
-const GPT4O_MINI_PRIMARY: ModelChoice = { provider: "openai", model: MODEL_ALIASES.openai_primary }; // v17: gpt-4o-mini primary
+// ── Resolved model shortcuts (v18 — gpt-5.4-mini primary) ────
+const GPT54_MINI_PRIMARY: ModelChoice = { provider: "openai", model: MODEL_ALIASES.openai_primary }; // v18: gpt-5.4-mini
 const HAIKU45_FALLBACK: ModelChoice = { provider: "anthropic", model: MODEL_ALIASES.anthropic_primary, is_fallback: true };
 const GPT5_MINI_FALLBACK: ModelChoice = { provider: "openai", model: MODEL_ALIASES.openai_balanced, is_fallback: true };
 const GPT5_2_FALLBACK: ModelChoice = { provider: "openai",   model: MODEL_ALIASES.openai_strong, is_fallback: true };
 
-// ── Tiered Fallback Strategy (v17) ───────────────────────────
-// ALL intents: gpt-4o-mini → Haiku 4.5 (cross-provider) → GPT-5-mini → GPT-5.2
-// STANDARD intents: gpt-4o-mini → Haiku 4.5
-// SIMPLE intents: gpt-4o-mini → Haiku 4.5
+// ── Tiered Fallback Strategy (v18) ───────────────────────────
+// ALL intents: gpt-5.4-mini → Haiku 4.5 (cross-provider) → GPT-5-mini → GPT-5.2
+// STANDARD intents: gpt-5.4-mini → Haiku 4.5
+// SIMPLE intents: gpt-5.4-mini → Haiku 4.5
 
 const ROUTING_TABLE: Record<PipelineIntent, ModelChoice[]> = {
   // ── ALL intents: gpt-4o-mini → Haiku 4.5 (cross-provider) → GPT-5-mini → GPT-5.2 ──
