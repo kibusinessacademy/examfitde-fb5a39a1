@@ -97,6 +97,15 @@ export function shouldUseBatch(
   return true;
 }
 
+
+/**
+ * GPT-5.x+ models reject `max_tokens` and require `max_completion_tokens`.
+ * Legacy models (gpt-4o-*) still use `max_tokens`.
+ */
+function needsMaxCompletionTokens(model: string): boolean {
+  return model.startsWith("gpt-5");
+}
+
 /**
  * Build an OpenAI chat completion request payload for batch processing.
  */
@@ -109,11 +118,16 @@ export function buildBatchChatRequest(
     response_format?: Record<string, unknown>;
   },
 ): Record<string, unknown> {
+  const tokenLimit = opts?.max_tokens ?? 4096;
+  const tokenKey = needsMaxCompletionTokens(model)
+    ? "max_completion_tokens"
+    : "max_tokens";
+
   return {
     model,
     messages,
     temperature: opts?.temperature ?? 0.7,
-    max_tokens: opts?.max_tokens ?? 4096,
+    [tokenKey]: tokenLimit,
     ...(opts?.response_format ? { response_format: opts.response_format } : {}),
   };
 }

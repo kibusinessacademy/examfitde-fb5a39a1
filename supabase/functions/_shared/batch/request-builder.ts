@@ -1,5 +1,7 @@
 /**
  * Helper to build normalized batch request payloads for OpenAI chat completions.
+ *
+ * CRITICAL: GPT-5.x models reject `max_tokens` — must use `max_completion_tokens`.
  */
 import type { NormalizedBatchRequest } from "./types.ts";
 
@@ -17,6 +19,10 @@ export interface BuildChatCompletionArgs {
   jobType: string;
 }
 
+function needsMaxCompletionTokens(model: string): boolean {
+  return model.startsWith("gpt-5");
+}
+
 export function buildOpenAIChatRequest(
   args: BuildChatCompletionArgs,
 ): NormalizedBatchRequest {
@@ -29,7 +35,12 @@ export function buildOpenAIChatRequest(
     ],
   };
 
-  if (args.maxTokens) payload.max_tokens = args.maxTokens;
+  if (args.maxTokens) {
+    const key = needsMaxCompletionTokens(args.model)
+      ? "max_completion_tokens"
+      : "max_tokens";
+    payload[key] = args.maxTokens;
+  }
   if (args.responseFormat) payload.response_format = args.responseFormat;
 
   return {
