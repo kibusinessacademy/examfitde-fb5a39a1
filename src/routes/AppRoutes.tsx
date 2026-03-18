@@ -7,7 +7,6 @@ import MainLayout from '@/components/layout/MainLayout';
 // AdminV4Layout removed — V2 SSOT-only
 import SEOLayout from '@/components/layout/SEOLayout';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
-import AdminEmailGuard from '@/components/auth/AdminEmailGuard';
 import WorkGonePage from '@/components/work/WorkGonePage';
 
 // Lazy Loaded Pages
