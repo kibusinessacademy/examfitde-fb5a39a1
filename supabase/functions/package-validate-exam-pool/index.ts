@@ -37,16 +37,19 @@ const SAMPLE_SIZE = 4;
 const SAMPLE_PASS_THRESHOLD = 70;
 const INDIVIDUAL_REJECT_THRESHOLD = 55;
 const JACCARD_THRESHOLD = 0.85;
-// Time budget: bail out 8s before edge function hard limit (~60s)
-const TIME_BUDGET_MS = 50_000;
-const PAGE_SIZE = 300;
+// Time budget: bail out 15s before edge function hard limit (~60s CPU)
+// REDUCED from 50s → 40s to leave margin for DB writes after CPU-intensive T1
+const TIME_BUDGET_MS = 40_000;
+// REDUCED from 300 → 100 to prevent CPU Time exceeded on large pools (56k+ questions)
+const PAGE_SIZE = 100;
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 }
 
 // ── Text similarity (sliding window to avoid O(n²) CPU explosion) ──
-const JACCARD_WINDOW = 80;
+// REDUCED from 80 → 30 for CPU safety on large pools (56k+ questions)
+const JACCARD_WINDOW = 30;
 
 function textNgrams(text: string, n = 3): Set<string> {
   const norm = text.toLowerCase().replace(/[^a-zäöüß0-9 ]/g, "").replace(/\s+/g, " ").trim();
