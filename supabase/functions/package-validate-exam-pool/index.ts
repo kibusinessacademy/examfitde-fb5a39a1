@@ -48,7 +48,8 @@ function json(body: unknown, status = 200) {
 }
 
 // ── Text similarity (sliding window to avoid O(n²) CPU explosion) ──
-const JACCARD_WINDOW = 80;
+// REDUCED from 80 → 30 for CPU safety on large pools (56k+ questions)
+const JACCARD_WINDOW = 30;
 
 function textNgrams(text: string, n = 3): Set<string> {
   const norm = text.toLowerCase().replace(/[^a-zäöüß0-9 ]/g, "").replace(/\s+/g, " ").trim();
