@@ -9,6 +9,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getBatchAdapter } from "../_shared/batch/router.ts";
 import { validateProviderModelCompat } from "../_shared/model-catalog.ts";
+import { batchSafeModel, isCanaryBatchModel, getRemapLog } from "../_shared/batch/routing-config.ts";
+import { logGovernanceEvent } from "../_shared/batch/governance-logger.ts";
 import type { BatchCreateInput, BatchProvider, NormalizedBatchRequest } from "../_shared/batch/types.ts";
 
 const corsHeaders = {
