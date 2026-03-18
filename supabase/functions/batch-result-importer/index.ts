@@ -954,9 +954,9 @@ Deno.serve(async (req) => {
         // we check for existing events first to prevent double-counting on retries
         const { data: existingEvents } = await sb
           .from("llm_cost_events")
-          .select("meta")
+          .select("id")
           .eq("job_type", batchJobType)
-          .containedBy("meta", { event_kind: "batch_import", batch_id: batchId })
+          .contains("meta", { event_kind: "batch_import", batch_id: batchId })
           .limit(1);
 
         if (!existingEvents?.length) {
