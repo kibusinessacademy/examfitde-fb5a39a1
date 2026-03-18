@@ -47,7 +47,7 @@ function useDriftData() {
       const pkgMap = new Map((pkgs || []).map((p: any) => [p.id, p]));
 
       return (data || []).map((r: any) => {
-        const pkg = pkgMap.get(r.package_id);
+        const pkg = pkgMap.get(r.package_id) as any;
         return {
           package_id: r.package_id,
           title: r.package_title || pkg?.title || "?",
