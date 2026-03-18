@@ -45288,6 +45288,16 @@ export type Database = {
         Args: { p_course_id: string }
         Returns: undefined
       }
+      recompute_package_progress: {
+        Args: { p_package_id?: string }
+        Returns: {
+          drift: number
+          new_progress: number
+          old_progress: number
+          package_id: string
+          updated: boolean
+        }[]
+      }
       record_worker_usage: {
         Args: {
           p_cost_eur?: number
