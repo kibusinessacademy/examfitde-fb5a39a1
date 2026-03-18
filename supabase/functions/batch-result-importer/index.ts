@@ -18,6 +18,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { checkContamination } from "../_shared/contamination-guard.ts";
 import { isTemplateResponse, expandAllTemplates } from "../_shared/template-engine/exam-template-expander.ts";
 import { parseLlmJson } from "../_shared/json-parse-safe.ts";
+import { estimateCostEur } from "../_shared/model-pricing.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
