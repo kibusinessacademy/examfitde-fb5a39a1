@@ -18,6 +18,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { checkContamination } from "../_shared/contamination-guard.ts";
 import { isTemplateResponse, expandAllTemplates } from "../_shared/template-engine/exam-template-expander.ts";
 import { parseLlmJson } from "../_shared/json-parse-safe.ts";
+import { estimateCostEur } from "../_shared/model-pricing.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -885,6 +886,102 @@ Deno.serve(async (req) => {
     const now = new Date().toISOString();
     const result = await importer(sb, requests as Record<string, unknown>[], batch as Record<string, unknown>);
 
+    // 4b) ── Telemetry write-through: log llm_cost_events for batch results ──
+    //    This closes the BLIND gap identified by ops_telemetry_lineage.
+    //    Uses real usage_data from llm_batch_requests + SSOT pricing.
+    try {
+      // Re-load requests WITH usage_data for successfully imported rows
+      const { data: importedRows } = await sb
+        .from("llm_batch_requests")
+        .select("custom_id, usage_data, source_ref, ai_generation_request_id")
+        .eq("batch_id", batchId)
+        .not("domain_imported_at", "is", null)
+        .limit(5000);
+
+      if (importedRows?.length) {
+        const batchModel = batch.model || "unknown";
+        const batchProvider = batch.provider || "openai";
+        const batchJobType = batch.job_type || "unknown";
+        const batchMeta = (batch as any).metadata || {};
+        const packageId = batchMeta.package_id || null;
+        const courseId = batchMeta.course_id || null;
+        const certificationId = batchMeta.certification_id || null;
+
+        // Build cost events in bulk — one per imported request
+        const costEvents = importedRows.map((row: any) => {
+          const usage = row.usage_data || {};
+          const tokensIn = usage.input_tokens ?? usage.prompt_tokens ?? 0;
+          const tokensOut = usage.output_tokens ?? usage.completion_tokens ?? 0;
+          const cachedIn = usage.cached_input_tokens ?? 0;
+          const isEstimated = tokensIn === 0 && tokensOut === 0;
+
+          // SSOT pricing from model-pricing.ts
+          const costEur = estimateCostEur(batchModel, tokensIn, tokensOut, cachedIn);
+          // Batch API = 50% discount
+          const batchCostEur = Math.round(costEur * 0.5 * 1_000_000) / 1_000_000;
+
+          // Source ref for full lineage
+          const sourceRef = row.source_ref || {};
+
+          return {
+            job_type: batchJobType,
+            provider: batchProvider,
+            model: batchModel,
+            tokens_in: tokensIn,
+            tokens_out: tokensOut,
+            cost_eur: batchCostEur,
+            package_id: sourceRef.package_id || packageId,
+            course_id: sourceRef.course_id || courseId,
+            certification_id: sourceRef.certification_id || certificationId,
+            meta: {
+              event_kind: "batch_import",
+              batch_id: batchId,
+              custom_id: row.custom_id,
+              ...(row.ai_generation_request_id ? { ai_generation_request_id: row.ai_generation_request_id } : {}),
+              ...(sourceRef.lesson_id ? { lesson_id: sourceRef.lesson_id } : {}),
+              ...(sourceRef.chapter_id ? { chapter_id: sourceRef.chapter_id } : {}),
+              ...(sourceRef.section_key ? { section_key: sourceRef.section_key } : {}),
+              ...(cachedIn > 0 ? { cached_input_tokens: cachedIn } : {}),
+              ...(isEstimated ? { usage_estimated: true } : {}),
+              batch_discount: 0.5,
+            },
+          };
+        });
+
+        // Dedupe: check which batch_id+custom_id combos already have events
+        // Use a single bulk insert with conflict avoidance via meta check
+        // Since llm_cost_events has no unique constraint on batch_id+custom_id,
+        // we check for existing events first to prevent double-counting on retries
+        const { data: existingEvents } = await sb
+          .from("llm_cost_events")
+          .select("id")
+          .eq("job_type", batchJobType)
+          .contains("meta", { event_kind: "batch_import", batch_id: batchId })
+          .limit(1);
+
+        if (!existingEvents?.length) {
+          // No prior events for this batch — safe to bulk insert
+          const CHUNK = 500;
+          let inserted = 0;
+          for (let i = 0; i < costEvents.length; i += CHUNK) {
+            const chunk = costEvents.slice(i, i + CHUNK);
+            const { error: insertErr } = await sb.from("llm_cost_events").insert(chunk);
+            if (insertErr) {
+              console.warn(`[batch-result-importer] llm_cost_events insert chunk failed: ${insertErr.message?.slice(0, 200)}`);
+            } else {
+              inserted += chunk.length;
+            }
+          }
+          console.log(`[batch-result-importer] Telemetry write-through: ${inserted}/${costEvents.length} llm_cost_events logged for batch ${batchId.slice(0, 8)}`);
+        } else {
+          console.log(`[batch-result-importer] Telemetry already logged for batch ${batchId.slice(0, 8)}, skipping (dedupe)`);
+        }
+      }
+    } catch (telErr) {
+      // NEVER block domain import on telemetry failure
+      console.warn(`[batch-result-importer] Telemetry write-through failed (non-fatal): ${(telErr as Error)?.message?.slice(0, 200)}`);
+    }
+
     // 5) Update batch with domain import results
     await sb.from("llm_batches").update({
       domain_import_completed_at: now,
@@ -897,6 +994,7 @@ Deno.serve(async (req) => {
           failed: result.failCount,
           total: requests.length,
           job_type: batch.job_type,
+          telemetry_logged: true,
         },
       },
     }).eq("id", batchId);
