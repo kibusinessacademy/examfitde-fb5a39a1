@@ -434,22 +434,11 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
             </Card>
           )}
 
-          {/* QG-Failed repair hint */}
-          {pkg.status === 'quality_gate_failed' && !isBuilding && (
-            <Card className="border-destructive/30 bg-destructive/5">
-              <CardContent className="py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold text-destructive flex items-center gap-2"><AlertTriangle className="h-4 w-4" /> Quality Gate nicht bestanden</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Prüfe den Integritätsbericht unten und behebe die Lücken über den Auto-Gap-Closer oder manuelle Schritte.</p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+          {/* QG Banner — driven by SSOT effective state, not stale package.status */}
+          <QualityGateBannerSSoT packageId={packageId} />
 
-          {/* Auto-Gap-Closer */}
-          {pkg.status !== 'published' && !isBuilding && pkg.integrity_report && !(pkg.integrity_report as any)?.passed && (
-            <AutoGapCloserPanel packageId={packageId} courseId={pkg.course_id || ''} curriculumId={(pkg as any)?.curriculum_id || ''} integrityReport={pkg.integrity_report as any} onRefresh={refreshAll} />
-          )}
+          {/* Auto-Gap-Closer — only show when effective state says autofix is allowed */}
+          <AutoGapCloserSSoT packageId={packageId} courseId={pkg.course_id || ''} curriculumId={(pkg as any)?.curriculum_id || ''} integrityReport={pkg.integrity_report as any} onRefresh={refreshAll} isBuilding={isBuilding} />
 
           <BuildLiveLog packageId={packageId} isBuilding={isBuilding} />
 
