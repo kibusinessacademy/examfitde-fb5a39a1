@@ -9,6 +9,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getBatchAdapter } from "../_shared/batch/router.ts";
 import { validateProviderModelCompat } from "../_shared/model-catalog.ts";
+import { batchSafeModel, isCanaryBatchModel, getRemapLog } from "../_shared/batch/routing-config.ts";
+import { logGovernanceEvent } from "../_shared/batch/governance-logger.ts";
 import type { BatchCreateInput, BatchProvider, NormalizedBatchRequest } from "../_shared/batch/types.ts";
 
 const corsHeaders = {
@@ -38,10 +40,30 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json();
     const provider = (body.provider || "openai") as BatchProvider;
-    const model = String(body.model || "gpt-4o-mini");
+    const rawModel = String(body.model || "gpt-4o-mini");
+    const isCanary = body.metadata?.batch_mode === "canary";
+    const model = batchSafeModel(rawModel, { isCanary });
     const endpoint = String(body.endpoint || "/v1/chat/completions");
     const jobType = String(body.job_type || "generic_batch");
     const requests: NormalizedBatchRequest[] = Array.isArray(body.requests) ? body.requests : [];
+
+    // Persist remap events from batchSafeModel
+    if (rawModel !== model) {
+      await logGovernanceEvent(sb, {
+        event_type: "model_remapped",
+        requested_model: rawModel,
+        effective_model: model,
+        reason: `Auto-remapped in batch-submit. isCanary=${isCanary}`,
+        job_type: jobType,
+        metadata: { request_count: requests.length, ...(body.metadata || {}) },
+      });
+    }
+
+    // Tag canary batches in metadata
+    const batchMetadata = {
+      ...(body.metadata || {}),
+      ...(isCanary ? { batch_mode: "canary", requested_model: rawModel, effective_model: model } : {}),
+    };
 
     if (!requests.length) return json({ ok: false, error: "requests[] required" }, 400);
     if (requests.length > 50_000) return json({ ok: false, error: "Max 50,000 requests per batch" }, 400);
@@ -66,7 +88,7 @@ Deno.serve(async (req) => {
         endpoint,
         status: "draft",
         request_count: requests.length,
-        metadata: body.metadata || {},
+        metadata: batchMetadata,
         created_by: "batch-submit",
       })
       .select("id")
@@ -103,7 +125,7 @@ Deno.serve(async (req) => {
       model,
       endpoint,
       completion_window: "24h",
-      metadata: body.metadata || {},
+      metadata: batchMetadata,
       requests,
     };
 
@@ -121,7 +143,7 @@ Deno.serve(async (req) => {
         provider_request_counts: submitted.raw?.request_counts || {},
         submitted_at: new Date().toISOString(),
         metadata: {
-          ...(body.metadata || {}),
+          ...batchMetadata,
           submit_raw: submitted.raw,
           input_stats: {
             request_count: requests.length,

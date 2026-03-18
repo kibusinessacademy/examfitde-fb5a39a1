@@ -39473,6 +39473,21 @@ export type Database = {
         }
         Relationships: []
       }
+      v_batch_canary_kpi: {
+        Row: {
+          batch_status: string | null
+          completed: number | null
+          error_codes: Json | null
+          failed: number | null
+          first_seen: string | null
+          last_seen: string | null
+          median_duration_s: number | null
+          model: string | null
+          request_count: number | null
+          success_rate_pct: number | null
+        }
+        Relationships: []
+      }
       v_beruf_priority: {
         Row: {
           azubi_count: number | null
