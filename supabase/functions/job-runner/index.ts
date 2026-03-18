@@ -485,7 +485,23 @@ Deno.serve(async (req) => {
     // ── Generate ONE timestamp per job transition ──────────────────
     const tsNow = new Date().toISOString();
 
-    const fnName = JOB_TYPE_MAP[job.job_type];
+    let resolvedJobType = job.job_type;
+    let fnName = JOB_TYPE_MAP[resolvedJobType];
+
+    // ── AUTO-REMAP: unprefixed step_key → package_ prefixed job_type ──
+    // Some DB triggers/RPCs enqueue jobs using step_key directly (e.g. "validate_exam_pool")
+    // instead of the correct job_type ("package_validate_exam_pool"). Auto-fix this.
+    if (!fnName && STEP_TO_JOB_TYPE[resolvedJobType as keyof typeof STEP_TO_JOB_TYPE]) {
+      const remappedJobType = STEP_TO_JOB_TYPE[resolvedJobType as keyof typeof STEP_TO_JOB_TYPE];
+      fnName = JOB_TYPE_MAP[remappedJobType];
+      if (fnName) {
+        console.warn(`[job-runner] ⚠️ AUTO-REMAP: "${resolvedJobType}" → "${remappedJobType}" (unprefixed step_key used as job_type)`);
+        // Fix the job record so it won't happen again
+        await sb.from("job_queue").update({ job_type: remappedJobType }).eq("id", job.id);
+        resolvedJobType = remappedJobType;
+      }
+    }
+
     if (!fnName) {
       console.error(`[job-runner] ❌ Unknown job_type: ${job.job_type} — permanent hard-fail (add to JOB_TYPE_MAP + JOB_DEFINITIONS!)`);
       await sb.from("job_queue").update({
@@ -493,11 +509,10 @@ Deno.serve(async (req) => {
         error: `UNKNOWN_JOB_TYPE: ${job.job_type}. Add mapping to JOB_TYPE_MAP + JOB_DEFINITIONS.`,
         last_error: `UNKNOWN_JOB_TYPE: ${job.job_type}`,
         completed_at: tsNow,
-        max_attempts: 1, // prevent any retry
+        max_attempts: 1,
         meta: { ...(job.meta ?? {}), last_error_class: "permanent", error_kind: "unknown_job_type" },
         ...lockRelease(tsNow),
       }).eq("id", job.id);
-      // Fire-and-forget: write admin notification for visibility
       sb.from("admin_notifications").insert({
         title: "SSOT Drift: Unknown job_type in runner",
         body: `Job ${String(job.id).slice(0,8)} has unregistered type "${job.job_type}". Add it to JOB_TYPE_MAP + JOB_DEFINITIONS.`,
