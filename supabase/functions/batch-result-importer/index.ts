@@ -948,23 +948,30 @@ Deno.serve(async (req) => {
           };
         });
 
-        // Dedupe: check which batch_id+custom_id combos already have events
-        // Use a single bulk insert with conflict avoidance via meta check
-        // Since llm_cost_events has no unique constraint on batch_id+custom_id,
-        // we check for existing events first to prevent double-counting on retries
+        // ── Fine-grained dedupe: per-request via batch_id + custom_id ──
+        // Load existing custom_ids that already have telemetry for THIS batch
+        const existingCustomIds = new Set<string>();
         const { data: existingEvents } = await sb
           .from("llm_cost_events")
-          .select("id")
-          .eq("job_type", batchJobType)
-          .contains("meta", { event_kind: "batch_import", batch_id: batchId })
-          .limit(1);
+          .select("meta")
+          .contains("meta", { event_kind: "batch_import", batch_id: batchId });
 
-        if (!existingEvents?.length) {
-          // No prior events for this batch — safe to bulk insert
+        if (existingEvents?.length) {
+          for (const ev of existingEvents) {
+            const cid = (ev.meta as any)?.custom_id;
+            if (cid) existingCustomIds.add(String(cid));
+          }
+        }
+
+        // Filter out already-logged events (fine-grained per custom_id)
+        const newEvents = costEvents.filter((ce: any) => !existingCustomIds.has(String(ce.meta?.custom_id)));
+        const skippedDedupe = costEvents.length - newEvents.length;
+
+        if (newEvents.length > 0) {
           const CHUNK = 500;
           let inserted = 0;
-          for (let i = 0; i < costEvents.length; i += CHUNK) {
-            const chunk = costEvents.slice(i, i + CHUNK);
+          for (let i = 0; i < newEvents.length; i += CHUNK) {
+            const chunk = newEvents.slice(i, i + CHUNK);
             const { error: insertErr } = await sb.from("llm_cost_events").insert(chunk);
             if (insertErr) {
               console.warn(`[batch-result-importer] llm_cost_events insert chunk failed: ${insertErr.message?.slice(0, 200)}`);
@@ -972,9 +979,9 @@ Deno.serve(async (req) => {
               inserted += chunk.length;
             }
           }
-          console.log(`[batch-result-importer] Telemetry write-through: ${inserted}/${costEvents.length} llm_cost_events logged for batch ${batchId.slice(0, 8)}`);
+          console.log(`[batch-result-importer] Telemetry write-through: ${inserted}/${costEvents.length} new events (${skippedDedupe} deduped) for batch ${batchId.slice(0, 8)}`);
         } else {
-          console.log(`[batch-result-importer] Telemetry already logged for batch ${batchId.slice(0, 8)}, skipping (dedupe)`);
+          console.log(`[batch-result-importer] All ${costEvents.length} events already logged for batch ${batchId.slice(0, 8)} (per-request dedupe)`);
         }
       }
     } catch (telErr) {
