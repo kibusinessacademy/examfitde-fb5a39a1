@@ -77,10 +77,14 @@ export async function enqueueJob(
     if (!pkg) throw new Error(`PACKAGE_NOT_FOUND:${packageId}`);
 
     // HARDENED: Allow council_review + quality_gate_failed for council jobs
+    // HARDENED: Allow blocked for repair jobs (exam rebalance etc.)
     const COUNCIL_JOB_TYPES = new Set(["package_quality_council"]);
+    const REPAIR_JOB_TYPES = new Set(["package_exam_rebalance", "pool_fill_bloom_gaps", "pool_fill_lf_gaps"]);
     const allowedStatuses = COUNCIL_JOB_TYPES.has(opts.job_type)
       ? new Set(["building", "council_review", "quality_gate_failed"])
-      : new Set(["building"]);
+      : REPAIR_JOB_TYPES.has(opts.job_type)
+        ? new Set(["building", "blocked", "quality_gate_failed"])
+        : new Set(["building"]);
     if (pkg.published_at || !allowedStatuses.has(pkg.status)) {
       // Fire-and-forget alert for observability
       const reason = pkg.published_at
