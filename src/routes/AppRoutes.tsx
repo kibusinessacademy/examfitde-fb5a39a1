@@ -65,53 +65,7 @@ const AdminDeactivatedPage = lazy(() => import('@/components/admin/v2/AdminDeact
 // Keep CourseWorkspace for detail view
 const CourseWorkspace = lazy(() => import('@/pages/admin/CourseWorkspace'));
 
-// Legacy admin pages (kept for lazy reference only)
-const CommandPage = lazy(() => import('@/pages/admin/v4/CommandPage'));
-const StudioPage = lazy(() => import('@/pages/admin/v4/StudioPage'));
-const QualityPage = lazy(() => import('@/pages/admin/v4/QualityPage'));
-const OpsPage = lazy(() => import('@/pages/admin/v4/OpsPage'));
-const BusinessPage = lazy(() => import('@/pages/admin/v4/BusinessPage'));
-const GrowthPage = lazy(() => import('@/pages/admin/v4/GrowthPage'));
-const ScalePage = lazy(() => import('@/pages/admin/v4/ScalePage'));
-const PipelineMonitorPage = lazy(() => import('@/pages/admin/v4/PipelineMonitorPage'));
-const PipelineE2ERunbookPage = lazy(() => import('@/pages/admin/v4/PipelineE2ERunbookPage'));
-const WorkPipelinePage = lazy(() => import('@/pages/admin/v4/BerufsKIPipelinePage'));
-const LoadControlPage = lazy(() => import('@/pages/admin/v4/LoadControlPage'));
-const CRMPage = lazy(() => import('@/pages/admin/v4/CRMPage'));
-const SupportPage = lazy(() => import('@/pages/admin/v4/SupportPage'));
-const SystemHandbookPage = lazy(() => import('@/pages/admin/v4/SystemHandbookPage'));
-const QueueManagerPage = lazy(() => import('@/pages/admin/QueueManagerPage'));
-const SocialEnginePage = lazy(() => import('@/pages/admin/v4/SocialEnginePage'));
-const AuditDashboardPage = lazy(() => import('@/pages/admin/v4/AuditDashboardPage'));
-const WorkAdminPage = lazy(() => import('@/pages/admin/v4/BerufsKIPage'));
-const WorkTemplatesPage = lazy(() => import('@/pages/admin/v4/BerufsKITemplatesPage'));
-const WorkBundlesPage = lazy(() => import('@/pages/admin/v4/BerufsKIBundlesPage'));
-const WorkLicensesPage = lazy(() => import('@/pages/admin/v4/BerufsKILicensesPage'));
-const WorkCommercePage = lazy(() => import('@/pages/admin/v4/BerufsKICommercePage'));
-const WorkAffiliateDashboard = lazy(() => import('@/pages/admin/v4/BerufsKIAffiliateDashboard'));
-const ProductionWavesPage = lazy(() => import('@/pages/admin/v4/ProductionWavesPage'));
-const ProductionWaveDetailPage = lazy(() => import('@/pages/admin/factory/ProductionWaveDetailPage'));
-const ProductionWaveTriagePage = lazy(() => import('@/pages/admin/factory/ProductionWaveTriagePage'));
-const FactoryExecutiveDashboard = lazy(() => import('@/pages/admin/factory/FactoryExecutiveDashboard'));
-const QualificationDiscoveryPage = lazy(() => import('@/pages/admin/intake/QualificationDiscoveryPage'));
-const CurriculumIntakePage = lazy(() => import('@/pages/admin/intake/CurriculumIntakePage'));
-
-// Control Tower Pages
-const AdminControlTowerPage = lazy(() => import('@/pages/admin/AdminControlTowerPage'));
-const SystemContractAuditPage = lazy(() => import('@/pages/admin/control/SystemContractAuditPage'));
-const SyntheticProbeCenterPage = lazy(() => import('@/pages/admin/control/SyntheticProbeCenterPage'));
-const SchedulerGovernancePage = lazy(() => import('@/pages/admin/control/SchedulerGovernancePage'));
-const UnifiedLeitstellePage = lazy(() => import('@/pages/admin/control/UnifiedLeitstellePage'));
-const AdminOpsQueuePage = lazy(() => import('@/pages/admin/AdminOpsQueuePage'));
-const V2LoopDebugPage = lazy(() => import('@/pages/admin/V2LoopDebugPage'));
-const AdminProviderHealthPage = lazy(() => import('@/pages/admin/AdminProviderHealthPage'));
-const AdminPackageRiskPage = lazy(() => import('@/pages/admin/AdminPackageRiskPage'));
-const PackageReadinessPage = lazy(() => import('@/pages/admin/PackageReadinessPage'));
-const AdminRevenuePage = lazy(() => import('@/pages/admin/AdminRevenuePage'));
-const AdminExecutiveHomePage = lazy(() => import('@/pages/admin/AdminExecutiveHomePage'));
-const CohortOverviewPage = lazy(() => import('@/pages/admin/b2b/CohortOverviewPage'));
-const LearnerCompetencyPage = lazy(() => import('@/pages/admin/b2b/LearnerCompetencyPage'));
-const OrgDashboardPage = lazy(() => import('@/pages/admin/b2b/OrgDashboardPage'));
+// Legacy admin pages removed from active routing — V2 SSOT-only
 
 // ExamFit@work public pages
 const WorkHomePage = lazy(() => import('@/pages/work/WorkHomePage'));
