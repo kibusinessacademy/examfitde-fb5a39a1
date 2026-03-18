@@ -68,6 +68,10 @@ export default function AdminControlTowerPage() {
         <ProgressDriftCard />
       </div>
 
+      <div className="mt-6">
+        <TelemetryIntegrityCard />
+      </div>
+
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <CapacityCard />
         <ProblemPackagesCard />
