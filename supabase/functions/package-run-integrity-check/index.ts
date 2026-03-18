@@ -1048,6 +1048,43 @@ Deno.serve(async (req) => {
     const { error: uErr } = await sb.from("course_packages").update(updatePayload).eq("id", packageId);
     if (uErr) throw uErr;
 
+    // ── SSOT Status Reconciliation: heal stale quality_gate_failed ──
+    // If integrity passed and build is complete, ensure status reflects reality
+    if (gate.hardFails.length === 0 && !isAlreadyPublished) {
+      const { data: reconPkg } = await sb
+        .from("course_packages")
+        .select("id, status, build_progress")
+        .eq("id", packageId)
+        .single();
+
+      if (reconPkg) {
+        const progress = Number(reconPkg.build_progress ?? 0);
+        const needsReconcile = reconPkg.status === "quality_gate_failed" ||
+          reconPkg.status === "blocked" ||
+          reconPkg.status === "stuck";
+
+        if (needsReconcile && progress >= 80) {
+          const nextStatus = "building"; // let pipeline continue to auto_publish
+          console.log(`[integrity-check] RECONCILE: pkg=${packageId.slice(0,8)} status=${reconPkg.status} → ${nextStatus} (integrity passed, progress=${progress})`);
+          await sb.from("course_packages").update({
+            status: nextStatus,
+            updated_at: new Date().toISOString(),
+          }).eq("id", packageId);
+
+          try {
+            await sb.from("admin_notifications").insert({
+              title: "✅ Status reconciled after integrity pass",
+              body: `Package ${packageId.slice(0,8)} was ${reconPkg.status} but integrity passed (score=${gate.score}). Status healed to ${nextStatus}.`,
+              category: "quality",
+              severity: "info",
+              entity_type: "course_package",
+              entity_id: packageId,
+            });
+          } catch (_) { /* non-critical */ }
+        }
+      }
+    }
+
     // ✅ Mark run_integrity_check step as DONE (SSOT)
     try {
       const { data: stepRow } = await sb

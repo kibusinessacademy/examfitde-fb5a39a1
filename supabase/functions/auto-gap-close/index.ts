@@ -127,28 +127,60 @@ Deno.serve(async (req) => {
     // ═══════════════════════════════════════════════════════════
     // GUARDRAIL C: Baseline Guard — reject autofix if gap is too large
     // Autofix is only for small residual gaps, not structural underproduction.
+    // SSOT FIX: Uses ops_package_baseline_v1 view instead of broken RPC
     // ═══════════════════════════════════════════════════════════
     if (run.current_round <= 1) {
-      const baseline = {
-        questions: structuralCheck.exam,
-        oral: structuralCheck.oral,
-        handbook_sections: structuralCheck.handbook_sections,
-      };
+      // ── SSOT: Read canonical baseline from ops_package_baseline_v1 ──
+      const { data: ssotBaseline, error: ssotErr } = await sb
+        .from("ops_package_baseline_v1")
+        .select("*")
+        .eq("package_id", packageId)
+        .maybeSingle();
 
-      // Run quick integrity to get current score + coverage
+      if (ssotErr) {
+        console.error(`[AutoGap] SSOT baseline query failed: ${ssotErr.message}`);
+      }
+
+      // If SSOT view returns integrity_passed=true, skip autofix entirely
+      if (ssotBaseline?.integrity_passed === true) {
+        await sb.from("autofix_runs").update({
+          status: "skipped",
+          stop_reason: "Package already passed integrity. Autofix not required.",
+          stop_reason_code: "ALREADY_PASSED",
+          last_score: 100,
+          baseline_snapshot: ssotBaseline as any,
+        }).eq("id", run.id);
+
+        return json({
+          ok: true,
+          skipped: true,
+          reason: "ALREADY_PASSED",
+          autofix_run_id: run.id,
+        }, 200, origin);
+      }
+
+      // Use SSOT values for baseline, fall back to structural check
+      const ssotQuestions = ssotBaseline?.approved_questions ?? structuralCheck.exam;
+      const ssotOral = ssotBaseline?.oral_blueprints ?? structuralCheck.oral;
+      const ssotHandbook = ssotBaseline?.handbook_sections ?? structuralCheck.handbook_sections;
+      const ssotCompetencyCoverage = Number(ssotBaseline?.competency_coverage_pct ?? 0);
+
+      // Run quick integrity to get current score
       const { data: baselineReport } = await sb.rpc("validate_course_integrity_v2", {
         p_curriculum_id: curriculumId,
       });
       const baselineScore = Number((baselineReport as any)?.score ?? 0);
       const examTarget = (baselineReport as any)?.exam?.target || 500;
-      const competencyCoverage = Number((baselineReport as any)?.competency_coverage?.pct ?? 0);
 
       const baselineSnapshot = {
-        ...baseline,
+        questions: ssotQuestions,
+        oral: ssotOral,
+        handbook_sections: ssotHandbook,
         score: baselineScore,
-        competency_coverage_pct: competencyCoverage,
+        competency_coverage_pct: ssotCompetencyCoverage,
         exam_target: examTarget,
-        exam_fill_pct: examTarget > 0 ? Math.round((baseline.questions / examTarget) * 100) : 0,
+        exam_fill_pct: examTarget > 0 ? Math.round((ssotQuestions / examTarget) * 100) : 0,
+        ssot_source: "ops_package_baseline_v1",
       };
 
       // Save baseline for later delta tracking
@@ -165,8 +197,8 @@ Deno.serve(async (req) => {
       if (baselineSnapshot.exam_fill_pct < MIN_EXAM_FILL_PCT) {
         rejections.push(`exam_fill=${baselineSnapshot.exam_fill_pct}%<${MIN_EXAM_FILL_PCT}%`);
       }
-      if (competencyCoverage < MIN_COMPETENCY_PCT) {
-        rejections.push(`competency_coverage=${competencyCoverage}%<${MIN_COMPETENCY_PCT}%`);
+      if (ssotCompetencyCoverage < MIN_COMPETENCY_PCT) {
+        rejections.push(`competency_coverage=${ssotCompetencyCoverage}%<${MIN_COMPETENCY_PCT}%`);
       }
       if (baselineScore < MIN_BASELINE_SCORE) {
         rejections.push(`score=${baselineScore}<${MIN_BASELINE_SCORE}`);
@@ -197,8 +229,8 @@ Deno.serve(async (req) => {
             ``,
             `**Paket:** ${packageId}`,
             `**Score:** ${baselineScore}/100`,
-            `**Fragen:** ${baseline.questions}/${examTarget} (${baselineSnapshot.exam_fill_pct}%)`,
-            `**Kompetenzabdeckung:** ${competencyCoverage}%`,
+            `**Fragen:** ${ssotQuestions}/${examTarget} (${baselineSnapshot.exam_fill_pct}%)`,
+            `**Kompetenzabdeckung:** ${ssotCompetencyCoverage}%`,
             ``,
             `**Ablehnungsgründe:** ${rejections.join(", ")}`,
             ``,
