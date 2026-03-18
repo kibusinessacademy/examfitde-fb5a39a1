@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { assertSchemaReady } from "../_shared/schema-gate.ts";
+import { bootstrapLLMLogging } from "../_shared/llm-log-bootstrap.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { calculateHybridTargetFromDefaults } from "../_shared/hybridExamTarget.ts";
 import type { HybridTargetResult } from "../_shared/hybridExamTarget.ts";
@@ -1605,6 +1606,7 @@ Deno.serve(async (req) => {
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
   const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const sb = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+  bootstrapLLMLogging(sb, "package_generate_exam_pool");
   await assertSchemaReady("package-generate-exam-pool", sb);
 
   const body = await req.json().catch(() => ({}));

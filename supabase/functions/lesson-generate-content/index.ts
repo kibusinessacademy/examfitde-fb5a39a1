@@ -3,6 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { assertSchemaReady } from "../_shared/schema-gate.ts";
 import { isTransientLlmError } from "../_shared/llm/normalize.ts";
 import { processLesson } from "../_shared/lesson-gen/process-lesson.ts";
+import { bootstrapLLMLogging } from "../_shared/llm-log-bootstrap.ts";
 
 /**
  * lesson-generate-content — Thin orchestrator (~40 lines)
@@ -27,6 +28,7 @@ Deno.serve(async (req) => {
   const startMs = Date.now();
   try {
     const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    bootstrapLLMLogging(sb, "lesson_generate_content");
     await assertSchemaReady("lesson-generate-content", sb);
 
     const body = await req.json().catch(() => ({}));
