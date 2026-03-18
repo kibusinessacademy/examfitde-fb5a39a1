@@ -4,14 +4,17 @@
  * Controls which job types are routed through the OpenAI Batch API (50% cost savings)
  * vs executed synchronously via callAIWithFailover.
  *
- * v3: ROLLBACK — GPT-5.x models have 100% batch failure rate (confirmed production data Mar 2026).
- *     gpt-5.4-mini: 1464 failed, 0 completed.
- *     gpt-5-mini:   28016 failed, 0 completed.
- *     gpt-4o-mini:  32914 completed, 53 failed — ONLY working batch model.
- *     BATCH_DEFAULT_MODEL reverted to gpt-4o-mini.
+ * v4: HARD GOVERNANCE + CANARY INFRASTRUCTURE
+ *     - Production: ONLY gpt-4o-mini allowed
+ *     - Canary: Isolated test path for GPT-5.x validation
+ *     - Auto-remap: Non-allowed models silently forced to gpt-4o-mini with telemetry
+ *     - Every remap event logged for forensic audit
+ *
+ * PRODUCTION EVIDENCE (Mar 2026):
+ *     gpt-4o-mini:  32,914 completed, 53 failed (99.8% success) ✅
+ *     gpt-5-mini:   0 completed, 28,016 failed (0% success) ❌
+ *     gpt-5.4-mini: 0 completed, 1,464 failed (0% success) ❌
  */
-
-// providerForModel no longer needed — hard guard uses allowlist only
 
 /** Per-job-type batch routing flags. Set to true to activate batch path. */
 const BATCH_ROUTING_FLAGS: Record<string, boolean> = {
@@ -29,67 +32,96 @@ export const BATCH_DEFAULT_MODEL = "gpt-4o-mini";
 
 /**
  * HARD GUARD: Only explicitly verified batch-compatible models are allowed.
- *
- * PRODUCTION EVIDENCE (Mar 2026):
- *   gpt-4o-mini   — 32,914 completed, 53 failed (99.8% success) ✅
- *   gpt-5-mini    — 0 completed, 28,016 failed (0% success) ❌
- *   gpt-5.4-mini  — 0 completed, 1,464 failed (0% success) ❌
- *   gpt-5.4-nano  — model_not_found for batch variant ❌
- *
- * DO NOT add gpt-5.x models until OpenAI confirms batch support and
- * a canary test shows >95% success rate.
+ * DO NOT add gpt-5.x models until a canary test shows >95% success rate.
  */
 const BATCH_ALLOWED_MODELS = new Set([
   "gpt-4o-mini",
 ]);
 
-export function batchSafeModel(model: string): string {
+/**
+ * CANARY ALLOWLIST: Models under isolated batch testing.
+ * These are ONLY allowed when explicitly flagged as canary requests.
+ * Results are tracked separately and do NOT affect production pipelines.
+ */
+const BATCH_CANARY_MODELS = new Set<string>([
+  // Uncomment to begin canary testing:
+  // "gpt-5.4-mini",
+]);
+
+/** Tracks remap events for this execution context (edge function invocation). */
+const _remapLog: Array<{ from: string; to: string; ts: string; reason: string }> = [];
+
+export function getRemapLog() {
+  return [..._remapLog];
+}
+
+/**
+ * Ensure model is batch-safe. Non-allowed models are auto-remapped to BATCH_DEFAULT_MODEL.
+ * Every remap is logged for forensic audit.
+ */
+export function batchSafeModel(model: string, opts?: { isCanary?: boolean }): string {
+  // Production allowlist
   if (BATCH_ALLOWED_MODELS.has(model)) return model;
 
-  // Hard reject — log and return default instead of silently accepting broken models
-  console.error(`[batch-routing] BATCH_MODEL_REJECTED: "${model}" is not batch-allowed. Forcing ${BATCH_DEFAULT_MODEL}. Only allowed: ${[...BATCH_ALLOWED_MODELS].join(", ")}`);
+  // Canary allowlist (only if explicitly flagged)
+  if (opts?.isCanary && BATCH_CANARY_MODELS.has(model)) {
+    console.warn(`[batch-governance] CANARY_MODEL_ACCEPTED: "${model}" — isolated test path`);
+    return model;
+  }
+
+  // Auto-remap with telemetry
+  const reason = BATCH_CANARY_MODELS.has(model) && !opts?.isCanary
+    ? `canary model "${model}" used without isCanary flag`
+    : `model "${model}" not in BATCH_ALLOWED_MODELS`;
+
+  const entry = { from: model, to: BATCH_DEFAULT_MODEL, ts: new Date().toISOString(), reason };
+  _remapLog.push(entry);
+
+  console.error(
+    `[batch-governance] BATCH_MODEL_REMAPPED: "${model}" → "${BATCH_DEFAULT_MODEL}". ` +
+    `Reason: ${reason}. Allowed: [${[...BATCH_ALLOWED_MODELS].join(", ")}]`
+  );
   return BATCH_DEFAULT_MODEL;
 }
 
 /**
  * Strict validation: throws if model is not batch-allowed.
- * Use this in gateway/enqueue paths where a 422 response is appropriate.
+ * Use in gateway/enqueue paths where a 422 response is appropriate.
  */
 export function assertBatchModel(model: string): void {
   if (!BATCH_ALLOWED_MODELS.has(model)) {
-    throw new Error(`BATCH_MODEL_NOT_ALLOWED: "${model}" rejected. Only ${[...BATCH_ALLOWED_MODELS].join(", ")} permitted for batch processing.`);
+    throw new Error(
+      `BATCH_MODEL_NOT_ALLOWED: "${model}" rejected. ` +
+      `Production-verified: [${[...BATCH_ALLOWED_MODELS].join(", ")}]. ` +
+      `Canary: [${[...BATCH_CANARY_MODELS].join(", ") || "none"}].`
+    );
   }
 }
 
 /**
+ * Check if a model is eligible for canary batch testing.
+ */
+export function isCanaryBatchModel(model: string): boolean {
+  return BATCH_CANARY_MODELS.has(model) && !BATCH_ALLOWED_MODELS.has(model);
+}
+
+/**
  * Determine if a job should use the batch path.
- *
- * @param jobType - The job type identifier
- * @param opts - Optional context for more nuanced decisions
- * @returns true if the job should be routed through batch API
  */
 export function shouldUseBatch(
   jobType: string,
   opts?: {
-    /** If true, force sync mode regardless of flags */
     forceSyncMode?: boolean;
-    /** Urgency level — 'high' forces sync */
     urgency?: "low" | "normal" | "high";
-    /** Number of items to process — very small batches may not benefit */
     itemCount?: number;
   },
 ): boolean {
-  // Hard override: force sync
   if (opts?.forceSyncMode) return false;
-
-  // High urgency always runs sync (e.g. manual retrigger)
   if (opts?.urgency === "high") return false;
 
-  // Check feature flag
   const enabled = BATCH_ROUTING_FLAGS[jobType];
   if (!enabled) return false;
 
-  // For exam pool: only batch if we have enough blueprints (>= 3)
   if (jobType === "package_generate_exam_pool" && opts?.itemCount != null) {
     return opts.itemCount >= 3;
   }
@@ -108,6 +140,7 @@ function needsMaxCompletionTokens(model: string): boolean {
 
 /**
  * Build an OpenAI chat completion request payload for batch processing.
+ * CRITICAL: Ensures correct token parameter for the target model.
  */
 export function buildBatchChatRequest(
   model: string,
