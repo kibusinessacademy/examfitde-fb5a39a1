@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { usePackageEffectiveState } from '@/hooks/usePackageEffectiveState';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useCoursePackageDetail } from '@/hooks/useCoursePackages';
 import { useActiveCourse } from '@/contexts/ActiveCourseContext';
