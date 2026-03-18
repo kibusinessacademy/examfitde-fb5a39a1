@@ -7,6 +7,7 @@ import { CapacityCard } from "@/components/admin/cards/CapacityCard";
 import { ReadinessSummaryCard } from "@/components/admin/cards/ReadinessSummaryCard";
 import { ProblemPackagesCard } from "@/components/admin/cards/ProblemPackagesCard";
 import { ProgressDriftCard } from "@/components/admin/cards/ProgressDriftCard";
+import { TelemetryIntegrityCard } from "@/components/admin/cards/TelemetryIntegrityCard";
 import { useAdminControlTower } from "@/components/admin/hooks/useAdminControlTower";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertTriangle, Clock, CheckCircle, XCircle, Package, Cpu, Lock, ShieldAlert, Unplug } from "lucide-react";
