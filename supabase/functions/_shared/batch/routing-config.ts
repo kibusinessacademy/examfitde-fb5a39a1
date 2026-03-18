@@ -4,9 +4,11 @@
  * Controls which job types are routed through the OpenAI Batch API (50% cost savings)
  * vs executed synchronously via callAIWithFailover.
  *
- * v2: GPT-5.4 family batch-enabled (confirmed OpenAI docs Mar 2026).
- *     All 7 job types now batch-activated.
- *     BATCH_DEFAULT_MODEL upgraded to gpt-5.4-mini.
+ * v3: ROLLBACK — GPT-5.x models have 100% batch failure rate (confirmed production data Mar 2026).
+ *     gpt-5.4-mini: 1464 failed, 0 completed.
+ *     gpt-5-mini:   28016 failed, 0 completed.
+ *     gpt-4o-mini:  32914 completed, 53 failed — ONLY working batch model.
+ *     BATCH_DEFAULT_MODEL reverted to gpt-4o-mini.
  */
 
 // providerForModel no longer needed — hard guard uses allowlist only
@@ -15,38 +17,36 @@
 const BATCH_ROUTING_FLAGS: Record<string, boolean> = {
   lesson_generate_content: true,
   package_generate_exam_pool: true,
-  expand_handbook_section: true,          // ✅ Batch activated (gpt-5.4-mini)
-  package_generate_handbook: true,        // ✅ Batch activated
-  package_generate_oral_exam: true,       // ✅ Batch activated (gpt-5.4-mini)
-  package_generate_lesson_minichecks: true,  // ✅ Batch activated (gpt-5.4-nano)
-  package_generate_glossary: true,        // ✅ Batch activated (gpt-5.4-nano)
+  expand_handbook_section: true,
+  package_generate_handbook: true,
+  package_generate_oral_exam: true,
+  package_generate_lesson_minichecks: true,
+  package_generate_glossary: true,
 };
 
-/** Default model for batch processing (batch pricing applies — 50% of standard) */
-export const BATCH_DEFAULT_MODEL = "gpt-5.4-mini";
+/** Default model for batch processing — ONLY gpt-4o-mini is production-verified */
+export const BATCH_DEFAULT_MODEL = "gpt-4o-mini";
 
 /**
  * HARD GUARD: Only explicitly verified batch-compatible models are allowed.
- * All other models are rejected — no silent remapping, no fallback.
- * This prevents the 63k+ zombie-request problem from recurring.
  *
- * Verified batch support (OpenAI docs, Mar 2026):
- *   gpt-5.4-mini  — confirmed v1/batch, 50% pricing ($0.375/$2.25)
- *   gpt-5.4-nano  — confirmed v1/batch, 50% pricing ($0.10/$0.625)
- *   gpt-5-mini    — confirmed v1/batch
- *   gpt-4o-mini   — confirmed v1/batch (legacy fallback)
+ * PRODUCTION EVIDENCE (Mar 2026):
+ *   gpt-4o-mini   — 32,914 completed, 53 failed (99.8% success) ✅
+ *   gpt-5-mini    — 0 completed, 28,016 failed (0% success) ❌
+ *   gpt-5.4-mini  — 0 completed, 1,464 failed (0% success) ❌
+ *   gpt-5.4-nano  — model_not_found for batch variant ❌
+ *
+ * DO NOT add gpt-5.x models until OpenAI confirms batch support and
+ * a canary test shows >95% success rate.
  */
 const BATCH_ALLOWED_MODELS = new Set([
-  "gpt-5.4-mini",
-  // "gpt-5.4-nano",  // NOT batch-eligible: OpenAI returns model_not_found for "-batch" variant
-  "gpt-5-mini",
   "gpt-4o-mini",
 ]);
 
 export function batchSafeModel(model: string): string {
   if (BATCH_ALLOWED_MODELS.has(model)) return model;
 
-  // Hard reject — log and return default instead of silently accepting expensive models
+  // Hard reject — log and return default instead of silently accepting broken models
   console.error(`[batch-routing] BATCH_MODEL_REJECTED: "${model}" is not batch-allowed. Forcing ${BATCH_DEFAULT_MODEL}. Only allowed: ${[...BATCH_ALLOWED_MODELS].join(", ")}`);
   return BATCH_DEFAULT_MODEL;
 }
