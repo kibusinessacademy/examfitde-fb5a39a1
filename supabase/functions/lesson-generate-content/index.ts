@@ -3,6 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { assertSchemaReady } from "../_shared/schema-gate.ts";
 import { isTransientLlmError } from "../_shared/llm/normalize.ts";
 import { processLesson } from "../_shared/lesson-gen/process-lesson.ts";
+import { bootstrapLLMLogging } from "../_shared/llm-log-bootstrap.ts";
 
 /**
  * lesson-generate-content — Thin orchestrator (~40 lines)
