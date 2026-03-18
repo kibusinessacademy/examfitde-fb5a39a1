@@ -1606,6 +1606,7 @@ Deno.serve(async (req) => {
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
   const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const sb = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+  bootstrapLLMLogging(sb, "package_generate_exam_pool");
   await assertSchemaReady("package-generate-exam-pool", sb);
 
   const body = await req.json().catch(() => ({}));
