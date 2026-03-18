@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,14 @@ const passwordSchema = z.string().min(6, 'Das Passwort muss mindestens 6 Zeichen
 
 type AuthView = 'login' | 'register' | 'forgot-password' | 'magic-link';
 
+type RedirectState = {
+  from?: {
+    pathname?: string;
+    search?: string;
+    hash?: string;
+  };
+};
+
 export default function Auth() {
   const [view, setView] = useState<AuthView>('login');
   const [email, setEmail] = useState('');
@@ -25,8 +33,9 @@ export default function Auth() {
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const [searchParams] = useSearchParams();
   
-  const { signIn, signUp, user, loading } = useAuth();
+  const { signIn, signUp, user, loading, isAdmin } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
 
   const isLogin = view === 'login';
@@ -51,9 +60,18 @@ export default function Auth() {
           localStorage.removeItem('ef_referral_code');
         }).catch(() => { /* silent */ });
       }
-      navigate('/');
+
+      const redirectState = location.state as RedirectState | null;
+      const from = redirectState?.from;
+      const target = from?.pathname
+        ? `${from.pathname}${from.search ?? ''}${from.hash ?? ''}`
+        : isAdmin
+          ? '/admin/command'
+          : '/';
+
+      navigate(target, { replace: true });
     }
-  }, [user, loading, navigate]);
+  }, [user, loading, isAdmin, navigate, location.state]);
 
   const validateForm = () => {
     const newErrors: { email?: string; password?: string } = {};
