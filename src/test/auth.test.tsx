@@ -13,6 +13,10 @@ const mockGetSession = vi.fn().mockResolvedValue({ data: { session: null }, erro
 const mockOnAuthStateChange = vi.fn().mockReturnValue({
   data: { subscription: { unsubscribe: vi.fn() } },
 });
+const mockRoleQuery = {
+  select: vi.fn().mockReturnThis(),
+  eq: vi.fn(),
+};
 
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
@@ -26,11 +30,7 @@ vi.mock("@/integrations/supabase/client", () => ({
       resetPasswordForEmail: vi.fn(),
       updateUser: vi.fn(),
     },
-    from: vi.fn().mockReturnValue({
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      single: vi.fn().mockResolvedValue({ data: null, error: null }),
-    }),
+    from: vi.fn(() => mockRoleQuery),
     rpc: vi.fn().mockResolvedValue({ data: null, error: null }),
     channel: vi.fn().mockReturnValue({
       on: vi.fn().mockReturnThis(),
@@ -40,7 +40,14 @@ vi.mock("@/integrations/supabase/client", () => ({
 }));
 
 describe("Auth Context", () => {
-  it("AuthProvider provides loading state initially", async () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetSession.mockResolvedValue({ data: { session: null }, error: null });
+    mockRoleQuery.select.mockReturnThis();
+    mockRoleQuery.eq.mockResolvedValue({ data: [], error: null });
+  });
+
+  it("AuthProvider resolves initial loading state", async () => {
     const { AuthProvider, useAuth } = await import("@/hooks/useAuth");
 
     function TestConsumer() {
@@ -59,18 +66,32 @@ describe("Auth Context", () => {
       </AuthProvider>
     );
 
-    // Initially no user
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(getByTestId("loading").textContent).toBe("false");
     expect(getByTestId("user").textContent).toBe("no");
   });
 
-  it("AuthProvider surfaces roles from user_roles table", async () => {
-    // This tests that the role-fetching logic is triggered
+  it("AuthProvider surfaces admin roles from user_roles table", async () => {
     const { AuthProvider, useAuth } = await import("@/hooks/useAuth");
 
+    mockGetSession.mockResolvedValue({
+      data: {
+        session: {
+          user: { id: "user-1", email: "admin@example.com" },
+        },
+      },
+      error: null,
+    });
+    mockRoleQuery.eq.mockResolvedValue({ data: [{ role: "admin" }], error: null });
+
     function RoleConsumer() {
-      const { roles, isAdmin } = useAuth();
+      const { roles, isAdmin, loading } = useAuth();
       return (
         <div>
+          <span data-testid="loading">{String(loading)}</span>
           <span data-testid="roles">{JSON.stringify(roles)}</span>
           <span data-testid="isAdmin">{String(isAdmin)}</span>
         </div>
@@ -83,8 +104,53 @@ describe("Auth Context", () => {
       </AuthProvider>
     );
 
-    // Wait a tick for effects
-    await act(async () => { await new Promise(r => setTimeout(r, 50)); });
-    expect(getByTestId("isAdmin").textContent).toBe("false");
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(getByTestId("loading").textContent).toBe("false");
+    expect(getByTestId("roles").textContent).toContain("admin");
+    expect(getByTestId("isAdmin").textContent).toBe("true");
+  });
+
+  it("keeps loading false only after roles settle on auth changes", async () => {
+    const session = { user: { id: "user-2", email: "teacher@example.com" } };
+    let authCallback: ((event: string, session: any) => void) | undefined;
+
+    mockOnAuthStateChange.mockImplementation((callback) => {
+      authCallback = callback;
+      return { data: { subscription: { unsubscribe: vi.fn() } } };
+    });
+
+    mockGetSession.mockResolvedValue({ data: { session: null }, error: null });
+    mockRoleQuery.eq
+      .mockResolvedValueOnce({ data: [], error: null })
+      .mockResolvedValueOnce({ data: [{ role: "admin" }], error: null });
+
+    const { AuthProvider, useAuth } = await import("@/hooks/useAuth");
+
+    function RoleConsumer() {
+      const { isAdmin } = useAuth();
+      return <span data-testid="isAdmin">{String(isAdmin)}</span>;
+    }
+
+    const { getByTestId } = render(
+      <AuthProvider>
+        <RoleConsumer />
+      </AuthProvider>
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      authCallback?.("SIGNED_IN", session);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(getByTestId("isAdmin").textContent).toBe("true");
   });
 });

@@ -1,4 +1,4 @@
-import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
+import { useState, useEffect, createContext, useContext, ReactNode, useRef, useCallback } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -26,56 +26,82 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [roles, setRoles] = useState<AppRole[]>([]);
+  const activeRoleRequestRef = useRef(0);
+  const authReadyRef = useRef(false);
 
-  useEffect(() => {
-    let isMounted = true;
+  const loadRoles = useCallback(async (userId: string | null) => {
+    const requestId = ++activeRoleRequestRef.current;
 
-    const loadRoles = async (userId: string) => {
+    if (!userId) {
+      setRoles([]);
+      return true;
+    }
+
+    try {
       const { data, error } = await supabase
         .from('user_roles')
         .select('role')
         .eq('user_id', userId);
-      if (!error && data && isMounted) {
-        setRoles(data.map(r => r.role as AppRole));
+
+      if (requestId !== activeRoleRequestRef.current) return false;
+
+      if (error) {
+        console.error('Failed to load user roles', error);
+        return false;
+      }
+
+      setRoles((data ?? []).map((row) => row.role as AppRole));
+      return true;
+    } catch (error) {
+      if (requestId === activeRoleRequestRef.current) {
+        console.error('Unexpected role loading failure', error);
+      }
+      return false;
+    }
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const applySession = async (nextSession: Session | null, options?: { isInitial?: boolean }) => {
+      if (!isMounted) return;
+
+      const nextUser = nextSession?.user ?? null;
+      setSession(nextSession);
+      setUser(nextUser);
+
+      const loaded = await loadRoles(nextUser?.id ?? null);
+      if (!isMounted) return;
+
+      if ((options?.isInitial || authReadyRef.current) && loaded) {
+        setLoading(false);
+        authReadyRef.current = true;
       }
     };
 
-    // Listener for ONGOING auth changes (does NOT control loading)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        if (!isMounted) return;
-        setSession(session);
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          loadRoles(session.user.id);
-        } else {
-          setRoles([]);
-        }
-      }
-    );
-
-    // INITIAL load – wait for roles before setting loading=false
     const initializeAuth = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!isMounted) return;
-        setSession(session);
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          await loadRoles(session.user.id);
-        }
+        const { data: { session: initialSession } } = await supabase.auth.getSession();
+        await applySession(initialSession, { isInitial: true });
       } finally {
-        if (isMounted) setLoading(false);
+        if (isMounted && !authReadyRef.current) {
+          setLoading(false);
+          authReadyRef.current = true;
+        }
       }
     };
 
-    initializeAuth();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      void applySession(nextSession);
+    });
+
+    void initializeAuth();
 
     return () => {
       isMounted = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [loadRoles]);
 
   const signUp = async (email: string, password: string, fullName?: string) => {
     const redirectUrl = `${window.location.origin}/`;
