@@ -980,6 +980,13 @@ export type Database = {
             foreignKeyName: "ai_tutor_context_index_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "ops_telemetry_integrity"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "ai_tutor_context_index_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "package_economics"
             referencedColumns: ["package_id"]
           },
@@ -6455,6 +6462,13 @@ export type Database = {
             foreignKeyName: "council_sessions_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "ops_telemetry_integrity"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "council_sessions_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "package_economics"
             referencedColumns: ["package_id"]
           },
@@ -7377,6 +7391,13 @@ export type Database = {
             foreignKeyName: "course_package_build_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "ops_telemetry_integrity"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_build_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "package_economics"
             referencedColumns: ["package_id"]
           },
@@ -7667,6 +7688,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: true
             referencedRelation: "ops_seeding_summary"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_locks_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_telemetry_integrity"
             referencedColumns: ["package_id"]
           },
           {
@@ -7984,6 +8012,13 @@ export type Database = {
             foreignKeyName: "course_package_outputs_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "ops_telemetry_integrity"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_outputs_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "package_economics"
             referencedColumns: ["package_id"]
           },
@@ -8289,6 +8324,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_seeding_summary"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_plans_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_telemetry_integrity"
             referencedColumns: ["package_id"]
           },
           {
@@ -8612,6 +8654,13 @@ export type Database = {
             columns: ["course_package_id"]
             isOneToOne: true
             referencedRelation: "ops_seeding_summary"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_reviews_course_package_id_fkey"
+            columns: ["course_package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_telemetry_integrity"
             referencedColumns: ["package_id"]
           },
           {
@@ -12720,6 +12769,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_seeding_summary"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "duplicate_detection_log_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_telemetry_integrity"
             referencedColumns: ["package_id"]
           },
           {
@@ -20223,6 +20279,13 @@ export type Database = {
             foreignKeyName: "oral_exam_session_templates_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "ops_telemetry_integrity"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "oral_exam_session_templates_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "package_economics"
             referencedColumns: ["package_id"]
           },
@@ -20651,6 +20714,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: true
             referencedRelation: "ops_seeding_summary"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "oral_exam_sessionsets_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_telemetry_integrity"
             referencedColumns: ["package_id"]
           },
           {
@@ -21737,6 +21807,13 @@ export type Database = {
             foreignKeyName: "package_content_shards_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "ops_telemetry_integrity"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_content_shards_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "package_economics"
             referencedColumns: ["package_id"]
           },
@@ -22036,6 +22113,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: true
             referencedRelation: "ops_seeding_summary"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_leases_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_telemetry_integrity"
             referencedColumns: ["package_id"]
           },
           {
@@ -22517,6 +22601,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "ops_telemetry_integrity"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "package_economics"
             referencedColumns: ["package_id"]
           },
@@ -22807,6 +22898,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_seeding_summary"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_tags_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_telemetry_integrity"
             referencedColumns: ["package_id"]
           },
           {
@@ -23441,6 +23539,13 @@ export type Database = {
             columns: ["active_package_id"]
             isOneToOne: false
             referencedRelation: "ops_seeding_summary"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "pipeline_lock_active_package_id_fkey"
+            columns: ["active_package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_telemetry_integrity"
             referencedColumns: ["package_id"]
           },
           {
@@ -24132,6 +24237,13 @@ export type Database = {
             foreignKeyName: "premium_upgrade_runs_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "ops_telemetry_integrity"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "premium_upgrade_runs_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "package_economics"
             referencedColumns: ["package_id"]
           },
@@ -24764,6 +24876,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_seeding_summary"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "production_quality_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_telemetry_integrity"
             referencedColumns: ["package_id"]
           },
           {
@@ -34924,6 +35043,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "ops_telemetry_integrity"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "package_economics"
             referencedColumns: ["package_id"]
           },
@@ -36658,6 +36784,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "ops_telemetry_integrity"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "package_economics"
             referencedColumns: ["package_id"]
           },
@@ -37062,6 +37195,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_seeding_summary"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_telemetry_integrity"
             referencedColumns: ["package_id"]
           },
           {
@@ -37614,6 +37754,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "ops_telemetry_integrity"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "package_economics"
             referencedColumns: ["package_id"]
           },
@@ -38142,6 +38289,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "ops_telemetry_integrity"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "package_economics"
             referencedColumns: ["package_id"]
           },
@@ -38569,6 +38723,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "ops_telemetry_integrity"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "package_economics"
             referencedColumns: ["package_id"]
           },
@@ -38733,6 +38894,36 @@ export type Database = {
           job_history: string | null
           step_key: string | null
           view_status: string | null
+        }
+        Relationships: []
+      }
+      ops_telemetry_integrity: {
+        Row: {
+          active_jobs: number | null
+          computed_at: string | null
+          content_pct: number | null
+          content_versions_24h: number | null
+          drift: number | null
+          drift_severity: string | null
+          exam_pct: number | null
+          handbook_pct: number | null
+          last_any_activity: string | null
+          last_content_at: string | null
+          last_job_at: string | null
+          last_llm_at: string | null
+          llm_breakdown: Json | null
+          llm_cost_events_24h: number | null
+          logging_gap: boolean | null
+          minicheck_pct: number | null
+          missing_steps: string[] | null
+          package_id: string | null
+          pending_jobs: number | null
+          real_progress: number | null
+          status: string | null
+          steps_done_pct: number | null
+          stored_progress: number | null
+          telemetry_ratio: number | null
+          title: string | null
         }
         Relationships: []
       }
@@ -38961,6 +39152,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_seeding_summary"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_telemetry_integrity"
             referencedColumns: ["package_id"]
           },
           {
@@ -41471,6 +41669,13 @@ export type Database = {
             foreignKeyName: "package_content_shards_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "ops_telemetry_integrity"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_content_shards_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "package_economics"
             referencedColumns: ["package_id"]
           },
@@ -41831,6 +42036,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_seeding_summary"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_content_shards_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_telemetry_integrity"
             referencedColumns: ["package_id"]
           },
           {
@@ -43202,6 +43414,7 @@ export type Database = {
           step_key: string
         }[]
       }
+      check_telemetry_gap_alerts: { Args: never; Returns: Json }
       check_trigger_bindings: {
         Args: never
         Returns: {
@@ -43719,6 +43932,7 @@ export type Database = {
         Returns: number
       }
       cleanup_stale_pipeline_lock: { Args: never; Returns: undefined }
+      clear_stale_guard_loops: { Args: { p_package_id: string }; Returns: Json }
       column_exists: {
         Args: { p_column: string; p_schema?: string; p_table: string }
         Returns: boolean
@@ -45298,6 +45512,10 @@ export type Database = {
           updated: boolean
         }[]
       }
+      reconcile_package_progress: {
+        Args: { p_package_id: string }
+        Returns: Json
+      }
       record_worker_usage: {
         Args: {
           p_cost_eur?: number
@@ -45425,6 +45643,10 @@ export type Database = {
           p_runner_id: string
         }
         Returns: undefined
+      }
+      repair_missing_finalize_artifact: {
+        Args: { p_package_id: string }
+        Returns: Json
       }
       repair_placeholder_lessons: {
         Args: { p_course_id: string }

@@ -97,6 +97,12 @@ Deno.serve(async (req) => {
         return json(await getDashboard(sb));
       case "executive_kpis":
         return json(await getExecutiveKpis(sb));
+      case "telemetry_integrity":
+        return json(await getTelemetryIntegrity(sb));
+      case "recovery_action": {
+        const { recovery_type, package_id } = await req.json().catch(() => ({ recovery_type: null, package_id: null }));
+        return json(await runRecoveryAction(sb, recovery_type, package_id));
+      }
       default:
         return json({ error: `Unknown action: ${action}` }, 400);
     }
@@ -609,4 +615,38 @@ async function getDashboard(sb: SB) {
 async function getExecutiveKpis(sb: SB) {
   const rows = await safeFrom(sb, "v_ops_executive_kpis", "*");
   return rows[0] ?? {};
+}
+
+async function getTelemetryIntegrity(sb: SB) {
+  const rows = await safeFrom(sb, "ops_telemetry_integrity", "*");
+  const gapCount = rows.filter((r: any) => r.logging_gap).length;
+  const criticalDrift = rows.filter((r: any) => r.drift_severity === "critical").length;
+  const warningDrift = rows.filter((r: any) => r.drift_severity === "warning").length;
+  return {
+    packages: rows,
+    summary: {
+      total: rows.length,
+      logging_gaps: gapCount,
+      critical_drift: criticalDrift,
+      warning_drift: warningDrift,
+      healthy: rows.length - gapCount - criticalDrift - warningDrift,
+    },
+  };
+}
+
+async function runRecoveryAction(sb: SB, recoveryType: string | null, packageId: string | null) {
+  if (!recoveryType || !packageId) {
+    return { error: "recovery_type and package_id required" };
+  }
+  const rpcMap: Record<string, string> = {
+    repair_finalize: "repair_missing_finalize_artifact",
+    clear_guards: "clear_stale_guard_loops",
+    reconcile_progress: "reconcile_package_progress",
+  };
+  const rpcName = rpcMap[recoveryType];
+  if (!rpcName) return { error: `Unknown recovery_type: ${recoveryType}` };
+
+  const { data, error } = await sb.rpc(rpcName, { p_package_id: packageId });
+  if (error) return { error: error.message };
+  return { ok: true, result: data };
 }

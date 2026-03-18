@@ -7,6 +7,7 @@ import { CapacityCard } from "@/components/admin/cards/CapacityCard";
 import { ReadinessSummaryCard } from "@/components/admin/cards/ReadinessSummaryCard";
 import { ProblemPackagesCard } from "@/components/admin/cards/ProblemPackagesCard";
 import { ProgressDriftCard } from "@/components/admin/cards/ProgressDriftCard";
+import { TelemetryIntegrityCard } from "@/components/admin/cards/TelemetryIntegrityCard";
 import { useAdminControlTower } from "@/components/admin/hooks/useAdminControlTower";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertTriangle, Clock, CheckCircle, XCircle, Package, Cpu, Lock, ShieldAlert, Unplug } from "lucide-react";
@@ -65,6 +66,10 @@ export default function AdminControlTowerPage() {
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <ReadinessSummaryCard />
         <ProgressDriftCard />
+      </div>
+
+      <div className="mt-6">
+        <TelemetryIntegrityCard />
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
