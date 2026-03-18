@@ -367,6 +367,16 @@ Deno.serve(async (req) => {
       .eq("fanout_id", fanoutId)
       .eq("chunk_index", chunkIndex);
 
+    // ── Auto-reconcile package progress from artifact SSOT ──
+    if (generated > 0) {
+      try {
+        await sb.rpc("reconcile_package_progress", { p_package_id: packageId });
+        console.log(`[shard] Progress reconciled for ${packageId.slice(0, 8)}`);
+      } catch (reconcileErr) {
+        console.warn(`[shard] reconcile_package_progress failed (non-fatal): ${(reconcileErr as Error)?.message?.slice(0, 100)}`);
+      }
+    }
+
     console.log(
       `[shard] Done: LF ${learningFieldId.slice(0, 8)} — ${generated}/${lessonsToGenerate.length} generated, ` +
       `${skippedWithContent} skipped, ${failed} failed, ${Date.now() - startMs}ms`,
