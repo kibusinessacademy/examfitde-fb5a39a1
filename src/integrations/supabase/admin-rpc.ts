@@ -37,4 +37,10 @@ export const adminRpc = {
 
   executiveKpis: () =>
     callEdge<Record<string, unknown>>("admin-control-tower", { action: "executive_kpis" }),
+
+  triggerExamRebalance: (packageId: string) =>
+    callEdge<{ ok: boolean; actions: Array<{ type: string; detail: string; affected_count: number }> }>(
+      "package-exam-rebalance",
+      { package_id: packageId },
+    ),
 };
