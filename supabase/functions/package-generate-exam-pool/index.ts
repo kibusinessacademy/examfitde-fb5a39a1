@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { assertSchemaReady } from "../_shared/schema-gate.ts";
+import { bootstrapLLMLogging } from "../_shared/llm-log-bootstrap.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { calculateHybridTargetFromDefaults } from "../_shared/hybridExamTarget.ts";
 import type { HybridTargetResult } from "../_shared/hybridExamTarget.ts";
