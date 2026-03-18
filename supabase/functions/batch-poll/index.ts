@@ -18,6 +18,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getBatchAdapter } from "../_shared/batch/router.ts";
 import { estimateCostEur, PRICING_META } from "../_shared/model-pricing.ts";
+import { logLLMCostEvent } from "../_shared/ai-client.ts";
 import type { BatchProvider, ParsedBatchOutputRow } from "../_shared/batch/types.ts";
 
 const corsHeaders = {
