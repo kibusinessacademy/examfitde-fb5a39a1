@@ -846,6 +846,7 @@ Deno.serve(async (req) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const sb = createClient(supabaseUrl, serviceKey);
+  bootstrapLLMLogging(sb, "content_runner");
 
   const startedAt = Date.now();
   const deadline = startedAt + LOOP_MAX_MS;
