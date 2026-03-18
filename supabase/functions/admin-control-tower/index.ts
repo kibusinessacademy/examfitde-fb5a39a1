@@ -80,7 +80,8 @@ Deno.serve(async (req) => {
       .eq("role", "admin")
       .maybeSingle();
     if (!roleRow) return json({ error: "Forbidden" }, 403);
-    const { action } = await req.json();
+    const body = await req.json();
+    const { action, recovery_type, package_id } = body;
 
     switch (action) {
       case "overview":
@@ -99,10 +100,8 @@ Deno.serve(async (req) => {
         return json(await getExecutiveKpis(sb));
       case "telemetry_integrity":
         return json(await getTelemetryIntegrity(sb));
-      case "recovery_action": {
-        const { recovery_type, package_id } = await req.json().catch(() => ({ recovery_type: null, package_id: null }));
-        return json(await runRecoveryAction(sb, recovery_type, package_id));
-      }
+      case "recovery_action":
+        return json(await runRecoveryAction(sb, recovery_type ?? null, package_id ?? null));
       default:
         return json({ error: `Unknown action: ${action}` }, 400);
     }
