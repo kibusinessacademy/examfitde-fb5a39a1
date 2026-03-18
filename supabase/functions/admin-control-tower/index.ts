@@ -97,6 +97,12 @@ Deno.serve(async (req) => {
         return json(await getDashboard(sb));
       case "executive_kpis":
         return json(await getExecutiveKpis(sb));
+      case "telemetry_integrity":
+        return json(await getTelemetryIntegrity(sb));
+      case "recovery_action": {
+        const { recovery_type, package_id } = await req.json().catch(() => ({ recovery_type: null, package_id: null }));
+        return json(await runRecoveryAction(sb, recovery_type, package_id));
+      }
       default:
         return json({ error: `Unknown action: ${action}` }, 400);
     }
