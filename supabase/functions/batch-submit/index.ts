@@ -143,7 +143,7 @@ Deno.serve(async (req) => {
         provider_request_counts: submitted.raw?.request_counts || {},
         submitted_at: new Date().toISOString(),
         metadata: {
-          ...(body.metadata || {}),
+          ...batchMetadata,
           submit_raw: submitted.raw,
           input_stats: {
             request_count: requests.length,
