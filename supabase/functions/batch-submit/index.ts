@@ -88,7 +88,7 @@ Deno.serve(async (req) => {
         endpoint,
         status: "draft",
         request_count: requests.length,
-        metadata: body.metadata || {},
+        metadata: batchMetadata,
         created_by: "batch-submit",
       })
       .select("id")
