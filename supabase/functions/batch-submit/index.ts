@@ -125,7 +125,7 @@ Deno.serve(async (req) => {
       model,
       endpoint,
       completion_window: "24h",
-      metadata: body.metadata || {},
+      metadata: batchMetadata,
       requests,
     };
 
