@@ -28,6 +28,7 @@ Deno.serve(async (req) => {
   const startMs = Date.now();
   try {
     const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    bootstrapLLMLogging(sb, "lesson_generate_content");
     await assertSchemaReady("lesson-generate-content", sb);
 
     const body = await req.json().catch(() => ({}));

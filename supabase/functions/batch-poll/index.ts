@@ -194,6 +194,26 @@ Deno.serve(async (req) => {
                 .eq("custom_id", row.custom_id)
                 .is("completed_at", null); // Fix #6: idempotent guard
 
+              // ── P0 FIX: Log every batch result to llm_cost_events (SSOT) ──
+              // This was the 99.6% telemetry gap — batch results were never logged.
+              const reqMeta = (row as any).custom_id ? { custom_id: row.custom_id, batch_id: batch.id } : { batch_id: batch.id };
+              await logLLMCostEvent(sb, {
+                job_type: (batch as any).job_type || "batch_unknown",
+                provider: (batch as any).provider || "openai",
+                model: batch.model,
+                tokens_in: usage?.input_tokens ?? 0,
+                tokens_out: usage?.output_tokens ?? 0,
+                cost_eur: costEur,
+                package_id: (batch as any).package_id || null,
+                status: succeeded ? "success" : "error",
+                error_message: succeeded ? null : JSON.stringify(row.error_body)?.slice(0, 300),
+                meta: {
+                  ...reqMeta,
+                  batch_discount: true,
+                  cached_input_tokens: usage?.cached_input_tokens ?? 0,
+                },
+              });
+
               processedCount++;
             }
 
