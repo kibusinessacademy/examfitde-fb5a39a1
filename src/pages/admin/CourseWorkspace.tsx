@@ -625,3 +625,70 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
     </div>
   );
 }
+
+// ── SSOT-driven QG Banner ──
+function QualityGateBannerSSoT({ packageId }: { packageId: string }) {
+  const { data: es } = usePackageEffectiveState(packageId);
+  if (!es) return null;
+
+  if (es.should_show_pass_banner && es.package_status === 'quality_gate_failed') {
+    // Integrity passed but status is stale — show green override
+    return (
+      <Card className="border-emerald-500/30 bg-emerald-500/5">
+        <CardContent className="py-4">
+          <p className="text-sm font-semibold text-emerald-400 flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4" /> Quality Gate bestanden
+          </p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Integrity Score: 100 — Kompetenzabdeckung: {es.competencies_covered}/{es.competencies_total} ({Number(es.competency_coverage_pct).toFixed(0)}%)
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (es.should_show_fail_banner && es.package_status !== 'published') {
+    return (
+      <Card className="border-destructive/30 bg-destructive/5">
+        <CardContent className="py-4">
+          <p className="text-sm font-semibold text-destructive flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4" /> Quality Gate nicht bestanden
+          </p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Prüfe den Integritätsbericht unten und behebe die Lücken über den Auto-Gap-Closer oder manuelle Schritte.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return null;
+}
+
+// ── SSOT-driven Auto-Gap-Closer visibility ──
+function AutoGapCloserSSoT({ packageId, courseId, curriculumId, integrityReport, onRefresh, isBuilding }: {
+  packageId: string; courseId: string; curriculumId: string; integrityReport: any; onRefresh: () => void; isBuilding: boolean;
+}) {
+  const { data: es } = usePackageEffectiveState(packageId);
+
+  // Don't show if already passed, published, or building
+  if (!es || es.effective_quality_gate_state === 'passed' || es.package_status === 'published' || isBuilding) {
+    // Show "already passed" hint if integrity passed but page still shows
+    if (es?.effective_quality_gate_state === 'passed' && es.package_status !== 'published') {
+      return (
+        <Card className="border-emerald-500/30 bg-emerald-500/5">
+          <CardContent className="py-3">
+            <p className="text-xs text-emerald-400 flex items-center gap-1.5">
+              <CheckCircle2 className="h-3.5 w-3.5" /> Paket bereits bestanden — kein Autofix nötig
+            </p>
+          </CardContent>
+        </Card>
+      );
+    }
+    return null;
+  }
+
+  if (!integrityReport) return null;
+
+  return <AutoGapCloserPanel packageId={packageId} courseId={courseId} curriculumId={curriculumId} integrityReport={integrityReport} onRefresh={onRefresh} />;
+}
