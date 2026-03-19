@@ -187,6 +187,21 @@ Jede Invariante referenziert ihren Enforcement-Mechanismus.
 **Regel:** Schwächen werden in drei Kategorien klassifiziert: `acute` (niedrige Accuracy + hohe Relevanz), `unstable` (Trend-Einbruch), `blind` (zu wenige Versuche). Keine Custom-Typen.  
 **Enforcement:** `v_user_top_gaps` View (DB), `TopGapsCard` (UI)
 
+### INV-061: Cascade-Reset ist artefaktbewusst und idempotent
+**Regel:** Der Cascade-Reset-Trigger (`trg_cascade_reset_downstream_steps`) darf Downstream-Steps nur zurücksetzen, wenn: (a) der Step nicht bereits `queued` ist (Idempotenz), (b) die semantische Invalidierungspolicy den auslösenden Upstream-Step als echten Invalidator definiert, (c) kein gültiges physisches Artefakt existiert, das den Reset übersteht.  
+**Enforcement:** `cascade_reset_downstream_steps()` (DB-Trigger), `v_invalidation_policy` (embedded SSOT), `app.suppress_cascade_reset` (Batch-Suppress)  
+**Verstöße:** Unnötige Artefakt-Zerstörung, Reset-Stürme, Endlosschleifen
+
+### INV-062: Cascade-Resets sind observierbar
+**Regel:** Jeder Cascade-Reset schreibt `cascade_reset_at`, `cascade_reset_by_step`, `cascade_reset_from_status` und `cascade_reset_run_id` in die `meta`-Spalte des betroffenen Steps.  
+**Enforcement:** `cascade_reset_downstream_steps()` (DB-Trigger, `v_meta_patch`)  
+**Verstöße:** Unsichtbare Resets, fehlende Audit-Trail
+
+### INV-063: Batch-Operationen können Cascade-Resets unterdrücken
+**Regel:** Kontrollierte Batch-/Migrationsläufe können `SET LOCAL app.suppress_cascade_reset = 'on'` setzen, um redundante Kaskaden zu vermeiden.  
+**Enforcement:** `cascade_reset_downstream_steps()` Guard 2  
+**Verstöße:** Cascade-Stürme bei Massen-Updates
+
 ---
 
 ## Änderungshistorie
@@ -196,3 +211,4 @@ Jede Invariante referenziert ihren Enforcement-Mechanismus.
 | 2026-03-15 | Initial Invariants erstellt |
 | 2026-03-15 | INV-053–055: Failure Classification, Enqueue Dedupe, Protected Stops |
 | 2026-03-15 | INV-056–060: ExamFit v2 Learning Intelligence Layer |
+| 2026-03-19 | INV-061–063: Gehärteter Cascade-Reset (Artefakt-Awareness, Observability, Batch-Suppress) |
