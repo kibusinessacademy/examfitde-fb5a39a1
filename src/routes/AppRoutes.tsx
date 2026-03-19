@@ -210,7 +210,7 @@ const AppRoutes = () => {
         <Route path="/admin/leitstelle" element={<Navigate to="/admin/command" replace />} />
         <Route path="/admin/courses" element={<Navigate to="/admin/studio" replace />} />
         <Route path="/admin/course-studio" element={<Navigate to="/admin/studio" replace />} />
-        <Route path="/admin/course/:packageId" element={<Navigate to="/admin/studio/:packageId" replace />} />
+        <Route path="/admin/course/:packageId" element={<Navigate to="/admin/studio" replace />} />
         <Route path="/admin/jobs" element={<Navigate to="/admin/queue" replace />} />
         <Route path="/admin/jobs/*" element={<Navigate to="/admin/queue" replace />} />
         <Route path="/admin/ops/queue" element={<Navigate to="/admin/queue" replace />} />
