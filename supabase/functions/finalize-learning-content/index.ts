@@ -158,146 +158,150 @@ Deno.serve(async (req) => {
     }
   }
 
-  // ── 1. Check shard progress ──
-  const { data: shards, error: shardErr } = await sb
-    .from("package_content_shards")
-    .select("id, status, learning_field_id, chunk_index, lesson_target_count, lesson_generated_count, last_error, meta")
-    .eq("package_id", packageId)
-    .eq("fanout_id", fanoutId);
+  // ── 1. Check shard progress (only if fanout path was used) ──
+  if (fanoutId) {
+    const { data: shards, error: shardErr } = await sb
+      .from("package_content_shards")
+      .select("id, status, learning_field_id, chunk_index, lesson_target_count, lesson_generated_count, last_error, meta")
+      .eq("package_id", packageId)
+      .eq("fanout_id", fanoutId);
 
-  if (shardErr) {
-    return json({ ok: false, retry: true, error: `shard_read_failed: ${shardErr.message}` }, 500);
-  }
-
-  // deno-lint-ignore no-explicit-any
-  const allShards = (shards || []) as any[];
-  const totalShards = allShards.length;
-
-  if (expectedShards > 0 && totalShards < expectedShards) {
-    return json({
-      ok: true,
-      batch_complete: false,
-      transient: true,
-      message: `Shard rows incomplete: ${totalShards}/${expectedShards}`,
-    });
-  }
-
-  // deno-lint-ignore no-explicit-any
-  const pending = allShards.filter((s: any) => ["pending", "processing", "claimed"].includes(s.status));
-  // deno-lint-ignore no-explicit-any
-  const failed = allShards.filter((s: any) => s.status === "failed");
-  // deno-lint-ignore no-explicit-any
-  const completed = allShards.filter((s: any) => s.status === "completed");
-
-  // ── 2. Handle incomplete shards ──
-  if (pending.length > 0) {
-    return json({
-      ok: true,
-      batch_complete: false,
-      transient: true,
-      message: `⏳ ${pending.length} shards still processing/pending`,
-      progress: { total: totalShards, completed: completed.length, pending: pending.length, failed: failed.length },
-    });
-  }
-
-  // ── 3. Handle failed shards — requeue with retry cap ──
-  if (failed.length > 0) {
-    let requeued = 0;
-    let exhausted = 0;
-
-    for (const shard of failed) {
-      const retryCount = Number(shard.meta?.retry_count || 0);
-
-      // ── Retry cap: don't requeue permanently broken shards ──
-      if (retryCount >= MAX_SHARD_RETRIES) {
-        exhausted++;
-        console.warn(`[finalize] Shard ${shard.id} exhausted after ${retryCount} retries — leaving failed`);
-        continue;
-      }
-
-      try {
-        // Reset shard to pending with incremented retry_count
-        const nextMeta = {
-          ...(shard.meta || {}),
-          retry_count: retryCount + 1,
-          last_requeued_at: new Date().toISOString(),
-          last_failure_kind: shard.last_error?.slice(0, 100) || "unknown",
-        };
-
-        await sb
-          .from("package_content_shards")
-          .update({
-            status: "pending",
-            last_error: null,
-            updated_at: new Date().toISOString(),
-            meta: nextMeta,
-          })
-          .eq("id", shard.id);
-
-        // Reset failed lessons in this shard's scope back to pending
-        const shardLessonIds = shard.meta?.lesson_ids || [];
-        if (shardLessonIds.length > 0) {
-          await sb
-            .from("lessons")
-            .update({ generation_status: "pending", generation_job_id: null, generation_claimed_at: null })
-            .in("id", shardLessonIds)
-            .in("generation_status", ["failed", "claimed"]);
-        }
-
-        // Re-enqueue shard job — deduplicated to prevent double-enqueue on repeated finalize runs
-        const { data: existingShardJob } = await sb
-          .from("job_queue")
-          .select("id")
-          .eq("package_id", packageId)
-          .eq("job_type", "lesson_generate_content_shard")
-          .in("status", ["pending", "queued", "processing", "running", "batch_pending"])
-          .filter("payload->>fanout_id", "eq", fanoutId)
-          .filter("payload->>chunk_index", "eq", String(shard.chunk_index))
-          .filter("payload->>learning_field_id", "eq", shard.learning_field_id)
-          .limit(1)
-          .maybeSingle();
-
-        if (!existingShardJob) {
-          await enqueueJob(sb, {
-            job_type: "lesson_generate_content_shard",
-            package_id: packageId,
-            payload: {
-              package_id: packageId,
-              course_id: courseId,
-              curriculum_id: curriculumId,
-              learning_field_id: shard.learning_field_id,
-              chunk_index: shard.chunk_index,
-              fanout_id: fanoutId,
-              lesson_ids: shardLessonIds,
-            },
-            priority: 12,
-            max_attempts: 5,
-          });
-          requeued++;
-        } else {
-          console.log(`[finalize] DEDUP_SHARD: shard ${shard.id} already has active job — skipping requeue`);
-        }
-      } catch (e) {
-        console.warn(`[finalize] requeue failed for shard ${shard.id}: ${(e as Error).message}`);
-      }
+    if (shardErr) {
+      return json({ ok: false, retry: true, error: `shard_read_failed: ${shardErr.message}` }, 500);
     }
 
-    // If ALL failed shards are exhausted, we proceed to coverage check anyway
-    // (some content is better than blocking forever)
-    if (exhausted === failed.length) {
-      console.warn(`[finalize] All ${exhausted} failed shards exhausted — proceeding to coverage check`);
-      // Fall through to coverage check below
-    } else {
+    // deno-lint-ignore no-explicit-any
+    const allShards = (shards || []) as any[];
+    const totalShards = allShards.length;
+
+    if (expectedShards > 0 && totalShards < expectedShards) {
       return json({
         ok: true,
         batch_complete: false,
         transient: true,
-        message: `♻️ Requeued ${requeued}/${failed.length} failed shards (${exhausted} exhausted)`,
-        progress: { total: totalShards, completed: completed.length, pending: 0, failed: failed.length },
-        requeued,
-        exhausted,
+        message: `Shard rows incomplete: ${totalShards}/${expectedShards}`,
       });
     }
+
+    // deno-lint-ignore no-explicit-any
+    const pending = allShards.filter((s: any) => ["pending", "processing", "claimed"].includes(s.status));
+    // deno-lint-ignore no-explicit-any
+    const failed = allShards.filter((s: any) => s.status === "failed");
+    // deno-lint-ignore no-explicit-any
+    const completed = allShards.filter((s: any) => s.status === "completed");
+
+    // ── 2. Handle incomplete shards ──
+    if (pending.length > 0) {
+      return json({
+        ok: true,
+        batch_complete: false,
+        transient: true,
+        message: `⏳ ${pending.length} shards still processing/pending`,
+        progress: { total: totalShards, completed: completed.length, pending: pending.length, failed: failed.length },
+      });
+    }
+
+    // ── 3. Handle failed shards — requeue with retry cap ──
+    if (failed.length > 0) {
+      let requeued = 0;
+      let exhausted = 0;
+
+      for (const shard of failed) {
+        const retryCount = Number(shard.meta?.retry_count || 0);
+
+        // ── Retry cap: don't requeue permanently broken shards ──
+        if (retryCount >= MAX_SHARD_RETRIES) {
+          exhausted++;
+          console.warn(`[finalize] Shard ${shard.id} exhausted after ${retryCount} retries — leaving failed`);
+          continue;
+        }
+
+        try {
+          // Reset shard to pending with incremented retry_count
+          const nextMeta = {
+            ...(shard.meta || {}),
+            retry_count: retryCount + 1,
+            last_requeued_at: new Date().toISOString(),
+            last_failure_kind: shard.last_error?.slice(0, 100) || "unknown",
+          };
+
+          await sb
+            .from("package_content_shards")
+            .update({
+              status: "pending",
+              last_error: null,
+              updated_at: new Date().toISOString(),
+              meta: nextMeta,
+            })
+            .eq("id", shard.id);
+
+          // Reset failed lessons in this shard's scope back to pending
+          const shardLessonIds = shard.meta?.lesson_ids || [];
+          if (shardLessonIds.length > 0) {
+            await sb
+              .from("lessons")
+              .update({ generation_status: "pending", generation_job_id: null, generation_claimed_at: null })
+              .in("id", shardLessonIds)
+              .in("generation_status", ["failed", "claimed"]);
+          }
+
+          // Re-enqueue shard job — deduplicated to prevent double-enqueue on repeated finalize runs
+          const { data: existingShardJob } = await sb
+            .from("job_queue")
+            .select("id")
+            .eq("package_id", packageId)
+            .eq("job_type", "lesson_generate_content_shard")
+            .in("status", ["pending", "queued", "processing", "running", "batch_pending"])
+            .filter("payload->>fanout_id", "eq", fanoutId)
+            .filter("payload->>chunk_index", "eq", String(shard.chunk_index))
+            .filter("payload->>learning_field_id", "eq", shard.learning_field_id)
+            .limit(1)
+            .maybeSingle();
+
+          if (!existingShardJob) {
+            await enqueueJob(sb, {
+              job_type: "lesson_generate_content_shard",
+              package_id: packageId,
+              payload: {
+                package_id: packageId,
+                course_id: courseId,
+                curriculum_id: curriculumId,
+                learning_field_id: shard.learning_field_id,
+                chunk_index: shard.chunk_index,
+                fanout_id: fanoutId,
+                lesson_ids: shardLessonIds,
+              },
+              priority: 12,
+              max_attempts: 5,
+            });
+            requeued++;
+          } else {
+            console.log(`[finalize] DEDUP_SHARD: shard ${shard.id} already has active job — skipping requeue`);
+          }
+        } catch (e) {
+          console.warn(`[finalize] requeue failed for shard ${shard.id}: ${(e as Error).message}`);
+        }
+      }
+
+      // If ALL failed shards are exhausted, we proceed to coverage check anyway
+      // (some content is better than blocking forever)
+      if (exhausted === failed.length) {
+        console.warn(`[finalize] All ${exhausted} failed shards exhausted — proceeding to coverage check`);
+        // Fall through to coverage check below
+      } else {
+        return json({
+          ok: true,
+          batch_complete: false,
+          transient: true,
+          message: `♻️ Requeued ${requeued}/${failed.length} failed shards (${exhausted} exhausted)`,
+          progress: { total: totalShards, completed: completed.length, pending: 0, failed: failed.length },
+          requeued,
+          exhausted,
+        });
+      }
+    }
+  } else {
+    console.log(`[finalize] No fanout_id — skipping shard checks, proceeding to direct coverage validation`);
   }
 
   // ── 4. All shards completed (or exhausted) — validate lesson coverage ──
