@@ -60,11 +60,7 @@ const LeitstellePage = lazy(() => import('@/pages/admin/v2/LeitstellePage'));
 const KursePage = lazy(() => import('@/pages/admin/v2/KursePage'));
 const QueuePage = lazy(() => import('@/pages/admin/v2/QueuePage'));
 const AdminDeactivatedPage = lazy(() => import('@/components/admin/v2/AdminDeactivatedPage'));
-
-// Keep CourseWorkspace for detail view
 const CourseWorkspace = lazy(() => import('@/pages/admin/CourseWorkspace'));
-
-// Legacy admin pages removed from active routing — V2 SSOT-only
 
 // ExamFit@work public pages
 const WorkHomePage = lazy(() => import('@/pages/work/WorkHomePage'));
@@ -72,15 +68,6 @@ const WorkSuccessPage = lazy(() => import('@/pages/work/WorkSuccessPage'));
 const WorkBuyPage = lazy(() => import('@/pages/work/WorkBuyPage'));
 const WorkBundleBuyPage = lazy(() => import('@/pages/work/WorkBundleBuyPage'));
 const WorkCorporatePage = lazy(() => import('@/pages/work/WorkCorporatePage'));
-
-// Content nested routes
-const ContentLayout = lazy(() => import('@/pages/admin/v4/ContentCRMSupportPages').then(m => ({ default: m.ContentLayout })));
-const ContentPagesList = lazy(() => import('@/pages/admin/v4/ContentCRMSupportPages').then(m => ({ default: m.ContentPagesList })));
-const BlogPostsList = lazy(() => import('@/pages/admin/v4/ContentCRMSupportPages').then(m => ({ default: m.BlogPostsList })));
-const AssetsManager = lazy(() => import('@/pages/admin/v4/ContentCRMSupportPages').then(m => ({ default: m.AssetsManager })));
-const RedirectsManager = lazy(() => import('@/pages/admin/v4/ContentCRMSupportPages').then(m => ({ default: m.RedirectsManager })));
-const ContentBlocksEditor = lazy(() => import('@/pages/admin/v4/ContentBlocksEditor'));
-const MediaAltManager = lazy(() => import('@/pages/admin/v4/MediaAltManager'));
 
 // Learner Pages
 const LessonPlayer = lazy(() => import('@/pages/LessonPlayer'));
