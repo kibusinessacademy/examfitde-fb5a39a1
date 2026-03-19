@@ -37736,13 +37736,11 @@ export type Database = {
       }
       ops_missing_step_backbone: {
         Row: {
-          build_progress: number | null
-          created_at: string | null
-          missing_count: number | null
-          missing_steps: string[] | null
+          checked_at: string | null
+          missing_step: string | null
           package_id: string | null
-          status: string | null
-          title: string | null
+          package_status: string | null
+          package_title: string | null
         }
         Relationships: []
       }
