@@ -129,11 +129,33 @@ Deno.serve(async (req) => {
   const packageId = p.package_id;
   const courseId = p.course_id;
   const curriculumId = p.curriculum_id;
-  const fanoutId = p.fanout_id;
+  let fanoutId = p.fanout_id;
   const expectedShards = Number(p.expected_shards || 0);
 
-  if (!packageId || !courseId || !fanoutId) {
-    return json({ error: "Missing package_id, course_id, or fanout_id" }, 400);
+  if (!packageId || !courseId) {
+    return json({ error: "Missing package_id or course_id" }, 400);
+  }
+
+  // ── Auto-discover fanout_id from package_content_shards if not in payload ──
+  // This happens when the pipeline-runner enqueues finalize_learning_content
+  // via the generic handleEnqueue path (which doesn't carry fanout context).
+  if (!fanoutId) {
+    const { data: latestShard } = await sb
+      .from("package_content_shards")
+      .select("fanout_id")
+      .eq("package_id", packageId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (latestShard?.fanout_id) {
+      fanoutId = latestShard.fanout_id;
+      console.log(`[finalize] Auto-discovered fanout_id=${fanoutId.slice(0, 8)} from shards`);
+    } else {
+      // No shards exist — check if content was generated via legacy (non-fanout) path
+      // In that case, skip shard checks and go directly to coverage validation
+      console.warn(`[finalize] No fanout_id and no shards — falling through to direct coverage check`);
+    }
   }
 
   // ── 1. Check shard progress ──
