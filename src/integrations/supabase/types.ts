@@ -40256,6 +40256,7 @@ export type Database = {
           created_at: string | null
           health_signal: string | null
           job_id: string | null
+          job_priority: number | null
           job_status: string | null
           job_type: string | null
           last_error: string | null
