@@ -195,59 +195,41 @@ const AppRoutes = () => {
 
         {/* ====== ADMIN V2 (SSOT-only) ====== */}
         <Route path="/admin" element={<AdminV2Layout />}>
-          <Route index element={<Navigate to="command" replace />} />
+          <Route index element={<Navigate to="studio" replace />} />
           <Route path="command" element={<LeitstellePage />} />
           <Route path="studio" element={<KursePage />} />
           <Route path="studio/:packageId" element={<CourseWorkspace />} />
           <Route path="queue" element={<QueuePage />} />
-
-          {/* All deactivated routes → info page */}
-          <Route path="home" element={<AdminDeactivatedPage />} />
-          <Route path="control-tower" element={<AdminDeactivatedPage />} />
-          <Route path="quality/*" element={<AdminDeactivatedPage />} />
-          <Route path="ops/*" element={<AdminDeactivatedPage />} />
-          <Route path="business/*" element={<AdminDeactivatedPage />} />
-          <Route path="growth/*" element={<AdminDeactivatedPage />} />
-          <Route path="scale/*" element={<AdminDeactivatedPage />} />
-          <Route path="pipeline" element={<AdminDeactivatedPage />} />
-          <Route path="pipeline/*" element={<AdminDeactivatedPage />} />
-          <Route path="load-control" element={<AdminDeactivatedPage />} />
-          <Route path="production" element={<AdminDeactivatedPage />} />
-          <Route path="production/*" element={<AdminDeactivatedPage />} />
-          <Route path="content/*" element={<AdminDeactivatedPage />} />
-          <Route path="crm/*" element={<AdminDeactivatedPage />} />
-          <Route path="support/*" element={<AdminDeactivatedPage />} />
-          <Route path="handbook" element={<AdminDeactivatedPage />} />
-          <Route path="social" element={<AdminDeactivatedPage />} />
-          <Route path="audit" element={<AdminDeactivatedPage />} />
-          <Route path="contracts" element={<AdminDeactivatedPage />} />
-          <Route path="probes" element={<AdminDeactivatedPage />} />
-          <Route path="scheduler" element={<AdminDeactivatedPage />} />
-          <Route path="leitstelle" element={<AdminDeactivatedPage />} />
-          <Route path="v2-loop-debug" element={<AdminDeactivatedPage />} />
-          <Route path="readiness" element={<AdminDeactivatedPage />} />
-          <Route path="intake/*" element={<AdminDeactivatedPage />} />
-          <Route path="b2b/*" element={<AdminDeactivatedPage />} />
-          <Route path="work" element={<AdminDeactivatedPage />} />
-          <Route path="work/*" element={<AdminDeactivatedPage />} />
-          
-          {/* Catch-all for any other admin route */}
           <Route path="*" element={<AdminDeactivatedPage />} />
         </Route>
 
-        {/* Legacy admin redirects → all go to new command */}
-        <Route path="/admin/dashboard" element={<Navigate to="/admin/command" replace />} />
+        {/* Legacy admin redirects → canonical V2 paths */}
+        <Route path="/admin/dashboard" element={<Navigate to="/admin/studio" replace />} />
+        <Route path="/admin/home" element={<Navigate to="/admin/studio" replace />} />
+        <Route path="/admin/control-tower" element={<Navigate to="/admin/command" replace />} />
+        <Route path="/admin/leitstelle" element={<Navigate to="/admin/command" replace />} />
         <Route path="/admin/courses" element={<Navigate to="/admin/studio" replace />} />
         <Route path="/admin/course-studio" element={<Navigate to="/admin/studio" replace />} />
-        <Route path="/admin/course/:packageId" element={<Navigate to="/admin/studio" replace />} />
+        <Route path="/admin/course/:packageId" element={<Navigate to="/admin/studio/:packageId" replace />} />
         <Route path="/admin/jobs" element={<Navigate to="/admin/queue" replace />} />
         <Route path="/admin/jobs/*" element={<Navigate to="/admin/queue" replace />} />
+        <Route path="/admin/ops/queue" element={<Navigate to="/admin/queue" replace />} />
+        <Route path="/admin/ops/queue/*" element={<Navigate to="/admin/queue" replace />} />
         <Route path="/admin/system/*" element={<Navigate to="/admin/command" replace />} />
         <Route path="/admin/finance/*" element={<Navigate to="/admin/command" replace />} />
         <Route path="/admin/council/*" element={<Navigate to="/admin/command" replace />} />
-        <Route path="/admin-v2/*" element={<Navigate to="/admin/command" replace />} />
-        <Route path="/admin/berufski" element={<Navigate to="/admin/command" replace />} />
-        <Route path="/admin/berufski/*" element={<Navigate to="/admin/command" replace />} />
+        <Route path="/admin/business/*" element={<Navigate to="/admin/command" replace />} />
+        <Route path="/admin/revenue" element={<Navigate to="/admin/command" replace />} />
+        <Route path="/admin/revenue/*" element={<Navigate to="/admin/command" replace />} />
+        <Route path="/admin/content/*" element={<Navigate to="/admin/command" replace />} />
+        <Route path="/admin/crm/*" element={<Navigate to="/admin/command" replace />} />
+        <Route path="/admin/support/*" element={<Navigate to="/admin/command" replace />} />
+        <Route path="/admin/quality/*" element={<Navigate to="/admin/command" replace />} />
+        <Route path="/admin/packages/risk" element={<Navigate to="/admin/studio" replace />} />
+        <Route path="/admin/packages/risk/*" element={<Navigate to="/admin/studio" replace />} />
+        <Route path="/admin-v2/*" element={<Navigate to="/admin/studio" replace />} />
+        <Route path="/admin/berufski" element={<Navigate to="/admin/studio" replace />} />
+        <Route path="/admin/berufski/*" element={<Navigate to="/admin/studio" replace />} />
         {/* 404 */}
         <Route path="*" element={<NotFound />} />
       </Routes>
