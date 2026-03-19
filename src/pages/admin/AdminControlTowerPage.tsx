@@ -6,6 +6,7 @@ import { PipelineFlowCard } from "@/components/admin/cards/PipelineFlowCard";
 import { CapacityCard } from "@/components/admin/cards/CapacityCard";
 import { ReadinessSummaryCard } from "@/components/admin/cards/ReadinessSummaryCard";
 import { ProblemPackagesCard } from "@/components/admin/cards/ProblemPackagesCard";
+import { PipelineRepairCard } from "@/components/admin/cards/PipelineRepairCard";
 import { ProgressDriftCard } from "@/components/admin/cards/ProgressDriftCard";
 import { TelemetryIntegrityCard } from "@/components/admin/cards/TelemetryIntegrityCard";
 import { useAdminControlTower } from "@/components/admin/hooks/useAdminControlTower";
