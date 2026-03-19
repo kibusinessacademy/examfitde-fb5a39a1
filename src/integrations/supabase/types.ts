@@ -44219,6 +44219,7 @@ export type Database = {
       assert_publish_unlock: { Args: never; Returns: undefined }
       assert_qa_release_ok: { Args: never; Returns: undefined }
       assert_ssot_mapping_complete: { Args: never; Returns: Json }
+      assert_step_backbone: { Args: { p_package_id: string }; Returns: Json }
       attach_finding_remediation: {
         Args: {
           p_council_version_id: string
