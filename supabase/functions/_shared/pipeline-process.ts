@@ -110,7 +110,29 @@ export async function processPackage(
     return { packageId, error: stepsErr.message };
   }
 
-  // ✅ Package-level early-exit: if ALL non-done steps have future next_run_at, release immediately
+  // ── Backbone Guard: ensure all mandatory steps exist ──
+  // This heals packages that were created before new steps were added to the DAG.
+  if (steps && steps.length > 0 && steps.length < 25) {
+    try {
+      const { data: bbResult } = await safeRpc(sb, "assert_step_backbone", { p_package_id: packageId });
+      if (bbResult && (bbResult as any)?.missing > 0) {
+        console.log(`[runner] 🩹 Backbone healed ${shortId}: inserted ${(bbResult as any).inserted} missing steps`);
+        // Re-load steps after backbone heal
+        const { data: refreshedSteps } = await sb
+          .from("package_steps")
+          .select("step_key,status,attempts,max_attempts,timeout_seconds,started_at,meta,job_id,last_error,updated_at")
+          .eq("package_id", packageId);
+        if (refreshedSteps) {
+          (steps as any[]).length = 0;
+          (steps as any[]).push(...refreshedSteps);
+        }
+      }
+    } catch (_bbErr) {
+      // Non-fatal — log and continue
+      console.warn(`[runner] Backbone guard error for ${shortId}: ${(_bbErr as Error).message}`);
+    }
+  }
+
   {
     const nowMs = Date.now();
     const pendingSteps = (steps || []).filter((s: any) => s.status !== 'done' && s.status !== 'skipped' && s.status !== 'blocked');
