@@ -369,10 +369,45 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
         console.warn(`[content-runner] ⚠️ ${job.job_type} (${shortId}) ${isTransient ? "TRANSIENT" : "EMPTY_RESULT"} — backoff ${stallBackoff}s [transient ${transientNext}/${TRANSIENT_MAX}]`);
         return { id: job.id, ok: false, error: errorLabel, exhausted, transient: true };
       } else {
-        // Real success — reset provider transient meta
+        // Real success — verify artifact materialization before completing
         const now = new Date().toISOString();
         const successProvider = result?.used_provider || result?.provider || jobProvider || null;
         const successModel = result?.used_model || result?.model || jobModel || null;
+
+        // ── MATERIALIZATION GUARD ──
+        const { verifyArtifact } = await import("../_shared/artifact-verifier.ts");
+        const artifactCheck = await verifyArtifact(sb, job);
+        
+        if (!artifactCheck.ok) {
+          const matRetries = ((job.meta as any)?.materialization_retries ?? 0) + 1;
+          console.warn(`[content-runner] MATERIALIZATION_GUARD: ${job.job_type} (${shortId}) blocked — ${artifactCheck.reason} (retry ${matRetries}/3)`);
+          
+          if (artifactCheck.permanent || matRetries >= 3) {
+            await sb.from("job_queue").update({
+              status: "failed",
+              last_error: `MATERIALIZATION_GUARD: ${artifactCheck.reason}`,
+              completed_at: now,
+              updated_at: now,
+              locked_at: null,
+              locked_by: null,
+              meta: { ...(job.meta || {}), materialization_guard: artifactCheck },
+            }).eq("id", job.id);
+            return { id: job.id, ok: false, error: `MATERIALIZATION_GUARD: ${artifactCheck.reason}` };
+          }
+          
+          // Requeue with backoff
+          await sb.from("job_queue").update({
+            status: "pending",
+            run_after: new Date(Date.now() + 90_000).toISOString(),
+            last_error: `MATERIALIZATION_GUARD: ${artifactCheck.reason} — retry ${matRetries}/3`,
+            updated_at: now,
+            locked_at: null,
+            locked_by: null,
+            meta: { ...(job.meta || {}), materialization_retries: matRetries, materialization_guard: artifactCheck },
+          }).eq("id", job.id);
+          return { id: job.id, ok: false, error: `MATERIALIZATION_GUARD: ${artifactCheck.reason}`, retry: true };
+        }
+
         await sb.from("job_queue").update({
           status: "completed",
           result: result ?? {},
