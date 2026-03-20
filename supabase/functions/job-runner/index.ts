@@ -1745,7 +1745,8 @@ Deno.serve(async (req) => {
         function: fnName,
       });
     }
-  }
+  } // end for jobIdx
+  } // end for-each job
 
   // ── 5. Write concurrency snapshot ──────────────────────────────────
   const action = (tickMetrics.timeouts >= THROTTLE_TIMEOUT_THRESHOLD || tickMetrics.rateLimits >= THROTTLE_RATELIMIT_THRESHOLD)
@@ -1768,4 +1769,4 @@ Deno.serve(async (req) => {
     },
     results,
   });
-}});
+});
