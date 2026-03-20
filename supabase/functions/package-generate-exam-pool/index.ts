@@ -2171,7 +2171,7 @@ Deno.serve(async (req) => {
         }
         calcAttempts++;
 
-        if ((globalTotal + questionsThisChunk + calcBackfillSaved) >= HARD_CAP_QUESTIONS) break;
+        if ((globalTotal + questionsThisChunk + calcBackfillSaved) >= ssotMaxCap) break;
       }
 
       // Apply backfill total to chunk counter ONCE at the end
