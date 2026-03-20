@@ -1926,7 +1926,7 @@ Deno.serve(async (req) => {
     }
 
     // Global hard-cap constraint
-    chunkPlanned = Math.min(chunkPlanned, HARD_CAP_QUESTIONS - globalTotal);
+    chunkPlanned = Math.min(chunkPlanned, ssotMaxCap - globalTotal);
 
     const perBlueprint = Math.max(3, Math.ceil(effectiveTarget / bps.length));
     const chunkStartedAt = new Date().toISOString();
