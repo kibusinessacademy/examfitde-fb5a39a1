@@ -3,6 +3,7 @@ import { assertSchemaReady } from "../_shared/schema-gate.ts";
 import { bootstrapLLMLogging } from "../_shared/llm-log-bootstrap.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { calculateHybridTargetFromDefaults } from "../_shared/hybridExamTarget.ts";
+import { getRemainingGenerationBudget, MAX_QUESTIONS_PER_PACKAGE, getTieredTarget } from "../_shared/exam-pool-limits.ts";
 import type { HybridTargetResult } from "../_shared/hybridExamTarget.ts";
 import { callAIJSON, logLLMCostEvent } from "../_shared/ai-client.ts";
 import type { AIProvider } from "../_shared/ai-client.ts";
@@ -41,7 +42,8 @@ const AI_CHUNK_SIZE = 20;
 const AI_CHUNK_SIZE_FANOUT = 2;       // Fan-out: max 2 BPs per invocation (reduced to fit 45s budget)
 const AI_QUESTIONS_PER_CALL = 5;
 const AI_QUESTIONS_PER_BLUEPRINT = 35;
-const HARD_CAP_QUESTIONS = 1700;
+// SSOT: Hard cap now sourced from exam-pool-limits.ts via getRemainingGenerationBudget()
+// Removed: const HARD_CAP_QUESTIONS = 1700;  ← was a governance breach vs SSOT (max=2000)
 const EXAM_POOL_BUDGET = getTimeBudget("exam_pool_fanout");
 const TIME_BUDGET_MS = EXAM_POOL_BUDGET.ms;
 
@@ -1636,12 +1638,31 @@ Deno.serve(async (req) => {
 
   if (!packageId || !curriculumId) return json({ error: "Missing package_id or curriculum_id" }, 400);
 
+  // ─── SSOT: Load track + certification_level for budget computation ───
+  const { data: pkgMeta } = await sb.from("course_packages")
+    .select("track").eq("id", packageId).maybeSingle();
+  const packageTrack = pkgMeta?.track ?? "AUSBILDUNG_VOLL";
+
+  // Resolve certification_level from catalog (best-effort, defaults to 'ausbildung')
+  let certificationLevel = "ausbildung";
+  try {
+    const { data: cu } = await sb.from("curricula").select("beruf_id").eq("id", curriculumId).maybeSingle();
+    if (cu?.beruf_id) {
+      const { data: cat } = await sb.from("certification_catalog")
+        .select("certification_level")
+        .eq("id", cu.beruf_id).maybeSingle();
+      if (cat?.certification_level) certificationLevel = cat.certification_level;
+    }
+  } catch (_e) { /* best-effort */ }
+
+  const ssotTiered = getTieredTarget(certificationLevel, packageTrack);
+  const ssotMaxCap = Math.min(ssotTiered.max, MAX_QUESTIONS_PER_PACKAGE);
+  console.log(`[ExamPool-v5] SSOT_BUDGET: certLevel=${certificationLevel}, track=${packageTrack}, tier=${ssotTiered.tier}, max=${ssotMaxCap}`);
+
   try {
     if (!isFanOut) {
       // Check if this is an EXAM_FIRST track — skip content prereqs
-      const { data: pkgTrack } = await sb.from("course_packages")
-        .select("track").eq("id", packageId).maybeSingle();
-      const isExamFirst = pkgTrack?.track === "EXAM_FIRST";
+      const isExamFirst = packageTrack === "EXAM_FIRST";
 
       // Prerequisite: blueprint seeding must always be done
       const seedDone = await prereqDone(sb, packageId, "auto_seed_exam_blueprints");
@@ -1834,17 +1855,20 @@ Deno.serve(async (req) => {
       for (const q of recent) existingNgramSets.push(textNgrams(q.question_text));
     }
 
-    // ─── HARD CAP (global) ──────
+    // ─── SSOT HARD CAP (global, excludes rejected/pruned) ──────
     const { count: preCheckCount } = await sb.from("exam_questions")
-      .select("id", { count: "exact", head: true }).eq("curriculum_id", curriculumId);
+      .select("id", { count: "exact", head: true })
+      .eq("curriculum_id", curriculumId)
+      .neq("status", "rejected");
     const globalTotal = preCheckCount ?? 0;
-    if (globalTotal >= HARD_CAP_QUESTIONS) {
-      console.log(`[ExamPool-v5] HARD CAP reached: ${globalTotal} >= ${HARD_CAP_QUESTIONS}`);
+    const ssotBudget = getRemainingGenerationBudget(globalTotal, certificationLevel, packageTrack);
+    if (ssotBudget <= 0) {
+      console.log(`[ExamPool-v5] SSOT HARD CAP reached: ${globalTotal} >= ${ssotMaxCap} (budget=0, tier=${ssotTiered.tier})`);
       const shouldMarkDone = !isFanOut || await allFanOutSubJobsDone(sb, packageId);
       if (shouldMarkDone) {
         await sb.from("course_packages").update({ build_progress: 55 }).eq("id", packageId);
       }
-      return json({ ok: true, batch_complete: true, engine: "v5-ihk-quality", total_questions: globalTotal, hard_cap: true, cap: HARD_CAP_QUESTIONS });
+      return json({ ok: true, batch_complete: true, engine: "v5-ihk-quality", total_questions: globalTotal, hard_cap: true, cap: ssotMaxCap, ssot_tier: ssotTiered.tier });
     }
 
     // ─── ANTI-DOMINANZ CAP (per-LF runtime guard) ──────
@@ -1902,7 +1926,7 @@ Deno.serve(async (req) => {
     }
 
     // Global hard-cap constraint
-    chunkPlanned = Math.min(chunkPlanned, HARD_CAP_QUESTIONS - globalTotal);
+    chunkPlanned = Math.min(chunkPlanned, ssotMaxCap - globalTotal);
 
     const perBlueprint = Math.max(3, Math.ceil(effectiveTarget / bps.length));
     const chunkStartedAt = new Date().toISOString();
@@ -2086,8 +2110,8 @@ Deno.serve(async (req) => {
       bpsProcessed++;
 
       // ── Mid-loop hard cap check ──
-      if (questionsThisChunk > 0 && (globalTotal + questionsThisChunk) >= HARD_CAP_QUESTIONS) {
-        console.log(`[ExamPool-v5] Mid-loop HARD CAP: ~${globalTotal + questionsThisChunk} questions`);
+      if (questionsThisChunk > 0 && (globalTotal + questionsThisChunk) >= ssotMaxCap) {
+        console.log(`[ExamPool-v5] Mid-loop SSOT CAP: ~${globalTotal + questionsThisChunk} >= ${ssotMaxCap}`);
         break;
       }
 
@@ -2118,7 +2142,7 @@ Deno.serve(async (req) => {
     const calcInserted = calcInsertedCount ?? 0;
     const calcDeficit = calcTarget - calcInserted;
 
-    if (calcDeficit > 0 && bps.length > 0 && (globalTotal + questionsThisChunk) < HARD_CAP_QUESTIONS && !shouldSoftStop(invocationStart, "exam_pool_fanout") && (Date.now() - invocationStart) < TIME_BUDGET_MS) {
+    if (calcDeficit > 0 && bps.length > 0 && (globalTotal + questionsThisChunk) < ssotMaxCap && !shouldSoftStop(invocationStart, "exam_pool_fanout") && (Date.now() - invocationStart) < TIME_BUDGET_MS) {
       const maxCalcAttempts = calcDeficit * 4 + 10;
       let calcBackfillSaved = 0;
       let calcAttempts = 0;
@@ -2147,7 +2171,7 @@ Deno.serve(async (req) => {
         }
         calcAttempts++;
 
-        if ((globalTotal + questionsThisChunk + calcBackfillSaved) >= HARD_CAP_QUESTIONS) break;
+        if ((globalTotal + questionsThisChunk + calcBackfillSaved) >= ssotMaxCap) break;
       }
 
       // Apply backfill total to chunk counter ONCE at the end
@@ -2168,7 +2192,8 @@ Deno.serve(async (req) => {
     {
       const { count: globalTotal } = await sb.from("exam_questions")
         .select("id", { count: "exact", head: true })
-        .eq("curriculum_id", curriculumId);
+        .eq("curriculum_id", curriculumId)
+        .neq("status", "rejected");
       const { count: globalCalc } = await sb.from("exam_questions")
         .select("id", { count: "exact", head: true })
         .eq("curriculum_id", curriculumId)
@@ -2182,8 +2207,8 @@ Deno.serve(async (req) => {
 
       if (globalDeficit <= 0) {
         console.log(`[ExamPool-v5] CALC_GLOBAL_QUOTA_OK: ${gCalc}/${gTotal} = ${(100*gCalc/Math.max(gTotal,1)).toFixed(1)}% (target ${(calcRatio*100).toFixed(0)}%)`);
-      } else if (gTotal >= HARD_CAP_QUESTIONS) {
-        console.log(`[ExamPool-v5] CALC_GLOBAL_SKIP: pool at hard cap ${gTotal}, deficit=${globalDeficit}`);
+      } else if (gTotal >= ssotMaxCap) {
+        console.log(`[ExamPool-v5] CALC_GLOBAL_SKIP: pool at SSOT cap ${gTotal}/${ssotMaxCap}, deficit=${globalDeficit}`);
       } else {
         const cappedDeficit = Math.min(globalDeficit, MAX_GLOBAL_BACKFILL);
         const calcBps = bps.filter((b: any) => b.trap_spec != null);
@@ -2225,7 +2250,7 @@ Deno.serve(async (req) => {
 
     // Count actual total
     const { count: totalQuestions } = await sb.from("exam_questions")
-      .select("id", { count: "exact", head: true }).eq("curriculum_id", curriculumId);
+      .select("id", { count: "exact", head: true }).eq("curriculum_id", curriculumId).neq("status", "rejected");
 
     const actualTotal = totalQuestions ?? 0;
     const allBlueprintsProcessed = currentBpIndex >= bps.length;
@@ -2247,12 +2272,12 @@ Deno.serve(async (req) => {
       targetReached = lfActual >= lfPropTarget;
       console.log(`[ExamPool-v5] LF-TARGET-CHECK: lf=${p.learning_field_filter.slice(0,8)}, actual=${lfActual}, target=${lfPropTarget}, reached=${targetReached}`);
     } else {
-      targetReached = actualTotal >= shipTarget || actualTotal >= HARD_CAP_QUESTIONS;
+      targetReached = actualTotal >= shipTarget || actualTotal >= ssotMaxCap;
     }
 
     const elapsedS = ((Date.now() - invocationStart) / 1000).toFixed(1);
     const elapsedMs = Date.now() - invocationStart;
-    console.log(`[ExamPool-v5] +${questionsThisChunk} exam, +${trainingThisChunk} training, total=${actualTotal}/${examTarget} (cap=${HARD_CAP_QUESTIONS}), BPs ${currentBpIndex}/${bps.length}, elapsed=${elapsedS}s`);
+    console.log(`[ExamPool-v5] +${questionsThisChunk} exam, +${trainingThisChunk} training, total=${actualTotal}/${examTarget} (ssot_cap=${ssotMaxCap}, tier=${ssotTiered.tier}), BPs ${currentBpIndex}/${bps.length}, elapsed=${elapsedS}s`);
 
     // ── P1 Observability: Log ai_generations entry with quality metrics ──
     console.log(`[ExamPool-v5] QUALITY_METRICS: ${JSON.stringify(_qualityMetrics)}`);
