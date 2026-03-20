@@ -42,22 +42,28 @@ Deno.serve(async (req) => {
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     if (!supabaseUrl || !serviceKey || !anonKey) return json({ error: "Missing env" }, 500);
 
-    // Auth: validate caller is admin
-    const userClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: { user }, error: authErr } = await userClient.auth.getUser();
-    if (authErr || !user) return json({ error: "Unauthorized" }, 401);
-
     const sb = createClient(supabaseUrl, serviceKey);
 
-    const { data: roleData } = await sb
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", user.id)
-      .eq("role", "admin")
-      .maybeSingle();
-    if (!roleData) return json({ error: "Admin required" }, 403);
+    // Allow service-role key as direct auth (for CI/curl testing)
+    const bearerToken = authHeader.replace("Bearer ", "");
+    const isServiceRole = bearerToken === serviceKey;
+
+    if (!isServiceRole) {
+      // Auth: validate caller is admin
+      const userClient = createClient(supabaseUrl, anonKey, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const { data: { user }, error: authErr } = await userClient.auth.getUser();
+      if (authErr || !user) return json({ error: "Unauthorized" }, 401);
+
+      const { data: roleData } = await sb
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id)
+        .eq("role", "admin")
+        .maybeSingle();
+      if (!roleData) return json({ error: "Admin required" }, 403);
+    }
 
     const body = await req.json().catch(() => ({}));
     const curriculumId = body.curriculum_id;
