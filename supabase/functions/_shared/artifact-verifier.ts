@@ -30,6 +30,18 @@ export interface VerifyResult {
   permanent?: boolean;
 }
 
+/** Audit metadata written to job.meta on verification */
+export interface VerifyAuditMeta {
+  artifact_verified: boolean;
+  artifact_verify_reason?: string;
+  artifact_verify_count?: number;
+  artifact_verify_at: string;
+  artifact_verifier_version: number;
+}
+
+/** Current verifier contract version — bump on logic changes */
+const VERIFIER_VERSION = 2;
+
 /** Helper: run a count query with explicit error handling */
 async function safeCount(
   sb: SB,
@@ -42,19 +54,26 @@ async function safeCount(
   return { count: count ?? 0 };
 }
 
+/** Helper: extract packageId or curriculumId with permanent failure on missing */
+function requirePayloadId(job: any, key: "package_id" | "curriculum_id"): { id: string } | VerifyResult {
+  const id = job.payload?.[key] || (key === "package_id" ? job.package_id : undefined);
+  if (!id) return { ok: false, reason: `MISSING_${key.toUpperCase()}`, permanent: true };
+  return { id };
+}
+
 /**
  * Registry of artifact verifiers keyed by job_type.
- * Each verifier checks whether the job's target artifact is materialized.
+ * Each verifier checks the REAL SSOT relation for artifact materialization.
  */
 const VERIFIERS: Record<string, (sb: SB, job: any) => Promise<VerifyResult>> = {
 
-  // ── Exam Pool: must have >0 non-rejected questions ──
+  // ── Exam Pool: exam_questions by curriculum_id, non-rejected ──
   package_generate_exam_pool: async (sb, job) => {
-    const curriculumId = job.payload?.curriculum_id;
-    if (!curriculumId) return { ok: false, reason: "MISSING_CURRICULUM_ID" };
+    const r = requirePayloadId(job, "curriculum_id");
+    if ("ok" in r) return r;
 
     const { count, error } = await safeCount(sb, "exam_questions", (q) =>
-      q.eq("curriculum_id", curriculumId).neq("status", "rejected"),
+      q.eq("curriculum_id", r.id).neq("status", "rejected"),
     );
     if (error) return { ok: false, reason: `QUERY_ERROR: ${error}` };
 
@@ -63,13 +82,13 @@ const VERIFIERS: Record<string, (sb: SB, job: any) => Promise<VerifyResult>> = {
       : { ok: false, reason: "ZERO_EXAM_QUESTIONS", count: 0 };
   },
 
-  // ── Blueprint Seeding: must have >0 blueprints ──
+  // ── Blueprint Seeding: exam_blueprints by curriculum_id ──
   package_auto_seed_exam_blueprints: async (sb, job) => {
-    const curriculumId = job.payload?.curriculum_id;
-    if (!curriculumId) return { ok: false, reason: "MISSING_CURRICULUM_ID" };
+    const r = requirePayloadId(job, "curriculum_id");
+    if ("ok" in r) return r;
 
     const { count, error } = await safeCount(sb, "exam_blueprints", (q) =>
-      q.eq("curriculum_id", curriculumId),
+      q.eq("curriculum_id", r.id),
     );
     if (error) return { ok: false, reason: `QUERY_ERROR: ${error}` };
 
@@ -78,13 +97,23 @@ const VERIFIERS: Record<string, (sb: SB, job: any) => Promise<VerifyResult>> = {
       : { ok: false, reason: "ZERO_BLUEPRINTS", count: 0 };
   },
 
-  // ── Handbook: must have >0 handbook sections ──
+  // ── Handbook: handbook_sections via handbook_chapters.curriculum_id ──
+  // SSOT chain: handbook_sections → chapter_id → handbook_chapters → curriculum_id
   package_generate_handbook: async (sb, job) => {
-    const packageId = job.payload?.package_id || job.package_id;
-    if (!packageId) return { ok: false, reason: "MISSING_PACKAGE_ID" };
+    const r = requirePayloadId(job, "curriculum_id");
+    if ("ok" in r) return r;
 
+    // First get chapter IDs for this curriculum
+    const { data: chapters, error: chErr } = await sb
+      .from("handbook_chapters")
+      .select("id")
+      .eq("curriculum_id", r.id);
+    if (chErr) return { ok: false, reason: `QUERY_ERROR: ${chErr.message}` };
+    if (!chapters || chapters.length === 0) return { ok: false, reason: "ZERO_HANDBOOK_CHAPTERS", count: 0 };
+
+    const chapterIds = chapters.map((c: any) => c.id);
     const { count, error } = await safeCount(sb, "handbook_sections", (q) =>
-      q.eq("package_id", packageId),
+      q.in("chapter_id", chapterIds),
     );
     if (error) return { ok: false, reason: `QUERY_ERROR: ${error}` };
 
@@ -93,13 +122,13 @@ const VERIFIERS: Record<string, (sb: SB, job: any) => Promise<VerifyResult>> = {
       : { ok: false, reason: "ZERO_HANDBOOK_SECTIONS", count: 0 };
   },
 
-  // ── Tutor Index: must have index record ──
+  // ── Tutor Index: ai_tutor_context_index by package_id ──
   package_build_ai_tutor_index: async (sb, job) => {
-    const packageId = job.payload?.package_id || job.package_id;
-    if (!packageId) return { ok: false, reason: "MISSING_PACKAGE_ID" };
+    const r = requirePayloadId(job, "package_id");
+    if ("ok" in r) return r;
 
     const { count, error } = await safeCount(sb, "ai_tutor_context_index", (q) =>
-      q.eq("package_id", packageId),
+      q.eq("package_id", r.id),
     );
     if (error) return { ok: false, reason: `QUERY_ERROR: ${error}` };
 
@@ -108,13 +137,23 @@ const VERIFIERS: Record<string, (sb: SB, job: any) => Promise<VerifyResult>> = {
       : { ok: false, reason: "ZERO_TUTOR_INDEX", count: 0 };
   },
 
-  // ── Oral Exam: must have oral exam questions ──
+  // ── Oral Exam: oral_exam_questions via oral_exam_blueprints.curriculum_id ──
+  // SSOT chain: oral_exam_questions → blueprint_id → oral_exam_blueprints → curriculum_id
   package_generate_oral_exam: async (sb, job) => {
-    const packageId = job.payload?.package_id || job.package_id;
-    if (!packageId) return { ok: false, reason: "MISSING_PACKAGE_ID" };
+    const r = requirePayloadId(job, "curriculum_id");
+    if ("ok" in r) return r;
 
+    // Get blueprint IDs for this curriculum
+    const { data: bps, error: bpErr } = await sb
+      .from("oral_exam_blueprints")
+      .select("id")
+      .eq("curriculum_id", r.id);
+    if (bpErr) return { ok: false, reason: `QUERY_ERROR: ${bpErr.message}` };
+    if (!bps || bps.length === 0) return { ok: false, reason: "ZERO_ORAL_BLUEPRINTS", count: 0 };
+
+    const bpIds = bps.map((b: any) => b.id);
     const { count, error } = await safeCount(sb, "oral_exam_questions", (q) =>
-      q.eq("package_id", packageId),
+      q.in("blueprint_id", bpIds),
     );
     if (error) return { ok: false, reason: `QUERY_ERROR: ${error}` };
 
@@ -123,13 +162,14 @@ const VERIFIERS: Record<string, (sb: SB, job: any) => Promise<VerifyResult>> = {
       : { ok: false, reason: "ZERO_ORAL_EXAM_QUESTIONS", count: 0 };
   },
 
-  // ── MiniChecks: must have >0 minichecks for package lessons ──
+  // ── MiniChecks: minicheck_questions by curriculum_id ──
+  // SSOT table: minicheck_questions (has curriculum_id + lesson_id directly)
   package_generate_lesson_minichecks: async (sb, job) => {
-    const packageId = job.payload?.package_id || job.package_id;
-    if (!packageId) return { ok: false, reason: "MISSING_PACKAGE_ID" };
+    const r = requirePayloadId(job, "curriculum_id");
+    if ("ok" in r) return r;
 
-    const { count, error } = await safeCount(sb, "lesson_minichecks", (q) =>
-      q.eq("package_id", packageId),
+    const { count, error } = await safeCount(sb, "minicheck_questions", (q) =>
+      q.eq("curriculum_id", r.id),
     );
     if (error) return { ok: false, reason: `QUERY_ERROR: ${error}` };
 
@@ -138,33 +178,46 @@ const VERIFIERS: Record<string, (sb: SB, job: any) => Promise<VerifyResult>> = {
       : { ok: false, reason: "ZERO_MINICHECKS", count: 0 };
   },
 
-  // ── Integrity Check: report must be persisted AND fresh ──
+  // ── Integrity Check: report + version must be persisted and fresh ──
   package_run_integrity_check: async (sb, job) => {
-    const packageId = job.payload?.package_id || job.package_id;
-    if (!packageId) return { ok: false, reason: "MISSING_PACKAGE_ID" };
+    const r = requirePayloadId(job, "package_id");
+    if ("ok" in r) return r;
 
     const { data, error } = await sb
       .from("course_packages")
       .select("integrity_report, integrity_report_version, updated_at")
-      .eq("id", packageId)
+      .eq("id", r.id)
       .single();
 
     if (error) return { ok: false, reason: `QUERY_ERROR: ${error.message}` };
-    if (!data) return { ok: false, reason: "PACKAGE_NOT_FOUND" };
+    if (!data) return { ok: false, reason: "PACKAGE_NOT_FOUND", permanent: true };
 
     // Version set but body missing = persistence defect (permanent)
     if (data.integrity_report_version && !data.integrity_report) {
       return { ok: false, reason: "INTEGRITY_PERSISTENCE_DEFECT", permanent: true };
     }
 
-    // Report must exist
     if (!data.integrity_report) {
       return { ok: false, reason: "INTEGRITY_REPORT_MISSING" };
     }
 
-    // Version must be set alongside report
     if (!data.integrity_report_version) {
       return { ok: false, reason: "INTEGRITY_VERSION_MISSING" };
+    }
+
+    // Freshness check: report must be generated after job started
+    const jobStarted = job.locked_at || job.started_at;
+    if (jobStarted && data.integrity_report) {
+      const report = typeof data.integrity_report === "object" ? data.integrity_report : null;
+      const reportGeneratedAt = (report as any)?.generated_at;
+      if (reportGeneratedAt) {
+        const reportTime = new Date(reportGeneratedAt).getTime();
+        const jobTime = new Date(jobStarted).getTime();
+        // Allow 60s tolerance for clock skew
+        if (reportTime < jobTime - 60_000) {
+          return { ok: false, reason: "INTEGRITY_REPORT_STALE" };
+        }
+      }
     }
 
     return { ok: true };
@@ -195,6 +248,20 @@ export async function verifyArtifact(sb: SB, job: any): Promise<VerifyResult> {
       permanent: false, // Allow retry — verifier may recover
     };
   }
+}
+
+/**
+ * Build audit metadata for the job's meta field.
+ * Call after verifyArtifact() and write into job.meta for forensic traceability.
+ */
+export function buildVerifyAuditMeta(result: VerifyResult): VerifyAuditMeta {
+  return {
+    artifact_verified: result.ok,
+    artifact_verify_reason: result.reason,
+    artifact_verify_count: result.count,
+    artifact_verify_at: new Date().toISOString(),
+    artifact_verifier_version: VERIFIER_VERSION,
+  };
 }
 
 /** List of job types that have artifact verifiers registered */
