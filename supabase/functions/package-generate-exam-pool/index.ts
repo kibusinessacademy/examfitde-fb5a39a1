@@ -2142,7 +2142,7 @@ Deno.serve(async (req) => {
     const calcInserted = calcInsertedCount ?? 0;
     const calcDeficit = calcTarget - calcInserted;
 
-    if (calcDeficit > 0 && bps.length > 0 && (globalTotal + questionsThisChunk) < HARD_CAP_QUESTIONS && !shouldSoftStop(invocationStart, "exam_pool_fanout") && (Date.now() - invocationStart) < TIME_BUDGET_MS) {
+    if (calcDeficit > 0 && bps.length > 0 && (globalTotal + questionsThisChunk) < ssotMaxCap && !shouldSoftStop(invocationStart, "exam_pool_fanout") && (Date.now() - invocationStart) < TIME_BUDGET_MS) {
       const maxCalcAttempts = calcDeficit * 4 + 10;
       let calcBackfillSaved = 0;
       let calcAttempts = 0;
