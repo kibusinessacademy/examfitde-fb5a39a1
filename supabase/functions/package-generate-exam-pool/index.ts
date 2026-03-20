@@ -2271,7 +2271,7 @@ Deno.serve(async (req) => {
       targetReached = lfActual >= lfPropTarget;
       console.log(`[ExamPool-v5] LF-TARGET-CHECK: lf=${p.learning_field_filter.slice(0,8)}, actual=${lfActual}, target=${lfPropTarget}, reached=${targetReached}`);
     } else {
-      targetReached = actualTotal >= shipTarget || actualTotal >= HARD_CAP_QUESTIONS;
+      targetReached = actualTotal >= shipTarget || actualTotal >= ssotMaxCap;
     }
 
     const elapsedS = ((Date.now() - invocationStart) / 1000).toFixed(1);
