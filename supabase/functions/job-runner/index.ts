@@ -1098,15 +1098,34 @@ Deno.serve(async (req) => {
               metricsAction: "completed",
             };
           } else {
-            console.warn(`[job-runner] ${fnName} 409 retry → requeue +${BACKOFF_409_MS}ms`);
-            finalState = {
-              status: "pending",
-              patch: {
-                run_after: new Date(Date.now() + BACKOFF_409_MS).toISOString(),
-                error: "HTTP 409 — prereq not ready, will retry",
-                meta: { ...(job.meta || {}), last_retry: tsNow },
-              },
-            };
+            // ── PREREQ_BURN_GUARD: track consecutive prereq retries ──
+            const prereqRetries = Number((job.meta as any)?.prereq_retries ?? 0) + 1;
+            const MAX_PREREQ_RETRIES = 8;
+            
+            if (prereqRetries >= MAX_PREREQ_RETRIES) {
+              console.error(`[job-runner] ${fnName} PREREQ_BURN_GUARD: ${prereqRetries} consecutive 409 prereq retries → blocked (pkg ${(job.payload?.package_id as string || '?').slice(0, 8)})`);
+              finalState = {
+                status: "failed",
+                patch: {
+                  error: `PREREQ_BURN_GUARD: ${prereqRetries} retries exhausted waiting for prereq. Last: ${parsed?.error || parsed?.reason || 'unknown'}`,
+                  completed_at: tsNow,
+                  attempts: (job.attempts || 0) + 1,
+                  meta: { ...(job.meta || {}), prereq_retries: prereqRetries, prereq_burned: true },
+                },
+              };
+            } else {
+              // Adaptive backoff: longer waits as retries increase
+              const prereqBackoff = Math.min(BACKOFF_409_MS * Math.pow(1.5, prereqRetries - 1), 300_000);
+              console.warn(`[job-runner] ${fnName} 409 retry → requeue +${prereqBackoff}ms (prereq_retry=${prereqRetries}/${MAX_PREREQ_RETRIES})`);
+              finalState = {
+                status: "pending",
+                patch: {
+                  run_after: new Date(Date.now() + prereqBackoff).toISOString(),
+                  error: `HTTP 409 — prereq not ready (retry ${prereqRetries}/${MAX_PREREQ_RETRIES})`,
+                  meta: { ...(job.meta || {}), last_retry: tsNow, prereq_retries: prereqRetries },
+                },
+              };
+            }
           }
         }
         // ── Rate-limited / transient (503, 429) ─────────────────────

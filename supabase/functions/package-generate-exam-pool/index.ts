@@ -2443,6 +2443,19 @@ Deno.serve(async (req) => {
     }
 
     if (targetReached) {
+      // ── ZERO-OUTPUT INVARIANT: never declare batch_complete with 0 questions ──
+      const { count: finalVerifyCount } = await sb.from("exam_questions")
+        .select("id", { count: "exact", head: true })
+        .eq("curriculum_id", curriculumId)
+        .neq("status", "rejected");
+      if ((finalVerifyCount ?? 0) === 0) {
+        console.error(`[ExamPool-v5] ZERO_OUTPUT_INVARIANT: targetReached=true but 0 non-rejected questions exist → refusing batch_complete`);
+        return transientBackoff(
+          "ZERO_OUTPUT_INVARIANT: target calculation claims reached but 0 questions persist in DB",
+          300,
+          { generated: generatedThisRun, inserted: insertedThisRun, blueprints_found: bps.length, blueprints_used: bpsProcessed, reason: "ZERO_OUTPUT_INVARIANT" },
+        );
+      }
       const shouldMarkDone = !isFanOut || await allFanOutSubJobsDone(sb, packageId);
       if (shouldMarkDone) {
         await sb.from("course_packages").update({ build_progress: 55 }).eq("id", packageId);
