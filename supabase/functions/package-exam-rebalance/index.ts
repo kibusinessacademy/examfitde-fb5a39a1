@@ -80,6 +80,22 @@ Deno.serve(async (req) => {
 
     if (pkgErr || !pkg) return json({ error: "Package not found" }, 404);
 
+    // ── P0 GUARD: integrity_report must be present and fresh ──
+    // If report is NULL, rebalance cannot determine hard_fail_reasons.
+    // This was the root cause of the MFA ghost-block (2026-03-20).
+    if (!pkg.integrity_report) {
+      console.error(`[exam-rebalance] ABORT: integrity_report=NULL for ${packageId.slice(0, 8)}. Cannot diagnose. Run integrity check first.`);
+      return json({
+        ok: false,
+        error: "INTEGRITY_REPORT_MISSING",
+        message: "integrity_report is NULL. Run package-run-integrity-check with force=true first.",
+        package_id: packageId,
+        hard_fails: [],
+        actions: [],
+        unblocked: false,
+      });
+    }
+
     const report = (pkg.integrity_report as Record<string, unknown>) ?? {};
     const v3 = (report.v3 ?? {}) as Record<string, unknown>;
     const hardFails = (v3.hard_fail_reasons ?? []) as string[];

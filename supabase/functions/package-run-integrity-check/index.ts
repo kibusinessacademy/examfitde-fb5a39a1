@@ -1057,6 +1057,61 @@ Deno.serve(async (req) => {
     const { error: uErr } = await sb.from("course_packages").update(updatePayload).eq("id", packageId);
     if (uErr) throw uErr;
 
+    // ── P0 PERSISTENCE VERIFICATION ──
+    // Invariant: if we wrote integrity_report, it MUST be persisted.
+    // Silent persistence failures caused MFA ghost-block (2026-03-20).
+    {
+      const { data: verifyRow, error: verifyErr } = await sb
+        .from("course_packages")
+        .select("integrity_report, integrity_report_version")
+        .eq("id", packageId)
+        .single();
+
+      if (verifyErr) {
+        console.error(`[integrity-check] PERSISTENCE_VERIFY_FAIL: could not re-read package: ${verifyErr.message}`);
+      } else if (verifyRow) {
+        const hasVersion = Boolean(verifyRow.integrity_report_version);
+        const hasReport = verifyRow.integrity_report !== null;
+
+        if (hasVersion && !hasReport) {
+          // CRITICAL: version set but report NULL — persistence defect
+          const errMsg = `INTEGRITY_REPORT_PERSISTENCE_DEFECT: integrity_report_version=${verifyRow.integrity_report_version} but integrity_report=NULL`;
+          console.error(`[integrity-check] ${errMsg}`);
+
+          // Mark step as failed so it doesn't silently succeed
+          await sb.from("package_steps").update({
+            status: "failed",
+            last_error: errMsg,
+            meta: {
+              last_error: errMsg,
+              last_error_class: "persistence_defect",
+              persistence_defect_at: new Date().toISOString(),
+            },
+          }).eq("package_id", packageId).eq("step_key", "run_integrity_check");
+
+          // Notify admin
+          try {
+            await sb.from("admin_notifications").insert({
+              title: "🚨 Integrity Report Persistence Defect",
+              body: `Package ${packageId.slice(0, 8)}: report was generated (score=${gate.score}) but NOT persisted to DB. Step marked failed. Investigate column size/trigger interference.`,
+              category: "quality",
+              severity: "error",
+              entity_type: "course_package",
+              entity_id: packageId,
+            });
+          } catch (_) { /* non-critical */ }
+
+          return json({
+            ok: false,
+            error: errMsg,
+            report_was_generated: true,
+            report_score: gate.score,
+            hard_fails: gate.hardFails,
+          });
+        }
+      }
+    }
+
     // ── SSOT Status Reconciliation: heal stale quality_gate_failed ──
     // If integrity passed and build is complete, ensure status reflects reality
     if (gate.hardFails.length === 0 && !isAlreadyPublished) {
