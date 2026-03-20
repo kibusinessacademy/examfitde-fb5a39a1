@@ -2206,8 +2206,8 @@ Deno.serve(async (req) => {
 
       if (globalDeficit <= 0) {
         console.log(`[ExamPool-v5] CALC_GLOBAL_QUOTA_OK: ${gCalc}/${gTotal} = ${(100*gCalc/Math.max(gTotal,1)).toFixed(1)}% (target ${(calcRatio*100).toFixed(0)}%)`);
-      } else if (gTotal >= HARD_CAP_QUESTIONS) {
-        console.log(`[ExamPool-v5] CALC_GLOBAL_SKIP: pool at hard cap ${gTotal}, deficit=${globalDeficit}`);
+      } else if (gTotal >= ssotMaxCap) {
+        console.log(`[ExamPool-v5] CALC_GLOBAL_SKIP: pool at SSOT cap ${gTotal}/${ssotMaxCap}, deficit=${globalDeficit}`);
       } else {
         const cappedDeficit = Math.min(globalDeficit, MAX_GLOBAL_BACKFILL);
         const calcBps = bps.filter((b: any) => b.trap_spec != null);
