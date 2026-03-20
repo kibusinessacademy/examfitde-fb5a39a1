@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter } from "react-router-dom";
+import { BrowserRouter, useLocation } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { AuthProvider } from "@/hooks/useAuth";
 import { OfflineIndicator } from "@/components/pwa/OfflineIndicator";
@@ -20,22 +20,30 @@ const queryClient = new QueryClient({
   },
 });
 
-function AppContent() {
+function AppChrome() {
   const { isNative } = useNativeApp();
-  
+  const location = useLocation();
+  const isAdminRoute = location.pathname.startsWith('/admin');
+  const showNativeTabBar = isNative && !isAdminRoute;
+
   return (
     <>
       <OfflineIndicator />
       <Toaster />
       <Sonner />
-      <BrowserRouter>
-        <AppRoutes />
-        <NativeTabBar />
-      </BrowserRouter>
+      <AppRoutes />
+      {showNativeTabBar ? <NativeTabBar /> : null}
       <InstallPrompt />
-      {/* Add bottom padding when native tab bar is visible */}
-      {isNative && <div className="h-20" />}
+      {showNativeTabBar ? <div className="h-20" /> : null}
     </>
+  );
+}
+
+function AppContent() {
+  return (
+    <BrowserRouter>
+      <AppChrome />
+    </BrowserRouter>
   );
 }
 
