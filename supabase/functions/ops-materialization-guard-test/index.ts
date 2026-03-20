@@ -158,7 +158,7 @@ Deno.serve(async (req) => {
     // ── Overall verdict ──
     const path2Pass = results.path2_artifact_missing?.pass === true;
     const path3Pass = results.path3_unregistered?.pass === true;
-    const path4Pass = results.path4_verifier_error?.pass === true;
+    const path4Pass = results.path4_invalid_payload_fail_closed?.pass === true;
     const allBlocked = Object.values(registeredSummary).every((v: any) => v.blocked);
 
     const overallPass = path2Pass && path3Pass && path4Pass && allBlocked;
