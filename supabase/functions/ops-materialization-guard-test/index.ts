@@ -118,15 +118,15 @@ Deno.serve(async (req) => {
       expected: "ok=true (no verifier = pass-through)",
     };
 
-    // ── PATH 4: Verifier error / fail-closed ──
-    // Registered type but with completely missing payload → should fail-closed
+    // ── PATH 4: Invalid payload → fail-closed ──
+    // Registered type but with completely missing payload → permanent failure
     const fakeJob4 = {
       id: "test-guard-path4",
       job_type: "package_generate_exam_pool",
       payload: {},  // Missing curriculum_id → permanent failure
     };
     const r4 = await verifyArtifact(sb, fakeJob4);
-    results["path4_verifier_error"] = {
+    results["path4_invalid_payload_fail_closed"] = {
       job_type: fakeJob4.job_type,
       result: r4,
       audit: buildVerifyAuditMeta(r4),
