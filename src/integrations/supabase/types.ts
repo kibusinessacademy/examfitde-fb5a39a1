@@ -40852,15 +40852,29 @@ export type Database = {
       }
       v_building_package_eta: {
         Row: {
+          blocked_steps: number | null
+          bottleneck_hours: number | null
+          bottleneck_step: string | null
           build_progress: number | null
-          eta_hours_content_only: number | null
-          global_lessons_per_hour: number | null
+          completions_24h: number | null
+          done_steps: number | null
+          eta_hours_parallel: number | null
+          eta_hours_sequential: number | null
+          failed_steps: number | null
+          health_signal: string | null
+          hours_since_last_completion: number | null
+          jobs_failed: number | null
+          jobs_pending: number | null
+          jobs_processing: number | null
           package_id: string | null
-          real_lessons: number | null
-          remaining_lessons: number | null
+          priority: number | null
+          publish_priority_score: number | null
+          running_steps: number | null
+          status: string | null
           title: string | null
-          total_lessons: number | null
+          total_steps: number | null
           updated_at: string | null
+          weighted_progress_pct: number | null
         }
         Relationships: []
       }
