@@ -8,6 +8,7 @@ import { ReadinessSummaryCard } from "@/components/admin/cards/ReadinessSummaryC
 import { ProblemPackagesCard } from "@/components/admin/cards/ProblemPackagesCard";
 import { PipelineRepairCard } from "@/components/admin/cards/PipelineRepairCard";
 import { ProgressDriftCard } from "@/components/admin/cards/ProgressDriftCard";
+import { PackageEtaCard } from "@/components/admin/cards/PackageEtaCard";
 import { TelemetryIntegrityCard } from "@/components/admin/cards/TelemetryIntegrityCard";
 import { useAdminControlTower } from "@/components/admin/hooks/useAdminControlTower";
 import { Skeleton } from "@/components/ui/skeleton";
