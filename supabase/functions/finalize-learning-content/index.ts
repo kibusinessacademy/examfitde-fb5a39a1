@@ -158,6 +158,10 @@ Deno.serve(async (req) => {
     }
   }
 
+  // deno-lint-ignore no-explicit-any
+  let allShards: any[] = [];
+  let totalShards = 0;
+
   // ── 1. Check shard progress (only if fanout path was used) ──
   if (fanoutId) {
     const { data: shards, error: shardErr } = await sb
@@ -171,8 +175,8 @@ Deno.serve(async (req) => {
     }
 
     // deno-lint-ignore no-explicit-any
-    const allShards = (shards || []) as any[];
-    const totalShards = allShards.length;
+    allShards = (shards || []) as any[];
+    totalShards = allShards.length;
 
     if (expectedShards > 0 && totalShards < expectedShards) {
       return json({
