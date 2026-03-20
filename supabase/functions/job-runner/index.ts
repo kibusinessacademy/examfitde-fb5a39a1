@@ -4,6 +4,7 @@ import { assertSchemaReady } from "../_shared/schema-gate.ts";
 import { PIPELINE_GRAPH, validatePipelineGraph, STEP_TO_JOB_TYPE, ARTIFACT_IMPACT, getArtifactPriorityBump, poolForJobType, JOB_DEFINITIONS } from "../_shared/job-map.ts";
 import { checkArtifacts } from "../_shared/artifact-resolver.ts";
 import { enqueueJob } from "../_shared/enqueue.ts";
+import { verifyArtifact } from "../_shared/artifact-verifier.ts";
 
 /**
  * job-runner — Atomically claims pending jobs via claim_pending_jobs RPC
@@ -1576,19 +1577,57 @@ Deno.serve(async (req) => {
         delete cleanedMeta.last_transient_error;
         delete cleanedMeta.last_transient_at;
 
-        finalState = {
-          status: "completed",
-          patch: {
-            result: typeof parsed === "object" ? parsed : { raw: parsed },
-            completed_at: tsNow,
-            error: null,
-            meta: cleanedMeta,
-          },
-          metricsAction: "completed",
-        };
-        tickMetrics.completed++;
-        tickMetrics.totalLatencyMs += elapsedMs;
-      }
+        // ── MATERIALIZATION GUARD: verify artifact exists before completing ──
+        const artifactCheck = await verifyArtifact(sb, job);
+        if (!artifactCheck.ok) {
+          console.warn(`[job-runner] MATERIALIZATION_GUARD: ${job.job_type} blocked — ${artifactCheck.reason} (count=${artifactCheck.count ?? "n/a"})`);
+          if (artifactCheck.permanent) {
+            finalState = {
+              status: "failed",
+              patch: {
+                error: `MATERIALIZATION_GUARD: ${artifactCheck.reason}`,
+                result: typeof parsed === "object" ? parsed : { raw: parsed },
+                completed_at: tsNow,
+                meta: { ...cleanedMeta, materialization_guard: artifactCheck },
+              },
+            };
+          } else {
+            // Transient: requeue with backoff — artifact may not be visible yet
+            finalState = {
+              status: "pending",
+              patch: {
+                run_after: new Date(Date.now() + 90_000).toISOString(),
+                error: `MATERIALIZATION_GUARD: ${artifactCheck.reason} — will retry`,
+                result: typeof parsed === "object" ? parsed : { raw: parsed },
+                meta: { ...cleanedMeta, materialization_guard: artifactCheck, materialization_retries: ((job.meta?.materialization_retries ?? 0) as number) + 1 },
+              },
+            };
+            // After 3 materialization retries, fail permanently
+            if (((job.meta?.materialization_retries ?? 0) as number) >= 3) {
+              finalState = {
+                status: "failed",
+                patch: {
+                  error: `MATERIALIZATION_GUARD: ${artifactCheck.reason} — exhausted after 3 retries`,
+                  completed_at: tsNow,
+                  meta: { ...cleanedMeta, materialization_guard: artifactCheck },
+                },
+              };
+            }
+          }
+        } else {
+          finalState = {
+            status: "completed",
+            patch: {
+              result: typeof parsed === "object" ? parsed : { raw: parsed },
+              completed_at: tsNow,
+              error: null,
+              meta: cleanedMeta,
+            },
+            metricsAction: "completed",
+          };
+          tickMetrics.completed++;
+          tickMetrics.totalLatencyMs += elapsedMs;
+        }
 
     } catch (err: unknown) {
       const msg = (err as Error)?.message || String(err);
