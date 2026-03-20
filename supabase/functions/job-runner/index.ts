@@ -1579,6 +1579,8 @@ Deno.serve(async (req) => {
 
         // ── MATERIALIZATION GUARD: verify artifact exists before completing ──
         const artifactCheck = await verifyArtifact(sb, job);
+        const auditMeta = buildVerifyAuditMeta(artifactCheck);
+
         if (!artifactCheck.ok) {
           console.warn(`[job-runner] MATERIALIZATION_GUARD: ${job.job_type} blocked — ${artifactCheck.reason} (count=${artifactCheck.count ?? "n/a"})`);
           if (artifactCheck.permanent) {
@@ -1588,28 +1590,28 @@ Deno.serve(async (req) => {
                 error: `MATERIALIZATION_GUARD: ${artifactCheck.reason}`,
                 result: typeof parsed === "object" ? parsed : { raw: parsed },
                 completed_at: tsNow,
-                meta: { ...cleanedMeta, materialization_guard: artifactCheck },
+                meta: { ...cleanedMeta, ...auditMeta },
               },
             };
           } else {
-            // Transient: requeue with backoff — artifact may not be visible yet
-            finalState = {
-              status: "pending",
-              patch: {
-                run_after: new Date(Date.now() + 90_000).toISOString(),
-                error: `MATERIALIZATION_GUARD: ${artifactCheck.reason} — will retry`,
-                result: typeof parsed === "object" ? parsed : { raw: parsed },
-                meta: { ...cleanedMeta, materialization_guard: artifactCheck, materialization_retries: ((job.meta?.materialization_retries ?? 0) as number) + 1 },
-              },
-            };
-            // After 3 materialization retries, fail permanently
-            if (((job.meta?.materialization_retries ?? 0) as number) >= 3) {
+            const matRetries = ((job.meta?.materialization_retries ?? 0) as number) + 1;
+            if (matRetries >= 3) {
               finalState = {
                 status: "failed",
                 patch: {
                   error: `MATERIALIZATION_GUARD: ${artifactCheck.reason} — exhausted after 3 retries`,
                   completed_at: tsNow,
-                  meta: { ...cleanedMeta, materialization_guard: artifactCheck },
+                  meta: { ...cleanedMeta, ...auditMeta, materialization_retries: matRetries },
+                },
+              };
+            } else {
+              finalState = {
+                status: "pending",
+                patch: {
+                  run_after: new Date(Date.now() + 90_000).toISOString(),
+                  error: `MATERIALIZATION_GUARD: ${artifactCheck.reason} — retry ${matRetries}/3`,
+                  result: typeof parsed === "object" ? parsed : { raw: parsed },
+                  meta: { ...cleanedMeta, ...auditMeta, materialization_retries: matRetries },
                 },
               };
             }
@@ -1621,7 +1623,7 @@ Deno.serve(async (req) => {
               result: typeof parsed === "object" ? parsed : { raw: parsed },
               completed_at: tsNow,
               error: null,
-              meta: cleanedMeta,
+              meta: { ...cleanedMeta, ...auditMeta },
             },
             metricsAction: "completed",
           };
