@@ -375,8 +375,9 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
         const successModel = result?.used_model || result?.model || jobModel || null;
 
         // ── MATERIALIZATION GUARD ──
-        const { verifyArtifact } = await import("../_shared/artifact-verifier.ts");
+        const { verifyArtifact, buildVerifyAuditMeta } = await import("../_shared/artifact-verifier.ts");
         const artifactCheck = await verifyArtifact(sb, job);
+        const auditMeta = buildVerifyAuditMeta(artifactCheck);
         
         if (!artifactCheck.ok) {
           const matRetries = ((job.meta as any)?.materialization_retries ?? 0) + 1;
@@ -385,12 +386,12 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
           if (artifactCheck.permanent || matRetries >= 3) {
             await sb.from("job_queue").update({
               status: "failed",
-              last_error: `MATERIALIZATION_GUARD: ${artifactCheck.reason}`,
+              last_error: `MATERIALIZATION_GUARD: ${artifactCheck.reason}${matRetries >= 3 ? " — exhausted" : ""}`,
               completed_at: now,
               updated_at: now,
               locked_at: null,
               locked_by: null,
-              meta: { ...(job.meta || {}), materialization_guard: artifactCheck },
+              meta: { ...(job.meta || {}), ...auditMeta, materialization_retries: matRetries },
             }).eq("id", job.id);
             return { id: job.id, ok: false, error: `MATERIALIZATION_GUARD: ${artifactCheck.reason}` };
           }
@@ -403,7 +404,7 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
             updated_at: now,
             locked_at: null,
             locked_by: null,
-            meta: { ...(job.meta || {}), materialization_retries: matRetries, materialization_guard: artifactCheck },
+            meta: { ...(job.meta || {}), ...auditMeta, materialization_retries: matRetries },
           }).eq("id", job.id);
           return { id: job.id, ok: false, error: `MATERIALIZATION_GUARD: ${artifactCheck.reason}`, retry: true };
         }
@@ -418,7 +419,7 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
           last_error: null,
           last_heartbeat_at: now,
           liveness_status: "healthy",
-          meta: resetProviderTransientMeta(job, successProvider, successModel),
+          meta: { ...resetProviderTransientMeta(job, successProvider, successModel), ...auditMeta },
         }).eq("id", job.id);
 
         // Signal provider success to circuit breaker
