@@ -1630,6 +1630,8 @@ Deno.serve(async (req) => {
           tickMetrics.completed++;
           tickMetrics.totalLatencyMs += elapsedMs;
         }
+        }
+      }
 
     } catch (err: unknown) {
       const msg = (err as Error)?.message || String(err);
@@ -1744,8 +1746,6 @@ Deno.serve(async (req) => {
         status: finalState.status === "pending" ? "requeued" : finalState.status,
         function: fnName,
       });
-    }
-  } // end for jobIdx
   } // end for-each job
 
   // ── 5. Write concurrency snapshot ──────────────────────────────────
