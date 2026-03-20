@@ -837,9 +837,18 @@ Deno.serve(async (req) => {
       const reviewPending = backlogCounts.pending || 0;
       const tier1Passed = backlogCounts.tier1_passed || 0;
       const totalApproved = (backlogCounts.approved || 0) + (backlogCounts["null"] || 0);
-      
-      // Block if significant backlog exists relative to approved pool
-      const significantBacklog = reviewPending > 500 || (tier1Passed > 200 && tier1Passed > totalApproved * 0.1);
+
+      // IMPORTANT: tier1_passed is already treated as exam-ready pool everywhere else
+      // in the integrity pipeline. Counting it as QC backlog here creates a false
+      // negative loop: integrity report never materializes → quality council fails
+      // with missing_integrity_report → auto_publish blocks deterministically.
+      // Only true review/pending backlog may defer integrity execution.
+      const significantBacklog = reviewPending > 500;
+      if (!significantBacklog && tier1Passed > 200 && tier1Passed > totalApproved * 0.1) {
+        console.log(
+          `[integrity-check] BACKLOG_GATE_BYPASS: pkg=${packageId!.slice(0, 8)} review_pending=${reviewPending}, tier1_passed=${tier1Passed}, approved=${totalApproved} — tier1_passed treated as ready pool, not backlog`,
+        );
+      }
       if (significantBacklog) {
         console.log(`[integrity-check] BACKLOG_GATE: pkg=${packageId!.slice(0, 8)} review_pending=${reviewPending}, tier1_passed=${tier1Passed}, approved=${totalApproved} — deferring`);
         return json({
