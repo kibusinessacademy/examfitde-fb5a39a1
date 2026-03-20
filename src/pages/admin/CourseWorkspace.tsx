@@ -513,10 +513,13 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
                             </div>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
-                            {!isDone && !isRunning && !isBuilding && (
+                            {!isDone && !isRunning && isBuilding && (
                               <Button variant="ghost" size="sm" className="h-6 text-[10px] px-2 text-warning" onClick={(e) => { e.stopPropagation(); handleExceptionApprove(stepKey); }} disabled={rebuildingStep === stepKey}>
                                 <ShieldCheck className="h-3 w-3 mr-0.5" /> Ausnahme
                               </Button>
+                            )}
+                            {!isBuilding && pkg.status === 'queued' && !isDone && (
+                              <span className="text-[10px] text-muted-foreground/70 italic">Wartet auf Slot</span>
                             )}
                             {(isDone || isFailed) && !isBuilding && (
                               <Button variant="ghost" size="sm" className="h-6 text-[10px] px-2" onClick={(e) => { e.stopPropagation(); handleRebuildStep(stepKey); }} disabled={rebuildingStep === stepKey}>
