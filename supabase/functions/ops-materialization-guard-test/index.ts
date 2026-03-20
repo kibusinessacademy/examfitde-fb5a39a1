@@ -45,7 +45,7 @@ Deno.serve(async (req) => {
     const sb = createClient(supabaseUrl, serviceKey);
 
     // Allow service-role key as direct auth (for CI/curl testing)
-    const bearerToken = authHeader.replace("Bearer ", "");
+    const bearerToken = authHeader.replace(/^Bearer\s+/i, "");
     const isServiceRole = bearerToken === serviceKey || bearerToken === anonKey;
 
     if (!isServiceRole) {
