@@ -1746,7 +1746,6 @@ Deno.serve(async (req) => {
         status: finalState.status === "pending" ? "requeued" : finalState.status,
         function: fnName,
       });
-    }
   } // end for-each job
 
   // ── 5. Write concurrency snapshot ──────────────────────────────────
