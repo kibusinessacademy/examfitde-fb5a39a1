@@ -1630,6 +1630,8 @@ Deno.serve(async (req) => {
           tickMetrics.completed++;
           tickMetrics.totalLatencyMs += elapsedMs;
         }
+        }
+      }
 
     } catch (err: unknown) {
       const msg = (err as Error)?.message || String(err);
