@@ -1855,17 +1855,20 @@ Deno.serve(async (req) => {
       for (const q of recent) existingNgramSets.push(textNgrams(q.question_text));
     }
 
-    // ─── HARD CAP (global) ──────
+    // ─── SSOT HARD CAP (global, excludes rejected/pruned) ──────
     const { count: preCheckCount } = await sb.from("exam_questions")
-      .select("id", { count: "exact", head: true }).eq("curriculum_id", curriculumId);
+      .select("id", { count: "exact", head: true })
+      .eq("curriculum_id", curriculumId)
+      .neq("status", "rejected");
     const globalTotal = preCheckCount ?? 0;
-    if (globalTotal >= HARD_CAP_QUESTIONS) {
-      console.log(`[ExamPool-v5] HARD CAP reached: ${globalTotal} >= ${HARD_CAP_QUESTIONS}`);
+    const ssotBudget = getRemainingGenerationBudget(globalTotal, certificationLevel, packageTrack);
+    if (ssotBudget <= 0) {
+      console.log(`[ExamPool-v5] SSOT HARD CAP reached: ${globalTotal} >= ${ssotMaxCap} (budget=0, tier=${ssotTiered.tier})`);
       const shouldMarkDone = !isFanOut || await allFanOutSubJobsDone(sb, packageId);
       if (shouldMarkDone) {
         await sb.from("course_packages").update({ build_progress: 55 }).eq("id", packageId);
       }
-      return json({ ok: true, batch_complete: true, engine: "v5-ihk-quality", total_questions: globalTotal, hard_cap: true, cap: HARD_CAP_QUESTIONS });
+      return json({ ok: true, batch_complete: true, engine: "v5-ihk-quality", total_questions: globalTotal, hard_cap: true, cap: ssotMaxCap, ssot_tier: ssotTiered.tier });
     }
 
     // ─── ANTI-DOMINANZ CAP (per-LF runtime guard) ──────
