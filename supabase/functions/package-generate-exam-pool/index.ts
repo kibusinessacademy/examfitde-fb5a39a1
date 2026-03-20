@@ -2276,7 +2276,7 @@ Deno.serve(async (req) => {
 
     const elapsedS = ((Date.now() - invocationStart) / 1000).toFixed(1);
     const elapsedMs = Date.now() - invocationStart;
-    console.log(`[ExamPool-v5] +${questionsThisChunk} exam, +${trainingThisChunk} training, total=${actualTotal}/${examTarget} (cap=${HARD_CAP_QUESTIONS}), BPs ${currentBpIndex}/${bps.length}, elapsed=${elapsedS}s`);
+    console.log(`[ExamPool-v5] +${questionsThisChunk} exam, +${trainingThisChunk} training, total=${actualTotal}/${examTarget} (ssot_cap=${ssotMaxCap}, tier=${ssotTiered.tier}), BPs ${currentBpIndex}/${bps.length}, elapsed=${elapsedS}s`);
 
     // ── P1 Observability: Log ai_generations entry with quality metrics ──
     console.log(`[ExamPool-v5] QUALITY_METRICS: ${JSON.stringify(_qualityMetrics)}`);
