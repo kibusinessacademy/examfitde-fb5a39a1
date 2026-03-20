@@ -459,3 +459,9 @@ verify_jwt = false
 
 [functions.knowledge-graph-canary-test]
 verify_jwt = false
+
+[functions.ops-materialization-guard-test]
+verify_jwt = false
+
+[functions.ops-runner-integration-test]
+verify_jwt = false
