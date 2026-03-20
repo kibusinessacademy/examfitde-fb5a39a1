@@ -2192,7 +2192,8 @@ Deno.serve(async (req) => {
     {
       const { count: globalTotal } = await sb.from("exam_questions")
         .select("id", { count: "exact", head: true })
-        .eq("curriculum_id", curriculumId);
+        .eq("curriculum_id", curriculumId)
+        .neq("status", "rejected");
       const { count: globalCalc } = await sb.from("exam_questions")
         .select("id", { count: "exact", head: true })
         .eq("curriculum_id", curriculumId)
