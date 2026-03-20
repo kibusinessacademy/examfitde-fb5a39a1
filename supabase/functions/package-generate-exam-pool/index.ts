@@ -42,7 +42,8 @@ const AI_CHUNK_SIZE = 20;
 const AI_CHUNK_SIZE_FANOUT = 2;       // Fan-out: max 2 BPs per invocation (reduced to fit 45s budget)
 const AI_QUESTIONS_PER_CALL = 5;
 const AI_QUESTIONS_PER_BLUEPRINT = 35;
-const HARD_CAP_QUESTIONS = 1700;
+// SSOT: Hard cap now sourced from exam-pool-limits.ts via getRemainingGenerationBudget()
+// Removed: const HARD_CAP_QUESTIONS = 1700;  ← was a governance breach vs SSOT (max=2000)
 const EXAM_POOL_BUDGET = getTimeBudget("exam_pool_fanout");
 const TIME_BUDGET_MS = EXAM_POOL_BUDGET.ms;
 
