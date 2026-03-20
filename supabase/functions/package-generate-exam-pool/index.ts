@@ -1638,12 +1638,31 @@ Deno.serve(async (req) => {
 
   if (!packageId || !curriculumId) return json({ error: "Missing package_id or curriculum_id" }, 400);
 
+  // ─── SSOT: Load track + certification_level for budget computation ───
+  const { data: pkgMeta } = await sb.from("course_packages")
+    .select("track").eq("id", packageId).maybeSingle();
+  const packageTrack = pkgMeta?.track ?? "AUSBILDUNG_VOLL";
+
+  // Resolve certification_level from catalog (best-effort, defaults to 'ausbildung')
+  let certificationLevel = "ausbildung";
+  try {
+    const { data: cu } = await sb.from("curricula").select("beruf_id").eq("id", curriculumId).maybeSingle();
+    if (cu?.beruf_id) {
+      const { data: cat } = await sb.from("certification_catalog")
+        .select("certification_level")
+        .eq("id", cu.beruf_id).maybeSingle();
+      if (cat?.certification_level) certificationLevel = cat.certification_level;
+    }
+  } catch (_e) { /* best-effort */ }
+
+  const ssotTiered = getTieredTarget(certificationLevel, packageTrack);
+  const ssotMaxCap = Math.min(ssotTiered.max, MAX_QUESTIONS_PER_PACKAGE);
+  console.log(`[ExamPool-v5] SSOT_BUDGET: certLevel=${certificationLevel}, track=${packageTrack}, tier=${ssotTiered.tier}, max=${ssotMaxCap}`);
+
   try {
     if (!isFanOut) {
       // Check if this is an EXAM_FIRST track — skip content prereqs
-      const { data: pkgTrack } = await sb.from("course_packages")
-        .select("track").eq("id", packageId).maybeSingle();
-      const isExamFirst = pkgTrack?.track === "EXAM_FIRST";
+      const isExamFirst = packageTrack === "EXAM_FIRST";
 
       // Prerequisite: blueprint seeding must always be done
       const seedDone = await prereqDone(sb, packageId, "auto_seed_exam_blueprints");
