@@ -1745,7 +1745,6 @@ Deno.serve(async (req) => {
         function: fnName,
       });
     }
-  } // end for jobIdx
   } // end for-each job
 
   // ── 5. Write concurrency snapshot ──────────────────────────────────
