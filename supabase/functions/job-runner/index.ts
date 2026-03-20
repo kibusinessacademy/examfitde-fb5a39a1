@@ -4,6 +4,7 @@ import { assertSchemaReady } from "../_shared/schema-gate.ts";
 import { PIPELINE_GRAPH, validatePipelineGraph, STEP_TO_JOB_TYPE, ARTIFACT_IMPACT, getArtifactPriorityBump, poolForJobType, JOB_DEFINITIONS } from "../_shared/job-map.ts";
 import { checkArtifacts } from "../_shared/artifact-resolver.ts";
 import { enqueueJob } from "../_shared/enqueue.ts";
+import { verifyArtifact } from "../_shared/artifact-verifier.ts";
 
 /**
  * job-runner — Atomically claims pending jobs via claim_pending_jobs RPC
