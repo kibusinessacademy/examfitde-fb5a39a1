@@ -735,14 +735,28 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
       }
       
       if (deferredIds.length > 0) {
-        // Release excess back to pending
-        await sb.from("job_queue").update({
-          status: "pending",
-          locked_at: null,
-          locked_by: null,
-          updated_at: new Date().toISOString(),
-          meta: { deferred_by: WORKER_ID, deferred_reason: "jobtype_limit_exceeded" },
-        }).in("id", deferredIds);
+        // Release excess back to pending — MUST clear completed_at and preserve existing meta
+        // to prevent phantom completion when another runner picks up the job
+        for (const defId of deferredIds) {
+          const defJob = jobs.find((j: any) => j.id === defId);
+          const existingMeta = (defJob?.meta || {}) as Record<string, unknown>;
+          await sb.from("job_queue").update({
+            status: "pending",
+            locked_at: null,
+            locked_by: null,
+            completed_at: null,  // CRITICAL: clear to prevent zombie reaper phantom completion
+            updated_at: new Date().toISOString(),
+            meta: {
+              ...existingMeta,
+              deferred_by: WORKER_ID,
+              deferred_reason: "jobtype_limit_exceeded",
+              deferred_at: new Date().toISOString(),
+              // Clear success markers to prevent confusion
+              last_success_at: null,
+              liveness_status: "deferred",
+            },
+          }).eq("id", defId);
+        }
         
         jobs = jobs.filter((j: any) => !deferredIds.includes(j.id));
         console.log(`[content-runner] FINISH_LINE_GUARD: released ${deferredIds.length} excess job(s) back to pending`);
