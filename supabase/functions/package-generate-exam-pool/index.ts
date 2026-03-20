@@ -2110,8 +2110,8 @@ Deno.serve(async (req) => {
       bpsProcessed++;
 
       // ── Mid-loop hard cap check ──
-      if (questionsThisChunk > 0 && (globalTotal + questionsThisChunk) >= HARD_CAP_QUESTIONS) {
-        console.log(`[ExamPool-v5] Mid-loop HARD CAP: ~${globalTotal + questionsThisChunk} questions`);
+      if (questionsThisChunk > 0 && (globalTotal + questionsThisChunk) >= ssotMaxCap) {
+        console.log(`[ExamPool-v5] Mid-loop SSOT CAP: ~${globalTotal + questionsThisChunk} >= ${ssotMaxCap}`);
         break;
       }
 
