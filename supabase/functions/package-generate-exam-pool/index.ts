@@ -2250,7 +2250,7 @@ Deno.serve(async (req) => {
 
     // Count actual total
     const { count: totalQuestions } = await sb.from("exam_questions")
-      .select("id", { count: "exact", head: true }).eq("curriculum_id", curriculumId);
+      .select("id", { count: "exact", head: true }).eq("curriculum_id", curriculumId).neq("status", "rejected");
 
     const actualTotal = totalQuestions ?? 0;
     const allBlueprintsProcessed = currentBpIndex >= bps.length;
