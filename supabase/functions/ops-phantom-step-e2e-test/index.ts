@@ -112,8 +112,17 @@ Deno.serve(async (req) => {
   // A2: Legitimate SSOT step accepted
   if (mode === "canary" && canaryPackageId) {
     // FIX #2: Use seeder instead of direct upsert to prove acceptance via production path
-    await sb.rpc("assert_step_backbone", { p_package_id: canaryPackageId });
+    const { error: seedErr } = await sb.rpc("assert_step_backbone", { p_package_id: canaryPackageId });
 
+    if (seedErr) {
+      results.push({
+        test_id: "A2_ssot_step_accepted",
+        layer: "schema_guard",
+        verdict: "fail",
+        detail: `RPC assert_step_backbone failed: ${seedErr.message}`,
+        evidence: { error: seedErr.message },
+      });
+    } else {
     const testStepKey = SSOT_STEP_KEYS[0];
     const { data: existing, error } = await sb
       .from("package_steps")
