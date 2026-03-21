@@ -60,8 +60,41 @@ Any migration that drops or renames a required column will fail the guard.
 
 ---
 
+## ops_jobtype_step_map
+
+| step_key | job_type | Required | Notes |
+|----------|----------|----------|-------|
+| scaffold_learning_course | package_scaffold_learning_course | ✅ | |
+| generate_glossary | package_generate_glossary | ✅ | |
+| fanout_learning_content | package_fanout_learning_content | ✅ | Fan-out orchestration |
+| generate_learning_content | package_generate_learning_content | ✅ | |
+| finalize_learning_content | package_finalize_learning_content | ✅ | Barrier/completion check |
+| validate_learning_content | package_validate_learning_content | ✅ | |
+| auto_seed_exam_blueprints | package_auto_seed_exam_blueprints | ✅ | |
+| validate_blueprints | package_validate_blueprints | ✅ | |
+| generate_exam_pool | package_generate_exam_pool | ✅ | |
+| validate_exam_pool | package_validate_exam_pool | ✅ | |
+| build_ai_tutor_index | package_build_ai_tutor_index | ✅ | |
+| validate_tutor_index | package_validate_tutor_index | ✅ | |
+| generate_oral_exam | package_generate_oral_exam | ✅ | |
+| validate_oral_exam | package_validate_oral_exam | ✅ | |
+| generate_lesson_minichecks | package_generate_lesson_minichecks | ✅ | |
+| validate_lesson_minichecks | package_validate_lesson_minichecks | ✅ | |
+| generate_handbook | package_generate_handbook | ✅ | |
+| validate_handbook | package_validate_handbook | ✅ | |
+| enqueue_handbook_expand | package_enqueue_handbook_expand | ✅ | |
+| expand_handbook | handbook_expand_section | ✅ | |
+| validate_handbook_depth | package_validate_handbook_depth | ✅ | |
+| elite_harden | package_elite_harden | ✅ | |
+| run_integrity_check | package_run_integrity_check | ✅ | |
+| quality_council | package_quality_council | ✅ | |
+| auto_publish | package_auto_publish | ✅ | |
+
+---
+
 ## Rules
 
 1. **Never rename** a required column without updating both the view AND the contract
 2. **Always include** `NOTIFY pgrst, 'reload schema'` after view recreation
 3. **Health signal values** must be one of: `zombie`, `stale_lock`, `exhausted`, `retriable`, `aging`, `normal`
+4. **ops_jobtype_step_map** must contain ALL 25 functional SSOT step keys — missing entries cause silent pipeline stalls
