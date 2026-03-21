@@ -25,3 +25,6 @@ jobs:
 
       - name: Run admin routing guard
         run: npm run lint:admin-routing
+
+      - name: Run view contract guard
+        run: npm run guard:view-contracts
