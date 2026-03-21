@@ -32,8 +32,16 @@ const VIEW_CONTRACTS = {
     "council_approved", "integrity_passed",
     "created_at", "updated_at", "is_published", "track",
   ],
+  ops_pipeline_step_drift: [
+    "package_id", "pkg_status", "build_progress", "step_key",
+    "step_status", "step_updated_at", "job_type",
+    "all_prereqs_done", "prereq_count", "prereqs_done_count",
+    "has_active_job", "drift_signal", "age_minutes",
+  ],
 };
 
+// ── DAG edges contract (must match PIPELINE_GRAPH dependsOn in job-map.ts) ──
+const EXPECTED_DAG_EDGE_COUNT = 28; // 25 steps, 28 dependency edges
 // ── Step mapping contract (must match FULL_STEP_ORDER in job-map.ts) ──
 
 const SSOT_STEP_MAPPINGS = {
@@ -98,6 +106,9 @@ function main() {
   // ── 3. Cross-check with job-map.ts FULL_STEP_ORDER ──
   checkJobMapAlignment();
 
+  // ── 4. DAG edge parity ──
+  checkDagEdgeParity();
+
   if (violations.length > 0) {
     console.error("\n❌ Admin view contract guard failed:\n");
     for (const v of violations) {
@@ -115,6 +126,8 @@ function main() {
     console.log(`   ${viewName}: ${cols.length} required columns verified`);
   }
   console.log(`   ops_jobtype_step_map: ${Object.keys(SSOT_STEP_MAPPINGS).length} step mappings verified`);
+  console.log(`   ops_pipeline_step_drift: prereq-aware drift view verified`);
+  console.log(`   pipeline_dag_edges: ${EXPECTED_DAG_EDGE_COUNT} edges expected`);
 }
 
 function checkStepMappingParity(typesContent) {
@@ -195,6 +208,35 @@ function checkJobMapAlignment() {
         );
       }
     }
+  }
+}
+
+function checkDagEdgeParity() {
+  if (!fs.existsSync(JOB_MAP_FILE)) return;
+  const jobMapContent = fs.readFileSync(JOB_MAP_FILE, "utf8");
+
+  // Extract PIPELINE_GRAPH dependsOn edges
+  const graphMatch = jobMapContent.match(
+    /PIPELINE_GRAPH[^=]*=\s*\[([\s\S]*?)\];/
+  );
+  if (!graphMatch) {
+    console.warn("⚠ Could not parse PIPELINE_GRAPH from job-map.ts");
+    return;
+  }
+
+  // Count dependsOn entries
+  const dependsOnRegex = /dependsOn:\s*\[([^\]]*)\]/g;
+  let edgeCount = 0;
+  let m;
+  while ((m = dependsOnRegex.exec(graphMatch[1])) !== null) {
+    const deps = m[1].match(/"(\w+)"/g);
+    if (deps) edgeCount += deps.length;
+  }
+
+  if (edgeCount !== EXPECTED_DAG_EDGE_COUNT) {
+    violations.push(
+      `PIPELINE_GRAPH has ${edgeCount} dependency edges but guard expects ${EXPECTED_DAG_EDGE_COUNT}. Update pipeline_dag_edges table and EXPECTED_DAG_EDGE_COUNT.`
+    );
   }
 }
 
