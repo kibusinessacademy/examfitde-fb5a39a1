@@ -72,7 +72,7 @@ Deno.serve(async (req) => {
 
   // Helper: get any package id for read-only guard tests
   async function getAnyPackageId(): Promise<string | null> {
-    const { data } = await sb.from("course_packages").select("id").limit(1).single();
+    const { data } = await sb.from("course_packages").select("id").limit(1).maybeSingle();
     return data?.id ?? null;
   }
 
@@ -112,8 +112,17 @@ Deno.serve(async (req) => {
   // A2: Legitimate SSOT step accepted
   if (mode === "canary" && canaryPackageId) {
     // FIX #2: Use seeder instead of direct upsert to prove acceptance via production path
-    await sb.rpc("assert_step_backbone", { p_package_id: canaryPackageId });
+    const { error: seedErr } = await sb.rpc("assert_step_backbone", { p_package_id: canaryPackageId });
 
+    if (seedErr) {
+      results.push({
+        test_id: "A2_ssot_step_accepted",
+        layer: "schema_guard",
+        verdict: "fail",
+        detail: `RPC assert_step_backbone failed: ${seedErr.message}`,
+        evidence: { error: seedErr.message },
+      });
+    } else {
     const testStepKey = SSOT_STEP_KEYS[0];
     const { data: existing, error } = await sb
       .from("package_steps")
@@ -140,6 +149,7 @@ Deno.serve(async (req) => {
           : `FAIL: SSOT step '${testStepKey}' missing after assert_step_backbone on canary`,
       });
     }
+    } // end seedErr else
   } else {
     // FIX #3: readonly → warn (historical evidence, not active acceptance proof)
     const { count, error } = await sb
@@ -200,7 +210,17 @@ Deno.serve(async (req) => {
 
   // B1: Seed parity — hard: no unexpected AND no missing
   if (mode === "canary" && canaryPackageId) {
-    await sb.rpc("assert_step_backbone", { p_package_id: canaryPackageId });
+    const { error: seedErr } = await sb.rpc("assert_step_backbone", { p_package_id: canaryPackageId });
+
+    if (seedErr) {
+      results.push({
+        test_id: "B1_seed_parity",
+        layer: "seeder_backbone",
+        verdict: "fail",
+        detail: `RPC assert_step_backbone failed: ${seedErr.message}`,
+        evidence: { error: seedErr.message },
+      });
+    } else {
 
     const { data: steps, error } = await sb
       .from("package_steps")
@@ -240,6 +260,7 @@ Deno.serve(async (req) => {
         },
       });
     }
+    } // end seedErr else
   } else {
     results.push({
       test_id: "B1_seed_parity",
@@ -251,8 +272,18 @@ Deno.serve(async (req) => {
 
   // B2: assert_step_backbone idempotency — canary only
   if (mode === "canary" && canaryPackageId) {
-    await sb.rpc("assert_step_backbone", { p_package_id: canaryPackageId });
-    await sb.rpc("assert_step_backbone", { p_package_id: canaryPackageId });
+    const { error: seedErr1 } = await sb.rpc("assert_step_backbone", { p_package_id: canaryPackageId });
+    const { error: seedErr2 } = await sb.rpc("assert_step_backbone", { p_package_id: canaryPackageId });
+
+    if (seedErr1 || seedErr2) {
+      results.push({
+        test_id: "B2_seeder_idempotent",
+        layer: "seeder_backbone",
+        verdict: "fail",
+        detail: `RPC assert_step_backbone failed: ${(seedErr1 || seedErr2)?.message}`,
+        evidence: { error: (seedErr1 || seedErr2)?.message },
+      });
+    } else {
 
     const { data: steps, error } = await sb
       .from("package_steps")
@@ -284,6 +315,7 @@ Deno.serve(async (req) => {
         evidence: { package_id: canaryPackageId, duplicated },
       });
     }
+    } // end seedErr else
   } else {
     results.push({
       test_id: "B2_seeder_idempotent",
@@ -427,7 +459,7 @@ Deno.serve(async (req) => {
   {
     const { data: publishBlockers, error } = await sb
       .from("v_ops_auto_publish_blockers")
-      .select("package_id, blocker_reason")
+      .select("package_id, blocked_reason, step_status, step_last_error")
       .limit(50);
 
     if (error) {
@@ -440,7 +472,9 @@ Deno.serve(async (req) => {
       });
     } else {
       const phantomBlockers = (publishBlockers ?? []).filter(
-        (b: any) => /phantom|unknown|legacy/i.test(String(b.blocker_reason ?? ""))
+        (b: any) => /phantom.step|unknown.step|legacy.step/i.test(
+          `${b.blocked_reason ?? ""} ${b.step_last_error ?? ""}`
+        )
       );
 
       results.push({
@@ -448,7 +482,7 @@ Deno.serve(async (req) => {
         layer: "publish_readiness",
         verdict: phantomBlockers.length === 0 ? "pass" : "warn",
         detail: phantomBlockers.length === 0
-          ? "No publish blockers reference phantom/unknown/legacy steps"
+          ? `No publish blockers reference phantom/unknown/legacy steps (${(publishBlockers ?? []).length} total blockers)`
           : `WARN: ${phantomBlockers.length} publish blockers may reference phantom steps`,
         evidence: { phantom_blockers: phantomBlockers.slice(0, 5), total_blockers: (publishBlockers ?? []).length },
       });
@@ -459,8 +493,8 @@ Deno.serve(async (req) => {
   {
     const { data: readiness, error } = await sb
       .from("ops_package_readiness")
-      .select("package_id, readiness_pct, blocker_count")
-      .gt("blocker_count", 0)
+      .select("package_id, readiness_score, status")
+      .lt("readiness_score", 25)
       .limit(10);
 
     if (error) {
@@ -476,7 +510,7 @@ Deno.serve(async (req) => {
         test_id: "D2_readiness_views_consistent",
         layer: "publish_readiness",
         verdict: "pass",
-        detail: `${(readiness ?? []).length} packages have blockers (informational)`,
+        detail: `${(readiness ?? []).length} packages with low readiness score (<25) (informational)`,
         evidence: { sample: (readiness ?? []).slice(0, 5) },
       });
     }
