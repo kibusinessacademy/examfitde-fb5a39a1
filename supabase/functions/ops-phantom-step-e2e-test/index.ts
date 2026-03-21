@@ -210,7 +210,17 @@ Deno.serve(async (req) => {
 
   // B1: Seed parity — hard: no unexpected AND no missing
   if (mode === "canary" && canaryPackageId) {
-    await sb.rpc("assert_step_backbone", { p_package_id: canaryPackageId });
+    const { error: seedErr } = await sb.rpc("assert_step_backbone", { p_package_id: canaryPackageId });
+
+    if (seedErr) {
+      results.push({
+        test_id: "B1_seed_parity",
+        layer: "seeder_backbone",
+        verdict: "fail",
+        detail: `RPC assert_step_backbone failed: ${seedErr.message}`,
+        evidence: { error: seedErr.message },
+      });
+    } else {
 
     const { data: steps, error } = await sb
       .from("package_steps")
