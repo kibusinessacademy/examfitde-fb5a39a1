@@ -24,7 +24,6 @@ const hardFailAdminDirs = [
 // Warn-only (Phase 1): still contain legacy code pending extraction
 const warnOnlyAdminDirs = [
   "src/pages/admin/factory",
-  "src/pages/admin/intake",
   "src/pages/admin/b2b",
 ];
 
