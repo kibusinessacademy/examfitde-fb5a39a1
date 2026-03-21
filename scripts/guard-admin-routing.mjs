@@ -40,7 +40,7 @@ const suspiciousImportPatterns = [
 
 const violations = [];
 
-main();
+// main() called at end of file
 
 function main() {
   scanForbiddenDirs();
