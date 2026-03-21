@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, Play, RefreshCw, BookOpen, GraduationCap, Award, Zap } from "lucide-react";
 
-export default function QualificationDiscoveryPage() {
+export default function QualificationDiscoveryPanel() {
   const [state, setState] = useState<any>({});
   const [loading, setLoading] = useState(false);
   const [cronRunning, setCronRunning] = useState(false);
