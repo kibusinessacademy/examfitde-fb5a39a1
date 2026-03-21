@@ -72,7 +72,7 @@ Deno.serve(async (req) => {
 
   // Helper: get any package id for read-only guard tests
   async function getAnyPackageId(): Promise<string | null> {
-    const { data } = await sb.from("course_packages").select("id").limit(1).single();
+    const { data } = await sb.from("course_packages").select("id").limit(1).maybeSingle();
     return data?.id ?? null;
   }
 
