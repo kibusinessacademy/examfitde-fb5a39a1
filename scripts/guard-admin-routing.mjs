@@ -18,12 +18,12 @@ const hardFailAdminDirs = [
   "src/pages/admin/v4",
   "src/pages/admin/control",
   "src/pages/admin/workspace",
+  "src/pages/admin/intake",
 ];
 
 // Warn-only (Phase 1): still contain legacy code pending extraction
 const warnOnlyAdminDirs = [
   "src/pages/admin/factory",
-  "src/pages/admin/intake",
   "src/pages/admin/b2b",
 ];
 

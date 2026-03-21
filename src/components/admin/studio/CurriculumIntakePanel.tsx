@@ -15,7 +15,7 @@ type IntakeStats = {
   sources: number;
 };
 
-export default function CurriculumIntakePage() {
+export default function CurriculumIntakePanel() {
   const [stats, setStats] = useState<IntakeStats | null>(null);
   const [candidates, setCandidates] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
