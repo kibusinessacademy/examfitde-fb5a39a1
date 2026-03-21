@@ -52,10 +52,11 @@ export const WIP_TOTAL_CAP = 25;
 /**
  * WIP quota per track: max packages in "building" status simultaneously.
  * Env-overridable via WIP_QUOTA_AUSBILDUNG_VOLL / WIP_QUOTA_EXAM_FIRST.
+ * Phase D: scaled to 25 total cap.
  */
 export const WIP_QUOTA_DEFAULTS: Record<TrackKey, number> = {
-  AUSBILDUNG_VOLL: 12,
-  EXAM_FIRST: 3,
+  AUSBILDUNG_VOLL: 20,
+  EXAM_FIRST: 5,
 };
 
 export function getTrackQuota(track: TrackKey): number {
