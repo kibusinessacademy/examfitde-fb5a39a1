@@ -198,7 +198,7 @@ Deno.serve(async (req) => {
               weight_tag: step === "mini_check" ? "high" : step === "anwenden" ? "high" : step === "verstehen" ? "medium" : "low",
               exam_relevance_score: 30,
               mastery_weight: step === "mini_check" ? 1.0 : 0,
-              minicheck_parsed: false,
+              minicheck_parsed: step === "mini_check" ? true : false,
             });
           }
         }
