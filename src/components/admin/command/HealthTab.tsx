@@ -280,10 +280,10 @@ export default function HealthTab() {
 
       {/* Platform KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-2">
-        <Link to="/admin/content"><PlatformCard icon={<FileText className="h-4 w-4" />} label="SEO-Seiten" value={kpis.seoPages} /></Link>
-        <Link to="/admin/crm"><PlatformCard icon={<Users className="h-4 w-4" />} label="Nutzer" value={kpis.usersTotal} /></Link>
-        <Link to="/admin/support"><PlatformCard icon={<Headphones className="h-4 w-4" />} label="Tickets" value={kpis.ticketsOpen} sublabel={`${kpis.ticketsTotal} ges.`} alert={kpis.ticketsOpen > 0} /></Link>
-        <Link to="/admin/business"><PlatformCard icon={<Euro className="h-4 w-4" />} label="Umsatz" value={fmtEur(kpis.revenueCents)} sublabel={`${kpis.ordersPaid} Best.`} /></Link>
+        <Link to="/admin/command"><PlatformCard icon={<FileText className="h-4 w-4" />} label="SEO-Seiten" value={kpis.seoPages} /></Link>
+        <Link to="/admin/command"><PlatformCard icon={<Users className="h-4 w-4" />} label="Nutzer" value={kpis.usersTotal} /></Link>
+        <Link to="/admin/command"><PlatformCard icon={<Headphones className="h-4 w-4" />} label="Tickets" value={kpis.ticketsOpen} sublabel={`${kpis.ticketsTotal} ges.`} alert={kpis.ticketsOpen > 0} /></Link>
+        <Link to="/admin/command"><PlatformCard icon={<Euro className="h-4 w-4" />} label="Umsatz" value={fmtEur(kpis.revenueCents)} sublabel={`${kpis.ordersPaid} Best.`} /></Link>
         <PlatformCard icon={<Activity className="h-4 w-4" />} label="KI-Kosten" value={formatEurAmount(budget.monthSpent)} sublabel={budget.monthBudget > 0 ? `${budgetPct}% von ${formatEurAmount(budget.monthBudget, 0)}` : `heute: ${formatEurAmount(budget.dailyCost)}`} />
       </div>
     </div>
