@@ -9,6 +9,9 @@ import { cn } from '@/lib/utils';
 
 const STATUS_FILTERS = [
   { key: 'all', label: 'Alle' },
+  { key: 'ready_for_approval', label: '🟢 Publish-Ready' },
+  { key: 'waiting_for_council', label: '🟡 Council offen' },
+  { key: 'early_pipeline', label: '⚪ Frühe Pipeline' },
   { key: 'building', label: 'Building' },
   { key: 'council_review', label: 'Council' },
   { key: 'queued', label: 'Queued' },
@@ -85,7 +88,14 @@ export default function KursePage() {
     if (!packages) return [];
     let list = packages;
 
-    if (statusFilter === 'stuck') {
+    // Smart segments
+    if (statusFilter === 'ready_for_approval') {
+      list = list.filter(p => p.council_complete && !p.council_approved && p.approved_questions > 0);
+    } else if (statusFilter === 'waiting_for_council') {
+      list = list.filter(p => p.council_sessions_pending > 0);
+    } else if (statusFilter === 'early_pipeline') {
+      list = list.filter(p => p.approved_questions === 0 && !p.council_complete && p.status !== 'published');
+    } else if (statusFilter === 'stuck') {
       list = list.filter(p => p.is_stuck);
     } else if (statusFilter === 'publish_drift') {
       list = list.filter(p => p.has_publish_drift);
@@ -148,6 +158,12 @@ export default function KursePage() {
                     ? packages.filter(p => p.is_stuck).length
                     : f.key === 'publish_drift'
                     ? packages.filter(p => p.has_publish_drift).length
+                    : f.key === 'ready_for_approval'
+                    ? packages.filter(p => p.council_complete && !p.council_approved && p.approved_questions > 0).length
+                    : f.key === 'waiting_for_council'
+                    ? packages.filter(p => p.council_sessions_pending > 0).length
+                    : f.key === 'early_pipeline'
+                    ? packages.filter(p => p.approved_questions === 0 && !p.council_complete && p.status !== 'published').length
                     : packages.filter(p => p.status === f.key).length
                   }
                 </span>
