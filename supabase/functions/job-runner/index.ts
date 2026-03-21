@@ -808,16 +808,18 @@ Deno.serve(async (req) => {
               ? new Date(integrityStep.updated_at).getTime() : 0;
 
             // Check if council activity is newer than integrity check
-            const { data: newestCouncilSession } = await sb
+            // Use max() over all sessions — a later-decided older session could be missed by order-by created_at
+            const { data: councilRows } = await sb
               .from("council_sessions")
               .select("decided_at, created_at")
               .eq("package_id", jobPackageId)
-              .order("created_at", { ascending: false })
-              .limit(1)
-              .maybeSingle();
+              .limit(50);
 
-            const newestCouncilTs = newestCouncilSession
-              ? new Date(newestCouncilSession.decided_at || newestCouncilSession.created_at).getTime()
+            const newestCouncilTs = Array.isArray(councilRows)
+              ? councilRows.reduce((max, row: any) => {
+                  const ts = new Date(row.decided_at || row.created_at).getTime();
+                  return Math.max(max, Number.isFinite(ts) ? ts : 0);
+                }, 0)
               : 0;
 
             const integrityStale = newestCouncilTs > 0 && integrityUpdatedAt > 0 && newestCouncilTs > integrityUpdatedAt;
