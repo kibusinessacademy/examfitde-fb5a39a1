@@ -90,7 +90,7 @@ export function getStepClassLimits(): StepClassLimits {
   };
 }
 
-/** Total active package cap (Phase A = 6, Phase B = 8) */
+/** Total active package cap (Phase D = 15, matching WIP_TOTAL_CAP) */
 export function getMaxActivePackages(): number {
-  return envInt("MAX_ACTIVE_PACKAGES", 6);
+  return envInt("MAX_ACTIVE_PACKAGES", 15);
 }
