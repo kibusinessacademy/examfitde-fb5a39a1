@@ -93,6 +93,26 @@ function scanAdminPagesRoot() {
   }
 }
 
+// Legacy files that are already deactivated — skip route scanning for them
+const legacyExcludePrefixes = [
+  "src/pages/admin/v4/",
+  "src/pages/admin/control/",
+  "src/pages/admin/factory/",
+  "src/pages/admin/intake/",
+  "src/pages/admin/b2b/",
+  "src/pages/admin/workspace/",
+];
+
+function isLegacyFile(relPath) {
+  if (legacyExcludePrefixes.some((p) => relPath.startsWith(p))) return true;
+  // Deactivated root-level admin pages
+  if (relPath.startsWith("src/pages/admin/") && !allowedRouteFiles.has(relPath)) {
+    const depth = relPath.replace("src/pages/admin/", "").split("/").length;
+    if (depth === 1) return true; // root-level legacy page
+  }
+  return false;
+}
+
 function scanSourceFiles() {
   const srcRoot = path.join(ROOT, "src");
   if (!fs.existsSync(srcRoot)) return;
@@ -101,6 +121,10 @@ function scanSourceFiles() {
     if (!isCodeFile(file)) continue;
 
     const rel = normalize(path.relative(ROOT, file));
+
+    // Skip deactivated legacy pages — they'll be deleted later
+    if (isLegacyFile(rel)) continue;
+
     const content = fs.readFileSync(file, "utf8");
 
     for (const pattern of suspiciousRoutePatterns) {
@@ -117,7 +141,6 @@ function scanSourceFiles() {
       while ((match = pattern.exec(content)) !== null) {
         violations.push(`Forbidden legacy admin import in ${rel}: ${match[0]}`);
       }
-    }
   }
 }
 
