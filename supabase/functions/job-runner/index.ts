@@ -733,7 +733,118 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // No active autofix run and integrity still failing => deterministic block.
+        // No active autofix run and integrity still failing.
+        // ── ROOT-CAUSE REQUEUE: Check if upstream steps need redispatch ──
+        let rootCauseHealed = false;
+        try {
+          // Check if council sessions are still pending (root cause of integrity failure)
+          const { count: pendingCouncilCount } = await sb
+            .from("council_sessions")
+            .select("id", { count: "exact", head: true })
+            .eq("package_id", jobPackageId)
+            .not("status", "in", "(completed,cancelled,skipped)");
+
+          if ((pendingCouncilCount ?? 0) > 0) {
+            // Council not done — check if quality_council step needs redispatch
+            const { data: councilStep } = await sb
+              .from("package_steps")
+              .select("status")
+              .eq("package_id", jobPackageId)
+              .eq("step_key", "quality_council")
+              .maybeSingle();
+
+            if (councilStep?.status === "done") {
+              // SSOT mismatch: step=done but sessions pending — reset step
+              await sb.from("package_steps").update({
+                status: "queued",
+                started_at: null,
+                finished_at: null,
+                last_error: null,
+                meta: { root_cause_heal: "council_step_done_but_sessions_pending", healed_at: tsNow },
+              }).eq("package_id", jobPackageId).eq("step_key", "quality_council");
+              console.warn(`[job-runner] 🔧 ROOT-CAUSE HEAL: quality_council was done but ${pendingCouncilCount} sessions pending — reset to queued (pkg ${jobPackageId.slice(0, 8)})`);
+              rootCauseHealed = true;
+            } else if (councilStep?.status === "queued" || councilStep?.status === "failed") {
+              // Council step exists but not running — ensure a job is dispatched
+              const { count: councilJobCount } = await sb
+                .from("job_queue")
+                .select("id", { count: "exact", head: true })
+                .eq("job_type", "package_quality_council")
+                .eq("package_id", jobPackageId)
+                .in("status", ["pending", "queued", "processing"]);
+
+              if ((councilJobCount ?? 0) === 0) {
+                const { data: pkgForPayload } = await sb.from("course_packages").select("curriculum_id").eq("id", jobPackageId).maybeSingle();
+                await enqueueJob(sb, {
+                  job_type: "package_quality_council",
+                  payload: { package_id: jobPackageId, curriculum_id: (pkgForPayload as any)?.curriculum_id, triggered_by: "auto_publish_root_cause_heal" },
+                  package_id: jobPackageId,
+                  max_attempts: 5,
+                  priority: 10,
+                });
+                console.warn(`[job-runner] 🔧 ROOT-CAUSE HEAL: enqueued package_quality_council (pkg ${jobPackageId.slice(0, 8)})`);
+                rootCauseHealed = true;
+              }
+            }
+          } else {
+            // Council done — check if run_integrity_check needs redispatch
+            const { data: integrityStep } = await sb
+              .from("package_steps")
+              .select("status")
+              .eq("package_id", jobPackageId)
+              .eq("step_key", "run_integrity_check")
+              .maybeSingle();
+
+            if (integrityStep?.status !== "done") {
+              const { count: intJobCount } = await sb
+                .from("job_queue")
+                .select("id", { count: "exact", head: true })
+                .eq("job_type", "package_run_integrity_check")
+                .eq("package_id", jobPackageId)
+                .in("status", ["pending", "queued", "processing"]);
+
+              if ((intJobCount ?? 0) === 0) {
+                const { data: pkgForPayload2 } = await sb.from("course_packages").select("curriculum_id").eq("id", jobPackageId).maybeSingle();
+                await enqueueJob(sb, {
+                  job_type: "package_run_integrity_check",
+                  payload: { package_id: jobPackageId, curriculum_id: (pkgForPayload2 as any)?.curriculum_id, triggered_by: "auto_publish_root_cause_heal" },
+                  package_id: jobPackageId,
+                  max_attempts: 3,
+                  priority: 10,
+                });
+                console.warn(`[job-runner] 🔧 ROOT-CAUSE HEAL: enqueued package_run_integrity_check (pkg ${jobPackageId.slice(0, 8)})`);
+                rootCauseHealed = true;
+              }
+            }
+          }
+        } catch (rootCauseErr) {
+          console.warn(`[job-runner] root-cause heal check failed: ${(rootCauseErr as Error).message}`);
+        }
+
+        if (rootCauseHealed) {
+          // Root cause identified and healed — requeue auto_publish with long backoff instead of blocking
+          await sb.from("job_queue").update({
+            status: "cancelled",
+            completed_at: tsNow,
+            last_error: "ROOT_CAUSE_HEALED: upstream step redispatched, will retry after upstream completes",
+            meta: { ...(job.meta || {}), outcome: "root_cause_healed" },
+            ...lockRelease(tsNow),
+          }).eq("id", job.id).eq("status", "processing");
+
+          await sb.from("auto_heal_log").insert({
+            action_type: "auto_publish_root_cause_heal",
+            trigger_source: "job_runner",
+            target_type: "package",
+            target_id: jobPackageId,
+            result_status: "applied",
+            result_detail: "Root cause identified and upstream step redispatched instead of loop-guard block",
+          });
+
+          results.push({ id: job.id, status: "cancelled", reason: "auto_publish_root_cause_healed" });
+          continue;
+        }
+
+        // No root cause found — fall through to deterministic block logic
         // ── LOOP GUARD: Count recent deterministic cancels to prevent spam ──
         const TWO_HOURS_AGO = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
         const { count: recentCancelCount } = await sb
