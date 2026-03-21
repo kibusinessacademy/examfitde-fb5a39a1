@@ -10,6 +10,7 @@ import { PipelineRepairCard } from "@/components/admin/cards/PipelineRepairCard"
 import { ProgressDriftCard } from "@/components/admin/cards/ProgressDriftCard";
 import { PackageEtaCard } from "@/components/admin/cards/PackageEtaCard";
 import { TelemetryIntegrityCard } from "@/components/admin/cards/TelemetryIntegrityCard";
+import { PhantomStepE2ECard } from "@/components/admin/cards/PhantomStepE2ECard";
 import { useAdminControlTower } from "@/components/admin/hooks/useAdminControlTower";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertTriangle, Clock, CheckCircle, XCircle, Package, Cpu, Lock, ShieldAlert, Unplug } from "lucide-react";
