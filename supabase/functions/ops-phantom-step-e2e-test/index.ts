@@ -393,36 +393,34 @@ Deno.serve(async (req) => {
       .select("step_key")
       .limit(5000);
 
-      const uniqueKeys = [...new Set((rawSteps ?? []).map((s: any) => s.step_key))];
-      const unknownKeys = uniqueKeys.filter(k => !SSOT_STEP_KEYS.includes(k));
+    const uniqueKeys = [...new Set((rawSteps ?? []).map((s: any) => s.step_key))];
+    const unknownKeys = uniqueKeys.filter(k => !SSOT_STEP_KEYS.includes(k));
 
-      // Unknown keys are OK if they're all in 'skipped' status
-      if (unknownKeys.length > 0) {
-        const { data: nonSkipped } = await sb
-          .from("package_steps")
-          .select("step_key, status")
-          .in("step_key", unknownKeys)
-          .not("status", "eq", "skipped")
-          .limit(20);
+    if (unknownKeys.length > 0) {
+      const { data: nonSkipped } = await sb
+        .from("package_steps")
+        .select("step_key, status")
+        .in("step_key", unknownKeys)
+        .not("status", "eq", "skipped")
+        .limit(20);
 
-        const nonSkippedCount = (nonSkipped ?? []).length;
-        results.push({
-          test_id: "E3_fleet_step_inventory",
-          layer: "regression_drift",
-          pass: nonSkippedCount === 0,
-          detail: nonSkippedCount === 0
-            ? `${unknownKeys.length} non-SSOT keys exist but all are skipped — clean`
-            : `FAIL: ${nonSkippedCount} non-SSOT steps in non-skipped states`,
-          evidence: { unknown_keys: unknownKeys, non_skipped_samples: (nonSkipped ?? []).slice(0, 5) },
-        });
-      } else {
-        results.push({
-          test_id: "E3_fleet_step_inventory",
-          layer: "regression_drift",
-          pass: true,
-          detail: `Fleet inventory: ${uniqueKeys.length} unique step_keys, all SSOT-valid`,
-        });
-      }
+      const nonSkippedCount = (nonSkipped ?? []).length;
+      results.push({
+        test_id: "E3_fleet_step_inventory",
+        layer: "regression_drift",
+        pass: nonSkippedCount === 0,
+        detail: nonSkippedCount === 0
+          ? `${unknownKeys.length} non-SSOT keys exist but all are skipped — clean`
+          : `FAIL: ${nonSkippedCount} non-SSOT steps in non-skipped states`,
+        evidence: { unknown_keys: unknownKeys, non_skipped_samples: (nonSkipped ?? []).slice(0, 5) },
+      });
+    } else {
+      results.push({
+        test_id: "E3_fleet_step_inventory",
+        layer: "regression_drift",
+        pass: true,
+        detail: `Fleet inventory: ${uniqueKeys.length} unique step_keys, all SSOT-valid`,
+      });
     }
   }
 
