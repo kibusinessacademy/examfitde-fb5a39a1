@@ -149,6 +149,7 @@ Deno.serve(async (req) => {
           : `FAIL: SSOT step '${testStepKey}' missing after assert_step_backbone on canary`,
       });
     }
+    } // end seedErr else
   } else {
     // FIX #3: readonly → warn (historical evidence, not active acceptance proof)
     const { count, error } = await sb
