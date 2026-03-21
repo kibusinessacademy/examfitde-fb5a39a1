@@ -9,6 +9,9 @@ import { cn } from '@/lib/utils';
 
 const STATUS_FILTERS = [
   { key: 'all', label: 'Alle' },
+  { key: 'ready_for_approval', label: '🟢 Publish-Ready' },
+  { key: 'waiting_for_council', label: '🟡 Council offen' },
+  { key: 'early_pipeline', label: '⚪ Frühe Pipeline' },
   { key: 'building', label: 'Building' },
   { key: 'council_review', label: 'Council' },
   { key: 'queued', label: 'Queued' },
