@@ -23901,6 +23901,21 @@ export type Database = {
         }
         Relationships: []
       }
+      pipeline_dag_edges: {
+        Row: {
+          depends_on: string
+          step_key: string
+        }
+        Insert: {
+          depends_on: string
+          step_key: string
+        }
+        Update: {
+          depends_on?: string
+          step_key?: string
+        }
+        Relationships: []
+      }
       pipeline_health_events: {
         Row: {
           created_at: string
@@ -39138,11 +39153,15 @@ export type Database = {
       ops_pipeline_step_drift: {
         Row: {
           age_minutes: number | null
+          all_prereqs_done: boolean | null
           build_progress: number | null
           drift_signal: string | null
+          has_active_job: boolean | null
           job_type: string | null
           package_id: string | null
           pkg_status: string | null
+          prereq_count: number | null
+          prereqs_done_count: number | null
           step_key: string | null
           step_status: Database["public"]["Enums"]["step_status"] | null
           step_updated_at: string | null
@@ -46629,6 +46648,15 @@ export type Database = {
         Args: never
         Returns: {
           job_status: string
+          package_id: string
+          step_key: string
+        }[]
+      }
+      heal_true_stall_steps: {
+        Args: { p_max_heal?: number }
+        Returns: {
+          action: string
+          job_type: string
           package_id: string
           step_key: string
         }[]
