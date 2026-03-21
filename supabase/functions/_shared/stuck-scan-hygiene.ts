@@ -116,3 +116,17 @@ export async function reviveTransientFailed(sb: SupabaseClient) {
   }
   return revivedCount;
 }
+
+export async function healTrueStalls(sb: SupabaseClient) {
+  let healed: Array<{ package_id: string; step_key: string; job_type: string }> = [];
+  try {
+    const { data } = await sb.rpc("heal_true_stall_steps", { p_max_heal: 5 });
+    healed = Array.isArray(data) ? data : [];
+    if (healed.length > 0) {
+      console.warn(`[stuck-scan] 🩹 Auto-healed ${healed.length} true-stall step(s): ${healed.map(h => h.step_key).join(", ")}`);
+    }
+  } catch (err) {
+    console.warn(`[stuck-scan] heal_true_stalls error: ${(err as Error).message}`);
+  }
+  return healed;
+}
