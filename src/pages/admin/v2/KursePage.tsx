@@ -88,7 +88,14 @@ export default function KursePage() {
     if (!packages) return [];
     let list = packages;
 
-    if (statusFilter === 'stuck') {
+    // Smart segments
+    if (statusFilter === 'ready_for_approval') {
+      list = list.filter(p => p.council_complete && !p.council_approved && p.approved_questions > 0);
+    } else if (statusFilter === 'waiting_for_council') {
+      list = list.filter(p => p.council_sessions_pending > 0);
+    } else if (statusFilter === 'early_pipeline') {
+      list = list.filter(p => p.approved_questions === 0 && !p.council_complete && p.status !== 'published');
+    } else if (statusFilter === 'stuck') {
       list = list.filter(p => p.is_stuck);
     } else if (statusFilter === 'publish_drift') {
       list = list.filter(p => p.has_publish_drift);
