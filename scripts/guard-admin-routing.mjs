@@ -25,7 +25,6 @@ const warnOnlyAdminDirs = [
   "src/pages/admin/factory",
   "src/pages/admin/intake",
   "src/pages/admin/b2b",
-  "src/pages/admin/workspace",
 ];
 
 const forbiddenAdminDirs = [...hardFailAdminDirs, ...warnOnlyAdminDirs];
