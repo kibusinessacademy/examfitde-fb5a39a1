@@ -35,7 +35,7 @@ export function PhantomStepE2ECard() {
         .limit(1)
         .maybeSingle();
       if (error) throw error;
-      return data as RunRow | null;
+      return data as unknown as RunRow | null;
     },
     refetchInterval: 60_000,
   });

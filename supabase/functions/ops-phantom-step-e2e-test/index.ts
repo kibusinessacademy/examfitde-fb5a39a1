@@ -835,6 +835,24 @@ Deno.serve(async (req) => {
     verdict = `ALL ${counts.passed} TESTS PASSED — Phantom-Step defect class fully remediated (${counts.skipped} skipped)`;
   }
 
+  // Persist run to phantom_step_e2e_runs
+  const triggeredBy = canaryPackageId ? "canary" : (body.triggered_by as string || "manual");
+  try {
+    await sb.from("phantom_step_e2e_runs").insert({
+      test_run_id: testRunId,
+      mode,
+      overall_pass: overallPass,
+      verdict,
+      summary: counts,
+      layer_summary: layerSummary,
+      results,
+      elapsed_ms: elapsed,
+      ssot_step_count: SSOT_STEP_KEYS.length,
+      canary_package_id: canaryPackageId ?? null,
+      triggered_by: triggeredBy,
+    });
+  } catch { /* non-fatal persistence */ }
+
   return json({
     ok: true,
     test_run_id: testRunId,

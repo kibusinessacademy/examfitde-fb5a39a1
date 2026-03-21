@@ -53,12 +53,15 @@ const SCHEDULE_TIERS: Record<string, { functions: string[]; bodies: Record<strin
     },
   },
   nightly: {
-    functions: ["knowledge-graph-rollout-orchestrator"],
+    functions: ["knowledge-graph-rollout-orchestrator", "ops-phantom-step-e2e-test"],
     bodies: {
       "knowledge-graph-rollout-orchestrator": JSON.stringify({
         scope: "all",
         max_curricula: 50,
         max_competencies_per_enrichment: 25,
+      }),
+      "ops-phantom-step-e2e-test": JSON.stringify({
+        triggered_by: "nightly_cron",
       }),
     },
   },

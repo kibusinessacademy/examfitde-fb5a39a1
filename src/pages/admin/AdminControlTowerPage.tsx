@@ -76,8 +76,9 @@ export default function AdminControlTowerPage() {
         <ProgressDriftCard />
       </div>
 
-      <div className="mt-6">
+      <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <TelemetryIntegrityCard />
+        <PhantomStepE2ECard />
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
