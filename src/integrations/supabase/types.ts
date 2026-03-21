@@ -39155,18 +39155,75 @@ export type Database = {
           age_minutes: number | null
           all_prereqs_done: boolean | null
           build_progress: number | null
+          council_pending_sessions: number | null
+          council_total_sessions: number | null
+          curriculum_id: string | null
           drift_signal: string | null
           has_active_job: boolean | null
+          integrity_status: Database["public"]["Enums"]["step_status"] | null
+          integrity_updated_at: string | null
           job_type: string | null
+          last_council_activity_at: string | null
+          meta: Json | null
           package_id: string | null
           pkg_status: string | null
           prereq_count: number | null
           prereqs_done_count: number | null
+          recent_loop_guard_cancels: number | null
           step_key: string | null
           step_status: Database["public"]["Enums"]["step_status"] | null
           step_updated_at: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_qc_backlog"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_qc_backlog_age"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
           {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
