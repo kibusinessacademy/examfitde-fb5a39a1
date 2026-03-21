@@ -447,18 +447,25 @@ Deno.serve(async (req) => {
     }
 
     // ── Stale Reaper: auto-fail batches stuck in uploading/draft >30 min ──
-    // These represent batch-submit crashes/timeouts before provider upload.
+    // Uses last_heartbeat_at (precise) or falls back to created_at.
+    let reapedCount = 0;
+    let reapedRequestCount = 0;
     try {
       const staleThreshold = new Date(Date.now() - 30 * 60_000).toISOString();
       const { data: staleBatches } = await sb
         .from("llm_batches")
-        .select("id, status, created_at")
+        .select("id, status, created_at, last_heartbeat_at, submit_attempts")
         .in("status", ["uploading", "draft"])
-        .lt("created_at", staleThreshold)
         .limit(20);
 
-      if (staleBatches?.length) {
-        const staleIds = staleBatches.map((b: any) => b.id);
+      // Filter: stale if heartbeat OR created_at is older than threshold
+      const staleFiltered = (staleBatches || []).filter((b: any) => {
+        const ref = b.last_heartbeat_at || b.created_at;
+        return ref < staleThreshold;
+      });
+
+      if (staleFiltered.length) {
+        const staleIds = staleFiltered.map((b: any) => b.id);
 
         await sb.from("llm_batches").update({
           status: "failed",
@@ -470,22 +477,46 @@ Deno.serve(async (req) => {
           },
         }).in("id", staleIds);
 
-        await sb.from("llm_batch_requests").update({
-          status: "failed",
-          completed_at: now,
-          error_body: {
-            code: "BATCH_STUCK_PRE_SUBMIT",
-            message: "Parent batch never reached provider. Auto-reaped.",
-          },
-        }).in("batch_id", staleIds).in("status", ["queued", "submitted"]);
+        const { count } = await sb.from("llm_batch_requests")
+          .update({
+            status: "failed",
+            completed_at: now,
+            error_body: {
+              code: "BATCH_STUCK_PRE_SUBMIT",
+              message: "Parent batch never reached provider. Auto-reaped.",
+            },
+          })
+          .in("batch_id", staleIds)
+          .in("status", ["queued", "submitted"]);
 
-        console.log(`[batch-poll] STALE REAPER: marked ${staleIds.length} stuck uploading/draft batches as failed`);
+        reapedCount = staleIds.length;
+        reapedRequestCount = count ?? 0;
+        console.log(`[batch-poll] STALE REAPER: ${reapedCount} batches, ${reapedRequestCount} requests reaped`);
+
+        // Log reaper telemetry
+        try {
+          await sb.from("admin_actions").insert({
+            action: "batch_stale_reaper",
+            scope: "llm_batches",
+            affected_ids: staleIds,
+            payload: {
+              reaped_batches: reapedCount,
+              reaped_requests: reapedRequestCount,
+              batch_details: staleFiltered.map((b: any) => ({
+                id: b.id,
+                status: b.status,
+                submit_attempts: b.submit_attempts ?? 0,
+                age_minutes: Math.round((Date.now() - new Date(b.created_at).getTime()) / 60_000),
+              })),
+            },
+          });
+        } catch { /* telemetry non-fatal */ }
       }
     } catch (reaperErr) {
       console.warn(`[batch-poll] stale reaper error: ${(reaperErr as Error)?.message?.slice(0, 100)}`);
     }
 
-    return json({ ok: true, polled: results.length, results });
+    return json({ ok: true, polled: results.length, reaped: reapedCount, reaped_requests: reapedRequestCount, results });
   } catch (error) {
     console.error("[batch-poll]", error);
     return json({ ok: false, error: String((error as Error)?.message || error) }, 500);

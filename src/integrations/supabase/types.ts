@@ -18485,6 +18485,7 @@ export type Database = {
           input_file_id: string | null
           input_file_path: string | null
           job_type: string
+          last_heartbeat_at: string | null
           last_poll_error: string | null
           last_polled_at: string | null
           metadata: Json
@@ -18499,6 +18500,8 @@ export type Database = {
           request_count: number
           results_imported_at: string | null
           status: string
+          submit_attempts: number
+          submit_started_at: string | null
           submitted_at: string | null
           updated_at: string
         }
@@ -18522,6 +18525,7 @@ export type Database = {
           input_file_id?: string | null
           input_file_path?: string | null
           job_type: string
+          last_heartbeat_at?: string | null
           last_poll_error?: string | null
           last_polled_at?: string | null
           metadata?: Json
@@ -18536,6 +18540,8 @@ export type Database = {
           request_count?: number
           results_imported_at?: string | null
           status?: string
+          submit_attempts?: number
+          submit_started_at?: string | null
           submitted_at?: string | null
           updated_at?: string
         }
@@ -18559,6 +18565,7 @@ export type Database = {
           input_file_id?: string | null
           input_file_path?: string | null
           job_type?: string
+          last_heartbeat_at?: string | null
           last_poll_error?: string | null
           last_polled_at?: string | null
           metadata?: Json
@@ -18573,6 +18580,8 @@ export type Database = {
           request_count?: number
           results_imported_at?: string | null
           status?: string
+          submit_attempts?: number
+          submit_started_at?: string | null
           submitted_at?: string | null
           updated_at?: string
         }
