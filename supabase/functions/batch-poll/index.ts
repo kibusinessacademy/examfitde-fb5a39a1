@@ -516,7 +516,7 @@ Deno.serve(async (req) => {
       console.warn(`[batch-poll] stale reaper error: ${(reaperErr as Error)?.message?.slice(0, 100)}`);
     }
 
-    return json({ ok: true, polled: results.length, results });
+    return json({ ok: true, polled: results.length, reaped: reapedCount, reaped_requests: reapedRequestCount, results });
   } catch (error) {
     console.error("[batch-poll]", error);
     return json({ ok: false, error: String((error as Error)?.message || error) }, 500);
