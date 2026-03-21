@@ -51,7 +51,8 @@ function normalizeQueueJob(row: Partial<AdminQueueJob>): AdminQueueJob {
   const lastError = typeof row.last_error === 'string' ? row.last_error : null;
   const jobStatus = typeof row.job_status === 'string' ? row.job_status : 'pending';
   const rawHealth = row.health_signal;
-  const healthSignal: QueueHealthSignal = rawHealth && ['zombie', 'stale_lock', 'exhausted', 'retriable', 'aging', 'normal'].includes(rawHealth)
+  const healthSignal: QueueHealthSignal = rawHealth === 'ok' ? 'normal'
+    : rawHealth && ['zombie', 'stale_lock', 'exhausted', 'retriable', 'aging', 'normal'].includes(rawHealth)
     ? rawHealth
     : inferHealthSignal(jobStatus, attempts, maxAttempts, lastError);
 
