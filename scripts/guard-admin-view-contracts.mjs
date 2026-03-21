@@ -106,6 +106,9 @@ function main() {
   // ── 3. Cross-check with job-map.ts FULL_STEP_ORDER ──
   checkJobMapAlignment();
 
+  // ── 4. DAG edge parity ──
+  checkDagEdgeParity();
+
   if (violations.length > 0) {
     console.error("\n❌ Admin view contract guard failed:\n");
     for (const v of violations) {
