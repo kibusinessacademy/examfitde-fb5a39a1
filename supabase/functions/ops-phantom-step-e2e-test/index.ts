@@ -259,6 +259,7 @@ Deno.serve(async (req) => {
           missing,
         },
       });
+    }
     } // end seedErr else
   } else {
     results.push({
