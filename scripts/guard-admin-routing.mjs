@@ -17,6 +17,7 @@ const allowedRouteFiles = new Set([
 const hardFailAdminDirs = [
   "src/pages/admin/v4",
   "src/pages/admin/control",
+  "src/pages/admin/workspace",
 ];
 
 // Warn-only (Phase 1): still contain legacy code pending extraction
@@ -24,7 +25,6 @@ const warnOnlyAdminDirs = [
   "src/pages/admin/factory",
   "src/pages/admin/intake",
   "src/pages/admin/b2b",
-  "src/pages/admin/workspace",
 ];
 
 const forbiddenAdminDirs = [...hardFailAdminDirs, ...warnOnlyAdminDirs];
