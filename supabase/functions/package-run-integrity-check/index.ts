@@ -826,9 +826,12 @@ Deno.serve(async (req) => {
 
     // ── BACKLOG GATE: Don't run integrity if large QC backlog still pending ──
     // Prevents premature integrity checks that produce false negatives and wasteful retries
+    // BYPASS: Priority ≤ 1 packages skip the backlog gate — their exam pool step is already
+    // validated as done, so deferring integrity creates a deterministic stall.
+    const pkgPriority = (pkgData as any)?.priority ?? 99;
     const { data: courseForCurr } = await sb.from("courses").select("curriculum_id").eq("id", courseId!).single();
     const currIdForBacklog = courseForCurr?.curriculum_id;
-    if (currIdForBacklog && !forceRun) {
+    if (currIdForBacklog && !forceRun && pkgPriority > 1) {
       const { data: backlogAgg } = await sb.rpc("count_exam_qc_status", { p_curriculum_id: currIdForBacklog });
       const backlogCounts: Record<string, number> = {};
       for (const row of (backlogAgg || []) as any[]) {
@@ -838,11 +841,6 @@ Deno.serve(async (req) => {
       const tier1Passed = backlogCounts.tier1_passed || 0;
       const totalApproved = (backlogCounts.approved || 0) + (backlogCounts["null"] || 0);
 
-      // IMPORTANT: tier1_passed is already treated as exam-ready pool everywhere else
-      // in the integrity pipeline. Counting it as QC backlog here creates a false
-      // negative loop: integrity report never materializes → quality council fails
-      // with missing_integrity_report → auto_publish blocks deterministically.
-      // Only true review/pending backlog may defer integrity execution.
       const significantBacklog = reviewPending > 500;
       if (!significantBacklog && tier1Passed > 200 && tier1Passed > totalApproved * 0.1) {
         console.log(
@@ -860,6 +858,8 @@ Deno.serve(async (req) => {
           backlog: { review_pending: reviewPending, tier1_passed: tier1Passed, approved: totalApproved },
         }, 200);
       }
+    } else if (pkgPriority <= 1 && currIdForBacklog) {
+      console.log(`[integrity-check] BACKLOG_GATE_SKIP: pkg=${packageId!.slice(0, 8)} priority=${pkgPriority} — bypassing backlog gate for high-priority package`);
     }
 
     // Get curriculum_id from course
