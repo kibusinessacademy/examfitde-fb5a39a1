@@ -196,9 +196,7 @@ Deno.serve(async (req) => {
       await sb.rpc("assert_step_backbone", { p_package_id: testPkg.id });
 
       // Check for duplicates
-      const { data: dupes } = await sb.rpc("check_step_duplicates_for_package", { p_package_id: testPkg.id }).catch(() => ({ data: null }));
-
-      // Fallback: manual check
+      // Direct check for duplicates
       const { data: steps } = await sb
         .from("package_steps")
         .select("step_key")
