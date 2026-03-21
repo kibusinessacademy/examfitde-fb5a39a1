@@ -141,6 +141,7 @@ function scanSourceFiles() {
       while ((match = pattern.exec(content)) !== null) {
         violations.push(`Forbidden legacy admin import in ${rel}: ${match[0]}`);
       }
+    }
   }
 }
 
