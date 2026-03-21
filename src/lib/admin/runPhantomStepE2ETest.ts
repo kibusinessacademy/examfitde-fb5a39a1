@@ -1,15 +1,19 @@
 import { supabase } from "@/integrations/supabase/client";
 
+type Verdict = "pass" | "fail" | "warn" | "skip";
+
 export interface PhantomStepTestResult {
   ok: boolean;
   test_run_id: string;
+  mode: "readonly" | "canary";
   overall_pass: boolean;
   verdict: string;
-  layer_summary: Record<string, { total: number; passed: number }>;
+  summary: { total: number; passed: number; failed: number; warned: number; skipped: number };
+  layer_summary: Record<string, { total: number; passed: number; failed: number; warned: number; skipped: number }>;
   results: Array<{
     test_id: string;
     layer: string;
-    pass: boolean;
+    verdict: Verdict;
     detail: string;
     evidence?: unknown;
   }>;
@@ -20,7 +24,10 @@ export interface PhantomStepTestResult {
 
 /**
  * Runs the Phantom-Step E2E test pyramid against the live system.
- * Tests 6 layers: Schema/Guard, Seeder/Backbone, Runtime, Publish-Readiness, Regression, Canary.
+ * 
+ * Modes:
+ * - Without canaryPackageId: readonly tests only (safe for production)
+ * - With canaryPackageId: full mutative test suite against that package
  */
 export async function runPhantomStepE2ETest(
   canaryPackageId?: string,
@@ -41,7 +48,7 @@ export async function runPhantomStepE2ETest(
       Authorization: `Bearer ${accessToken}`,
     },
     body: JSON.stringify({
-      ...(canaryPackageId ? { canary_package_id: canaryPackageId, skip_canary: false } : {}),
+      ...(canaryPackageId ? { canary_package_id: canaryPackageId } : {}),
     }),
   });
 
