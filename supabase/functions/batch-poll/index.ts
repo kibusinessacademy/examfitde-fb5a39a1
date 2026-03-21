@@ -446,6 +446,45 @@ Deno.serve(async (req) => {
       console.warn(`[batch-poll] catchup error: ${(catchupErr as Error)?.message?.slice(0, 100)}`);
     }
 
+    // ── Stale Reaper: auto-fail batches stuck in uploading/draft >30 min ──
+    // These represent batch-submit crashes/timeouts before provider upload.
+    try {
+      const staleThreshold = new Date(Date.now() - 30 * 60_000).toISOString();
+      const { data: staleBatches } = await sb
+        .from("llm_batches")
+        .select("id, status, created_at")
+        .in("status", ["uploading", "draft"])
+        .lt("created_at", staleThreshold)
+        .limit(20);
+
+      if (staleBatches?.length) {
+        const staleIds = staleBatches.map((b: any) => b.id);
+
+        await sb.from("llm_batches").update({
+          status: "failed",
+          completed_at: now,
+          error_summary: {
+            root_cause: "STUCK_PRE_SUBMIT",
+            detail: "Auto-reaped by batch-poll: stuck in uploading/draft >30min",
+            reaped_at: now,
+          },
+        }).in("id", staleIds);
+
+        await sb.from("llm_batch_requests").update({
+          status: "failed",
+          completed_at: now,
+          error_body: {
+            code: "BATCH_STUCK_PRE_SUBMIT",
+            message: "Parent batch never reached provider. Auto-reaped.",
+          },
+        }).in("batch_id", staleIds).in("status", ["queued", "submitted"]);
+
+        console.log(`[batch-poll] STALE REAPER: marked ${staleIds.length} stuck uploading/draft batches as failed`);
+      }
+    } catch (reaperErr) {
+      console.warn(`[batch-poll] stale reaper error: ${(reaperErr as Error)?.message?.slice(0, 100)}`);
+    }
+
     return json({ ok: true, polled: results.length, results });
   } catch (error) {
     console.error("[batch-poll]", error);
