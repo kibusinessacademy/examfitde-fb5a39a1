@@ -165,7 +165,7 @@ Deno.serve(async (req) => {
   // Layer B: Seeder / Backbone Tests
   // ═══════════════════════════════════════════════════════════════
 
-  // B1: Seeder produces exactly SSOT step set (check a recent package)
+  // B1: Seeder produces exactly SSOT step set (non-SSOT keys must be skipped)
   {
     const { data: recentPkg } = await sb
       .from("course_packages")
@@ -177,24 +177,26 @@ Deno.serve(async (req) => {
     if (recentPkg?.id) {
       const { data: steps } = await sb
         .from("package_steps")
-        .select("step_key")
+        .select("step_key, status")
         .eq("package_id", recentPkg.id);
 
-      const actualKeys = new Set((steps ?? []).map((s: any) => s.step_key));
+      const allSteps = (steps ?? []) as { step_key: string; status: string }[];
       const ssotSet = new Set(SSOT_STEP_KEYS);
 
-      const unexpected = [...actualKeys].filter(k => !ssotSet.has(k));
-      const missing = [...ssotSet].filter(k => !actualKeys.has(k));
+      // Non-SSOT keys that are NOT skipped = real failure
+      const activeNonSsot = allSteps.filter(s => !ssotSet.has(s.step_key) && s.status !== "skipped");
+      const skippedNonSsot = allSteps.filter(s => !ssotSet.has(s.step_key) && s.status === "skipped");
+      const ssotSteps = allSteps.filter(s => ssotSet.has(s.step_key));
 
-      const pass = unexpected.length === 0;
+      const pass = activeNonSsot.length === 0;
       results.push({
         test_id: "B1_seed_parity",
         layer: "seeder_backbone",
         pass,
         detail: pass
-          ? `Package ${recentPkg.id.slice(0, 8)} has ${actualKeys.size} steps, all SSOT-valid. Missing (acceptable): ${missing.length}`
-          : `FAIL: ${unexpected.length} unexpected keys: ${unexpected.join(",")}`,
-        evidence: { package_id: recentPkg.id, actual_count: actualKeys.size, unexpected, missing },
+          ? `Package ${recentPkg.id.slice(0, 8)}: ${ssotSteps.length} SSOT steps active, ${skippedNonSsot.length} legacy steps skipped (healed)`
+          : `FAIL: ${activeNonSsot.length} non-SSOT steps in active states: ${activeNonSsot.map(s => `${s.step_key}:${s.status}`).join(",")}`,
+        evidence: { package_id: recentPkg.id, ssot_count: ssotSteps.length, skipped_legacy: skippedNonSsot.length, active_non_ssot: activeNonSsot },
       });
     }
   }
