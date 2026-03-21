@@ -314,6 +314,7 @@ Deno.serve(async (req) => {
         evidence: { package_id: canaryPackageId, duplicated },
       });
     }
+    } // end seedErr else
   } else {
     results.push({
       test_id: "B2_seeder_idempotent",
