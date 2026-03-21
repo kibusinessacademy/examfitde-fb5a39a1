@@ -259,7 +259,7 @@ Deno.serve(async (req) => {
           missing,
         },
       });
-    }
+    } // end seedErr else
   } else {
     results.push({
       test_id: "B1_seed_parity",
@@ -271,8 +271,18 @@ Deno.serve(async (req) => {
 
   // B2: assert_step_backbone idempotency — canary only
   if (mode === "canary" && canaryPackageId) {
-    await sb.rpc("assert_step_backbone", { p_package_id: canaryPackageId });
-    await sb.rpc("assert_step_backbone", { p_package_id: canaryPackageId });
+    const { error: seedErr1 } = await sb.rpc("assert_step_backbone", { p_package_id: canaryPackageId });
+    const { error: seedErr2 } = await sb.rpc("assert_step_backbone", { p_package_id: canaryPackageId });
+
+    if (seedErr1 || seedErr2) {
+      results.push({
+        test_id: "B2_seeder_idempotent",
+        layer: "seeder_backbone",
+        verdict: "fail",
+        detail: `RPC assert_step_backbone failed: ${(seedErr1 || seedErr2)?.message}`,
+        evidence: { error: (seedErr1 || seedErr2)?.message },
+      });
+    } else {
 
     const { data: steps, error } = await sb
       .from("package_steps")
