@@ -472,7 +472,7 @@ Deno.serve(async (req) => {
       });
     } else {
       const phantomBlockers = (publishBlockers ?? []).filter(
-        (b: any) => /phantom|unknown|legacy/i.test(
+        (b: any) => /phantom.step|unknown.step|legacy.step/i.test(
           `${b.blocked_reason ?? ""} ${b.step_last_error ?? ""}`
         )
       );
