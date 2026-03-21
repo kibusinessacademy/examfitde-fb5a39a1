@@ -31,7 +31,7 @@ function json(body: unknown, status = 200) {
 // ── Schedule tier definitions ──
 const SCHEDULE_TIERS: Record<string, { functions: string[]; bodies: Record<string, string> }> = {
   minute: {
-    functions: ["pipeline-runner", "job-runner", "content-runner", "pipeline-forensic-test", "batch-poll"],
+    functions: ["pipeline-runner", "job-runner", "content-runner"],
     bodies: {},
   },
   "5min": {

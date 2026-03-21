@@ -13,17 +13,17 @@ function jsonRes(status: number, body: unknown) {
   });
 }
 
-async function invokeSelf(url: string, serviceKey: string, fn: string, body: unknown) {
+async function invoke(url: string, key: string, fn: string, body: unknown): Promise<{ step: string; ok: boolean; status: number; data: unknown }> {
   const res = await fetch(`${url}/functions/v1/${fn}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Authorization": `Bearer ${serviceKey}`,
+      "Authorization": `Bearer ${key}`,
     },
     body: JSON.stringify(body),
   });
   const data = await res.json().catch(() => null);
-  return { ok: res.ok, status: res.status, data };
+  return { step: fn, ok: res.ok, status: res.status, data };
 }
 
 Deno.serve(async (req) => {
@@ -34,161 +34,100 @@ Deno.serve(async (req) => {
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
   const body = await req.json().catch(() => ({}));
-  const doDiscovery = body.discovery !== false;
-  const doFortbildungDiscovery = body.fortbildung_discovery !== false;
-  const doFetch = body.fetch !== false;
-  const doParse = body.parse !== false;
-  const doDraft = body.draft !== false;
-  const doMaterialize = body.materialize !== false;
-  const doWaveSync = body.wave_sync !== false;
-  const doPromoteBlueprint = body.promote_blueprint !== false;
-  const doAutoWave = body.auto_wave !== false;
-  const doIntelligence = body.intelligence !== false;
-  const doRevenue = body.revenue !== false;
-  const doCampaign = body.campaign !== false;
-  const doDistribution = body.distribution !== false;
-  const doOptimization = body.optimization !== false;
-  const doControlPlane = body.control_plane !== false;
 
-  const steps: any[] = [];
-
-  if (doDiscovery) {
-    steps.push({
-      step: "discovery_dual",
-      ...(await invokeSelf(supabaseUrl, serviceKey, "qualification-search-discovery", {
-        trigger_source: "cron", limit: 50,
-      })),
-    });
+  // ── Phase 1: Discovery (parallel) ──
+  const phase1: Promise<any>[] = [];
+  if (body.discovery !== false) {
+    phase1.push(invoke(supabaseUrl, serviceKey, "qualification-search-discovery", {
+      trigger_source: "cron", limit: 50,
+    }).then(r => ({ ...r, step: "discovery_dual" })));
   }
-
-  if (doFortbildungDiscovery) {
-    steps.push({
-      step: "discovery_fortbildung",
-      ...(await invokeSelf(supabaseUrl, serviceKey, "qualification-discover-fortbildungen", {
-        limit: 50,
-      })),
-    });
+  if (body.fortbildung_discovery !== false) {
+    phase1.push(invoke(supabaseUrl, serviceKey, "qualification-discover-fortbildungen", {
+      limit: 50,
+    }).then(r => ({ ...r, step: "discovery_fortbildung" })));
   }
+  const phase1Results = phase1.length > 0 ? await Promise.all(phase1) : [];
 
-  if (doFetch) {
-    steps.push({
-      step: "fetch",
-      ...(await invokeSelf(supabaseUrl, serviceKey, "qualification-fetch-documents", {
-        worker_id: "qualification-intake-cron", limit: 20,
-      })),
-    });
+  // ── Phase 2: Fetch + Parse (parallel, both independent) ──
+  const phase2: Promise<any>[] = [];
+  if (body.fetch !== false) {
+    phase2.push(invoke(supabaseUrl, serviceKey, "qualification-fetch-documents", {
+      worker_id: "qualification-intake-cron", limit: 20,
+    }).then(r => ({ ...r, step: "fetch" })));
   }
+  if (body.parse !== false) {
+    phase2.push(invoke(supabaseUrl, serviceKey, "qualification-pdf-parse", {
+      limit: 20,
+    }).then(r => ({ ...r, step: "parse" })));
+  }
+  const phase2Results = phase2.length > 0 ? await Promise.all(phase2) : [];
 
-  if (doParse) {
-    steps.push({
-      step: "parse",
-      ...(await invokeSelf(supabaseUrl, serviceKey, "qualification-pdf-parse", {
-        limit: 20,
-      })),
-    });
+  // ── Phase 3: Draft + Materialize + Wave Sync (parallel) ──
+  const phase3: Promise<any>[] = [];
+  if (body.draft !== false) {
+    phase3.push(invoke(supabaseUrl, serviceKey, "qualification-intake-admin", {
+      action: "build_drafts", limit: 20,
+    }).then(r => ({ ...r, step: "draft" })));
   }
+  if (body.materialize !== false) {
+    phase3.push(invoke(supabaseUrl, serviceKey, "qualification-materialize", {
+      min_readiness: 70, per_competency: 6,
+    }).then(r => ({ ...r, step: "materialize" })));
+  }
+  if (body.wave_sync !== false) {
+    phase3.push(invoke(supabaseUrl, serviceKey, "qualification-wave-sync", {
+      min_readiness: 70,
+    }).then(r => ({ ...r, step: "wave_sync" })));
+  }
+  const phase3Results = phase3.length > 0 ? await Promise.all(phase3) : [];
 
-  if (doDraft) {
-    steps.push({
-      step: "draft",
-      ...(await invokeSelf(supabaseUrl, serviceKey, "qualification-intake-admin", {
-        action: "build_drafts", limit: 20,
-      })),
-    });
+  // ── Phase 4: Promote + Auto-Wave + Intelligence (parallel) ──
+  const phase4: Promise<any>[] = [];
+  if (body.promote_blueprint !== false) {
+    phase4.push(invoke(supabaseUrl, serviceKey, "qualification-promote-and-blueprint", {
+      limit: 10, per_competency: 6,
+    }).then(r => ({ ...r, step: "promote_blueprint" })));
   }
+  if (body.auto_wave !== false) {
+    phase4.push(invoke(supabaseUrl, serviceKey, "qualification-auto-wave", {
+      limit: 10,
+    }).then(r => ({ ...r, step: "auto_wave" })));
+  }
+  if (body.intelligence !== false) {
+    phase4.push(invoke(supabaseUrl, serviceKey, "curriculum-priority-sync", {
+      limit: 100,
+    }).then(r => ({ ...r, step: "intelligence" })));
+  }
+  const phase4Results = phase4.length > 0 ? await Promise.all(phase4) : [];
 
-  if (doMaterialize) {
-    steps.push({
-      step: "materialize",
-      ...(await invokeSelf(supabaseUrl, serviceKey, "qualification-materialize", {
-        min_readiness: 70, per_competency: 6,
-      })),
-    });
+  // ── Phase 5: Revenue + Campaign + Distribution + Optimization + Control Plane (parallel) ──
+  const phase5: Promise<any>[] = [];
+  if (body.revenue !== false) {
+    phase5.push(invoke(supabaseUrl, serviceKey, "curriculum-revenue-cron", {
+      limit: 200,
+    }).then(r => ({ ...r, step: "revenue_pipeline" })));
   }
+  if (body.campaign !== false) {
+    phase5.push(invoke(supabaseUrl, serviceKey, "campaign-automation-cron", {}).then(r => ({ ...r, step: "campaign_automation" })));
+  }
+  if (body.distribution !== false) {
+    phase5.push(invoke(supabaseUrl, serviceKey, "distribution-cron", {}).then(r => ({ ...r, step: "distribution_pipeline" })));
+  }
+  if (body.optimization !== false) {
+    phase5.push(invoke(supabaseUrl, serviceKey, "optimization-cron", {}).then(r => ({ ...r, step: "optimization_pipeline" })));
+  }
+  if (body.control_plane !== false) {
+    phase5.push(invoke(supabaseUrl, serviceKey, "control-plane-cron", {}).then(r => ({ ...r, step: "control_plane" })));
+  }
+  const phase5Results = phase5.length > 0 ? await Promise.all(phase5) : [];
 
-  if (doWaveSync) {
-    steps.push({
-      step: "wave_sync",
-      ...(await invokeSelf(supabaseUrl, serviceKey, "qualification-wave-sync", {
-        min_readiness: 70,
-      })),
-    });
-  }
-
-  // NEW: Promote ready drafts → curricula + exam_blueprints + question_blueprints
-  if (doPromoteBlueprint) {
-    steps.push({
-      step: "promote_blueprint",
-      ...(await invokeSelf(supabaseUrl, serviceKey, "qualification-promote-and-blueprint", {
-        limit: 10, per_competency: 6,
-      })),
-    });
-  }
-
-  // NEW: Auto-seed production waves from ready candidates
-  if (doAutoWave) {
-    steps.push({
-      step: "auto_wave",
-      ...(await invokeSelf(supabaseUrl, serviceKey, "qualification-auto-wave", {
-        limit: 10,
-      })),
-    });
-  }
-
-  // NEW: Intelligence scoring + priority sync
-  if (doIntelligence) {
-    steps.push({
-      step: "intelligence",
-      ...(await invokeSelf(supabaseUrl, serviceKey, "curriculum-priority-sync", {
-        limit: 100,
-      })),
-    });
-  }
-
-  // Revenue Intelligence: Signal Ingest → GTM Score → Launch Recommendations
-  if (doRevenue) {
-    steps.push({
-      step: "revenue_pipeline",
-      ...(await invokeSelf(supabaseUrl, serviceKey, "curriculum-revenue-cron", {
-        limit: 200,
-      })),
-    });
-  }
-
-  // Campaign Automation: Plan Sync → Enqueue → Worker → Performance
-  if (doCampaign) {
-    steps.push({
-      step: "campaign_automation",
-      ...(await invokeSelf(supabaseUrl, serviceKey, "campaign-automation-cron", {})),
-    });
-  }
-
-  // Distribution: Sync Targets → Enqueue → Worker → Status Sync
-  if (doDistribution) {
-    steps.push({
-      step: "distribution_pipeline",
-      ...(await invokeSelf(supabaseUrl, serviceKey, "distribution-cron", {})),
-    });
-  }
-
-  // Optimization: Score Assets → Score Curricula → Action Sync → Executor
-  if (doOptimization) {
-    steps.push({
-      step: "optimization_pipeline",
-      ...(await invokeSelf(supabaseUrl, serviceKey, "optimization-cron", {})),
-    });
-  }
-
-  // Master Control Plane: Snapshot → Policy Eval → Action Executor
-  if (doControlPlane) {
-    steps.push({
-      step: "control_plane",
-      ...(await invokeSelf(supabaseUrl, serviceKey, "control-plane-cron", {})),
-    });
-  }
+  const steps = [...phase1Results, ...phase2Results, ...phase3Results, ...phase4Results, ...phase5Results];
 
   return jsonRes(200, {
     ok: true,
+    parallel: true,
+    phases: 5,
     steps,
     ran_at: new Date().toISOString(),
   });

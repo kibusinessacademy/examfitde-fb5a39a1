@@ -1,17 +1,16 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { handleCorsPreflightRequest, json } from "../_shared/cors.ts";
 
-async function invokeSelf(url: string, serviceKey: string, fn: string, body: unknown) {
+async function invoke(url: string, key: string, fn: string, body: unknown) {
   const res = await fetch(`${url}/functions/v1/${fn}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Authorization": `Bearer ${serviceKey}`,
+      "Authorization": `Bearer ${key}`,
     },
     body: JSON.stringify(body),
   });
   const data = await res.json().catch(() => null);
-  return { ok: res.ok, status: res.status, data };
+  return { step: fn, ok: res.ok, status: res.status, data };
 }
 
 Deno.serve(async (req) => {
@@ -25,55 +24,44 @@ Deno.serve(async (req) => {
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
   const body = await req.json().catch(() => ({}));
-  const doDiscover = body.discover !== false;
-  const doDownload = body.download !== false;
-  const doParse = body.parse !== false;
-  const doPromote = body.promote !== false;
 
-  const steps: any[] = [];
-
-  // Step 1: Discover new sources
-  if (doDiscover) {
-    steps.push({
-      step: "discover",
-      ...(await invokeSelf(supabaseUrl, serviceKey, "curriculum-discover-sources", {})),
-    });
+  // ── Phase 1: Discover (must run first) ──
+  const phase1: Promise<any>[] = [];
+  if (body.discover !== false) {
+    phase1.push(invoke(supabaseUrl, serviceKey, "curriculum-discover-sources", {})
+      .then(r => ({ ...r, step: "discover" })));
   }
+  const phase1Results = phase1.length > 0 ? await Promise.all(phase1) : [];
 
-  // Step 2: Download worker
-  if (doDownload) {
-    steps.push({
-      step: "download",
-      ...(await invokeSelf(supabaseUrl, serviceKey, "curriculum-intake-worker", {
-        job_type: "download",
-        limit: 10,
-      })),
-    });
+  // ── Phase 2: Download + Parse (parallel — independent workers) ──
+  const phase2: Promise<any>[] = [];
+  if (body.download !== false) {
+    phase2.push(invoke(supabaseUrl, serviceKey, "curriculum-intake-worker", {
+      job_type: "download", limit: 10,
+    }).then(r => ({ ...r, step: "download" })));
   }
+  if (body.parse !== false) {
+    phase2.push(invoke(supabaseUrl, serviceKey, "curriculum-intake-worker", {
+      job_type: "parse", limit: 10,
+    }).then(r => ({ ...r, step: "parse" })));
+  }
+  const phase2Results = phase2.length > 0 ? await Promise.all(phase2) : [];
 
-  // Step 3: Parse worker
-  if (doParse) {
-    steps.push({
-      step: "parse",
-      ...(await invokeSelf(supabaseUrl, serviceKey, "curriculum-intake-worker", {
-        job_type: "parse",
-        limit: 10,
-      })),
-    });
+  // ── Phase 3: Promote (depends on parse) ──
+  const phase3: Promise<any>[] = [];
+  if (body.promote !== false) {
+    phase3.push(invoke(supabaseUrl, serviceKey, "curriculum-promote-candidates", {
+      limit: 20,
+    }).then(r => ({ ...r, step: "promote" })));
   }
+  const phase3Results = phase3.length > 0 ? await Promise.all(phase3) : [];
 
-  // Step 4: Promote ready candidates
-  if (doPromote) {
-    steps.push({
-      step: "promote",
-      ...(await invokeSelf(supabaseUrl, serviceKey, "curriculum-promote-candidates", {
-        limit: 20,
-      })),
-    });
-  }
+  const steps = [...phase1Results, ...phase2Results, ...phase3Results];
 
   return json(200, {
     ok: true,
+    parallel: true,
+    phases: 3,
     steps,
     ran_at: new Date().toISOString(),
   }, origin);
