@@ -116,20 +116,47 @@ Deno.serve(async (req) => {
     const { error: rErr } = await sb.from("llm_batch_requests").insert(reqRows);
     if (rErr) throw rErr;
 
-    // 3) Upload + submit to provider
-    await sb.from("llm_batches").update({ status: "uploading" }).eq("id", batch.id);
+    // 3) Upload + submit to provider (fail-closed: uploading only during real upload)
+    const currentAttempt = 1; // Future: could be incremented on retry
+    await sb.from("llm_batches").update({
+      status: "uploading",
+      submit_started_at: new Date().toISOString(),
+      submit_attempts: currentAttempt,
+      last_heartbeat_at: new Date().toISOString(),
+    }).eq("id", batch.id);
 
-    const adapter = getBatchAdapter(provider);
-    const input: BatchCreateInput = {
-      provider,
-      model,
-      endpoint,
-      completion_window: "24h",
-      metadata: batchMetadata,
-      requests,
-    };
+    let submitted: Awaited<ReturnType<typeof adapter.submit>>;
+    try {
+      const adapter = getBatchAdapter(provider);
+      const input: BatchCreateInput = {
+        provider,
+        model,
+        endpoint,
+        completion_window: "24h",
+        metadata: batchMetadata,
+        requests,
+      };
+      submitted = await adapter.submit(input);
+    } catch (uploadErr) {
+      // Fail-closed: explicitly mark as failed if upload crashes
+      const uploadErrMsg = String((uploadErr as Error)?.message || uploadErr);
+      await sb.from("llm_batches").update({
+        status: "failed",
+        error_summary: { submit_error: uploadErrMsg, phase: "provider_upload" },
+        completed_at: new Date().toISOString(),
+      }).eq("id", batch.id);
 
-    const submitted = await adapter.submit(input);
+      await sb.from("llm_batch_requests")
+        .update({
+          status: "failed",
+          error_body: { submit_error: uploadErrMsg, phase: "provider_upload" },
+          completed_at: new Date().toISOString(),
+        })
+        .eq("batch_id", batch.id)
+        .in("status", ["queued", "submitted"]);
+
+      return json({ ok: false, error: uploadErrMsg, phase: "provider_upload" }, 500);
+    }
 
     // 4) Update batch with provider info (Fix #7: structured metadata)
     await sb
@@ -142,6 +169,7 @@ Deno.serve(async (req) => {
         error_file_id: submitted.error_file_id || null,
         provider_request_counts: submitted.raw?.request_counts || {},
         submitted_at: new Date().toISOString(),
+        last_heartbeat_at: new Date().toISOString(),
         metadata: {
           ...batchMetadata,
           submit_raw: submitted.raw,
