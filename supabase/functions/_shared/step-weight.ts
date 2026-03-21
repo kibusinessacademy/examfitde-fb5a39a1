@@ -80,13 +80,13 @@ export interface StepClassLimits {
   light: number;
 }
 
-/** Phase B defaults: parallel-branch-aware. Env-overridable. */
+/** Phase D defaults: scaled for 15-package WIP. Env-overridable. */
 export function getStepClassLimits(): StepClassLimits {
   return {
-    heavy:      envInt("STEP_CLASS_HEAVY_MAX", 4),   // Phase C: 3→4 (5 building packages need more heavy slots to avoid starvation)
-    medium:     envInt("STEP_CLASS_MEDIUM_MAX", 3),
-    validation: envInt("STEP_CLASS_VALIDATION_MAX", 3), // Phase C: 2→3 (5 packages hitting parallel validation branches)
-    light:      envInt("STEP_CLASS_LIGHT_MAX", 3),
+    heavy:      envInt("STEP_CLASS_HEAVY_MAX", 8),    // Phase D: 4→8 (15 WIP needs more heavy slots)
+    medium:     envInt("STEP_CLASS_MEDIUM_MAX", 6),    // Phase D: 3→6
+    validation: envInt("STEP_CLASS_VALIDATION_MAX", 6), // Phase D: 3→6 (finish-line priority)
+    light:      envInt("STEP_CLASS_LIGHT_MAX", 8),      // Phase D: 3→8 (finalize + integrity must never starve)
   };
 }
 
