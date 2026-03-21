@@ -165,3 +165,5 @@ function isCodeFile(file) {
 function normalize(p) {
   return p.split(path.sep).join("/");
 }
+
+main();
