@@ -137,29 +137,24 @@ const VERIFIERS: Record<string, (sb: SB, job: any) => Promise<VerifyResult>> = {
       : { ok: false, reason: "ZERO_TUTOR_INDEX", count: 0 };
   },
 
-  // ── Oral Exam: oral_exam_questions via oral_exam_blueprints.curriculum_id ──
-  // SSOT chain: oral_exam_questions → blueprint_id → oral_exam_blueprints → curriculum_id
+  // ── Oral Exam: oral_exam_blueprints by curriculum_id ──
+  // The pipeline artifact is oral_exam_blueprints (scenario + lead questions + rubric).
+  // oral_exam_questions is a RUNTIME table populated during learner exam sessions,
+  // NOT a pipeline artifact. Checking it here caused infinite fail loops.
   package_generate_oral_exam: async (sb, job) => {
     const r = requirePayloadId(job, "curriculum_id");
     if ("ok" in r) return r;
 
-    // Get blueprint IDs for this curriculum
-    const { data: bps, error: bpErr } = await sb
-      .from("oral_exam_blueprints")
-      .select("id")
-      .eq("curriculum_id", r.id);
-    if (bpErr) return { ok: false, reason: `QUERY_ERROR: ${bpErr.message}` };
-    if (!bps || bps.length === 0) return { ok: false, reason: "ZERO_ORAL_BLUEPRINTS", count: 0 };
-
-    const bpIds = bps.map((b: any) => b.id);
-    const { count, error } = await safeCount(sb, "oral_exam_questions", (q) =>
-      q.in("blueprint_id", bpIds),
+    const { count, error } = await safeCount(sb, "oral_exam_blueprints", (q) =>
+      q.eq("curriculum_id", r.id),
     );
     if (error) return { ok: false, reason: `QUERY_ERROR: ${error}` };
 
-    return count > 0
+    // Require minimum 10 blueprints (matches validate-oral-exam MIN_BLUEPRINTS)
+    const MIN_BLUEPRINTS = 10;
+    return count >= MIN_BLUEPRINTS
       ? { ok: true, count }
-      : { ok: false, reason: "ZERO_ORAL_EXAM_QUESTIONS", count: 0 };
+      : { ok: false, reason: `INSUFFICIENT_ORAL_BLUEPRINTS: ${count}/${MIN_BLUEPRINTS}`, count };
   },
 
   // ── MiniChecks: minicheck_questions by curriculum_id ──
