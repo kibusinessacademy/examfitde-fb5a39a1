@@ -13,14 +13,21 @@ const allowedRouteFiles = new Set([
   "src/pages/admin/AdminDeactivatedPage.tsx",
 ]);
 
-const forbiddenAdminDirs = [
+// Hard-fail: these dirs have been fully deleted — must never return
+const hardFailAdminDirs = [
   "src/pages/admin/v4",
   "src/pages/admin/control",
+];
+
+// Warn-only (Phase 1): still contain legacy code pending extraction
+const warnOnlyAdminDirs = [
   "src/pages/admin/factory",
   "src/pages/admin/intake",
   "src/pages/admin/b2b",
   "src/pages/admin/workspace",
 ];
+
+const forbiddenAdminDirs = [...hardFailAdminDirs, ...warnOnlyAdminDirs];
 
 const suspiciousRoutePatterns = [
   /path\s*:\s*["'`]\/admin\/(?!command\b|studio\b|queue\b|\*|$)[^"'`]+["'`]/g,
