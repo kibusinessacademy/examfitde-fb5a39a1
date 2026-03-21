@@ -13,14 +13,21 @@ const allowedRouteFiles = new Set([
   "src/pages/admin/AdminDeactivatedPage.tsx",
 ]);
 
-const forbiddenAdminDirs = [
+// Hard-fail: these dirs have been fully deleted — must never return
+const hardFailAdminDirs = [
   "src/pages/admin/v4",
   "src/pages/admin/control",
+];
+
+// Warn-only (Phase 1): still contain legacy code pending extraction
+const warnOnlyAdminDirs = [
   "src/pages/admin/factory",
   "src/pages/admin/intake",
   "src/pages/admin/b2b",
   "src/pages/admin/workspace",
 ];
+
+const forbiddenAdminDirs = [...hardFailAdminDirs, ...warnOnlyAdminDirs];
 
 const suspiciousRoutePatterns = [
   /path\s*:\s*["'`]\/admin\/(?!command\b|studio\b|queue\b|\*|$)[^"'`]+["'`]/g,
@@ -60,13 +67,26 @@ function main() {
 }
 
 function scanForbiddenDirs() {
-  for (const dir of forbiddenAdminDirs) {
+  // Hard-fail dirs: must not exist at all
+  for (const dir of hardFailAdminDirs) {
     const abs = path.join(ROOT, dir);
     if (!fs.existsSync(abs)) continue;
 
     const files = listFiles(abs).filter(isCodeFile);
     if (files.length > 0) {
-      // Phase 1: warn only for existing legacy dirs
+      violations.push(
+        `❌ Deleted legacy admin directory has reappeared: ${dir} (${files.length} file(s))`
+      );
+    }
+  }
+
+  // Warn-only dirs: pending extraction
+  for (const dir of warnOnlyAdminDirs) {
+    const abs = path.join(ROOT, dir);
+    if (!fs.existsSync(abs)) continue;
+
+    const files = listFiles(abs).filter(isCodeFile);
+    if (files.length > 0) {
       console.warn(
         `⚠ Legacy admin directory still contains code: ${dir} (${files.length} file(s))`
       );
