@@ -67,13 +67,26 @@ function main() {
 }
 
 function scanForbiddenDirs() {
-  for (const dir of forbiddenAdminDirs) {
+  // Hard-fail dirs: must not exist at all
+  for (const dir of hardFailAdminDirs) {
     const abs = path.join(ROOT, dir);
     if (!fs.existsSync(abs)) continue;
 
     const files = listFiles(abs).filter(isCodeFile);
     if (files.length > 0) {
-      // Phase 1: warn only for existing legacy dirs
+      violations.push(
+        `❌ Deleted legacy admin directory has reappeared: ${dir} (${files.length} file(s))`
+      );
+    }
+  }
+
+  // Warn-only dirs: pending extraction
+  for (const dir of warnOnlyAdminDirs) {
+    const abs = path.join(ROOT, dir);
+    if (!fs.existsSync(abs)) continue;
+
+    const files = listFiles(abs).filter(isCodeFile);
+    if (files.length > 0) {
       console.warn(
         `⚠ Legacy admin directory still contains code: ${dir} (${files.length} file(s))`
       );
