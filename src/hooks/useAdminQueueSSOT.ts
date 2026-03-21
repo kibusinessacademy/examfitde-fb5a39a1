@@ -119,7 +119,8 @@ function applyFilters(jobs: AdminQueueJob[], filters?: QueueFilters) {
 export function useAdminQueueSSOT(filters?: QueueFilters) {
   return useQuery({
     queryKey: ['admin', 'queue-ssot', filters],
-    queryFn: async () => {
+    queryFn: async (): Promise<AdminQueueJob[]> => {
+      // Primary: SSOT view
       try {
         let query = (supabase as any)
           .from('v_admin_queue_ssot')
@@ -136,17 +137,23 @@ export function useAdminQueueSSOT(filters?: QueueFilters) {
         }
 
         const { data, error } = await query;
-        if (!error && Array.isArray(data)) {
+        if (!error && Array.isArray(data) && data.length >= 0) {
           return data.map((row) => normalizeQueueJob(row as Partial<AdminQueueJob>));
         }
 
-        console.warn('[admin-queue] SSOT view unavailable, falling back to edge response', error?.message);
-      } catch (error) {
-        console.warn('[admin-queue] SSOT query failed, falling back to edge response', error);
+        console.warn('[admin-queue] SSOT view error, using fallback:', error?.message);
+      } catch (e) {
+        console.warn('[admin-queue] SSOT query exception, using fallback:', e);
       }
 
-      const fallbackJobs = await adminRpc.opsQueueOverview();
-      return applyFilters(fallbackJobs.map(mapLegacyJob), filters);
+      // Fallback: edge function
+      try {
+        const fallbackJobs = await adminRpc.opsQueueOverview();
+        return applyFilters(fallbackJobs.map(mapLegacyJob), filters);
+      } catch (e) {
+        console.warn('[admin-queue] Fallback also failed:', e);
+        return [];
+      }
     },
     refetchInterval: 15_000,
     staleTime: 8_000,
