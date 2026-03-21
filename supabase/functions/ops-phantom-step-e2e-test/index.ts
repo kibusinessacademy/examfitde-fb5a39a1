@@ -388,14 +388,10 @@ Deno.serve(async (req) => {
 
   // E3: Fleet-wide step_key inventory is clean
   {
-    const { data: allStepKeys } = await sb.rpc("get_distinct_step_keys").catch(() => ({ data: null }));
-
-    // Fallback: direct query
-    if (!allStepKeys) {
-      const { data: rawSteps } = await sb
-        .from("package_steps")
-        .select("step_key")
-        .limit(5000);
+    const { data: rawSteps } = await sb
+      .from("package_steps")
+      .select("step_key")
+      .limit(5000);
 
       const uniqueKeys = [...new Set((rawSteps ?? []).map((s: any) => s.step_key))];
       const unknownKeys = uniqueKeys.filter(k => !SSOT_STEP_KEYS.includes(k));
