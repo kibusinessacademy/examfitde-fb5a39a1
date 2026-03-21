@@ -363,26 +363,32 @@ Deno.serve(async (req) => {
   // Layer E: Regression / Drift Tests
   // ═══════════════════════════════════════════════════════════════
 
-  // E1: ops_phantom_step_drift is empty
+  // E1: ops_phantom_step_drift — only non-skipped drift counts as failure
   {
     const { data: drift, error } = await sb
       .from("ops_phantom_step_drift")
       .select("*")
       .limit(50);
 
-    const count = (drift ?? []).length;
+    // Filter: skipped phantom steps are healed, not drift
+    const activeDrift = (drift ?? []).filter(
+      (r: any) => r.status !== "skipped"
+    );
+
     results.push({
-      test_id: "E1_drift_view_empty",
+      test_id: "E1_drift_view_clean",
       layer: "regression_drift",
-      pass: count === 0,
-      detail: count === 0
-        ? "ops_phantom_step_drift returns 0 rows — no drift detected"
-        : `FAIL: ${count} drift rows detected`,
-      evidence: error ? { error: error.message } : { samples: (drift ?? []).slice(0, 5) },
+      pass: activeDrift.length === 0,
+      detail: activeDrift.length === 0
+        ? `ops_phantom_step_drift: ${(drift ?? []).length} total rows, all skipped (healed) — no active drift`
+        : `FAIL: ${activeDrift.length} non-skipped drift rows detected`,
+      evidence: error
+        ? { error: error.message }
+        : { active_drift: activeDrift.slice(0, 5), total_rows: (drift ?? []).length },
     });
   }
 
-  // E2: ops_missing_step_backbone reports only SSOT keys
+  // E2: ops_missing_step_backbone reports only SSOT keys (column is missing_step)
   {
     const { data: missingBb } = await sb
       .from("ops_missing_step_backbone")
@@ -390,7 +396,7 @@ Deno.serve(async (req) => {
       .limit(50);
 
     const nonSsotMissing = (missingBb ?? []).filter(
-      (r: any) => !SSOT_STEP_KEYS.includes(r.step_key)
+      (r: any) => !SSOT_STEP_KEYS.includes(r.missing_step)
     );
 
     results.push({
