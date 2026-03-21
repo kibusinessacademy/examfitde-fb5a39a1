@@ -158,6 +158,12 @@ export default function KursePage() {
                     ? packages.filter(p => p.is_stuck).length
                     : f.key === 'publish_drift'
                     ? packages.filter(p => p.has_publish_drift).length
+                    : f.key === 'ready_for_approval'
+                    ? packages.filter(p => p.council_complete && !p.council_approved && p.approved_questions > 0).length
+                    : f.key === 'waiting_for_council'
+                    ? packages.filter(p => p.council_sessions_pending > 0).length
+                    : f.key === 'early_pipeline'
+                    ? packages.filter(p => p.approved_questions === 0 && !p.council_complete && p.status !== 'published').length
                     : packages.filter(p => p.status === f.key).length
                   }
                 </span>
