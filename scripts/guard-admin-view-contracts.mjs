@@ -211,6 +211,35 @@ function checkJobMapAlignment() {
   }
 }
 
+function checkDagEdgeParity() {
+  if (!fs.existsSync(JOB_MAP_FILE)) return;
+  const jobMapContent = fs.readFileSync(JOB_MAP_FILE, "utf8");
+
+  // Extract PIPELINE_GRAPH dependsOn edges
+  const graphMatch = jobMapContent.match(
+    /PIPELINE_GRAPH[^=]*=\s*\[([\s\S]*?)\];/
+  );
+  if (!graphMatch) {
+    console.warn("⚠ Could not parse PIPELINE_GRAPH from job-map.ts");
+    return;
+  }
+
+  // Count dependsOn entries
+  const dependsOnRegex = /dependsOn:\s*\[([^\]]*)\]/g;
+  let edgeCount = 0;
+  let m;
+  while ((m = dependsOnRegex.exec(graphMatch[1])) !== null) {
+    const deps = m[1].match(/"(\w+)"/g);
+    if (deps) edgeCount += deps.length;
+  }
+
+  if (edgeCount !== EXPECTED_DAG_EDGE_COUNT) {
+    violations.push(
+      `PIPELINE_GRAPH has ${edgeCount} dependency edges but guard expects ${EXPECTED_DAG_EDGE_COUNT}. Update pipeline_dag_edges table and EXPECTED_DAG_EDGE_COUNT.`
+    );
+  }
+}
+
 function extractViewColumns(typesContent, viewName) {
   const viewRegex = new RegExp(
     `${viewName}:\\s*\\{\\s*Row:\\s*\\{([^}]+)\\}`,
