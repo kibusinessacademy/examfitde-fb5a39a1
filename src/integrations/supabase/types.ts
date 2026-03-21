@@ -46655,7 +46655,6 @@ export type Database = {
       heal_true_stall_steps: {
         Args: { p_max_heal?: number }
         Returns: {
-          action: string
           job_type: string
           package_id: string
           step_key: string
