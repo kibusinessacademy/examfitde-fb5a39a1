@@ -38949,6 +38949,16 @@ export type Database = {
           },
         ]
       }
+      ops_phantom_step_drift: {
+        Row: {
+          first_seen: string | null
+          last_updated: string | null
+          package_count: number | null
+          status: Database["public"]["Enums"]["step_status"] | null
+          step_key: string | null
+        }
+        Relationships: []
+      }
       ops_pipeline_map: {
         Row: {
           beruf_id: string | null
