@@ -737,7 +737,14 @@ Deno.serve(async (req) => {
         // ── ROOT-CAUSE REQUEUE: Check if upstream steps need redispatch ──
         let rootCauseHealed = false;
         try {
-          // Check if council sessions are still pending (root cause of integrity failure)
+          const { data: pkgRow } = await sb
+            .from("course_packages")
+            .select("curriculum_id")
+            .eq("id", jobPackageId)
+            .maybeSingle();
+          const curriculumId = (pkgRow as any)?.curriculum_id ?? null;
+
+          // 1) Check council sessions still open
           const { count: pendingCouncilCount } = await sb
             .from("council_sessions")
             .select("id", { count: "exact", head: true })
@@ -745,40 +752,42 @@ Deno.serve(async (req) => {
             .not("status", "in", "(completed,cancelled,skipped)");
 
           if ((pendingCouncilCount ?? 0) > 0) {
-            // Council not done — check if quality_council step needs redispatch
             const { data: councilStep } = await sb
               .from("package_steps")
-              .select("status")
+              .select("status, meta")
               .eq("package_id", jobPackageId)
               .eq("step_key", "quality_council")
               .maybeSingle();
 
             if (councilStep?.status === "done") {
-              // SSOT mismatch: step=done but sessions pending — reset step
+              // SSOT mismatch: done but sessions still pending — reset step
               await sb.from("package_steps").update({
                 status: "queued",
                 started_at: null,
                 finished_at: null,
                 last_error: null,
-                meta: { root_cause_heal: "council_step_done_but_sessions_pending", healed_at: tsNow },
+                meta: {
+                  ...((councilStep.meta as any) || {}),
+                  root_cause_heal: "council_done_but_sessions_pending",
+                  healed_at_v2: tsNow,
+                },
               }).eq("package_id", jobPackageId).eq("step_key", "quality_council");
-              console.warn(`[job-runner] 🔧 ROOT-CAUSE HEAL: quality_council was done but ${pendingCouncilCount} sessions pending — reset to queued (pkg ${jobPackageId.slice(0, 8)})`);
+              console.warn(`[job-runner] 🔧 ROOT-CAUSE HEAL: reset quality_council to queued; ${pendingCouncilCount} sessions still open (pkg ${jobPackageId.slice(0, 8)})`);
               rootCauseHealed = true;
-            } else if (councilStep?.status === "queued" || councilStep?.status === "failed") {
-              // Council step exists but not running — ensure a job is dispatched
+            } else {
+              // Council step queued/failed — ensure a job is dispatched
               const { count: councilJobCount } = await sb
                 .from("job_queue")
                 .select("id", { count: "exact", head: true })
-                .eq("job_type", "package_quality_council")
                 .eq("package_id", jobPackageId)
+                .eq("job_type", "package_quality_council")
                 .in("status", ["pending", "queued", "processing"]);
 
               if ((councilJobCount ?? 0) === 0) {
-                const { data: pkgForPayload } = await sb.from("course_packages").select("curriculum_id").eq("id", jobPackageId).maybeSingle();
                 await enqueueJob(sb, {
                   job_type: "package_quality_council",
-                  payload: { package_id: jobPackageId, curriculum_id: (pkgForPayload as any)?.curriculum_id, triggered_by: "auto_publish_root_cause_heal" },
                   package_id: jobPackageId,
+                  payload: { package_id: jobPackageId, curriculum_id: curriculumId, triggered_by: "auto_publish_root_cause_heal" },
                   max_attempts: 5,
                   priority: 10,
                 });
@@ -787,32 +796,65 @@ Deno.serve(async (req) => {
               }
             }
           } else {
-            // Council done — check if run_integrity_check needs redispatch
+            // 2) Council sessions all done — check integrity freshness
             const { data: integrityStep } = await sb
               .from("package_steps")
-              .select("status")
+              .select("status, updated_at, meta")
               .eq("package_id", jobPackageId)
               .eq("step_key", "run_integrity_check")
               .maybeSingle();
 
-            if (integrityStep?.status !== "done") {
+            const integrityUpdatedAt = integrityStep?.updated_at
+              ? new Date(integrityStep.updated_at).getTime() : 0;
+
+            // Check if council activity is newer than integrity check
+            const { data: newestCouncilSession } = await sb
+              .from("council_sessions")
+              .select("decided_at, created_at")
+              .eq("package_id", jobPackageId)
+              .order("created_at", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+
+            const newestCouncilTs = newestCouncilSession
+              ? new Date(newestCouncilSession.decided_at || newestCouncilSession.created_at).getTime()
+              : 0;
+
+            const integrityStale = newestCouncilTs > 0 && integrityUpdatedAt > 0 && newestCouncilTs > integrityUpdatedAt;
+            const needsIntegrityRedispatch = !integrityStep || integrityStep.status !== "done" || integrityStale;
+
+            if (needsIntegrityRedispatch) {
               const { count: intJobCount } = await sb
                 .from("job_queue")
                 .select("id", { count: "exact", head: true })
-                .eq("job_type", "package_run_integrity_check")
                 .eq("package_id", jobPackageId)
+                .eq("job_type", "package_run_integrity_check")
                 .in("status", ["pending", "queued", "processing"]);
 
               if ((intJobCount ?? 0) === 0) {
-                const { data: pkgForPayload2 } = await sb.from("course_packages").select("curriculum_id").eq("id", jobPackageId).maybeSingle();
+                // If integrity is done but stale, reset the step first
+                if (integrityStep?.status === "done" && integrityStale) {
+                  await sb.from("package_steps").update({
+                    status: "queued",
+                    started_at: null,
+                    finished_at: null,
+                    last_error: null,
+                    meta: {
+                      ...((integrityStep.meta as any) || {}),
+                      root_cause_heal: "integrity_stale_after_council_change",
+                      healed_at_v2: tsNow,
+                    },
+                  }).eq("package_id", jobPackageId).eq("step_key", "run_integrity_check");
+                }
+
                 await enqueueJob(sb, {
                   job_type: "package_run_integrity_check",
-                  payload: { package_id: jobPackageId, curriculum_id: (pkgForPayload2 as any)?.curriculum_id, triggered_by: "auto_publish_root_cause_heal" },
                   package_id: jobPackageId,
+                  payload: { package_id: jobPackageId, curriculum_id: curriculumId, triggered_by: "auto_publish_root_cause_heal" },
                   max_attempts: 3,
                   priority: 10,
                 });
-                console.warn(`[job-runner] 🔧 ROOT-CAUSE HEAL: enqueued package_run_integrity_check (pkg ${jobPackageId.slice(0, 8)})`);
+                console.warn(`[job-runner] 🔧 ROOT-CAUSE HEAL: enqueued package_run_integrity_check${integrityStale ? " (stale after council)" : ""} (pkg ${jobPackageId.slice(0, 8)})`);
                 rootCauseHealed = true;
               }
             }
@@ -822,11 +864,10 @@ Deno.serve(async (req) => {
         }
 
         if (rootCauseHealed) {
-          // Root cause identified and healed — requeue auto_publish with long backoff instead of blocking
           await sb.from("job_queue").update({
             status: "cancelled",
             completed_at: tsNow,
-            last_error: "ROOT_CAUSE_HEALED: upstream step redispatched, will retry after upstream completes",
+            last_error: "ROOT_CAUSE_HEALED: upstream step redispatched, auto_publish will retry later",
             meta: { ...(job.meta || {}), outcome: "root_cause_healed" },
             ...lockRelease(tsNow),
           }).eq("id", job.id).eq("status", "processing");
@@ -837,7 +878,8 @@ Deno.serve(async (req) => {
             target_type: "package",
             target_id: jobPackageId,
             result_status: "applied",
-            result_detail: "Root cause identified and upstream step redispatched instead of loop-guard block",
+            result_detail: "Detected upstream root cause and redispatched prerequisite instead of hard loop-block",
+            metadata: { package_id: jobPackageId, source_job_id: job.id },
           });
 
           results.push({ id: job.id, status: "cancelled", reason: "auto_publish_root_cause_healed" });
