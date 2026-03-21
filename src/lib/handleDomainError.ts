@@ -30,7 +30,7 @@ export function handleDomainError(
       });
 
       if (packageId) {
-        opts.navigate(`/admin/course-packages/${packageId}`);
+        opts.navigate(`/admin/studio/${packageId}`);
       }
       return true;
     }
