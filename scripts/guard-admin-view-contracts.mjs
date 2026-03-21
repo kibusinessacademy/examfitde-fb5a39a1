@@ -126,6 +126,8 @@ function main() {
     console.log(`   ${viewName}: ${cols.length} required columns verified`);
   }
   console.log(`   ops_jobtype_step_map: ${Object.keys(SSOT_STEP_MAPPINGS).length} step mappings verified`);
+  console.log(`   ops_pipeline_step_drift: prereq-aware drift view verified`);
+  console.log(`   pipeline_dag_edges: ${EXPECTED_DAG_EDGE_COUNT} edges expected`);
 }
 
 function checkStepMappingParity(typesContent) {
