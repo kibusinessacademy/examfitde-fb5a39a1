@@ -32,8 +32,16 @@ const VIEW_CONTRACTS = {
     "council_approved", "integrity_passed",
     "created_at", "updated_at", "is_published", "track",
   ],
+  ops_pipeline_step_drift: [
+    "package_id", "pkg_status", "build_progress", "step_key",
+    "step_status", "step_updated_at", "job_type",
+    "all_prereqs_done", "prereq_count", "prereqs_done_count",
+    "has_active_job", "drift_signal", "age_minutes",
+  ],
 };
 
+// ── DAG edges contract (must match PIPELINE_GRAPH dependsOn in job-map.ts) ──
+const EXPECTED_DAG_EDGE_COUNT = 28; // 25 steps, 28 dependency edges
 // ── Step mapping contract (must match FULL_STEP_ORDER in job-map.ts) ──
 
 const SSOT_STEP_MAPPINGS = {
