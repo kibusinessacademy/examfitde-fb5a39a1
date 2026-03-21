@@ -45769,6 +45769,12 @@ export type Database = {
           waehrung: string
         }[]
       }
+      get_distinct_step_keys: {
+        Args: never
+        Returns: {
+          step_key: string
+        }[]
+      }
       get_dom_blueprint_coverage: {
         Args: { p_blueprint_id: string }
         Returns: Json
