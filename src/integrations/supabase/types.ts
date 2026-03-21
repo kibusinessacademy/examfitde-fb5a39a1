@@ -23778,6 +23778,54 @@ export type Database = {
         }
         Relationships: []
       }
+      phantom_step_e2e_runs: {
+        Row: {
+          canary_package_id: string | null
+          created_at: string
+          elapsed_ms: number
+          id: string
+          layer_summary: Json
+          mode: string
+          overall_pass: boolean
+          results: Json
+          ssot_step_count: number
+          summary: Json
+          test_run_id: string
+          triggered_by: string
+          verdict: string
+        }
+        Insert: {
+          canary_package_id?: string | null
+          created_at?: string
+          elapsed_ms?: number
+          id?: string
+          layer_summary?: Json
+          mode?: string
+          overall_pass: boolean
+          results?: Json
+          ssot_step_count?: number
+          summary?: Json
+          test_run_id: string
+          triggered_by?: string
+          verdict: string
+        }
+        Update: {
+          canary_package_id?: string | null
+          created_at?: string
+          elapsed_ms?: number
+          id?: string
+          layer_summary?: Json
+          mode?: string
+          overall_pass?: boolean
+          results?: Json
+          ssot_step_count?: number
+          summary?: Json
+          test_run_id?: string
+          triggered_by?: string
+          verdict?: string
+        }
+        Relationships: []
+      }
       pipeline_active_packages: {
         Row: {
           claimed_at: string
