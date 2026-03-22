@@ -1,5 +1,18 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "npm:@supabase/supabase-js@2.45.4";
+
+/**
+ * generate-content — Worker-based Content Engine
+ * 
+ * Two modes:
+ *  1. ENQUEUE (POST with blueprint_id/question_id) — creates a queued job, returns immediately
+ *  2. PROCESS  (POST with { mode: "process", limit: N }) — claims + processes queued jobs
+ * 
+ * SSOT Guards:
+ *  - Only approved questions + blueprints
+ *  - Source snapshot persisted for audit
+ *  - Hook ID tracked for usage analytics
+ */
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -7,104 +20,206 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method !== "POST") return json({ error: "Use POST" }, 405);
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
 
-  if (!lovableApiKey) {
-    return new Response(JSON.stringify({ error: "LOVABLE_API_KEY not configured" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
+  if (!lovableApiKey) return json({ error: "LOVABLE_API_KEY not configured" }, 500);
 
   const sb = createClient(supabaseUrl, serviceKey);
 
   try {
-    const body = await req.json();
-    const {
-      blueprint_id,
-      question_id,
-      content_type = "video",
-      platform = "tiktok",
-      target_audience = "azubi",
-      content_category = "reichweite",
-      format = "1min_ihk_frage",
-    } = body;
+    const body = await req.json().catch(() => ({}));
+    const mode = body.mode || "enqueue";
 
-    if (!blueprint_id && !question_id) {
-      return new Response(JSON.stringify({ error: "blueprint_id or question_id required" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    if (mode === "process") {
+      return await processJobs(sb, lovableApiKey, body.limit || 3);
     }
 
-    // 1. Load question (from blueprint or directly)
-    let question: any = null;
-    let blueprint: any = null;
+    return await enqueueJob(sb, body);
+  } catch (err) {
+    console.error("[generate-content] UNHANDLED:", err);
+    const msg = err instanceof Error ? err.message : String(err);
+    return json({ error: msg }, 500);
+  }
+});
 
-    if (question_id) {
-      const { data, error } = await sb
-        .from("exam_questions")
-        .select("id, question_text, correct_answer, explanation, difficulty, cognitive_level, curriculum_id, competency_id, blueprint_id")
-        .eq("id", question_id)
-        .single();
-      if (error) throw new Error(`Question not found: ${error.message}`);
-      question = data;
+// ─── ENQUEUE MODE ────────────────────────────────────────────
+async function enqueueJob(sb: any, body: any) {
+  const {
+    blueprint_id,
+    question_id,
+    content_type = "video",
+    platform = "tiktok",
+    target_audience = "azubi",
+    content_category = "reichweite",
+    format = "1min_ihk_frage",
+  } = body;
+
+  if (!blueprint_id && !question_id) {
+    return json({ error: "blueprint_id or question_id required" }, 400);
+  }
+
+  // ── Load & validate question ──
+  let question: any = null;
+  let blueprint: any = null;
+
+  if (question_id) {
+    const { data, error } = await sb
+      .from("exam_questions")
+      .select("id, question_text, correct_answer, explanation, difficulty, cognitive_level, curriculum_id, competency_id, blueprint_id, status")
+      .eq("id", question_id)
+      .maybeSingle();
+    if (error) return json({ error: `Question load failed: ${error.message}` }, 500);
+    if (!data) return json({ error: "Question not found" }, 404);
+    if (data.status !== "approved") return json({ error: `SSOT_GATE: Question status is '${data.status}', must be 'approved'` }, 422);
+    question = data;
+  }
+
+  if (blueprint_id || question?.blueprint_id) {
+    const bpId = blueprint_id || question.blueprint_id;
+    const { data } = await sb
+      .from("question_blueprints")
+      .select("id, topic, subtopic, difficulty, bloom_level, ihk_relevant, status")
+      .eq("id", bpId)
+      .maybeSingle();
+    if (data) {
+      if (data.status && data.status !== "approved" && data.status !== "active") {
+        return json({ error: `SSOT_GATE: Blueprint status is '${data.status}', must be 'approved'` }, 422);
+      }
+      blueprint = data;
     }
+  }
 
-    if (blueprint_id || question?.blueprint_id) {
-      const bpId = blueprint_id || question.blueprint_id;
-      const { data, error } = await sb
-        .from("question_blueprints")
-        .select("id, topic, subtopic, difficulty, bloom_level, ihk_relevant")
-        .eq("id", bpId)
-        .single();
-      if (!error && data) blueprint = data;
+  // Find approved question from blueprint if none given
+  if (!question && blueprint_id) {
+    const { data } = await sb
+      .from("exam_questions")
+      .select("id, question_text, correct_answer, explanation, difficulty, cognitive_level, curriculum_id, competency_id, blueprint_id, status")
+      .eq("blueprint_id", blueprint_id)
+      .eq("status", "approved")
+      .limit(1)
+      .maybeSingle();
+    if (!data) return json({ error: "No approved question found for blueprint" }, 404);
+    question = data;
+  }
+
+  if (!question) return json({ error: "No approved question available" }, 404);
+
+  // ── Pick a hook ──
+  const { data: hooks } = await sb
+    .from("content_hooks")
+    .select("id, hook_text, category, usage_count")
+    .eq("is_active", true)
+    .eq("category", content_category)
+    .limit(10);
+
+  const selectedHook = hooks && hooks.length > 0
+    ? hooks[Math.floor(Math.random() * hooks.length)]
+    : null;
+
+  // ── Build source snapshot (audit) ──
+  const sourceSnapshot = {
+    question_id: question.id,
+    question_text: question.question_text,
+    correct_answer: question.correct_answer,
+    explanation: question.explanation || null,
+    difficulty: question.difficulty,
+    cognitive_level: question.cognitive_level,
+    blueprint_id: blueprint?.id || question.blueprint_id,
+    blueprint_topic: blueprint?.topic || null,
+    blueprint_subtopic: blueprint?.subtopic || null,
+    snapshot_at: new Date().toISOString(),
+  };
+
+  // ── Insert job as queued ──
+  const { data: job, error: insertErr } = await sb.from("content_jobs").insert({
+    blueprint_id: blueprint?.id || question.blueprint_id,
+    question_id: question.id,
+    curriculum_id: question.curriculum_id,
+    competency_id: question.competency_id,
+    content_type,
+    platform,
+    status: "queued",
+    hook: selectedHook?.hook_text || null,
+    hook_id: selectedHook?.id || null,
+    target_audience,
+    content_category,
+    source_type: question_id ? "question" : "blueprint",
+    source_snapshot: sourceSnapshot,
+    generation_meta: { format, hook_category: content_category },
+  }).select("id").single();
+
+  if (insertErr) return json({ error: `Insert failed: ${insertErr.message}` }, 500);
+
+  return json({ ok: true, content_job_id: job.id, status: "queued" });
+}
+
+// ─── PROCESS MODE (Worker) ──────────────────────────────────
+async function processJobs(sb: any, apiKey: string, limit: number) {
+  // Claim jobs atomically
+  const { data: claimed, error: claimErr } = await sb.rpc("claim_content_jobs", {
+    p_limit: Math.min(limit, 5),
+    p_worker_id: "generate-content-worker",
+  });
+
+  if (claimErr) return json({ error: `Claim failed: ${claimErr.message}` }, 500);
+  if (!claimed || claimed.length === 0) return json({ ok: true, processed: 0, message: "No jobs to process" });
+
+  const results: any[] = [];
+
+  for (const job of claimed) {
+    try {
+      await processOneJob(sb, apiKey, job);
+      results.push({ id: job.id, status: "generated" });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`[generate-content] Job ${job.id} failed:`, msg);
+
+      await sb.from("content_jobs").update({
+        status: "failed",
+        last_error: msg.slice(0, 2000),
+        attempt_count: (job.attempt_count || 0) + 1,
+        updated_at: new Date().toISOString(),
+      }).eq("id", job.id);
+
+      results.push({ id: job.id, status: "failed", error: msg.slice(0, 200) });
     }
+  }
 
-    // If no question given, find one from blueprint
-    if (!question && blueprint_id) {
-      const { data } = await sb
-        .from("exam_questions")
-        .select("id, question_text, correct_answer, explanation, difficulty, cognitive_level, curriculum_id, competency_id, blueprint_id")
-        .eq("blueprint_id", blueprint_id)
-        .eq("status", "approved")
-        .limit(1)
-        .single();
-      if (data) question = data;
-    }
+  return json({ ok: true, processed: results.length, results });
+}
 
-    if (!question) {
-      return new Response(JSON.stringify({ error: "No approved question found for blueprint" }), {
-        status: 404,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+async function processOneJob(sb: any, apiKey: string, job: any) {
+  const format = job.generation_meta?.format || "1min_ihk_frage";
+  const snapshot = job.source_snapshot || {};
 
-    // 2. Load a random hook
-    const { data: hooks } = await sb
-      .from("content_hooks")
-      .select("hook_text, category")
-      .eq("is_active", true)
-      .eq("category", content_category)
-      .limit(5);
+  // Rebuild from snapshot (no extra DB calls needed)
+  const questionText = snapshot.question_text || "Keine Frage verfügbar";
+  const correctAnswer = snapshot.correct_answer || "";
+  const explanation = snapshot.explanation || "";
+  const difficulty = snapshot.difficulty || "mittel";
+  const bloomLevel = snapshot.cognitive_level || "verstehen";
+  const blueprintTopic = snapshot.blueprint_topic || "";
+  const blueprintSubtopic = snapshot.blueprint_subtopic || "";
+  const hookText = job.hook || "Diese Frage kommt in der IHK-Prüfung:";
 
-    const randomHook = hooks && hooks.length > 0
-      ? hooks[Math.floor(Math.random() * hooks.length)].hook_text
-      : "Diese Frage kommt in der IHK-Prüfung:";
-
-    // 3. Build prompt based on format
-    const formatTemplates: Record<string, string> = {
-      "1min_ihk_frage": `Erstelle ein TikTok/Reels-Skript im Format "1 Minute – 1 IHK Frage".
+  // ── Build prompt ──
+  const formatTemplates: Record<string, string> = {
+    "1min_ihk_frage": `Erstelle ein TikTok/Reels-Skript im Format "1 Minute – 1 IHK Frage".
 
 HOOK (0-3 Sek, maximal provokant, stoppe den Scroll):
-Nutze diesen Hook als Inspiration: "${randomHook}"
+Nutze diesen Hook als Inspiration: "${hookText}"
 
 FRAGE (3-8 Sek):
 Zeige die Prüfungsfrage klar und deutlich.
@@ -124,140 +239,96 @@ Regeln:
 - Prüfungsnähe betonen
 - Maximal 150 Wörter gesamt`,
 
-      "fehleranalyse": `Erstelle ein Fehleranalyse-Video-Skript.
-
+    "fehleranalyse": `Erstelle ein Fehleranalyse-Video-Skript.
 Zeige einen typischen Azubi-Fehler bei dieser Prüfungsfrage.
 Erkläre, warum der Fehler passiert und wie man ihn vermeidet.
+Regeln: "Die meisten denken..." → "Aber richtig ist..."
+Prüfungscoach-Tonalität. Maximal 120 Wörter.`,
 
-Regeln:
-- "Die meisten denken..." → "Aber richtig ist..."
-- Prüfungscoach-Tonalität
-- Maximal 120 Wörter`,
-
-      "post": `Erstelle einen Instagram/LinkedIn Post-Text.
-
-Zeige die Frage als Karussell-Idee oder Text-Post.
-Inkludiere: Frage, falsche Denkweise, richtige Antwort, Lern-Tipp.
+    "post": `Erstelle einen Instagram/LinkedIn Post-Text.
+Zeige die Frage als Text-Post. Inkludiere: Frage, falsche Denkweise, richtige Antwort, Lern-Tipp.
 Hashtags: #IHKPrüfung #Azubi #Prüfungsvorbereitung #ExamFit
-
 Maximal 200 Wörter.`,
-    };
+  };
 
-    const template = formatTemplates[format] || formatTemplates["1min_ihk_frage"];
+  const template = formatTemplates[format] || formatTemplates["1min_ihk_frage"];
 
-    const systemPrompt = `Du bist der ExamFit Prüfungscoach – direkt, ehrlich, kompetent. 
+  const systemPrompt = `Du bist der ExamFit Prüfungscoach – direkt, ehrlich, kompetent.
 Du erstellst Social-Media-Content für Azubis, die ihre IHK-Prüfung bestehen wollen.
 Dein Ton: motivierend aber realistisch, jung aber nicht albern, prüfungsnah.
 Marke: ExamFit – "Bestehe deine IHK-Prüfung. Systematisch. Messbar. Sicher."`;
 
-    const userPrompt = `${template}
+  const userPrompt = `${template}
 
 --- PRÜFUNGSFRAGE ---
-Frage: ${question.question_text}
-Richtige Antwort: ${question.correct_answer}
-Erklärung: ${question.explanation || "Keine zusätzliche Erklärung verfügbar."}
-Schwierigkeit: ${question.difficulty || "mittel"}
-Bloom-Level: ${question.cognitive_level || "verstehen"}
-${blueprint ? `Blueprint-Thema: ${blueprint.topic} / ${blueprint.subtopic || ""}` : ""}
+Frage: ${questionText}
+Richtige Antwort: ${correctAnswer}
+Erklärung: ${explanation || "Keine zusätzliche Erklärung verfügbar."}
+Schwierigkeit: ${difficulty}
+Bloom-Level: ${bloomLevel}
+${blueprintTopic ? `Blueprint-Thema: ${blueprintTopic} / ${blueprintSubtopic}` : ""}
 ---
 
 Liefere NUR das fertige Skript, keine Meta-Kommentare.`;
 
-    // 4. Call Lovable AI
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${lovableApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        temperature: 0.8,
-      }),
-    });
+  // ── Call Lovable AI ──
+  const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "google/gemini-3-flash-preview",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      temperature: 0.8,
+    }),
+  });
 
-    if (!aiResponse.ok) {
-      const errText = await aiResponse.text();
-      if (aiResponse.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limit exceeded. Bitte warte kurz." }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (aiResponse.status === 402) {
-        return new Response(JSON.stringify({ error: "AI Credits aufgebraucht." }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      throw new Error(`AI Gateway error [${aiResponse.status}]: ${errText}`);
-    }
-
-    const aiJson = await aiResponse.json();
-    const script = aiJson.choices?.[0]?.message?.content || "";
-    const usage = aiJson.usage || {};
-
-    // Extract hook from script (first line usually)
-    const scriptLines = script.split("\n").filter((l: string) => l.trim());
-    const extractedHook = scriptLines[0]?.replace(/^(HOOK|hook|Hook)[:\s]*/i, "").trim() || randomHook;
-
-    // 5. Save content_job
-    const { data: job, error: insertErr } = await sb.from("content_jobs").insert({
-      blueprint_id: blueprint?.id || question.blueprint_id,
-      question_id: question.id,
-      curriculum_id: question.curriculum_id,
-      competency_id: question.competency_id,
-      content_type,
-      platform,
-      status: "generated",
-      hook: extractedHook,
-      script,
-      cta: "Teste dich auf ExamFit → examfit.de",
-      hashtags: ["IHKPrüfung", "Azubi", "Prüfungsvorbereitung", "ExamFit", "IHK"],
-      target_audience,
-      content_category,
-      llm_model: "google/gemini-3-flash-preview",
-      llm_cost_eur: 0,
-      generation_meta: {
-        format,
-        hook_used: randomHook,
-        question_difficulty: question.difficulty,
-        bloom_level: question.cognitive_level,
-        usage,
-      },
-    }).select("id").single();
-
-    if (insertErr) throw new Error(`Insert failed: ${insertErr.message}`);
-
-    // 6. Update hook usage count
-    if (hooks && hooks.length > 0) {
-      await sb.rpc("increment_hook_usage_noop").catch(() => {
-        // noop if rpc doesn't exist yet
-      });
-    }
-
-    return new Response(JSON.stringify({
-      success: true,
-      content_job_id: job?.id,
-      script,
-      hook: extractedHook,
-      question_id: question.id,
-      blueprint_id: blueprint?.id,
-    }), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-
-  } catch (err) {
-    console.error("generate-content error:", err);
-    const msg = err instanceof Error ? err.message : "Unknown error";
-    return new Response(JSON.stringify({ error: msg }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+  if (!aiResponse.ok) {
+    const errText = await aiResponse.text().catch(() => "unknown");
+    throw new Error(`AI_GATEWAY_${aiResponse.status}: ${errText.slice(0, 300)}`);
   }
-});
+
+  const aiJson = await aiResponse.json();
+  const script = aiJson.choices?.[0]?.message?.content || "";
+  const usage = aiJson.usage || {};
+
+  if (!script || script.length < 20) {
+    throw new Error("ZERO_GENERATION: AI returned empty or too-short script");
+  }
+
+  // Extract hook from script
+  const scriptLines = script.split("\n").filter((l: string) => l.trim());
+  const extractedHook = scriptLines[0]?.replace(/^(HOOK|hook|Hook)[:\s]*/i, "").trim() || hookText;
+
+  // ── Update job to generated ──
+  const { error: updateErr } = await sb.from("content_jobs").update({
+    status: "generated",
+    script,
+    hook: extractedHook,
+    cta: "Teste dich auf ExamFit → examfit.de",
+    hashtags: ["IHKPrüfung", "Azubi", "Prüfungsvorbereitung", "ExamFit"],
+    llm_model: "google/gemini-3-flash-preview",
+    llm_cost_eur: 0,
+    attempt_count: (job.attempt_count || 0) + 1,
+    generation_meta: {
+      ...job.generation_meta,
+      format,
+      hook_used: hookText,
+      usage,
+      generated_at: new Date().toISOString(),
+    },
+    updated_at: new Date().toISOString(),
+  }).eq("id", job.id);
+
+  if (updateErr) throw new Error(`Update failed: ${updateErr.message}`);
+
+  // ── Track hook usage ──
+  if (job.hook_id) {
+    await sb.rpc("increment_content_hook_usage", { p_hook_id: job.hook_id }).catch(() => {});
+  }
+}
