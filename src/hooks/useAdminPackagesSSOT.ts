@@ -26,6 +26,8 @@ export interface AdminPackageSSOT {
   canonical_title: string | null;
   beruf_id: string | null;
   beruf_display_name: string | null;
+  steps_done: number;
+  steps_functional: number;
   council_sessions_total: number;
   council_sessions_pending: number;
   council_sessions_processing: number;
