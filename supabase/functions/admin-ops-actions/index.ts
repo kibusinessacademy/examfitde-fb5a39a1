@@ -455,7 +455,7 @@ async function cancelPackageBuild(sb: SB, packageId: string) {
 
   // Reset package status
   const { error: pkgErr } = await sb.from("course_packages")
-    .update({ status: "draft", build_progress: 0, updated_at: new Date().toISOString() })
+    .update({ status: "draft", updated_at: new Date().toISOString() })
     .eq("id", packageId);
   if (pkgErr) throw pkgErr;
 

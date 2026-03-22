@@ -230,7 +230,7 @@ Deno.serve(async (req) => {
     } else {
       const { error: pErr } = await sb
         .from("course_packages")
-        .update({ status: "published", build_progress: 100, council_approved: true, published_at: new Date().toISOString() })
+        .update({ status: "published", council_approved: true, published_at: new Date().toISOString() })
         .eq("id", packageId);
       if (pErr) throw pErr;
     }

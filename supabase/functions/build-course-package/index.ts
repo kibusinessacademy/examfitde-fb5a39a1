@@ -296,7 +296,7 @@ Deno.serve(async (req) => {
     // Mark package as building (pipeline-runner will acquire lease and process)
     await sb
       .from("course_packages")
-      .update({ status: "building", build_progress: 1, priority: ensuredPriority })
+      .update({ status: "building", priority: ensuredPriority })
       .eq("id", packageId);
 
     console.log(`[BuildPkg] ✅ ${allSteps.length} steps initialized for ${packageId.slice(0, 8)} — pipeline-runner will enqueue jobs`);
