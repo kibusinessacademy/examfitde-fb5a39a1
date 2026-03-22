@@ -92,38 +92,42 @@ Deno.serve(async (req) => {
     // ═══════════════════════════════════════════════════════════
     // FAIL-CLOSED GUARD: integrity_report MUST exist
     // If run_integrity_check is done but report is NULL, a trigger
-    // or race condition cleared it. Re-queue integrity instead of
-    // proceeding blind (which would either publish without gate
-    // check or loop-block with unclear cause).
+    // or race condition cleared it. Re-queue integrity AND block
+    // the package to prevent any publish path from proceeding.
     // ═══════════════════════════════════════════════════════════
     if (!integrityReport) {
-      console.error(`[auto-publish] FAIL-CLOSED: integrity_report is NULL for package ${packageId.slice(0, 8)} despite run_integrity_check=done. Re-queuing integrity step.`);
+      console.error(`[auto-publish] FAIL-CLOSED: integrity_report is NULL for package ${packageId.slice(0, 8)} despite run_integrity_check=done. Re-queuing integrity step + blocking package.`);
 
-      // Re-queue integrity check
+      // Re-queue integrity check step
       await sb.from("package_steps").update({
         status: "queued",
         started_at: null,
         finished_at: null,
-        last_error: null,
+        last_error: "INTEGRITY_REPORT_MISSING_AFTER_DONE",
         meta: {
           heal_reason: "auto_publish_detected_null_report",
           healed_at: new Date().toISOString(),
+          auto_requeued_by: "package-auto-publish",
           last_progress_note: "Report was NULL at auto_publish time — re-running integrity check",
         },
       }).eq("package_id", packageId).eq("step_key", "run_integrity_check");
 
-      // Clear stale integrity_passed flag
+      // Block package + clear integrity_passed
       await sb.from("course_packages").update({
         integrity_passed: false,
+        blocked_reason: "INTEGRITY_REPORT_MISSING_AFTER_DONE",
+        updated_at: new Date().toISOString(),
       }).eq("id", packageId);
 
-      await notify(sb, "🔄 Auto-Publish: Integrity Report fehlt",
-        `Package ${packageId.slice(0, 8)}: run_integrity_check war done, aber integrity_report=NULL. Step wurde re-queued.`,
-        "quality", "warning", "course_package", packageId);
+      // Admin notification (P0)
+      await notify(sb, "🚨 Auto-Publish: Integrity Report fehlt (fail-closed)",
+        `Package ${packageId.slice(0, 8)}: run_integrity_check war done, aber integrity_report=NULL. Step re-queued, Package blocked.`,
+        "quality", "error", "course_package", packageId);
 
       return json({
         ok: false, retry: true,
-        error: "INTEGRITY_REPORT_NULL_DESPITE_STEP_DONE",
+        code: "INTEGRITY_REPORT_MISSING_AFTER_DONE",
+        error: "Integrity report missing although integrity step is done. Step re-queued, package blocked.",
         action: "re_queued_integrity_check",
       }, 409);
     }

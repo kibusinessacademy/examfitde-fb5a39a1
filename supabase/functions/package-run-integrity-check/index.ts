@@ -1060,6 +1060,7 @@ Deno.serve(async (req) => {
     // ── P0 PERSISTENCE VERIFICATION ──
     // Invariant: if we wrote integrity_report, it MUST be persisted.
     // Silent persistence failures caused MFA ghost-block (2026-03-20).
+    // Enhanced: checks ALL missing-report cases (!hasReport), not just partial strip.
     {
       const { data: verifyRow, error: verifyErr } = await sb
         .from("course_packages")
@@ -1076,11 +1077,10 @@ Deno.serve(async (req) => {
         if (!hasReport) {
           // CRITICAL: report was stripped by a trigger (e.g. trg_invalidate_integrity_on_package_reset
           // firing due to status/build_progress change in the same transaction).
-          // Cases: hasVersion && !hasReport = partial strip, !hasVersion && !hasReport = full strip.
-          const errMsg = `INTEGRITY_REPORT_PERSISTENCE_DEFECT: report was generated (score=${gate.score}) but cleared by trigger. hasVersion=${hasVersion}`;
+          const errMsg = `INTEGRITY_REPORT_PERSISTENCE_DEFECT: report was generated (score=${gate.score}) but cleared by trigger. hasVersion=${hasVersion}, hasReport=${hasReport}`;
           console.error(`[integrity-check] ${errMsg}`);
 
-          // Attempt recovery: re-write ONLY the report (no status change to avoid re-triggering invalidation)
+          // Attempt recovery: re-write ONLY the report fields (no status change to avoid re-triggering invalidation)
           const { error: rewriteErr } = await sb.from("course_packages").update({
             integrity_report: report,
             integrity_report_version: CURRENT_REPORT_VERSION,
@@ -1092,11 +1092,14 @@ Deno.serve(async (req) => {
             // Mark step as failed so it doesn't silently succeed
             await sb.from("package_steps").update({
               status: "failed",
-              last_error: errMsg,
+              last_error: `PERSISTENCE_VERIFY_FAILED: ${errMsg}; rewrite failed: ${rewriteErr.message}`,
               meta: {
                 last_error: errMsg,
                 last_error_class: "persistence_defect",
                 persistence_defect_at: new Date().toISOString(),
+                missing_report: true,
+                missing_version: !hasVersion,
+                rewrite_error: rewriteErr.message,
               },
             }).eq("package_id", packageId).eq("step_key", "run_integrity_check");
 
@@ -1118,19 +1121,62 @@ Deno.serve(async (req) => {
               report_score: gate.score,
               hard_fails: gate.hardFails,
             });
-          } else {
-            console.log(`[integrity-check] REWRITE OK: report re-persisted for pkg=${packageId.slice(0, 8)}`);
+          }
+
+          // Re-read after rewrite to verify persistence actually stuck
+          const { data: reVerify, error: reVerifyErr } = await sb
+            .from("course_packages")
+            .select("integrity_report, integrity_report_version")
+            .eq("id", packageId)
+            .single();
+
+          if (reVerifyErr || !reVerify?.integrity_report) {
+            const finalErr = `PERSISTENCE_VERIFY_FAILED: integrity_report still missing after rewrite (re-read error: ${reVerifyErr?.message ?? "report NULL"})`;
+            console.error(`[integrity-check] ${finalErr}`);
+
+            await sb.from("package_steps").update({
+              status: "failed",
+              last_error: finalErr,
+              meta: {
+                last_error: finalErr,
+                last_error_class: "persistence_defect",
+                persistence_defect_at: new Date().toISOString(),
+                rewrite_attempted: true,
+                rewrite_succeeded: false,
+              },
+            }).eq("package_id", packageId).eq("step_key", "run_integrity_check");
+
             try {
               await sb.from("admin_notifications").insert({
-                title: "🔄 Integrity Report: Trigger-Strip recovered",
-                body: `Package ${packageId.slice(0, 8)}: report was stripped by trigger after initial write but successfully re-persisted. Score=${gate.score}.`,
+                title: "🚨 Integrity Report: Rewrite did not persist",
+                body: `Package ${packageId.slice(0, 8)}: rewrite succeeded but re-read shows NULL. Trigger-strip loop detected. Step marked failed.`,
                 category: "quality",
-                severity: "info",
+                severity: "error",
                 entity_type: "course_package",
                 entity_id: packageId,
               });
             } catch (_) { /* non-critical */ }
+
+            return json({
+              ok: false,
+              error: finalErr,
+              report_was_generated: true,
+              report_score: gate.score,
+              hard_fails: gate.hardFails,
+            });
           }
+
+          console.log(`[integrity-check] REWRITE+VERIFY OK: report re-persisted for pkg=${packageId.slice(0, 8)}`);
+          try {
+            await sb.from("admin_notifications").insert({
+              title: "🔄 Integrity Report: Trigger-Strip recovered",
+              body: `Package ${packageId.slice(0, 8)}: report was stripped by trigger after initial write but successfully re-persisted and verified. Score=${gate.score}.`,
+              category: "quality",
+              severity: "info",
+              entity_type: "course_package",
+              entity_id: packageId,
+            });
+          } catch (_) { /* non-critical */ }
         }
       }
     }
