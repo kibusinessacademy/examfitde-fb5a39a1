@@ -67,6 +67,64 @@ function requirePayloadId(job: any, key: "package_id" | "curriculum_id"): { id: 
  */
 const VERIFIERS: Record<string, (sb: SB, job: any) => Promise<VerifyResult>> = {
 
+  // ── Scaffold: modules + lessons by course_id ──
+  package_scaffold_learning_course: async (sb, job) => {
+    const r = requirePayloadId(job, "package_id");
+    if ("ok" in r) return r;
+
+    const { data: pkg, error: pkgErr } = await sb
+      .from("course_packages")
+      .select("course_id")
+      .eq("id", r.id)
+      .single();
+    if (pkgErr || !pkg) return { ok: false, reason: "PACKAGE_NOT_FOUND", permanent: true };
+
+    const { count, error } = await safeCount(sb, "modules", (q) =>
+      q.eq("course_id", pkg.course_id),
+    );
+    if (error) return { ok: false, reason: `QUERY_ERROR: ${error}` };
+    if ((count ?? 0) < 1) return { ok: false, reason: "ZERO_MODULES", count: 0 };
+
+    // Also check lessons exist via module IDs
+    const { data: mods } = await sb
+      .from("modules")
+      .select("id")
+      .eq("course_id", pkg.course_id);
+    if (!mods || mods.length === 0) return { ok: false, reason: "ZERO_MODULES", count: 0 };
+
+    const modIds = mods.map((m: any) => m.id);
+    const { count: lessonCount, error: lErr } = await safeCount(sb, "lessons", (q) =>
+      q.in("module_id", modIds),
+    );
+    if (lErr) return { ok: false, reason: `QUERY_ERROR: ${lErr}` };
+
+    return (lessonCount ?? 0) > 0
+      ? { ok: true, count: lessonCount }
+      : { ok: false, reason: "ZERO_LESSONS", count: 0 };
+  },
+
+  // ── Glossary: profession_glossaries via beruf_id ──
+  package_generate_glossary: async (sb, job) => {
+    const r = requirePayloadId(job, "curriculum_id");
+    if ("ok" in r) return r;
+
+    const { data: cur, error: curErr } = await sb
+      .from("curricula")
+      .select("beruf_id")
+      .eq("id", r.id)
+      .single();
+    if (curErr || !cur?.beruf_id) return { ok: false, reason: "NO_BERUF_ID", permanent: true };
+
+    const { count, error } = await safeCount(sb, "profession_glossaries", (q) =>
+      q.eq("beruf_id", cur.beruf_id),
+    );
+    if (error) return { ok: false, reason: `QUERY_ERROR: ${error}` };
+
+    return count > 0
+      ? { ok: true, count }
+      : { ok: false, reason: "ZERO_GLOSSARY_ENTRIES", count: 0 };
+  },
+
   // ── Exam Pool: exam_questions by curriculum_id, non-rejected ──
   package_generate_exam_pool: async (sb, job) => {
     const r = requirePayloadId(job, "curriculum_id");
