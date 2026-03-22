@@ -4,6 +4,7 @@ import { callAIJSON } from "../_shared/ai-client.ts";
 import { getModelChainAsync } from "../_shared/model-routing.ts";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
 import { enqueueJob } from "../_shared/enqueue.ts";
+import { MAX_QUESTIONS_PER_PACKAGE } from "../_shared/exam-pool-limits.ts";
 
 /**
  * pool-fill-bloom-gaps — Targeted Bloom/Difficulty/Competency gap-fill worker
@@ -94,6 +95,20 @@ Deno.serve(async (req) => {
   if (!curriculumId) return json({ error: "curriculum_id required" }, 400);
 
   try {
+    // ── SSOT Budget Guard: check pool size before generating ──
+    const { count: currentPoolSize } = await sb
+      .from("exam_questions")
+      .select("id", { count: "exact", head: true })
+      .eq("curriculum_id", curriculumId)
+      .neq("status", "rejected");
+
+    const currentCount = currentPoolSize ?? 0;
+    const globalBudget = Math.max(0, MAX_QUESTIONS_PER_PACKAGE - currentCount);
+    if (globalBudget <= 0) {
+      console.log(`[bloom-gap-fill] SSOT HARD CAP reached: ${currentCount} >= ${MAX_QUESTIONS_PER_PACKAGE} — skipping`);
+      return json({ ok: true, message: "pool_cap_reached", pool_size: currentCount, cap: MAX_QUESTIONS_PER_PACKAGE });
+    }
+
     // ── 1. Fetch gap report (returns single JSONB object, NOT a table) ──
     const { data: report, error: gapErr } = await sb.rpc(
       "get_exam_pool_gap_report",
@@ -153,7 +168,7 @@ Deno.serve(async (req) => {
     }
 
     const plan: GenTarget[] = [];
-    let remaining = MAX_QUESTIONS_PER_RUN;
+    let remaining = Math.min(MAX_QUESTIONS_PER_RUN, globalBudget); // SSOT: clamp to pool budget
 
     // 2a. Competency gaps — generate with the most needed bloom level
     for (const comp of compGaps) {

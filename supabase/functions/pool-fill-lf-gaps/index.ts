@@ -4,6 +4,7 @@ import { callAIJSON } from "../_shared/ai-client.ts";
 import { getModelChainAsync } from "../_shared/model-routing.ts";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
 import { bootstrapLLMLogging } from "../_shared/llm-log-bootstrap.ts";
+import { MAX_QUESTIONS_PER_PACKAGE } from "../_shared/exam-pool-limits.ts";
 
 /**
  * pool-fill-lf-gaps — Targeted LF gap-fill worker
@@ -122,6 +123,20 @@ Deno.serve(async (req) => {
   const results: Array<{ lf_id: string; status: string; generated?: number; skipped_reason?: string }> = [];
 
   try {
+    // ── SSOT Budget Guard: check pool size before generating ──
+    const { count: currentPoolSize } = await sb
+      .from("exam_questions")
+      .select("id", { count: "exact", head: true })
+      .eq("curriculum_id", curriculumId)
+      .neq("status", "rejected");
+
+    const currentCount = currentPoolSize ?? 0;
+    const globalBudget = Math.max(0, MAX_QUESTIONS_PER_PACKAGE - currentCount);
+    if (globalBudget <= 0) {
+      console.log(`[lf-gap-fill] SSOT HARD CAP reached: ${currentCount} >= ${MAX_QUESTIONS_PER_PACKAGE} — skipping`);
+      return json({ ok: true, message: "pool_cap_reached", pool_size: currentCount, cap: MAX_QUESTIONS_PER_PACKAGE });
+    }
+
     // ── Resolve LFs if not provided ──
     let lfIds = missingLfIds;
     if (lfIds.length === 0) {
