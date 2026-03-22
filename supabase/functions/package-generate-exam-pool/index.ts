@@ -2457,7 +2457,7 @@ Deno.serve(async (req) => {
       }
       const shouldMarkDone = !isFanOut || await allFanOutSubJobsDone(sb, packageId);
       if (shouldMarkDone) {
-        await sb.from("course_packages").update({ build_progress: 55 }).eq("id", packageId);
+        // build_progress auto-computed by DB trigger from package_steps
       }
       return json(withMetrics(
         { ok: true, batch_complete: true, engine: "v5-ihk-quality", total_questions: actualTotal, training_pool: trainingThisChunk, target: examTarget, ...resultMeta },
