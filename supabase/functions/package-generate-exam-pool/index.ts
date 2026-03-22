@@ -2475,7 +2475,7 @@ Deno.serve(async (req) => {
             { generated: questionsThisChunk, inserted: 0, blueprints_found: bps.length, blueprints_used: bpsProcessed, reason: "HOLLOW_LOOP_CAP" },
           );
         }
-        if (!isFanOut) await sb.from("course_packages").update({ build_progress: 55 }).eq("id", packageId);
+        // build_progress auto-computed by DB trigger from package_steps
         return json(withMetrics(
           { ok: true, batch_complete: true, total_questions: actualTotal, loop_capped: true, ...resultMeta },
           { generated: generatedThisRun, inserted: insertedThisRun, blueprints_found: bps.length, blueprints_used: bpsProcessed },
