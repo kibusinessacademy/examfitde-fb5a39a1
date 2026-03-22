@@ -6,7 +6,7 @@
  *  [1] No exam_attempts with scores set outside server flow
  *  [2] No duplicate active sessions per user
  *  [3] No sessions that exceed time limits
- *  [4] No mastery_states set without matching exam evidence
+ *  [4] Learning progress without exam evidence
  *  [5] No exam_questions with status=approved accessible without session binding
  *  [6] Anon cannot PATCH/POST/DELETE exam tables
  *
