@@ -95,6 +95,20 @@ Deno.serve(async (req) => {
   if (!curriculumId) return json({ error: "curriculum_id required" }, 400);
 
   try {
+    // ── SSOT Budget Guard: check pool size before generating ──
+    const { count: currentPoolSize } = await sb
+      .from("exam_questions")
+      .select("id", { count: "exact", head: true })
+      .eq("curriculum_id", curriculumId)
+      .neq("status", "rejected");
+
+    const currentCount = currentPoolSize ?? 0;
+    const globalBudget = Math.max(0, MAX_QUESTIONS_PER_PACKAGE - currentCount);
+    if (globalBudget <= 0) {
+      console.log(`[bloom-gap-fill] SSOT HARD CAP reached: ${currentCount} >= ${MAX_QUESTIONS_PER_PACKAGE} — skipping`);
+      return json({ ok: true, message: "pool_cap_reached", pool_size: currentCount, cap: MAX_QUESTIONS_PER_PACKAGE });
+    }
+
     // ── 1. Fetch gap report (returns single JSONB object, NOT a table) ──
     const { data: report, error: gapErr } = await sb.rpc(
       "get_exam_pool_gap_report",
