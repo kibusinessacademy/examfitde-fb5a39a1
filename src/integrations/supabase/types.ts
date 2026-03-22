@@ -41017,6 +41017,8 @@ export type Database = {
           queue_position: number | null
           raw_title: string | null
           status: string | null
+          steps_done: number | null
+          steps_functional: number | null
           stuck_reason: string | null
           total_questions: number | null
           track: string | null
