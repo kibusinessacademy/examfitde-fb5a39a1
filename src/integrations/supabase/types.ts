@@ -37591,342 +37591,6 @@ export type Database = {
         }
         Relationships: []
       }
-      ops_artifact_present_step_not_done: {
-        Row: {
-          artifact_count: number | null
-          attempts: number | null
-          last_error: string | null
-          package_id: string | null
-          package_status: string | null
-          step_key: string | null
-          step_status: Database["public"]["Enums"]["step_status"] | null
-          updated_at: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "course_packages"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_artifact_build_progress"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_blocked_packages"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_building_without_job_or_lease"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_content_factory"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_course_build_progress"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_learner_visible_readiness"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_legacy_package_audit"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_missing_step_backbone"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_baseline_v1"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_blockers"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_content_depth"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_downstream_missing"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_effective_state_v1"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_qc_matrix"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_readiness"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_package_step_readiness"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_pipeline_map"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_recent_building_without_lease"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_seeding_summary"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_telemetry_integrity"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "ops_telemetry_lineage"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "package_economics"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "v_admin_packages_ssot"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "v_admin_visible_course_packages"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "v_admin_visible_course_packages"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "v_building_package_eta"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "v_course_display_ssot"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "v_course_display_ssot"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "v_latest_course_package"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "v_ops_auto_publish_blockers"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "v_ops_invalid_course_titles"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "v_ops_package_progress_guard"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "v_ops_reentry_misses"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "v_ops_shadow_zombies"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "v_package_build_priority"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "v_package_publish_readiness"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "v_package_step_load"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "v_pipeline_content_integrity"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "v_pipeline_repair_classification"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "v_pipeline_stalled_packages"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "v_pipeline_step_funnel"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "v_price_recommendation"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "v_profit_forecast"
-            referencedColumns: ["package_id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "v_scheduler_fairness"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "package_steps_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "v_unit_economics_package"
-            referencedColumns: ["package_id"]
-          },
-        ]
-      }
       ops_batch_cursor_stuck: {
         Row: {
           batch_cursor: Json | null
@@ -38245,67 +37909,29 @@ export type Database = {
         }
         Relationships: []
       }
-      ops_guard_rejections: {
+      ops_guard_threshold_rejections: {
         Row: {
-          attempts: number | null
-          curriculum_id: string | null
           last_error: string | null
           package_id: string | null
-          package_status: string | null
           status: Database["public"]["Enums"]["step_status"] | null
           step_key: string | null
           updated_at: string | null
         }
+        Insert: {
+          last_error?: string | null
+          package_id?: string | null
+          status?: Database["public"]["Enums"]["step_status"] | null
+          step_key?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          last_error?: string | null
+          package_id?: string | null
+          status?: Database["public"]["Enums"]["step_status"] | null
+          step_key?: string | null
+          updated_at?: string | null
+        }
         Relationships: [
-          {
-            foreignKeyName: "course_packages_curriculum_id_fkey"
-            columns: ["curriculum_id"]
-            isOneToOne: false
-            referencedRelation: "curricula"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "course_packages_curriculum_id_fkey"
-            columns: ["curriculum_id"]
-            isOneToOne: false
-            referencedRelation: "elite_readiness_per_curriculum"
-            referencedColumns: ["curriculum_id"]
-          },
-          {
-            foreignKeyName: "course_packages_curriculum_id_fkey"
-            columns: ["curriculum_id"]
-            isOneToOne: false
-            referencedRelation: "ops_curriculum_quality_dashboard"
-            referencedColumns: ["curriculum_id"]
-          },
-          {
-            foreignKeyName: "course_packages_curriculum_id_fkey"
-            columns: ["curriculum_id"]
-            isOneToOne: false
-            referencedRelation: "ops_curriculum_quality_dashboard_mv"
-            referencedColumns: ["curriculum_id"]
-          },
-          {
-            foreignKeyName: "course_packages_curriculum_id_fkey"
-            columns: ["curriculum_id"]
-            isOneToOne: false
-            referencedRelation: "v_ops_qc_backlog"
-            referencedColumns: ["curriculum_id"]
-          },
-          {
-            foreignKeyName: "course_packages_curriculum_id_fkey"
-            columns: ["curriculum_id"]
-            isOneToOne: false
-            referencedRelation: "v_ops_qc_backlog_age"
-            referencedColumns: ["curriculum_id"]
-          },
-          {
-            foreignKeyName: "course_packages_curriculum_id_fkey"
-            columns: ["curriculum_id"]
-            isOneToOne: false
-            referencedRelation: "v_ops_qc_promotion_funnel"
-            referencedColumns: ["curriculum_id"]
-          },
           {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
@@ -41374,15 +41000,14 @@ export type Database = {
         }
         Relationships: []
       }
-      ops_step_done_artifact_missing: {
+      ops_step_done_below_threshold: {
         Row: {
-          actual_count: number | null
-          artifact_type: string | null
-          drift_status: string | null
-          min_threshold: number | null
+          actual: number | null
+          drift_type: string | null
           package_id: string | null
-          severity: string | null
           step_key: string | null
+          threshold: number | null
+          updated_at: string | null
         }
         Relationships: []
       }
@@ -47531,6 +47156,10 @@ export type Database = {
         Returns: Json
       }
       get_ai_cost_summary: { Args: never; Returns: Json }
+      get_artifact_threshold: {
+        Args: { p_artifact: string; p_context?: Json; p_step_key: string }
+        Returns: number
+      }
       get_b2b_buyer_learner_summary: {
         Args: { p_currency?: string; p_month: string }
         Returns: {
