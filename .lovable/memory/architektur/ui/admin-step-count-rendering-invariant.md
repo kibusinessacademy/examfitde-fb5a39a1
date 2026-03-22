@@ -1,0 +1,4 @@
+# Memory: architektur/ui/admin-step-count-rendering-invariant
+Updated: now
+
+Die Anzeige abgeschlossener Schritte ('X/25') im Admin-Dashboard (Control Tower) basiert auf zwei Quellen: 1. `step_status_json` (JSONB-Spalte in `course_packages`) für die Leitstelle und Pipeline-Monitor, ausgewertet via `deriveStepProgress()`. 2. `steps_done` und `steps_functional` (Live-Spalten in `v_admin_packages_ssot`) für die SSOT-View, berechnet aus `package_steps` via `step_agg` CTE. Die `build_progress`-Spalte wird durch den Trigger `fn_sync_package_build_progress` synchronisiert, kann aber bei manuellen SQL-Eingriffen driften. Systemweite Reconciliation erfolgt über: `UPDATE course_packages SET build_progress = ROUND(done::numeric / functional * 100)` basierend auf `package_steps`. Die Formel ist: `steps_done / steps_functional * 100` (skipped Steps werden ausgeschlossen).
