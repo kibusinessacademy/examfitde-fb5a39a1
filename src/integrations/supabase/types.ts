@@ -47179,15 +47179,17 @@ export type Database = {
           updated: boolean
         }[]
       }
-      reconcile_council_approval: {
-        Args: { p_package_id?: string }
-        Returns: {
-          out_action: string
-          out_package_id: string
-          out_sessions_approved: number
-          out_sessions_total: number
-        }[]
-      }
+      reconcile_council_approval:
+        | { Args: never; Returns: Json }
+        | {
+            Args: { p_package_id?: string }
+            Returns: {
+              out_action: string
+              out_package_id: string
+              out_sessions_approved: number
+              out_sessions_total: number
+            }[]
+          }
       reconcile_legacy_content_steps: {
         Args: { p_package_id?: string }
         Returns: Json
