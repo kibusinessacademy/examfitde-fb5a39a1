@@ -116,16 +116,14 @@ async function enqueueJob(sb: any, body: any) {
 
   if (!question) return json({ error: "No approved question available" }, 404);
 
-  // ── Pick a hook ──
-  const { data: hooks } = await sb
-    .from("content_hooks")
-    .select("id, hook_text, category, usage_count")
-    .eq("is_active", true)
-    .eq("category", content_category)
-    .limit(10);
+  // ── Pick a hook (balanced: least-used first) ──
+  const { data: hookCandidates } = await sb.rpc("pick_content_hook", {
+    p_category: content_category,
+    p_pool_size: 5,
+  });
 
-  const selectedHook = hooks && hooks.length > 0
-    ? hooks[Math.floor(Math.random() * hooks.length)]
+  const selectedHook = hookCandidates && hookCandidates.length > 0
+    ? hookCandidates[Math.floor(Math.random() * hookCandidates.length)]
     : null;
 
   // ── Build source snapshot (audit) ──
