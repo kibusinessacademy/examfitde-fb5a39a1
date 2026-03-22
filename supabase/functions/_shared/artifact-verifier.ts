@@ -82,12 +82,14 @@ const VERIFIERS: Record<string, (sb: SB, job: any) => Promise<VerifyResult>> = {
       : { ok: false, reason: "ZERO_EXAM_QUESTIONS", count: 0 };
   },
 
-  // ── Blueprint Seeding: exam_blueprints by curriculum_id ──
+  // ── Blueprint Seeding: question_blueprints by curriculum_id ──
+  // CRITICAL FIX (P0): Worker writes to `question_blueprints`, NOT `exam_blueprints`.
+  // Previous code checked the wrong table, causing false ZERO_BLUEPRINTS for 295/311 packages.
   package_auto_seed_exam_blueprints: async (sb, job) => {
     const r = requirePayloadId(job, "curriculum_id");
     if ("ok" in r) return r;
 
-    const { count, error } = await safeCount(sb, "exam_blueprints", (q) =>
+    const { count, error } = await safeCount(sb, "question_blueprints", (q) =>
       q.eq("curriculum_id", r.id),
     );
     if (error) return { ok: false, reason: `QUERY_ERROR: ${error}` };
