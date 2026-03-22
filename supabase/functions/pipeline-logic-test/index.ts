@@ -440,9 +440,9 @@ Deno.serve(async (req) => {
           .in("status", ["running", "enqueued"]);
 
         if ((activeSteps ?? 0) === 0) {
-          // No active steps — safe to reset to queued
+          // No active steps — safe to reset to queued (clear stuck_reason to avoid stale flags)
           const { error } = await sb.from("course_packages" as any)
-            .update({ status: "queued", stuck_reason: "Auto-healed: stuck >1h without active steps", updated_at: new Date().toISOString() })
+            .update({ status: "queued", stuck_reason: null, updated_at: new Date().toISOString() })
             .eq("id", p.id);
 
           // Clean expired leases for this package
