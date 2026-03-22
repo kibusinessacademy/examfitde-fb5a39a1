@@ -37,6 +37,7 @@ const contentTypeIcon: Record<string, typeof Video> = {
 };
 
 export default function ContentEngineTab() {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterPlatform, setFilterPlatform] = useState<string>('all');
