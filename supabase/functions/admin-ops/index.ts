@@ -650,7 +650,6 @@ Deno.serve(async (req) => {
           track: "EXAM_FIRST",
           feature_flags: newFlags,
           status: "building",
-          build_progress: 0,
           updated_at: new Date().toISOString(),
         }).eq("id", id);
 

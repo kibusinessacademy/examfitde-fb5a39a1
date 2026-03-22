@@ -1690,7 +1690,6 @@ async function handleJobCompleted(
   const stepIndex = STEP_ORDER.indexOf(stepKey as StepKey);
   await safeQuery(
     sb.from("course_packages").update({
-      build_progress: progress,
       current_step: stepIndex + 1,
     }).eq("id", packageId),
   );
