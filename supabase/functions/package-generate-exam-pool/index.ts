@@ -1866,7 +1866,7 @@ Deno.serve(async (req) => {
       console.log(`[ExamPool-v5] SSOT HARD CAP reached: ${globalTotal} >= ${ssotMaxCap} (budget=0, tier=${ssotTiered.tier})`);
       const shouldMarkDone = !isFanOut || await allFanOutSubJobsDone(sb, packageId);
       if (shouldMarkDone) {
-        await sb.from("course_packages").update({ build_progress: 55 }).eq("id", packageId);
+        // build_progress auto-computed by DB trigger from package_steps
       }
       return json({ ok: true, batch_complete: true, engine: "v5-ihk-quality", total_questions: globalTotal, hard_cap: true, cap: ssotMaxCap, ssot_tier: ssotTiered.tier });
     }
