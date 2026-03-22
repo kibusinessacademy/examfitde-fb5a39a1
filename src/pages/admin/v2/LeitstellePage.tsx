@@ -127,11 +127,20 @@ export default function LeitstellePage() {
     );
   }
 
+  const isFallback = packages?.some(p => p._source === 'fallback_course_packages');
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-bold text-foreground">Leitstelle</h1>
-        <p className="text-xs text-muted-foreground mt-0.5">SSOT-Systemlage · Echtdaten</p>
+      <div className="flex items-center gap-2">
+        <div>
+          <h1 className="text-xl font-bold text-foreground">Leitstelle</h1>
+          <p className="text-xs text-muted-foreground mt-0.5">SSOT-Systemlage · Echtdaten</p>
+        </div>
+        {isFallback && (
+          <Badge variant="outline" className="border-warning/50 text-warning text-[10px] px-1.5 py-0.5">
+            Fallback-Modus
+          </Badge>
+        )}
       </div>
 
       {/* KPI Grid */}
