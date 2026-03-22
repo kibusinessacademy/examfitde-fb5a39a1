@@ -1,0 +1,105 @@
+name: Security Regression Pack
+
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/**"
+      - "supabase/functions/**"
+      - "scripts/security/**"
+  schedule:
+    - cron: "17 3 * * *"  # nightly at 03:17 UTC
+  workflow_dispatch: {}
+
+jobs:
+  migration-rls-gate:
+    name: Migration RLS Gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Detect changed migrations
+        id: changes
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }} HEAD -- supabase/migrations/ | tr '\n' ',')
+            echo "files=$FILES" >> $GITHUB_OUTPUT
+          else
+            echo "files=" >> $GITHUB_OUTPUT
+          fi
+      - name: Run Migration RLS Gate
+        env:
+          CHANGED_MIGRATION_FILES: ${{ steps.changes.outputs.files }}
+        run: node scripts/security/migration-rls-gate.mjs
+
+  view-exposure:
+    name: View & Table Exposure Guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Run exposure guard
+        env:
+          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/security/view-exposure-guard.mjs
+
+  exam-integrity:
+    name: Exam Integrity Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Run exam integrity checks
+        env:
+          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/security/exam-integrity-check.mjs
+
+  rls-smoke:
+    name: RLS Smoke (expanded)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Run expanded RLS smoke
+        env:
+          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/rls-security-check.mjs
+
+  alert-on-failure:
+    name: Alert on Failure
+    needs: [migration-rls-gate, view-exposure, exam-integrity, rls-smoke]
+    if: failure()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Create GitHub Issue
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WORKFLOW_NAME: "Security Regression Pack"
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -f scripts/ci/issue-on-fail.mjs ]; then
+            node scripts/ci/issue-on-fail.mjs
+          else
+            echo "🚫 Security Regression Pack failed — see $RUN_URL"
+          fi

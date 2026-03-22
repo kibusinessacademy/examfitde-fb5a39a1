@@ -17,14 +17,23 @@ if (!SUPABASE_URL || !ANON_KEY) {
 
 // Tables that MUST have RLS blocking anonymous reads
 const PROTECTED_TABLES = [
-  "profiles",
-  "exam_sessions",
-  "exam_answers",
-  "user_progress",
-  "subscriptions",
-  "admin_actions",
+  // Core user data
+  "profiles", "user_progress", "subscriptions",
+  // Exam integrity
+  "exam_sessions", "exam_attempts", "exam_attempt_answers", "exam_questions",
+  "exam_blueprints", "mastery_states", "learning_progress",
+  // Course pipeline
+  "course_packages", "package_steps", "lessons", "handbook_chapters",
+  "oral_exam_scenarios", "council_sessions",
+  // Admin/Ops
+  "admin_actions", "auto_heal_log", "admin_notifications",
+  "job_queue", "ai_tutor_logs", "ai_generations", "ai_validations",
+  "ai_generation_requests",
+  // Licensing & finance
+  "licenses", "license_claims", "affiliate_referrals", "affiliate_payouts",
+  "executive_summary_reports", "business_kpi_snapshots",
+  // Content
   "content_versions",
-  "ai_tutor_logs",
 ];
 
 // Tables that SHOULD be accessible (public data)
