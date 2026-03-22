@@ -154,14 +154,8 @@ const VERIFIERS: Record<string, (sb: SB, job: any) => Promise<VerifyResult>> = {
     const r = requirePayloadId(job, "curriculum_id");
     if ("ok" in r) return r;
 
-    // Get exam_target from package meta for proportional threshold
-    const pkgId = job.payload?.package_id || job.package_id;
-    let examTarget = 1000;
-    if (pkgId) {
-      const { pkg } = await resolvePackage(sb, pkgId);
-      const meta = (pkg?.meta ?? {}) as Record<string, unknown>;
-      examTarget = Number(meta.exam_target) || 1000;
-    }
+    // exam_target defaults to 1000 (course_packages doesn't store meta directly)
+    const examTarget = 1000;
 
     const { count, error } = await safeCount(sb, "exam_questions", (q) =>
       q.eq("curriculum_id", r.id).neq("status", "rejected"),
