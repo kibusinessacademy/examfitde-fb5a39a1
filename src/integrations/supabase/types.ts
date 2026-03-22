@@ -12305,6 +12305,33 @@ export type Database = {
           },
         ]
       }
+      difficulty_distribution_targets: {
+        Row: {
+          created_at: string
+          difficulty: string
+          id: string
+          target_pct: number
+          tolerance_pct: number
+          track: string
+        }
+        Insert: {
+          created_at?: string
+          difficulty: string
+          id?: string
+          target_pct: number
+          tolerance_pct?: number
+          track?: string
+        }
+        Update: {
+          created_at?: string
+          difficulty?: string
+          id?: string
+          target_pct?: number
+          tolerance_pct?: number
+          track?: string
+        }
+        Relationships: []
+      }
       disallowed_keywords: {
         Row: {
           category: string | null
@@ -14367,6 +14394,96 @@ export type Database = {
           },
         ]
       }
+      exam_part_mappings: {
+        Row: {
+          created_at: string
+          curriculum_id: string
+          exam_part: string
+          exam_weight: number
+          id: string
+          learning_field_id: string
+          notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          curriculum_id: string
+          exam_part: string
+          exam_weight?: number
+          id?: string
+          learning_field_id: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          curriculum_id?: string
+          exam_part?: string
+          exam_weight?: number
+          id?: string
+          learning_field_id?: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_part_mappings_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_part_mappings_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "exam_part_mappings_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "exam_part_mappings_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "exam_part_mappings_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_qc_backlog"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "exam_part_mappings_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_qc_backlog_age"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "exam_part_mappings_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "exam_part_mappings_learning_field_id_fkey"
+            columns: ["learning_field_id"]
+            isOneToOne: false
+            referencedRelation: "learning_fields"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       exam_pool_dlq: {
         Row: {
           attempt_count: number
@@ -14531,9 +14648,11 @@ export type Database = {
           elite_score: number | null
           elite_score_breakdown: Json | null
           exam_part: string | null
+          exam_weight: number | null
           explanation: string | null
           global_canonical_hash: string | null
           id: string
+          is_trap: boolean
           item_calibrated_at: string | null
           item_difficulty: number | null
           item_discrimination: number | null
@@ -14554,6 +14673,7 @@ export type Database = {
           time_estimate_seconds: number | null
           transfer_variant: boolean | null
           trap_tags: string[] | null
+          trap_type: string | null
           typical_errors: Json | null
           variant_group: string | null
           variant_label: string | null
@@ -14580,9 +14700,11 @@ export type Database = {
           elite_score?: number | null
           elite_score_breakdown?: Json | null
           exam_part?: string | null
+          exam_weight?: number | null
           explanation?: string | null
           global_canonical_hash?: string | null
           id?: string
+          is_trap?: boolean
           item_calibrated_at?: string | null
           item_difficulty?: number | null
           item_discrimination?: number | null
@@ -14603,6 +14725,7 @@ export type Database = {
           time_estimate_seconds?: number | null
           transfer_variant?: boolean | null
           trap_tags?: string[] | null
+          trap_type?: string | null
           typical_errors?: Json | null
           variant_group?: string | null
           variant_label?: string | null
@@ -14629,9 +14752,11 @@ export type Database = {
           elite_score?: number | null
           elite_score_breakdown?: Json | null
           exam_part?: string | null
+          exam_weight?: number | null
           explanation?: string | null
           global_canonical_hash?: string | null
           id?: string
+          is_trap?: boolean
           item_calibrated_at?: string | null
           item_difficulty?: number | null
           item_discrimination?: number | null
@@ -14652,6 +14777,7 @@ export type Database = {
           time_estimate_seconds?: number | null
           transfer_variant?: boolean | null
           trap_tags?: string[] | null
+          trap_type?: string | null
           typical_errors?: Json | null
           variant_group?: string | null
           variant_label?: string | null
