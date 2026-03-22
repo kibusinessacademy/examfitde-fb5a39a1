@@ -297,7 +297,7 @@ Deno.serve(async (req) => {
 
         if ((activeJobs ?? 0) === 0) {
           if (!dryRun) {
-            await sb.from("course_packages").update({ status: "queued", build_progress: 0 }).eq("id", packageId);
+            await sb.from("course_packages").update({ status: "queued" }).eq("id", packageId);
             fixes.push({ fix: "STUCK_STATUS", status: "applied", detail: "Reset from 'building' to 'queued' (0 active jobs, 0 leases)" });
           } else {
             fixes.push({ fix: "STUCK_STATUS", status: "skipped", detail: "Would reset to 'queued' (dry run)" });

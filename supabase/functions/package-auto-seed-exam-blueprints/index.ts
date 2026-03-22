@@ -631,10 +631,7 @@ async function handleSeed(sb: ReturnType<typeof createClient>, p: any) {
 
   const health = computeHealthScore(allBps || []);
 
-  // 9) Update build progress
-  try {
-    await sb.from("course_packages").update({ build_progress: 20 }).eq("id", packageId);
-  } catch (_) { /* ignore */ }
+  // build_progress is now auto-computed by DB trigger from package_steps — no manual write needed
 
   console.log(`[SeedV4] Done: +${insertedCount} new, ${upgradedCount} upgraded, health=${health.health_score}/100 (${health.grade}), AI calls=${aiCallCount}`);
 

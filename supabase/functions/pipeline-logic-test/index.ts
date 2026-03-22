@@ -794,9 +794,9 @@ Deno.serve(async (req) => {
           total: steps.length,
           drift,
         });
-        // Auto-heal: sync build_progress to actual
+        // Auto-heal: trigger recalc by touching updated_at (DB trigger guards build_progress)
         const { error } = await sb.from("course_packages" as any)
-          .update({ build_progress: actualPct, updated_at: new Date().toISOString() })
+          .update({ updated_at: new Date().toISOString() })
           .eq("id", pkg.id);
         if (!error) { healed++; totalHealed++; }
       }

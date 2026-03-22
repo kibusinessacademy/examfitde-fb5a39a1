@@ -73,7 +73,7 @@ export async function checkStuckPackages(
       const { count: doneSteps } = await sb.from("package_steps").select("step_key", { count: "exact", head: true }).eq("package_id", pkg.id).in("status", ["done", "skipped"]);
 
       if ((totalSteps ?? 0) > 0 && (doneSteps ?? 0) === (totalSteps ?? 0)) {
-        await sb.from("course_packages").update({ status: "published", stuck_reason: null, build_progress: 100 }).eq("id", pkg.id);
+        await sb.from("course_packages").update({ status: "published", stuck_reason: null }).eq("id", pkg.id);
         results.push({ package_id: pkg.id, retried: 0, reason: `All ${totalSteps} steps done — promoted to published` });
       } else {
         await sb.rpc("mark_package_stuck", { p_id: pkg.id, p_reason: `No progress for ${packageTimeout}min, no retryable steps or jobs` });
@@ -185,7 +185,7 @@ export async function checkBuildingOrphans(sb: SupabaseClient) {
     const { count: doneSteps } = await sb.from("package_steps").select("step_key", { count: "exact", head: true }).eq("package_id", pkg.id).in("status", ["done", "skipped"]);
 
     if ((totalSteps ?? 0) > 0 && (doneSteps ?? 0) === (totalSteps ?? 0)) {
-      await sb.from("course_packages").update({ status: "published", build_progress: 100, stuck_reason: null }).eq("id", pkg.id);
+      await sb.from("course_packages").update({ status: "published", stuck_reason: null }).eq("id", pkg.id);
       buildingPkgResults.push({ package_id: pkg.id, action: "All steps done — promoted to published" });
       continue;
     }

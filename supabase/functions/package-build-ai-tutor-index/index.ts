@@ -241,8 +241,7 @@ Deno.serve(async (req) => {
     }).eq("package_id", packageId);
   }
 
-  // Optional progress hint (non-critical)
-  try { await sb.from("course_packages").update({ build_progress: 80 }).eq("id", packageId); } catch (_) { /* ignore */ }
+  // build_progress is now auto-computed by DB trigger from package_steps — no manual write needed
 
   return json({ ok: true, policyVersion, ...statsObj });
 });

@@ -1866,7 +1866,7 @@ Deno.serve(async (req) => {
       console.log(`[ExamPool-v5] SSOT HARD CAP reached: ${globalTotal} >= ${ssotMaxCap} (budget=0, tier=${ssotTiered.tier})`);
       const shouldMarkDone = !isFanOut || await allFanOutSubJobsDone(sb, packageId);
       if (shouldMarkDone) {
-        await sb.from("course_packages").update({ build_progress: 55 }).eq("id", packageId);
+        // build_progress auto-computed by DB trigger from package_steps
       }
       return json({ ok: true, batch_complete: true, engine: "v5-ihk-quality", total_questions: globalTotal, hard_cap: true, cap: ssotMaxCap, ssot_tier: ssotTiered.tier });
     }
@@ -2352,8 +2352,7 @@ Deno.serve(async (req) => {
       console.warn(`[ExamPool-v5] ai_generations insert failed (non-blocking): ${(e as Error)?.message}`);
     }
 
-    const progress = Math.min(55, Math.round(25 + (actualTotal / examTarget) * 30));
-    await sb.from("course_packages").update({ build_progress: progress }).eq("id", packageId);
+    // build_progress auto-computed by DB trigger from package_steps
 
     // ══════════════════════════════════════════════════════════════════════
     // ── EFFECTIVE SUCCESS GUARD (P1-A) ───────────────────────────────────
@@ -2458,7 +2457,7 @@ Deno.serve(async (req) => {
       }
       const shouldMarkDone = !isFanOut || await allFanOutSubJobsDone(sb, packageId);
       if (shouldMarkDone) {
-        await sb.from("course_packages").update({ build_progress: 55 }).eq("id", packageId);
+        // build_progress auto-computed by DB trigger from package_steps
       }
       return json(withMetrics(
         { ok: true, batch_complete: true, engine: "v5-ihk-quality", total_questions: actualTotal, training_pool: trainingThisChunk, target: examTarget, ...resultMeta },
@@ -2476,7 +2475,7 @@ Deno.serve(async (req) => {
             { generated: questionsThisChunk, inserted: 0, blueprints_found: bps.length, blueprints_used: bpsProcessed, reason: "HOLLOW_LOOP_CAP" },
           );
         }
-        if (!isFanOut) await sb.from("course_packages").update({ build_progress: 55 }).eq("id", packageId);
+        // build_progress auto-computed by DB trigger from package_steps
         return json(withMetrics(
           { ok: true, batch_complete: true, total_questions: actualTotal, loop_capped: true, ...resultMeta },
           { generated: generatedThisRun, inserted: insertedThisRun, blueprints_found: bps.length, blueprints_used: bpsProcessed },
