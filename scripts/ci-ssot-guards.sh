@@ -112,12 +112,14 @@ else
   green "✅ Guard 4 passed: no non-inclusive title assignments detected"
 fi
 
-# ── Guard 5: No direct build_progress writes in Edge Functions ─
+# ── Guard 5: No direct build_progress WRITES in Edge Functions ─
+# Reads (.select) and view references are allowed; only .update/.insert writes are forbidden
 echo ""
 echo "🔍 Guard 5: direct build_progress writes..."
 PROGRESS_HITS=$(grep -rn --include='*.ts' \
-  -e 'build_progress' \
+  -e 'build_progress:' -e 'build_progress =' \
   supabase/functions/ \
+  | grep -v '\.select(' \
   | grep -v 'fn_guard_build_progress' \
   | grep -v 'fn_sync_package_build_progress' \
   | grep -v 'recompute_package_progress' \
@@ -125,10 +127,15 @@ PROGRESS_HITS=$(grep -rn --include='*.ts' \
   | grep -v '// build_progress' \
   | grep -v 'pipeline-logic-test' \
   | grep -v 'node_modules' \
+  | grep -v '\.build_progress' \
+  | grep -v 'build_progress\?' \
+  | grep -v 'build_progress ??' \
+  | grep -v 'build_progress)' \
+  | grep -v 'Number(.*build_progress' \
   || true)
 
 if [ -n "$PROGRESS_HITS" ]; then
-  red "❌ Guard 5 FAILED: direct build_progress reference found in Edge Functions"
+  red "❌ Guard 5 FAILED: direct build_progress write found in Edge Functions"
   echo "$PROGRESS_HITS"
   echo "build_progress is SSOT-derived from package_steps and must not be written directly."
   FAIL=1
