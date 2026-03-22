@@ -36,7 +36,7 @@ async function fetchAllApprovedQuestions(
   while (true) {
     const { data, error } = await sb
       .from("exam_questions")
-      .select("id, difficulty, cognitive_level, learning_field_id, competency_id, blueprint_id")
+      .select("id, difficulty, cognitive_level, learning_field_id, competency_id, blueprint_id, exam_part, is_trap, trap_type")
       .eq("curriculum_id", currFilter)
       .in("qc_status", ["approved", "tier1_passed"])
       .order("id", { ascending: true })
@@ -713,6 +713,93 @@ async function runCourseReadyGate(
       severity: "blocker",
       detail: "Skipped (EXAM_FIRST track — no handbook required)",
     });
+  }
+
+  // ═══════════════════════════════════════════════
+  // GATE 8: Difficulty Balance — EASY_TOO_LOW (NEW: Fix 1)
+  // Ensures minimum easy question ratio for learning curve
+  // ═══════════════════════════════════════════════
+  if (totalApproved > 0) {
+    const EASY_MIN_PCT: Record<string, number> = {
+      AUSBILDUNG_VOLL: 5,
+      ELITE: 3,
+      EXAM_FIRST: 5,
+    };
+    const easyMinTarget = EASY_MIN_PCT[trackEarly] ?? 5;
+    const easyTooLow = easyPct < easyMinTarget;
+    results.push({
+      gate: "difficulty_easy_floor",
+      passed: !easyTooLow,
+      severity: "warning",
+      detail: `easy=${easyPct.toFixed(1)}% (min ${easyMinTarget}%) [track=${trackEarly}]. ${easyCount}/${totalApproved} easy questions.`,
+      value: easyCount,
+    });
+    if (easyTooLow) {
+      warnings.push(`EASY_TOO_LOW: ${easyPct.toFixed(1)}%<${easyMinTarget}% — insufficient entry-level questions for learning curve`);
+    }
+
+    // Also check for EVALUATE_TOO_HIGH (>15% is excessive)
+    const evaluateCount = (approvedQs ?? []).filter((q: any) =>
+      ["evaluate","bewerten","beurteilen","create","erschaffen"].includes((q as any).cognitive_level?.toLowerCase?.() || "")
+    ).length;
+    const evaluatePct = (evaluateCount / totalApproved) * 100;
+    if (evaluatePct > 20) {
+      warnings.push(`EVALUATE_TOO_HIGH: ${evaluatePct.toFixed(1)}%>20% — exam difficulty skewed toward evaluation`);
+      results.push({
+        gate: "evaluate_ceiling",
+        passed: false,
+        severity: "warning",
+        detail: `evaluate=${evaluatePct.toFixed(1)}% (max 20%). ${evaluateCount}/${totalApproved} evaluate questions.`,
+      });
+    }
+  }
+
+  // ═══════════════════════════════════════════════
+  // GATE 9: Exam-Part Coverage (NEW: Fix 2)
+  // Questions must be mapped to Teil 1 / Teil 2
+  // ═══════════════════════════════════════════════
+  if (totalApproved > 0) {
+    const withExamPart = (approvedQs ?? []).filter((q: any) => q.exam_part).length;
+    const examPartPct = (withExamPart / totalApproved) * 100;
+    const examPartPassed = examPartPct >= 80;
+    results.push({
+      gate: "exam_part_coverage",
+      passed: examPartPassed,
+      severity: "warning",
+      detail: `${withExamPart}/${totalApproved} questions mapped to exam part (${examPartPct.toFixed(1)}%, min 80%)`,
+      value: withExamPart,
+    });
+    if (!examPartPassed) {
+      warnings.push(`EXAM_PART_MISSING: Only ${examPartPct.toFixed(1)}% of questions have exam_part assignment — simulation not IHK-conformant`);
+    }
+    if (examPartPct >= 95) excellence.push(`EXAM_PART_EXCELLENT: ${examPartPct.toFixed(0)}% mapped`);
+  }
+
+  // ═══════════════════════════════════════════════
+  // GATE 10: Trap Coverage (NEW: Fix 3)
+  // Minimum % of questions with trap classification
+  // ═══════════════════════════════════════════════
+  if (totalApproved > 0) {
+    const withTrap = (approvedQs ?? []).filter((q: any) => q.is_trap || q.trap_type).length;
+    const trapPct = (withTrap / totalApproved) * 100;
+    const TRAP_MIN_PCT: Record<string, number> = {
+      AUSBILDUNG_VOLL: 10,
+      ELITE: 15,
+      EXAM_FIRST: 5,
+    };
+    const trapMinTarget = TRAP_MIN_PCT[trackEarly] ?? 10;
+    const trapPassed = trapPct >= trapMinTarget;
+    results.push({
+      gate: "trap_coverage",
+      passed: trapPassed,
+      severity: "warning",
+      detail: `${withTrap}/${totalApproved} trap questions (${trapPct.toFixed(1)}%, min ${trapMinTarget}%) [track=${trackEarly}]`,
+      value: withTrap,
+    });
+    if (!trapPassed) {
+      warnings.push(`TRAP_COVERAGE_LOW: ${trapPct.toFixed(1)}%<${trapMinTarget}% — insufficient IHK-realistic exam traps`);
+    }
+    if (trapPct >= 20) excellence.push(`TRAP_COVERAGE_EXCELLENT: ${trapPct.toFixed(0)}% trap questions`);
   }
 
   // ═══════════════════════════════════════════════

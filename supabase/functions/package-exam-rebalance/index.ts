@@ -111,13 +111,37 @@ Deno.serve(async (req) => {
     const courseId = pkg.course_id as string;
 
     // ── 2. Classify and execute repairs ──
+    // Also check warnings for new gates
+    const allWarnings = (v3.warnings ?? []) as string[];
+    const allSignals = [...hardFails, ...allWarnings];
 
-    // ═══ A. DIFFICULTY REBALANCE ═══
+    // ═══ A. DIFFICULTY REBALANCE (EASY_TOO_HIGH → prune) ═══
     const diffFails = hardFails.filter(f =>
       f.includes("EASY_TOO_HIGH") || f.includes("HARDISH_TOO_LOW"),
     );
     if (diffFails.length > 0) {
       const result = await repairDifficulty(sb, packageId, curriculumId);
+      actions.push(result);
+    }
+
+    // ═══ A2. EASY_TOO_LOW → generate more easy questions ═══
+    const easyLowSignals = allSignals.filter(f => f.includes("EASY_TOO_LOW"));
+    if (easyLowSignals.length > 0) {
+      const result = await repairEasyDeficit(sb, packageId, curriculumId);
+      actions.push(result);
+    }
+
+    // ═══ A3. TRAP_COVERAGE_LOW → enqueue trap retrofit ═══
+    const trapSignals = allSignals.filter(f => f.includes("TRAP_COVERAGE_LOW"));
+    if (trapSignals.length > 0) {
+      const result = await repairTrapCoverage(sb, packageId, curriculumId);
+      actions.push(result);
+    }
+
+    // ═══ A4. EXAM_PART_MISSING → backfill from mappings ═══
+    const examPartSignals = allSignals.filter(f => f.includes("EXAM_PART_MISSING"));
+    if (examPartSignals.length > 0) {
+      const result = await repairExamPartMapping(sb, packageId, curriculumId);
       actions.push(result);
     }
 
@@ -484,5 +508,255 @@ async function repairMinichecks(
     type: "minicheck_repair",
     detail: `Reset minicheck generation for ${lessons.length} unparsed lessons`,
     affected_count: lessons.length,
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// NEW REPAIR STRATEGIES (Fix 1, 2, 3)
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * A2. Easy Deficit Repair (Fix 1)
+ * - When easy_pct < 5%, generate new easy questions from blueprints
+ * - Uses existing blueprint infrastructure
+ */
+async function repairEasyDeficit(
+  sb: ReturnType<typeof createClient>,
+  packageId: string,
+  curriculumId: string,
+): Promise<RepairAction> {
+  // Count current distribution
+  const { data: dist } = await sb
+    .from("exam_questions")
+    .select("difficulty")
+    .eq("curriculum_id", curriculumId)
+    .in("qc_status", ["approved", "tier1_passed"]);
+
+  if (!dist || dist.length === 0) {
+    return { type: "easy_deficit_repair", detail: "no_approved_questions", affected_count: 0 };
+  }
+
+  const total = dist.length;
+  const easyCnt = dist.filter((q: any) => q.difficulty === "easy").length;
+  const easyPct = (easyCnt / total) * 100;
+
+  // Load target from difficulty_distribution_targets
+  const { data: target } = await sb
+    .from("difficulty_distribution_targets")
+    .select("target_pct")
+    .eq("difficulty", "easy")
+    .eq("track", "AUSBILDUNG_VOLL")
+    .maybeSingle();
+  
+  const targetPct = (target?.target_pct as number) ?? 10;
+
+  if (easyPct >= targetPct) {
+    return { type: "easy_deficit_repair", detail: `easy_pct=${easyPct.toFixed(1)}% already at target`, affected_count: 0 };
+  }
+
+  // Calculate how many easy questions we need
+  const targetEasyCount = Math.ceil(total * (targetPct / 100));
+  const deficit = targetEasyCount - easyCnt;
+
+  if (deficit <= 0) {
+    return { type: "easy_deficit_repair", detail: "no_deficit", affected_count: 0 };
+  }
+
+  // Strategy 1: Reclassify medium questions with simple remember patterns as easy
+  const simpleKeywords = ["nenne", "was ist", "welcher", "definiere", "wie heißt", "wofür steht", "was bedeutet", "wo befindet"];
+  const { data: mediumQs } = await sb
+    .from("exam_questions")
+    .select("id, question_text, cognitive_level")
+    .eq("curriculum_id", curriculumId)
+    .eq("difficulty", "medium")
+    .in("qc_status", ["approved", "tier1_passed"])
+    .limit(200);
+
+  const toReclassify: string[] = [];
+  for (const q of mediumQs || []) {
+    if (toReclassify.length >= Math.ceil(deficit * 0.6)) break; // max 60% from reclassification
+    const text = (q.question_text || "").toLowerCase();
+    const cl = (q.cognitive_level || "").toLowerCase();
+    if (cl === "remember" || simpleKeywords.some(kw => text.includes(kw))) {
+      toReclassify.push(q.id);
+    }
+  }
+
+  let reclassified = 0;
+  if (toReclassify.length > 0) {
+    await sb.from("exam_questions")
+      .update({ difficulty: "easy" })
+      .in("id", toReclassify);
+    reclassified = toReclassify.length;
+  }
+
+  // Strategy 2: Enqueue generation of new easy questions from blueprints
+  const remainingDeficit = deficit - reclassified;
+  if (remainingDeficit > 0) {
+    try {
+      await enqueueJob(sb, {
+        job_type: "pool_fill_bloom_gaps",
+        package_id: packageId,
+        payload: {
+          package_id: packageId,
+          curriculum_id: curriculumId,
+          target_difficulty: "easy",
+          target_count: remainingDeficit,
+          source: "easy_deficit_repair",
+        },
+        priority: 15,
+        max_attempts: 3,
+      });
+    } catch (e) {
+      console.warn(`[exam-rebalance] Failed to enqueue easy backfill: ${(e as Error).message}`);
+    }
+  }
+
+  const newEasyPct = ((easyCnt + reclassified) / total) * 100;
+  console.log(`[exam-rebalance] Easy deficit repair: reclassified=${reclassified}, enqueued=${remainingDeficit}, ${easyPct.toFixed(1)}% → ${newEasyPct.toFixed(1)}%`);
+
+  return {
+    type: "easy_deficit_repair",
+    detail: `Reclassified ${reclassified} medium→easy, enqueued ${remainingDeficit} new easy questions. (${easyPct.toFixed(1)}% → ~${targetPct}%)`,
+    affected_count: reclassified + remainingDeficit,
+  };
+}
+
+/**
+ * A3. Trap Coverage Repair (Fix 3)
+ * - Identifies questions without trap classification
+ * - Enqueues trap-retrofit worker for batch analysis
+ */
+async function repairTrapCoverage(
+  sb: ReturnType<typeof createClient>,
+  packageId: string,
+  curriculumId: string,
+): Promise<RepairAction> {
+  // Find approved questions without trap_type
+  const { data: untagged } = await sb
+    .from("exam_questions")
+    .select("id")
+    .eq("curriculum_id", curriculumId)
+    .in("qc_status", ["approved", "tier1_passed"])
+    .is("trap_type", null)
+    .limit(500);
+
+  if (!untagged || untagged.length === 0) {
+    return { type: "trap_coverage_repair", detail: "all_questions_have_trap_type", affected_count: 0 };
+  }
+
+  // Enqueue trap retrofit in batches of 50
+  const batchSize = 50;
+  let enqueued = 0;
+  for (let i = 0; i < Math.min(untagged.length, 200); i += batchSize) {
+    const batch = untagged.slice(i, i + batchSize).map((q: any) => q.id);
+    try {
+      await enqueueJob(sb, {
+        job_type: "pool_rework_trap_retrofit",
+        package_id: packageId,
+        payload: {
+          question_ids: batch,
+          curriculum_id: curriculumId,
+          source: "trap_coverage_repair",
+        },
+        priority: 20,
+        max_attempts: 2,
+      });
+      enqueued += batch.length;
+    } catch (e) {
+      console.warn(`[exam-rebalance] Failed to enqueue trap retrofit batch: ${(e as Error).message}`);
+      break;
+    }
+  }
+
+  console.log(`[exam-rebalance] Trap coverage repair: ${untagged.length} untagged, ${enqueued} enqueued for retrofit`);
+
+  return {
+    type: "trap_coverage_repair",
+    detail: `${untagged.length} questions without trap_type. Enqueued ${enqueued} for AI trap analysis.`,
+    affected_count: enqueued,
+  };
+}
+
+/**
+ * A4. Exam-Part Mapping Repair (Fix 2)
+ * - Backfills exam_part from exam_part_mappings table
+ * - Uses learning_field_id chain to propagate
+ */
+async function repairExamPartMapping(
+  sb: ReturnType<typeof createClient>,
+  _packageId: string,
+  curriculumId: string,
+): Promise<RepairAction> {
+  // Load mappings for this curriculum
+  const { data: mappings } = await sb
+    .from("exam_part_mappings")
+    .select("learning_field_id, exam_part, exam_weight")
+    .eq("curriculum_id", curriculumId);
+
+  if (!mappings || mappings.length === 0) {
+    return {
+      type: "exam_part_mapping",
+      detail: "no_mappings_configured — add exam_part_mappings for this curriculum first",
+      affected_count: 0,
+    };
+  }
+
+  let updated = 0;
+  for (const mapping of mappings) {
+    // Direct match: question has this learning_field_id
+    const { data: directQs } = await sb
+      .from("exam_questions")
+      .select("id")
+      .eq("curriculum_id", curriculumId)
+      .eq("learning_field_id", mapping.learning_field_id)
+      .is("exam_part", null)
+      .in("qc_status", ["approved", "tier1_passed"])
+      .limit(500);
+
+    if (directQs && directQs.length > 0) {
+      const ids = directQs.map((q: any) => q.id);
+      await sb.from("exam_questions")
+        .update({ exam_part: mapping.exam_part, exam_weight: mapping.exam_weight })
+        .in("id", ids);
+      updated += ids.length;
+    }
+
+    // Indirect match: question has competency_id whose learning_field_id matches
+    const { data: compIds } = await sb
+      .from("competencies")
+      .select("id")
+      .eq("learning_field_id", mapping.learning_field_id);
+
+    if (compIds && compIds.length > 0) {
+      const cIds = compIds.map((c: any) => c.id);
+      for (let i = 0; i < cIds.length; i += 50) {
+        const chunk = cIds.slice(i, i + 50);
+        const { data: indirectQs } = await sb
+          .from("exam_questions")
+          .select("id")
+          .eq("curriculum_id", curriculumId)
+          .in("competency_id", chunk)
+          .is("exam_part", null)
+          .in("qc_status", ["approved", "tier1_passed"])
+          .limit(200);
+
+        if (indirectQs && indirectQs.length > 0) {
+          const ids = indirectQs.map((q: any) => q.id);
+          await sb.from("exam_questions")
+            .update({ exam_part: mapping.exam_part, exam_weight: mapping.exam_weight })
+            .in("id", ids);
+          updated += ids.length;
+        }
+      }
+    }
+  }
+
+  console.log(`[exam-rebalance] Exam-part mapping: ${updated} questions updated from ${mappings.length} mappings`);
+
+  return {
+    type: "exam_part_mapping",
+    detail: `Propagated exam_part to ${updated} questions from ${mappings.length} LF mappings`,
+    affected_count: updated,
   };
 }
