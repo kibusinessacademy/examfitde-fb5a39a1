@@ -178,16 +178,30 @@ async function processJobs(sb: any, apiKey: string, limit: number) {
 
   for (const job of claimed) {
     try {
+      // Retry guard: max 3 attempts (RPC already filters, but defense-in-depth)
+      if ((job.attempt_count || 0) >= 3) {
+        await sb.from("content_jobs").update({
+          status: "archived",
+          last_error: "MAX_ATTEMPTS_REACHED (3)",
+          updated_at: new Date().toISOString(),
+        }).eq("id", job.id);
+        results.push({ id: job.id, status: "archived", error: "MAX_ATTEMPTS_REACHED" });
+        continue;
+      }
+
       await processOneJob(sb, apiKey, job);
       results.push({ id: job.id, status: "generated" });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error(`[generate-content] Job ${job.id} failed:`, msg);
 
+      const newAttempts = (job.attempt_count || 0) + 1;
+      const finalStatus = newAttempts >= 3 ? "archived" : "failed";
+
       await sb.from("content_jobs").update({
-        status: "failed",
+        status: finalStatus,
         last_error: msg.slice(0, 2000),
-        attempt_count: (job.attempt_count || 0) + 1,
+        attempt_count: newAttempts,
         updated_at: new Date().toISOString(),
       }).eq("id", job.id);
 
