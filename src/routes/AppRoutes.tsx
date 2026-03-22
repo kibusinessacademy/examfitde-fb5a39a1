@@ -201,6 +201,7 @@ const AppRoutes = () => {
           <Route path="studio" element={<KursePage />} />
           <Route path="studio/:packageId" element={<CourseWorkspace />} />
           <Route path="queue" element={<QueuePage />} />
+          <Route path="marketing" element={<MarketingPage />} />
           <Route path="*" element={<AdminDeactivatedPage />} />
         </Route>
 
