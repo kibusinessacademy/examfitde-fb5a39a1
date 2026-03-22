@@ -135,18 +135,16 @@ async function main() {
       }
     }
 
-    // [4] Mastery states without exam evidence
-    console.log("\n── [4] Mastery states without exam evidence ──\n");
-    // This checks if mastery was set for competencies that have no exam attempts
-    // Simple heuristic: recent mastery_states with level > 0
-    const recentMastery = await restSelect({
+    // [4] Learning progress anomaly check
+    console.log("\n── [4] Learning progress anomaly check ──\n");
+    const recentProgress = await restSelect({
       base, key: env.SERVICE_KEY,
-      table: "mastery_states",
-      select: "id,user_id,competency_id,level,updated_at",
-      qs: "&level=gt.0&order=updated_at.desc&limit=50",
+      table: "learning_progress",
+      select: "id,user_id,updated_at",
+      qs: "&order=updated_at.desc&limit=50",
     });
-    if (recentMastery.res.ok) {
-      console.log(`  ✅ ${(recentMastery.json ?? []).length} mastery records checked (manual audit recommended)`);
+    if (recentProgress.res.ok) {
+      console.log(`  ✅ ${(recentProgress.json ?? []).length} recent learning_progress records checked`);
     }
 
     // [5] Questions exposure — approved questions should not have solutions visible
