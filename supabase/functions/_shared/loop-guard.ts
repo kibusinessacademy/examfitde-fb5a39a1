@@ -76,9 +76,16 @@ export async function checkLoopGuard(
     };
   }
 
-  const windowCutoff = new Date(
+  // ── Determine effective window cutoff ──
+  // If an admin reset occurred (loop_guard_reset_at), only count jobs created AFTER the reset.
+  // This prevents stale historical jobs from re-triggering the guard immediately after an admin heal.
+  const defaultCutoff = new Date(
     Date.now() - LOOP_GUARD_CONFIG.JOB_COUNT_WINDOW_HOURS * 3600 * 1000,
   ).toISOString();
+
+  const resetAt = typeof meta.loop_guard_reset_at === "string"
+    ? meta.loop_guard_reset_at : null;
+  const windowCutoff = resetAt && resetAt > defaultCutoff ? resetAt : defaultCutoff;
 
   // ── Check 2: Cumulative job count in rolling window ──
   // Exclude cancelled jobs — they are administratively terminated, not loop evidence
