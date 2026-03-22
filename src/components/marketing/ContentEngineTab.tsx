@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -36,6 +37,7 @@ const contentTypeIcon: Record<string, typeof Video> = {
 };
 
 export default function ContentEngineTab() {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterPlatform, setFilterPlatform] = useState<string>('all');
@@ -138,14 +140,18 @@ export default function ContentEngineTab() {
   // Status transition
   const updateStatus = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      const updates: Record<string, unknown> = { status, updated_at: new Date().toISOString() };
-      if (status === 'published') updates.published_at = new Date().toISOString();
-      if (status === 'approved') {
-        updates.approved_at = new Date().toISOString();
-        // Note: approved_by requires auth context — set from session if available
-      }
+      const now = new Date().toISOString();
+      const updates: Record<string, unknown> = { status, updated_at: now };
       if (status === 'needs_review') {
-        updates.reviewed_at = new Date().toISOString();
+        updates.reviewed_at = now;
+        updates.reviewed_by = user?.id ?? null;
+      }
+      if (status === 'approved') {
+        updates.approved_at = now;
+        updates.approved_by = user?.id ?? null;
+      }
+      if (status === 'published') {
+        updates.published_at = now;
       }
       const { error } = await supabase.from('content_jobs').update(updates).eq('id', id);
       if (error) throw error;
@@ -381,8 +387,13 @@ export default function ContentEngineTab() {
                           </>
                         )}
                         {job.status === 'approved' && (
+                          <Button size="sm" onClick={() => updateStatus.mutate({ id: job.id, status: 'publish_queued' })}>
+                            Publish Queue
+                          </Button>
+                        )}
+                        {job.status === 'publish_queued' && (
                           <Button size="sm" onClick={() => updateStatus.mutate({ id: job.id, status: 'published' })}>
-                            Publish
+                            Published ✓
                           </Button>
                         )}
                         {job.status === 'failed' && (
