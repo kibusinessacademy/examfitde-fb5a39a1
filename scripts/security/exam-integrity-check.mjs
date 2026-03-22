@@ -42,7 +42,7 @@ async function main() {
 
   const EXAM_TABLES = [
     "exam_sessions", "exam_attempts", "exam_attempt_answers",
-    "exam_questions", "mastery_states", "learning_progress",
+    "exam_questions", "learning_progress",
   ];
 
   if (env.ANON_KEY) {
