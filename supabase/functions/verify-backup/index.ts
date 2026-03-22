@@ -2,55 +2,63 @@ import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 
 /**
- * Backup Restore Verification
- * 
- * Performs integrity checks on existing backups:
- *  1. Verify manifest hashes match stored data
- *  2. Compare backup row counts with current DB
- *  3. Spot-check random records for data consistency
- *  4. Log results for audit trail
- * 
- * Does NOT modify production data — read-only verification.
+ * Backup Restore Verification v2 — Production-Hardened
+ *
+ * Separates INTEGRITY from DRIFT:
+ *  - Integrity (fail-worthy): manifest exists, file exists, hash matches, parseable
+ *  - Drift (info-only): row count difference vs current DB
+ *
+ * Security: x-backup-job-secret required
  */
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const JOB_SECRET = Deno.env.get("BACKUP_JOB_SECRET") || "";
 
 interface VerifyRequest {
-  date?: string;      // YYYY-MM-DD, defaults to yesterday
-  tier?: string;      // critical | daily | weekly
-  tables?: string[];  // specific tables to verify
-  spot_check?: boolean; // compare random records
+  date?: string;
+  tier?: string;
+  tables?: string[];
+  spot_check?: boolean;
 }
 
-interface VerifyResult {
+interface IntegrityResult {
   table: string;
+  status: "pass" | "fail" | "warn";
   manifest_found: boolean;
-  manifest_rows?: number;
-  manifest_hash?: string;
-  actual_hash?: string;
-  hash_match?: boolean;
+  parts_expected: number;
+  parts_found: number;
+  parts_hash_ok: number;
+  parts_hash_fail: number;
+  manifest_rows: number;
+  actual_rows_in_parts: number;
+  row_count_match: boolean;
+  errors: string[];
+  // Drift (info only, never causes fail)
   current_db_rows?: number;
   drift_pct?: number;
-  spot_check_passed?: boolean;
-  error?: string;
+  drift_direction?: "growing" | "shrinking" | "stable";
+  // Spot check
+  spot_check_result?: "pass" | "fail" | "skipped";
 }
 
-async function hashContent(content: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(content);
-  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(hashBuffer))
-    .map(b => b.toString(16).padStart(2, "0"))
-    .join("");
+async function sha256(content: string): Promise<string> {
+  const data = new TextEncoder().encode(content);
+  const buf = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
 }
 
 Deno.serve(async (req) => {
   const cors = handleCorsPreflightRequest(req);
   if (cors) return cors;
-
   const origin = req.headers.get("origin");
   const headers = { ...getCorsHeaders(origin), "Content-Type": "application/json" };
+
+  // Auth
+  const provided = req.headers.get("x-backup-job-secret");
+  if (!JOB_SECRET || provided !== JOB_SECRET) {
+    return new Response(JSON.stringify({ ok: false, error: "forbidden" }), { status: 403, headers });
+  }
 
   try {
     const body: VerifyRequest = req.method === "POST"
@@ -62,173 +70,199 @@ Deno.serve(async (req) => {
     const date = body.date || yesterday;
     const tier = body.tier || "daily";
 
-    console.log(`[verify-backup] Checking ${tier} backup for ${date}`);
+    console.log(`[verify] Checking ${tier} backup for ${date}`);
 
-    // 1. List backup files for the given date/tier
-    const { data: files, error: listError } = await sb.storage
+    // List table folders under date/tier/
+    const { data: tableFolders, error: listErr } = await sb.storage
       .from("backups")
       .list(`${date}/${tier}`);
 
-    if (listError || !files?.length) {
+    if (listErr || !tableFolders?.length) {
       return new Response(JSON.stringify({
-        ok: false,
-        error: `No ${tier} backup found for ${date}`,
-        date,
-        tier,
+        ok: false, error: `No ${tier} backup found for ${date}`, date, tier,
       }), { status: 200, headers });
     }
 
-    const manifestFiles = files.filter(f => f.name.startsWith("_manifest_"));
-    const dataFiles = files.filter(f => !f.name.startsWith("_manifest_"));
+    // Filter to actual table directories (exclude _global_manifest.json etc)
+    const tableNames = tableFolders
+      .filter(f => !f.name.startsWith("_"))
+      .map(f => f.name)
+      .filter(name => !body.tables?.length || body.tables.includes(name));
 
-    const results: VerifyResult[] = [];
-    let totalChecked = 0;
-    let totalPassed = 0;
-    let totalFailed = 0;
+    const results: IntegrityResult[] = [];
+    let integrityFails = 0;
 
-    // 2. Verify each manifest
-    for (const mf of manifestFiles) {
-      const tableName = mf.name.replace("_manifest_", "").replace(".json", "");
-      
-      if (body.tables?.length && !body.tables.includes(tableName)) continue;
-      totalChecked++;
-
-      const result: VerifyResult = { table: tableName, manifest_found: true };
+    for (const table of tableNames) {
+      const result: IntegrityResult = {
+        table,
+        status: "pass",
+        manifest_found: false,
+        parts_expected: 0,
+        parts_found: 0,
+        parts_hash_ok: 0,
+        parts_hash_fail: 0,
+        manifest_rows: 0,
+        actual_rows_in_parts: 0,
+        row_count_match: false,
+        errors: [],
+      };
 
       try {
-        // Read manifest
-        const { data: manifestData } = await sb.storage
+        // 1. Read manifest
+        const { data: manifestBlob } = await sb.storage
           .from("backups")
-          .download(`${date}/${tier}/${mf.name}`);
-        
-        if (!manifestData) {
-          result.error = "Could not download manifest";
-          result.manifest_found = false;
+          .download(`${date}/${tier}/${table}/_manifest.json`);
+
+        if (!manifestBlob) {
+          result.errors.push("Manifest missing");
+          result.status = "fail";
+          integrityFails++;
           results.push(result);
-          totalFailed++;
           continue;
         }
 
-        const manifest = JSON.parse(await manifestData.text());
-        result.manifest_rows = manifest.rows;
-        result.manifest_hash = manifest.hash;
+        const manifest = JSON.parse(await manifestBlob.text());
+        result.manifest_found = true;
+        result.manifest_rows = manifest.total_rows ?? 0;
+        result.parts_expected = manifest.parts?.length ?? 0;
 
-        // Find corresponding data file
-        const dataFile = dataFiles.find(f => f.name.startsWith(`${tableName}_`));
-        if (!dataFile) {
-          result.error = "Data file missing";
-          results.push(result);
-          totalFailed++;
-          continue;
-        }
+        // 2. Verify each part
+        const partHashes: string[] = [];
+        let totalPartRows = 0;
 
-        // Download and verify hash
-        const { data: backupData } = await sb.storage
-          .from("backups")
-          .download(`${date}/${tier}/${dataFile.name}`);
-
-        if (!backupData) {
-          result.error = "Could not download backup data";
-          results.push(result);
-          totalFailed++;
-          continue;
-        }
-
-        const content = await backupData.text();
-        const actualHash = await hashContent(content);
-        result.actual_hash = actualHash;
-        result.hash_match = actualHash === manifest.hash;
-
-        if (!result.hash_match) {
-          result.error = "Hash mismatch — backup may be corrupted";
-          totalFailed++;
-        }
-
-        // Compare with current DB row count
-        const { count } = await sb
-          .from(tableName)
-          .select("*", { count: "exact", head: true });
-        
-        result.current_db_rows = count ?? 0;
-        if (result.manifest_rows && result.current_db_rows > 0) {
-          result.drift_pct = Math.round(
-            Math.abs(result.current_db_rows - result.manifest_rows) / 
-            result.current_db_rows * 100
-          );
-        }
-
-        // Spot-check: verify random records exist in backup
-        if (body.spot_check && result.hash_match) {
+        for (const part of (manifest.parts ?? [])) {
           try {
-            const backupRecords = JSON.parse(content);
-            if (Array.isArray(backupRecords) && backupRecords.length > 0) {
-              const sample = backupRecords[Math.floor(Math.random() * backupRecords.length)];
-              if (sample.id) {
-                const { data: liveRecord } = await sb
-                  .from(tableName)
-                  .select("id")
-                  .eq("id", sample.id)
-                  .single();
-                result.spot_check_passed = !!liveRecord;
-              } else {
-                result.spot_check_passed = true; // no ID to check
+            const { data: partBlob } = await sb.storage
+              .from("backups")
+              .download(part.path);
+
+            if (!partBlob) {
+              result.errors.push(`Part missing: ${part.path}`);
+              result.parts_hash_fail++;
+              continue;
+            }
+
+            result.parts_found++;
+            const content = await partBlob.text();
+
+            // Hash check
+            const actualHash = await sha256(content);
+            if (actualHash === part.sha256) {
+              result.parts_hash_ok++;
+            } else {
+              result.parts_hash_fail++;
+              result.errors.push(`Hash mismatch: ${part.path}`);
+            }
+            partHashes.push(actualHash);
+
+            // Count rows (NDJSON = lines)
+            const lines = content.trim().split("\n").filter(l => l.length > 0);
+            totalPartRows += lines.length;
+
+            // Parseability check (first line)
+            if (lines.length > 0) {
+              try { JSON.parse(lines[0]); } catch {
+                result.errors.push(`Unparseable NDJSON in ${part.path}`);
               }
             }
-          } catch {
-            result.spot_check_passed = false;
+          } catch (err) {
+            result.errors.push(`Part error ${part.path}: ${String(err)}`);
+            result.parts_hash_fail++;
           }
         }
 
-        if (result.hash_match) totalPassed++;
-        else totalFailed++;
+        result.actual_rows_in_parts = totalPartRows;
+        result.row_count_match = totalPartRows === result.manifest_rows;
+
+        // 3. Combined hash check
+        if (partHashes.length > 0) {
+          const combinedHash = await sha256(partHashes.join(":"));
+          if (manifest.sha256_all && combinedHash !== manifest.sha256_all) {
+            result.errors.push("Combined hash mismatch");
+          }
+        }
+
+        // 4. Drift check (INFO ONLY — never causes fail)
+        try {
+          const { count } = await sb.from(table).select("*", { count: "exact", head: true });
+          result.current_db_rows = count ?? 0;
+          if (result.manifest_rows > 0 && result.current_db_rows > 0) {
+            const diff = result.current_db_rows - result.manifest_rows;
+            result.drift_pct = Math.round(Math.abs(diff) / result.current_db_rows * 100);
+            result.drift_direction = diff > 0 ? "growing" : diff < 0 ? "shrinking" : "stable";
+          }
+        } catch { /* drift check is best-effort */ }
+
+        // 5. Spot check (optional)
+        if (body.spot_check && result.parts_found > 0) {
+          try {
+            const randomPart = manifest.parts[Math.floor(Math.random() * manifest.parts.length)];
+            const { data: blob } = await sb.storage.from("backups").download(randomPart.path);
+            if (blob) {
+              const lines = (await blob.text()).trim().split("\n");
+              const randomLine = lines[Math.floor(Math.random() * lines.length)];
+              const record = JSON.parse(randomLine);
+              if (record.id) {
+                const { data: live } = await sb.from(table).select("id").eq("id", record.id).maybeSingle();
+                result.spot_check_result = live ? "pass" : "fail";
+              } else {
+                result.spot_check_result = "pass";
+              }
+            }
+          } catch {
+            result.spot_check_result = "fail";
+          }
+        } else {
+          result.spot_check_result = "skipped";
+        }
+
+        // Determine status
+        if (result.parts_hash_fail > 0 || !result.row_count_match || result.errors.length > 0) {
+          result.status = "fail";
+          integrityFails++;
+        }
 
       } catch (err) {
-        result.error = String(err);
-        totalFailed++;
+        result.errors.push(String(err));
+        result.status = "fail";
+        integrityFails++;
       }
 
       results.push(result);
     }
 
-    // 3. Log verification result
-    const verifyStatus = totalFailed === 0 ? "verified" : "issues_found";
+    // Log
+    const verifyStatus = integrityFails === 0 ? "verified" : "integrity_failed";
     await sb.from("backup_snapshots").insert({
       backup_type: `verify_${tier}`,
       tables_backed_up: results.map(r => r.table),
-      row_counts: {
-        checked: totalChecked,
-        passed: totalPassed,
-        failed: totalFailed,
-        results: results,
-      },
+      row_counts: { checked: results.length, passed: results.length - integrityFails, failed: integrityFails },
       status: verifyStatus,
       triggered_by: "verify-drill",
     });
 
-    // 4. Alert on failures
-    if (totalFailed > 0) {
-      const failedTables = results.filter(r => r.error || !r.hash_match).map(r => r.table);
+    if (integrityFails > 0) {
+      const failedTables = results.filter(r => r.status === "fail");
       await sb.from("admin_notifications").insert({
-        title: `Backup Verification Failed: ${totalFailed} table(s)`,
-        body: `Date: ${date}, Tier: ${tier}\nFailed: ${failedTables.join(", ")}`,
+        title: `Backup Verification FAILED: ${integrityFails} table(s)`,
+        body: failedTables.map(r => `${r.table}: ${r.errors.join(", ")}`).join("\n"),
         category: "system",
         severity: "critical",
       });
     }
 
     return new Response(JSON.stringify({
-      ok: totalFailed === 0,
-      date,
-      tier,
-      checked: totalChecked,
-      passed: totalPassed,
-      failed: totalFailed,
+      ok: integrityFails === 0,
+      date, tier,
+      checked: results.length,
+      integrity_passed: results.length - integrityFails,
+      integrity_failed: integrityFails,
       results,
     }), { status: 200, headers });
 
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error("[verify-backup] Error:", msg);
+    console.error("[verify-backup] Fatal:", msg);
     return new Response(JSON.stringify({ ok: false, error: msg }), { status: 500, headers });
   }
 });

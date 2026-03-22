@@ -8,7 +8,9 @@ on:
     - cron: "0 3 * * *"
     # Weekly tier: Sunday 04:00 UTC
     - cron: "0 4 * * 0"
-    # Verify: daily at 06:00 UTC (after daily backup)
+    # Storage sync: daily 03:30 UTC
+    - cron: "30 3 * * *"
+    # Verify: daily at 06:00 UTC
     - cron: "0 6 * * *"
   workflow_dispatch:
     inputs:
@@ -20,6 +22,7 @@ on:
           - backup-critical
           - backup-daily
           - backup-weekly
+          - storage-sync
           - verify-yesterday
           - verify-spot-check
 
@@ -38,16 +41,17 @@ jobs:
           else
             CRON="${{ github.event.schedule }}"
             case "$CRON" in
-              "0 */4 * * *") echo "action=backup-critical" >> $GITHUB_OUTPUT ;;
-              "0 3 * * *")   echo "action=backup-daily" >> $GITHUB_OUTPUT ;;
-              "0 4 * * 0")   echo "action=backup-weekly" >> $GITHUB_OUTPUT ;;
-              "0 6 * * *")   echo "action=verify-yesterday" >> $GITHUB_OUTPUT ;;
-              *)             echo "action=backup-daily" >> $GITHUB_OUTPUT ;;
+              "0 */4 * * *")  echo "action=backup-critical" >> $GITHUB_OUTPUT ;;
+              "0 3 * * *")    echo "action=backup-daily" >> $GITHUB_OUTPUT ;;
+              "0 4 * * 0")    echo "action=backup-weekly" >> $GITHUB_OUTPUT ;;
+              "30 3 * * *")   echo "action=storage-sync" >> $GITHUB_OUTPUT ;;
+              "0 6 * * *")    echo "action=verify-yesterday" >> $GITHUB_OUTPUT ;;
+              *)              echo "action=backup-daily" >> $GITHUB_OUTPUT ;;
             esac
           fi
 
   run-backup:
-    name: Run Backup
+    name: Run DB Backup
     needs: determine-action
     if: startsWith(needs.determine-action.outputs.action, 'backup-')
     runs-on: ubuntu-latest
@@ -55,37 +59,69 @@ jobs:
       - name: Trigger backup
         env:
           SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          BACKUP_JOB_SECRET: ${{ secrets.BACKUP_JOB_SECRET }}
         run: |
           ACTION="${{ needs.determine-action.outputs.action }}"
           TIER="${ACTION#backup-}"
-          
+
           echo "🗄️ Running $TIER backup..."
-          
+
           RESPONSE=$(curl -s -w "\n%{http_code}" \
             -X POST "$SUPABASE_URL/functions/v1/db-backup-snapshot" \
             -H "Content-Type: application/json" \
-            -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
-            -d "{\"tier\": \"$TIER\"}")
-          
+            -H "x-backup-job-secret: $BACKUP_JOB_SECRET" \
+            -d "{\"tier\":\"$TIER\"}")
+
           HTTP_CODE=$(echo "$RESPONSE" | tail -1)
           BODY=$(echo "$RESPONSE" | head -n -1)
-          
+
           echo "Status: $HTTP_CODE"
           echo "$BODY" | python3 -m json.tool 2>/dev/null || echo "$BODY"
-          
+
           if [ "$HTTP_CODE" != "200" ]; then
             echo "❌ Backup failed with HTTP $HTTP_CODE"
             exit 1
           fi
-          
-          # Check for mismatches
-          MISMATCHES=$(echo "$BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d.get('mismatches',[])))" 2>/dev/null || echo "0")
-          if [ "$MISMATCHES" != "0" ]; then
-            echo "⚠️ $MISMATCHES table(s) had row count mismatches"
+
+          OK=$(echo "$BODY" | python3 -c "import sys,json; print(json.load(sys.stdin).get('ok',False))" 2>/dev/null || echo "False")
+          if [ "$OK" != "True" ]; then
+            echo "⚠️ Backup completed with errors"
+            exit 1
           fi
-          
+
           echo "✅ $TIER backup completed"
+
+  run-storage-sync:
+    name: Run Storage Sync
+    needs: determine-action
+    if: needs.determine-action.outputs.action == 'storage-sync'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger storage sync
+        env:
+          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          BACKUP_JOB_SECRET: ${{ secrets.BACKUP_JOB_SECRET }}
+        run: |
+          echo "📦 Running storage sync..."
+
+          RESPONSE=$(curl -s -w "\n%{http_code}" \
+            -X POST "$SUPABASE_URL/functions/v1/storage-backup-sync" \
+            -H "Content-Type: application/json" \
+            -H "x-backup-job-secret: $BACKUP_JOB_SECRET" \
+            -d "{}")
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | head -n -1)
+
+          echo "Status: $HTTP_CODE"
+          echo "$BODY" | python3 -m json.tool 2>/dev/null || echo "$BODY"
+
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "❌ Storage sync failed"
+            exit 1
+          fi
+
+          echo "✅ Storage sync completed"
 
   run-verify:
     name: Verify Backup
@@ -96,40 +132,40 @@ jobs:
       - name: Trigger verification
         env:
           SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          BACKUP_JOB_SECRET: ${{ secrets.BACKUP_JOB_SECRET }}
         run: |
           ACTION="${{ needs.determine-action.outputs.action }}"
           SPOT_CHECK="false"
           if [ "$ACTION" = "verify-spot-check" ]; then
             SPOT_CHECK="true"
           fi
-          
+
           echo "🔍 Running backup verification (spot_check=$SPOT_CHECK)..."
-          
+
           RESPONSE=$(curl -s -w "\n%{http_code}" \
             -X POST "$SUPABASE_URL/functions/v1/verify-backup" \
             -H "Content-Type: application/json" \
-            -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            -H "x-backup-job-secret: $BACKUP_JOB_SECRET" \
             -d "{\"spot_check\": $SPOT_CHECK}")
-          
+
           HTTP_CODE=$(echo "$RESPONSE" | tail -1)
           BODY=$(echo "$RESPONSE" | head -n -1)
-          
+
           echo "Status: $HTTP_CODE"
           echo "$BODY" | python3 -m json.tool 2>/dev/null || echo "$BODY"
-          
-          FAILED=$(echo "$BODY" | python3 -c "import sys,json; print(json.load(sys.stdin).get('failed',0))" 2>/dev/null || echo "0")
+
+          FAILED=$(echo "$BODY" | python3 -c "import sys,json; print(json.load(sys.stdin).get('integrity_failed',0))" 2>/dev/null || echo "0")
           if [ "$FAILED" != "0" ]; then
-            echo "❌ Verification found $FAILED failed table(s)"
+            echo "❌ Verification: $FAILED integrity failure(s)"
             exit 1
           fi
-          
+
           echo "✅ Backup verification passed"
 
   alert-on-failure:
-    name: Alert
-    needs: [run-backup, run-verify]
-    if: always() && (needs.run-backup.result == 'failure' || needs.run-verify.result == 'failure')
+    name: Alert on Failure
+    needs: [run-backup, run-storage-sync, run-verify]
+    if: always() && (needs.run-backup.result == 'failure' || needs.run-storage-sync.result == 'failure' || needs.run-verify.result == 'failure')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -145,5 +181,5 @@ jobs:
           if [ -f scripts/ci/issue-on-fail.mjs ]; then
             node scripts/ci/issue-on-fail.mjs
           else
-            echo "🚨 Backup/Recovery workflow failed — see $RUN_URL"
+            echo "🚨 Backup/Recovery failed — see $RUN_URL"
           fi
