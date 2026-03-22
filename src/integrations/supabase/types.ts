@@ -5469,6 +5469,9 @@ export type Database = {
       }
       content_jobs: {
         Row: {
+          approved_at: string | null
+          approved_by: string | null
+          attempt_count: number
           blueprint_id: string | null
           competency_id: string | null
           content_category: string | null
@@ -5479,18 +5482,28 @@ export type Database = {
           generation_meta: Json | null
           hashtags: string[] | null
           hook: string | null
+          hook_id: string | null
           id: string
+          last_error: string | null
           llm_cost_eur: number | null
           llm_model: string | null
           platform: string
+          publish_meta: Json
           published_at: string | null
           question_id: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
           script: string | null
+          source_snapshot: Json
+          source_type: string
           status: string
           target_audience: string | null
           updated_at: string
         }
         Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          attempt_count?: number
           blueprint_id?: string | null
           competency_id?: string | null
           content_category?: string | null
@@ -5501,18 +5514,28 @@ export type Database = {
           generation_meta?: Json | null
           hashtags?: string[] | null
           hook?: string | null
+          hook_id?: string | null
           id?: string
+          last_error?: string | null
           llm_cost_eur?: number | null
           llm_model?: string | null
           platform?: string
+          publish_meta?: Json
           published_at?: string | null
           question_id?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           script?: string | null
+          source_snapshot?: Json
+          source_type?: string
           status?: string
           target_audience?: string | null
           updated_at?: string
         }
         Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          attempt_count?: number
           blueprint_id?: string | null
           competency_id?: string | null
           content_category?: string | null
@@ -5523,13 +5546,20 @@ export type Database = {
           generation_meta?: Json | null
           hashtags?: string[] | null
           hook?: string | null
+          hook_id?: string | null
           id?: string
+          last_error?: string | null
           llm_cost_eur?: number | null
           llm_model?: string | null
           platform?: string
+          publish_meta?: Json
           published_at?: string | null
           question_id?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           script?: string | null
+          source_snapshot?: Json
+          source_type?: string
           status?: string
           target_audience?: string | null
           updated_at?: string
@@ -5547,6 +5577,13 @@ export type Database = {
             columns: ["blueprint_id"]
             isOneToOne: false
             referencedRelation: "question_blueprints"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_jobs_hook_id_fkey"
+            columns: ["hook_id"]
+            isOneToOne: false
+            referencedRelation: "content_hooks"
             referencedColumns: ["id"]
           },
           {
@@ -5762,6 +5799,7 @@ export type Database = {
       }
       content_performance: {
         Row: {
+          avg_watch_time_seconds: number | null
           clicks: number | null
           comments: number | null
           content_job_id: string
@@ -5771,11 +5809,16 @@ export type Database = {
           ctr: number | null
           distribution_job_id: string | null
           id: string
+          lead_completions: number | null
+          lead_starts: number | null
           leads: number | null
           likes: number | null
+          link_clicks: number | null
           platform: string
+          profile_visits: number | null
           retention_pct: number | null
           revenue_eur: number | null
+          sales_count: number | null
           saves: number | null
           shares: number | null
           snapshot_at: string
@@ -5783,6 +5826,7 @@ export type Database = {
           watch_time_seconds: number | null
         }
         Insert: {
+          avg_watch_time_seconds?: number | null
           clicks?: number | null
           comments?: number | null
           content_job_id: string
@@ -5792,11 +5836,16 @@ export type Database = {
           ctr?: number | null
           distribution_job_id?: string | null
           id?: string
+          lead_completions?: number | null
+          lead_starts?: number | null
           leads?: number | null
           likes?: number | null
+          link_clicks?: number | null
           platform: string
+          profile_visits?: number | null
           retention_pct?: number | null
           revenue_eur?: number | null
+          sales_count?: number | null
           saves?: number | null
           shares?: number | null
           snapshot_at?: string
@@ -5804,6 +5853,7 @@ export type Database = {
           watch_time_seconds?: number | null
         }
         Update: {
+          avg_watch_time_seconds?: number | null
           clicks?: number | null
           comments?: number | null
           content_job_id?: string
@@ -5813,11 +5863,16 @@ export type Database = {
           ctr?: number | null
           distribution_job_id?: string | null
           id?: string
+          lead_completions?: number | null
+          lead_starts?: number | null
           leads?: number | null
           likes?: number | null
+          link_clicks?: number | null
           platform?: string
+          profile_visits?: number | null
           retention_pct?: number | null
           revenue_eur?: number | null
+          sales_count?: number | null
           saves?: number | null
           shares?: number | null
           snapshot_at?: string
@@ -45574,6 +45629,47 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      claim_content_jobs: {
+        Args: { p_limit?: number; p_worker_id?: string }
+        Returns: {
+          approved_at: string | null
+          approved_by: string | null
+          attempt_count: number
+          blueprint_id: string | null
+          competency_id: string | null
+          content_category: string | null
+          content_type: string
+          created_at: string
+          cta: string | null
+          curriculum_id: string | null
+          generation_meta: Json | null
+          hashtags: string[] | null
+          hook: string | null
+          hook_id: string | null
+          id: string
+          last_error: string | null
+          llm_cost_eur: number | null
+          llm_model: string | null
+          platform: string
+          publish_meta: Json
+          published_at: string | null
+          question_id: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          script: string | null
+          source_snapshot: Json
+          source_type: string
+          status: string
+          target_audience: string | null
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "content_jobs"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       claim_cron_execution: {
         Args: {
           p_cron_key: string
@@ -47182,6 +47278,10 @@ export type Database = {
           package_id: string
           processing_count: number
         }[]
+      }
+      increment_content_hook_usage: {
+        Args: { p_hook_id: string }
+        Returns: undefined
       }
       init_course_package_steps: {
         Args: { p_package_id: string; p_steps: string[] }
