@@ -2388,6 +2388,69 @@ export type Database = {
           },
         ]
       }
+      b2b_leads: {
+        Row: {
+          assigned_to: string | null
+          azubi_count: number | null
+          company_name: string
+          contact_email: string | null
+          contact_name: string | null
+          contact_phone: string | null
+          created_at: string
+          deal_value_eur: number | null
+          id: string
+          industry: string | null
+          meta: Json | null
+          next_action: string | null
+          next_action_at: string | null
+          notes: string | null
+          source: string | null
+          status: string
+          tags: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          azubi_count?: number | null
+          company_name: string
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          deal_value_eur?: number | null
+          id?: string
+          industry?: string | null
+          meta?: Json | null
+          next_action?: string | null
+          next_action_at?: string | null
+          notes?: string | null
+          source?: string | null
+          status?: string
+          tags?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          azubi_count?: number | null
+          company_name?: string
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          deal_value_eur?: number | null
+          id?: string
+          industry?: string | null
+          meta?: Json | null
+          next_action?: string | null
+          next_action_at?: string | null
+          notes?: string | null
+          source?: string | null
+          status?: string
+          tags?: string[] | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       backlinks: {
         Row: {
           anchor_text: string | null
@@ -5371,6 +5434,179 @@ export type Database = {
         }
         Relationships: []
       }
+      content_hooks: {
+        Row: {
+          avg_performance_score: number | null
+          category: string
+          created_at: string
+          hook_text: string
+          id: string
+          is_active: boolean | null
+          target_audience: string | null
+          usage_count: number | null
+        }
+        Insert: {
+          avg_performance_score?: number | null
+          category?: string
+          created_at?: string
+          hook_text: string
+          id?: string
+          is_active?: boolean | null
+          target_audience?: string | null
+          usage_count?: number | null
+        }
+        Update: {
+          avg_performance_score?: number | null
+          category?: string
+          created_at?: string
+          hook_text?: string
+          id?: string
+          is_active?: boolean | null
+          target_audience?: string | null
+          usage_count?: number | null
+        }
+        Relationships: []
+      }
+      content_jobs: {
+        Row: {
+          blueprint_id: string | null
+          competency_id: string | null
+          content_category: string | null
+          content_type: string
+          created_at: string
+          cta: string | null
+          curriculum_id: string | null
+          generation_meta: Json | null
+          hashtags: string[] | null
+          hook: string | null
+          id: string
+          llm_cost_eur: number | null
+          llm_model: string | null
+          platform: string
+          published_at: string | null
+          question_id: string | null
+          script: string | null
+          status: string
+          target_audience: string | null
+          updated_at: string
+        }
+        Insert: {
+          blueprint_id?: string | null
+          competency_id?: string | null
+          content_category?: string | null
+          content_type?: string
+          created_at?: string
+          cta?: string | null
+          curriculum_id?: string | null
+          generation_meta?: Json | null
+          hashtags?: string[] | null
+          hook?: string | null
+          id?: string
+          llm_cost_eur?: number | null
+          llm_model?: string | null
+          platform?: string
+          published_at?: string | null
+          question_id?: string | null
+          script?: string | null
+          status?: string
+          target_audience?: string | null
+          updated_at?: string
+        }
+        Update: {
+          blueprint_id?: string | null
+          competency_id?: string | null
+          content_category?: string | null
+          content_type?: string
+          created_at?: string
+          cta?: string | null
+          curriculum_id?: string | null
+          generation_meta?: Json | null
+          hashtags?: string[] | null
+          hook?: string | null
+          id?: string
+          llm_cost_eur?: number | null
+          llm_model?: string | null
+          platform?: string
+          published_at?: string | null
+          question_id?: string | null
+          script?: string | null
+          status?: string
+          target_audience?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_jobs_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "blueprint_questions_view"
+            referencedColumns: ["blueprint_id"]
+          },
+          {
+            foreignKeyName: "content_jobs_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "question_blueprints"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_jobs_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "exam_questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_jobs_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "exam_questions_elite_v"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_jobs_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "exam_questions_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_jobs_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "stale_elite_annotations_v"
+            referencedColumns: ["question_id"]
+          },
+          {
+            foreignKeyName: "content_jobs_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "v_exam_questions_approved"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_jobs_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "v_exam_questions_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_jobs_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "v_exam_questions_sanitized"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_jobs_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "v_exam_relevant_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       content_optimization: {
         Row: {
           analyzed_at: string | null
@@ -5523,6 +5759,87 @@ export type Database = {
           updated_by?: string | null
         }
         Relationships: []
+      }
+      content_performance: {
+        Row: {
+          clicks: number | null
+          comments: number | null
+          content_job_id: string
+          conversion_rate: number | null
+          conversions: number | null
+          created_at: string
+          ctr: number | null
+          distribution_job_id: string | null
+          id: string
+          leads: number | null
+          likes: number | null
+          platform: string
+          retention_pct: number | null
+          revenue_eur: number | null
+          saves: number | null
+          shares: number | null
+          snapshot_at: string
+          views: number | null
+          watch_time_seconds: number | null
+        }
+        Insert: {
+          clicks?: number | null
+          comments?: number | null
+          content_job_id: string
+          conversion_rate?: number | null
+          conversions?: number | null
+          created_at?: string
+          ctr?: number | null
+          distribution_job_id?: string | null
+          id?: string
+          leads?: number | null
+          likes?: number | null
+          platform: string
+          retention_pct?: number | null
+          revenue_eur?: number | null
+          saves?: number | null
+          shares?: number | null
+          snapshot_at?: string
+          views?: number | null
+          watch_time_seconds?: number | null
+        }
+        Update: {
+          clicks?: number | null
+          comments?: number | null
+          content_job_id?: string
+          conversion_rate?: number | null
+          conversions?: number | null
+          created_at?: string
+          ctr?: number | null
+          distribution_job_id?: string | null
+          id?: string
+          leads?: number | null
+          likes?: number | null
+          platform?: string
+          retention_pct?: number | null
+          revenue_eur?: number | null
+          saves?: number | null
+          shares?: number | null
+          snapshot_at?: string
+          views?: number | null
+          watch_time_seconds?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_performance_content_job_id_fkey"
+            columns: ["content_job_id"]
+            isOneToOne: false
+            referencedRelation: "content_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_performance_distribution_job_id_fkey"
+            columns: ["distribution_job_id"]
+            isOneToOne: false
+            referencedRelation: "distribution_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       content_versions: {
         Row: {
@@ -12100,6 +12417,69 @@ export type Database = {
             columns: ["target_id"]
             isOneToOne: false
             referencedRelation: "distribution_targets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      distribution_jobs: {
+        Row: {
+          caption: string | null
+          content_job_id: string
+          created_at: string
+          error_message: string | null
+          external_post_id: string | null
+          external_url: string | null
+          hashtags: string[] | null
+          id: string
+          platform: string
+          posted_at: string | null
+          scheduled_at: string | null
+          status: string
+          video_job_id: string | null
+        }
+        Insert: {
+          caption?: string | null
+          content_job_id: string
+          created_at?: string
+          error_message?: string | null
+          external_post_id?: string | null
+          external_url?: string | null
+          hashtags?: string[] | null
+          id?: string
+          platform: string
+          posted_at?: string | null
+          scheduled_at?: string | null
+          status?: string
+          video_job_id?: string | null
+        }
+        Update: {
+          caption?: string | null
+          content_job_id?: string
+          created_at?: string
+          error_message?: string | null
+          external_post_id?: string | null
+          external_url?: string | null
+          hashtags?: string[] | null
+          id?: string
+          platform?: string
+          posted_at?: string | null
+          scheduled_at?: string | null
+          status?: string
+          video_job_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "distribution_jobs_content_job_id_fkey"
+            columns: ["content_job_id"]
+            isOneToOne: false
+            referencedRelation: "content_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "distribution_jobs_video_job_id_fkey"
+            columns: ["video_job_id"]
+            isOneToOne: false
+            referencedRelation: "video_jobs"
             referencedColumns: ["id"]
           },
         ]
@@ -33837,6 +34217,65 @@ export type Database = {
           visual_score?: number
         }
         Relationships: []
+      }
+      video_jobs: {
+        Row: {
+          content_job_id: string
+          created_at: string
+          duration_seconds: number | null
+          error_message: string | null
+          id: string
+          processing_meta: Json | null
+          script: string
+          status: string
+          thumbnail_url: string | null
+          updated_at: string
+          video_provider: string | null
+          video_url: string | null
+          voice_provider: string | null
+          voice_url: string | null
+        }
+        Insert: {
+          content_job_id: string
+          created_at?: string
+          duration_seconds?: number | null
+          error_message?: string | null
+          id?: string
+          processing_meta?: Json | null
+          script: string
+          status?: string
+          thumbnail_url?: string | null
+          updated_at?: string
+          video_provider?: string | null
+          video_url?: string | null
+          voice_provider?: string | null
+          voice_url?: string | null
+        }
+        Update: {
+          content_job_id?: string
+          created_at?: string
+          duration_seconds?: number | null
+          error_message?: string | null
+          id?: string
+          processing_meta?: Json | null
+          script?: string
+          status?: string
+          thumbnail_url?: string | null
+          updated_at?: string
+          video_provider?: string | null
+          video_url?: string | null
+          voice_provider?: string | null
+          voice_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_jobs_content_job_id_fkey"
+            columns: ["content_job_id"]
+            isOneToOne: false
+            referencedRelation: "content_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       wave_governance_decisions: {
         Row: {

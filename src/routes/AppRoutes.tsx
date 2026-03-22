@@ -59,6 +59,7 @@ const AdminV2Layout = lazy(() => import('@/components/admin/v2/AdminV2Layout'));
 const LeitstellePage = lazy(() => import('@/pages/admin/v2/LeitstellePage'));
 const KursePage = lazy(() => import('@/pages/admin/v2/KursePage'));
 const QueuePage = lazy(() => import('@/pages/admin/v2/QueuePage'));
+const MarketingPage = lazy(() => import('@/pages/admin/v2/MarketingPage'));
 const AdminDeactivatedPage = lazy(() => import('@/components/admin/v2/AdminDeactivatedPage'));
 const CourseWorkspace = lazy(() => import('@/pages/admin/CourseWorkspace'));
 
@@ -200,6 +201,7 @@ const AppRoutes = () => {
           <Route path="studio" element={<KursePage />} />
           <Route path="studio/:packageId" element={<CourseWorkspace />} />
           <Route path="queue" element={<QueuePage />} />
+          <Route path="marketing" element={<MarketingPage />} />
           <Route path="*" element={<AdminDeactivatedPage />} />
         </Route>
 
