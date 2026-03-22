@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
+export type AdminPackagesSource = 'ssot_view' | 'fallback_course_packages';
+
 export interface AdminPackageSSOT {
   package_id: string;
   raw_title: string | null;
@@ -44,14 +46,24 @@ export interface AdminPackageSSOT {
   is_stuck: boolean;
   council_complete: boolean;
   has_publish_drift: boolean;
+  _source: AdminPackagesSource;
 }
 
-function mapFallbackPackage(row: any): AdminPackageSSOT {
+/** Null-safe helpers for fallback data */
+export function effectiveStatus(pkg: AdminPackageSSOT): string {
+  return pkg.status ??
+    (pkg.published_at ? 'published' : pkg.blocked_reason ? 'blocked' : 'unknown');
+}
+
+export function effectiveProgress(pkg: AdminPackageSSOT): number {
+  return typeof pkg.build_progress === 'number' ? pkg.build_progress : 0;
+}
+
+function mapFallbackPackage(row: any): Omit<AdminPackageSSOT, '_source'> {
   const title = row?.title ?? 'Unbenannt';
   const status = row?.status ?? 'queued';
   const publishedAt = row?.published_at ?? null;
   const councilApproved = row?.council_approved ?? false;
-  const integrityPassed = row?.integrity_passed ?? false;
 
   return {
     package_id: row?.id,
@@ -67,7 +79,7 @@ function mapFallbackPackage(row: any): AdminPackageSSOT {
     last_progress_at: null,
     council_approved: councilApproved,
     council_approved_at: row?.council_approved_at ?? null,
-    integrity_passed: integrityPassed,
+    integrity_passed: row?.integrity_passed ?? false,
     published_at: publishedAt,
     is_published: status === 'published' || !!publishedAt,
     created_at: row?.created_at ?? new Date().toISOString(),
@@ -102,7 +114,7 @@ function mapFallbackPackage(row: any): AdminPackageSSOT {
 export function useAdminPackagesSSOT() {
   return useQuery({
     queryKey: ['admin', 'packages-ssot'],
-    queryFn: async () => {
+    queryFn: async (): Promise<AdminPackageSSOT[]> => {
       try {
         const { data, error } = await (supabase as any)
           .from('v_admin_packages_ssot')
@@ -111,7 +123,7 @@ export function useAdminPackagesSSOT() {
           .order('updated_at', { ascending: false });
 
         if (!error && Array.isArray(data)) {
-          return data as AdminPackageSSOT[];
+          return data.map((row: any) => ({ ...row, _source: 'ssot_view' as const }));
         }
 
         console.warn('[admin-packages] SSOT view error, using fallback:', error?.message);
@@ -126,7 +138,10 @@ export function useAdminPackagesSSOT() {
         .order('updated_at', { ascending: false });
 
       if (fallbackError) throw fallbackError;
-      return (fallbackData || []).map(mapFallbackPackage);
+      return (fallbackData || []).map((row: any) => ({
+        ...mapFallbackPackage(row),
+        _source: 'fallback_course_packages' as const,
+      }));
     },
     refetchInterval: 20_000,
     staleTime: 10_000,
