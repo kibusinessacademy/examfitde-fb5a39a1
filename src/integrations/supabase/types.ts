@@ -38208,6 +38208,25 @@ export type Database = {
           },
         ]
       }
+      ops_integrity_contract_violations: {
+        Row: {
+          blocked_reason: string | null
+          has_report: boolean | null
+          integrity_passed: boolean | null
+          integrity_step_status:
+            | Database["public"]["Enums"]["step_status"]
+            | null
+          last_error: string | null
+          package_id: string | null
+          package_status: string | null
+          package_title: string | null
+          package_updated_at: string | null
+          severity: string | null
+          step_updated_at: string | null
+          violation_type: string | null
+        }
+        Relationships: []
+      }
       ops_job_queue_rollup: {
         Row: {
           avg_fail_attempts: number | null
