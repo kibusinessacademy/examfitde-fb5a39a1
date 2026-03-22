@@ -46,17 +46,87 @@ export interface AdminPackageSSOT {
   has_publish_drift: boolean;
 }
 
+function mapFallbackPackage(row: any): AdminPackageSSOT {
+  const title = row?.title ?? 'Unbenannt';
+  const status = row?.status ?? 'queued';
+  const publishedAt = row?.published_at ?? null;
+  const councilApproved = row?.council_approved ?? false;
+  const integrityPassed = row?.integrity_passed ?? false;
+
+  return {
+    package_id: row?.id,
+    raw_title: title,
+    curriculum_id: row?.curriculum_id ?? null,
+    status,
+    track: row?.track ?? null,
+    priority: row?.priority ?? null,
+    build_progress: row?.build_progress ?? 0,
+    current_step: row?.current_step ?? null,
+    blocked_reason: row?.blocked_reason ?? null,
+    stuck_reason: row?.stuck_reason ?? null,
+    last_progress_at: null,
+    council_approved: councilApproved,
+    council_approved_at: row?.council_approved_at ?? null,
+    integrity_passed: integrityPassed,
+    published_at: publishedAt,
+    is_published: status === 'published' || !!publishedAt,
+    created_at: row?.created_at ?? new Date().toISOString(),
+    updated_at: row?.updated_at ?? row?.created_at ?? new Date().toISOString(),
+    last_error: row?.last_error ?? null,
+    queue_position: row?.queue_position ?? null,
+    locked_at: row?.locked_at ?? null,
+    canonical_title: title,
+    beruf_id: row?.beruf_id ?? null,
+    beruf_display_name: row?.beruf_display_name ?? null,
+    steps_done: 0,
+    steps_functional: 0,
+    council_sessions_total: 0,
+    council_sessions_pending: 0,
+    council_sessions_processing: 0,
+    council_sessions_completed: councilApproved ? 1 : 0,
+    council_sessions_approved: councilApproved ? 1 : 0,
+    approved_questions: 0,
+    total_questions: 0,
+    jobs_pending: 0,
+    jobs_processing: 0,
+    jobs_failed: 0,
+    last_job_completed_at: null,
+    last_job_error: null,
+    has_stale_publish: false,
+    is_stuck: !!row?.stuck_reason,
+    council_complete: !!councilApproved,
+    has_publish_drift: false,
+  };
+}
+
 export function useAdminPackagesSSOT() {
   return useQuery({
     queryKey: ['admin', 'packages-ssot'],
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from('v_admin_packages_ssot')
-        .select('*')
-        .order('priority', { ascending: true })
+      try {
+        const { data, error } = await (supabase as any)
+          .from('v_admin_packages_ssot')
+          .select('*')
+          .order('priority', { ascending: true })
+          .order('updated_at', { ascending: false });
+
+        if (!error && Array.isArray(data)) {
+          return data as AdminPackageSSOT[];
+        }
+
+        console.warn('[admin-packages] SSOT view error, using fallback:', error?.message);
+      } catch (e) {
+        console.warn('[admin-packages] SSOT query exception, using fallback:', e);
+      }
+
+      const { data: fallbackData, error: fallbackError } = await (supabase as any)
+        .from('course_packages')
+        .select('id, title, curriculum_id, status, track, priority, build_progress, current_step, blocked_reason, stuck_reason, council_approved, council_approved_at, integrity_passed, published_at, created_at, updated_at, last_error, queue_position, locked_at')
+        .order('priority', { ascending: true, nullsFirst: false })
         .order('updated_at', { ascending: false });
-      if (error) throw error;
-      return data as AdminPackageSSOT[];
+
+      if (fallbackError) throw fallbackError;
+      return (fallbackData || []).map(mapFallbackPackage);
     },
     refetchInterval: 20_000,
     staleTime: 10_000,
