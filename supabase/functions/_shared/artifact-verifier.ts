@@ -59,7 +59,7 @@ function requirePayloadId(job: any, key: "package_id" | "curriculum_id"): { id: 
 async function resolvePackage(sb: SB, packageId: string) {
   const { data, error } = await sb
     .from("course_packages")
-    .select("course_id, curriculum_id, meta")
+    .select("course_id, curriculum_id")
     .eq("id", packageId)
     .single();
   return { pkg: data, error };
