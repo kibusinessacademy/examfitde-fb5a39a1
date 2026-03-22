@@ -122,11 +122,20 @@ export default function KursePage() {
     );
   }
 
+  const isFallback = packages?.some(p => p._source === 'fallback_course_packages');
+
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-xl font-bold text-foreground">Kurse</h1>
-        <p className="text-xs text-muted-foreground mt-0.5">Kanonische Paketliste · SSOT</p>
+      <div className="flex items-center gap-2">
+        <div>
+          <h1 className="text-xl font-bold text-foreground">Kurse</h1>
+          <p className="text-xs text-muted-foreground mt-0.5">Kanonische Paketliste · SSOT</p>
+        </div>
+        {isFallback && (
+          <Badge variant="outline" className="border-amber-500/50 text-amber-600 text-[10px] px-1.5 py-0.5">
+            Fallback-Modus
+          </Badge>
+        )}
       </div>
 
       <div className="space-y-2">
