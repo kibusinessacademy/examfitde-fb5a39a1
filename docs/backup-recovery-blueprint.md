@@ -1,264 +1,254 @@
-# ExamFit Backup & Recovery Blueprint
+# ExamFit Backup & Recovery Blueprint v2
 
 ## Übersicht
 
-Dieses Dokument definiert die vollständige Backup- und Recovery-Strategie für ExamFit,
-basierend auf der **3-2-1-Regel** und einer **3-Klassen-Datenklassifikation**.
+Dieses Dokument ist die SSOT für die vollständige Backup- und Recovery-Strategie.
+Basierend auf **3-2-1-Regel**, **3-Klassen-Datenklassifikation** und **5-Ebenen-Architektur**.
 
 ---
 
-## 1. Datenklassifikation
+## 1. Architektur — 5 Ebenen
 
-### Klasse 1 — Kritisch, häufig sichern (alle 4h)
-| Tabelle | Beschreibung | Geschätzte Größe |
-|---------|-------------|-----------------|
-| `profiles` | Nutzerprofile | Mittel |
-| `user_roles` | Rollenzuordnungen | Klein |
-| `enterprise_accounts` | B2B-Konten | Klein |
-| `licenses` | Lizenzen | Klein |
-| `license_claims` | Lizenz-Claims | Klein |
-| `orders` | Bestellungen | Klein |
-| `seats` | Sitzplätze | Klein |
-| `subscriptions` | Abonnements | Klein |
-| `exam_sessions` | Prüfungssitzungen | Mittel |
-| `exam_attempts` | Prüfungsversuche | Groß |
-| `exam_attempt_answers` | Einzelantworten | Sehr groß |
-| `user_progress` | Lernfortschritt | Groß |
-| `learning_progress` | Detaillierter Fortschritt | Groß |
+```
+┌──────────────────────────────────────────────────────────┐
+│                    ExamFit Produktion                      │
+│                                                          │
+│  ┌──────────┐   ┌──────────┐   ┌──────────┐             │
+│  │ Supabase │   │ Storage  │   │  GitHub  │             │
+│  │    DB    │   │ Buckets  │   │   Repo   │             │
+│  └────┬─────┘   └────┬─────┘   └────┬─────┘             │
+└───────┼──────────────┼──────────────┼────────────────────┘
+        │              │              │
+  ┌─────▼─────┐  ┌─────▼─────┐  ┌────▼──────┐
+  │ Ebene 1   │  │ Ebene 3   │  │ Ebene 5   │
+  │ PITR      │  │ Storage   │  │ GitHub    │
+  │ (Supabase)│  │ Sync →    │  │ Mirror    │
+  │ nativ     │  │ backups/  │  │ git clone │
+  └───────────┘  └───────────┘  │ --mirror  │
+        │                       └───────────┘
+  ┌─────▼─────┐
+  │ Ebene 2   │
+  │ Chunked   │
+  │ NDJSON →  │
+  │ backups/  │
+  └─────┬─────┘
+        │
+  ┌─────▼─────┐
+  │ Ebene 4   │
+  │ Externer  │   ← Noch nicht implementiert
+  │ Offsite   │     (S3/GCS/Backblaze)
+  │ Speicher  │
+  └───────────┘
+```
 
-**Risiko bei Verlust:** Kundendaten, Prüfungsergebnisse, Zahlungsnachweise — geschäftskritisch und ggf. rechtlich relevant.
+| Ebene | Was | Wie | Status |
+|-------|-----|-----|--------|
+| 1 | Supabase PITR | Plattform-nativ, sekundengenaue Recovery | ⚠️ Manuell aktivieren |
+| 2 | DB-Snapshots | `db-backup-snapshot` → backups/ Bucket, NDJSON + Manifeste | ✅ Implementiert |
+| 3 | Storage-Sync | `storage-backup-sync` → backups/storage-sync/ | ✅ Implementiert |
+| 4 | Offsite-Kopie | Extern verschlüsselt, anderer Account/Region | 🔲 Geplant |
+| 5 | Code-Backup | GitHub Mirror, Migrations, Edge Functions | ✅ Via GitHub |
 
-### Klasse 2 — Kritisch, täglich sichern
-| Tabelle | Beschreibung |
-|---------|-------------|
-| `courses` | Kurse |
-| `curricula` | Lehrpläne |
-| `learning_fields` | Lernfelder |
-| `competencies` | Kompetenzen |
-| `modules` | Module |
-| `lessons` | Lektionen |
-| `exam_blueprints` | Prüfungs-Blueprints |
-| `exam_questions` | Fragenpools |
-| `course_packages` | Pakete (SSOT) |
-| `package_steps` | Pipeline-Schritte |
-| `certification_catalog` | Zertifikatskatalog |
-| `council_sessions` | Quality Council |
-| `council_votes` | Council-Abstimmungen |
-| `auto_heal_policies` | Selbstheilungs-Policies |
-| `ai_worker_policies` | AI Worker Config |
-| `feature_flags` | Feature Flags |
-| `model_routing_rules` | LLM Routing |
-| `handbook_sections` | Handbuch-Abschnitte |
-| `handbook_chapters` | Handbuch-Kapitel |
-| `oral_exam_blueprints` | Mündliche Prüfungs-BPs |
-| `oral_exam_scenarios` | Mündliche Szenarien |
+---
+
+## 2. Vollständige Backup-Matrix
+
+### Klasse 1 — Kritisch (alle 4 Stunden)
+
+| Datenobjekt | Quelle | Tabelle | Kritisch | Frequenz | Restore-Prio | Aufbewahrung | Offsite |
+|-------------|--------|---------|----------|----------|--------------|-------------|---------|
+| Nutzerprofile | DB | `profiles` | ✅ | 4h | P1 | 30d | Ja |
+| Rollenzuordnungen | DB | `user_roles` | ✅ | 4h | P1 | 30d | Ja |
+| B2B-Konten | DB | `enterprise_accounts` | ✅ | 4h | P1 | 30d | Ja |
+| Org-Entities | DB | `org_entities` | ✅ | 4h | P1 | 30d | Ja |
+| Org-Learner-Links | DB | `org_learner_links` | ✅ | 4h | P1 | 30d | Ja |
+| Lizenzen | DB | `licenses` | ✅ | 4h | P1 | 30d | Ja |
+| Lizenz-Claims | DB | `license_claims` | ✅ | 4h | P1 | 30d | Ja |
+| Bestellungen | DB | `orders` | ✅ | 4h | P1 | 30d | Ja |
+| Sitzplätze | DB | `seats` | ✅ | 4h | P1 | 30d | Ja |
+| Abonnements | DB | `subscriptions` | ✅ | 4h | P1 | 30d | Ja |
+| Prüfungssitzungen | DB | `exam_sessions` | ✅ | 4h | P1 | 30d | Ja |
+| Prüfungsversuche | DB | `exam_attempts` | ✅ | 4h | P1 | 30d | Ja |
+| Einzelantworten | DB | `exam_attempt_answers` | ✅ | 4h | P1 | 30d | Ja |
+| Lernfortschritt | DB | `user_progress` | ✅ | 4h | P1 | 30d | Ja |
+| Detail-Fortschritt | DB | `learning_progress` | ✅ | 4h | P1 | 30d | Ja |
+| Affiliates | DB | `affiliates` | ✅ | 4h | P2 | 30d | Ja |
+| Empfehlungen | DB | `affiliate_referrals` | ✅ | 4h | P2 | 30d | Ja |
+
+**Risiko bei Verlust:** Kundendaten, Prüfungsergebnisse, Zahlungsnachweise — geschäftskritisch.
+
+### Klasse 2 — Täglich (03:00 UTC)
+
+| Datenobjekt | Quelle | Tabelle | Kritisch | Frequenz | Restore-Prio | Aufbewahrung | Offsite |
+|-------------|--------|---------|----------|----------|--------------|-------------|---------|
+| Kurse | DB | `courses` | ✅ | täglich | P2 | 30d | Ja |
+| Lehrpläne | DB | `curricula` | ✅ | täglich | P2 | 30d | Ja |
+| Lernfelder | DB | `learning_fields` | ✅ | täglich | P2 | 30d | Ja |
+| Kompetenzen | DB | `competencies` | ✅ | täglich | P2 | 30d | Ja |
+| Module | DB | `modules` | ✅ | täglich | P2 | 30d | Ja |
+| Lektionen | DB | `lessons` | ✅ | täglich | P2 | 30d | Ja |
+| Prüfungs-Blueprints | DB | `exam_blueprints` | ✅ | täglich | P2 | 30d | Ja |
+| Fragenpools | DB | `exam_questions` | ✅ | täglich | P1 | 30d | Ja |
+| Kurs-Pakete (SSOT) | DB | `course_packages` | ✅ | täglich | P1 | 30d | Ja |
+| Pipeline-Schritte | DB | `package_steps` | ✅ | täglich | P2 | 30d | Ja |
+| Zertifikatskatalog | DB | `certification_catalog` | ✅ | täglich | P2 | 30d | Ja |
+| Quality Council | DB | `council_sessions` | ✅ | täglich | P2 | 30d | Nein |
+| Council-Votes | DB | `council_votes` | ✅ | täglich | P2 | 30d | Nein |
+| Handbuch-Abschnitte | DB | `handbook_sections` | ✅ | täglich | P3 | 30d | Nein |
+| Handbuch-Kapitel | DB | `handbook_chapters` | ✅ | täglich | P3 | 30d | Nein |
+| Mündliche BPs | DB | `oral_exam_blueprints` | ✅ | täglich | P3 | 30d | Nein |
+| Mündliche Szenarien | DB | `oral_exam_scenarios` | ✅ | täglich | P3 | 30d | Nein |
+| Selbstheilungs-Policy | DB | `auto_heal_policies` | ⚠️ | täglich | P2 | 30d | Nein |
+| AI Worker Config | DB | `ai_worker_policies` | ⚠️ | täglich | P2 | 30d | Nein |
+| Feature Flags | DB | `feature_flags` | ⚠️ | täglich | P2 | 30d | Nein |
+| LLM Routing | DB | `model_routing_rules` | ⚠️ | täglich | P2 | 30d | Nein |
+| AI Gen Policies | DB | `ai_generation_policies` | ⚠️ | täglich | P3 | 30d | Nein |
+| AI Budget Policies | DB | `ai_budget_policies` | ⚠️ | täglich | P3 | 30d | Nein |
+| Content Versionen | DB | `content_versions` | ⚠️ | täglich | P3 | 30d | Nein |
+| MiniCheck-Fragen | DB | `minicheck_questions` | ✅ | täglich | P2 | 30d | Nein |
 
 **Risiko bei Verlust:** Content muss neu generiert werden — teuer, aber möglich.
 
-### Klasse 3 — Betriebsdaten, wöchentlich sichern
-| Tabelle | Beschreibung |
-|---------|-------------|
-| `admin_actions` | Admin Audit Log |
-| `auto_heal_log` | Selbstheilungs-Log |
-| `admin_notifications` | System-Benachrichtigungen |
-| `ai_tutor_logs` | Tutor-Interaktionen |
-| `ai_generations` | AI-Generierungen |
-| `ai_validations` | AI-Validierungen |
-| `job_queue` | Job Queue |
-| `backup_snapshots` | Backup-Metadaten |
-| `affiliates` | Affiliates |
-| `affiliate_referrals` | Empfehlungen |
-| `affiliate_payouts` | Auszahlungen |
+### Klasse 3 — Wöchentlich (Sonntag 04:00 UTC)
 
-**Risiko bei Verlust:** Operativer Kontext geht verloren, aber keine Geschäftsunterbrechung.
+| Datenobjekt | Quelle | Tabelle | Kritisch | Frequenz | Restore-Prio | Aufbewahrung | Offsite |
+|-------------|--------|---------|----------|----------|--------------|-------------|---------|
+| Admin Audit Log | DB | `admin_actions` | ⚠️ | wöchentlich | P3 | 84d | Nein |
+| Selbstheilungs-Log | DB | `auto_heal_log` | ⚠️ | wöchentlich | P3 | 84d | Nein |
+| Benachrichtigungen | DB | `admin_notifications` | Nein | wöchentlich | P4 | 84d | Nein |
+| Tutor-Logs | DB | `ai_tutor_logs` | ⚠️ | wöchentlich | P4 | 84d | Nein |
+| AI-Generierungen | DB | `ai_generations` | ⚠️ | wöchentlich | P4 | 84d | Nein |
+| AI-Validierungen | DB | `ai_validations` | ⚠️ | wöchentlich | P4 | 84d | Nein |
+| AI Gen Requests | DB | `ai_generation_requests` | ⚠️ | wöchentlich | P4 | 84d | Nein |
+| Job Queue | DB | `job_queue` | ⚠️ | wöchentlich | P3 | 84d | Nein |
+| Backup-Metadaten | DB | `backup_snapshots` | Nein | wöchentlich | P4 | 84d | Nein |
+| Auszahlungen | DB | `affiliate_payouts` | ✅ | wöchentlich | P3 | 84d | Ja |
+| Security Events | DB | `security_events` | ⚠️ | wöchentlich | P3 | 84d | Nein |
+| AI Quality Gates | DB | `ai_quality_gates` | ⚠️ | wöchentlich | P4 | 84d | Nein |
+| AI Kostenbudgets | DB | `ai_cost_budgets` | ⚠️ | wöchentlich | P4 | 84d | Nein |
+| AI Usage Log | DB | `ai_usage_log` | ⚠️ | wöchentlich | P4 | 84d | Nein |
 
----
+### Storage-Artefakte — Täglich (03:30 UTC)
 
-## 2. Backup-Frequenzen & Aufbewahrung
+| Bucket | Inhalt | Frequenz | Restore-Prio | Offsite |
+|--------|--------|----------|--------------|---------|
+| `course-artifacts` | H5P, PDFs, Medien | täglich | P2 | Ja |
+| `exports` | Paket-Exporte | täglich | P3 | Ja |
+| `handbook-pdfs` | Handbuch-PDFs | täglich | P3 | Nein |
+| `user-uploads` | Nutzer-Uploads | täglich | P2 | Ja |
 
-| Tier | Frequenz | Aufbewahrung | Trigger |
-|------|----------|-------------|---------|
-| **Critical** | Alle 4 Stunden | 7 Tage | GitHub Actions Cron |
-| **Daily** | Täglich 03:00 UTC | 30 Tage | GitHub Actions Cron |
-| **Weekly** | Sonntag 04:00 UTC | 12 Wochen | GitHub Actions Cron |
-| **Verify** | Täglich 06:00 UTC | n/a | GitHub Actions Cron |
+### Nicht im App-Backup (separate Sicherung nötig)
 
-### Zusätzlich empfohlen (manuell/extern)
-| Maßnahme | Frequenz |
-|----------|----------|
-| **PITR aktivieren** | Dauerhaft (Supabase Add-on) |
-| **Monatliches Archiv** | 1. des Monats → unveränderlicher Speicher |
-| **Jahresarchiv** | 1. Januar → 3–7 Jahre |
-| **Restore-Drill** | Monatlich in Staging |
-
----
-
-## 3. Storage-Objekte (Dateien)
-
-Supabase-DB-Backups sichern **nicht** die Storage-Dateien!
-
-### Zu sichernde Buckets
-| Bucket | Inhalt | Frequenz |
-|--------|--------|----------|
-| `course-artifacts` | H5P, PDFs, Medien | Täglich |
-| `exports` | Paket-Exporte | Täglich |
-| `handbook-pdfs` | Handbuch-PDFs | Wöchentlich |
-| `user-uploads` | Nutzer-Uploads | Täglich |
-| `backups` | DB-Backups selbst | Extern spiegeln |
-
-**Empfehlung:** Externen Object-Storage-Sync einrichten (z.B. S3, GCS, Hetzner).
+| Datenobjekt | Quelle | Sicherung |
+|-------------|--------|-----------|
+| Auth-User (Identity) | Supabase Auth | PITR / Supabase-native Backups |
+| Auth-Sessions | Supabase Auth | Nicht sicherbar, regeneriert sich |
+| Edge Function Code | GitHub | Git Mirror |
+| Migrations | GitHub | Git Mirror |
+| GitHub Workflows | GitHub | Git Mirror |
+| Docs/Policies | GitHub | Git Mirror |
 
 ---
 
-## 4. Backup-Architektur
+## 3. Sicherheitsarchitektur
 
-```
-┌──────────────────────────────────────────────────────┐
-│                    ExamFit Prod                       │
-│                                                      │
-│  ┌─────────────┐  ┌─────────────┐  ┌──────────────┐ │
-│  │  Supabase DB │  │   Storage   │  │  GitHub Repo │ │
-│  └──────┬──────┘  └──────┬──────┘  └──────┬───────┘ │
-└─────────┼────────────────┼────────────────┼──────────┘
-          │                │                │
-    ┌─────▼─────┐   ┌─────▼─────┐   ┌─────▼─────┐
-    │  Layer 1   │   │  Layer 2   │   │  Layer 3   │
-    │  PITR      │   │  Storage   │   │  GitHub    │
-    │  (Supabase)│   │  Backup    │   │  Mirror    │
-    │  ∞ Tage    │   │  Bucket    │   │  git clone │
-    └────────────┘   │  30 Tage   │   │  --mirror  │
-                     └────────────┘   └────────────┘
-                           │
-                     ┌─────▼─────┐
-                     │  Layer 4   │
-                     │  Externer  │
-                     │  Speicher  │
-                     │  (S3/GCS)  │
-                     │  90+ Tage  │
-                     └────────────┘
-```
+### Aufruf-Autorisierung
+- Alle Backup-/Verify-/Sync-Functions erfordern `x-backup-job-secret` Header
+- Secret in Supabase Edge Function Env + GitHub Actions Secret
+- Kein Aufruf über Publishable/Anon Key möglich
+
+### Datenformat
+- **NDJSON** (eine JSON-Zeile pro Record) statt monolithisches JSON
+- **Chunked**: 1000 Rows pro Part-Datei → kein OOM-Risiko
+- **SHA-256** pro Part + kombinierter Hash pro Tabelle
+- **Manifest** pro Tabelle + globales Manifest pro Run
+
+### Integrität vs. Drift
+| Prüfung | Fail-Kriterium | Nur Info |
+|---------|---------------|---------|
+| Manifest existiert | ✅ | |
+| Datei existiert | ✅ | |
+| Hash stimmt | ✅ | |
+| NDJSON parsebar | ✅ | |
+| Row-Count = Manifest | ✅ | |
+| DB-Drift (mehr/weniger Rows) | | ✅ |
+| Spot-Check (Record in DB) | | ✅ |
+
+### Aufbewahrung
+| Tier | Retention |
+|------|-----------|
+| Critical (4h) | 7 Tage |
+| Daily | 30 Tage |
+| Weekly | 12 Wochen (84 Tage) |
+| Storage-Sync | 30 Tage |
+| Monatliches Archiv | 12 Monate (manuell) |
 
 ---
 
-## 5. Restore-Runbook
+## 4. Restore-Runbook
 
 ### Szenario A: Versehentliches Löschen (< 24h)
-
-1. **Sofort:** PITR nutzen → Zeitpunkt VOR dem Löschen wählen
-2. **Wenn kein PITR:** Letztes Backup aus Storage laden:
-   ```
-   # Backup-Datei herunterladen
-   supabase storage cp backups/YYYY-MM-DD/daily/TABLE_TIMESTAMP.json ./restore/
-   
-   # Daten prüfen
-   cat ./restore/TABLE_*.json | python3 -m json.tool | head -20
-   
-   # In Staging importieren und verifizieren
-   # Dann gezielt in Prod einspielen
-   ```
-3. **Verifikation:** Row-Count prüfen, Spot-Check auf kritische Records
+1. PITR nutzen → Zeitpunkt VOR dem Löschen
+2. Wenn kein PITR: Backup-Parts aus `backups/` Bucket laden
+3. NDJSON-Parts zusammenfügen und in Staging importieren
+4. Verifizieren, dann gezielt in Prod einspielen
 
 ### Szenario B: Fehlerhafte Migration
+1. Rollback-Migration schreiben (inverse SQL)
+2. Wenn komplex: PITR auf Zeitpunkt vor Migration
+3. Schema aus `supabase/migrations/` neu anwenden
 
-1. **Sofort:** Rollback-Migration schreiben (inverse SQL)
-2. **Wenn komplex:** PITR auf Zeitpunkt vor Migration
-3. **Wenn kein PITR:** DB aus letztem Backup restaurieren, Migration fixen, neu anwenden
-
-### Szenario C: Datenkorruption / Stille Drift
-
-1. Backup-Hashes mit `verify-backup` Edge Function prüfen
+### Szenario C: Stille Datenkorruption
+1. `verify-backup` ausführen mit `spot_check: true`
 2. Betroffene Tabellen identifizieren
-3. Letztes verifiziertes Backup laden
-4. Diff zwischen Backup und aktueller DB erstellen
-5. Gezielt korrigieren (nicht komplett überschreiben)
+3. Letztes verifiziertes Backup laden (Manifest-Hash prüfen)
+4. Diff erstellen, gezielt korrigieren
 
 ### Szenario D: Kompletter Datenverlust
-
-1. Neues Supabase-Projekt erstellen
-2. Schema aus `supabase/migrations/` restaurieren
-3. Daten aus externem Backup importieren (Klasse 1 zuerst)
-4. Storage-Dateien aus externem Sync restaurieren
-5. Edge Functions deployen
-6. DNS/Auth umstellen
-7. Smoke-Tests durchführen
+1. Neues Supabase-Projekt
+2. Schema aus Migrations restaurieren
+3. Klasse 1 Daten zuerst importieren
+4. Klasse 2 + 3 nachziehen
+5. Storage aus `storage-sync/` restaurieren
+6. Edge Functions deployen
+7. DNS/Auth umstellen
+8. Smoke-Tests
 
 ### Szenario E: Storage-Dateien gelöscht
-
-1. DB-Metadaten prüfen (storage.objects)
-2. Dateien aus externem Storage-Sync restaurieren
-3. Wenn kein externer Sync: Dateien aus Backup-Bucket kopieren
+1. Manifest aus `backups/storage-sync/{date}/{bucket}/_manifest.json` laden
+2. Dateien aus `backups/storage-sync/` in Quell-Bucket zurückkopieren
+3. Hash-Verifikation gegen Manifest
 
 ---
 
-## 6. Monatlicher Restore-Drill (Checkliste)
+## 5. Monatlicher Restore-Drill
 
-- [ ] Backup-Snapshot der letzten 24h identifizieren
-- [ ] `verify-backup` Edge Function ausführen (mit `spot_check: true`)
+- [ ] Letzten `_global_manifest.json` identifizieren
+- [ ] `verify-backup` mit `spot_check: true` ausführen
 - [ ] Alle Hashes müssen übereinstimmen
-- [ ] Random-Tabelle aus Backup in lokale/Staging-DB importieren
+- [ ] Random-Tabelle: NDJSON-Parts herunterladen, zusammenfügen, in Staging importieren
 - [ ] Row-Count muss ≥ 95% des Backup-Stands betragen
 - [ ] 5 Random-Records manuell gegen Prod prüfen
-- [ ] Storage: 3 Random-Dateien aus Backup herunterladen und öffnen
+- [ ] Storage: 3 Random-Dateien aus Sync laden und öffnen
 - [ ] Ergebnis in `backup_snapshots` dokumentieren
 - [ ] Bei Fehlern: sofort Incident erstellen
 
 ---
 
-## 7. Automatisierung
+## 6. Offene Punkte
 
-### Implementierte Komponenten
-
-| Komponente | Pfad | Funktion |
-|-----------|------|----------|
-| Backup Edge Function | `supabase/functions/db-backup-snapshot/` | Tiered DB export mit Hashing |
-| Verify Edge Function | `supabase/functions/verify-backup/` | Hash-Verifikation + Spot-Check |
-| GitHub Workflow | `.github/workflows/backup-recovery.yml` | Cron-Trigger für alle Tiers |
-
-### API-Aufrufe
-
-```bash
-# Critical backup (alle 4h)
-curl -X POST "$URL/functions/v1/db-backup-snapshot" \
-  -H "Authorization: Bearer $ANON_KEY" \
-  -d '{"tier": "critical"}'
-
-# Daily backup
-curl -X POST "$URL/functions/v1/db-backup-snapshot" \
-  -H "Authorization: Bearer $ANON_KEY" \
-  -d '{"tier": "daily"}'
-
-# Weekly backup
-curl -X POST "$URL/functions/v1/db-backup-snapshot" \
-  -H "Authorization: Bearer $ANON_KEY" \
-  -d '{"tier": "weekly"}'
-
-# Verify yesterday's backup
-curl -X POST "$URL/functions/v1/verify-backup" \
-  -H "Authorization: Bearer $ANON_KEY" \
-  -d '{"spot_check": true}'
-
-# Dry-run (no export, just row counts)
-curl -X POST "$URL/functions/v1/db-backup-snapshot" \
-  -H "Authorization: Bearer $ANON_KEY" \
-  -d '{"tier": "daily", "dry_run": true}'
-```
-
----
-
-## 8. Offene Empfehlungen
-
-### Sofort umsetzen
-- [ ] PITR bei Supabase aktivieren (Dashboard → Database → Backups)
-- [ ] `backups` Storage Bucket erstellen (wird automatisch beim ersten Backup erstellt)
-- [ ] GitHub Secrets prüfen: `VITE_SUPABASE_URL` und `VITE_SUPABASE_PUBLISHABLE_KEY`
+### Sofort
+- [ ] **PITR aktivieren** (Supabase Dashboard → Database → Backups)
+- [ ] `BACKUP_JOB_SECRET` auch als GitHub Actions Secret anlegen
+- [ ] Ersten manuellen Backup-Run triggern
 
 ### Kurzfristig (1–2 Wochen)
-- [ ] Externen Storage-Sync für Backup-Bucket einrichten
-- [ ] Storage-Dateien-Sync für Course-Artifacts einrichten
-- [ ] Ersten manuellen Restore-Drill durchführen
-
-### Mittelfristig (1–3 Monate)
-- [ ] Zweites externes Backup-Ziel in anderer Region
+- [ ] Externen Storage-Sync (Ebene 4) einrichten
 - [ ] Backup-Verschlüsselung mit externem Key
+- [ ] Ersten Restore-Drill durchführen
+
+### Mittelfristig
+- [ ] Zweites externes Backup-Ziel
+- [ ] OIDC statt langlebiger Cloud-Secrets in GitHub Actions
 - [ ] Automatisierte monatliche Restore-Drills
-- [ ] Monitoring-Dashboard für Backup-Gesundheit im Admin-Panel
+- [ ] Admin-Dashboard Widget für Backup-Gesundheit
