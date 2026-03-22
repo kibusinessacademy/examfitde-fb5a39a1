@@ -140,7 +140,13 @@ export default function ContentEngineTab() {
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
       const updates: Record<string, unknown> = { status, updated_at: new Date().toISOString() };
       if (status === 'published') updates.published_at = new Date().toISOString();
-      if (status === 'approved') updates.approved_at = new Date().toISOString();
+      if (status === 'approved') {
+        updates.approved_at = new Date().toISOString();
+        // Note: approved_by requires auth context — set from session if available
+      }
+      if (status === 'needs_review') {
+        updates.reviewed_at = new Date().toISOString();
+      }
       const { error } = await supabase.from('content_jobs').update(updates).eq('id', id);
       if (error) throw error;
     },
