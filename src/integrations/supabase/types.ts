@@ -23149,6 +23149,33 @@ export type Database = {
           },
         ]
       }
+      package_progress_drift_audit: {
+        Row: {
+          attempted_value: number | null
+          corrected_value: number | null
+          created_at: string | null
+          id: string
+          operation: string | null
+          package_id: string
+        }
+        Insert: {
+          attempted_value?: number | null
+          corrected_value?: number | null
+          created_at?: string | null
+          id?: string
+          operation?: string | null
+          package_id: string
+        }
+        Update: {
+          attempted_value?: number | null
+          corrected_value?: number | null
+          created_at?: string | null
+          id?: string
+          operation?: string | null
+          package_id?: string
+        }
+        Relationships: []
+      }
       package_quality_reports: {
         Row: {
           created_at: string
