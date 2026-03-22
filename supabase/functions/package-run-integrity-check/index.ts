@@ -1073,41 +1073,64 @@ Deno.serve(async (req) => {
         const hasVersion = Boolean(verifyRow.integrity_report_version);
         const hasReport = verifyRow.integrity_report !== null;
 
-        if (hasVersion && !hasReport) {
-          // CRITICAL: version set but report NULL — persistence defect
-          const errMsg = `INTEGRITY_REPORT_PERSISTENCE_DEFECT: integrity_report_version=${verifyRow.integrity_report_version} but integrity_report=NULL`;
+        if (!hasReport) {
+          // CRITICAL: report was stripped by a trigger (e.g. trg_invalidate_integrity_on_package_reset
+          // firing due to status/build_progress change in the same transaction).
+          // Cases: hasVersion && !hasReport = partial strip, !hasVersion && !hasReport = full strip.
+          const errMsg = `INTEGRITY_REPORT_PERSISTENCE_DEFECT: report was generated (score=${gate.score}) but cleared by trigger. hasVersion=${hasVersion}`;
           console.error(`[integrity-check] ${errMsg}`);
 
-          // Mark step as failed so it doesn't silently succeed
-          await sb.from("package_steps").update({
-            status: "failed",
-            last_error: errMsg,
-            meta: {
+          // Attempt recovery: re-write ONLY the report (no status change to avoid re-triggering invalidation)
+          const { error: rewriteErr } = await sb.from("course_packages").update({
+            integrity_report: report,
+            integrity_report_version: CURRENT_REPORT_VERSION,
+            integrity_report_version_num: CURRENT_REPORT_VERSION_NUM,
+          }).eq("id", packageId);
+
+          if (rewriteErr) {
+            console.error(`[integrity-check] REWRITE FAILED: ${rewriteErr.message}`);
+            // Mark step as failed so it doesn't silently succeed
+            await sb.from("package_steps").update({
+              status: "failed",
               last_error: errMsg,
-              last_error_class: "persistence_defect",
-              persistence_defect_at: new Date().toISOString(),
-            },
-          }).eq("package_id", packageId).eq("step_key", "run_integrity_check");
+              meta: {
+                last_error: errMsg,
+                last_error_class: "persistence_defect",
+                persistence_defect_at: new Date().toISOString(),
+              },
+            }).eq("package_id", packageId).eq("step_key", "run_integrity_check");
 
-          // Notify admin
-          try {
-            await sb.from("admin_notifications").insert({
-              title: "🚨 Integrity Report Persistence Defect",
-              body: `Package ${packageId.slice(0, 8)}: report was generated (score=${gate.score}) but NOT persisted to DB. Step marked failed. Investigate column size/trigger interference.`,
-              category: "quality",
-              severity: "error",
-              entity_type: "course_package",
-              entity_id: packageId,
+            try {
+              await sb.from("admin_notifications").insert({
+                title: "🚨 Integrity Report Persistence Defect (unrecoverable)",
+                body: `Package ${packageId.slice(0, 8)}: report was generated (score=${gate.score}) but stripped by trigger and rewrite also failed. Step marked failed.`,
+                category: "quality",
+                severity: "error",
+                entity_type: "course_package",
+                entity_id: packageId,
+              });
+            } catch (_) { /* non-critical */ }
+
+            return json({
+              ok: false,
+              error: errMsg,
+              report_was_generated: true,
+              report_score: gate.score,
+              hard_fails: gate.hardFails,
             });
-          } catch (_) { /* non-critical */ }
-
-          return json({
-            ok: false,
-            error: errMsg,
-            report_was_generated: true,
-            report_score: gate.score,
-            hard_fails: gate.hardFails,
-          });
+          } else {
+            console.log(`[integrity-check] REWRITE OK: report re-persisted for pkg=${packageId.slice(0, 8)}`);
+            try {
+              await sb.from("admin_notifications").insert({
+                title: "🔄 Integrity Report: Trigger-Strip recovered",
+                body: `Package ${packageId.slice(0, 8)}: report was stripped by trigger after initial write but successfully re-persisted. Score=${gate.score}.`,
+                category: "quality",
+                severity: "info",
+                entity_type: "course_package",
+                entity_id: packageId,
+              });
+            } catch (_) { /* non-critical */ }
+          }
         }
       }
     }
