@@ -19,6 +19,7 @@ import { checkContamination } from "../_shared/contamination-guard.ts";
 import { isTemplateResponse, expandAllTemplates } from "../_shared/template-engine/exam-template-expander.ts";
 import { parseLlmJson } from "../_shared/json-parse-safe.ts";
 import { estimateCostEur } from "../_shared/model-pricing.ts";
+import { MAX_QUESTIONS_PER_PACKAGE } from "../_shared/exam-pool-limits.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
