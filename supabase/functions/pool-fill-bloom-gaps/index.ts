@@ -4,6 +4,7 @@ import { callAIJSON } from "../_shared/ai-client.ts";
 import { getModelChainAsync } from "../_shared/model-routing.ts";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
 import { enqueueJob } from "../_shared/enqueue.ts";
+import { MAX_QUESTIONS_PER_PACKAGE } from "../_shared/exam-pool-limits.ts";
 
 /**
  * pool-fill-bloom-gaps — Targeted Bloom/Difficulty/Competency gap-fill worker
