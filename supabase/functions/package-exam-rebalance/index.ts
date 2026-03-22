@@ -111,13 +111,37 @@ Deno.serve(async (req) => {
     const courseId = pkg.course_id as string;
 
     // ── 2. Classify and execute repairs ──
+    // Also check warnings for new gates
+    const allWarnings = (v3.warnings ?? []) as string[];
+    const allSignals = [...hardFails, ...allWarnings];
 
-    // ═══ A. DIFFICULTY REBALANCE ═══
+    // ═══ A. DIFFICULTY REBALANCE (EASY_TOO_HIGH → prune) ═══
     const diffFails = hardFails.filter(f =>
       f.includes("EASY_TOO_HIGH") || f.includes("HARDISH_TOO_LOW"),
     );
     if (diffFails.length > 0) {
       const result = await repairDifficulty(sb, packageId, curriculumId);
+      actions.push(result);
+    }
+
+    // ═══ A2. EASY_TOO_LOW → generate more easy questions ═══
+    const easyLowSignals = allSignals.filter(f => f.includes("EASY_TOO_LOW"));
+    if (easyLowSignals.length > 0) {
+      const result = await repairEasyDeficit(sb, packageId, curriculumId);
+      actions.push(result);
+    }
+
+    // ═══ A3. TRAP_COVERAGE_LOW → enqueue trap retrofit ═══
+    const trapSignals = allSignals.filter(f => f.includes("TRAP_COVERAGE_LOW"));
+    if (trapSignals.length > 0) {
+      const result = await repairTrapCoverage(sb, packageId, curriculumId);
+      actions.push(result);
+    }
+
+    // ═══ A4. EXAM_PART_MISSING → backfill from mappings ═══
+    const examPartSignals = allSignals.filter(f => f.includes("EXAM_PART_MISSING"));
+    if (examPartSignals.length > 0) {
+      const result = await repairExamPartMapping(sb, packageId, curriculumId);
       actions.push(result);
     }
 
