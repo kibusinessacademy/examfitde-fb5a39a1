@@ -1,13 +1,17 @@
 # Memory: architektur/pipeline/build-progress-calculation-standard-v1-1
 Updated: now
 
-Die Berechnung des 'build_progress' in 'course_packages' basiert auf dem Verhältnis der abgeschlossenen funktionalen Schritte zum 25-Schritte-Backbone (ROUND(steps_done * 100.0 / steps_functional)). Um Drift durch manuelle Eingriffe zu eliminieren, bietet die View 'v_admin_packages_ssot' die Spalten 'steps_done' und 'steps_functional' als Live-Zählung direkt aus der 'package_steps' Tabelle an. Das Admin-Dashboard nutzt diese Live-Werte für die 'X/25' Anzeige, um Diskrepanzen zwischen Fortschrittsbalken und realer Step-Wahrheit auszuschließen.
+Die Berechnung des 'build_progress' in 'course_packages' basiert auf dem Verhältnis der abgeschlossenen funktionalen Schritte (ROUND(steps_done * 100.0 / steps_functional)). Die zentrale Berechnungslogik ist in der RPC `recompute_package_progress(uuid)` gekapselt.
 
-## Anti-Drift Architektur (seit 2026-03-22)
+## Anti-Drift Architektur (v2, seit 2026-03-22)
 
-### Zweischichtiger Schutz:
-1. **AFTER UPDATE Trigger** (`fn_sync_package_build_progress`): Berechnet `build_progress` neu wenn sich der Status eines `package_steps` Eintrags ändert.
-2. **BEFORE UPDATE Trigger** (`fn_guard_build_progress_drift`): Fängt JEDE direkte Schreibung auf `course_packages.build_progress` ab und ersetzt den Wert durch den SSOT-berechneten Wert aus `package_steps`. Dies macht Drift durch Edge Functions oder SQL physisch unmöglich.
+### Dreischichtiger Schutz:
+1. **AFTER Trigger auf `package_steps`** (`fn_sync_package_build_progress`): Ruft `recompute_package_progress()` auf bei INSERT, UPDATE OF status, DELETE.
+2. **BEFORE Trigger auf `course_packages`** (`fn_guard_build_progress_drift`): Fängt JEDE direkte Schreibung ab, berechnet SSOT-Wert, überschreibt, und **loggt Drift-Versuche** in `package_progress_drift_audit`.
+3. **CI-Guard** (`scripts/ci-ssot-guards.sh` Guard 5): Hard-Fail wenn Edge Functions `build_progress` referenzieren.
 
-### Invariante:
-`course_packages.build_progress` == `ROUND(COUNT(done) * 100.0 / COUNT(non-skipped))` aus `package_steps` — zu jedem Zeitpunkt, enforced durch DB-Trigger.
+### Audit-Tabelle: `package_progress_drift_audit`
+Loggt abgefangene Fremdschreibungen mit `attempted_value`, `corrected_value`, `operation`. Ermöglicht Post-Mortem-Analyse und Erkennung von Altcode.
+
+### Invariante (DB-enforced):
+`course_packages.build_progress` == `ROUND(COUNT(done) * 100.0 / COUNT(non-skipped))` aus `package_steps` — zu jedem Zeitpunkt.

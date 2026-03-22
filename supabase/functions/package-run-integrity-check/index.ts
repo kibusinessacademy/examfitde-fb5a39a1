@@ -961,7 +961,7 @@ Deno.serve(async (req) => {
       integrity_report_version: CURRENT_REPORT_VERSION,
       integrity_report_version_num: CURRENT_REPORT_VERSION_NUM,
       integrity_passed: gate.hardFails.length === 0,
-      build_progress: gate.hardFails.length === 0 ? 95 : 80,
+      // build_progress is SSOT-derived from package_steps — no manual write
     };
 
     // ── Runtime Policy Violation Guard (EXAM_FIRST) ──

@@ -218,7 +218,6 @@ Deno.serve(async (req) => {
               .update({
                 status: "queued",
                 retry_count: retries + 1,
-                build_progress: 0,
                 updated_at: new Date().toISOString(),
               })
               .eq("id", pkg.id);

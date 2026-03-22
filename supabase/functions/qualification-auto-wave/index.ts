@@ -108,7 +108,6 @@ Deno.serve(async (req) => {
             priority: Math.round(c.promotion_priority || 5),
             track: "AUSBILDUNG_VOLL",
             version: 1,
-            build_progress: 0,
           })
           .select("id")
           .single();

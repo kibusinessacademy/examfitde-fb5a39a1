@@ -47172,14 +47172,8 @@ export type Database = {
         Returns: undefined
       }
       recompute_package_progress: {
-        Args: { p_package_id?: string }
-        Returns: {
-          drift: number
-          new_progress: number
-          old_progress: number
-          package_id: string
-          updated: boolean
-        }[]
+        Args: { p_package_id: string }
+        Returns: undefined
       }
       reconcile_council_approval:
         | { Args: never; Returns: Json }

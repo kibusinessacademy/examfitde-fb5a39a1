@@ -259,7 +259,6 @@ Deno.serve(async (req) => {
           priority: 100,
           track: cand.track,
           version: 1,
-          build_progress: 0,
         })
         .select("id")
         .single();
