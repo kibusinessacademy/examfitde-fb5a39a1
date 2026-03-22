@@ -153,7 +153,7 @@ async function enqueueJob(sb: any, body: any) {
     hook_id: selectedHook?.id || null,
     target_audience,
     content_category,
-    source_type: question_id ? "question" : "blueprint",
+    source_type: question_id ? "question_direct" : "blueprint_resolved",
     source_snapshot: sourceSnapshot,
     generation_meta: { format, hook_category: content_category },
   }).select("id").single();
