@@ -2352,8 +2352,7 @@ Deno.serve(async (req) => {
       console.warn(`[ExamPool-v5] ai_generations insert failed (non-blocking): ${(e as Error)?.message}`);
     }
 
-    const progress = Math.min(55, Math.round(25 + (actualTotal / examTarget) * 30));
-    await sb.from("course_packages").update({ build_progress: progress }).eq("id", packageId);
+    // build_progress auto-computed by DB trigger from package_steps
 
     // ══════════════════════════════════════════════════════════════════════
     // ── EFFECTIVE SUCCESS GUARD (P1-A) ───────────────────────────────────
