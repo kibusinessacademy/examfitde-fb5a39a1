@@ -47516,6 +47516,15 @@ export type Database = {
         Args: { p_reason: string; p_wave_id: string }
         Returns: Json
       }
+      pick_content_hook: {
+        Args: { p_category: string; p_pool_size?: number }
+        Returns: {
+          category: string
+          hook_text: string
+          id: string
+          usage_count: number
+        }[]
+      }
       pick_minicheck_elite: {
         Args: {
           p_competency_id: string

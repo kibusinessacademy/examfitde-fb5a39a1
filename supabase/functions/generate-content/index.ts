@@ -116,16 +116,14 @@ async function enqueueJob(sb: any, body: any) {
 
   if (!question) return json({ error: "No approved question available" }, 404);
 
-  // ── Pick a hook ──
-  const { data: hooks } = await sb
-    .from("content_hooks")
-    .select("id, hook_text, category, usage_count")
-    .eq("is_active", true)
-    .eq("category", content_category)
-    .limit(10);
+  // ── Pick a hook (balanced: least-used first) ──
+  const { data: hookCandidates } = await sb.rpc("pick_content_hook", {
+    p_category: content_category,
+    p_pool_size: 5,
+  });
 
-  const selectedHook = hooks && hooks.length > 0
-    ? hooks[Math.floor(Math.random() * hooks.length)]
+  const selectedHook = hookCandidates && hookCandidates.length > 0
+    ? hookCandidates[Math.floor(Math.random() * hookCandidates.length)]
     : null;
 
   // ── Build source snapshot (audit) ──
@@ -155,7 +153,7 @@ async function enqueueJob(sb: any, body: any) {
     hook_id: selectedHook?.id || null,
     target_audience,
     content_category,
-    source_type: question_id ? "question" : "blueprint",
+    source_type: question_id ? "question_direct" : "blueprint_resolved",
     source_snapshot: sourceSnapshot,
     generation_meta: { format, hook_category: content_category },
   }).select("id").single();
@@ -180,16 +178,30 @@ async function processJobs(sb: any, apiKey: string, limit: number) {
 
   for (const job of claimed) {
     try {
+      // Retry guard: max 3 attempts (RPC already filters, but defense-in-depth)
+      if ((job.attempt_count || 0) >= 3) {
+        await sb.from("content_jobs").update({
+          status: "archived",
+          last_error: "MAX_ATTEMPTS_REACHED (3)",
+          updated_at: new Date().toISOString(),
+        }).eq("id", job.id);
+        results.push({ id: job.id, status: "archived", error: "MAX_ATTEMPTS_REACHED" });
+        continue;
+      }
+
       await processOneJob(sb, apiKey, job);
       results.push({ id: job.id, status: "generated" });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error(`[generate-content] Job ${job.id} failed:`, msg);
 
+      const newAttempts = (job.attempt_count || 0) + 1;
+      const finalStatus = newAttempts >= 3 ? "archived" : "failed";
+
       await sb.from("content_jobs").update({
-        status: "failed",
+        status: finalStatus,
         last_error: msg.slice(0, 2000),
-        attempt_count: (job.attempt_count || 0) + 1,
+        attempt_count: newAttempts,
         updated_at: new Date().toISOString(),
       }).eq("id", job.id);
 

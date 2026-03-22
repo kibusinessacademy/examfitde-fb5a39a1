@@ -77,7 +77,9 @@ export default function ContentEngineTab() {
       return {
         total: d.length,
         queued: d.filter(j => j.status === 'queued').length,
+        running: d.filter(j => j.status === 'running').length,
         generated: d.filter(j => j.status === 'generated').length,
+        needs_review: d.filter(j => j.status === 'needs_review').length,
         approved: d.filter(j => j.status === 'approved').length,
         published: d.filter(j => j.status === 'published').length,
         failed: d.filter(j => j.status === 'failed').length,
@@ -138,7 +140,13 @@ export default function ContentEngineTab() {
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
       const updates: Record<string, unknown> = { status, updated_at: new Date().toISOString() };
       if (status === 'published') updates.published_at = new Date().toISOString();
-      if (status === 'approved') updates.approved_at = new Date().toISOString();
+      if (status === 'approved') {
+        updates.approved_at = new Date().toISOString();
+        // Note: approved_by requires auth context — set from session if available
+      }
+      if (status === 'needs_review') {
+        updates.reviewed_at = new Date().toISOString();
+      }
       const { error } = await supabase.from('content_jobs').update(updates).eq('id', id);
       if (error) throw error;
     },
@@ -172,19 +180,21 @@ export default function ContentEngineTab() {
   return (
     <div className="space-y-6">
       {/* Stats */}
-      <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
+      <div className="grid grid-cols-4 md:grid-cols-8 gap-2">
         {[
           { label: 'Gesamt', value: stats?.total || 0 },
           { label: 'Queued', value: stats?.queued || 0 },
+          { label: 'Running', value: stats?.running || 0 },
           { label: 'Generiert', value: stats?.generated || 0 },
-          { label: 'Freigegeben', value: stats?.approved || 0 },
+          { label: 'Review', value: stats?.needs_review || 0 },
+          { label: 'Approved', value: stats?.approved || 0 },
           { label: 'Published', value: stats?.published || 0 },
           { label: 'Failed', value: stats?.failed || 0 },
         ].map((s) => (
           <Card key={s.label}>
-            <CardContent className="pt-4 pb-3 px-4">
-              <div className="text-xs text-muted-foreground">{s.label}</div>
-              <div className="text-2xl font-bold">{s.value}</div>
+            <CardContent className="pt-3 pb-2 px-3">
+              <div className="text-[10px] text-muted-foreground">{s.label}</div>
+              <div className="text-xl font-bold">{s.value}</div>
             </CardContent>
           </Card>
         ))}
