@@ -4,6 +4,7 @@ import { callAIJSON } from "../_shared/ai-client.ts";
 import { getModelChainAsync } from "../_shared/model-routing.ts";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
 import { bootstrapLLMLogging } from "../_shared/llm-log-bootstrap.ts";
+import { MAX_QUESTIONS_PER_PACKAGE } from "../_shared/exam-pool-limits.ts";
 
 /**
  * pool-fill-lf-gaps — Targeted LF gap-fill worker

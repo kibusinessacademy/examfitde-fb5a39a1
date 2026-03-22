@@ -168,7 +168,7 @@ Deno.serve(async (req) => {
     }
 
     const plan: GenTarget[] = [];
-    let remaining = MAX_QUESTIONS_PER_RUN;
+    let remaining = Math.min(MAX_QUESTIONS_PER_RUN, globalBudget); // SSOT: clamp to pool budget
 
     // 2a. Competency gaps — generate with the most needed bloom level
     for (const comp of compGaps) {

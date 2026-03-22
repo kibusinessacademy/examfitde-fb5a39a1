@@ -372,6 +372,26 @@ async function importExamPoolBatch(
     }
   }
 
+  // ── SSOT Budget Guard: enforce MAX_QUESTIONS_PER_PACKAGE (2000) before inserting ──
+  if (allInserts.length > 0 && curriculumId) {
+    const { count: currentPoolSize } = await sb
+      .from("exam_questions")
+      .select("id", { count: "exact", head: true })
+      .eq("curriculum_id", curriculumId)
+      .neq("status", "rejected");
+
+    const currentCount = currentPoolSize ?? 0;
+    const remainingBudget = Math.max(0, MAX_QUESTIONS_PER_PACKAGE - currentCount);
+
+    if (remainingBudget === 0) {
+      console.warn(`[batch-import] SSOT HARD CAP reached: ${currentCount} >= ${MAX_QUESTIONS_PER_PACKAGE} — skipping all ${allInserts.length} inserts`);
+      allInserts.length = 0; // truncate
+    } else if (allInserts.length > remainingBudget) {
+      console.warn(`[batch-import] SSOT budget trim: ${allInserts.length} → ${remainingBudget} (pool=${currentCount}, cap=${MAX_QUESTIONS_PER_PACKAGE})`);
+      allInserts.length = remainingBudget; // trim to budget
+    }
+  }
+
   // Batch insert all questions (50 per chunk, with duplicate fallback via fingerprint unique index)
   if (allInserts.length > 0) {
     const BATCH_SIZE = 50;
