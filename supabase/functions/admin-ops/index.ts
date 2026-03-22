@@ -498,7 +498,6 @@ Deno.serve(async (req) => {
           feature_flags: newFlags,
           step_status_json: newStepStatus,
           status: "building",
-          build_progress: 0,
           updated_at: new Date().toISOString(),
         }).eq("id", id);
 
