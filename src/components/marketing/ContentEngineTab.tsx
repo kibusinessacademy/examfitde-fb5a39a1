@@ -77,7 +77,9 @@ export default function ContentEngineTab() {
       return {
         total: d.length,
         queued: d.filter(j => j.status === 'queued').length,
+        running: d.filter(j => j.status === 'running').length,
         generated: d.filter(j => j.status === 'generated').length,
+        needs_review: d.filter(j => j.status === 'needs_review').length,
         approved: d.filter(j => j.status === 'approved').length,
         published: d.filter(j => j.status === 'published').length,
         failed: d.filter(j => j.status === 'failed').length,
