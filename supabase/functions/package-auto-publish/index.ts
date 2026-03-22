@@ -90,6 +90,45 @@ Deno.serve(async (req) => {
     const isFactoryMode = (pkgQ as any)?.pipeline_mode === "factory";
 
     // ═══════════════════════════════════════════════════════════
+    // FAIL-CLOSED GUARD: integrity_report MUST exist
+    // If run_integrity_check is done but report is NULL, a trigger
+    // or race condition cleared it. Re-queue integrity instead of
+    // proceeding blind (which would either publish without gate
+    // check or loop-block with unclear cause).
+    // ═══════════════════════════════════════════════════════════
+    if (!integrityReport) {
+      console.error(`[auto-publish] FAIL-CLOSED: integrity_report is NULL for package ${packageId.slice(0, 8)} despite run_integrity_check=done. Re-queuing integrity step.`);
+
+      // Re-queue integrity check
+      await sb.from("package_steps").update({
+        status: "queued",
+        started_at: null,
+        finished_at: null,
+        last_error: null,
+        meta: {
+          heal_reason: "auto_publish_detected_null_report",
+          healed_at: new Date().toISOString(),
+          last_progress_note: "Report was NULL at auto_publish time — re-running integrity check",
+        },
+      }).eq("package_id", packageId).eq("step_key", "run_integrity_check");
+
+      // Clear stale integrity_passed flag
+      await sb.from("course_packages").update({
+        integrity_passed: false,
+      }).eq("id", packageId);
+
+      await notify(sb, "🔄 Auto-Publish: Integrity Report fehlt",
+        `Package ${packageId.slice(0, 8)}: run_integrity_check war done, aber integrity_report=NULL. Step wurde re-queued.`,
+        "quality", "warning", "course_package", packageId);
+
+      return json({
+        ok: false, retry: true,
+        error: "INTEGRITY_REPORT_NULL_DESPITE_STEP_DONE",
+        action: "re_queued_integrity_check",
+      }, 409);
+    }
+
+    // ═══════════════════════════════════════════════════════════
     // COURSE_READY ENFORCEMENT — hard fails block ALL modes
     // Matches ANY COURSE_READY gate version (v1.0, v1.4, etc.)
     // ═══════════════════════════════════════════════════════════
