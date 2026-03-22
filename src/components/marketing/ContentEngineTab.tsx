@@ -387,8 +387,13 @@ export default function ContentEngineTab() {
                           </>
                         )}
                         {job.status === 'approved' && (
+                          <Button size="sm" onClick={() => updateStatus.mutate({ id: job.id, status: 'publish_queued' })}>
+                            Publish Queue
+                          </Button>
+                        )}
+                        {job.status === 'publish_queued' && (
                           <Button size="sm" onClick={() => updateStatus.mutate({ id: job.id, status: 'published' })}>
-                            Publish
+                            Published ✓
                           </Button>
                         )}
                         {job.status === 'failed' && (
