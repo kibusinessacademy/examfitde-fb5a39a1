@@ -318,65 +318,106 @@ export async function healIntegrityReportMissing(sb: SupabaseClient) {
 
 /**
  * Fix 3 (Ops layer): Detect true-stall steps (queued, prereqs done, no job, stale).
- * Redispatch them by clearing meta and triggering the runner.
+ * Redispatch them by clearing stale meta and touching the step for re-dispatch.
  */
 export async function healTrueStallSteps(sb: SupabaseClient) {
   const healed: Array<{ package_id: string; step_key: string }> = [];
+
   try {
-    // Find building packages with queued steps
-    const { data: candidates } = await sb
+    const staleCutoff = new Date(Date.now() - 15 * 60_000).toISOString();
+
+    const { data: candidates, error: candErr } = await sb
       .from("package_steps")
       .select("package_id, step_key, updated_at, meta, last_error")
       .eq("status", "queued")
-      .lt("updated_at", new Date(Date.now() - 15 * 60_000).toISOString())
+      .lt("updated_at", staleCutoff)
       .limit(50);
+
+    if (candErr) throw candErr;
 
     for (const step of candidates || []) {
       // Verify package is building
-      const { data: pkg } = await sb.from("course_packages")
-        .select("id, status").eq("id", step.package_id).eq("status", "building").maybeSingle();
+      const { data: pkg, error: pkgErr } = await sb
+        .from("course_packages")
+        .select("id, title, status")
+        .eq("id", step.package_id)
+        .eq("status", "building")
+        .maybeSingle();
+
+      if (pkgErr) {
+        console.warn(`[stuck-scan] package lookup failed for ${String(step.package_id).slice(0, 8)}: ${pkgErr.message}`);
+        continue;
+      }
       if (!pkg) continue;
 
       // Use the DB helper for precise true-stall detection
-      const { data: isStall } = await sb.rpc("fn_is_true_stall", {
+      const { data: isStall, error: stallErr } = await sb.rpc("fn_is_true_stall", {
         p_package_id: step.package_id,
         p_step_key: step.step_key,
         p_stale_minutes: 15,
       });
+
+      if (stallErr) {
+        console.warn(`[stuck-scan] fn_is_true_stall failed for ${String(step.package_id).slice(0, 8)} / ${step.step_key}: ${stallErr.message}`);
+        continue;
+      }
       if (!isStall) continue;
 
-      // Heal: clean meta, clear last_error, touch updated_at to re-trigger dispatch
-      const cleanMeta = { ...(step.meta as Record<string, unknown> ?? {}) };
+      // Heal: clean stale meta, clear last_error, reset started_at/finished_at
+      const cleanMeta = { ...((step.meta ?? {}) as Record<string, unknown>) };
       delete cleanMeta.loop_guard_blocked;
+      delete cleanMeta.loop_guard_count;
+      delete cleanMeta.last_guard_reason;
+
       cleanMeta.true_stall_healed_at = new Date().toISOString();
+      cleanMeta.true_stall_healed_by = "stuck-scan";
       cleanMeta.loop_guard_reset_at = new Date().toISOString();
 
-      await sb.from("package_steps").update({
-        status: "queued",
-        updated_at: new Date().toISOString(),
-        last_error: null,
-        meta: cleanMeta,
-      }).eq("package_id", step.package_id).eq("step_key", step.step_key);
+      const { error: updErr } = await sb
+        .from("package_steps")
+        .update({
+          status: "queued",
+          started_at: null,
+          finished_at: null,
+          updated_at: new Date().toISOString(),
+          last_error: null,
+          meta: cleanMeta,
+        })
+        .eq("package_id", step.package_id)
+        .eq("step_key", step.step_key);
+
+      if (updErr) {
+        console.warn(`[stuck-scan] TRUE_STALL_HEAL update failed for ${String(step.package_id).slice(0, 8)} / ${step.step_key}: ${updErr.message}`);
+        continue;
+      }
 
       healed.push({ package_id: step.package_id, step_key: step.step_key });
-      console.warn(`[stuck-scan] 🔄 TRUE_STALL_HEAL: ${step.step_key} for ${step.package_id.slice(0, 8)} — prereqs done, no job, stale >15m. Redispatching.`);
 
-      if (healed.length >= 10) break; // cap per cycle
+      console.warn(
+        `[stuck-scan] 🔄 TRUE_STALL_HEAL: ${step.step_key} for ${String(step.package_id).slice(0, 8)} — prereqs done, no active job, stale >15m`,
+      );
+
+      if (healed.length >= 10) break;
     }
 
     if (healed.length > 0) {
-      await sb.from("auto_heal_log").insert({
+      const { error: logErr } = await sb.from("auto_heal_log").insert({
         action_type: "true_stall_step_heal",
         trigger_source: "stuck-scan",
         target_type: "package_steps",
         target_id: null,
         result_status: "applied",
-        result_detail: `Healed ${healed.length} true-stall step(s): ${healed.map(h => h.step_key).join(", ")}`,
+        result_detail: `Healed ${healed.length} true-stall step(s)`,
         metadata: { healed },
       });
+
+      if (logErr) {
+        console.warn(`[stuck-scan] auto_heal_log insert failed for true-stall heal: ${logErr.message}`);
+      }
     }
   } catch (err) {
     console.warn(`[stuck-scan] true-stall heal error: ${(err as Error).message}`);
   }
+
   return healed;
 }
