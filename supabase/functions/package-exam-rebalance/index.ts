@@ -674,7 +674,7 @@ async function repairTrapCoverage(
     const batch = untagged.slice(i, i + batchSize).map((q: any) => q.id);
     try {
       await enqueueJob(sb, {
-        job_type: "pool_rework_trap_retrofit",
+        job_type: "rework_trap_retrofit",
         package_id: packageId,
         payload: {
           question_ids: batch,
