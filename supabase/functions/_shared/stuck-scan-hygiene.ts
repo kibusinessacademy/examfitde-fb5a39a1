@@ -203,9 +203,10 @@ export async function healLoopGuardFalsePositives(sb: SupabaseClient) {
       .eq("status", "blocked")
       .limit(20);
 
-    for (const step of blocked || []) {
+  for (const step of blocked || []) {
       const meta = (step.meta ?? {}) as Record<string, unknown>;
-      if (!meta.loop_guard_blocked) continue;
+      // Only process steps actually blocked by loop guard (meta flag or error string)
+      if (!meta.loop_guard_blocked && !String(step.last_error ?? "").includes("LOOP_GUARD")) continue;
 
       try {
         const { data: matRows } = await sb.rpc("fn_package_learning_content_materialized", { p_package_id: step.package_id });
