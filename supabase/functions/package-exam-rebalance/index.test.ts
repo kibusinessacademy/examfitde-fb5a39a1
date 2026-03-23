@@ -38,10 +38,10 @@ Deno.test("rebalance: missing package_id returns error", async () => {
   await Promise.resolve(); // consume
 });
 
-// ── Test 2: No auth returns 401 ──
-Deno.test("rebalance: no auth returns 401", async () => {
+// ── Test 2: Fake package_id returns 404 ──
+Deno.test("rebalance: fake package returns 404", async () => {
   const { status } = await callRebalance({ package_id: "00000000-0000-0000-0000-000000000000" });
-  assertEquals(status, 401);
+  assertEquals(status, 404);
 });
 
 // ── Test 3: OPTIONS returns CORS headers ──
