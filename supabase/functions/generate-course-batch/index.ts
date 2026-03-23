@@ -162,6 +162,19 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ═══ AUTO-ENSURE EXAM PART MAPPINGS (deterministic, fail-closed) ═══
+    if (curriculumId) {
+      try {
+        const epmResult = await ensureExamPartMappings(supabase, curriculumId);
+        console.log(`[generate-course-batch] Exam part mappings: ${epmResult.status}${
+          epmResult.status === "created" ? ` (${epmResult.created} new)` : ""
+        }`);
+      } catch (e) {
+        console.error(`[generate-course-batch] ensureExamPartMappings failed: ${(e as Error).message}`);
+        // Non-fatal for content generation — exam steps will catch this independently
+      }
+    }
+
     // ═══ DEPTH ENRICHMENT: Load granular curriculum topics ═══
     const topicDepth = curriculumId
       ? await loadTopicDepth(supabase, competency, curriculumId)
