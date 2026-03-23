@@ -148,6 +148,25 @@ Deno.serve(async (req) => {
     const certificationContext = "berufliche Ausbildung";
     console.log(`[generate-course-batch] Profession: "${professionName}" (${professionResult.source})`);
 
+    // ═══ LOAD DB PROFESSION PROFILE for variation seed enrichment ═══
+    let dbProfessionProfile: DbProfessionProfile | null = null;
+    if (curriculumId) {
+      const { data: curriculum } = await supabase.from("curricula").select("beruf_id").eq("id", curriculumId).maybeSingle();
+      if (curriculum?.beruf_id) {
+        const { data: profProfile } = await supabase
+          .from("profession_profiles")
+          .select("profile")
+          .eq("beruf_id", curriculum.beruf_id)
+          .order("version", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (profProfile?.profile) {
+          dbProfessionProfile = profProfile.profile as DbProfessionProfile;
+          console.log(`[generate-course-batch] DB profession profile loaded for beruf_id=${curriculum.beruf_id}`);
+        }
+      }
+    }
+
     // ═══ DEPTH ENRICHMENT: Load granular curriculum topics ═══
     const topicDepth = curriculumId
       ? await loadTopicDepth(supabase, competency, curriculumId)
