@@ -187,3 +187,196 @@ export async function healLearningContentDeadlocks(sb: SupabaseClient) {
   }
   return healed;
 }
+
+/**
+ * Fix 1 (Ops layer): Detect loop-guard false positives where artifacts are fully materialized.
+ * If generate_learning_content is blocked by loop guard but content is 100% done,
+ * override the block and mark the step as done.
+ */
+export async function healLoopGuardFalsePositives(sb: SupabaseClient) {
+  const healed: Array<{ package_id: string; title: string; ratio: number }> = [];
+  try {
+    const { data: blocked } = await sb
+      .from("package_steps")
+      .select("package_id, meta, last_error")
+      .eq("step_key", "generate_learning_content")
+      .eq("status", "blocked")
+      .limit(20);
+
+    for (const step of blocked || []) {
+      const meta = (step.meta ?? {}) as Record<string, unknown>;
+      if (!meta.loop_guard_blocked) continue;
+
+      try {
+        const { data: matRows } = await sb.rpc("fn_package_learning_content_materialized", { p_package_id: step.package_id });
+        const mat = Array.isArray(matRows) ? matRows[0] : matRows;
+        if (!mat?.materialized) continue;
+
+        // Override: mark step done
+        await sb.from("package_steps").update({
+          status: "done",
+          finished_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          last_error: null,
+          meta: {
+            ...meta,
+            loop_guard_blocked: false,
+            loop_guard_overridden: true,
+            loop_guard_override_reason: "stuck-scan: ARTIFACT_SSOT content fully materialized",
+            completion_guard: {
+              mode: "artifact_ssot_override",
+              total_lessons: mat.total_lessons,
+              generated_lessons: mat.generated_lessons,
+              completion_ratio: Number(mat.completion_ratio),
+              resolved_as: "done",
+            },
+          },
+        }).eq("package_id", step.package_id).eq("step_key", "generate_learning_content");
+
+        // Unblock the package if it was blocked by this step
+        await sb.from("course_packages").update({
+          status: "building",
+          blocked_reason: null,
+          last_error: null,
+        }).eq("id", step.package_id).eq("status", "blocked").ilike("blocked_reason", "%generate_learning_content%");
+
+        const { data: pkg } = await sb.from("course_packages").select("title").eq("id", step.package_id).maybeSingle();
+        healed.push({ package_id: step.package_id, title: pkg?.title ?? "?", ratio: Number(mat.completion_ratio) });
+        console.warn(`[stuck-scan] 🏗️ LOOP_GUARD_FALSE_POSITIVE: ${pkg?.title?.slice(0, 30)} (${step.package_id.slice(0, 8)}) — content materialized, overriding block`);
+      } catch (e) {
+        console.warn(`[stuck-scan] loop guard false-positive check error: ${(e as Error).message}`);
+      }
+    }
+
+    if (healed.length > 0) {
+      await sb.from("auto_heal_log").insert({
+        action_type: "loop_guard_false_positive_heal",
+        trigger_source: "stuck-scan",
+        target_type: "package_steps",
+        target_id: null,
+        result_status: "applied",
+        result_detail: `Overrode ${healed.length} loop guard false positive(s) via artifact-SSOT`,
+        metadata: { healed },
+      });
+    }
+  } catch (err) {
+    console.warn(`[stuck-scan] loop guard false-positive sweep error: ${(err as Error).message}`);
+  }
+  return healed;
+}
+
+/**
+ * Fix 2 (Ops layer): Detect integrity_report_version set without integrity_report.
+ * Auto-requeue the integrity step instead of leaving package permanently blocked.
+ */
+export async function healIntegrityReportMissing(sb: SupabaseClient) {
+  let healed = 0;
+  try {
+    const { data: broken } = await sb
+      .from("course_packages")
+      .select("id, title, integrity_report_version")
+      .not("integrity_report_version", "is", null)
+      .is("integrity_report", null)
+      .in("status", ["building", "blocked", "council_review"])
+      .limit(20);
+
+    for (const pkg of broken || []) {
+      await sb.from("course_packages").update({
+        integrity_report_version: null,
+        integrity_passed: false,
+      }).eq("id", pkg.id);
+
+      await sb.from("package_steps").update({
+        status: "queued",
+        started_at: null,
+        finished_at: null,
+        updated_at: new Date().toISOString(),
+        last_error: "AUTO_REQUEUE: integrity_report missing despite version set",
+        meta: { loop_guard_reset_at: new Date().toISOString(), integrity_missing_heal_at: new Date().toISOString() },
+      }).eq("package_id", pkg.id).eq("step_key", "run_integrity_check").in("status", ["done", "failed"]);
+
+      healed++;
+      console.warn(`[stuck-scan] 📋 INTEGRITY_REPORT_MISSING: ${pkg.title?.slice(0, 30)} (${pkg.id.slice(0, 8)}) — version=${pkg.integrity_report_version} but report=NULL, requeued`);
+    }
+
+    if (healed > 0) {
+      await sb.from("auto_heal_log").insert({
+        action_type: "integrity_report_missing_heal",
+        trigger_source: "stuck-scan",
+        target_type: "course_packages",
+        target_id: null,
+        result_status: "applied",
+        result_detail: `Healed ${healed} package(s) with integrity_report_version set but no report`,
+        metadata: { count: healed },
+      });
+    }
+  } catch (err) {
+    console.warn(`[stuck-scan] integrity report missing sweep error: ${(err as Error).message}`);
+  }
+  return healed;
+}
+
+/**
+ * Fix 3 (Ops layer): Detect true-stall steps (queued, prereqs done, no job, stale).
+ * Redispatch them by clearing meta and triggering the runner.
+ */
+export async function healTrueStallSteps(sb: SupabaseClient) {
+  const healed: Array<{ package_id: string; step_key: string }> = [];
+  try {
+    // Find building packages with queued steps
+    const { data: candidates } = await sb
+      .from("package_steps")
+      .select("package_id, step_key, updated_at, meta, last_error")
+      .eq("status", "queued")
+      .lt("updated_at", new Date(Date.now() - 15 * 60_000).toISOString())
+      .limit(50);
+
+    for (const step of candidates || []) {
+      // Verify package is building
+      const { data: pkg } = await sb.from("course_packages")
+        .select("id, status").eq("id", step.package_id).eq("status", "building").maybeSingle();
+      if (!pkg) continue;
+
+      // Use the DB helper for precise true-stall detection
+      const { data: isStall } = await sb.rpc("fn_is_true_stall", {
+        p_package_id: step.package_id,
+        p_step_key: step.step_key,
+        p_stale_minutes: 15,
+      });
+      if (!isStall) continue;
+
+      // Heal: clean meta, clear last_error, touch updated_at to re-trigger dispatch
+      const cleanMeta = { ...(step.meta as Record<string, unknown> ?? {}) };
+      delete cleanMeta.loop_guard_blocked;
+      cleanMeta.true_stall_healed_at = new Date().toISOString();
+      cleanMeta.loop_guard_reset_at = new Date().toISOString();
+
+      await sb.from("package_steps").update({
+        status: "queued",
+        updated_at: new Date().toISOString(),
+        last_error: null,
+        meta: cleanMeta,
+      }).eq("package_id", step.package_id).eq("step_key", step.step_key);
+
+      healed.push({ package_id: step.package_id, step_key: step.step_key });
+      console.warn(`[stuck-scan] 🔄 TRUE_STALL_HEAL: ${step.step_key} for ${step.package_id.slice(0, 8)} — prereqs done, no job, stale >15m. Redispatching.`);
+
+      if (healed.length >= 10) break; // cap per cycle
+    }
+
+    if (healed.length > 0) {
+      await sb.from("auto_heal_log").insert({
+        action_type: "true_stall_step_heal",
+        trigger_source: "stuck-scan",
+        target_type: "package_steps",
+        target_id: null,
+        result_status: "applied",
+        result_detail: `Healed ${healed.length} true-stall step(s): ${healed.map(h => h.step_key).join(", ")}`,
+        metadata: { healed },
+      });
+    }
+  } catch (err) {
+    console.warn(`[stuck-scan] true-stall heal error: ${(err as Error).message}`);
+  }
+  return healed;
+}
