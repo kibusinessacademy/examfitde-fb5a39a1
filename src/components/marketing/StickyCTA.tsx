@@ -5,8 +5,8 @@ import { ArrowRight, X } from 'lucide-react';
 import { trackConversion } from '@/lib/seo-tracking';
 
 const EXCLUDED_ROUTES = ['/shop', '/checkout', '/auth', '/pruefungsreife-check'];
-const SCROLL_THRESHOLD = 0.35; // 35% scroll depth
-const MOBILE_DELAY_MS = 2000; // 2s delay on mobile after reaching threshold
+const SCROLL_THRESHOLD = 0.35;
+const MOBILE_DELAY_MS = 2000;
 
 export function StickyCTA() {
   const [visible, setVisible] = useState(false);

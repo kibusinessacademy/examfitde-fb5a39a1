@@ -16,54 +16,34 @@ const QUESTIONS: Question[] = [
   // ── Ebene A: Subjektive Einschätzung ──
   {
     level: 'subjektiv',
-    text: 'Wie sicher fühlst du dich, wenn du an typische Prüfungsaufgaben denkst?',
+    text: 'Wie sicher fühlst du dich aktuell bei typischen Aufgaben aus deiner Abschlussprüfung?',
     options: [
       { label: 'Sehr sicher – ich könnte die Aufgaben erklären', score: 3 },
-      { label: 'Ganz okay – die Basics sitzen', score: 2 },
-      { label: 'Unsicher – vieles fehlt noch', score: 1 },
-      { label: 'Gar nicht – ich weiß kaum, was drankommt', score: 0 },
-    ],
-  },
-  {
-    level: 'subjektiv',
-    text: 'Kennst du deine persönlichen Schwächen in den Prüfungsthemen?',
-    options: [
-      { label: 'Ja, genau – ich arbeite gezielt daran', score: 3 },
-      { label: 'Ungefähr – so ein Gefühl halt', score: 2 },
-      { label: 'Nicht wirklich', score: 1 },
-      { label: 'Ich weiß nicht mal, welche Themen drankommen', score: 0 },
+      { label: 'Eher sicher – die Basics sitzen', score: 2 },
+      { label: 'Eher unsicher – vieles fehlt noch', score: 1 },
+      { label: 'Sehr unsicher – ich weiß kaum, was drankommt', score: 0 },
     ],
   },
 
   // ── Ebene B: Verhaltensbasiert ──
   {
     level: 'verhalten',
-    text: 'Wie oft hast du in den letzten 14 Tagen mit echten Prüfungsaufgaben geübt?',
+    text: 'Wie oft hast du in den letzten 14 Tagen mit prüfungsnahen Aufgaben trainiert?',
     options: [
-      { label: 'Mehrmals pro Woche, unter Zeitdruck', score: 3 },
-      { label: '1–2 Mal, ohne Timer', score: 2 },
-      { label: 'Nur einzelne Aufgaben nebenbei', score: 1 },
-      { label: 'Noch gar nicht', score: 0 },
+      { label: 'An 8 oder mehr Tagen', score: 3 },
+      { label: 'An 4 bis 7 Tagen', score: 2 },
+      { label: 'An 1 bis 3 Tagen', score: 1 },
+      { label: 'Gar nicht', score: 0 },
     ],
   },
   {
     level: 'verhalten',
-    text: 'Wie bereitest du dich auf die mündliche Prüfung (Fachgespräch) vor?',
+    text: 'Hast du bereits unter Zeitdruck eine Prüfungssimulation gemacht?',
     options: [
-      { label: 'Ich übe regelmäßig laut mit jemandem', score: 3 },
-      { label: 'Ich lese mögliche Fragen durch', score: 2 },
-      { label: 'Noch gar nicht – keine Ahnung, wie', score: 1 },
-      { label: 'Mündliche Prüfung? Muss ich das auch?', score: 0 },
-    ],
-  },
-  {
-    level: 'verhalten',
-    text: 'Wie viel Zeit bleibt dir noch bis zur Prüfung?',
-    options: [
-      { label: 'Mehr als 3 Monate', score: 3 },
-      { label: '1–3 Monate', score: 2 },
-      { label: 'Weniger als 4 Wochen', score: 1 },
-      { label: 'Die Prüfung ist nächste Woche 😱', score: 0 },
+      { label: 'Ja, mehrfach', score: 3 },
+      { label: 'Ja, einmal', score: 2 },
+      { label: 'Noch nicht, aber geplant', score: 1 },
+      { label: 'Nein', score: 0 },
     ],
   },
 
@@ -92,41 +72,52 @@ const QUESTIONS: Question[] = [
 
 type ResultLevel = 'green' | 'yellow' | 'red';
 
-function getResult(score: number): { level: ResultLevel; title: string; text: string; weaknesses: string[]; icon: typeof CheckCircle } {
+interface ResultData {
+  level: ResultLevel;
+  title: string;
+  text: string;
+  risks: string[];
+  nextStep: string;
+  icon: typeof CheckCircle;
+}
+
+function getResult(score: number): ResultData {
   const maxScore = QUESTIONS.length * 3;
   const pct = score / maxScore;
 
-  if (pct >= 0.65) return {
+  if (pct >= 0.6) return {
     level: 'green',
-    title: 'Gute Ausgangslage!',
-    text: 'Du hast eine solide Basis. Gezieltes Training kann dir helfen, verbleibende Unsicherheiten systematisch abzubauen.',
-    weaknesses: [
-      'Prüfungssimulation unter Zeitdruck trainieren',
-      'Mündliches Fachgespräch regelmäßig üben',
+    title: 'Gute Ausgangslage',
+    text: 'Du wirkst bereits strukturiert vorbereitet. Mit weiterem gezieltem Training kannst du deine Sicherheit für die Prüfung noch deutlich erhöhen.',
+    risks: [
+      'Prüfungssimulation unter echtem Zeitdruck vertiefen',
+      'Mündliches Fachgespräch aktiv trainieren',
     ],
+    nextStep: 'Starte jetzt mit gezieltem Prüfungstraining für deine Ausbildung.',
     icon: CheckCircle,
   };
   if (pct >= 0.35) return {
     level: 'yellow',
-    title: 'Noch Luft nach oben.',
-    text: 'Du hast eine Basis, aber einige Lücken könnten in der Prüfung zum Problem werden. Gezieltes Training jetzt zahlt sich direkt aus.',
-    weaknesses: [
-      'Wissenslücken in Kernthemen identifizieren',
-      'Prüfungsnahe Aufgaben regelmäßig üben',
-      'Mündliche Prüfung aktiv vorbereiten',
+    title: 'Basis vorhanden — aber noch Lücken',
+    text: 'Einige Bereiche sind stabil, andere könnten dir in der Prüfung Probleme machen. Jetzt ist der richtige Zeitpunkt für gezieltes Training.',
+    risks: [
+      'Unsicherheit bei Zeitdruck',
+      'Zu wenig prüfungsnahes Üben',
+      'Lücken bei der Anwendung statt beim Wiedererkennen',
     ],
+    nextStep: 'Starte jetzt mit gezieltem Prüfungstraining für deine Ausbildung.',
     icon: AlertTriangle,
   };
   return {
     level: 'red',
-    title: 'Achtung – hoher Handlungsbedarf!',
-    text: 'Ohne strukturierte Vorbereitung wird es eng. Aber: Mit gezieltem Training kannst du dich in wenigen Wochen deutlich verbessern.',
-    weaknesses: [
-      'Prüfungsthemen und Rahmenplan durcharbeiten',
-      'Schwächen systematisch identifizieren und trainieren',
-      'Prüfungssimulationen unter realen Bedingungen üben',
-      'Mündliches Fachgespräch von Grund auf vorbereiten',
+    title: 'Aktuell ist das Risiko noch hoch',
+    text: 'Ohne systematische Vorbereitung kann es in der Prüfung eng werden. Die gute Nachricht: Du kannst jetzt gezielt an den entscheidenden Schwächen arbeiten.',
+    risks: [
+      'Prüfungsthemen und Rahmenplan noch nicht verinnerlicht',
+      'Kaum Erfahrung mit prüfungsnahen Aufgabenformaten',
+      'Mündliches Fachgespräch noch nicht vorbereitet',
     ],
+    nextStep: 'Starte jetzt mit gezieltem Prüfungstraining für deine Ausbildung.',
     icon: XCircle,
   };
 }
@@ -234,12 +225,14 @@ export default function PruefungsreifeCheck() {
             </div>
           ) : (
             <div className={`glass-card rounded-2xl p-6 sm:p-8 border-2 ${colorMap[result.level]}`}>
+              {/* Header */}
               <div className="text-center mb-6">
                 <ResultIcon className={`h-12 w-12 mx-auto mb-3 ${colorMap[result.level].split(' ')[0]}`} />
                 <h2 className="text-2xl font-display font-bold mb-2">{result.title}</h2>
                 <p className="text-muted-foreground">{result.text}</p>
               </div>
 
+              {/* Index */}
               <div className="mb-6 p-4 rounded-xl bg-muted/50">
                 <div className="text-center">
                   <span className="text-3xl font-bold text-gradient">
@@ -249,19 +242,26 @@ export default function PruefungsreifeCheck() {
                 </div>
               </div>
 
-              {/* Weakness areas */}
-              <div className="mb-6 p-4 rounded-xl border border-border">
-                <h3 className="text-sm font-semibold mb-3">Deine möglichen Schwächenfelder:</h3>
+              {/* Risk areas */}
+              <div className="mb-4 p-4 rounded-xl border border-border">
+                <h3 className="text-sm font-semibold mb-3">Deine größten Risiken:</h3>
                 <ul className="space-y-2">
-                  {result.weaknesses.map((w) => (
-                    <li key={w} className="flex items-start gap-2 text-sm text-muted-foreground">
+                  {result.risks.map((r) => (
+                    <li key={r} className="flex items-start gap-2 text-sm text-muted-foreground">
                       <span className="text-warning mt-0.5">→</span>
-                      {w}
+                      {r}
                     </li>
                   ))}
                 </ul>
               </div>
 
+              {/* Next step */}
+              <div className="mb-6 p-4 rounded-xl bg-primary/5 border border-primary/20">
+                <h3 className="text-sm font-semibold mb-1">Nächster sinnvoller Schritt:</h3>
+                <p className="text-sm text-muted-foreground">{result.nextStep}</p>
+              </div>
+
+              {/* CTAs */}
               <div className="flex flex-col gap-3">
                 <Link to="/shop">
                   <Button
@@ -269,7 +269,7 @@ export default function PruefungsreifeCheck() {
                     className="w-full gradient-primary text-primary-foreground rounded-xl h-14 text-lg group"
                     onClick={() => trackConversion({ event: 'cta_click', source: 'pruefungscheck_result', label: 'shop_click' })}
                   >
-                    Gezielt trainieren – 39 €
+                    Jetzt gezielt trainieren
                     <ArrowRight className="h-5 w-5 ml-2 group-hover:translate-x-1 transition-transform" />
                   </Button>
                 </Link>
