@@ -232,7 +232,7 @@ INTERNE SELBSTPRÜFUNG (vor Ausgabe intern prüfen — nicht ausgeben):
 Falls eine Pflicht fehlt: Ergänze intern vor der Ausgabe.`;
 
     // ═══ VARIATION SEED: Prevent template leakage / prompt drift ═══
-    const variationSeed = getVariationSeed(competency.code || competency.title, step);
+    const variationSeed = getVariationSeed(competency.code || competency.title, step, professionName, dbProfessionProfile);
 
     const stepPrompt = getStepPrompt(step, professionName);
     const userPrompt = `Erstelle Lerninhalt für den Beruf "${professionName}":
