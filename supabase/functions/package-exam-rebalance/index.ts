@@ -232,7 +232,7 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Audit
+      // Audit — enriched with trigger classification + per-action metrics
       await sb.from("auto_heal_log").insert({
         action_type: "exam_rebalance",
         trigger_source: "package-exam-rebalance",
@@ -242,20 +242,33 @@ Deno.serve(async (req) => {
         result_detail: `${actions.length} repair actions: ${actions.map(a => a.type).join(", ")}`,
         metadata: {
           hard_fails: hardFails,
+          warnings: allWarnings,
+          trigger_signals: allSignals,
+          trigger_classification: hardFails.length > 0 ? "hard_fail" : "warning_only",
           actions,
+          action_summary: actions.map(a => ({
+            type: a.type,
+            affected: a.affected_count,
+            detail: a.detail,
+          })),
+          total_reclassified: actions.reduce((s, a) =>
+            s + (a.type.includes("reclassif") || a.detail.includes("Reclassified") ? a.affected_count : 0), 0),
+          total_enqueued: actions.reduce((s, a) =>
+            s + (a.detail.includes("enqueued") ? a.affected_count : 0), 0),
           curriculum_id: curriculumId,
         },
       });
 
-      // Admin notification
+      // Admin notification — includes trigger type
+      const triggerLabel = hardFails.length > 0 ? "Hard-Fail" : "Warning";
       await sb.from("admin_notifications").insert({
-        title: `🔧 Exam-Rebalance: ${actions.length} Reparaturen`,
-        body: `Package ${packageId.slice(0, 8)}: ${actions.map(a => `${a.type} (${a.affected_count})`).join(", ")}. Pipeline neu gestartet.`,
+        title: `🔧 Exam-Rebalance (${triggerLabel}): ${actions.length} Reparaturen`,
+        body: `Package ${packageId.slice(0, 8)}: ${actions.map(a => `${a.type} (${a.affected_count})`).join(", ")}. Trigger: ${allSignals.join(", ")}. Pipeline neu gestartet.`,
         category: "pipeline",
-        severity: "info",
+        severity: hardFails.length > 0 ? "warning" : "info",
         entity_type: "package",
         entity_id: packageId,
-        metadata: { actions, hard_fails: hardFails },
+        metadata: { actions, hard_fails: hardFails, warnings: allWarnings, trigger_classification: hardFails.length > 0 ? "hard_fail" : "warning_only" },
       });
     }
 
