@@ -6,6 +6,7 @@ import { SEOHead } from '@/components/seo/SEOHead';
 import { generateFAQSchema, generateCourseListSchema, SITE_URL } from '@/lib/seo';
 import { Testimonials } from '@/components/marketing/Testimonials';
 import { StickyCTA } from '@/components/marketing/StickyCTA';
+import { trackConversion } from '@/lib/seo-tracking';
 import {
   ArrowRight,
   CheckCircle,
@@ -14,9 +15,7 @@ import {
   Brain,
   Mic,
   TrendingUp,
-  Star,
   Target,
-  Users,
   GraduationCap,
   Building2,
   BookOpen,
@@ -25,42 +24,41 @@ import {
   ClipboardCheck,
 } from 'lucide-react';
 
-function AnimatedCounter({ target, suffix = '' }: { target: number; suffix?: string }) {
-  const [count, setCount] = useState(0);
-  useEffect(() => {
-    const duration = 1500;
-    const steps = 40;
-    const increment = target / steps;
-    let current = 0;
-    const timer = setInterval(() => {
-      current += increment;
-      if (current >= target) {
-        setCount(target);
-        clearInterval(timer);
-      } else {
-        setCount(Math.floor(current));
-      }
-    }, duration / steps);
-    return () => clearInterval(timer);
-  }, [target]);
-  return <>{count.toLocaleString('de-DE')}{suffix}</>;
-}
-
 export default function HomePage() {
   const { user } = useAuth();
+
+  useEffect(() => {
+    trackConversion({ event: 'cta_click', source: 'homepage', label: 'page_view' });
+
+    // Scroll depth tracking
+    const thresholds = [25, 50, 75];
+    const fired = new Set<number>();
+    const onScroll = () => {
+      const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+      if (docHeight <= 0) return;
+      const pct = Math.round((window.scrollY / docHeight) * 100);
+      for (const t of thresholds) {
+        if (pct >= t && !fired.has(t)) {
+          fired.add(t);
+          trackConversion({ event: 'cta_click', source: 'scroll_depth', label: `${t}pct` });
+        }
+      }
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   return (
     <>
       <SEOHead
         title="IHK-Prüfung bestehen – Prüfungstraining für Azubis | ExamFit"
-        description="Bereite dich optimal auf deine IHK-Prüfung vor. Prüfungssimulation, KI-Prüfungscoach & mündliche Prüfung trainieren. 98 % Bestehensquote. Einmalig 39 €."
+        description="Bereite dich gezielt auf deine IHK-Prüfung vor. Prüfungssimulation, KI-Prüfungscoach & mündliche Prüfung trainieren. Einmalig 39 €."
         canonical={`${SITE_URL}/`}
         type="website"
         structuredData={[
           generateFAQSchema([
             { question: 'Was kostet ExamFit?', answer: 'ExamFit kostet einmalig 39 € für 12 Monate Zugang. Kein Abo, keine versteckten Kosten.' },
             { question: 'Für welche IHK-Prüfungen gibt es Prüfungstraining?', answer: 'ExamFit bietet Prüfungstraining für über 50 IHK-Ausbildungsberufe, darunter Kaufleute für Büromanagement, Industriekaufleute, Fachinformatiker und viele mehr.' },
-            { question: 'Wie hoch ist die Bestehensquote?', answer: '98 % unserer Nutzer bestehen ihre IHK-Prüfung beim ersten Versuch.' },
             { question: 'Gibt es eine mündliche Prüfungssimulation?', answer: 'Ja, ExamFit bietet eine KI-gestützte mündliche Prüfungssimulation mit Echtzeit-Feedback zu deinen Antworten.' },
           ]),
           generateCourseListSchema([
@@ -69,51 +67,54 @@ export default function HomePage() {
         ]}
       />
       <div className="min-h-screen">
-        {/* Hero Section – kompakter, Preis sichtbar */}
+        {/* ─── 1. Hero ─── */}
         <section className="py-12 sm:py-16 md:py-24 px-3 sm:px-4 relative overflow-hidden">
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-accent/5 blur-[120px] pointer-events-none" />
 
           <div className="container mx-auto text-center max-w-4xl relative z-10">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-subtle mb-6 animate-fade-in">
-              <Star className="h-4 w-4 text-warning fill-warning" />
-              <span className="text-sm text-muted-foreground">98 % Bestehensquote · 5.000+ Absolventen</span>
+              <ClipboardCheck className="h-4 w-4 text-accent" />
+              <span className="text-sm text-muted-foreground">Für die gezielte Vorbereitung auf IHK-Prüfungen entwickelt</span>
             </div>
 
             <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-display font-bold mb-5 animate-fade-in leading-[1.1]">
-              IHK-Prüfung{' '}
-              <span className="text-gradient text-glow">sicher bestehen</span>
+              Wie prüfungsreif{' '}
+              <span className="text-gradient text-glow">bist du wirklich?</span>
             </h1>
 
-            <p className="text-base sm:text-xl text-muted-foreground mb-6 max-w-2xl mx-auto animate-fade-in" style={{ animationDelay: '0.1s' }}>
-              Trainiere exakt das, was geprüft wird – mit echten Prüfungsaufgaben, Simulationen und KI-Prüfungscoach.
+            <p className="text-base sm:text-xl text-muted-foreground mb-8 max-w-2xl mx-auto animate-fade-in" style={{ animationDelay: '0.1s' }}>
+              Starte den kostenlosen Prüfungsreife-Check oder trainiere direkt mit echten prüfungsnahen Aufgaben.
             </p>
 
-            {/* Preis direkt im Hero sichtbar */}
-            <div className="inline-flex items-baseline gap-2 mb-6 animate-fade-in" style={{ animationDelay: '0.15s' }}>
-              <span className="text-2xl sm:text-3xl font-display font-bold text-gradient">39 €</span>
-              <span className="text-sm text-muted-foreground">einmalig · 12 Monate · Kein Abo</span>
-            </div>
-
+            {/* CTA: Primary = Check, Secondary = Shop */}
             <div className="flex flex-col sm:flex-row gap-3 justify-center animate-fade-in" style={{ animationDelay: '0.2s' }}>
-              <Link to="/shop">
-                <Button size="lg" className="gradient-primary text-primary-foreground shadow-glow hover:shadow-glow-lg transition-all rounded-xl h-14 px-8 text-lg group">
-                  Prüfungstraining starten
+              <Link to="/pruefungsreife-check">
+                <Button
+                  size="lg"
+                  className="gradient-primary text-primary-foreground shadow-glow hover:shadow-glow-lg transition-all rounded-xl h-14 px-8 text-lg group"
+                  onClick={() => trackConversion({ event: 'cta_click', source: 'hero', label: 'primary_check' })}
+                >
+                  Prüfungsreife kostenlos testen
                   <ArrowRight className="h-5 w-5 ml-2 group-hover:translate-x-1 transition-transform" />
                 </Button>
               </Link>
-              <Link to="/pruefungsreife-check">
-                <Button size="lg" variant="outline" className="rounded-xl h-14 px-8 text-lg border-border hover:bg-muted/50 group">
-                  <ClipboardCheck className="h-5 w-5 mr-2" />
-                  Kostenloser Prüfungsreife-Check
+              <Link to="/shop">
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="rounded-xl h-14 px-8 text-lg border-border hover:bg-muted/50 group"
+                  onClick={() => trackConversion({ event: 'cta_click', source: 'hero', label: 'secondary_shop' })}
+                >
+                  Prüfungstraining ansehen
                 </Button>
               </Link>
             </div>
 
-            {/* Trust Indicators – kompakter */}
+            {/* Trust Indicators */}
             <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 mt-8 text-xs sm:text-sm text-muted-foreground animate-fade-in" style={{ animationDelay: '0.3s' }}>
               <div className="flex items-center gap-1.5">
                 <Shield className="h-3.5 w-3.5 text-accent" />
-                <span>Einmalzahlung</span>
+                <span>39 € einmalig</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <Clock className="h-3.5 w-3.5 text-accent" />
@@ -127,32 +128,36 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* Stats */}
-        <section className="py-8 sm:py-12 px-3 sm:px-4">
-          <div className="container mx-auto max-w-5xl">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
-              {[
-                { value: 5000, suffix: '+', label: 'Erfolgreiche Absolventen', gradient: 'text-gradient' },
-                { value: 98, suffix: ' %', label: 'Bestehensquote', gradient: 'text-gradient-accent' },
-                { value: 500, suffix: '+', label: 'Prüfungsrelevante Aufgaben', gradient: 'text-gradient' },
-                { value: 24, suffix: '/7', label: 'Trainieren wann du willst', gradient: 'text-gradient-accent' },
-              ].map(({ value, suffix, label, gradient }, i) => (
-                <div key={label} className="glass-card rounded-2xl text-center p-4 sm:p-6 animate-fade-in" style={{ animationDelay: `${0.3 + i * 0.08}s` }}>
-                  <div className={`text-2xl sm:text-4xl font-display font-bold ${gradient} mb-1 sm:mb-2`}>
-                    <AnimatedCounter target={value} suffix={suffix} />
-                  </div>
-                  <div className="text-xs sm:text-sm text-muted-foreground">{label}</div>
+        {/* ─── 2. Prüfungsreife-Check CTA Banner ─── */}
+        <section className="py-8 sm:py-10 px-3 sm:px-4">
+          <div className="container mx-auto max-w-4xl">
+            <Link
+              to="/pruefungsreife-check"
+              className="block"
+              onClick={() => trackConversion({ event: 'cta_click', source: 'check_banner', label: 'clicked' })}
+            >
+              <div className="glass-card rounded-2xl p-6 sm:p-8 flex flex-col sm:flex-row items-center gap-4 sm:gap-6 hover:border-accent/40 transition-colors group">
+                <div className="flex-shrink-0 w-14 h-14 rounded-2xl bg-accent/10 flex items-center justify-center">
+                  <ClipboardCheck className="h-7 w-7 text-accent" />
                 </div>
-              ))}
-            </div>
+                <div className="text-center sm:text-left flex-1">
+                  <h3 className="text-lg font-display font-bold mb-1">Kostenloser Prüfungsreife-Check</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Finde in 2 Minuten heraus, wie gut du auf deine IHK-Prüfung vorbereitet bist. Ohne Anmeldung, mit echten Prüfungsfragen.
+                  </p>
+                </div>
+                <ArrowRight className="h-5 w-5 text-muted-foreground group-hover:text-accent group-hover:translate-x-1 transition-all flex-shrink-0" />
+              </div>
+            </Link>
           </div>
         </section>
 
-        {/* Problem → Solution */}
+        {/* ─── 3. Problem → Solution ─── */}
         <section className="py-12 sm:py-16 md:py-20 px-3 sm:px-4 bg-muted/30">
           <div className="container mx-auto max-w-4xl text-center">
             <h2 className="text-2xl sm:text-3xl md:text-4xl font-display font-bold mb-4 sm:mb-6">
-              Bestehe deine Prüfung – <span className="text-gradient">beim ersten Anlauf.</span>
+              Prüfungsnah trainieren –{' '}
+              <span className="text-gradient">statt blind lernen.</span>
             </h2>
             <p className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto mb-12">
               ExamFit analysiert deine Schwächen, trainiert gezielt prüfungsrelevante Inhalte
@@ -175,23 +180,51 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* Testimonials */}
+        {/* ─── 4. So funktioniert's (Features) ─── */}
+        <section className="py-12 sm:py-16 md:py-20 px-3 sm:px-4">
+          <div className="container mx-auto max-w-6xl">
+            <div className="text-center mb-8 md:mb-16">
+              <h2 className="text-2xl sm:text-3xl md:text-4xl font-display font-bold mb-4">
+                So trainierst du mit <span className="text-gradient">ExamFit</span>
+              </h2>
+            </div>
+
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
+              {[
+                { icon: Brain, color: 'text-primary', title: 'Adaptives Training', text: 'Das System erkennt deine Schwächen und trainiert gezielt.' },
+                { icon: Mic, color: 'text-accent', title: 'Mündliche Prüfung', text: 'Übe das Fachgespräch mit KI-Feedback zu deinen Antworten.' },
+                { icon: TrendingUp, color: 'text-success', title: 'Fortschritt messen', text: 'Der Prüfungsreife-Indikator zeigt dir in Echtzeit, wo du stehst.' },
+                { icon: Target, color: 'text-warning', title: 'Nach Rahmenplan', text: 'Alle Inhalte basieren auf dem offiziellen Ausbildungsrahmenplan.' },
+              ].map(({ icon: Icon, color, title, text }) => (
+                <div key={title} className="glass-card rounded-2xl p-5 sm:p-6 text-center hover:border-primary/30 transition-colors">
+                  <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-muted/50 mb-4">
+                    <Icon className={`h-6 w-6 ${color}`} />
+                  </div>
+                  <h3 className="font-semibold mb-2 text-sm sm:text-base">{title}</h3>
+                  <p className="text-xs sm:text-sm text-muted-foreground">{text}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ─── 5. Product Proof (replaces Testimonials) ─── */}
         <Testimonials />
 
-        {/* Pricing */}
+        {/* ─── 6. Pricing ─── */}
         <section className="py-12 sm:py-16 md:py-20 px-3 sm:px-4">
           <div className="container mx-auto max-w-4xl text-center">
             <h2 className="text-2xl sm:text-3xl md:text-4xl font-display font-bold mb-4">
               Ein Produkt. Ein Ziel. <span className="text-gradient">Bestehen.</span>
             </h2>
             <p className="text-muted-foreground max-w-2xl mx-auto mb-12">
-              ExamFit – Intelligentes Prüfungstraining. Alles, was du für die Abschlussprüfung brauchst, in einem System.
+              Alles, was du für die Abschlussprüfung brauchst, in einem System.
             </p>
 
             <div className="glass-card rounded-2xl p-5 sm:p-8 md:p-12 border-2 border-primary/30 max-w-2xl mx-auto relative overflow-hidden">
               <div className="absolute top-4 right-4 flex items-center gap-1 px-3 py-1 rounded-full bg-accent/10 text-accent text-xs font-medium">
                 <Sparkles className="h-3 w-3" />
-                Beliebteste Wahl
+                Komplett-Zugang
               </div>
 
               <div className="flex items-baseline gap-2 justify-center mb-6 mt-4 sm:mt-0">
@@ -216,7 +249,11 @@ export default function HomePage() {
               </div>
 
               <Link to="/shop">
-                <Button size="lg" className="w-full gradient-primary text-primary-foreground shadow-glow rounded-xl h-14 text-lg group">
+                <Button
+                  size="lg"
+                  className="w-full gradient-primary text-primary-foreground shadow-glow rounded-xl h-14 text-lg group"
+                  onClick={() => trackConversion({ event: 'cta_click', source: 'pricing', label: 'buy_click' })}
+                >
                   Jetzt Prüfungstraining starten
                   <ArrowRight className="h-5 w-5 ml-2 group-hover:translate-x-1 transition-transform" />
                 </Button>
@@ -225,55 +262,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* Features */}
-        <section className="py-12 sm:py-16 md:py-20 px-3 sm:px-4 bg-muted/30">
-          <div className="container mx-auto max-w-6xl">
-            <div className="text-center mb-8 md:mb-16">
-              <h2 className="text-2xl sm:text-3xl md:text-4xl font-display font-bold mb-4">
-                Das macht ExamFit <span className="text-gradient">besonders</span>
-              </h2>
-            </div>
-
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
-              {[
-                { icon: Brain, color: 'text-primary', title: 'Adaptives Training', text: 'Das System erkennt deine Schwächen und trainiert gezielt.' },
-                { icon: Mic, color: 'text-accent', title: 'Mündliche Prüfung', text: 'Übe das Fachgespräch mit KI-Feedback zu deinen Antworten.' },
-                { icon: TrendingUp, color: 'text-success', title: 'Prüfungsreife messen', text: '98 % unserer Nutzer bestehen die Prüfung beim ersten Versuch.' },
-                { icon: Target, color: 'text-warning', title: 'Nach Rahmenplan', text: 'Alle Inhalte basieren auf dem offiziellen Ausbildungsrahmenplan.' },
-              ].map(({ icon: Icon, color, title, text }) => (
-                <div key={title} className="glass-card rounded-2xl p-5 sm:p-6 text-center hover:border-primary/30 transition-colors">
-                  <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-muted/50 mb-4">
-                    <Icon className={`h-6 w-6 ${color}`} />
-                  </div>
-                  <h3 className="font-semibold mb-2 text-sm sm:text-base">{title}</h3>
-                  <p className="text-xs sm:text-sm text-muted-foreground">{text}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* Prüfungsreife-Check CTA Banner */}
-        <section className="py-10 sm:py-14 px-3 sm:px-4">
-          <div className="container mx-auto max-w-4xl">
-            <Link to="/pruefungsreife-check" className="block">
-              <div className="glass-card rounded-2xl p-6 sm:p-8 flex flex-col sm:flex-row items-center gap-4 sm:gap-6 hover:border-accent/40 transition-colors group">
-                <div className="flex-shrink-0 w-14 h-14 rounded-2xl bg-accent/10 flex items-center justify-center">
-                  <ClipboardCheck className="h-7 w-7 text-accent" />
-                </div>
-                <div className="text-center sm:text-left flex-1">
-                  <h3 className="text-lg font-display font-bold mb-1">Kostenloser Prüfungsreife-Check</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Finde in 2 Minuten heraus, wie gut du auf deine IHK-Prüfung vorbereitet bist. Ohne Anmeldung.
-                  </p>
-                </div>
-                <ArrowRight className="h-5 w-5 text-muted-foreground group-hover:text-accent group-hover:translate-x-1 transition-all flex-shrink-0" />
-              </div>
-            </Link>
-          </div>
-        </section>
-
-        {/* Zielgruppen */}
+        {/* ─── 7. Zielgruppen ─── */}
         <section className="py-12 sm:py-16 md:py-20 px-3 sm:px-4 bg-muted/30">
           <div className="container mx-auto max-w-5xl">
             <div className="text-center mb-8 md:mb-12">
@@ -286,7 +275,7 @@ export default function HomePage() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
               {[
                 { to: '/pruefungstraining-azubis', icon: GraduationCap, color: 'text-primary', title: 'Für Auszubildende', text: 'Prüfung simulieren, Schwächen erkennen, sicher bestehen.' },
-                { to: '/pruefungstraining-betriebe', icon: Building2, color: 'text-accent', title: 'Für Ausbildungsbetriebe', text: 'Bestehensquoten erhöhen, Prüfungsreife messbar machen.' },
+                { to: '/pruefungstraining-betriebe', icon: Building2, color: 'text-accent', title: 'Für Ausbildungsbetriebe', text: 'Prüfungsreife der Azubis mess- und steuerbar machen.' },
                 { to: '/pruefungstraining-institutionen', icon: BookOpen, color: 'text-success', title: 'Für Berufsschulen & IHK', text: 'Prüfungskonforme Ergänzung, nicht Ersatz des Unterrichts.' },
               ].map(({ to, icon: Icon, color, title, text }) => (
                 <Link key={to} to={to} className="glass-card rounded-2xl p-6 sm:p-8 group hover:border-primary/30 transition-all duration-300">
@@ -302,7 +291,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* CTA Section */}
+        {/* ─── 8. Final CTA ─── */}
         <section className="py-12 sm:py-16 md:py-20 px-3 sm:px-4">
           <div className="container mx-auto max-w-4xl">
             <div className="glass-strong rounded-3xl p-6 sm:p-8 md:p-12 text-center relative overflow-hidden">
@@ -318,19 +307,26 @@ export default function HomePage() {
                   Einmalig zahlen, 12 Monate trainieren. Kein Abo, keine versteckten Kosten.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                  <Link to="/shop">
-                    <Button size="lg" className="gradient-primary text-primary-foreground shadow-glow rounded-xl h-14 px-8 group">
-                      Prüfungstraining starten – 39 €
+                  <Link to="/pruefungsreife-check">
+                    <Button
+                      size="lg"
+                      className="gradient-primary text-primary-foreground shadow-glow rounded-xl h-14 px-8 group"
+                      onClick={() => trackConversion({ event: 'cta_click', source: 'bottom_cta', label: 'primary_check' })}
+                    >
+                      Prüfungsreife kostenlos testen
                       <ArrowRight className="h-5 w-5 ml-2 group-hover:translate-x-1 transition-transform" />
                     </Button>
                   </Link>
-                  {!user && (
-                    <Link to="/auth">
-                      <Button size="lg" variant="outline" className="rounded-xl h-14 px-8">
-                        Kostenlos registrieren
-                      </Button>
-                    </Link>
-                  )}
+                  <Link to="/shop">
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      className="rounded-xl h-14 px-8"
+                      onClick={() => trackConversion({ event: 'cta_click', source: 'bottom_cta', label: 'secondary_shop' })}
+                    >
+                      Prüfungstraining ansehen – 39 €
+                    </Button>
+                  </Link>
                 </div>
               </div>
             </div>
