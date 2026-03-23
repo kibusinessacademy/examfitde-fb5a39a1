@@ -130,3 +130,60 @@ export async function healTrueStalls(sb: SupabaseClient) {
   }
   return healed;
 }
+
+/**
+ * Detect and heal learning-content deadlocks where generate_learning_content
+ * is ≥95% complete but stuck in queued, blocking downstream steps.
+ */
+export async function healLearningContentDeadlocks(sb: SupabaseClient) {
+  const healed: Array<{ package_id: string; title: string; completion_ratio: number; action: string }> = [];
+  try {
+    const { data: candidates } = await sb
+      .from("ops_learning_content_deadlock_candidates")
+      .select("package_id, title, package_status, generate_status")
+      .in("package_status", ["building", "blocked"])
+      .limit(20);
+
+    for (const row of candidates || []) {
+      try {
+        const { data: result } = await sb.rpc("heal_learning_content_deadlock", {
+          p_package_id: row.package_id,
+          p_completion_threshold: 0.95,
+          p_enqueue_regen: true,
+        });
+
+        const rows = Array.isArray(result) ? result : [];
+        for (const r of rows) {
+          if (r.action_taken !== "noop") {
+            healed.push({
+              package_id: r.package_id,
+              title: r.package_title ?? row.title,
+              completion_ratio: r.completion_ratio,
+              action: r.action_taken,
+            });
+            console.warn(
+              `[stuck-scan] 🩹 DEADLOCK_HEAL: ${row.title?.slice(0, 30)} (${String(row.package_id).slice(0, 8)}) ratio=${r.completion_ratio} action=${r.action_taken}`,
+            );
+          }
+        }
+      } catch (healErr) {
+        console.warn(`[stuck-scan] deadlock heal error for ${String(row.package_id).slice(0, 8)}: ${(healErr as Error).message}`);
+      }
+    }
+
+    if (healed.length > 0) {
+      await sb.from("auto_heal_log").insert({
+        action_type: "learning_content_deadlock_heal",
+        trigger_source: "stuck-scan",
+        target_type: "package_steps",
+        target_id: null,
+        result_status: "applied",
+        result_detail: `Healed ${healed.length} learning-content deadlock(s)`,
+        metadata: { healed },
+      });
+    }
+  } catch (err) {
+    console.warn(`[stuck-scan] deadlock heal sweep error: ${(err as Error).message}`);
+  }
+  return healed;
+}
