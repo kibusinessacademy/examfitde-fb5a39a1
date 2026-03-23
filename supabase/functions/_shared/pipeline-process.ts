@@ -1586,7 +1586,10 @@ async function handleJobCompleted(
     const progress = await getLearningContentProgress(sb, packageId);
     const total = Number(progress?.total ?? 0);
     const real = Number(progress?.real ?? 0);
-    const isComplete = progress?.ok === true && total > 0 && real >= total;
+    const COMPLETION_THRESHOLD = 0.95;
+    const completionRatio = total > 0 ? real / total : 0;
+    const materiallyComplete = total > 0 && completionRatio >= COMPLETION_THRESHOLD;
+    const isComplete = (progress?.ok === true && total > 0 && real >= total) || materiallyComplete;
 
     if (!isComplete) {
       await safeQuery(
@@ -1598,13 +1601,34 @@ async function handleJobCompleted(
             last_real_count: real,
             last_total_count: total,
             last_progress_at: real > Number(currentStep?.meta?.last_real_count ?? 0) ? new Date().toISOString() : currentStep?.meta?.last_progress_at ?? null,
+            completion_guard: {
+              mode: "material_completion",
+              total_lessons: total,
+              generated_lessons: real,
+              completion_ratio: completionRatio,
+              threshold: COMPLETION_THRESHOLD,
+            },
           },
-          last_error: `Completion guard: ${real}/${total} real lessons`,
+          last_error: `Completion guard: ${real}/${total} real lessons (ratio=${completionRatio.toFixed(3)}, threshold=${COMPLETION_THRESHOLD})`,
         }).eq("package_id", packageId).eq("step_key", stepKey),
         "learning_completion_guard",
       );
       await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
-      return { packageId, stepKey, completion_guard_deferred: true, real, total };
+      return { packageId, stepKey, completion_guard_deferred: true, real, total, completionRatio };
+    }
+
+    // Materially complete but needs_regen > 0 → enqueue rework jobs
+    if (materiallyComplete && real < total) {
+      const needsRegenCount = total - real;
+      console.log(`[runner] ✅ Material completion for ${shortId}: ${real}/${total} (${(completionRatio * 100).toFixed(1)}%) — enqueuing ${needsRegenCount} regen jobs`);
+      try {
+        await sb.rpc("enqueue_learning_content_regen_for_package", {
+          p_package_id: packageId,
+          p_limit: 50,
+        });
+      } catch (regenErr) {
+        console.warn(`[runner] Regen enqueue failed for ${shortId}: ${(regenErr as Error).message}`);
+      }
     }
   }
 
