@@ -99,8 +99,12 @@ Deno.serve(async (req) => {
     const report = (pkg.integrity_report as Record<string, unknown>) ?? {};
     const v3 = (report.v3 ?? {}) as Record<string, unknown>;
     const hardFails = (v3.hard_fail_reasons ?? []) as string[];
+    const allWarnings = (v3.warnings ?? []) as string[];
 
-    if (hardFails.length === 0 && pkg.integrity_passed) {
+    // ── FIX: Don't bail out early when warnings exist ──
+    // Warnings like EASY_TOO_LOW and TRAP_COVERAGE_LOW still need repair
+    // even when integrity_passed=true and hard_fail_reasons is empty.
+    if (hardFails.length === 0 && allWarnings.length === 0 && pkg.integrity_passed) {
       return json({ ok: true, message: "no_hard_fails", actions: [] });
     }
 
