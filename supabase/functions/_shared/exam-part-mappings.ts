@@ -42,7 +42,9 @@ const EXAM_PART_NORMALIZE: Record<string, string> = {
 export type EnsureResult =
   | { status: "created"; created: number; skipped: number; total_lfs: number }
   | { status: "already_present"; existing: number; total_lfs: number }
+  | { status: "drift_detected"; existing: number; total_lfs: number; drift: { mismatches: number; unmapped: number; orphaned: number } }
   | { status: "blocked_missing_source_data"; reason: string; details: Record<string, unknown> }
+  | { status: "blocked_partial_source_data"; reason: string; details: Record<string, unknown> }
   | { status: "inconsistent_source_data"; reason: string; details: Record<string, unknown> };
 
 function normalizeExamPart(raw: string | null | undefined): string | null {
