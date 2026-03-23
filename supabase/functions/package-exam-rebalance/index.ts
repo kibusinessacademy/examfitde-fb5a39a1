@@ -133,11 +133,12 @@ Deno.serve(async (req) => {
       actions.push(result);
     }
 
-    // ═══ A3. TRAP_COVERAGE_LOW → enqueue trap retrofit ═══
-    const trapSignals = allSignals.filter(f => f.includes("TRAP_COVERAGE_LOW"));
-    if (trapSignals.length > 0) {
+    // ═══ A3. TRAP_COVERAGE → always check proactively (not just on warning) ═══
+    const trapSignals = allSignals.filter(f => f.includes("TRAP_COVERAGE"));
+    // Proactive: even without warning signal, scan for missing trap_type
+    {
       const result = await repairTrapCoverage(sb, packageId, curriculumId);
-      actions.push(result);
+      if (result.affected_count > 0) actions.push(result);
     }
 
     // ═══ A4. EXAM_PART_MISSING → backfill from mappings ═══
@@ -145,6 +146,12 @@ Deno.serve(async (req) => {
     if (examPartSignals.length > 0) {
       const result = await repairExamPartMapping(sb, packageId, curriculumId);
       actions.push(result);
+    }
+
+    // ═══ A5. METADATA COMPLETENESS → proactive bloom + misconception scan ═══
+    {
+      const result = await repairMetadataGaps(sb, packageId, curriculumId);
+      if (result.affected_count > 0) actions.push(result);
     }
 
     // ═══ B. BLOOM GATE ═══
