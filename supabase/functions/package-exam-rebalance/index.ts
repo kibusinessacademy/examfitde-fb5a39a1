@@ -108,15 +108,13 @@ Deno.serve(async (req) => {
       return json({ ok: true, message: "no_hard_fails", actions: [] });
     }
 
-    console.log(`[exam-rebalance] Package ${packageId.slice(0, 8)}: ${hardFails.length} hard fails: ${hardFails.join("; ")}`);
+    console.log(`[exam-rebalance] Package ${packageId.slice(0, 8)}: ${hardFails.length} hard fails, ${allWarnings.length} warnings`);
 
     const actions: RepairAction[] = [];
     const curriculumId = pkg.curriculum_id as string;
     const courseId = pkg.course_id as string;
 
     // ── 2. Classify and execute repairs ──
-    // Also check warnings for new gates
-    const allWarnings = (v3.warnings ?? []) as string[];
     const allSignals = [...hardFails, ...allWarnings];
 
     // ═══ A. DIFFICULTY REBALANCE (EASY_TOO_HIGH → prune) ═══
