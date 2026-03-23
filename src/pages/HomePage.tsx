@@ -1,12 +1,18 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { generateFAQSchema, generateCourseListSchema, SITE_URL } from '@/lib/seo';
 import { Testimonials } from '@/components/marketing/Testimonials';
 import { StickyCTA } from '@/components/marketing/StickyCTA';
 import { trackConversion } from '@/lib/seo-tracking';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
 import {
   ArrowRight,
   CheckCircle,
@@ -24,13 +30,19 @@ import {
   ClipboardCheck,
 } from 'lucide-react';
 
+const FAQ_ITEMS = [
+  { question: 'Ist ExamFit ein Abo?', answer: 'Nein. Du zahlst einmalig und erhältst für 12 Monate Zugriff.' },
+  { question: 'Für wen ist ExamFit geeignet?', answer: 'Für Auszubildende, die sich gezielt auf ihre Abschlussprüfung vorbereiten möchten.' },
+  { question: 'Ist ExamFit Ersatz für Berufsschule oder Ausbildung?', answer: 'Nein. ExamFit ergänzt deine Vorbereitung mit prüfungsnahem Training.' },
+  { question: 'Kann ich erst kostenlos testen?', answer: 'Ja. Du kannst den Prüfungsreife-Check kostenlos und ohne Anmeldung starten.' },
+];
+
 export default function HomePage() {
   const { user } = useAuth();
 
   useEffect(() => {
-    trackConversion({ event: 'cta_click', source: 'homepage', label: 'page_view' });
+    trackConversion({ event: 'page_view', source: 'homepage' });
 
-    // Scroll depth tracking
     const thresholds = [25, 50, 75];
     const fired = new Set<number>();
     const onScroll = () => {
@@ -40,7 +52,7 @@ export default function HomePage() {
       for (const t of thresholds) {
         if (pct >= t && !fired.has(t)) {
           fired.add(t);
-          trackConversion({ event: 'cta_click', source: 'scroll_depth', label: `${t}pct` });
+          trackConversion({ event: 'scroll_depth', source: 'homepage', label: `${t}pct`, value: t });
         }
       }
     };
@@ -56,13 +68,9 @@ export default function HomePage() {
         canonical={`${SITE_URL}/`}
         type="website"
         structuredData={[
-          generateFAQSchema([
-            { question: 'Was kostet ExamFit?', answer: 'ExamFit kostet einmalig 39 € für 12 Monate Zugang. Kein Abo, keine versteckten Kosten.' },
-            { question: 'Für welche IHK-Prüfungen gibt es Prüfungstraining?', answer: 'ExamFit bietet Prüfungstraining für über 50 IHK-Ausbildungsberufe, darunter Kaufleute für Büromanagement, Industriekaufleute, Fachinformatiker und viele mehr.' },
-            { question: 'Gibt es eine mündliche Prüfungssimulation?', answer: 'Ja, ExamFit bietet eine KI-gestützte mündliche Prüfungssimulation mit Echtzeit-Feedback zu deinen Antworten.' },
-          ]),
+          generateFAQSchema(FAQ_ITEMS),
           generateCourseListSchema([
-            { name: 'IHK-Prüfungstraining', url: `${SITE_URL}/shop`, description: 'Komplett-Prüfungstraining für über 50 IHK-Ausbildungsberufe', price: 39 },
+            { name: 'IHK-Prüfungstraining', url: `${SITE_URL}/shop`, description: 'Komplett-Prüfungstraining für IHK-Ausbildungsberufe', price: 39 },
           ]),
         ]}
       />
@@ -74,7 +82,7 @@ export default function HomePage() {
           <div className="container mx-auto text-center max-w-4xl relative z-10">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-subtle mb-6 animate-fade-in">
               <ClipboardCheck className="h-4 w-4 text-accent" />
-              <span className="text-sm text-muted-foreground">Für die gezielte Vorbereitung auf IHK-Prüfungen entwickelt</span>
+              <span className="text-sm text-muted-foreground">Prüfungsnah trainieren · Schwächen erkennen · sicherer in die Prüfung gehen</span>
             </div>
 
             <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-display font-bold mb-5 animate-fade-in leading-[1.1]">
@@ -83,10 +91,9 @@ export default function HomePage() {
             </h1>
 
             <p className="text-base sm:text-xl text-muted-foreground mb-8 max-w-2xl mx-auto animate-fade-in" style={{ animationDelay: '0.1s' }}>
-              Starte den kostenlosen Prüfungsreife-Check oder trainiere direkt mit echten prüfungsnahen Aufgaben.
+              Starte den kostenlosen Prüfungsreife-Check oder trainiere direkt mit echten prüfungsnahen Aufgaben für deine Abschlussprüfung.
             </p>
 
-            {/* CTA: Primary = Check, Secondary = Shop */}
             <div className="flex flex-col sm:flex-row gap-3 justify-center animate-fade-in" style={{ animationDelay: '0.2s' }}>
               <Link to="/pruefungsreife-check">
                 <Button
@@ -110,25 +117,24 @@ export default function HomePage() {
               </Link>
             </div>
 
-            {/* Trust Indicators */}
             <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 mt-8 text-xs sm:text-sm text-muted-foreground animate-fade-in" style={{ animationDelay: '0.3s' }}>
               <div className="flex items-center gap-1.5">
                 <Shield className="h-3.5 w-3.5 text-accent" />
-                <span>39 € einmalig</span>
+                <span>Einmalzahlung</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <Clock className="h-3.5 w-3.5 text-accent" />
-                <span>12 Monate Zugang</span>
+                <span>12 Monate Zugriff</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <CheckCircle className="h-3.5 w-3.5 text-accent" />
-                <span>Basierend auf Rahmenplan</span>
+                <span>Kein Abo</span>
               </div>
             </div>
           </div>
         </section>
 
-        {/* ─── 2. Prüfungsreife-Check CTA Banner ─── */}
+        {/* ─── 2. Prüfungsreife-Check Teaser ─── */}
         <section className="py-8 sm:py-10 px-3 sm:px-4">
           <div className="container mx-auto max-w-4xl">
             <Link
@@ -143,7 +149,7 @@ export default function HomePage() {
                 <div className="text-center sm:text-left flex-1">
                   <h3 className="text-lg font-display font-bold mb-1">Kostenloser Prüfungsreife-Check</h3>
                   <p className="text-sm text-muted-foreground">
-                    Finde in 2 Minuten heraus, wie gut du auf deine IHK-Prüfung vorbereitet bist. Ohne Anmeldung, mit echten Prüfungsfragen.
+                    Finde in wenigen Minuten heraus, wie gut du aktuell auf deine Prüfung vorbereitet bist — ohne Anmeldung.
                   </p>
                 </div>
                 <ArrowRight className="h-5 w-5 text-muted-foreground group-hover:text-accent group-hover:translate-x-1 transition-all flex-shrink-0" />
@@ -152,26 +158,25 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* ─── 3. Problem → Solution ─── */}
+        {/* ─── 3. Produktnutzen ─── */}
         <section className="py-12 sm:py-16 md:py-20 px-3 sm:px-4 bg-muted/30">
           <div className="container mx-auto max-w-4xl text-center">
             <h2 className="text-2xl sm:text-3xl md:text-4xl font-display font-bold mb-4 sm:mb-6">
-              Prüfungsnah trainieren –{' '}
-              <span className="text-gradient">statt blind lernen.</span>
+              So hilft dir ExamFit bei der{' '}
+              <span className="text-gradient">Prüfungsvorbereitung</span>
             </h2>
             <p className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto mb-12">
-              ExamFit analysiert deine Schwächen, trainiert gezielt prüfungsrelevante Inhalte
-              und zeigt dir in Echtzeit, wie nah du am Bestehen bist.
+              Nicht blind lernen, sondern gezielt trainieren — mit einem System, das deine Schwächen erkennt.
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
               {[
-                { emoji: '😰', title: 'Das Problem', text: 'Klassische Bücher und Karteikarten bereiten nicht auf echte Prüfungsaufgaben vor.' },
-                { emoji: '🧠', title: 'Unsere Lösung', text: 'Adaptive Algorithmen erkennen Schwächen und trainieren gezielt das, was geprüft wird.' },
-                { emoji: '🎯', title: 'Dein Ergebnis', text: 'Du gehst prüfungsreif und selbstsicher in die Abschlussprüfung.' },
-              ].map(({ emoji, title, text }) => (
+                { icon: '🔍', title: 'Prüfungsnah', text: 'Du trainierst mit Aufgabenformaten, die sich an echten Prüfungsanforderungen orientieren.' },
+                { icon: '🎯', title: 'Gezielt', text: 'Du erkennst schneller, welche Themen für dich kritisch sind.' },
+                { icon: '📐', title: 'Strukturiert', text: 'Du trainierst nicht blind, sondern mit klarem Fokus auf Bestehen.' },
+              ].map(({ icon, title, text }) => (
                 <div key={title} className="glass-card rounded-2xl p-6 text-center hover:border-primary/30 transition-colors">
-                  <div className="text-4xl mb-4">{emoji}</div>
+                  <div className="text-4xl mb-4">{icon}</div>
                   <h3 className="font-semibold mb-2">{title}</h3>
                   <p className="text-sm text-muted-foreground">{text}</p>
                 </div>
@@ -180,7 +185,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* ─── 4. So funktioniert's (Features) ─── */}
+        {/* ─── 4. So funktioniert's ─── */}
         <section className="py-12 sm:py-16 md:py-20 px-3 sm:px-4">
           <div className="container mx-auto max-w-6xl">
             <div className="text-center mb-8 md:mb-16">
@@ -208,17 +213,18 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* ─── 5. Product Proof (replaces Testimonials) ─── */}
+        {/* ─── 5. Product Proof ─── */}
         <Testimonials />
 
         {/* ─── 6. Pricing ─── */}
         <section className="py-12 sm:py-16 md:py-20 px-3 sm:px-4">
           <div className="container mx-auto max-w-4xl text-center">
             <h2 className="text-2xl sm:text-3xl md:text-4xl font-display font-bold mb-4">
-              Ein Produkt. Ein Ziel. <span className="text-gradient">Bestehen.</span>
+              Ein Produkt. Ein Ziel:{' '}
+              <span className="text-gradient">Deine Prüfung bestehen.</span>
             </h2>
             <p className="text-muted-foreground max-w-2xl mx-auto mb-12">
-              Alles, was du für die Abschlussprüfung brauchst, in einem System.
+              ExamFit bündelt prüfungsnahes Training, Simulationen und gezielte Vorbereitung in einem System.
             </p>
 
             <div className="glass-card rounded-2xl p-5 sm:p-8 md:p-12 border-2 border-primary/30 max-w-2xl mx-auto relative overflow-hidden">
@@ -254,10 +260,12 @@ export default function HomePage() {
                   className="w-full gradient-primary text-primary-foreground shadow-glow rounded-xl h-14 text-lg group"
                   onClick={() => trackConversion({ event: 'cta_click', source: 'pricing', label: 'buy_click' })}
                 >
-                  Jetzt Prüfungstraining starten
+                  Prüfungstraining starten
                   <ArrowRight className="h-5 w-5 ml-2 group-hover:translate-x-1 transition-transform" />
                 </Button>
               </Link>
+
+              <p className="text-xs text-muted-foreground mt-3">39 € einmalig · 12 Monate Zugriff · kein Abo</p>
             </div>
           </div>
         </section>
@@ -291,8 +299,29 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* ─── 8. Final CTA ─── */}
+        {/* ─── 8. FAQ ─── */}
         <section className="py-12 sm:py-16 md:py-20 px-3 sm:px-4">
+          <div className="container mx-auto max-w-2xl">
+            <h2 className="text-2xl sm:text-3xl font-display font-bold mb-8 text-center">
+              Häufige Fragen
+            </h2>
+            <Accordion type="single" collapsible className="w-full">
+              {FAQ_ITEMS.map((item, i) => (
+                <AccordionItem key={i} value={`faq-${i}`}>
+                  <AccordionTrigger
+                    onClick={() => trackConversion({ event: 'faq_expand', source: 'homepage', label: item.question })}
+                  >
+                    {item.question}
+                  </AccordionTrigger>
+                  <AccordionContent>{item.answer}</AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          </div>
+        </section>
+
+        {/* ─── 9. Final CTA ─── */}
+        <section className="py-12 sm:py-16 md:py-20 px-3 sm:px-4 bg-muted/30">
           <div className="container mx-auto max-w-4xl">
             <div className="glass-strong rounded-3xl p-6 sm:p-8 md:p-12 text-center relative overflow-hidden">
               <div className="absolute inset-0 gradient-hero opacity-10" />
@@ -333,7 +362,6 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* Sticky CTA Bar */}
         <StickyCTA />
       </div>
     </>
