@@ -48004,13 +48004,13 @@ export type Database = {
           p_package_id?: string
         }
         Returns: {
-          action_taken: string
-          completion_ratio: number
-          generated_lessons: number
-          needs_regen_count: number
-          package_id: string
-          package_title: string
-          total_lessons: number
+          out_action_taken: string
+          out_completion_ratio: number
+          out_generated_lessons: number
+          out_needs_regen_count: number
+          out_package_id: string
+          out_package_title: string
+          out_total_lessons: number
         }[]
       }
       heal_true_stall_steps: {
