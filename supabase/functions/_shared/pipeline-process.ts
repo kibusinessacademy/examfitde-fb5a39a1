@@ -371,13 +371,18 @@ export async function processPackage(
           const gateNeedsRegen = typeof completionGate?.needs_regen === "number" ? completionGate.needs_regen : null;
           const batchComplete = meta?.batch_complete === true;
           const artifactDone = needsRegen === 0 || gateNeedsRegen === 0;
-          const ok = artifactDone || batchComplete;
+          // Material completion: ≥95% generated lessons = done (needs_regen becomes rework backlog)
+          const completionRatio = typeof meta?.completion_guard?.completion_ratio === "number" ? meta.completion_guard.completion_ratio : null;
+          const materiallyComplete = completionRatio !== null && completionRatio >= 0.95;
+          const ok = artifactDone || batchComplete || materiallyComplete;
           const reason = artifactDone
             ? `needs_regen=0 (artifact-done)`
-            : batchComplete
-              ? "meta.batch_complete=true"
-              : `needs_regen=${needsRegen ?? "null"}, batch_complete=${meta?.batch_complete}`;
-          return { ok, reason, snapshot: { needs_regen: needsRegen, gate_needs_regen: gateNeedsRegen, batch_complete: batchComplete } };
+            : materiallyComplete
+              ? `material_completion: ratio=${completionRatio} >= 0.95`
+              : batchComplete
+                ? "meta.batch_complete=true"
+                : `needs_regen=${needsRegen ?? "null"}, batch_complete=${meta?.batch_complete}, ratio=${completionRatio}`;
+          return { ok, reason, snapshot: { needs_regen: needsRegen, gate_needs_regen: gateNeedsRegen, batch_complete: batchComplete, completion_ratio: completionRatio, materially_complete: materiallyComplete } };
         },
       },
       {
