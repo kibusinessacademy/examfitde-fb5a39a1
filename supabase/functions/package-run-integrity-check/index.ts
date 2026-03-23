@@ -777,6 +777,35 @@ async function runCourseReadyGate(
   }
 
   // ═══════════════════════════════════════════════
+  // GATE 9b: Exam-Part Mapping Drift (structural consistency)
+  // Verifies exam_part_mappings are consistent with learning_fields.exam_part
+  // ═══════════════════════════════════════════════
+  if (curriculumId) {
+    try {
+      const drift = await checkExamPartMappingDrift(sb, curriculumId);
+      const driftPassed = drift.ok;
+      const driftDetails = [];
+      if (drift.mismatches.length > 0) driftDetails.push(`${drift.mismatches.length} mismatches`);
+      if (drift.unmapped.length > 0) driftDetails.push(`${drift.unmapped.length} unmapped LFs`);
+      if (drift.orphaned.length > 0) driftDetails.push(`${drift.orphaned.length} orphaned mappings`);
+      results.push({
+        gate: "exam_part_mapping_drift",
+        passed: driftPassed,
+        severity: "warning",
+        detail: driftPassed
+          ? "exam_part_mappings consistent with learning_fields.exam_part"
+          : `Drift: ${driftDetails.join(", ")}`,
+        value: drift.mismatches.length + drift.unmapped.length + drift.orphaned.length,
+      });
+      if (!driftPassed) {
+        warnings.push(`EXAM_PART_MAPPING_DRIFT: ${driftDetails.join(", ")} — run ensureExamPartMappings to fix`);
+      }
+    } catch (driftErr: any) {
+      console.warn(`[integrity-check] exam_part_mapping drift check failed: ${driftErr.message}`);
+    }
+  }
+
+  // ═══════════════════════════════════════════════
   // GATE 10: Trap Coverage (NEW: Fix 3)
   // Minimum % of questions with trap classification
   // ═══════════════════════════════════════════════

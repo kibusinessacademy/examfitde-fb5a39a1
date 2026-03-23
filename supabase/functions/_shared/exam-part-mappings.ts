@@ -151,9 +151,22 @@ export async function ensureExamPartMappings(
     };
   }
 
-  // Warn-level: partial coverage is OK (some LFs may genuinely not be exam-relevant)
-  // But log it for observability
+  // Partial coverage: block if below threshold (< 50% of LFs have exam_part)
   if (withoutExamPart.length > 0) {
+    const coveragePct = (withExamPart.length / lfs.length) * 100;
+    if (coveragePct < 50) {
+      return {
+        status: "blocked_partial_source_data",
+        reason: `Only ${coveragePct.toFixed(1)}% of learning_fields have exam_part (min 50%)`,
+        details: {
+          curriculum_id: curriculumId,
+          total_lfs: lfs.length,
+          with_exam_part: withExamPart.length,
+          without_exam_part: withoutExamPart.length,
+          missing_codes: withoutExamPart.map((l) => l.code),
+        },
+      };
+    }
     console.warn(
       `${tag} ${withoutExamPart.length}/${lfs.length} LFs without exam_part ` +
       `(codes: ${withoutExamPart.map((l) => l.code).join(", ")}). ` +
@@ -161,10 +174,10 @@ export async function ensureExamPartMappings(
     );
   }
 
-  // ── 3) Check existing mappings (idempotency) ──
+  // ── 3) Check existing mappings (idempotency + drift verification) ──
   const { data: existingMappings } = await sb
     .from("exam_part_mappings")
-    .select("learning_field_id")
+    .select("id, learning_field_id, exam_part")
     .eq("curriculum_id", curriculumId);
 
   const existingSet = new Set((existingMappings || []).map((m: any) => m.learning_field_id));
@@ -172,8 +185,34 @@ export async function ensureExamPartMappings(
   const toCreate = withExamPart.filter((lf) => !existingSet.has(lf.id));
 
   if (toCreate.length === 0) {
+    // ── Drift verification: don't return already_present if mappings are inconsistent ──
+    const lfMap = new Map(withExamPart.map((lf) => [lf.id, lf.exam_part]));
+    const mappingByLf = new Map((existingMappings || []).map((m: any) => [m.learning_field_id, m]));
+    let mismatches = 0;
+    let orphaned = 0;
+
+    for (const [lfId, expectedPart] of lfMap) {
+      const mapping = mappingByLf.get(lfId);
+      if (mapping && mapping.exam_part !== expectedPart) mismatches++;
+    }
+    for (const m of (existingMappings || [])) {
+      if (!lfMap.has(m.learning_field_id)) orphaned++;
+    }
+
+    if (mismatches > 0 || orphaned > 0) {
+      console.warn(
+        `${tag} Drift detected for curriculum ${curriculumId}: ${mismatches} mismatches, ${orphaned} orphaned`
+      );
+      return {
+        status: "drift_detected",
+        existing: existingSet.size,
+        total_lfs: lfs.length,
+        drift: { mismatches, unmapped: 0, orphaned },
+      };
+    }
+
     console.log(
-      `${tag} All ${withExamPart.length} mappings already present for curriculum ${curriculumId}`
+      `${tag} All ${withExamPart.length} mappings already present and consistent for curriculum ${curriculumId}`
     );
     return {
       status: "already_present",
