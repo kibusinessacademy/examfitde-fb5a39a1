@@ -186,8 +186,9 @@ Deno.serve(async (req) => {
     const poolMismatchFixed = await sweepPoolMismatches(sb);
     const revivedCount = await reviveTransientFailed(sb);
     const trueStallsHealed = await healTrueStalls(sb);
+    const deadlockHealed = await healLearningContentDeadlocks(sb);
 
-    console.log(`[stuck-scan] ${results.length} timeout-checked, ${orphanResults.length} orphan-checked, ${buildingPkgResults.length} building-pkg-checked, ${statusLagResults.length} status-lag-healed, ${staleCount} stale jobs killed (liveness guard), ${zombieResults.length} zombie steps fixed, ${escalationResults.length} escalation loops handled, ${revivedCount} transient-failed revived, ${leaseNoProgressHealed} lease-no-progress healed, ${trueStallsHealed.length} true-stalls healed${systemFrozen ? ", ⚫ SYSTEM FREEZE DETECTED" : ""}${poolMismatchFixed > 0 ? `, 🔧 ${poolMismatchFixed} pool mismatches fixed` : ""}`);
+    console.log(`[stuck-scan] ${results.length} timeout-checked, ${orphanResults.length} orphan-checked, ${buildingPkgResults.length} building-pkg-checked, ${statusLagResults.length} status-lag-healed, ${staleCount} stale jobs killed (liveness guard), ${zombieResults.length} zombie steps fixed, ${escalationResults.length} escalation loops handled, ${revivedCount} transient-failed revived, ${leaseNoProgressHealed} lease-no-progress healed, ${trueStallsHealed.length} true-stalls healed, ${deadlockHealed.length} deadlocks healed${systemFrozen ? ", ⚫ SYSTEM FREEZE DETECTED" : ""}${poolMismatchFixed > 0 ? `, 🔧 ${poolMismatchFixed} pool mismatches fixed` : ""}`);
 
     return json({
       ok: true,
@@ -207,6 +208,7 @@ Deno.serve(async (req) => {
       transient_revived: revivedCount,
       lease_no_progress_healed: leaseNoProgressHealed,
       true_stalls_healed: trueStallsHealed,
+      deadlock_healed: deadlockHealed,
     });
   } catch (e: unknown) {
     const msg = (e as Error)?.message || String(e);
