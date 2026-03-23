@@ -187,8 +187,11 @@ Deno.serve(async (req) => {
     const revivedCount = await reviveTransientFailed(sb);
     const trueStallsHealed = await healTrueStalls(sb);
     const deadlockHealed = await healLearningContentDeadlocks(sb);
+    const loopGuardFalsePositives = await healLoopGuardFalsePositives(sb);
+    const integrityReportMissing = await healIntegrityReportMissing(sb);
+    const trueStallStepsHealed = await healTrueStallSteps(sb);
 
-    console.log(`[stuck-scan] ${results.length} timeout-checked, ${orphanResults.length} orphan-checked, ${buildingPkgResults.length} building-pkg-checked, ${statusLagResults.length} status-lag-healed, ${staleCount} stale jobs killed (liveness guard), ${zombieResults.length} zombie steps fixed, ${escalationResults.length} escalation loops handled, ${revivedCount} transient-failed revived, ${leaseNoProgressHealed} lease-no-progress healed, ${trueStallsHealed.length} true-stalls healed, ${deadlockHealed.length} deadlocks healed${systemFrozen ? ", ⚫ SYSTEM FREEZE DETECTED" : ""}${poolMismatchFixed > 0 ? `, 🔧 ${poolMismatchFixed} pool mismatches fixed` : ""}`);
+    console.log(`[stuck-scan] ${results.length} timeout-checked, ${orphanResults.length} orphan-checked, ${buildingPkgResults.length} building-pkg-checked, ${statusLagResults.length} status-lag-healed, ${staleCount} stale jobs killed (liveness guard), ${zombieResults.length} zombie steps fixed, ${escalationResults.length} escalation loops handled, ${revivedCount} transient-failed revived, ${leaseNoProgressHealed} lease-no-progress healed, ${trueStallsHealed.length} true-stalls healed, ${deadlockHealed.length} deadlocks healed, ${loopGuardFalsePositives.length} loop-guard-false-positives healed, ${integrityReportMissing} integrity-report-missing healed, ${trueStallStepsHealed.length} true-stall-steps healed${systemFrozen ? ", ⚫ SYSTEM FREEZE DETECTED" : ""}${poolMismatchFixed > 0 ? `, 🔧 ${poolMismatchFixed} pool mismatches fixed` : ""}`);
 
     return json({
       ok: true,
@@ -209,6 +212,9 @@ Deno.serve(async (req) => {
       lease_no_progress_healed: leaseNoProgressHealed,
       true_stalls_healed: trueStallsHealed,
       deadlock_healed: deadlockHealed,
+      loop_guard_false_positives: loopGuardFalsePositives,
+      integrity_report_missing_healed: integrityReportMissing,
+      true_stall_steps_healed: trueStallStepsHealed,
     });
   } catch (e: unknown) {
     const msg = (e as Error)?.message || String(e);
