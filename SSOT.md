@@ -107,6 +107,21 @@ const LESSON_STEPS = [
 **Schreibregel:** `learning_field_id` wird serverseitig gesetzt (aus `competency_id`) und nach `approved` nicht mehr verändert.
 **DB-Trigger:** `exam_questions_enforce_learning_field_id` setzt `learning_field_id` automatisch aus `competency_id` und blockt Änderungen an `competency_id`/`learning_field_id` nach `approved`.
 
+### Exam-Part-Mappings (materialisierte Ableitung)
+
+```
+learning_fields.exam_part (SSOT) → exam_part_mappings (materialisiert)
+```
+
+| Regel | Beschreibung |
+|-------|--------------|
+| ✅ | `learning_fields.exam_part` = **primäre SSOT** |
+| ✅ | `exam_part_mappings` = **abgeleitete Materialisierung** für Pipeline/Vererbung |
+| ✅ | `ensureExamPartMappings()` Hook: deterministisch, idempotent, fail-closed |
+| ✅ | Hook läuft vor Exam-Chain (generate-course-batch, package-generate-exam-pool) |
+| ❌ | `exam_part_mappings` darf **nie als Primärquelle** behandelt werden |
+| ❌ | Kein LLM/Raten — rein deterministische Ableitung |
+
 ### Status-Workflow
 
 ```

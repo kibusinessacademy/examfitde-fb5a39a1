@@ -4,6 +4,7 @@ import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 import { callAIJSON, AITool } from "../_shared/ai-client.ts";
 import { getModel } from "../_shared/model-routing.ts";
 import { resolveProfession, ensureProfessionProfile } from "../_shared/profession-resolver.ts";
+import { ensureExamPartMappings } from "../_shared/exam-part-mappings.ts";
 import { checkContamination } from "../_shared/contamination-guard.ts";
 import { DEPTH_SELF_CHECK, REGULATORY_GUARD, ANTI_KI_RULES } from "../_shared/prompt-kit.ts";
 import { validateLessonStep, getVariationSeed, type DbProfessionProfile } from "../_shared/content-validators.ts";
@@ -158,6 +159,19 @@ Deno.serve(async (req) => {
           dbProfessionProfile = profile as DbProfessionProfile;
           console.log(`[generate-course-batch] DB profession profile ready for beruf_id=${curriculum.beruf_id}`);
         }
+      }
+    }
+
+    // ═══ AUTO-ENSURE EXAM PART MAPPINGS (deterministic, fail-closed) ═══
+    if (curriculumId) {
+      try {
+        const epmResult = await ensureExamPartMappings(supabase, curriculumId);
+        console.log(`[generate-course-batch] Exam part mappings: ${epmResult.status}${
+          epmResult.status === "created" ? ` (${epmResult.created} new)` : ""
+        }`);
+      } catch (e) {
+        console.error(`[generate-course-batch] ensureExamPartMappings failed: ${(e as Error).message}`);
+        // Non-fatal for content generation — exam steps will catch this independently
       }
     }
 

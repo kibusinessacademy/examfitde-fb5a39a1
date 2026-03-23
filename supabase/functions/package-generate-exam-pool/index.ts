@@ -11,6 +11,7 @@ import { getModelChainAsync } from "../_shared/model-routing.ts";
 import type { ModelChoice } from "../_shared/model-routing.ts";
 import { resolveAvailableRoute } from "../_shared/llm/provider-load-balancer.ts";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
+import { ensureExamPartMappings } from "../_shared/exam-part-mappings.ts";
 import { enqueueJob } from "../_shared/enqueue.ts";
 import { checkContamination } from "../_shared/contamination-guard.ts";
 import { loadOrGenerateGlossary, formatGlossaryForPrompt } from "../_shared/glossary-loader.ts";
@@ -1698,6 +1699,16 @@ Deno.serve(async (req) => {
           }
         }
       }
+    }
+
+    // ═══ AUTO-ENSURE EXAM PART MAPPINGS (before exam generation) ═══
+    try {
+      const epmResult = await ensureExamPartMappings(sb, curriculumId);
+      console.log(`[ExamPool-v5] Exam part mappings: ${epmResult.status}${
+        epmResult.status === "created" ? ` (${epmResult.created} new)` : ""
+      }`);
+    } catch (e) {
+      console.warn(`[ExamPool-v5] ensureExamPartMappings failed: ${(e as Error).message}`);
     }
 
     // Get blueprints early — root fan-out must run before expensive context generation
