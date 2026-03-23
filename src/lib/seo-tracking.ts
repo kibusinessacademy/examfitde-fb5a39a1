@@ -11,7 +11,9 @@ export type ConversionEvent =
   | 'signup_start'
   | 'signup_complete'
   | 'exam_start'
-  | 'faq_expand';
+  | 'faq_expand'
+  | 'page_view'
+  | 'scroll_depth';
 
 interface TrackingPayload {
   event: ConversionEvent;
