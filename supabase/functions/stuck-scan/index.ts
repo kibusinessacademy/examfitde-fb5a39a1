@@ -10,7 +10,7 @@ import { detectAndFixZombieSteps } from "../_shared/stuck-scan-zombies.ts";
 import { healOrphanProcessing, healEnqueuedDrift, healStatusLag } from "../_shared/stuck-scan-healers.ts";
 import { detectEscalationLoops, detectSystemFreeze } from "../_shared/stuck-scan-escalation.ts";
 import { checkStuckPackages, checkBuildingOrphans } from "../_shared/stuck-scan-packages.ts";
-import { runHygiene, healLeaseNoProgress, sweepPoolMismatches, reviveTransientFailed, healTrueStalls, healLearningContentDeadlocks } from "../_shared/stuck-scan-hygiene.ts";
+import { runHygiene, healLeaseNoProgress, sweepPoolMismatches, reviveTransientFailed, healTrueStalls, healLearningContentDeadlocks, healLoopGuardFalsePositives, healIntegrityReportMissing, healTrueStallSteps } from "../_shared/stuck-scan-hygiene.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
