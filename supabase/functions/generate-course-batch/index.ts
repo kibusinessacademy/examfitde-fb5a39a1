@@ -3,7 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 import { callAIJSON, AITool } from "../_shared/ai-client.ts";
 import { getModel } from "../_shared/model-routing.ts";
-import { resolveProfession } from "../_shared/profession-resolver.ts";
+import { resolveProfession, ensureProfessionProfile } from "../_shared/profession-resolver.ts";
 import { checkContamination } from "../_shared/contamination-guard.ts";
 import { DEPTH_SELF_CHECK, REGULATORY_GUARD, ANTI_KI_RULES } from "../_shared/prompt-kit.ts";
 import { validateLessonStep, getVariationSeed, type DbProfessionProfile } from "../_shared/content-validators.ts";
