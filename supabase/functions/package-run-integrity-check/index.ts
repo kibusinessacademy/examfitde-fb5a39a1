@@ -1404,6 +1404,49 @@ Deno.serve(async (req) => {
       // non-critical best-effort
     }
 
+    // ── AUTO-ENQUEUE: metadata repair when warnings/fails detected ──
+    // Hard auto-enqueue: if trap_type, bloom, or metadata warnings exist,
+    // automatically dispatch rebalancer — no manual intervention needed.
+    const metadataRepairSignals = [...gate.hardFails, ...gate.warnings].filter(s =>
+      s.includes("TRAP_COVERAGE") || s.includes("METADATA_BLOOM") ||
+      s.includes("METADATA_TRAP") || s.includes("EASY_TOO_LOW") ||
+      s.includes("BLOOM_GATE")
+    );
+    if (metadataRepairSignals.length > 0 && !isAlreadyPublished) {
+      try {
+        // Check for existing active rebalance job to avoid duplicates
+        const { data: existingJob } = await sb
+          .from("job_queue")
+          .select("id, status")
+          .eq("package_id", packageId)
+          .eq("job_type", "package_exam_rebalance")
+          .in("status", ["pending", "queued", "processing"])
+          .limit(1)
+          .maybeSingle();
+
+        if (!existingJob) {
+          await sb.from("job_queue").insert({
+            job_type: "package_exam_rebalance",
+            package_id: packageId,
+            payload: {
+              package_id: packageId,
+              auto_triggered: true,
+              trigger_signals: metadataRepairSignals,
+            },
+            status: "pending",
+            worker_pool: "core",
+            max_attempts: 3,
+            priority: 15,
+          });
+          console.log(`[integrity-check] AUTO-ENQUEUE: package_exam_rebalance for ${packageId.slice(0, 8)} (${metadataRepairSignals.length} signals: ${metadataRepairSignals.slice(0, 3).join(", ")})`);
+        } else {
+          console.log(`[integrity-check] DEDUP: rebalance already active for ${packageId.slice(0, 8)} (${existingJob.status})`);
+        }
+      } catch (enqErr) {
+        console.warn(`[integrity-check] Auto-enqueue rebalancer failed: ${(enqErr as Error).message}`);
+      }
+    }
+
     return json({ ok: true, report });
 
   } catch (e) {
