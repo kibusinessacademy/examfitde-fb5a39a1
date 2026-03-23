@@ -118,7 +118,11 @@ learning_fields.exam_part (SSOT) → exam_part_mappings (materialisiert)
 | ✅ | `learning_fields.exam_part` = **primäre SSOT** |
 | ✅ | `exam_part_mappings` = **abgeleitete Materialisierung** für Pipeline/Vererbung |
 | ✅ | `ensureExamPartMappings()` Hook: deterministisch, idempotent, fail-closed |
+| ✅ | Hook prüft Drift bei `already_present` (mismatch/orphan-Erkennung) |
+| ✅ | Hook blockt bei <50% Coverage (`blocked_partial_source_data`) |
 | ✅ | Hook läuft vor Exam-Chain (generate-course-batch, package-generate-exam-pool) |
+| ✅ | `exam_weight` bei auto-erzeugten Mappings = **vorläufiger Default** (Gleichverteilung) |
+| ⚠️ | `exam_weight` ist **nicht** gleichbedeutend mit offizieller IHK-Gewichtung |
 | ❌ | `exam_part_mappings` darf **nie als Primärquelle** behandelt werden |
 | ❌ | Kein LLM/Raten — rein deterministische Ableitung |
 
