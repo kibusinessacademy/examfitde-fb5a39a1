@@ -1,42 +1,38 @@
-import { Star } from 'lucide-react';
+import { CheckCircle, Brain, Mic, TrendingUp, Target } from 'lucide-react';
 
-interface Testimonial {
-  name: string;
-  role: string;
-  beruf: string;
-  quote: string;
-  stars: number;
-}
+/**
+ * ProductProof – replaces fake testimonials with honest,
+ * verifiable product-level proof. No invented names or quotes.
+ */
 
-const TESTIMONIALS: Testimonial[] = [
+const BENEFITS = [
   {
-    name: 'Laura M.',
-    role: 'Auszubildende',
-    beruf: 'Kauffrau für Büromanagement',
-    quote: 'Ich hatte richtig Angst vor der Abschlussprüfung. Mit ExamFit habe ich genau gewusst, wo ich stehe – und mit 82 Punkten bestanden!',
-    stars: 5,
+    icon: Brain,
+    title: 'Schwächen sichtbar machen',
+    description: 'Das adaptive System erkennt nach wenigen Übungen, welche Themen noch unsicher sitzen – und trainiert genau dort weiter.',
   },
   {
-    name: 'Tobias K.',
-    role: 'Auszubildender',
-    beruf: 'Fachinformatiker Anwendungsentwicklung',
-    quote: 'Die mündliche Prüfungssimulation war Gold wert. Im echten Fachgespräch hatte ich kein einziges Blackout mehr.',
-    stars: 5,
+    icon: Target,
+    title: 'Prüfungsnah statt allgemein',
+    description: 'Alle Aufgaben orientieren sich am offiziellen IHK-Rahmenplan. Kein Raten, kein Büffeln – gezieltes Prüfungstraining.',
   },
   {
-    name: 'Sandra H.',
-    role: 'Ausbildungsleiterin',
-    beruf: 'Mittelständischer Betrieb, 12 Azubis',
-    quote: 'Seit wir ExamFit einsetzen, hat kein einziger Azubi mehr die Prüfung nicht bestanden. Der Prüfungsreife-Indikator gibt uns echte Planungssicherheit.',
-    stars: 5,
+    icon: Mic,
+    title: 'Mündliche Prüfung üben',
+    description: 'Das Fachgespräch simulieren, Antworten trainieren und Echtzeit-Feedback erhalten – bevor es zählt.',
   },
   {
-    name: 'Mehmet A.',
-    role: 'Auszubildender',
-    beruf: 'Industriekaufmann',
-    quote: 'Die adaptiven Übungen haben mir gezeigt, welche Themen ich wirklich nicht konnte. 3 Wochen gezieltes Training und die Prüfung war kein Problem.',
-    stars: 5,
+    icon: TrendingUp,
+    title: 'Fortschritt messen',
+    description: 'Der Prüfungsreife-Indikator zeigt in Echtzeit, wie nah du am Bestehen bist – damit du weißt, wo du stehst.',
   },
+];
+
+const TYPICAL_EFFECTS = [
+  'Klarer Überblick über eigene Wissenslücken nach dem ersten Training',
+  'Spürbar mehr Sicherheit bei prüfungsnahen Aufgabentypen',
+  'Strukturierte Vorbereitung statt planloses Lernen',
+  'Weniger Prüfungsangst durch realistische Simulation',
 ];
 
 export function Testimonials() {
@@ -45,33 +41,40 @@ export function Testimonials() {
       <div className="container mx-auto max-w-6xl">
         <div className="text-center mb-8 md:mb-12">
           <h2 className="text-2xl sm:text-3xl md:text-4xl font-display font-bold mb-3">
-            Das sagen unsere <span className="text-gradient">Absolventen</span>
+            Was du mit ExamFit <span className="text-gradient">konkret bekommst</span>
           </h2>
-          <p className="text-muted-foreground">
-            Über 5.000 Auszubildende haben mit ExamFit ihre Prüfung bestanden.
+          <p className="text-muted-foreground max-w-2xl mx-auto">
+            Kein Marketing-Versprechen – das sind die echten Funktionen, mit denen Azubis ihre Prüfung vorbereiten.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {TESTIMONIALS.map((t) => (
+        {/* Product Benefits Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+          {BENEFITS.map((b) => (
             <div
-              key={t.name}
+              key={b.title}
               className="glass-card rounded-2xl p-5 flex flex-col gap-3 hover:border-primary/30 transition-colors"
             >
-              <div className="flex gap-0.5">
-                {Array.from({ length: t.stars }).map((_, i) => (
-                  <Star key={i} className="h-4 w-4 text-warning fill-warning" />
-                ))}
+              <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-muted/50">
+                <b.icon className="h-5 w-5 text-primary" />
               </div>
-              <p className="text-sm text-foreground leading-relaxed flex-1">
-                „{t.quote}"
-              </p>
-              <div className="pt-2 border-t border-border">
-                <p className="text-sm font-semibold">{t.name}</p>
-                <p className="text-xs text-muted-foreground">{t.role} · {t.beruf}</p>
-              </div>
+              <h3 className="text-sm font-semibold">{b.title}</h3>
+              <p className="text-xs text-muted-foreground leading-relaxed">{b.description}</p>
             </div>
           ))}
+        </div>
+
+        {/* Typical Effects – honest, no person claims */}
+        <div className="glass-card rounded-2xl p-5 sm:p-6 max-w-2xl mx-auto">
+          <h3 className="text-sm font-semibold mb-4 text-center">Häufige Effekte nach 2 Wochen Training</h3>
+          <div className="grid gap-2.5">
+            {TYPICAL_EFFECTS.map((effect) => (
+              <div key={effect} className="flex items-start gap-2.5">
+                <CheckCircle className="h-4 w-4 text-success flex-shrink-0 mt-0.5" />
+                <span className="text-sm text-muted-foreground">{effect}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </section>
