@@ -47,6 +47,7 @@ const KarrierePage = lazy(() => import('@/pages/seo/KarrierePage'));
 const BetriebeLandingPage = lazy(() => import('@/pages/seo/BetriebeLandingPage'));
 const WirtschaftsfachwirtPage = lazy(() => import('@/pages/seo/WirtschaftsfachwirtPage'));
 import ProgrammaticSEODispatcher from '@/pages/seo/ProgrammaticSEODispatcher';
+const PruefungsreifeCheck = lazy(() => import('@/components/marketing/PruefungsreifeCheck'));
 
 // Legal Pages
 const AGBPage = lazy(() => import('@/pages/seo/AGBPage'));
