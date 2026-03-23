@@ -6,7 +6,7 @@ import { getModel } from "../_shared/model-routing.ts";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
 import { checkContamination } from "../_shared/contamination-guard.ts";
 import { DEPTH_SELF_CHECK, REGULATORY_GUARD, ANTI_KI_RULES } from "../_shared/prompt-kit.ts";
-import { validateLessonStep, getVariationSeed } from "../_shared/content-validators.ts";
+import { validateLessonStep, getVariationSeed, type DbProfessionProfile } from "../_shared/content-validators.ts";
 
 const LESSON_STEPS = ["einstieg", "verstehen", "anwenden", "wiederholen", "mini_check"] as const;
 type LessonStep = (typeof LESSON_STEPS)[number];
