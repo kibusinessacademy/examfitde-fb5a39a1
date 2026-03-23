@@ -6,7 +6,7 @@ import { getModel } from "../_shared/model-routing.ts";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
 import { checkContamination } from "../_shared/contamination-guard.ts";
 import { DEPTH_SELF_CHECK, REGULATORY_GUARD, ANTI_KI_RULES } from "../_shared/prompt-kit.ts";
-import { validateLessonStep, getVariationSeed } from "../_shared/content-validators.ts";
+import { validateLessonStep, getVariationSeed, type DbProfessionProfile } from "../_shared/content-validators.ts";
 
 const LESSON_STEPS = ["einstieg", "verstehen", "anwenden", "wiederholen", "mini_check"] as const;
 type LessonStep = (typeof LESSON_STEPS)[number];
@@ -148,6 +148,25 @@ Deno.serve(async (req) => {
     const certificationContext = "berufliche Ausbildung";
     console.log(`[generate-course-batch] Profession: "${professionName}" (${professionResult.source})`);
 
+    // ═══ LOAD DB PROFESSION PROFILE for variation seed enrichment ═══
+    let dbProfessionProfile: DbProfessionProfile | null = null;
+    if (curriculumId) {
+      const { data: curriculum } = await supabase.from("curricula").select("beruf_id").eq("id", curriculumId).maybeSingle();
+      if (curriculum?.beruf_id) {
+        const { data: profProfile } = await supabase
+          .from("profession_profiles")
+          .select("profile")
+          .eq("beruf_id", curriculum.beruf_id)
+          .order("version", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (profProfile?.profile) {
+          dbProfessionProfile = profProfile.profile as DbProfessionProfile;
+          console.log(`[generate-course-batch] DB profession profile loaded for beruf_id=${curriculum.beruf_id}`);
+        }
+      }
+    }
+
     // ═══ DEPTH ENRICHMENT: Load granular curriculum topics ═══
     const topicDepth = curriculumId
       ? await loadTopicDepth(supabase, competency, curriculumId)
@@ -213,7 +232,7 @@ INTERNE SELBSTPRÜFUNG (vor Ausgabe intern prüfen — nicht ausgeben):
 Falls eine Pflicht fehlt: Ergänze intern vor der Ausgabe.`;
 
     // ═══ VARIATION SEED: Prevent template leakage / prompt drift ═══
-    const variationSeed = getVariationSeed(competency.code || competency.title, step);
+    const variationSeed = getVariationSeed(competency.code || competency.title, step, professionName, dbProfessionProfile);
 
     const stepPrompt = getStepPrompt(step, professionName);
     const userPrompt = `Erstelle Lerninhalt für den Beruf "${professionName}":
