@@ -3,7 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 import { callAIJSON, AITool } from "../_shared/ai-client.ts";
 import { getModel } from "../_shared/model-routing.ts";
-import { resolveProfession } from "../_shared/profession-resolver.ts";
+import { resolveProfession, ensureProfessionProfile } from "../_shared/profession-resolver.ts";
 import { checkContamination } from "../_shared/contamination-guard.ts";
 import { DEPTH_SELF_CHECK, REGULATORY_GUARD, ANTI_KI_RULES } from "../_shared/prompt-kit.ts";
 import { validateLessonStep, getVariationSeed, type DbProfessionProfile } from "../_shared/content-validators.ts";
@@ -148,21 +148,15 @@ Deno.serve(async (req) => {
     const certificationContext = "berufliche Ausbildung";
     console.log(`[generate-course-batch] Profession: "${professionName}" (${professionResult.source})`);
 
-    // ═══ LOAD DB PROFESSION PROFILE for variation seed enrichment ═══
+    // ═══ LOAD OR AUTO-CREATE DB PROFESSION PROFILE ═══
     let dbProfessionProfile: DbProfessionProfile | null = null;
     if (curriculumId) {
       const { data: curriculum } = await supabase.from("curricula").select("beruf_id").eq("id", curriculumId).maybeSingle();
       if (curriculum?.beruf_id) {
-        const { data: profProfile } = await supabase
-          .from("profession_profiles")
-          .select("profile")
-          .eq("beruf_id", curriculum.beruf_id)
-          .order("version", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        if (profProfile?.profile) {
-          dbProfessionProfile = profProfile.profile as DbProfessionProfile;
-          console.log(`[generate-course-batch] DB profession profile loaded for beruf_id=${curriculum.beruf_id}`);
+        const profile = await ensureProfessionProfile(supabase, curriculum.beruf_id, { professionName });
+        if (profile) {
+          dbProfessionProfile = profile as DbProfessionProfile;
+          console.log(`[generate-course-batch] DB profession profile ready for beruf_id=${curriculum.beruf_id}`);
         }
       }
     }
