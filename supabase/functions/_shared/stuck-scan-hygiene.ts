@@ -325,6 +325,21 @@ export async function healIntegrityReportMissing(sb: SupabaseClient) {
  * Fix 3 (Ops layer): Detect true-stall steps (queued, prereqs done, no job, stale).
  * Redispatch them by clearing stale meta and touching the step for re-dispatch.
  */
+/**
+ * Conservative whitelist: only these steps are eligible for true-stall auto-heal.
+ * Steps outside this set may be intentionally queued (e.g. awaiting manual action).
+ */
+const TRUE_STALL_HEALABLE_STEPS = new Set([
+  "validate_learning_content",
+  "validate_exam_pool",
+  "run_integrity_check",
+  "auto_publish",
+  "quality_council",
+  "generate_handbook",
+  "generate_oral_exam",
+  "elite_harden",
+]);
+
 export async function healTrueStallSteps(sb: SupabaseClient) {
   const healed: Array<{ package_id: string; step_key: string }> = [];
 
@@ -341,6 +356,8 @@ export async function healTrueStallSteps(sb: SupabaseClient) {
     if (candErr) throw candErr;
 
     for (const step of candidates || []) {
+      // Only heal known-safe steps
+      if (!TRUE_STALL_HEALABLE_STEPS.has(step.step_key)) continue;
       // Verify package is building
       const { data: pkg, error: pkgErr } = await sb
         .from("course_packages")
