@@ -259,15 +259,16 @@ Deno.serve(async (req) => {
         },
       });
 
-      // Admin notification
+      // Admin notification — includes trigger type
+      const triggerLabel = hardFails.length > 0 ? "Hard-Fail" : "Warning";
       await sb.from("admin_notifications").insert({
-        title: `🔧 Exam-Rebalance: ${actions.length} Reparaturen`,
-        body: `Package ${packageId.slice(0, 8)}: ${actions.map(a => `${a.type} (${a.affected_count})`).join(", ")}. Pipeline neu gestartet.`,
+        title: `🔧 Exam-Rebalance (${triggerLabel}): ${actions.length} Reparaturen`,
+        body: `Package ${packageId.slice(0, 8)}: ${actions.map(a => `${a.type} (${a.affected_count})`).join(", ")}. Trigger: ${allSignals.join(", ")}. Pipeline neu gestartet.`,
         category: "pipeline",
-        severity: "info",
+        severity: hardFails.length > 0 ? "warning" : "info",
         entity_type: "package",
         entity_id: packageId,
-        metadata: { actions, hard_fails: hardFails },
+        metadata: { actions, hard_fails: hardFails, warnings: allWarnings, trigger_classification: hardFails.length > 0 ? "hard_fail" : "warning_only" },
       });
     }
 
