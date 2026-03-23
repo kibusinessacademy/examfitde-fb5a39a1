@@ -1701,6 +1701,16 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ═══ AUTO-ENSURE EXAM PART MAPPINGS (before exam generation) ═══
+    try {
+      const epmResult = await ensureExamPartMappings(sb, curriculumId);
+      console.log(`[ExamPool-v5] Exam part mappings: ${epmResult.status}${
+        epmResult.status === "created" ? ` (${epmResult.created} new)` : ""
+      }`);
+    } catch (e) {
+      console.warn(`[ExamPool-v5] ensureExamPartMappings failed: ${(e as Error).message}`);
+    }
+
     // Get blueprints early — root fan-out must run before expensive context generation
     let bpQuery = sb.from("question_blueprints")
       .select("id, max_variations, curriculum_id, learning_field_id, competency_id, name, canonical_statement, cognitive_level, question_template, trap_spec, typical_exam_trap, exam_context_type, typical_errors, estimated_time_seconds, decision_structure, exam_relevance_score")
