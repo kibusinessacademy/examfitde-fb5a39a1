@@ -806,11 +806,12 @@ async function runCourseReadyGate(
   }
 
   // ═══════════════════════════════════════════════
-  // GATE 10: Trap Coverage (NEW: Fix 3)
-  // Minimum % of questions with trap classification
+  // GATE 10: Trap Coverage (tiered: warning → blocker)
   // ═══════════════════════════════════════════════
   if (totalApproved > 0) {
     const withTrap = (approvedQs ?? []).filter((q: any) => q.is_trap || q.trap_type).length;
+    const withoutTrap = totalApproved - withTrap;
+    const missingPct = (withoutTrap / totalApproved) * 100;
     const trapPct = (withTrap / totalApproved) * 100;
     const TRAP_MIN_PCT: Record<string, number> = {
       AUSBILDUNG_VOLL: 10,
@@ -819,17 +820,56 @@ async function runCourseReadyGate(
     };
     const trapMinTarget = TRAP_MIN_PCT[trackEarly] ?? 10;
     const trapPassed = trapPct >= trapMinTarget;
+
+    // Tiered severity: >25% missing = blocker, >10% missing = warning
+    const trapSeverity: "blocker" | "warning" = missingPct > 25 ? "blocker" : "warning";
     results.push({
       gate: "trap_coverage",
       passed: trapPassed,
-      severity: "warning",
-      detail: `${withTrap}/${totalApproved} trap questions (${trapPct.toFixed(1)}%, min ${trapMinTarget}%) [track=${trackEarly}]`,
+      severity: trapSeverity,
+      detail: `${withTrap}/${totalApproved} trap questions (${trapPct.toFixed(1)}%, min ${trapMinTarget}%) [track=${trackEarly}] missing=${missingPct.toFixed(1)}%`,
       value: withTrap,
     });
     if (!trapPassed) {
-      warnings.push(`TRAP_COVERAGE_LOW: ${trapPct.toFixed(1)}%<${trapMinTarget}% — insufficient IHK-realistic exam traps`);
+      if (trapSeverity === "blocker") {
+        hardFails.push(`TRAP_COVERAGE_BLOCK: ${trapPct.toFixed(1)}%<${trapMinTarget}%, ${missingPct.toFixed(1)}% missing trap_type — auto-repair required`);
+      } else {
+        warnings.push(`TRAP_COVERAGE_LOW: ${trapPct.toFixed(1)}%<${trapMinTarget}% — insufficient IHK-realistic exam traps`);
+      }
     }
     if (trapPct >= 20) excellence.push(`TRAP_COVERAGE_EXCELLENT: ${trapPct.toFixed(0)}% trap questions`);
+  }
+
+  // ═══════════════════════════════════════════════
+  // GATE 10b: Metadata Completeness (bloom + trap_type presence)
+  // Missing metadata = silent quality degradation
+  // ═══════════════════════════════════════════════
+  if (totalApproved > 0) {
+    const missingBloom = (approvedQs ?? []).filter((q: any) => !q.cognitive_level).length;
+    const missingBloomPct = (missingBloom / totalApproved) * 100;
+    const bloomMetaPassed = missingBloomPct < 10;
+    const bloomMetaSeverity: "blocker" | "warning" = missingBloomPct > 25 ? "blocker" : "warning";
+    results.push({
+      gate: "metadata_bloom_completeness",
+      passed: bloomMetaPassed,
+      severity: bloomMetaSeverity,
+      detail: `${missingBloom}/${totalApproved} missing cognitive_level (${missingBloomPct.toFixed(1)}%)`,
+      value: totalApproved - missingBloom,
+    });
+    if (!bloomMetaPassed) {
+      if (bloomMetaSeverity === "blocker") {
+        hardFails.push(`METADATA_BLOOM_BLOCK: ${missingBloomPct.toFixed(1)}% questions missing cognitive_level`);
+      } else {
+        warnings.push(`METADATA_BLOOM_LOW: ${missingBloomPct.toFixed(1)}% questions missing cognitive_level`);
+      }
+    }
+
+    const missingTrapType = (approvedQs ?? []).filter((q: any) => !q.trap_type && !q.is_trap).length;
+    const missingTrapTypePct = (missingTrapType / totalApproved) * 100;
+    // Track missing trap_type as metadata signal (separate from trap_coverage gate)
+    if (missingTrapTypePct > 10) {
+      warnings.push(`METADATA_TRAP_TYPE_LOW: ${missingTrapTypePct.toFixed(1)}% questions without trap_type classification`);
+    }
   }
 
   // ═══════════════════════════════════════════════
@@ -1362,6 +1402,49 @@ Deno.serve(async (req) => {
         .eq("step_key", "run_integrity_check");
     } catch (_) {
       // non-critical best-effort
+    }
+
+    // ── AUTO-ENQUEUE: metadata repair when warnings/fails detected ──
+    // Hard auto-enqueue: if trap_type, bloom, or metadata warnings exist,
+    // automatically dispatch rebalancer — no manual intervention needed.
+    const metadataRepairSignals = [...gate.hardFails, ...gate.warnings].filter(s =>
+      s.includes("TRAP_COVERAGE") || s.includes("METADATA_BLOOM") ||
+      s.includes("METADATA_TRAP") || s.includes("EASY_TOO_LOW") ||
+      s.includes("BLOOM_GATE")
+    );
+    if (metadataRepairSignals.length > 0 && !isAlreadyPublished) {
+      try {
+        // Check for existing active rebalance job to avoid duplicates
+        const { data: existingJob } = await sb
+          .from("job_queue")
+          .select("id, status")
+          .eq("package_id", packageId)
+          .eq("job_type", "package_exam_rebalance")
+          .in("status", ["pending", "queued", "processing"])
+          .limit(1)
+          .maybeSingle();
+
+        if (!existingJob) {
+          await sb.from("job_queue").insert({
+            job_type: "package_exam_rebalance",
+            package_id: packageId,
+            payload: {
+              package_id: packageId,
+              auto_triggered: true,
+              trigger_signals: metadataRepairSignals,
+            },
+            status: "pending",
+            worker_pool: "core",
+            max_attempts: 3,
+            priority: 15,
+          });
+          console.log(`[integrity-check] AUTO-ENQUEUE: package_exam_rebalance for ${packageId.slice(0, 8)} (${metadataRepairSignals.length} signals: ${metadataRepairSignals.slice(0, 3).join(", ")})`);
+        } else {
+          console.log(`[integrity-check] DEDUP: rebalance already active for ${packageId.slice(0, 8)} (${existingJob.status})`);
+        }
+      } catch (enqErr) {
+        console.warn(`[integrity-check] Auto-enqueue rebalancer failed: ${(enqErr as Error).message}`);
+      }
     }
 
     return json({ ok: true, report });
