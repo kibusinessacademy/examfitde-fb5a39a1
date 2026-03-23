@@ -461,11 +461,27 @@ function resolveProfessionKey(professionHint?: string): string | null {
 }
 
 /**
+ * DB profession profile shape from profession_profiles.profile JSONB
+ */
+export interface DbProfessionProfile {
+  common_error_patterns?: Array<{ error: string; domain?: string; severity?: string }>;
+  preferred_scenario_types?: Array<{ type: string; description?: string; frequency?: string }>;
+  exam_style_hints?: string[];
+  [key: string]: unknown;
+}
+
+/**
  * Generate a deterministic variation seed for a lesson to prevent template leakage.
  * Uses competency code + step to select scenario settings and trap types.
- * Supports profession-specific scenarios and traps when professionHint is provided.
+ * 
+ * Priority: dbProfile (from profession_profiles table) > hardcoded profiles > defaults
  */
-export function getVariationSeed(competencyCode: string, step: string, professionHint?: string): {
+export function getVariationSeed(
+  competencyCode: string,
+  step: string,
+  professionHint?: string,
+  dbProfile?: DbProfessionProfile | null,
+): {
   scenarioSetting: string;
   requiredTrapTypes: string[];
   promptSuffix: string;
@@ -478,10 +494,26 @@ export function getVariationSeed(competencyCode: string, step: string, professio
   }
   const idx = Math.abs(hash);
 
-  const profKey = resolveProfessionKey(professionHint);
-  const profile = profKey ? PROFESSION_PROFILES[profKey] : null;
-  const scenarios = profile?.scenarios ?? SCENARIO_SETTINGS_DEFAULT;
-  const traps = profile?.traps ?? TRAP_TYPES_DEFAULT;
+  // Priority 1: DB profile from profession_profiles table
+  let scenarios: readonly string[] = SCENARIO_SETTINGS_DEFAULT;
+  let traps: readonly string[] = TRAP_TYPES_DEFAULT;
+
+  if (dbProfile) {
+    if (dbProfile.preferred_scenario_types?.length) {
+      scenarios = dbProfile.preferred_scenario_types.map(s => s.description ? `${s.type}: ${s.description}` : s.type);
+    }
+    if (dbProfile.common_error_patterns?.length) {
+      traps = dbProfile.common_error_patterns.map(e => e.error);
+    }
+  } else {
+    // Priority 2: Hardcoded fallback profiles (legacy, for backward compat)
+    const profKey = resolveProfessionKey(professionHint);
+    const profile = profKey ? PROFESSION_PROFILES[profKey] : null;
+    if (profile) {
+      scenarios = profile.scenarios;
+      traps = profile.traps;
+    }
+  }
 
   const scenarioSetting = scenarios[idx % scenarios.length];
   const trap1 = traps[idx % traps.length];
