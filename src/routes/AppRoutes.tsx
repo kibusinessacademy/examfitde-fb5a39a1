@@ -109,8 +109,7 @@ const AppRoutes = () => {
         <Route path="/installieren" element={<InstallPage />} />
         <Route path="/pruefungsreife-check" element={<PruefungsreifeCheck />} />
         
-        {/* Shop Routes */}
-        <Route path="/shop" element={<ShopPage />} />
+        {/* Purchase Success (standalone) */}
         <Route path="/purchase-success" element={<PurchaseSuccessPage />} />
 
         {/* ExamFit@work Public Routes */}
