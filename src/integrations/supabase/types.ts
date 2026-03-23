@@ -47315,6 +47315,25 @@ export type Database = {
         Args: { p_new_status: string; p_old_status: string }
         Returns: boolean
       }
+      fn_is_true_stall: {
+        Args: {
+          p_package_id: string
+          p_stale_minutes?: number
+          p_step_key: string
+        }
+        Returns: boolean
+      }
+      fn_package_learning_content_materialized: {
+        Args: { p_package_id: string }
+        Returns: {
+          completion_ratio: number
+          generated_lessons: number
+          materialized: boolean
+          needs_regen_count: number
+          no_active_content_jobs: boolean
+          total_lessons: number
+        }[]
+      }
       generate_compliance_report: {
         Args: { p_report_type: string }
         Returns: string
