@@ -11,6 +11,7 @@ import { getModelChainAsync } from "../_shared/model-routing.ts";
 import type { ModelChoice } from "../_shared/model-routing.ts";
 import { resolveAvailableRoute } from "../_shared/llm/provider-load-balancer.ts";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
+import { ensureExamPartMappings } from "../_shared/exam-part-mappings.ts";
 import { enqueueJob } from "../_shared/enqueue.ts";
 import { checkContamination } from "../_shared/contamination-guard.ts";
 import { loadOrGenerateGlossary, formatGlossaryForPrompt } from "../_shared/glossary-loader.ts";
