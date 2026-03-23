@@ -417,7 +417,13 @@ export async function handleEnqueue(
         try {
           const { data: matRows } = await sb.rpc("fn_package_learning_content_materialized", { p_package_id: packageId });
           const mat = Array.isArray(matRows) ? matRows[0] : matRows;
-          if (mat?.materialized) {
+          if (
+            mat?.materialized === true &&
+            Number(mat.total_lessons ?? 0) > 0 &&
+            Number(mat.generated_lessons ?? 0) >= Number(mat.total_lessons ?? 0) * 0.95 &&
+            Number(mat.needs_regen_count ?? 999999) === 0 &&
+            mat.no_active_content_jobs === true
+          ) {
             console.warn(`[runner] 🏗️ ARTIFACT_SSOT_OVERRIDE: ${stepKey} for ${shortId} — loop guard blocked but content is 100% materialized (${mat.generated_lessons}/${mat.total_lessons}). Marking done.`);
             await safeQuery(
               sb.from("package_steps").update({

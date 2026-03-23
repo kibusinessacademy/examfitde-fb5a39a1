@@ -293,7 +293,11 @@ export async function healIntegrityReportMissing(sb: SupabaseClient) {
         finished_at: null,
         updated_at: new Date().toISOString(),
         last_error: "AUTO_REQUEUE: integrity_report missing despite version set",
-        meta: { loop_guard_reset_at: new Date().toISOString(), integrity_missing_heal_at: new Date().toISOString() },
+        meta: {
+          integrity_consistency_guard_at: new Date().toISOString(),
+          integrity_auto_requeue_at: new Date().toISOString(),
+          loop_guard_reset_at: new Date().toISOString(),
+        },
       }).eq("package_id", pkg.id).eq("step_key", "run_integrity_check").in("status", ["done", "failed"]);
 
       healed++;
