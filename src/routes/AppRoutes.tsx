@@ -107,6 +107,7 @@ const AppRoutes = () => {
         <Route path="/auth" element={<Auth />} />
         <Route path="/auth/reset-password" element={<ResetPassword />} />
         <Route path="/installieren" element={<InstallPage />} />
+        <Route path="/pruefungsreife-check" element={<PruefungsreifeCheck />} />
         
         {/* Shop Routes */}
         <Route path="/shop" element={<ShopPage />} />
