@@ -406,9 +406,61 @@ export async function handleEnqueue(
   }
 
   // ── LOOP GUARD: prevent infinite retry/fan-out loops ──
+  // FIX 1: Artifact-SSOT override — if artifacts are materialized, bypass loop guard
   {
     const loopCheck = await checkLoopGuard(sb, packageId, stepKey, jobType, (currentStep?.meta ?? null) as Record<string, unknown> | null);
     if (loopCheck.blocked) {
+      // Artifact-SSOT override for generate_learning_content:
+      // If all lessons are generated, needs_regen=0, and no active content jobs,
+      // the step is done regardless of job history.
+      if (stepKey === "generate_learning_content") {
+        try {
+          const { data: matRows } = await sb.rpc("fn_package_learning_content_materialized", { p_package_id: packageId });
+          const mat = Array.isArray(matRows) ? matRows[0] : matRows;
+          if (mat?.materialized) {
+            console.warn(`[runner] 🏗️ ARTIFACT_SSOT_OVERRIDE: ${stepKey} for ${shortId} — loop guard blocked but content is 100% materialized (${mat.generated_lessons}/${mat.total_lessons}). Marking done.`);
+            await safeQuery(
+              sb.from("package_steps").update({
+                status: "done",
+                finished_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+                last_error: null,
+                job_id: null,
+                runner_id: null,
+                meta: {
+                  ...(currentStep?.meta ?? {}),
+                  loop_guard_overridden: true,
+                  loop_guard_override_reason: "ARTIFACT_SSOT: content fully materialized",
+                  loop_guard_original_reason: loopCheck.reason,
+                  completion_guard: {
+                    mode: "artifact_ssot_override",
+                    total_lessons: mat.total_lessons,
+                    generated_lessons: mat.generated_lessons,
+                    needs_regen_count: mat.needs_regen_count,
+                    completion_ratio: Number(mat.completion_ratio),
+                    resolved_as: "done",
+                  },
+                },
+              }).eq("package_id", packageId).eq("step_key", stepKey),
+              "artifact_ssot_override",
+            );
+            await sb.from("auto_heal_log").insert({
+              action_type: "loop_guard_artifact_ssot_override",
+              trigger_source: "pipeline_runner",
+              target_type: "package_step",
+              target_id: packageId,
+              result_status: "applied",
+              result_detail: `Loop guard blocked ${stepKey} but artifacts are 100% materialized. Overriding to done.`,
+              metadata: { step_key: stepKey, ...mat, original_guard_reason: loopCheck.reason },
+            });
+            // Don't block — just skip enqueue since step is now done
+            await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
+            return { packageId, stepKey, artifact_ssot_override: true, completion: mat };
+          }
+        } catch (ssotErr) {
+          console.warn(`[runner] artifact-SSOT check failed for ${shortId}: ${(ssotErr as Error).message}`);
+        }
+      }
       await applyLoopGuardBlock(sb, packageId, stepKey, runnerId, loopCheck);
       return { packageId, stepKey, loop_guard_blocked: true, reason: loopCheck.reason, metrics: loopCheck.metrics };
     }
