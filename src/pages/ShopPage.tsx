@@ -7,13 +7,14 @@ import { ProductCards } from '@/components/shop/ProductCards';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Shield, Clock, CreditCard, GraduationCap, LogOut, User, Menu, X, CheckCircle, Star } from 'lucide-react';
+import { Shield, Clock, CreditCard, CheckCircle, Star } from 'lucide-react';
 import PageExplainer from '@/components/admin/PageExplainer';
+import { SEOHead } from '@/components/seo/SEOHead';
+import { SITE_URL } from '@/lib/seo';
 
 export default function ShopPage() {
-  const { user, signOut, loading } = useAuth();
+  const { user } = useAuth();
   const [selectedCurriculumId, setSelectedCurriculumId] = useState<string | null>(null);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const { data: curricula, isLoading: curriculaLoading } = useQuery({
     queryKey: ['frozen-curricula'],
@@ -23,267 +24,146 @@ export default function ShopPage() {
         .select('id, title')
         .eq('status', 'frozen')
         .order('title');
-      
       if (error) throw error;
       return data;
     },
   });
 
-  // Auto-select first curriculum
   if (curricula?.length && !selectedCurriculumId) {
     setSelectedCurriculumId(curricula[0].id);
   }
 
   return (
-    <div className="min-h-screen bg-background relative overflow-hidden">
-      {/* Background orbs */}
-      <div className="orb orb-primary w-96 h-96 -top-48 -left-48 fixed" />
-      <div className="orb orb-accent w-80 h-80 top-1/3 -right-40 fixed" />
-      <div className="orb orb-rose w-72 h-72 bottom-20 left-1/4 fixed" />
+    <>
+      <SEOHead
+        title="Prüfungstraining kaufen – 39 € einmalig | ExamFit"
+        description="Kaufe dein IHK-Prüfungstraining: Einmalzahlung, 12 Monate Zugang, kein Abo. Für über 50 Ausbildungsberufe."
+        canonical={`${SITE_URL}/shop`}
+      />
 
-      {/* Header */}
-      <header className="glass-subtle sticky top-0 z-50">
-        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Link to="/" className="flex items-center gap-3">
-              <div className="p-2 rounded-xl gradient-primary shadow-glow-sm">
-                <GraduationCap className="h-5 w-5 text-primary-foreground" />
-              </div>
-              <span className="font-display font-semibold text-lg text-foreground hidden sm:inline">
-                ExamFit
-              </span>
-            </Link>
+      <div className="container py-6 sm:py-8 md:py-12 px-3 sm:px-4">
+        {/* Header */}
+        <div className="text-center mb-12">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-subtle mb-6">
+            <Star className="h-4 w-4 text-warning fill-warning" />
+            <span className="text-sm text-muted-foreground">98% Bestehensquote</span>
           </div>
-
-          {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center gap-6">
-            <Link to="/berufe" className="text-muted-foreground hover:text-foreground transition-colors">
-              Berufe
-            </Link>
-            <Link to="/ihk-pruefungen" className="text-muted-foreground hover:text-foreground transition-colors">
-              IHK-Prüfungen
-            </Link>
-            <Link to="/shop" className="text-foreground font-medium">
-              Shop
-            </Link>
-            {user && (
-              <Link to="/dashboard" className="text-muted-foreground hover:text-foreground transition-colors">
-                Dashboard
-              </Link>
-            )}
-          </nav>
-
-          {/* Auth Buttons */}
-          <div className="hidden md:flex items-center gap-2">
-            {loading ? null : user ? (
-              <>
-                <Link to="/dashboard">
-                  <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
-                    <User className="h-4 w-4 mr-2" />
-                    {user.user_metadata?.full_name || user.email?.split('@')[0]}
-                  </Button>
-                </Link>
-                <Button variant="ghost" size="sm" onClick={() => signOut()} className="text-muted-foreground hover:text-foreground">
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Abmelden
-                </Button>
-              </>
-            ) : (
-              <Link to="/auth">
-                <Button className="gradient-primary text-primary-foreground shadow-glow-sm">
-                  Anmelden
-                </Button>
-              </Link>
-            )}
-          </div>
-
-          {/* Mobile Menu Button */}
-          <button
-            className="md:hidden p-2"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          >
-            {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-          </button>
+          <h1 className="text-2xl sm:text-3xl md:text-5xl font-display font-bold mb-3 md:mb-4">
+            Dein intelligentes <span className="text-gradient">Prüfungstraining</span>
+          </h1>
+          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+            Ein Produkt. Ein Ziel: Deine Prüfung bestehen. 
+            Einmalzahlung, 12 Monate Zugang, alles inklusive.
+          </p>
         </div>
 
-        {/* Mobile Menu */}
-        {mobileMenuOpen && (
-          <div className="md:hidden glass-strong border-t border-border">
-            <nav className="container mx-auto px-4 py-4 flex flex-col gap-4">
-              <Link to="/berufe" className="text-foreground py-2" onClick={() => setMobileMenuOpen(false)}>
-                Berufe
-              </Link>
-              <Link to="/ihk-pruefungen" className="text-foreground py-2" onClick={() => setMobileMenuOpen(false)}>
-                IHK-Prüfungen
-              </Link>
-              <Link to="/shop" className="text-foreground py-2 font-medium" onClick={() => setMobileMenuOpen(false)}>
-                Shop
-              </Link>
-              {user && (
-                <Link to="/dashboard" className="text-foreground py-2" onClick={() => setMobileMenuOpen(false)}>
-                  Dashboard
-                </Link>
-              )}
-              {user ? (
-                <Button variant="ghost" onClick={() => signOut()} className="justify-start px-0">
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Abmelden
-                </Button>
-              ) : (
-                <Link to="/auth" onClick={() => setMobileMenuOpen(false)}>
-                  <Button className="w-full gradient-primary text-primary-foreground">
-                    Anmelden
-                  </Button>
-                </Link>
-              )}
-            </nav>
+        <PageExplainer
+          title="Wie funktioniert der Shop?"
+          description="Wähle deinen Ausbildungsberuf und kaufe das Prüfungstraining als Einmalzahlung. Du erhältst sofort 12 Monate Zugang zu allen Modulen: Lernkurs, Prüfungstrainer, mündliche Prüfung, KI-Tutor und Handbuch."
+          actions={[
+            'Beruf auswählen → Passende Produktpakete werden angezeigt',
+            '"Jetzt kaufen" → Sichere Zahlung über Stripe, sofortiger Zugang',
+            'Ab 5 Lizenzen gibt es automatisch Mengenrabatt',
+          ]}
+          tips={[
+            'Einmalzahlung – kein Abo, keine versteckten Kosten',
+            'Alle Module sind im Bundle enthalten',
+            'Nach dem Kauf wirst du automatisch eingeloggt und kannst sofort lernen',
+          ]}
+        />
+
+        {/* Trust Badges */}
+        <div className="flex flex-wrap justify-center gap-3 sm:gap-6 mb-8 md:mb-12">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Shield className="w-4 h-4 text-primary" />
+            <span>Sichere Zahlung via Stripe</span>
+          </div>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Clock className="w-4 h-4 text-primary" />
+            <span>Sofortiger Zugang nach Kauf</span>
+          </div>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <CreditCard className="w-4 h-4 text-primary" />
+            <span>Einmalzahlung, kein Abo</span>
+          </div>
+        </div>
+
+        {/* Curriculum Selector */}
+        {curricula && curricula.length > 1 && (
+          <div className="max-w-md mx-auto mb-12">
+            <label className="block text-sm font-medium mb-2">
+              Wähle deinen Ausbildungsberuf
+            </label>
+            <Select
+              value={selectedCurriculumId || ''}
+              onValueChange={setSelectedCurriculumId}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Beruf auswählen..." />
+              </SelectTrigger>
+              <SelectContent>
+                {curricula.map(c => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         )}
-      </header>
 
-      {/* Main Content */}
-      <main className="relative z-10">
-        <div className="container py-6 sm:py-8 md:py-12 px-3 sm:px-4">
-          {/* Header */}
-          <div className="text-center mb-12">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-subtle mb-6">
-              <Star className="h-4 w-4 text-warning fill-warning" />
-              <span className="text-sm text-muted-foreground">98% Bestehensquote</span>
-            </div>
-            <h1 className="text-2xl sm:text-3xl md:text-5xl font-display font-bold mb-3 md:mb-4">
-              Dein intelligentes <span className="text-gradient">Prüfungstraining</span>
-            </h1>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Ein Produkt. Ein Ziel: Deine Prüfung bestehen. 
-              Einmalzahlung, 12 Monate Zugang, alles inklusive.
-            </p>
+        {/* Products */}
+        {selectedCurriculumId ? (
+          <ProductCards curriculumId={selectedCurriculumId} />
+        ) : curriculaLoading ? (
+          <div className="text-center py-12 text-muted-foreground">
+            Lade Produkte...
           </div>
-
-          <PageExplainer
-            title="Wie funktioniert der Shop?"
-            description="Wähle deinen Ausbildungsberuf und kaufe das Prüfungstraining als Einmalzahlung. Du erhältst sofort 12 Monate Zugang zu allen Modulen: Lernkurs, Prüfungstrainer, mündliche Prüfung, KI-Tutor und Handbuch."
-            actions={[
-              'Beruf auswählen → Passende Produktpakete werden angezeigt',
-              '"Jetzt kaufen" → Sichere Zahlung über Stripe, sofortiger Zugang',
-              'Ab 5 Lizenzen gibt es automatisch Mengenrabatt',
-            ]}
-            tips={[
-              'Einmalzahlung – kein Abo, keine versteckten Kosten',
-              'Alle Module sind im Bundle enthalten',
-              'Nach dem Kauf wirst du automatisch eingeloggt und kannst sofort lernen',
-            ]}
-          />
-
-          {/* Trust Badges */}
-          <div className="flex flex-wrap justify-center gap-3 sm:gap-6 mb-8 md:mb-12">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Shield className="w-4 h-4 text-primary" />
-              <span>Sichere Zahlung via Stripe</span>
-            </div>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Clock className="w-4 h-4 text-primary" />
-              <span>Sofortiger Zugang nach Kauf</span>
-            </div>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <CreditCard className="w-4 h-4 text-primary" />
-              <span>Einmalzahlung, kein Abo</span>
-            </div>
+        ) : (
+          <div className="text-center py-12 text-muted-foreground">
+            Keine Curricula verfügbar.
           </div>
+        )}
 
-          {/* Curriculum Selector */}
-          {curricula && curricula.length > 1 && (
-            <div className="max-w-md mx-auto mb-12">
-              <label className="block text-sm font-medium mb-2">
-                Wähle deinen Ausbildungsberuf
-              </label>
-              <Select
-                value={selectedCurriculumId || ''}
-                onValueChange={setSelectedCurriculumId}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Beruf auswählen..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {curricula.map(c => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.title}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+        {/* Guarantee */}
+        <div className="mt-10 sm:mt-16 glass-card rounded-2xl p-4 sm:p-8 max-w-3xl mx-auto text-center">
+          <CheckCircle className="h-12 w-12 text-success mx-auto mb-4" />
+          <h2 className="text-2xl font-display font-bold mb-4">
+            Deine Vorteile auf einen Blick
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 text-left">
+            <div>
+              <h3 className="font-semibold mb-2">Basierend auf Rahmenlehrplänen</h3>
+              <p className="text-sm text-muted-foreground">
+                Alle Inhalte orientieren sich an offiziellen Prüfungsordnungen.
+              </p>
             </div>
-          )}
-
-          {/* Products */}
-          {selectedCurriculumId ? (
-            <ProductCards curriculumId={selectedCurriculumId} />
-          ) : curriculaLoading ? (
-            <div className="text-center py-12 text-muted-foreground">
-              Lade Produkte...
+            <div>
+              <h3 className="font-semibold mb-2">Adaptive Lernalgorithmen</h3>
+              <p className="text-sm text-muted-foreground">
+                Das System erkennt deine Schwächen und trainiert gezielt.
+              </p>
             </div>
-          ) : (
-            <div className="text-center py-12 text-muted-foreground">
-              Keine Curricula verfügbar.
+            <div>
+              <h3 className="font-semibold mb-2">Mündliche Prüfung</h3>
+              <p className="text-sm text-muted-foreground">
+                Simuliere das Prüfungsgespräch mit KI-Feedback.
+              </p>
             </div>
-          )}
-
-          {/* Guarantee Section */}
-          <div className="mt-10 sm:mt-16 glass-card rounded-2xl p-4 sm:p-8 max-w-3xl mx-auto text-center">
-            <CheckCircle className="h-12 w-12 text-success mx-auto mb-4" />
-            <h2 className="text-2xl font-display font-bold mb-4">
-              Deine Vorteile auf einen Blick
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 text-left">
-              <div>
-                <h3 className="font-semibold mb-2">Basierend auf Rahmenlehrplänen</h3>
-                <p className="text-sm text-muted-foreground">
-                  Alle Inhalte orientieren sich an offiziellen Prüfungsordnungen.
-                </p>
-              </div>
-              <div>
-                <h3 className="font-semibold mb-2">Adaptive Lernalgorithmen</h3>
-                <p className="text-sm text-muted-foreground">
-                  Das System erkennt deine Schwächen und trainiert gezielt.
-                </p>
-              </div>
-              <div>
-                <h3 className="font-semibold mb-2">Mündliche Prüfung</h3>
-                <p className="text-sm text-muted-foreground">
-                  Simuliere das Prüfungsgespräch mit KI-Feedback.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* B2B Info */}
-          <div className="mt-16 text-center">
-            <Badge variant="outline" className="mb-4">Für Unternehmen & Schulen</Badge>
-            <h2 className="text-2xl font-bold mb-2">Mehrere Azubis ausbilden?</h2>
-            <p className="text-muted-foreground max-w-xl mx-auto">
-              Wähle einfach die gewünschte Menge im Checkout. 
-              Ab 5 Lizenzen erhältst du automatisch Mengenrabatt. 
-              Keine Anfrage nötig – einfach kaufen!
-            </p>
           </div>
         </div>
-      </main>
 
-      {/* Footer */}
-      <footer className="glass-subtle border-t border-border mt-20 relative z-10">
-        <div className="container mx-auto px-4 py-8">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-            <div className="flex items-center gap-2">
-              <GraduationCap className="h-5 w-5 text-primary" />
-              <span className="text-sm text-muted-foreground">© 2026 ExamFit.de</span>
-            </div>
-            <nav className="flex gap-6 text-sm text-muted-foreground">
-              <Link to="/impressum" className="hover:text-foreground transition-colors">Impressum</Link>
-              <Link to="/privacy" className="hover:text-foreground transition-colors">Datenschutz</Link>
-              <Link to="/terms" className="hover:text-foreground transition-colors">AGB</Link>
-            </nav>
-          </div>
+        {/* B2B Info */}
+        <div className="mt-16 text-center">
+          <Badge variant="outline" className="mb-4">Für Unternehmen & Schulen</Badge>
+          <h2 className="text-2xl font-bold mb-2">Mehrere Azubis ausbilden?</h2>
+          <p className="text-muted-foreground max-w-xl mx-auto">
+            Wähle einfach die gewünschte Menge im Checkout. 
+            Ab 5 Lizenzen erhältst du automatisch Mengenrabatt. 
+            Keine Anfrage nötig – einfach kaufen!
+          </p>
         </div>
-      </footer>
-    </div>
+      </div>
+    </>
   );
 }

@@ -47,6 +47,7 @@ const KarrierePage = lazy(() => import('@/pages/seo/KarrierePage'));
 const BetriebeLandingPage = lazy(() => import('@/pages/seo/BetriebeLandingPage'));
 const WirtschaftsfachwirtPage = lazy(() => import('@/pages/seo/WirtschaftsfachwirtPage'));
 import ProgrammaticSEODispatcher from '@/pages/seo/ProgrammaticSEODispatcher';
+const PruefungsreifeCheck = lazy(() => import('@/components/marketing/PruefungsreifeCheck'));
 
 // Legal Pages
 const AGBPage = lazy(() => import('@/pages/seo/AGBPage'));
@@ -106,9 +107,9 @@ const AppRoutes = () => {
         <Route path="/auth" element={<Auth />} />
         <Route path="/auth/reset-password" element={<ResetPassword />} />
         <Route path="/installieren" element={<InstallPage />} />
+        <Route path="/pruefungsreife-check" element={<PruefungsreifeCheck />} />
         
-        {/* Shop Routes */}
-        <Route path="/shop" element={<ShopPage />} />
+        {/* Purchase Success (standalone) */}
         <Route path="/purchase-success" element={<PurchaseSuccessPage />} />
 
         {/* ExamFit@work Public Routes */}
@@ -173,6 +174,7 @@ const AppRoutes = () => {
         {/* Main Layout Routes */}
         <Route element={<MainLayout />}>
           <Route path="/" element={<HomePage />} />
+          <Route path="/shop" element={<ShopPage />} />
           <Route path="/courses" element={<CoursesPage />} />
           <Route path="/course/:slug" element={<CourseDetailPage />} />
           
