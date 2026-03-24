@@ -1497,7 +1497,31 @@ Deno.serve(async (req) => {
           parsed?.no_pending_questions === true ||
           (typeof parsed?.error === "string" && parsed.error.includes("NO_QUESTIONS_TO_VALIDATE"));
 
-        const shouldHealNow = predecessorStep && packageId && (hasMissingCoverage || shouldForceReseed || newAttempts >= maxAttempts);
+        // ═══ DEADLOCK GUARD: Don't reseed if pending questions actually exist ═══
+        // The validator may report NO_PENDING_QUESTIONS due to lifecycle drift (questions
+        // in draft/tier1_passed instead of review/pending). Resetting the generator
+        // creates a circular dependency: validator needs step=done, healer destroys step=done.
+        // Check SSOT before deciding to reseed.
+        let hasActualPendingQuestions = false;
+        if (shouldForceReseed && packageId && validationStepKey === "validate_exam_pool") {
+          try {
+            const { data: pkgData } = await sb.from("course_packages")
+              .select("curriculum_id").eq("id", packageId).maybeSingle();
+            if (pkgData?.curriculum_id) {
+              const { count: pendingCount } = await sb.from("exam_questions")
+                .select("id", { count: "exact", head: true })
+                .eq("curriculum_id", pkgData.curriculum_id)
+                .in("status", ["review", "approved"])
+                .in("qc_status", ["pending", "approved"]);
+              if ((pendingCount ?? 0) >= 50) {
+                hasActualPendingQuestions = true;
+                console.log(`[job-runner] 🛡️ DEADLOCK_GUARD: ${pendingCount} review/approved questions exist — skipping reseed to prevent circular dependency`);
+              }
+            }
+          } catch (_e) { /* best-effort SSOT check */ }
+        }
+
+        const shouldHealNow = predecessorStep && packageId && !hasActualPendingQuestions && (hasMissingCoverage || shouldForceReseed || newAttempts >= maxAttempts);
 
         if (shouldHealNow) {
           // Trigger targeted re-seed via predecessor reset
