@@ -22,6 +22,7 @@
       ]
     },
     "skipLibCheck": true,
+    "strictNullChecks": false,
     "strict": false,
     "target": "ES2020",
     "types": [

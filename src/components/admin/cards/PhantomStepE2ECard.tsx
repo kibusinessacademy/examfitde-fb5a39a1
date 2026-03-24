@@ -118,7 +118,7 @@ export function PhantomStepE2ECard() {
 
           {expanded && layers && (
             <div className="space-y-1">
-              {Object.entries(layers).map(([layer, s]) => (
+              {Object.entries(layers).map(([layer, s]: [string, any]) => (
                 <div key={layer} className="flex items-center justify-between rounded-lg bg-muted/30 px-3 py-1.5 text-xs">
                   <span className="font-mono text-foreground/70">{layer}</span>
                   <div className="flex gap-2">
