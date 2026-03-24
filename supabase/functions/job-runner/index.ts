@@ -1497,31 +1497,108 @@ Deno.serve(async (req) => {
           parsed?.no_pending_questions === true ||
           (typeof parsed?.error === "string" && parsed.error.includes("NO_QUESTIONS_TO_VALIDATE"));
 
-        // ═══ DEADLOCK GUARD: Don't reseed if pending questions actually exist ═══
+        // ═══ DEADLOCK GUARD v2: Precise SSOT-based reseed decision ═══
         // The validator may report NO_PENDING_QUESTIONS due to lifecycle drift (questions
         // in draft/tier1_passed instead of review/pending). Resetting the generator
         // creates a circular dependency: validator needs step=done, healer destroys step=done.
-        // Check SSOT before deciding to reseed.
+        // Check SSOT before deciding to reseed — classify the actual state precisely.
         let hasActualPendingQuestions = false;
-        if (shouldForceReseed && packageId && validationStepKey === "validate_exam_pool") {
+        let reseedDiagnosis: "true_zero" | "lifecycle_drift" | "compatible_unapproved" | "unknown" = "unknown";
+        if ((shouldForceReseed || hasMissingCoverage) && packageId && validationStepKey === "validate_exam_pool") {
           try {
             const { data: pkgData } = await sb.from("course_packages")
               .select("curriculum_id").eq("id", packageId).maybeSingle();
             if (pkgData?.curriculum_id) {
-              const { count: pendingCount } = await sb.from("exam_questions")
+              const currId = pkgData.curriculum_id;
+
+              // Count validator-compatible questions (review + pending/approved)
+              const { count: compatibleCount } = await sb.from("exam_questions")
                 .select("id", { count: "exact", head: true })
-                .eq("curriculum_id", pkgData.curriculum_id)
+                .eq("curriculum_id", currId)
                 .in("status", ["review", "approved"])
                 .in("qc_status", ["pending", "approved"]);
-              if ((pendingCount ?? 0) >= 50) {
+
+              // Count lifecycle-drifted questions (draft + tier1_passed — need promotion)
+              const { count: driftedCount } = await sb.from("exam_questions")
+                .select("id", { count: "exact", head: true })
+                .eq("curriculum_id", currId)
+                .eq("status", "draft")
+                .eq("qc_status", "tier1_passed");
+
+              // Count total non-rejected questions
+              const { count: totalCount } = await sb.from("exam_questions")
+                .select("id", { count: "exact", head: true })
+                .eq("curriculum_id", currId)
+                .not("status", "eq", "rejected");
+
+              const compat = compatibleCount ?? 0;
+              const drifted = driftedCount ?? 0;
+              const total = totalCount ?? 0;
+
+              // Classify the situation precisely
+              if (total === 0) {
+                reseedDiagnosis = "true_zero";
+                // Genuine empty pool — reseed is correct
+              } else if (compat >= 50) {
+                reseedDiagnosis = "compatible_unapproved";
                 hasActualPendingQuestions = true;
-                console.log(`[job-runner] 🛡️ DEADLOCK_GUARD: ${pendingCount} review/approved questions exist — skipping reseed to prevent circular dependency`);
+                // Questions exist AND are validator-compatible — reseed would be destructive
+              } else if (drifted >= 50) {
+                reseedDiagnosis = "lifecycle_drift";
+                hasActualPendingQuestions = true;
+                // Questions exist but stuck in wrong lifecycle — need promotion, NOT reseed
+              } else if (total >= 50 && compat < 50 && drifted < 50) {
+                reseedDiagnosis = "lifecycle_drift";
+                hasActualPendingQuestions = true;
+                // Questions exist in mixed states — still not a true zero
               }
+
+              // Check recency: don't reseed if generator ran recently with artifacts
+              let generatorIsRecent = false;
+              if (!hasActualPendingQuestions && total > 0) {
+                const { data: genStep } = await sb.from("package_steps")
+                  .select("finished_at")
+                  .eq("package_id", packageId)
+                  .eq("step_key", "generate_exam_pool")
+                  .maybeSingle();
+                if (genStep?.finished_at) {
+                  const ageHours = (Date.now() - new Date(genStep.finished_at).getTime()) / (1000 * 60 * 60);
+                  if (ageHours < 6 && total >= 20) {
+                    generatorIsRecent = true;
+                    hasActualPendingQuestions = true;
+                    reseedDiagnosis = "lifecycle_drift";
+                  }
+                }
+              }
+
+              console.log(`[job-runner] 🛡️ DEADLOCK_GUARD_v2: diagnosis=${reseedDiagnosis} compatible=${compat} drifted=${drifted} total=${total} recentGen=${generatorIsRecent ?? false} → ${hasActualPendingQuestions ? "BLOCK reseed" : "ALLOW reseed"}`);
             }
           } catch (_e) { /* best-effort SSOT check */ }
         }
 
         const shouldHealNow = predecessorStep && packageId && !hasActualPendingQuestions && (hasMissingCoverage || shouldForceReseed || newAttempts >= maxAttempts);
+
+        // Log when deadlock guard blocks a reseed — precise diagnostics
+        if (hasActualPendingQuestions && (shouldForceReseed || hasMissingCoverage)) {
+          try {
+            await sb.from("auto_heal_log").insert({
+              action_type: "deadlock_guard_blocked_reseed",
+              trigger_source: "job-runner",
+              target_type: "package_step",
+              target_id: packageId,
+              result_status: "blocked",
+              result_detail: `DEADLOCK_GUARD_v2: blocked reseed of ${predecessorStep} — diagnosis: ${reseedDiagnosis}`,
+              metadata: {
+                step: job.job_type,
+                step_key: validationStepKey,
+                predecessor: predecessorStep,
+                diagnosis: reseedDiagnosis,
+                trigger: hasMissingCoverage ? "MISSING_LF_COVERAGE" : "RESEED_REQUIRED",
+                no_pending_questions: parsed?.no_pending_questions === true,
+              },
+            });
+          } catch (_e) { /* best-effort */ }
+        }
 
         if (shouldHealNow) {
           // Trigger targeted re-seed via predecessor reset
@@ -1681,8 +1758,8 @@ Deno.serve(async (req) => {
                 target_type: "package_step",
                 target_id: packageId,
                 result_status: "ok",
-                result_detail: `${job.job_type} QG fail → reset ${predecessorStep} (cycle ${healCycles + 1})`,
-                metadata: { step: job.job_type, step_key: validationStepKey, predecessor: predecessorStep, heal_cycles: healCycles + 1, missing_lf_ids: missingLfIds, trigger: hasMissingCoverage ? "MISSING_LF_COVERAGE" : shouldForceReseed ? "RESEED_REQUIRED" : "max_attempts", issues: parsed.issues?.slice(0, 5), no_pending_questions: parsed?.no_pending_questions === true },
+                result_detail: `${job.job_type} QG fail → reset ${predecessorStep} (cycle ${healCycles + 1}) [diagnosis: ${reseedDiagnosis}]`,
+                metadata: { step: job.job_type, step_key: validationStepKey, predecessor: predecessorStep, heal_cycles: healCycles + 1, missing_lf_ids: missingLfIds, trigger: hasMissingCoverage ? "MISSING_LF_COVERAGE" : shouldForceReseed ? "RESEED_REQUIRED" : "max_attempts", issues: parsed.issues?.slice(0, 5), no_pending_questions: parsed?.no_pending_questions === true, diagnosis: reseedDiagnosis },
               });
             } catch (_e) { /* best-effort */ }
 
