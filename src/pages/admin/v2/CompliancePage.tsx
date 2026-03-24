@@ -87,7 +87,7 @@ function useAiReviews() {
         .select('*')
         .order('risk_category');
       if (error) throw error;
-      return (data || []) as AiReview[];
+      return (data || []) as unknown as AiReview[];
     },
     staleTime: 60_000,
   });
