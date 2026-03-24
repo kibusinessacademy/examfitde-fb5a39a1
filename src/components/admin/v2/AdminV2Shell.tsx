@@ -3,7 +3,7 @@ import { NavLink, useLocation, Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { 
   LayoutDashboard, Package, ListChecks, Menu, X, 
-  Search, LogOut, Sparkles, Megaphone 
+  Search, LogOut, Sparkles, Megaphone, Shield
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Badge } from '@/components/ui/badge';
@@ -13,6 +13,7 @@ const NAV_ITEMS = [
   { to: '/admin/studio', label: 'Kurse', icon: Package },
   { to: '/admin/queue', label: 'Queue', icon: ListChecks },
   { to: '/admin/marketing', label: 'Marketing', icon: Megaphone },
+  { to: '/admin/compliance', label: 'Compliance', icon: Shield },
 ] as const;
 
 interface Props {
