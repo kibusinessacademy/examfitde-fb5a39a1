@@ -672,20 +672,32 @@ async function getExamPoolAudit(sb: SB) {
 
   const packageIds = stepsRows.map((r: any) => r.package_id as string);
 
-  // 2. Count exam questions per package
+  // 2. Resolve package_id → curriculum_id (exam_questions has NO package_id column)
+  const pkgRows = await safeFrom(sb, "course_packages", "id, curriculum_id", (q: any) => q.in("id", packageIds));
+  const pkgToCurr: Record<string, string> = {};
+  for (const r of pkgRows) {
+    if (r.curriculum_id) pkgToCurr[r.id as string] = r.curriculum_id as string;
+  }
+
+  // 3. Count exam questions per curriculum (mapped back to package)
   const questionCounts: Record<string, { total: number; draft: number; review: number; approved: number; tier1_passed: number }> = {};
   for (const pid of packageIds) {
+    const cid = pkgToCurr[pid];
+    if (!cid) {
+      questionCounts[pid] = { total: 0, draft: 0, review: 0, approved: 0, tier1_passed: 0 };
+      continue;
+    }
     const [totalRes, draftRes, reviewRes, approvedRes, tier1Res] = await Promise.all([
       sb.from("exam_questions").select("id", { count: "exact", head: true })
-        .eq("package_id", pid).not("status", "eq", "rejected"),
+        .eq("curriculum_id", cid).not("status", "eq", "rejected"),
       sb.from("exam_questions").select("id", { count: "exact", head: true })
-        .eq("package_id", pid).eq("status", "draft"),
+        .eq("curriculum_id", cid).eq("status", "draft"),
       sb.from("exam_questions").select("id", { count: "exact", head: true })
-        .eq("package_id", pid).eq("status", "review"),
+        .eq("curriculum_id", cid).eq("status", "review"),
       sb.from("exam_questions").select("id", { count: "exact", head: true })
-        .eq("package_id", pid).eq("status", "approved"),
+        .eq("curriculum_id", cid).eq("status", "approved"),
       sb.from("exam_questions").select("id", { count: "exact", head: true })
-        .eq("package_id", pid).eq("status", "draft").eq("qc_status", "tier1_passed"),
+        .eq("curriculum_id", cid).eq("status", "draft").eq("qc_status", "tier1_passed"),
     ]);
     questionCounts[pid] = {
       total: totalRes.count ?? 0,

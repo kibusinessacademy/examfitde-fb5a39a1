@@ -115,7 +115,7 @@ export default function ExamPoolAuditCard() {
           <div className="space-y-1.5">
             {guardEvents.slice(0, 5).map(evt => {
               const meta = evt.metadata as Record<string, unknown> | null;
-              const diagnosis = (meta?.reseed_diagnosis as string) ?? '–';
+              const diagnosis = (meta?.diagnosis as string) ?? '–';
               const compatible = (meta?.compatible_count as number) ?? 0;
               const drifted = (meta?.drifted_count as number) ?? 0;
               return (
