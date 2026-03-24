@@ -1578,6 +1578,28 @@ Deno.serve(async (req) => {
 
         const shouldHealNow = predecessorStep && packageId && !hasActualPendingQuestions && (hasMissingCoverage || shouldForceReseed || newAttempts >= maxAttempts);
 
+        // Log when deadlock guard blocks a reseed — precise diagnostics
+        if (hasActualPendingQuestions && (shouldForceReseed || hasMissingCoverage)) {
+          try {
+            await sb.from("auto_heal_log").insert({
+              action_type: "deadlock_guard_blocked_reseed",
+              trigger_source: "job-runner",
+              target_type: "package_step",
+              target_id: packageId,
+              result_status: "blocked",
+              result_detail: `DEADLOCK_GUARD_v2: blocked reseed of ${predecessorStep} — diagnosis: ${reseedDiagnosis}`,
+              metadata: {
+                step: job.job_type,
+                step_key: validationStepKey,
+                predecessor: predecessorStep,
+                diagnosis: reseedDiagnosis,
+                trigger: hasMissingCoverage ? "MISSING_LF_COVERAGE" : "RESEED_REQUIRED",
+                no_pending_questions: parsed?.no_pending_questions === true,
+              },
+            });
+          } catch (_e) { /* best-effort */ }
+        }
+
         if (shouldHealNow) {
           // Trigger targeted re-seed via predecessor reset
           const MAX_HEAL_CYCLES = 7;
