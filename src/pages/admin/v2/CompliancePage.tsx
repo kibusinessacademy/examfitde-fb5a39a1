@@ -72,7 +72,7 @@ function useDsgvoRecords() {
         .select('*')
         .order('process_name');
       if (error) throw error;
-      return (data || []) as DsgvoRecord[];
+      return (data || []) as unknown as DsgvoRecord[];
     },
     staleTime: 60_000,
   });
