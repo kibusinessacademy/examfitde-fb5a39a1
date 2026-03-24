@@ -57,7 +57,7 @@ function useFrameworks() {
         .eq('is_active', true)
         .order('category');
       if (error) throw error;
-      return (data || []) as Framework[];
+      return (data || []) as unknown as Framework[];
     },
     staleTime: 60_000,
   });
