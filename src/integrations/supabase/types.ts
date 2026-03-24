@@ -784,6 +784,75 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_governance_reviews: {
+        Row: {
+          accuracy_metrics: Json | null
+          bias_assessment: Json | null
+          created_at: string
+          data_inputs: string[] | null
+          eu_ai_act_class: string | null
+          findings: Json | null
+          human_oversight_level: string | null
+          id: string
+          models_used: string[] | null
+          next_review_date: string | null
+          output_type: string | null
+          purpose: string
+          remediation_plan: Json | null
+          review_status: string
+          reviewed_at: string | null
+          reviewer: string | null
+          risk_category: string
+          system_name: string
+          transparency_measures: Json | null
+          updated_at: string
+        }
+        Insert: {
+          accuracy_metrics?: Json | null
+          bias_assessment?: Json | null
+          created_at?: string
+          data_inputs?: string[] | null
+          eu_ai_act_class?: string | null
+          findings?: Json | null
+          human_oversight_level?: string | null
+          id?: string
+          models_used?: string[] | null
+          next_review_date?: string | null
+          output_type?: string | null
+          purpose: string
+          remediation_plan?: Json | null
+          review_status?: string
+          reviewed_at?: string | null
+          reviewer?: string | null
+          risk_category?: string
+          system_name: string
+          transparency_measures?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          accuracy_metrics?: Json | null
+          bias_assessment?: Json | null
+          created_at?: string
+          data_inputs?: string[] | null
+          eu_ai_act_class?: string | null
+          findings?: Json | null
+          human_oversight_level?: string | null
+          id?: string
+          models_used?: string[] | null
+          next_review_date?: string | null
+          output_type?: string | null
+          purpose?: string
+          remediation_plan?: Json | null
+          review_status?: string
+          reviewed_at?: string | null
+          reviewer?: string | null
+          risk_category?: string
+          system_name?: string
+          transparency_measures?: Json | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       ai_quality_gates: {
         Row: {
           actual_score: number | null
@@ -5205,6 +5274,80 @@ export type Database = {
         }
         Relationships: []
       }
+      compliance_audits: {
+        Row: {
+          audit_type: string
+          auditor_name: string | null
+          auditor_organization: string | null
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          critical_findings: number | null
+          description: string | null
+          evidence_links: Json | null
+          findings_count: number | null
+          framework_id: string | null
+          id: string
+          next_audit_date: string | null
+          planned_date: string | null
+          result_summary: Json | null
+          started_at: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          audit_type?: string
+          auditor_name?: string | null
+          auditor_organization?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          critical_findings?: number | null
+          description?: string | null
+          evidence_links?: Json | null
+          findings_count?: number | null
+          framework_id?: string | null
+          id?: string
+          next_audit_date?: string | null
+          planned_date?: string | null
+          result_summary?: Json | null
+          started_at?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          audit_type?: string
+          auditor_name?: string | null
+          auditor_organization?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          critical_findings?: number | null
+          description?: string | null
+          evidence_links?: Json | null
+          findings_count?: number | null
+          framework_id?: string | null
+          id?: string
+          next_audit_date?: string | null
+          planned_date?: string | null
+          result_summary?: Json | null
+          started_at?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compliance_audits_framework_id_fkey"
+            columns: ["framework_id"]
+            isOneToOne: false
+            referencedRelation: "compliance_frameworks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       compliance_findings: {
         Row: {
           area: string
@@ -5253,6 +5396,51 @@ export type Database = {
         }
         Relationships: []
       }
+      compliance_frameworks: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          framework_key: string
+          id: string
+          is_active: boolean
+          name: string
+          requirements_json: Json
+          updated_at: string
+          valid_from: string | null
+          valid_until: string | null
+          version: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          framework_key: string
+          id?: string
+          is_active?: boolean
+          name: string
+          requirements_json?: Json
+          updated_at?: string
+          valid_from?: string | null
+          valid_until?: string | null
+          version?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          framework_key?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          requirements_json?: Json
+          updated_at?: string
+          valid_from?: string | null
+          valid_until?: string | null
+          version?: string
+        }
+        Relationships: []
+      }
       compliance_gate_rules: {
         Row: {
           area: string
@@ -5277,6 +5465,48 @@ export type Database = {
           id?: string
           min_severity?: Database["public"]["Enums"]["compliance_severity"]
           updated_at?: string
+        }
+        Relationships: []
+      }
+      compliance_kpi_snapshots: {
+        Row: {
+          created_at: string
+          framework_key: string
+          id: string
+          kpi_key: string
+          kpi_label: string
+          metadata: Json | null
+          snapshot_date: string
+          status: string | null
+          target: number | null
+          unit: string | null
+          value: number
+        }
+        Insert: {
+          created_at?: string
+          framework_key: string
+          id?: string
+          kpi_key: string
+          kpi_label: string
+          metadata?: Json | null
+          snapshot_date?: string
+          status?: string | null
+          target?: number | null
+          unit?: string | null
+          value: number
+        }
+        Update: {
+          created_at?: string
+          framework_key?: string
+          id?: string
+          kpi_key?: string
+          kpi_label?: string
+          metadata?: Json | null
+          snapshot_date?: string
+          status?: string | null
+          target?: number | null
+          unit?: string | null
+          value?: number
         }
         Relationships: []
       }
@@ -13416,6 +13646,75 @@ export type Database = {
           sample_size?: number | null
           snapshot_at?: string
           style_rejection_rate?: number | null
+        }
+        Relationships: []
+      }
+      dsgvo_processing_records: {
+        Row: {
+          created_at: string
+          data_categories: string[]
+          data_subjects: string[]
+          dpia_completed_at: string | null
+          dpia_required: boolean | null
+          id: string
+          last_reviewed_at: string | null
+          legal_basis: string
+          organizational_measures: Json | null
+          process_name: string
+          process_purpose: string
+          recipients: string[] | null
+          responsible_person: string | null
+          retention_period: string | null
+          risk_level: string | null
+          status: string
+          technical_measures: Json | null
+          third_country_transfer: boolean | null
+          transfer_safeguards: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          data_categories?: string[]
+          data_subjects?: string[]
+          dpia_completed_at?: string | null
+          dpia_required?: boolean | null
+          id?: string
+          last_reviewed_at?: string | null
+          legal_basis: string
+          organizational_measures?: Json | null
+          process_name: string
+          process_purpose: string
+          recipients?: string[] | null
+          responsible_person?: string | null
+          retention_period?: string | null
+          risk_level?: string | null
+          status?: string
+          technical_measures?: Json | null
+          third_country_transfer?: boolean | null
+          transfer_safeguards?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          data_categories?: string[]
+          data_subjects?: string[]
+          dpia_completed_at?: string | null
+          dpia_required?: boolean | null
+          id?: string
+          last_reviewed_at?: string | null
+          legal_basis?: string
+          organizational_measures?: Json | null
+          process_name?: string
+          process_purpose?: string
+          recipients?: string[] | null
+          responsible_person?: string | null
+          retention_period?: string | null
+          risk_level?: string | null
+          status?: string
+          technical_measures?: Json | null
+          third_country_transfer?: boolean | null
+          transfer_safeguards?: string | null
+          updated_at?: string
         }
         Relationships: []
       }
@@ -42804,6 +43103,42 @@ export type Database = {
           total_attempts: number | null
           trusted_attempts: number | null
           unique_learners: number | null
+        }
+        Relationships: []
+      }
+      v_compliance_dashboard: {
+        Row: {
+          category: string | null
+          completed_audits: number | null
+          framework_key: string | null
+          framework_name: string | null
+          is_active: boolean | null
+          last_audit_date: string | null
+          next_audit_date: string | null
+          open_findings: number | null
+          total_audits: number | null
+        }
+        Insert: {
+          category?: string | null
+          completed_audits?: never
+          framework_key?: string | null
+          framework_name?: string | null
+          is_active?: boolean | null
+          last_audit_date?: never
+          next_audit_date?: never
+          open_findings?: never
+          total_audits?: never
+        }
+        Update: {
+          category?: string | null
+          completed_audits?: never
+          framework_key?: string | null
+          framework_name?: string | null
+          is_active?: boolean | null
+          last_audit_date?: never
+          next_audit_date?: never
+          open_findings?: never
+          total_audits?: never
         }
         Relationships: []
       }

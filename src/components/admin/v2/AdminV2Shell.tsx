@@ -3,7 +3,7 @@ import { NavLink, useLocation, Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { 
   LayoutDashboard, Package, ListChecks, Menu, X, 
-  Search, LogOut, Sparkles, Megaphone 
+  Search, LogOut, Sparkles, Megaphone, Shield
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Badge } from '@/components/ui/badge';
@@ -13,6 +13,7 @@ const NAV_ITEMS = [
   { to: '/admin/studio', label: 'Kurse', icon: Package },
   { to: '/admin/queue', label: 'Queue', icon: ListChecks },
   { to: '/admin/marketing', label: 'Marketing', icon: Megaphone },
+  { to: '/admin/compliance', label: 'Compliance', icon: Shield },
 ] as const;
 
 interface Props {
@@ -124,7 +125,7 @@ export default function AdminV2Shell({ children }: Props) {
 
       {/* ── Mobile Bottom Tab Bar ── */}
       <div className="fixed bottom-0 inset-x-0 z-40 border-t border-border bg-card/95 backdrop-blur px-2 py-1.5 lg:hidden safe-area-bottom">
-        <div className="grid grid-cols-4 gap-1">
+        <div className="grid grid-cols-5 gap-1">
           {NAV_ITEMS.map((item) => (
             <NavLink
               key={item.to}
