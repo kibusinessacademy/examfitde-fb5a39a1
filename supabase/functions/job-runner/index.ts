@@ -1758,8 +1758,8 @@ Deno.serve(async (req) => {
                 target_type: "package_step",
                 target_id: packageId,
                 result_status: "ok",
-                result_detail: `${job.job_type} QG fail → reset ${predecessorStep} (cycle ${healCycles + 1})`,
-                metadata: { step: job.job_type, step_key: validationStepKey, predecessor: predecessorStep, heal_cycles: healCycles + 1, missing_lf_ids: missingLfIds, trigger: hasMissingCoverage ? "MISSING_LF_COVERAGE" : shouldForceReseed ? "RESEED_REQUIRED" : "max_attempts", issues: parsed.issues?.slice(0, 5), no_pending_questions: parsed?.no_pending_questions === true },
+                result_detail: `${job.job_type} QG fail → reset ${predecessorStep} (cycle ${healCycles + 1}) [diagnosis: ${reseedDiagnosis}]`,
+                metadata: { step: job.job_type, step_key: validationStepKey, predecessor: predecessorStep, heal_cycles: healCycles + 1, missing_lf_ids: missingLfIds, trigger: hasMissingCoverage ? "MISSING_LF_COVERAGE" : shouldForceReseed ? "RESEED_REQUIRED" : "max_attempts", issues: parsed.issues?.slice(0, 5), no_pending_questions: parsed?.no_pending_questions === true, diagnosis: reseedDiagnosis },
               });
             } catch (_e) { /* best-effort */ }
 
