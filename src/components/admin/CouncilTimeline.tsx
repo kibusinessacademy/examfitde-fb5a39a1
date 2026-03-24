@@ -69,7 +69,7 @@ export default function CouncilTimeline({ packageId, councils, onRefresh }: Prop
   const handleTriggerCouncilRun = async (councilType: string) => {
     setTriggeringCouncil(councilType);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await (supabase.auth as any).getSession();
       const { error } = await supabase.functions.invoke('council-api', {
         body: { action: 'run', packageId, councilType },
         headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {},
