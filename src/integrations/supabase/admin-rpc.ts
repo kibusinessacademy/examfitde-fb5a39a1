@@ -38,6 +38,32 @@ export const adminRpc = {
   executiveKpis: () =>
     callEdge<Record<string, unknown>>("admin-control-tower", { action: "executive_kpis" }),
 
+  examPoolAudit: () =>
+    callEdge<{
+      packages: Array<{
+        package_id: string;
+        package_title: string | null;
+        step_status: string;
+        last_error: string | null;
+        step_updated_at: string;
+        diagnosis: string;
+        total: number;
+        draft: number;
+        review: number;
+        approved: number;
+        tier1_passed: number;
+      }>;
+      guard_events: Array<{
+        id: string;
+        action_type: string;
+        target_id: string | null;
+        result_status: string;
+        result_detail: string | null;
+        metadata: Record<string, unknown> | null;
+        created_at: string;
+      }>;
+    }>("admin-control-tower", { action: "exam_pool_audit" }),
+
   triggerExamRebalance: (packageId: string) =>
     callEdge<{ ok: boolean; actions: Array<{ type: string; detail: string; affected_count: number }> }>(
       "package-exam-rebalance",

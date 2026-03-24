@@ -102,6 +102,8 @@ Deno.serve(async (req) => {
         return json(await getTelemetryIntegrity(sb));
       case "recovery_action":
         return json(await runRecoveryAction(sb, recovery_type ?? null, package_id ?? null));
+      case "exam_pool_audit":
+        return json(await getExamPoolAudit(sb));
       default:
         return json({ error: `Unknown action: ${action}` }, 400);
     }
@@ -648,4 +650,91 @@ async function runRecoveryAction(sb: SB, recoveryType: string | null, packageId:
   const { data, error } = await sb.rpc(rpcName, { p_package_id: packageId });
   if (error) return { error: error.message };
   return { ok: true, result: data };
+}
+
+/**
+ * Exam Pool Lifecycle Audit
+ * Shows packages where generate_exam_pool = queued but questions already exist,
+ * plus recent deadlock guard blocks from auto_heal_log.
+ */
+async function getExamPoolAudit(sb: SB) {
+  // 1. Find packages where generate_exam_pool is NOT done but questions exist
+  const stepsRows = await safeFrom(
+    sb,
+    "package_steps",
+    "package_id, status, last_error, updated_at",
+    (q: any) => q.eq("step_key", "generate_exam_pool").in("status", ["queued", "pending", "failed"])
+  );
+
+  if (stepsRows.length === 0) {
+    return { packages: [], guard_events: [] };
+  }
+
+  const packageIds = stepsRows.map((r: any) => r.package_id as string);
+
+  // 2. Count exam questions per package
+  const questionCounts: Record<string, { total: number; draft: number; review: number; approved: number; tier1_passed: number }> = {};
+  for (const pid of packageIds) {
+    const [totalRes, draftRes, reviewRes, approvedRes, tier1Res] = await Promise.all([
+      sb.from("exam_questions").select("id", { count: "exact", head: true })
+        .eq("package_id", pid).not("status", "eq", "rejected"),
+      sb.from("exam_questions").select("id", { count: "exact", head: true })
+        .eq("package_id", pid).eq("status", "draft"),
+      sb.from("exam_questions").select("id", { count: "exact", head: true })
+        .eq("package_id", pid).eq("status", "review"),
+      sb.from("exam_questions").select("id", { count: "exact", head: true })
+        .eq("package_id", pid).eq("status", "approved"),
+      sb.from("exam_questions").select("id", { count: "exact", head: true })
+        .eq("package_id", pid).eq("status", "draft").eq("qc_status", "tier1_passed"),
+    ]);
+    questionCounts[pid] = {
+      total: totalRes.count ?? 0,
+      draft: draftRes.count ?? 0,
+      review: reviewRes.count ?? 0,
+      approved: approvedRes.count ?? 0,
+      tier1_passed: tier1Res.count ?? 0,
+    };
+  }
+
+  // Filter: only packages that actually have questions
+  const driftPackages = stepsRows
+    .filter((r: any) => (questionCounts[r.package_id as string]?.total ?? 0) > 0)
+    .map((r: any) => {
+      const pid = r.package_id as string;
+      const counts = questionCounts[pid];
+      let diagnosis = "unknown";
+      if (counts.review > 0 || counts.approved > 0) diagnosis = "compatible_unapproved";
+      else if (counts.tier1_passed > 0) diagnosis = "lifecycle_drift";
+      else if (counts.draft > 0) diagnosis = "draft_only";
+      return {
+        package_id: pid,
+        step_status: r.status,
+        last_error: r.last_error,
+        step_updated_at: r.updated_at,
+        diagnosis,
+        ...counts,
+      };
+    })
+    .sort((a: any, b: any) => b.total - a.total);
+
+  // 3. Fetch package titles
+  const titleRows = driftPackages.length > 0
+    ? await safeFrom(sb, "course_packages", "id, title", (q: any) => q.in("id", driftPackages.map((d: any) => d.package_id)))
+    : [];
+  const titleMap = Object.fromEntries(titleRows.map((r: any) => [r.id, r.title]));
+  for (const d of driftPackages) {
+    (d as any).package_title = titleMap[d.package_id] ?? null;
+  }
+
+  // 4. Recent deadlock guard events
+  const guardEvents = await safeFrom(
+    sb,
+    "auto_heal_log",
+    "id, action_type, target_id, target_type, result_status, result_detail, metadata, created_at",
+    (q: any) => q.eq("action_type", "deadlock_guard_blocked_reseed")
+      .order("created_at", { ascending: false })
+      .limit(20),
+  );
+
+  return { packages: driftPackages, guard_events: guardEvents };
 }
