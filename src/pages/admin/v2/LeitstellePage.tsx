@@ -203,6 +203,11 @@ export default function LeitstellePage() {
         </div>
       )}
 
+      {/* Exam Pool Lifecycle Audit */}
+      <Suspense fallback={<Skeleton className="h-32" />}>
+        <ExamPoolAuditCard />
+      </Suspense>
+
       {/* Critical Packages */}
       {criticalPackages.length > 0 && (
         <div>
