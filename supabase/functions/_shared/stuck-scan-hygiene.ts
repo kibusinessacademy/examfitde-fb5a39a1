@@ -2,6 +2,8 @@
  * stuck-scan: Hygiene — lease cleanup, pool mismatch sweep, transient revive.
  */
 import { safeRpc, type SupabaseClient } from "./stuck-scan-helpers.ts";
+import { enqueueJob } from "./enqueue.ts";
+import { STEP_TO_JOB_TYPE, getArtifactPriorityBump } from "./job-map.ts";
 
 export async function runHygiene(sb: SupabaseClient) {
   let hygieneResult: Record<string, unknown> = {};
@@ -331,37 +333,49 @@ export async function healIntegrityReportMissing(sb: SupabaseClient) {
  */
 const TRUE_STALL_HEALABLE_STEPS = new Set([
   "validate_learning_content",
+  "auto_seed_exam_blueprints",
+  "validate_blueprints",
   "validate_exam_pool",
-  "run_integrity_check",
-  "auto_publish",
-  "quality_council",
-  "generate_handbook",
+  "build_ai_tutor_index",
   "generate_oral_exam",
+  "validate_oral_exam",
+  "generate_lesson_minichecks",
+  "validate_lesson_minichecks",
+  "generate_handbook",
+  "validate_handbook",
+  "enqueue_handbook_expand",
+  "expand_handbook",
+  "validate_handbook_depth",
   "elite_harden",
+  "run_integrity_check",
+  "quality_council",
+  "auto_publish",
 ]);
 
 export async function healTrueStallSteps(sb: SupabaseClient) {
   const healed: Array<{ package_id: string; step_key: string }> = [];
 
   try {
-    const staleCutoff = new Date(Date.now() - 15 * 60_000).toISOString();
-
     const { data: candidates, error: candErr } = await sb
-      .from("package_steps")
-      .select("package_id, step_key, updated_at, meta, last_error")
-      .eq("status", "queued")
-      .lt("updated_at", staleCutoff)
+      .from("ops_pipeline_step_drift")
+      .select("package_id, step_key, drift_signal, age_minutes, job_type, pkg_status, has_active_job")
+      .eq("pkg_status", "building")
+      .in("drift_signal", ["PENDING_DISPATCH", "TRUE_STALL"])
+      .eq("has_active_job", false)
+      .order("age_minutes", { ascending: false })
       .limit(50);
 
     if (candErr) throw candErr;
 
     for (const step of candidates || []) {
-      // Only heal known-safe steps
       if (!TRUE_STALL_HEALABLE_STEPS.has(step.step_key)) continue;
-      // Verify package is building
+
+      const minAgeMinutes = step.drift_signal === "PENDING_DISPATCH" ? 2 : 15;
+      if ((step.age_minutes ?? 0) < minAgeMinutes) continue;
+
       const { data: pkg, error: pkgErr } = await sb
         .from("course_packages")
-        .select("id, title, status")
+        .select("id, title, status, course_id, curriculum_id, certification_id, feature_flags")
         .eq("id", step.package_id)
         .eq("status", "building")
         .maybeSingle();
@@ -372,36 +386,83 @@ export async function healTrueStallSteps(sb: SupabaseClient) {
       }
       if (!pkg) continue;
 
-      // Use the DB helper for precise true-stall detection
-      const { data: isStall, error: stallErr } = await sb.rpc("fn_is_true_stall", {
-        p_package_id: step.package_id,
-        p_step_key: step.step_key,
-        p_stale_minutes: 15,
-      });
+      const { data: stepRow, error: stepErr } = await sb
+        .from("package_steps")
+        .select("meta, status")
+        .eq("package_id", step.package_id)
+        .eq("step_key", step.step_key)
+        .maybeSingle();
 
-      if (stallErr) {
-        console.warn(`[stuck-scan] fn_is_true_stall failed for ${String(step.package_id).slice(0, 8)} / ${step.step_key}: ${stallErr.message}`);
-        continue;
+      if (stepErr || !stepRow || stepRow.status !== "queued") continue;
+
+      if (step.drift_signal === "TRUE_STALL") {
+        const { data: isStall, error: stallErr } = await sb.rpc("fn_is_true_stall", {
+          p_package_id: step.package_id,
+          p_step_key: step.step_key,
+          p_stale_minutes: 15,
+        });
+
+        if (stallErr) {
+          console.warn(`[stuck-scan] fn_is_true_stall failed for ${String(step.package_id).slice(0, 8)} / ${step.step_key}: ${stallErr.message}`);
+          continue;
+        }
+        if (!isStall) continue;
       }
-      if (!isStall) continue;
 
-      // Heal: clean stale meta, clear last_error, reset started_at/finished_at
-      const cleanMeta = { ...((step.meta ?? {}) as Record<string, unknown>) };
+      const cleanMeta = { ...((stepRow.meta ?? {}) as Record<string, unknown>) };
       delete cleanMeta.loop_guard_blocked;
       delete cleanMeta.loop_guard_count;
       delete cleanMeta.last_guard_reason;
 
-      cleanMeta.true_stall_healed_at = new Date().toISOString();
+      const nowIso = new Date().toISOString();
+      cleanMeta.true_stall_healed_at = nowIso;
       cleanMeta.true_stall_healed_by = "stuck-scan";
-      cleanMeta.loop_guard_reset_at = new Date().toISOString();
+      cleanMeta.loop_guard_reset_at = nowIso;
+      cleanMeta.dispatch_recovered_at = nowIso;
+      cleanMeta.dispatch_recovered_reason = step.drift_signal;
+
+      const payload: Record<string, unknown> = {
+        package_id: step.package_id,
+        course_id: pkg.course_id,
+        curriculum_id: pkg.curriculum_id,
+        certification_id: pkg.certification_id,
+        mode: "auto_heal",
+        feature_flags: pkg.feature_flags ?? {},
+      };
+
+      if (Array.isArray(cleanMeta.target_lf_ids) && cleanMeta.target_lf_ids.length > 0) {
+        payload.target_lf_ids = cleanMeta.target_lf_ids;
+      }
+      if (cleanMeta.batch_cursor && typeof cleanMeta.batch_cursor === "object") {
+        payload.batch_cursor = cleanMeta.batch_cursor as Record<string, unknown>;
+      }
+
+      const jobType = step.job_type ?? STEP_TO_JOB_TYPE[step.step_key as keyof typeof STEP_TO_JOB_TYPE];
+      if (!jobType) continue;
+
+      let enqueued;
+      try {
+        enqueued = await enqueueJob(sb, {
+          job_type: jobType,
+          package_id: step.package_id,
+          payload,
+          priority: 20 + getArtifactPriorityBump(step.step_key),
+          batch_cursor: (cleanMeta.batch_cursor as Record<string, unknown>) ?? null,
+        });
+      } catch (enqueueErr) {
+        console.warn(`[stuck-scan] TRUE_STALL_HEAL enqueue failed for ${String(step.package_id).slice(0, 8)} / ${step.step_key}: ${(enqueueErr as Error).message}`);
+        continue;
+      }
 
       const { error: updErr } = await sb
         .from("package_steps")
         .update({
-          status: "queued",
+          status: "enqueued",
+          job_id: enqueued.id,
+          runner_id: "stuck-scan",
           started_at: null,
           finished_at: null,
-          updated_at: new Date().toISOString(),
+          updated_at: nowIso,
           last_error: null,
           meta: cleanMeta,
         })
@@ -416,7 +477,7 @@ export async function healTrueStallSteps(sb: SupabaseClient) {
       healed.push({ package_id: step.package_id, step_key: step.step_key });
 
       console.warn(
-        `[stuck-scan] 🔄 TRUE_STALL_HEAL: ${step.step_key} for ${String(step.package_id).slice(0, 8)} — prereqs done, no active job, stale >15m`,
+        `[stuck-scan] 🔄 TRUE_STALL_HEAL: ${step.step_key} for ${String(step.package_id).slice(0, 8)} — ${step.drift_signal}, job ${jobType} directly re-enqueued`,
       );
 
       if (healed.length >= 10) break;
