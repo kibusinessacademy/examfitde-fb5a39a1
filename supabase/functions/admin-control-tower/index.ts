@@ -102,6 +102,8 @@ Deno.serve(async (req) => {
         return json(await getTelemetryIntegrity(sb));
       case "recovery_action":
         return json(await runRecoveryAction(sb, recovery_type ?? null, package_id ?? null));
+      case "exam_pool_audit":
+        return json(await getExamPoolAudit(sb));
       default:
         return json({ error: `Unknown action: ${action}` }, 400);
     }
