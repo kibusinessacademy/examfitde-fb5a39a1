@@ -1125,3 +1125,128 @@ async function getTrapQualityAudit(sb: SB) {
     packages: results,
   };
 }
+
+// ── Trap Blueprint Match Audit (Task 4) ─────────────────────────────────
+// Validates exam_questions.trap_type against question_blueprints.expected_trap_type
+
+async function getTrapBlueprintMatch(sb: SB) {
+  // 1. Get packages with curriculum
+  const pkgRows = await safeFrom(sb, "course_packages", "id, title, status, curriculum_id", (q: any) =>
+    q.not("status", "eq", "archived").not("curriculum_id", "is", null).limit(500)
+  );
+  if (pkgRows.length === 0) {
+    return { generated_at: new Date().toISOString(), global: { total: 0, matched: 0, mismatched: 0, no_blueprint: 0, match_pct: 100 }, packages: [] };
+  }
+
+  const curriculumIds = [...new Set(pkgRows.map(p => p.curriculum_id as string))];
+
+  // 2. Set-based: fetch approved questions with blueprint_id + trap_type
+  const allQuestions: Array<{ curriculum_id: string; blueprint_id: string | null; trap_type: string | null }> = [];
+  for (let i = 0; i < curriculumIds.length; i += 20) {
+    const chunk = curriculumIds.slice(i, i + 20);
+    const rows = await safeFrom(
+      sb, "exam_questions", "curriculum_id, blueprint_id, trap_type",
+      (q: any) => q.eq("status", "approved").in("curriculum_id", chunk).limit(10000)
+    );
+    for (const r of rows) {
+      allQuestions.push({
+        curriculum_id: r.curriculum_id as string,
+        blueprint_id: r.blueprint_id as string | null,
+        trap_type: r.trap_type as string | null,
+      });
+    }
+  }
+
+  // 3. Fetch blueprint expected_trap_type for all referenced blueprints
+  const bpIds = [...new Set(allQuestions.map(q => q.blueprint_id).filter(Boolean))] as string[];
+  const bpMap: Record<string, string | null> = {};
+  for (let i = 0; i < bpIds.length; i += 200) {
+    const chunk = bpIds.slice(i, i + 200);
+    const rows = await safeFrom(sb, "question_blueprints", "id, expected_trap_type", (q: any) => q.in("id", chunk));
+    for (const r of rows) {
+      bpMap[r.id as string] = r.expected_trap_type as string | null;
+    }
+  }
+
+  // 4. Aggregate per curriculum
+  const currAgg = new Map<string, { total: number; matched: number; mismatched: number; no_blueprint: number; no_expectation: number; mismatches_by_type: Record<string, number> }>();
+  for (const q of allQuestions) {
+    if (!currAgg.has(q.curriculum_id)) {
+      currAgg.set(q.curriculum_id, { total: 0, matched: 0, mismatched: 0, no_blueprint: 0, no_expectation: 0, mismatches_by_type: {} });
+    }
+    const agg = currAgg.get(q.curriculum_id)!;
+    agg.total++;
+
+    if (!q.blueprint_id) {
+      agg.no_blueprint++;
+    } else {
+      const expected = bpMap[q.blueprint_id];
+      if (!expected) {
+        agg.no_expectation++;
+      } else if (q.trap_type === expected) {
+        agg.matched++;
+      } else {
+        agg.mismatched++;
+        const key = `${expected}→${q.trap_type || 'null'}`;
+        agg.mismatches_by_type[key] = (agg.mismatches_by_type[key] || 0) + 1;
+      }
+    }
+  }
+
+  // 5. Build per-package results
+  let gTotal = 0, gMatched = 0, gMismatched = 0, gNoBlueprint = 0;
+  const results: Array<Record<string, unknown>> = [];
+
+  for (const pkg of pkgRows) {
+    const cid = pkg.curriculum_id as string;
+    const agg = currAgg.get(cid);
+    if (!agg || agg.total === 0) continue;
+
+    gTotal += agg.total;
+    gMatched += agg.matched;
+    gMismatched += agg.mismatched;
+    gNoBlueprint += agg.no_blueprint;
+
+    const matchPct = agg.total > 0 ? Math.round(1000 * agg.matched / agg.total) / 10 : 100;
+    const mismatchPct = agg.total > 0 ? Math.round(1000 * agg.mismatched / agg.total) / 10 : 0;
+
+    // Signal
+    let signal: 'ok' | 'warn' | 'hard_fail' = 'ok';
+    if (mismatchPct > 25) signal = 'hard_fail';
+    else if (mismatchPct > 10) signal = 'warn';
+
+    if (signal !== 'ok' || agg.no_blueprint > 0) {
+      results.push({
+        package_id: pkg.id,
+        title: pkg.title,
+        curriculum_id: cid,
+        approved_total: agg.total,
+        matched: agg.matched,
+        mismatched: agg.mismatched,
+        no_blueprint: agg.no_blueprint,
+        no_expectation: agg.no_expectation,
+        match_pct: matchPct,
+        mismatch_pct: mismatchPct,
+        signal,
+        top_mismatches: Object.entries(agg.mismatches_by_type)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 5)
+          .map(([key, count]) => ({ pattern: key, count })),
+      });
+    }
+  }
+
+  results.sort((a, b) => (b.mismatch_pct as number) - (a.mismatch_pct as number));
+
+  return {
+    generated_at: new Date().toISOString(),
+    global: {
+      total: gTotal,
+      matched: gMatched,
+      mismatched: gMismatched,
+      no_blueprint: gNoBlueprint,
+      match_pct: gTotal > 0 ? Math.round(1000 * gMatched / gTotal) / 10 : 100,
+    },
+    packages: results,
+  };
+}
