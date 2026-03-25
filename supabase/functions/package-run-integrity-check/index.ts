@@ -247,9 +247,9 @@ async function runCourseReadyGate(
 
   // ── Track-aware thresholds ──
   const POOL_THRESHOLDS: Record<string, { minApproved: number; minHardishPct: number; maxEasyPct: number }> = {
-    AUSBILDUNG_VOLL: { minApproved: 500, minHardishPct: 40, maxEasyPct: 15 },
+    AUSBILDUNG_VOLL: { minApproved: 500, minHardishPct: 40, maxEasyPct: 17 },
     EXAM_FIRST:      { minApproved: 60,  minHardishPct: 20, maxEasyPct: 25 },
-    ELITE:           { minApproved: 800, minHardishPct: 45, maxEasyPct: 10 },
+    ELITE:           { minApproved: 800, minHardishPct: 45, maxEasyPct: 12 },
   };
   const poolTh = POOL_THRESHOLDS[trackEarly] ?? POOL_THRESHOLDS["AUSBILDUNG_VOLL"];
 

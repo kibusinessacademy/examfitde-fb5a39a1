@@ -47869,6 +47869,13 @@ export type Database = {
       }
       finish_exam_session: { Args: { p_session_id: string }; Returns: Json }
       fix_zombie_packages: { Args: never; Returns: Json }
+      fn_auto_unblock_ready_packages: {
+        Args: never
+        Returns: {
+          old_reason: string
+          package_id: string
+        }[]
+      }
       fn_is_real_step_regression: {
         Args: { p_new_status: string; p_old_status: string }
         Returns: boolean
