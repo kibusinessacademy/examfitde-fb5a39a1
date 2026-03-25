@@ -104,6 +104,8 @@ Deno.serve(async (req) => {
         return json(await runRecoveryAction(sb, recovery_type ?? null, package_id ?? null));
       case "exam_pool_audit":
         return json(await getExamPoolAudit(sb));
+      case "trap_coverage_audit":
+        return json(await getTrapCoverageAudit(sb));
       default:
         return json({ error: `Unknown action: ${action}` }, 400);
     }
@@ -749,4 +751,64 @@ async function getExamPoolAudit(sb: SB) {
   );
 
   return { packages: driftPackages, guard_events: guardEvents };
+}
+
+async function getTrapCoverageAudit(sb: SB) {
+  // Get all non-archived packages with their curriculum_id
+  const pkgRows = await safeFrom(sb, "course_packages", "id, title, status, curriculum_id", (q: any) =>
+    q.not("status", "eq", "archived").not("curriculum_id", "is", null).limit(200)
+  );
+
+  if (pkgRows.length === 0) return { packages: [], global: { total: 0, missing: 0, coverage_pct: 100 } };
+
+  const results: Array<{
+    package_id: string;
+    title: string | null;
+    status: string;
+    approved_total: number;
+    missing_trap: number;
+    coverage_pct: number;
+    risk: 'critical' | 'high' | 'medium' | 'ok';
+  }> = [];
+
+  for (const pkg of pkgRows) {
+    const cid = pkg.curriculum_id as string;
+    const [totalRes, missingRes] = await Promise.all([
+      sb.from("exam_questions").select("id", { count: "exact", head: true })
+        .eq("curriculum_id", cid).eq("status", "approved"),
+      sb.from("exam_questions").select("id", { count: "exact", head: true })
+        .eq("curriculum_id", cid).eq("status", "approved").is("trap_type", null),
+    ]);
+    const total = totalRes.count ?? 0;
+    const missing = missingRes.count ?? 0;
+    if (total === 0) continue;
+    const pct = Math.round(1000 * (total - missing) / total) / 10;
+    const risk = pct === 0 ? 'critical' : pct < 20 ? 'high' : pct < 80 ? 'medium' : 'ok';
+    if (risk !== 'ok') {
+      results.push({
+        package_id: pkg.id as string,
+        title: pkg.title as string | null,
+        status: pkg.status as string,
+        approved_total: total,
+        missing_trap: missing,
+        coverage_pct: pct,
+        risk,
+      });
+    }
+  }
+
+  results.sort((a, b) => a.coverage_pct - b.coverage_pct);
+
+  // Global stats
+  const [gTotal, gMissing] = await Promise.all([
+    sb.from("exam_questions").select("id", { count: "exact", head: true }).eq("status", "approved"),
+    sb.from("exam_questions").select("id", { count: "exact", head: true }).eq("status", "approved").is("trap_type", null),
+  ]);
+  const gt = gTotal.count ?? 0;
+  const gm = gMissing.count ?? 0;
+
+  return {
+    packages: results,
+    global: { total: gt, missing: gm, coverage_pct: gt > 0 ? Math.round(1000 * (gt - gm) / gt) / 10 : 100 },
+  };
 }
