@@ -215,9 +215,10 @@ function PackageRow({ pkg }: { pkg: AuditPackage }) {
             </table>
           </div>
 
-          {d.reason && (
-            <div className="text-[9px] text-muted-foreground px-2">↳ {d.reason}</div>
-          )}
+          {/* Reasons */}
+          {pkg.details.filter(d => d.reason).map(d => (
+            <div key={d.trap_type} className="text-[9px] text-muted-foreground px-2">↳ {d.reason}</div>
+          ))}
 
           {/* Actions */}
           <div className="flex items-center gap-2 pt-1">
