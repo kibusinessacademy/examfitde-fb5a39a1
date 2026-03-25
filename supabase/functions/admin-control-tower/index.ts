@@ -106,6 +106,8 @@ Deno.serve(async (req) => {
         return json(await getExamPoolAudit(sb));
       case "trap_coverage_audit":
         return json(await getTrapCoverageAudit(sb));
+      case "trap_quality_audit":
+        return json(await getTrapQualityAudit(sb));
       default:
         return json({ error: `Unknown action: ${action}` }, 400);
     }
