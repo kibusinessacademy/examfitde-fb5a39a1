@@ -814,3 +814,312 @@ async function getTrapCoverageAudit(sb: SB) {
     global: { total: gt, missing: gm, coverage_pct: gt > 0 ? Math.round(1000 * (gt - gm) / gt) / 10 : 100 },
   };
 }
+
+// ── Trap Quality Audit (Task 2) ─────────────────────────────────────────
+// Set-based distribution audit with resolver, anomaly flags, sample-size gate
+
+interface TrapCorridor {
+  trap_type: string;
+  target_pct: number;
+  min_pct: number;
+  max_pct: number;
+  warn_below_pct: number;
+  hard_below_pct: number;
+  source: 'blueprint' | 'curriculum' | 'track';
+}
+
+interface TrapDistributionRuleset {
+  corridors: TrapCorridor[];
+  profile: string;
+  resolved_from: string;
+}
+
+function resolveRulesForPackage(
+  allRules: JsonRow[],
+  curriculumId: string,
+  track: string,
+  profile?: string,
+): TrapDistributionRuleset {
+  // 1. Curriculum-specific
+  const currRules = allRules.filter(r => r.scope_type === 'curriculum' && r.scope_id === curriculumId);
+  if (currRules.length >= 3) {
+    return {
+      corridors: currRules.map(r => ({
+        trap_type: String(r.trap_type),
+        target_pct: Number(r.target_pct),
+        min_pct: Number(r.min_pct),
+        max_pct: Number(r.max_pct),
+        warn_below_pct: Number(r.warn_below_pct),
+        hard_below_pct: Number(r.hard_below_pct),
+        source: 'curriculum' as const,
+      })),
+      profile: String((currRules[0] as any).curriculum_profile || 'mixed'),
+      resolved_from: `curriculum:${curriculumId}`,
+    };
+  }
+
+  // 2. Track + profile
+  const effectiveProfile = profile || 'mixed';
+  const profileScopeId = effectiveProfile === 'mixed' ? track : `${track}:${effectiveProfile}`;
+  const profileRules = allRules.filter(r => r.scope_type === 'track' && r.scope_id === profileScopeId);
+  if (profileRules.length >= 3) {
+    return {
+      corridors: profileRules.map(r => ({
+        trap_type: String(r.trap_type),
+        target_pct: Number(r.target_pct),
+        min_pct: Number(r.min_pct),
+        max_pct: Number(r.max_pct),
+        warn_below_pct: Number(r.warn_below_pct),
+        hard_below_pct: Number(r.hard_below_pct),
+        source: 'track' as const,
+      })),
+      profile: effectiveProfile,
+      resolved_from: `track:${profileScopeId}`,
+    };
+  }
+
+  // 3. Track default
+  const defaultRules = allRules.filter(r => r.scope_type === 'track' && r.scope_id === track);
+  if (defaultRules.length >= 3) {
+    return {
+      corridors: defaultRules.map(r => ({
+        trap_type: String(r.trap_type),
+        target_pct: Number(r.target_pct),
+        min_pct: Number(r.min_pct),
+        max_pct: Number(r.max_pct),
+        warn_below_pct: Number(r.warn_below_pct),
+        hard_below_pct: Number(r.hard_below_pct),
+        source: 'track' as const,
+      })),
+      profile: 'mixed',
+      resolved_from: `track:${track}:fallback`,
+    };
+  }
+
+  // 4. Hardcoded ultimate fallback
+  return {
+    corridors: [
+      { trap_type: 'misconception',   target_pct: 35, min_pct: 25, max_pct: 45, warn_below_pct: 20, hard_below_pct: 15, source: 'track' },
+      { trap_type: 'typical_error',    target_pct: 40, min_pct: 30, max_pct: 50, warn_below_pct: 25, hard_below_pct: 20, source: 'track' },
+      { trap_type: 'calculation_trap', target_pct: 25, min_pct: 15, max_pct: 35, warn_below_pct: 10, hard_below_pct: 5,  source: 'track' },
+    ],
+    profile: 'mixed',
+    resolved_from: 'hardcoded:fallback',
+  };
+}
+
+function computeAnomalyFlags(
+  ruleset: TrapDistributionRuleset,
+  actual: Record<string, number>,
+  total: number,
+  details: Array<{ trap_type: string; actual_pct: number; signal: string; }>,
+): string[] {
+  const flags: string[] = [];
+  const pctOf = (t: string) => total > 0 ? ((actual[t] || 0) / total) * 100 : 0;
+
+  // Missing type entirely
+  if (!actual['calculation_trap'] || actual['calculation_trap'] === 0) flags.push('NO_CALCULATION_TRAP');
+  if (!actual['typical_error'] || actual['typical_error'] === 0) flags.push('NO_TYPICAL_ERROR');
+  if (!actual['misconception'] || actual['misconception'] === 0) flags.push('NO_MISCONCEPTION');
+
+  // Overweight: > max_pct from corridor
+  for (const c of ruleset.corridors) {
+    const pct = pctOf(c.trap_type);
+    if (pct > c.max_pct) {
+      flags.push(`OVERWEIGHT_${c.trap_type.toUpperCase()}`);
+    }
+  }
+
+  // Multi-warn
+  const warnCount = details.filter(d => d.signal === 'warn').length;
+  const hardCount = details.filter(d => d.signal === 'hard_fail').length;
+  if (warnCount >= 2) flags.push('MULTI_WARN');
+  if (hardCount > 0) flags.push('HARD_FAIL_PRESENT');
+
+  // Profile mismatch: if profile is concept_heavy but calculation_trap dominates
+  const profile = ruleset.profile;
+  if (profile === 'concept_heavy' && pctOf('calculation_trap') > 40) flags.push('PROFILE_MISMATCH_SUSPECTED');
+  if (profile === 'calculation_heavy' && pctOf('misconception') > 50) flags.push('PROFILE_MISMATCH_SUSPECTED');
+  if (profile === 'procedure_heavy' && pctOf('calculation_trap') > 40) flags.push('PROFILE_MISMATCH_SUSPECTED');
+
+  return [...new Set(flags)];
+}
+
+const MIN_SAMPLE_SIZE = 30;
+
+async function getTrapQualityAudit(sb: SB) {
+  // 1. Fetch all rules in one go
+  const allRules = await safeFrom(sb, "trap_distribution_rules", "*");
+
+  // 2. Fetch all non-archived packages with curriculum + track info
+  const pkgRows = await safeFrom(sb, "course_packages", "id, title, status, curriculum_id, track", (q: any) =>
+    q.not("status", "eq", "archived").not("curriculum_id", "is", null).limit(500)
+  );
+  if (pkgRows.length === 0) {
+    return {
+      generated_at: new Date().toISOString(),
+      global: { packages_total: 0, packages_warn: 0, packages_hard_fail: 0 },
+      packages: [],
+    };
+  }
+
+  // 3. Set-based: fetch ALL approved questions with just curriculum_id + trap_type
+  //    This is much more efficient than per-package queries
+  const curriculumIds = [...new Set(pkgRows.map(p => p.curriculum_id as string))];
+  const allQuestions: Array<{ curriculum_id: string; trap_type: string | null }> = [];
+
+  // Batch in chunks of 20 curriculum IDs to stay within query limits
+  for (let i = 0; i < curriculumIds.length; i += 20) {
+    const chunk = curriculumIds.slice(i, i + 20);
+    const rows = await safeFrom(
+      sb, "exam_questions", "curriculum_id, trap_type",
+      (q: any) => q.eq("status", "approved").in("curriculum_id", chunk).limit(10000)
+    );
+    for (const r of rows) {
+      allQuestions.push({ curriculum_id: r.curriculum_id as string, trap_type: r.trap_type as string | null });
+    }
+  }
+
+  // 4. Aggregate trap counts per curriculum_id
+  const currAgg = new Map<string, { total: number; counts: Record<string, number> }>();
+  for (const q of allQuestions) {
+    if (!currAgg.has(q.curriculum_id)) {
+      currAgg.set(q.curriculum_id, { total: 0, counts: {} });
+    }
+    const agg = currAgg.get(q.curriculum_id)!;
+    agg.total++;
+    const tt = q.trap_type || '__missing__';
+    agg.counts[tt] = (agg.counts[tt] || 0) + 1;
+  }
+
+  // 5. Resolve rules + evaluate per package
+  const results: Array<Record<string, unknown>> = [];
+  let warnCount = 0;
+  let hardFailCount = 0;
+
+  for (const pkg of pkgRows) {
+    const cid = pkg.curriculum_id as string;
+    const agg = currAgg.get(cid);
+    if (!agg || agg.total === 0) continue;
+
+    const track = (pkg.track as string) || 'AUSBILDUNG_VOLL';
+    const ruleset = resolveRulesForPackage(allRules, cid, track);
+
+    // Build actual counts (excluding __missing__)
+    const actualCounts: Record<string, number> = {};
+    let countedTotal = 0;
+    for (const [tt, count] of Object.entries(agg.counts)) {
+      if (tt !== '__missing__') {
+        actualCounts[tt] = count;
+        countedTotal += count;
+      }
+    }
+
+    // Sample-size gate
+    if (agg.total < MIN_SAMPLE_SIZE) {
+      results.push({
+        package_id: pkg.id,
+        title: pkg.title,
+        curriculum_id: cid,
+        track,
+        profile: ruleset.profile,
+        resolved_from: ruleset.resolved_from,
+        approved_total: agg.total,
+        actual_counts: actualCounts,
+        actual_pct: {},
+        details: [],
+        anomaly_flags: ['INSUFFICIENT_SAMPLE'],
+        overall: 'insufficient_sample',
+        rebalance_recommended: false,
+        recommended_focus: [],
+      });
+      continue;
+    }
+
+    // Evaluate distribution
+    const details = ruleset.corridors.map(c => {
+      const count = actualCounts[c.trap_type] || 0;
+      const pct = countedTotal > 0 ? (count / countedTotal) * 100 : 0;
+      let signal: 'ok' | 'warn' | 'hard_fail' = 'ok';
+      let reason: string | undefined;
+
+      if (pct < c.hard_below_pct) {
+        signal = 'hard_fail';
+        reason = `${c.trap_type}: ${pct.toFixed(1)}% < hard ${c.hard_below_pct}%`;
+      } else if (pct < c.warn_below_pct) {
+        signal = 'warn';
+        reason = `${c.trap_type}: ${pct.toFixed(1)}% < warn ${c.warn_below_pct}%`;
+      } else if (pct > c.max_pct) {
+        signal = 'warn';
+        reason = `${c.trap_type}: ${pct.toFixed(1)}% > max ${c.max_pct}%`;
+      }
+
+      return {
+        trap_type: c.trap_type,
+        actual_pct: Math.round(pct * 10) / 10,
+        target_pct: c.target_pct,
+        signal,
+        reason,
+      };
+    });
+
+    const hardFails = details.filter(d => d.signal === 'hard_fail').length;
+    const warns = details.filter(d => d.signal === 'warn').length;
+    let overall: 'ok' | 'warn' | 'hard_fail' = 'ok';
+    if (hardFails > 0 || warns >= 2) overall = 'hard_fail';
+    else if (warns > 0) overall = 'warn';
+
+    if (overall === 'warn') warnCount++;
+    if (overall === 'hard_fail') hardFailCount++;
+
+    // Anomaly flags
+    const anomalyFlags = computeAnomalyFlags(ruleset, actualCounts, countedTotal, details);
+
+    // Actual percentages
+    const actualPct: Record<string, number> = {};
+    for (const [tt, count] of Object.entries(actualCounts)) {
+      actualPct[tt] = countedTotal > 0 ? Math.round((count / countedTotal) * 1000) / 10 : 0;
+    }
+
+    // Rebalance recommendation
+    const rebalanceRecommended = overall !== 'ok' || anomalyFlags.length > 0;
+    const recommendedFocus = details
+      .filter(d => d.signal !== 'ok')
+      .map(d => d.trap_type);
+
+    results.push({
+      package_id: pkg.id,
+      title: pkg.title,
+      curriculum_id: cid,
+      track,
+      profile: ruleset.profile,
+      resolved_from: ruleset.resolved_from,
+      approved_total: agg.total,
+      actual_counts: actualCounts,
+      actual_pct: actualPct,
+      details,
+      anomaly_flags: anomalyFlags,
+      overall,
+      rebalance_recommended: rebalanceRecommended,
+      recommended_focus: recommendedFocus,
+    });
+  }
+
+  // Sort: hard_fail first, then warn, then ok
+  const signalOrder = { hard_fail: 0, warn: 1, insufficient_sample: 2, ok: 3 };
+  results.sort((a, b) => {
+    const oa = signalOrder[a.overall as keyof typeof signalOrder] ?? 3;
+    const ob = signalOrder[b.overall as keyof typeof signalOrder] ?? 3;
+    return oa - ob;
+  });
+
+  return {
+    generated_at: new Date().toISOString(),
+    global: {
+      packages_total: results.length,
+      packages_warn: warnCount,
+      packages_hard_fail: hardFailCount,
+    },
+    packages: results,
+  };
+}
