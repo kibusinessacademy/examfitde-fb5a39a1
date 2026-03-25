@@ -64,6 +64,20 @@ export const adminRpc = {
       }>;
     }>("admin-control-tower", { action: "exam_pool_audit" }),
 
+  trapCoverageAudit: () =>
+    callEdge<{
+      packages: Array<{
+        package_id: string;
+        title: string | null;
+        status: string;
+        approved_total: number;
+        missing_trap: number;
+        coverage_pct: number;
+        risk: 'critical' | 'high' | 'medium' | 'ok';
+      }>;
+      global: { total: number; missing: number; coverage_pct: number };
+    }>("admin-control-tower", { action: "trap_coverage_audit" }),
+
   triggerExamRebalance: (packageId: string) =>
     callEdge<{ ok: boolean; actions: Array<{ type: string; detail: string; affected_count: number }> }>(
       "package-exam-rebalance",

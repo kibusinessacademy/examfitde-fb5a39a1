@@ -11,6 +11,7 @@ import {
 import { cn } from '@/lib/utils';
 
 const ExamPoolAuditCard = lazy(() => import('@/components/admin/cards/ExamPoolAuditCard'));
+const TrapCoverageAuditCard = lazy(() => import('@/components/admin/cards/TrapCoverageAuditCard'));
 
 function KpiTile({ label, value, icon, tone = 'neutral' }: {
   label: string;
@@ -204,8 +205,14 @@ export default function LeitstellePage() {
       )}
 
       {/* Exam Pool Lifecycle Audit */}
+      {/* Exam Pool Lifecycle Audit */}
       <Suspense fallback={<Skeleton className="h-32" />}>
         <ExamPoolAuditCard />
+      </Suspense>
+
+      {/* Trap Coverage Audit */}
+      <Suspense fallback={<Skeleton className="h-24" />}>
+        <TrapCoverageAuditCard />
       </Suspense>
 
       {/* Critical Packages */}
