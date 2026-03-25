@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 
 const ExamPoolAuditCard = lazy(() => import('@/components/admin/cards/ExamPoolAuditCard'));
 const TrapCoverageAuditCard = lazy(() => import('@/components/admin/cards/TrapCoverageAuditCard'));
+const TrapDistributionAuditCard = lazy(() => import('@/components/admin/cards/TrapDistributionAuditCard'));
 
 function KpiTile({ label, value, icon, tone = 'neutral' }: {
   label: string;
@@ -213,6 +214,11 @@ export default function LeitstellePage() {
       {/* Trap Coverage Audit */}
       <Suspense fallback={<Skeleton className="h-24" />}>
         <TrapCoverageAuditCard />
+      </Suspense>
+
+      {/* Trap Distribution Quality Audit */}
+      <Suspense fallback={<Skeleton className="h-32" />}>
+        <TrapDistributionAuditCard />
       </Suspense>
 
       {/* Critical Packages */}
