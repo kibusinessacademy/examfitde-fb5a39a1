@@ -29135,6 +29135,7 @@ export type Database = {
           exam_context_type: Database["public"]["Enums"]["exam_context_type"]
           exam_relevance: Database["public"]["Enums"]["exam_relevance"]
           exam_relevance_score: number
+          expected_trap_type: string | null
           explanation_template: string | null
           id: string
           knowledge_type: Database["public"]["Enums"]["knowledge_type"]
@@ -29186,6 +29187,7 @@ export type Database = {
           exam_context_type?: Database["public"]["Enums"]["exam_context_type"]
           exam_relevance?: Database["public"]["Enums"]["exam_relevance"]
           exam_relevance_score?: number
+          expected_trap_type?: string | null
           explanation_template?: string | null
           id?: string
           knowledge_type?: Database["public"]["Enums"]["knowledge_type"]
@@ -29237,6 +29239,7 @@ export type Database = {
           exam_context_type?: Database["public"]["Enums"]["exam_context_type"]
           exam_relevance?: Database["public"]["Enums"]["exam_relevance"]
           exam_relevance_score?: number
+          expected_trap_type?: string | null
           explanation_template?: string | null
           id?: string
           knowledge_type?: Database["public"]["Enums"]["knowledge_type"]
