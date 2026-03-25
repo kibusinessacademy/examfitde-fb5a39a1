@@ -78,6 +78,34 @@ export const adminRpc = {
       global: { total: number; missing: number; coverage_pct: number };
     }>("admin-control-tower", { action: "trap_coverage_audit" }),
 
+  trapQualityAudit: () =>
+    callEdge<{
+      generated_at: string;
+      global: { packages_total: number; packages_warn: number; packages_hard_fail: number };
+      packages: Array<{
+        package_id: string;
+        title: string | null;
+        curriculum_id: string;
+        track: string;
+        profile: string;
+        resolved_from: string;
+        approved_total: number;
+        actual_counts: Record<string, number>;
+        actual_pct: Record<string, number>;
+        details: Array<{
+          trap_type: string;
+          actual_pct: number;
+          target_pct: number;
+          signal: 'ok' | 'warn' | 'hard_fail';
+          reason?: string;
+        }>;
+        anomaly_flags: string[];
+        overall: 'ok' | 'warn' | 'hard_fail' | 'insufficient_sample';
+        rebalance_recommended: boolean;
+        recommended_focus: string[];
+      }>;
+    }>("admin-control-tower", { action: "trap_quality_audit" }),
+
   triggerExamRebalance: (packageId: string) =>
     callEdge<{ ok: boolean; actions: Array<{ type: string; detail: string; affected_count: number }> }>(
       "package-exam-rebalance",
