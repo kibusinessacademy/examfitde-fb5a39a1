@@ -141,8 +141,39 @@ Diese Korrelation fließt als **Soft-Signal** in die Anomalie-Erkennung ein, erz
 
 ---
 
+## 9. Blueprint Trap-Type Expectations (v1.1)
+
+Jeder `question_blueprint` hat ein `expected_trap_type`-Feld (SSOT), das definiert, welchen `trap_type` generierte Fragen erhalten sollten.
+
+### Mapping Blueprint → Exam-Question Taxonomy
+
+| Blueprint `trap_spec.trap_type` | `expected_trap_type` | Didaktische Begründung |
+|--------------------------------|---------------------|----------------------|
+| `isolated_knowledge`           | `misconception`     | Testet konzeptuelle Verwechslungen |
+| `error_detection`              | `typical_error`     | Erkennung prozeduraler Fehler |
+| `applied_case`                 | `typical_error`     | Anwendungs-Kontextfehler |
+| `multi_step_case`              | `calculation_trap`  | Mehrstufige Rechenfallen |
+| `legal_evaluation`             | `misconception`     | Rechtliche Konzeptverwechslungen |
+
+### Validation-Ampel
+
+| Match-Quote | Signal | Konsequenz |
+|-------------|--------|------------|
+| > 90% | `ok` | Keine Aktion |
+| 75–90% | `warn` | Leitstelle-Signal |
+| < 75% | `hard_fail` | Rebalance empfohlen |
+
+### Override-Hierarchie
+
+1. **Blueprint** `expected_trap_type` (Mikro-Ebene, präziseste SSOT)
+2. **Curriculum** trap distribution rules (Meso-Ebene)
+3. **Track/Profile** defaults (Makro-Ebene)
+
+---
+
 ## Änderungsprotokoll
 
 | Datum      | Änderung                     | Autor  |
 |------------|------------------------------|--------|
 | 2026-03-25 | Initiale Definition v1.0     | System |
+| 2026-03-25 | Blueprint Expectations v1.1  | System |
