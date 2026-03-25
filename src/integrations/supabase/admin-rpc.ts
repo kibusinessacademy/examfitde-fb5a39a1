@@ -78,6 +78,26 @@ export const adminRpc = {
       global: { total: number; missing: number; coverage_pct: number };
     }>("admin-control-tower", { action: "trap_coverage_audit" }),
 
+  trapBlueprintMatch: () =>
+    callEdge<{
+      generated_at: string;
+      global: { total: number; matched: number; mismatched: number; no_blueprint: number; match_pct: number };
+      packages: Array<{
+        package_id: string;
+        title: string | null;
+        curriculum_id: string;
+        approved_total: number;
+        matched: number;
+        mismatched: number;
+        no_blueprint: number;
+        no_expectation: number;
+        match_pct: number;
+        mismatch_pct: number;
+        signal: 'ok' | 'warn' | 'hard_fail';
+        top_mismatches: Array<{ pattern: string; count: number }>;
+      }>;
+    }>("admin-control-tower", { action: "trap_blueprint_match" }),
+
   trapQualityAudit: () =>
     callEdge<{
       generated_at: string;
