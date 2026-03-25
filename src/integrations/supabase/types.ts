@@ -33919,6 +33919,51 @@ export type Database = {
           },
         ]
       }
+      trap_distribution_rules: {
+        Row: {
+          created_at: string
+          curriculum_profile: string | null
+          hard_below_pct: number
+          id: string
+          max_pct: number
+          min_pct: number
+          scope_id: string
+          scope_type: string
+          target_pct: number
+          trap_type: string
+          updated_at: string
+          warn_below_pct: number
+        }
+        Insert: {
+          created_at?: string
+          curriculum_profile?: string | null
+          hard_below_pct: number
+          id?: string
+          max_pct: number
+          min_pct: number
+          scope_id: string
+          scope_type: string
+          target_pct: number
+          trap_type: string
+          updated_at?: string
+          warn_below_pct: number
+        }
+        Update: {
+          created_at?: string
+          curriculum_profile?: string | null
+          hard_below_pct?: number
+          id?: string
+          max_pct?: number
+          min_pct?: number
+          scope_id?: string
+          scope_type?: string
+          target_pct?: number
+          trap_type?: string
+          updated_at?: string
+          warn_below_pct?: number
+        }
+        Relationships: []
+      }
       triage_policy: {
         Row: {
           created_at: string
