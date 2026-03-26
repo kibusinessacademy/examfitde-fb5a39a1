@@ -170,21 +170,37 @@ Deno.serve(async (req) => {
         break;
       }
 
-      /* ── Batch Recovery Actions ── */
+      /* ── Batch Recovery Actions (Heal + Dispatch) ── */
       case "heal_finalization_stall": {
         const limit = Number(body.limit) || 20;
+        // Step 1: Run the DB-level heal (resets step statuses)
         const { data: healData, error: healErr } = await sb.rpc("heal_finalization_stall", { p_limit: limit });
         if (healErr) throw healErr;
-        result = healData as JsonRow;
-        affectedIds = ((healData as any)?.healed || []).map((h: any) => h.package_id);
+
+        // Step 2: Dispatch jobs for all healed packages (atomic heal+dispatch)
+        const healedPkgIds = ((healData as any)?.healed || []).map((h: any) => h.package_id).filter(Boolean);
+        let dispatchResult = { healed: [] as any[], total: 0, dispatched: 0, skipped: 0 };
+        if (healedPkgIds.length > 0) {
+          dispatchResult = await batchHealAndDispatch(sb, healedPkgIds, "heal_finalization_stall");
+        }
+        result = { ...healData as JsonRow, dispatch: dispatchResult };
+        affectedIds = healedPkgIds;
         break;
       }
       case "heal_non_building": {
         const limit = Number(body.limit) || 20;
+        // Step 1: Run the DB-level heal (normalizes package status)
         const { data: healData, error: healErr } = await sb.rpc("heal_non_building_packages", { p_limit: limit });
         if (healErr) throw healErr;
-        result = healData as JsonRow;
-        affectedIds = ((healData as any)?.healed || []).map((h: any) => h.package_id);
+
+        // Step 2: Dispatch jobs for all healed packages (atomic heal+dispatch)
+        const healedPkgIds = ((healData as any)?.healed || []).map((h: any) => h.package_id).filter(Boolean);
+        let dispatchResult = { healed: [] as any[], total: 0, dispatched: 0, skipped: 0 };
+        if (healedPkgIds.length > 0) {
+          dispatchResult = await batchHealAndDispatch(sb, healedPkgIds, "heal_non_building");
+        }
+        result = { ...healData as JsonRow, dispatch: dispatchResult };
+        affectedIds = healedPkgIds;
         break;
       }
 
