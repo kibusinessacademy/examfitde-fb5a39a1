@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { assertKnownJobType } from './job-registry';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const FORBIDDEN_FIELDS = ['slug', 'title', 'name', 'label', 'description'];
@@ -24,6 +25,7 @@ function validatePayload(job: JobPayload): void {
 }
 
 export async function enqueueJob(job: JobPayload) {
+  assertKnownJobType(job.job_type);
   validatePayload(job);
   const { data, error } = await supabase.from('job_queue').insert({
     job_type: job.job_type,

@@ -120,11 +120,12 @@ export function useAdminQueueSSOT(filters?: QueueFilters) {
   return useQuery({
     queryKey: ['admin', 'queue-ssot', filters],
     queryFn: async (): Promise<AdminQueueJob[]> => {
-      // Primary: SSOT view
+      // Primary: SSOT view — exclude cancelled/archived jobs
       try {
         let query = (supabase as any)
           .from('v_admin_queue_ssot')
           .select('*')
+          .not('job_status', 'eq', 'cancelled')
           .order('priority', { ascending: true })
           .order('created_at', { ascending: true })
           .limit(500);
