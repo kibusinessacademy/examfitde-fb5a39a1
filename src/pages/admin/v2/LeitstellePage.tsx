@@ -225,6 +225,7 @@ export default function LeitstellePage() {
       {/* Blueprint Trap-Type Match Audit */}
       <Suspense fallback={<Skeleton className="h-32" />}>
         <BlueprintMatchAuditCard />
+      </Suspense>
 
       {/* Critical Packages */}
       {criticalPackages.length > 0 && (
