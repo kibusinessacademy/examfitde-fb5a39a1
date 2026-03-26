@@ -401,13 +401,14 @@ Deno.serve(async (req) => {
       console.log(`[watchdog] Ghost-running guard: healed ${ghostCount} orphaned steps`);
     }
 
-    // ── 3) Auto-heal: building without lease or jobs → reset to queued (via RPC) ──
-    // GRACE WINDOW: Skip packages freshly healed by heal+dispatch (meta.healed_at within 5 min)
-    // to avoid the watchdog reverting packages before the runner can claim the dispatched job.
-    const HEAL_GRACE_MINUTES = 5;
-    const graceCutoff = new Date(Date.now() - HEAL_GRACE_MINUTES * 60 * 1000).toISOString();
+    // ── 3) Auto-heal: building without lease or jobs → reset to queued ──
+    // The view ops_building_without_job_or_lease already excludes packages
+    // that have an active lease (including heal-dispatch leases).
+    // Additional grace: skip packages with a recent pending/queued job (< 10 min old)
+    // to avoid reverting packages where the runner hasn't picked up the job yet.
+    const GRACE_JOB_MINUTES = 10;
+    const jobGraceCutoff = new Date(Date.now() - GRACE_JOB_MINUTES * 60 * 1000).toISOString();
 
-    // First, get candidates from the view
     const { data: zombieCandidates, error: zombieFetchErr } = await sb
       .from("ops_building_without_job_or_lease")
       .select("package_id")
@@ -419,26 +420,29 @@ Deno.serve(async (req) => {
 
     let healedZombies = 0;
     if (zombieCandidates?.length) {
-      // Filter out freshly healed packages (grace window)
       const candidateIds = zombieCandidates.map((z: any) => z.package_id);
-      const { data: pkgMetas } = await sb
-        .from("course_packages")
-        .select("id, meta")
-        .in("id", candidateIds)
-        .eq("status", "building");
+
+      // Check for recently created jobs — these packages may have been healed
+      // and the runner just hasn't claimed them yet
+      const { data: recentJobs } = await sb
+        .from("job_queue")
+        .select("package_id")
+        .in("package_id", candidateIds)
+        .in("status", ["pending", "queued"])
+        .gte("created_at", jobGraceCutoff);
+
+      const recentJobPkgIds = new Set((recentJobs || []).map((j: any) => j.package_id));
 
       const revertableIds: string[] = [];
-      for (const pkg of pkgMetas || []) {
-        const healedAt = (pkg.meta as any)?.healed_at;
-        if (healedAt && healedAt > graceCutoff) {
-          console.log(`[watchdog] GRACE_SKIP: pkg ${(pkg.id as string).slice(0, 8)} healed_at=${healedAt} — within ${HEAL_GRACE_MINUTES}min grace window`);
+      for (const cid of candidateIds) {
+        if (recentJobPkgIds.has(cid)) {
+          console.log(`[watchdog] GRACE_SKIP: pkg ${cid.slice(0, 8)} has recent pending job — within ${GRACE_JOB_MINUTES}min grace`);
           continue;
         }
-        revertableIds.push(pkg.id);
+        revertableIds.push(cid);
       }
 
       if (revertableIds.length > 0) {
-        // Revert non-grace packages to queued
         const { count } = await sb
           .from("course_packages")
           .update({
@@ -454,7 +458,7 @@ Deno.serve(async (req) => {
     }
 
     if (healedZombies > 0) {
-      actions.push(`Zombie building reset: ${healedZombies} packages (grace-aware)`);
+      actions.push(`Zombie building reset: ${healedZombies} packages (lease+job-grace-aware)`);
     }
 
     // ── 3b) Auto-Unblock: QG-failed packages that have been healed ──
