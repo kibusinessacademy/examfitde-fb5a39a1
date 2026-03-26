@@ -15108,6 +15108,39 @@ export type Database = {
         }
         Relationships: []
       }
+      exam_promotion_audit: {
+        Row: {
+          created_at: string
+          curriculum_id: string
+          id: string
+          new_status: string
+          previous_status: string
+          question_id: string
+          reason_code: string | null
+          trigger_version: string
+        }
+        Insert: {
+          created_at?: string
+          curriculum_id: string
+          id?: string
+          new_status: string
+          previous_status: string
+          question_id: string
+          reason_code?: string | null
+          trigger_version?: string
+        }
+        Update: {
+          created_at?: string
+          curriculum_id?: string
+          id?: string
+          new_status?: string
+          previous_status?: string
+          question_id?: string
+          reason_code?: string | null
+          trigger_version?: string
+        }
+        Relationships: []
+      }
       exam_question_elite_annotations: {
         Row: {
           annotated_at: string
@@ -44098,6 +44131,80 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "learning_fields"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_exam_promotion_metrics: {
+        Row: {
+          curriculum_id: string | null
+          hour: string | null
+          promoted: number | null
+          rej_few_options: number | null
+          rej_missing_fields: number | null
+          rej_no_exam_part: number | null
+          rej_short_text: number | null
+          rej_weak_explanation: number | null
+          rejected: number | null
+        }
+        Relationships: []
+      }
+      v_exam_promotion_readiness: {
+        Row: {
+          auto_promotable: number | null
+          blocked_by_quality: number | null
+          blocked_by_structure: number | null
+          curriculum_id: string | null
+          total_draft_tier1: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_questions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_questions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "exam_questions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "exam_questions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "exam_questions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_qc_backlog"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "exam_questions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_qc_backlog_age"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "exam_questions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
           },
         ]
       }
