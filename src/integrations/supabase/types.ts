@@ -9940,6 +9940,7 @@ export type Database = {
           curriculum_id: string
           elite_hardened_at: string | null
           elite_hardening_version: number
+          exam_pool_state_hash: string | null
           exam_structure: string | null
           feature_flags: Json | null
           id: string
@@ -9992,6 +9993,7 @@ export type Database = {
           curriculum_id: string
           elite_hardened_at?: string | null
           elite_hardening_version?: number
+          exam_pool_state_hash?: string | null
           exam_structure?: string | null
           feature_flags?: Json | null
           id?: string
@@ -10044,6 +10046,7 @@ export type Database = {
           curriculum_id?: string
           elite_hardened_at?: string | null
           elite_hardening_version?: number
+          exam_pool_state_hash?: string | null
           exam_structure?: string | null
           feature_flags?: Json | null
           id?: string
@@ -20994,6 +20997,27 @@ export type Database = {
           overall_status?: string
           root_causes?: Json
           snapshot_at?: string
+        }
+        Relationships: []
+      }
+      ops_job_type_registry: {
+        Row: {
+          description: string | null
+          job_type: string
+          pool: string
+          registered_at: string
+        }
+        Insert: {
+          description?: string | null
+          job_type: string
+          pool?: string
+          registered_at?: string
+        }
+        Update: {
+          description?: string | null
+          job_type?: string
+          pool?: string
+          registered_at?: string
         }
         Relationships: []
       }
@@ -48687,6 +48711,10 @@ export type Database = {
           package_id: string
         }[]
       }
+      fn_compute_exam_pool_hash: {
+        Args: { p_curriculum_id: string }
+        Returns: string
+      }
       fn_is_real_step_regression: {
         Args: { p_new_status: string; p_old_status: string }
         Returns: boolean
@@ -50263,6 +50291,7 @@ export type Database = {
           curriculum_id: string
           elite_hardened_at: string | null
           elite_hardening_version: number
+          exam_pool_state_hash: string | null
           exam_structure: string | null
           feature_flags: Json | null
           id: string
@@ -50569,6 +50598,7 @@ export type Database = {
           curriculum_id: string
           elite_hardened_at: string | null
           elite_hardening_version: number
+          exam_pool_state_hash: string | null
           exam_structure: string | null
           feature_flags: Json | null
           id: string
