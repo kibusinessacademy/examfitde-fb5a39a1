@@ -212,7 +212,7 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
     (hasStalePublish ? -10 : 0) +
     (hasPublishDrift ? -15 : 0)
   ));
-  const canPublish = integrityPassed && councilApproved && !hasPublishDrift && buildSteps.every((s: any) => s.status === 'done');
+  const canPublish = integrityPassed && councilApproved && !hasPublishDrift && functionalSteps.every((s: any) => s.status === 'done');
   const isBuilding = pkg.status === 'building';
   const progressPct = buildSteps.length > 0 ? Math.round((doneCount / Math.max(totalCount, 1)) * 100) : (pkg.build_progress || 0);
 
