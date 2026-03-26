@@ -43801,7 +43801,6 @@ export type Database = {
           status: string | null
           title: string | null
           total_steps: number | null
-          updated_at: string | null
           weighted_progress_pct: number | null
         }
         Relationships: []
@@ -46557,6 +46556,7 @@ export type Database = {
           repair_class: string | null
           shard_completed: number | null
           shard_failed: number | null
+          status: string | null
           stored_progress: number | null
           title: string | null
           total_steps: number | null
