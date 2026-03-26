@@ -222,6 +222,10 @@ export default function LeitstellePage() {
         <TrapDistributionAuditCard />
       </Suspense>
 
+      {/* Blueprint Trap-Type Match Audit */}
+      <Suspense fallback={<Skeleton className="h-32" />}>
+        <BlueprintMatchAuditCard />
+
       {/* Critical Packages */}
       {criticalPackages.length > 0 && (
         <div>
