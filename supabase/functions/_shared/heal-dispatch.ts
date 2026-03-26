@@ -148,8 +148,7 @@ export async function healAndDispatchPackage(
       priority: 25, // elevated priority for healed packages
     });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    // If enqueue fails (e.g. immutability guard), don't crash — log the skip
+    const msg = e instanceof Error ? e.message : (typeof e === "object" && e !== null ? JSON.stringify(e) : String(e));
     console.warn(`[heal-dispatch] enqueue failed for ${packageId.slice(0, 8)} / ${jobType}: ${msg}`);
     return { package_id: packageId, status_healed: true, dispatched_step: runnableStep, dispatched_job_type: jobType, skip_reason: `enqueue_failed: ${msg}` };
   }
