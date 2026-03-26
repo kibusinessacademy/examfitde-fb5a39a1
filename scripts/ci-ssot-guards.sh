@@ -143,6 +143,36 @@ else
   green "✅ Guard 5 passed: no direct build_progress writes in Edge Functions"
 fi
 
+# ── Guard 6: No direct progress calculations bypassing v_package_progress_ssot ─
+echo ""
+echo "🔍 Guard 6: direct progress calculations on package_steps..."
+PROGRESS_CALC_HITS=$(grep -rn --include='*.sql' --include='*.ts' --include='*.tsx' \
+  -e "count(\*) as total_steps" \
+  -e "count(\*) AS total_steps" \
+  -e "count(\*) as steps_total" \
+  -e "count(\*) AS steps_total" \
+  -e "\.length.*total.*step" \
+  -e "steps\.length" \
+  -e "/ total_steps \* 100" \
+  -e "/ totalSteps \* 100" \
+  src/ supabase/functions/ \
+  | grep -iv 'v_package_progress_ssot' \
+  | grep -v 'node_modules' \
+  | grep -v 'ci-ssot-guards' \
+  | grep -v 'ssot-guard' \
+  | grep -v '\.test\.' \
+  | grep -v 'pipeline-logic-test' \
+  || true)
+
+if [ -n "$PROGRESS_CALC_HITS" ]; then
+  yellow "⚠️  Guard 6 WARNING: direct progress calculation found bypassing v_package_progress_ssot"
+  echo "$PROGRESS_CALC_HITS"
+  echo "All progress calculations must use v_package_progress_ssot. See docs/SSOT_RULES.md"
+  WARNINGS=$((WARNINGS + 1))
+else
+  green "✅ Guard 6 passed: no direct progress calculations bypassing SSOT view"
+fi
+
 # ── Summary ─────────────────────────────────────────────────────────
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
