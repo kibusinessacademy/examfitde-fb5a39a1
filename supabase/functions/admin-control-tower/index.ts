@@ -110,6 +110,8 @@ Deno.serve(async (req) => {
         return json(await getTrapQualityAudit(sb));
       case "trap_blueprint_match":
         return json(await getTrapBlueprintMatch(sb));
+      case "blocked_but_ready":
+        return json(await getBlockedButReady(sb));
       default:
         return json({ error: `Unknown action: ${action}` }, 400);
     }
@@ -1248,5 +1250,30 @@ async function getTrapBlueprintMatch(sb: SB) {
       match_pct: gTotal > 0 ? Math.round(1000 * gMatched / gTotal) / 10 : 100,
     },
     packages: results,
+  };
+}
+
+async function getBlockedButReady(sb: SB) {
+  const rows = await safeFrom(sb, "ops_blocked_but_ready", "package_id, title, status, blocked_reason, integrity_passed, council_approved, build_progress, updated_at, non_done_steps");
+  
+  // Also check for integrity-completed-without-report
+  const integrityAnomalies = await safeFrom(sb, "course_packages", "id, status, integrity_passed, integrity_report, council_approved, build_progress", 
+    (q: any) => q.eq("integrity_passed", false).is("integrity_report", null).in("status", ["building", "blocked"]).gt("build_progress", 80)
+  );
+
+  return {
+    generated_at: new Date().toISOString(),
+    blocked_but_ready: rows,
+    integrity_anomalies: integrityAnomalies.map((r: any) => ({
+      package_id: r.id,
+      status: r.status,
+      integrity_passed: r.integrity_passed,
+      has_report: r.integrity_report !== null,
+      council_approved: r.council_approved,
+      build_progress: r.build_progress,
+      anomaly: r.integrity_report === null ? 'INTEGRITY_COMPLETED_WITHOUT_REPORT' : 'STALE_BLOCKED_AFTER_AUTO_PUBLISH',
+    })),
+    total_blocked_ready: rows.length,
+    total_integrity_anomalies: integrityAnomalies.length,
   };
 }
