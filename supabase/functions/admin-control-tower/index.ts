@@ -110,6 +110,8 @@ Deno.serve(async (req) => {
         return json(await getTrapQualityAudit(sb));
       case "trap_blueprint_match":
         return json(await getTrapBlueprintMatch(sb));
+      case "blocked_but_ready":
+        return json(await getBlockedButReady(sb));
       default:
         return json({ error: `Unknown action: ${action}` }, 400);
     }
