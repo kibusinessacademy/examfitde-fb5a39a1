@@ -17,7 +17,10 @@ type AdminOpsAction =
   | 'approve_step_exception'
   | 'workspace_snapshot'
   // v2 loop smoke test
-  | 'smoke_test_v2_loop';
+  | 'smoke_test_v2_loop'
+  // Batch recovery
+  | 'heal_finalization_stall'
+  | 'heal_non_building';
 
 export interface ScopedPayload {
   limit?: number;

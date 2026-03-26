@@ -1279,3 +1279,23 @@ async function getBlockedButReady(sb: SB) {
     total_integrity_anomalies: integrityAnomalies.length,
   };
 }
+
+/** Recovery Board: finalization stalls + non-building recoverable */
+async function getRecoveryBoard(sb: SB) {
+  const [finStall, nonBuilding] = await Promise.all([
+    safeFrom(sb, "ops_finalization_stall", "package_id, pkg_status, build_progress, finalize_status, validate_status, generate_status, content_lessons, total_lessons, active_content_jobs, updated_at"),
+    safeFrom(sb, "ops_non_building_recoverable", "package_id, status, blocked_reason, last_error, build_progress, open_steps, first_open_step, active_jobs, recent_failed_jobs, updated_at"),
+  ]);
+
+  return {
+    generated_at: new Date().toISOString(),
+    finalization_stall: {
+      total: finStall.length,
+      packages: finStall,
+    },
+    non_building_recoverable: {
+      total: nonBuilding.length,
+      packages: nonBuilding,
+    },
+  };
+}
