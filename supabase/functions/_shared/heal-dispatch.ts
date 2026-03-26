@@ -150,11 +150,14 @@ export async function healAndDispatchPackage(
     }).eq("package_id", packageId).eq("step_key", runnableStep);
   }
 
-  // 7. Enqueue the job
+  // 7. Enqueue the job with enriched payload
+  const jobPayload: Record<string, unknown> = { package_id: packageId };
+  if (pkg.curriculum_id) jobPayload.curriculum_id = pkg.curriculum_id;
+
   try {
     await enqueueJob(sb, {
       job_type: jobType,
-      payload: { package_id: packageId },
+      payload: jobPayload,
       package_id: packageId,
       priority: 25, // elevated priority for healed packages
     });
