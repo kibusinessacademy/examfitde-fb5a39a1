@@ -1365,6 +1365,8 @@ Deno.serve(async (req) => {
           console.log(`[integrity-check] RECONCILE: pkg=${packageId.slice(0,8)} status=${reconPkg.status} → ${nextStatus} (integrity passed, progress=${progress})`);
           await sb.from("course_packages").update({
             status: nextStatus,
+            blocked_reason: null,
+            last_error: null,
             updated_at: new Date().toISOString(),
           }).eq("id", packageId);
 
