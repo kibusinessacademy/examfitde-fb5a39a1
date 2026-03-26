@@ -15,6 +15,7 @@ const TrapCoverageAuditCard = lazy(() => import('@/components/admin/cards/TrapCo
 const TrapDistributionAuditCard = lazy(() => import('@/components/admin/cards/TrapDistributionAuditCard'));
 const BlueprintMatchAuditCard = lazy(() => import('@/components/admin/cards/BlueprintMatchAuditCard'));
 const BlockedButReadyCard = lazy(() => import('@/components/admin/cards/BlockedButReadyCard'));
+const RecoveryBoardCard = lazy(() => import('@/components/admin/cards/RecoveryBoardCard'));
 
 function KpiTile({ label, value, icon, tone = 'neutral' }: {
   label: string;
@@ -210,6 +211,11 @@ export default function LeitstellePage() {
       {/* Status Invariant Violations */}
       <Suspense fallback={<Skeleton className="h-28" />}>
         <BlockedButReadyCard />
+      </Suspense>
+
+      {/* Recovery Board */}
+      <Suspense fallback={<Skeleton className="h-28" />}>
+        <RecoveryBoardCard />
       </Suspense>
 
       {/* Exam Pool Lifecycle Audit */}

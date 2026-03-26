@@ -169,6 +169,24 @@ Deno.serve(async (req) => {
         break;
       }
 
+      /* ── Batch Recovery Actions ── */
+      case "heal_finalization_stall": {
+        const limit = Number(body.limit) || 20;
+        const { data: healData, error: healErr } = await sb.rpc("heal_finalization_stall", { p_limit: limit });
+        if (healErr) throw healErr;
+        result = healData as JsonRow;
+        affectedIds = ((healData as any)?.healed || []).map((h: any) => h.package_id);
+        break;
+      }
+      case "heal_non_building": {
+        const limit = Number(body.limit) || 20;
+        const { data: healData, error: healErr } = await sb.rpc("heal_non_building_packages", { p_limit: limit });
+        if (healErr) throw healErr;
+        result = healData as JsonRow;
+        affectedIds = ((healData as any)?.healed || []).map((h: any) => h.package_id);
+        break;
+      }
+
       default:
         return json({ error: `Unknown action: ${action}` }, 400);
     }

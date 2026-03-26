@@ -157,4 +157,36 @@ export const adminRpc = {
       total_blocked_ready: number;
       total_integrity_anomalies: number;
     }>("admin-control-tower", { action: "blocked_but_ready" }),
+
+  recoveryBoard: () =>
+    callEdge<{
+      generated_at: string;
+      finalization_stall: {
+        total: number;
+        packages: Array<{
+          package_id: string;
+          pkg_status: string;
+          build_progress: number;
+          finalize_status: string;
+          validate_status: string;
+          generate_status: string;
+          content_lessons: number;
+          total_lessons: number;
+          active_content_jobs: number;
+        }>;
+      };
+      non_building_recoverable: {
+        total: number;
+        packages: Array<{
+          package_id: string;
+          status: string;
+          blocked_reason: string | null;
+          build_progress: number;
+          open_steps: number;
+          first_open_step: string;
+          active_jobs: number;
+          recent_failed_jobs: number;
+        }>;
+      };
+    }>("admin-control-tower", { action: "recovery_board" }),
 };

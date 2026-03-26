@@ -17,7 +17,10 @@ type AdminOpsAction =
   | 'approve_step_exception'
   | 'workspace_snapshot'
   // v2 loop smoke test
-  | 'smoke_test_v2_loop';
+  | 'smoke_test_v2_loop'
+  // Batch recovery
+  | 'heal_finalization_stall'
+  | 'heal_non_building';
 
 export interface ScopedPayload {
   limit?: number;
@@ -88,4 +91,14 @@ export async function runV2LoopSmokeTest(curriculumId: string, userId?: string, 
   });
   if (error) throw error;
   return data;
+}
+
+/* ── Batch Recovery ── */
+
+export async function healFinalizationStall(limit = 20) {
+  return runAdminOpsAction('heal_finalization_stall', { limit });
+}
+
+export async function healNonBuilding(limit = 20) {
+  return runAdminOpsAction('heal_non_building', { limit });
 }
