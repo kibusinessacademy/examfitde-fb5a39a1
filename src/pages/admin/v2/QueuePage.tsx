@@ -15,6 +15,7 @@ const STATUS_FILTERS = [
   { key: 'processing', label: 'Processing' },
   { key: 'failed', label: 'Failed' },
   { key: 'completed', label: 'Completed' },
+  { key: 'cancelled', label: 'Cancelled' },
 ] as const;
 
 function formatAge(seconds: number): string {
