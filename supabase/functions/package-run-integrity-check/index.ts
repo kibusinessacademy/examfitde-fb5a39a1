@@ -940,7 +940,14 @@ Deno.serve(async (req) => {
     }
 
     const pkgStatus = (pkgData as any).status;
-    if (pkgStatus !== "building" && pkgStatus !== "done" && pkgStatus !== "published" && !forceRun) {
+    // P0 FIX: Allow blocked packages to run integrity check if council is approved
+    // This prevents the deadlock: blocked → can't run integrity → stays blocked
+    const allowedStatuses = ["building", "done", "published"];
+    const isBlockedButReady = pkgStatus === "blocked" && (pkgData as any).council_approved === true;
+    if (isBlockedButReady) {
+      console.log(`[integrity-check] pkg=${packageId.slice(0, 8)} BLOCKED_BUT_READY: running integrity despite blocked status (council_approved=true)`);
+    }
+    if (!allowedStatuses.includes(pkgStatus) && !isBlockedButReady && !forceRun) {
       // Package not in an active build state — skip gracefully (not a failure)
       console.log(`[integrity-check] pkg=${packageId.slice(0, 8)} status=${pkgStatus} — skipping (not building/done/published)`);
       return json({
