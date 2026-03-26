@@ -131,4 +131,30 @@ export const adminRpc = {
       "package-exam-rebalance",
       { package_id: packageId },
     ),
+
+  blockedButReady: () =>
+    callEdge<{
+      generated_at: string;
+      blocked_but_ready: Array<{
+        package_id: string;
+        title: string;
+        status: string;
+        blocked_reason: string;
+        integrity_passed: boolean;
+        council_approved: boolean;
+        build_progress: number;
+        non_done_steps: number;
+      }>;
+      integrity_anomalies: Array<{
+        package_id: string;
+        status: string;
+        integrity_passed: boolean;
+        has_report: boolean;
+        council_approved: boolean;
+        build_progress: number;
+        anomaly: string;
+      }>;
+      total_blocked_ready: number;
+      total_integrity_anomalies: number;
+    }>("admin-control-tower", { action: "blocked_but_ready" }),
 };
