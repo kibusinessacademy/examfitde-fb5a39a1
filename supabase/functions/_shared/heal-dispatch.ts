@@ -66,7 +66,18 @@ export async function healAndDispatchPackage(
   packageId: string,
   healReason: string,
 ): Promise<HealDispatchResult> {
-  // 1. Fetch all steps for this package
+  // 1. Fetch package metadata for enriched payload
+  const { data: pkg, error: pkgErr } = await sb
+    .from("course_packages")
+    .select("id, status, curriculum_id")
+    .eq("id", packageId)
+    .maybeSingle();
+
+  if (pkgErr || !pkg) {
+    return { package_id: packageId, status_healed: false, dispatched_step: null, dispatched_job_type: null, skip_reason: "package_not_found" };
+  }
+
+  // 2. Fetch all steps for this package
   const { data: steps, error: stepsErr } = await sb
     .from("package_steps")
     .select("step_key, status")
