@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 const ExamPoolAuditCard = lazy(() => import('@/components/admin/cards/ExamPoolAuditCard'));
 const TrapCoverageAuditCard = lazy(() => import('@/components/admin/cards/TrapCoverageAuditCard'));
 const TrapDistributionAuditCard = lazy(() => import('@/components/admin/cards/TrapDistributionAuditCard'));
+const BlueprintMatchAuditCard = lazy(() => import('@/components/admin/cards/BlueprintMatchAuditCard'));
 
 function KpiTile({ label, value, icon, tone = 'neutral' }: {
   label: string;
@@ -219,6 +220,11 @@ export default function LeitstellePage() {
       {/* Trap Distribution Quality Audit */}
       <Suspense fallback={<Skeleton className="h-32" />}>
         <TrapDistributionAuditCard />
+      </Suspense>
+
+      {/* Blueprint Trap-Type Match Audit */}
+      <Suspense fallback={<Skeleton className="h-32" />}>
+        <BlueprintMatchAuditCard />
       </Suspense>
 
       {/* Critical Packages */}
