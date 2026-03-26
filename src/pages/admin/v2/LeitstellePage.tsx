@@ -207,7 +207,11 @@ export default function LeitstellePage() {
         </div>
       )}
 
-      {/* Exam Pool Lifecycle Audit */}
+      {/* Status Invariant Violations */}
+      <Suspense fallback={<Skeleton className="h-28" />}>
+        <BlockedButReadyCard />
+      </Suspense>
+
       {/* Exam Pool Lifecycle Audit */}
       <Suspense fallback={<Skeleton className="h-32" />}>
         <ExamPoolAuditCard />
