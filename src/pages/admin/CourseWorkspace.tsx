@@ -177,9 +177,10 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
 
   const stepMap = new Map<string, any>();
   for (const s of buildSteps) stepMap.set(s.step_key, s);
-  const isStepCompleted = (s: any) => s?.status === 'done' || s?.status === 'skipped' || s?.exception_approved;
-  const doneCount = buildSteps.filter(isStepCompleted).length;
-  const totalCount = buildSteps.length || PIPELINE_STEPS.length;
+  // SSOT-aligned: denominator = functional steps (excludes skipped), numerator = done only
+  const functionalSteps = buildSteps.filter((s: any) => s?.status !== 'skipped');
+  const doneCount = buildSteps.filter((s: any) => s?.status === 'done').length;
+  const totalCount = functionalSteps.length || PIPELINE_STEPS.length;
   const failedSteps = buildSteps.filter((s: any) => s.status === 'failed');
   const runningStep = buildSteps.find((s: any) => s.status === 'running');
   const currentStepIdx = runningStep ? PIPELINE_STEPS.findIndex(s => s.key === runningStep.step_key) : failedSteps.length > 0 ? PIPELINE_STEPS.findIndex(s => s.key === failedSteps[0].step_key) : doneCount > 0 ? doneCount - 1 : -1;
@@ -211,7 +212,7 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
     (hasStalePublish ? -10 : 0) +
     (hasPublishDrift ? -15 : 0)
   ));
-  const canPublish = integrityPassed && councilApproved && !hasPublishDrift && buildSteps.every((s: any) => s.status === 'done');
+  const canPublish = integrityPassed && councilApproved && !hasPublishDrift && functionalSteps.every((s: any) => s.status === 'done');
   const isBuilding = pkg.status === 'building';
   const progressPct = buildSteps.length > 0 ? Math.round((doneCount / Math.max(totalCount, 1)) * 100) : (pkg.build_progress || 0);
 
