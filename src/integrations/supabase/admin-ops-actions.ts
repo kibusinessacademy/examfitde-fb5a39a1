@@ -92,3 +92,13 @@ export async function runV2LoopSmokeTest(curriculumId: string, userId?: string, 
   if (error) throw error;
   return data;
 }
+
+/* ── Batch Recovery ── */
+
+export async function healFinalizationStall(limit = 20) {
+  return runAdminOpsAction('heal_finalization_stall', { limit });
+}
+
+export async function healNonBuilding(limit = 20) {
+  return runAdminOpsAction('heal_non_building', { limit });
+}
