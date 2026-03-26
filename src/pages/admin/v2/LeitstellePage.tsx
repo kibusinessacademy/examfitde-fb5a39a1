@@ -14,6 +14,7 @@ const ExamPoolAuditCard = lazy(() => import('@/components/admin/cards/ExamPoolAu
 const TrapCoverageAuditCard = lazy(() => import('@/components/admin/cards/TrapCoverageAuditCard'));
 const TrapDistributionAuditCard = lazy(() => import('@/components/admin/cards/TrapDistributionAuditCard'));
 const BlueprintMatchAuditCard = lazy(() => import('@/components/admin/cards/BlueprintMatchAuditCard'));
+const BlockedButReadyCard = lazy(() => import('@/components/admin/cards/BlockedButReadyCard'));
 
 function KpiTile({ label, value, icon, tone = 'neutral' }: {
   label: string;
