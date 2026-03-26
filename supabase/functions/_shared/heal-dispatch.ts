@@ -2,8 +2,8 @@
  * SSOT Heal+Dispatch Helper
  *
  * Atomically heals a package (status → building) AND dispatches
- * the first runnable step as a job. Without a dispatched job the
- * watchdog will revert the package back to queued within 30 min.
+ * the first runnable step as a job, AND creates a lease to prevent
+ * the watchdog/acquire_v2 from reverting the package.
  *
  * Used by:
  *  - heal_non_building  (admin-ops-actions)
@@ -19,6 +19,9 @@ import { enqueueJob } from "./enqueue.ts";
 
 // deno-lint-ignore no-explicit-any
 type SB = any;
+
+/** Lease duration for healed packages (10 minutes — enough for runner pickup) */
+const HEAL_LEASE_SECONDS = 600;
 
 export interface HealDispatchResult {
   package_id: string;
@@ -58,8 +61,42 @@ function findFirstRunnableStep(
 }
 
 /**
- * Heal a single package: set status to building + dispatch first runnable step.
- * Returns what was done for telemetry.
+ * Get available WIP slots (respects ops_pipeline_config.wip_limit).
+ */
+async function getAvailableWipSlots(sb: SB): Promise<number> {
+  let wipLimit = 25; // default
+  try {
+    const { data: cfg } = await sb
+      .from("ops_pipeline_config")
+      .select("value")
+      .eq("key", "wip_limit")
+      .maybeSingle();
+    if (cfg?.value) wipLimit = parseInt(String(cfg.value), 10) || 25;
+  } catch { /* use default */ }
+
+  const { count: buildingCount } = await sb
+    .from("course_packages")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "building");
+
+  return Math.max(0, wipLimit - (buildingCount ?? 0));
+}
+
+/**
+ * Create a lease for a healed package so acquire_v2 doesn't reclaim it.
+ */
+async function createHealLease(sb: SB, packageId: string): Promise<void> {
+  const leaseUntil = new Date(Date.now() + HEAL_LEASE_SECONDS * 1000).toISOString();
+  await sb.from("package_leases").upsert({
+    package_id: packageId,
+    runner_id: "heal-dispatch",
+    lease_until: leaseUntil,
+    acquired_at: new Date().toISOString(),
+  }, { onConflict: "package_id" });
+}
+
+/**
+ * Heal a single package: set status to building + dispatch first runnable step + create lease.
  */
 export async function healAndDispatchPackage(
   sb: SB,
@@ -87,19 +124,19 @@ export async function healAndDispatchPackage(
     return { package_id: packageId, status_healed: false, dispatched_step: null, dispatched_job_type: null, skip_reason: "no_steps" };
   }
 
-  // 2. Find the first runnable step
+  // 3. Find the first runnable step
   const runnableStep = findFirstRunnableStep(steps);
   if (!runnableStep) {
     return { package_id: packageId, status_healed: false, dispatched_step: null, dispatched_job_type: null, skip_reason: "no_runnable_step" };
   }
 
-  // 3. Resolve job type from SSOT
+  // 4. Resolve job type from SSOT
   const jobType = STEP_TO_JOB_TYPE[runnableStep];
   if (!jobType) {
     return { package_id: packageId, status_healed: false, dispatched_step: runnableStep, dispatched_job_type: null, skip_reason: "no_job_type_mapping" };
   }
 
-  // 4. Check no active job already exists for this step+package
+  // 5. Check no active job already exists for this step+package
   const { data: existingJob } = await sb
     .from("job_queue")
     .select("id")
@@ -110,35 +147,29 @@ export async function healAndDispatchPackage(
     .maybeSingle();
 
   if (existingJob) {
-    // Job already exists — just ensure building status
+    // Job already exists — ensure building status + lease
     await sb.from("course_packages").update({
       status: "building",
       blocked_reason: null,
       stuck_reason: null,
       updated_at: new Date().toISOString(),
-      meta: { healed_by: "heal_dispatch", healed_at: new Date().toISOString(), heal_reason: healReason },
     }).eq("id", packageId);
+    await createHealLease(sb, packageId);
 
     return { package_id: packageId, status_healed: true, dispatched_step: runnableStep, dispatched_job_type: jobType, skip_reason: "job_already_active" };
   }
 
-  // 5. Set package to building FIRST (so enqueue immutability guard passes)
+  // 6. Set package to building FIRST (so enqueue immutability guard passes) + create lease
   const now = new Date().toISOString();
   await sb.from("course_packages").update({
     status: "building",
     blocked_reason: null,
     stuck_reason: null,
     updated_at: now,
-    meta: {
-      healed_by: "heal_dispatch",
-      healed_at: now,
-      dispatched_step: runnableStep,
-      dispatched_job_type: jobType,
-      heal_reason: healReason,
-    },
   }).eq("id", packageId);
+  await createHealLease(sb, packageId);
 
-  // 6. Reset the step to queued if it was failed
+  // 7. Reset the step to queued if it was failed
   const stepStatus = steps.find((s: { step_key: string }) => s.step_key === runnableStep)?.status;
   if (stepStatus === "failed") {
     await sb.from("package_steps").update({
@@ -150,7 +181,7 @@ export async function healAndDispatchPackage(
     }).eq("package_id", packageId).eq("step_key", runnableStep);
   }
 
-  // 7. Enqueue the job with enriched payload
+  // 8. Enqueue the job with enriched payload
   const jobPayload: Record<string, unknown> = { package_id: packageId };
   if (pkg.curriculum_id) jobPayload.curriculum_id = pkg.curriculum_id;
 
@@ -172,16 +203,39 @@ export async function healAndDispatchPackage(
 
 /**
  * Batch heal+dispatch for multiple packages.
- * Used by heal_non_building and heal_finalization_stall actions.
+ * Respects WIP limit: only dispatches up to available slots.
  */
 export async function batchHealAndDispatch(
   sb: SB,
   packageIds: string[],
   healReason: string,
-): Promise<{ healed: HealDispatchResult[]; total: number; dispatched: number; skipped: number }> {
+): Promise<{ healed: HealDispatchResult[]; total: number; dispatched: number; skipped: number; wip_available: number }> {
   const results: HealDispatchResult[] = [];
 
-  for (const pid of packageIds) {
+  // Check available WIP slots
+  const wipAvailable = await getAvailableWipSlots(sb);
+  const maxDispatch = Math.min(packageIds.length, wipAvailable);
+
+  if (maxDispatch <= 0) {
+    return {
+      healed: packageIds.map(pid => ({
+        package_id: pid,
+        status_healed: false,
+        dispatched_step: null,
+        dispatched_job_type: null,
+        skip_reason: "wip_limit_reached",
+      })),
+      total: packageIds.length,
+      dispatched: 0,
+      skipped: packageIds.length,
+      wip_available: 0,
+    };
+  }
+
+  const toDispatch = packageIds.slice(0, maxDispatch);
+  const skippedByWip = packageIds.slice(maxDispatch);
+
+  for (const pid of toDispatch) {
     try {
       const r = await healAndDispatchPackage(sb, pid, healReason);
       results.push(r);
@@ -191,10 +245,16 @@ export async function batchHealAndDispatch(
     }
   }
 
+  // Record skipped packages
+  for (const pid of skippedByWip) {
+    results.push({ package_id: pid, status_healed: false, dispatched_step: null, dispatched_job_type: null, skip_reason: "wip_limit_reached" });
+  }
+
   return {
     healed: results,
     total: results.length,
     dispatched: results.filter(r => r.dispatched_job_type && !r.skip_reason).length,
     skipped: results.filter(r => !!r.skip_reason).length,
+    wip_available: wipAvailable,
   };
 }
