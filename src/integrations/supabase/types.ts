@@ -14726,6 +14726,7 @@ export type Database = {
           curriculum_id: string
           has_ai_tutor: boolean | null
           has_exam_trainer: boolean | null
+          has_handbook: boolean
           has_learning_course: boolean | null
           has_oral_trainer: boolean | null
           id: string
@@ -14742,6 +14743,7 @@ export type Database = {
           curriculum_id: string
           has_ai_tutor?: boolean | null
           has_exam_trainer?: boolean | null
+          has_handbook?: boolean
           has_learning_course?: boolean | null
           has_oral_trainer?: boolean | null
           id?: string
@@ -14758,6 +14760,7 @@ export type Database = {
           curriculum_id?: string
           has_ai_tutor?: boolean | null
           has_exam_trainer?: boolean | null
+          has_handbook?: boolean
           has_learning_course?: boolean | null
           has_oral_trainer?: boolean | null
           id?: string

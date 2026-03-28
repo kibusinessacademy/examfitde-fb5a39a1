@@ -1,0 +1,1 @@
+ALTER TABLE public.entitlements ADD COLUMN IF NOT EXISTS has_handbook boolean NOT NULL DEFAULT false;
