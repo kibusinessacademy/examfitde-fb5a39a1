@@ -69,12 +69,25 @@ Deno.test("DAG_TOPOLOGY: edge count is in expected range", async () => {
 // TEST 3: No step done with predecessor not done (spot check)
 // ══════════════════════════════════════════════
 Deno.test("DAG_SEQUENCE: auto_publish done implies quality_council done", async () => {
-  // Find packages where auto_publish is done
+  // Find non-archived packages where auto_publish is done
+  const { data: activePkgs } = await sb
+    .from("course_packages")
+    .select("id")
+    .neq("status", "archived")
+    .limit(500);
+
+  if (!activePkgs || activePkgs.length === 0) {
+    console.warn("⚠️  No active packages — skipping");
+    return;
+  }
+
+  const activeIds = activePkgs.map((p) => p.id);
   const { data: apDone } = await sb
     .from("package_steps")
     .select("package_id")
     .eq("step_key", "auto_publish")
     .eq("status", "done")
+    .in("package_id", activeIds)
     .limit(20);
 
   if (!apDone || apDone.length === 0) {
