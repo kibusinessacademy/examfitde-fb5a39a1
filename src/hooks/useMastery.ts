@@ -75,7 +75,7 @@ export function useWeaknessMap(curriculumId?: string) {
         .eq('curriculum_id', curriculumId);
 
       if (error) throw error;
-      return (data || []) as WeaknessEntry[];
+      return (data || []) as unknown as WeaknessEntry[];
     },
     enabled: !!user && !!curriculumId,
     staleTime: 30_000,
