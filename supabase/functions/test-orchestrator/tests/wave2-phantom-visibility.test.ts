@@ -264,7 +264,7 @@ Deno.test("D:VIS: no published packages with dead_ends in readiness view", async
     `❌ PUBLISHED WITH DEAD ENDS: ${publishedDeadEnds.length} published packages have dead-end features: ` +
     `${JSON.stringify(publishedDeadEnds.slice(0, 3))}`);
 
-  console.log(`📊 ops_learner_visible_readiness: ${data!.length} entries`);
+  console.log(`📊 ops_learner_visible_readiness: ${data!.length} sampled of ${totalEntries} total entries`);
 });
 
 // ══════════════════════════════════════════════
