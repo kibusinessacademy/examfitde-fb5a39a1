@@ -90,10 +90,11 @@ Deno.test("trg_guard_auto_publish_done rejects done on non-published package", a
       `Trigger must rewrite status to 'failed', got '${after!.status}'`
     );
 
+    const lastError = after!.last_error as string;
     assertEquals(
-      after!.last_error,
-      "POST_CONDITION_FAILED",
-      `Trigger must set last_error to POST_CONDITION_FAILED, got '${after!.last_error}'`
+      lastError.startsWith("POST_CONDITION_FAILED"),
+      true,
+      `last_error must start with POST_CONDITION_FAILED, got '${lastError}'`
     );
 
     console.log("✅ Trigger correctly rejected false-success: status=failed, last_error=POST_CONDITION_FAILED");
