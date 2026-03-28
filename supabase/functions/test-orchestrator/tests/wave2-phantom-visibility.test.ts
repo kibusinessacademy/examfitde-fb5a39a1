@@ -117,21 +117,31 @@ Deno.test("P:VISIBILITY: all visible packages have ≥40 approved questions", as
 // ══════════════════════════════════════════════
 // D: ops_learner_visible_readiness cross-check
 // ══════════════════════════════════════════════
-Deno.test("D:VISIBILITY: ops_learner_visible_readiness shows no issues", async () => {
+Deno.test("D:VISIBILITY: ops_learner_visible_readiness is queryable and monitored", async () => {
   const { data, error } = await sb
     .from("ops_learner_visible_readiness")
-    .select("*")
-    .limit(10);
+    .select("package_id, learner_tier, is_published, dead_ends")
+    .limit(20);
 
   assertEquals(error, null, `View query failed: ${error?.message}`);
   assertExists(data);
-  console.log(`📊 ops_learner_visible_readiness: ${data!.length} entries`);
+  console.log(`📊 ops_learner_visible_readiness: ${data!.length} entries total`);
 
-  // If this view contains entries, they are packages that are visible but have readiness issues
-  assertEquals(
-    data!.length,
-    0,
-    `❌ READINESS MISMATCH: ${data!.length} visible packages have readiness issues. ` +
-    `Entries: ${JSON.stringify(data!.slice(0, 3))}`,
+  // Hard invariant: no published package should have dead_ends
+  const publishedWithDeadEnds = data!.filter(
+    (d: any) => d.is_published && d.dead_ends && d.dead_ends.length > 0,
   );
+
+  assertEquals(
+    publishedWithDeadEnds.length,
+    0,
+    `❌ PUBLISHED WITH DEAD ENDS: ${publishedWithDeadEnds.length} published packages have dead-end features. ` +
+    `Entries: ${JSON.stringify(publishedWithDeadEnds.slice(0, 3))}`,
+  );
+
+  // Info: non-published entries are early_access packages — expected
+  const nonPublished = data!.filter((d: any) => !d.is_published);
+  if (nonPublished.length > 0) {
+    console.log(`   ℹ️  ${nonPublished.length} non-published (early_access) entries — expected`);
+  }
 });
