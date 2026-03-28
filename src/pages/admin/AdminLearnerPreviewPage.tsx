@@ -20,6 +20,7 @@ import { TestPriorityReasons } from "@/features/admin/components/TestPriorityRea
 import { CourseTestStatusBadge } from "@/features/admin/components/CourseTestStatusBadge";
 import { AdminCourseQAActions } from "@/features/admin/components/AdminCourseQAActions";
 import { AdminCourseQAHistory } from "@/features/admin/components/AdminCourseQAHistory";
+import { AdminAutoHealQueue } from "@/features/admin/components/AdminAutoHealQueue";
 
 type PreviewMode = "standard" | "premium" | "adaptive";
 
@@ -111,6 +112,9 @@ export default function AdminLearnerPreviewPage() {
 
       {/* Auto-Test Queue */}
       <AdminAutoTestQueue previewMode={previewMode} limit={10} />
+
+      {/* Auto-Heal Queue */}
+      <AdminAutoHealQueue />
 
       {/* Search + Filters */}
       <div className="rounded-2xl border bg-card p-4 space-y-4">
