@@ -50,6 +50,39 @@ export type Database = {
         }
         Relationships: []
       }
+      admin_course_test_runs: {
+        Row: {
+          created_at: string
+          curriculum_id: string
+          id: string
+          issue_codes: string[]
+          notes: string | null
+          package_id: string
+          test_status: string
+          tested_by: string
+        }
+        Insert: {
+          created_at?: string
+          curriculum_id: string
+          id?: string
+          issue_codes?: string[]
+          notes?: string | null
+          package_id: string
+          test_status: string
+          tested_by: string
+        }
+        Update: {
+          created_at?: string
+          curriculum_id?: string
+          id?: string
+          issue_codes?: string[]
+          notes?: string | null
+          package_id?: string
+          test_status?: string
+          tested_by?: string
+        }
+        Relationships: []
+      }
       admin_matrix_pins: {
         Row: {
           curriculum_id: string
@@ -45265,6 +45298,18 @@ export type Database = {
           },
         ]
       }
+      v_admin_course_test_run_latest: {
+        Row: {
+          created_at: string | null
+          curriculum_id: string | null
+          issue_codes: string[] | null
+          notes: string | null
+          package_id: string | null
+          test_status: string | null
+          tested_by: string | null
+        }
+        Relationships: []
+      }
       v_admin_growth_overview: {
         Row: {
           seo_draft: number | null
@@ -51418,6 +51463,31 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      get_admin_course_test_run_history: {
+        Args: { p_package_id: string }
+        Returns: {
+          created_at: string
+          curriculum_id: string
+          id: string
+          issue_codes: string[]
+          notes: string
+          package_id: string
+          test_status: string
+          tested_by: string
+        }[]
+      }
+      get_admin_course_test_run_latest: {
+        Args: never
+        Returns: {
+          created_at: string
+          curriculum_id: string
+          issue_codes: string[]
+          notes: string
+          package_id: string
+          test_status: string
+          tested_by: string
+        }[]
+      }
       get_admin_growth_content_jobs: {
         Args: { p_status?: string }
         Returns: {
@@ -52627,6 +52697,16 @@ export type Database = {
       reconcile_package_progress: {
         Args: { p_package_id: string }
         Returns: Json
+      }
+      record_admin_course_test_run: {
+        Args: {
+          p_curriculum_id: string
+          p_issue_codes?: string[]
+          p_notes?: string
+          p_package_id: string
+          p_test_status: string
+        }
+        Returns: string
       }
       record_worker_usage: {
         Args: {
