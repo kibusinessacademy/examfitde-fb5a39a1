@@ -50,6 +50,51 @@ export type Database = {
         }
         Relationships: []
       }
+      admin_course_auto_heal_queue: {
+        Row: {
+          created_at: string
+          curriculum_id: string
+          heal_action: string
+          id: string
+          notes: string | null
+          package_id: string
+          processed_at: string | null
+          reason_codes: string[]
+          source: string
+          source_test_run_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          curriculum_id: string
+          heal_action: string
+          id?: string
+          notes?: string | null
+          package_id: string
+          processed_at?: string | null
+          reason_codes?: string[]
+          source?: string
+          source_test_run_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          curriculum_id?: string
+          heal_action?: string
+          id?: string
+          notes?: string | null
+          package_id?: string
+          processed_at?: string | null
+          reason_codes?: string[]
+          source?: string
+          source_test_run_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       admin_course_test_runs: {
         Row: {
           created_at: string
