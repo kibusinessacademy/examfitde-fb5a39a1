@@ -278,6 +278,29 @@ Deno.serve(async (req) => {
       if (pErr) throw pErr;
     }
 
+    // ═══════════════════════════════════════════════════════════
+    // POST-CONDITION: Verify package is actually published.
+    // This prevents the False-Success class where the step reports
+    // ok=true but the actual status update was silently blocked.
+    // ═══════════════════════════════════════════════════════════
+    const { data: postCheck } = await sb
+      .from("course_packages")
+      .select("status")
+      .eq("id", packageId)
+      .maybeSingle();
+
+    if ((postCheck as any)?.status !== "published") {
+      const actualStatus = (postCheck as any)?.status ?? "UNKNOWN";
+      console.error(`[auto-publish] POST_CONDITION_FAILED: package ${packageId.slice(0, 8)} status is ${actualStatus} after publish attempt`);
+      return json({
+        ok: false,
+        retry: false,
+        error: "POST_CONDITION_FAILED",
+        expected: "published",
+        actual: actualStatus,
+      }, 422);
+    }
+
     // ── Log excellence level ──
     const excellenceList = integrityReport?.v3?.excellence || [];
     const badge = excellenceList.length >= 3 ? "🏆 Excellence" : excellenceList.length > 0 ? "🥇 Gold" : "✅ Ready";
