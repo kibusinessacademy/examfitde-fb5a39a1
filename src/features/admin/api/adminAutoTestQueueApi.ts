@@ -13,8 +13,13 @@ export type AdminAutoTestQueueItem = {
   tutor_index_count: number;
   updated_at: string;
   published_at: string | null;
+  latest_qa_status: "tested" | "issue_found" | "approved" | null;
+  latest_qa_notes: string | null;
+  latest_qa_issue_codes: string[] | null;
+  latest_qa_at: string | null;
+  never_tested: boolean;
+  qa_freshness_bucket: "never_tested" | "today" | "recent" | "stale";
   queue_score: number;
-  freshness_bucket: "today" | "recent" | "older";
 };
 
 export async function getAdminAutoTestQueue(limit = 10) {

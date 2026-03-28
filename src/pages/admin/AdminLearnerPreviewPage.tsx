@@ -10,12 +10,16 @@ import {
   LayoutDashboard,
 } from "lucide-react";
 import { getAdminCourseTestPriority } from "@/features/admin/api/adminTestPriorityApi";
+import { getAdminCourseTestRunLatest } from "@/features/admin/api/adminCourseTestRunsApi";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AdminPreviewQuickLinksCard } from "@/features/admin/components/AdminPreviewQuickLinksCard";
 import { AdminAutoTestQueue } from "@/features/admin/components/AdminAutoTestQueue";
 import { TestPriorityBadge } from "@/features/admin/components/TestPriorityBadge";
 import { TestPriorityReasons } from "@/features/admin/components/TestPriorityReasons";
+import { CourseTestStatusBadge } from "@/features/admin/components/CourseTestStatusBadge";
+import { AdminCourseQAActions } from "@/features/admin/components/AdminCourseQAActions";
+import { AdminCourseQAHistory } from "@/features/admin/components/AdminCourseQAHistory";
 
 type PreviewMode = "standard" | "premium" | "adaptive";
 
@@ -66,6 +70,18 @@ export default function AdminLearnerPreviewPage() {
     queryFn: getAdminCourseTestPriority,
     staleTime: 60_000,
   });
+
+  const { data: latestRuns = [] } = useQuery({
+    queryKey: ["admin-course-test-run-latest"],
+    queryFn: getAdminCourseTestRunLatest,
+    staleTime: 30_000,
+  });
+
+  const latestRunMap = useMemo(() => {
+    const map = new Map<string, (typeof latestRuns)[number]>();
+    for (const row of latestRuns) map.set(row.package_id, row);
+    return map;
+  }, [latestRuns]);
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
@@ -165,16 +181,20 @@ export default function AdminLearnerPreviewPage() {
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {filtered.map((course) => {
           const isExpanded = expandedCard === course.package_id;
+          const latestRun = latestRunMap.get(course.package_id);
 
           return (
             <div key={course.package_id} className="rounded-2xl border bg-card p-5 space-y-4">
-              {/* Header with priority */}
+              {/* Header with priority + QA status */}
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="text-lg font-semibold truncate">{course.title}</div>
                   <div className="text-xs text-muted-foreground font-mono truncate">{course.package_id}</div>
                 </div>
-                <TestPriorityBadge priority={course.test_priority} />
+                <div className="flex flex-col items-end gap-1 shrink-0">
+                  <TestPriorityBadge priority={course.test_priority} />
+                  <CourseTestStatusBadge status={latestRun?.test_status ?? null} />
+                </div>
               </div>
 
               {/* Reason codes */}
@@ -234,12 +254,18 @@ export default function AdminLearnerPreviewPage() {
                 </Button>
               </div>
 
-              {/* Expandable Quick Links */}
+              {/* QA Actions */}
+              <AdminCourseQAActions packageId={course.package_id} curriculumId={course.curriculum_id} />
+
+              {/* Expandable Quick Links + QA History */}
               <Button variant="ghost" size="sm" className="w-full" onClick={() => setExpandedCard(isExpanded ? null : course.package_id)}>
-                {isExpanded ? "Quick Links ausblenden" : "Quick Test Links"}
+                {isExpanded ? "Details ausblenden" : "Quick Links & QA-Historie"}
               </Button>
               {isExpanded && (
-                <AdminPreviewQuickLinksCard curriculumId={course.curriculum_id} previewMode={previewMode} />
+                <>
+                  <AdminPreviewQuickLinksCard curriculumId={course.curriculum_id} previewMode={previewMode} />
+                  <AdminCourseQAHistory packageId={course.package_id} />
+                </>
               )}
             </div>
           );

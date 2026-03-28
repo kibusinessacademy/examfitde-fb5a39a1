@@ -50,6 +50,39 @@ export type Database = {
         }
         Relationships: []
       }
+      admin_course_test_runs: {
+        Row: {
+          created_at: string
+          curriculum_id: string
+          id: string
+          issue_codes: string[]
+          notes: string | null
+          package_id: string
+          test_status: string
+          tested_by: string
+        }
+        Insert: {
+          created_at?: string
+          curriculum_id: string
+          id?: string
+          issue_codes?: string[]
+          notes?: string | null
+          package_id: string
+          test_status: string
+          tested_by: string
+        }
+        Update: {
+          created_at?: string
+          curriculum_id?: string
+          id?: string
+          issue_codes?: string[]
+          notes?: string | null
+          package_id?: string
+          test_status?: string
+          tested_by?: string
+        }
+        Relationships: []
+      }
       admin_matrix_pins: {
         Row: {
           curriculum_id: string
@@ -1141,6 +1174,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_admin_auto_test_queue"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "ai_tutor_context_index_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_auto_test_queue_v2"
             referencedColumns: ["package_id"]
           },
           {
@@ -7314,6 +7354,13 @@ export type Database = {
             foreignKeyName: "council_sessions_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_admin_auto_test_queue_v2"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "council_sessions_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_course_test_priority"
             referencedColumns: ["package_id"]
           },
@@ -8362,6 +8409,13 @@ export type Database = {
             foreignKeyName: "course_package_build_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_admin_auto_test_queue_v2"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_build_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_course_test_priority"
             referencedColumns: ["package_id"]
           },
@@ -8778,6 +8832,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: true
             referencedRelation: "v_admin_auto_test_queue"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_locks_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_admin_auto_test_queue_v2"
             referencedColumns: ["package_id"]
           },
           {
@@ -9221,6 +9282,13 @@ export type Database = {
             foreignKeyName: "course_package_outputs_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_admin_auto_test_queue_v2"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_outputs_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_course_test_priority"
             referencedColumns: ["package_id"]
           },
@@ -9652,6 +9720,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_admin_auto_test_queue"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_plans_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_auto_test_queue_v2"
             referencedColumns: ["package_id"]
           },
           {
@@ -10101,6 +10176,13 @@ export type Database = {
             columns: ["course_package_id"]
             isOneToOne: true
             referencedRelation: "v_admin_auto_test_queue"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_reviews_course_package_id_fkey"
+            columns: ["course_package_id"]
+            isOneToOne: true
+            referencedRelation: "v_admin_auto_test_queue_v2"
             referencedColumns: ["package_id"]
           },
           {
@@ -14504,6 +14586,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_admin_auto_test_queue"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "duplicate_detection_log_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_auto_test_queue_v2"
             referencedColumns: ["package_id"]
           },
           {
@@ -22475,6 +22564,13 @@ export type Database = {
             foreignKeyName: "oral_exam_session_templates_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_admin_auto_test_queue_v2"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "oral_exam_session_templates_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_course_test_priority"
             referencedColumns: ["package_id"]
           },
@@ -23036,6 +23132,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: true
             referencedRelation: "v_admin_auto_test_queue"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "oral_exam_sessionsets_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_admin_auto_test_queue_v2"
             referencedColumns: ["package_id"]
           },
           {
@@ -24248,6 +24351,13 @@ export type Database = {
             foreignKeyName: "package_content_shards_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_admin_auto_test_queue_v2"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_content_shards_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_course_test_priority"
             referencedColumns: ["package_id"]
           },
@@ -24673,6 +24783,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: true
             referencedRelation: "v_admin_auto_test_queue"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_leases_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_admin_auto_test_queue_v2"
             referencedColumns: ["package_id"]
           },
           {
@@ -25307,6 +25424,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_admin_auto_test_queue_v2"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_course_test_priority"
             referencedColumns: ["package_id"]
           },
@@ -25723,6 +25847,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_admin_auto_test_queue"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_tags_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_auto_test_queue_v2"
             referencedColumns: ["package_id"]
           },
           {
@@ -26552,6 +26683,13 @@ export type Database = {
             foreignKeyName: "pipeline_lock_active_package_id_fkey"
             columns: ["active_package_id"]
             isOneToOne: false
+            referencedRelation: "v_admin_auto_test_queue_v2"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "pipeline_lock_active_package_id_fkey"
+            columns: ["active_package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_course_test_priority"
             referencedColumns: ["package_id"]
           },
@@ -27363,6 +27501,13 @@ export type Database = {
             foreignKeyName: "premium_upgrade_runs_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_admin_auto_test_queue_v2"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "premium_upgrade_runs_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_course_test_priority"
             referencedColumns: ["package_id"]
           },
@@ -28121,6 +28266,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_admin_auto_test_queue"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "production_quality_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_auto_test_queue_v2"
             referencedColumns: ["package_id"]
           },
           {
@@ -38651,6 +38803,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_admin_auto_test_queue_v2"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_course_test_priority"
             referencedColumns: ["package_id"]
           },
@@ -40488,6 +40647,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_admin_auto_test_queue_v2"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_course_test_priority"
             referencedColumns: ["package_id"]
           },
@@ -40991,6 +41157,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_admin_auto_test_queue"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_auto_test_queue_v2"
             referencedColumns: ["package_id"]
           },
           {
@@ -41596,6 +41769,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_admin_auto_test_queue"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_auto_test_queue_v2"
             referencedColumns: ["package_id"]
           },
           {
@@ -42511,6 +42691,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_admin_auto_test_queue_v2"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_course_test_priority"
             referencedColumns: ["package_id"]
           },
@@ -43208,6 +43395,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_admin_auto_test_queue_v2"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_course_test_priority"
             referencedColumns: ["package_id"]
           },
@@ -43690,6 +43884,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_admin_auto_test_queue"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_auto_test_queue_v2"
             referencedColumns: ["package_id"]
           },
           {
@@ -44254,6 +44455,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_admin_auto_test_queue"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_auto_test_queue_v2"
             referencedColumns: ["package_id"]
           },
           {
@@ -44831,6 +45039,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_admin_auto_test_queue_v2"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_course_test_priority"
             referencedColumns: ["package_id"]
           },
@@ -45197,6 +45412,80 @@ export type Database = {
           },
         ]
       }
+      v_admin_auto_test_queue_v2: {
+        Row: {
+          approved_questions: number | null
+          council_approved: boolean | null
+          curriculum_id: string | null
+          integrity_passed: boolean | null
+          latest_qa_at: string | null
+          latest_qa_issue_codes: string[] | null
+          latest_qa_notes: string | null
+          latest_qa_status: string | null
+          lessons_count: number | null
+          never_tested: boolean | null
+          package_id: string | null
+          published_at: string | null
+          qa_freshness_bucket: string | null
+          queue_score: number | null
+          reason_codes: string[] | null
+          test_priority: string | null
+          title: string | null
+          tutor_index_count: number | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_qc_backlog"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_qc_backlog_age"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+        ]
+      }
       v_admin_course_test_priority: {
         Row: {
           approved_questions: number | null
@@ -45264,6 +45553,18 @@ export type Database = {
             referencedColumns: ["curriculum_id"]
           },
         ]
+      }
+      v_admin_course_test_run_latest: {
+        Row: {
+          created_at: string | null
+          curriculum_id: string | null
+          issue_codes: string[] | null
+          notes: string | null
+          package_id: string | null
+          test_status: string | null
+          tested_by: string | null
+        }
+        Relationships: []
       }
       v_admin_growth_overview: {
         Row: {
@@ -47881,6 +48182,13 @@ export type Database = {
             foreignKeyName: "package_content_shards_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_admin_auto_test_queue_v2"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_content_shards_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_course_test_priority"
             referencedColumns: ["package_id"]
           },
@@ -48296,6 +48604,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_admin_auto_test_queue"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_auto_test_queue_v2"
             referencedColumns: ["package_id"]
           },
           {
@@ -48788,6 +49103,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_admin_auto_test_queue"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_content_shards_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_auto_test_queue_v2"
             referencedColumns: ["package_id"]
           },
           {
@@ -51377,11 +51699,16 @@ export type Database = {
           approved_questions: number
           council_approved: boolean
           curriculum_id: string
-          freshness_bucket: string
           integrity_passed: boolean
+          latest_qa_at: string
+          latest_qa_issue_codes: string[]
+          latest_qa_notes: string
+          latest_qa_status: string
           lessons_count: number
+          never_tested: boolean
           package_id: string
           published_at: string
+          qa_freshness_bucket: string
           queue_score: number
           reason_codes: string[]
           test_priority: string
@@ -51417,6 +51744,31 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      get_admin_course_test_run_history: {
+        Args: { p_package_id: string }
+        Returns: {
+          created_at: string
+          curriculum_id: string
+          id: string
+          issue_codes: string[]
+          notes: string
+          package_id: string
+          test_status: string
+          tested_by: string
+        }[]
+      }
+      get_admin_course_test_run_latest: {
+        Args: never
+        Returns: {
+          created_at: string
+          curriculum_id: string
+          issue_codes: string[]
+          notes: string
+          package_id: string
+          test_status: string
+          tested_by: string
+        }[]
       }
       get_admin_growth_content_jobs: {
         Args: { p_status?: string }
@@ -52627,6 +52979,16 @@ export type Database = {
       reconcile_package_progress: {
         Args: { p_package_id: string }
         Returns: Json
+      }
+      record_admin_course_test_run: {
+        Args: {
+          p_curriculum_id: string
+          p_issue_codes?: string[]
+          p_notes?: string
+          p_package_id: string
+          p_test_status: string
+        }
+        Returns: string
       }
       record_worker_usage: {
         Args: {
