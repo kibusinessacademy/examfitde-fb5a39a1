@@ -4,6 +4,7 @@
  * P/D/R structure:
  * - P: visible → startable via can_start_exam_simulation RPC
  * - P: not-published → start MUST fail
+ * - P: real non-published candidate → start MUST fail
  * - D: cross-check start prerequisites
  *
  * SSOT Owner: can_start_exam_simulation RPC, v_learner_visible_exam_simulations
@@ -34,7 +35,7 @@ Deno.test("P:START: all visible simulations pass can_start_exam_simulation RPC",
   const { data: visible, error } = await sb
     .from("v_learner_visible_exam_simulations")
     .select("package_id, blueprint_id")
-    .limit(200);
+    .limit(500);
 
   assertEquals(error, null);
   if (!visible || visible.length === 0) {
@@ -72,16 +73,14 @@ Deno.test("P:START: all visible simulations pass can_start_exam_simulation RPC",
 });
 
 // ══════════════════════════════════════════════
-// P2: Non-published packages must fail start-RPC
+// P2: Non-existent blueprint blocked by start-RPC
 // ══════════════════════════════════════════════
-Deno.test("P:START: non-published package blocked by start-RPC", async () => {
-  // Use a random UUID that won't exist in the visibility view
+Deno.test("P:START: non-existent blueprint blocked by start-RPC", async () => {
   const fakeBlueprintId = "00000000-0000-0000-0000-000000000000";
 
   const { data: result, error } = await sb
     .rpc("can_start_exam_simulation", { p_blueprint_id: fakeBlueprintId });
 
-  // RPC should return allowed=false
   const row = result?.[0] ?? result;
   assert(
     row && row.allowed === false,
@@ -94,14 +93,70 @@ Deno.test("P:START: non-published package blocked by start-RPC", async () => {
 });
 
 // ══════════════════════════════════════════════
-// P3: All visible simulations have sufficient question pool
+// P3: Real non-published package's blueprint blocked by start-RPC
+// ══════════════════════════════════════════════
+Deno.test("P:START: real non-published package blueprint blocked by start-RPC", async () => {
+  // Find a non-published package with a blueprint via curriculum_id
+  const { data: nonPub } = await sb
+    .from("course_packages")
+    .select("id, status, curriculum_id")
+    .neq("status", "published")
+    .neq("status", "archived")
+    .limit(5);
+
+  if (!nonPub || nonPub.length === 0) {
+    skipTracker.skip("non-published start check", "No non-published packages");
+    return;
+  }
+
+  // Find a blueprint for any of these curricula
+  let testedBlueprintId: string | null = null;
+  let testedPkgId: string | null = null;
+
+  for (const pkg of nonPub) {
+    const { data: bp } = await sb
+      .from("exam_blueprints")
+      .select("id")
+      .eq("curriculum_id", pkg.curriculum_id)
+      .limit(1);
+
+    if (bp && bp.length > 0) {
+      testedBlueprintId = bp[0].id;
+      testedPkgId = pkg.id;
+      break;
+    }
+  }
+
+  if (!testedBlueprintId) {
+    console.log("ℹ️ No non-published package has a blueprint — skipping real negative test");
+    return;
+  }
+
+  const { data: result, error } = await sb
+    .rpc("can_start_exam_simulation", { p_blueprint_id: testedBlueprintId });
+
+  if (error) {
+    console.log(`✅ Non-published blueprint ${testedBlueprintId} blocked with error: ${error.code}`);
+    return;
+  }
+
+  const row = result?.[0] ?? result;
+  assert(
+    row && row.allowed === false,
+    `❌ STARTABILITY: non-published package ${testedPkgId} blueprint ${testedBlueprintId} was allowed to start!`);
+
+  console.log(`✅ Non-published package ${testedPkgId} blueprint correctly blocked: ${row.reason_code}`);
+});
+
+// ══════════════════════════════════════════════
+// P4: All visible simulations have sufficient question pool
 //     Uses approved_question_count from the view (already joined correctly)
 // ══════════════════════════════════════════════
 Deno.test("P:START: visible simulations have sufficient approved question count", async () => {
   const { data: visible } = await sb
     .from("v_learner_visible_exam_simulations")
     .select("package_id, blueprint_id, approved_question_count, total_questions")
-    .limit(200);
+    .limit(500);
 
   if (!visible || visible.length === 0) {
     skipTracker.skip("exam pool check", "No visible simulations");
@@ -132,7 +187,7 @@ Deno.test("P:START: visible simulations have sufficient approved question count"
 });
 
 // ══════════════════════════════════════════════
-// P4: Non-published package not in startable view
+// P5: Non-published package not in startable view
 // ══════════════════════════════════════════════
 Deno.test("P:START: non-published package not in learner view", async () => {
   const { data: nonPub } = await sb
@@ -143,19 +198,18 @@ Deno.test("P:START: non-published package not in learner view", async () => {
     .limit(1);
 
   if (!nonPub || nonPub.length === 0) {
-    skipTracker.skip("non-published start check", "No non-published packages");
+    skipTracker.skip("non-published view check", "No non-published packages");
     return;
   }
 
   const pkgId = nonPub[0].id;
 
-  const { data: inView } = await sb
+  const { count } = await sb
     .from("v_learner_visible_exam_simulations")
-    .select("package_id")
-    .eq("package_id", pkgId)
-    .limit(1);
+    .select("package_id", { count: "exact", head: true })
+    .eq("package_id", pkgId);
 
-  assertEquals(inView?.length ?? 0, 0,
+  assertEquals(count ?? 0, 0,
     `❌ STARTABILITY: non-published package ${pkgId} (${nonPub[0].status}) appears in learner view`);
 
   console.log(`✅ Non-published ${pkgId} correctly excluded from learner view`);
