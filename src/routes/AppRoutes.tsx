@@ -64,6 +64,7 @@ const MarketingPage = lazy(() => import('@/pages/admin/v2/MarketingPage'));
 const CompliancePage = lazy(() => import('@/pages/admin/v2/CompliancePage'));
 const AdminDeactivatedPage = lazy(() => import('@/components/admin/v2/AdminDeactivatedPage'));
 const AdminLearnerPreviewPage = lazy(() => import('@/pages/admin/AdminLearnerPreviewPage'));
+const AdminGrowthCockpitPage = lazy(() => import('@/pages/admin/AdminGrowthCockpitPage'));
 const CourseWorkspace = lazy(() => import('@/pages/admin/CourseWorkspace'));
 
 // ExamFit@work public pages
@@ -208,6 +209,7 @@ const AppRoutes = () => {
           <Route path="marketing" element={<MarketingPage />} />
           <Route path="compliance" element={<CompliancePage />} />
           <Route path="learner-preview" element={<AdminLearnerPreviewPage />} />
+          <Route path="growth" element={<AdminGrowthCockpitPage />} />
           <Route path="*" element={<AdminDeactivatedPage />} />
         </Route>
 
