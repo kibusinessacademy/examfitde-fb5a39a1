@@ -14,6 +14,7 @@ const guards = [
   "pipeline-contract-guard.mjs",
   "integrity-track-aware-guard.mjs",
   "no-nano-learning-content-guard.mjs",
+  "auto-publish-postcondition-guard.mjs",
 ];
 
 function run(file) {
