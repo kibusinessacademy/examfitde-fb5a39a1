@@ -21,6 +21,7 @@ import { TopGapsCard } from '@/components/dashboard/TopGapsCard';
 import { SmartRecommendationsCard } from '@/components/dashboard/SmartRecommendationsCard';
 import { ReadinessTrendCard } from '@/components/dashboard/ReadinessTrendCard';
 import { ExamFitInsightsPanel } from '@/components/learner/ExamFitInsightsPanel';
+import { MasteryDashboardSection } from '@/features/mastery/components/MasteryDashboardSection';
 import { useSimulationGate } from '@/hooks/useExamReadiness';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -224,6 +225,13 @@ export default function LearnerDashboard() {
           </div>
         )}
 
+        {/* ━━━ SECTION 0a: Mastery Readiness + Weakness Map ━━━ */}
+        {activeCurriculumId && (
+          <div className="mb-6">
+            <MasteryDashboardSection curriculumId={activeCurriculumId} />
+          </div>
+        )}
+
         {/* ━━━ SECTION 0b: Growth Council Nudge ━━━ */}
         <div className="mb-4">
           <NextBestActionCard />
@@ -393,13 +401,14 @@ function QuickActionsGrid({ activeCurriculumId }: { activeCurriculumId: string |
   const actions = [
     { to: '/exam-trainer', icon: Target, label: 'Prüfungstrainer', desc: 'Schriftlich üben', gradient: 'gradient-accent', glow: 'shadow-glow-accent', blocked: false },
     { to: '/exam-simulation', icon: GraduationCap, label: 'Simulation', desc: simulationBlocked ? '🔒 Noch gesperrt' : 'Prüfung simulieren', gradient: 'gradient-primary', glow: 'shadow-glow-sm', blocked: !!simulationBlocked },
+    { to: `/exam-simulation?mode=adaptive&curriculum=${activeCurriculumId ?? ''}`, icon: Sparkles, label: 'Adaptive Prüfung', desc: 'Schwächen-basiert', gradient: 'bg-gradient-to-br from-violet-500 to-purple-600', glow: 'shadow-glow-sm', blocked: false },
     { to: '/oral-exam', icon: Mic, label: 'Mündlich', desc: 'Mündliche Prüfung', gradient: 'bg-gradient-to-br from-blue-500 to-cyan-500', glow: '', blocked: false },
     { to: '/spaced-repetition', icon: Brain, label: 'Wiederholen', desc: 'Spaced Repetition', gradient: 'bg-gradient-to-br from-purple-500 to-indigo-600', glow: '', blocked: false },
     { to: '/exam-anxiety', icon: Heart, label: 'Prüfungsangst', desc: 'Stressabbau', gradient: 'bg-gradient-to-br from-rose-500 to-pink-600', glow: '', blocked: false },
   ];
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
       {actions.map((action) => {
         const content = (
           <Card className={cn(

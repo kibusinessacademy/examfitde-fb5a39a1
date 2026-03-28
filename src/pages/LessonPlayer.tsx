@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
 import { Loader2, Lock, ArrowLeft } from 'lucide-react';
 import { recordLearningEvent, snapshotExamReadiness } from '@/lib/learning-telemetry';
+import { useMiniCheckMasterySync } from '@/features/mastery/hooks/useMiniCheckMasterySync';
 
 import type { Json } from '@/integrations/supabase/types';
 import type { LessonStatus } from '@/hooks/useCourseProgress';
@@ -75,6 +76,7 @@ export default function LessonPlayer() {
   const [showFeedback, setShowFeedback] = useState(false);
   const [miniCheckKey, setMiniCheckKey] = useState(0);
   const [progressionBlocked, setProgressionBlocked] = useState<{ blocked: boolean; reason?: string; prevLessonId?: string } | null>(null);
+  const { syncMiniCheckResult } = useMiniCheckMasterySync();
 
   const handleRetryMiniCheck = () => {
     setShowFeedback(false);
@@ -306,6 +308,18 @@ export default function LessonPlayer() {
     });
     if (curriculumId) {
       snapshotExamReadiness(curriculumId);
+
+      // ── Wave 3B: Mastery sync ──
+      // If the lesson has a competency_id, update mastery based on MiniCheck score
+      if (lesson?.competency_id) {
+        const normalizedScore = maxScore > 0 ? score / maxScore : 0;
+        syncMiniCheckResult({
+          curriculumId,
+          competencyScores: [
+            { competencyId: lesson.competency_id, score: normalizedScore },
+          ],
+        }).catch((err) => console.error('[Mastery] Sync failed:', err));
+      }
     }
 
     // Fetch updated outcome and show feedback
