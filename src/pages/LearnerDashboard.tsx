@@ -236,7 +236,14 @@ export default function LearnerDashboard() {
           </div>
         )}
 
-        {/* ━━━ SECTION 0b: Growth Council Nudge ━━━ */}
+        {/* ━━━ SECTION 0b: Conversion Card ━━━ */}
+        {activeCurriculumId && (
+          <div className="mb-6">
+            <ConversionCardWrapper curriculumId={activeCurriculumId} navigate={navigate} />
+          </div>
+        )}
+
+        {/* ━━━ SECTION 0c: Growth Council Nudge ━━━ */}
         <div className="mb-4">
           <NextBestActionCard />
         </div>
