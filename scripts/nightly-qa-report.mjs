@@ -98,6 +98,11 @@ const SUITES = [
     label: "Edge Function Contracts",
     pattern: "src/features/admin/__tests__/edgeFunctionContracts",
   },
+  {
+    key: "qa_feedback_loop",
+    label: "QA Feedback Loop Scoring",
+    pattern: "src/features/admin/__tests__/qaFeedbackLoop",
+  },
 ];
 
 async function main() {
