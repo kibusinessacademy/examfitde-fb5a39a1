@@ -71,6 +71,18 @@ export default function AdminLearnerPreviewPage() {
     staleTime: 60_000,
   });
 
+  const { data: latestRuns = [] } = useQuery({
+    queryKey: ["admin-course-test-run-latest"],
+    queryFn: getAdminCourseTestRunLatest,
+    staleTime: 30_000,
+  });
+
+  const latestRunMap = useMemo(() => {
+    const map = new Map<string, (typeof latestRuns)[number]>();
+    for (const row of latestRuns) map.set(row.package_id, row);
+    return map;
+  }, [latestRuns]);
+
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
     return data.filter((row) => {
