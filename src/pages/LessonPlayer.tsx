@@ -308,6 +308,18 @@ export default function LessonPlayer() {
     });
     if (curriculumId) {
       snapshotExamReadiness(curriculumId);
+
+      // ── Wave 3B: Mastery sync ──
+      // If the lesson has a competency_id, update mastery based on MiniCheck score
+      if (lesson?.competency_id) {
+        const normalizedScore = maxScore > 0 ? score / maxScore : 0;
+        syncMiniCheckResult({
+          curriculumId,
+          competencyScores: [
+            { competencyId: lesson.competency_id, score: normalizedScore },
+          ],
+        }).catch((err) => console.error('[Mastery] Sync failed:', err));
+      }
     }
 
     // Fetch updated outcome and show feedback
