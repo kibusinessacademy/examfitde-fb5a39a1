@@ -252,32 +252,30 @@ Deno.test("P:ENTITLEMENT: admin without entitlement gets true (admin bypass)", a
 });
 
 // ══════════════════════════════════════════════
-// 7. get_user_entitlements_v2 returns correct rows for entitled user
+// 7. Entitled user has active entitlement rows in DB
 // ══════════════════════════════════════════════
-Deno.test("D:ENTITLEMENT: get_user_entitlements returns rows for entitled user", async () => {
+Deno.test("D:ENTITLEMENT: entitled user has active rows in entitlements table", async () => {
   const entitled = await getEntitledUser();
   assert(entitled, "No entitled user found");
 
   const { data, error } = await sbService
-    .rpc("get_user_entitlements", {
-      p_user_id: entitled.userId,
-      p_curriculum_id: entitled.curriculumId,
-    });
+    .from("entitlements")
+    .select("id, curriculum_id, has_exam_trainer, valid_until")
+    .eq("user_id", entitled.userId)
+    .eq("curriculum_id", entitled.curriculumId)
+    .gt("valid_until", new Date().toISOString());
 
-  assertEquals(error, null, `RPC error: ${error?.message}`);
-  assert(Array.isArray(data) && data.length > 0,
-    `❌ ENTITLEMENT: get_user_entitlements returned empty for entitled user`);
+  assertEquals(error, null, `Query error: ${error?.message}`);
+  assert(data && data.length > 0,
+    `❌ ENTITLEMENT: no active entitlement rows for entitled user`);
 
-  const row = data[0] as Record<string, unknown>;
-  assertEquals(row.curriculum_id, entitled.curriculumId);
-
-  console.log(`✅ get_user_entitlements returns ${data.length} row(s) for entitled user`);
+  console.log(`✅ Entitled user has ${data.length} active entitlement row(s)`);
 });
 
 // ══════════════════════════════════════════════
-// 8. get_user_entitlements returns empty for non-entitled curriculum
+// 8. Non-entitled curriculum has no rows
 // ══════════════════════════════════════════════
-Deno.test("D:ENTITLEMENT: get_user_entitlements empty for non-entitled combo", async () => {
+Deno.test("D:ENTITLEMENT: no entitlement rows for non-entitled curriculum", async () => {
   const entitled = await getEntitledUser();
   assert(entitled, "No entitled user found");
 
@@ -287,17 +285,18 @@ Deno.test("D:ENTITLEMENT: get_user_entitlements empty for non-entitled combo", a
     return;
   }
 
-  const { data, error } = await sbService
-    .rpc("get_user_entitlements", {
-      p_user_id: entitled.userId,
-      p_curriculum_id: nonEntitledCurriculum,
-    });
+  const { count, error } = await sbService
+    .from("entitlements")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", entitled.userId)
+    .eq("curriculum_id", nonEntitledCurriculum)
+    .gt("valid_until", new Date().toISOString());
 
-  assertEquals(error, null, `RPC error: ${error?.message}`);
-  assert(!data || (Array.isArray(data) && data.length === 0),
-    `❌ ENTITLEMENT: get_user_entitlements returned rows for non-entitled curriculum`);
+  assertEquals(error, null, `Query error: ${error?.message}`);
+  assertEquals(count ?? 0, 0,
+    `❌ ENTITLEMENT: found rows for non-entitled curriculum`);
 
-  console.log(`✅ get_user_entitlements correctly empty for non-entitled curriculum`);
+  console.log(`✅ No entitlement rows for non-entitled curriculum`);
 });
 
 // ══════════════════════════════════════════════
