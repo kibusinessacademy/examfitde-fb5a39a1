@@ -225,6 +225,13 @@ export default function LearnerDashboard() {
           </div>
         )}
 
+        {/* ━━━ SECTION 0a: Mastery Readiness + Weakness Map ━━━ */}
+        {activeCurriculumId && (
+          <div className="mb-6">
+            <MasteryDashboardSection curriculumId={activeCurriculumId} />
+          </div>
+        )}
+
         {/* ━━━ SECTION 0b: Growth Council Nudge ━━━ */}
         <div className="mb-4">
           <NextBestActionCard />
