@@ -1,13 +1,10 @@
 /**
  * Wave 1A – Fehlerklasse 1: False Success / False Done
  *
- * HARDENED: All tests use hard assertions.
- * - Prevention: Force done → guard MUST reject (assertEquals, not warn)
- * - Detection: Anomaly views MUST return 0 (zero-tolerance invariant)
- * - Steps without guards are explicitly listed as known gaps
- *
- * Uses service_role to bypass RLS for test mutations.
- * All mutations are rolled back in finally{} blocks.
+ * HARDENED v2: Skip-audit tracking, exact count queries, SSOT thresholds.
+ * - Prevention: Force done → guard MUST reject
+ * - Detection: Anomaly views MUST return 0 (exact count, no limit)
+ * - Skip budget: max 2 skips before suite fails
  */
 import "https://deno.land/std@0.224.0/dotenv/load.ts";
 import {
@@ -16,25 +13,27 @@ import {
   assertExists,
 } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { SkipAuditTracker } from "./_skip-audit.ts";
 
 const SUPABASE_URL = Deno.env.get("VITE_SUPABASE_URL") || Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const sb = createClient(SUPABASE_URL, SERVICE_KEY);
 
-// ── Guard-hardened steps: guard MUST reject done on non-published pkg ──
+const skipTracker = new SkipAuditTracker(2);
+
+// ── Guard-hardened steps ──
 const GUARD_HARDENED_STEPS = [
-  "auto_publish",        // trg_guard_auto_publish_done
-  "validate_exam_pool",  // trg_guard_step_done_thresholds
-  "validate_learning_content", // trg_guard_step_done_thresholds
-  "generate_handbook",   // trg_guard_step_done_thresholds
-  "run_integrity_check", // trg_guard_step_done_thresholds
-  "build_ai_tutor_index", // trg_guard_step_done_thresholds
+  "auto_publish",
+  "validate_exam_pool",
+  "validate_learning_content",
+  "generate_handbook",
+  "run_integrity_check",
+  "build_ai_tutor_index",
 ] as const;
 
-// ── Known gaps: steps WITHOUT guard protection yet ──
 const KNOWN_GAPS = [
-  "quality_council",     // relies on council_approved flag, no threshold guard
-  "generate_glossary",   // no threshold defined yet
+  "quality_council",
+  "generate_glossary",
 ] as const;
 
 // ── Helper: find a non-published package with a specific step ──
@@ -52,7 +51,6 @@ async function findTestCandidate(stepKey: string) {
     .select("id, status, integrity_passed, council_approved")
     .in("id", steps.map((s) => s.package_id));
 
-  // Prefer queued/planning packages (safest for mutation tests)
   const nonPublished = packages?.filter((p) =>
     p.status !== "published" && p.status !== "archived"
   );
@@ -63,11 +61,11 @@ async function findTestCandidate(stepKey: string) {
   return { pkg, step };
 }
 
-// ── HARDENED: Guard MUST reject — hard fail, no warnings ──
+// ── HARDENED guard test ──
 async function testFalseSuccessGuardHard(stepKey: string) {
   const candidate = await findTestCandidate(stepKey);
   if (!candidate) {
-    console.warn(`⚠️  No non-published package with step '${stepKey}' — skipping (no test candidate)`);
+    skipTracker.skip(stepKey, "No non-published package with this step");
     return;
   }
 
@@ -75,14 +73,12 @@ async function testFalseSuccessGuardHard(stepKey: string) {
   console.log(`🔒 Testing ${stepKey} on package ${pkg.id} (status: ${pkg.status})`);
 
   try {
-    // Force to pending baseline
     await sb
       .from("package_steps")
       .update({ status: "pending", last_error: null })
       .eq("package_id", pkg.id)
       .eq("step_key", stepKey);
 
-    // Attempt forbidden done transition
     await sb
       .from("package_steps")
       .update({
@@ -93,7 +89,6 @@ async function testFalseSuccessGuardHard(stepKey: string) {
       .eq("package_id", pkg.id)
       .eq("step_key", stepKey);
 
-    // Read back — guard MUST have rejected
     const { data: after } = await sb
       .from("package_steps")
       .select("status, last_error")
@@ -104,16 +99,10 @@ async function testFalseSuccessGuardHard(stepKey: string) {
     assertExists(after, "Step must still exist after mutation");
 
     if (after!.status === "done") {
-      // Guard allowed done — this is only acceptable if actual artifacts meet threshold
-      // The threshold guard checks real artifact counts, so if they're present, done is correct
       console.log(
-        `ℹ️  ${stepKey}: reached 'done' — threshold guard passed (artifacts meet threshold on this package)`,
-      );
-      console.log(
-        `   This is NOT a vulnerability — the guard checked and artifacts are sufficient.`,
+        `ℹ️  ${stepKey}: reached 'done' — threshold guard passed (artifacts meet threshold)`,
       );
     } else {
-      // Guard rejected — this is the expected prevention behavior
       console.log(
         `✅ ${stepKey}: Guard rejected → status=${after!.status}, last_error=${after!.last_error}`,
       );
@@ -134,14 +123,13 @@ async function testFalseSuccessGuardHard(stepKey: string) {
 }
 
 // ══════════════════════════════════════════════════════════════
-// PREVENTION TESTS — Guard MUST block false done transitions
+// PREVENTION TESTS
 // ══════════════════════════════════════════════════════════════
 
-// TEST P1: auto_publish (dedicated guard trg_guard_auto_publish_done)
 Deno.test("P:FALSE_SUCCESS: auto_publish done on non-published → MUST be rejected", async () => {
   const candidate = await findTestCandidate("auto_publish");
   if (!candidate) {
-    console.warn("⚠️  No candidate — skipping");
+    skipTracker.skip("auto_publish", "No non-published package with auto_publish step");
     return;
   }
   const { pkg, step: originalStep } = candidate;
@@ -191,56 +179,52 @@ Deno.test("P:FALSE_SUCCESS: auto_publish done on non-published → MUST be rejec
   }
 });
 
-// TEST P2–P6: Threshold guard on remaining hardened steps
-Deno.test("P:FALSE_SUCCESS: validate_exam_pool guard MUST reject", async () => {
+Deno.test("P:FALSE_SUCCESS: validate_exam_pool guard", async () => {
   await testFalseSuccessGuardHard("validate_exam_pool");
 });
 
-Deno.test("P:FALSE_SUCCESS: validate_learning_content guard MUST reject", async () => {
+Deno.test("P:FALSE_SUCCESS: validate_learning_content guard", async () => {
   await testFalseSuccessGuardHard("validate_learning_content");
 });
 
-Deno.test("P:FALSE_SUCCESS: generate_handbook guard MUST reject", async () => {
+Deno.test("P:FALSE_SUCCESS: generate_handbook guard", async () => {
   await testFalseSuccessGuardHard("generate_handbook");
 });
 
-Deno.test("P:FALSE_SUCCESS: run_integrity_check guard MUST reject", async () => {
+Deno.test("P:FALSE_SUCCESS: run_integrity_check guard", async () => {
   await testFalseSuccessGuardHard("run_integrity_check");
 });
 
-Deno.test("P:FALSE_SUCCESS: build_ai_tutor_index guard MUST reject", async () => {
+Deno.test("P:FALSE_SUCCESS: build_ai_tutor_index guard", async () => {
   await testFalseSuccessGuardHard("build_ai_tutor_index");
 });
 
 // ══════════════════════════════════════════════════════════════
-// DETECTION TESTS — Anomaly views MUST show zero active issues
+// DETECTION TESTS — exact count queries, no limit()
 // ══════════════════════════════════════════════════════════════
 
-Deno.test("D:FALSE_SUCCESS: ops_auto_publish_false_success = 0 anomalies", async () => {
-  const { data, error } = await sb
+Deno.test("D:FALSE_SUCCESS: ops_auto_publish_false_success = 0", async () => {
+  const { count, error } = await sb
     .from("ops_auto_publish_false_success")
-    .select("package_id")
-    .limit(5);
+    .select("package_id", { count: "exact", head: true });
 
   assertEquals(error, null, `View query failed: ${error?.message}`);
   assertEquals(
-    data?.length ?? 0,
+    count ?? 0,
     0,
-    `❌ INVARIANT VIOLATED: Found ${data?.length} false-success anomalies in ops_auto_publish_false_success. ` +
-    `Packages: ${JSON.stringify(data?.map(d => d.package_id))}`,
+    `❌ INVARIANT VIOLATED: ${count} false-success anomalies in ops_auto_publish_false_success`,
   );
 });
 
-Deno.test("D:FALSE_SUCCESS: ops_step_done_below_threshold = 0 for non-archived", async () => {
+Deno.test("D:FALSE_SUCCESS: ops_step_done_below_threshold = 0 for active packages", async () => {
   const { data, error } = await sb
     .from("ops_step_done_below_threshold")
     .select("package_id, step_key, actual, threshold, drift_type")
-    .limit(20);
+    .limit(100);
 
   assertEquals(error, null, `View query failed: ${error?.message}`);
-  assertExists(data, "View must return data array");
+  assertExists(data);
 
-  // Filter: only count non-archived packages as violations
   if (data!.length > 0) {
     const pkgIds = [...new Set(data!.map(d => d.package_id))];
     const { data: pkgs } = await sb
@@ -254,22 +238,22 @@ Deno.test("D:FALSE_SUCCESS: ops_step_done_below_threshold = 0 for non-archived",
     assertEquals(
       activeViolations.length,
       0,
-      `❌ INVARIANT VIOLATED: ${activeViolations.length} active packages have done steps below threshold: ` +
+      `❌ INVARIANT: ${activeViolations.length} active packages have done steps below threshold: ` +
       `${JSON.stringify(activeViolations.slice(0, 5))}`,
     );
   }
 
-  console.log(`📊 ops_step_done_below_threshold: ${data!.length} total (including archived)`);
+  console.log(`📊 ops_step_done_below_threshold: ${data!.length} total (incl. archived)`);
 });
 
-Deno.test("D:FALSE_SUCCESS: ops_hollow_completions = 0 for non-archived", async () => {
+Deno.test("D:FALSE_SUCCESS: ops_hollow_completions = 0 for active packages", async () => {
   const { data, error } = await sb
     .from("ops_hollow_completions")
     .select("package_id, step_key, artifact_count")
-    .limit(20);
+    .limit(100);
 
   assertEquals(error, null, `View query failed: ${error?.message}`);
-  assertExists(data, "View must return data array");
+  assertExists(data);
 
   if (data!.length > 0) {
     const pkgIds = [...new Set(data!.map(d => d.package_id))];
@@ -284,16 +268,16 @@ Deno.test("D:FALSE_SUCCESS: ops_hollow_completions = 0 for non-archived", async 
     assertEquals(
       activeViolations.length,
       0,
-      `❌ INVARIANT VIOLATED: ${activeViolations.length} active packages have hollow completions: ` +
+      `❌ INVARIANT: ${activeViolations.length} active hollow completions: ` +
       `${JSON.stringify(activeViolations.slice(0, 5))}`,
     );
   }
 
-  console.log(`📊 ops_hollow_completions: ${data!.length} total (including archived)`);
+  console.log(`📊 ops_hollow_completions: ${data!.length} total (incl. archived)`);
 });
 
 // ══════════════════════════════════════════════════════════════
-// KNOWN GAP DOCUMENTATION — explicitly listed, not silently passing
+// KNOWN GAPS + SKIP AUDIT
 // ══════════════════════════════════════════════════════════════
 
 Deno.test("KNOWN_GAPS: document unguarded steps", () => {
@@ -301,6 +285,9 @@ Deno.test("KNOWN_GAPS: document unguarded steps", () => {
   for (const step of KNOWN_GAPS) {
     console.log(`   ⬜ ${step}`);
   }
-  console.log(`   Total guarded: ${GUARD_HARDENED_STEPS.length}`);
-  console.log(`   Total gaps: ${KNOWN_GAPS.length}`);
+  console.log(`   Guarded: ${GUARD_HARDENED_STEPS.length} | Gaps: ${KNOWN_GAPS.length}`);
+});
+
+Deno.test("SKIP_AUDIT: false-success skip budget", () => {
+  skipTracker.assertSkipBudget();
 });

@@ -1,10 +1,8 @@
 /**
  * Wave 1C – Fehlerklasse 5: Zombie Jobs / Orphan Steps / Lease-Defekte
  *
- * HARDENED: Zero-tolerance for active anomalies.
- * - Detection views for building-without-lease MUST = 0
- * - Processing jobs > 2h = hard fail (zombie)
- * - Running steps > 60min without active job = hard fail (orphan)
+ * HARDENED v2: SSOT thresholds from audit-thresholds.ts, exact counts,
+ * skip-audit tracking.
  */
 import "https://deno.land/std@0.224.0/dotenv/load.ts";
 import {
@@ -13,6 +11,12 @@ import {
   assertExists,
 } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import {
+  STALE_QUEUED_MINUTES,
+  ORPHAN_RUNNING_MINUTES,
+  ZOMBIE_PROCESSING_HOURS,
+  MAX_STALE_PROCESSING_ENTRIES,
+} from "../../_shared/audit-thresholds.ts";
 
 const SUPABASE_URL = Deno.env.get("VITE_SUPABASE_URL") || Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -22,94 +26,85 @@ const sb = createClient(SUPABASE_URL, SERVICE_KEY);
 // DETECTION: ops_building_without_job_or_lease = 0
 // ══════════════════════════════════════════════
 Deno.test("D:ZOMBIE: ops_building_without_job_or_lease = 0", async () => {
-  const { data, error } = await sb
+  const { count, error } = await sb
     .from("ops_building_without_job_or_lease")
-    .select("package_id, title, status, build_progress")
-    .limit(10);
+    .select("package_id", { count: "exact", head: true });
 
   assertEquals(error, null, `View query failed: ${error?.message}`);
-  assertExists(data);
-
   assertEquals(
-    data!.length,
+    count ?? 0,
     0,
-    `❌ INVARIANT VIOLATED: ${data!.length} packages are building without active job/lease. ` +
-    `stuck-scan should have caught these. ` +
-    `Packages: ${JSON.stringify(data!.slice(0, 3).map(r => `${r.package_id}: ${r.title}`))}`,
+    `❌ INVARIANT VIOLATED: ${count} packages are building without active job/lease. ` +
+    `stuck-scan should have caught these.`,
   );
 });
 
 // ══════════════════════════════════════════════
-// DETECTION: ops_processing_stale (informational — count tracked)
+// DETECTION: ops_processing_stale (threshold from SSOT)
 // ══════════════════════════════════════════════
-Deno.test("D:ZOMBIE: ops_processing_stale monitoring", async () => {
-  const { data, error } = await sb
+Deno.test("D:ZOMBIE: ops_processing_stale within budget", async () => {
+  const { count, error } = await sb
     .from("ops_processing_stale")
-    .select("*")
-    .limit(10);
+    .select("*", { count: "exact", head: true });
 
   assertEquals(error, null, `View query failed: ${error?.message}`);
-  assertExists(data);
-  console.log(`📊 ops_processing_stale: ${data!.length} entries`);
+  console.log(`📊 ops_processing_stale: ${count} entries (budget: ${MAX_STALE_PROCESSING_ENTRIES})`);
 
-  // Soft threshold: more than 5 stale entries indicates stuck-scan is not working
   assert(
-    data!.length <= 5,
-    `❌ TOO MANY STALE: ${data!.length} processing-stale entries exceed threshold of 5. ` +
+    (count ?? 0) <= MAX_STALE_PROCESSING_ENTRIES,
+    `❌ TOO MANY STALE: ${count} processing-stale entries exceed threshold of ${MAX_STALE_PROCESSING_ENTRIES}. ` +
     `stuck-scan may not be running.`,
   );
 });
 
 // ══════════════════════════════════════════════
-// DETECTION: ops_next_step_queued_no_job = 0
+// DETECTION: ops_next_step_queued_no_job = 0 (stale > SSOT threshold)
 // ══════════════════════════════════════════════
-Deno.test("D:ZOMBIE: ops_next_step_queued_no_job = 0", async () => {
+Deno.test("D:ZOMBIE: ops_next_step_queued_no_job = 0 (stale)", async () => {
   const { data, error } = await sb
     .from("ops_next_step_queued_no_job")
     .select("package_id, title, step_key, step_status, step_updated_at")
-    .limit(10);
+    .limit(100);
 
   assertEquals(error, null, `View query failed: ${error?.message}`);
   assertExists(data);
 
-  // Filter for entries older than 15 minutes (fresh queued is normal)
-  const staleThreshold = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+  const staleThreshold = new Date(Date.now() - STALE_QUEUED_MINUTES * 60 * 1000).toISOString();
   const staleEntries = data!.filter((d: any) => d.step_updated_at < staleThreshold);
 
   assertEquals(
     staleEntries.length,
     0,
-    `❌ INVARIANT VIOLATED: ${staleEntries.length} steps queued > 15min without job. ` +
-    `Orchestrator is not dispatching. ` +
-    `Steps: ${JSON.stringify(staleEntries.slice(0, 3).map((s: any) => `${s.package_id}→${s.step_key}`))}`,
+    `❌ INVARIANT VIOLATED: ${staleEntries.length} steps queued > ${STALE_QUEUED_MINUTES}min without job. ` +
+    `Steps: ${JSON.stringify(staleEntries.slice(0, 5).map((s: any) => `${s.package_id}→${s.step_key}`))}`,
   );
 });
 
 // ══════════════════════════════════════════════
-// INVARIANT: no running step > 60min without active job
+// INVARIANT: no running step > ORPHAN_RUNNING_MINUTES without active job
 // ══════════════════════════════════════════════
-Deno.test("P:ZOMBIE: no orphan running steps (>60min, no active job)", async () => {
+Deno.test("P:ZOMBIE: no orphan running steps", async () => {
+  const cutoff = new Date(Date.now() - ORPHAN_RUNNING_MINUTES * 60 * 1000).toISOString();
   const { data, error } = await sb
     .from("package_steps")
     .select("package_id, step_key, status, started_at")
     .eq("status", "running")
-    .lt("started_at", new Date(Date.now() - 60 * 60 * 1000).toISOString())
-    .limit(20);
+    .lt("started_at", cutoff)
+    .limit(50);
 
   assertEquals(error, null);
 
   if (!data || data.length === 0) {
-    console.log("✅ No steps running for >60min");
+    console.log(`✅ No steps running for >${ORPHAN_RUNNING_MINUTES}min`);
     return;
   }
 
-  // Check if any of these have an active job
   const { data: jobs } = await sb
     .from("job_queue")
     .select("id, package_id, status")
     .in("package_id", data.map((d) => d.package_id))
     .eq("status", "processing")
-    .limit(50);
+    .limit(200);
 
   const jobPackages = new Set(jobs?.map((j) => j.package_id) ?? []);
   const orphans = data.filter((d) => !jobPackages.has(d.package_id));
@@ -117,30 +112,27 @@ Deno.test("P:ZOMBIE: no orphan running steps (>60min, no active job)", async () 
   assertEquals(
     orphans.length,
     0,
-    `❌ ORPHAN STEPS: ${orphans.length} steps running > 60min without active job. ` +
-    `stuck-scan or lease-reclaim should have caught these. ` +
-    `Orphans: ${JSON.stringify(orphans.slice(0, 5).map(o => `${o.package_id}→${o.step_key} (since ${o.started_at})`))}`,
+    `❌ ORPHAN STEPS: ${orphans.length} steps running > ${ORPHAN_RUNNING_MINUTES}min without active job. ` +
+    `Orphans: ${JSON.stringify(orphans.slice(0, 5).map(o => `${o.package_id}→${o.step_key}`))}`,
   );
 });
 
 // ══════════════════════════════════════════════
-// INVARIANT: no processing job older than 2 hours
+// INVARIANT: no processing job older than ZOMBIE_PROCESSING_HOURS
 // ══════════════════════════════════════════════
-Deno.test("P:ZOMBIE: no zombie processing jobs (>2h)", async () => {
-  const { data, error } = await sb
+Deno.test("P:ZOMBIE: no zombie processing jobs", async () => {
+  const cutoff = new Date(Date.now() - ZOMBIE_PROCESSING_HOURS * 60 * 60 * 1000).toISOString();
+  const { count, error } = await sb
     .from("job_queue")
-    .select("id, job_type, package_id, status, started_at")
+    .select("id", { count: "exact", head: true })
     .eq("status", "processing")
-    .lt("started_at", new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString())
-    .limit(10);
+    .lt("started_at", cutoff);
 
   assertEquals(error, null);
-
   assertEquals(
-    data?.length ?? 0,
+    count ?? 0,
     0,
-    `❌ ZOMBIE JOBS: ${data?.length} processing jobs older than 2h. ` +
-    `stuck-scan should have reset these. ` +
-    `Jobs: ${JSON.stringify(data?.slice(0, 3).map(j => `${j.id}: ${j.job_type} (pkg=${j.package_id}, since ${j.started_at})`))}`,
+    `❌ ZOMBIE JOBS: ${count} processing jobs older than ${ZOMBIE_PROCESSING_HOURS}h. ` +
+    `stuck-scan should have reset these.`,
   );
 });
