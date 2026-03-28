@@ -366,7 +366,7 @@ Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(origin);
 
   try {
-    const { message, mode, role = 'explainer', sessionId, sessionType = 'learning', conversationHistory = [], context = {} } = await req.json();
+    const { message, mode, role = 'explainer', sessionId, sessionType = 'learning', conversationHistory = [], context = {}, mastery_context } = await req.json();
 
     const validMode = Object.values(AI_MODES).includes(mode) ? mode : AI_MODES.LEARNING;
     const validRole = Object.values(AI_ROLES).includes(role) ? role : AI_ROLES.EXPLAINER;
