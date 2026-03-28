@@ -147,17 +147,21 @@ export function BlueprintSelector({ blueprints, isLoading, onSelect }: Blueprint
                   {(blueprint.pass_threshold * 100).toFixed(0)}% zum Bestehen
                 </div>
               </div>
-              <div className="mt-3 flex gap-2">
-                <Badge variant="outline" className="text-xs">
-                  {(blueprint.difficulty_distribution.easy * 100).toFixed(0)}% Leicht
-                </Badge>
-                <Badge variant="outline" className="text-xs">
-                  {(blueprint.difficulty_distribution.medium * 100).toFixed(0)}% Mittel
-                </Badge>
-                <Badge variant="outline" className="text-xs">
-                  {(blueprint.difficulty_distribution.hard * 100).toFixed(0)}% Schwer
-                </Badge>
-              </div>
+              {blueprint.difficulty_distribution?.easy != null && 
+               blueprint.difficulty_distribution?.medium != null && 
+               blueprint.difficulty_distribution?.hard != null && (
+                <div className="mt-3 flex gap-2">
+                  <Badge variant="outline" className="text-xs">
+                    {(blueprint.difficulty_distribution.easy * 100).toFixed(0)}% Leicht
+                  </Badge>
+                  <Badge variant="outline" className="text-xs">
+                    {(blueprint.difficulty_distribution.medium * 100).toFixed(0)}% Mittel
+                  </Badge>
+                  <Badge variant="outline" className="text-xs">
+                    {(blueprint.difficulty_distribution.hard * 100).toFixed(0)}% Schwer
+                  </Badge>
+                </div>
+              )}
             </CardContent>
             <CardFooter>
               <Button 
