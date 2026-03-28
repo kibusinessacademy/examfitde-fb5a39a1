@@ -50828,6 +50828,10 @@ export type Database = {
         Args: { p_curriculum_id: string; p_user_id: string }
         Returns: Json
       }
+      get_admin_course_preview_deep_links: {
+        Args: { p_curriculum_id: string }
+        Returns: Json
+      }
       get_admin_growth_content_jobs: {
         Args: { p_status?: string }
         Returns: {
