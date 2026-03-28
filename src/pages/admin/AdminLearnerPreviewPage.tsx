@@ -18,7 +18,7 @@ export default function AdminLearnerPreviewPage() {
     const term = q.trim().toLowerCase();
     if (!term) return data;
     return data.filter((row) =>
-      [row.title, row.slug ?? ""].join(" ").toLowerCase().includes(term)
+      row.title.toLowerCase().includes(term)
     );
   }, [data, q]);
 

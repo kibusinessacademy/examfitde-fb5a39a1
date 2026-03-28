@@ -4,7 +4,6 @@ export type AdminPublishedCoursePreview = {
   package_id: string;
   curriculum_id: string;
   title: string;
-  slug: string | null;
   status: string;
   integrity_passed: boolean;
   council_approved: boolean;
