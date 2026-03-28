@@ -211,33 +211,48 @@ Deno.test("P:VIS: published + eligible packages are visible (no phantom invisibi
 // D1: Distinct visible package count ≤ published count
 // ══════════════════════════════════════════════
 Deno.test("D:VIS: distinct visible packages ≤ published packages", async () => {
-  const { data: visible } = await sb
-    .from("v_learner_visible_exam_simulations")
-    .select("package_id")
-    .limit(500);
-
-  const distinctVisible = new Set((visible ?? []).map((v: any) => v.package_id)).size;
-
+  // Use count exact for published
   const { count: publishedCount } = await sb
     .from("course_packages")
     .select("id", { count: "exact", head: true })
     .eq("status", "published");
 
-  assert(
-    distinctVisible <= (publishedCount ?? 0),
-    `❌ VISIBILITY OVERFLOW: ${distinctVisible} distinct visible packages > ${publishedCount} published packages`);
+  // For distinct visible, we need actual IDs — paginate to get all
+  const allVisiblePkgIds = new Set<string>();
+  let offset = 0;
+  const PAGE = 1000;
+  while (true) {
+    const { data } = await sb
+      .from("v_learner_visible_exam_simulations")
+      .select("package_id")
+      .range(offset, offset + PAGE - 1);
+    if (!data || data.length === 0) break;
+    for (const row of data) allVisiblePkgIds.add((row as any).package_id);
+    if (data.length < PAGE) break;
+    offset += PAGE;
+  }
 
-  console.log(`📊 Distinct visible: ${distinctVisible}, Published: ${publishedCount}`);
+  assert(
+    allVisiblePkgIds.size <= (publishedCount ?? 0),
+    `❌ VISIBILITY OVERFLOW: ${allVisiblePkgIds.size} distinct visible packages > ${publishedCount} published packages`);
+
+  console.log(`📊 Distinct visible: ${allVisiblePkgIds.size}, Published: ${publishedCount}`);
 });
 
 // ══════════════════════════════════════════════
 // D2: ops_learner_visible_readiness — no published with dead ends
 // ══════════════════════════════════════════════
 Deno.test("D:VIS: no published packages with dead_ends in readiness view", async () => {
+  const { count: totalEntries, error: countErr } = await sb
+    .from("ops_learner_visible_readiness")
+    .select("package_id", { count: "exact", head: true });
+
+  assertEquals(countErr, null, `ops_learner_visible_readiness count failed: ${countErr?.message}`);
+
   const { data, error } = await sb
     .from("ops_learner_visible_readiness")
     .select("package_id, learner_tier, is_published, dead_ends")
-    .limit(100);
+    .limit(500);
 
   assertEquals(error, null, `View query failed: ${error?.message}`);
   assertExists(data);
