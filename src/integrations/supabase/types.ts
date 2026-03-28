@@ -49551,6 +49551,15 @@ export type Database = {
           cancelled_count: number
         }[]
       }
+      capture_lead: {
+        Args: {
+          p_curriculum_id: string
+          p_email: string
+          p_intent: string
+          p_source: string
+        }
+        Returns: string
+      }
       cents_to_de_decimal: { Args: { p_cents: number }; Returns: string }
       check_ai_budget_guard: {
         Args: {
@@ -50552,6 +50561,10 @@ export type Database = {
         Args: { p_currency?: string; p_export_type: string; p_month: string }
         Returns: string
       }
+      enqueue_growth_content_jobs: {
+        Args: { p_curriculum_id: string; p_package_id: string }
+        Returns: number
+      }
       enqueue_integrity_rechecks: {
         Args: { p_cap?: number; p_reason?: string }
         Returns: Json
@@ -50815,6 +50828,22 @@ export type Database = {
         Args: { p_curriculum_id: string; p_user_id: string }
         Returns: Json
       }
+      get_admin_growth_content_jobs: {
+        Args: { p_status?: string }
+        Returns: {
+          audience: string
+          content_type: string
+          created_at: string
+          curriculum_id: string
+          id: string
+          package_id: string
+          payload: Json
+          platform: string
+          result: Json
+          status: string
+          updated_at: string
+        }[]
+      }
       get_admin_published_course_preview: {
         Args: never
         Returns: {
@@ -50836,6 +50865,24 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      get_admin_seo_pages: {
+        Args: { p_status?: string }
+        Returns: {
+          content_md: string
+          created_at: string
+          curriculum_id: string
+          faq_json: Json
+          id: string
+          meta_description: string
+          package_id: string
+          page_type: string
+          slug: string
+          status: string
+          target_audience: string
+          title: string
+          updated_at: string
+        }[]
       }
       get_ai_cost_summary: { Args: never; Returns: Json }
       get_artifact_threshold: {
@@ -52305,6 +52352,14 @@ export type Database = {
           p_per_competency?: number
         }
         Returns: Json
+      }
+      seed_seo_pages_for_package: {
+        Args: {
+          p_base_slug: string
+          p_curriculum_id: string
+          p_package_id: string
+        }
+        Returns: number
       }
       seed_skill_nodes_from_competencies: {
         Args: { p_curriculum_id: string }
