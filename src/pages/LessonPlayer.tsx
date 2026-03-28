@@ -76,6 +76,7 @@ export default function LessonPlayer() {
   const [showFeedback, setShowFeedback] = useState(false);
   const [miniCheckKey, setMiniCheckKey] = useState(0);
   const [progressionBlocked, setProgressionBlocked] = useState<{ blocked: boolean; reason?: string; prevLessonId?: string } | null>(null);
+  const { syncMiniCheckResult } = useMiniCheckMasterySync();
 
   const handleRetryMiniCheck = () => {
     setShowFeedback(false);
