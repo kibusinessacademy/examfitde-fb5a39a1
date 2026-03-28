@@ -50,6 +50,51 @@ export type Database = {
         }
         Relationships: []
       }
+      admin_course_auto_heal_queue: {
+        Row: {
+          created_at: string
+          curriculum_id: string
+          heal_action: string
+          id: string
+          notes: string | null
+          package_id: string
+          processed_at: string | null
+          reason_codes: string[]
+          source: string
+          source_test_run_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          curriculum_id: string
+          heal_action: string
+          id?: string
+          notes?: string | null
+          package_id: string
+          processed_at?: string | null
+          reason_codes?: string[]
+          source?: string
+          source_test_run_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          curriculum_id?: string
+          heal_action?: string
+          id?: string
+          notes?: string | null
+          package_id?: string
+          processed_at?: string | null
+          reason_codes?: string[]
+          source?: string
+          source_test_run_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       admin_course_test_runs: {
         Row: {
           created_at: string
@@ -51413,6 +51458,10 @@ export type Database = {
       }
       enforce_priority_gate: { Args: never; Returns: undefined }
       enforce_wave_backpressure: { Args: { p_wave_id: string }; Returns: Json }
+      enqueue_auto_heal_for_test_run: {
+        Args: { p_test_run_id: string }
+        Returns: string
+      }
       enqueue_blueprint_gap_jobs: {
         Args: { p_cap?: number; p_curriculum_id: string; p_reason?: string }
         Returns: Json
@@ -51692,6 +51741,23 @@ export type Database = {
       get_adaptive_recommendation: {
         Args: { p_curriculum_id: string; p_user_id: string }
         Returns: Json
+      }
+      get_admin_auto_heal_queue: {
+        Args: { p_status?: string }
+        Returns: {
+          created_at: string
+          curriculum_id: string
+          heal_action: string
+          id: string
+          notes: string
+          package_id: string
+          processed_at: string
+          reason_codes: string[]
+          source: string
+          source_test_run_id: string
+          status: string
+          updated_at: string
+        }[]
       }
       get_admin_auto_test_queue: {
         Args: { p_limit?: number }
@@ -52679,6 +52745,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      map_reason_codes_to_heal_action: {
+        Args: { p_reason_codes: string[] }
+        Returns: string
+      }
       mark_legacy_integrity_reports: { Args: never; Returns: undefined }
       mark_package_stuck: {
         Args: { p_id: string; p_reason: string }
@@ -53549,6 +53619,10 @@ export type Database = {
       try_claim_pipeline_slot: {
         Args: { p_locked_by?: string; p_package_id: string }
         Returns: boolean
+      }
+      update_admin_auto_heal_status: {
+        Args: { p_notes?: string; p_queue_id: string; p_status: string }
+        Returns: undefined
       }
       update_course_package_step: {
         Args: {
