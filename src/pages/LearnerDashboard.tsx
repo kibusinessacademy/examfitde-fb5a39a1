@@ -23,6 +23,7 @@ import { ReadinessTrendCard } from '@/components/dashboard/ReadinessTrendCard';
 import { ExamFitInsightsPanel } from '@/components/learner/ExamFitInsightsPanel';
 import { MasteryDashboardSection } from '@/features/mastery/components/MasteryDashboardSection';
 import { useSimulationGate } from '@/hooks/useExamReadiness';
+import { useCheckEntitlement } from '@/hooks/useEntitlements';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -396,12 +397,16 @@ export default function LearnerDashboard() {
 
 function QuickActionsGrid({ activeCurriculumId }: { activeCurriculumId: string | null }) {
   const { data: gate } = useSimulationGate(activeCurriculumId ?? undefined);
+  const { data: hasExamTrainer, isLoading: entitlementLoading } = useCheckEntitlement(
+    activeCurriculumId ?? '', 'exam_trainer'
+  );
   const simulationBlocked = gate && !gate.allowed;
+  const adaptiveBlocked = !entitlementLoading && !hasExamTrainer;
 
   const actions = [
     { to: '/exam-trainer', icon: Target, label: 'Prüfungstrainer', desc: 'Schriftlich üben', gradient: 'gradient-accent', glow: 'shadow-glow-accent', blocked: false },
     { to: '/exam-simulation', icon: GraduationCap, label: 'Simulation', desc: simulationBlocked ? '🔒 Noch gesperrt' : 'Prüfung simulieren', gradient: 'gradient-primary', glow: 'shadow-glow-sm', blocked: !!simulationBlocked },
-    { to: `/exam-simulation?mode=adaptive&curriculum=${activeCurriculumId ?? ''}`, icon: Sparkles, label: 'Adaptive Prüfung', desc: 'Schwächen-basiert', gradient: 'bg-gradient-to-br from-violet-500 to-purple-600', glow: 'shadow-glow-sm', blocked: false },
+    { to: adaptiveBlocked ? '/exam-trainer' : `/exam-simulation?mode=adaptive&curriculum=${activeCurriculumId ?? ''}`, icon: Sparkles, label: 'Adaptive Prüfung', desc: adaptiveBlocked ? '🔒 Premium' : 'Schwächen-basiert', gradient: 'bg-gradient-to-br from-violet-500 to-purple-600', glow: 'shadow-glow-sm', blocked: adaptiveBlocked },
     { to: '/oral-exam', icon: Mic, label: 'Mündlich', desc: 'Mündliche Prüfung', gradient: 'bg-gradient-to-br from-blue-500 to-cyan-500', glow: '', blocked: false },
     { to: '/spaced-repetition', icon: Brain, label: 'Wiederholen', desc: 'Spaced Repetition', gradient: 'bg-gradient-to-br from-purple-500 to-indigo-600', glow: '', blocked: false },
     { to: '/exam-anxiety', icon: Heart, label: 'Prüfungsangst', desc: 'Stressabbau', gradient: 'bg-gradient-to-br from-rose-500 to-pink-600', glow: '', blocked: false },
