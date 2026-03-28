@@ -6558,6 +6558,39 @@ export type Database = {
         }
         Relationships: []
       }
+      conversion_events: {
+        Row: {
+          created_at: string
+          curriculum_id: string | null
+          event_type: string
+          id: string
+          intent: string | null
+          readiness_score: number | null
+          risk_level: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          curriculum_id?: string | null
+          event_type: string
+          id?: string
+          intent?: string | null
+          readiness_score?: number | null
+          risk_level?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          curriculum_id?: string | null
+          event_type?: string
+          id?: string
+          intent?: string | null
+          readiness_score?: number | null
+          risk_level?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       council_activity_log: {
         Row: {
           action: string
@@ -14677,6 +14710,74 @@ export type Database = {
           },
         ]
       }
+      email_delivery_queue: {
+        Row: {
+          created_at: string
+          id: string
+          lead_id: string | null
+          scheduled_for: string
+          sequence_type: string
+          status: string
+          step_number: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          lead_id?: string | null
+          scheduled_for: string
+          sequence_type: string
+          status?: string
+          step_number: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          lead_id?: string | null
+          scheduled_for?: string
+          sequence_type?: string
+          status?: string
+          step_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_delivery_queue_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_sequences: {
+        Row: {
+          audience: string
+          body_md: string
+          created_at: string
+          id: string
+          sequence_type: string
+          step_number: number
+          subject: string
+        }
+        Insert: {
+          audience: string
+          body_md: string
+          created_at?: string
+          id?: string
+          sequence_type: string
+          step_number: number
+          subject: string
+        }
+        Update: {
+          audience?: string
+          body_md?: string
+          created_at?: string
+          id?: string
+          sequence_type?: string
+          step_number?: number
+          subject?: string
+        }
+        Relationships: []
+      }
       email_templates: {
         Row: {
           created_at: string | null
@@ -17069,6 +17170,48 @@ export type Database = {
         }
         Relationships: []
       }
+      growth_content_jobs: {
+        Row: {
+          audience: string
+          content_type: string
+          created_at: string
+          curriculum_id: string | null
+          id: string
+          package_id: string | null
+          payload: Json | null
+          platform: string
+          result: Json | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          audience: string
+          content_type: string
+          created_at?: string
+          curriculum_id?: string | null
+          id?: string
+          package_id?: string | null
+          payload?: Json | null
+          platform: string
+          result?: Json | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          audience?: string
+          content_type?: string
+          created_at?: string
+          curriculum_id?: string | null
+          id?: string
+          package_id?: string | null
+          payload?: Json | null
+          platform?: string
+          result?: Json | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       growth_risk_scores: {
         Row: {
           computed_at: string
@@ -18167,6 +18310,66 @@ export type Database = {
           metrics?: Json
           period_type?: string | null
           snapshot_date?: string
+        }
+        Relationships: []
+      }
+      lead_magnets: {
+        Row: {
+          content_json: Json | null
+          content_type: string
+          created_at: string
+          curriculum_id: string | null
+          id: string
+          slug: string
+          status: string
+          title: string
+        }
+        Insert: {
+          content_json?: Json | null
+          content_type: string
+          created_at?: string
+          curriculum_id?: string | null
+          id?: string
+          slug: string
+          status?: string
+          title: string
+        }
+        Update: {
+          content_json?: Json | null
+          content_type?: string
+          created_at?: string
+          curriculum_id?: string | null
+          id?: string
+          slug?: string
+          status?: string
+          title?: string
+        }
+        Relationships: []
+      }
+      leads: {
+        Row: {
+          created_at: string
+          curriculum_id: string | null
+          email: string
+          id: string
+          intent: string | null
+          source: string | null
+        }
+        Insert: {
+          created_at?: string
+          curriculum_id?: string | null
+          email: string
+          id?: string
+          intent?: string | null
+          source?: string | null
+        }
+        Update: {
+          created_at?: string
+          curriculum_id?: string | null
+          email?: string
+          id?: string
+          intent?: string | null
+          source?: string | null
         }
         Relationships: []
       }
@@ -31717,6 +31920,54 @@ export type Database = {
           },
         ]
       }
+      seo_content_pages: {
+        Row: {
+          content_md: string | null
+          created_at: string
+          curriculum_id: string | null
+          faq_json: Json | null
+          id: string
+          meta_description: string | null
+          package_id: string | null
+          page_type: string
+          slug: string
+          status: string
+          target_audience: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          content_md?: string | null
+          created_at?: string
+          curriculum_id?: string | null
+          faq_json?: Json | null
+          id?: string
+          meta_description?: string | null
+          package_id?: string | null
+          page_type: string
+          slug: string
+          status?: string
+          target_audience?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          content_md?: string | null
+          created_at?: string
+          curriculum_id?: string | null
+          faq_json?: Json | null
+          id?: string
+          meta_description?: string | null
+          package_id?: string | null
+          page_type?: string
+          slug?: string
+          status?: string
+          target_audience?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       seo_documents: {
         Row: {
           beruf_id: string | null
@@ -44331,6 +44582,17 @@ export type Database = {
         }
         Relationships: []
       }
+      v_admin_growth_overview: {
+        Row: {
+          seo_draft: number | null
+          seo_live: number | null
+          social_done: number | null
+          social_pending: number | null
+          total_conversion_events: number | null
+          total_leads: number | null
+        }
+        Relationships: []
+      }
       v_admin_packages_ssot: {
         Row: {
           approved_questions: number | null
@@ -51960,6 +52222,17 @@ export type Database = {
       }
       sync_schema_contracts: { Args: never; Returns: Json }
       table_exists: { Args: { p_table: string }; Returns: boolean }
+      track_conversion_event: {
+        Args: {
+          p_curriculum_id: string
+          p_event_type: string
+          p_intent: string
+          p_readiness_score: number
+          p_risk_level: string
+          p_user_id: string
+        }
+        Returns: undefined
+      }
       trigger_pool_rework: { Args: never; Returns: undefined }
       try_claim_pipeline_lock: {
         Args: { p_locked_by: string; p_package_id: string }
