@@ -1,0 +1,112 @@
+name: Nightly QA Report
+
+on:
+  schedule:
+    - cron: '30 3 * * *' # 03:30 UTC daily
+  workflow_dispatch:
+    inputs:
+      run_e2e:
+        description: "Also run Playwright E2E suites"
+        required: false
+        default: "true"
+
+jobs:
+  # ── Unit/Logic Test Suites ──────────────
+  qa-logic-suites:
+    name: QA Logic Suites (Vitest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+
+      - name: Run Nightly QA Report
+        run: node scripts/nightly-qa-report.mjs --ci --json > test-results/nightly-qa-report.json 2>&1 || true
+
+      - name: Generate summary
+        if: always()
+        run: |
+          echo "## 🔬 Nightly QA Report" >> $GITHUB_STEP_SUMMARY
+          if [ -f test-results/nightly-qa-report.json ]; then
+            node -e "
+              const r = require('./test-results/nightly-qa-report.json');
+              console.log('| Suite | Status | Pass | Fail | Skip |');
+              console.log('|-------|--------|------|------|------|');
+              for (const s of r.suites) {
+                const icon = s.status === 'PASS' ? '✅' : '❌';
+                console.log('| ' + s.label + ' | ' + icon + ' | ' + s.total_pass + ' | ' + s.total_fail + ' | ' + s.total_skip + ' |');
+              }
+              console.log('');
+              console.log('**Overall:** ' + r.overall_status + ' — ' + r.total_pass + '/' + r.total_tests + ' passed');
+            " >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Upload QA report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-qa-report
+          path: test-results/nightly-qa-report.json
+          retention-days: 30
+
+  # ── Playwright E2E Suites ──────────────
+  qa-e2e-suites:
+    name: QA E2E Suites (Playwright)
+    if: github.event_name == 'schedule' || inputs.run_e2e == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+
+      - name: Run Admin Preview E2E
+        env:
+          BASE_URL: ${{ vars.E2E_BASE_URL || 'https://examfitde.lovable.app' }}
+          E2E_EMAIL: ${{ secrets.E2E_TEST_USER_EMAIL }}
+          E2E_PASSWORD: ${{ secrets.E2E_TEST_USER_PASSWORD }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: npx playwright test tests/e2e/sanity.admin-preview.spec.ts --project=sanity || true
+
+      - name: Run Learner Golden Path E2E
+        env:
+          BASE_URL: ${{ vars.E2E_BASE_URL || 'https://examfitde.lovable.app' }}
+          CURRICULUM_ID: ${{ secrets.NIGHTLY_CURRICULUM_ID || '' }}
+          E2E_EMAIL: ${{ secrets.E2E_TEST_USER_EMAIL }}
+          E2E_PASSWORD: ${{ secrets.E2E_TEST_USER_PASSWORD }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: npx playwright test tests/e2e/sanity.learner-golden-path.spec.ts --project=sanity || true
+
+      - name: Generate E2E summary
+        if: always()
+        run: |
+          echo "## 🎭 Playwright E2E Report" >> $GITHUB_STEP_SUMMARY
+          echo "Admin Preview + Learner Golden Path suites executed." >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-e2e-report
+          path: playwright-report
+          retention-days: 14
+
+      - name: Upload E2E artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-e2e-artifacts
+          path: test-results
+          retention-days: 14
