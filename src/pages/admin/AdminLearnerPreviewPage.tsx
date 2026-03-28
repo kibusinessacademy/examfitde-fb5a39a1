@@ -1,12 +1,38 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Search, GraduationCap, BookOpen, Brain, FileQuestion } from "lucide-react";
+import {
+  GraduationCap,
+  Search,
+  BookOpen,
+  FileQuestion,
+  Brain,
+  Sparkles,
+  LayoutDashboard,
+} from "lucide-react";
 import { getAdminPublishedCoursePreview } from "@/features/admin/api/adminPreviewApi";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { AdminPreviewQuickLinksCard } from "@/features/admin/components/AdminPreviewQuickLinksCard";
+
+type PreviewMode = "standard" | "premium" | "adaptive";
+
+function buildPreviewUrl(path: string, mode: PreviewMode) {
+  const params = new URLSearchParams({
+    admin_preview: "1",
+    preview_mode: mode,
+  });
+  return `${path}?${params.toString()}`;
+}
 
 export default function AdminLearnerPreviewPage() {
   const [q, setQ] = useState("");
+  const [previewMode, setPreviewMode] = useState<PreviewMode>("standard");
+  const [integrityOnly, setIntegrityOnly] = useState(false);
+  const [councilOnly, setCouncilOnly] = useState(false);
+  const [tutorOnly, setTutorOnly] = useState(false);
+  const [minQuestions, setMinQuestions] = useState(0);
+  const [minLessons, setMinLessons] = useState(0);
+  const [expandedCard, setExpandedCard] = useState<string | null>(null);
 
   const { data = [], isLoading, error } = useQuery({
     queryKey: ["admin-published-course-preview"],
@@ -16,11 +42,16 @@ export default function AdminLearnerPreviewPage() {
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
-    if (!term) return data;
-    return data.filter((row) =>
-      row.title.toLowerCase().includes(term)
-    );
-  }, [data, q]);
+    return data.filter((row) => {
+      if (term && !row.title.toLowerCase().includes(term)) return false;
+      if (integrityOnly && !row.integrity_passed) return false;
+      if (councilOnly && !row.council_approved) return false;
+      if (tutorOnly && (row.tutor_index_count ?? 0) <= 0) return false;
+      if ((row.approved_questions ?? 0) < minQuestions) return false;
+      if ((row.lessons_count ?? 0) < minLessons) return false;
+      return true;
+    });
+  }, [data, q, integrityOnly, councilOnly, tutorOnly, minQuestions, minLessons]);
 
   return (
     <div className="space-y-6">
@@ -31,14 +62,90 @@ export default function AdminLearnerPreviewPage() {
         </p>
       </div>
 
-      <div className="flex items-center gap-3 rounded-2xl border p-4">
-        <Search className="h-4 w-4 text-muted-foreground" />
-        <Input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Kurs suchen..."
-          className="border-0 p-0 focus-visible:ring-0"
-        />
+      {/* Search + Filters */}
+      <div className="rounded-2xl border bg-card p-4 space-y-4">
+        <div className="flex items-center gap-3">
+          <Search className="h-4 w-4 text-muted-foreground" />
+          <Input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Kurs suchen..."
+            className="border-0 p-0 focus-visible:ring-0"
+          />
+        </div>
+
+        {/* Preview Mode */}
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant={previewMode === "standard" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setPreviewMode("standard")}
+          >
+            Standard Learner
+          </Button>
+          <Button
+            variant={previewMode === "premium" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setPreviewMode("premium")}
+          >
+            <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+            Premium Preview
+          </Button>
+          <Button
+            variant={previewMode === "adaptive" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setPreviewMode("adaptive")}
+          >
+            Adaptive Preview
+          </Button>
+        </div>
+
+        {/* Quality Filters */}
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant={integrityOnly ? "default" : "outline"}
+            size="sm"
+            onClick={() => setIntegrityOnly((v) => !v)}
+          >
+            Integrity ✓
+          </Button>
+          <Button
+            variant={councilOnly ? "default" : "outline"}
+            size="sm"
+            onClick={() => setCouncilOnly((v) => !v)}
+          >
+            Council ✓
+          </Button>
+          <Button
+            variant={tutorOnly ? "default" : "outline"}
+            size="sm"
+            onClick={() => setTutorOnly((v) => !v)}
+          >
+            Tutor vorhanden
+          </Button>
+        </div>
+
+        {/* Numeric Filters */}
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="rounded-xl border p-3">
+            <div className="text-xs text-muted-foreground mb-1.5">Min. Fragen</div>
+            <Input
+              type="number"
+              value={minQuestions}
+              onChange={(e) => setMinQuestions(Number(e.target.value || 0))}
+              className="h-8"
+            />
+          </div>
+          <div className="rounded-xl border p-3">
+            <div className="text-xs text-muted-foreground mb-1.5">Min. Lessons</div>
+            <Input
+              type="number"
+              value={minLessons}
+              onChange={(e) => setMinLessons(Number(e.target.value || 0))}
+              className="h-8"
+            />
+          </div>
+        </div>
       </div>
 
       {isLoading && (
@@ -52,98 +159,180 @@ export default function AdminLearnerPreviewPage() {
         </div>
       )}
 
+      <div className="text-sm text-muted-foreground">
+        {filtered.length} Kurse sichtbar
+      </div>
+
+      {/* Course Cards */}
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {filtered.map((course) => (
-          <div
-            key={course.package_id}
-            className="rounded-2xl border bg-card p-5 space-y-4"
-          >
-            <div>
-              <div className="text-lg font-semibold">{course.title}</div>
-              <div className="text-xs text-muted-foreground font-mono truncate">
-                {course.package_id}
-              </div>
-            </div>
+        {filtered.map((course) => {
+          const isExpanded = expandedCard === course.package_id;
 
-            <div className="grid grid-cols-3 gap-2 text-sm">
-              <div className="rounded-xl border p-3">
-                <div className="text-muted-foreground flex items-center gap-1 text-xs">
-                  <BookOpen className="h-3.5 w-3.5" /> Lessons
+          return (
+            <div
+              key={course.package_id}
+              className="rounded-2xl border bg-card p-5 space-y-4"
+            >
+              <div>
+                <div className="text-lg font-semibold">{course.title}</div>
+                <div className="text-xs text-muted-foreground font-mono truncate">
+                  {course.package_id}
                 </div>
-                <div className="font-medium">{course.lessons_count}</div>
               </div>
-              <div className="rounded-xl border p-3">
-                <div className="text-muted-foreground flex items-center gap-1 text-xs">
-                  <FileQuestion className="h-3.5 w-3.5" /> Fragen
-                </div>
-                <div className="font-medium">{course.approved_questions}</div>
-              </div>
-              <div className="rounded-xl border p-3">
-                <div className="text-muted-foreground flex items-center gap-1 text-xs">
-                  <Brain className="h-3.5 w-3.5" /> Tutor
-                </div>
-                <div className="font-medium">{course.tutor_index_count}</div>
-              </div>
-            </div>
 
-            <div className="text-sm space-y-1">
-              <div>Integrity: {course.integrity_passed ? "✅" : "❌"}</div>
-              <div>Council: {course.council_approved ? "✅" : "❌"}</div>
-              <div>Status: <span className="font-medium">{course.status}</span></div>
-            </div>
+              {/* Stats */}
+              <div className="grid grid-cols-3 gap-2 text-sm">
+                <div className="rounded-xl border p-3">
+                  <div className="text-muted-foreground flex items-center gap-1 text-xs">
+                    <BookOpen className="h-3.5 w-3.5" /> Lessons
+                  </div>
+                  <div className={`font-medium ${course.lessons_count === 0 ? "text-destructive" : ""}`}>
+                    {course.lessons_count}
+                  </div>
+                </div>
+                <div className="rounded-xl border p-3">
+                  <div className="text-muted-foreground flex items-center gap-1 text-xs">
+                    <FileQuestion className="h-3.5 w-3.5" /> Fragen
+                  </div>
+                  <div className={`font-medium ${course.approved_questions < 40 ? "text-destructive" : ""}`}>
+                    {course.approved_questions}
+                  </div>
+                </div>
+                <div className="rounded-xl border p-3">
+                  <div className="text-muted-foreground flex items-center gap-1 text-xs">
+                    <Brain className="h-3.5 w-3.5" /> Tutor
+                  </div>
+                  <div className={`font-medium ${course.tutor_index_count === 0 ? "text-amber-500" : ""}`}>
+                    {course.tutor_index_count}
+                  </div>
+                </div>
+              </div>
 
-            <div className="grid grid-cols-2 gap-2">
+              {/* Quality Badges */}
+              <div className="flex flex-wrap gap-1.5 text-xs">
+                <span
+                  className={`rounded-full border px-2 py-0.5 ${
+                    course.integrity_passed
+                      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                      : "border-destructive/30 bg-destructive/10 text-destructive"
+                  }`}
+                >
+                  Integrity {course.integrity_passed ? "✅" : "❌"}
+                </span>
+                <span
+                  className={`rounded-full border px-2 py-0.5 ${
+                    course.council_approved
+                      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                      : "border-destructive/30 bg-destructive/10 text-destructive"
+                  }`}
+                >
+                  Council {course.council_approved ? "✅" : "❌"}
+                </span>
+                <span className="rounded-full border px-2 py-0.5">
+                  {course.status}
+                </span>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="grid grid-cols-3 gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    window.open(
+                      buildPreviewUrl(`/learner/course/${course.curriculum_id}`, previewMode),
+                      "_blank"
+                    )
+                  }
+                >
+                  <GraduationCap className="mr-1.5 h-3.5 w-3.5" />
+                  Kurs
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    window.open(
+                      buildPreviewUrl(`/learner/exam/${course.curriculum_id}`, previewMode),
+                      "_blank"
+                    )
+                  }
+                >
+                  Prüfung
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    window.open(
+                      buildPreviewUrl(`/learner/oral-exam/${course.curriculum_id}`, previewMode),
+                      "_blank"
+                    )
+                  }
+                >
+                  Oral
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    window.open(
+                      buildPreviewUrl(`/learner/tutor/${course.curriculum_id}`, previewMode),
+                      "_blank"
+                    )
+                  }
+                >
+                  <Brain className="mr-1.5 h-3.5 w-3.5" />
+                  Tutor
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    window.open(
+                      buildPreviewUrl(`/learner/dashboard/${course.curriculum_id}`, previewMode),
+                      "_blank"
+                    )
+                  }
+                >
+                  <LayoutDashboard className="mr-1.5 h-3.5 w-3.5" />
+                  Dashboard
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() =>
+                    window.open(
+                      buildPreviewUrl(`/learner/exam/adaptive/${course.curriculum_id}`, "adaptive"),
+                      "_blank"
+                    )
+                  }
+                >
+                  <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+                  Adaptive
+                </Button>
+              </div>
+
+              {/* Expandable Quick Links */}
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
+                className="w-full"
                 onClick={() =>
-                  window.open(
-                    `/learner/course/${course.curriculum_id}?admin_preview=1`,
-                    "_blank"
-                  )
+                  setExpandedCard(isExpanded ? null : course.package_id)
                 }
               >
-                <GraduationCap className="mr-1.5 h-3.5 w-3.5" />
-                Kurs
+                {isExpanded ? "Quick Links ausblenden" : "Quick Test Links anzeigen"}
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  window.open(
-                    `/learner/exam/${course.curriculum_id}?admin_preview=1`,
-                    "_blank"
-                  )
-                }
-              >
-                Prüfung
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  window.open(
-                    `/learner/oral-exam/${course.curriculum_id}?admin_preview=1`,
-                    "_blank"
-                  )
-                }
-              >
-                Oral
-              </Button>
-              <Button
-                size="sm"
-                onClick={() =>
-                  window.open(
-                    `/learner/tutor/${course.curriculum_id}?admin_preview=1`,
-                    "_blank"
-                  )
-                }
-              >
-                Tutor
-              </Button>
+
+              {isExpanded && (
+                <AdminPreviewQuickLinksCard
+                  curriculumId={course.curriculum_id}
+                  previewMode={previewMode}
+                />
+              )}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
