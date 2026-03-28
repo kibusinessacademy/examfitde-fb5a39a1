@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useDashboardStats } from '@/hooks/useDashboardStats';
@@ -22,6 +22,8 @@ import { SmartRecommendationsCard } from '@/components/dashboard/SmartRecommenda
 import { ReadinessTrendCard } from '@/components/dashboard/ReadinessTrendCard';
 import { ExamFitInsightsPanel } from '@/components/learner/ExamFitInsightsPanel';
 import { MasteryDashboardSection } from '@/features/mastery/components/MasteryDashboardSection';
+import { useConversionEngine } from '@/features/conversion/hooks/useConversionEngine';
+import { ConversionCard } from '@/features/conversion/components/ConversionCard';
 import { useSimulationGate } from '@/hooks/useExamReadiness';
 import { useCheckEntitlement } from '@/hooks/useEntitlements';
 import { Button } from '@/components/ui/button';
@@ -65,6 +67,7 @@ interface CourseProgress {
 export default function LearnerDashboard() {
   const { user, isAdmin } = useAuth();
   const { data: dashboardStats } = useDashboardStats();
+  const navigate = useNavigate();
   const [enrollments, setEnrollments] = useState<EnrolledCourse[]>([]);
   const [progress, setProgress] = useState<Map<string, CourseProgress>>(new Map());
   const [loading, setLoading] = useState(true);
