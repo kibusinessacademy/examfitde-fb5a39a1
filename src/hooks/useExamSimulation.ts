@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { getReadableErrorMessage } from '@/lib/error-utils';
 import type { Json } from '@/integrations/supabase/types';
 
 export interface ExamBlueprint {
@@ -78,29 +79,26 @@ export interface ExamResult {
   };
 }
 
-// Fetch available blueprints for a curriculum
-export function useExamBlueprints(curriculumId?: string) {
+// Fetch available blueprints – SSOT: only published+integrity+council-approved packages
+export function useExamBlueprints() {
   return useQuery({
-    queryKey: ['exam-blueprints', curriculumId],
+    queryKey: ['exam-blueprints-ssot'],
     queryFn: async () => {
-      let query = supabase
-        .from('exam_blueprints')
-        .select('*')
-        .eq('frozen', true);
-      
-      if (curriculumId) {
-        query = query.eq('curriculum_id', curriculumId);
-      }
-      
-      const { data, error } = await query.order('title');
+      const { data, error } = await supabase.rpc('get_learner_visible_exam_simulations');
       if (error) throw error;
       
-      return data.map(b => ({
-        ...b,
+      return (data ?? []).map((b: any) => ({
+        id: b.blueprint_id,
+        curriculum_id: b.curriculum_id,
+        title: b.title,
+        description: b.description,
+        total_questions: b.total_questions,
+        time_limit_minutes: b.time_limit_minutes,
+        pass_threshold: b.pass_threshold,
         difficulty_distribution: b.difficulty_distribution as ExamBlueprint['difficulty_distribution'],
+        frozen: true,
       })) as ExamBlueprint[];
     },
-    enabled: true,
   });
 }
 
@@ -195,7 +193,7 @@ export function useStartExamSession() {
       toast.success('Prüfungssimulation gestartet');
     },
     onError: (error) => {
-      const msg = String(error);
+      const msg = getReadableErrorMessage(error);
       if (msg.includes('READINESS_BLOCKED')) {
         const reason = msg.replace(/.*READINESS_BLOCKED:\s*/, '');
         toast.error('Simulation gesperrt', { 
@@ -276,7 +274,7 @@ export function useFinishExamSession() {
       toast.success('Prüfung abgeschlossen');
     },
     onError: (error) => {
-      toast.error('Fehler beim Abschließen', { description: String(error) });
+      toast.error('Fehler beim Abschließen', { description: getReadableErrorMessage(error) });
     },
   });
 }

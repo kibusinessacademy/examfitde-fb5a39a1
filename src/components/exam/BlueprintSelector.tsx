@@ -45,7 +45,8 @@ export function BlueprintSelector({ blueprints, isLoading, onSelect }: Blueprint
           <AlertCircle className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
           <h3 className="text-lg font-medium mb-2">Keine Prüfungen verfügbar</h3>
           <p className="text-muted-foreground">
-            Es sind noch keine Prüfungsvorlagen freigegeben.
+            Es sind derzeit keine freigegebenen Prüfungssimulationen verfügbar.
+            Prüfungen erscheinen hier erst, wenn sie vollständig produziert und freigegeben wurden.
           </p>
         </CardContent>
       </Card>
@@ -146,17 +147,21 @@ export function BlueprintSelector({ blueprints, isLoading, onSelect }: Blueprint
                   {(blueprint.pass_threshold * 100).toFixed(0)}% zum Bestehen
                 </div>
               </div>
-              <div className="mt-3 flex gap-2">
-                <Badge variant="outline" className="text-xs">
-                  {(blueprint.difficulty_distribution.easy * 100).toFixed(0)}% Leicht
-                </Badge>
-                <Badge variant="outline" className="text-xs">
-                  {(blueprint.difficulty_distribution.medium * 100).toFixed(0)}% Mittel
-                </Badge>
-                <Badge variant="outline" className="text-xs">
-                  {(blueprint.difficulty_distribution.hard * 100).toFixed(0)}% Schwer
-                </Badge>
-              </div>
+              {blueprint.difficulty_distribution?.easy != null && 
+               blueprint.difficulty_distribution?.medium != null && 
+               blueprint.difficulty_distribution?.hard != null && (
+                <div className="mt-3 flex gap-2">
+                  <Badge variant="outline" className="text-xs">
+                    {(blueprint.difficulty_distribution.easy * 100).toFixed(0)}% Leicht
+                  </Badge>
+                  <Badge variant="outline" className="text-xs">
+                    {(blueprint.difficulty_distribution.medium * 100).toFixed(0)}% Mittel
+                  </Badge>
+                  <Badge variant="outline" className="text-xs">
+                    {(blueprint.difficulty_distribution.hard * 100).toFixed(0)}% Schwer
+                  </Badge>
+                </div>
+              )}
             </CardContent>
             <CardFooter>
               <Button 
