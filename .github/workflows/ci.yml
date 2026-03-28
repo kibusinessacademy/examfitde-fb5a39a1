@@ -50,6 +50,11 @@ jobs:
       - run: npm ci
       - name: Run tests
         run: npx vitest run --reporter=verbose
+      - name: Generate test summary
+        if: always()
+        run: |
+          echo "## 🧪 Unit Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "Includes: Nightly Audit, Learner Golden Path, Admin Preview, Edge Contracts" >> $GITHUB_STEP_SUMMARY
 
   bundle-size:
     name: Bundle Size Monitor
