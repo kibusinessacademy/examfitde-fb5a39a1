@@ -29,7 +29,7 @@ const CRITICAL_TABLES = [
   "handbook_chapters",
   "handbook_sections",
   "course_packages",
-  "course_package_build_steps",
+  "package_steps",
   "autofix_runs",
   "job_queue",
   "ai_usage_log",
