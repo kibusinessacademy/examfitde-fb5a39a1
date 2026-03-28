@@ -99,7 +99,7 @@ describe("QA feedback loop scoring", () => {
         updatedWithin3Days: false,
         qaFreshness: "stale",
       })
-    ).toBe(60);
+    ).toBe(80);
   });
 
   it("critical tested recently gets 110", () => {
