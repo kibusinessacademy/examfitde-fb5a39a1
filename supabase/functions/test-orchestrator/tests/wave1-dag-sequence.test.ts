@@ -121,11 +121,20 @@ Deno.test("DAG_SEQUENCE: auto_publish done implies quality_council done", async 
 // TEST 4: validate_exam_pool done implies generate_exam_pool done
 // ══════════════════════════════════════════════
 Deno.test("DAG_SEQUENCE: validate_exam_pool done implies generate_exam_pool done", async () => {
+  // Exclude archived packages (frozen historical state)
+  const { data: activePkgs } = await sb
+    .from("course_packages")
+    .select("id")
+    .neq("status", "archived")
+    .limit(500);
+
+  const activeIds = activePkgs?.map((p) => p.id) ?? [];
   const { data: vepDone } = await sb
     .from("package_steps")
     .select("package_id")
     .eq("step_key", "validate_exam_pool")
     .eq("status", "done")
+    .in("package_id", activeIds)
     .limit(50);
 
   if (!vepDone || vepDone.length === 0) {
