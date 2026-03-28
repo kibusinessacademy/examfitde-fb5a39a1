@@ -200,27 +200,36 @@ Deno.test("P:PRODUCT: published with tutor step have tutor index", async () => {
 // D1: ops_hollow_completions = 0 for active
 // ══════════════════════════════════════════════
 Deno.test("D:PRODUCT: ops_hollow_completions = 0 for active packages", async () => {
-  const { data, error } = await sb
+  // First: exact count to see if any exist
+  const { count: totalHollow, error: countErr } = await sb
+    .from("ops_hollow_completions")
+    .select("package_id", { count: "exact", head: true });
+
+  assertEquals(countErr, null, `ops_hollow_completions query failed: ${countErr?.message}`);
+
+  if ((totalHollow ?? 0) === 0) {
+    console.log("✅ ops_hollow_completions: 0 entries");
+    return;
+  }
+
+  // If any exist, fetch details to check active vs archived
+  const { data } = await sb
     .from("ops_hollow_completions")
     .select("package_id, step_key, artifact_count")
-    .limit(100);
+    .limit(200);
 
-  assertEquals(error, null);
   assertExists(data);
+  const pkgIds = [...new Set(data!.map(d => d.package_id))];
+  const { data: pkgs } = await sb
+    .from("course_packages")
+    .select("id, status")
+    .in("id", pkgIds);
 
-  if (data!.length > 0) {
-    const pkgIds = [...new Set(data!.map(d => d.package_id))];
-    const { data: pkgs } = await sb
-      .from("course_packages")
-      .select("id, status")
-      .in("id", pkgIds);
+  const activePkgIds = new Set(pkgs?.filter(p => p.status !== "archived").map(p => p.id) ?? []);
+  const activeViolations = data!.filter(d => activePkgIds.has(d.package_id));
 
-    const activePkgIds = new Set(pkgs?.filter(p => p.status !== "archived").map(p => p.id) ?? []);
-    const activeViolations = data!.filter(d => activePkgIds.has(d.package_id));
-
-    assertEquals(activeViolations.length, 0,
-      `❌ HOLLOW: ${activeViolations.length} active hollow completions: ${JSON.stringify(activeViolations.slice(0, 5))}`);
-  }
+  assertEquals(activeViolations.length, 0,
+    `❌ HOLLOW: ${activeViolations.length} active hollow completions (total: ${totalHollow}): ${JSON.stringify(activeViolations.slice(0, 5))}`);
 });
 
 // ══════════════════════════════════════════════

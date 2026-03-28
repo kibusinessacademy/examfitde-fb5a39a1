@@ -219,23 +219,31 @@ Deno.test("P:START: non-published package not in learner view", async () => {
 // D1: Cross-check distinct visible packages ≤ published
 // ══════════════════════════════════════════════
 Deno.test("D:START: learner visible distinct packages ≤ published count", async () => {
-  const { data: visible } = await sb
-    .from("v_learner_visible_exam_simulations")
-    .select("package_id")
-    .limit(500);
-
-  const distinctVisible = new Set((visible ?? []).map((v: any) => v.package_id)).size;
-
   const { count: publishedCount } = await sb
     .from("course_packages")
     .select("id", { count: "exact", head: true })
     .eq("status", "published");
 
-  assert(
-    distinctVisible <= (publishedCount ?? 0),
-    `❌ More distinct visible packages (${distinctVisible}) than published (${publishedCount})`);
+  // Paginate to get all distinct visible package_ids
+  const allVisiblePkgIds = new Set<string>();
+  let offset = 0;
+  const PAGE = 1000;
+  while (true) {
+    const { data } = await sb
+      .from("v_learner_visible_exam_simulations")
+      .select("package_id")
+      .range(offset, offset + PAGE - 1);
+    if (!data || data.length === 0) break;
+    for (const row of data) allVisiblePkgIds.add((row as any).package_id);
+    if (data.length < PAGE) break;
+    offset += PAGE;
+  }
 
-  console.log(`📊 Distinct visible: ${distinctVisible}, Published: ${publishedCount}`);
+  assert(
+    allVisiblePkgIds.size <= (publishedCount ?? 0),
+    `❌ More distinct visible packages (${allVisiblePkgIds.size}) than published (${publishedCount})`);
+
+  console.log(`📊 Distinct visible: ${allVisiblePkgIds.size}, Published: ${publishedCount}`);
 });
 
 // ══════════════════════════════════════════════
