@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { getAdminAutoTestQueue } from "@/features/admin/api/adminAutoTestQueueApi";
 import { TestPriorityBadge } from "@/features/admin/components/TestPriorityBadge";
 import { TestPriorityReasons } from "@/features/admin/components/TestPriorityReasons";
+import { CourseTestStatusBadge } from "@/features/admin/components/CourseTestStatusBadge";
 
 type PreviewMode = "standard" | "premium" | "adaptive";
 
@@ -10,6 +11,13 @@ function withPreview(url: string, mode: PreviewMode) {
   const sep = url.includes("?") ? "&" : "?";
   return `${url}${sep}admin_preview=1&preview_mode=${mode}`;
 }
+
+const freshnessLabel: Record<string, string> = {
+  never_tested: "nie getestet",
+  today: "heute",
+  recent: "kürzlich",
+  stale: "veraltet",
+};
 
 export function AdminAutoTestQueue({
   previewMode,
@@ -55,16 +63,47 @@ export function AdminAutoTestQueue({
                 <div className="text-xs text-muted-foreground">
                   Score: {item.queue_score} · {new Date(item.updated_at).toLocaleDateString("de-DE")}
                 </div>
+                {item.latest_qa_at && (
+                  <div className="text-[10px] text-muted-foreground mt-0.5">
+                    Letzter QA-Run: {new Date(item.latest_qa_at).toLocaleString("de-DE")}
+                  </div>
+                )}
               </div>
-              <div className="flex flex-col items-end gap-1.5 shrink-0">
+              <div className="flex flex-col items-end gap-1 shrink-0">
                 <TestPriorityBadge priority={item.test_priority} />
-                <span className="rounded-full border px-2 py-0.5 text-xs text-muted-foreground">
-                  {item.freshness_bucket === "today" ? "heute" : item.freshness_bucket === "recent" ? "kürzlich" : "älter"}
+                <CourseTestStatusBadge status={item.latest_qa_status} />
+                <span className="rounded-full border px-2 py-0.5 text-[10px] text-muted-foreground">
+                  {freshnessLabel[item.qa_freshness_bucket] ?? item.qa_freshness_bucket}
                 </span>
               </div>
             </div>
 
             <TestPriorityReasons reasons={item.reason_codes} />
+
+            {item.latest_qa_issue_codes && item.latest_qa_issue_codes.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {item.latest_qa_issue_codes.map((code) => (
+                  <span
+                    key={code}
+                    className="rounded-full border border-destructive/20 bg-destructive/5 px-2 py-0.5 text-[10px] text-destructive"
+                  >
+                    QA: {code}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {item.latest_qa_notes && (
+              <div className="rounded-lg border p-2 text-xs text-muted-foreground">
+                {item.latest_qa_notes}
+              </div>
+            )}
+
+            {item.never_tested && (
+              <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-1.5 text-xs text-amber-700 dark:text-amber-300">
+                Noch nie getestet — hoher manueller QA-Wert.
+              </div>
+            )}
 
             <div className="grid grid-cols-3 gap-1.5 text-xs">
               <div className={`rounded-lg border p-2 ${item.approved_questions < 40 ? "border-destructive/30 text-destructive" : ""}`}>

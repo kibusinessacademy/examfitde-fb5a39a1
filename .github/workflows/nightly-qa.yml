@@ -1,0 +1,89 @@
+name: Nightly QA
+
+on:
+  schedule:
+    - cron: "30 2 * * *"
+  workflow_dispatch:
+
+jobs:
+  nightly-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+
+      - name: Run Vitest QA suites
+        run: node scripts/nightly-qa-report.mjs
+        env:
+          CI: "true"
+
+      - name: Run Playwright admin preview
+        run: npx playwright test tests/e2e/sanity.admin-preview.spec.ts --reporter=line
+        env:
+          CI: "true"
+          PLAYWRIGHT_BASE_URL: ${{ secrets.PLAYWRIGHT_BASE_URL }}
+          PLAYWRIGHT_SMOKE_EMAIL: ${{ secrets.PLAYWRIGHT_SMOKE_EMAIL }}
+          PLAYWRIGHT_SMOKE_PASSWORD: ${{ secrets.PLAYWRIGHT_SMOKE_PASSWORD }}
+          PLAYWRIGHT_CURRICULUM_ID: ${{ secrets.PLAYWRIGHT_CURRICULUM_ID }}
+
+      - name: Run Playwright learner golden path
+        run: npx playwright test tests/e2e/sanity.learner-golden-path.spec.ts --reporter=line
+        env:
+          CI: "true"
+          PLAYWRIGHT_BASE_URL: ${{ secrets.PLAYWRIGHT_BASE_URL }}
+          PLAYWRIGHT_SMOKE_EMAIL: ${{ secrets.PLAYWRIGHT_SMOKE_EMAIL }}
+          PLAYWRIGHT_SMOKE_PASSWORD: ${{ secrets.PLAYWRIGHT_SMOKE_PASSWORD }}
+          PLAYWRIGHT_CURRICULUM_ID: ${{ secrets.PLAYWRIGHT_CURRICULUM_ID }}
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report
+            test-results
+          if-no-files-found: ignore
+
+      - name: Upload QA JSON report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-qa-json
+          path: test-results/nightly-qa-report.json
+          if-no-files-found: ignore
+
+      - name: Generate summary
+        if: always()
+        run: |
+          echo "## 🔬 Nightly QA Report" >> $GITHUB_STEP_SUMMARY
+          if [ -f test-results/nightly-qa-report.json ]; then
+            node -e "
+              const fs = require('fs');
+              const r = JSON.parse(fs.readFileSync('./test-results/nightly-qa-report.json', 'utf8'));
+              console.log('| Suite | Status | Pass | Fail | Skip |');
+              console.log('|-------|--------|------|------|------|');
+              for (const s of r.suites) {
+                const icon = s.status === 'PASS' ? '✅' : '❌';
+                console.log('| ' + s.label + ' | ' + icon + ' | ' + s.total_pass + ' | ' + s.total_fail + ' | ' + s.total_skip + ' |');
+              }
+              console.log('');
+              console.log('**Overall:** ' + r.overall_status + ' — ' + r.total_pass + '/' + r.total_tests + ' passed');
+            " >> $GITHUB_STEP_SUMMARY
+          else
+            echo "No nightly-qa-report.json found." >> $GITHUB_STEP_SUMMARY
+          fi

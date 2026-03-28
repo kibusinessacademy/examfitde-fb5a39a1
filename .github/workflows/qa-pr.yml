@@ -1,0 +1,28 @@
+name: QA PR
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  qa-pr:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run Vitest QA suites
+        run: |
+          npx vitest run src/features/admin/__tests__/nightlyAuditPublishedQuality.test.ts --reporter=verbose
+          npx vitest run src/features/admin/__tests__/learnerGoldenPath.test.ts --reporter=verbose
+          npx vitest run src/features/admin/__tests__/adminPreviewAutoTestQueue.test.ts --reporter=verbose
+          npx vitest run src/features/admin/__tests__/edgeFunctionContracts.test.ts --reporter=verbose
+          npx vitest run src/features/admin/__tests__/qaFeedbackLoop.test.ts --reporter=verbose
