@@ -30706,6 +30706,51 @@ export type Database = {
           },
         ]
       }
+      readiness_snapshots: {
+        Row: {
+          competency_count: number
+          created_at: string
+          curriculum_id: string
+          id: string
+          last_sim_score: number | null
+          mastered_count: number
+          mastery_pct: number
+          partial_count: number
+          readiness_score: number
+          risk_level: string
+          user_id: string
+          weak_count: number
+        }
+        Insert: {
+          competency_count?: number
+          created_at?: string
+          curriculum_id: string
+          id?: string
+          last_sim_score?: number | null
+          mastered_count?: number
+          mastery_pct?: number
+          partial_count?: number
+          readiness_score?: number
+          risk_level?: string
+          user_id: string
+          weak_count?: number
+        }
+        Update: {
+          competency_count?: number
+          created_at?: string
+          curriculum_id?: string
+          id?: string
+          last_sim_score?: number | null
+          mastered_count?: number
+          mastery_pct?: number
+          partial_count?: number
+          readiness_score?: number
+          risk_level?: string
+          user_id?: string
+          weak_count?: number
+        }
+        Relationships: []
+      }
       recovery_actions: {
         Row: {
           action_payload: Json | null
@@ -35170,6 +35215,36 @@ export type Database = {
           mastery_state?: string
           minicheck_attempts?: number
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_competency_progress: {
+        Row: {
+          attempts: number
+          competency_id: string
+          curriculum_id: string
+          last_updated: string
+          mastery_level: string
+          score: number
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          competency_id: string
+          curriculum_id: string
+          last_updated?: string
+          mastery_level?: string
+          score?: number
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          competency_id?: string
+          curriculum_id?: string
+          last_updated?: string
+          mastery_level?: string
+          score?: number
           user_id?: string
         }
         Relationships: []
@@ -48567,6 +48642,21 @@ export type Database = {
         }
         Relationships: []
       }
+      v_user_weakness_map: {
+        Row: {
+          attempts: number | null
+          competency_id: string | null
+          competency_title: string | null
+          curriculum_id: string | null
+          last_updated: string | null
+          learning_field_title: string | null
+          mastery_level: string | null
+          score: number | null
+          sort_order: number | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
       v_vat_monthly: {
         Row: {
           currency: string | null
@@ -49737,6 +49827,10 @@ export type Database = {
       }
       compute_qa_release_gate: { Args: never; Returns: Json }
       compute_question_hash: { Args: { p_text: string }; Returns: string }
+      compute_readiness: {
+        Args: { p_curriculum_id: string; p_user_id: string }
+        Returns: Json
+      }
       convert_referral_on_purchase: {
         Args: { p_buyer_user_id: string; p_order_id: string }
         Returns: Json
@@ -50166,6 +50260,16 @@ export type Database = {
         }[]
       }
       get_active_pipeline_packages: { Args: never; Returns: string[] }
+      get_adaptive_exam_questions: {
+        Args: { p_curriculum_id: string; p_limit?: number; p_user_id: string }
+        Returns: {
+          competency_id: string
+          difficulty: string
+          mastery_level: string
+          question_id: string
+          selection_weight: number
+        }[]
+      }
       get_adaptive_recommendation: {
         Args: { p_curriculum_id: string; p_user_id: string }
         Returns: Json
@@ -51915,6 +52019,15 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      update_mastery_from_minicheck: {
+        Args: {
+          p_competency_id: string
+          p_curriculum_id: string
+          p_score: number
+          p_user_id: string
+        }
+        Returns: Json
       }
       update_package_progress: {
         Args: {
