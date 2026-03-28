@@ -25,6 +25,8 @@ interface AITutorChatProps {
   sessionType?: 'learning' | 'practice' | 'exam' | 'lesson';
   className?: string;
   title?: string;
+  masteryUserId?: string;
+  masteryCurriculumId?: string;
 }
 
 const MODE_CONFIG = {
@@ -54,6 +56,8 @@ export function AITutorChat({
   sessionType,
   className,
   title = 'AI-Tutor',
+  masteryUserId,
+  masteryCurriculumId,
 }: AITutorChatProps) {
   const [input, setInput] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -63,6 +67,10 @@ export function AITutorChat({
     mode,
     sessionId,
     sessionType,
+    context: {
+      masteryUserId,
+      masteryCurriculumId,
+    },
   });
 
   const modeConfig = MODE_CONFIG[mode];

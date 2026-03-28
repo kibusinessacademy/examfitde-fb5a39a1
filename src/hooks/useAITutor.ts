@@ -34,6 +34,9 @@ export interface AITutorContext {
   lessonId?: string;
   lessonStep?: string;
   miniCheckScore?: number;
+  // Mastery context: user_id + curriculum_id for server-side readiness/weakness loading
+  masteryUserId?: string;
+  masteryCurriculumId?: string;
   // Deprecated: text fields ignored by server, kept for backward compat
   curriculumTitle?: string;
   learningFieldTitle?: string;
@@ -79,13 +82,17 @@ export function useAITutor({
 
       const conversationHistory = messages.map(m => ({ role: m.role, content: m.content }));
 
+      const mastery_context = context.masteryUserId && context.masteryCurriculumId
+        ? { user_id: context.masteryUserId, curriculum_id: context.masteryCurriculumId }
+        : undefined;
+
       const resp = await fetch(TUTOR_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ message, mode, role: currentRole, sessionId, sessionType, conversationHistory, context }),
+        body: JSON.stringify({ message, mode, role: currentRole, sessionId, sessionType, conversationHistory, context, mastery_context }),
       });
 
       // Handle non-streaming error responses

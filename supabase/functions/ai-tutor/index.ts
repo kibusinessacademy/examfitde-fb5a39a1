@@ -366,7 +366,7 @@ Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(origin);
 
   try {
-    const { message, mode, role = 'explainer', sessionId, sessionType = 'learning', conversationHistory = [], context = {} } = await req.json();
+    const { message, mode, role = 'explainer', sessionId, sessionType = 'learning', conversationHistory = [], context = {}, mastery_context } = await req.json();
 
     const validMode = Object.values(AI_MODES).includes(mode) ? mode : AI_MODES.LEARNING;
     const validRole = Object.values(AI_ROLES).includes(role) ? role : AI_ROLES.EXPLAINER;
@@ -389,9 +389,45 @@ Deno.serve(async (req) => {
     // ── SSOT Context Loader (server-side) ──
     const { contextPrompt, resolvedContext, professionName } = await loadSSOTContext(supabase, context);
 
+    // ── Wave 3D: Mastery-aware role steering ──
+    let effectiveRole = validRole as AIRole;
+    if (mastery_context?.user_id && mastery_context?.curriculum_id) {
+      try {
+        const { data: readinessData } = await supabase.rpc("compute_readiness", {
+          p_user_id: mastery_context.user_id,
+          p_curriculum_id: mastery_context.curriculum_id,
+        });
+        if (readinessData && effectiveRole === AI_ROLES.EXPLAINER) {
+          const risk = (readinessData as Record<string, unknown>).risk_level;
+          if (risk === "low") effectiveRole = AI_ROLES.EXAMINER;
+          else if (risk === "medium") effectiveRole = AI_ROLES.COACH;
+          // high stays explainer
+        }
+
+        // Inject weakness context into prompt
+        const { data: weakData } = await supabase
+          .from("v_user_weakness_map")
+          .select("competency_title, learning_field_title, mastery_level, score")
+          .eq("user_id", mastery_context.user_id)
+          .eq("curriculum_id", mastery_context.curriculum_id)
+          .order("score", { ascending: true })
+          .limit(5);
+
+        if (weakData?.length) {
+          const weakLines = weakData.map((w: Record<string, unknown>) =>
+            `- ${w.competency_title} (${w.learning_field_title}) — ${Math.round(Number(w.score || 0) * 100)}% Score, Level: ${w.mastery_level}`
+          );
+          resolvedContext._masteryWeaknesses = weakData;
+          resolvedContext._masteryReadiness = readinessData;
+        }
+      } catch (e) {
+        console.warn("[ai-tutor] Mastery context enrichment failed:", e);
+      }
+    }
+
     // Now build mode and role prompts WITH profession name
     const modeRules = getModeRules(validMode as AIMode, professionName);
-    const rolePrompt = getRolePrompt(validRole as AIRole, professionName);
+    const rolePrompt = getRolePrompt(effectiveRole, professionName);
 
     // Exam mode block
     if (validMode === AI_MODES.EXAM && !isAllowedInExamMode(message)) {

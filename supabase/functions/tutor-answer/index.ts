@@ -27,6 +27,10 @@ interface TutorAnswerPayload {
   scope_id?: string | null;
   locale?: string;
   user_message: string;
+  mastery_context?: {
+    user_id: string;
+    curriculum_id: string;
+  };
 }
 
 Deno.serve(async (req) => {
@@ -62,11 +66,20 @@ Deno.serve(async (req) => {
     // 2) Load SSOT context (server-side)
     const ssot = await loadTutorSSOT(sb, p.scope_type, p.scope_id ?? null);
 
+    // 2b) Load mastery context if provided (readiness + weakness map)
+    let masteryContext: Record<string, unknown> | null = null;
+    if (p.mastery_context?.user_id && p.mastery_context?.curriculum_id) {
+      masteryContext = await loadMasteryContext(sb, p.mastery_context.user_id, p.mastery_context.curriculum_id);
+    }
+
+    // 2c) Risk-based role steering
+    const effectiveRole = masteryContext ? steerRole(p.role, masteryContext) : p.role;
+
     // 3) Generate response with mandatory source_refs
     const draft = await callLLM({
       model: GENERATOR_MODEL,
-      system: buildTutorSystem(p.role, p.scope_type),
-      user: buildTutorUserPrompt(p, assets, ssot),
+      system: buildTutorSystem(effectiveRole, p.scope_type, masteryContext),
+      user: buildTutorUserPrompt(p, assets, ssot, masteryContext),
     });
 
     // Hard gate: must contain source_refs
@@ -201,8 +214,52 @@ async function loadTutorSSOT(sb: SB, scopeType: ScopeType, scopeId: string | nul
   return { scopeType, scopeId, refs };
 }
 
-function buildTutorSystem(role: Role, scopeType: ScopeType) {
-  return `Du bist ExamFit Tutor (Council 5 Runtime).
+async function loadMasteryContext(sb: SB, userId: string, curriculumId: string): Promise<Record<string, unknown>> {
+  // Load readiness via RPC
+  let readiness: Record<string, unknown> = {};
+  try {
+    const { data } = await sb.rpc("compute_readiness", { p_user_id: userId, p_curriculum_id: curriculumId });
+    if (data) readiness = data as Record<string, unknown>;
+  } catch (e) {
+    console.warn("[tutor-answer] readiness load failed:", e);
+  }
+
+  // Load top 5 weaknesses from view
+  let weaknesses: Record<string, unknown>[] = [];
+  try {
+    const { data } = await sb.from("v_user_weakness_map")
+      .select("competency_id, competency_title, learning_field_title, mastery_level, score")
+      .eq("user_id", userId)
+      .eq("curriculum_id", curriculumId)
+      .order("score", { ascending: true })
+      .limit(5);
+    if (data) weaknesses = data as Record<string, unknown>[];
+  } catch (e) {
+    console.warn("[tutor-answer] weakness map load failed:", e);
+  }
+
+  return { readiness, weaknesses };
+}
+
+function steerRole(requestedRole: Role, masteryContext: Record<string, unknown>): Role {
+  const readiness = masteryContext.readiness as Record<string, unknown> | undefined;
+  if (!readiness) return requestedRole;
+
+  const riskLevel = readiness.risk_level as string;
+
+  // Risk-based role steering: override only if role is default explainer
+  if (requestedRole !== "explainer") return requestedRole;
+
+  switch (riskLevel) {
+    case "high": return "explainer"; // Focus on teaching fundamentals
+    case "medium": return "coach";   // Guide with practice focus
+    case "low": return "examiner";   // Challenge with exam-style questions
+    default: return requestedRole;
+  }
+}
+
+function buildTutorSystem(role: Role, scopeType: ScopeType, masteryContext: Record<string, unknown> | null) {
+  let base = `Du bist ExamFit Tutor (Council 5 Runtime).
 REGELN (hart):
 - Antworte ausschließlich auf Basis des SSOT-Kontexts und freigegebener Tutor-Templates.
 - Erfinde KEINE Fakten/Normen/Paragraphen.
@@ -211,10 +268,47 @@ REGELN (hart):
 Wenn SSOT nicht reicht: antworte kurz und setze confidence niedrig.
 Rolle: ${role}
 Scope: ${scopeType}`;
+
+  if (masteryContext) {
+    const readiness = masteryContext.readiness as Record<string, unknown> | undefined;
+    const weaknesses = masteryContext.weaknesses as Record<string, unknown>[] | undefined;
+
+    if (readiness) {
+      base += `\n\nPRÜFUNGSREIFE-KONTEXT:
+- Readiness-Score: ${readiness.readiness_score}%
+- Risiko-Level: ${readiness.risk_level}
+- Mastery: ${readiness.mastery_pct}%
+- Mastered/Partial/Weak: ${readiness.mastered}/${readiness.partial}/${readiness.weak} von ${readiness.total}`;
+    }
+
+    if (weaknesses?.length) {
+      base += `\n\nSCHWÄCHSTE KOMPETENZEN (fokussiere darauf):`;
+      for (const w of weaknesses) {
+        base += `\n- ${w.competency_title} (${w.learning_field_title}) — Score: ${Math.round(Number(w.score || 0) * 100)}%, Level: ${w.mastery_level}`;
+      }
+    }
+
+    if (readiness?.risk_level === "high") {
+      base += `\n\nDIDAKTISCHE ANWEISUNG: Der Lernende hat erhöhten Trainingsbedarf. Erkläre grundlegend, nutze einfache Beispiele, baue Verständnis auf. Keine Prüfungsfragen stellen.`;
+    } else if (readiness?.risk_level === "medium") {
+      base += `\n\nDIDAKTISCHE ANWEISUNG: Der Lernende ist fast prüfungsreif. Fokussiere auf die schwachen Bereiche, stelle gezielte Übungsfragen, gib konkretes Feedback.`;
+    } else if (readiness?.risk_level === "low") {
+      base += `\n\nDIDAKTISCHE ANWEISUNG: Der Lernende ist prüfungsreif. Stelle anspruchsvolle Prüfungsfragen, simuliere IHK-Niveau, fordere Transfer-Denken.`;
+    }
+  }
+
+  return base;
 }
 
-function buildTutorUserPrompt(p: TutorAnswerPayload, assets: Record<string, unknown>[], ssot: Record<string, unknown>) {
-  return `USER MESSAGE:\n${p.user_message}\n\nFREIGEGEBENE TUTOR ASSETS:\n${JSON.stringify(assets).slice(0, 4000)}\n\nSSOT-KONTEXT:\n${JSON.stringify((ssot as Record<string, unknown>).refs).slice(0, 6000)}\n\nErstelle jetzt die STRICT JSON Antwort.`;
+function buildTutorUserPrompt(p: TutorAnswerPayload, assets: Record<string, unknown>[], ssot: Record<string, unknown>, masteryContext: Record<string, unknown> | null) {
+  let prompt = `USER MESSAGE:\n${p.user_message}\n\nFREIGEGEBENE TUTOR ASSETS:\n${JSON.stringify(assets).slice(0, 4000)}\n\nSSOT-KONTEXT:\n${JSON.stringify((ssot as Record<string, unknown>).refs).slice(0, 6000)}`;
+
+  if (masteryContext) {
+    prompt += `\n\nMASTERY-KONTEXT:\n${JSON.stringify(masteryContext).slice(0, 2000)}`;
+  }
+
+  prompt += `\n\nErstelle jetzt die STRICT JSON Antwort.`;
+  return prompt;
 }
 
 async function callLLM(opts: { model: string; system: string; user: string }): Promise<Record<string, unknown>> {
