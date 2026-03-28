@@ -405,6 +405,31 @@ export default function LearnerDashboard() {
   );
 }
 
+function ConversionCardWrapper({ curriculumId, navigate }: { curriculumId: string; navigate: (path: string) => void }) {
+  const conversion = useConversionEngine({ readiness: null });
+
+  return (
+    <ConversionCard
+      headline={conversion.headline}
+      subline={conversion.subline}
+      cta={conversion.cta}
+      onClick={() => {
+        switch (conversion.intent) {
+          case 'weakness_training':
+            navigate(`/course/${curriculumId}`);
+            break;
+          case 'exam_simulation':
+          case 'exam_final':
+            navigate('/exam-simulation');
+            break;
+          default:
+            navigate('/courses');
+        }
+      }}
+    />
+  );
+}
+
 function QuickActionsGrid({ activeCurriculumId }: { activeCurriculumId: string | null }) {
   const { data: gate } = useSimulationGate(activeCurriculumId ?? undefined);
   const { data: hasExamTrainer, isLoading: entitlementLoading } = useCheckEntitlement(
