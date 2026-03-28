@@ -27,6 +27,10 @@ interface TutorAnswerPayload {
   scope_id?: string | null;
   locale?: string;
   user_message: string;
+  mastery_context?: {
+    user_id: string;
+    curriculum_id: string;
+  };
 }
 
 Deno.serve(async (req) => {
@@ -62,11 +66,20 @@ Deno.serve(async (req) => {
     // 2) Load SSOT context (server-side)
     const ssot = await loadTutorSSOT(sb, p.scope_type, p.scope_id ?? null);
 
+    // 2b) Load mastery context if provided (readiness + weakness map)
+    let masteryContext: Record<string, unknown> | null = null;
+    if (p.mastery_context?.user_id && p.mastery_context?.curriculum_id) {
+      masteryContext = await loadMasteryContext(sb, p.mastery_context.user_id, p.mastery_context.curriculum_id);
+    }
+
+    // 2c) Risk-based role steering
+    const effectiveRole = masteryContext ? steerRole(p.role, masteryContext) : p.role;
+
     // 3) Generate response with mandatory source_refs
     const draft = await callLLM({
       model: GENERATOR_MODEL,
-      system: buildTutorSystem(p.role, p.scope_type),
-      user: buildTutorUserPrompt(p, assets, ssot),
+      system: buildTutorSystem(effectiveRole, p.scope_type, masteryContext),
+      user: buildTutorUserPrompt(p, assets, ssot, masteryContext),
     });
 
     // Hard gate: must contain source_refs
