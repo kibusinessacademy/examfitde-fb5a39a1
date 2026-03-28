@@ -5,6 +5,9 @@
  * as 'done' when the package is NOT in 'published' status.
  *
  * Expected: The trigger rewrites status to 'failed' with POST_CONDITION_FAILED.
+ *
+ * Strategy: Pick any package whose status is 'building' or 'done' (not published),
+ * temporarily set its auto_publish step to 'pending', then try setting it to 'done'.
  */
 import "https://deno.land/std@0.224.0/dotenv/load.ts";
 import {
@@ -19,60 +22,66 @@ const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const sb = createClient(SUPABASE_URL, SERVICE_KEY);
 
-// ── Helper: find a non-published package with an auto_publish step ──
-async function findTestCandidate() {
-  const { data } = await sb
-    .from("package_steps")
-    .select("package_id, step_key, status, course_packages!inner(status)")
-    .eq("step_key", "auto_publish")
-    .neq("course_packages.status", "published")
-    .limit(1)
-    .single();
-  return data;
-}
-
-// ── Helper: snapshot current step state for rollback ──
-async function snapshotStep(packageId: string) {
-  const { data } = await sb
-    .from("package_steps")
-    .select("status, last_error, started_at, finished_at")
-    .eq("package_id", packageId)
-    .eq("step_key", "auto_publish")
-    .single();
-  return data;
-}
-
 Deno.test("trg_guard_auto_publish_done rejects done on non-published package", async () => {
-  const candidate = await findTestCandidate();
+  // Find ANY non-published package that has an auto_publish step
+  const { data: candidates } = await sb
+    .from("package_steps")
+    .select("package_id, step_key, status, last_error, started_at, finished_at")
+    .eq("step_key", "auto_publish")
+    .limit(10);
 
-  if (!candidate) {
-    console.warn(
-      "⚠️  No non-published package with auto_publish step found — skipping test."
-    );
+  if (!candidates || candidates.length === 0) {
+    console.warn("⚠️  No auto_publish steps found — skipping");
     return;
   }
 
-  const packageId = candidate.package_id;
-  const original = await snapshotStep(packageId);
-  assertExists(original, "Step snapshot must exist");
+  // Check which packages are NOT published
+  const { data: packages } = await sb
+    .from("course_packages")
+    .select("id, status")
+    .in("id", candidates.map((c) => c.package_id));
+
+  const nonPublished = packages?.filter((p) => p.status !== "published");
+  if (!nonPublished || nonPublished.length === 0) {
+    console.warn("⚠️  All packages with auto_publish are already published — skipping");
+    return;
+  }
+
+  const targetPkg = nonPublished[0];
+  const originalStep = candidates.find((c) => c.package_id === targetPkg.id)!;
+
+  console.log(`Testing with package ${targetPkg.id} (status: ${targetPkg.status})`);
+  console.log(`Original step state: status=${originalStep.status}, last_error=${originalStep.last_error}`);
 
   try {
-    // Attempt to set auto_publish to 'done' — trigger should block this
+    // Force step to a known baseline before test
+    await sb
+      .from("package_steps")
+      .update({ status: "pending", last_error: null })
+      .eq("package_id", targetPkg.id)
+      .eq("step_key", "auto_publish");
+
+    // Now attempt the forbidden transition: pending → done on non-published package
     const { error: updateErr } = await sb
       .from("package_steps")
       .update({
         status: "done",
+        started_at: new Date().toISOString(),
         finished_at: new Date().toISOString(),
       })
-      .eq("package_id", packageId)
+      .eq("package_id", targetPkg.id)
       .eq("step_key", "auto_publish");
 
-    // The trigger does NOT raise an exception — it rewrites the row.
-    // So the update itself should succeed.
-    assertEquals(updateErr, null, "Update should not throw (trigger rewrites silently)");
+    assertEquals(updateErr, null, "Update should not throw — trigger rewrites silently");
 
-    // Read back the step — it should be 'failed', not 'done'
-    const after = await snapshotStep(packageId);
+    // Read back: trigger should have rewritten to failed + POST_CONDITION_FAILED
+    const { data: after } = await sb
+      .from("package_steps")
+      .select("status, last_error")
+      .eq("package_id", targetPkg.id)
+      .eq("step_key", "auto_publish")
+      .single();
+
     assertExists(after, "Step must still exist after update");
 
     assertEquals(
@@ -89,16 +98,16 @@ Deno.test("trg_guard_auto_publish_done rejects done on non-published package", a
 
     console.log("✅ Trigger correctly rejected false-success: status=failed, last_error=POST_CONDITION_FAILED");
   } finally {
-    // Rollback: restore original step state
+    // Rollback to original state
     await sb
       .from("package_steps")
       .update({
-        status: original!.status,
-        last_error: original!.last_error ?? null,
-        started_at: original!.started_at,
-        finished_at: original!.finished_at,
+        status: originalStep.status,
+        last_error: originalStep.last_error ?? null,
+        started_at: originalStep.started_at,
+        finished_at: originalStep.finished_at,
       })
-      .eq("package_id", packageId)
+      .eq("package_id", targetPkg.id)
       .eq("step_key", "auto_publish");
 
     console.log("🔄 Rolled back step to original state");
