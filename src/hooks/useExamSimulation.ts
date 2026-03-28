@@ -274,7 +274,7 @@ export function useFinishExamSession() {
       toast.success('Prüfung abgeschlossen');
     },
     onError: (error) => {
-      toast.error('Fehler beim Abschließen', { description: String(error) });
+      toast.error('Fehler beim Abschließen', { description: getReadableErrorMessage(error) });
     },
   });
 }
