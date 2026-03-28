@@ -11,6 +11,8 @@ interface TutorPanelProps {
   sessionId?: string;
   sessionType?: 'learning' | 'practice' | 'exam' | 'lesson';
   className?: string;
+  masteryUserId?: string;
+  masteryCurriculumId?: string;
 }
 
 /**
@@ -21,7 +23,9 @@ export function TutorPanel({
   mode = AI_MODES.LEARNING, 
   sessionId,
   sessionType,
-  className 
+  className,
+  masteryUserId,
+  masteryCurriculumId,
 }: TutorPanelProps) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -57,6 +61,8 @@ export function TutorPanel({
           mode={mode}
           sessionId={sessionId}
           sessionType={sessionType}
+          masteryUserId={masteryUserId}
+          masteryCurriculumId={masteryCurriculumId}
           className="border-0 rounded-none h-full"
         />
       </SheetContent>
