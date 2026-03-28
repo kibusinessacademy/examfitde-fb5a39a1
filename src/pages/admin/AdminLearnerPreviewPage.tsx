@@ -181,16 +181,20 @@ export default function AdminLearnerPreviewPage() {
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {filtered.map((course) => {
           const isExpanded = expandedCard === course.package_id;
+          const latestRun = latestRunMap.get(course.package_id);
 
           return (
             <div key={course.package_id} className="rounded-2xl border bg-card p-5 space-y-4">
-              {/* Header with priority */}
+              {/* Header with priority + QA status */}
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="text-lg font-semibold truncate">{course.title}</div>
                   <div className="text-xs text-muted-foreground font-mono truncate">{course.package_id}</div>
                 </div>
-                <TestPriorityBadge priority={course.test_priority} />
+                <div className="flex flex-col items-end gap-1 shrink-0">
+                  <TestPriorityBadge priority={course.test_priority} />
+                  <CourseTestStatusBadge status={latestRun?.test_status ?? null} />
+                </div>
               </div>
 
               {/* Reason codes */}
@@ -250,12 +254,18 @@ export default function AdminLearnerPreviewPage() {
                 </Button>
               </div>
 
-              {/* Expandable Quick Links */}
+              {/* QA Actions */}
+              <AdminCourseQAActions packageId={course.package_id} curriculumId={course.curriculum_id} />
+
+              {/* Expandable Quick Links + QA History */}
               <Button variant="ghost" size="sm" className="w-full" onClick={() => setExpandedCard(isExpanded ? null : course.package_id)}>
-                {isExpanded ? "Quick Links ausblenden" : "Quick Test Links"}
+                {isExpanded ? "Details ausblenden" : "Quick Links & QA-Historie"}
               </Button>
               {isExpanded && (
-                <AdminPreviewQuickLinksCard curriculumId={course.curriculum_id} previewMode={previewMode} />
+                <>
+                  <AdminPreviewQuickLinksCard curriculumId={course.curriculum_id} previewMode={previewMode} />
+                  <AdminCourseQAHistory packageId={course.package_id} />
+                </>
               )}
             </div>
           );
