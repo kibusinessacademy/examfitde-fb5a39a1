@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useDashboardStats } from '@/hooks/useDashboardStats';
@@ -22,6 +22,8 @@ import { SmartRecommendationsCard } from '@/components/dashboard/SmartRecommenda
 import { ReadinessTrendCard } from '@/components/dashboard/ReadinessTrendCard';
 import { ExamFitInsightsPanel } from '@/components/learner/ExamFitInsightsPanel';
 import { MasteryDashboardSection } from '@/features/mastery/components/MasteryDashboardSection';
+import { useConversionEngine } from '@/features/conversion/hooks/useConversionEngine';
+import { ConversionCard } from '@/features/conversion/components/ConversionCard';
 import { useSimulationGate } from '@/hooks/useExamReadiness';
 import { useCheckEntitlement } from '@/hooks/useEntitlements';
 import { Button } from '@/components/ui/button';
@@ -65,6 +67,7 @@ interface CourseProgress {
 export default function LearnerDashboard() {
   const { user, isAdmin } = useAuth();
   const { data: dashboardStats } = useDashboardStats();
+  const navigate = useNavigate();
   const [enrollments, setEnrollments] = useState<EnrolledCourse[]>([]);
   const [progress, setProgress] = useState<Map<string, CourseProgress>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -233,7 +236,14 @@ export default function LearnerDashboard() {
           </div>
         )}
 
-        {/* ━━━ SECTION 0b: Growth Council Nudge ━━━ */}
+        {/* ━━━ SECTION 0b: Conversion Card ━━━ */}
+        {activeCurriculumId && (
+          <div className="mb-6">
+            <ConversionCardWrapper curriculumId={activeCurriculumId} navigate={navigate} />
+          </div>
+        )}
+
+        {/* ━━━ SECTION 0c: Growth Council Nudge ━━━ */}
         <div className="mb-4">
           <NextBestActionCard />
         </div>
@@ -392,6 +402,31 @@ export default function LearnerDashboard() {
         <QuickActionsGrid activeCurriculumId={activeCurriculumId} />
       </div>
     </div>
+  );
+}
+
+function ConversionCardWrapper({ curriculumId, navigate }: { curriculumId: string; navigate: (path: string) => void }) {
+  const conversion = useConversionEngine({ readiness: null });
+
+  return (
+    <ConversionCard
+      headline={conversion.headline}
+      subline={conversion.subline}
+      cta={conversion.cta}
+      onClick={() => {
+        switch (conversion.intent) {
+          case 'weakness_training':
+            navigate(`/course/${curriculumId}`);
+            break;
+          case 'exam_simulation':
+          case 'exam_final':
+            navigate('/exam-simulation');
+            break;
+          default:
+            navigate('/courses');
+        }
+      }}
+    />
   );
 }
 
