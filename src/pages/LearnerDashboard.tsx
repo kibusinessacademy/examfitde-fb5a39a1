@@ -21,6 +21,7 @@ import { TopGapsCard } from '@/components/dashboard/TopGapsCard';
 import { SmartRecommendationsCard } from '@/components/dashboard/SmartRecommendationsCard';
 import { ReadinessTrendCard } from '@/components/dashboard/ReadinessTrendCard';
 import { ExamFitInsightsPanel } from '@/components/learner/ExamFitInsightsPanel';
+import { MasteryDashboardSection } from '@/features/mastery/components/MasteryDashboardSection';
 import { useSimulationGate } from '@/hooks/useExamReadiness';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
