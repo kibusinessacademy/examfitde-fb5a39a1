@@ -11,6 +11,16 @@
  *
  * IMPORTANT: exam_questions has curriculum_id, NOT package_id.
  * Join path: course_packages.curriculum_id → exam_questions.curriculum_id
+ *
+ * View definition (SSOT):
+ *   exam_blueprints eb
+ *   JOIN course_packages cp ON cp.curriculum_id = eb.curriculum_id
+ *     AND cp.status = 'published'
+ *     AND cp.integrity_passed = true
+ *     AND cp.council_approved = true
+ *   LEFT JOIN approved_exam_counts aec ON aec.curriculum_id = eb.curriculum_id
+ *   WHERE eb.frozen = true
+ *     AND approved_question_count >= 40
  */
 import "https://deno.land/std@0.224.0/dotenv/load.ts";
 import {
@@ -31,10 +41,15 @@ const skipTracker = new SkipAuditTracker(1);
 // P1: Only published packages in learner view
 // ══════════════════════════════════════════════
 Deno.test("P:VIS: learner view contains only published packages", async () => {
+  // Use count exact first, then verify sample
+  const { count: totalVisible } = await sb
+    .from("v_learner_visible_exam_simulations")
+    .select("package_id", { count: "exact", head: true });
+
   const { data, error } = await sb
     .from("v_learner_visible_exam_simulations")
     .select("package_id, package_status")
-    .limit(200);
+    .limit(500);
 
   assertEquals(error, null, `View query failed: ${error?.message}`);
   assertExists(data);
@@ -44,7 +59,7 @@ Deno.test("P:VIS: learner view contains only published packages", async () => {
     `❌ PHANTOM VISIBILITY: ${nonPublished.length} non-published in learner view: ` +
     `${JSON.stringify(nonPublished.slice(0, 5))}`);
 
-  console.log(`📊 Learner-visible simulations: ${data!.length} (all published)`);
+  console.log(`📊 Learner-visible simulations: ${totalVisible} total (sample ${data!.length}, all published)`);
 });
 
 // ══════════════════════════════════════════════
@@ -54,7 +69,7 @@ Deno.test("P:VIS: all visible packages have integrity_passed + council_approved"
   const { data } = await sb
     .from("v_learner_visible_exam_simulations")
     .select("package_id")
-    .limit(200);
+    .limit(500);
 
   if (!data || data.length === 0) {
     skipTracker.skip("integrity+council gates", "No visible simulations");
@@ -78,14 +93,13 @@ Deno.test("P:VIS: all visible packages have integrity_passed + council_approved"
 
 // ══════════════════════════════════════════════
 // P3: All visible packages have ≥40 approved questions
-//     Uses correct join: package → curriculum_id → exam_questions.curriculum_id
+//     Uses approved_question_count from the view (already correctly joined)
 // ══════════════════════════════════════════════
 Deno.test("P:VIS: all visible packages have ≥40 approved questions", async () => {
-  // The view already exposes approved_question_count — use it directly
   const { data } = await sb
     .from("v_learner_visible_exam_simulations")
     .select("package_id, approved_question_count")
-    .limit(200);
+    .limit(500);
 
   if (!data || data.length === 0) {
     skipTracker.skip("approved questions", "No visible simulations");
@@ -111,14 +125,14 @@ Deno.test("P:VIS: all visible packages have ≥40 approved questions", async () 
 });
 
 // ══════════════════════════════════════════════
-// P4: All visible packages have active blueprint
-//     (blueprint_id is exposed directly by the view)
+// P4: All visible simulations have a frozen blueprint
+//     (blueprint_id comes from exam_blueprints where frozen=true)
 // ══════════════════════════════════════════════
-Deno.test("P:VIS: all visible packages have active simulation blueprint", async () => {
+Deno.test("P:VIS: all visible simulations have frozen blueprint", async () => {
   const { data } = await sb
     .from("v_learner_visible_exam_simulations")
     .select("package_id, blueprint_id")
-    .limit(200);
+    .limit(500);
 
   if (!data || data.length === 0) {
     skipTracker.skip("blueprint check", "No visible simulations");
@@ -135,7 +149,7 @@ Deno.test("P:VIS: all visible packages have active simulation blueprint", async 
 
 // ══════════════════════════════════════════════
 // P5: PHANTOM INVISIBILITY — published+complete must be visible
-//     Published packages with integrity+council+questions should appear
+//     Exact view criteria: published + integrity + council + frozen blueprint + ≥40 questions
 // ══════════════════════════════════════════════
 Deno.test("P:VIS: published + eligible packages are visible (no phantom invisibility)", async () => {
   // Get all published packages that pass gates
@@ -160,24 +174,31 @@ Deno.test("P:VIS: published + eligible packages are visible (no phantom invisibi
 
   const visiblePkgIds = new Set((visible ?? []).map((v: any) => v.package_id));
 
-  // For each eligible package, check if it has enough questions via curriculum_id
   const invisibleButEligible: string[] = [];
 
   for (const pkg of eligible) {
     if (visiblePkgIds.has(pkg.id)) continue;
 
-    // Check approved question count via curriculum_id join
-    const { count } = await sb
+    // Check 1: frozen blueprint exists for this curriculum
+    const { count: bpCount } = await sb
+      .from("exam_blueprints")
+      .select("id", { count: "exact", head: true })
+      .eq("curriculum_id", pkg.curriculum_id)
+      .eq("frozen", true);
+
+    if ((bpCount ?? 0) === 0) continue; // no frozen blueprint → legitimately invisible
+
+    // Check 2: ≥40 approved questions for this curriculum
+    const { count: qCount } = await sb
       .from("exam_questions")
       .select("id", { count: "exact", head: true })
       .eq("curriculum_id", pkg.curriculum_id)
       .eq("status", "approved");
 
-    if ((count ?? 0) >= 40) {
-      // Has enough questions but is NOT visible — phantom invisibility
-      invisibleButEligible.push(`${pkg.id} (${count} questions)`);
-    }
-    // If < 40 questions, legitimately invisible
+    if ((qCount ?? 0) < 40) continue; // insufficient questions → legitimately invisible
+
+    // All view criteria met but not visible — genuine phantom invisibility
+    invisibleButEligible.push(`${pkg.id} (bp:${bpCount}, q:${qCount})`);
   }
 
   assertEquals(invisibleButEligible.length, 0,

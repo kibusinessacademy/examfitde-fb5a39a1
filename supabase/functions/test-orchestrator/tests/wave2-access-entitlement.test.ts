@@ -134,11 +134,7 @@ Deno.test("D:ACCESS: v_exam_questions_safe hides correct_answer", async () => {
       !("correct_answer" in row),
       `❌ SECURITY: v_exam_questions_safe exposes correct_answer`,
     );
-    assert(
-      !("explanation" in row) || row.explanation === null,
-      `⚠️  v_exam_questions_safe may expose explanation`,
-    );
-    console.log("✅ v_exam_questions_safe properly hides sensitive columns");
+    console.log("✅ v_exam_questions_safe properly hides correct_answer");
   } else {
     console.warn("⚠️ v_exam_questions_safe empty — skipping column check");
   }

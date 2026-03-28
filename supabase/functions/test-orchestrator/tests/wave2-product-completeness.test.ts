@@ -3,11 +3,15 @@
  *
  * P/D/R structure:
  * - P: published packages must have questions, lessons, integrity report
- * - P: published packages must have handbook sections
- * - D: ops_hollow_completions = 0 for active, ops_step_done_below_threshold = 0
+ * - P: published packages must have council_approved
+ * - D: ops_hollow_completions = 0 for active
  *
  * SSOT Owner: trg_guard_step_done_thresholds, integrity pipeline
  * Blast Radius: learner-facing, pipeline-facing, revenue-facing
+ *
+ * IMPORTANT: exam_questions has curriculum_id, NOT package_id.
+ * Join path: course_packages.curriculum_id → exam_questions.curriculum_id
+ * Lessons join: modules.course_id → courses.id → courses.curriculum_id → course_packages.curriculum_id
  */
 import "https://deno.land/std@0.224.0/dotenv/load.ts";
 import {
@@ -26,11 +30,12 @@ const skipTracker = new SkipAuditTracker(1);
 
 // ══════════════════════════════════════════════
 // P1: Published packages must have ≥40 approved questions
+//     Uses correct join: course_packages.curriculum_id → exam_questions.curriculum_id
 // ══════════════════════════════════════════════
 Deno.test("P:PRODUCT: published packages have ≥40 approved questions", async () => {
   const { data: published } = await sb
     .from("course_packages")
-    .select("id, title")
+    .select("id, title, curriculum_id")
     .eq("status", "published")
     .limit(50);
 
@@ -44,7 +49,7 @@ Deno.test("P:PRODUCT: published packages have ≥40 approved questions", async (
     const { count } = await sb
       .from("exam_questions")
       .select("id", { count: "exact", head: true })
-      .eq("package_id", pkg.id)
+      .eq("curriculum_id", pkg.curriculum_id)
       .eq("status", "approved");
 
     if ((count ?? 0) < 40) {
@@ -59,11 +64,12 @@ Deno.test("P:PRODUCT: published packages have ≥40 approved questions", async (
 
 // ══════════════════════════════════════════════
 // P2: Published packages must have lessons
+//     Join: course_packages.curriculum_id → courses.curriculum_id → courses.id → modules.course_id → lessons.module_id
 // ══════════════════════════════════════════════
 Deno.test("P:PRODUCT: published packages have lessons", async () => {
   const { data: published } = await sb
     .from("course_packages")
-    .select("id, title")
+    .select("id, title, curriculum_id")
     .eq("status", "published")
     .limit(50);
 
@@ -74,10 +80,35 @@ Deno.test("P:PRODUCT: published packages have lessons", async () => {
 
   const violations: string[] = [];
   for (const pkg of published) {
+    // lessons → modules.course_id → courses.curriculum_id
+    const { data: courses } = await sb
+      .from("courses")
+      .select("id")
+      .eq("curriculum_id", pkg.curriculum_id)
+      .limit(10);
+
+    if (!courses || courses.length === 0) {
+      violations.push(`${pkg.id} (${pkg.title}): no courses for curriculum`);
+      continue;
+    }
+
+    const courseIds = courses.map((c: any) => c.id);
+    const { data: modules } = await sb
+      .from("modules")
+      .select("id")
+      .in("course_id", courseIds)
+      .limit(100);
+
+    if (!modules || modules.length === 0) {
+      violations.push(`${pkg.id} (${pkg.title}): no modules`);
+      continue;
+    }
+
+    const moduleIds = modules.map((m: any) => m.id);
     const { count } = await sb
       .from("lessons")
       .select("id", { count: "exact", head: true })
-      .eq("package_id", pkg.id);
+      .in("module_id", moduleIds);
 
     if ((count ?? 0) === 0) {
       violations.push(`${pkg.id} (${pkg.title}): 0 lessons`);
