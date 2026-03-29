@@ -307,7 +307,7 @@ async function upgradeWeakDrafts(
   // Load draft questions with low elite scores
   const { data: questions } = await sb
     .from("exam_questions")
-    .select("id, difficulty, cognitive_level, trap_tags, distractor_meta, elite_level, question_text, options, explanation, correct_answer, competency_id, blueprint_id")
+    .select("id, difficulty, cognitive_level, trap_tags, distractor_meta, elite_level, question_text, options, explanation, correct_answer, competency_id, blueprint_id, conflict_type")
     .eq("curriculum_id", curriculumId)
     .eq("status", "draft")
     .limit(1000);
