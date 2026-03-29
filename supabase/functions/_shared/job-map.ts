@@ -16,6 +16,7 @@ export type PipelineStepKey =
   | "validate_blueprints"
   | "generate_exam_pool"
   | "validate_exam_pool"
+  | "repair_exam_pool_quality"
   | "build_ai_tutor_index"
   | "validate_tutor_index"
   | "generate_oral_exam"
@@ -44,6 +45,7 @@ export const STEP_TO_JOB_TYPE: Record<PipelineStepKey, string> = {
   validate_blueprints: "package_validate_blueprints",
   generate_exam_pool: "package_generate_exam_pool",
   validate_exam_pool: "package_validate_exam_pool",
+  repair_exam_pool_quality: "package_repair_exam_pool_quality",
   build_ai_tutor_index: "package_build_ai_tutor_index",
   validate_tutor_index: "package_validate_tutor_index",
   generate_oral_exam: "package_generate_oral_exam",
@@ -76,6 +78,7 @@ export const FULL_STEP_ORDER: PipelineStepKey[] = [
   "validate_blueprints",
   "generate_exam_pool",
   "validate_exam_pool",
+  "repair_exam_pool_quality",
   "build_ai_tutor_index",
   "validate_tutor_index",
   "generate_oral_exam",
