@@ -151,15 +151,37 @@ export function validateVerstehen(html: string): StructuralValidationResult {
 
   const wordCount = text.split(/\s+/).length;
   const charCount = text.length;
-  // Use both word AND char count to avoid false-fails on structured HTML
   if (wordCount < 300 && charCount < 1500) {
     failures.push({ rule: "VERSTEHEN_TOO_SHORT", message: `Nur ${wordCount} Wörter / ${charCount} Zeichen — mind. 300 Wörter oder 1500 Zeichen nötig`, severity: "hard_fail" });
+  }
+
+  // ── Elite v3: Structural Depth ──
+  const fachbegriffCount = countFachbegriffe(html);
+  if (fachbegriffCount < 3) {
+    failures.push({ rule: "VERSTEHEN_FEW_FACHBEGRIFFE", message: `Nur ${fachbegriffCount} markierte Fachbegriffe — mind. 3 nötig (<strong>)`, severity: "hard_fail" });
+  }
+
+  const exampleCount = countExamples(text);
+  if (exampleCount < 2) {
+    failures.push({ rule: "VERSTEHEN_FEW_EXAMPLES", message: `Nur ${exampleCount} Beispiel(e) — mind. 2 konkrete Praxisbeispiele nötig`, severity: "hard_fail" });
+  }
+
+  if (!hasTypicalErrors(text)) {
+    failures.push({ rule: "VERSTEHEN_NO_ERRORS", message: "Keine typischen Fehler/Denkfehler behandelt — Pflicht für Elite-Qualität", severity: "hard_fail" });
+  }
+
+  if (!hasPruefungsbezug(text)) {
+    failures.push({ rule: "VERSTEHEN_NO_PRUEFUNGSBEZUG", message: "Kein expliziter Prüfungsbezug (IHK, Prüfung, Prüfungsaufgabe) vorhanden", severity: "soft_warn" });
+  }
+
+  if (!hasStructuredContent(html)) {
+    failures.push({ rule: "VERSTEHEN_NO_STRUCTURE", message: "Fehlende Strukturierung — Überschriften UND Listen nötig", severity: "hard_fail" });
   }
 
   return {
     passes: !failures.some(f => f.severity === "hard_fail"),
     failures,
-    metrics: { starCount, warnCount, hasFallvignette, wordCount, charCount },
+    metrics: { starCount, warnCount, hasFallvignette, wordCount, charCount, fachbegriffCount, exampleCount, hasTypicalErrors: hasTypicalErrors(text), hasStructure: hasStructuredContent(html) },
   };
 }
 
@@ -178,13 +200,30 @@ export function validateAnwenden(html: string): StructuralValidationResult {
 
   const warnCount = countPattern(html, /⚠️/g);
   if (warnCount < 1) {
-    failures.push({ rule: "ANWENDEN_NO_TRAP", message: "Keine ⚠️ Prüfungsfalle in Anwenden", severity: "soft_warn" });
+    failures.push({ rule: "ANWENDEN_NO_TRAP", message: "Keine ⚠️ Prüfungsfalle in Anwenden", severity: "hard_fail" });
+  }
+
+  // ── Elite v3: Teilaufgaben + Praxistiefe ──
+  const wordCount = text.split(/\s+/).length;
+  if (wordCount < 250) {
+    failures.push({ rule: "ANWENDEN_TOO_SHORT", message: `Nur ${wordCount} Wörter — mind. 250 nötig`, severity: "hard_fail" });
+  }
+
+  const exampleCount = countExamples(text);
+  if (exampleCount < 1) {
+    failures.push({ rule: "ANWENDEN_NO_EXAMPLE", message: "Kein konkretes Praxisbeispiel in der Anwendungsaufgabe", severity: "hard_fail" });
+  }
+
+  // Check for multi-step tasks (numbered items or Teilaufgabe markers)
+  const hasMultiStep = /\b[1-4]\.\s|Teilaufgabe|Schritt\s+[1-4]|a\)|b\)|c\)/i.test(text);
+  if (!hasMultiStep) {
+    failures.push({ rule: "ANWENDEN_NO_MULTISTEP", message: "Keine gestuften Teilaufgaben — Fallstudie braucht 2+ Denkschritte", severity: "soft_warn" });
   }
 
   return {
     passes: !failures.some(f => f.severity === "hard_fail"),
     failures,
-    metrics: { hasScenario: hasScenarioMarkers(text), scenarioScore: scenarioScore(text), hasDecision, warnCount },
+    metrics: { hasScenario: hasScenarioMarkers(text), scenarioScore: scenarioScore(text), hasDecision, warnCount, wordCount, exampleCount, hasMultiStep },
   };
 }
 
