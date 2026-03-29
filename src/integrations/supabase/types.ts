@@ -15189,8 +15189,15 @@ export type Database = {
           has_learning_course: boolean | null
           has_oral_trainer: boolean | null
           id: string
+          learner_identity_id: string | null
+          metadata_json: Json
+          org_id: string | null
+          product_id: string | null
           seat_id: string | null
+          seat_scope: string
           source: string | null
+          source_ref: string | null
+          source_type: string | null
           store_receipt_id: string | null
           user_id: string
           valid_from: string | null
@@ -15206,8 +15213,15 @@ export type Database = {
           has_learning_course?: boolean | null
           has_oral_trainer?: boolean | null
           id?: string
+          learner_identity_id?: string | null
+          metadata_json?: Json
+          org_id?: string | null
+          product_id?: string | null
           seat_id?: string | null
+          seat_scope?: string
           source?: string | null
+          source_ref?: string | null
+          source_type?: string | null
           store_receipt_id?: string | null
           user_id: string
           valid_from?: string | null
@@ -15223,8 +15237,15 @@ export type Database = {
           has_learning_course?: boolean | null
           has_oral_trainer?: boolean | null
           id?: string
+          learner_identity_id?: string | null
+          metadata_json?: Json
+          org_id?: string | null
+          product_id?: string | null
           seat_id?: string | null
+          seat_scope?: string
           source?: string | null
+          source_ref?: string | null
+          source_type?: string | null
           store_receipt_id?: string | null
           user_id?: string
           valid_from?: string | null
@@ -15279,6 +15300,27 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_ops_qc_promotion_funnel"
             referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "entitlements_learner_identity_id_fkey"
+            columns: ["learner_identity_id"]
+            isOneToOne: false
+            referencedRelation: "learner_identities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entitlements_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entitlements_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "entitlements_seat_id_fkey"
@@ -18903,6 +18945,56 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_ops_qc_promotion_funnel"
             referencedColumns: ["curriculum_id"]
+          },
+        ]
+      }
+      learner_identities: {
+        Row: {
+          created_at: string
+          display_name: string | null
+          email_normalized: string | null
+          external_subject_hash: string | null
+          id: string
+          identity_type: string
+          matching_confidence: number | null
+          metadata_json: Json
+          org_id: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string | null
+          email_normalized?: string | null
+          external_subject_hash?: string | null
+          id?: string
+          identity_type: string
+          matching_confidence?: number | null
+          metadata_json?: Json
+          org_id?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          display_name?: string | null
+          email_normalized?: string | null
+          external_subject_hash?: string | null
+          id?: string
+          identity_type?: string
+          matching_confidence?: number | null
+          metadata_json?: Json
+          org_id?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learner_identities_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -23787,6 +23879,102 @@ export type Database = {
           },
         ]
       }
+      org_license_assignments: {
+        Row: {
+          assigned_at: string
+          assigned_by: string | null
+          id: string
+          learner_identity_id: string
+          org_license_id: string
+          status: string
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_by?: string | null
+          id?: string
+          learner_identity_id: string
+          org_license_id: string
+          status?: string
+        }
+        Update: {
+          assigned_at?: string
+          assigned_by?: string | null
+          id?: string
+          learner_identity_id?: string
+          org_license_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_license_assignments_learner_identity_id_fkey"
+            columns: ["learner_identity_id"]
+            isOneToOne: false
+            referencedRelation: "learner_identities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "org_license_assignments_org_license_id_fkey"
+            columns: ["org_license_id"]
+            isOneToOne: false
+            referencedRelation: "org_licenses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      org_licenses: {
+        Row: {
+          contract_ref: string | null
+          created_at: string
+          ends_at: string | null
+          id: string
+          metadata_json: Json
+          org_id: string
+          product_id: string
+          seat_count: number
+          starts_at: string
+          status: string
+        }
+        Insert: {
+          contract_ref?: string | null
+          created_at?: string
+          ends_at?: string | null
+          id?: string
+          metadata_json?: Json
+          org_id: string
+          product_id: string
+          seat_count?: number
+          starts_at?: string
+          status?: string
+        }
+        Update: {
+          contract_ref?: string | null
+          created_at?: string
+          ends_at?: string | null
+          id?: string
+          metadata_json?: Json
+          org_id?: string
+          product_id?: string
+          seat_count?: number
+          starts_at?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_licenses_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "org_licenses_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       org_privacy_access: {
         Row: {
           admin_notes: string | null
@@ -27944,6 +28132,44 @@ export type Database = {
           },
         ]
       }
+      product_artifact_mappings: {
+        Row: {
+          artifact_ref_id: string
+          artifact_type: string
+          created_at: string
+          id: string
+          product_version_id: string
+          scope_json: Json
+          sort_order: number
+        }
+        Insert: {
+          artifact_ref_id: string
+          artifact_type: string
+          created_at?: string
+          id?: string
+          product_version_id: string
+          scope_json?: Json
+          sort_order?: number
+        }
+        Update: {
+          artifact_ref_id?: string
+          artifact_type?: string
+          created_at?: string
+          id?: string
+          product_version_id?: string
+          scope_json?: Json
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_artifact_mappings_product_version_id_fkey"
+            columns: ["product_version_id"]
+            isOneToOne: false
+            referencedRelation: "product_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_categories: {
         Row: {
           created_at: string
@@ -27979,6 +28205,47 @@ export type Database = {
           sort_order?: number
         }
         Relationships: []
+      }
+      product_channel_configs: {
+        Row: {
+          availability_mode: string
+          channel: string
+          config_json: Json
+          created_at: string
+          id: string
+          is_enabled: boolean
+          product_id: string
+          updated_at: string
+        }
+        Insert: {
+          availability_mode?: string
+          channel: string
+          config_json?: Json
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          product_id: string
+          updated_at?: string
+        }
+        Update: {
+          availability_mode?: string
+          channel?: string
+          config_json?: Json
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          product_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_channel_configs_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       product_factory_specs: {
         Row: {
@@ -28142,6 +28409,50 @@ export type Database = {
             columns: ["group_id"]
             isOneToOne: false
             referencedRelation: "tag_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_versions: {
+        Row: {
+          created_at: string
+          id: string
+          is_current: boolean
+          product_id: string
+          release_notes: string | null
+          source_snapshot_ref: string | null
+          status: string
+          updated_at: string
+          version_tag: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_current?: boolean
+          product_id: string
+          release_notes?: string | null
+          source_snapshot_ref?: string | null
+          status?: string
+          updated_at?: string
+          version_tag: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_current?: boolean
+          product_id?: string
+          release_notes?: string | null
+          source_snapshot_ref?: string | null
+          status?: string
+          updated_at?: string
+          version_tag?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_versions_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
             referencedColumns: ["id"]
           },
         ]
@@ -28762,26 +29073,50 @@ export type Database = {
         Row: {
           active_package_id: string | null
           certification_id: string | null
+          channel_policy_json: Json
           created_at: string
+          curriculum_id: string | null
+          description: string | null
           id: string
+          product_type: string
           slug: string
+          status: string
+          subtitle: string | null
+          title: string | null
           updated_at: string
+          visibility: string
         }
         Insert: {
           active_package_id?: string | null
           certification_id?: string | null
+          channel_policy_json?: Json
           created_at?: string
+          curriculum_id?: string | null
+          description?: string | null
           id?: string
+          product_type?: string
           slug: string
+          status?: string
+          subtitle?: string | null
+          title?: string | null
           updated_at?: string
+          visibility?: string
         }
         Update: {
           active_package_id?: string | null
           certification_id?: string | null
+          channel_policy_json?: Json
           created_at?: string
+          curriculum_id?: string | null
+          description?: string | null
           id?: string
+          product_type?: string
           slug?: string
+          status?: string
+          subtitle?: string | null
+          title?: string | null
           updated_at?: string
+          visibility?: string
         }
         Relationships: []
       }
@@ -50672,6 +51007,10 @@ export type Database = {
       calibrate_item_difficulty:
         | { Args: { p_min_responses?: number }; Returns: number }
         | { Args: { p_question_id: string }; Returns: undefined }
+      can_access_product: {
+        Args: { p_product_id: string; p_user_id: string }
+        Returns: boolean
+      }
       can_generate_exam_pool: {
         Args: { p_course_id: string }
         Returns: boolean
