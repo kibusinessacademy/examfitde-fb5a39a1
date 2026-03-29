@@ -19,7 +19,7 @@ import {
   useUpdateHandbookProgress,
   useExerciseResponses,
 } from '@/hooks/handbook';
-import { useUserEntitlements } from '@/hooks/useShop';
+import { useUserEntitlements } from '@/hooks/useEntitlements';
 import { HandbookSectionContent } from '@/components/handbook/HandbookSectionContent';
 import { HandbookExercise } from '@/components/handbook/HandbookExercise';
 import { SEOHead } from '@/components/seo/SEOHead';
