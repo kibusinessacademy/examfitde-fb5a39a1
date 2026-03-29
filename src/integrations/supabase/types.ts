@@ -15183,11 +15183,6 @@ export type Database = {
           auto_renew: boolean | null
           created_at: string | null
           curriculum_id: string
-          has_ai_tutor: boolean | null
-          has_exam_trainer: boolean | null
-          has_handbook: boolean
-          has_learning_course: boolean | null
-          has_oral_trainer: boolean | null
           id: string
           learner_identity_id: string | null
           metadata_json: Json
@@ -15207,11 +15202,6 @@ export type Database = {
           auto_renew?: boolean | null
           created_at?: string | null
           curriculum_id: string
-          has_ai_tutor?: boolean | null
-          has_exam_trainer?: boolean | null
-          has_handbook?: boolean
-          has_learning_course?: boolean | null
-          has_oral_trainer?: boolean | null
           id?: string
           learner_identity_id?: string | null
           metadata_json?: Json
@@ -15231,11 +15221,6 @@ export type Database = {
           auto_renew?: boolean | null
           created_at?: string | null
           curriculum_id?: string
-          has_ai_tutor?: boolean | null
-          has_exam_trainer?: boolean | null
-          has_handbook?: boolean
-          has_learning_course?: boolean | null
-          has_oral_trainer?: boolean | null
           id?: string
           learner_identity_id?: string | null
           metadata_json?: Json
@@ -46896,7 +46881,6 @@ export type Database = {
       v_entitlement_migration_audit: {
         Row: {
           duplicate_current_count: number | null
-          legacy_active_no_product: number | null
           orphaned_assignments: number | null
           orphaned_entitlements: number | null
           total_entitlements: number | null
@@ -51223,10 +51207,6 @@ export type Database = {
           is_bound: boolean
         }[]
       }
-      check_user_entitlement: {
-        Args: { p_curriculum_id: string; p_feature: string; p_user_id: string }
-        Returns: boolean
-      }
       check_wip_allows_build: {
         Args: { p_package_id?: string }
         Returns: boolean
@@ -53086,30 +53066,7 @@ export type Database = {
       get_unified_leitstelle_feed: { Args: { p_limit?: number }; Returns: Json }
       get_unified_leitstelle_snapshot: { Args: never; Returns: Json }
       get_user_dashboard_stats: { Args: never; Returns: Json }
-      get_user_entitlements: {
-        Args: { p_curriculum_id?: string; p_user_id: string }
-        Returns: {
-          curriculum_id: string
-          has_ai_tutor: boolean
-          has_exam_trainer: boolean
-          has_learning_course: boolean
-          has_oral_trainer: boolean
-          valid_until: string
-        }[]
-      }
       get_user_entitlements_current: {
-        Args: { p_curriculum_id?: string; p_user_id: string }
-        Returns: {
-          curriculum_id: string
-          has_ai_tutor: boolean
-          has_exam_trainer: boolean
-          has_handbook: boolean
-          has_learning_course: boolean
-          has_oral_trainer: boolean
-          valid_until: string
-        }[]
-      }
-      get_user_entitlements_v2: {
         Args: { p_curriculum_id?: string; p_user_id: string }
         Returns: {
           curriculum_id: string
