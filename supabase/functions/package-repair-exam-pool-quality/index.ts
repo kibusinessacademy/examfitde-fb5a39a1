@@ -93,12 +93,21 @@ Deno.serve(async (req) => {
     .update({ status: "queued", updated_at: new Date().toISOString() })
     .eq("package_id", packageId)
     .eq("step_key", "validate_exam_pool")
-    .in("status", ["failed", "enqueued"]);
+    .in("status", ["failed", "queued"]);
 
-  // Mark this repair step as done
+  // Mark this repair step conditionally:
+  // - "done" only if no LF gaps remain
+  // - "running" if LF filler was enqueued (will be resolved by filler completion)
+  const hasOpenLfGaps = (repairResult.missing_lf_coverage as number) > 0;
   await sb
     .from("package_steps")
-    .update({ status: "done", updated_at: new Date().toISOString() })
+    .update({
+      status: hasOpenLfGaps ? "running" : "done",
+      updated_at: new Date().toISOString(),
+      meta: hasOpenLfGaps
+        ? { pending_followup: "pool_fill_lf_gaps", lf_gaps: repairResult.missing_lf_coverage }
+        : { repair_complete: true },
+    })
     .eq("package_id", packageId)
     .eq("step_key", "repair_exam_pool_quality");
 
