@@ -20816,6 +20816,262 @@ export type Database = {
         }
         Relationships: []
       }
+      lti_deployments: {
+        Row: {
+          created_at: string
+          deployment_id: string
+          id: string
+          org_id: string | null
+          platform_registration_id: string
+          settings_json: Json
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          deployment_id: string
+          id?: string
+          org_id?: string | null
+          platform_registration_id: string
+          settings_json?: Json
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          deployment_id?: string
+          id?: string
+          org_id?: string | null
+          platform_registration_id?: string
+          settings_json?: Json
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lti_deployments_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lti_deployments_platform_registration_id_fkey"
+            columns: ["platform_registration_id"]
+            isOneToOne: false
+            referencedRelation: "lti_platform_registrations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lti_grade_passback_queue: {
+        Row: {
+          created_at: string
+          id: string
+          last_error: string | null
+          launch_session_id: string
+          normalized_score: number | null
+          passback_status: string
+          payload_json: Json
+          retry_count: number
+          score_source_ref: string
+          score_source_type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          launch_session_id: string
+          normalized_score?: number | null
+          passback_status?: string
+          payload_json?: Json
+          retry_count?: number
+          score_source_ref: string
+          score_source_type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          launch_session_id?: string
+          normalized_score?: number | null
+          passback_status?: string
+          payload_json?: Json
+          retry_count?: number
+          score_source_ref?: string
+          score_source_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lti_grade_passback_queue_launch_session_id_fkey"
+            columns: ["launch_session_id"]
+            isOneToOne: false
+            referencedRelation: "lti_launch_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lti_launch_sessions: {
+        Row: {
+          deployment_id: string
+          expires_at: string
+          id: string
+          launch_claims_json: Json
+          learner_identity_id: string | null
+          resource_link_id: string
+          session_status: string
+          started_at: string
+          sub_hash: string
+        }
+        Insert: {
+          deployment_id: string
+          expires_at: string
+          id?: string
+          launch_claims_json: Json
+          learner_identity_id?: string | null
+          resource_link_id: string
+          session_status?: string
+          started_at?: string
+          sub_hash: string
+        }
+        Update: {
+          deployment_id?: string
+          expires_at?: string
+          id?: string
+          launch_claims_json?: Json
+          learner_identity_id?: string | null
+          resource_link_id?: string
+          session_status?: string
+          started_at?: string
+          sub_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lti_launch_sessions_deployment_id_fkey"
+            columns: ["deployment_id"]
+            isOneToOne: false
+            referencedRelation: "lti_deployments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lti_launch_sessions_learner_identity_id_fkey"
+            columns: ["learner_identity_id"]
+            isOneToOne: false
+            referencedRelation: "learner_identities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lti_platform_registrations: {
+        Row: {
+          auth_login_url: string
+          auth_token_url: string | null
+          client_id: string
+          created_at: string
+          deployment_constraints_json: Json
+          id: string
+          issuer: string
+          jwks_cache_json: Json
+          keyset_url: string
+          status: string
+          tenant_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          auth_login_url: string
+          auth_token_url?: string | null
+          client_id: string
+          created_at?: string
+          deployment_constraints_json?: Json
+          id?: string
+          issuer: string
+          jwks_cache_json?: Json
+          keyset_url: string
+          status?: string
+          tenant_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          auth_login_url?: string
+          auth_token_url?: string | null
+          client_id?: string
+          created_at?: string
+          deployment_constraints_json?: Json
+          id?: string
+          issuer?: string
+          jwks_cache_json?: Json
+          keyset_url?: string
+          status?: string
+          tenant_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lti_platform_registrations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lti_resource_mappings: {
+        Row: {
+          config_json: Json
+          created_at: string
+          deep_link_payload_json: Json
+          deployment_id: string
+          grade_return_policy: string
+          id: string
+          launch_mode: string
+          product_id: string
+          resource_link_id: string
+          updated_at: string
+        }
+        Insert: {
+          config_json?: Json
+          created_at?: string
+          deep_link_payload_json?: Json
+          deployment_id: string
+          grade_return_policy?: string
+          id?: string
+          launch_mode: string
+          product_id: string
+          resource_link_id: string
+          updated_at?: string
+        }
+        Update: {
+          config_json?: Json
+          created_at?: string
+          deep_link_payload_json?: Json
+          deployment_id?: string
+          grade_return_policy?: string
+          id?: string
+          launch_mode?: string
+          product_id?: string
+          resource_link_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lti_resource_mappings_deployment_id_fkey"
+            columns: ["deployment_id"]
+            isOneToOne: false
+            referencedRelation: "lti_deployments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lti_resource_mappings_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       management_alerts: {
         Row: {
           acknowledged_at: string | null
@@ -52107,6 +52363,14 @@ export type Database = {
         }
         Returns: string
       }
+      ensure_lti_learner_identity: {
+        Args: {
+          p_display_name?: string
+          p_external_subject_hash: string
+          p_org_id: string
+        }
+        Returns: string
+      }
       evaluate_certification_dominance: {
         Args: { p_cert_master_id: string }
         Returns: Json
@@ -53906,6 +54170,26 @@ export type Database = {
         Returns: number
       }
       resolve_current_rpc: { Args: { p_base_name: string }; Returns: string }
+      resolve_lti_registration: {
+        Args: { p_client_id: string; p_deployment_id: string; p_issuer: string }
+        Returns: {
+          deployment_row_id: string
+          deployment_status: string
+          org_id: string
+          platform_registration_id: string
+          registration_status: string
+        }[]
+      }
+      resolve_lti_resource_mapping: {
+        Args: { p_deployment_row_id: string; p_resource_link_id: string }
+        Returns: {
+          config_json: Json
+          grade_return_policy: string
+          launch_mode: string
+          mapping_id: string
+          product_id: string
+        }[]
+      }
       resolve_next_step: { Args: { p_package_id: string }; Returns: Json }
       resolve_qa_finding_if_exists: {
         Args: { p_area: string; p_title: string }
