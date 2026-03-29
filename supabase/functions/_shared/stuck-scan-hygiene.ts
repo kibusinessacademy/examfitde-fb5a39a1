@@ -665,16 +665,43 @@ export async function healFalseLivenessPackages(sb: SupabaseClient): Promise<str
       }
     }
 
-    if (healed.length > 0 || normalized.length > 0) {
+    if (healed.length > 0) {
       await sb.from("auto_heal_log").insert({
-        action_type: "false_liveness_guard",
+        action_type: "false_liveness_release",
         trigger_source: "stuck-scan",
         target_type: "course_packages",
         target_id: null,
         result_status: "applied",
-        result_detail: `Released ${healed.length} false-liveness package(s), normalized ${normalized.length} to queued`,
-        metadata: { released: healed, normalized, grace_minutes: GRACE_MINUTES },
+        result_detail: `Released ${healed.length} false-liveness lease(s)`,
+        metadata: { released: healed, grace_minutes: GRACE_MINUTES },
       });
+    }
+    if (normalized.length > 0) {
+      // Separate action types for false_active vs no_activity normalizations
+      const falseActiveNormalized = normalized.filter(id => healed.includes(id));
+      const noActivityNormalized = normalized.filter(id => !healed.includes(id));
+      if (falseActiveNormalized.length > 0) {
+        await sb.from("auto_heal_log").insert({
+          action_type: "false_liveness_normalize",
+          trigger_source: "stuck-scan",
+          target_type: "course_packages",
+          target_id: null,
+          result_status: "applied",
+          result_detail: `Normalized ${falseActiveNormalized.length} false-active package(s) building→queued`,
+          metadata: { normalized: falseActiveNormalized, grace_minutes: GRACE_MINUTES },
+        });
+      }
+      if (noActivityNormalized.length > 0) {
+        await sb.from("auto_heal_log").insert({
+          action_type: "no_activity_normalize",
+          trigger_source: "stuck-scan",
+          target_type: "course_packages",
+          target_id: null,
+          result_status: "applied",
+          result_detail: `Normalized ${noActivityNormalized.length} no-activity package(s) building→queued`,
+          metadata: { normalized: noActivityNormalized, grace_minutes: GRACE_MINUTES },
+        });
+      }
     }
   } catch (err) {
     console.warn(`[stuck-scan] false-liveness guard threw: ${(err as Error).message}`);

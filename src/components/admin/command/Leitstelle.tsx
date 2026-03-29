@@ -756,8 +756,8 @@ export default function Leitstelle() {
                     Liveness
                   </div>
                   <div className="flex items-baseline gap-2">
-                    <span className="text-3xl font-semibold text-emerald-600">{alive}</span>
-                    {falseActive > 0 && <span className="text-lg font-medium text-amber-500">/ {falseActive} ghost</span>}
+                    <span className="text-3xl font-semibold text-emerald-600 dark:text-emerald-400">{alive}</span>
+                    {falseActive > 0 && <span className="text-lg font-medium text-destructive">/ {falseActive} ghost</span>}
                     {noActivity > 0 && <span className="text-lg font-medium text-muted-foreground">/ {noActivity} idle</span>}
                   </div>
                   <div className="mt-1 text-xs text-muted-foreground">
