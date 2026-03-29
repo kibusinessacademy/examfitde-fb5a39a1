@@ -1,5 +1,5 @@
 # Memory: architektur/monetarisierung/dual-engine-foundation-v1
-Updated: 2026-03-29
+Updated: 2026-03-29 (Hardening Pass)
 
 ## Dual-Engine Monetarisierung — B2C + B2B auf gemeinsamer SSOT
 
@@ -24,9 +24,10 @@ ELSE → paywall (resolve variant)
 - `experiment_assignments`: Sticky User→Variant Zuordnung mit Conversion-Tracking
 
 #### Variant-Auflösung
-- `assign_paywall_variant()` RPC: Weighted random, sticky assignment
-- `resolve-paywall` Edge Function: Prüft Access → Org → Variant → Checkout-ID
+- `assign_paywall_variant()` RPC: Weighted random, sticky assignment, **race-safe** (re-reads after ON CONFLICT)
+- `resolve-paywall` Edge Function: Prüft Access → Org → Variant → Checkout-ID + `actual_price_cents`
 - Platform-spezifisch: `stripe_price_id` (Web), `apple_sku` (iOS), `google_sku` (Android)
+- **Channel Pricing**: `web_price_cents`, `ios_price_cents`, `android_price_cents` (fallback auf `price_cents`)
 
 #### Conversion Tracking
 - `record_experiment_conversion()` RPC: Nach erfolgreichem Kauf
@@ -43,10 +44,14 @@ ELSE → paywall (resolve variant)
 - `organizations`: Firmen, Schulen, IHKs, Bildungsträger
 - `org_memberships`: User↔Org mit Rollen (owner, admin, manager, learner)
 - `org_licenses`: Product↔Org mit Seat-Kontingent + Zeitraum
+  - **Partial Unique Index**: Nur eine aktive Lizenz pro Org+Product (`WHERE status = 'active'`)
+- `org_license_seats`: Explizite User↔License Seat-Zuordnung (claimed_at/released_at)
+  - Trigger `trg_sync_seats_used` hält `seats_used` automatisch synchron
 
-#### Access-Check
-- `check_org_license_access()`: Prüft Mitgliedschaft + aktive Lizenz + freie Seats
-- Eingebunden in `resolve-paywall` Edge Function
+#### Access-Check (gehärtet)
+- `check_org_license_access()`: Prüft ob User einen **tatsächlichen Seat** hat (nicht nur freie Plätze)
+  - JOIN über `org_license_seats` → `org_licenses`
+  - Validiert: seat claimed, license active, not expired
 
 #### Admin Views
 - `v_org_license_overview`: Seats, Nutzung, Laufzeiten pro Org
