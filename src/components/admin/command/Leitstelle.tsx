@@ -442,6 +442,21 @@ export default function Leitstelle() {
     staleTime: 10000,
   });
 
+  const { data: livenessRows = [] } = useQuery({
+    queryKey: ['leitstelle-liveness-live'],
+    queryFn: async () => {
+      const sb = supabase as any;
+      const { data, error } = await sb
+        .from('ops_build_activity_truth')
+        .select('package_id, title, status, fresh_active_jobs, zombie_jobs, running_steps, has_lease, liveness_verdict, last_pipeline_event_at, last_step_transition_at')
+        .limit(100);
+      if (error) return [] as JsonRow[];
+      return (data ?? []) as JsonRow[];
+    },
+    refetchInterval: 30000,
+    staleTime: 10000,
+  });
+
   const { data: recentActions = [] } = useQuery({
     queryKey: ['leitstelle-recent-actions'],
     queryFn: async () => {
