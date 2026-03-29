@@ -32,7 +32,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useOralExam, type EvaluationResult } from '@/hooks/useOralExam';
-import { useCheckEntitlement } from '@/hooks/useEntitlements';
+import { useProductAccessByCurriculum } from '@/hooks/useProductAccess';
 import { Paywall } from '@/components/shop/Paywall';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -173,9 +173,9 @@ export default function OralExamTrainer() {
     }
   });
 
-  // Entitlement check
-  const { data: hasAccess, isLoading: entitlementLoading } = useCheckEntitlement(
-    selectedCurriculum || '',
+  // Product-based access check (bridges to legacy flags during transition)
+  const { data: hasAccess, isLoading: entitlementLoading } = useProductAccessByCurriculum(
+    selectedCurriculum || undefined,
     'oral_trainer'
   );
   const curriculumTitle = curricula?.find(c => c.id === selectedCurriculum)?.title;

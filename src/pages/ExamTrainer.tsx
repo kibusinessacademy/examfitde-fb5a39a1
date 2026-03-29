@@ -6,7 +6,7 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { useCheckEntitlement } from '@/hooks/useEntitlements';
+import { useProductAccessByCurriculum } from '@/hooks/useProductAccess';
 import { Paywall } from '@/components/shop/Paywall';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -48,9 +48,9 @@ export default function ExamTrainer() {
   const [selectedCurriculumId, setSelectedCurriculumId] = useState('');
   const [selectedBerufName, setSelectedBerufName] = useState('');
 
-  // Entitlement check
-  const { data: hasAccess, isLoading: entitlementLoading } = useCheckEntitlement(
-    selectedCurriculumId,
+  // Product-based access check (bridges to legacy flags during transition)
+  const { data: hasAccess, isLoading: entitlementLoading } = useProductAccessByCurriculum(
+    selectedCurriculumId || undefined,
     'exam_trainer'
   );
 

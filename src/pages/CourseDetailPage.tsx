@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useCourseProgress, type LessonStatus } from "@/hooks/useCourseProgress";
-import { useCheckEntitlement } from "@/hooks/useEntitlements";
+import { useProductAccessByCurriculum } from "@/hooks/useProductAccess";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import { SegmentedProgressBar } from "@/components/course/SegmentedProgressBar";
@@ -51,9 +51,9 @@ export default function CourseDetailPage() {
   const [enrolling, setEnrolling] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Entitlement check - only when course is loaded
-  const { data: hasLearningAccess, isLoading: entitlementLoading } = useCheckEntitlement(
-    course?.curriculum_id || '',
+  // Product-based access check (bridges to legacy flags during transition)
+  const { data: hasLearningAccess, isLoading: entitlementLoading } = useProductAccessByCurriculum(
+    course?.curriculum_id || undefined,
     'learning_course'
   );
 

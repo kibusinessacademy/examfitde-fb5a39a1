@@ -51165,6 +51165,10 @@ export type Database = {
         Returns: boolean
       }
       check_pipeline_health_alerts: { Args: never; Returns: Json }
+      check_product_access_by_curriculum: {
+        Args: { p_curriculum_id: string; p_feature?: string; p_user_id: string }
+        Returns: boolean
+      }
       check_production_quality: {
         Args: { p_curriculum_id: string; p_package_id: string }
         Returns: Json
@@ -52939,6 +52943,39 @@ export type Database = {
       }
       get_priority_ceiling: { Args: never; Returns: number }
       get_probe_health_summary: { Args: never; Returns: Json }
+      get_product_catalog: {
+        Args: { p_channel?: string }
+        Returns: {
+          certification_id: string
+          channel_enabled: boolean
+          curriculum_id: string
+          description: string
+          id: string
+          product_type: string
+          slug: string
+          subtitle: string
+          title: string
+          visibility: string
+        }[]
+      }
+      get_product_detail: {
+        Args: { p_slug: string }
+        Returns: {
+          certification_id: string
+          curriculum_id: string
+          description: string
+          id: string
+          product_type: string
+          release_notes: string
+          slug: string
+          status: string
+          subtitle: string
+          title: string
+          version_id: string
+          version_tag: string
+          visibility: string
+        }[]
+      }
       get_production_kpis: { Args: never; Returns: Json }
       get_profiles_security_status: { Args: never; Returns: Json }
       get_provider_p95_latency: {
