@@ -13,7 +13,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { useHandbookChapters, useHandbookProgress } from '@/hooks/handbook';
-import { useUserEntitlements } from '@/hooks/useShop';
+import { useUserEntitlements } from '@/hooks/useEntitlements';
 import { HandbookChapterCard } from '@/components/handbook/HandbookChapterCard';
 import { SEOHead } from '@/components/seo/SEOHead';
 import PageExplainer from '@/components/admin/PageExplainer';
