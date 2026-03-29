@@ -21823,6 +21823,185 @@ export type Database = {
         }
         Relationships: []
       }
+      mobile_store_products: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          pricing_tier_ref: string | null
+          product_id: string
+          regional_config_json: Json
+          store: string
+          store_product_type: string
+          store_sku: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          pricing_tier_ref?: string | null
+          product_id: string
+          regional_config_json?: Json
+          store: string
+          store_product_type: string
+          store_sku: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          pricing_tier_ref?: string | null
+          product_id?: string
+          regional_config_json?: Json
+          store?: string
+          store_product_type?: string
+          store_sku?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mobile_store_products_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mobile_store_purchase_events: {
+        Row: {
+          app_account_token: string | null
+          created_at: string
+          external_original_transaction_id: string | null
+          external_transaction_id: string
+          id: string
+          learner_identity_id: string | null
+          processed_at: string | null
+          raw_payload_json: Json
+          store: string
+          store_sku: string
+          user_id: string | null
+          verification_status: string
+        }
+        Insert: {
+          app_account_token?: string | null
+          created_at?: string
+          external_original_transaction_id?: string | null
+          external_transaction_id: string
+          id?: string
+          learner_identity_id?: string | null
+          processed_at?: string | null
+          raw_payload_json: Json
+          store: string
+          store_sku: string
+          user_id?: string | null
+          verification_status?: string
+        }
+        Update: {
+          app_account_token?: string | null
+          created_at?: string
+          external_original_transaction_id?: string | null
+          external_transaction_id?: string
+          id?: string
+          learner_identity_id?: string | null
+          processed_at?: string | null
+          raw_payload_json?: Json
+          store?: string
+          store_sku?: string
+          user_id?: string | null
+          verification_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mobile_store_purchase_events_learner_identity_id_fkey"
+            columns: ["learner_identity_id"]
+            isOneToOne: false
+            referencedRelation: "learner_identities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mobile_store_receipt_links: {
+        Row: {
+          entitlement_id: string | null
+          id: string
+          purchase_event_id: string
+          status: string
+          verification_provider: string | null
+          verified_at: string | null
+        }
+        Insert: {
+          entitlement_id?: string | null
+          id?: string
+          purchase_event_id: string
+          status?: string
+          verification_provider?: string | null
+          verified_at?: string | null
+        }
+        Update: {
+          entitlement_id?: string | null
+          id?: string
+          purchase_event_id?: string
+          status?: string
+          verification_provider?: string | null
+          verified_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mobile_store_receipt_links_entitlement_id_fkey"
+            columns: ["entitlement_id"]
+            isOneToOne: false
+            referencedRelation: "entitlements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mobile_store_receipt_links_purchase_event_id_fkey"
+            columns: ["purchase_event_id"]
+            isOneToOne: false
+            referencedRelation: "mobile_store_purchase_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mobile_store_receipt_links_purchase_event_id_fkey"
+            columns: ["purchase_event_id"]
+            isOneToOne: false
+            referencedRelation: "v_mobile_store_purchase_audit"
+            referencedColumns: ["purchase_event_id"]
+          },
+        ]
+      }
+      mobile_store_sync_log: {
+        Row: {
+          created_at: string
+          error: string | null
+          event_type: string
+          id: string
+          payload_json: Json
+          status: string
+          store: string
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          event_type: string
+          id?: string
+          payload_json?: Json
+          status?: string
+          store: string
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          event_type?: string
+          id?: string
+          payload_json?: Json
+          status?: string
+          store?: string
+        }
+        Relationships: []
+      }
       model_routing_rules: {
         Row: {
           ab_weight: number
@@ -48375,6 +48554,31 @@ export type Database = {
         }
         Relationships: []
       }
+      v_mobile_store_purchase_audit: {
+        Row: {
+          entitlement_id: string | null
+          external_transaction_id: string | null
+          purchase_created_at: string | null
+          purchase_event_id: string | null
+          receipt_link_id: string | null
+          receipt_link_status: string | null
+          source_type: string | null
+          store: string | null
+          store_sku: string | null
+          user_id: string | null
+          valid_until: string | null
+          verification_status: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mobile_store_receipt_links_entitlement_id_fkey"
+            columns: ["entitlement_id"]
+            isOneToOne: false
+            referencedRelation: "entitlements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_ops_auto_publish_blockers: {
         Row: {
           blocked_reason: string | null
@@ -52234,6 +52438,18 @@ export type Database = {
         }
         Returns: string
       }
+      create_mobile_store_entitlement: {
+        Args: {
+          p_is_subscription?: boolean
+          p_learner_identity_id?: string
+          p_product_id: string
+          p_purchase_event_id: string
+          p_source_ref?: string
+          p_store: string
+          p_user_id?: string
+        }
+        Returns: string
+      }
       create_patch_plan_from_finding: {
         Args: {
           p_council_version_id: string
@@ -52369,6 +52585,10 @@ export type Database = {
           p_external_subject_hash: string
           p_org_id: string
         }
+        Returns: string
+      }
+      ensure_mobile_learner_identity: {
+        Args: { p_app_account_token?: string; p_user_id: string }
         Returns: string
       }
       evaluate_certification_dominance: {
@@ -54190,6 +54410,15 @@ export type Database = {
           product_id: string
         }[]
       }
+      resolve_mobile_store_product: {
+        Args: { p_store: string; p_store_sku: string }
+        Returns: {
+          is_active: boolean
+          product_id: string
+          store_product_id: string
+          store_product_type: string
+        }[]
+      }
       resolve_next_step: { Args: { p_package_id: string }; Returns: Json }
       resolve_qa_finding_if_exists: {
         Args: { p_area: string; p_title: string }
@@ -54203,6 +54432,10 @@ export type Database = {
           prev_attempts: number
           reason: string
         }[]
+      }
+      revoke_mobile_store_entitlement: {
+        Args: { p_purchase_event_id: string; p_reason: string }
+        Returns: boolean
       }
       revoke_qa_risk: { Args: { p_finding_id: string }; Returns: undefined }
       rollback_package_version: {
