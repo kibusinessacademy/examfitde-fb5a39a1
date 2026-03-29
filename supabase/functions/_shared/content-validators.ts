@@ -63,6 +63,35 @@ function hasPassiveSummary(text: string): boolean {
   return /wir haben gelernt|in dieser lektion|zusammenfassend lässt sich|abschließend sei|zum abschluss/i.test(text);
 }
 
+// ─── Elite Helpers (v3) ─────────────────────────────────────────────────────
+
+/** Count <strong> or <b> tagged technical terms */
+function countFachbegriffe(html: string): number {
+  return countPattern(html, /<(strong|b)>[^<]{3,}<\/(strong|b)>/gi);
+}
+
+/** Check if content has concrete examples (Beispiel, z.B., etc.) */
+function countExamples(text: string): number {
+  return countPattern(text, /\b(Beispiel|z\.?\s?B\.?|beispielsweise|etwa|konkret|in der Praxis)\b/gi);
+}
+
+/** Check for Prüfungsbezug markers */
+function hasPruefungsbezug(text: string): boolean {
+  return /(IHK|Prüfung|Abschlussprüfung|Klausur|Prüfungsaufgabe|prüfungsrelevant|Prüfer|Prüfungsfrage)/i.test(text);
+}
+
+/** Check for structured content (headings, lists, blockquotes) */
+function hasStructuredContent(html: string): boolean {
+  const hasHeadings = /<h[2-4][\s>]/i.test(html);
+  const hasLists = /<(ul|ol)[\s>]/i.test(html);
+  return hasHeadings && hasLists;
+}
+
+/** Check for typical errors / common mistakes coverage */
+function hasTypicalErrors(text: string): boolean {
+  return /(typischer Fehler|häufiger Fehler|Denkfehler|Prüfungsfalle|Achtung|Vorsicht|oft verwechselt|nicht verwechseln|Irrtum)/i.test(text);
+}
+
 // ─── Lesson Step Validators ─────────────────────────────────────────────────
 
 export function validateEinstieg(html: string): StructuralValidationResult {
