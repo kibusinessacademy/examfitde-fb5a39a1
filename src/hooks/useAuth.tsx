@@ -37,27 +37,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return true;
     }
 
-    try {
-      const { data, error } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', userId);
+    const MAX_RETRIES = 3;
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      try {
+        if (attempt > 0) {
+          await new Promise(r => setTimeout(r, 500 * attempt));
+        }
 
-      if (requestId !== activeRoleRequestRef.current) return false;
+        const { data, error } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', userId);
 
-      if (error) {
-        console.error('Failed to load user roles', error);
-        return false;
+        if (requestId !== activeRoleRequestRef.current) return false;
+
+        if (error) {
+          console.error(`Failed to load user roles (attempt ${attempt + 1}/${MAX_RETRIES})`, error);
+          if (attempt === MAX_RETRIES - 1) return false;
+          continue;
+        }
+
+        setRoles((data ?? []).map((row) => row.role as AppRole));
+        return true;
+      } catch (error) {
+        if (requestId !== activeRoleRequestRef.current) return false;
+        console.error(`Unexpected role loading failure (attempt ${attempt + 1}/${MAX_RETRIES})`, error);
+        if (attempt === MAX_RETRIES - 1) return false;
       }
-
-      setRoles((data ?? []).map((row) => row.role as AppRole));
-      return true;
-    } catch (error) {
-      if (requestId === activeRoleRequestRef.current) {
-        console.error('Unexpected role loading failure', error);
-      }
-      return false;
     }
+    return false;
   }, []);
 
   useEffect(() => {
