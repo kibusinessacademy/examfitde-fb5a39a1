@@ -454,7 +454,7 @@ async function enhanceLeadQuestion(
     );
 
     const parsed = parseAIJSON(result.content);
-    if (parsed?.question) return { question: parsed.question, model: routed.model };
+    if (parsed?.question) return { question: parsed.question, model: chain[0]?.model || null };
   } catch (e) {
     console.warn("[OralExam] Lead question enhancement failed, using raw:", e);
   }
@@ -496,7 +496,7 @@ async function generateFromScenario(
     );
 
     const parsed = parseAIJSON(result.content);
-    if (parsed?.question) return { question: parsed.question, model: routed.model };
+    if (parsed?.question) return { question: parsed.question, model: chain2[0]?.model || null };
   } catch (e) {
     console.warn("[OralExam] Scenario generation failed:", e);
   }

@@ -27,6 +27,14 @@ ${data.lfData?.difficulty_tier === 'hard' ? 'SCHWER: Mehrstufige Berechnungen, K
 ${data.lfData?.ihk_focus_areas?.length ? `IHK-Schwerpunkte: ${data.lfData.ihk_focus_areas.join(", ")}` : ''}
 Keine Floskeln. Keine Einleitungen. Direkt zum Inhalt.
 
+ELITE-PFLICHT-STRUKTUR (jede Lektion MUSS enthalten):
+1. Mindestens 3 Fachbegriffe als <strong>markiert</strong>
+2. Mindestens 2 konkrete Praxisbeispiele (mit Zahlen, Rollen, konkreten Situationen)
+3. Typische Fehler/Denkfehler mit Korrektur
+4. Expliziter Prüfungsbezug (IHK-Prüfungshinweis)
+5. Strukturiert mit Überschriften (<h3>/<h4>) UND Listen (<ul>/<ol>)
+VERBOT: Keine generischen Floskeln, keine "In der Praxis ist es wichtig"-Sätze ohne konkrete Beispiele.
+
 FORMAT: Antworte NUR mit validem JSON (kein Markdown, keine Fences).
 ${req.isMiniCheck
   ? '{"questions": [{"question": "...", "options": ["A","B","C","D"], "correct_answer": 0, "explanation": "..."}], "objectives": ["..."]}'

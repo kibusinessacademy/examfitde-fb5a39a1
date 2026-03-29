@@ -63,6 +63,35 @@ function hasPassiveSummary(text: string): boolean {
   return /wir haben gelernt|in dieser lektion|zusammenfassend lässt sich|abschließend sei|zum abschluss/i.test(text);
 }
 
+// ─── Elite Helpers (v3) ─────────────────────────────────────────────────────
+
+/** Count <strong> or <b> tagged technical terms */
+function countFachbegriffe(html: string): number {
+  return countPattern(html, /<(strong|b)>[^<]{3,}<\/(strong|b)>/gi);
+}
+
+/** Check if content has concrete examples (Beispiel, z.B., etc.) */
+function countExamples(text: string): number {
+  return countPattern(text, /\b(Beispiel|z\.?\s?B\.?|beispielsweise|etwa|konkret|in der Praxis)\b/gi);
+}
+
+/** Check for Prüfungsbezug markers */
+function hasPruefungsbezug(text: string): boolean {
+  return /(IHK|Prüfung|Abschlussprüfung|Klausur|Prüfungsaufgabe|prüfungsrelevant|Prüfer|Prüfungsfrage)/i.test(text);
+}
+
+/** Check for structured content (headings, lists, blockquotes) */
+function hasStructuredContent(html: string): boolean {
+  const hasHeadings = /<h[2-4][\s>]/i.test(html);
+  const hasLists = /<(ul|ol)[\s>]/i.test(html);
+  return hasHeadings && hasLists;
+}
+
+/** Check for typical errors / common mistakes coverage */
+function hasTypicalErrors(text: string): boolean {
+  return /(typischer Fehler|häufiger Fehler|Denkfehler|Prüfungsfalle|Achtung|Vorsicht|oft verwechselt|nicht verwechseln|Irrtum)/i.test(text);
+}
+
 // ─── Lesson Step Validators ─────────────────────────────────────────────────
 
 export function validateEinstieg(html: string): StructuralValidationResult {
@@ -82,10 +111,21 @@ export function validateEinstieg(html: string): StructuralValidationResult {
     failures.push({ rule: "EINSTIEG_PASSIVE_OPENER", message: "Passiver Einstieg ('Heute lernen wir...') — muss aktivierend sein", severity: "hard_fail" });
   }
 
+  // ── Elite v3: Praxisbezug ──
+  const exampleCount = countExamples(text);
+  if (exampleCount < 1) {
+    failures.push({ rule: "EINSTIEG_NO_EXAMPLE", message: "Kein konkretes Beispiel im Einstieg — Praxisbezug fehlt", severity: "hard_fail" });
+  }
+
+  const wordCount = text.split(/\s+/).length;
+  if (wordCount < 200) {
+    failures.push({ rule: "EINSTIEG_TOO_SHORT", message: `Nur ${wordCount} Wörter — mind. 200 nötig`, severity: "hard_fail" });
+  }
+
   return {
     passes: !failures.some(f => f.severity === "hard_fail"),
     failures,
-    metrics: { hasScenario: hasScenarioMarkers(text), scenarioScore: scenarioScore(text), questionCount, wordCount: text.split(/\s+/).length },
+    metrics: { hasScenario: hasScenarioMarkers(text), scenarioScore: scenarioScore(text), questionCount, wordCount, exampleCount },
   };
 }
 
@@ -111,15 +151,37 @@ export function validateVerstehen(html: string): StructuralValidationResult {
 
   const wordCount = text.split(/\s+/).length;
   const charCount = text.length;
-  // Use both word AND char count to avoid false-fails on structured HTML
   if (wordCount < 300 && charCount < 1500) {
     failures.push({ rule: "VERSTEHEN_TOO_SHORT", message: `Nur ${wordCount} Wörter / ${charCount} Zeichen — mind. 300 Wörter oder 1500 Zeichen nötig`, severity: "hard_fail" });
+  }
+
+  // ── Elite v3: Structural Depth ──
+  const fachbegriffCount = countFachbegriffe(html);
+  if (fachbegriffCount < 3) {
+    failures.push({ rule: "VERSTEHEN_FEW_FACHBEGRIFFE", message: `Nur ${fachbegriffCount} markierte Fachbegriffe — mind. 3 nötig (<strong>)`, severity: "hard_fail" });
+  }
+
+  const exampleCount = countExamples(text);
+  if (exampleCount < 2) {
+    failures.push({ rule: "VERSTEHEN_FEW_EXAMPLES", message: `Nur ${exampleCount} Beispiel(e) — mind. 2 konkrete Praxisbeispiele nötig`, severity: "hard_fail" });
+  }
+
+  if (!hasTypicalErrors(text)) {
+    failures.push({ rule: "VERSTEHEN_NO_ERRORS", message: "Keine typischen Fehler/Denkfehler behandelt — Pflicht für Elite-Qualität", severity: "hard_fail" });
+  }
+
+  if (!hasPruefungsbezug(text)) {
+    failures.push({ rule: "VERSTEHEN_NO_PRUEFUNGSBEZUG", message: "Kein expliziter Prüfungsbezug (IHK, Prüfung, Prüfungsaufgabe) vorhanden", severity: "soft_warn" });
+  }
+
+  if (!hasStructuredContent(html)) {
+    failures.push({ rule: "VERSTEHEN_NO_STRUCTURE", message: "Fehlende Strukturierung — Überschriften UND Listen nötig", severity: "hard_fail" });
   }
 
   return {
     passes: !failures.some(f => f.severity === "hard_fail"),
     failures,
-    metrics: { starCount, warnCount, hasFallvignette, wordCount, charCount },
+    metrics: { starCount, warnCount, hasFallvignette, wordCount, charCount, fachbegriffCount, exampleCount, hasTypicalErrors: hasTypicalErrors(text), hasStructure: hasStructuredContent(html) },
   };
 }
 
@@ -138,13 +200,30 @@ export function validateAnwenden(html: string): StructuralValidationResult {
 
   const warnCount = countPattern(html, /⚠️/g);
   if (warnCount < 1) {
-    failures.push({ rule: "ANWENDEN_NO_TRAP", message: "Keine ⚠️ Prüfungsfalle in Anwenden", severity: "soft_warn" });
+    failures.push({ rule: "ANWENDEN_NO_TRAP", message: "Keine ⚠️ Prüfungsfalle in Anwenden", severity: "hard_fail" });
+  }
+
+  // ── Elite v3: Teilaufgaben + Praxistiefe ──
+  const wordCount = text.split(/\s+/).length;
+  if (wordCount < 250) {
+    failures.push({ rule: "ANWENDEN_TOO_SHORT", message: `Nur ${wordCount} Wörter — mind. 250 nötig`, severity: "hard_fail" });
+  }
+
+  const exampleCount = countExamples(text);
+  if (exampleCount < 1) {
+    failures.push({ rule: "ANWENDEN_NO_EXAMPLE", message: "Kein konkretes Praxisbeispiel in der Anwendungsaufgabe", severity: "hard_fail" });
+  }
+
+  // Check for multi-step tasks (numbered items or Teilaufgabe markers)
+  const hasMultiStep = /\b[1-4]\.\s|Teilaufgabe|Schritt\s+[1-4]|a\)|b\)|c\)/i.test(text);
+  if (!hasMultiStep) {
+    failures.push({ rule: "ANWENDEN_NO_MULTISTEP", message: "Keine gestuften Teilaufgaben — Fallstudie braucht 2+ Denkschritte", severity: "soft_warn" });
   }
 
   return {
     passes: !failures.some(f => f.severity === "hard_fail"),
     failures,
-    metrics: { hasScenario: hasScenarioMarkers(text), scenarioScore: scenarioScore(text), hasDecision, warnCount },
+    metrics: { hasScenario: hasScenarioMarkers(text), scenarioScore: scenarioScore(text), hasDecision, warnCount, wordCount, exampleCount, hasMultiStep },
   };
 }
 
@@ -160,16 +239,37 @@ export function validateWiederholen(html: string): StructuralValidationResult {
     failures.push({ rule: "WIEDERHOLEN_NO_RETRIEVAL", message: "Keine Retrieval-Mechanik (Leitfragen + Abgrenzung/Verknüpfung) gefunden", severity: "hard_fail" });
   }
 
-  // Table detection on raw HTML (not stripped text) — Bug A fix
+  // Table detection on raw HTML (not stripped text)
   const hasTable = /<table[\s>]/i.test(html);
   if (!hasTable) {
     failures.push({ rule: "WIEDERHOLEN_NO_TABLE", message: "Keine Abgrenzungstabelle gefunden", severity: "soft_warn" });
   }
 
+  // ── Elite v3: Verdichtungstiefe ──
+  const wordCount = text.split(/\s+/).length;
+  if (wordCount < 200) {
+    failures.push({ rule: "WIEDERHOLEN_TOO_SHORT", message: `Nur ${wordCount} Wörter — mind. 200 nötig`, severity: "hard_fail" });
+  }
+
+  const fachbegriffCount = countFachbegriffe(html);
+  if (fachbegriffCount < 3) {
+    failures.push({ rule: "WIEDERHOLEN_FEW_FACHBEGRIFFE", message: `Nur ${fachbegriffCount} markierte Fachbegriffe — mind. 3 für Verdichtung nötig`, severity: "hard_fail" });
+  }
+
+  if (!hasTypicalErrors(text)) {
+    failures.push({ rule: "WIEDERHOLEN_NO_TRAPS", message: "Keine Prüfungsfallen/typische Fehler in Wiederholung — Pflicht für Verdichtung", severity: "hard_fail" });
+  }
+
+  // Check for transfer exercises
+  const hasTransfer = /Transfer|übertrag|anwend.*auf|andere.*Situation|vergleich.*mit/i.test(text);
+  if (!hasTransfer) {
+    failures.push({ rule: "WIEDERHOLEN_NO_TRANSFER", message: "Keine Transferübung — mind. 1 Übertragungsaufgabe nötig", severity: "soft_warn" });
+  }
+
   return {
     passes: !failures.some(f => f.severity === "hard_fail"),
     failures,
-    metrics: { hasPassiveSummary: hasPassiveSummary(text), hasRetrieval: hasRetrievalMechanics(text), hasTable },
+    metrics: { hasPassiveSummary: hasPassiveSummary(text), hasRetrieval: hasRetrievalMechanics(text), hasTable, wordCount, fachbegriffCount, hasTypicalErrors: hasTypicalErrors(text), hasTransfer },
   };
 }
 
