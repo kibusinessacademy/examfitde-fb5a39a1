@@ -65,14 +65,14 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Entitlement check
-    const { data: entitlement } = await admin.rpc("check_user_entitlement", {
+    // Entitlement check (Phase 3: product-based)
+    const { data: hasAccess } = await admin.rpc("check_product_access_by_curriculum", {
       p_user_id: auth.user.id,
       p_curriculum_id: session.curriculum_id,
       p_feature: "exam_trainer",
     });
 
-    if (!entitlement) {
+    if (!hasAccess) {
       return forbiddenResponse("Access denied - no exam_trainer entitlement", origin || undefined);
     }
 

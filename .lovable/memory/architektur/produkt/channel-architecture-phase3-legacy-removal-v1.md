@@ -13,6 +13,8 @@ Updated: 2026-03-29
 **Edge Functions:**
 - get-exam-questions → check_product_access_by_curriculum (statt check_user_entitlement)
 - get-exam-session-questions → check_product_access_by_curriculum (statt check_user_entitlement)
+- get-exam-results → check_product_access_by_curriculum (statt check_user_entitlement) ✅ P0-Fix
+- run-tests → Smoke/Sanity-Tests auf check_product_access_by_curriculum umgestellt ✅ P0-Fix
 
 **Bridge RPC gehärtet:**
 - check_product_access_by_curriculum: Path 2 (Legacy Feature-Check) ENTFERNT
