@@ -59,8 +59,8 @@ async function smokeTests(supabaseUrl: string, anonKey: string, serviceKey: stri
     assert(!data || data.length === 0 || !!error, "Anon should not see profile data");
   }));
 
-  results.push(await runTest("Entitlement RPC exists", "smoke", async () => {
-    const { error } = await sb.rpc("check_user_entitlement" as any, {
+  results.push(await runTest("Product access RPC exists", "smoke", async () => {
+    const { error } = await sb.rpc("check_product_access_by_curriculum" as any, {
       p_user_id: "00000000-0000-0000-0000-000000000000",
       p_curriculum_id: "00000000-0000-0000-0000-000000000000",
     });
@@ -95,11 +95,11 @@ async function sanityTests(_supabaseUrl: string, _anonKey: string, serviceKey: s
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const sb = createClient(supabaseUrl, serviceKey);
 
-  results.push(await runTest("Entitlement RPC structured response", "sanity.entitlements", async () => {
+  results.push(await runTest("Product access RPC structured response", "sanity.entitlements", async () => {
     const { data: profile } = await sb.from("profiles").select("id").limit(1).single();
     const { data: curr } = await sb.from("curricula").select("id").not("frozen_at", "is", null).limit(1).single();
     if (!profile || !curr) throw new Error("Need profile + frozen curriculum");
-    const { data, error } = await sb.rpc("check_user_entitlement" as any, { p_user_id: profile.id, p_curriculum_id: curr.id });
+    const { data, error } = await sb.rpc("check_product_access_by_curriculum" as any, { p_user_id: profile.id, p_curriculum_id: curr.id });
     assert(!error, `RPC error: ${error?.message}`);
     assert(data !== undefined, "RPC returned undefined");
   }));
