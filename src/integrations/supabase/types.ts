@@ -51668,6 +51668,7 @@ export type Database = {
         Args: { p_session_id: string }
         Returns: number
       }
+      current_integrity_report_version_num: { Args: never; Returns: number }
       default_asset_plan_for_channel: {
         Args: { p_offer_type: string; p_primary_channel: string }
         Returns: Json
