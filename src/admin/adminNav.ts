@@ -1,4 +1,4 @@
-import { LayoutDashboard, BookOpen, ListChecks, GraduationCap, TrendingUp } from 'lucide-react';
+import { LayoutDashboard, BookOpen, ListChecks, GraduationCap, TrendingUp, Megaphone, Shield } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 export interface AdminNavItem {
@@ -20,8 +20,10 @@ export const adminNavModules: AdminNavItem[] = [
     ],
   },
   { path: '/admin/queue', label: 'Queue', icon: ListChecks, group: 'navigation' },
-  { path: '/admin/learner-preview', label: 'Learner Preview', icon: GraduationCap, group: 'navigation' },
-  { path: '/admin/growth', label: 'Growth Cockpit', icon: TrendingUp, group: 'navigation' },
+  { path: '/admin/learner-preview', label: 'QA Preview', icon: GraduationCap, group: 'navigation' },
+  { path: '/admin/growth', label: 'Growth', icon: TrendingUp, group: 'navigation' },
+  { path: '/admin/marketing', label: 'Marketing', icon: Megaphone, group: 'navigation' },
+  { path: '/admin/compliance', label: 'Compliance', icon: Shield, group: 'navigation' },
 ];
 
 export const adminQuickActions: AdminNavItem[] = [];
