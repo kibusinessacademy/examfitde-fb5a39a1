@@ -54002,6 +54002,37 @@ export type Database = {
           valid_until: string
         }[]
       }
+      get_org_performance_dashboard: {
+        Args: { p_org_id: string; p_product_id?: string }
+        Returns: {
+          display_name: string
+          inactive_days: number
+          last_activity_at: string
+          last_exam_score: number
+          mastery_pct: number
+          product_id: string
+          product_title: string
+          progress_pct: number
+          readiness_score: number
+          risk_level: string
+          seat_status: string
+          user_id: string
+        }[]
+      }
+      get_org_performance_summary: {
+        Args: { p_org_id: string; p_product_id?: string }
+        Returns: {
+          avg_exam_score: number
+          avg_progress: number
+          avg_readiness: number
+          high_risk_count: number
+          inactive_count: number
+          low_risk_count: number
+          medium_risk_count: number
+          not_started_count: number
+          total_learners: number
+        }[]
+      }
       get_org_seat_members: {
         Args: { p_org_id: string }
         Returns: {
