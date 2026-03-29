@@ -239,16 +239,37 @@ export function validateWiederholen(html: string): StructuralValidationResult {
     failures.push({ rule: "WIEDERHOLEN_NO_RETRIEVAL", message: "Keine Retrieval-Mechanik (Leitfragen + Abgrenzung/Verknüpfung) gefunden", severity: "hard_fail" });
   }
 
-  // Table detection on raw HTML (not stripped text) — Bug A fix
+  // Table detection on raw HTML (not stripped text)
   const hasTable = /<table[\s>]/i.test(html);
   if (!hasTable) {
     failures.push({ rule: "WIEDERHOLEN_NO_TABLE", message: "Keine Abgrenzungstabelle gefunden", severity: "soft_warn" });
   }
 
+  // ── Elite v3: Verdichtungstiefe ──
+  const wordCount = text.split(/\s+/).length;
+  if (wordCount < 200) {
+    failures.push({ rule: "WIEDERHOLEN_TOO_SHORT", message: `Nur ${wordCount} Wörter — mind. 200 nötig`, severity: "hard_fail" });
+  }
+
+  const fachbegriffCount = countFachbegriffe(html);
+  if (fachbegriffCount < 3) {
+    failures.push({ rule: "WIEDERHOLEN_FEW_FACHBEGRIFFE", message: `Nur ${fachbegriffCount} markierte Fachbegriffe — mind. 3 für Verdichtung nötig`, severity: "hard_fail" });
+  }
+
+  if (!hasTypicalErrors(text)) {
+    failures.push({ rule: "WIEDERHOLEN_NO_TRAPS", message: "Keine Prüfungsfallen/typische Fehler in Wiederholung — Pflicht für Verdichtung", severity: "hard_fail" });
+  }
+
+  // Check for transfer exercises
+  const hasTransfer = /Transfer|übertrag|anwend.*auf|andere.*Situation|vergleich.*mit/i.test(text);
+  if (!hasTransfer) {
+    failures.push({ rule: "WIEDERHOLEN_NO_TRANSFER", message: "Keine Transferübung — mind. 1 Übertragungsaufgabe nötig", severity: "soft_warn" });
+  }
+
   return {
     passes: !failures.some(f => f.severity === "hard_fail"),
     failures,
-    metrics: { hasPassiveSummary: hasPassiveSummary(text), hasRetrieval: hasRetrievalMechanics(text), hasTable },
+    metrics: { hasPassiveSummary: hasPassiveSummary(text), hasRetrieval: hasRetrievalMechanics(text), hasTable, wordCount, fachbegriffCount, hasTypicalErrors: hasTypicalErrors(text), hasTransfer },
   };
 }
 
