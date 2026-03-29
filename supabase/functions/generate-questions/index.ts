@@ -71,6 +71,28 @@ Deno.serve(async (req) => {
 
     console.log(`[User: ${auth.user?.id}] Generating ${count} ${difficulty} questions for "${professionName}": ${competencyTitle} [cognitive: ${assignedLevels.join(',')}]`);
 
+    // ── Assign conflict_type distribution (30% target) ──
+    const CONFLICT_TYPES = ['similar_options', 'legal_vs_practical', 'best_answer', 'priority_conflict'];
+    const assignedConflicts: (string | null)[] = [];
+    for (let i = 0; i < count; i++) {
+      if (Math.random() < 0.30) {
+        assignedConflicts.push(CONFLICT_TYPES[Math.floor(Math.random() * CONFLICT_TYPES.length)]);
+      } else {
+        assignedConflicts.push(null);
+      }
+    }
+
+    const CONFLICT_HINTS: Record<string, string> = {
+      similar_options: 'ÄHNLICHE OPTIONEN: Mindestens 2 Antworten klingen fast identisch — nur ein feiner Unterschied macht eine richtig.',
+      legal_vs_practical: 'RECHT vs. PRAXIS: Die rechtlich korrekte Antwort widerspricht der Praxisgepflogenheit.',
+      best_answer: 'BESTE ANTWORT: Mehrere Optionen sind teilweise richtig — nur eine ist die BESTE/vollständigste.',
+      priority_conflict: 'PRIORITÄTSKONFLIKT: Mehrere Maßnahmen sind sinnvoll — die Reihenfolge/Priorität entscheidet.',
+    };
+
+    const conflictBlock = assignedConflicts.some(c => c !== null)
+      ? `\nKONFLIKT-FRAGEN (PFLICHT für markierte Fragen):\n${assignedConflicts.map((c, i) => c ? `Frage ${i + 1}: ${c.toUpperCase()} — ${CONFLICT_HINTS[c]}` : `Frage ${i + 1}: Standard (kein Konflikt)`).join('\n')}`
+      : '';
+
     const systemPrompt = `Du bist ein erfahrener IHK-Prüfungsexperte für ${professionName}. Du erstellst Prüfungsfragen, die sich anfühlen, als kämen sie direkt aus einer echten IHK-Abschlussprüfung für ${professionName}.
 
 REGELN:
@@ -94,6 +116,12 @@ SCHWIERIGKEITSGRADE (PFLICHT):
 - medium: Anwendung mit Berechnung oder Regelwissen
 - hard: Analyse + Transfer, mehrstufige Rechenwege, Kombinationsaufgaben
 
+KONFLIKT-TYPEN (wenn zugewiesen, PFLICHT):
+- similar_options: 2+ Antworten klingen fast gleich, feiner Unterschied entscheidet
+- legal_vs_practical: Rechtlich korrekt vs. Praxisüblich — Prüfling muss Recht wählen
+- best_answer: Mehrere teilweise richtige Antworten, nur eine ist die BESTE
+- priority_conflict: Mehrere richtige Maßnahmen, Priorität/Reihenfolge entscheidet
+
 ANTI-KI-REGELN:
 - KEINE Sätze wie "In der heutigen Geschäftswelt..." oder "Es ist wichtig zu beachten..."
 - KEINE generischen Szenarien wie "ein Unternehmen" — verwende konkrete Namen, Zahlen, Abteilungen
@@ -106,6 +134,7 @@ SELBSTPRÜFUNG vor Ausgabe:
 2. Steht die richtige Antwort tatsächlich an der Position correct_answer in options?
 3. Enthält die Erklärung keine "Ich"-Sätze oder Metakommentare?
 4. Erfüllt jede Frage die zugewiesene kognitive Stufe?
+5. Erfüllt jede Konflikt-Frage den zugewiesenen Konflikt-Typ?
 
 Antworte AUSSCHLIESSLICH mit einem validen JSON-Array:
 [
@@ -115,7 +144,9 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array:
     "correct_answer": 0,
     "explanation": "Fachliche Erklärung: Richtig ist A weil... B ist falsch weil... C ist falsch weil... D ist falsch weil... Tipp: ...",
     "difficulty": "easy|medium|hard",
-    "cognitive_level": "recall|understand|apply|analyze|decide"
+    "cognitive_level": "recall|understand|apply|analyze|decide",
+    "conflict_type": "none|similar_options|legal_vs_practical|best_answer|priority_conflict",
+    "complexity_score": 3
   }
 ]`;
 
@@ -126,9 +157,11 @@ Kompetenz: ${competencyTitle}
 ${competencyDescription ? `Beschreibung: ${competencyDescription}` : ''}
 Schwierigkeit: ${difficulty === 'easy' ? 'leicht' : difficulty === 'medium' ? 'mittelschwer' : 'schwer'}
 ${cogBlock}
+${conflictBlock}
 
 WICHTIG: Jede Frage braucht ein konkretes Szenario aus dem Arbeitsalltag von ${professionName}. Keine generischen "Was ist...?"-Fragen.
-PFLICHT: correct_answer muss 0, 1, 2 oder 3 sein. Prüfe vor Ausgabe, ob die richtige Antwort an der richtigen Position steht.`;
+PFLICHT: correct_answer muss 0, 1, 2 oder 3 sein. Prüfe vor Ausgabe, ob die richtige Antwort an der richtigen Position steht.
+PFLICHT: Bei Konflikt-Fragen MUSS conflict_type korrekt gesetzt sein. Bei Standard-Fragen: "none".`;
 
     const chain = await getModelChainAsync("exam_questions");
     const result = await callAIWithFailover(
@@ -184,6 +217,12 @@ PFLICHT: correct_answer muss 0, 1, 2 oder 3 sein. Prüfe vor Ausgabe, ob die ric
       .map((q: any, idx: number) => {
         // Contamination guard on each question
         assertNoContamination(q.question_text + " " + (q.explanation || ""), professionName, `question ${idx}`);
+
+        // Resolve conflict_type: LLM output > assigned > none
+        const rawConflict = q.conflict_type || assignedConflicts[idx] || 'none';
+        const validConflicts = ['none', 'similar_options', 'legal_vs_practical', 'best_answer', 'priority_conflict'];
+        const resolvedConflict = validConflicts.includes(rawConflict) ? rawConflict : 'none';
+
         return {
           question_text: q.question_text,
           options: q.options,
@@ -194,6 +233,10 @@ PFLICHT: correct_answer muss 0, 1, 2 oder 3 sein. Prüfe vor Ausgabe, ob die ric
           competency_id: competencyId,
           ai_generated: true,
           status: 'draft',
+          // Elite v2 columns — previously missing from v1 generator!
+          conflict_type: resolvedConflict,
+          complexity_score: q.complexity_score ?? 3,
+          scenario_type: resolvedConflict !== 'none' ? 'conflict' : 'standard',
         };
       });
 
