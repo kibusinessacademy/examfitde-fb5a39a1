@@ -28876,6 +28876,83 @@ export type Database = {
           },
         ]
       }
+      pricing_plans: {
+        Row: {
+          audience_type: string
+          checkout_mode: string
+          created_at: string
+          currency: string
+          description: string | null
+          duration_days: number
+          features_json: Json
+          id: string
+          is_active: boolean
+          is_featured: boolean
+          metadata_json: Json
+          plan_key: string
+          price_cents: number | null
+          product_id: string
+          seat_count: number | null
+          sort_order: number
+          stripe_price_id: string | null
+          subtitle: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          audience_type: string
+          checkout_mode: string
+          created_at?: string
+          currency?: string
+          description?: string | null
+          duration_days?: number
+          features_json?: Json
+          id?: string
+          is_active?: boolean
+          is_featured?: boolean
+          metadata_json?: Json
+          plan_key: string
+          price_cents?: number | null
+          product_id: string
+          seat_count?: number | null
+          sort_order?: number
+          stripe_price_id?: string | null
+          subtitle?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          audience_type?: string
+          checkout_mode?: string
+          created_at?: string
+          currency?: string
+          description?: string | null
+          duration_days?: number
+          features_json?: Json
+          id?: string
+          is_active?: boolean
+          is_featured?: boolean
+          metadata_json?: Json
+          plan_key?: string
+          price_cents?: number | null
+          product_id?: string
+          seat_count?: number | null
+          sort_order?: number
+          stripe_price_id?: string | null
+          subtitle?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pricing_plans_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       process_documentation: {
         Row: {
           category: string
@@ -33344,6 +33421,65 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      sales_leads: {
+        Row: {
+          contact_email: string | null
+          contact_name: string | null
+          created_at: string
+          id: string
+          message: string | null
+          metadata_json: Json
+          org_name: string | null
+          requested_plan_key: string | null
+          requested_product_id: string | null
+          requested_seat_count: number | null
+          source: string
+          status: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          contact_email?: string | null
+          contact_name?: string | null
+          created_at?: string
+          id?: string
+          message?: string | null
+          metadata_json?: Json
+          org_name?: string | null
+          requested_plan_key?: string | null
+          requested_product_id?: string | null
+          requested_seat_count?: number | null
+          source?: string
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          contact_email?: string | null
+          contact_name?: string | null
+          created_at?: string
+          id?: string
+          message?: string | null
+          metadata_json?: Json
+          org_name?: string | null
+          requested_plan_key?: string | null
+          requested_product_id?: string | null
+          requested_seat_count?: number | null
+          source?: string
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_leads_requested_product_id_fkey"
+            columns: ["requested_product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       schema_contracts: {
         Row: {
@@ -51748,6 +51884,10 @@ export type Database = {
       assert_qa_release_ok: { Args: never; Returns: undefined }
       assert_ssot_mapping_complete: { Args: never; Returns: Json }
       assert_step_backbone: { Args: { p_package_id: string }; Returns: Json }
+      assign_org_seat: {
+        Args: { p_license_id: string; p_user_id: string }
+        Returns: Json
+      }
       assign_paywall_variant: {
         Args: {
           p_experiment_key: string
@@ -52945,6 +53085,20 @@ export type Database = {
         }
         Returns: string
       }
+      create_sales_lead: {
+        Args: {
+          p_contact_email?: string
+          p_contact_name?: string
+          p_message?: string
+          p_org_name?: string
+          p_plan_key?: string
+          p_product_id?: string
+          p_seat_count?: number
+          p_source?: string
+          p_user_id: string
+        }
+        Returns: string
+      }
       create_store_entitlement: {
         Args: {
           p_curriculum_id: string
@@ -53831,6 +53985,35 @@ export type Database = {
       get_org_competency_dashboard: {
         Args: { p_organization_id: string }
         Returns: Json
+      }
+      get_org_dashboard_overview: { Args: { p_org_id: string }; Returns: Json }
+      get_org_license_list: {
+        Args: { p_org_id: string }
+        Returns: {
+          license_id: string
+          product_id: string
+          product_title: string
+          seats_available: number
+          seats_total: number
+          seats_used: number
+          source_ref: string
+          status: string
+          valid_from: string
+          valid_until: string
+        }[]
+      }
+      get_org_seat_members: {
+        Args: { p_org_id: string }
+        Returns: {
+          claimed_at: string
+          license_id: string
+          product_id: string
+          product_title: string
+          released_at: string
+          seat_id: string
+          seat_status: string
+          user_id: string
+        }[]
       }
       get_package_question_counts: {
         Args: { p_curriculum_ids: string[] }
@@ -54922,6 +55105,26 @@ export type Database = {
         }[]
       }
       resolve_next_step: { Args: { p_package_id: string }; Returns: Json }
+      resolve_pricing_plans: {
+        Args: { p_audience_type?: string; p_product_id: string }
+        Returns: {
+          audience_type: string
+          checkout_mode: string
+          currency: string
+          description: string
+          duration_days: number
+          features_json: Json
+          id: string
+          is_featured: boolean
+          plan_key: string
+          price_cents: number
+          seat_count: number
+          sort_order: number
+          stripe_price_id: string
+          subtitle: string
+          title: string
+        }[]
+      }
       resolve_qa_finding_if_exists: {
         Args: { p_area: string; p_title: string }
         Returns: undefined
@@ -54938,6 +55141,10 @@ export type Database = {
       revoke_mobile_store_entitlement: {
         Args: { p_purchase_event_id: string; p_reason: string }
         Returns: boolean
+      }
+      revoke_org_seat: {
+        Args: { p_license_id: string; p_user_id: string }
+        Returns: Json
       }
       revoke_qa_risk: { Args: { p_finding_id: string }; Returns: undefined }
       rollback_package_version: {
