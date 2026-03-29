@@ -15,6 +15,7 @@ export interface AnnotationInput {
   cognitive_level: string | null;
   trap_tags: string[] | null;
   distractor_meta: Record<string, unknown> | null;
+  conflict_type: string | null;
 
   // Blueprint join fields
   exam_context_type: string | null;
@@ -150,6 +151,10 @@ export function computeElite(row: AnnotationInput): EliteAnnotation {
   if (distractorTypes.length > 0) score += Math.min(distractorTypes.length, 2);
   if (row.exam_relevance_tier === "core") score += 1;
 
+  // Conflict-type bonus: questions with real conflict are harder and more IHK-realistic
+  const hasConflict = row.conflict_type && row.conflict_type !== 'none' && row.conflict_type !== '';
+  if (hasConflict) score += 2;
+
   const cog = (row.cognitive_level || "").toLowerCase();
   if (cog === "apply" || cog === "analyze" || cog === "evaluate") score += 1;
   if ((row.difficulty || "").toLowerCase() === "hard") score += 1;
@@ -173,6 +178,7 @@ export function buildAnnotationInput(q: Record<string, unknown>, bp: Record<stri
     cognitive_level: (q.cognitive_level as string) || null,
     trap_tags: (q.trap_tags as string[]) || null,
     distractor_meta: (q.distractor_meta as Record<string, unknown>) || null,
+    conflict_type: (q.conflict_type as string) || null,
     exam_context_type: (b.exam_context_type as string) || null,
     decision_structure: (b.decision_structure as string) || null,
     scenario_type: (b.scenario_type as string) || null,

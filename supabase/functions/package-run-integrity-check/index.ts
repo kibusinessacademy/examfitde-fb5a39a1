@@ -37,7 +37,7 @@ async function fetchAllApprovedQuestions(
   while (true) {
     const { data, error } = await sb
       .from("exam_questions")
-      .select("id, difficulty, cognitive_level, learning_field_id, competency_id, blueprint_id, exam_part, is_trap, trap_type")
+      .select("id, difficulty, cognitive_level, learning_field_id, competency_id, blueprint_id, exam_part, is_trap, trap_type, conflict_type, complexity_score, scenario_type")
       .eq("curriculum_id", currFilter)
       .in("qc_status", ["approved", "tier1_passed"])
       .order("id", { ascending: true })
@@ -873,6 +873,46 @@ async function runCourseReadyGate(
   }
 
   // ═══════════════════════════════════════════════
+  // GATE 10c: Conflict-Type Distribution (Elite-Härtung)
+  // Target: ≥20% of approved questions should have conflict_type != 'none'
+  // This ensures exam realism — questions where multiple answers seem plausible
+  // ═══════════════════════════════════════════════
+  if (totalApproved > 0) {
+    const withConflict = (approvedQs ?? []).filter((q: any) =>
+      q.conflict_type && q.conflict_type !== 'none' && q.conflict_type !== ''
+    ).length;
+    const conflictPct = (withConflict / totalApproved) * 100;
+    const CONFLICT_MIN_PCT: Record<string, number> = {
+      AUSBILDUNG_VOLL: 15,
+      ELITE: 20,
+      EXAM_FIRST: 10,
+    };
+    const conflictMinTarget = CONFLICT_MIN_PCT[trackEarly] ?? 15;
+    const conflictPassed = conflictPct >= conflictMinTarget;
+
+    // Conflict distribution breakdown
+    const conflictDist: Record<string, number> = {};
+    for (const q of (approvedQs ?? []) as any[]) {
+      if (q.conflict_type && q.conflict_type !== 'none' && q.conflict_type !== '') {
+        conflictDist[q.conflict_type] = (conflictDist[q.conflict_type] || 0) + 1;
+      }
+    }
+    const distDetail = Object.entries(conflictDist).map(([k, v]) => `${k}=${v}`).join(", ") || "none";
+
+    results.push({
+      gate: "conflict_type_distribution",
+      passed: conflictPassed,
+      severity: "warning",
+      detail: `${withConflict}/${totalApproved} conflict questions (${conflictPct.toFixed(1)}%, min ${conflictMinTarget}%) [${distDetail}]`,
+      value: withConflict,
+    });
+    if (!conflictPassed) {
+      warnings.push(`CONFLICT_TYPE_LOW: ${conflictPct.toFixed(1)}%<${conflictMinTarget}% — questions too straightforward for IHK realism`);
+    }
+    if (conflictPct >= 25) excellence.push(`CONFLICT_TYPE_EXCELLENT: ${conflictPct.toFixed(0)}% conflict questions — elite exam realism`);
+  }
+
+  // ═══════════════════════════════════════════════
   // WARNINGS
   // ═══════════════════════════════════════════════
   if (hardishPct >= 30 && hardishPct < 40) warnings.push(`HARDISH_BELOW_EXCELLENCE: ${hardishPct.toFixed(1)}% (excellence ≥45%)`);
@@ -1419,7 +1459,7 @@ Deno.serve(async (req) => {
     const metadataRepairSignals = [...gate.hardFails, ...gate.warnings].filter(s =>
       s.includes("TRAP_COVERAGE") || s.includes("METADATA_BLOOM") ||
       s.includes("METADATA_TRAP") || s.includes("EASY_TOO_LOW") ||
-      s.includes("BLOOM_GATE")
+      s.includes("BLOOM_GATE") || s.includes("CONFLICT_TYPE")
     );
     if (metadataRepairSignals.length > 0 && !isAlreadyPublished) {
       try {

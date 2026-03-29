@@ -23,18 +23,28 @@ Alle Fragen waren "zu eindeutig". Echte IHK-Prüfungen enthalten Konflikt-Fragen
 - Distribution wird per Random-Sampling im Generator zugewiesen
 - LLM-Output wird validiert und mit Assignment abgeglichen
 
-### Fixes im v1-Generator (`generate-questions/index.ts`)
-1. Conflict-Type Distribution (30% Target) mit Random-Assignment
-2. Conflict-Hints im Prompt (PFLICHT-Anweisung pro zugewiesener Frage)
-3. Output-Mapping: `conflict_type`, `complexity_score`, `scenario_type` — waren komplett fehlend
-4. Validierung: Nur gültige conflict_type-Werte werden akzeptiert
+### Systemweite Integration (v1.1)
+1. **v1-Generator** (`generate-questions/index.ts`): Conflict-Type Distribution + Prompt-Hints ✅
+2. **v2-Generator** (`auto-generate-question-v2/index.ts`): Hatte bereits conflict_type ✅
+3. **Elite-Annotation** (`elite-annotation.ts`): `conflict_type` als Input-Feld + Score-Bonus (+2) ✅
+4. **Elite-Harden** (`package-elite-harden/index.ts`): Query enthält `conflict_type` in beiden Phasen ✅
+5. **Integrity-Check** (`package-run-integrity-check/index.ts`): Neues GATE 10c `conflict_type_distribution` ✅
+6. **Export** (`export-course-package/index.ts`): Bereits enthalten ✅
 
-### Elite Bug: v1 Generator Missing Columns
-Der v1-Generator (`generate-questions`) setzte KEINE der folgenden Elite-v2-Spalten:
-- `conflict_type` → jetzt gefixt
-- `complexity_score` → jetzt gefixt
-- `scenario_type` → jetzt gefixt
-- `multi_variable`, `dynamic_scenario`, `transfer_variant` → bleiben v2-only (Blueprint-gesteuert)
+### Integrity Gate 10c: conflict_type_distribution
+| Track | Min-Target |
+|-------|-----------|
+| `AUSBILDUNG_VOLL` | 15% |
+| `ELITE` | 20% |
+| `EXAM_FIRST` | 10% |
+
+- Severity: `warning` (nicht blocker — System baut sich über Zeit auf)
+- Excellence: ≥25% → `CONFLICT_TYPE_EXCELLENT`
+- Auto-Repair: `CONFLICT_TYPE_LOW` Signal triggert metadata repair pipeline
+
+### Elite-Score Bonus
+Fragen mit `conflict_type != 'none'` erhalten **+2 Elite-Score-Punkte** in der Annotation.
+Dies hebt Konflikt-Fragen automatisch Richtung `advanced` oder `elite` Level.
 
 ### SSOT-Konformität
 - `conflict_type` ist ein DB-Feld auf `exam_questions` (kein ENUM-Constraint, String)
