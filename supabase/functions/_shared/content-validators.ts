@@ -111,10 +111,21 @@ export function validateEinstieg(html: string): StructuralValidationResult {
     failures.push({ rule: "EINSTIEG_PASSIVE_OPENER", message: "Passiver Einstieg ('Heute lernen wir...') — muss aktivierend sein", severity: "hard_fail" });
   }
 
+  // ── Elite v3: Praxisbezug ──
+  const exampleCount = countExamples(text);
+  if (exampleCount < 1) {
+    failures.push({ rule: "EINSTIEG_NO_EXAMPLE", message: "Kein konkretes Beispiel im Einstieg — Praxisbezug fehlt", severity: "hard_fail" });
+  }
+
+  const wordCount = text.split(/\s+/).length;
+  if (wordCount < 200) {
+    failures.push({ rule: "EINSTIEG_TOO_SHORT", message: `Nur ${wordCount} Wörter — mind. 200 nötig`, severity: "hard_fail" });
+  }
+
   return {
     passes: !failures.some(f => f.severity === "hard_fail"),
     failures,
-    metrics: { hasScenario: hasScenarioMarkers(text), scenarioScore: scenarioScore(text), questionCount, wordCount: text.split(/\s+/).length },
+    metrics: { hasScenario: hasScenarioMarkers(text), scenarioScore: scenarioScore(text), questionCount, wordCount, exampleCount },
   };
 }
 
