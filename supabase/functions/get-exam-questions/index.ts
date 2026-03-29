@@ -131,9 +131,9 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Entitlement check
+      // Phase 3: product-based access check
       const { data: entitlement } = await adminClient
-        .rpc('check_user_entitlement', {
+        .rpc('check_product_access_by_curriculum' as any, {
           p_user_id: user.id,
           p_curriculum_id: learningField.curriculum_id,
           p_feature: 'exam_trainer'
@@ -182,9 +182,9 @@ Deno.serve(async (req) => {
     const examMode = body.mode || 'exam';
     logStep("Exam assembler mode", { curriculum_id, count, examMode });
 
-    // Entitlement check
+    // Phase 3: product-based access check
     const { data: entitlement } = await adminClient
-      .rpc('check_user_entitlement', {
+      .rpc('check_product_access_by_curriculum' as any, {
         p_user_id: user.id,
         p_curriculum_id: curriculum_id,
         p_feature: 'exam_trainer'

@@ -66,8 +66,8 @@ Deno.serve(async (req) => {
       return forbiddenResponse("Forbidden", origin || undefined);
     }
 
-    // Entitlement check
-    const { data: entitlement } = await admin.rpc("check_user_entitlement", {
+    // Phase 3: product-based access check
+    const { data: entitlement } = await admin.rpc("check_product_access_by_curriculum" as any, {
       p_user_id: auth.user.id,
       p_curriculum_id: session.curriculum_id,
       p_feature: "exam_trainer",

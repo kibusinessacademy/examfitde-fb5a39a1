@@ -19,7 +19,7 @@ import {
   useUpdateHandbookProgress,
   useExerciseResponses,
 } from '@/hooks/handbook';
-import { useUserEntitlements } from '@/hooks/useEntitlements';
+import { useProductAccessByCurriculum } from '@/hooks/useProductAccess';
 import { HandbookSectionContent } from '@/components/handbook/HandbookSectionContent';
 import { HandbookExercise } from '@/components/handbook/HandbookExercise';
 import { SEOHead } from '@/components/seo/SEOHead';
@@ -30,15 +30,15 @@ export default function HandbookChapterPage() {
   const { data: chapterData, isLoading } = useHandbookChapter(chapterKey);
   const { data: allChapters } = useHandbookChapters();
   const { data: progress } = useHandbookProgress();
-  const { data: entitlements } = useUserEntitlements();
   const exerciseIds = chapterData?.exercises.map(e => e.id);
   const { data: exerciseResponses } = useExerciseResponses(chapterData?.chapter?.id, exerciseIds);
   const { mutate: updateProgress } = useUpdateHandbookProgress();
 
-  // Check if user has access (bundle or any product)
-  const hasAccess = entitlements?.some(
-    (e) => e.has_learning_course || e.has_exam_trainer
-  ) ?? false;
+  // Phase 3: product-based access check
+  const { data: hasAccess } = useProductAccessByCurriculum(
+    chapterData?.chapter?.curriculum_id,
+    undefined
+  );
 
   const chapter = chapterData?.chapter;
   const sections = chapterData?.sections || [];
