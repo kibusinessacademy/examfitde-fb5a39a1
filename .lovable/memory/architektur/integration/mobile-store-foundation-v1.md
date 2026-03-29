@@ -102,9 +102,21 @@ pending → structurally_valid → provider_verified → [refunded | expired]
 | `GOOGLE_ALLOWED_PACKAGE_NAMES` | Package-Name Whitelist | Konfigurierbar |
 | `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` | Google Play Developer API Auth | **Erforderlich für Google Go-Live** |
 
+### P0 Security Status: COMPLETE (beide Stores)
+
+Beide Stores (Apple + Google) haben jetzt:
+- Echte Provider-Verifikation (Apple: JWKS/JWS, Google: Play Developer API)
+- Hard Gate: Entitlement NUR bei `provider_verified`
+- Package/Bundle-Validierung
+- State/Revocation-Prüfung
+- API-Fehler → Hard Fail (kein Entitlement)
+- Ohne Provider-Credentials → nur `structurally_valid` (kein Entitlement)
+
 ### Verbleibende TODO für volle Produktionsreife
 
-1. **Webhook-Endpoints**: Apple Server Notifications v2, Google RTDN
-2. **Grace Period**: Billing Retry Handling für Subscriptions
-3. **Restore Purchases**: Client-seitiger Restore-Flow mit `purchase_context = 'restore'`
-4. **Purchase Acknowledgement**: Google Play acknowledge nach erfolgreicher Verifikation
+1. **Secrets konfigurieren**: `APPLE_ALLOWED_BUNDLE_IDS`, `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`
+2. **Webhook-Endpoints**: Apple Server Notifications v2, Google RTDN
+3. **Grace Period**: Billing Retry Handling für Subscriptions
+4. **Restore Purchases**: Client-seitiger Restore-Flow mit `purchase_context = 'restore'`
+5. **Purchase Acknowledgement**: Google Play acknowledge nach erfolgreicher Verifikation
+6. **Sandbox-Tests**: Echte Apple/Google Test-Transaktionen verifizieren
