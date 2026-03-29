@@ -6,7 +6,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Building2 } from "lucide-react";
 import OrgKpiPanel from "@/pages/org/panels/OrgKpiPanel";
 import OrgBillingPanel from "@/pages/org/panels/OrgBillingPanel";
-import OrgSeatsPanel from "@/pages/org/panels/OrgSeatsPanel";
+import OrgSeatManagementPanel from "@/pages/org/panels/OrgSeatManagementPanel";
 import OrgPrivacyPanel from "@/pages/org/panels/OrgPrivacyPanel";
 import OrgEntityManagerPanel from "@/pages/org/panels/OrgEntityManagerPanel";
 import AdminPrivacyQueuePanel from "@/pages/org/panels/AdminPrivacyQueuePanel";
