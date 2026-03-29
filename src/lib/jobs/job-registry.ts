@@ -42,6 +42,7 @@ export const KNOWN_JOB_TYPES = new Set([
   'process_lti_grade_passback',
   // ── Store ──
   'reconcile_store_purchases',
+  'expire_store_subscriptions',
 ] as const);
 
 export type KnownJobType = typeof KNOWN_JOB_TYPES extends Set<infer T> ? T : string;
