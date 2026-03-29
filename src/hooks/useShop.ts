@@ -153,21 +153,13 @@ export function useVerifyPurchase() {
   };
 }
 
+/** @deprecated Use useProductAccessByCurriculum from useProductAccess.ts instead */
 export function useUserEntitlements(curriculumId?: string) {
   return useQuery({
-    queryKey: ['user-entitlements', curriculumId],
+    queryKey: ['user-entitlements-shop-legacy', curriculumId],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return [];
-
-      const { data, error } = await supabase
-        .rpc('get_user_entitlements', {
-          p_user_id: user.id,
-          p_curriculum_id: curriculumId || null,
-        });
-
-      if (error) throw error;
-      return data || [];
+      console.warn('[DEPRECATED] useShop.useUserEntitlements called — migrate to useProductAccessByCurriculum');
+      return [];
     },
   });
 }
