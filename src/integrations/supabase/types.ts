@@ -21873,43 +21873,82 @@ export type Database = {
       mobile_store_purchase_events: {
         Row: {
           app_account_token: string | null
+          auto_renew_status: boolean | null
+          bundle_id: string | null
           created_at: string
+          environment: string | null
           external_original_transaction_id: string | null
           external_transaction_id: string
           id: string
+          is_subscription: boolean
           learner_identity_id: string | null
+          link_status: string
+          linked_at: string | null
           processed_at: string | null
+          provider_verification_json: Json | null
+          purchase_context: string
           raw_payload_json: Json
+          revocation_reason: string | null
+          revoked_at: string | null
           store: string
           store_sku: string
+          subscription_group_id: string | null
+          subscription_period_end: string | null
+          subscription_period_start: string | null
           user_id: string | null
           verification_status: string
         }
         Insert: {
           app_account_token?: string | null
+          auto_renew_status?: boolean | null
+          bundle_id?: string | null
           created_at?: string
+          environment?: string | null
           external_original_transaction_id?: string | null
           external_transaction_id: string
           id?: string
+          is_subscription?: boolean
           learner_identity_id?: string | null
+          link_status?: string
+          linked_at?: string | null
           processed_at?: string | null
+          provider_verification_json?: Json | null
+          purchase_context?: string
           raw_payload_json: Json
+          revocation_reason?: string | null
+          revoked_at?: string | null
           store: string
           store_sku: string
+          subscription_group_id?: string | null
+          subscription_period_end?: string | null
+          subscription_period_start?: string | null
           user_id?: string | null
           verification_status?: string
         }
         Update: {
           app_account_token?: string | null
+          auto_renew_status?: boolean | null
+          bundle_id?: string | null
           created_at?: string
+          environment?: string | null
           external_original_transaction_id?: string | null
           external_transaction_id?: string
           id?: string
+          is_subscription?: boolean
           learner_identity_id?: string | null
+          link_status?: string
+          linked_at?: string | null
           processed_at?: string | null
+          provider_verification_json?: Json | null
+          purchase_context?: string
           raw_payload_json?: Json
+          revocation_reason?: string | null
+          revoked_at?: string | null
           store?: string
           store_sku?: string
+          subscription_group_id?: string | null
+          subscription_period_end?: string | null
+          subscription_period_start?: string | null
           user_id?: string | null
           verification_status?: string
         }
@@ -21927,24 +21966,42 @@ export type Database = {
         Row: {
           entitlement_id: string | null
           id: string
+          last_renewal_at: string | null
           purchase_event_id: string
+          renewal_count: number
+          revoke_reason: string | null
+          revoked_at: string | null
           status: string
+          subscription_period_end: string | null
+          subscription_period_start: string | null
           verification_provider: string | null
           verified_at: string | null
         }
         Insert: {
           entitlement_id?: string | null
           id?: string
+          last_renewal_at?: string | null
           purchase_event_id: string
+          renewal_count?: number
+          revoke_reason?: string | null
+          revoked_at?: string | null
           status?: string
+          subscription_period_end?: string | null
+          subscription_period_start?: string | null
           verification_provider?: string | null
           verified_at?: string | null
         }
         Update: {
           entitlement_id?: string | null
           id?: string
+          last_renewal_at?: string | null
           purchase_event_id?: string
+          renewal_count?: number
+          revoke_reason?: string | null
+          revoked_at?: string | null
           status?: string
+          subscription_period_end?: string | null
+          subscription_period_start?: string | null
           verification_provider?: string | null
           verified_at?: string | null
         }
@@ -48556,18 +48613,36 @@ export type Database = {
       }
       v_mobile_store_purchase_audit: {
         Row: {
+          active_but_expired: boolean | null
+          auto_renew_status: boolean | null
           entitlement_id: string | null
+          environment: string | null
+          external_original_transaction_id: string | null
           external_transaction_id: string | null
+          is_subscription: boolean | null
+          last_renewal_at: string | null
+          link_status: string | null
+          processed_at: string | null
+          purchase_context: string | null
           purchase_created_at: string | null
           purchase_event_id: string | null
           receipt_link_id: string | null
           receipt_link_status: string | null
+          refunded_but_active: boolean | null
+          renewal_count: number | null
+          revoke_reason: string | null
           source_type: string | null
           store: string | null
           store_sku: string | null
+          subscription_period_end: string | null
+          subscription_period_start: string | null
+          unlinked_purchase: boolean | null
           user_id: string | null
+          valid_from: string | null
           valid_until: string | null
           verification_status: string | null
+          verified_without_entitlement: boolean | null
+          verified_without_receipt_link: boolean | null
         }
         Relationships: [
           {
@@ -52438,18 +52513,33 @@ export type Database = {
         }
         Returns: string
       }
-      create_mobile_store_entitlement: {
-        Args: {
-          p_is_subscription?: boolean
-          p_learner_identity_id?: string
-          p_product_id: string
-          p_purchase_event_id: string
-          p_source_ref?: string
-          p_store: string
-          p_user_id?: string
-        }
-        Returns: string
-      }
+      create_mobile_store_entitlement:
+        | {
+            Args: {
+              p_is_subscription?: boolean
+              p_learner_identity_id?: string
+              p_product_id: string
+              p_purchase_event_id: string
+              p_source_ref?: string
+              p_store: string
+              p_user_id?: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_is_subscription?: boolean
+              p_learner_identity_id?: string
+              p_product_id: string
+              p_purchase_event_id: string
+              p_source_ref?: string
+              p_store: string
+              p_subscription_period_end?: string
+              p_subscription_period_start?: string
+              p_user_id?: string
+            }
+            Returns: string
+          }
       create_patch_plan_from_finding: {
         Args: {
           p_council_version_id: string
@@ -52606,6 +52696,7 @@ export type Database = {
         Args: { p_draft_id: string }
         Returns: Json
       }
+      expire_mobile_store_subscriptions: { Args: never; Returns: number }
       expire_stale_leases: {
         Args: never
         Returns: {
@@ -53707,6 +53798,14 @@ export type Database = {
           package_id: string
           reason: string
         }[]
+      }
+      link_mobile_store_purchase_to_user: {
+        Args: {
+          p_app_account_token?: string
+          p_purchase_event_id: string
+          p_user_id: string
+        }
+        Returns: boolean
       }
       list_b2b_curricula: {
         Args: never
