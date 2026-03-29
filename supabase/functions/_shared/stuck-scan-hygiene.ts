@@ -504,3 +504,121 @@ export async function healTrueStallSteps(sb: SupabaseClient) {
 
   return healed;
 }
+
+/**
+ * Zombie Reaper v2: Kill processing jobs based on hard age cutoff (ignores heartbeat refresh).
+ * This prevents the false-liveness pattern where STALE_LOCK_RECOVERY cycles keep refreshing
+ * last_heartbeat_at on zombie jobs.
+ */
+export async function reapZombieProcessingJobsV2(sb: SupabaseClient): Promise<number> {
+  try {
+    const { data: reaped, error } = await safeRpc(sb, "reap_zombie_processing_jobs_v2", {
+      p_max_age_hours: 24,
+      p_reason: "stuck-scan: zombie processing (age-based, ignores heartbeat)",
+    });
+    const count = Array.isArray(reaped) ? reaped.length : 0;
+    if (count > 0) {
+      console.warn(`[stuck-scan] 🧟‍♂️ ZOMBIE REAPER V2: Killed ${count} processing job(s) older than 24h`);
+
+      // Release leases for affected packages
+      const packageIds = [...new Set((reaped as any[]).map((r: any) => r.package_id).filter(Boolean))];
+      for (const pkgId of packageIds) {
+        await safeRpc(sb, "release_stale_package_lease_v2", {
+          p_package_id: pkgId,
+          p_reason: "stuck-scan: zombie reaper v2 cleanup",
+        });
+      }
+
+      await sb.from("auto_heal_log").insert({
+        action_type: "zombie_reaper_v2",
+        trigger_source: "stuck-scan",
+        target_type: "job_queue",
+        target_id: null,
+        result_status: "applied",
+        result_detail: `Killed ${count} zombie processing jobs (age-based)`,
+        metadata: { killed: reaped, package_ids: packageIds.slice(0, 20) },
+      });
+    }
+    if (error) {
+      console.warn(`[stuck-scan] zombie reaper v2 error: ${error.message}`);
+    }
+    return count;
+  } catch (err) {
+    console.warn(`[stuck-scan] zombie reaper v2 threw: ${(err as Error).message}`);
+    return 0;
+  }
+}
+
+/**
+ * Ancient Pending Reaper: Cancel pending jobs that have been waiting too long (>48h).
+ */
+export async function reapAncientPendingJobs(sb: SupabaseClient): Promise<number> {
+  try {
+    const { data: reaped, error } = await safeRpc(sb, "reap_ancient_pending_jobs", {
+      p_max_age_hours: 48,
+      p_reason: "stuck-scan: ancient pending job cleanup",
+    });
+    const count = Array.isArray(reaped) ? reaped.length : 0;
+    if (count > 0) {
+      console.warn(`[stuck-scan] 📦 ANCIENT PENDING REAPER: Cancelled ${count} pending job(s) older than 48h`);
+      await sb.from("auto_heal_log").insert({
+        action_type: "ancient_pending_reaper",
+        trigger_source: "stuck-scan",
+        target_type: "job_queue",
+        target_id: null,
+        result_status: "applied",
+        result_detail: `Cancelled ${count} ancient pending jobs`,
+        metadata: { cancelled: reaped },
+      });
+    }
+    if (error) {
+      console.warn(`[stuck-scan] ancient pending reaper error: ${error.message}`);
+    }
+    return count;
+  } catch (err) {
+    console.warn(`[stuck-scan] ancient pending reaper threw: ${(err as Error).message}`);
+    return 0;
+  }
+}
+
+/**
+ * False-Liveness Guard: Release leases and reset building packages that have no real activity.
+ * Uses ops_build_activity_truth view to identify false-active packages.
+ */
+export async function healFalseLivenessPackages(sb: SupabaseClient): Promise<string[]> {
+  const healed: string[] = [];
+  try {
+    const { data: falseActive } = await sb
+      .from("ops_build_activity_truth")
+      .select("package_id, title, fresh_active_jobs, zombie_jobs, running_steps, has_lease, liveness_verdict")
+      .eq("liveness_verdict", "false_active");
+
+    for (const pkg of (falseActive ?? []) as any[]) {
+      // Release lease
+      if (pkg.has_lease) {
+        await safeRpc(sb, "release_stale_package_lease_v2", {
+          p_package_id: pkg.package_id,
+          p_reason: "stuck-scan: false-liveness guard — no real activity",
+        });
+      }
+
+      healed.push(pkg.package_id);
+      console.warn(`[stuck-scan] 🎭 FALSE-LIVENESS: ${String(pkg.package_id).slice(0, 8)} "${pkg.title}" — released lease, pipeline-runner will re-acquire`);
+    }
+
+    if (healed.length > 0) {
+      await sb.from("auto_heal_log").insert({
+        action_type: "false_liveness_guard",
+        trigger_source: "stuck-scan",
+        target_type: "course_packages",
+        target_id: null,
+        result_status: "applied",
+        result_detail: `Released ${healed.length} false-liveness package(s)`,
+        metadata: { package_ids: healed },
+      });
+    }
+  } catch (err) {
+    console.warn(`[stuck-scan] false-liveness guard threw: ${(err as Error).message}`);
+  }
+  return healed;
+}
