@@ -99,8 +99,189 @@ Deno.serve(async (req) => {
       const _isWorkBrand = _brandLower.includes('examfit@work') || _brandLower.includes('examfitwork') || _brandLower === 'berufski';
       if (_isWorkBrand) {
         logStep("ExamFit@work brand detected — skipping ExamFit handler, will process below");
+      } else if (meta.checkout_source === 'create-payment') {
+        // ── NEW: Product-based payment fulfillment (B2C paywall + B2B pricing plan) ──
+        try {
+          const userId = meta.user_id;
+          const productId = meta.product_id;
+          const flow = meta.flow; // 'paywall_variant' or 'pricing_plan'
+
+          if (!userId || !productId) {
+            logStep("SKIP create-payment fulfillment (missing user_id/product_id)", { meta });
+          } else if (flow === 'paywall_variant') {
+            // ── B2C: Create personal entitlement ──
+            logStep("Fulfilling B2C paywall_variant purchase", { userId, productId });
+
+            const durationDays = 365;
+            const validUntil = new Date();
+            validUntil.setDate(validUntil.getDate() + durationDays);
+
+            // Idempotency: check existing entitlement for this session
+            const { data: existingEnt } = await adminClient
+              .from('entitlements')
+              .select('id')
+              .eq('user_id', userId)
+              .eq('product_id', productId)
+              .eq('source_type', 'stripe')
+              .eq('source_ref', session.id)
+              .maybeSingle();
+
+            if (existingEnt) {
+              logStep("Entitlement already exists (idempotent)", { id: existingEnt.id });
+            } else {
+              await adminClient.from('entitlements').insert({
+                user_id: userId,
+                product_id: productId,
+                source_type: 'stripe',
+                source_ref: session.id,
+                valid_from: new Date().toISOString(),
+                valid_until: validUntil.toISOString(),
+              });
+              logStep("B2C entitlement created", { userId, productId, validUntil: validUntil.toISOString() });
+            }
+
+            // Record experiment conversion
+            if (meta.experiment_key && meta.variant_key) {
+              try {
+                await adminClient.rpc('record_experiment_conversion' as any, {
+                  p_user_id: userId,
+                  p_experiment_key: meta.experiment_key,
+                  p_variant_key: meta.variant_key,
+                  p_conversion_value_cents: parseInt(meta.price_cents || session.amount_total?.toString() || '0'),
+                });
+                logStep("Experiment conversion recorded");
+              } catch (convErr) {
+                logStep("WARN: Could not record experiment conversion", { error: String(convErr) });
+              }
+            }
+
+            // Track checkout_completed event
+            await adminClient.from('conversion_events').insert({
+              user_id: userId,
+              event_type: 'checkout_completed',
+              metadata: {
+                product_id: productId,
+                session_id: session.id,
+                flow,
+                experiment_key: meta.experiment_key,
+                variant_key: meta.variant_key,
+                amount_total: session.amount_total,
+              },
+            }).then(() => {});
+
+          } else if (flow === 'pricing_plan') {
+            // ── B2B: Create org + license + seats ──
+            logStep("Fulfilling B2B pricing_plan purchase", { userId, productId, planKey: meta.plan_key });
+
+            const seatCount = parseInt(meta.seat_count || '1');
+            const durationDays = parseInt(meta.duration_days || '365');
+            const validUntil = new Date();
+            validUntil.setDate(validUntil.getDate() + durationDays);
+
+            // Idempotency: check existing license for this session
+            const { data: existingLic } = await adminClient
+              .from('org_licenses')
+              .select('id')
+              .eq('source_ref', session.id)
+              .maybeSingle();
+
+            if (existingLic) {
+              logStep("Org license already exists (idempotent)", { id: existingLic.id });
+            } else {
+              // Find or create organization
+              let orgId: string | null = null;
+              const orgName = meta.org_name || 'Organisation';
+
+              // Check if user already owns an org
+              const { data: existingMembership } = await adminClient
+                .from('org_memberships')
+                .select('org_id')
+                .eq('user_id', userId)
+                .eq('role', 'owner')
+                .eq('status', 'active')
+                .limit(1)
+                .maybeSingle();
+
+              if (existingMembership) {
+                orgId = existingMembership.org_id;
+                logStep("Using existing org", { orgId });
+              } else {
+                // Create new org
+                const { data: newOrg } = await adminClient
+                  .from('organizations')
+                  .insert({
+                    name: orgName,
+                    org_type: 'company',
+                  })
+                  .select('id')
+                  .single();
+
+                if (newOrg) {
+                  orgId = newOrg.id;
+                  // Add buyer as owner
+                  await adminClient.from('org_memberships').insert({
+                    org_id: orgId,
+                    user_id: userId,
+                    role: 'owner',
+                    status: 'active',
+                  });
+                  logStep("Organization created", { orgId, orgName });
+                }
+              }
+
+              if (orgId) {
+                // Create org_license
+                const { data: newLicense } = await adminClient
+                  .from('org_licenses')
+                  .insert({
+                    org_id: orgId,
+                    product_id: productId,
+                    seat_count: seatCount,
+                    seats_used: 0,
+                    starts_at: new Date().toISOString(),
+                    ends_at: validUntil.toISOString(),
+                    status: 'active',
+                    source_type: 'stripe',
+                    source_ref: session.id,
+                  })
+                  .select('id')
+                  .single();
+
+                if (newLicense) {
+                  logStep("Org license created", { licenseId: newLicense.id, seatCount });
+
+                  // Auto-assign first seat to buyer
+                  await adminClient.from('org_license_seats').insert({
+                    license_id: newLicense.id,
+                    user_id: userId,
+                    claimed_at: new Date().toISOString(),
+                  });
+                  // Trigger will sync seats_used
+                  logStep("Buyer auto-assigned first seat");
+                }
+              }
+            }
+
+            // Track checkout_completed event
+            await adminClient.from('conversion_events').insert({
+              user_id: userId,
+              event_type: 'checkout_completed',
+              metadata: {
+                product_id: productId,
+                session_id: session.id,
+                flow,
+                plan_key: meta.plan_key,
+                seat_count: meta.seat_count,
+                audience_type: meta.audience_type,
+                amount_total: session.amount_total,
+              },
+            }).then(() => {});
+          }
+        } catch (newFlowErr) {
+          logStep("ERROR: create-payment fulfillment failed", { error: String(newFlowErr) });
+        }
       } else {
-        // ── ExamFit Store handler ──
+        // ── ExamFit Store handler (legacy) ──
         try {
           const userId = meta.user_id;
           const productId = meta.product_id;
