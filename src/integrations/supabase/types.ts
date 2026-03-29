@@ -3293,6 +3293,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "billing_accounts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_org_license_overview"
+            referencedColumns: ["org_id"]
+          },
         ]
       }
       blog_posts: {
@@ -15301,6 +15308,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "entitlements_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "v_org_license_overview"
+            referencedColumns: ["org_id"]
+          },
+          {
             foreignKeyName: "entitlements_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
@@ -16934,24 +16948,39 @@ export type Database = {
       experiment_assignments: {
         Row: {
           assigned_at: string
+          conversion_value_cents: number | null
+          converted_at: string | null
           experiment_id: string
           id: string
+          metadata_json: Json
+          platform: string | null
           user_id: string
           variant: string
+          variant_id: string | null
         }
         Insert: {
           assigned_at?: string
+          conversion_value_cents?: number | null
+          converted_at?: string | null
           experiment_id: string
           id?: string
+          metadata_json?: Json
+          platform?: string | null
           user_id: string
           variant: string
+          variant_id?: string | null
         }
         Update: {
           assigned_at?: string
+          conversion_value_cents?: number | null
+          converted_at?: string | null
           experiment_id?: string
           id?: string
+          metadata_json?: Json
+          platform?: string | null
           user_id?: string
           variant?: string
+          variant_id?: string | null
         }
         Relationships: [
           {
@@ -16959,6 +16988,13 @@ export type Database = {
             columns: ["experiment_id"]
             isOneToOne: false
             referencedRelation: "experiments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "experiment_assignments_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "paywall_variants"
             referencedColumns: ["id"]
           },
         ]
@@ -18981,6 +19017,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "learner_identities_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "v_org_license_overview"
+            referencedColumns: ["org_id"]
+          },
         ]
       }
       learner_notes: {
@@ -20856,6 +20899,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "lti_deployments_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "v_org_license_overview"
+            referencedColumns: ["org_id"]
+          },
+          {
             foreignKeyName: "lti_deployments_platform_registration_id_fkey"
             columns: ["platform_registration_id"]
             isOneToOne: false
@@ -21015,6 +21065,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lti_platform_registrations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_org_license_overview"
+            referencedColumns: ["org_id"]
           },
         ]
       }
@@ -24354,6 +24411,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "org_invoice_coding_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_org_license_overview"
+            referencedColumns: ["org_id"]
+          },
         ]
       }
       org_license_assignments: {
@@ -24408,6 +24472,7 @@ export type Database = {
           org_id: string
           product_id: string
           seat_count: number
+          seats_used: number
           starts_at: string
           status: string
         }
@@ -24420,6 +24485,7 @@ export type Database = {
           org_id: string
           product_id: string
           seat_count?: number
+          seats_used?: number
           starts_at?: string
           status?: string
         }
@@ -24432,6 +24498,7 @@ export type Database = {
           org_id?: string
           product_id?: string
           seat_count?: number
+          seats_used?: number
           starts_at?: string
           status?: string
         }
@@ -24444,11 +24511,72 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "org_licenses_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "v_org_license_overview"
+            referencedColumns: ["org_id"]
+          },
+          {
             foreignKeyName: "org_licenses_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      org_memberships: {
+        Row: {
+          created_at: string
+          id: string
+          invited_at: string | null
+          invited_by: string | null
+          joined_at: string | null
+          org_id: string
+          role: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          invited_at?: string | null
+          invited_by?: string | null
+          joined_at?: string | null
+          org_id: string
+          role?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          invited_at?: string | null
+          invited_by?: string | null
+          joined_at?: string | null
+          org_id?: string
+          role?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_memberships_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "org_memberships_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "v_org_license_overview"
+            referencedColumns: ["org_id"]
           },
         ]
       }
@@ -24503,6 +24631,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "org_privacy_access_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "v_org_license_overview"
+            referencedColumns: ["org_id"]
+          },
         ]
       }
       org_report_runs: {
@@ -24540,6 +24675,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "org_report_runs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_org_license_overview"
+            referencedColumns: ["org_id"]
           },
         ]
       }
@@ -24588,6 +24730,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "organization_entities_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_org_license_overview"
+            referencedColumns: ["org_id"]
+          },
         ]
       }
       organization_learners: {
@@ -24630,6 +24779,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "organization_learners_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_org_license_overview"
+            referencedColumns: ["org_id"]
+          },
         ]
       }
       organization_members: {
@@ -24661,6 +24817,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organization_members_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_org_license_overview"
+            referencedColumns: ["org_id"]
           },
         ]
       }
@@ -24728,34 +24891,59 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "organization_seats_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_org_license_overview"
+            referencedColumns: ["org_id"]
+          },
         ]
       }
       organizations: {
         Row: {
+          contact_email: string | null
+          contact_name: string | null
           created_at: string
           default_report_scope: Database["public"]["Enums"]["report_scope"]
           fiscal_year_start_month: number
           id: string
+          is_active: boolean
+          logo_url: string | null
+          metadata_json: Json
           name: string
           org_type: string
+          slug: string | null
           updated_at: string
         }
         Insert: {
+          contact_email?: string | null
+          contact_name?: string | null
           created_at?: string
           default_report_scope?: Database["public"]["Enums"]["report_scope"]
           fiscal_year_start_month?: number
           id?: string
+          is_active?: boolean
+          logo_url?: string | null
+          metadata_json?: Json
           name: string
           org_type?: string
+          slug?: string | null
           updated_at?: string
         }
         Update: {
+          contact_email?: string | null
+          contact_name?: string | null
           created_at?: string
           default_report_scope?: Database["public"]["Enums"]["report_scope"]
           fiscal_year_start_month?: number
           id?: string
+          is_active?: boolean
+          logo_url?: string | null
+          metadata_json?: Json
           name?: string
           org_type?: string
+          slug?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -27021,6 +27209,136 @@ export type Database = {
             columns: ["order_id"]
             isOneToOne: false
             referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      paywall_experiments: {
+        Row: {
+          created_at: string
+          description: string | null
+          end_at: string | null
+          experiment_key: string
+          id: string
+          metadata_json: Json
+          name: string
+          start_at: string | null
+          status: string
+          target_product_id: string | null
+          traffic_pct: number
+          updated_at: string
+          winning_variant_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          end_at?: string | null
+          experiment_key: string
+          id?: string
+          metadata_json?: Json
+          name: string
+          start_at?: string | null
+          status?: string
+          target_product_id?: string | null
+          traffic_pct?: number
+          updated_at?: string
+          winning_variant_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          end_at?: string | null
+          experiment_key?: string
+          id?: string
+          metadata_json?: Json
+          name?: string
+          start_at?: string | null
+          status?: string
+          target_product_id?: string | null
+          traffic_pct?: number
+          updated_at?: string
+          winning_variant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "paywall_experiments_target_product_id_fkey"
+            columns: ["target_product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      paywall_variants: {
+        Row: {
+          apple_sku: string | null
+          created_at: string
+          cta_text: string | null
+          currency: string
+          experiment_id: string
+          features_json: Json
+          google_sku: string | null
+          headline: string | null
+          id: string
+          is_control: boolean
+          layout: string
+          metadata_json: Json
+          price_cents: number
+          stripe_price_id: string | null
+          subheadline: string | null
+          trigger_context: string
+          urgency_type: string | null
+          variant_key: string
+          weight: number
+        }
+        Insert: {
+          apple_sku?: string | null
+          created_at?: string
+          cta_text?: string | null
+          currency?: string
+          experiment_id: string
+          features_json?: Json
+          google_sku?: string | null
+          headline?: string | null
+          id?: string
+          is_control?: boolean
+          layout?: string
+          metadata_json?: Json
+          price_cents: number
+          stripe_price_id?: string | null
+          subheadline?: string | null
+          trigger_context?: string
+          urgency_type?: string | null
+          variant_key: string
+          weight?: number
+        }
+        Update: {
+          apple_sku?: string | null
+          created_at?: string
+          cta_text?: string | null
+          currency?: string
+          experiment_id?: string
+          features_json?: Json
+          google_sku?: string | null
+          headline?: string | null
+          id?: string
+          is_control?: boolean
+          layout?: string
+          metadata_json?: Json
+          price_cents?: number
+          stripe_price_id?: string | null
+          subheadline?: string | null
+          trigger_context?: string
+          urgency_type?: string | null
+          variant_key?: string
+          weight?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "paywall_variants_experiment_id_fkey"
+            columns: ["experiment_id"]
+            isOneToOne: false
+            referencedRelation: "paywall_experiments"
             referencedColumns: ["id"]
           },
         ]
@@ -48136,6 +48454,22 @@ export type Database = {
         }
         Relationships: []
       }
+      v_experiment_results: {
+        Row: {
+          assignments: number | null
+          conversion_rate_pct: number | null
+          conversions: number | null
+          experiment_key: string | null
+          experiment_name: string | null
+          experiment_status: string | null
+          is_control: boolean | null
+          layout: string | null
+          price_cents: number | null
+          total_revenue_cents: number | null
+          variant_key: string | null
+        }
+        Relationships: []
+      }
       v_failed_job_clusters: {
         Row: {
           affected_packages: number | null
@@ -48977,6 +49311,30 @@ export type Database = {
           zombie_class: string | null
         }
         Relationships: []
+      }
+      v_org_license_overview: {
+        Row: {
+          active_members: number | null
+          license_status: string | null
+          org_id: string | null
+          org_name: string | null
+          org_type: string | null
+          product_id: string | null
+          seats_available: number | null
+          seats_total: number | null
+          seats_used: number | null
+          valid_from: string | null
+          valid_until: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_licenses_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       v_package_build_priority: {
         Row: {
@@ -51349,6 +51707,14 @@ export type Database = {
       assert_qa_release_ok: { Args: never; Returns: undefined }
       assert_ssot_mapping_complete: { Args: never; Returns: Json }
       assert_step_backbone: { Args: { p_package_id: string }; Returns: Json }
+      assign_paywall_variant: {
+        Args: {
+          p_experiment_key: string
+          p_platform?: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
       attach_finding_remediation: {
         Args: {
           p_council_version_id: string
@@ -51678,6 +52044,10 @@ export type Database = {
       }
       check_no_placeholder_lessons: {
         Args: { p_course_id: string }
+        Returns: boolean
+      }
+      check_org_license_access: {
+        Args: { p_product_id: string; p_user_id: string }
         Returns: boolean
       }
       check_pipeline_health_alerts: { Args: never; Returns: Json }
@@ -54238,6 +54608,14 @@ export type Database = {
           p_test_status: string
         }
         Returns: string
+      }
+      record_experiment_conversion: {
+        Args: {
+          p_experiment_key: string
+          p_user_id: string
+          p_value_cents?: number
+        }
+        Returns: boolean
       }
       record_worker_usage: {
         Args: {
