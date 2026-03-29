@@ -587,10 +587,13 @@ export async function reapAncientPendingJobs(sb: SupabaseClient): Promise<number
  */
 export async function healFalseLivenessPackages(sb: SupabaseClient): Promise<string[]> {
   const healed: string[] = [];
+  const normalized: string[] = [];
+  const GRACE_MINUTES = 15;
+
   try {
     const { data: falseActive } = await sb
       .from("ops_build_activity_truth")
-      .select("package_id, title, fresh_active_jobs, zombie_jobs, running_steps, has_lease, liveness_verdict")
+      .select("package_id, title, status, fresh_active_jobs, zombie_jobs, running_steps, has_lease, liveness_verdict, last_step_transition_at, last_pipeline_event_at")
       .eq("liveness_verdict", "false_active");
 
     for (const pkg of (falseActive ?? []) as any[]) {
@@ -603,22 +606,78 @@ export async function healFalseLivenessPackages(sb: SupabaseClient): Promise<str
       }
 
       healed.push(pkg.package_id);
-      console.warn(`[stuck-scan] 🎭 FALSE-LIVENESS: ${String(pkg.package_id).slice(0, 8)} "${pkg.title}" — released lease, pipeline-runner will re-acquire`);
+      console.warn(`[stuck-scan] 🎭 FALSE-LIVENESS: ${String(pkg.package_id).slice(0, 8)} "${pkg.title}" — released lease`);
+
+      // ── P0.3: Auto-normalize building+false_active → queued after grace period ──
+      if (pkg.status === "building") {
+        const lastActivity = pkg.last_step_transition_at || pkg.last_pipeline_event_at;
+        const idleMinutes = lastActivity
+          ? (Date.now() - new Date(lastActivity).getTime()) / 60_000
+          : 999;
+
+        if (idleMinutes >= GRACE_MINUTES) {
+          const { error: resetErr } = await sb
+            .from("course_packages")
+            .update({
+              status: "queued",
+              updated_at: new Date().toISOString(),
+              stuck_reason: null,
+            })
+            .eq("id", pkg.package_id)
+            .eq("status", "building");
+
+          if (!resetErr) {
+            normalized.push(pkg.package_id);
+            console.warn(`[stuck-scan] 🎭→📦 FALSE-LIVENESS NORMALIZE: ${String(pkg.package_id).slice(0, 8)} "${pkg.title}" — building→queued (idle ${Math.round(idleMinutes)}min)`);
+          }
+        }
+      }
     }
 
-    if (healed.length > 0) {
+    // Also check no_activity packages that are still building
+    const { data: noActivity } = await sb
+      .from("ops_build_activity_truth")
+      .select("package_id, title, status, last_step_transition_at, last_pipeline_event_at, liveness_verdict")
+      .eq("liveness_verdict", "no_activity")
+      .eq("status", "building");
+
+    for (const pkg of (noActivity ?? []) as any[]) {
+      const lastActivity = pkg.last_step_transition_at || pkg.last_pipeline_event_at;
+      const idleMinutes = lastActivity
+        ? (Date.now() - new Date(lastActivity).getTime()) / 60_000
+        : 999;
+
+      if (idleMinutes >= GRACE_MINUTES) {
+        const { error: resetErr } = await sb
+          .from("course_packages")
+          .update({
+            status: "queued",
+            updated_at: new Date().toISOString(),
+            stuck_reason: null,
+          })
+          .eq("id", pkg.package_id)
+          .eq("status", "building");
+
+        if (!resetErr) {
+          normalized.push(pkg.package_id);
+          console.warn(`[stuck-scan] 📦 NO-ACTIVITY NORMALIZE: ${String(pkg.package_id).slice(0, 8)} "${pkg.title}" — building→queued (idle ${Math.round(idleMinutes)}min)`);
+        }
+      }
+    }
+
+    if (healed.length > 0 || normalized.length > 0) {
       await sb.from("auto_heal_log").insert({
         action_type: "false_liveness_guard",
         trigger_source: "stuck-scan",
         target_type: "course_packages",
         target_id: null,
         result_status: "applied",
-        result_detail: `Released ${healed.length} false-liveness package(s)`,
-        metadata: { package_ids: healed },
+        result_detail: `Released ${healed.length} false-liveness package(s), normalized ${normalized.length} to queued`,
+        metadata: { released: healed, normalized, grace_minutes: GRACE_MINUTES },
       });
     }
   } catch (err) {
     console.warn(`[stuck-scan] false-liveness guard threw: ${(err as Error).message}`);
   }
-  return healed;
+  return [...healed, ...normalized];
 }
