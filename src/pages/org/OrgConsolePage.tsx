@@ -118,12 +118,8 @@ export default function OrgConsolePage() {
           </TabsContent>
 
           <TabsContent value="seats" className="mt-4">
-            <OrgSeatsPanel
+            <OrgSeatManagementPanel
               organizationId={selected.org.id}
-              entities={selected.entities ?? []}
-              learners={selected.learners ?? []}
-              seats={selected.seats ?? []}
-              seatSummary={selected.seat_summary ?? {}}
             />
           </TabsContent>
 
