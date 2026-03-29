@@ -1459,7 +1459,7 @@ Deno.serve(async (req) => {
     const metadataRepairSignals = [...gate.hardFails, ...gate.warnings].filter(s =>
       s.includes("TRAP_COVERAGE") || s.includes("METADATA_BLOOM") ||
       s.includes("METADATA_TRAP") || s.includes("EASY_TOO_LOW") ||
-      s.includes("BLOOM_GATE")
+      s.includes("BLOOM_GATE") || s.includes("CONFLICT_TYPE")
     );
     if (metadataRepairSignals.length > 0 && !isAlreadyPublished) {
       try {
