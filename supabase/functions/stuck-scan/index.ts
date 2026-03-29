@@ -191,7 +191,14 @@ Deno.serve(async (req) => {
     const integrityReportMissing = await healIntegrityReportMissing(sb);
     const trueStallStepsHealed = await healTrueStallSteps(sb);
 
-    console.log(`[stuck-scan] ${results.length} timeout-checked, ${orphanResults.length} orphan-checked, ${buildingPkgResults.length} building-pkg-checked, ${statusLagResults.length} status-lag-healed, ${staleCount} stale jobs killed (liveness guard), ${zombieResults.length} zombie steps fixed, ${escalationResults.length} escalation loops handled, ${revivedCount} transient-failed revived, ${leaseNoProgressHealed} lease-no-progress healed, ${trueStallsHealed.length} true-stalls healed, ${deadlockHealed.length} deadlocks healed, ${loopGuardFalsePositives.length} loop-guard-false-positives healed, ${integrityReportMissing} integrity-report-missing healed, ${trueStallStepsHealed.length} true-stall-steps healed${systemFrozen ? ", ⚫ SYSTEM FREEZE DETECTED" : ""}${poolMismatchFixed > 0 ? `, 🔧 ${poolMismatchFixed} pool mismatches fixed` : ""}`);
+    // ══ 6) Zombie Reaper v2 (age-based, ignores false heartbeats) ══
+    const zombieReaperV2Count = await reapZombieProcessingJobsV2(sb);
+    const ancientPendingCount = await reapAncientPendingJobs(sb);
+
+    // ══ 7) False-Liveness Guard ══
+    const falseLivenessHealed = await healFalseLivenessPackages(sb);
+
+    console.log(`[stuck-scan] ${results.length} timeout-checked, ${orphanResults.length} orphan-checked, ${buildingPkgResults.length} building-pkg-checked, ${statusLagResults.length} status-lag-healed, ${staleCount} stale jobs killed (liveness guard), ${zombieResults.length} zombie steps fixed, ${escalationResults.length} escalation loops handled, ${revivedCount} transient-failed revived, ${leaseNoProgressHealed} lease-no-progress healed, ${trueStallsHealed.length} true-stalls healed, ${deadlockHealed.length} deadlocks healed, ${loopGuardFalsePositives.length} loop-guard-false-positives healed, ${integrityReportMissing} integrity-report-missing healed, ${trueStallStepsHealed.length} true-stall-steps healed, ${zombieReaperV2Count} zombie-v2 reaped, ${ancientPendingCount} ancient-pending reaped, ${falseLivenessHealed.length} false-liveness healed${systemFrozen ? ", ⚫ SYSTEM FREEZE DETECTED" : ""}${poolMismatchFixed > 0 ? `, 🔧 ${poolMismatchFixed} pool mismatches fixed` : ""}`);
 
     return json({
       ok: true,
@@ -215,6 +222,9 @@ Deno.serve(async (req) => {
       loop_guard_false_positives: loopGuardFalsePositives,
       integrity_report_missing_healed: integrityReportMissing,
       true_stall_steps_healed: trueStallStepsHealed,
+      zombie_reaper_v2_count: zombieReaperV2Count,
+      ancient_pending_reaped: ancientPendingCount,
+      false_liveness_healed: falseLivenessHealed,
     });
   } catch (e: unknown) {
     const msg = (e as Error)?.message || String(e);
