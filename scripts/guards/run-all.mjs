@@ -15,6 +15,7 @@ const guards = [
   "integrity-track-aware-guard.mjs",
   "no-nano-learning-content-guard.mjs",
   "auto-publish-postcondition-guard.mjs",
+  "no-legacy-entitlement-rpc-guard.mjs",
 ];
 
 function run(file) {

@@ -26,6 +26,7 @@ Diese Scripts werden von CI-Workflows und dem Meta-Runner `run-all.mjs` ausgefü
 | `integrity-track-aware-guard.mjs` | Integrity-Gate muss track-aware sein | **HARD FAIL** | Threshold-Map, Track-Resolver, EXAM_FIRST-Entry |
 | `no-nano-learning-content-guard.mjs` | Kein gpt-5-nano für Learning Content | **HARD FAIL** | Kein `nano` + `learning_content` im selben Routing-Kontext |
 | `no-direct-llm-fetch-guard.mjs` | Kein direkter LLM-API-Fetch | **HARD FAIL** | Alle LLM-Calls über `_shared/ai-client.ts` |
+| `no-legacy-entitlement-rpc-guard.mjs` | Blockiert gelöschte Legacy-Entitlement-RPCs | **HARD FAIL** | Kein `check_user_entitlement`, `get_user_entitlements*` |
 
 **Meta-Runner:**
 - `run-all.mjs` — Führt alle Guards sequenziell aus
