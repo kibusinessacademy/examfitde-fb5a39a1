@@ -708,3 +708,101 @@ export async function healFalseLivenessPackages(sb: SupabaseClient): Promise<str
   }
   return [...healed, ...normalized];
 }
+
+/**
+ * Detect validate_exam_pool stuck in repeated failures and dispatch repair step.
+ * Hard cutoff: after 5 consecutive failures, enqueue repair_exam_pool_quality instead of retry.
+ */
+export async function healValidateExamPoolLoop(sb: SupabaseClient) {
+  let repaired = 0;
+  try {
+    // Find packages where validate_exam_pool has failed repeatedly
+    const { data: failedSteps } = await sb
+      .from("package_steps")
+      .select("package_id, meta, last_error")
+      .eq("step_key", "validate_exam_pool")
+      .eq("status", "failed")
+      .limit(20);
+
+    for (const step of failedSteps || []) {
+      // Count recent failures for this package
+      const { count } = await sb
+        .from("job_queue")
+        .select("id", { count: "exact", head: true })
+        .eq("package_id", step.package_id)
+        .eq("job_type", "package_validate_exam_pool")
+        .eq("status", "failed")
+        .gte("created_at", new Date(Date.now() - 24 * 60 * 60_000).toISOString());
+
+      const failCount = count ?? 0;
+
+      if (failCount >= 3) {
+        // Check if repair step exists; if not, create it
+        const { data: repairStep } = await sb
+          .from("package_steps")
+          .select("id, status")
+          .eq("package_id", step.package_id)
+          .eq("step_key", "repair_exam_pool_quality")
+          .maybeSingle();
+
+        if (!repairStep) {
+          // Insert the repair step
+          await sb.from("package_steps").insert({
+            package_id: step.package_id,
+            step_key: "repair_exam_pool_quality",
+            status: "queued",
+          });
+        } else if (repairStep.status !== "running" && repairStep.status !== "enqueued") {
+          // Reset to queued
+          await sb.from("package_steps").update({
+            status: "queued",
+            updated_at: new Date().toISOString(),
+          }).eq("id", repairStep.id);
+        }
+
+        // Enqueue the repair job
+        const { data: pkg } = await sb
+          .from("course_packages")
+          .select("curriculum_id, title")
+          .eq("id", step.package_id)
+          .maybeSingle();
+
+        await enqueueJob(sb, {
+          jobType: "package_repair_exam_pool_quality",
+          packageId: step.package_id,
+          priority: 30,
+          payload: {
+            curriculum_id: pkg?.curriculum_id,
+            triggered_by: "stuck-scan-validate-loop-heal",
+            fail_count: failCount,
+          },
+        });
+
+        // Unblock package if it was loop-guarded
+        await sb.from("course_packages").update({
+          status: "building",
+          blocked_reason: null,
+          updated_at: new Date().toISOString(),
+        }).eq("id", step.package_id)
+          .eq("status", "blocked")
+          .ilike("blocked_reason", "%validate_exam_pool%");
+
+        repaired++;
+        console.warn(`[stuck-scan] 🔧 VALIDATE_EXAM_POOL_LOOP → REPAIR: ${pkg?.title?.slice(0, 30)} (${step.package_id.slice(0, 8)}) after ${failCount} failures`);
+
+        await sb.from("auto_heal_log").insert({
+          action_type: "validate_exam_pool_loop_repair",
+          trigger_source: "stuck-scan",
+          target_type: "package_steps",
+          target_id: step.package_id,
+          result_status: "applied",
+          result_detail: `Dispatched repair_exam_pool_quality after ${failCount} validate failures`,
+          metadata: { fail_count: failCount, package_title: pkg?.title },
+        });
+      }
+    }
+  } catch (err) {
+    console.warn(`[stuck-scan] validate_exam_pool loop heal error: ${(err as Error).message}`);
+  }
+  return repaired;
+}

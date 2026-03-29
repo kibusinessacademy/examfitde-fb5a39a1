@@ -17,6 +17,7 @@ export const KNOWN_JOB_TYPES = new Set([
   'curriculum_smoke',
   'quality_gate_precheck',
   'publish_product',
+  'package_repair_exam_pool_quality',
   // ── SEO ──
   'seo_foundation',
   'seo_audit',
