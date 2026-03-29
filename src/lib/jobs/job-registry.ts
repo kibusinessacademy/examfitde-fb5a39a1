@@ -38,6 +38,8 @@ export const KNOWN_JOB_TYPES = new Set([
   'seed_learning_fields',
   'seed_competencies',
   'seed_recheck',
+  // ── LTI ──
+  'process_lti_grade_passback',
 ] as const);
 
 export type KnownJobType = typeof KNOWN_JOB_TYPES extends Set<infer T> ? T : string;
