@@ -53454,6 +53454,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      repair_exam_pool_quality: {
+        Args: { p_curriculum_id: string }
+        Returns: Json
+      }
       repair_missing_finalize_artifact: {
         Args: { p_package_id: string }
         Returns: Json
@@ -53546,6 +53550,7 @@ export type Database = {
         Args: { p_job_types?: string[]; p_package_id: string }
         Returns: number
       }
+      reset_false_active_packages: { Args: never; Returns: number }
       resolve_available_llm_route: {
         Args: { p_workload_key: string }
         Returns: Json
