@@ -13,6 +13,10 @@ async function callEdge<T>(fnName: string, body: Record<string, unknown> = {}): 
     body,
   });
   if (error) throw error;
+  // Guard: edge functions may return {ok: false, error: "..."} as HTTP 200
+  if (data && typeof data === "object" && "ok" in data && data.ok === false && data.error) {
+    throw new Error(String(data.error));
+  }
   return data as T;
 }
 
