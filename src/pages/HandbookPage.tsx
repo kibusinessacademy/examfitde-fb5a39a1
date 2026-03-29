@@ -13,7 +13,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { useHandbookChapters, useHandbookProgress } from '@/hooks/handbook';
-import { useUserEntitlements } from '@/hooks/useEntitlements';
+import { useProductAccessByCurriculum } from '@/hooks/useProductAccess';
 import { HandbookChapterCard } from '@/components/handbook/HandbookChapterCard';
 import { SEOHead } from '@/components/seo/SEOHead';
 import PageExplainer from '@/components/admin/PageExplainer';
@@ -21,12 +21,12 @@ import PageExplainer from '@/components/admin/PageExplainer';
 export default function HandbookPage() {
   const { data: chapters, isLoading: chaptersLoading } = useHandbookChapters();
   const { data: progress } = useHandbookProgress();
-  const { data: entitlements } = useUserEntitlements();
 
-  // Check if user has handbook access (bundle includes all features)
-  const hasHandbookAccess = entitlements?.some(
-    (e) => e.has_learning_course || e.has_exam_trainer
-  ) ?? false;
+  // Phase 3: product-based access — handbook is available with any product entitlement
+  const { data: hasHandbookAccess } = useProductAccessByCurriculum(
+    chapters?.[0]?.curriculum_id,
+    undefined
+  );
 
   const completedCount = progress?.filter(p => p.completed_at).length || 0;
   const totalChapters = chapters?.length || 0;

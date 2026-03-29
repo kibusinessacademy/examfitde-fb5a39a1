@@ -1,6 +1,12 @@
+/**
+ * @deprecated Phase 3: Legacy entitlement hooks. Use useProductAccess.ts instead.
+ * This file is kept only for backward compatibility during transition.
+ * All active pages now use useProductAccessByCurriculum or useProductAccess.
+ */
+
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useProductAccessByCurriculum } from '@/hooks/useProductAccess';
 
 export interface UserEntitlement {
   curriculum_id: string;
@@ -14,65 +20,34 @@ export interface UserEntitlement {
 
 type Feature = 'learning_course' | 'exam_trainer' | 'ai_tutor' | 'oral_trainer';
 
+/** @deprecated Use useProductAccessByCurriculum instead */
 export function useUserEntitlements(curriculumId?: string) {
   const { user } = useAuth();
 
   return useQuery({
-    queryKey: ['user-entitlements', user?.id, curriculumId],
+    queryKey: ['user-entitlements-legacy', user?.id, curriculumId],
     queryFn: async () => {
-      if (!user) return [];
-
-      // v2: adds has_handbook column
-      const { data, error } = await supabase
-        .rpc('get_user_entitlements_v2' as any, {
-          p_user_id: user.id,
-          p_curriculum_id: curriculumId || null,
-        });
-
-      if (error) throw error;
-      return (data || []) as UserEntitlement[];
+      // Legacy RPCs have been removed. Return empty array.
+      console.warn('[DEPRECATED] useUserEntitlements called — migrate to useProductAccessByCurriculum');
+      return [] as UserEntitlement[];
     },
     enabled: !!user,
-    staleTime: 60 * 1000, // 1 minute
-  });
-}
-
-export function useCheckEntitlement(curriculumId: string, feature: Feature) {
-  const { user } = useAuth();
-
-  return useQuery({
-    queryKey: ['check-entitlement', user?.id, curriculumId, feature],
-    queryFn: async () => {
-      if (!user || !curriculumId) return false;
-
-      const { data, error } = await supabase
-        .rpc('check_user_entitlement', {
-          p_user_id: user.id,
-          p_curriculum_id: curriculumId,
-          p_feature: feature,
-        });
-
-      if (error) {
-        console.error('Entitlement check error:', error);
-        return false;
-      }
-      return data as boolean;
-    },
-    enabled: !!user && !!curriculumId,
     staleTime: 60 * 1000,
   });
 }
 
+/** @deprecated Use useProductAccessByCurriculum instead */
+export function useCheckEntitlement(curriculumId: string, feature: Feature) {
+  return useProductAccessByCurriculum(curriculumId, feature);
+}
+
+/** @deprecated Use useProductAccessByCurriculum instead */
 export function useHasAnyEntitlement(curriculumId: string) {
-  const { data: entitlements, isLoading } = useUserEntitlements(curriculumId);
-  
-  const hasAccess = entitlements && entitlements.length > 0 && entitlements.some(e => 
-    e.has_learning_course || e.has_exam_trainer || e.has_ai_tutor || e.has_oral_trainer
-  );
+  const { data: hasAccess, isLoading } = useProductAccessByCurriculum(curriculumId);
 
   return {
     hasAccess: !!hasAccess,
     isLoading,
-    entitlements,
+    entitlements: undefined,
   };
 }
