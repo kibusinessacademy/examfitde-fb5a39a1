@@ -1,7 +1,7 @@
 # Memory: architektur/integration/mobile-store-foundation-v1
 Updated: 2026-03-29
 
-## Mobile Store Integration — P0 Hardening Complete
+## Mobile Store Integration — P0 Security Pass Complete
 
 ### Datenmodell
 
@@ -14,43 +14,74 @@ Updated: 2026-03-29
 
 **Hinweis**: `mobile_store_*` Prefix wegen bestehender Legacy-Tabelle `store_products` (Stripe-basiert).
 
-### P0 Hardening (v2)
+### Verification Status Model (gehärtet)
 
-#### Provider-Verifikation
-- **Apple**: JWS-Payload-Dekodierung, Bundle-ID-Validierung (`APPLE_ALLOWED_BUNDLE_IDS`), Environment-Check (`APPLE_ENVIRONMENT`), Revocation-Detection. Full JWS-Signaturprüfung vorbereitet (guarded auf `APPLE_SHARED_SECRET`).
-- **Google**: purchaseState/acknowledgementState-Prüfung, Package-Name-Validierung (`GOOGLE_ALLOWED_PACKAGE_NAMES`), Cancellation-Check, Expiry-Check. Full Play Developer API vorbereitet (guarded auf `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`).
+```
+pending → structurally_valid → provider_verified → [refunded | expired]
+                             → rejected
+                             → error (retry via reconcile)
+```
 
-#### Subscription Lifecycle
+**Kritische Regel**: Entitlement-Erzeugung NUR aus `provider_verified` oder `verified` Status.
+`structurally_valid` erzeugt KEIN Entitlement — erfordert echte Provider-Verifikation.
+
+### Provider-Verifikation (P0 Complete)
+
+#### Apple
+- **Kryptografische JWS-Signaturprüfung** gegen Apple JWKS (`https://appleid.apple.com/auth/keys`)
+- JWKS-Cache mit 1h TTL
+- kid-Matching → RS256/ES256 Signaturverifikation via Web Crypto API
+- Bundle-ID-Validierung (`APPLE_ALLOWED_BUNDLE_IDS`)
+- Environment-Check (`APPLE_ENVIRONMENT`)
+- Revocation-Detection
+- **HARD FAIL**: Ohne erfolgreiche kryptografische Prüfung → kein `provider_verified`
+- Legacy-Receipts (nicht-JWS) werden abgelehnt
+
+#### Google
+- **Google Play Developer API Integration** (vollständig implementiert)
+- Service Account OAuth2 JWT-basierte Authentifizierung
+- `purchases.products.get` für Einmalkäufe
+- `purchases.subscriptionsv2.tokens` für Subscriptions
+- purchaseState / acknowledgementState / subscriptionState Prüfung
+- Package-Name-Validierung (`GOOGLE_ALLOWED_PACKAGE_NAMES`)
+- **HARD FAIL**: API-Fehler oder fehlende Konfiguration → kein Entitlement
+- Ohne `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` → nur `structurally_valid`
+
+### Subscription Lifecycle
 - `subscription_period_start` / `subscription_period_end` auf Purchase Events + Receipt Links
 - `auto_renew_status` tracking
 - `renewal_count` / `last_renewal_at` auf Receipt Links
-- `create_mobile_store_entitlement()` erweitert um `p_subscription_period_start` / `p_subscription_period_end`
+- `create_mobile_store_entitlement()` mit Security Gate: prüft `verification_status`
 - Bei Renewal: Entitlement `valid_until` wird aktualisiert statt neues erstellt
 - `expire_mobile_store_subscriptions()` RPC für automatische Ablaufbehandlung
-- Job: `expire_store_subscriptions` registriert
 
-#### Identity Linking Policy
+### Identity Linking Policy
 - `purchase_context`: 'authenticated' | 'anonymous' | 'restore' | 'transfer'
 - `link_status`: 'linked' | 'unlinked' | 'pending_link' | 'conflict'
-- `link_mobile_store_purchase_to_user()` RPC: verknüpft anonyme Käufe sicher mit User + Entitlement
+- `link_mobile_store_purchase_to_user()` RPC
 - Kauf ohne Login erlaubt (anonymous) → spätere Zuordnung über link-Funktion
 
-#### Enhanced Audit View
+### Reconcile-Logik (gehärtet)
+- `reconcile-store-purchases` promoted pending/error → `structurally_valid` (NICHT zu `provider_verified`)
+- Echte Provider-Verifikation nur über `verify-apple-purchase` / `verify-google-purchase`
+- Orphan-Fix: nur für bereits `provider_verified` Events ohne Entitlement
+- `structurally_valid` Events werden gezählt aber NICHT auto-promoted
+
+### Enhanced Audit View
 `v_mobile_store_purchase_audit` mit Anomalie-Markern:
 - `verified_without_receipt_link`
 - `verified_without_entitlement`
 - `active_but_expired`
 - `refunded_but_active`
 - `unlinked_purchase`
-
-#### Verification Status erweitert
-`pending` → `provider_verified` → `verified` → `refunded` | `expired` | `rejected` | `error`
+- `awaiting_provider_verification`
 
 ### Sicherheit
 - RLS auf allen Tabellen
 - `service_role` Vollzugriff
 - `authenticated` nur eigene Purchase Events + aktive Store-Produkte
 - RPCs: SECURITY DEFINER + REVOKE FROM PUBLIC
+- `create_mobile_store_entitlement()` hat Security Gate: prüft verification_status
 - Bundle-ID / Package-Name-Validierung in Edge Functions
 - Environment-Validierung (production vs sandbox)
 
@@ -58,14 +89,22 @@ Updated: 2026-03-29
 
 | Function | Zweck | Status |
 |---|---|---|
-| `verify-apple-purchase` | Apple IAP mit JWS/Bundle/Environment Checks | ✅ P0 Hardened |
-| `verify-google-purchase` | Google Play mit State/Package/Expiry Checks | ✅ P0 Hardened |
-| `reconcile-store-purchases` | Retry + Subscription Expiry + Orphan Fix | ✅ P0 Hardened |
+| `verify-apple-purchase` | Apple IAP mit kryptografischer JWS-Verifikation gegen JWKS | ✅ P0 Complete |
+| `verify-google-purchase` | Google Play mit Developer API Integration | ✅ P0 Complete |
+| `reconcile-store-purchases` | Retry + Expiry + Orphan Fix (NICHT auto-verify) | ✅ P0 Complete |
 
-### TODO für volle Produktionsreife
+### Benötigte Secrets für Go-Live
 
-1. **Apple**: Full JWS Signaturverifikation gegen Apple JWKS (benötigt `APPLE_SHARED_SECRET`)
-2. **Google**: Play Developer API Integration (benötigt `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`)
-3. **Webhook-Endpoints**: Apple Server Notifications v2, Google RTDN
-4. **Grace Period**: Billing Retry Handling für Subscriptions
-5. **Restore Purchases**: Client-seitiger Restore-Flow mit `purchase_context = 'restore'`
+| Secret | Zweck | Status |
+|---|---|---|
+| `APPLE_ALLOWED_BUNDLE_IDS` | Bundle-ID Whitelist | Konfigurierbar |
+| `APPLE_ENVIRONMENT` | production/sandbox | Konfigurierbar |
+| `GOOGLE_ALLOWED_PACKAGE_NAMES` | Package-Name Whitelist | Konfigurierbar |
+| `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` | Google Play Developer API Auth | **Erforderlich für Google Go-Live** |
+
+### Verbleibende TODO für volle Produktionsreife
+
+1. **Webhook-Endpoints**: Apple Server Notifications v2, Google RTDN
+2. **Grace Period**: Billing Retry Handling für Subscriptions
+3. **Restore Purchases**: Client-seitiger Restore-Flow mit `purchase_context = 'restore'`
+4. **Purchase Acknowledgement**: Google Play acknowledge nach erfolgreicher Verifikation
