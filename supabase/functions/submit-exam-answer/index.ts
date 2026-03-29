@@ -124,7 +124,7 @@ Deno.serve(async (req) => {
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Product-based access check (replaces legacy check_user_entitlement)
+    // Product-based access check via check_product_access_by_curriculum
     const { data: hasAccess } = await adminClient
       .rpc('check_product_access_by_curriculum', {
         p_user_id: user.id,
