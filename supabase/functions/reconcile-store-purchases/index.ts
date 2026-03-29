@@ -12,11 +12,14 @@ const BATCH_SIZE = 20;
 /**
  * Reconcile Store Purchases
  *
- * Re-processes pending/error purchase events and handles:
- * - Retry verification for pending/error events
+ * Handles:
+ * - Retry verification for pending/error/structurally_valid events
  * - Subscription expiration
- * - Orphaned receipt links (verified without entitlement)
+ * - Orphaned receipt links (provider_verified without entitlement)
  * - Refund detection cleanup
+ *
+ * IMPORTANT: Only provider_verified events get entitlements.
+ * structurally_valid events remain in queue for provider re-verification.
  */
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -43,6 +46,7 @@ Deno.serve(async (req: Request) => {
       skipped: 0,
       subscriptions_expired: 0,
       orphans_fixed: 0,
+      structurally_valid_skipped: 0,
     };
 
     // ── Action: expire_subscriptions ─────────────────────────
@@ -57,7 +61,6 @@ Deno.serve(async (req: Request) => {
           payload_json: { expired: results.subscriptions_expired },
           status: "completed",
         });
-
         return new Response(JSON.stringify(results), {
           status: 200,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -65,7 +68,7 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // ── Action: fix_orphans — verified events without entitlements ─
+    // ── Action: fix_orphans — provider_verified without entitlements ──
     if (!body.action || body.action === "fix_orphans") {
       const { data: orphans } = await sb
         .from("mobile_store_purchase_events")
@@ -74,12 +77,11 @@ Deno.serve(async (req: Request) => {
           learner_identity_id, is_subscription,
           subscription_period_start, subscription_period_end
         `)
-        .in("verification_status", ["verified", "provider_verified"])
+        .eq("verification_status", "provider_verified")
         .limit(BATCH_SIZE);
 
       if (orphans) {
         for (const orphan of orphans) {
-          // Check if receipt link with entitlement exists
           const { data: link } = await sb
             .from("mobile_store_receipt_links")
             .select("id, entitlement_id")
@@ -87,9 +89,8 @@ Deno.serve(async (req: Request) => {
             .eq("status", "active")
             .maybeSingle();
 
-          if (link?.entitlement_id) continue; // Already has entitlement
+          if (link?.entitlement_id) continue;
 
-          // Resolve product and create entitlement
           const { data: productData } = await sb.rpc("resolve_mobile_store_product", {
             p_store: orphan.store,
             p_store_sku: orphan.store_sku,
@@ -100,19 +101,22 @@ Deno.serve(async (req: Request) => {
           const storeProduct = productData[0];
           const isSubscription = storeProduct.store_product_type === "subscription" || orphan.is_subscription;
 
-          await sb.rpc("create_mobile_store_entitlement", {
-            p_store: orphan.store,
-            p_purchase_event_id: orphan.id,
-            p_product_id: storeProduct.product_id,
-            p_user_id: orphan.user_id || null,
-            p_learner_identity_id: orphan.learner_identity_id || null,
-            p_source_ref: orphan.external_transaction_id,
-            p_is_subscription: isSubscription,
-            p_subscription_period_start: orphan.subscription_period_start || null,
-            p_subscription_period_end: orphan.subscription_period_end || null,
-          });
-
-          results.orphans_fixed++;
+          try {
+            await sb.rpc("create_mobile_store_entitlement", {
+              p_store: orphan.store,
+              p_purchase_event_id: orphan.id,
+              p_product_id: storeProduct.product_id,
+              p_user_id: orphan.user_id || null,
+              p_learner_identity_id: orphan.learner_identity_id || null,
+              p_source_ref: orphan.external_transaction_id,
+              p_is_subscription: isSubscription,
+              p_subscription_period_start: orphan.subscription_period_start || null,
+              p_subscription_period_end: orphan.subscription_period_end || null,
+            });
+            results.orphans_fixed++;
+          } catch (err) {
+            console.error("Reconcile: orphan fix failed", { eventId: orphan.id, error: String(err) });
+          }
         }
       }
 
@@ -123,7 +127,6 @@ Deno.serve(async (req: Request) => {
           payload_json: results,
           status: "completed",
         });
-
         return new Response(JSON.stringify(results), {
           status: 200,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -132,6 +135,9 @@ Deno.serve(async (req: Request) => {
     }
 
     // ── Default: retry pending/error events ──────────────────
+    // NOTE: structurally_valid events are NOT auto-promoted to verified.
+    // They need real provider verification which requires calling the
+    // verify-apple-purchase or verify-google-purchase functions.
     let query = sb
       .from("mobile_store_purchase_events")
       .select(`
@@ -144,12 +150,8 @@ Deno.serve(async (req: Request) => {
       .order("created_at", { ascending: true })
       .limit(BATCH_SIZE);
 
-    if (body.store) {
-      query = query.eq("store", body.store);
-    }
-    if (body.purchase_event_id) {
-      query = query.eq("id", body.purchase_event_id);
-    }
+    if (body.store) query = query.eq("store", body.store);
+    if (body.purchase_event_id) query = query.eq("id", body.purchase_event_id);
 
     const { data: events, error: fetchErr } = await query;
 
@@ -160,6 +162,13 @@ Deno.serve(async (req: Request) => {
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    // Count structurally_valid events for reporting
+    const { count: svCount } = await sb
+      .from("mobile_store_purchase_events")
+      .select("id", { count: "exact", head: true })
+      .eq("verification_status", "structurally_valid");
+    results.structurally_valid_skipped = svCount ?? 0;
 
     if (!events?.length && results.subscriptions_expired === 0 && results.orphans_fixed === 0) {
       return new Response(
@@ -172,76 +181,47 @@ Deno.serve(async (req: Request) => {
       results.reconciled++;
 
       try {
-        // Resolve product
         const { data: productData } = await sb.rpc("resolve_mobile_store_product", {
           p_store: event.store,
           p_store_sku: event.store_sku,
         });
 
         if (!productData?.length || !productData[0].is_active) {
-          await sb
-            .from("mobile_store_purchase_events")
+          await sb.from("mobile_store_purchase_events")
             .update({ verification_status: "error", processed_at: new Date().toISOString() })
             .eq("id", event.id);
           results.failed++;
           continue;
         }
 
-        const storeProduct = productData[0];
-
-        // Structural re-validation
         const isValid = !!event.store_sku && !!event.external_transaction_id;
-
         if (!isValid) {
-          await sb
-            .from("mobile_store_purchase_events")
+          await sb.from("mobile_store_purchase_events")
             .update({ verification_status: "rejected", processed_at: new Date().toISOString() })
             .eq("id", event.id);
           results.failed++;
           continue;
         }
 
-        // Mark as verified
-        await sb
-          .from("mobile_store_purchase_events")
-          .update({ verification_status: "verified", processed_at: new Date().toISOString() })
+        // Reconcile can only promote to structurally_valid, NOT to provider_verified
+        // Actual provider verification must go through verify-apple-purchase or verify-google-purchase
+        await sb.from("mobile_store_purchase_events")
+          .update({
+            verification_status: "structurally_valid",
+            processed_at: new Date().toISOString(),
+          })
           .eq("id", event.id);
-
-        // Check if entitlement already exists
-        const { data: existingLink } = await sb
-          .from("mobile_store_receipt_links")
-          .select("id")
-          .eq("purchase_event_id", event.id)
-          .eq("status", "active")
-          .maybeSingle();
-
-        if (!existingLink) {
-          const isSubscription = storeProduct.store_product_type === "subscription" || event.is_subscription;
-          await sb.rpc("create_mobile_store_entitlement", {
-            p_store: event.store,
-            p_purchase_event_id: event.id,
-            p_product_id: storeProduct.product_id,
-            p_user_id: event.user_id || null,
-            p_learner_identity_id: event.learner_identity_id || null,
-            p_source_ref: event.external_transaction_id,
-            p_is_subscription: isSubscription,
-            p_subscription_period_start: event.subscription_period_start || null,
-            p_subscription_period_end: event.subscription_period_end || null,
-          });
-        }
 
         results.verified++;
       } catch (itemErr) {
         console.error("Reconcile: item error", { eventId: event.id, error: String(itemErr) });
-        await sb
-          .from("mobile_store_purchase_events")
+        await sb.from("mobile_store_purchase_events")
           .update({ verification_status: "error", processed_at: new Date().toISOString() })
           .eq("id", event.id);
         results.failed++;
       }
     }
 
-    // Log reconciliation
     await sb.from("mobile_store_sync_log").insert({
       store: body.store || "all",
       event_type: "reconciliation",
