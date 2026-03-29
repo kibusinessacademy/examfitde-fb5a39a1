@@ -124,16 +124,16 @@ Deno.serve(async (req) => {
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Entitlement check
-    const { data: entitlement } = await adminClient
-      .rpc('check_user_entitlement', {
+    // Product-based access check (replaces legacy check_user_entitlement)
+    const { data: hasAccess } = await adminClient
+      .rpc('check_product_access_by_curriculum', {
         p_user_id: user.id,
         p_curriculum_id: question.curriculum_id,
         p_feature: 'exam_trainer'
       });
 
-    if (!entitlement) {
-      return new Response(JSON.stringify({ error: "Access denied - no exam_trainer entitlement" }),
+    if (!hasAccess) {
+      return new Response(JSON.stringify({ error: "Access denied - no exam_trainer access" }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
