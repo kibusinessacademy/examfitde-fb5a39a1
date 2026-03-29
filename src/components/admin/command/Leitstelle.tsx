@@ -715,7 +715,7 @@ export default function Leitstelle() {
               </Button>
             </CardTitle>
           </CardHeader>
-          <CardContent className="grid gap-3 md:grid-cols-3">
+          <CardContent className="grid gap-3 md:grid-cols-4">
             <div className="rounded-xl border border-border p-4">
               <div className="mb-2 flex items-center gap-2 text-sm font-medium">
                 <Wrench className="h-4 w-4 text-destructive" />
@@ -740,6 +740,34 @@ export default function Leitstelle() {
               <div className="text-3xl font-semibold">{zombieRows.length}</div>
               <div className="mt-1 text-xs text-muted-foreground">Build ohne Job oder Lease</div>
             </div>
+            {/* ── Liveness Verdict Card ── */}
+            {(() => {
+              const alive = livenessRows.filter((r: any) => r.liveness_verdict === 'alive').length;
+              const falseActive = livenessRows.filter((r: any) => r.liveness_verdict === 'false_active').length;
+              const noActivity = livenessRows.filter((r: any) => r.liveness_verdict === 'no_activity').length;
+              const hasProblem = falseActive > 0 || noActivity > 0;
+              return (
+                <div className={cn(
+                  'rounded-xl border p-4',
+                  hasProblem ? 'border-amber-400/40 bg-amber-50/5' : 'border-border',
+                )}>
+                  <div className="mb-2 flex items-center gap-2 text-sm font-medium">
+                    <Server className={cn('h-4 w-4', hasProblem ? 'text-amber-500' : 'text-emerald-500')} />
+                    Liveness
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-3xl font-semibold text-emerald-600">{alive}</span>
+                    {falseActive > 0 && <span className="text-lg font-medium text-amber-500">/ {falseActive} ghost</span>}
+                    {noActivity > 0 && <span className="text-lg font-medium text-muted-foreground">/ {noActivity} idle</span>}
+                  </div>
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    {hasProblem
+                      ? `${falseActive} False-Active, ${noActivity} ohne Aktivität`
+                      : 'Alle Building-Pakete haben echte Arbeit'}
+                  </div>
+                </div>
+              );
+            })()}
           </CardContent>
 
           {/* Transient Ops Health Monitor */}
