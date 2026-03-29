@@ -111,14 +111,23 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // Determine checkout ID based on platform
+    // Determine checkout ID and actual price based on platform
     let checkout_id: string | null = null;
+    let actual_price_cents: number | null = null;
     if (variant) {
       const v = variant as Record<string, unknown>;
       switch (platform) {
-        case "ios": checkout_id = v.apple_sku as string || null; break;
-        case "android": checkout_id = v.google_sku as string || null; break;
-        default: checkout_id = v.stripe_price_id as string || null;
+        case "ios":
+          checkout_id = v.apple_sku as string || null;
+          actual_price_cents = (v.ios_price_cents as number) ?? (v.price_cents as number);
+          break;
+        case "android":
+          checkout_id = v.google_sku as string || null;
+          actual_price_cents = (v.android_price_cents as number) ?? (v.price_cents as number);
+          break;
+        default:
+          checkout_id = v.stripe_price_id as string || null;
+          actual_price_cents = (v.web_price_cents as number) ?? (v.price_cents as number);
       }
     }
 
@@ -142,6 +151,7 @@ Deno.serve(async (req: Request) => {
         has_access: false,
         variant,
         checkout_id,
+        actual_price_cents,
         platform,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }

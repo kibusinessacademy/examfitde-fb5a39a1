@@ -18,6 +18,9 @@ export interface PaywallVariant {
   google_sku: string | null;
   is_control: boolean;
   assigned: boolean;
+  web_price_cents: number | null;
+  ios_price_cents: number | null;
+  android_price_cents: number | null;
   error?: string;
 }
 
@@ -109,5 +112,22 @@ export function getCheckoutId(
     case 'ios': return variant.apple_sku;
     case 'android': return variant.google_sku;
     default: return variant.stripe_price_id;
+  }
+}
+
+/**
+ * Returns the actual price in cents for the given platform.
+ * Falls back to display price_cents if no channel-specific price is set.
+ */
+export function getChannelPrice(
+  variant: PaywallVariant | null,
+  platform: 'web' | 'ios' | 'android'
+): number | null {
+  if (!variant) return null;
+  switch (platform) {
+    case 'web': return variant.web_price_cents ?? variant.price_cents;
+    case 'ios': return variant.ios_price_cents ?? variant.price_cents;
+    case 'android': return variant.android_price_cents ?? variant.price_cents;
+    default: return variant.price_cents;
   }
 }
