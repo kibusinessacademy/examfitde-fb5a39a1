@@ -15,6 +15,7 @@ export interface AnnotationInput {
   cognitive_level: string | null;
   trap_tags: string[] | null;
   distractor_meta: Record<string, unknown> | null;
+  conflict_type: string | null;
 
   // Blueprint join fields
   exam_context_type: string | null;
