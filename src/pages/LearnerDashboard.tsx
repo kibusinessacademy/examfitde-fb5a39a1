@@ -25,7 +25,7 @@ import { MasteryDashboardSection } from '@/features/mastery/components/MasteryDa
 import { useConversionEngine } from '@/features/conversion/hooks/useConversionEngine';
 import { ConversionCard } from '@/features/conversion/components/ConversionCard';
 import { useSimulationGate } from '@/hooks/useExamReadiness';
-import { useCheckEntitlement } from '@/hooks/useEntitlements';
+import { useProductAccessByCurriculum } from '@/hooks/useProductAccess';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -432,8 +432,8 @@ function ConversionCardWrapper({ curriculumId, navigate }: { curriculumId: strin
 
 function QuickActionsGrid({ activeCurriculumId }: { activeCurriculumId: string | null }) {
   const { data: gate } = useSimulationGate(activeCurriculumId ?? undefined);
-  const { data: hasExamTrainer, isLoading: entitlementLoading } = useCheckEntitlement(
-    activeCurriculumId ?? '', 'exam_trainer'
+  const { data: hasExamTrainer, isLoading: entitlementLoading } = useProductAccessByCurriculum(
+    activeCurriculumId ?? undefined, 'exam_trainer'
   );
   const simulationBlocked = gate && !gate.allowed;
   const adaptiveBlocked = !entitlementLoading && !hasExamTrainer;
