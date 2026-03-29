@@ -92,6 +92,44 @@ pending → structurally_valid → provider_verified → [refunded | expired]
 | `verify-apple-purchase` | Apple IAP mit kryptografischer JWS-Verifikation gegen JWKS | ✅ P0 Complete |
 | `verify-google-purchase` | Google Play mit Developer API Integration | ✅ P0 Complete |
 | `reconcile-store-purchases` | Retry + Expiry + Orphan Fix (NICHT auto-verify) | ✅ P0 Complete |
+| `apple-server-notifications` | Apple SNv2 Webhook — Refunds, Renewals, Expirations, Revocations | ✅ Complete |
+| `google-rtdn-notifications` | Google RTDN Webhook — Subscription Lifecycle, Voided Purchases | ✅ Complete |
+
+### Webhook-Architektur
+
+#### Apple Server Notifications v2
+- Empfängt `signedPayload` JWS
+- Kryptografische Verifikation gegen Apple JWKS (gleicher Trust-Path wie verify)
+- Inner JWS für `signedTransactionInfo` + `signedRenewalInfo`
+- Unterstützte Events: `DID_RENEW`, `EXPIRED`, `REFUND`, `REVOKE`, `GRACE_PERIOD_EXPIRED`, `DID_FAIL_TO_RENEW`, `DID_RECOVER`, `DID_CHANGE_RENEWAL_STATUS`, `TEST`
+- Bundle-ID + Environment-Validierung
+- Alle Events in `mobile_store_sync_log` auditiert
+
+#### Google RTDN (Real-Time Developer Notifications)
+- Empfängt Pub/Sub Push Messages (`message.data` base64-encoded)
+- Package-Name-Validierung
+- Subscription-Notifications: RENEWED, RECOVERED, CANCELED, REVOKED, EXPIRED, ON_HOLD, GRACE_PERIOD, PAUSED, RESTARTED
+- Bei Renewal/Recovery: Aktiver API-Call an Play Developer API für aktuellen Subscription-State
+- Voided Purchase Notifications für Rückerstattungen
+- One-Time Product Notifications
+
+#### Webhook → Entitlement Mapping
+
+| Event | Aktion |
+|---|---|
+| Refund/Revoke | `verification_status` → `refunded`, Entitlement → `revoked` |
+| Expired | `verification_status` → `expired`, Entitlement → `expired` |
+| Renewed/Recovered | `subscription_period_end` aktualisiert, Entitlement → `active` |
+| Canceled | `auto_renew_status` → `false`, Zugriff bis `period_end` |
+| Grace Period/On Hold | Status-Tracking, kein Entitlement-Entzug |
+
+### Reconcile Upgrade Guard
+
+DB-Trigger `trg_guard_provider_verified` auf `mobile_store_purchase_events`:
+- Verhindert Upgrade auf `provider_verified` ohne valides `provider_verification_json`
+- Nur die verify Edge Functions können `provider_verified` setzen
+- Reconcile, Admin-Tools, Migrationen können NICHT versehentlich upgraden
+- Webhook-Functions (DID_RECOVER, RENEWED) setzen `provider_verified` korrekt über API-Verifikation
 
 ### Benötigte Secrets für Go-Live
 
@@ -111,12 +149,14 @@ Beide Stores (Apple + Google) haben jetzt:
 - State/Revocation-Prüfung
 - API-Fehler → Hard Fail (kein Entitlement)
 - Ohne Provider-Credentials → nur `structurally_valid` (kein Entitlement)
+- Webhooks für Echtzeit-Lifecycle (Refunds, Renewals, Expirations)
+- DB-Guard gegen versehentliches `provider_verified` Upgrade
 
 ### Verbleibende TODO für volle Produktionsreife
 
 1. **Secrets konfigurieren**: `APPLE_ALLOWED_BUNDLE_IDS`, `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`
-2. **Webhook-Endpoints**: Apple Server Notifications v2, Google RTDN
-3. **Grace Period**: Billing Retry Handling für Subscriptions
+2. **Apple Webhook URL** in App Store Connect → Server Notifications v2 konfigurieren
+3. **Google RTDN** Pub/Sub Topic + Subscription konfigurieren
 4. **Restore Purchases**: Client-seitiger Restore-Flow mit `purchase_context = 'restore'`
 5. **Purchase Acknowledgement**: Google Play acknowledge nach erfolgreicher Verifikation
 6. **Sandbox-Tests**: Echte Apple/Google Test-Transaktionen verifizieren
