@@ -152,7 +152,7 @@ async function annotateQuestions(
   while (timeLeft(start)) {
     let query = sb
       .from("exam_questions")
-      .select("id, status, difficulty, cognitive_level, trap_tags, distractor_meta, elite_level, multi_variable, transfer_variant, distractor_types, question_text, options, explanation, correct_answer, competency_id, blueprint_id")
+      .select("id, status, difficulty, cognitive_level, trap_tags, distractor_meta, elite_level, multi_variable, transfer_variant, distractor_types, question_text, options, explanation, correct_answer, competency_id, blueprint_id, conflict_type")
       .eq("curriculum_id", curriculumId)
       .in("status", ["draft", "approved"])
       .order("id", { ascending: true })
