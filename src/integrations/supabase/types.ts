@@ -46893,6 +46893,18 @@ export type Database = {
         }
         Relationships: []
       }
+      v_entitlement_migration_audit: {
+        Row: {
+          duplicate_current_count: number | null
+          legacy_active_no_product: number | null
+          orphaned_assignments: number | null
+          orphaned_entitlements: number | null
+          total_entitlements: number | null
+          with_product_id: number | null
+          without_product_id: number | null
+        }
+        Relationships: []
+      }
       v_escalation_rate: {
         Row: {
           day: string | null
