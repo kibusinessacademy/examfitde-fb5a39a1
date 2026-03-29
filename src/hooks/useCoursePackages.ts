@@ -300,7 +300,19 @@ export function useCoursePackageDetail(packageId: string | undefined) {
         body: { packageId },
         headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {},
       });
-      if (res.error) throw res.error;
+      // Handle WIP_LIMIT_REACHED (429) gracefully
+      if (res.error) {
+        // Check if the response body contains WIP limit info
+        try {
+          const errBody = typeof res.data === 'object' ? res.data : JSON.parse(String(res.error?.message || '{}'));
+          if (errBody?.error === 'WIP_LIMIT_REACHED') {
+            throw new Error('Das System ist aktuell ausgelastet. Das Paket wird automatisch gebaut, sobald ein Slot frei wird.');
+          }
+        } catch (parseErr) {
+          if ((parseErr as Error).message.includes('ausgelastet')) throw parseErr;
+        }
+        throw res.error;
+      }
       return res.data;
     },
     onSuccess: () => {
