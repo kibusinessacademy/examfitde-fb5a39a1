@@ -14,7 +14,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.45.4";
  * wenn er zur aktuellen Qualitäts- und Report-Semantik passt."
  */
 
-const CURRENT_REPORT_VERSION_NUM = 15;
+const CURRENT_REPORT_VERSION_NUM = 16;
 const EXAM_TARGET = 500;
 
 const corsHeaders = {
