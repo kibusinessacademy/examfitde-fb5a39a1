@@ -24462,6 +24462,38 @@ export type Database = {
           },
         ]
       }
+      org_license_seats: {
+        Row: {
+          claimed_at: string
+          id: string
+          license_id: string
+          released_at: string | null
+          user_id: string
+        }
+        Insert: {
+          claimed_at?: string
+          id?: string
+          license_id: string
+          released_at?: string | null
+          user_id: string
+        }
+        Update: {
+          claimed_at?: string
+          id?: string
+          license_id?: string
+          released_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_license_seats_license_id_fkey"
+            columns: ["license_id"]
+            isOneToOne: false
+            referencedRelation: "org_licenses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       org_licenses: {
         Row: {
           contract_ref: string | null
@@ -27271,6 +27303,7 @@ export type Database = {
       }
       paywall_variants: {
         Row: {
+          android_price_cents: number | null
           apple_sku: string | null
           created_at: string
           cta_text: string | null
@@ -27280,6 +27313,7 @@ export type Database = {
           google_sku: string | null
           headline: string | null
           id: string
+          ios_price_cents: number | null
           is_control: boolean
           layout: string
           metadata_json: Json
@@ -27289,9 +27323,11 @@ export type Database = {
           trigger_context: string
           urgency_type: string | null
           variant_key: string
+          web_price_cents: number | null
           weight: number
         }
         Insert: {
+          android_price_cents?: number | null
           apple_sku?: string | null
           created_at?: string
           cta_text?: string | null
@@ -27301,6 +27337,7 @@ export type Database = {
           google_sku?: string | null
           headline?: string | null
           id?: string
+          ios_price_cents?: number | null
           is_control?: boolean
           layout?: string
           metadata_json?: Json
@@ -27310,9 +27347,11 @@ export type Database = {
           trigger_context?: string
           urgency_type?: string | null
           variant_key: string
+          web_price_cents?: number | null
           weight?: number
         }
         Update: {
+          android_price_cents?: number | null
           apple_sku?: string | null
           created_at?: string
           cta_text?: string | null
@@ -27322,6 +27361,7 @@ export type Database = {
           google_sku?: string | null
           headline?: string | null
           id?: string
+          ios_price_cents?: number | null
           is_control?: boolean
           layout?: string
           metadata_json?: Json
@@ -27331,6 +27371,7 @@ export type Database = {
           trigger_context?: string
           urgency_type?: string | null
           variant_key?: string
+          web_price_cents?: number | null
           weight?: number
         }
         Relationships: [
