@@ -89,7 +89,7 @@ Deno.serve(async (req) => {
     .select("id", { count: "exact", head: true })
     .eq("curriculum_id", cid)
     .in("qc_status", ["tier1_failed", "needs_revision"])
-    .lt("updated_at", new Date(Date.now() - 24 * 60 * 60_000).toISOString());
+    .lt("created_at", new Date(Date.now() - 24 * 60 * 60_000).toISOString());
 
   let qcReconciled = 0;
   if ((staleFailedCount ?? 0) > 0) {
