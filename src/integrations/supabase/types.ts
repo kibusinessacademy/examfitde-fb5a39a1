@@ -15190,6 +15190,10 @@ export type Database = {
           auto_renew: boolean | null
           created_at: string | null
           curriculum_id: string
+          has_ai_tutor: boolean | null
+          has_exam_trainer: boolean | null
+          has_learning_course: boolean | null
+          has_oral_trainer: boolean | null
           id: string
           learner_identity_id: string | null
           metadata_json: Json
@@ -15209,6 +15213,10 @@ export type Database = {
           auto_renew?: boolean | null
           created_at?: string | null
           curriculum_id: string
+          has_ai_tutor?: boolean | null
+          has_exam_trainer?: boolean | null
+          has_learning_course?: boolean | null
+          has_oral_trainer?: boolean | null
           id?: string
           learner_identity_id?: string | null
           metadata_json?: Json
@@ -15228,6 +15236,10 @@ export type Database = {
           auto_renew?: boolean | null
           created_at?: string | null
           curriculum_id?: string
+          has_ai_tutor?: boolean | null
+          has_exam_trainer?: boolean | null
+          has_learning_course?: boolean | null
+          has_oral_trainer?: boolean | null
           id?: string
           learner_identity_id?: string | null
           metadata_json?: Json
@@ -52483,6 +52495,10 @@ export type Database = {
           expected_trigger: string
           is_bound: boolean
         }[]
+      }
+      check_user_entitlement: {
+        Args: { p_curriculum_id: string; p_feature?: string; p_user_id: string }
+        Returns: boolean
       }
       check_wip_allows_build: {
         Args: { p_package_id?: string }
