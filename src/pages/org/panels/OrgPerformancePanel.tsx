@@ -2,11 +2,13 @@ import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
-import { Loader2, AlertTriangle, Users, TrendingUp, Activity } from "lucide-react";
+import { Loader2, AlertTriangle, Users, TrendingUp, Activity, ShieldAlert } from "lucide-react";
 import RiskBadge from "@/components/b2b/RiskBadge";
 import ReadinessBar from "@/components/b2b/ReadinessBar";
 import { useOrgPerformanceDashboard, useOrgPerformanceSummary } from "@/hooks/useOrgPerformance";
+import { useOrgInterventionSummary } from "@/hooks/useOrgInterventions";
 import type { OrgPerformanceRow } from "@/hooks/useOrgPerformance";
 
 function formatDate(date?: string | null) {
@@ -26,14 +28,16 @@ function riskToVerdict(risk: string): string {
 
 interface Props {
   organizationId: string;
+  onNavigateToInterventions?: () => void;
 }
 
-export default function OrgPerformancePanel({ organizationId }: Props) {
+export default function OrgPerformancePanel({ organizationId, onNavigateToInterventions }: Props) {
   const [productId, setProductId] = useState<string | undefined>(undefined);
   const [query, setQuery] = useState("");
 
   const { data: summary, isLoading: loadingSummary } = useOrgPerformanceSummary(organizationId, productId);
   const { data: rows = [], isLoading: loadingRows } = useOrgPerformanceDashboard(organizationId, productId);
+  const { data: interventionSummary } = useOrgInterventionSummary(organizationId);
 
   const products = useMemo(() => {
     const map = new Map<string, string>();
@@ -89,6 +93,33 @@ export default function OrgPerformancePanel({ organizationId }: Props) {
           value={summary?.inactive_count ?? 0}
         />
       </div>
+
+      {/* Open Interventions Banner */}
+      {(interventionSummary?.total_open ?? 0) > 0 && (
+        <Card className="border-destructive/30 bg-destructive/5">
+          <CardContent className="flex items-center justify-between py-4">
+            <div className="flex items-center gap-3">
+              <ShieldAlert className="h-5 w-5 text-destructive" />
+              <div>
+                <p className="text-sm font-medium">
+                  {interventionSummary!.total_open} offene Interventionen
+                  {(interventionSummary!.critical_count + interventionSummary!.high_count) > 0 && (
+                    <span className="text-destructive ml-1">
+                      ({interventionSummary!.critical_count + interventionSummary!.high_count} kritisch/hoch)
+                    </span>
+                  )}
+                </p>
+                <p className="text-xs text-muted-foreground">Lernende benötigen Aufmerksamkeit</p>
+              </div>
+            </div>
+            {onNavigateToInterventions && (
+              <Button size="sm" variant="outline" onClick={onNavigateToInterventions}>
+                Interventionen öffnen
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Critical Cases */}
       {criticalRows.length > 0 && (
