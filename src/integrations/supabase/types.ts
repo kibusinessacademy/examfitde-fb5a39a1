@@ -54761,6 +54761,10 @@ export type Database = {
         Args: { p_curriculum_id: string }
         Returns: Json
       }
+      get_exam_pool_validation_metrics: {
+        Args: { p_curriculum_id: string; p_package_id: string }
+        Returns: Json
+      }
       get_exam_question_counts_by_lf: {
         Args: { p_curriculum_id: string; p_lf_ids: string[] }
         Returns: {
