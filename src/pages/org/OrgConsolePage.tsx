@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { getOrgConsoleContext } from "@/lib/orgApi";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
@@ -19,6 +19,7 @@ export default function OrgConsolePage() {
   const [ctx, setCtx] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [orgId, setOrgId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState("kpis");
 
   useEffect(() => {
     let alive = true;
@@ -90,7 +91,7 @@ export default function OrgConsolePage() {
 
       {/* Tabs */}
       {selected?.org?.id && (
-        <Tabs defaultValue="kpis">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList>
             <TabsTrigger value="kpis">KPIs</TabsTrigger>
             <TabsTrigger value="billing">Rechnungen</TabsTrigger>
@@ -128,7 +129,7 @@ export default function OrgConsolePage() {
           </TabsContent>
 
           <TabsContent value="performance" className="mt-4">
-            <OrgPerformancePanel organizationId={selected.org.id} />
+            <OrgPerformancePanel organizationId={selected.org.id} onNavigateToInterventions={() => setActiveTab("interventions")} />
           </TabsContent>
 
           <TabsContent value="interventions" className="mt-4">
