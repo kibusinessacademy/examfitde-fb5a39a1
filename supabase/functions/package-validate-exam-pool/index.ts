@@ -427,27 +427,60 @@ Deno.serve(async (req) => {
     ];
 
     // ═══ P0.1: GATE CLASSIFICATION — Distinguish non-retryable fachliche failures ═══
-    // These are state-based hard blockers, NOT transient errors.
-    // Classify each issue for the runner to decide correctly:
-    //   - UNRESOLVED_QUALITY_FLAGS → needs targeted QC reconciliation (repair)
-    //   - MISSING_LF_COVERAGE → needs targeted LF gap fill (repair)
-    //   - NO_PENDING_QUESTIONS alone → terminal if no unresolved remain
-    // By returning `gate_blocked: true`, the runner will NOT blindly retry/reseed,
-    // but instead route to the repair_exam_pool_quality path.
     const diagnosisCodes: string[] = [];
     if (unresolvedCount > 0) diagnosisCodes.push("REPAIR_NEEDED:QC_RECONCILIATION");
     if (missingLfIds.length > 0) diagnosisCodes.push("REPAIR_NEEDED:LF_COVERAGE");
     if (unresolvedCount === 0 && missingLfIds.length === 0) diagnosisCodes.push("TERMINAL:POOL_EMPTY");
 
     console.warn(`[validate-exam] GATE_BLOCKED: approved=${approvedCount}, unresolved=${unresolvedCount}, missingLF=${missingLfIds.length}, diagnosis=${diagnosisCodes.join(",")}`);
+
+    // ═══ SNAPSHOT: Write snapshot for gate-blocked path too ═══
+    try {
+      const guardResult = await sb.rpc("fn_classify_validate_guard", { p_package_id: packageId });
+      const guardState = guardResult?.data?.guard_state ?? "soft_stalled";
+      const reasonCode = guardResult?.data?.reason_code ?? diagnosisCodes[0] ?? null;
+
+      await sb.from("exam_pool_validation_snapshots" as any).insert({
+        package_id: packageId,
+        curriculum_id: curriculumId,
+        approved_count: approvedCount,
+        review_count: 0,
+        draft_count: qcCounts.draft || 0,
+        rejected_count: qcCounts.rejected || 0,
+        unresolved_quality_flags: unresolvedCount,
+        missing_lf_coverage: missingLfIds.length,
+        missing_competency_coverage: 0,
+        missing_trap_metadata: 0,
+        missing_bloom_metadata: 0,
+        repairable_issue_count: unresolvedCount,
+        guard_state: guardState,
+        reason_code: reasonCode,
+      });
+
+      // Update consecutive_no_progress
+      const { data: stepRow } = await sb.from("package_steps")
+        .select("meta").eq("package_id", packageId).eq("step_key", "validate_exam_pool").maybeSingle();
+      const stepMeta = (stepRow?.meta ?? {}) as Record<string, unknown>;
+      const prevNoProgress = Number(stepMeta.consecutive_no_progress ?? 0);
+      await sb.from("package_steps").update({
+        meta: {
+          ...stepMeta,
+          consecutive_no_progress: prevNoProgress + 1,
+          last_validate_completed_at: new Date().toISOString(),
+          last_guard_state: guardState,
+          last_reason_code: reasonCode,
+        },
+      }).eq("package_id", packageId).eq("step_key", "validate_exam_pool");
+    } catch (snapErr) {
+      console.warn(`[validate-exam] Snapshot write failed: ${(snapErr as Error)?.message?.slice(0, 100)}`);
+    }
+
     return json({
       ok: false,
       batch_complete: true,
       validation_passed: false,
-      // P0.1: NEW — signals to runner this is NOT a retryable failure
       gate_blocked: true,
       gate_diagnosis: diagnosisCodes,
-      // Keep legacy fields for backward compat but reseed_required is now conditional
       reseed_required: diagnosisCodes.includes("TERMINAL:POOL_EMPTY"),
       no_pending_questions: true,
       issues,
