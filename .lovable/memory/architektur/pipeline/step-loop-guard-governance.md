@@ -12,9 +12,19 @@ Das 'Step-Loop-Guard' System wurde auf ein **Delta-basiertes Guard-Modell** (v2)
 ## Architektur (5 Schichten)
 1. **Snapshot-SSOT**: Tabelle `exam_pool_validation_snapshots` erfasst pro Validierungslauf alle Pool-Metriken (approved, review, draft, rejected, unresolved_quality_flags, missing_lf_coverage, etc.)
 2. **Klassifikations-Funktion**: `fn_classify_validate_guard(package_id)` berechnet aus den letzten zwei Snapshots + aktiven Jobs + Grace + Leases den Guard-State
-3. **Loop-Guard Override**: Für `stepKey === 'validate_exam_pool'` nutzt `checkLoopGuard()` die DB-Funktion statt generischer Schwellwerte. Hard-Block nur bei `guard_state = 'hard_stalled'`. Alle anderen Zustände erlauben Weiterarbeit.
-4. **Healer**: `healValidateExamPoolLoop()` in stuck-scan nutzt dieselbe Klassifikation. soft_stalled → enqueue_repair + Grace-Window. healthy/recovering bei blocked step → False-Positive-Heal. hard_stalled → deterministischer Block.
-5. **Forensik-View**: `ops_validate_exam_pool_progress` zeigt für jedes Paket: Guard-State, Reason-Code, Deltas, Attempts 24h, aktive Jobs, Lease, Grace, Empfehlung.
+3. **Metrics-RPC**: `get_exam_pool_validation_metrics(package_id, curriculum_id)` sammelt live Pool-Metriken (QC-Status-Counts, LF/Kompetenz-Coverage, Trap/Bloom-Metadata-Gaps)
+4. **Loop-Guard Override**: Für `stepKey === 'validate_exam_pool'` nutzt `checkLoopGuard()` die DB-Funktion statt generischer Schwellwerte. Hard-Block nur bei `guard_state = 'hard_stalled'`. Alle anderen Zustände erlauben Weiterarbeit.
+5. **Healer**: `healValidateExamPoolLoop()` in stuck-scan nutzt dieselbe Klassifikation. soft_stalled → enqueue_repair + Grace-Window. healthy/recovering bei blocked step → False-Positive-Heal. hard_stalled → deterministischer Block.
+
+## Snapshot Write-Path (Phase 2)
+Der Validator (`package-validate-exam-pool`) führt nach jedem Lauf den vollständigen Write-Path aus:
+1. `loadExamPoolMetrics()` via RPC → aktuelle Pool-Metriken
+2. `insertExamPoolSnapshot()` → Roh-Snapshot schreiben
+3. `classifyValidateGuard()` → Guard-State live berechnen (sieht den neuen Snapshot)
+4. `finalizeExamPoolSnapshot()` → guard_state + reason_code im Snapshot updaten
+5. `updateValidateExamPoolStepMeta()` → consecutive_no_progress, last_progress_delta, guard_state in step.meta
+
+Dieser Pfad wird **sowohl** im Gate-Blocked-Pfad (no pending questions) **als auch** im normalen Validierungsergebnis ausgeführt. Pro Lauf entsteht genau ein Snapshot.
 
 ## Reason Codes
 - `VALIDATE_EXAM_POOL_SOFT_STALL`: Kein Fortschritt, Repair noch nicht versucht

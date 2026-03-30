@@ -6,6 +6,174 @@ import { callAIJSON } from "../_shared/ai-client.ts";
 import { getModel } from "../_shared/model-routing.ts";
 import { handleDbFailure } from "../_shared/job-fail.ts";
 
+// ── Snapshot Write-Path Helpers ──
+
+interface ExamPoolMetrics {
+  approved_count: number;
+  review_count: number;
+  draft_count: number;
+  rejected_count: number;
+  unresolved_quality_flags: number;
+  missing_lf_coverage: number;
+  missing_competency_coverage: number;
+  missing_trap_metadata: number;
+  missing_bloom_metadata: number;
+  repairable_issue_count: number;
+}
+
+async function loadExamPoolMetrics(
+  sb: ReturnType<typeof createClient>,
+  packageId: string,
+  curriculumId: string,
+): Promise<ExamPoolMetrics> {
+  const { data, error } = await sb.rpc("get_exam_pool_validation_metrics", {
+    p_package_id: packageId,
+    p_curriculum_id: curriculumId,
+  });
+  if (error) {
+    console.warn(`[validate-exam] metrics RPC failed: ${error.message}`);
+    return {
+      approved_count: 0, review_count: 0, draft_count: 0, rejected_count: 0,
+      unresolved_quality_flags: 0, missing_lf_coverage: 0, missing_competency_coverage: 0,
+      missing_trap_metadata: 0, missing_bloom_metadata: 0, repairable_issue_count: 0,
+    };
+  }
+  const row = (data as Record<string, number>) ?? {};
+  return {
+    approved_count: row.approved_count ?? 0,
+    review_count: row.review_count ?? 0,
+    draft_count: row.draft_count ?? 0,
+    rejected_count: row.rejected_count ?? 0,
+    unresolved_quality_flags: row.unresolved_quality_flags ?? 0,
+    missing_lf_coverage: row.missing_lf_coverage ?? 0,
+    missing_competency_coverage: row.missing_competency_coverage ?? 0,
+    missing_trap_metadata: row.missing_trap_metadata ?? 0,
+    missing_bloom_metadata: row.missing_bloom_metadata ?? 0,
+    repairable_issue_count: row.repairable_issue_count ?? 0,
+  };
+}
+
+async function insertExamPoolSnapshot(
+  sb: ReturnType<typeof createClient>,
+  args: { packageId: string; curriculumId: string | null; jobId?: string | null; metrics: ExamPoolMetrics },
+): Promise<string | null> {
+  const { data, error } = await (sb as any)
+    .from("exam_pool_validation_snapshots")
+    .insert({
+      package_id: args.packageId,
+      curriculum_id: args.curriculumId,
+      job_id: args.jobId ?? null,
+      ...args.metrics,
+    })
+    .select("id")
+    .single();
+  if (error) {
+    console.warn(`[validate-exam] snapshot insert failed: ${error.message}`);
+    return null;
+  }
+  return data?.id as string ?? null;
+}
+
+async function classifyValidateGuard(
+  sb: ReturnType<typeof createClient>,
+  packageId: string,
+): Promise<Record<string, unknown>> {
+  const { data, error } = await sb.rpc("fn_classify_validate_guard", { p_package_id: packageId });
+  if (error) {
+    console.warn(`[validate-exam] classify guard failed: ${error.message}`);
+    return { guard_state: "healthy", action: "allow" };
+  }
+  return (data as Record<string, unknown>) ?? { guard_state: "healthy", action: "allow" };
+}
+
+async function finalizeExamPoolSnapshot(
+  sb: ReturnType<typeof createClient>,
+  snapshotId: string,
+  classification: Record<string, unknown>,
+) {
+  const { error } = await (sb as any)
+    .from("exam_pool_validation_snapshots")
+    .update({
+      guard_state: classification.guard_state ?? null,
+      reason_code: classification.reason_code ?? null,
+      meta: { action: classification.action ?? null },
+    })
+    .eq("id", snapshotId);
+  if (error) console.warn(`[validate-exam] snapshot finalize failed: ${error.message}`);
+}
+
+function hasProgressFromClassification(c: Record<string, unknown>): boolean {
+  return (
+    ((c.delta_approved as number) ?? 0) > 0 ||
+    ((c.delta_review as number) ?? 0) < 0 ||
+    ((c.delta_unresolved_flags as number) ?? 0) < 0 ||
+    ((c.delta_missing_lf_coverage as number) ?? 0) < 0 ||
+    ((c.delta_missing_competency_coverage as number) ?? 0) < 0
+  );
+}
+
+async function updateValidateExamPoolStepMeta(
+  sb: ReturnType<typeof createClient>,
+  args: { packageId: string; classification: Record<string, unknown>; hadProgress: boolean; nowIso: string },
+) {
+  const { data: stepRow } = await sb
+    .from("package_steps")
+    .select("meta")
+    .eq("package_id", args.packageId)
+    .eq("step_key", "validate_exam_pool")
+    .maybeSingle();
+
+  const oldMeta = (stepRow?.meta ?? {}) as Record<string, unknown>;
+  const oldNoProgress = Number(oldMeta.consecutive_no_progress ?? 0);
+  const consecutiveNoProgress = args.hadProgress ? 0 : oldNoProgress + 1;
+
+  const newMeta = {
+    ...oldMeta,
+    guard_state: args.classification.guard_state ?? null,
+    stall_reason_code: args.classification.reason_code ?? null,
+    last_validate_completed_at: args.nowIso,
+    last_guard_action: args.classification.action ?? null,
+    consecutive_no_progress: consecutiveNoProgress,
+    last_progress_delta: {
+      delta_approved: args.classification.delta_approved ?? 0,
+      delta_review: args.classification.delta_review ?? 0,
+      delta_unresolved_flags: args.classification.delta_unresolved_flags ?? 0,
+      delta_missing_lf_coverage: args.classification.delta_missing_lf_coverage ?? 0,
+      delta_missing_competency_coverage: args.classification.delta_missing_competency_coverage ?? 0,
+    },
+    ...(args.hadProgress ? { last_progress_at: args.nowIso } : {}),
+  };
+
+  const { error } = await sb
+    .from("package_steps")
+    .update({ meta: newMeta })
+    .eq("package_id", args.packageId)
+    .eq("step_key", "validate_exam_pool");
+
+  if (error) console.warn(`[validate-exam] step meta update failed: ${error.message}`);
+}
+
+/**
+ * Run the full snapshot write-path: metrics → insert → classify → finalize → step-meta.
+ * Called at the end of every validate run (both gate-blocked and normal paths).
+ */
+async function runSnapshotWritePath(
+  sb: ReturnType<typeof createClient>,
+  packageId: string,
+  curriculumId: string,
+  jobId?: string | null,
+) {
+  const nowIso = new Date().toISOString();
+  const metrics = await loadExamPoolMetrics(sb, packageId, curriculumId);
+  const snapshotId = await insertExamPoolSnapshot(sb, { packageId, curriculumId, jobId, metrics });
+  if (!snapshotId) return;
+  const classification = await classifyValidateGuard(sb, packageId);
+  await finalizeExamPoolSnapshot(sb, snapshotId, classification);
+  const hadProgress = hasProgressFromClassification(classification);
+  await updateValidateExamPoolStepMeta(sb, { packageId, classification, hadProgress, nowIso });
+  console.log(`[validate-exam] Snapshot write-path complete: guard_state=${classification.guard_state}, progress=${hadProgress}`);
+}
+
 /**
  * package-validate-exam-pool — Pipeline Step (after generate_exam_pool)
  *
@@ -434,45 +602,11 @@ Deno.serve(async (req) => {
 
     console.warn(`[validate-exam] GATE_BLOCKED: approved=${approvedCount}, unresolved=${unresolvedCount}, missingLF=${missingLfIds.length}, diagnosis=${diagnosisCodes.join(",")}`);
 
-    // ═══ SNAPSHOT: Write snapshot for gate-blocked path too ═══
+    // ═══ SNAPSHOT: Full write-path (insert → classify → finalize → meta) ═══
     try {
-      const guardResult = await sb.rpc("fn_classify_validate_guard", { p_package_id: packageId });
-      const guardState = guardResult?.data?.guard_state ?? "soft_stalled";
-      const reasonCode = guardResult?.data?.reason_code ?? diagnosisCodes[0] ?? null;
-
-      await sb.from("exam_pool_validation_snapshots" as any).insert({
-        package_id: packageId,
-        curriculum_id: curriculumId,
-        approved_count: approvedCount,
-        review_count: 0,
-        draft_count: qcCounts.draft || 0,
-        rejected_count: qcCounts.rejected || 0,
-        unresolved_quality_flags: unresolvedCount,
-        missing_lf_coverage: missingLfIds.length,
-        missing_competency_coverage: 0,
-        missing_trap_metadata: 0,
-        missing_bloom_metadata: 0,
-        repairable_issue_count: unresolvedCount,
-        guard_state: guardState,
-        reason_code: reasonCode,
-      });
-
-      // Update consecutive_no_progress
-      const { data: stepRow } = await sb.from("package_steps")
-        .select("meta").eq("package_id", packageId).eq("step_key", "validate_exam_pool").maybeSingle();
-      const stepMeta = (stepRow?.meta ?? {}) as Record<string, unknown>;
-      const prevNoProgress = Number(stepMeta.consecutive_no_progress ?? 0);
-      await sb.from("package_steps").update({
-        meta: {
-          ...stepMeta,
-          consecutive_no_progress: prevNoProgress + 1,
-          last_validate_completed_at: new Date().toISOString(),
-          last_guard_state: guardState,
-          last_reason_code: reasonCode,
-        },
-      }).eq("package_id", packageId).eq("step_key", "validate_exam_pool");
+      await runSnapshotWritePath(sb, packageId, curriculumId, p.job_id ?? null);
     } catch (snapErr) {
-      console.warn(`[validate-exam] Snapshot write failed: ${(snapErr as Error)?.message?.slice(0, 100)}`);
+      console.warn(`[validate-exam] Snapshot write-path failed: ${(snapErr as Error)?.message?.slice(0, 100)}`);
     }
 
     return json({
@@ -799,47 +933,11 @@ Deno.serve(async (req) => {
     last_error: overallPass ? null : `Exam QC v3: avg=${avgScore.toFixed(0)}, t1=${t1PassRate.toFixed(0)}%, bloom=${bloomGatePass}, ctx=${contextGatePass}, dist=${distractorGatePass}`,
   }).eq("id", packageId);
 
-  // ═══ SNAPSHOT: Write validation snapshot for delta-based guard ═══
+  // ═══ SNAPSHOT: Full write-path (insert → classify → finalize → meta) ═══
   try {
-    const guardResult = await sb.rpc("fn_classify_validate_guard", { p_package_id: packageId });
-    const guardState = guardResult?.data?.guard_state ?? (overallPass ? "healthy" : "soft_stalled");
-    const reasonCode = guardResult?.data?.reason_code ?? null;
-
-    await sb.from("exam_pool_validation_snapshots" as any).insert({
-      package_id: packageId,
-      curriculum_id: curriculumId,
-      approved_count: qcCounts.approved || 0,
-      review_count: qcCounts.pending || 0,
-      draft_count: qcCounts.draft || 0,
-      rejected_count: qcCounts.rejected || 0,
-      unresolved_quality_flags: (qcCounts.tier1_failed || 0) + (qcCounts.needs_revision || 0),
-      missing_lf_coverage: 0,
-      missing_competency_coverage: 0,
-      missing_trap_metadata: 0,
-      missing_bloom_metadata: !bloomGatePass ? 1 : 0,
-      repairable_issue_count: t1Stats.failed || 0,
-      guard_state: guardState,
-      reason_code: reasonCode,
-    });
-
-    // Update consecutive_no_progress in step meta
-    const prevProgress = overallPass;
-    const { data: stepRow } = await sb.from("package_steps")
-      .select("meta").eq("package_id", packageId).eq("step_key", "validate_exam_pool").maybeSingle();
-    const stepMeta = (stepRow?.meta ?? {}) as Record<string, unknown>;
-    const prevNoProgress = Number(stepMeta.consecutive_no_progress ?? 0);
-    await sb.from("package_steps").update({
-      meta: {
-        ...stepMeta,
-        consecutive_no_progress: prevProgress ? 0 : prevNoProgress + 1,
-        last_validate_completed_at: new Date().toISOString(),
-        last_guard_state: guardState,
-        last_reason_code: reasonCode,
-        ...(prevProgress ? { last_progress_at: new Date().toISOString() } : {}),
-      },
-    }).eq("package_id", packageId).eq("step_key", "validate_exam_pool");
+    await runSnapshotWritePath(sb, packageId, curriculumId, p.job_id ?? null);
   } catch (snapErr) {
-    console.warn(`[validate-exam] Snapshot write failed: ${(snapErr as Error)?.message?.slice(0, 100)}`);
+    console.warn(`[validate-exam] Snapshot write-path failed: ${(snapErr as Error)?.message?.slice(0, 100)}`);
   }
 
   if (!overallPass) {
