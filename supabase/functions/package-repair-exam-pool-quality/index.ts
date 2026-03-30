@@ -80,6 +80,7 @@ Deno.serve(async (req) => {
   }
 
   const repairResult = result as Record<string, unknown>;
+  console.log(`[repair-exam-pool] RPC result: reconciled=${repairResult.qc_status_reconciled}, promoted=${repairResult.promoted_to_approved}, traps=${repairResult.trap_types_fixed}, missing_lf=${repairResult.missing_lf_coverage}`);
 
   // ── P0.3 Step 1b: Targeted QC Reconciliation ──
   // Auto-reject questions stuck in tier1_failed/needs_revision for >24h
