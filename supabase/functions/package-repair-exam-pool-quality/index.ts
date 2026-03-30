@@ -147,6 +147,15 @@ Deno.serve(async (req) => {
 
   if (poolHealthy) {
     // Pool is clean — mark validate_exam_pool as queued for a final pass
+    // IMPORTANT: merge into existing meta to preserve guard_state, consecutive_no_progress etc.
+    const { data: existingStep } = await sb
+      .from("package_steps")
+      .select("meta")
+      .eq("package_id", packageId)
+      .eq("step_key", "validate_exam_pool")
+      .maybeSingle();
+    const existingMeta = (existingStep?.meta ?? {}) as Record<string, unknown>;
+
     await sb
       .from("package_steps")
       .update({
@@ -154,7 +163,12 @@ Deno.serve(async (req) => {
         started_at: null,
         finished_at: null,
         last_error: null,
-        meta: { repair_cleared: true, repair_at: new Date().toISOString() },
+        meta: {
+          ...existingMeta,
+          repair_cleared: true,
+          repair_at: new Date().toISOString(),
+          last_repair_completed_at: new Date().toISOString(),
+        },
       })
       .eq("package_id", packageId)
       .eq("step_key", "validate_exam_pool")

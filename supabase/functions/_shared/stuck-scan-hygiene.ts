@@ -870,7 +870,7 @@ export async function healValidateExamPoolLoop(sb: SupabaseClient) {
           meta: {
             ...stepMeta,
             guard_state: "hard_stalled",
-            last_reason_code: reasonCode,
+            stall_reason_code: reasonCode,
             hard_stall_count: (Number(stepMeta.hard_stall_count ?? 0)) + 1,
             last_hard_stall_at: new Date().toISOString(),
           },
