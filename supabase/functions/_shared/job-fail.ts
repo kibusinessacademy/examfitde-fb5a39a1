@@ -1,4 +1,5 @@
 import { classifyDbError } from "./pg-error.ts";
+import { mergePackageStepMeta } from "./merge-step-meta.ts";
 
 export interface FailCtx {
   supabase: any;
