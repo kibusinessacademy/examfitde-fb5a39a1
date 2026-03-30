@@ -980,16 +980,20 @@ Deno.serve(async (req) => {
     }
 
     const pkgStatus = (pkgData as any).status;
-    // P0 FIX: Allow blocked packages to run integrity check if council is approved
-    // This prevents the deadlock: blocked → can't run integrity → stays blocked
+    // P0.2 FIX: Allow blocked/quality_gate_failed packages to run integrity in recovery mode.
+    // Previously only allowed blocked + council_approved, which created a deadlock:
+    //   blocked → can't run integrity → stays blocked → no diagnosis possible.
+    // Now: blocked and quality_gate_failed are ALWAYS eligible for integrity (recovery path).
+    // This is safe because integrity is read-only (diagnostic, not mutating).
     const allowedStatuses = ["building", "done", "published"];
-    const isBlockedButReady = pkgStatus === "blocked" && (pkgData as any).council_approved === true;
-    if (isBlockedButReady) {
-      console.log(`[integrity-check] pkg=${packageId.slice(0, 8)} BLOCKED_BUT_READY: running integrity despite blocked status (council_approved=true)`);
+    const RECOVERY_STATUSES = ["blocked", "quality_gate_failed"];
+    const isRecoveryEligible = RECOVERY_STATUSES.includes(pkgStatus);
+    if (isRecoveryEligible) {
+      console.log(`[integrity-check] pkg=${packageId.slice(0, 8)} RECOVERY_MODE: running integrity despite status='${pkgStatus}' (recovery path enabled)`);
     }
-    if (!allowedStatuses.includes(pkgStatus) && !isBlockedButReady && !forceRun) {
+    if (!allowedStatuses.includes(pkgStatus) && !isRecoveryEligible && !forceRun) {
       // Package not in an active build state — skip gracefully (not a failure)
-      console.log(`[integrity-check] pkg=${packageId.slice(0, 8)} status=${pkgStatus} — skipping (not building/done/published)`);
+      console.log(`[integrity-check] pkg=${packageId.slice(0, 8)} status=${pkgStatus} — skipping (not building/done/published/recovery)`);
       return json({
         ok: false,
         skipped: true,

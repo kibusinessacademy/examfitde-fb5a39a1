@@ -426,17 +426,38 @@ Deno.serve(async (req) => {
       ...(missingLfIds.length > 0 ? [`MISSING_LF_COVERAGE:${missingLfIds.length}`] : []),
     ];
 
-    console.warn(`[validate-exam] NO_PENDING_WITH_UNRESOLVED: approved=${approvedCount}, unresolved=${unresolvedCount}, missingLF=${missingLfIds.length}`);
+    // ═══ P0.1: GATE CLASSIFICATION — Distinguish non-retryable fachliche failures ═══
+    // These are state-based hard blockers, NOT transient errors.
+    // Classify each issue for the runner to decide correctly:
+    //   - UNRESOLVED_QUALITY_FLAGS → needs targeted QC reconciliation (repair)
+    //   - MISSING_LF_COVERAGE → needs targeted LF gap fill (repair)
+    //   - NO_PENDING_QUESTIONS alone → terminal if no unresolved remain
+    // By returning `gate_blocked: true`, the runner will NOT blindly retry/reseed,
+    // but instead route to the repair_exam_pool_quality path.
+    const diagnosisCodes: string[] = [];
+    if (unresolvedCount > 0) diagnosisCodes.push("REPAIR_NEEDED:QC_RECONCILIATION");
+    if (missingLfIds.length > 0) diagnosisCodes.push("REPAIR_NEEDED:LF_COVERAGE");
+    if (unresolvedCount === 0 && missingLfIds.length === 0) diagnosisCodes.push("TERMINAL:POOL_EMPTY");
+
+    console.warn(`[validate-exam] GATE_BLOCKED: approved=${approvedCount}, unresolved=${unresolvedCount}, missingLF=${missingLfIds.length}, diagnosis=${diagnosisCodes.join(",")}`);
     return json({
       ok: false,
       batch_complete: true,
       validation_passed: false,
-      reseed_required: true,
+      // P0.1: NEW — signals to runner this is NOT a retryable failure
+      gate_blocked: true,
+      gate_diagnosis: diagnosisCodes,
+      // Keep legacy fields for backward compat but reseed_required is now conditional
+      reseed_required: diagnosisCodes.includes("TERMINAL:POOL_EMPTY"),
       no_pending_questions: true,
       issues,
       missing_lf_ids: missingLfIds.slice(0, 50),
       qc_counts: qcCounts,
-      message: `❌ Keine pending Fragen, aber ${unresolvedCount} unresolved QC-Fälle vorhanden. Re-Seed erforderlich.`,
+      unresolved_count: unresolvedCount,
+      approved_count: approvedCount,
+      message: unresolvedCount > 0
+        ? `⛔ Gate blockiert: ${unresolvedCount} unresolved QC-Fälle + ${missingLfIds.length} fehlende LF. Targeted Repair erforderlich (kein Reseed).`
+        : `❌ Keine pending Fragen und Pool leer. Re-Seed erforderlich.`,
     });
   }
 

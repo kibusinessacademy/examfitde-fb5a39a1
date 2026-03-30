@@ -57,6 +57,11 @@ Deno.serve(async (req) => {
     return json({ error: "could not resolve curriculum_id" }, 400);
   }
 
+  // ═══ P0.3: TARGETED REPAIR instead of blind reseed ═══
+  // Step 1: QC Reconciliation — promote promotable, reject true rejects
+  // Step 2: LF Coverage check — only fill genuine gaps
+  // Step 3: Selective reseed ONLY if pool is structurally empty
+
   // Heartbeat
   if (jobId) {
     await sb
@@ -65,7 +70,7 @@ Deno.serve(async (req) => {
       .eq("id", jobId);
   }
 
-  // Call the DB repair function
+  // Call the DB repair function (promotes tier1_passed→approved, fixes trap_types)
   const { data: result, error } = await sb.rpc("repair_exam_pool_quality", {
     p_curriculum_id: cid,
   });
@@ -76,6 +81,54 @@ Deno.serve(async (req) => {
 
   const repairResult = result as Record<string, unknown>;
 
+  // ── P0.3 Step 1b: Targeted QC Reconciliation ──
+  // Auto-reject questions stuck in tier1_failed/needs_revision for >24h
+  // These are the "12 unresolved QC" that block the entire pipeline
+  const { count: staleFailedCount } = await sb
+    .from("exam_questions")
+    .select("id", { count: "exact", head: true })
+    .eq("curriculum_id", cid)
+    .in("qc_status", ["tier1_failed", "needs_revision"])
+    .lt("updated_at", new Date(Date.now() - 24 * 60 * 60_000).toISOString());
+
+  let qcReconciled = 0;
+  if ((staleFailedCount ?? 0) > 0) {
+    // Check if approved pool is large enough to absorb rejections
+    const { count: approvedCount } = await sb
+      .from("exam_questions")
+      .select("id", { count: "exact", head: true })
+      .eq("curriculum_id", cid)
+      .eq("qc_status", "approved");
+
+    // Only auto-reject if we have a healthy approved base (500+)
+    if ((approvedCount ?? 0) >= 500) {
+      const { data: rejected } = await sb
+        .from("exam_questions")
+        .update({ qc_status: "rejected", status: "rejected", updated_at: new Date().toISOString() })
+        .eq("curriculum_id", cid)
+        .in("qc_status", ["tier1_failed", "needs_revision"])
+        .lt("updated_at", new Date(Date.now() - 24 * 60 * 60_000).toISOString())
+        .select("id");
+      qcReconciled = rejected?.length ?? 0;
+      console.log(`[repair-exam-pool] QC_RECONCILIATION: rejected ${qcReconciled} stale failed questions (approved base: ${approvedCount})`);
+    }
+  }
+
+  // ── P0.3 Step 2: Check if pool is now sufficient after reconciliation ──
+  const { count: postRepairApproved } = await sb
+    .from("exam_questions")
+    .select("id", { count: "exact", head: true })
+    .eq("curriculum_id", cid)
+    .in("qc_status", ["approved", "tier1_passed"]);
+
+  const { count: postRepairUnresolved } = await sb
+    .from("exam_questions")
+    .select("id", { count: "exact", head: true })
+    .eq("curriculum_id", cid)
+    .in("qc_status", ["tier1_failed", "needs_revision", "pending"]);
+
+  const poolHealthy = (postRepairApproved ?? 0) >= 500 && (postRepairUnresolved ?? 0) === 0;
+
   // Log repair action
   await sb.from("auto_heal_log").insert({
     action_type: "repair_exam_pool_quality",
@@ -84,32 +137,61 @@ Deno.serve(async (req) => {
       package_id: packageId,
       curriculum_id: cid,
       ...repairResult,
+      qc_reconciled: qcReconciled,
+      post_repair_approved: postRepairApproved,
+      post_repair_unresolved: postRepairUnresolved,
+      pool_healthy: poolHealthy,
     },
   });
 
-  // After repair, reset validate_exam_pool step back to queued for retry
-  await sb
-    .from("package_steps")
-    .update({ status: "queued", updated_at: new Date().toISOString() })
-    .eq("package_id", packageId)
-    .eq("step_key", "validate_exam_pool")
-    .in("status", ["failed", "queued"]);
+  if (poolHealthy) {
+    // Pool is clean — mark validate_exam_pool as queued for a final pass
+    await sb
+      .from("package_steps")
+      .update({
+        status: "queued",
+        started_at: null,
+        finished_at: null,
+        last_error: null,
+        meta: { repair_cleared: true, repair_at: new Date().toISOString() },
+      })
+      .eq("package_id", packageId)
+      .eq("step_key", "validate_exam_pool")
+      .in("status", ["failed", "queued"]);
 
-  // Mark this repair step conditionally:
-  // - "done" only if no LF gaps remain
-  // - "running" if LF filler was enqueued (will be resolved by filler completion)
-  const hasOpenLfGaps = (repairResult.missing_lf_coverage as number) > 0;
-  await sb
-    .from("package_steps")
-    .update({
-      status: hasOpenLfGaps ? "running" : "done",
-      updated_at: new Date().toISOString(),
-      meta: hasOpenLfGaps
-        ? { pending_followup: "pool_fill_lf_gaps", lf_gaps: repairResult.missing_lf_coverage }
-        : { repair_complete: true },
-    })
-    .eq("package_id", packageId)
-    .eq("step_key", "repair_exam_pool_quality");
+    // Mark repair step as done
+    await sb
+      .from("package_steps")
+      .update({
+        status: "done",
+        updated_at: new Date().toISOString(),
+        meta: { repair_complete: true, qc_reconciled: qcReconciled, pool_healthy: true },
+      })
+      .eq("package_id", packageId)
+      .eq("step_key", "repair_exam_pool_quality");
+  } else {
+    // After repair, reset validate_exam_pool step back to queued for retry
+    await sb
+      .from("package_steps")
+      .update({ status: "queued", updated_at: new Date().toISOString() })
+      .eq("package_id", packageId)
+      .eq("step_key", "validate_exam_pool")
+      .in("status", ["failed", "queued"]);
+
+    // Mark this repair step conditionally
+    const hasOpenLfGaps = (repairResult.missing_lf_coverage as number) > 0;
+    await sb
+      .from("package_steps")
+      .update({
+        status: hasOpenLfGaps ? "running" : "done",
+        updated_at: new Date().toISOString(),
+        meta: hasOpenLfGaps
+          ? { pending_followup: "pool_fill_lf_gaps", lf_gaps: repairResult.missing_lf_coverage }
+          : { repair_complete: true, qc_reconciled: qcReconciled },
+      })
+      .eq("package_id", packageId)
+      .eq("step_key", "repair_exam_pool_quality");
+  }
 
   // If there are still missing LF gaps, enqueue LF gap filler
   if ((repairResult.missing_lf_coverage as number) > 0) {
