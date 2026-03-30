@@ -52,6 +52,42 @@ export async function checkLoopGuard(
 ): Promise<LoopGuardResult> {
   const meta = stepMeta ?? {};
 
+  // ═══ DELTA-BASED GUARD for validate_exam_pool ═══
+  // Instead of raw attempt counting, use fn_classify_validate_guard
+  // which evaluates progress deltas, grace periods, and active repairs.
+  if (stepKey === "validate_exam_pool") {
+    try {
+      const { data: classification } = await sb.rpc("fn_classify_validate_guard", {
+        p_package_id: packageId,
+      });
+      if (classification) {
+        const guardState = classification.guard_state as string;
+        const action = classification.action as string;
+        const reasonCode = classification.reason_code as string | null;
+
+        if (guardState === "hard_stalled" && action === "block") {
+          return {
+            blocked: true,
+            reason: `VALIDATE_GUARD: ${reasonCode ?? "VALIDATE_EXAM_POOL_TRUE_STALL"} — no progress after multiple repair cycles`,
+            metrics: {
+              guard_state: guardState,
+              reason_code: reasonCode,
+              validate_attempts_24h: classification.validate_attempts_24h,
+              repair_attempts_24h: classification.repair_attempts_24h,
+              consecutive_no_progress: classification.consecutive_no_progress,
+            },
+          };
+        }
+
+        // healthy, recovering, soft_stalled → allow (soft-stall recovery handled by healer)
+        return { blocked: false };
+      }
+    } catch (classifyErr) {
+      console.warn(`[loop-guard] fn_classify_validate_guard failed, falling back to generic: ${(classifyErr as Error)?.message?.slice(0, 80)}`);
+      // Fall through to generic checks
+    }
+  }
+
   // ── Check 1: Consecutive zero-progress runs ──
   const zeroProgressRuns = typeof meta.zero_progress_runs === "number"
     ? meta.zero_progress_runs : 0;
