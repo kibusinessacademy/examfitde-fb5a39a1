@@ -89,7 +89,7 @@ Deno.serve(async (req) => {
     .select("id", { count: "exact", head: true })
     .eq("curriculum_id", cid)
     .in("qc_status", ["tier1_failed", "needs_revision"])
-    .lt("updated_at", new Date(Date.now() - 24 * 60 * 60_000).toISOString());
+    .lt("created_at", new Date(Date.now() - 24 * 60 * 60_000).toISOString());
 
   let qcReconciled = 0;
   if ((staleFailedCount ?? 0) > 0) {
@@ -104,10 +104,10 @@ Deno.serve(async (req) => {
     if ((approvedCount ?? 0) >= 500) {
       const { data: rejected } = await sb
         .from("exam_questions")
-        .update({ qc_status: "rejected", status: "rejected", updated_at: new Date().toISOString() })
+        .update({ qc_status: "rejected", status: "rejected" })
         .eq("curriculum_id", cid)
         .in("qc_status", ["tier1_failed", "needs_revision"])
-        .lt("updated_at", new Date(Date.now() - 24 * 60 * 60_000).toISOString())
+        .lt("created_at", new Date(Date.now() - 24 * 60 * 60_000).toISOString())
         .select("id");
       qcReconciled = rejected?.length ?? 0;
       console.log(`[repair-exam-pool] QC_RECONCILIATION: rejected ${qcReconciled} stale failed questions (approved base: ${approvedCount})`);
