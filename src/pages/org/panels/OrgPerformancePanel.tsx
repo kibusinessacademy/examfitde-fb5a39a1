@@ -10,28 +10,31 @@ import ReadinessBar from "@/components/b2b/ReadinessBar";
 import { useOrgPerformanceDashboard, useOrgPerformanceSummary } from "@/hooks/useOrgPerformance";
 import { useOrgInterventionSummary } from "@/hooks/useOrgInterventions";
 import type { OrgPerformanceRow } from "@/hooks/useOrgPerformance";
+import CriticalCaseRow, { riskToVerdict } from "@/pages/org/components/CriticalCaseRow";
+import CriticalOneClickActions from "@/pages/org/components/CriticalOneClickActions";
 
 function formatDate(date?: string | null) {
   if (!date || date === '2000-01-01T00:00:00+00:00') return "–";
   return new Intl.DateTimeFormat("de-DE", { dateStyle: "medium" }).format(new Date(date));
 }
 
-function riskToVerdict(risk: string): string {
-  switch (risk) {
-    case 'low': return 'exam_ready';
-    case 'medium': return 'almost_ready';
-    case 'high': return 'not_ready';
-    case 'not_started': return 'needs_work';
-    default: return risk;
-  }
+/** Sort: high risk first, then inactive, then by readiness ascending */
+function sortRows(rows: OrgPerformanceRow[]): OrgPerformanceRow[] {
+  return [...rows].sort((a, b) => {
+    const bucketA = a.risk_level === 'high' ? 0 : a.inactive_days > 14 ? 1 : 2;
+    const bucketB = b.risk_level === 'high' ? 0 : b.inactive_days > 14 ? 1 : 2;
+    if (bucketA !== bucketB) return bucketA - bucketB;
+    return a.readiness_score - b.readiness_score;
+  });
 }
 
 interface Props {
   organizationId: string;
   onNavigateToInterventions?: () => void;
+  onNavigateToLearner?: (userId: string, productId: string) => void;
 }
 
-export default function OrgPerformancePanel({ organizationId, onNavigateToInterventions }: Props) {
+export default function OrgPerformancePanel({ organizationId, onNavigateToInterventions, onNavigateToLearner }: Props) {
   const [productId, setProductId] = useState<string | undefined>(undefined);
   const [query, setQuery] = useState("");
 
@@ -45,19 +48,29 @@ export default function OrgPerformancePanel({ organizationId, onNavigateToInterv
     return Array.from(map.entries());
   }, [rows]);
 
+  const sortedRows = useMemo(() => sortRows(rows), [rows]);
+
   const filteredRows = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter(r =>
+    if (!q) return sortedRows;
+    return sortedRows.filter(r =>
       r.display_name?.toLowerCase().includes(q) ||
       r.product_title?.toLowerCase().includes(q)
     );
-  }, [rows, query]);
+  }, [sortedRows, query]);
 
   const criticalRows = useMemo(
-    () => rows.filter(r => r.risk_level === 'high' || r.inactive_days > 14),
-    [rows]
+    () => sortedRows.filter(r => r.risk_level === 'high' || r.inactive_days > 14),
+    [sortedRows]
   );
+
+  const handleCriticalRowClick = (row: OrgPerformanceRow) => {
+    if (onNavigateToLearner) {
+      onNavigateToLearner(row.user_id, row.product_id);
+    } else if (onNavigateToInterventions) {
+      onNavigateToInterventions();
+    }
+  };
 
   if (loadingSummary || loadingRows) {
     return (
@@ -67,10 +80,13 @@ export default function OrgPerformancePanel({ organizationId, onNavigateToInterv
     );
   }
 
+  const openInterventions = interventionSummary?.total_open ?? 0;
+  const criticalInterventions = (interventionSummary?.critical_count ?? 0) + (interventionSummary?.high_count ?? 0);
+
   return (
     <div className="space-y-6">
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      {/* KPI Cards – now includes intervention count */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <KpiCard
           icon={<Users className="h-4 w-4 text-muted-foreground" />}
           label="Aktive Lernende"
@@ -92,62 +108,42 @@ export default function OrgPerformancePanel({ organizationId, onNavigateToInterv
           label="Inaktiv (>14d)"
           value={summary?.inactive_count ?? 0}
         />
+        <KpiCard
+          icon={<ShieldAlert className="h-4 w-4 text-destructive" />}
+          label="Offene Interventionen"
+          value={openInterventions}
+          highlight={criticalInterventions > 0}
+          subtitle={criticalInterventions > 0 ? `${criticalInterventions} kritisch` : undefined}
+          onClick={onNavigateToInterventions}
+        />
       </div>
 
-      {/* Open Interventions Banner */}
-      {(interventionSummary?.total_open ?? 0) > 0 && (
-        <Card className="border-destructive/30 bg-destructive/5">
-          <CardContent className="flex items-center justify-between py-4">
-            <div className="flex items-center gap-3">
-              <ShieldAlert className="h-5 w-5 text-destructive" />
-              <div>
-                <p className="text-sm font-medium">
-                  {interventionSummary!.total_open} offene Interventionen
-                  {(interventionSummary!.critical_count + interventionSummary!.high_count) > 0 && (
-                    <span className="text-destructive ml-1">
-                      ({interventionSummary!.critical_count + interventionSummary!.high_count} kritisch/hoch)
-                    </span>
-                  )}
-                </p>
-                <p className="text-xs text-muted-foreground">Lernende benötigen Aufmerksamkeit</p>
-              </div>
-            </div>
-            {onNavigateToInterventions && (
-              <Button size="sm" variant="outline" onClick={onNavigateToInterventions}>
-                Interventionen öffnen
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Critical Cases */}
+      {/* Critical Cases with explanations + one-click actions */}
       {criticalRows.length > 0 && (
         <Card className="border-destructive/30">
           <CardHeader className="pb-3">
             <CardTitle className="text-lg flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-destructive" />
-              Kritische Fälle
+              Kritische Fälle ({criticalRows.length})
             </CardTitle>
             <CardDescription>
-              Lernende mit hohem Risiko oder längerer Inaktivität
+              Lernende mit hohem Risiko oder längerer Inaktivität – Klick für Details
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="divide-y">
-              {criticalRows.slice(0, 6).map(row => (
-                <div key={`${row.user_id}-${row.product_id}`} className="flex items-center justify-between py-3">
-                  <div>
-                    <div className="font-medium text-sm">{row.display_name}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {row.product_title} · {Math.round(row.readiness_score)}% Prüfungsreife
-                      {row.inactive_days > 14 && ` · ${row.inactive_days} Tage inaktiv`}
-                    </div>
-                  </div>
-                  <RiskBadge verdict={riskToVerdict(row.risk_level)} />
+              {criticalRows.slice(0, 8).map(row => (
+                <div key={`${row.user_id}-${row.product_id}`}>
+                  <CriticalCaseRow row={row} onClickRow={handleCriticalRowClick} />
+                  <CriticalOneClickActions row={row} organizationId={organizationId} />
                 </div>
               ))}
             </div>
+            {criticalRows.length > 8 && (
+              <Button variant="ghost" size="sm" className="w-full mt-2 text-muted-foreground" onClick={onNavigateToInterventions}>
+                + {criticalRows.length - 8} weitere kritische Fälle
+              </Button>
+            )}
           </CardContent>
         </Card>
       )}
@@ -239,14 +235,16 @@ function PerformanceRow({ row }: { row: OrgPerformanceRow }) {
   );
 }
 
-function KpiCard({ icon, label, value, highlight }: {
+function KpiCard({ icon, label, value, highlight, subtitle, onClick }: {
   icon: React.ReactNode;
   label: string;
   value: string | number;
   highlight?: boolean;
+  subtitle?: string;
+  onClick?: () => void;
 }) {
   return (
-    <Card>
+    <Card className={onClick ? 'cursor-pointer hover:border-primary/40 transition-colors' : ''} onClick={onClick}>
       <CardHeader className="pb-2">
         <CardDescription className="flex items-center gap-1.5">
           {icon}
@@ -255,6 +253,9 @@ function KpiCard({ icon, label, value, highlight }: {
         <CardTitle className={`text-3xl ${highlight ? 'text-destructive' : ''}`}>
           {value}
         </CardTitle>
+        {subtitle && (
+          <p className="text-xs text-destructive font-medium">{subtitle}</p>
+        )}
       </CardHeader>
     </Card>
   );
