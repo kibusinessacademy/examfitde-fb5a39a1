@@ -20,7 +20,13 @@ type AdminOpsAction =
   | 'smoke_test_v2_loop'
   // Batch recovery
   | 'heal_finalization_stall'
-  | 'heal_non_building';
+  | 'heal_non_building'
+  | 'repair_lessons'
+  | 'repair_handbook'
+  | 'repair_minichecks'
+  | 'repair_oral_exam'
+  | 'repair_exam_pool_quality'
+  | 'retry_stalled_step';
 
 export interface ScopedPayload {
   limit?: number;
