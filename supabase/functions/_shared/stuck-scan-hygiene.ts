@@ -710,75 +710,134 @@ export async function healFalseLivenessPackages(sb: SupabaseClient): Promise<str
 }
 
 /**
- * Detect validate_exam_pool stuck in repeated failures and dispatch repair step.
- * Hard cutoff: after 5 consecutive failures, enqueue repair_exam_pool_quality instead of retry.
+ * Delta-based validate_exam_pool soft-stall recovery.
+ * Uses fn_classify_validate_guard to identify soft_stalled packages
+ * and dispatches targeted repair instead of blind retry.
+ *
+ * State machine: healthy → soft_stalled → recovering → healthy → ... → hard_stalled
  */
 export async function healValidateExamPoolLoop(sb: SupabaseClient) {
   let repaired = 0;
   try {
-    // Find packages where validate_exam_pool has failed repeatedly
-    const { data: failedSteps } = await sb
+    // Find packages where validate_exam_pool needs attention
+    const { data: candidates } = await sb
       .from("package_steps")
-      .select("package_id, meta, last_error")
+      .select("package_id, meta, last_error, status")
       .eq("step_key", "validate_exam_pool")
-      .eq("status", "failed")
+      .in("status", ["failed", "blocked", "queued"])
       .limit(20);
 
-    for (const step of failedSteps || []) {
-      // Count recent failures for this package
-      const { count } = await sb
-        .from("job_queue")
-        .select("id", { count: "exact", head: true })
-        .eq("package_id", step.package_id)
-        .eq("job_type", "package_validate_exam_pool")
-        .eq("status", "failed")
-        .gte("created_at", new Date(Date.now() - 24 * 60 * 60_000).toISOString());
+    for (const step of candidates || []) {
+      // Use the delta-based classification function
+      let classification: Record<string, unknown> | null = null;
+      try {
+        const { data } = await sb.rpc("fn_classify_validate_guard", {
+          p_package_id: step.package_id,
+        });
+        classification = data as Record<string, unknown> | null;
+      } catch (err) {
+        console.warn(`[stuck-scan] classify guard failed for ${step.package_id.slice(0, 8)}: ${(err as Error).message}`);
+        continue;
+      }
 
-      const failCount = count ?? 0;
+      if (!classification) continue;
 
-      if (failCount >= 3) {
-        // Check if repair step exists; if not, create it
-        const { data: repairStep } = await sb
-          .from("package_steps")
-          .select("id, status")
-          .eq("package_id", step.package_id)
-          .eq("step_key", "repair_exam_pool_quality")
-          .maybeSingle();
+      const guardState = classification.guard_state as string;
+      const action = classification.action as string;
+      const reasonCode = classification.reason_code as string | null;
 
-        if (!repairStep) {
-          // Insert the repair step
-          await sb.from("package_steps").insert({
-            package_id: step.package_id,
-            step_key: "repair_exam_pool_quality",
-            status: "queued",
-          });
-        } else if (repairStep.status !== "running" && repairStep.status !== "enqueued") {
-          // Reset to queued
+      // Skip healthy or already-recovering packages
+      if (guardState === "healthy" || guardState === "recovering") {
+        // If step is failed/blocked but guard says healthy, unblock it
+        if (step.status === "failed" || step.status === "blocked") {
           await sb.from("package_steps").update({
             status: "queued",
+            last_error: null,
+            meta: {
+              ...(step.meta as Record<string, unknown> ?? {}),
+              loop_guard_false_positive_healed_at: new Date().toISOString(),
+              guard_state: guardState,
+            },
             updated_at: new Date().toISOString(),
-          }).eq("id", repairStep.id);
-        }
+          }).eq("package_id", step.package_id).eq("step_key", "validate_exam_pool");
 
-        // Enqueue the repair job
+          // Unblock package if loop-guarded
+          await sb.from("course_packages").update({
+            status: "building",
+            blocked_reason: null,
+            updated_at: new Date().toISOString(),
+          }).eq("id", step.package_id)
+            .eq("status", "blocked")
+            .ilike("blocked_reason", "%validate_exam_pool%");
+
+          repaired++;
+          console.log(`[stuck-scan] ✅ VALIDATE_GUARD_FALSE_POSITIVE: ${step.package_id.slice(0, 8)} unblocked (${guardState})`);
+        }
+        continue;
+      }
+
+      // soft_stalled → enqueue repair
+      if (guardState === "soft_stalled" && (action === "enqueue_repair" || action === "requeue_validate")) {
         const { data: pkg } = await sb
           .from("course_packages")
           .select("curriculum_id, title")
           .eq("id", step.package_id)
           .maybeSingle();
 
-        await enqueueJob(sb, {
-          jobType: "package_repair_exam_pool_quality",
-          packageId: step.package_id,
-          priority: 30,
-          payload: {
-            curriculum_id: pkg?.curriculum_id,
-            triggered_by: "stuck-scan-validate-loop-heal",
-            fail_count: failCount,
-          },
-        });
+        if (action === "enqueue_repair") {
+          // Ensure repair step exists
+          const { data: repairStep } = await sb
+            .from("package_steps")
+            .select("id, status")
+            .eq("package_id", step.package_id)
+            .eq("step_key", "repair_exam_pool_quality")
+            .maybeSingle();
 
-        // Unblock package if it was loop-guarded
+          if (!repairStep) {
+            await sb.from("package_steps").insert({
+              package_id: step.package_id,
+              step_key: "repair_exam_pool_quality",
+              status: "queued",
+            });
+          } else if (!["running", "enqueued", "processing"].includes(repairStep.status)) {
+            await sb.from("package_steps").update({
+              status: "queued",
+              updated_at: new Date().toISOString(),
+            }).eq("id", repairStep.id);
+          }
+
+          // Enqueue repair job
+          await enqueueJob(sb, {
+            jobType: "package_repair_exam_pool_quality",
+            packageId: step.package_id,
+            priority: 30,
+            payload: {
+              curriculum_id: pkg?.curriculum_id,
+              triggered_by: "stuck-scan-delta-guard",
+              guard_state: guardState,
+              reason_code: reasonCode,
+            },
+          });
+        }
+
+        // Set grace period so validate doesn't re-run immediately
+        const graceDuration = 20 * 60 * 1000; // 20 minutes
+        const stepMeta = (step.meta as Record<string, unknown>) ?? {};
+        await sb.from("package_steps").update({
+          status: "queued",
+          last_error: null,
+          meta: {
+            ...stepMeta,
+            guard_state: guardState,
+            last_reason_code: reasonCode,
+            soft_stall_count: (Number(stepMeta.soft_stall_count ?? 0)) + 1,
+            last_soft_stall_at: new Date().toISOString(),
+            grace_until: new Date(Date.now() + graceDuration).toISOString(),
+          },
+          updated_at: new Date().toISOString(),
+        }).eq("package_id", step.package_id).eq("step_key", "validate_exam_pool");
+
+        // Unblock package if blocked
         await sb.from("course_packages").update({
           status: "building",
           blocked_reason: null,
@@ -788,21 +847,58 @@ export async function healValidateExamPoolLoop(sb: SupabaseClient) {
           .ilike("blocked_reason", "%validate_exam_pool%");
 
         repaired++;
-        console.warn(`[stuck-scan] 🔧 VALIDATE_EXAM_POOL_LOOP → REPAIR: ${pkg?.title?.slice(0, 30)} (${step.package_id.slice(0, 8)}) after ${failCount} failures`);
+        console.warn(`[stuck-scan] 🔧 VALIDATE_SOFT_STALL → ${action}: ${pkg?.title?.slice(0, 30)} (${step.package_id.slice(0, 8)}) reason=${reasonCode}`);
 
         await sb.from("auto_heal_log").insert({
-          action_type: "validate_exam_pool_loop_repair",
+          action_type: "validate_exam_pool_delta_guard_heal",
           trigger_source: "stuck-scan",
           target_type: "package_steps",
           target_id: step.package_id,
           result_status: "applied",
-          result_detail: `Dispatched repair_exam_pool_quality after ${failCount} validate failures`,
-          metadata: { fail_count: failCount, package_title: pkg?.title },
+          result_detail: `Guard state: ${guardState}, action: ${action}, reason: ${reasonCode}`,
+          metadata: { guard_state: guardState, reason_code: reasonCode, action },
+        });
+        continue;
+      }
+
+      // hard_stalled → deterministic block with clear reason code
+      if (guardState === "hard_stalled") {
+        const stepMeta = (step.meta as Record<string, unknown>) ?? {};
+        await sb.from("package_steps").update({
+          status: "failed",
+          last_error: `VALIDATE_EXAM_POOL_TRUE_STALL: No progress after multiple repair cycles. Reason: ${reasonCode}`,
+          meta: {
+            ...stepMeta,
+            guard_state: "hard_stalled",
+            last_reason_code: reasonCode,
+            hard_stall_count: (Number(stepMeta.hard_stall_count ?? 0)) + 1,
+            last_hard_stall_at: new Date().toISOString(),
+          },
+          updated_at: new Date().toISOString(),
+        }).eq("package_id", step.package_id).eq("step_key", "validate_exam_pool");
+
+        await sb.from("course_packages").update({
+          status: "blocked",
+          blocked_reason: "VALIDATE_EXAM_POOL_TRUE_STALL",
+          last_error: `True stall: ${reasonCode}`,
+          updated_at: new Date().toISOString(),
+        }).eq("id", step.package_id);
+
+        console.error(`[stuck-scan] 🛑 VALIDATE_HARD_STALL: ${step.package_id.slice(0, 8)} → blocked (${reasonCode})`);
+
+        await sb.from("auto_heal_log").insert({
+          action_type: "validate_exam_pool_hard_stall_block",
+          trigger_source: "stuck-scan",
+          target_type: "package_steps",
+          target_id: step.package_id,
+          result_status: "blocked",
+          result_detail: `Hard stall: ${reasonCode}`,
+          metadata: { guard_state: guardState, reason_code: reasonCode },
         });
       }
     }
   } catch (err) {
-    console.warn(`[stuck-scan] validate_exam_pool loop heal error: ${(err as Error).message}`);
+    console.warn(`[stuck-scan] validate_exam_pool delta-guard heal error: ${(err as Error).message}`);
   }
   return repaired;
 }

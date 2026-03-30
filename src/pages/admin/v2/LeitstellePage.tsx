@@ -16,6 +16,7 @@ const TrapDistributionAuditCard = lazy(() => import('@/components/admin/cards/Tr
 const BlueprintMatchAuditCard = lazy(() => import('@/components/admin/cards/BlueprintMatchAuditCard'));
 const BlockedButReadyCard = lazy(() => import('@/components/admin/cards/BlockedButReadyCard'));
 const RecoveryBoardCard = lazy(() => import('@/components/admin/cards/RecoveryBoardCard'));
+const ValidateGuardDiagnosticsCard = lazy(() => import('@/components/admin/cards/ValidateGuardDiagnosticsCard'));
 
 function KpiTile({ label, value, icon, tone = 'neutral' }: {
   label: string;
@@ -211,6 +212,11 @@ export default function LeitstellePage() {
       {/* Status Invariant Violations */}
       <Suspense fallback={<Skeleton className="h-28" />}>
         <BlockedButReadyCard />
+      </Suspense>
+
+      {/* Validate Guard Diagnostics */}
+      <Suspense fallback={<Skeleton className="h-28" />}>
+        <ValidateGuardDiagnosticsCard />
       </Suspense>
 
       {/* Recovery Board */}
