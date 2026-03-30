@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 export interface OrgIntervention {
   id: string;
   org_id: string;
+  learner_identity_id: string | null;
   user_id: string | null;
   display_name: string;
   product_id: string | null;
