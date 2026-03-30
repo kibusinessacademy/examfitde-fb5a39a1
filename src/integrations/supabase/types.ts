@@ -24452,6 +24452,7 @@ export type Database = {
           dedupe_key: string | null
           id: string
           intervention_type: string
+          learner_identity_id: string | null
           message: string
           org_id: string
           product_id: string | null
@@ -24471,6 +24472,7 @@ export type Database = {
           dedupe_key?: string | null
           id?: string
           intervention_type: string
+          learner_identity_id?: string | null
           message: string
           org_id: string
           product_id?: string | null
@@ -24490,6 +24492,7 @@ export type Database = {
           dedupe_key?: string | null
           id?: string
           intervention_type?: string
+          learner_identity_id?: string | null
           message?: string
           org_id?: string
           product_id?: string | null
@@ -24504,6 +24507,13 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "org_interventions_learner_identity_id_fkey"
+            columns: ["learner_identity_id"]
+            isOneToOne: false
+            referencedRelation: "learner_identities"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "org_interventions_org_id_fkey"
             columns: ["org_id"]
@@ -54183,6 +54193,7 @@ export type Database = {
           display_name: string
           id: string
           intervention_type: string
+          learner_identity_id: string
           message: string
           org_id: string
           product_id: string
