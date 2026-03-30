@@ -1,4 +1,5 @@
 import { classifyDbError } from "./pg-error.ts";
+import { mergePackageStepMeta } from "./merge-step-meta.ts";
 
 export interface FailCtx {
   supabase: any;
@@ -47,17 +48,12 @@ export async function handleDbFailure(ctx: FailCtx, err: any) {
         .update({
           status: "failed",
           last_error: c.message?.slice(0, 5000) ?? "db_error",
-          meta: metaPatch,
         })
         .eq("package_id", ctx.packageId)
         .eq("step_key", ctx.stepKey);
-    } else {
-      await ctx.supabase
-        .from("package_steps")
-        .update({ meta: metaPatch })
-        .eq("package_id", ctx.packageId)
-        .eq("step_key", ctx.stepKey);
     }
+    // Always merge meta safely (never overwrite)
+    await mergePackageStepMeta(ctx.supabase, ctx.packageId, ctx.stepKey, metaPatch);
   }
 
   if (c.class === "permanent") {
