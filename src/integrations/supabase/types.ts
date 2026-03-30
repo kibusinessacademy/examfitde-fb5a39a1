@@ -47177,13 +47177,17 @@ export type Database = {
           last_error: string | null
           last_repair_at: string | null
           last_validate_at: string | null
+          missing_bloom_metadata: number | null
           missing_competency_coverage: number | null
           missing_lf_coverage: number | null
+          missing_trap_metadata: number | null
           package_id: string | null
           package_status: string | null
           reason_code: string | null
           recommended_action: string | null
+          rejected_count: number | null
           repair_attempts_24h: number | null
+          repairable_issue_count: number | null
           review_count: number | null
           step_attempts: number | null
           step_status: Database["public"]["Enums"]["step_status"] | null
