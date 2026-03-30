@@ -602,45 +602,11 @@ Deno.serve(async (req) => {
 
     console.warn(`[validate-exam] GATE_BLOCKED: approved=${approvedCount}, unresolved=${unresolvedCount}, missingLF=${missingLfIds.length}, diagnosis=${diagnosisCodes.join(",")}`);
 
-    // ═══ SNAPSHOT: Write snapshot for gate-blocked path too ═══
+    // ═══ SNAPSHOT: Full write-path (insert → classify → finalize → meta) ═══
     try {
-      const guardResult = await sb.rpc("fn_classify_validate_guard", { p_package_id: packageId });
-      const guardState = guardResult?.data?.guard_state ?? "soft_stalled";
-      const reasonCode = guardResult?.data?.reason_code ?? diagnosisCodes[0] ?? null;
-
-      await sb.from("exam_pool_validation_snapshots" as any).insert({
-        package_id: packageId,
-        curriculum_id: curriculumId,
-        approved_count: approvedCount,
-        review_count: 0,
-        draft_count: qcCounts.draft || 0,
-        rejected_count: qcCounts.rejected || 0,
-        unresolved_quality_flags: unresolvedCount,
-        missing_lf_coverage: missingLfIds.length,
-        missing_competency_coverage: 0,
-        missing_trap_metadata: 0,
-        missing_bloom_metadata: 0,
-        repairable_issue_count: unresolvedCount,
-        guard_state: guardState,
-        reason_code: reasonCode,
-      });
-
-      // Update consecutive_no_progress
-      const { data: stepRow } = await sb.from("package_steps")
-        .select("meta").eq("package_id", packageId).eq("step_key", "validate_exam_pool").maybeSingle();
-      const stepMeta = (stepRow?.meta ?? {}) as Record<string, unknown>;
-      const prevNoProgress = Number(stepMeta.consecutive_no_progress ?? 0);
-      await sb.from("package_steps").update({
-        meta: {
-          ...stepMeta,
-          consecutive_no_progress: prevNoProgress + 1,
-          last_validate_completed_at: new Date().toISOString(),
-          last_guard_state: guardState,
-          last_reason_code: reasonCode,
-        },
-      }).eq("package_id", packageId).eq("step_key", "validate_exam_pool");
+      await runSnapshotWritePath(sb, packageId, curriculumId, p.job_id ?? null);
     } catch (snapErr) {
-      console.warn(`[validate-exam] Snapshot write failed: ${(snapErr as Error)?.message?.slice(0, 100)}`);
+      console.warn(`[validate-exam] Snapshot write-path failed: ${(snapErr as Error)?.message?.slice(0, 100)}`);
     }
 
     return json({
