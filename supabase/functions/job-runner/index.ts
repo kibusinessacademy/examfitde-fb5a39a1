@@ -1576,10 +1576,85 @@ Deno.serve(async (req) => {
           } catch (_e) { /* best-effort SSOT check */ }
         }
 
-        const shouldHealNow = predecessorStep && packageId && !hasActualPendingQuestions && (hasMissingCoverage || shouldForceReseed || newAttempts >= maxAttempts);
+        // ═══ P0.1 + P0.3: GATE-AWARE HEAL ROUTING ═══
+        // If the validator returned gate_blocked=true with diagnosis codes,
+        // route to targeted repair instead of blind reseed.
+        const isGateBlocked = parsed?.gate_blocked === true;
+        const gateDiagnosis: string[] = Array.isArray(parsed?.gate_diagnosis) ? parsed.gate_diagnosis : [];
+        const needsRepairNotReseed = isGateBlocked && gateDiagnosis.some((d: string) => d.startsWith("REPAIR_NEEDED:"));
+        const isTerminalEmpty = isGateBlocked && gateDiagnosis.includes("TERMINAL:POOL_EMPTY");
 
+        // Only allow reseed for true_zero pools or terminal empty states.
+        // For REPAIR_NEEDED diagnoses, route to repair_exam_pool_quality instead.
+        const shouldHealNow = predecessorStep && packageId && !hasActualPendingQuestions && !needsRepairNotReseed && (hasMissingCoverage || shouldForceReseed || newAttempts >= maxAttempts);
+
+        // P0.3: Route gate_blocked + REPAIR_NEEDED to targeted repair path
+        if (needsRepairNotReseed && packageId && validationStepKey === "validate_exam_pool") {
+          console.log(`[job-runner] 🎯 TARGETED_REPAIR: gate_blocked with diagnosis=${gateDiagnosis.join(",")} → routing to repair_exam_pool_quality instead of reseed`);
+          try {
+            // Enqueue targeted repair job
+            await enqueueJob(sb, {
+              job_type: "package_repair_exam_pool_quality",
+              package_id: packageId,
+              payload: {
+                package_id: packageId,
+                curriculum_id: job.payload?.curriculum_id,
+                triggered_by: "gate_blocked_targeted_repair",
+                gate_diagnosis: gateDiagnosis,
+                unresolved_count: parsed?.unresolved_count,
+                missing_lf_count: parsed?.missing_lf_ids?.length ?? 0,
+              },
+              max_attempts: 3,
+              priority: 20,
+            });
+
+            // Set validate_exam_pool step to waiting_for_repair (not queued, to prevent re-dispatch)
+            await sb.from("package_steps")
+              .update({
+                status: "failed",
+                last_error: `GATE_BLOCKED: ${gateDiagnosis.join(", ")} → targeted repair dispatched`,
+                meta: {
+                  ...((await sb.from("package_steps").select("meta").eq("package_id", packageId).eq("step_key", validationStepKey).maybeSingle()).data?.meta as Record<string, unknown> ?? {}),
+                  gate_blocked: true,
+                  gate_diagnosis: gateDiagnosis,
+                  repair_dispatched_at: tsNow,
+                  awaiting_repair: true,
+                },
+              })
+              .eq("package_id", packageId)
+              .eq("step_key", validationStepKey);
+
+            await sb.from("auto_heal_log").insert({
+              action_type: "gate_blocked_targeted_repair",
+              trigger_source: "job-runner",
+              target_type: "package_step",
+              target_id: packageId,
+              result_status: "applied",
+              result_detail: `Gate blocked: ${gateDiagnosis.join(", ")} → dispatched repair_exam_pool_quality (no reseed)`,
+              metadata: {
+                step: job.job_type,
+                step_key: validationStepKey,
+                gate_diagnosis: gateDiagnosis,
+                unresolved_count: parsed?.unresolved_count,
+                approved_count: parsed?.approved_count,
+              },
+            });
+          } catch (repairErr) {
+            console.warn(`[job-runner] targeted repair dispatch failed: ${(repairErr as Error).message}`);
+          }
+
+          finalState = {
+            status: "completed",
+            patch: {
+              result: typeof parsed === "object" ? parsed : { raw: parsed },
+              completed_at: tsNow,
+              attempts: newAttempts,
+              error: `GATE_BLOCKED → targeted repair dispatched (no reseed)`,
+            },
+          };
+        }
         // Log when deadlock guard blocks a reseed — precise diagnostics
-        if (hasActualPendingQuestions && (shouldForceReseed || hasMissingCoverage)) {
+        else if (hasActualPendingQuestions && (shouldForceReseed || hasMissingCoverage)) {
           try {
             await sb.from("auto_heal_log").insert({
               action_type: "deadlock_guard_blocked_reseed",
