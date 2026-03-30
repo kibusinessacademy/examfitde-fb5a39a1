@@ -766,6 +766,49 @@ Deno.serve(async (req) => {
     last_error: overallPass ? null : `Exam QC v3: avg=${avgScore.toFixed(0)}, t1=${t1PassRate.toFixed(0)}%, bloom=${bloomGatePass}, ctx=${contextGatePass}, dist=${distractorGatePass}`,
   }).eq("id", packageId);
 
+  // ═══ SNAPSHOT: Write validation snapshot for delta-based guard ═══
+  try {
+    const guardResult = await sb.rpc("fn_classify_validate_guard", { p_package_id: packageId });
+    const guardState = guardResult?.data?.guard_state ?? (overallPass ? "healthy" : "soft_stalled");
+    const reasonCode = guardResult?.data?.reason_code ?? null;
+
+    await sb.from("exam_pool_validation_snapshots" as any).insert({
+      package_id: packageId,
+      curriculum_id: curriculumId,
+      approved_count: qcCounts.approved || 0,
+      review_count: qcCounts.pending || 0,
+      draft_count: qcCounts.draft || 0,
+      rejected_count: qcCounts.rejected || 0,
+      unresolved_quality_flags: (qcCounts.tier1_failed || 0) + (qcCounts.needs_revision || 0),
+      missing_lf_coverage: 0,
+      missing_competency_coverage: 0,
+      missing_trap_metadata: 0,
+      missing_bloom_metadata: !bloomGatePass ? 1 : 0,
+      repairable_issue_count: t1Stats.failed || 0,
+      guard_state: guardState,
+      reason_code: reasonCode,
+    });
+
+    // Update consecutive_no_progress in step meta
+    const prevProgress = overallPass;
+    const { data: stepRow } = await sb.from("package_steps")
+      .select("meta").eq("package_id", packageId).eq("step_key", "validate_exam_pool").maybeSingle();
+    const stepMeta = (stepRow?.meta ?? {}) as Record<string, unknown>;
+    const prevNoProgress = Number(stepMeta.consecutive_no_progress ?? 0);
+    await sb.from("package_steps").update({
+      meta: {
+        ...stepMeta,
+        consecutive_no_progress: prevProgress ? 0 : prevNoProgress + 1,
+        last_validate_completed_at: new Date().toISOString(),
+        last_guard_state: guardState,
+        last_reason_code: reasonCode,
+        ...(prevProgress ? { last_progress_at: new Date().toISOString() } : {}),
+      },
+    }).eq("package_id", packageId).eq("step_key", "validate_exam_pool");
+  } catch (snapErr) {
+    console.warn(`[validate-exam] Snapshot write failed: ${(snapErr as Error)?.message?.slice(0, 100)}`);
+  }
+
   if (!overallPass) {
     try {
       await sb.from("ops_alerts").insert({
