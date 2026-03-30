@@ -11,6 +11,7 @@ import OrgPrivacyPanel from "@/pages/org/panels/OrgPrivacyPanel";
 import OrgEntityManagerPanel from "@/pages/org/panels/OrgEntityManagerPanel";
 import AdminPrivacyQueuePanel from "@/pages/org/panels/AdminPrivacyQueuePanel";
 import OrgPerformancePanel from "@/pages/org/panels/OrgPerformancePanel";
+import OrgInterventionPanel from "@/pages/org/panels/OrgInterventionPanel";
 
 type OrgListItem = { id: string; name: string; org_type: string; my_role: string };
 
@@ -95,6 +96,7 @@ export default function OrgConsolePage() {
             <TabsTrigger value="billing">Rechnungen</TabsTrigger>
             <TabsTrigger value="seats">Learner & Lizenzen</TabsTrigger>
             <TabsTrigger value="performance">Prüfungsreife</TabsTrigger>
+            <TabsTrigger value="interventions">Interventionen</TabsTrigger>
             <TabsTrigger value="entities">Einheiten</TabsTrigger>
             <TabsTrigger value="privacy">Datenschutz</TabsTrigger>
             {selected?.my_role === "OWNER" && (
@@ -127,6 +129,10 @@ export default function OrgConsolePage() {
 
           <TabsContent value="performance" className="mt-4">
             <OrgPerformancePanel organizationId={selected.org.id} />
+          </TabsContent>
+
+          <TabsContent value="interventions" className="mt-4">
+            <OrgInterventionPanel organizationId={selected.org.id} />
           </TabsContent>
 
           <TabsContent value="entities" className="mt-4">
