@@ -214,6 +214,11 @@ export default function LeitstellePage() {
         <BlockedButReadyCard />
       </Suspense>
 
+      {/* Validate Guard Diagnostics */}
+      <Suspense fallback={<Skeleton className="h-28" />}>
+        <ValidateGuardDiagnosticsCard />
+      </Suspense>
+
       {/* Recovery Board */}
       <Suspense fallback={<Skeleton className="h-28" />}>
         <RecoveryBoardCard />
