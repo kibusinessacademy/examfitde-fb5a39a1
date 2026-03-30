@@ -24350,6 +24350,190 @@ export type Database = {
           },
         ]
       }
+      org_intervention_events: {
+        Row: {
+          actor_user_id: string | null
+          created_at: string
+          event_type: string
+          id: string
+          intervention_id: string
+          metadata_json: Json
+        }
+        Insert: {
+          actor_user_id?: string | null
+          created_at?: string
+          event_type: string
+          id?: string
+          intervention_id: string
+          metadata_json?: Json
+        }
+        Update: {
+          actor_user_id?: string | null
+          created_at?: string
+          event_type?: string
+          id?: string
+          intervention_id?: string
+          metadata_json?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_intervention_events_intervention_id_fkey"
+            columns: ["intervention_id"]
+            isOneToOne: false
+            referencedRelation: "org_interventions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      org_intervention_rules: {
+        Row: {
+          action_type: string
+          cooldown_days: number
+          created_at: string
+          id: string
+          metadata_json: Json
+          name: string
+          org_id: string | null
+          rule_key: string
+          status: string
+          threshold_json: Json
+          trigger_type: string
+          updated_at: string
+        }
+        Insert: {
+          action_type: string
+          cooldown_days?: number
+          created_at?: string
+          id?: string
+          metadata_json?: Json
+          name: string
+          org_id?: string | null
+          rule_key: string
+          status?: string
+          threshold_json?: Json
+          trigger_type: string
+          updated_at?: string
+        }
+        Update: {
+          action_type?: string
+          cooldown_days?: number
+          created_at?: string
+          id?: string
+          metadata_json?: Json
+          name?: string
+          org_id?: string | null
+          rule_key?: string
+          status?: string
+          threshold_json?: Json
+          trigger_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_intervention_rules_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "org_intervention_rules_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "v_org_license_overview"
+            referencedColumns: ["org_id"]
+          },
+        ]
+      }
+      org_interventions: {
+        Row: {
+          context_json: Json
+          created_at: string
+          dedupe_key: string | null
+          id: string
+          intervention_type: string
+          message: string
+          org_id: string
+          product_id: string | null
+          recommendation_json: Json
+          resolved_at: string | null
+          severity: string
+          source_rule_id: string | null
+          status: string
+          title: string
+          trigger_type: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          context_json?: Json
+          created_at?: string
+          dedupe_key?: string | null
+          id?: string
+          intervention_type: string
+          message: string
+          org_id: string
+          product_id?: string | null
+          recommendation_json?: Json
+          resolved_at?: string | null
+          severity?: string
+          source_rule_id?: string | null
+          status?: string
+          title: string
+          trigger_type: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          context_json?: Json
+          created_at?: string
+          dedupe_key?: string | null
+          id?: string
+          intervention_type?: string
+          message?: string
+          org_id?: string
+          product_id?: string | null
+          recommendation_json?: Json
+          resolved_at?: string | null
+          severity?: string
+          source_rule_id?: string | null
+          status?: string
+          title?: string
+          trigger_type?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_interventions_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "org_interventions_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "v_org_license_overview"
+            referencedColumns: ["org_id"]
+          },
+          {
+            foreignKeyName: "org_interventions_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "org_interventions_source_rule_id_fkey"
+            columns: ["source_rule_id"]
+            isOneToOne: false
+            referencedRelation: "org_intervention_rules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       org_invoice_coding: {
         Row: {
           cost_center: string | null
@@ -53987,6 +54171,31 @@ export type Database = {
         Returns: Json
       }
       get_org_dashboard_overview: { Args: { p_org_id: string }; Returns: Json }
+      get_org_intervention_summary: {
+        Args: { p_org_id: string }
+        Returns: Json
+      }
+      get_org_interventions: {
+        Args: { p_org_id: string; p_severity?: string; p_status?: string }
+        Returns: {
+          context_json: Json
+          created_at: string
+          display_name: string
+          id: string
+          intervention_type: string
+          message: string
+          org_id: string
+          product_id: string
+          product_title: string
+          recommendation_json: Json
+          resolved_at: string
+          severity: string
+          status: string
+          title: string
+          trigger_type: string
+          user_id: string
+        }[]
+      }
       get_org_license_list: {
         Args: { p_org_id: string }
         Returns: {
@@ -55136,6 +55345,10 @@ export type Database = {
         }[]
       }
       resolve_next_step: { Args: { p_package_id: string }; Returns: Json }
+      resolve_org_intervention: {
+        Args: { p_action?: string; p_intervention_id: string; p_note?: string }
+        Returns: Json
+      }
       resolve_pricing_plans: {
         Args: { p_audience_type?: string; p_product_id: string }
         Returns: {
@@ -55199,6 +55412,10 @@ export type Database = {
       run_synthetic_probe_suite: { Args: never; Returns: Json }
       run_system_contract_audit: { Args: never; Returns: Json }
       run_system_integrity_audit: { Args: never; Returns: Json }
+      scan_org_interventions: {
+        Args: { p_org_id: string; p_product_id?: string }
+        Returns: Json
+      }
       search_berufe: {
         Args: { lim?: number; q: string }
         Returns: {
