@@ -273,16 +273,13 @@ Deno.serve(async (req) => {
           .eq("package_id", pid)
           .eq("step_key", mapping.stepKey);
 
-        // Step 3: For retry_stalled_step, enqueue job directly (bypasses registry for admin ops)
+        // Step 3: For retry_stalled_step, enqueue via SSOT helper (ensures worker_pool + idempotency)
         if (action === "retry_stalled_step") {
           try {
-            const { error: jobErr } = await sb.from("job_queue").insert({
+            const enqResult = await enqueueJob(sb, {
               job_type: mapping.jobType,
-              status: "pending",
               package_id: pid,
-              attempts: 0,
-              max_attempts: 3,
-              run_after: new Date().toISOString(),
+              priority: 25,
               payload: {
                 job_version: "course_studio_v2",
                 package_id: pid,
@@ -293,8 +290,7 @@ Deno.serve(async (req) => {
                 source: "admin_retry_stalled_step",
               },
             });
-            if (jobErr) throw jobErr;
-            result = { ok: true, action, step_reset: mapping.stepKey, job_enqueued: true, package_id: pid };
+            result = { ok: true, action, step_reset: mapping.stepKey, job_enqueued: enqResult.status !== "duplicate", job_id: enqResult.id, package_id: pid };
           } catch (retryErr: any) {
             result = { ok: false, action, error: retryErr.message, package_id: pid };
           }
