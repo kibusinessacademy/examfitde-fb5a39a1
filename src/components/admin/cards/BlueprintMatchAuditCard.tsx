@@ -137,12 +137,25 @@ function PackageRow({ pkg, onRebalance, busy }: { pkg: MatchPackage; onRebalance
             </div>
           )}
 
-          <Link
-            to={`/admin/studio/${pkg.package_id}`}
-            className="text-[10px] text-primary hover:underline flex items-center gap-1"
-          >
-            Paket öffnen <ArrowRight className="h-3 w-3" />
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              to={`/admin/studio/${pkg.package_id}`}
+              className="text-[10px] text-primary hover:underline flex items-center gap-1"
+            >
+              Paket öffnen <ArrowRight className="h-3 w-3" />
+            </Link>
+            {pkg.signal !== 'ok' && (
+              <Button
+                size="sm" variant="outline"
+                className="h-6 text-[10px] px-2 gap-1"
+                disabled={busy}
+                onClick={(e) => { e.stopPropagation(); onRebalance(pkg.package_id); }}
+              >
+                {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                Rebalance
+              </Button>
+            )}
+          </div>
         </div>
       )}
     </div>
