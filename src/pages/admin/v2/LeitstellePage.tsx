@@ -11,6 +11,11 @@ import {
 import { cn } from '@/lib/utils';
 import { BlockedPackagesSheet } from '@/components/admin/command/BlockedPackagesSheet';
 import { StuckPackagesSheet } from '@/components/admin/command/StuckPackagesSheet';
+import { BuildingPackagesSheet } from '@/components/admin/command/BuildingPackagesSheet';
+import { CouncilReviewSheet } from '@/components/admin/command/CouncilReviewSheet';
+import { PublishDriftSheet } from '@/components/admin/command/PublishDriftSheet';
+import { PublishedPackagesSheet } from '@/components/admin/command/PublishedPackagesSheet';
+import { FailedJobsSheet } from '@/components/admin/command/FailedJobsSheet';
 
 const ExamPoolAuditCard = lazy(() => import('@/components/admin/cards/ExamPoolAuditCard'));
 const TrapCoverageAuditCard = lazy(() => import('@/components/admin/cards/TrapCoverageAuditCard'));
