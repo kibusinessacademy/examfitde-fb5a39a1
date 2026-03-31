@@ -3,7 +3,7 @@ import { NavLink, useLocation, Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { 
   LayoutDashboard, Package, ListChecks, Menu, X, 
-  LogOut, Sparkles, Megaphone, Shield, GraduationCap, TrendingUp
+  LogOut, Sparkles, Megaphone, Shield, GraduationCap, TrendingUp, Eye
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Badge } from '@/components/ui/badge';
@@ -13,6 +13,7 @@ const NAV_ITEMS = [
   { to: '/admin/studio', label: 'Kurse', icon: Package, group: 'ops' },
   { to: '/admin/queue', label: 'Queue', icon: ListChecks, group: 'ops' },
   { to: '/admin/learner-preview', label: 'QA Preview', icon: GraduationCap, group: 'qa' },
+  { to: '/admin/testbereich', label: 'Testbereich', icon: Eye, group: 'qa' },
   { to: '/admin/growth', label: 'Growth', icon: TrendingUp, group: 'gtm' },
   { to: '/admin/marketing', label: 'Marketing', icon: Megaphone, group: 'gtm' },
   { to: '/admin/compliance', label: 'Compliance', icon: Shield, group: 'qa' },
