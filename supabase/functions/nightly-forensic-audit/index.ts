@@ -903,19 +903,20 @@ async function runRemediation(
     }
   }
 
-  // ── SAFE HEAL 4: Integrity Mismatch Requeue (via RPC) ──
+  // ── SAFE HEAL 4: Integrity Mismatch Requeue (via hardened RPC with internal cooldown) ──
   if (healableFindings.some(fi => fi.code === "integrity_mismatch")) {
     const ck = `integrity_requeue:${new Date().toISOString().slice(0, 10)}`;
     if (await checkCooldown(sb, ck, 6)) {
       try {
-        const { data: requeued } = await sb.rpc("requeue_integrity_mismatch_safely", {
-          p_limit: 15, p_reason: "nightly-forensic-v2: integrity mismatch",
+        const { data: result } = await sb.rpc("requeue_integrity_mismatch_safely", {
+          p_run_id: runId, p_max_per_run: 10,
         });
-        const count = Array.isArray(requeued) ? requeued.length : 0;
-        const a: RemediationAction = { module_key: "drift_mismatch", action_key: "integrity_requeue", status: count > 0 ? "succeeded" : "attempted", cooldown_key: ck, payload: { requeued: count } };
+        const requeued = (result as any)?.requeued ?? 0;
+        const skippedCd = (result as any)?.skipped_cooldown ?? 0;
+        const a: RemediationAction = { module_key: "drift_mismatch", action_key: "integrity_requeue", status: requeued > 0 ? "succeeded" : "attempted", cooldown_key: ck, payload: { requeued, skipped_cooldown: skippedCd } };
         actions.push(a);
         await logRemediation(sb, runId, a);
-        if (count > 0) healedCodes.add("integrity_mismatch");
+        if (requeued > 0) healedCodes.add("integrity_mismatch");
       } catch (e) {
         const a: RemediationAction = { module_key: "drift_mismatch", action_key: "integrity_requeue", status: "failed", cooldown_key: ck, reason: String(e) };
         actions.push(a);
