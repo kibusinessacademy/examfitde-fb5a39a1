@@ -438,11 +438,10 @@ async function executeHealAction(
       case "enqueue_seeding": {
         const certId = action.params.certification_id as string;
         const mode = (action.params.mode as string) || "safe";
-        await sb.from("job_queue").insert({
+        await enqueueJob(sb, {
           job_type: "batch_curriculum_pipeline",
-          status: "pending",
-          payload: { curriculum_id: certId, mode },
           max_attempts: 3,
+          payload: { curriculum_id: certId, mode },
         });
         await logHealAction(sb, action, triggerSource, "success", `Seeding enqueued (${mode})`, Date.now() - startMs);
         return { success: true, detail: `Seeding enqueued for ${certId}` };
