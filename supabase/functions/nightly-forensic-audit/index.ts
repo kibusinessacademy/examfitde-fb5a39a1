@@ -1099,7 +1099,7 @@ Deno.serve(async (req) => {
       info_findings: infoCount,
       healed_count: healedCount,
       module_count: moduleResults.length,
-      module_results: moduleResults.map(r => ({ name: r.module, status: r.status, duration_ms: r.duration_ms, finding_count: r.findings.length, error: r.error })) as any,
+      module_results: moduleResults.map(r => ({ name: r.module, status: r.status, duration_ms: r.duration_ms, finding_count: r.findings_count, remediation_candidates: r.remediation_candidate_count ?? 0, error: r.error })) as any,
       meta: {
         incidents,
         audit_version: "v2.1",
