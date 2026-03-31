@@ -128,9 +128,12 @@ Deno.serve(async (req) => {
 
         // Package exists — check if it needs to be queued for build
         if (pkg.status === "draft" || pkg.status === "setup_complete") {
-          await sb.from("course_packages")
-            .update({ status: "queued", updated_at: new Date().toISOString() })
-            .eq("id", pkg.id);
+          // Use safe transition to prevent unique constraint violation
+          await sb.rpc("safe_transition_package_status", {
+            p_package_id: pkg.id,
+            p_new_status: "queued",
+            p_extra: {},
+          });
           actions.push(`Queued package ${pkg.id.slice(0, 8)} for build`);
           continue;
         }
