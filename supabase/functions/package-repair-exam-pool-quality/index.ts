@@ -251,38 +251,32 @@ async function reconcileStaleQuestions(sb: ReturnType<typeof createClient>, cid:
   return count;
 }
 
-// ── Helper: Pool is healthy → mark steps done ──
-async function handlePoolHealthy(
+// ── Helper: Pool is healthy but NO gate delta → mark repair done, NO requeue ──
+async function handlePoolHealthyNoReentry(
   sb: ReturnType<typeof createClient>,
   packageId: string,
   qcReconciled: number,
+  gateChange: { check_failed?: boolean; check_failed_reason?: string },
 ) {
-  const { data: existingStep } = await sb
-    .from("package_steps")
-    .select("meta")
-    .eq("package_id", packageId)
-    .eq("step_key", "validate_exam_pool")
-    .maybeSingle();
-  const existingMeta = (existingStep?.meta ?? {}) as Record<string, unknown>;
-
-  await sb.from("package_steps").update({
-    status: "queued",
-    started_at: null,
-    finished_at: null,
-    last_error: null,
-    meta: {
-      ...existingMeta,
-      repair_cleared: true,
-      repair_at: new Date().toISOString(),
-      last_repair_completed_at: new Date().toISOString(),
-    },
-  }).eq("package_id", packageId).eq("step_key", "validate_exam_pool").in("status", ["failed", "queued"]);
-
+  // Mark repair step as done (domain success), but do NOT touch validate_exam_pool
   await sb.from("package_steps").update({
     status: "done",
     updated_at: new Date().toISOString(),
-    meta: { repair_complete: true, qc_reconciled: qcReconciled, pool_healthy: true, gate_delta_verified: true },
+    meta: {
+      repair_complete: true,
+      qc_reconciled: qcReconciled,
+      pool_healthy: true,
+      gate_delta_verified: false,
+      reentry_blocked_reason: "pool_healthy_but_no_gate_delta",
+      delta_check_failed: gateChange.check_failed ?? false,
+      delta_check_failed_reason: gateChange.check_failed_reason ?? null,
+    },
   }).eq("package_id", packageId).eq("step_key", "repair_exam_pool_quality");
+
+  // Append stuck_reason for diagnostics — do NOT clear blocked_reason
+  await sb.from("course_packages").update({
+    stuck_reason: `REPAIR_DOMAIN_SUCCESS_NO_GATE_DELTA: pool healthy but blocking gate unchanged. Delta check failed: ${gateChange.check_failed ?? false}`,
+  }).eq("id", packageId);
 }
 
 // ── Helper: Gate state changed → re-queue validate ──
@@ -313,6 +307,7 @@ async function handleNoEffect(
   packageId: string,
   qcReconciled: number,
   preSnapshot: Record<string, unknown>,
+  gateChange: { check_failed?: boolean; check_failed_reason?: string },
 ) {
   // FIX: Mark repair step as 'blocked' (not 'done') — no-effect is NOT success
   await sb.from("package_steps").update({
@@ -323,20 +318,25 @@ async function handleNoEffect(
       qc_reconciled: qcReconciled,
       no_effect_repair: true,
       no_effect_repair_at: new Date().toISOString(),
-      no_effect_reason: "repair_did_not_change_blocking_gate",
+      no_effect_reason: gateChange.check_failed
+        ? "delta_check_unavailable"
+        : "repair_did_not_change_blocking_gate",
       gate_delta_verified: false,
       pre_gate_snapshot: preSnapshot,
+      delta_check_failed: gateChange.check_failed ?? false,
+      delta_check_failed_reason: gateChange.check_failed_reason ?? null,
     },
   }).eq("package_id", packageId).eq("step_key", "repair_exam_pool_quality");
 
   // FIX D: Do NOT clear blocked_reason — preserve the diagnostic trail.
-  // Instead, append a stuck_reason to signal what happened.
   const existingBlockedReason = preSnapshot.blocked_reason as string | null;
-  if (existingBlockedReason) {
-    await sb.from("course_packages").update({
-      stuck_reason: `REPAIR_NO_EFFECT: exam_pool repair completed without gate delta. Active blocker: ${existingBlockedReason.slice(0, 120)}`,
-    }).eq("id", packageId);
-  }
+  const diagnosticPrefix = gateChange.check_failed
+    ? "REPAIR_DELTA_CHECK_FAILED"
+    : "REPAIR_NO_EFFECT";
+  
+  await sb.from("course_packages").update({
+    stuck_reason: `${diagnosticPrefix}: exam_pool repair completed without verified gate delta. Active blocker: ${(existingBlockedReason ?? "unknown").slice(0, 120)}. Check failed: ${gateChange.check_failed ?? false}`,
+  }).eq("id", packageId);
 
   // Do NOT re-queue validate_exam_pool — that's the whole point of this guard
 }
