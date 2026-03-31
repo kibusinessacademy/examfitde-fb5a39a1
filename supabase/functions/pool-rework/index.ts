@@ -251,16 +251,15 @@ Deno.serve(async (req) => {
 
         report.difficultyRebalance.deleted = totalDeleted;
         if (totalDeleted > 0) {
-          const { error: jobErr } = await sb.from("job_queue").insert({
-            function_name: "package-generate-exam-pool",
+          const { error: jobErr } = await enqueueJob(sb, {
+            job_type: "package_generate_exam_pool",
+            package_id: pkg.id,
             payload: {
               package_id: pkg.id, curriculum_id: pkg.curriculum_id,
               certification_id: pkg.certification_id,
               rework_mode: "difficulty_rebalance", replacement_count: totalDeleted,
             },
-            status: "pending", job_type: "generate_exam_pool",
-            curriculum_id: pkg.curriculum_id, package_id: pkg.id,
-          });
+          }).then(() => ({ error: null })).catch(e => ({ error: e as Error }));
           if (!jobErr || jobErr.message?.includes("duplicate")) report.difficultyRebalance.regenTriggered = true;
           console.log(`[pool-rework] DIFF_REGEN queued: ${totalDeleted} replacements`);
         } else {
