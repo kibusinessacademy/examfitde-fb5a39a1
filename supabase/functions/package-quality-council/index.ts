@@ -82,12 +82,11 @@ Deno.serve(async (req) => {
           .eq("payload->>package_id", packageId);
 
         if ((existingJobs ?? 0) === 0) {
-          await sb.from("job_queue").insert({
+          await enqueueJob(sb, {
             job_type: "package_run_integrity_check",
-            status: "pending",
             package_id: packageId,
-            payload: { package_id: packageId, course_id: pkgForRequeue.course_id, step_key: "run_integrity_check" },
             max_attempts: 5,
+            payload: { package_id: packageId, course_id: pkgForRequeue.course_id, step_key: "run_integrity_check" },
           });
         } else {
           console.log(`[QualityCouncil] Integrity recheck already pending/processing for ${packageId.slice(0, 8)}, skipping enqueue`);
