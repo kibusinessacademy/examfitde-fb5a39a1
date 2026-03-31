@@ -86,12 +86,23 @@ export default function RecoveryBoardCard() {
           ) : (
             <div className="max-h-40 overflow-y-auto space-y-1">
               {data?.finalization_stall?.packages?.slice(0, 10).map((p) => (
-                <div key={p.package_id} className="flex items-center justify-between text-xs bg-muted/50 rounded px-2 py-1">
-                  <span className="font-mono truncate max-w-[140px]">{p.package_id.slice(0, 8)}</span>
-                  <span className="text-muted-foreground">
-                    {p.content_lessons}/{p.total_lessons} lessons • {p.build_progress}%
+                <div key={p.package_id} className="flex items-center justify-between text-xs bg-muted/50 rounded px-2 py-1 gap-1">
+                  <Link to={`/admin/studio/${p.package_id}`} className="font-mono truncate max-w-[100px] hover:text-primary transition-colors">
+                    {p.package_id.slice(0, 8)}
+                  </Link>
+                  <span className="text-muted-foreground shrink-0">
+                    {p.content_lessons}/{p.total_lessons} · {p.build_progress}%
                   </span>
-                  <Badge variant="outline" className="text-[10px]">{p.finalize_status}</Badge>
+                  <Badge variant="outline" className="text-[10px] shrink-0">{p.finalize_status}</Badge>
+                  <Button
+                    size="sm" variant="ghost"
+                    className="h-5 w-5 p-0 shrink-0"
+                    disabled={retryStep.isPending}
+                    onClick={() => retryStep.mutate({ packageId: p.package_id, stepKey: 'finalize_content' })}
+                    title="Finalize neu starten"
+                  >
+                    {retryStep.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />}
+                  </Button>
                 </div>
               ))}
             </div>
