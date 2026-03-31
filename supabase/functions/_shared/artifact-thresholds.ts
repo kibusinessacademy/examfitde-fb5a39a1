@@ -76,11 +76,12 @@ export const STEP_THRESHOLDS: Record<string, StepThreshold[]> = {
     },
   ],
 
-  // ── Glossary: ≥ 10 entries, ≥ 100 tokens ──
+  // ── Glossary: ≥ 1 row per beruf (one row = one glossary) ──
+  // Quality check (token_count ≥ 100) is in post-conditions-extended.ts
   generate_glossary: [
     {
       kind: "fixed",
-      min: 10,
+      min: 1,
       artifact: "glossary_entries",
       reasonCode: "THRESHOLD_FAIL:glossary:entries",
     },
