@@ -606,11 +606,12 @@ async function forceUnlockPackage(sb: SB, packageId: string) {
 
 /* ── unblock_package — sets blocked → building, clears loop guards on steps ── */
 async function unblockPackage(sb: SB, packageId: string, reason: string) {
-  // 1. Set package status from blocked → building
-  const { error: pkgErr } = await sb.from("course_packages")
-    .update({ status: "building", updated_at: new Date().toISOString() })
-    .eq("id", packageId)
-    .eq("status", "blocked");
+  // 1. Set package status from blocked → building (safe transition to prevent unique constraint violation)
+  const { error: pkgErr } = await sb.rpc("safe_transition_package_status", {
+    p_package_id: packageId,
+    p_new_status: "building",
+    p_extra: {},
+  });
   if (pkgErr) throw pkgErr;
 
   // 2. Remove locks

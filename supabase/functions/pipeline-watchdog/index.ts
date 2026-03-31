@@ -501,12 +501,12 @@ Deno.serve(async (req) => {
           .in("status", ["processing", "pending"]);
         if ((activeJobs ?? 0) > 0) continue;
 
-        // Unblock!
-        await sb.from("course_packages").update({
-          status: "building",
-          updated_at: new Date().toISOString(),
-          last_error: "Watchdog auto-unblock: QG healed, ready-to-continue",
-        }).eq("id", pkg.id);
+        // Unblock! Use RPC to prevent uniq_visible_package_per_curriculum violation
+        await sb.rpc("safe_transition_package_status", {
+          p_package_id: pkg.id,
+          p_new_status: "building",
+          p_extra: { last_error: "Watchdog auto-unblock: QG healed, ready-to-continue" },
+        });
 
         unblocked++;
         actions.push(`QG-unblock: pkg ${(pkg.id as string).slice(0, 8)} → building (healed)`);
