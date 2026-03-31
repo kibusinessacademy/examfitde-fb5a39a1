@@ -87,18 +87,15 @@ export async function backfillPipelinePool(
         .contains("payload", { curriculum_id: existingCurr.id });
 
       if ((pendingSetup ?? 0) === 0) {
-        await sb.from("job_queue").insert({
+        await enqueueJob(sb, {
           job_type: "setup_course_package",
-          status: "pending",
-          attempts: 0,
-          max_attempts: 100,
+          max_attempts: 8,
           payload: {
             curriculum_id: existingCurr.id,
             catalog_id: cert.id,
             triggered_by: "pool_backfill",
             exam_target: cert.min_question_target || 1000,
           },
-          run_after: new Date().toISOString(),
         });
         enqueued++;
         console.log(`[runner] 🏭 Backfill: "${cert.title}" (frozen curriculum)`);
