@@ -291,42 +291,25 @@ export function StuckPackagesSheet({ open, onOpenChange }: {
   const healMutation = useMutation({
     mutationFn: async ({ packageId, action, stepKey }: { packageId: string; action: string; stepKey?: string }) => {
       if (action === 'reset_to_building') {
-        // Reset package to building and clear stuck_reason
-        const { error } = await (supabase as any)
-          .from('course_packages')
-          .update({ status: 'building', stuck_reason: null })
-          .eq('id', packageId);
-        if (error) throw error;
-        return { ok: true };
+        // Route through edge function to handle unique constraint safely
+        return runAdminOpsAction('retry_stalled_step', { package_id: packageId, step_key: stepKey || 'generate_learning_content' });
       }
 
       if (action === 'restart_pipeline') {
-        // Reset to building and retry the step
-        const { error: pkgErr } = await (supabase as any)
-          .from('course_packages')
-          .update({ status: 'building', stuck_reason: null })
-          .eq('id', packageId);
-        if (pkgErr) throw pkgErr;
-        return runAdminOpsAction('retry_package_step', { package_id: packageId, step_key: stepKey || 'generate_learning_content' });
+        // Route through edge function which archives conflicting packages first
+        return runAdminOpsAction('retry_stalled_step', { package_id: packageId, step_key: stepKey || 'generate_learning_content' });
       }
 
       if (action === 'skip_validation') {
-        // Skip the validation step
-        const { error } = await (supabase as any)
-          .from('package_steps')
-          .update({
-            status: 'skipped',
-            finished_at: new Date().toISOString(),
-            last_error: 'Manuell übersprungen via Leitstelle',
-          })
-          .eq('package_id', packageId)
-          .eq('step_key', stepKey);
-        if (error) throw error;
-        return { ok: true };
+        return runAdminOpsAction('approve_step_exception', {
+          package_id: packageId,
+          step_key: stepKey || '',
+          reason: 'Manuell übersprungen via Leitstelle (Stuck-Heal)',
+        });
       }
 
       if (action === 'retry_stalled_step') {
-        return runAdminOpsAction('retry_package_step', { package_id: packageId, step_key: stepKey || 'run_integrity_check' });
+        return runAdminOpsAction('retry_stalled_step', { package_id: packageId, step_key: stepKey || 'run_integrity_check' });
       }
 
       return runAdminOpsAction(action as any, { package_id: packageId });

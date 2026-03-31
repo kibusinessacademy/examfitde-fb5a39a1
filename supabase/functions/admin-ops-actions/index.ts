@@ -232,10 +232,19 @@ Deno.serve(async (req) => {
         const { data: pkg } = await sb.from("course_packages").select("id, status, curriculum_id").eq("id", pid).maybeSingle();
         if (!pkg) return json({ error: `Package not found: ${pid}` }, 404);
 
-        // Step 1b: Set package back to building if blocked
-        if (pkg.status === "blocked" || pkg.status === "quality_gate_failed") {
+        // Step 1b: Set package back to building if not already in a visible status
+        // Guard: archive conflicting packages for the same curriculum first
+        const needsBuilding = ["blocked", "quality_gate_failed", "council_review"].includes(pkg.status);
+        if (needsBuilding || pkg.status !== "building") {
+          if (pkg.curriculum_id) {
+            await sb.from("course_packages")
+              .update({ status: "archived", updated_at: new Date().toISOString() })
+              .eq("curriculum_id", pkg.curriculum_id)
+              .neq("id", pid)
+              .in("status", ["planning", "queued", "building", "failed", "published", "draft"]);
+          }
           await sb.from("course_packages")
-            .update({ status: "building", updated_at: new Date().toISOString() })
+            .update({ status: "building", stuck_reason: null, updated_at: new Date().toISOString() })
             .eq("id", pid);
         }
 
