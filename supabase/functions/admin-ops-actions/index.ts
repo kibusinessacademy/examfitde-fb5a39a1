@@ -225,20 +225,46 @@ Deno.serve(async (req) => {
           retry_stalled_step: { jobType: "", stepKey: String(body.step_key || "run_integrity_check") },
         };
 
+        // For retry_stalled_step, compute jobType dynamically from stepKey
+        if (action === "retry_stalled_step") {
+          mapping.jobType = `package_${mapping.stepKey}`;
+        }
+
         const mapping = repairJobMap[action];
         if (!mapping) return json({ error: `No mapping for action: ${action}` }, 400);
 
         // Step 1: Fetch package details (need curriculum_id for jobs)
-        const { data: pkg } = await sb.from("course_packages").select("id, status, curriculum_id").eq("id", pid).maybeSingle();
+        const { data: pkg } = await sb.from("course_packages").select("id, status, curriculum_id, course_id, certification_id").eq("id", pid).maybeSingle();
         if (!pkg) return json({ error: `Package not found: ${pid}` }, 404);
 
-        // Step 1b: Safe transition to building (handles unique constraint atomically)
+        // Step 1b: Transition to building — use recover_and_reenter for blocked/quality_gate_failed
         if (pkg.status !== "building") {
-          await sb.rpc("safe_transition_package_status", {
-            p_package_id: pid,
-            p_new_status: "building",
-            p_extra: { stuck_reason: null },
-          });
+          if (pkg.status === "blocked" || pkg.status === "quality_gate_failed") {
+            // recover_and_reenter handles guard triggers, resets failed steps, transitions atomically
+            const { data: recoverData, error: recoverErr } = await sb.rpc("recover_and_reenter_package", {
+              p_package_id: pid,
+              p_reason: `Admin repair: ${action}`,
+              p_trigger_source: "admin_ops",
+            });
+            if (recoverErr) throw new Error(`Recovery failed: ${recoverErr.message}`);
+            const rd = recoverData as any;
+            if (rd && !rd.ok) throw new Error(`Recovery rejected: ${rd.reason || rd.error || "unknown"}`);
+            console.log(`[admin-ops] recover_and_reenter for ${pid}: status=${rd?.final_status}, reset_steps=${rd?.reset_steps}`);
+          } else {
+            const { error: transErr } = await sb.rpc("safe_transition_package_status", {
+              p_package_id: pid,
+              p_new_status: "building",
+              p_extra: { stuck_reason: null },
+            });
+            if (transErr) throw new Error(`Status transition failed: ${transErr.message}`);
+          }
+
+          // Verify the transition actually succeeded
+          const { data: verify } = await sb.from("course_packages").select("status").eq("id", pid).maybeSingle();
+          if (verify && verify.status !== "building") {
+            console.warn(`[admin-ops] Transition to building failed for ${pid}: still ${verify.status}`);
+            throw new Error(`Status transition to building failed: package is still '${verify.status}'. A guard trigger may be preventing the change.`);
+          }
         }
 
         // Step 2: Reset the target step to queued
@@ -247,10 +273,31 @@ Deno.serve(async (req) => {
           .eq("package_id", pid)
           .eq("step_key", mapping.stepKey);
 
-        // Step 3: For retry_stalled_step, also reset downstream steps
+        // Step 3: For retry_stalled_step, enqueue job directly (bypasses registry for admin ops)
         if (action === "retry_stalled_step") {
-          // Reset the specific step; the job-runner picks it up via the normal flow
-          result = { ok: true, action, step_reset: mapping.stepKey, package_id: pid };
+          try {
+            const { error: jobErr } = await sb.from("job_queue").insert({
+              job_type: mapping.jobType,
+              status: "pending",
+              package_id: pid,
+              attempts: 0,
+              max_attempts: 3,
+              run_after: new Date().toISOString(),
+              payload: {
+                job_version: "course_studio_v2",
+                package_id: pid,
+                step_key: mapping.stepKey,
+                course_id: (pkg as any)?.course_id || null,
+                curriculum_id: (pkg as any)?.curriculum_id || null,
+                certification_id: (pkg as any)?.certification_id || null,
+                source: "admin_retry_stalled_step",
+              },
+            });
+            if (jobErr) throw jobErr;
+            result = { ok: true, action, step_reset: mapping.stepKey, job_enqueued: true, package_id: pid };
+          } catch (retryErr: any) {
+            result = { ok: false, action, error: retryErr.message, package_id: pid };
+          }
           break;
         }
 
