@@ -56,6 +56,8 @@ interface ModuleResult {
   status: "ok" | "failed" | "timeout" | "partial";
   duration_ms: number;
   findings: AuditFinding[];
+  findings_count: number;
+  remediation_candidate_count?: number;
   error?: string;
 }
 
