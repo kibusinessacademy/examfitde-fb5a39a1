@@ -241,7 +241,7 @@ function EnterpriseTestTab({ previewMode }: { previewMode: PreviewMode }) {
         description="Dashboard für Unternehmenskunden: KPIs, Billing, Seats, Datenschutz"
         icon={Building2}
       >
-        <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-700 dark:text-amber-300">
+        <div className="rounded-xl border border-accent/30 bg-accent/5 p-3 text-xs text-muted-foreground">
           Die Org Console erfordert einen eingeloggten Org-Admin. Öffne sie in
           einem separaten Tab und logge dich mit einem Test-Unternehmens-Account ein.
         </div>
