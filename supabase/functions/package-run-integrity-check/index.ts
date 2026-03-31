@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { pctOrNA } from "../_shared/math-helpers.ts";
 import { checkExamPartMappingDrift } from "../_shared/exam-part-mappings.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
+import { enqueueJob } from "../_shared/enqueue.ts";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
