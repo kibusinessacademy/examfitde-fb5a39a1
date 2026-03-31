@@ -185,9 +185,15 @@ Deno.serve(async (req) => {
   const p = body.payload || body;
 
   const packageId = p.package_id;
-  const courseId = p.course_id;
+  let courseId = p.course_id;
   const curriculumId = p.curriculum_id;
   const certificationId = p.certification_id || null;
+
+  // Resolve course_id from package if not provided directly
+  if (packageId && !courseId) {
+    const { data: pkg } = await sb.from("course_packages").select("course_id").eq("id", packageId).maybeSingle();
+    if (pkg?.course_id) courseId = pkg.course_id;
+  }
 
   if (!packageId || !courseId) {
     return json({ error: "Missing package_id or course_id" }, 400);
