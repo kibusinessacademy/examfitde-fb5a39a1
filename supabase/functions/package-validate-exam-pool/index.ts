@@ -516,8 +516,13 @@ Deno.serve(async (req) => {
   const pendingQcCount = qcCounts.pending || 0;
   if (pendingQcCount === 0) {
     const approvedCount = (qcCounts.approved || 0) + (qcCounts["null"] || 0);
+    const rejectedCount = qcCounts.rejected || 0;
+    const tier1PassedCount = qcCounts.tier1_passed || 0;
     const failedCount = (qcCounts.tier1_failed || 0) + (qcCounts.needs_revision || 0);
-    const unresolvedCount = Math.max(0, (totalQuestionCount ?? 0) - approvedCount);
+    // FIX: Exclude rejected (terminal) and tier1_passed (pre-promotion) from unresolved count.
+    // Previously: unresolvedCount = total - approved, which permanently included rejected questions
+    // causing infinite validate→repair loops since rejected questions can never be "resolved".
+    const unresolvedCount = Math.max(0, (totalQuestionCount ?? 0) - approvedCount - rejectedCount - tier1PassedCount);
 
     // Idempotent success: already fully validated (0 unresolved)
     if (unresolvedCount === 0 && approvedCount > 0) {
@@ -565,16 +570,20 @@ Deno.serve(async (req) => {
     const unresolvedRatio = approvedCount > 0 ? failedCount / approvedCount : 1;
     const poolSufficient = approvedCount >= MIN_APPROVED_FOR_PASS && missingLfIds.length === 0 && unresolvedRatio < 0.05;
 
-    if (poolSufficient && failedCount > 0) {
-      console.log(`[validate-exam] TERMINAL_CLEANUP: rejecting ${failedCount} unresolvable questions (approved=${approvedCount}, ratio=${(unresolvedRatio * 100).toFixed(1)}%)`);
-      try {
-        await sb
-          .from("exam_questions")
-          .update({ qc_status: "rejected", status: "rejected" })
-          .eq("curriculum_id", curriculumId)
-          .in("qc_status", ["tier1_failed", "needs_revision"]);
-      } catch (rejectErr) {
-        console.warn(`[validate-exam] REJECT_CLEANUP_FAIL: ${(rejectErr as Error)?.message?.slice(0, 100)}`);
+    if (poolSufficient && (failedCount > 0 || tier1PassedCount > 0)) {
+      console.log(`[validate-exam] TERMINAL_CLEANUP: rejecting ${failedCount} failed, promoting ${tier1PassedCount} tier1_passed (approved=${approvedCount}, ratio=${(unresolvedRatio * 100).toFixed(1)}%)`);
+      
+      // Reject tier1_failed/needs_revision
+      if (failedCount > 0) {
+        try {
+          await sb
+            .from("exam_questions")
+            .update({ qc_status: "rejected", status: "rejected" })
+            .eq("curriculum_id", curriculumId)
+            .in("qc_status", ["tier1_failed", "needs_revision"]);
+        } catch (rejectErr) {
+          console.warn(`[validate-exam] REJECT_CLEANUP_FAIL: ${(rejectErr as Error)?.message?.slice(0, 100)}`);
+        }
       }
 
       return json({
