@@ -291,6 +291,7 @@ export default function LeitstellePage() {
       </div>
 
       <BlockedPackagesSheet open={blockedSheetOpen} onOpenChange={setBlockedSheetOpen} />
+      <StuckPackagesSheet open={stuckSheetOpen} onOpenChange={setStuckSheetOpen} />
     </div>
   );
 }
