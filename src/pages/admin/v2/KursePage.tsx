@@ -289,17 +289,8 @@ export default function KursePage() {
     return list;
   }, [packages, search, statusFilter]);
 
-  if (error) {
-    return (
-      <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
-        Fehler: {(error as Error).message}
-      </div>
-    );
-  }
-
   const isFallback = packages?.some(p => p._source === 'fallback_course_packages');
 
-  // Summary counts
   const counts = useMemo(() => {
     if (!packages) return null;
     return {
@@ -309,6 +300,14 @@ export default function KursePage() {
       drift: packages.filter(p => p.has_publish_drift).length,
     };
   }, [packages]);
+
+  if (error) {
+    return (
+      <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+        Fehler: {(error as Error).message}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
