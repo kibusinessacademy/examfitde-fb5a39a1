@@ -1170,7 +1170,7 @@ Deno.serve(async (req) => {
       },
     },
     incidents: incidents.slice(0, 20),
-    modules: moduleResults.map(r => ({ name: r.module, status: r.status, duration_ms: r.duration_ms, finding_count: r.findings.length, error: r.error })),
+    modules: moduleResults.map(r => ({ name: r.module, status: r.status, duration_ms: r.duration_ms, finding_count: r.findings_count, remediation_candidates: r.remediation_candidate_count ?? 0, error: r.error })),
     remediation_actions: remActions,
     findings: allFindings,
   });
