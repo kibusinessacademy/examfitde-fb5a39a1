@@ -387,16 +387,17 @@ Deno.serve(async (req) => {
       case "release_stale_leases": {
         const jobIds = Array.isArray(body.job_ids) ? body.job_ids.map(String) : [];
         const limit = Number(body.limit) || 50;
+        const now = new Date().toISOString();
 
         if (jobIds.length > 0) {
           const { error } = await sb.from("job_queue")
-            .update({ locked_by: null, locked_at: null, status: "pending", updated_at: new Date().toISOString() })
+            .update({ locked_by: null, locked_at: null, status: "pending", started_at: null, updated_at: now })
             .in("id", jobIds)
             .eq("status", "processing");
           if (error) throw error;
           result = { ok: true, released: jobIds.length, scope: "job_ids" };
         } else {
-          // Release all stale leases (processing jobs with old heartbeat)
+          // Release all stale leases (processing jobs with old or null heartbeat)
           const cutoff = new Date(Date.now() - 600_000).toISOString();
           const { data: stale } = await sb.from("job_queue")
             .select("id")
@@ -406,7 +407,7 @@ Deno.serve(async (req) => {
           if (stale?.length) {
             const ids = (stale as any[]).map((j: any) => j.id);
             await sb.from("job_queue")
-              .update({ locked_by: null, locked_at: null, status: "pending", updated_at: new Date().toISOString() })
+              .update({ locked_by: null, locked_at: null, status: "pending", started_at: null, updated_at: now })
               .in("id", ids);
             result = { ok: true, released: ids.length, scope: "global" };
             affectedIds = ids;
