@@ -337,19 +337,17 @@ Deno.serve(async (req) => {
         .limit(MAX_TRAP_RETROFIT);
 
       if (untagged && untagged.length > 0) {
-        const { error: jobErr } = await sb.from("job_queue").insert({
-          function_name: "pool-rework-trap-retrofit",
+        const { error: jobErr } = await enqueueJob(sb, {
+          job_type: "rework_trap_retrofit",
+          package_id: pkg.id,
           payload: {
             package_id: pkg.id,
             curriculum_id: pkg.curriculum_id,
             certification_id: pkg.certification_id,
             question_ids: untagged.map((q) => q.id),
             profession_name: professionName,
-            // NO vocabulary in payload — worker imports from SSOT module
           },
-          status: "pending", job_type: "rework_trap_retrofit",
-          curriculum_id: pkg.curriculum_id, package_id: pkg.id,
-        });
+        }).then(() => ({ error: null })).catch(e => ({ error: e as Error }));
         if (jobErr && !jobErr.message?.includes("duplicate")) {
           console.log(`[pool-rework] Trap enqueue failed: ${jobErr.message}`);
         } else {
