@@ -159,15 +159,17 @@ async function diagPipeline(sb: SB): Promise<AuditFinding[]> {
       { finding_class: "root_cause", actionability: "auto_heal", metric_value: zombies!.length,
         payload: zombies!.slice(0, 5).map((z: any) => ({ id: z.id, job_type: z.job_type })) }));
 
-  // Stale leases — DETECT only
+  // Stale leases — DETECT only (heartbeat + started_at checks)
   const { data: staleLeases } = await sb.from("job_queue")
-    .select("id, job_type, locked_by")
+    .select("id, job_type, locked_by, started_at, updated_at")
     .eq("status", "processing").not("locked_by", "is", null)
+    .lt("started_at", new Date(Date.now() - 600000).toISOString())
+    .lt("updated_at", new Date(Date.now() - 300000).toISOString())
     .or(`last_heartbeat_at.lt.${new Date(Date.now() - 600000).toISOString()},last_heartbeat_at.is.null`)
     .limit(50);
   if ((staleLeases?.length ?? 0) > 0)
     findings.push(f(M, "warning", "stale_leases",
-      `${staleLeases!.length} stale leases (no heartbeat >10min)`,
+      `${staleLeases!.length} stale leases (no heartbeat >10min, started >10min ago, no update >5min)`,
       { finding_class: "symptom", actionability: "auto_heal", metric_value: staleLeases!.length }));
 
   // Ancient pending (>48h) — DETECT only
