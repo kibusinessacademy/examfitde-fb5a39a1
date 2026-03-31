@@ -273,16 +273,13 @@ Deno.serve(async (req) => {
           .eq("package_id", pid)
           .eq("step_key", mapping.stepKey);
 
-        // Step 3: For retry_stalled_step, enqueue job directly (bypasses registry for admin ops)
+        // Step 3: For retry_stalled_step, enqueue via SSOT helper (ensures worker_pool + idempotency)
         if (action === "retry_stalled_step") {
           try {
-            const { error: jobErr } = await sb.from("job_queue").insert({
+            const enqResult = await enqueueJob(sb, {
               job_type: mapping.jobType,
-              status: "pending",
               package_id: pid,
-              attempts: 0,
-              max_attempts: 3,
-              run_after: new Date().toISOString(),
+              priority: 25,
               payload: {
                 job_version: "course_studio_v2",
                 package_id: pid,
@@ -293,8 +290,7 @@ Deno.serve(async (req) => {
                 source: "admin_retry_stalled_step",
               },
             });
-            if (jobErr) throw jobErr;
-            result = { ok: true, action, step_reset: mapping.stepKey, job_enqueued: true, package_id: pid };
+            result = { ok: true, action, step_reset: mapping.stepKey, job_enqueued: enqResult.status !== "duplicate", job_id: enqResult.id, package_id: pid };
           } catch (retryErr: any) {
             result = { ok: false, action, error: retryErr.message, package_id: pid };
           }
@@ -576,13 +572,11 @@ async function retryPackageStep(sb: SB, packageId: string, stepKey: string, body
     .select("course_id, curriculum_id, certification_id")
     .eq("id", packageId).single();
 
-  // Enqueue a new job
-  const { error: jobErr } = await sb.from("job_queue").insert({
+  // Enqueue a new job via SSOT helper (ensures worker_pool + idempotency)
+  const enqResult = await enqueueJob(sb, {
     job_type: `package_${stepKey}`,
-    status: "pending",
-    attempts: 0,
-    max_attempts: 3,
-    run_after: new Date().toISOString(),
+    package_id: packageId,
+    priority: 25,
     payload: {
       job_version: "course_studio_v2",
       package_id: packageId,
@@ -592,7 +586,6 @@ async function retryPackageStep(sb: SB, packageId: string, stepKey: string, body
       certification_id: (pkg as any)?.certification_id || null,
     },
   });
-  if (jobErr) throw jobErr;
 
   return { ok: true, step_key: stepKey, scope: "single_step" };
 }
@@ -602,7 +595,7 @@ async function cancelPackageBuild(sb: SB, packageId: string) {
   // Cancel pending/processing jobs
   const { data: jobs } = await sb.from("job_queue")
     .select("id")
-    .or(`payload->>package_id.eq.${packageId}`)
+    .eq("package_id", packageId)
     .in("status", ["pending", "processing"]);
   
   if (jobs?.length) {
@@ -712,7 +705,7 @@ async function workspaceSnapshot(sb: SB, packageId: string) {
   // Active jobs
   const { data: jobs } = await sb.from("job_queue")
     .select("id, job_type, status, attempts, last_error, created_at")
-    .or(`payload->>package_id.eq.${packageId}`)
+    .eq("package_id", packageId)
     .in("status", ["pending", "processing"])
     .order("created_at", { ascending: false })
     .limit(20);
