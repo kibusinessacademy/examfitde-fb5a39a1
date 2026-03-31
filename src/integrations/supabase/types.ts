@@ -1986,6 +1986,62 @@ export type Database = {
           },
         ]
       }
+      audit_remediation_actions: {
+        Row: {
+          action_key: string
+          attempt_no: number
+          cooldown_key: string
+          created_at: string
+          entity_id: string | null
+          entity_type: string | null
+          id: string
+          module_key: string
+          outcome_code: string | null
+          payload: Json
+          reason: string | null
+          run_id: string | null
+          status: string
+        }
+        Insert: {
+          action_key: string
+          attempt_no?: number
+          cooldown_key: string
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          module_key: string
+          outcome_code?: string | null
+          payload?: Json
+          reason?: string | null
+          run_id?: string | null
+          status?: string
+        }
+        Update: {
+          action_key?: string
+          attempt_no?: number
+          cooldown_key?: string
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          module_key?: string
+          outcome_code?: string | null
+          payload?: Json
+          reason?: string | null
+          run_id?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_remediation_actions_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "nightly_audit_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       authority_decisions: {
         Row: {
           authority_index_at: number | null
@@ -48508,6 +48564,7 @@ export type Database = {
         Row: {
           all_healed: boolean | null
           any_healed: boolean | null
+          days_open: number | null
           entity_id: string | null
           entity_type: string | null
           evidence_count: number | null
@@ -48515,8 +48572,11 @@ export type Database = {
           incident_type: string | null
           max_finding_class: string | null
           max_severity: string | null
+          occurrence_count_last_7_runs: number | null
+          primary_finding_class: string | null
           run_id: string | null
           total_metric_value: number | null
+          trend_status: string | null
         }
         Relationships: [
           {
@@ -53306,6 +53366,10 @@ export type Database = {
         }
         Returns: Json
       }
+      check_heal_cooldown: {
+        Args: { p_cooldown_hours?: number; p_cooldown_key: string }
+        Returns: boolean
+      }
       check_intake_candidate_readiness: {
         Args: { p_candidate_id: string }
         Returns: Json
@@ -55672,6 +55736,14 @@ export type Database = {
         Args: { p_reason_codes: string[] }
         Returns: string
       }
+      mark_ancient_pending_safely: {
+        Args: {
+          p_max_age_hours?: number
+          p_max_per_run?: number
+          p_run_id?: string
+        }
+        Returns: Json
+      }
       mark_legacy_integrity_reports: { Args: never; Returns: undefined }
       mark_package_stuck: {
         Args: { p_id: string; p_reason: string }
@@ -56120,6 +56192,14 @@ export type Database = {
         Args: { p_provider: string }
         Returns: undefined
       }
+      release_stale_leases_safely: {
+        Args: {
+          p_grace_minutes?: number
+          p_max_per_run?: number
+          p_run_id?: string
+        }
+        Returns: Json
+      }
       release_stale_package_lease_v2: {
         Args: { p_package_id: string; p_reason?: string }
         Returns: boolean
@@ -56229,6 +56309,14 @@ export type Database = {
         }[]
       }
       requeue_failed_jobs: { Args: never; Returns: number }
+      requeue_integrity_mismatch_safely: {
+        Args: {
+          p_max_per_run?: number
+          p_package_id?: string
+          p_run_id?: string
+        }
+        Returns: Json
+      }
       reset_failed_jobs_for_package: {
         Args: { p_job_types?: string[]; p_package_id: string }
         Returns: number

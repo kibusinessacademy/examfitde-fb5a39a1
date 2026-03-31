@@ -853,19 +853,20 @@ async function runRemediation(
     }
   }
 
-  // ── SAFE HEAL 2: Stale Lease Release (via RPC) ──
+  // ── SAFE HEAL 2: Stale Lease Release (via hardened RPC with internal cooldown) ──
   if (healableFindings.some(fi => fi.code === "stale_leases")) {
     const ck = `stale_lease_release:${new Date().toISOString().slice(0, 13)}`;
     if (await checkCooldown(sb, ck, 2)) {
       try {
-        const { data: released } = await sb.rpc("release_stale_leases_safely", {
-          p_stale_minutes: 10, p_grace_minutes: 5, p_reason: "nightly-forensic-v2: stale lease",
+        const { data: result } = await sb.rpc("release_stale_leases_safely", {
+          p_run_id: runId, p_grace_minutes: 15, p_max_per_run: 20,
         });
-        const count = Array.isArray(released) ? released.length : 0;
-        const a: RemediationAction = { module_key: "pipeline", action_key: "stale_lease_release", status: count > 0 ? "succeeded" : "attempted", cooldown_key: ck, payload: { released: count } };
+        const released = (result as any)?.released ?? 0;
+        const skippedCd = (result as any)?.skipped_cooldown ?? 0;
+        const a: RemediationAction = { module_key: "pipeline", action_key: "stale_lease_release", status: released > 0 ? "succeeded" : "attempted", cooldown_key: ck, payload: { released, skipped_cooldown: skippedCd } };
         actions.push(a);
         await logRemediation(sb, runId, a);
-        if (count > 0) healedCodes.add("stale_leases");
+        if (released > 0) healedCodes.add("stale_leases");
       } catch (e) {
         const a: RemediationAction = { module_key: "pipeline", action_key: "stale_lease_release", status: "failed", cooldown_key: ck, reason: String(e) };
         actions.push(a);
@@ -878,19 +879,20 @@ async function runRemediation(
     }
   }
 
-  // ── SAFE HEAL 3: Ancient Pending → Cancelled (via RPC) ──
+  // ── SAFE HEAL 3: Ancient Pending → Cancelled (via hardened RPC with internal cooldown) ──
   if (healableFindings.some(fi => fi.code === "ancient_pending")) {
     const ck = `ancient_pending_cancel:${new Date().toISOString().slice(0, 10)}`;
     if (await checkCooldown(sb, ck, 12)) {
       try {
-        const { data: marked } = await sb.rpc("mark_ancient_pending_safely", {
-          p_max_age_hours: 48, p_reason: "nightly-forensic-v2: ancient pending >48h",
+        const { data: result } = await sb.rpc("mark_ancient_pending_safely", {
+          p_run_id: runId, p_max_age_hours: 72, p_max_per_run: 50,
         });
-        const count = Array.isArray(marked) ? marked.length : 0;
-        const a: RemediationAction = { module_key: "pipeline", action_key: "ancient_pending_cancel", status: count > 0 ? "succeeded" : "attempted", cooldown_key: ck, payload: { cancelled: count } };
+        const cancelled = (result as any)?.cancelled ?? 0;
+        const skippedCd = (result as any)?.skipped_cooldown ?? 0;
+        const a: RemediationAction = { module_key: "pipeline", action_key: "ancient_pending_cancel", status: cancelled > 0 ? "succeeded" : "attempted", cooldown_key: ck, payload: { cancelled, skipped_cooldown: skippedCd } };
         actions.push(a);
         await logRemediation(sb, runId, a);
-        if (count > 0) healedCodes.add("ancient_pending");
+        if (cancelled > 0) healedCodes.add("ancient_pending");
       } catch (e) {
         const a: RemediationAction = { module_key: "pipeline", action_key: "ancient_pending_cancel", status: "failed", cooldown_key: ck, reason: String(e) };
         actions.push(a);
@@ -903,19 +905,20 @@ async function runRemediation(
     }
   }
 
-  // ── SAFE HEAL 4: Integrity Mismatch Requeue (via RPC) ──
+  // ── SAFE HEAL 4: Integrity Mismatch Requeue (via hardened RPC with internal cooldown) ──
   if (healableFindings.some(fi => fi.code === "integrity_mismatch")) {
     const ck = `integrity_requeue:${new Date().toISOString().slice(0, 10)}`;
     if (await checkCooldown(sb, ck, 6)) {
       try {
-        const { data: requeued } = await sb.rpc("requeue_integrity_mismatch_safely", {
-          p_limit: 15, p_reason: "nightly-forensic-v2: integrity mismatch",
+        const { data: result } = await sb.rpc("requeue_integrity_mismatch_safely", {
+          p_run_id: runId, p_max_per_run: 10,
         });
-        const count = Array.isArray(requeued) ? requeued.length : 0;
-        const a: RemediationAction = { module_key: "drift_mismatch", action_key: "integrity_requeue", status: count > 0 ? "succeeded" : "attempted", cooldown_key: ck, payload: { requeued: count } };
+        const requeued = (result as any)?.requeued ?? 0;
+        const skippedCd = (result as any)?.skipped_cooldown ?? 0;
+        const a: RemediationAction = { module_key: "drift_mismatch", action_key: "integrity_requeue", status: requeued > 0 ? "succeeded" : "attempted", cooldown_key: ck, payload: { requeued, skipped_cooldown: skippedCd } };
         actions.push(a);
         await logRemediation(sb, runId, a);
-        if (count > 0) healedCodes.add("integrity_mismatch");
+        if (requeued > 0) healedCodes.add("integrity_mismatch");
       } catch (e) {
         const a: RemediationAction = { module_key: "drift_mismatch", action_key: "integrity_requeue", status: "failed", cooldown_key: ck, reason: String(e) };
         actions.push(a);
