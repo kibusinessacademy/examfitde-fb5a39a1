@@ -3,6 +3,7 @@
  */
 import { safeRpc, type SupabaseClient } from "./stuck-scan-helpers.ts";
 import { enqueueJob } from "./enqueue.ts";
+import { isRepairActionEligible } from "./repair-eligibility.ts";
 import { STEP_TO_JOB_TYPE, getArtifactPriorityBump } from "./job-map.ts";
 
 export async function runHygiene(sb: SupabaseClient) {

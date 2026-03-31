@@ -4,6 +4,7 @@ import { assertSchemaReady } from "../_shared/schema-gate.ts";
 import { PIPELINE_GRAPH, validatePipelineGraph, STEP_TO_JOB_TYPE, ARTIFACT_IMPACT, getArtifactPriorityBump, poolForJobType, JOB_DEFINITIONS } from "../_shared/job-map.ts";
 import { checkArtifacts } from "../_shared/artifact-resolver.ts";
 import { enqueueJob } from "../_shared/enqueue.ts";
+import { isRepairActionEligible } from "../_shared/repair-eligibility.ts";
 import { verifyArtifact, buildVerifyAuditMeta } from "../_shared/artifact-verifier.ts";
 
 /**
