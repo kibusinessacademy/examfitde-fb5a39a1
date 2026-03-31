@@ -304,7 +304,7 @@ export default function LeitstellePage() {
       )}
 
       {/* Quick Links */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <Link to="/admin/studio" className="rounded-xl border border-border bg-card p-4 hover:bg-muted/50 transition-colors flex items-center gap-3">
           <Package className="h-5 w-5 text-primary" />
           <div>
@@ -319,6 +319,39 @@ export default function LeitstellePage() {
             <div className="text-[11px] text-muted-foreground">{jobs?.length || 0} Jobs</div>
           </div>
         </Link>
+        <div
+          className="rounded-xl border border-border bg-card p-4 hover:bg-muted/50 transition-colors flex items-center gap-3 cursor-pointer"
+          onClick={() => setFinanceOpen(true)}
+          role="button"
+        >
+          <DollarSign className="h-5 w-5 text-primary" />
+          <div>
+            <div className="text-sm font-semibold">Finanzen</div>
+            <div className="text-[11px] text-muted-foreground">Revenue & Kosten</div>
+          </div>
+        </div>
+        <div
+          className="rounded-xl border border-border bg-card p-4 hover:bg-muted/50 transition-colors flex items-center gap-3 cursor-pointer"
+          onClick={() => setCrmOpen(true)}
+          role="button"
+        >
+          <Users className="h-5 w-5 text-primary" />
+          <div>
+            <div className="text-sm font-semibold">CRM</div>
+            <div className="text-[11px] text-muted-foreground">Leads & Pipeline</div>
+          </div>
+        </div>
+        <div
+          className="rounded-xl border border-border bg-card p-4 hover:bg-muted/50 transition-colors flex items-center gap-3 cursor-pointer"
+          onClick={() => setSupportOpen(true)}
+          role="button"
+        >
+          <HeadphonesIcon className="h-5 w-5 text-primary" />
+          <div>
+            <div className="text-sm font-semibold">Support</div>
+            <div className="text-[11px] text-muted-foreground">Tickets & Alerts</div>
+          </div>
+        </div>
       </div>
 
       <BlockedPackagesSheet open={blockedSheetOpen} onOpenChange={setBlockedSheetOpen} />
@@ -329,6 +362,12 @@ export default function LeitstellePage() {
       <PublishedPackagesSheet open={publishedSheetOpen} onOpenChange={setPublishedSheetOpen} />
       <FailedJobsSheet open={failedJobsOpen} onOpenChange={setFailedJobsOpen} mode="failed" />
       <FailedJobsSheet open={zombieJobsOpen} onOpenChange={setZombieJobsOpen} mode="zombie" />
+
+      <Suspense fallback={null}>
+        <FinancePanel open={financeOpen} onOpenChange={setFinanceOpen} />
+        <CrmPanel open={crmOpen} onOpenChange={setCrmOpen} />
+        <SupportPanel open={supportOpen} onOpenChange={setSupportOpen} />
+      </Suspense>
     </div>
   );
 }
