@@ -3,6 +3,7 @@
  */
 import { safeRpc, type SupabaseClient } from "./stuck-scan-helpers.ts";
 import { enqueueJob } from "./enqueue.ts";
+import { isRepairActionEligible } from "./repair-eligibility.ts";
 import { STEP_TO_JOB_TYPE, getArtifactPriorityBump } from "./job-map.ts";
 
 export async function runHygiene(sb: SupabaseClient) {
@@ -785,39 +786,54 @@ export async function healValidateExamPoolLoop(sb: SupabaseClient) {
           .maybeSingle();
 
         if (action === "enqueue_repair") {
-          // Ensure repair step exists
-          const { data: repairStep } = await sb
-            .from("package_steps")
-            .select("id, status")
-            .eq("package_id", step.package_id)
-            .eq("step_key", "repair_exam_pool_quality")
-            .maybeSingle();
+          // P0 GUARD: Check eligibility before dispatching repair
+          const eligibility = await isRepairActionEligible(sb, step.package_id, "repair_exam_pool_quality");
+          if (!eligibility.eligible) {
+            console.warn(`[stuck-scan] ❌ REPAIR INELIGIBLE for ${(step.package_id as string).slice(0, 8)}: ${eligibility.reason}`);
+            await sb.from("auto_heal_log").insert({
+              action_type: "repair_dispatch_blocked",
+              trigger_source: "stuck-scan-delta-guard",
+              target_type: "package_step",
+              target_id: step.package_id,
+              result_status: "blocked",
+              result_detail: `Repair ineligible: ${eligibility.reason}`,
+              metadata: { package_id: step.package_id, guard_state: guardState, reason_code: reasonCode },
+            }).catch(() => {});
+          } else {
+            // Ensure repair step exists
+            const { data: repairStep } = await sb
+              .from("package_steps")
+              .select("id, status")
+              .eq("package_id", step.package_id)
+              .eq("step_key", "repair_exam_pool_quality")
+              .maybeSingle();
 
-          if (!repairStep) {
-            await sb.from("package_steps").insert({
-              package_id: step.package_id,
-              step_key: "repair_exam_pool_quality",
-              status: "queued",
+            if (!repairStep) {
+              await sb.from("package_steps").insert({
+                package_id: step.package_id,
+                step_key: "repair_exam_pool_quality",
+                status: "queued",
+              });
+            } else if (!["running", "enqueued", "processing"].includes(repairStep.status)) {
+              await sb.from("package_steps").update({
+                status: "queued",
+                updated_at: new Date().toISOString(),
+              }).eq("id", repairStep.id);
+            }
+
+            // Enqueue repair job
+            await enqueueJob(sb, {
+              jobType: "package_repair_exam_pool_quality",
+              packageId: step.package_id,
+              priority: 30,
+              payload: {
+                curriculum_id: pkg?.curriculum_id,
+                triggered_by: "stuck-scan-delta-guard",
+                guard_state: guardState,
+                reason_code: reasonCode,
+              },
             });
-          } else if (!["running", "enqueued", "processing"].includes(repairStep.status)) {
-            await sb.from("package_steps").update({
-              status: "queued",
-              updated_at: new Date().toISOString(),
-            }).eq("id", repairStep.id);
           }
-
-          // Enqueue repair job
-          await enqueueJob(sb, {
-            jobType: "package_repair_exam_pool_quality",
-            packageId: step.package_id,
-            priority: 30,
-            payload: {
-              curriculum_id: pkg?.curriculum_id,
-              triggered_by: "stuck-scan-delta-guard",
-              guard_state: guardState,
-              reason_code: reasonCode,
-            },
-          });
         }
 
         // Set grace period so validate doesn't re-run immediately
