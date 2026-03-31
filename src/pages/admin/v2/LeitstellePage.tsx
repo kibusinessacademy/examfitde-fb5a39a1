@@ -100,6 +100,7 @@ export default function LeitstellePage() {
   const { data: packages, isLoading: pkgLoading } = useAdminPackagesSSOT();
   const { data: jobs, isLoading: jobLoading } = useAdminQueueSSOT();
   const [blockedSheetOpen, setBlockedSheetOpen] = useState(false);
+  const [stuckSheetOpen, setStuckSheetOpen] = useState(false);
 
   const kpis = useMemo(() => {
     if (!packages || !jobs) return null;
