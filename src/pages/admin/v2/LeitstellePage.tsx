@@ -19,11 +19,12 @@ const BlockedButReadyCard = lazy(() => import('@/components/admin/cards/BlockedB
 const RecoveryBoardCard = lazy(() => import('@/components/admin/cards/RecoveryBoardCard'));
 const ValidateGuardDiagnosticsCard = lazy(() => import('@/components/admin/cards/ValidateGuardDiagnosticsCard'));
 
-function KpiTile({ label, value, icon, tone = 'neutral' }: {
+function KpiTile({ label, value, icon, tone = 'neutral', onClick }: {
   label: string;
   value: number | string;
   icon: React.ReactNode;
   tone?: 'green' | 'yellow' | 'red' | 'neutral';
+  onClick?: () => void;
 }) {
   const toneClasses = {
     green: 'border-success/30 bg-success/5',
@@ -32,7 +33,16 @@ function KpiTile({ label, value, icon, tone = 'neutral' }: {
     neutral: 'border-border bg-card',
   };
   return (
-    <div className={cn("rounded-xl border p-3 flex items-start gap-3", toneClasses[tone])}>
+    <div
+      className={cn(
+        "rounded-xl border p-3 flex items-start gap-3",
+        toneClasses[tone],
+        onClick && 'cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all active:scale-[0.98]'
+      )}
+      onClick={onClick}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+    >
       <div className="shrink-0 mt-0.5">{icon}</div>
       <div className="min-w-0">
         <div className="text-lg font-bold text-foreground leading-tight">{value}</div>
