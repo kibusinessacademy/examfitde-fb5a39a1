@@ -673,7 +673,7 @@ async function getExamPoolAudit(sb: SB) {
     sb,
     "package_steps",
     "package_id, status, last_error, updated_at",
-    (q: any) => q.eq("step_key", "generate_exam_pool").in("status", ["queued", "pending", "failed"])
+    (q: any) => q.eq("step_key", "generate_exam_pool").in("status", ["queued", "enqueued", "failed"])
   );
 
   if (stepsRows.length === 0) {
