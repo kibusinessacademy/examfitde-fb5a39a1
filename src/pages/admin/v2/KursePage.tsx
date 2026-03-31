@@ -77,8 +77,7 @@ function diagnosePkg(pkg: AdminPackageSSOT): { text: string; severity: 'info' | 
 }
 
 function getHealActions(pkg: AdminPackageSSOT): { key: string; label: string; icon: React.ReactNode; action: string; payload: Record<string, any> }[] {
-  const actions: typeof healActions = [];
-  const healActions = actions;
+  const healActions: { key: string; label: string; icon: React.ReactNode; action: string; payload: Record<string, any> }[] = [];
 
   if (pkg.is_stuck) {
     healActions.push({
