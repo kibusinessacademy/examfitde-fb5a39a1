@@ -228,9 +228,12 @@ Deno.serve(async (req) => {
         const mapping = repairJobMap[action];
         if (!mapping) return json({ error: `No mapping for action: ${action}` }, 400);
 
-        // Step 1: Set package back to building if blocked
-        const { data: pkg } = await sb.from("course_packages").select("id, status").eq("id", pid).maybeSingle();
-        if (pkg && (pkg.status === "blocked" || pkg.status === "quality_gate_failed")) {
+        // Step 1: Fetch package details (need curriculum_id for jobs)
+        const { data: pkg } = await sb.from("course_packages").select("id, status, curriculum_id").eq("id", pid).maybeSingle();
+        if (!pkg) return json({ error: `Package not found: ${pid}` }, 404);
+
+        // Step 1b: Set package back to building if blocked
+        if (pkg.status === "blocked" || pkg.status === "quality_gate_failed") {
           await sb.from("course_packages")
             .update({ status: "building", updated_at: new Date().toISOString() })
             .eq("id", pid);
@@ -249,13 +252,13 @@ Deno.serve(async (req) => {
           break;
         }
 
-        // Step 4: Enqueue the repair job
+        // Step 4: Enqueue the repair job (with curriculum_id)
         try {
           const enqResult = await enqueueJob(sb, {
             job_type: mapping.jobType,
             package_id: pid,
             priority: 25,
-            payload: { package_id: pid, source: "admin_manual_repair", repair_action: action },
+            payload: { package_id: pid, curriculum_id: pkg.curriculum_id, source: "admin_manual_repair", repair_action: action },
           });
           result = { ok: true, action, job_enqueued: enqResult.status !== "duplicate", job_id: enqResult.id, package_id: pid };
         } catch (enqErr: any) {
