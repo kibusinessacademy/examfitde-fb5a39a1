@@ -1,14 +1,17 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminRpc } from '@/integrations/supabase/admin-rpc';
+import { runAdminOpsAction } from '@/integrations/supabase/admin-ops-actions';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Link } from 'react-router-dom';
 import {
   Target, ChevronDown, ChevronRight, ArrowRight,
-  AlertTriangle, CheckCircle2, XCircle, HelpCircle,
+  AlertTriangle, CheckCircle2, XCircle, HelpCircle, Loader2, RefreshCw,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 const signalStyle = {
   ok: 'border-success/40 text-success bg-success/5',
@@ -60,7 +63,7 @@ function MatchBar({ matched, mismatched, noBlueprint, total }: {
   );
 }
 
-function PackageRow({ pkg }: { pkg: MatchPackage }) {
+function PackageRow({ pkg, onRebalance, busy }: { pkg: MatchPackage; onRebalance: (id: string) => void; busy: boolean }) {
   const [expanded, setExpanded] = useState(false);
 
   return (
@@ -134,12 +137,25 @@ function PackageRow({ pkg }: { pkg: MatchPackage }) {
             </div>
           )}
 
-          <Link
-            to={`/admin/studio/${pkg.package_id}`}
-            className="text-[10px] text-primary hover:underline flex items-center gap-1"
-          >
-            Paket öffnen <ArrowRight className="h-3 w-3" />
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              to={`/admin/studio/${pkg.package_id}`}
+              className="text-[10px] text-primary hover:underline flex items-center gap-1"
+            >
+              Paket öffnen <ArrowRight className="h-3 w-3" />
+            </Link>
+            {pkg.signal !== 'ok' && (
+              <Button
+                size="sm" variant="outline"
+                className="h-6 text-[10px] px-2 gap-1"
+                disabled={busy}
+                onClick={(e) => { e.stopPropagation(); onRebalance(pkg.package_id); }}
+              >
+                {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                Rebalance
+              </Button>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -147,10 +163,23 @@ function PackageRow({ pkg }: { pkg: MatchPackage }) {
 }
 
 export default function BlueprintMatchAuditCard() {
+  const qc = useQueryClient();
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'trap-blueprint-match'],
     queryFn: () => adminRpc.trapBlueprintMatch(),
     refetchInterval: 60_000,
+  });
+
+  const rebalanceMutation = useMutation({
+    mutationFn: async (packageId: string) => {
+      return runAdminOpsAction('repair_exam_pool_quality', { package_id: packageId });
+    },
+    onSuccess: () => {
+      toast.success('Rebalance gestartet');
+      qc.invalidateQueries({ queryKey: ['admin', 'trap-blueprint-match'] });
+      qc.invalidateQueries({ queryKey: ['admin'] });
+    },
+    onError: (err: Error) => toast.error(`Fehler: ${err.message}`),
   });
 
   if (isLoading) return <Skeleton className="h-32 w-full" />;
@@ -220,7 +249,12 @@ export default function BlueprintMatchAuditCard() {
       {/* Package list */}
       <div className="space-y-1.5">
         {[...hardFails, ...warns].slice(0, 10).map((pkg: MatchPackage) => (
-          <PackageRow key={pkg.package_id} pkg={pkg} />
+          <PackageRow
+            key={pkg.package_id}
+            pkg={pkg}
+            onRebalance={(id) => rebalanceMutation.mutate(id)}
+            busy={rebalanceMutation.isPending}
+          />
         ))}
       </div>
 

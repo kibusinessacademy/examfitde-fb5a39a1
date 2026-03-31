@@ -1,10 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { adminRpc } from "@/integrations/supabase/admin-rpc";
-import { healFinalizationStall, healNonBuilding } from "@/integrations/supabase/admin-ops-actions";
+import { healFinalizationStall, healNonBuilding, runAdminOpsAction } from "@/integrations/supabase/admin-ops-actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, Wrench, Loader2 } from "lucide-react";
+import { AlertTriangle, Wrench, Loader2, Play } from "lucide-react";
+import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
 export default function RecoveryBoardCard() {
@@ -31,6 +32,17 @@ export default function RecoveryBoardCard() {
       qc.invalidateQueries({ queryKey: ["admin", "recovery-board"] });
     },
     onError: (e) => toast.error(`Heal failed: ${e.message}`),
+  });
+
+  const retryStep = useMutation({
+    mutationFn: async ({ packageId, stepKey }: { packageId: string; stepKey: string }) => {
+      return runAdminOpsAction('retry_package_step', { package_id: packageId, step_key: stepKey });
+    },
+    onSuccess: () => {
+      toast.success('Step neu gestartet');
+      qc.invalidateQueries({ queryKey: ["admin", "recovery-board"] });
+    },
+    onError: (e) => toast.error(`Fehler: ${e.message}`),
   });
 
   const finTotal = data?.finalization_stall?.total ?? 0;
@@ -74,12 +86,23 @@ export default function RecoveryBoardCard() {
           ) : (
             <div className="max-h-40 overflow-y-auto space-y-1">
               {data?.finalization_stall?.packages?.slice(0, 10).map((p) => (
-                <div key={p.package_id} className="flex items-center justify-between text-xs bg-muted/50 rounded px-2 py-1">
-                  <span className="font-mono truncate max-w-[140px]">{p.package_id.slice(0, 8)}</span>
-                  <span className="text-muted-foreground">
-                    {p.content_lessons}/{p.total_lessons} lessons • {p.build_progress}%
+                <div key={p.package_id} className="flex items-center justify-between text-xs bg-muted/50 rounded px-2 py-1 gap-1">
+                  <Link to={`/admin/studio/${p.package_id}`} className="font-mono truncate max-w-[100px] hover:text-primary transition-colors">
+                    {p.package_id.slice(0, 8)}
+                  </Link>
+                  <span className="text-muted-foreground shrink-0">
+                    {p.content_lessons}/{p.total_lessons} · {p.build_progress}%
                   </span>
-                  <Badge variant="outline" className="text-[10px]">{p.finalize_status}</Badge>
+                  <Badge variant="outline" className="text-[10px] shrink-0">{p.finalize_status}</Badge>
+                  <Button
+                    size="sm" variant="ghost"
+                    className="h-5 w-5 p-0 shrink-0"
+                    disabled={retryStep.isPending}
+                    onClick={() => retryStep.mutate({ packageId: p.package_id, stepKey: 'finalize_content' })}
+                    title="Finalize neu starten"
+                  >
+                    {retryStep.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />}
+                  </Button>
                 </div>
               ))}
             </div>
@@ -110,16 +133,27 @@ export default function RecoveryBoardCard() {
           ) : (
             <div className="max-h-40 overflow-y-auto space-y-1">
               {data?.non_building_recoverable?.packages?.slice(0, 10).map((p) => (
-                <div key={p.package_id} className="flex items-center justify-between text-xs bg-muted/50 rounded px-2 py-1">
-                  <span className="font-mono truncate max-w-[140px]">{p.package_id.slice(0, 8)}</span>
-                  <span className="text-muted-foreground">
-                    {p.status} • {p.open_steps} open • {p.first_open_step}
+                <div key={p.package_id} className="flex items-center justify-between text-xs bg-muted/50 rounded px-2 py-1 gap-1">
+                  <Link to={`/admin/studio/${p.package_id}`} className="font-mono truncate max-w-[100px] hover:text-primary transition-colors">
+                    {p.package_id.slice(0, 8)}
+                  </Link>
+                  <span className="text-muted-foreground shrink-0">
+                    {p.status} · {p.open_steps} open
                   </span>
                   {p.blocked_reason && (
-                    <Badge variant="outline" className="text-[10px] text-red-400 truncate max-w-[100px]">
+                    <Badge variant="outline" className="text-[10px] text-destructive truncate max-w-[80px] shrink-0">
                       {p.blocked_reason}
                     </Badge>
                   )}
+                  <Button
+                    size="sm" variant="ghost"
+                    className="h-5 w-5 p-0 shrink-0"
+                    disabled={retryStep.isPending}
+                    onClick={() => retryStep.mutate({ packageId: p.package_id, stepKey: p.first_open_step || 'generate_learning_content' })}
+                    title={`${p.first_open_step} neu starten`}
+                  >
+                    {retryStep.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />}
+                  </Button>
                 </div>
               ))}
             </div>

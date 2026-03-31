@@ -1,12 +1,16 @@
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useQuery } from '@tanstack/react-query';
 import { adminRpc } from '@/integrations/supabase/admin-rpc';
+import { runAdminOpsAction } from '@/integrations/supabase/admin-ops-actions';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, ShieldAlert, ArrowRight, Clock } from 'lucide-react';
+import { AlertTriangle, ShieldAlert, ArrowRight, Clock, Loader2, RotateCcw, Wrench } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import { de } from 'date-fns/locale';
+import { toast } from 'sonner';
 
 const diagnosisLabels: Record<string, { label: string; tone: 'red' | 'yellow' | 'green' }> = {
   compatible_unapproved: { label: 'Validierbar, nicht approved', tone: 'yellow' },
@@ -15,11 +19,34 @@ const diagnosisLabels: Record<string, { label: string; tone: 'red' | 'yellow' | 
   unknown: { label: 'Unbekannt', tone: 'red' },
 };
 
+const DIAGNOSIS_TO_HEAL: Record<string, { action: string; label: string; stepKey?: string }> = {
+  compatible_unapproved: { action: 'retry_package_step', label: 'Exam-Pool validieren', stepKey: 'validate_exam_pool' },
+  lifecycle_drift: { action: 'repair_exam_pool_quality', label: 'Exam-Pool reparieren' },
+  draft_only: { action: 'repair_exam_pool_quality', label: 'Exam-Pool neu generieren' },
+  unknown: { action: 'retry_package_step', label: 'Exam-Step neu starten', stepKey: 'generate_exam_pool' },
+};
+
 export default function ExamPoolAuditCard() {
+  const qc = useQueryClient();
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'exam-pool-audit'],
     queryFn: () => adminRpc.examPoolAudit(),
     refetchInterval: 60_000,
+  });
+
+  const healMutation = useMutation({
+    mutationFn: async ({ packageId, action, stepKey }: { packageId: string; action: string; stepKey?: string }) => {
+      if (action === 'retry_package_step') {
+        return runAdminOpsAction('retry_package_step', { package_id: packageId, step_key: stepKey || 'generate_exam_pool' });
+      }
+      return runAdminOpsAction(action as any, { package_id: packageId });
+    },
+    onSuccess: () => {
+      toast.success('Reparatur gestartet');
+      qc.invalidateQueries({ queryKey: ['admin', 'exam-pool-audit'] });
+      qc.invalidateQueries({ queryKey: ['admin'] });
+    },
+    onError: (err: Error) => toast.error(`Fehler: ${err.message}`),
   });
 
   if (isLoading) {
@@ -48,23 +75,28 @@ export default function ExamPoolAuditCard() {
           <div className="space-y-2">
             {packages.slice(0, 8).map(pkg => {
               const diag = diagnosisLabels[pkg.diagnosis] ?? diagnosisLabels.unknown;
+              const healInfo = DIAGNOSIS_TO_HEAL[pkg.diagnosis] ?? DIAGNOSIS_TO_HEAL.unknown;
               return (
-                <Link
+                <div
                   key={pkg.package_id}
-                  to={`/admin/studio/${pkg.package_id}`}
-                  className="block rounded-lg border border-border bg-card p-2.5 hover:bg-muted/50 transition-colors"
+                  className="rounded-lg border border-border bg-card p-2.5"
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <div className="text-xs font-semibold text-foreground truncate">
-                        {pkg.package_title ?? pkg.package_id.slice(0, 12)}
+                  <Link
+                    to={`/admin/studio/${pkg.package_id}`}
+                    className="block hover:text-primary transition-colors"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="text-xs font-semibold text-foreground truncate">
+                          {pkg.package_title ?? pkg.package_id.slice(0, 12)}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground font-mono mt-0.5">
+                          {pkg.package_id.slice(0, 8)} · Step: {pkg.step_status}
+                        </div>
                       </div>
-                      <div className="text-[10px] text-muted-foreground font-mono mt-0.5">
-                        {pkg.package_id.slice(0, 8)} · Step: {pkg.step_status}
-                      </div>
+                      <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0 mt-1" />
                     </div>
-                    <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0 mt-1" />
-                  </div>
+                  </Link>
                   <div className="flex flex-wrap gap-1 mt-1.5">
                     <Badge
                       variant="outline"
@@ -96,7 +128,23 @@ export default function ExamPoolAuditCard() {
                       </Badge>
                     )}
                   </div>
-                </Link>
+                  {/* Heal action */}
+                  <div className="mt-2 pt-1.5 border-t border-border/50">
+                    <Button
+                      size="sm" variant="outline"
+                      className="h-6 text-[10px] px-2 gap-1"
+                      disabled={healMutation.isPending}
+                      onClick={() => healMutation.mutate({
+                        packageId: pkg.package_id,
+                        action: healInfo.action,
+                        stepKey: healInfo.stepKey,
+                      })}
+                    >
+                      {healMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wrench className="h-3 w-3" />}
+                      {healInfo.label}
+                    </Button>
+                  </div>
+                </div>
               );
             })}
           </div>
@@ -144,6 +192,23 @@ export default function ExamPoolAuditCard() {
                       </Badge>
                     )}
                   </div>
+                  {/* Quick heal for guard event target */}
+                  {evt.target_id && (
+                    <div className="mt-1.5">
+                      <Button
+                        size="sm" variant="outline"
+                        className="h-5 text-[9px] px-1.5 gap-0.5"
+                        disabled={healMutation.isPending}
+                        onClick={() => healMutation.mutate({
+                          packageId: evt.target_id,
+                          action: 'repair_exam_pool_quality',
+                        })}
+                      >
+                        {healMutation.isPending ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <RotateCcw className="h-2.5 w-2.5" />}
+                        Reparieren
+                      </Button>
+                    </div>
+                  )}
                 </div>
               );
             })}
