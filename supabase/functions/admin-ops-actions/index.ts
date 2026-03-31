@@ -485,7 +485,7 @@ async function requeueFailedJobs(sb: SB, body: JsonRow) {
   if (Array.isArray(body.job_ids) && body.job_ids.length > 0) {
     const ids = body.job_ids.map(String).slice(0, 100);
     const { error } = await sb.from("job_queue")
-      .update({ status: "pending", last_error: null, updated_at: new Date().toISOString() })
+      .update({ status: "pending", last_error: null, attempts: 0, locked_by: null, locked_at: null, started_at: null, updated_at: new Date().toISOString() })
       .in("id", ids).eq("status", "failed");
     if (error) throw error;
     return { ok: true, updated: ids.length, scope: "job_ids" };
@@ -501,7 +501,7 @@ async function requeueFailedJobs(sb: SB, body: JsonRow) {
 
   const ids = jobs.map((j: any) => j.id);
   const { error: updErr } = await sb.from("job_queue")
-    .update({ status: "pending", last_error: null, updated_at: new Date().toISOString() })
+    .update({ status: "pending", last_error: null, attempts: 0, locked_by: null, locked_at: null, started_at: null, updated_at: new Date().toISOString() })
     .in("id", ids);
   if (updErr) throw updErr;
   return { ok: true, updated: ids.length, scope: body.package_id ? "package" : body.job_type ? "job_type" : "global" };
