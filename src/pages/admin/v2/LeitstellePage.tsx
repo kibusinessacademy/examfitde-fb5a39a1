@@ -6,7 +6,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Link } from 'react-router-dom';
 import {
   Activity, AlertTriangle, CheckCircle2, XCircle, Clock,
-  Package, Zap, Shield, ArrowRight, Cpu, ListChecks, TrendingDown
+  Package, Zap, Shield, ArrowRight, Cpu, ListChecks, TrendingDown,
+  DollarSign, Users, HeadphonesIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { BlockedPackagesSheet } from '@/components/admin/command/BlockedPackagesSheet';
@@ -16,6 +17,10 @@ import { CouncilReviewSheet } from '@/components/admin/command/CouncilReviewShee
 import { PublishDriftSheet } from '@/components/admin/command/PublishDriftSheet';
 import { PublishedPackagesSheet } from '@/components/admin/command/PublishedPackagesSheet';
 import { FailedJobsSheet } from '@/components/admin/command/FailedJobsSheet';
+
+const FinancePanel = lazy(() => import('@/components/admin/command/FinancePanel'));
+const CrmPanel = lazy(() => import('@/components/admin/command/CrmPanel'));
+const SupportPanel = lazy(() => import('@/components/admin/command/SupportPanel'));
 
 const ExamPoolAuditCard = lazy(() => import('@/components/admin/cards/ExamPoolAuditCard'));
 const TrapCoverageAuditCard = lazy(() => import('@/components/admin/cards/TrapCoverageAuditCard'));
@@ -112,6 +117,9 @@ export default function LeitstellePage() {
   const [publishedSheetOpen, setPublishedSheetOpen] = useState(false);
   const [failedJobsOpen, setFailedJobsOpen] = useState(false);
   const [zombieJobsOpen, setZombieJobsOpen] = useState(false);
+  const [financeOpen, setFinanceOpen] = useState(false);
+  const [crmOpen, setCrmOpen] = useState(false);
+  const [supportOpen, setSupportOpen] = useState(false);
 
   const kpis = useMemo(() => {
     if (!packages || !jobs) return null;
@@ -296,7 +304,7 @@ export default function LeitstellePage() {
       )}
 
       {/* Quick Links */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <Link to="/admin/studio" className="rounded-xl border border-border bg-card p-4 hover:bg-muted/50 transition-colors flex items-center gap-3">
           <Package className="h-5 w-5 text-primary" />
           <div>
@@ -311,6 +319,39 @@ export default function LeitstellePage() {
             <div className="text-[11px] text-muted-foreground">{jobs?.length || 0} Jobs</div>
           </div>
         </Link>
+        <div
+          className="rounded-xl border border-border bg-card p-4 hover:bg-muted/50 transition-colors flex items-center gap-3 cursor-pointer"
+          onClick={() => setFinanceOpen(true)}
+          role="button"
+        >
+          <DollarSign className="h-5 w-5 text-primary" />
+          <div>
+            <div className="text-sm font-semibold">Finanzen</div>
+            <div className="text-[11px] text-muted-foreground">Revenue & Kosten</div>
+          </div>
+        </div>
+        <div
+          className="rounded-xl border border-border bg-card p-4 hover:bg-muted/50 transition-colors flex items-center gap-3 cursor-pointer"
+          onClick={() => setCrmOpen(true)}
+          role="button"
+        >
+          <Users className="h-5 w-5 text-primary" />
+          <div>
+            <div className="text-sm font-semibold">CRM</div>
+            <div className="text-[11px] text-muted-foreground">Leads & Pipeline</div>
+          </div>
+        </div>
+        <div
+          className="rounded-xl border border-border bg-card p-4 hover:bg-muted/50 transition-colors flex items-center gap-3 cursor-pointer"
+          onClick={() => setSupportOpen(true)}
+          role="button"
+        >
+          <HeadphonesIcon className="h-5 w-5 text-primary" />
+          <div>
+            <div className="text-sm font-semibold">Support</div>
+            <div className="text-[11px] text-muted-foreground">Tickets & Alerts</div>
+          </div>
+        </div>
       </div>
 
       <BlockedPackagesSheet open={blockedSheetOpen} onOpenChange={setBlockedSheetOpen} />
@@ -321,6 +362,12 @@ export default function LeitstellePage() {
       <PublishedPackagesSheet open={publishedSheetOpen} onOpenChange={setPublishedSheetOpen} />
       <FailedJobsSheet open={failedJobsOpen} onOpenChange={setFailedJobsOpen} mode="failed" />
       <FailedJobsSheet open={zombieJobsOpen} onOpenChange={setZombieJobsOpen} mode="zombie" />
+
+      <Suspense fallback={null}>
+        <FinancePanel open={financeOpen} onOpenChange={setFinanceOpen} />
+        <CrmPanel open={crmOpen} onOpenChange={setCrmOpen} />
+        <SupportPanel open={supportOpen} onOpenChange={setSupportOpen} />
+      </Suspense>
     </div>
   );
 }
