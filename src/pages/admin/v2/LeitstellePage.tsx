@@ -6,7 +6,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Link } from 'react-router-dom';
 import {
   Activity, AlertTriangle, CheckCircle2, XCircle, Clock,
-  Package, Zap, Shield, ArrowRight, Cpu, ListChecks, TrendingDown
+  Package, Zap, Shield, ArrowRight, Cpu, ListChecks, TrendingDown,
+  DollarSign, Users, HeadphonesIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { BlockedPackagesSheet } from '@/components/admin/command/BlockedPackagesSheet';
@@ -16,6 +17,10 @@ import { CouncilReviewSheet } from '@/components/admin/command/CouncilReviewShee
 import { PublishDriftSheet } from '@/components/admin/command/PublishDriftSheet';
 import { PublishedPackagesSheet } from '@/components/admin/command/PublishedPackagesSheet';
 import { FailedJobsSheet } from '@/components/admin/command/FailedJobsSheet';
+
+const FinancePanel = lazy(() => import('@/components/admin/command/FinancePanel'));
+const CrmPanel = lazy(() => import('@/components/admin/command/CrmPanel'));
+const SupportPanel = lazy(() => import('@/components/admin/command/SupportPanel'));
 
 const ExamPoolAuditCard = lazy(() => import('@/components/admin/cards/ExamPoolAuditCard'));
 const TrapCoverageAuditCard = lazy(() => import('@/components/admin/cards/TrapCoverageAuditCard'));
