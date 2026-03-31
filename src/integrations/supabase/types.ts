@@ -48492,6 +48492,8 @@ export type Database = {
           last_seen: string | null
           max_severity: string | null
           occurrence_count: number | null
+          older_avg_metric: number | null
+          recent_avg_metric: number | null
           trend_status: string | null
           was_ever_healed: boolean | null
         }
