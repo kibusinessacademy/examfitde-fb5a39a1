@@ -34,6 +34,17 @@ export default function RecoveryBoardCard() {
     onError: (e) => toast.error(`Heal failed: ${e.message}`),
   });
 
+  const retryStep = useMutation({
+    mutationFn: async ({ packageId, stepKey }: { packageId: string; stepKey: string }) => {
+      return runAdminOpsAction('retry_package_step', { package_id: packageId, step_key: stepKey });
+    },
+    onSuccess: () => {
+      toast.success('Step neu gestartet');
+      qc.invalidateQueries({ queryKey: ["admin", "recovery-board"] });
+    },
+    onError: (e) => toast.error(`Fehler: ${e.message}`),
+  });
+
   const finTotal = data?.finalization_stall?.total ?? 0;
   const nbTotal = data?.non_building_recoverable?.total ?? 0;
 
