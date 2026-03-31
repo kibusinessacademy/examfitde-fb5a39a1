@@ -111,13 +111,10 @@ Deno.serve(async (req) => {
             .contains("payload", { course_id: course.id });
 
           if ((setupPending ?? 0) === 0) {
-            await sb.from("job_queue").insert({
+            await enqueueJob(sb, {
               job_type: "setup_course_package",
-              status: "pending",
-              attempts: 0,
               max_attempts: 3,
               payload: { course_id: course.id, certification_id, triggered_by: "factory_orchestrator" },
-              run_after: new Date().toISOString(),
             });
             actions.push(`Enqueued setup_course_package for course ${course.id.slice(0, 8)}`);
           }
