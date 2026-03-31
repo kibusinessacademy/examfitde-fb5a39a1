@@ -761,11 +761,14 @@ Deno.serve(async (req) => {
       // Step 2: Enqueue ALL follow-up phases as separate jobs (never inline)
       // BUG FIX: Previously missing drafts_upgrade — weak drafts were never AI-upgraded
       try {
-        await sb.from("job_queue").insert([
-          { job_type: "package_elite_harden", status: "pending", payload: { package_id: packageId, curriculum_id: curriculumId, course_id: courseId, phase: "drafts_upgrade" } },
-          { job_type: "package_elite_harden", status: "pending", payload: { package_id: packageId, curriculum_id: curriculumId, course_id: courseId, phase: "minichecks_only" } },
-          { job_type: "package_elite_harden", status: "pending", payload: { package_id: packageId, curriculum_id: curriculumId, phase: "oral_only" } },
-        ]);
+        const phases = ["drafts_upgrade", "minichecks_only", "oral_only"];
+        for (const phase of phases) {
+          await enqueueJob(sb, {
+            job_type: "package_elite_harden",
+            package_id: packageId,
+            payload: { package_id: packageId, curriculum_id: curriculumId, course_id: courseId, phase },
+          }).catch(e => console.warn(`[elite-harden] Enqueue ${phase} failed: ${(e as Error).message?.slice(0, 80)}`));
+        }
       } catch (_e) { /* best-effort */ }
 
       // Finalize THIS run as done (follow-ups are independent)

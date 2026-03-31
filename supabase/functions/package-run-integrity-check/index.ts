@@ -1479,18 +1479,16 @@ Deno.serve(async (req) => {
           .maybeSingle();
 
         if (!existingJob) {
-          await sb.from("job_queue").insert({
+          await enqueueJob(sb, {
             job_type: "package_exam_rebalance",
             package_id: packageId,
+            priority: 15,
+            max_attempts: 3,
             payload: {
               package_id: packageId,
               auto_triggered: true,
               trigger_signals: metadataRepairSignals,
             },
-            status: "pending",
-            worker_pool: "core",
-            max_attempts: 3,
-            priority: 15,
           });
           console.log(`[integrity-check] AUTO-ENQUEUE: package_exam_rebalance for ${packageId.slice(0, 8)} (${metadataRepairSignals.length} signals: ${metadataRepairSignals.slice(0, 3).join(", ")})`);
         } else {
