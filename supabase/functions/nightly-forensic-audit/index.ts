@@ -1069,20 +1069,23 @@ Deno.serve(async (req) => {
   const verdict = criticalCount > 0 ? "CRITICAL" : warningCount > 0 ? "NEEDS_ATTENTION" : "HEALTHY";
   const finishedAt = new Date();
 
-  // Incident aggregation
-  const incidentMap: Record<string, { findings: string[]; maxSeverity: string }> = {};
+  // Incident aggregation (using numeric severity ranking)
+  const sevRank = (s: string) => s === "critical" ? 3 : s === "warning" ? 2 : 1;
+  const sevLabel = (r: number) => r >= 3 ? "critical" : r >= 2 ? "warning" : "info";
+  const incidentMap: Record<string, { findings: string[]; maxSevRank: number; hasRootCause: boolean }> = {};
   for (const finding of allFindings) {
     if (finding.entity_id && finding.severity !== "info") {
       const key = `${finding.entity_type}:${finding.entity_id}`;
-      if (!incidentMap[key]) incidentMap[key] = { findings: [], maxSeverity: "info" };
+      if (!incidentMap[key]) incidentMap[key] = { findings: [], maxSevRank: 0, hasRootCause: false };
       incidentMap[key].findings.push(finding.code);
-      if (finding.severity === "critical") incidentMap[key].maxSeverity = "critical";
-      else if (finding.severity === "warning" && incidentMap[key].maxSeverity !== "critical") incidentMap[key].maxSeverity = "warning";
+      incidentMap[key].maxSevRank = Math.max(incidentMap[key].maxSevRank, sevRank(finding.severity));
+      if (finding.finding_class === "root_cause") incidentMap[key].hasRootCause = true;
     }
   }
+  // Multi-signal OR single critical root_cause
   const incidents = Object.entries(incidentMap)
-    .filter(([, v]) => v.findings.length >= 2)
-    .map(([entity, v]) => ({ entity, evidences: v.findings, severity: v.maxSeverity }));
+    .filter(([, v]) => v.findings.length >= 2 || (v.maxSevRank >= 3 && v.hasRootCause))
+    .map(([entity, v]) => ({ entity, evidences: v.findings, severity: sevLabel(v.maxSevRank) }));
 
   if (runId) {
     await sb.from("nightly_audit_runs").update({
