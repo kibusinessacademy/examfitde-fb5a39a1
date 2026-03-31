@@ -22834,6 +22834,122 @@ export type Database = {
         }
         Relationships: []
       }
+      nightly_audit_findings: {
+        Row: {
+          actionability: string
+          created_at: string
+          detail: string | null
+          entity_id: string | null
+          entity_type: string | null
+          finding_class: string
+          finding_code: string
+          healed: boolean
+          id: string
+          metric_value: number | null
+          module_key: string
+          payload: Json
+          run_id: string
+          severity: string
+          title: string
+        }
+        Insert: {
+          actionability?: string
+          created_at?: string
+          detail?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          finding_class?: string
+          finding_code: string
+          healed?: boolean
+          id?: string
+          metric_value?: number | null
+          module_key: string
+          payload?: Json
+          run_id: string
+          severity: string
+          title: string
+        }
+        Update: {
+          actionability?: string
+          created_at?: string
+          detail?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          finding_class?: string
+          finding_code?: string
+          healed?: boolean
+          id?: string
+          metric_value?: number | null
+          module_key?: string
+          payload?: Json
+          run_id?: string
+          severity?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nightly_audit_findings_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "nightly_audit_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      nightly_audit_runs: {
+        Row: {
+          audit_version: string
+          critical_findings: number
+          duration_ms: number | null
+          finished_at: string | null
+          healed_count: number
+          id: string
+          info_findings: number
+          meta: Json
+          module_count: number
+          module_results: Json
+          started_at: string
+          status: string
+          total_findings: number
+          verdict: string
+          warning_findings: number
+        }
+        Insert: {
+          audit_version?: string
+          critical_findings?: number
+          duration_ms?: number | null
+          finished_at?: string | null
+          healed_count?: number
+          id?: string
+          info_findings?: number
+          meta?: Json
+          module_count?: number
+          module_results?: Json
+          started_at?: string
+          status?: string
+          total_findings?: number
+          verdict?: string
+          warning_findings?: number
+        }
+        Update: {
+          audit_version?: string
+          critical_findings?: number
+          duration_ms?: number | null
+          finished_at?: string | null
+          healed_count?: number
+          id?: string
+          info_findings?: number
+          meta?: Json
+          module_count?: number
+          module_results?: Json
+          started_at?: string
+          status?: string
+          total_findings?: number
+          verdict?: string
+          warning_findings?: number
+        }
+        Relationships: []
+      }
       ops_alert_events: {
         Row: {
           alert_key: string
@@ -48363,6 +48479,23 @@ export type Database = {
             referencedColumns: ["curriculum_id"]
           },
         ]
+      }
+      v_audit_finding_trends: {
+        Row: {
+          entity_id: string | null
+          entity_type: string | null
+          finding_class: string | null
+          finding_code: string | null
+          first_seen: string | null
+          in_last_3: number | null
+          in_latest: number | null
+          last_seen: string | null
+          max_severity: string | null
+          occurrence_count: number | null
+          trend_status: string | null
+          was_ever_healed: boolean | null
+        }
+        Relationships: []
       }
       v_b2b_metrics: {
         Row: {
