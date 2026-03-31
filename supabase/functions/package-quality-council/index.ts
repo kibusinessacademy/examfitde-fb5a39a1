@@ -80,7 +80,7 @@ Deno.serve(async (req) => {
           .select("id", { count: "exact", head: true })
           .eq("job_type", "package_run_integrity_check")
           .in("status", ["pending", "processing"])
-          .eq("payload->>package_id", packageId);
+          .eq("package_id", packageId);
 
         if ((existingJobs ?? 0) === 0) {
           await enqueueJob(sb, {

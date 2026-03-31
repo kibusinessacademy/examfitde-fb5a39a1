@@ -616,7 +616,7 @@ Deno.serve(async (req) => {
           .update({ status: "cancelled", updated_at: new Date().toISOString() })
           .eq("status", "pending")
           .in("job_type", ["lesson_generate_content", "package_generate_learning_content", "package_generate_lesson_minichecks"])
-          .or(`payload->>package_id.eq.${id}`);
+          .or(`package_id.eq.${id}`);
 
         // 2) Remove didaktik-only steps
         if (stepsToRemove.length > 0) {
