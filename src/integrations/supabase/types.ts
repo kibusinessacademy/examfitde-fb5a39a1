@@ -54513,6 +54513,10 @@ export type Database = {
           package_id: string
         }[]
       }
+      fn_capture_gate_snapshot: {
+        Args: { p_package_id: string }
+        Returns: Json
+      }
       fn_classify_validate_guard: {
         Args: { p_package_id: string }
         Returns: Json
@@ -54521,9 +54525,17 @@ export type Database = {
         Args: { p_curriculum_id: string }
         Returns: string
       }
+      fn_has_gate_state_changed: {
+        Args: { p_post_snapshot: Json; p_pre_snapshot: Json }
+        Returns: Json
+      }
       fn_is_real_step_regression: {
         Args: { p_new_status: string; p_old_status: string }
         Returns: boolean
+      }
+      fn_is_repair_action_eligible: {
+        Args: { p_package_id: string; p_repair_action: string }
+        Returns: Json
       }
       fn_is_true_stall: {
         Args: {
