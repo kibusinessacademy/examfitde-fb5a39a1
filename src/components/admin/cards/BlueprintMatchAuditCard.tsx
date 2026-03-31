@@ -1,14 +1,17 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminRpc } from '@/integrations/supabase/admin-rpc';
+import { runAdminOpsAction } from '@/integrations/supabase/admin-ops-actions';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Link } from 'react-router-dom';
 import {
   Target, ChevronDown, ChevronRight, ArrowRight,
-  AlertTriangle, CheckCircle2, XCircle, HelpCircle,
+  AlertTriangle, CheckCircle2, XCircle, HelpCircle, Loader2, RefreshCw,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 const signalStyle = {
   ok: 'border-success/40 text-success bg-success/5',
