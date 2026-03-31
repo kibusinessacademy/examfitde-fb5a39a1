@@ -232,20 +232,13 @@ Deno.serve(async (req) => {
         const { data: pkg } = await sb.from("course_packages").select("id, status, curriculum_id").eq("id", pid).maybeSingle();
         if (!pkg) return json({ error: `Package not found: ${pid}` }, 404);
 
-        // Step 1b: Set package back to building if not already in a visible status
-        // Guard: archive conflicting packages for the same curriculum first
-        const needsBuilding = ["blocked", "quality_gate_failed", "council_review"].includes(pkg.status);
-        if (needsBuilding || pkg.status !== "building") {
-          if (pkg.curriculum_id) {
-            await sb.from("course_packages")
-              .update({ status: "archived", updated_at: new Date().toISOString() })
-              .eq("curriculum_id", pkg.curriculum_id)
-              .neq("id", pid)
-              .in("status", ["planning", "queued", "building", "failed", "published", "draft"]);
-          }
-          await sb.from("course_packages")
-            .update({ status: "building", stuck_reason: null, updated_at: new Date().toISOString() })
-            .eq("id", pid);
+        // Step 1b: Safe transition to building (handles unique constraint atomically)
+        if (pkg.status !== "building") {
+          await sb.rpc("safe_transition_package_status", {
+            p_package_id: pid,
+            p_new_status: "building",
+            p_extra: { stuck_reason: null },
+          });
         }
 
         // Step 2: Reset the target step to queued
