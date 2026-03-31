@@ -1026,7 +1026,8 @@ Deno.serve(async (req) => {
           const findings = await withTimeout(mod.fn, MODULE_TIMEOUT_MS, mod.name);
           const elapsed = Date.now() - t0;
           const status = elapsed > 30000 ? "partial" as const : "ok" as const;
-          const result: ModuleResult = { module: mod.name, status, duration_ms: elapsed, findings };
+          const remCandidates = findings.filter(fi => fi.actionability === "auto_heal" && fi.severity !== "info").length;
+          const result: ModuleResult = { module: mod.name, status, duration_ms: elapsed, findings, findings_count: findings.length, remediation_candidate_count: remCandidates };
           moduleResults.push(result);
 
           if (elapsed > 30000)
