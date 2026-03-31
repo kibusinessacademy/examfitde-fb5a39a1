@@ -126,7 +126,7 @@ Deno.serve(async (req) => {
   }
 
   const repairResult = result as Record<string, unknown>;
-  console.log(`[repair-exam-pool] RPC result: reconciled=${repairResult.qc_status_reconciled}, promoted=${repairResult.promoted_to_approved}, traps=${repairResult.trap_types_fixed}, missing_lf=${repairResult.missing_lf_coverage}`);
+  console.log(`[repair-exam-pool] RPC result: reconciled=${repairResult.qc_status_reconciled}, promoted=${repairResult.promoted_to_approved}, traps=${repairResult.trap_types_fixed}, missing_lf=${repairResult.missing_lf_coverage}, difficulty_rebalanced=${repairResult.difficulty_rebalanced}, bloom_repaired=${repairResult.bloom_repaired}, traps_tagged=${repairResult.traps_tagged}`);
 
   // ── QC Reconciliation: Auto-reject stale failed questions ──
   const qcReconciled = await reconcileStaleQuestions(sb, cid);
