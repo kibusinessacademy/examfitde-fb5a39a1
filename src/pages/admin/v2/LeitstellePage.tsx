@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { BlockedPackagesSheet } from '@/components/admin/command/BlockedPackagesSheet';
+import { StuckPackagesSheet } from '@/components/admin/command/StuckPackagesSheet';
 
 const ExamPoolAuditCard = lazy(() => import('@/components/admin/cards/ExamPoolAuditCard'));
 const TrapCoverageAuditCard = lazy(() => import('@/components/admin/cards/TrapCoverageAuditCard'));
