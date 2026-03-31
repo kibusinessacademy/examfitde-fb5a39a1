@@ -761,21 +761,21 @@ async function unblockPackage(sb: SB, packageId: string, reason: string) {
   const { error: pkgErr } = await sb.rpc("safe_transition_package_status", {
     p_package_id: packageId,
     p_new_status: "building",
-    p_extra: {},
+    p_extra: { blocked_reason: null, stuck_reason: null },
   });
   if (pkgErr) throw pkgErr;
 
   // 2. Remove locks
   await sb.from("course_package_locks").delete().eq("package_id", packageId);
 
-  // 3. Reset any blocked steps back to queued, clear loop guard meta
-  const { data: blockedSteps } = await sb.from("package_steps")
-    .select("step_key, meta")
+  // 3. Reset blocked AND failed steps back to queued, clear loop guard meta + backoff
+  const { data: stuckSteps } = await sb.from("package_steps")
+    .select("step_key, meta, status")
     .eq("package_id", packageId)
-    .eq("status", "blocked");
+    .in("status", ["blocked", "failed"]);
 
   const resetStepKeys: string[] = [];
-  for (const step of (blockedSteps || [])) {
+  for (const step of (stuckSteps || [])) {
     const meta = (step as any).meta || {};
     const cleanedMeta = {
       ...meta,
@@ -783,12 +783,30 @@ async function unblockPackage(sb: SB, packageId: string, reason: string) {
       unblocked_at: new Date().toISOString(),
       unblock_reason: reason,
     };
+    // Remove backoff so steps can be picked up immediately
+    delete cleanedMeta.next_run_at;
+    delete cleanedMeta.backoff_until;
+
     await sb.from("package_steps")
-      .update({ status: "queued", meta: cleanedMeta, updated_at: new Date().toISOString() })
+      .update({
+        status: "queued",
+        attempts: 0,
+        started_at: null,
+        finished_at: null,
+        meta: cleanedMeta,
+        last_error: null,
+        updated_at: new Date().toISOString(),
+      })
       .eq("package_id", packageId)
       .eq("step_key", (step as any).step_key);
     resetStepKeys.push((step as any).step_key);
   }
+
+  // 4. Cancel stale jobs for this package to prevent conflicts
+  await sb.from("job_queue")
+    .update({ status: "cancelled", last_error: `Admin unblock: ${reason}`, updated_at: new Date().toISOString() })
+    .eq("package_id", packageId)
+    .in("status", ["failed"]);
 
   return { ok: true, reset_steps: resetStepKeys, reason, scope: "single_package" };
 }
