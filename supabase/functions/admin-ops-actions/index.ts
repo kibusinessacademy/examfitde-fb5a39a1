@@ -650,13 +650,20 @@ async function recoverFailedPackages(sb: SB, body: JsonRow) {
       .eq("package_id", pkg.id)
       .eq("status", "failed");
 
-    // Reset package to building
-    await sb.from("course_packages").update({
-      status: "building",
-      retry_count: (pkg.retry_count ?? 0) + 1,
-      last_error: `Admin recovery: ${stepsReset} steps reset`,
-      updated_at: new Date().toISOString(),
-    }).eq("id", pkg.id);
+    // Reset package to building via safe_transition (prevents unique constraint violations)
+    const { error: transErr } = await sb.rpc("safe_transition_package_status", {
+      p_package_id: pkg.id,
+      p_new_status: "building",
+      p_extra: {
+        retry_count: (pkg.retry_count ?? 0) + 1,
+        last_error: `Admin recovery: ${stepsReset} steps reset`,
+        stuck_reason: null,
+        blocked_reason: null,
+      },
+    });
+    if (transErr) {
+      console.warn(`[admin-ops] safe_transition failed for ${pkg.id.slice(0, 8)}: ${transErr.message}`);
+    }
 
     details.push({ id: pkg.id, title: pkg.title || pkg.id.slice(0, 8), steps_reset: stepsReset });
   }
