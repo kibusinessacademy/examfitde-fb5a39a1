@@ -209,12 +209,13 @@ export async function batchHealAndDispatch(
   sb: SB,
   packageIds: string[],
   healReason: string,
+  skipWipLimit = false,
 ): Promise<{ healed: HealDispatchResult[]; total: number; dispatched: number; skipped: number; wip_available: number }> {
   const results: HealDispatchResult[] = [];
 
-  // Check available WIP slots
+  // Check available WIP slots (admin-triggered heals can bypass)
   const wipAvailable = await getAvailableWipSlots(sb);
-  const maxDispatch = Math.min(packageIds.length, wipAvailable);
+  const maxDispatch = skipWipLimit ? packageIds.length : Math.min(packageIds.length, wipAvailable);
 
   if (maxDispatch <= 0) {
     return {
