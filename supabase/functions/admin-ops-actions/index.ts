@@ -626,19 +626,29 @@ async function recoverFailedPackages(sb: SB, body: JsonRow) {
     // Reset failed/timeout steps to queued
     const { data: failedSteps } = await sb
       .from("package_steps")
-      .select("step_key")
+      .select("step_key, meta")
       .eq("package_id", pkg.id)
       .in("status", ["failed", "timeout"]);
 
     let stepsReset = 0;
     for (const step of (failedSteps || []) as any[]) {
+      // Preserve contract keys but clear backoff and transient state
+      const oldMeta = step.meta || {};
+      const cleanedMeta = {
+        ...(oldMeta.guard_state ? { guard_state: oldMeta.guard_state } : {}),
+        ...(oldMeta.stall_reason_code ? { stall_reason_code: oldMeta.stall_reason_code } : {}),
+        recovery_source: "admin_recover_failed_packages",
+        recovered_at: new Date().toISOString(),
+      };
       const { error } = await sb.from("package_steps").update({
         status: "queued",
         attempts: 0,
         job_id: null,
         runner_id: null,
         started_at: null,
-        last_error: "Admin manual recovery via recover_failed_packages",
+        finished_at: null,
+        meta: cleanedMeta,
+        last_error: null,
         updated_at: new Date().toISOString(),
       }).eq("package_id", pkg.id).eq("step_key", step.step_key);
       if (!error) stepsReset++;
