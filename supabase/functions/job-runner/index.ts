@@ -880,7 +880,7 @@ Deno.serve(async (req) => {
             trigger_source: "job_runner",
             target_type: "package",
             target_id: jobPackageId,
-            result_status: "applied",
+            result_status: "success",
             result_detail: "Detected upstream root cause and redispatched prerequisite instead of hard loop-block",
             metadata: { package_id: jobPackageId, source_job_id: job.id },
           });
