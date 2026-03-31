@@ -21,6 +21,13 @@ export interface EligibilityResult {
   reason: string;
 }
 
+export interface GateDeltaResult {
+  changed: boolean;
+  deltas: Array<{ field: string; before: unknown; after: unknown }>;
+  check_failed?: boolean;
+  check_failed_reason?: string;
+}
+
 /** Trigger sources that should fail-closed on RPC errors */
 const FAIL_CLOSED_SOURCES = new Set([
   "pipeline-watchdog", "stuck-scan", "stuck-scan-delta-guard",
