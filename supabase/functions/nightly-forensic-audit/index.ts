@@ -987,6 +987,297 @@ async function auditGovernance(sb: SB): Promise<AuditFinding[]> {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// 9. WORKER HEALTH FORENSIC (NEW)
+// ═══════════════════════════════════════════════════════════════
+async function auditWorkerHealth(sb: SB): Promise<AuditFinding[]> {
+  const findings: AuditFinding[] = [];
+
+  // 9a. Dead workers (no heartbeat >15 min)
+  const { data: staleWorkers } = await sb
+    .from("worker_heartbeats")
+    .select("worker_name, instance_id, last_heartbeat_at, version, last_error")
+    .lt("last_heartbeat_at", new Date(Date.now() - 900000).toISOString())
+    .limit(20);
+
+  if ((staleWorkers?.length ?? 0) > 0) {
+    findings.push({
+      category: "worker_health",
+      severity: staleWorkers!.length > 3 ? "critical" : "warning",
+      key: "dead_workers",
+      message: `${staleWorkers!.length} workers with no heartbeat >15min`,
+      healed: false,
+      details: staleWorkers!.map((w: any) => ({
+        name: w.worker_name, instance: w.instance_id, last_beat: w.last_heartbeat_at, error: w.last_error?.slice(0, 80),
+      })),
+    });
+  }
+
+  // 9b. Worker error rate spike (>30% error rate in last hour)
+  const { data: recentJobs } = await sb
+    .from("job_queue")
+    .select("status")
+    .gte("updated_at", new Date(Date.now() - 3600000).toISOString())
+    .in("status", ["completed", "failed"])
+    .limit(1000);
+
+  if (recentJobs && recentJobs.length >= 10) {
+    const failed = recentJobs.filter((j: any) => j.status === "failed").length;
+    const errorRate = (failed / recentJobs.length) * 100;
+    if (errorRate > 30) {
+      findings.push({
+        category: "worker_health",
+        severity: errorRate > 60 ? "critical" : "warning",
+        key: "high_error_rate",
+        message: `Job error rate ${Math.round(errorRate)}% in last hour (${failed}/${recentJobs.length})`,
+        healed: false,
+        details: { failed, total: recentJobs.length, rate: Math.round(errorRate) },
+      });
+    }
+  }
+
+  // 9c. Job queue depth — pending jobs backlog
+  const { count: pendingCount } = await sb
+    .from("job_queue")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "pending");
+
+  if ((pendingCount ?? 0) > 100) {
+    findings.push({
+      category: "worker_health",
+      severity: (pendingCount ?? 0) > 300 ? "critical" : "warning",
+      key: "job_backlog",
+      message: `${pendingCount} pending jobs in queue — potential processing bottleneck`,
+      healed: false,
+      details: { pending: pendingCount },
+    });
+  }
+
+  if (findings.length === 0) {
+    findings.push({ category: "worker_health", severity: "info", key: "workers_ok", message: "All workers healthy", healed: false });
+  }
+  return findings;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 10. BATCH API HEALTH FORENSIC (NEW)
+// ═══════════════════════════════════════════════════════════════
+async function auditBatchApiHealth(sb: SB): Promise<AuditFinding[]> {
+  const findings: AuditFinding[] = [];
+
+  // 10a. Stuck batches (uploading/draft >30 min)
+  const cutoff30m = new Date(Date.now() - 1800000).toISOString();
+  const { data: stuckBatches } = await sb
+    .from("llm_batches")
+    .select("id, status, provider, created_at, last_heartbeat_at")
+    .in("status", ["uploading", "draft", "submitted"])
+    .lt("created_at", cutoff30m)
+    .limit(20);
+
+  if ((stuckBatches?.length ?? 0) > 0) {
+    // AUTO-HEAL: Fail batches stuck in uploading/draft >30min
+    let healed = 0;
+    for (const b of stuckBatches!) {
+      if ((b as any).status === "uploading" || (b as any).status === "draft") {
+        const { error } = await sb.from("llm_batches")
+          .update({ status: "failed", last_error: "nightly-forensic: stale batch >30min", updated_at: new Date().toISOString() })
+          .eq("id", (b as any).id)
+          .in("status", ["uploading", "draft"]);
+        if (!error) healed++;
+      }
+    }
+
+    const submitted = stuckBatches!.filter((b: any) => b.status === "submitted");
+    findings.push({
+      category: "batch_api",
+      severity: "warning",
+      key: "stuck_batches",
+      message: `${stuckBatches!.length} stuck batches — healed ${healed} (${submitted.length} still submitted/polling)`,
+      healed: healed > 0,
+      details: { total: stuckBatches!.length, healed, still_submitted: submitted.length },
+    });
+  }
+
+  // 10b. Batch result import backlog
+  const { data: completedNoImport } = await sb
+    .from("llm_batches")
+    .select("id, provider, completed_at")
+    .eq("status", "completed")
+    .is("results_imported_at" as any, null)
+    .lt("completed_at", new Date(Date.now() - 3600000).toISOString())
+    .limit(20);
+
+  if ((completedNoImport?.length ?? 0) > 0) {
+    findings.push({
+      category: "batch_api",
+      severity: "warning",
+      key: "batch_import_backlog",
+      message: `${completedNoImport!.length} completed batches awaiting result import >1h`,
+      healed: false,
+      details: { count: completedNoImport!.length },
+    });
+  }
+
+  // 10c. Anthropic batch request orphans
+  const { data: orphanRequests } = await sb
+    .from("anthropic_batch_requests")
+    .select("id, status, batch_id, created_at")
+    .eq("status", "pending")
+    .is("batch_id", null)
+    .lt("created_at", new Date(Date.now() - 7200000).toISOString())
+    .limit(50);
+
+  if ((orphanRequests?.length ?? 0) > 0) {
+    findings.push({
+      category: "batch_api",
+      severity: "warning",
+      key: "orphan_batch_requests",
+      message: `${orphanRequests!.length} orphan batch requests (pending, no batch_id, >2h)`,
+      healed: false,
+      details: { count: orphanRequests!.length },
+    });
+  }
+
+  if (findings.length === 0) {
+    findings.push({ category: "batch_api", severity: "info", key: "batch_ok", message: "Batch API healthy", healed: false });
+  }
+  return findings;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 11. CONTENT COMPLETENESS & NEAR-FINISH FORENSIC (NEW)
+// ═══════════════════════════════════════════════════════════════
+async function auditContentCompleteness(sb: SB, url: string, key: string): Promise<AuditFinding[]> {
+  const findings: AuditFinding[] = [];
+
+  // 11a. Packages at >90% but stalled >6h (need a push)
+  const { data: nearComplete } = await sb
+    .from("course_packages")
+    .select("id, title, build_progress, status, updated_at")
+    .eq("status", "building")
+    .gte("build_progress", 90)
+    .lt("updated_at", new Date(Date.now() - 21600000).toISOString())
+    .limit(30);
+
+  if ((nearComplete?.length ?? 0) > 0) {
+    // AUTO-HEAL: Check if these packages have active jobs
+    let needsPush = 0;
+    for (const pkg of nearComplete!) {
+      const { count } = await sb.from("job_queue")
+        .select("id", { count: "exact", head: true })
+        .eq("package_id", (pkg as any).id)
+        .in("status", ["pending", "processing"]);
+
+      if ((count ?? 0) === 0) {
+        // No active jobs — this package is silently stalled near completion
+        needsPush++;
+        // Re-trigger by invoking stuck-scan for this specific package
+        await sb.from("course_packages").update({
+          stuck_reason: "nightly-forensic: near-complete stall (>90%, no active jobs)",
+          updated_at: new Date().toISOString(),
+        }).eq("id", (pkg as any).id);
+      }
+    }
+
+    findings.push({
+      category: "content_completeness",
+      severity: needsPush > 0 ? "warning" : "info",
+      key: "near_complete_stalled",
+      message: `${nearComplete!.length} packages at >90% stalled >6h — ${needsPush} need push`,
+      healed: needsPush > 0,
+      details: {
+        total: nearComplete!.length,
+        needs_push: needsPush,
+        sample: nearComplete!.slice(0, 5).map((p: any) => ({ id: p.id, progress: p.build_progress, updated: p.updated_at })),
+      },
+    });
+  }
+
+  // 11b. Packages with all steps done but not published
+  const { data: allDoneNotPublished } = await sb
+    .from("ops_auto_publish_false_success" as any)
+    .select("package_id, reason")
+    .limit(20);
+
+  if ((allDoneNotPublished?.length ?? 0) > 0) {
+    findings.push({
+      category: "content_completeness",
+      severity: "warning",
+      key: "false_success_packages",
+      message: `${allDoneNotPublished!.length} packages with all steps done but not published`,
+      healed: false,
+      details: allDoneNotPublished!.slice(0, 10),
+    });
+  }
+
+  // 11c. Publish-eligible but stuck packages
+  const { data: publishStuck } = await sb
+    .from("ops_publish_eligible_but_stuck" as any)
+    .select("package_id")
+    .limit(20);
+
+  if ((publishStuck?.length ?? 0) > 0) {
+    // AUTO-HEAL: Re-queue auto_publish step
+    let healed = 0;
+    for (const p of publishStuck!.slice(0, 10)) {
+      const { error } = await sb.from("package_steps")
+        .update({ status: "queued", last_error: "nightly-forensic: publish-eligible heal", updated_at: new Date().toISOString() })
+        .eq("package_id", (p as any).package_id)
+        .eq("step_key", "auto_publish")
+        .in("status", ["failed", "blocked"]);
+      if (!error) healed++;
+    }
+
+    findings.push({
+      category: "content_completeness",
+      severity: "critical",
+      key: "publish_eligible_stuck",
+      message: `${publishStuck!.length} publish-eligible packages stuck — healed ${healed}`,
+      healed: healed > 0,
+      details: { count: publishStuck!.length, healed },
+    });
+  }
+
+  // 11d. Step drift auto-heal (pending dispatch >30min → re-enqueue)
+  const { data: stepDrifts } = await sb
+    .from("ops_pipeline_step_drift")
+    .select("package_id, step_key, drift_signal, age_minutes")
+    .eq("drift_signal", "PENDING_DISPATCH")
+    .gt("age_minutes", 45)
+    .limit(30);
+
+  if ((stepDrifts?.length ?? 0) > 0) {
+    let requeued = 0;
+    for (const d of stepDrifts!) {
+      const { error } = await sb.from("package_steps")
+        .update({
+          status: "queued",
+          started_at: null,
+          last_error: `nightly-forensic: PENDING_DISPATCH drift heal (${(d as any).age_minutes}min)`,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("package_id", (d as any).package_id)
+        .eq("step_key", (d as any).step_key)
+        .in("status", ["enqueued", "running"]);
+      if (!error) requeued++;
+    }
+
+    findings.push({
+      category: "content_completeness",
+      severity: "warning",
+      key: "step_drift_healed",
+      message: `${stepDrifts!.length} steps with PENDING_DISPATCH drift >45min — re-queued ${requeued}`,
+      healed: requeued > 0,
+      details: { total: stepDrifts!.length, requeued },
+    });
+  }
+
+  if (findings.length === 0) {
+    findings.push({ category: "content_completeness", severity: "info", key: "content_ok", message: "Content completeness healthy", healed: false });
+  }
+  return findings;
+}
+
+// ═══════════════════════════════════════════════════════════════
 // MAIN ORCHESTRATOR
 // ═══════════════════════════════════════════════════════════════
 Deno.serve(async (req) => {
@@ -1010,6 +1301,9 @@ Deno.serve(async (req) => {
     { name: "exam_quality", fn: () => auditExamQuality(sb, url, serviceKey) },
     { name: "ai_costs", fn: () => auditAICosts(sb) },
     { name: "governance", fn: () => auditGovernance(sb) },
+    { name: "worker_health", fn: () => auditWorkerHealth(sb) },
+    { name: "batch_api", fn: () => auditBatchApiHealth(sb) },
+    { name: "content_completeness", fn: () => auditContentCompleteness(sb, url, serviceKey) },
   ];
 
   for (const audit of audits) {
