@@ -77,13 +77,10 @@ Deno.serve(async (req) => {
               .contains("payload", { curriculum_id: course.curriculum_id });
 
             if ((pending ?? 0) === 0) {
-              await sb.from("job_queue").insert({
+              await enqueueJob(sb, {
                 job_type: "generate_curriculum_content",
-                status: "pending",
-                attempts: 0,
                 max_attempts: 5,
                 payload: { curriculum_id: course.curriculum_id, triggered_by: "factory_orchestrator" },
-                run_after: new Date().toISOString(),
               });
               actions.push(`Enqueued freeze for curriculum ${course.curriculum_id.slice(0, 8)}`);
             }
