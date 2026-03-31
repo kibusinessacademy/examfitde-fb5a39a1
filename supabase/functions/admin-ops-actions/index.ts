@@ -174,17 +174,35 @@ Deno.serve(async (req) => {
       /* ── Batch Recovery Actions (Heal + Dispatch) ── */
       case "heal_finalization_stall": {
         const limit = Number(body.limit) || 20;
+        const skipWip = body.skip_wip === true;
         // Step 1: Run the DB-level heal (resets step statuses)
         const { data: healData, error: healErr } = await sb.rpc("heal_finalization_stall", { p_limit: limit });
         if (healErr) throw healErr;
 
-        // Step 2: Dispatch jobs for all healed packages (atomic heal+dispatch)
-        const healedPkgIds = ((healData as any)?.healed || []).map((h: any) => h.package_id).filter(Boolean);
-        let dispatchResult = { healed: [] as any[], total: 0, dispatched: 0, skipped: 0 };
-        if (healedPkgIds.length > 0) {
-          dispatchResult = await batchHealAndDispatch(sb, healedPkgIds, "heal_finalization_stall");
+        // Step 2: Robustly extract healed package IDs from RPC response
+        // The RPC may return {healed: [...]} or an array directly or {healed_count, healed: [...]}
+        const rawHealed = healData as any;
+        let healedPkgIds: string[] = [];
+        if (Array.isArray(rawHealed)) {
+          healedPkgIds = rawHealed.map((h: any) => h.package_id).filter(Boolean);
+        } else if (rawHealed?.healed && Array.isArray(rawHealed.healed)) {
+          healedPkgIds = rawHealed.healed.map((h: any) => h.package_id).filter(Boolean);
+        } else if (rawHealed?.package_ids && Array.isArray(rawHealed.package_ids)) {
+          healedPkgIds = rawHealed.package_ids;
         }
-        result = { ...healData as JsonRow, dispatch: dispatchResult };
+
+        // Step 3: Dispatch jobs for all healed packages (admin-triggered bypasses WIP by default)
+        let dispatchResult: any = { healed: [], total: 0, dispatched: 0, skipped: 0, wip_available: 0 };
+        if (healedPkgIds.length > 0) {
+          dispatchResult = await batchHealAndDispatch(sb, healedPkgIds, "heal_finalization_stall", true);
+        }
+        result = {
+          ok: true,
+          healed_count: healedPkgIds.length,
+          healed_ids: healedPkgIds.slice(0, 20),
+          dispatch: dispatchResult,
+          rpc_response: rawHealed,
+        };
         affectedIds = healedPkgIds;
         break;
       }
@@ -194,13 +212,29 @@ Deno.serve(async (req) => {
         const { data: healData, error: healErr } = await sb.rpc("heal_non_building_packages", { p_limit: limit });
         if (healErr) throw healErr;
 
-        // Step 2: Dispatch jobs for all healed packages (atomic heal+dispatch)
-        const healedPkgIds = ((healData as any)?.healed || []).map((h: any) => h.package_id).filter(Boolean);
-        let dispatchResult = { healed: [] as any[], total: 0, dispatched: 0, skipped: 0 };
-        if (healedPkgIds.length > 0) {
-          dispatchResult = await batchHealAndDispatch(sb, healedPkgIds, "heal_non_building");
+        // Step 2: Robustly extract healed package IDs
+        const rawHealed = healData as any;
+        let healedPkgIds: string[] = [];
+        if (Array.isArray(rawHealed)) {
+          healedPkgIds = rawHealed.map((h: any) => h.package_id).filter(Boolean);
+        } else if (rawHealed?.healed && Array.isArray(rawHealed.healed)) {
+          healedPkgIds = rawHealed.healed.map((h: any) => h.package_id).filter(Boolean);
+        } else if (rawHealed?.package_ids && Array.isArray(rawHealed.package_ids)) {
+          healedPkgIds = rawHealed.package_ids;
         }
-        result = { ...healData as JsonRow, dispatch: dispatchResult };
+
+        // Step 3: Admin-triggered heal bypasses WIP limit
+        let dispatchResult: any = { healed: [], total: 0, dispatched: 0, skipped: 0, wip_available: 0 };
+        if (healedPkgIds.length > 0) {
+          dispatchResult = await batchHealAndDispatch(sb, healedPkgIds, "heal_non_building", true);
+        }
+        result = {
+          ok: true,
+          healed_count: healedPkgIds.length,
+          healed_ids: healedPkgIds.slice(0, 20),
+          dispatch: dispatchResult,
+          rpc_response: rawHealed,
+        };
         affectedIds = healedPkgIds;
         break;
       }
