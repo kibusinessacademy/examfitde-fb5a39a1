@@ -63,7 +63,7 @@ function MatchBar({ matched, mismatched, noBlueprint, total }: {
   );
 }
 
-function PackageRow({ pkg }: { pkg: MatchPackage }) {
+function PackageRow({ pkg, onRebalance, busy }: { pkg: MatchPackage; onRebalance: (id: string) => void; busy: boolean }) {
   const [expanded, setExpanded] = useState(false);
 
   return (
