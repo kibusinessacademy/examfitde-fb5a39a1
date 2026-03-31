@@ -307,16 +307,15 @@ Deno.serve(async (req) => {
         }
         report.qcReplace.deleted = ids.length;
 
-        const { error: jobErr } = await sb.from("job_queue").insert({
-          function_name: "package-generate-exam-pool",
+        const { error: jobErr } = await enqueueJob(sb, {
+          job_type: "package_generate_exam_pool",
+          package_id: pkg.id,
           payload: {
             package_id: pkg.id, curriculum_id: pkg.curriculum_id,
             certification_id: pkg.certification_id,
             rework_mode: "qc_replacement", replacement_count: ids.length, min_needed: ids.length,
           },
-          status: "pending", job_type: "generate_exam_pool",
-          curriculum_id: pkg.curriculum_id, package_id: pkg.id,
-        });
+        }).then(() => ({ error: null })).catch(e => ({ error: e as Error }));
         if (!jobErr || jobErr.message?.includes("duplicate")) report.qcReplace.regenTriggered = true;
         console.log(`[pool-rework] QC_REPLACE: deleted ${ids.length}, regen queued`);
       } else {
