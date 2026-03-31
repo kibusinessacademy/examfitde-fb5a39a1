@@ -47,12 +47,39 @@ Deno.serve(async (req) => {
   const p = body.payload || body;
 
   const packageId = p.package_id;
-  const courseId = p.course_id;
-  const curriculumId = p.curriculum_id;
+  let courseId = p.course_id;
+  let curriculumId = p.curriculum_id;
   const certificationId = p.certification_id || null;
 
-  if (!packageId || !courseId || !curriculumId) {
-    return json({ error: "Missing package_id, course_id, or curriculum_id" }, 400);
+  if (!packageId) {
+    return json({ error: "Missing package_id" }, 400);
+  }
+
+  // ── Payload-decoupling: resolve missing identifiers from package ──
+  if (!courseId || !curriculumId) {
+    const { data: pkg } = await sb
+      .from("course_packages")
+      .select("curriculum_id")
+      .eq("id", packageId)
+      .maybeSingle();
+    if (!pkg) {
+      return json({ error: `Package ${packageId} not found` }, 404);
+    }
+    curriculumId = curriculumId || pkg.curriculum_id;
+
+    if (!courseId) {
+      const { data: course } = await sb
+        .from("courses")
+        .select("id")
+        .eq("curriculum_id", curriculumId)
+        .limit(1)
+        .maybeSingle();
+      if (!course) {
+        return json({ error: `No course found for curriculum ${curriculumId}` }, 404);
+      }
+      courseId = course.id;
+    }
+    console.log(`[fanout] Resolved from package: course_id=${courseId}, curriculum_id=${curriculumId}`);
   }
 
   // ── Prereq: scaffold must be done ──
