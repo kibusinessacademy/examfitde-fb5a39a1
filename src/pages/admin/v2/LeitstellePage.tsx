@@ -117,6 +117,9 @@ export default function LeitstellePage() {
   const [publishedSheetOpen, setPublishedSheetOpen] = useState(false);
   const [failedJobsOpen, setFailedJobsOpen] = useState(false);
   const [zombieJobsOpen, setZombieJobsOpen] = useState(false);
+  const [financeOpen, setFinanceOpen] = useState(false);
+  const [crmOpen, setCrmOpen] = useState(false);
+  const [supportOpen, setSupportOpen] = useState(false);
 
   const kpis = useMemo(() => {
     if (!packages || !jobs) return null;
