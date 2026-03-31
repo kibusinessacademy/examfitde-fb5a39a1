@@ -137,9 +137,9 @@ export async function healAndDispatchPackage(
     return { package_id: packageId, status_healed: false, dispatched_step: runnableStep, dispatched_job_type: null, skip_reason: "no_job_type_mapping" };
   }
 
-  // 4b. P0 GUARD: Eligibility check for repair actions
+  // 4b. P0 GUARD: Eligibility check for repair actions (fail-closed for automation)
   if (jobType === "package_repair_exam_pool_quality") {
-    const eligibility = await isRepairActionEligible(sb, packageId, "repair_exam_pool_quality");
+    const eligibility = await isRepairActionEligible(sb, packageId, "repair_exam_pool_quality", "heal-dispatch");
     if (!eligibility.eligible) {
       console.warn(`[heal-dispatch] ❌ INELIGIBLE repair for ${packageId.slice(0, 8)}: ${eligibility.reason}`);
       await sb.from("auto_heal_log").insert({
