@@ -315,6 +315,12 @@ export default function LeitstellePage() {
 
       <BlockedPackagesSheet open={blockedSheetOpen} onOpenChange={setBlockedSheetOpen} />
       <StuckPackagesSheet open={stuckSheetOpen} onOpenChange={setStuckSheetOpen} />
+      <BuildingPackagesSheet open={buildingSheetOpen} onOpenChange={setBuildingSheetOpen} />
+      <CouncilReviewSheet open={councilSheetOpen} onOpenChange={setCouncilSheetOpen} />
+      <PublishDriftSheet open={driftSheetOpen} onOpenChange={setDriftSheetOpen} />
+      <PublishedPackagesSheet open={publishedSheetOpen} onOpenChange={setPublishedSheetOpen} />
+      <FailedJobsSheet open={failedJobsOpen} onOpenChange={setFailedJobsOpen} mode="failed" />
+      <FailedJobsSheet open={zombieJobsOpen} onOpenChange={setZombieJobsOpen} mode="zombie" />
     </div>
   );
 }
