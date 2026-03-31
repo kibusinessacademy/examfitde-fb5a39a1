@@ -21,6 +21,13 @@ export interface EligibilityResult {
   reason: string;
 }
 
+export interface GateDeltaResult {
+  changed: boolean;
+  deltas: Array<{ field: string; before: unknown; after: unknown }>;
+  check_failed?: boolean;
+  check_failed_reason?: string;
+}
+
 /** Trigger sources that should fail-closed on RPC errors */
 const FAIL_CLOSED_SOURCES = new Set([
   "pipeline-watchdog", "stuck-scan", "stuck-scan-delta-guard",
@@ -100,19 +107,21 @@ export async function hasGateStateChanged(
   sb: SB,
   preSnapshot: Record<string, unknown>,
   postSnapshot: Record<string, unknown>,
-): Promise<{ changed: boolean; deltas: Array<{ field: string; before: unknown; after: unknown }> }> {
+): Promise<GateDeltaResult> {
   try {
     const { data, error } = await sb.rpc("fn_has_gate_state_changed", {
       p_pre_snapshot: preSnapshot,
       p_post_snapshot: postSnapshot,
     });
     if (error) {
-      console.warn(`[repair-eligibility] delta-check error: ${error.message}`);
-      return { changed: false, deltas: [] };
+      console.warn(`[repair-eligibility] delta-check error (fail-closed, marked): ${error.message}`);
+      return { changed: false, deltas: [], check_failed: true, check_failed_reason: `rpc_error: ${error.message}` };
     }
     const result = data as { changed: boolean; deltas: Array<{ field: string; before: unknown; after: unknown }> } | null;
-    return result ?? { changed: false, deltas: [] };
-  } catch {
-    return { changed: false, deltas: [] };
+    return result ?? { changed: false, deltas: [], check_failed: true, check_failed_reason: "rpc_returned_null" };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.warn(`[repair-eligibility] delta-check exception (fail-closed, marked): ${msg}`);
+    return { changed: false, deltas: [], check_failed: true, check_failed_reason: `exception: ${msg}` };
   }
 }
