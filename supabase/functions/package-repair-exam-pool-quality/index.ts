@@ -150,12 +150,16 @@ Deno.serve(async (req) => {
   const postSnapshot = await captureGateSnapshot(sb, packageId);
   const gateChange = await hasGateStateChanged(sb, preSnapshot, postSnapshot);
 
-  console.log(`[repair-exam-pool] Gate delta: changed=${gateChange.changed}, deltas=${JSON.stringify(gateChange.deltas)} (pkg ${packageId.slice(0, 8)})`);
+  console.log(`[repair-exam-pool] Gate delta: changed=${gateChange.changed}, check_failed=${!!gateChange.check_failed}, deltas=${JSON.stringify(gateChange.deltas)} (pkg ${packageId.slice(0, 8)})`);
 
-  // Determine effective status:
-  // - Pool healthy OR gate changed → success
-  // - Neither → blocked_no_effect (prevents reentry loop)
-  const effectiveStatus = (gateChange.changed || poolHealthy) ? "success" : "blocked_no_effect";
+  // FIX 2: Strictly separate domain success from reentry eligibility.
+  // - poolHealthy = domain-level success (repair did its job in the pool)
+  // - gateChange.changed = reentry eligibility (blocking gate actually moved)
+  // Only gate delta allows reentry/requeue. poolHealthy alone does NOT.
+  const domainSuccess = gateChange.changed || poolHealthy;
+  const reentryEligible = gateChange.changed === true && !gateChange.check_failed;
+
+  const effectiveStatus = domainSuccess ? "success" : "blocked_no_effect";
 
   await sb.from("auto_heal_log").insert({
     action_type: "repair_exam_pool_quality",
@@ -171,23 +175,28 @@ Deno.serve(async (req) => {
       gate_change: gateChange,
       pre_snapshot: preSnapshot,
       post_snapshot: postSnapshot,
-      gate_delta_verified: gateChange.changed,
+      gate_delta_verified: reentryEligible,
+      reentry_eligible: reentryEligible,
+      delta_check_failed: gateChange.check_failed ?? false,
     },
   });
 
-  if (poolHealthy) {
-    await handlePoolHealthy(sb, packageId, qcReconciled);
-  } else if (gateChange.changed) {
-    // Gate state changed — safe to re-queue validate_exam_pool
+  if (reentryEligible) {
+    // Gate state actually changed — safe to re-queue validate_exam_pool
     await handleGateChanged(sb, packageId, repairResult, qcReconciled);
+  } else if (poolHealthy && !reentryEligible) {
+    // FIX 2b: Pool is healthy but gate didn't move. Mark repair done
+    // but do NOT requeue validate_exam_pool — that would restart the loop.
+    console.log(`[repair-exam-pool] Pool healthy but no gate delta — marking repair done, NO requeue (pkg ${packageId.slice(0, 8)})`);
+    await handlePoolHealthyNoReentry(sb, packageId, qcReconciled, gateChange);
   } else {
     // ═══ NO-EFFECT: Don't re-queue, preserve blocked_reason ═══
     console.warn(`[repair-exam-pool] ⚠️ NO-EFFECT: repair completed but gate state unchanged (pkg ${packageId.slice(0, 8)})`);
-    await handleNoEffect(sb, packageId, qcReconciled, preSnapshot);
+    await handleNoEffect(sb, packageId, qcReconciled, preSnapshot, gateChange);
   }
 
-  // If there are still missing LF gaps AND repair had effect, enqueue LF gap filler
-  if ((repairResult.missing_lf_coverage as number) > 0 && effectiveStatus === "success") {
+  // If there are still missing LF gaps AND gate actually moved, enqueue LF gap filler
+  if ((repairResult.missing_lf_coverage as number) > 0 && reentryEligible) {
     await enqueueJob(sb, {
       job_type: "pool_fill_lf_gaps",
       package_id: packageId,
@@ -200,10 +209,13 @@ Deno.serve(async (req) => {
     status: effectiveStatus === "blocked_no_effect" ? "no_effect" : "repaired",
     ...repairResult,
     gate_change: gateChange,
-    gate_delta_verified: gateChange.changed,
-    next: effectiveStatus === "blocked_no_effect"
-      ? "blocked — no gate state change after repair"
-      : "validate_exam_pool re-queued for retry",
+    gate_delta_verified: reentryEligible,
+    reentry_eligible: reentryEligible,
+    next: reentryEligible
+      ? "validate_exam_pool re-queued for retry"
+      : poolHealthy
+        ? "pool healthy but no gate delta — repair done, no requeue"
+        : "blocked — no gate state change after repair",
   });
 });
 
