@@ -50,13 +50,13 @@ function OverviewCards({
   onClickPending: () => void;
   onClickFailed: () => void;
 }) {
-  const cards = [
+  const cards: { label: string; value: number; icon: typeof Megaphone; tone: string; onClick?: () => void }[] = [
     { label: "Social Pending", value: socialPending, icon: Megaphone, tone: socialPending > 5 ? 'yellow' : 'neutral', onClick: onClickPending },
     { label: "Social Done", value: socialDone, icon: TrendingUp, tone: 'green' },
     { label: "Social Failed", value: socialFailed, icon: XCircle, tone: socialFailed > 0 ? 'red' : 'neutral', onClick: onClickFailed },
     { label: "SEO Draft", value: seoDraft, icon: FileText, tone: seoDraft > 5 ? 'yellow' : 'neutral' },
     { label: "SEO Done", value: seoDone, icon: Zap, tone: 'green' },
-  ] as const;
+  ];
 
   const toneClasses = {
     green: 'border-success/30 bg-success/5',
