@@ -121,11 +121,9 @@ export async function backfillPipelinePool(
           .single();
 
         if (!currErr && newCurr) {
-          await sb.from("job_queue").insert({
+          await enqueueJob(sb, {
             job_type: "package_curriculum_ingest",
-            status: "pending",
-            attempts: 0,
-            max_attempts: 100,
+            max_attempts: 8,
             payload: {
               curriculum_id: newCurr.id,
               catalog_id: cert.id,

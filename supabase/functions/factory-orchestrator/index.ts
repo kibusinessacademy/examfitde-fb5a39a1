@@ -155,13 +155,10 @@ Deno.serve(async (req) => {
                 .contains("payload", { certification_id, page_type: pageType });
 
               if ((seoPending ?? 0) === 0) {
-                await sb.from("job_queue").insert({
+                await enqueueJob(sb, {
                   job_type: "seo_certification_generate",
-                  status: "pending",
-                  attempts: 0,
                   max_attempts: 3,
                   payload: { certification_id, page_type: pageType, triggered_by: "factory_orchestrator" },
-                  run_after: new Date().toISOString(),
                 });
                 actions.push(`Enqueued SEO ${pageType} for cert ${certification_id.slice(0, 8)}`);
               }
