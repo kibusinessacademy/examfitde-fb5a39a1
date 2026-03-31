@@ -10,7 +10,7 @@ import {
 /**
  * package-repair-exam-pool-quality — Pipeline Repair Step
  *
- * P0 HARDENED: Now includes eligibility check + no-effect guard.
+ * P0 HARDENED v2: Eligibility + no-effect guard + correct step semantics.
  *
  * Resolves the three root causes of validate_exam_pool failures:
  * 1. UNRESOLVED_QUALITY_FLAGS: Auto-promotes draft+tier1_passed questions to approved
@@ -42,6 +42,7 @@ Deno.serve(async (req) => {
   const packageId: string | undefined = body.package_id;
   const curriculumId: string | undefined = body.curriculum_id;
   const jobId: string | undefined = body.job_id;
+  const triggeredBy: string = body.triggered_by ?? "unknown";
 
   if (!packageId) return json({ error: "missing package_id" }, 400);
 
@@ -50,8 +51,10 @@ Deno.serve(async (req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
-  // ═══ P0 GUARD 1: Eligibility Check ═══
-  const eligibility = await isRepairActionEligible(sb, packageId, "repair_exam_pool_quality");
+  // ═══ P0 GUARD 1: Eligibility Check (fail-closed for automation) ═══
+  const eligibility = await isRepairActionEligible(
+    sb, packageId, "repair_exam_pool_quality", triggeredBy,
+  );
   if (!eligibility.eligible) {
     console.warn(`[repair-exam-pool] ❌ INELIGIBLE: ${eligibility.reason} (pkg ${packageId.slice(0, 8)})`);
 
@@ -63,18 +66,24 @@ Deno.serve(async (req) => {
         package_id: packageId,
         eligibility_reason: eligibility.reason,
         guard: "repair_eligibility_matrix",
+        triggered_by: triggeredBy,
       },
     });
 
-    // Mark repair step as done (nothing to repair in this domain)
+    // FIX A: Ineligible ≠ done. Mark as 'skipped' with typed metadata.
     await sb.from("package_steps").update({
-      status: "done",
+      status: "skipped",
       updated_at: new Date().toISOString(),
-      meta: { repair_skipped: true, reason: eligibility.reason },
+      meta: {
+        repair_ineligible: true,
+        eligibility_reason: eligibility.reason,
+        guard: "repair_eligibility_matrix",
+        skipped_at: new Date().toISOString(),
+      },
     }).eq("package_id", packageId).eq("step_key", "repair_exam_pool_quality");
 
     return json({
-      status: "blocked",
+      status: "skipped",
       reason: eligibility.reason,
       guard: "repair_eligibility_matrix",
     });
@@ -142,8 +151,10 @@ Deno.serve(async (req) => {
 
   console.log(`[repair-exam-pool] Gate delta: changed=${gateChange.changed}, deltas=${JSON.stringify(gateChange.deltas)} (pkg ${packageId.slice(0, 8)})`);
 
-  // Log repair action — NORMALIZED to 'success' (not 'applied')
-  const effectiveStatus = gateChange.changed ? "success" : (poolHealthy ? "success" : "blocked_no_effect");
+  // Determine effective status:
+  // - Pool healthy OR gate changed → success
+  // - Neither → blocked_no_effect (prevents reentry loop)
+  const effectiveStatus = (gateChange.changed || poolHealthy) ? "success" : "blocked_no_effect";
 
   await sb.from("auto_heal_log").insert({
     action_type: "repair_exam_pool_quality",
@@ -159,22 +170,23 @@ Deno.serve(async (req) => {
       gate_change: gateChange,
       pre_snapshot: preSnapshot,
       post_snapshot: postSnapshot,
+      gate_delta_verified: gateChange.changed,
     },
   });
 
   if (poolHealthy) {
-    await handlePoolHealthy(sb, packageId, qcReconciled, repairResult);
-  } else if (gateChange.changed || effectiveStatus === "success") {
+    await handlePoolHealthy(sb, packageId, qcReconciled);
+  } else if (gateChange.changed) {
     // Gate state changed — safe to re-queue validate_exam_pool
     await handleGateChanged(sb, packageId, repairResult, qcReconciled);
   } else {
-    // ═══ NO-EFFECT: Don't re-queue, set typed block ═══
+    // ═══ NO-EFFECT: Don't re-queue, preserve blocked_reason ═══
     console.warn(`[repair-exam-pool] ⚠️ NO-EFFECT: repair completed but gate state unchanged (pkg ${packageId.slice(0, 8)})`);
-    await handleNoEffect(sb, packageId, repairResult, qcReconciled, preSnapshot);
+    await handleNoEffect(sb, packageId, qcReconciled, preSnapshot);
   }
 
-  // If there are still missing LF gaps, enqueue LF gap filler
-  if ((repairResult.missing_lf_coverage as number) > 0) {
+  // If there are still missing LF gaps AND repair had effect, enqueue LF gap filler
+  if ((repairResult.missing_lf_coverage as number) > 0 && effectiveStatus === "success") {
     await enqueueJob(sb, {
       job_type: "pool_fill_lf_gaps",
       package_id: packageId,
@@ -187,6 +199,7 @@ Deno.serve(async (req) => {
     status: effectiveStatus === "blocked_no_effect" ? "no_effect" : "repaired",
     ...repairResult,
     gate_change: gateChange,
+    gate_delta_verified: gateChange.changed,
     next: effectiveStatus === "blocked_no_effect"
       ? "blocked — no gate state change after repair"
       : "validate_exam_pool re-queued for retry",
@@ -230,9 +243,7 @@ async function handlePoolHealthy(
   sb: ReturnType<typeof createClient>,
   packageId: string,
   qcReconciled: number,
-  _repairResult: Record<string, unknown>,
 ) {
-  // Merge into existing meta
   const { data: existingStep } = await sb
     .from("package_steps")
     .select("meta")
@@ -257,7 +268,7 @@ async function handlePoolHealthy(
   await sb.from("package_steps").update({
     status: "done",
     updated_at: new Date().toISOString(),
-    meta: { repair_complete: true, qc_reconciled: qcReconciled, pool_healthy: true },
+    meta: { repair_complete: true, qc_reconciled: qcReconciled, pool_healthy: true, gate_delta_verified: true },
   }).eq("package_id", packageId).eq("step_key", "repair_exam_pool_quality");
 }
 
@@ -278,39 +289,39 @@ async function handleGateChanged(
     status: hasOpenLfGaps ? "running" : "done",
     updated_at: new Date().toISOString(),
     meta: hasOpenLfGaps
-      ? { pending_followup: "pool_fill_lf_gaps", lf_gaps: repairResult.missing_lf_coverage }
-      : { repair_complete: true, qc_reconciled: qcReconciled },
+      ? { pending_followup: "pool_fill_lf_gaps", lf_gaps: repairResult.missing_lf_coverage, gate_delta_verified: true }
+      : { repair_complete: true, qc_reconciled: qcReconciled, gate_delta_verified: true },
   }).eq("package_id", packageId).eq("step_key", "repair_exam_pool_quality");
 }
 
-// ── Helper: No effect → block, don't re-queue ──
+// ── Helper: No effect → DON'T re-queue, preserve blocked_reason ──
 async function handleNoEffect(
   sb: ReturnType<typeof createClient>,
   packageId: string,
-  repairResult: Record<string, unknown>,
   qcReconciled: number,
   preSnapshot: Record<string, unknown>,
 ) {
-  // Mark repair step as done but with no-effect flag
+  // FIX: Mark repair step as 'blocked' (not 'done') — no-effect is NOT success
   await sb.from("package_steps").update({
-    status: "done",
+    status: "blocked",
     updated_at: new Date().toISOString(),
     meta: {
-      repair_complete: true,
+      repair_complete: false,
       qc_reconciled: qcReconciled,
       no_effect_repair: true,
       no_effect_repair_at: new Date().toISOString(),
       no_effect_reason: "repair_did_not_change_blocking_gate",
+      gate_delta_verified: false,
       pre_gate_snapshot: preSnapshot,
     },
   }).eq("package_id", packageId).eq("step_key", "repair_exam_pool_quality");
 
-  // Set typed block on package if it has a publish/integrity blocker
-  const blockedReason = preSnapshot.blocked_reason as string | null;
-  if (blockedReason) {
+  // FIX D: Do NOT clear blocked_reason — preserve the diagnostic trail.
+  // Instead, append a stuck_reason to signal what happened.
+  const existingBlockedReason = preSnapshot.blocked_reason as string | null;
+  if (existingBlockedReason) {
     await sb.from("course_packages").update({
-      blocked_reason: "REPAIR_NO_EFFECT_ON_ACTIVE_GATE",
-      stuck_reason: `Exam pool repair completed without impact on: ${blockedReason.slice(0, 100)}`,
+      stuck_reason: `REPAIR_NO_EFFECT: exam_pool repair completed without gate delta. Active blocker: ${existingBlockedReason.slice(0, 120)}`,
     }).eq("id", packageId);
   }
 

@@ -56105,6 +56105,7 @@ export type Database = {
       recover_and_reenter_package: {
         Args: {
           p_actor_user_id?: string
+          p_gate_delta_verified?: boolean
           p_package_id: string
           p_reason: string
           p_trigger_source?: string

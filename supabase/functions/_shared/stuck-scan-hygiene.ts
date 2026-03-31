@@ -787,7 +787,7 @@ export async function healValidateExamPoolLoop(sb: SupabaseClient) {
 
         if (action === "enqueue_repair") {
           // P0 GUARD: Check eligibility before dispatching repair
-          const eligibility = await isRepairActionEligible(sb, step.package_id, "repair_exam_pool_quality");
+          const eligibility = await isRepairActionEligible(sb, step.package_id, "repair_exam_pool_quality", "stuck-scan-delta-guard");
           if (!eligibility.eligible) {
             console.warn(`[stuck-scan] ❌ REPAIR INELIGIBLE for ${(step.package_id as string).slice(0, 8)}: ${eligibility.reason}`);
             await sb.from("auto_heal_log").insert({

@@ -1594,7 +1594,7 @@ Deno.serve(async (req) => {
           console.log(`[job-runner] 🎯 TARGETED_REPAIR: gate_blocked with diagnosis=${gateDiagnosis.join(",")} → checking eligibility before repair dispatch`);
           try {
             // P0 GUARD: Check eligibility before dispatching repair
-            const eligibility = await isRepairActionEligible(sb, packageId, "repair_exam_pool_quality");
+            const eligibility = await isRepairActionEligible(sb, packageId, "repair_exam_pool_quality", "job-runner");
             if (!eligibility.eligible) {
               console.warn(`[job-runner] ❌ REPAIR INELIGIBLE: ${eligibility.reason} (pkg ${packageId.slice(0, 8)})`);
               await sb.from("auto_heal_log").insert({
