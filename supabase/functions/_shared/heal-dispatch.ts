@@ -16,6 +16,7 @@ import {
   type PipelineStepKey,
 } from "./job-map.ts";
 import { enqueueJob } from "./enqueue.ts";
+import { isRepairActionEligible } from "./repair-eligibility.ts";
 
 // deno-lint-ignore no-explicit-any
 type SB = any;
