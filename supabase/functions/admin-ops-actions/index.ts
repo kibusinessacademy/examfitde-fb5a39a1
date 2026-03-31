@@ -232,10 +232,19 @@ Deno.serve(async (req) => {
         const { data: pkg } = await sb.from("course_packages").select("id, status, curriculum_id").eq("id", pid).maybeSingle();
         if (!pkg) return json({ error: `Package not found: ${pid}` }, 404);
 
-        // Step 1b: Set package back to building if blocked
-        if (pkg.status === "blocked" || pkg.status === "quality_gate_failed") {
+        // Step 1b: Set package back to building if not already in a visible status
+        // Guard: archive conflicting packages for the same curriculum first
+        const needsBuilding = ["blocked", "quality_gate_failed", "council_review"].includes(pkg.status);
+        if (needsBuilding || pkg.status !== "building") {
+          if (pkg.curriculum_id) {
+            await sb.from("course_packages")
+              .update({ status: "archived", updated_at: new Date().toISOString() })
+              .eq("curriculum_id", pkg.curriculum_id)
+              .neq("id", pid)
+              .in("status", ["planning", "queued", "building", "failed", "published", "draft"]);
+          }
           await sb.from("course_packages")
-            .update({ status: "building", updated_at: new Date().toISOString() })
+            .update({ status: "building", stuck_reason: null, updated_at: new Date().toISOString() })
             .eq("id", pid);
         }
 
@@ -563,9 +572,19 @@ async function cancelPackageBuild(sb: SB, packageId: string) {
       .in("id", ids);
   }
 
+  // Guard: archive conflicting packages for the same curriculum before status change
+  const { data: pkg } = await sb.from("course_packages").select("curriculum_id").eq("id", packageId).maybeSingle();
+  if (pkg?.curriculum_id) {
+    await sb.from("course_packages")
+      .update({ status: "archived", updated_at: new Date().toISOString() })
+      .eq("curriculum_id", pkg.curriculum_id)
+      .neq("id", packageId)
+      .in("status", ["planning", "queued", "building", "failed", "published", "draft"]);
+  }
+
   // Reset package status
   const { error: pkgErr } = await sb.from("course_packages")
-    .update({ status: "draft", updated_at: new Date().toISOString() })
+    .update({ status: "draft", stuck_reason: null, updated_at: new Date().toISOString() })
     .eq("id", packageId);
   if (pkgErr) throw pkgErr;
 
