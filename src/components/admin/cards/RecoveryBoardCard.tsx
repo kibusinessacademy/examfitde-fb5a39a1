@@ -133,16 +133,27 @@ export default function RecoveryBoardCard() {
           ) : (
             <div className="max-h-40 overflow-y-auto space-y-1">
               {data?.non_building_recoverable?.packages?.slice(0, 10).map((p) => (
-                <div key={p.package_id} className="flex items-center justify-between text-xs bg-muted/50 rounded px-2 py-1">
-                  <span className="font-mono truncate max-w-[140px]">{p.package_id.slice(0, 8)}</span>
-                  <span className="text-muted-foreground">
-                    {p.status} • {p.open_steps} open • {p.first_open_step}
+                <div key={p.package_id} className="flex items-center justify-between text-xs bg-muted/50 rounded px-2 py-1 gap-1">
+                  <Link to={`/admin/studio/${p.package_id}`} className="font-mono truncate max-w-[100px] hover:text-primary transition-colors">
+                    {p.package_id.slice(0, 8)}
+                  </Link>
+                  <span className="text-muted-foreground shrink-0">
+                    {p.status} · {p.open_steps} open
                   </span>
                   {p.blocked_reason && (
-                    <Badge variant="outline" className="text-[10px] text-red-400 truncate max-w-[100px]">
+                    <Badge variant="outline" className="text-[10px] text-destructive truncate max-w-[80px] shrink-0">
                       {p.blocked_reason}
                     </Badge>
                   )}
+                  <Button
+                    size="sm" variant="ghost"
+                    className="h-5 w-5 p-0 shrink-0"
+                    disabled={retryStep.isPending}
+                    onClick={() => retryStep.mutate({ packageId: p.package_id, stepKey: p.first_open_step || 'generate_learning_content' })}
+                    title={`${p.first_open_step} neu starten`}
+                  >
+                    {retryStep.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />}
+                  </Button>
                 </div>
               ))}
             </div>
