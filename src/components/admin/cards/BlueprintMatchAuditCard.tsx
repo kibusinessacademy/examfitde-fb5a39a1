@@ -163,10 +163,23 @@ function PackageRow({ pkg, onRebalance, busy }: { pkg: MatchPackage; onRebalance
 }
 
 export default function BlueprintMatchAuditCard() {
+  const qc = useQueryClient();
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'trap-blueprint-match'],
     queryFn: () => adminRpc.trapBlueprintMatch(),
     refetchInterval: 60_000,
+  });
+
+  const rebalanceMutation = useMutation({
+    mutationFn: async (packageId: string) => {
+      return runAdminOpsAction('repair_exam_pool_quality', { package_id: packageId });
+    },
+    onSuccess: () => {
+      toast.success('Rebalance gestartet');
+      qc.invalidateQueries({ queryKey: ['admin', 'trap-blueprint-match'] });
+      qc.invalidateQueries({ queryKey: ['admin'] });
+    },
+    onError: (err: Error) => toast.error(`Fehler: ${err.message}`),
   });
 
   if (isLoading) return <Skeleton className="h-32 w-full" />;
