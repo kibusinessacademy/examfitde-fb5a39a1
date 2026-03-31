@@ -389,10 +389,12 @@ Deno.serve(async (req) => {
     const previousStatus = pkgState?.status;
     if (previousStatus && previousStatus !== "building") {
       console.log(`[AutoGap] Transitioning package ${packageId} from '${previousStatus}' → 'building' to allow job execution`);
-      await sb.from("course_packages").update({
-        status: "building",
-        updated_at: new Date().toISOString(),
-      }).eq("id", packageId);
+      // Use RPC to prevent uniq_visible_package_per_curriculum violation
+      await sb.rpc("safe_transition_package_status", {
+        p_package_id: packageId,
+        p_new_status: "building",
+        p_extra: {},
+      });
 
       // Log the transition for audit trail
       await sb.from("admin_actions").insert({

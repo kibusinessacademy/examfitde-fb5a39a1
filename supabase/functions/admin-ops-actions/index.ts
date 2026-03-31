@@ -232,20 +232,13 @@ Deno.serve(async (req) => {
         const { data: pkg } = await sb.from("course_packages").select("id, status, curriculum_id").eq("id", pid).maybeSingle();
         if (!pkg) return json({ error: `Package not found: ${pid}` }, 404);
 
-        // Step 1b: Set package back to building if not already in a visible status
-        // Guard: archive conflicting packages for the same curriculum first
-        const needsBuilding = ["blocked", "quality_gate_failed", "council_review"].includes(pkg.status);
-        if (needsBuilding || pkg.status !== "building") {
-          if (pkg.curriculum_id) {
-            await sb.from("course_packages")
-              .update({ status: "archived", updated_at: new Date().toISOString() })
-              .eq("curriculum_id", pkg.curriculum_id)
-              .neq("id", pid)
-              .in("status", ["planning", "queued", "building", "failed", "published", "draft"]);
-          }
-          await sb.from("course_packages")
-            .update({ status: "building", stuck_reason: null, updated_at: new Date().toISOString() })
-            .eq("id", pid);
+        // Step 1b: Safe transition to building (handles unique constraint atomically)
+        if (pkg.status !== "building") {
+          await sb.rpc("safe_transition_package_status", {
+            p_package_id: pid,
+            p_new_status: "building",
+            p_extra: { stuck_reason: null },
+          });
         }
 
         // Step 2: Reset the target step to queued
@@ -572,21 +565,12 @@ async function cancelPackageBuild(sb: SB, packageId: string) {
       .in("id", ids);
   }
 
-  // Guard: archive conflicting packages for the same curriculum before status change
-  const { data: pkg } = await sb.from("course_packages").select("curriculum_id").eq("id", packageId).maybeSingle();
-  if (pkg?.curriculum_id) {
-    await sb.from("course_packages")
-      .update({ status: "archived", updated_at: new Date().toISOString() })
-      .eq("curriculum_id", pkg.curriculum_id)
-      .neq("id", packageId)
-      .in("status", ["planning", "queued", "building", "failed", "published", "draft"]);
-  }
-
-  // Reset package status
-  const { error: pkgErr } = await sb.from("course_packages")
-    .update({ status: "draft", stuck_reason: null, updated_at: new Date().toISOString() })
-    .eq("id", packageId);
-  if (pkgErr) throw pkgErr;
+  // Safe transition to draft (handles unique constraint atomically)
+  await sb.rpc("safe_transition_package_status", {
+    p_package_id: packageId,
+    p_new_status: "draft",
+    p_extra: { stuck_reason: null },
+  });
 
   // Remove locks
   await sb.from("course_package_locks").delete().eq("package_id", packageId);
@@ -606,11 +590,12 @@ async function forceUnlockPackage(sb: SB, packageId: string) {
 
 /* ── unblock_package — sets blocked → building, clears loop guards on steps ── */
 async function unblockPackage(sb: SB, packageId: string, reason: string) {
-  // 1. Set package status from blocked → building
-  const { error: pkgErr } = await sb.from("course_packages")
-    .update({ status: "building", updated_at: new Date().toISOString() })
-    .eq("id", packageId)
-    .eq("status", "blocked");
+  // 1. Set package status from blocked → building (safe transition to prevent unique constraint violation)
+  const { error: pkgErr } = await sb.rpc("safe_transition_package_status", {
+    p_package_id: packageId,
+    p_new_status: "building",
+    p_extra: {},
+  });
   if (pkgErr) throw pkgErr;
 
   // 2. Remove locks
