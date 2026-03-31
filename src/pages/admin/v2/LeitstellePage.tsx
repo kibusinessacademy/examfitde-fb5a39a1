@@ -9,6 +9,7 @@ import {
   Package, Zap, Shield, ArrowRight, Cpu, ListChecks, TrendingDown
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { BlockedPackagesSheet } from '@/components/admin/command/BlockedPackagesSheet';
 
 const ExamPoolAuditCard = lazy(() => import('@/components/admin/cards/ExamPoolAuditCard'));
 const TrapCoverageAuditCard = lazy(() => import('@/components/admin/cards/TrapCoverageAuditCard'));
