@@ -287,6 +287,8 @@ export default function LeitstellePage() {
           </div>
         </Link>
       </div>
+
+      <BlockedPackagesSheet open={blockedSheetOpen} onOpenChange={setBlockedSheetOpen} />
     </div>
   );
 }
