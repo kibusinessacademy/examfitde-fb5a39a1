@@ -189,12 +189,15 @@ Deno.serve(async (req) => {
 
     // ── 6. Unblock + reset pipeline tail ──
     if (actions.length > 0) {
-      await sb.from("course_packages").update({
-        status: "building",
-        blocked_reason: null,
-        stuck_reason: null,
-        integrity_passed: false,
-      }).eq("id", packageId);
+      // Use safe_transition to prevent unique constraint violations
+      const { error: transErr } = await sb.rpc("safe_transition_package_status", {
+        p_package_id: packageId,
+        p_new_status: "building",
+        p_extra: { blocked_reason: null, stuck_reason: null, integrity_passed: false },
+      });
+      if (transErr) {
+        console.warn(`[exam-rebalance] safe_transition failed for ${packageId.slice(0, 8)}: ${transErr.message}`);
+      }
 
       for (const stepKey of ["run_integrity_check", "auto_publish"]) {
         await sb.from("package_steps").update({
