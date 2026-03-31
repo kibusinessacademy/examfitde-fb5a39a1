@@ -106,6 +106,12 @@ export default function LeitstellePage() {
   const { data: jobs, isLoading: jobLoading } = useAdminQueueSSOT();
   const [blockedSheetOpen, setBlockedSheetOpen] = useState(false);
   const [stuckSheetOpen, setStuckSheetOpen] = useState(false);
+  const [buildingSheetOpen, setBuildingSheetOpen] = useState(false);
+  const [councilSheetOpen, setCouncilSheetOpen] = useState(false);
+  const [driftSheetOpen, setDriftSheetOpen] = useState(false);
+  const [publishedSheetOpen, setPublishedSheetOpen] = useState(false);
+  const [failedJobsOpen, setFailedJobsOpen] = useState(false);
+  const [zombieJobsOpen, setZombieJobsOpen] = useState(false);
 
   const kpis = useMemo(() => {
     if (!packages || !jobs) return null;
