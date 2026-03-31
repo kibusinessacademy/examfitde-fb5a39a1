@@ -414,10 +414,10 @@ async function executeHealAction(
           .eq("id", pkgId)
           .single();
 
-        await sb.from("job_queue").insert({
+        await enqueueJob(sb, {
           job_type: "auto_gap_close",
-          status: "pending",
           package_id: pkgId,
+          max_attempts: 1,
           payload: {
             package_id: pkgId,
             course_id: pkg.course_id,
@@ -426,7 +426,6 @@ async function executeHealAction(
             max_rounds: (action.params.max_rounds as number) || 3,
             budget_eur: (action.params.budget_eur as number) || 5,
           },
-          max_attempts: 1,
         });
         await logHealAction(
           sb, action, triggerSource, "success",
