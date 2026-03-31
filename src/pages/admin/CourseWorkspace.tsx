@@ -356,15 +356,18 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
                     const status = buildStep?.status || 'pending';
                     const Icon = step.icon;
                     const isDone = status === 'done'; const isSkipped = status === 'skipped'; const isFailed = status === 'failed'; const isRunning = status === 'running';
+                    // Integrity step done but not passed = warning state
+                    const isIntegrityWarning = step.key === 'run_integrity_check' && isDone && !integrityPassed;
+                    const isBlocked = status === 'blocked';
                     return (
                       <div key={step.key} className="flex items-center shrink-0">
                         <div className="flex flex-col items-center gap-1 px-1.5 min-w-[56px]">
-                          <div className={cn("w-7 h-7 rounded-full flex items-center justify-center transition-colors", isDone ? 'bg-success text-success-foreground' : isSkipped ? 'bg-muted-foreground/30 text-muted-foreground' : isRunning ? 'bg-primary text-primary-foreground' : isFailed ? 'bg-destructive text-destructive-foreground' : 'bg-muted text-muted-foreground')}>
-                            {isDone ? <CheckCircle2 className="h-3.5 w-3.5" /> : isSkipped ? <CheckCircle2 className="h-3.5 w-3.5 opacity-50" /> : isFailed ? <XCircle className="h-3.5 w-3.5" /> : isRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Icon className="h-3.5 w-3.5" />}
+                          <div className={cn("w-7 h-7 rounded-full flex items-center justify-center transition-colors", isIntegrityWarning ? 'bg-warning text-warning-foreground' : isBlocked ? 'bg-destructive/60 text-destructive-foreground' : isDone ? 'bg-success text-success-foreground' : isSkipped ? 'bg-muted-foreground/30 text-muted-foreground' : isRunning ? 'bg-primary text-primary-foreground' : isFailed ? 'bg-destructive text-destructive-foreground' : 'bg-muted text-muted-foreground')}>
+                            {isIntegrityWarning ? <AlertTriangle className="h-3.5 w-3.5" /> : isBlocked ? <XCircle className="h-3.5 w-3.5" /> : isDone ? <CheckCircle2 className="h-3.5 w-3.5" /> : isSkipped ? <CheckCircle2 className="h-3.5 w-3.5 opacity-50" /> : isFailed ? <XCircle className="h-3.5 w-3.5" /> : isRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Icon className="h-3.5 w-3.5" />}
                           </div>
-                          <span className={cn("text-[9px] text-center leading-tight", isDone ? 'text-success font-medium' : isSkipped ? 'text-muted-foreground' : isRunning ? 'text-primary font-medium' : isFailed ? 'text-destructive font-medium' : 'text-muted-foreground')}>{step.shortLabel}</span>
+                          <span className={cn("text-[9px] text-center leading-tight", isIntegrityWarning ? 'text-warning font-medium' : isBlocked ? 'text-destructive font-medium' : isDone ? 'text-success font-medium' : isSkipped ? 'text-muted-foreground' : isRunning ? 'text-primary font-medium' : isFailed ? 'text-destructive font-medium' : 'text-muted-foreground')}>{step.shortLabel}</span>
                         </div>
-                        {i < PIPELINE_STEPS.length - 1 && <div className={cn("w-4 h-0.5 shrink-0", (isDone || isSkipped) ? 'bg-success' : 'bg-border')} />}
+                        {i < PIPELINE_STEPS.length - 1 && <div className={cn("w-4 h-0.5 shrink-0", (isDone && !isIntegrityWarning || isSkipped) ? 'bg-success' : isIntegrityWarning ? 'bg-warning' : 'bg-border')} />}
                       </div>
                     );
                   })}
