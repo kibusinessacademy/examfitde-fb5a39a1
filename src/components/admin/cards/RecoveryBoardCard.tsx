@@ -98,7 +98,7 @@ export default function RecoveryBoardCard() {
                     size="sm" variant="ghost"
                     className="h-5 w-5 p-0 shrink-0"
                     disabled={retryStep.isPending}
-                    onClick={() => retryStep.mutate({ packageId: p.package_id, stepKey: 'finalize_content' })}
+                    onClick={() => retryStep.mutate({ packageId: p.package_id, stepKey: 'finalize_learning_content' })}
                     title="Finalize neu starten"
                   >
                     {retryStep.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />}

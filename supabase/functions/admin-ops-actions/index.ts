@@ -545,6 +545,17 @@ async function resetStalledSteps(sb: SB, body: JsonRow) {
 
 /* ── Scoped: cancel_zombie_packages ── */
 async function cancelZombiePackages(sb: SB, body: JsonRow) {
+  // Handle job_ids: cancel specific jobs (from FailedJobsSheet)
+  if (Array.isArray(body.job_ids) && body.job_ids.length > 0) {
+    const jobIds = body.job_ids.map(String).slice(0, 100);
+    const { error } = await sb.from("job_queue")
+      .update({ status: "cancelled", last_error: "Admin: cancelled zombie job", updated_at: new Date().toISOString() })
+      .in("id", jobIds)
+      .in("status", ["pending", "processing", "failed"]);
+    if (error) throw error;
+    return { ok: true, updated: jobIds.length, scope: "job_ids" };
+  }
+
   if (typeof body.package_id === "string") {
     const { error } = await sb.from("course_packages")
       .update({ status: "blocked", blocked_reason: "admin_phase3_cancelled_zombie", updated_at: new Date().toISOString() })
