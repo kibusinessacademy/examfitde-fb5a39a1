@@ -205,7 +205,11 @@ export default function LeitstellePage() {
 
       {/* Drift Warnings */}
       {kpis && kpis.stalePublish > 0 && (
-        <div className="rounded-xl border border-warning/30 bg-warning/5 p-3 flex items-start gap-3">
+        <div
+          className="rounded-xl border border-warning/30 bg-warning/5 p-3 flex items-start gap-3 cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all"
+          onClick={() => setDriftSheetOpen(true)}
+          role="button"
+        >
           <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
           <div>
             <div className="text-sm font-semibold text-foreground">{kpis.stalePublish} Paket(e) mit Stale-Publish-Signalen</div>
@@ -215,7 +219,11 @@ export default function LeitstellePage() {
       )}
 
       {kpis && kpis.publishDrift > 0 && (
-        <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 flex items-start gap-3">
+        <div
+          className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 flex items-start gap-3 cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all"
+          onClick={() => setDriftSheetOpen(true)}
+          role="button"
+        >
           <TrendingDown className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
           <div>
             <div className="text-sm font-semibold text-foreground">{kpis.publishDrift} Paket(e) mit Publish Drift</div>
@@ -225,7 +233,11 @@ export default function LeitstellePage() {
       )}
 
       {kpis && kpis.councilCompleteNotApproved > 0 && (
-        <div className="rounded-xl border border-warning/30 bg-warning/5 p-3 flex items-start gap-3">
+        <div
+          className="rounded-xl border border-warning/30 bg-warning/5 p-3 flex items-start gap-3 cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all"
+          onClick={() => setCouncilSheetOpen(true)}
+          role="button"
+        >
           <Shield className="h-4 w-4 text-warning shrink-0 mt-0.5" />
           <div>
             <div className="text-sm font-semibold text-foreground">{kpis.councilCompleteNotApproved} Paket(e): Council fertig, nicht approved</div>
