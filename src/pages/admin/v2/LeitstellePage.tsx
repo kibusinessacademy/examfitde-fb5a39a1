@@ -11,6 +11,11 @@ import {
 import { cn } from '@/lib/utils';
 import { BlockedPackagesSheet } from '@/components/admin/command/BlockedPackagesSheet';
 import { StuckPackagesSheet } from '@/components/admin/command/StuckPackagesSheet';
+import { BuildingPackagesSheet } from '@/components/admin/command/BuildingPackagesSheet';
+import { CouncilReviewSheet } from '@/components/admin/command/CouncilReviewSheet';
+import { PublishDriftSheet } from '@/components/admin/command/PublishDriftSheet';
+import { PublishedPackagesSheet } from '@/components/admin/command/PublishedPackagesSheet';
+import { FailedJobsSheet } from '@/components/admin/command/FailedJobsSheet';
 
 const ExamPoolAuditCard = lazy(() => import('@/components/admin/cards/ExamPoolAuditCard'));
 const TrapCoverageAuditCard = lazy(() => import('@/components/admin/cards/TrapCoverageAuditCard'));
@@ -101,6 +106,12 @@ export default function LeitstellePage() {
   const { data: jobs, isLoading: jobLoading } = useAdminQueueSSOT();
   const [blockedSheetOpen, setBlockedSheetOpen] = useState(false);
   const [stuckSheetOpen, setStuckSheetOpen] = useState(false);
+  const [buildingSheetOpen, setBuildingSheetOpen] = useState(false);
+  const [councilSheetOpen, setCouncilSheetOpen] = useState(false);
+  const [driftSheetOpen, setDriftSheetOpen] = useState(false);
+  const [publishedSheetOpen, setPublishedSheetOpen] = useState(false);
+  const [failedJobsOpen, setFailedJobsOpen] = useState(false);
+  const [zombieJobsOpen, setZombieJobsOpen] = useState(false);
 
   const kpis = useMemo(() => {
     if (!packages || !jobs) return null;
@@ -168,12 +179,12 @@ export default function LeitstellePage() {
       {/* KPI Grid */}
       {kpis && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          <KpiTile label="Builds aktiv" value={kpis.building} icon={<Activity className="h-4 w-4 text-primary" />} tone={kpis.building > 0 ? 'green' : 'neutral'} />
-          <KpiTile label="Council Review" value={kpis.councilReview} icon={<Shield className="h-4 w-4 text-warning" />} tone={kpis.councilReview > 0 ? 'yellow' : 'neutral'} />
-          <KpiTile label="Veröffentlicht" value={kpis.published} icon={<CheckCircle2 className="h-4 w-4 text-success" />} tone="green" />
+          <KpiTile label="Builds aktiv" value={kpis.building} icon={<Activity className="h-4 w-4 text-primary" />} tone={kpis.building > 0 ? 'green' : 'neutral'} onClick={() => setBuildingSheetOpen(true)} />
+          <KpiTile label="Council Review" value={kpis.councilReview} icon={<Shield className="h-4 w-4 text-warning" />} tone={kpis.councilReview > 0 ? 'yellow' : 'neutral'} onClick={() => setCouncilSheetOpen(true)} />
+          <KpiTile label="Veröffentlicht" value={kpis.published} icon={<CheckCircle2 className="h-4 w-4 text-success" />} tone="green" onClick={() => setPublishedSheetOpen(true)} />
           <KpiTile label="Festgefahren" value={kpis.stuck} icon={<AlertTriangle className="h-4 w-4 text-destructive" />} tone={kpis.stuck > 0 ? 'red' : 'neutral'} onClick={() => setStuckSheetOpen(true)} />
           <KpiTile label="Blockiert" value={kpis.blocked} icon={<XCircle className="h-4 w-4 text-destructive" />} tone={kpis.blocked > 0 ? 'red' : 'neutral'} onClick={() => setBlockedSheetOpen(true)} />
-          <KpiTile label="Publish Drift" value={kpis.publishDrift} icon={<TrendingDown className="h-4 w-4 text-destructive" />} tone={kpis.publishDrift > 0 ? 'red' : 'neutral'} />
+          <KpiTile label="Publish Drift" value={kpis.publishDrift} icon={<TrendingDown className="h-4 w-4 text-destructive" />} tone={kpis.publishDrift > 0 ? 'red' : 'neutral'} onClick={() => setDriftSheetOpen(true)} />
         </div>
       )}
 
@@ -186,15 +197,19 @@ export default function LeitstellePage() {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <KpiTile label="Pending" value={kpis.jobsPending} icon={<Clock className="h-4 w-4 text-muted-foreground" />} />
             <KpiTile label="Processing" value={kpis.jobsProcessing} icon={<Zap className="h-4 w-4 text-primary" />} tone={kpis.jobsProcessing > 0 ? 'green' : 'neutral'} />
-            <KpiTile label="Failed" value={kpis.jobsFailed} icon={<XCircle className="h-4 w-4 text-destructive" />} tone={kpis.jobsFailed > 0 ? 'red' : 'neutral'} />
-            <KpiTile label="Zombies" value={kpis.zombies} icon={<AlertTriangle className="h-4 w-4 text-destructive" />} tone={kpis.zombies > 0 ? 'red' : 'neutral'} />
+            <KpiTile label="Failed" value={kpis.jobsFailed} icon={<XCircle className="h-4 w-4 text-destructive" />} tone={kpis.jobsFailed > 0 ? 'red' : 'neutral'} onClick={() => setFailedJobsOpen(true)} />
+            <KpiTile label="Zombies" value={kpis.zombies} icon={<AlertTriangle className="h-4 w-4 text-destructive" />} tone={kpis.zombies > 0 ? 'red' : 'neutral'} onClick={() => setZombieJobsOpen(true)} />
           </div>
         </div>
       )}
 
       {/* Drift Warnings */}
       {kpis && kpis.stalePublish > 0 && (
-        <div className="rounded-xl border border-warning/30 bg-warning/5 p-3 flex items-start gap-3">
+        <div
+          className="rounded-xl border border-warning/30 bg-warning/5 p-3 flex items-start gap-3 cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all"
+          onClick={() => setDriftSheetOpen(true)}
+          role="button"
+        >
           <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
           <div>
             <div className="text-sm font-semibold text-foreground">{kpis.stalePublish} Paket(e) mit Stale-Publish-Signalen</div>
@@ -204,7 +219,11 @@ export default function LeitstellePage() {
       )}
 
       {kpis && kpis.publishDrift > 0 && (
-        <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 flex items-start gap-3">
+        <div
+          className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 flex items-start gap-3 cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all"
+          onClick={() => setDriftSheetOpen(true)}
+          role="button"
+        >
           <TrendingDown className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
           <div>
             <div className="text-sm font-semibold text-foreground">{kpis.publishDrift} Paket(e) mit Publish Drift</div>
@@ -214,7 +233,11 @@ export default function LeitstellePage() {
       )}
 
       {kpis && kpis.councilCompleteNotApproved > 0 && (
-        <div className="rounded-xl border border-warning/30 bg-warning/5 p-3 flex items-start gap-3">
+        <div
+          className="rounded-xl border border-warning/30 bg-warning/5 p-3 flex items-start gap-3 cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all"
+          onClick={() => setCouncilSheetOpen(true)}
+          role="button"
+        >
           <Shield className="h-4 w-4 text-warning shrink-0 mt-0.5" />
           <div>
             <div className="text-sm font-semibold text-foreground">{kpis.councilCompleteNotApproved} Paket(e): Council fertig, nicht approved</div>
@@ -292,6 +315,12 @@ export default function LeitstellePage() {
 
       <BlockedPackagesSheet open={blockedSheetOpen} onOpenChange={setBlockedSheetOpen} />
       <StuckPackagesSheet open={stuckSheetOpen} onOpenChange={setStuckSheetOpen} />
+      <BuildingPackagesSheet open={buildingSheetOpen} onOpenChange={setBuildingSheetOpen} />
+      <CouncilReviewSheet open={councilSheetOpen} onOpenChange={setCouncilSheetOpen} />
+      <PublishDriftSheet open={driftSheetOpen} onOpenChange={setDriftSheetOpen} />
+      <PublishedPackagesSheet open={publishedSheetOpen} onOpenChange={setPublishedSheetOpen} />
+      <FailedJobsSheet open={failedJobsOpen} onOpenChange={setFailedJobsOpen} mode="failed" />
+      <FailedJobsSheet open={zombieJobsOpen} onOpenChange={setZombieJobsOpen} mode="zombie" />
     </div>
   );
 }
