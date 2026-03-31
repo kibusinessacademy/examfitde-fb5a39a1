@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { batchHealAndDispatch } from "../_shared/heal-dispatch.ts";
+import { enqueueJob } from "../_shared/enqueue.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -201,6 +202,80 @@ Deno.serve(async (req) => {
         }
         result = { ...healData as JsonRow, dispatch: dispatchResult };
         affectedIds = healedPkgIds;
+        break;
+      }
+
+      /* ── Targeted Repair Actions ── */
+      case "repair_exam_pool_quality":
+      case "repair_minichecks":
+      case "repair_lessons":
+      case "repair_handbook":
+      case "repair_oral_exam":
+      case "retry_stalled_step": {
+        const pid = String(body.package_id || "");
+        if (!pid) return json({ error: "package_id required" }, 400);
+        affectedIds = [pid];
+
+        const repairJobMap: Record<string, { jobType: string; stepKey: string }> = {
+          repair_exam_pool_quality: { jobType: "package_repair_exam_pool_quality", stepKey: "repair_exam_pool_quality" },
+          repair_minichecks: { jobType: "package_generate_lesson_minichecks", stepKey: "generate_lesson_minichecks" },
+          repair_lessons: { jobType: "package_generate_learning_content", stepKey: "generate_learning_content" },
+          repair_handbook: { jobType: "package_generate_handbook", stepKey: "generate_handbook" },
+          repair_oral_exam: { jobType: "package_generate_oral_exam", stepKey: "generate_oral_exam" },
+          retry_stalled_step: { jobType: "", stepKey: String(body.step_key || "run_integrity_check") },
+        };
+
+        const mapping = repairJobMap[action];
+        if (!mapping) return json({ error: `No mapping for action: ${action}` }, 400);
+
+        // Step 1: Fetch package details (need curriculum_id for jobs)
+        const { data: pkg } = await sb.from("course_packages").select("id, status, curriculum_id").eq("id", pid).maybeSingle();
+        if (!pkg) return json({ error: `Package not found: ${pid}` }, 404);
+
+        // Step 1b: Set package back to building if blocked
+        if (pkg.status === "blocked" || pkg.status === "quality_gate_failed") {
+          await sb.from("course_packages")
+            .update({ status: "building", updated_at: new Date().toISOString() })
+            .eq("id", pid);
+        }
+
+        // Step 2: Reset the target step to queued
+        await sb.from("package_steps")
+          .update({ status: "queued", started_at: null, finished_at: null, last_error: null, updated_at: new Date().toISOString() })
+          .eq("package_id", pid)
+          .eq("step_key", mapping.stepKey);
+
+        // Step 3: For retry_stalled_step, also reset downstream steps
+        if (action === "retry_stalled_step") {
+          // Reset the specific step; the job-runner picks it up via the normal flow
+          result = { ok: true, action, step_reset: mapping.stepKey, package_id: pid };
+          break;
+        }
+
+        // Step 4: Enqueue the repair job (with curriculum_id)
+        try {
+          const enqResult = await enqueueJob(sb, {
+            job_type: mapping.jobType,
+            package_id: pid,
+            priority: 25,
+            payload: { package_id: pid, curriculum_id: pkg.curriculum_id, source: "admin_manual_repair", repair_action: action },
+          });
+          result = { ok: true, action, job_enqueued: enqResult.status !== "duplicate", job_id: enqResult.id, package_id: pid };
+        } catch (enqErr: any) {
+          result = { ok: false, action, error: enqErr.message, package_id: pid };
+        }
+
+        // Step 5: Log to auto_heal_log
+        try {
+          await sb.from("auto_heal_log").insert({
+            action_type: action,
+            target_id: pid,
+            result_status: "applied",
+            result_detail: `Admin manual repair: ${action} for ${pid}`,
+            metadata: { triggered_by: user.id, action },
+          });
+        } catch (_e) { /* best-effort */ }
+
         break;
       }
 
