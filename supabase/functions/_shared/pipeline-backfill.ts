@@ -130,7 +130,6 @@ export async function backfillPipelinePool(
               certification_title: cert.title,
               triggered_by: "pool_backfill",
             },
-            run_after: new Date().toISOString(),
           });
           enqueued++;
           console.log(`[runner] 🏭 Backfill: "${cert.title}" (new curriculum)`);
