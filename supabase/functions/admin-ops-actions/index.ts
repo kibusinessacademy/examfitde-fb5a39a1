@@ -595,7 +595,7 @@ async function cancelPackageBuild(sb: SB, packageId: string) {
   // Cancel pending/processing jobs
   const { data: jobs } = await sb.from("job_queue")
     .select("id")
-    .or(`payload->>package_id.eq.${packageId}`)
+    .eq("package_id", packageId)
     .in("status", ["pending", "processing"]);
   
   if (jobs?.length) {
