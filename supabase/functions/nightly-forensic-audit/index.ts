@@ -1040,7 +1040,7 @@ Deno.serve(async (req) => {
           const elapsed = Date.now() - t0;
           const errMsg = String(e instanceof Error ? e.message : e).slice(0, 200);
           const isTimeout = errMsg.includes("AUDIT_MODULE_TIMEOUT");
-          const result: ModuleResult = { module: mod.name, status: isTimeout ? "timeout" : "failed", duration_ms: elapsed, findings: [], error: errMsg };
+          const result: ModuleResult = { module: mod.name, status: isTimeout ? "timeout" : "failed", duration_ms: elapsed, findings: [], findings_count: 0, error: errMsg };
           moduleResults.push(result);
           return [f(mod.name, "warning", `${mod.name}_${isTimeout ? "timeout" : "crash"}`,
             `Module "${mod.name}" ${isTimeout ? "timed out" : "crashed"}: ${errMsg}`,
