@@ -387,16 +387,17 @@ Deno.serve(async (req) => {
       case "release_stale_leases": {
         const jobIds = Array.isArray(body.job_ids) ? body.job_ids.map(String) : [];
         const limit = Number(body.limit) || 50;
+        const now = new Date().toISOString();
 
         if (jobIds.length > 0) {
           const { error } = await sb.from("job_queue")
-            .update({ locked_by: null, locked_at: null, status: "pending", updated_at: new Date().toISOString() })
+            .update({ locked_by: null, locked_at: null, status: "pending", started_at: null, updated_at: now })
             .in("id", jobIds)
             .eq("status", "processing");
           if (error) throw error;
           result = { ok: true, released: jobIds.length, scope: "job_ids" };
         } else {
-          // Release all stale leases (processing jobs with old heartbeat)
+          // Release all stale leases (processing jobs with old or null heartbeat)
           const cutoff = new Date(Date.now() - 600_000).toISOString();
           const { data: stale } = await sb.from("job_queue")
             .select("id")
@@ -406,7 +407,7 @@ Deno.serve(async (req) => {
           if (stale?.length) {
             const ids = (stale as any[]).map((j: any) => j.id);
             await sb.from("job_queue")
-              .update({ locked_by: null, locked_at: null, status: "pending", updated_at: new Date().toISOString() })
+              .update({ locked_by: null, locked_at: null, status: "pending", started_at: null, updated_at: now })
               .in("id", ids);
             result = { ok: true, released: ids.length, scope: "global" };
             affectedIds = ids;
@@ -649,13 +650,20 @@ async function recoverFailedPackages(sb: SB, body: JsonRow) {
       .eq("package_id", pkg.id)
       .eq("status", "failed");
 
-    // Reset package to building
-    await sb.from("course_packages").update({
-      status: "building",
-      retry_count: (pkg.retry_count ?? 0) + 1,
-      last_error: `Admin recovery: ${stepsReset} steps reset`,
-      updated_at: new Date().toISOString(),
-    }).eq("id", pkg.id);
+    // Reset package to building via safe_transition (prevents unique constraint violations)
+    const { error: transErr } = await sb.rpc("safe_transition_package_status", {
+      p_package_id: pkg.id,
+      p_new_status: "building",
+      p_extra: {
+        retry_count: (pkg.retry_count ?? 0) + 1,
+        last_error: `Admin recovery: ${stepsReset} steps reset`,
+        stuck_reason: null,
+        blocked_reason: null,
+      },
+    });
+    if (transErr) {
+      console.warn(`[admin-ops] safe_transition failed for ${pkg.id.slice(0, 8)}: ${transErr.message}`);
+    }
 
     details.push({ id: pkg.id, title: pkg.title || pkg.id.slice(0, 8), steps_reset: stepsReset });
   }
@@ -665,9 +673,24 @@ async function recoverFailedPackages(sb: SB, body: JsonRow) {
 
 /* ── retry_package_step ── */
 async function retryPackageStep(sb: SB, packageId: string, stepKey: string, body: JsonRow) {
-  // Reset the step
+  // Read existing meta to preserve contract keys (guard_state, stall_reason_code, etc.)
+  const { data: existingStep } = await sb.from("package_steps")
+    .select("meta")
+    .eq("package_id", packageId).eq("step_key", stepKey)
+    .maybeSingle();
+
+  const oldMeta = (existingStep as any)?.meta ?? {};
+  // Preserve meta contract keys, clear transient state
+  const preservedMeta = {
+    ...(oldMeta.guard_state ? { guard_state: oldMeta.guard_state } : {}),
+    ...(oldMeta.stall_reason_code ? { stall_reason_code: oldMeta.stall_reason_code } : {}),
+    retry_source: "admin_retry_package_step",
+    retried_at: new Date().toISOString(),
+  };
+
+  // Reset the step (preserve meta contract)
   const { error: stepErr } = await sb.from("package_steps")
-    .update({ status: "queued", last_error: null, meta: null, started_at: null, finished_at: null, attempts: 0, updated_at: new Date().toISOString() })
+    .update({ status: "queued", last_error: null, meta: preservedMeta, started_at: null, finished_at: null, attempts: 0, updated_at: new Date().toISOString() })
     .eq("package_id", packageId).eq("step_key", stepKey);
   if (stepErr) throw stepErr;
 
