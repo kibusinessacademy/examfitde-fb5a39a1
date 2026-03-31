@@ -91,7 +91,7 @@ function LearnerTestTab({ previewMode }: { previewMode: PreviewMode }) {
         .from("v_admin_published_course_preview" as any)
         .select("curriculum_id, title, approved_questions, lessons_count, tutor_index_count")
         .order("title");
-      return (data ?? []) as {
+      return (data ?? []) as unknown as {
         curriculum_id: string;
         title: string;
         approved_questions: number;
