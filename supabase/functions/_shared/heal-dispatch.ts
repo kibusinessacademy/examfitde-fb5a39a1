@@ -137,6 +137,24 @@ export async function healAndDispatchPackage(
     return { package_id: packageId, status_healed: false, dispatched_step: runnableStep, dispatched_job_type: null, skip_reason: "no_job_type_mapping" };
   }
 
+  // 4b. P0 GUARD: Eligibility check for repair actions
+  if (jobType === "package_repair_exam_pool_quality") {
+    const eligibility = await isRepairActionEligible(sb, packageId, "repair_exam_pool_quality");
+    if (!eligibility.eligible) {
+      console.warn(`[heal-dispatch] ❌ INELIGIBLE repair for ${packageId.slice(0, 8)}: ${eligibility.reason}`);
+      await sb.from("auto_heal_log").insert({
+        action_type: "repair_dispatch_blocked",
+        trigger_source: healReason,
+        target_type: "course_package",
+        target_id: packageId,
+        result_status: "blocked",
+        result_detail: `Repair ineligible: ${eligibility.reason}`,
+        metadata: { package_id: packageId, repair_action: "repair_exam_pool_quality", eligibility_reason: eligibility.reason },
+      }).catch(() => {});
+      return { package_id: packageId, status_healed: false, dispatched_step: runnableStep, dispatched_job_type: jobType, skip_reason: `repair_ineligible: ${eligibility.reason}` };
+    }
+  }
+
   // 5. Check no active job already exists for this step+package
   const { data: existingJob } = await sb
     .from("job_queue")
