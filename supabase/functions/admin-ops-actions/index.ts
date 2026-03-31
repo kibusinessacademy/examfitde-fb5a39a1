@@ -428,8 +428,12 @@ Deno.serve(async (req) => {
     }
 
     return json(result);
-  } catch (e) {
-    return json({ error: e instanceof Error ? e.message : String(e) }, 500);
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message
+      : (typeof e === 'object' && e !== null && 'message' in e) ? String((e as any).message)
+      : JSON.stringify(e);
+    console.error('[admin-ops-actions] Error:', msg);
+    return json({ error: msg }, 500);
   }
 });
 
