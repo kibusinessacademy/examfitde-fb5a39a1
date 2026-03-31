@@ -4,6 +4,7 @@ import { resolveProfession } from "../_shared/profession-resolver.ts";
 import { ERROR_TAG_VOCABULARY } from "../_shared/error-tag-vocabulary.ts";
 import { loadMathRatio } from "../_shared/math-ratio.ts";
 import { handleDbFailure } from "../_shared/job-fail.ts";
+import { enqueueJob } from "../_shared/enqueue.ts";
 
 /**
  * pool-rework — Scheduled Batch Job: Incremental Quality Upgrades (PLANNER)
