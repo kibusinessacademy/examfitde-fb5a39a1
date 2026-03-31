@@ -705,7 +705,7 @@ async function workspaceSnapshot(sb: SB, packageId: string) {
   // Active jobs
   const { data: jobs } = await sb.from("job_queue")
     .select("id, job_type, status, attempts, last_error, created_at")
-    .or(`payload->>package_id.eq.${packageId}`)
+    .eq("package_id", packageId)
     .in("status", ["pending", "processing"])
     .order("created_at", { ascending: false })
     .limit(20);
