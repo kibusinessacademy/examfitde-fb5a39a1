@@ -340,11 +340,12 @@ Deno.serve(async (req) => {
         } else {
           // Kill all stale processing jobs via RPC
           const { data: reaped, error: reapErr } = await sb.rpc("reap_zombie_processing_jobs_v2", {
-            p_heartbeat_timeout_seconds: 600,
-            p_max_rows: limit,
+            p_max_age_hours: 1,
+            p_reason: "Admin: kill_stale_processing_jobs",
           });
           if (reapErr) throw reapErr;
-          result = { ok: true, ...reaped as JsonRow, scope: "global" };
+          const reapedRows = (reaped ?? []) as any[];
+          result = { ok: true, killed: reapedRows.length, jobs: reapedRows.slice(0, 20), scope: "global" };
         }
         affectedIds = jobIds;
         break;
