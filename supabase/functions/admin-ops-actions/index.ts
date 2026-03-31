@@ -225,13 +225,13 @@ Deno.serve(async (req) => {
           retry_stalled_step: { jobType: "", stepKey: String(body.step_key || "run_integrity_check") },
         };
 
+        const mapping = repairJobMap[action];
+        if (!mapping) return json({ error: `No mapping for action: ${action}` }, 400);
+
         // For retry_stalled_step, compute jobType dynamically from stepKey
         if (action === "retry_stalled_step") {
           mapping.jobType = `package_${mapping.stepKey}`;
         }
-
-        const mapping = repairJobMap[action];
-        if (!mapping) return json({ error: `No mapping for action: ${action}` }, 400);
 
         // Step 1: Fetch package details (need curriculum_id for jobs)
         const { data: pkg } = await sb.from("course_packages").select("id, status, curriculum_id, course_id, certification_id").eq("id", pid).maybeSingle();
