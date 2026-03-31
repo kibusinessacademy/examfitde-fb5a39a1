@@ -249,7 +249,12 @@ export default function BlueprintMatchAuditCard() {
       {/* Package list */}
       <div className="space-y-1.5">
         {[...hardFails, ...warns].slice(0, 10).map((pkg: MatchPackage) => (
-          <PackageRow key={pkg.package_id} pkg={pkg} />
+          <PackageRow
+            key={pkg.package_id}
+            pkg={pkg}
+            onRebalance={(id) => rebalanceMutation.mutate(id)}
+            busy={rebalanceMutation.isPending}
+          />
         ))}
       </div>
 
