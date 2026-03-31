@@ -70,15 +70,16 @@ Deno.serve(async (req) => {
       },
     });
 
-    // FIX A: Ineligible ≠ done. Mark as 'skipped' with typed metadata.
+    // FIX 1: Ineligible = 'blocked' (not 'skipped'/'done') — prevents orchestration
+    // from treating this as terminal/complete. Can be re-evaluated if blocker changes.
     await sb.from("package_steps").update({
-      status: "skipped",
+      status: "blocked",
       updated_at: new Date().toISOString(),
       meta: {
         repair_ineligible: true,
         eligibility_reason: eligibility.reason,
         guard: "repair_eligibility_matrix",
-        skipped_at: new Date().toISOString(),
+        blocked_at: new Date().toISOString(),
       },
     }).eq("package_id", packageId).eq("step_key", "repair_exam_pool_quality");
 
