@@ -48482,22 +48482,51 @@ export type Database = {
       }
       v_audit_finding_trends: {
         Row: {
+          all_healed: boolean | null
+          any_healed: boolean | null
           entity_id: string | null
           entity_type: string | null
-          finding_class: string | null
           finding_code: string | null
           first_seen: string | null
+          has_consequence: boolean | null
+          has_root_cause: boolean | null
+          has_symptom: boolean | null
           in_last_3: number | null
           in_latest: number | null
           last_seen: string | null
           max_severity: string | null
           occurrence_count: number | null
           older_avg_metric: number | null
+          primary_finding_class: string | null
           recent_avg_metric: number | null
+          severity_rank: number | null
           trend_status: string | null
-          was_ever_healed: boolean | null
         }
         Relationships: []
+      }
+      v_audit_incidents: {
+        Row: {
+          all_healed: boolean | null
+          any_healed: boolean | null
+          entity_id: string | null
+          entity_type: string | null
+          evidence_count: number | null
+          finding_codes: string[] | null
+          incident_type: string | null
+          max_finding_class: string | null
+          max_severity: string | null
+          run_id: string | null
+          total_metric_value: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nightly_audit_findings_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "nightly_audit_runs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       v_b2b_metrics: {
         Row: {

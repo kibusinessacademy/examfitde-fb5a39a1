@@ -56,6 +56,8 @@ interface ModuleResult {
   status: "ok" | "failed" | "timeout" | "partial";
   duration_ms: number;
   findings: AuditFinding[];
+  findings_count: number;
+  remediation_candidate_count?: number;
   error?: string;
 }
 
@@ -157,15 +159,17 @@ async function diagPipeline(sb: SB): Promise<AuditFinding[]> {
       { finding_class: "root_cause", actionability: "auto_heal", metric_value: zombies!.length,
         payload: zombies!.slice(0, 5).map((z: any) => ({ id: z.id, job_type: z.job_type })) }));
 
-  // Stale leases — DETECT only
+  // Stale leases — DETECT only (heartbeat + started_at checks)
   const { data: staleLeases } = await sb.from("job_queue")
-    .select("id, job_type, locked_by")
+    .select("id, job_type, locked_by, started_at, updated_at")
     .eq("status", "processing").not("locked_by", "is", null)
+    .lt("started_at", new Date(Date.now() - 600000).toISOString())
+    .lt("updated_at", new Date(Date.now() - 300000).toISOString())
     .or(`last_heartbeat_at.lt.${new Date(Date.now() - 600000).toISOString()},last_heartbeat_at.is.null`)
     .limit(50);
   if ((staleLeases?.length ?? 0) > 0)
     findings.push(f(M, "warning", "stale_leases",
-      `${staleLeases!.length} stale leases (no heartbeat >10min)`,
+      `${staleLeases!.length} stale leases (no heartbeat >10min, started >10min ago, no update >5min)`,
       { finding_class: "symptom", actionability: "auto_heal", metric_value: staleLeases!.length }));
 
   // Ancient pending (>48h) — DETECT only
@@ -1024,7 +1028,8 @@ Deno.serve(async (req) => {
           const findings = await withTimeout(mod.fn, MODULE_TIMEOUT_MS, mod.name);
           const elapsed = Date.now() - t0;
           const status = elapsed > 30000 ? "partial" as const : "ok" as const;
-          const result: ModuleResult = { module: mod.name, status, duration_ms: elapsed, findings };
+          const remCandidates = findings.filter(fi => fi.actionability === "auto_heal" && fi.severity !== "info").length;
+          const result: ModuleResult = { module: mod.name, status, duration_ms: elapsed, findings, findings_count: findings.length, remediation_candidate_count: remCandidates };
           moduleResults.push(result);
 
           if (elapsed > 30000)
@@ -1037,7 +1042,7 @@ Deno.serve(async (req) => {
           const elapsed = Date.now() - t0;
           const errMsg = String(e instanceof Error ? e.message : e).slice(0, 200);
           const isTimeout = errMsg.includes("AUDIT_MODULE_TIMEOUT");
-          const result: ModuleResult = { module: mod.name, status: isTimeout ? "timeout" : "failed", duration_ms: elapsed, findings: [], error: errMsg };
+          const result: ModuleResult = { module: mod.name, status: isTimeout ? "timeout" : "failed", duration_ms: elapsed, findings: [], findings_count: 0, error: errMsg };
           moduleResults.push(result);
           return [f(mod.name, "warning", `${mod.name}_${isTimeout ? "timeout" : "crash"}`,
             `Module "${mod.name}" ${isTimeout ? "timed out" : "crashed"}: ${errMsg}`,
@@ -1064,20 +1069,23 @@ Deno.serve(async (req) => {
   const verdict = criticalCount > 0 ? "CRITICAL" : warningCount > 0 ? "NEEDS_ATTENTION" : "HEALTHY";
   const finishedAt = new Date();
 
-  // Incident aggregation
-  const incidentMap: Record<string, { findings: string[]; maxSeverity: string }> = {};
+  // Incident aggregation (using numeric severity ranking)
+  const sevRank = (s: string) => s === "critical" ? 3 : s === "warning" ? 2 : 1;
+  const sevLabel = (r: number) => r >= 3 ? "critical" : r >= 2 ? "warning" : "info";
+  const incidentMap: Record<string, { findings: string[]; maxSevRank: number; hasRootCause: boolean }> = {};
   for (const finding of allFindings) {
     if (finding.entity_id && finding.severity !== "info") {
       const key = `${finding.entity_type}:${finding.entity_id}`;
-      if (!incidentMap[key]) incidentMap[key] = { findings: [], maxSeverity: "info" };
+      if (!incidentMap[key]) incidentMap[key] = { findings: [], maxSevRank: 0, hasRootCause: false };
       incidentMap[key].findings.push(finding.code);
-      if (finding.severity === "critical") incidentMap[key].maxSeverity = "critical";
-      else if (finding.severity === "warning" && incidentMap[key].maxSeverity !== "critical") incidentMap[key].maxSeverity = "warning";
+      incidentMap[key].maxSevRank = Math.max(incidentMap[key].maxSevRank, sevRank(finding.severity));
+      if (finding.finding_class === "root_cause") incidentMap[key].hasRootCause = true;
     }
   }
+  // Multi-signal OR single critical root_cause
   const incidents = Object.entries(incidentMap)
-    .filter(([, v]) => v.findings.length >= 2)
-    .map(([entity, v]) => ({ entity, evidences: v.findings, severity: v.maxSeverity }));
+    .filter(([, v]) => v.findings.length >= 2 || (v.maxSevRank >= 3 && v.hasRootCause))
+    .map(([entity, v]) => ({ entity, evidences: v.findings, severity: sevLabel(v.maxSevRank) }));
 
   if (runId) {
     await sb.from("nightly_audit_runs").update({
@@ -1091,7 +1099,7 @@ Deno.serve(async (req) => {
       info_findings: infoCount,
       healed_count: healedCount,
       module_count: moduleResults.length,
-      module_results: moduleResults.map(r => ({ name: r.module, status: r.status, duration_ms: r.duration_ms, finding_count: r.findings.length, error: r.error })) as any,
+      module_results: moduleResults.map(r => ({ name: r.module, status: r.status, duration_ms: r.duration_ms, finding_count: r.findings_count, remediation_candidates: r.remediation_candidate_count ?? 0, error: r.error })) as any,
       meta: {
         incidents,
         audit_version: "v2.1",
@@ -1162,7 +1170,7 @@ Deno.serve(async (req) => {
       },
     },
     incidents: incidents.slice(0, 20),
-    modules: moduleResults.map(r => ({ name: r.module, status: r.status, duration_ms: r.duration_ms, finding_count: r.findings.length, error: r.error })),
+    modules: moduleResults.map(r => ({ name: r.module, status: r.status, duration_ms: r.duration_ms, finding_count: r.findings_count, remediation_candidates: r.remediation_candidate_count ?? 0, error: r.error })),
     remediation_actions: remActions,
     findings: allFindings,
   });
