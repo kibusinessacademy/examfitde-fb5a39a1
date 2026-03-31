@@ -673,9 +673,24 @@ async function recoverFailedPackages(sb: SB, body: JsonRow) {
 
 /* ── retry_package_step ── */
 async function retryPackageStep(sb: SB, packageId: string, stepKey: string, body: JsonRow) {
-  // Reset the step
+  // Read existing meta to preserve contract keys (guard_state, stall_reason_code, etc.)
+  const { data: existingStep } = await sb.from("package_steps")
+    .select("meta")
+    .eq("package_id", packageId).eq("step_key", stepKey)
+    .maybeSingle();
+
+  const oldMeta = (existingStep as any)?.meta ?? {};
+  // Preserve meta contract keys, clear transient state
+  const preservedMeta = {
+    ...(oldMeta.guard_state ? { guard_state: oldMeta.guard_state } : {}),
+    ...(oldMeta.stall_reason_code ? { stall_reason_code: oldMeta.stall_reason_code } : {}),
+    retry_source: "admin_retry_package_step",
+    retried_at: new Date().toISOString(),
+  };
+
+  // Reset the step (preserve meta contract)
   const { error: stepErr } = await sb.from("package_steps")
-    .update({ status: "queued", last_error: null, meta: null, started_at: null, finished_at: null, attempts: 0, updated_at: new Date().toISOString() })
+    .update({ status: "queued", last_error: null, meta: preservedMeta, started_at: null, finished_at: null, attempts: 0, updated_at: new Date().toISOString() })
     .eq("package_id", packageId).eq("step_key", stepKey);
   if (stepErr) throw stepErr;
 
