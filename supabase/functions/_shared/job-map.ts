@@ -415,6 +415,10 @@ export const JOB_DEFINITIONS: Record<string, JobDefinition> = {
 
   // ── blueprint seeding ───────────────────────────────────────
   blueprint_generate_variants:       { pool: "content", edgeFunction: "blueprint-seed-by-competency" },
+
+  // ── seeding / orchestration ─────────────────────────────────
+  seo_certification_generate:        { pool: "core", edgeFunction: "seo-certification-generate" },
+  batch_curriculum_pipeline:         { pool: "core", edgeFunction: "batch-curriculum-pipeline" },
 };
 
 // ── Backward-compatible derived maps (used by existing code) ──
