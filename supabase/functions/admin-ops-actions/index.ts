@@ -572,13 +572,11 @@ async function retryPackageStep(sb: SB, packageId: string, stepKey: string, body
     .select("course_id, curriculum_id, certification_id")
     .eq("id", packageId).single();
 
-  // Enqueue a new job
-  const { error: jobErr } = await sb.from("job_queue").insert({
+  // Enqueue a new job via SSOT helper (ensures worker_pool + idempotency)
+  const enqResult = await enqueueJob(sb, {
     job_type: `package_${stepKey}`,
-    status: "pending",
-    attempts: 0,
-    max_attempts: 3,
-    run_after: new Date().toISOString(),
+    package_id: packageId,
+    priority: 25,
     payload: {
       job_version: "course_studio_v2",
       package_id: packageId,
@@ -588,7 +586,6 @@ async function retryPackageStep(sb: SB, packageId: string, stepKey: string, body
       certification_id: (pkg as any)?.certification_id || null,
     },
   });
-  if (jobErr) throw jobErr;
 
   return { ok: true, step_key: stepKey, scope: "single_step" };
 }
