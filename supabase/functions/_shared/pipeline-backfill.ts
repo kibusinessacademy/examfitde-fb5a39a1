@@ -4,6 +4,7 @@
  */
 
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
+import { enqueueJob } from "./enqueue.ts";
 
 const TARGET_POOL_SIZE = 10;
 
