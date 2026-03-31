@@ -1,4 +1,4 @@
-import { useMemo, lazy, Suspense } from 'react';
+import { useMemo, useState, lazy, Suspense } from 'react';
 import { useAdminPackagesSSOT, AdminPackageSSOT } from '@/hooks/useAdminPackagesSSOT';
 import { useAdminQueueSSOT } from '@/hooks/useAdminQueueSSOT';
 import { Badge } from '@/components/ui/badge';
@@ -9,6 +9,7 @@ import {
   Package, Zap, Shield, ArrowRight, Cpu, ListChecks, TrendingDown
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { BlockedPackagesSheet } from '@/components/admin/command/BlockedPackagesSheet';
 
 const ExamPoolAuditCard = lazy(() => import('@/components/admin/cards/ExamPoolAuditCard'));
 const TrapCoverageAuditCard = lazy(() => import('@/components/admin/cards/TrapCoverageAuditCard'));
@@ -18,11 +19,12 @@ const BlockedButReadyCard = lazy(() => import('@/components/admin/cards/BlockedB
 const RecoveryBoardCard = lazy(() => import('@/components/admin/cards/RecoveryBoardCard'));
 const ValidateGuardDiagnosticsCard = lazy(() => import('@/components/admin/cards/ValidateGuardDiagnosticsCard'));
 
-function KpiTile({ label, value, icon, tone = 'neutral' }: {
+function KpiTile({ label, value, icon, tone = 'neutral', onClick }: {
   label: string;
   value: number | string;
   icon: React.ReactNode;
   tone?: 'green' | 'yellow' | 'red' | 'neutral';
+  onClick?: () => void;
 }) {
   const toneClasses = {
     green: 'border-success/30 bg-success/5',
@@ -31,7 +33,16 @@ function KpiTile({ label, value, icon, tone = 'neutral' }: {
     neutral: 'border-border bg-card',
   };
   return (
-    <div className={cn("rounded-xl border p-3 flex items-start gap-3", toneClasses[tone])}>
+    <div
+      className={cn(
+        "rounded-xl border p-3 flex items-start gap-3",
+        toneClasses[tone],
+        onClick && 'cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all active:scale-[0.98]'
+      )}
+      onClick={onClick}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+    >
       <div className="shrink-0 mt-0.5">{icon}</div>
       <div className="min-w-0">
         <div className="text-lg font-bold text-foreground leading-tight">{value}</div>
@@ -87,6 +98,7 @@ function CriticalPackageCard({ pkg }: { pkg: AdminPackageSSOT }) {
 export default function LeitstellePage() {
   const { data: packages, isLoading: pkgLoading } = useAdminPackagesSSOT();
   const { data: jobs, isLoading: jobLoading } = useAdminQueueSSOT();
+  const [blockedSheetOpen, setBlockedSheetOpen] = useState(false);
 
   const kpis = useMemo(() => {
     if (!packages || !jobs) return null;
@@ -158,7 +170,7 @@ export default function LeitstellePage() {
           <KpiTile label="Council Review" value={kpis.councilReview} icon={<Shield className="h-4 w-4 text-warning" />} tone={kpis.councilReview > 0 ? 'yellow' : 'neutral'} />
           <KpiTile label="Veröffentlicht" value={kpis.published} icon={<CheckCircle2 className="h-4 w-4 text-success" />} tone="green" />
           <KpiTile label="Festgefahren" value={kpis.stuck} icon={<AlertTriangle className="h-4 w-4 text-destructive" />} tone={kpis.stuck > 0 ? 'red' : 'neutral'} />
-          <KpiTile label="Blockiert" value={kpis.blocked} icon={<XCircle className="h-4 w-4 text-destructive" />} tone={kpis.blocked > 0 ? 'red' : 'neutral'} />
+          <KpiTile label="Blockiert" value={kpis.blocked} icon={<XCircle className="h-4 w-4 text-destructive" />} tone={kpis.blocked > 0 ? 'red' : 'neutral'} onClick={() => setBlockedSheetOpen(true)} />
           <KpiTile label="Publish Drift" value={kpis.publishDrift} icon={<TrendingDown className="h-4 w-4 text-destructive" />} tone={kpis.publishDrift > 0 ? 'red' : 'neutral'} />
         </div>
       )}
@@ -275,6 +287,8 @@ export default function LeitstellePage() {
           </div>
         </Link>
       </div>
+
+      <BlockedPackagesSheet open={blockedSheetOpen} onOpenChange={setBlockedSheetOpen} />
     </div>
   );
 }
