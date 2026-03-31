@@ -197,8 +197,8 @@ export default function LeitstellePage() {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <KpiTile label="Pending" value={kpis.jobsPending} icon={<Clock className="h-4 w-4 text-muted-foreground" />} />
             <KpiTile label="Processing" value={kpis.jobsProcessing} icon={<Zap className="h-4 w-4 text-primary" />} tone={kpis.jobsProcessing > 0 ? 'green' : 'neutral'} />
-            <KpiTile label="Failed" value={kpis.jobsFailed} icon={<XCircle className="h-4 w-4 text-destructive" />} tone={kpis.jobsFailed > 0 ? 'red' : 'neutral'} />
-            <KpiTile label="Zombies" value={kpis.zombies} icon={<AlertTriangle className="h-4 w-4 text-destructive" />} tone={kpis.zombies > 0 ? 'red' : 'neutral'} />
+            <KpiTile label="Failed" value={kpis.jobsFailed} icon={<XCircle className="h-4 w-4 text-destructive" />} tone={kpis.jobsFailed > 0 ? 'red' : 'neutral'} onClick={() => setFailedJobsOpen(true)} />
+            <KpiTile label="Zombies" value={kpis.zombies} icon={<AlertTriangle className="h-4 w-4 text-destructive" />} tone={kpis.zombies > 0 ? 'red' : 'neutral'} onClick={() => setZombieJobsOpen(true)} />
           </div>
         </div>
       )}
