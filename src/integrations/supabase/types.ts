@@ -56176,6 +56176,10 @@ export type Database = {
       run_synthetic_probe_suite: { Args: never; Returns: Json }
       run_system_contract_audit: { Args: never; Returns: Json }
       run_system_integrity_audit: { Args: never; Returns: Json }
+      safe_transition_package_status: {
+        Args: { p_extra?: Json; p_new_status: string; p_package_id: string }
+        Returns: undefined
+      }
       scan_org_interventions: {
         Args: { p_org_id: string; p_product_id?: string }
         Returns: Json
