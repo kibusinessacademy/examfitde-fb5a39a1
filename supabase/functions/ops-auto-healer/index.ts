@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
+import { enqueueJob } from "../_shared/enqueue.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -414,10 +415,10 @@ async function executeHealAction(
           .eq("id", pkgId)
           .single();
 
-        await sb.from("job_queue").insert({
+        await enqueueJob(sb, {
           job_type: "auto_gap_close",
-          status: "pending",
           package_id: pkgId,
+          max_attempts: 1,
           payload: {
             package_id: pkgId,
             course_id: pkg.course_id,
@@ -426,7 +427,6 @@ async function executeHealAction(
             max_rounds: (action.params.max_rounds as number) || 3,
             budget_eur: (action.params.budget_eur as number) || 5,
           },
-          max_attempts: 1,
         });
         await logHealAction(
           sb, action, triggerSource, "success",
@@ -439,11 +439,10 @@ async function executeHealAction(
       case "enqueue_seeding": {
         const certId = action.params.certification_id as string;
         const mode = (action.params.mode as string) || "safe";
-        await sb.from("job_queue").insert({
+        await enqueueJob(sb, {
           job_type: "batch_curriculum_pipeline",
-          status: "pending",
-          payload: { curriculum_id: certId, mode },
           max_attempts: 3,
+          payload: { curriculum_id: certId, mode },
         });
         await logHealAction(sb, action, triggerSource, "success", `Seeding enqueued (${mode})`, Date.now() - startMs);
         return { success: true, detail: `Seeding enqueued for ${certId}` };

@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { assertSchemaReady } from "../_shared/schema-gate.ts";
+import { enqueueJob } from "../_shared/enqueue.ts";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -76,13 +77,10 @@ Deno.serve(async (req) => {
               .contains("payload", { curriculum_id: course.curriculum_id });
 
             if ((pending ?? 0) === 0) {
-              await sb.from("job_queue").insert({
+              await enqueueJob(sb, {
                 job_type: "generate_curriculum_content",
-                status: "pending",
-                attempts: 0,
                 max_attempts: 5,
                 payload: { curriculum_id: course.curriculum_id, triggered_by: "factory_orchestrator" },
-                run_after: new Date().toISOString(),
               });
               actions.push(`Enqueued freeze for curriculum ${course.curriculum_id.slice(0, 8)}`);
             }
@@ -113,13 +111,10 @@ Deno.serve(async (req) => {
             .contains("payload", { course_id: course.id });
 
           if ((setupPending ?? 0) === 0) {
-            await sb.from("job_queue").insert({
+            await enqueueJob(sb, {
               job_type: "setup_course_package",
-              status: "pending",
-              attempts: 0,
               max_attempts: 3,
               payload: { course_id: course.id, certification_id, triggered_by: "factory_orchestrator" },
-              run_after: new Date().toISOString(),
             });
             actions.push(`Enqueued setup_course_package for course ${course.id.slice(0, 8)}`);
           }
@@ -160,13 +155,10 @@ Deno.serve(async (req) => {
                 .contains("payload", { certification_id, page_type: pageType });
 
               if ((seoPending ?? 0) === 0) {
-                await sb.from("job_queue").insert({
+                await enqueueJob(sb, {
                   job_type: "seo_certification_generate",
-                  status: "pending",
-                  attempts: 0,
                   max_attempts: 3,
                   payload: { certification_id, page_type: pageType, triggered_by: "factory_orchestrator" },
-                  run_after: new Date().toISOString(),
                 });
                 actions.push(`Enqueued SEO ${pageType} for cert ${certification_id.slice(0, 8)}`);
               }

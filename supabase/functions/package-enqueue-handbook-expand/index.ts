@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
+import { enqueueJob } from "../_shared/enqueue.ts";
 
 /**
  * package-enqueue-handbook-expand — Pipeline Step
@@ -97,9 +98,9 @@ Deno.serve(async (req) => {
   let skippedDuplicates = 0;
 
   for (const s of jobsToCreate) {
-    const { error: insertErr } = await sb.from("job_queue").insert({
+    const { error: insertErr } = await enqueueJob(sb, {
       job_type: "handbook_expand_section",
-      status: "pending",
+      package_id: packageId,
       priority: 3,
       payload: {
         section_id: (s as any).id,
@@ -107,9 +108,7 @@ Deno.serve(async (req) => {
         package_id: packageId,
         curriculum_id: curriculumId,
       },
-      package_id: packageId,
-      idempotency_key: `hb_expand_${packageId}_${(s as any).id}`,
-    });
+    }).then(() => ({ error: null as Error | null })).catch(e => ({ error: e as Error }));
 
     if (insertErr) {
       if (insertErr.message?.includes("duplicate") || insertErr.message?.includes("unique")) {

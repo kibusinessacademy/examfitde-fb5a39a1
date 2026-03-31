@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { assertSchemaReady } from "../_shared/schema-gate.ts";
+import { enqueueJob } from "../_shared/enqueue.ts";
 // pctOrNA no longer needed — all metrics come from v3.summary (SSOT)
 
 function json(body: unknown, status = 200) {
@@ -79,15 +80,14 @@ Deno.serve(async (req) => {
           .select("id", { count: "exact", head: true })
           .eq("job_type", "package_run_integrity_check")
           .in("status", ["pending", "processing"])
-          .eq("payload->>package_id", packageId);
+          .eq("package_id", packageId);
 
         if ((existingJobs ?? 0) === 0) {
-          await sb.from("job_queue").insert({
+          await enqueueJob(sb, {
             job_type: "package_run_integrity_check",
-            status: "pending",
             package_id: packageId,
-            payload: { package_id: packageId, course_id: pkgForRequeue.course_id, step_key: "run_integrity_check" },
             max_attempts: 5,
+            payload: { package_id: packageId, course_id: pkgForRequeue.course_id, step_key: "run_integrity_check" },
           });
         } else {
           console.log(`[QualityCouncil] Integrity recheck already pending/processing for ${packageId.slice(0, 8)}, skipping enqueue`);

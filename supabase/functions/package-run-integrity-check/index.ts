@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { pctOrNA } from "../_shared/math-helpers.ts";
 import { checkExamPartMappingDrift } from "../_shared/exam-part-mappings.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
+import { enqueueJob } from "../_shared/enqueue.ts";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -1478,18 +1479,16 @@ Deno.serve(async (req) => {
           .maybeSingle();
 
         if (!existingJob) {
-          await sb.from("job_queue").insert({
+          await enqueueJob(sb, {
             job_type: "package_exam_rebalance",
             package_id: packageId,
+            priority: 15,
+            max_attempts: 3,
             payload: {
               package_id: packageId,
               auto_triggered: true,
               trigger_signals: metadataRepairSignals,
             },
-            status: "pending",
-            worker_pool: "core",
-            max_attempts: 3,
-            priority: 15,
           });
           console.log(`[integrity-check] AUTO-ENQUEUE: package_exam_rebalance for ${packageId.slice(0, 8)} (${metadataRepairSignals.length} signals: ${metadataRepairSignals.slice(0, 3).join(", ")})`);
         } else {

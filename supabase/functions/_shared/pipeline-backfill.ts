@@ -4,6 +4,7 @@
  */
 
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
+import { enqueueJob } from "./enqueue.ts";
 
 const TARGET_POOL_SIZE = 10;
 
@@ -86,18 +87,15 @@ export async function backfillPipelinePool(
         .contains("payload", { curriculum_id: existingCurr.id });
 
       if ((pendingSetup ?? 0) === 0) {
-        await sb.from("job_queue").insert({
+        await enqueueJob(sb, {
           job_type: "setup_course_package",
-          status: "pending",
-          attempts: 0,
-          max_attempts: 100,
+          max_attempts: 8,
           payload: {
             curriculum_id: existingCurr.id,
             catalog_id: cert.id,
             triggered_by: "pool_backfill",
             exam_target: cert.min_question_target || 1000,
           },
-          run_after: new Date().toISOString(),
         });
         enqueued++;
         console.log(`[runner] 🏭 Backfill: "${cert.title}" (frozen curriculum)`);
@@ -123,18 +121,15 @@ export async function backfillPipelinePool(
           .single();
 
         if (!currErr && newCurr) {
-          await sb.from("job_queue").insert({
+          await enqueueJob(sb, {
             job_type: "package_curriculum_ingest",
-            status: "pending",
-            attempts: 0,
-            max_attempts: 100,
+            max_attempts: 8,
             payload: {
               curriculum_id: newCurr.id,
               catalog_id: cert.id,
               certification_title: cert.title,
               triggered_by: "pool_backfill",
             },
-            run_after: new Date().toISOString(),
           });
           enqueued++;
           console.log(`[runner] 🏭 Backfill: "${cert.title}" (new curriculum)`);

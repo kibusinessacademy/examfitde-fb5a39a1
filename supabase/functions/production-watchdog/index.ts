@@ -125,7 +125,7 @@ Deno.serve(async (req) => {
         .from("job_queue")
         .select("id", { count: "exact", head: true })
         .in("status", ["pending", "processing"])
-        .eq("payload->>package_id", pkg.id);
+        .eq("package_id", pkg.id);
 
       if ((activeJobs ?? 0) === 0) {
         orphanCount++;
@@ -135,7 +135,7 @@ Deno.serve(async (req) => {
           .from("job_queue")
           .select("id, job_type, attempts, max_attempts")
           .eq("status", "failed")
-          .eq("payload->>package_id", pkg.id)
+          .eq("package_id", pkg.id)
           .lt("attempts", 25);
 
         if (failedJobs && failedJobs.length > 0) {
@@ -274,7 +274,7 @@ Deno.serve(async (req) => {
           .select("id", { count: "exact", head: true })
           .in("status", ["pending", "processing"])
           .eq("job_type", jobType)
-          .filter("payload->>package_id", "eq", step.package_id);
+          .eq("package_id", step.package_id);
 
         if ((activeByType ?? 0) === 0) {
           const { count: failedByType } = await sb
@@ -282,7 +282,7 @@ Deno.serve(async (req) => {
             .select("id", { count: "exact", head: true })
             .eq("status", "failed")
             .eq("job_type", jobType)
-            .filter("payload->>package_id", "eq", step.package_id);
+            .eq("package_id", step.package_id);
 
           if ((failedByType ?? 0) === 0) {
             await sb.rpc("update_course_package_step", {
@@ -355,7 +355,7 @@ Deno.serve(async (req) => {
       const { count: totalJobs } = await sb
         .from("job_queue")
         .select("id", { count: "exact", head: true })
-        .eq("payload->>package_id", pkg.id);
+        .eq("package_id", pkg.id);
 
       if ((totalJobs ?? 0) === 0) {
         // Building status but no jobs ever created — fire-and-forget failed silently
@@ -436,7 +436,7 @@ Deno.serve(async (req) => {
             .select("id")
             .eq("job_type", jobType)
             .eq("status", "pending")
-            .filter("payload->>package_id", "eq", pkg.id)
+            .eq("package_id", pkg.id)
             .lt("created_at", staleAge);
 
           if (stuckFanOut && stuckFanOut.length > 0) {

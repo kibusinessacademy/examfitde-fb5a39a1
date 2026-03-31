@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
+import { enqueueJob } from "../_shared/enqueue.ts";
 
 /**
  * package-repair-exam-pool-quality — Pipeline Repair Step
@@ -211,10 +212,9 @@ Deno.serve(async (req) => {
   // If there are still missing LF gaps, enqueue LF gap filler
   if ((repairResult.missing_lf_coverage as number) > 0) {
     // Enqueue pool-fill-lf-gaps job (already registered)
-    await sb.from("job_queue").insert({
+    await enqueueJob(sb, {
       job_type: "pool_fill_lf_gaps",
       package_id: packageId,
-      status: "queued",
       priority: 25,
       payload: { curriculum_id: cid, triggered_by: "repair_exam_pool_quality" },
     });

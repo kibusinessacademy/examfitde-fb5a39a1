@@ -1882,17 +1882,16 @@ Deno.serve(async (req) => {
           if (poisonIds.length > 0) {
             console.log(`[job-runner] Content gen completed with ${poisonIds.length} poison pills → enqueueing heal job`);
             try {
-              await sb.from("job_queue").insert({
+              await enqueueJob(sb, {
                 job_type: "heal_poison_lessons",
-                status: "pending",
+                package_id: job.payload?.package_id || job.package_id,
+                max_attempts: 2,
                 payload: {
                   package_id: job.payload?.package_id || job.package_id,
                   course_id: job.payload?.course_id,
                   curriculum_id: job.payload?.curriculum_id || job.payload?.certification_id,
                   poison_lesson_ids: poisonIds,
                 },
-                package_id: job.payload?.package_id || job.package_id,
-                max_attempts: 2,
               });
             } catch (healErr) {
               console.warn(`[job-runner] Failed to enqueue heal job:`, healErr);

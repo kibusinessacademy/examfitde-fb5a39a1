@@ -4,6 +4,7 @@ import { resolveProfession } from "../_shared/profession-resolver.ts";
 import { ERROR_TAG_VOCABULARY } from "../_shared/error-tag-vocabulary.ts";
 import { loadMathRatio } from "../_shared/math-ratio.ts";
 import { handleDbFailure } from "../_shared/job-fail.ts";
+import { enqueueJob } from "../_shared/enqueue.ts";
 
 /**
  * pool-rework — Scheduled Batch Job: Incremental Quality Upgrades (PLANNER)
@@ -175,16 +176,15 @@ Deno.serve(async (req) => {
 
       if (deficit > 0) {
         const capped = Math.min(deficit, MAX_CALC_BACKFILL);
-        const { error: jobErr } = await sb.from("job_queue").insert({
-          function_name: "package-generate-exam-pool",
+        const { error: jobErr } = await enqueueJob(sb, {
+          job_type: "package_generate_exam_pool",
+          package_id: pkg.id,
           payload: {
             package_id: pkg.id, curriculum_id: pkg.curriculum_id,
             certification_id: pkg.certification_id,
             rework_mode: "calc_backfill_only", calc_deficit: capped,
           },
-          status: "pending", job_type: "generate_exam_pool",
-          curriculum_id: pkg.curriculum_id, package_id: pkg.id,
-        });
+        }).then(() => ({ error: null })).catch(e => ({ error: e as Error }));
         if (jobErr && !jobErr.message?.includes("duplicate")) {
           console.log(`[pool-rework] Calc backfill enqueue failed: ${jobErr.message}`);
         } else {
@@ -251,16 +251,15 @@ Deno.serve(async (req) => {
 
         report.difficultyRebalance.deleted = totalDeleted;
         if (totalDeleted > 0) {
-          const { error: jobErr } = await sb.from("job_queue").insert({
-            function_name: "package-generate-exam-pool",
+          const { error: jobErr } = await enqueueJob(sb, {
+            job_type: "package_generate_exam_pool",
+            package_id: pkg.id,
             payload: {
               package_id: pkg.id, curriculum_id: pkg.curriculum_id,
               certification_id: pkg.certification_id,
               rework_mode: "difficulty_rebalance", replacement_count: totalDeleted,
             },
-            status: "pending", job_type: "generate_exam_pool",
-            curriculum_id: pkg.curriculum_id, package_id: pkg.id,
-          });
+          }).then(() => ({ error: null })).catch(e => ({ error: e as Error }));
           if (!jobErr || jobErr.message?.includes("duplicate")) report.difficultyRebalance.regenTriggered = true;
           console.log(`[pool-rework] DIFF_REGEN queued: ${totalDeleted} replacements`);
         } else {
@@ -308,16 +307,15 @@ Deno.serve(async (req) => {
         }
         report.qcReplace.deleted = ids.length;
 
-        const { error: jobErr } = await sb.from("job_queue").insert({
-          function_name: "package-generate-exam-pool",
+        const { error: jobErr } = await enqueueJob(sb, {
+          job_type: "package_generate_exam_pool",
+          package_id: pkg.id,
           payload: {
             package_id: pkg.id, curriculum_id: pkg.curriculum_id,
             certification_id: pkg.certification_id,
             rework_mode: "qc_replacement", replacement_count: ids.length, min_needed: ids.length,
           },
-          status: "pending", job_type: "generate_exam_pool",
-          curriculum_id: pkg.curriculum_id, package_id: pkg.id,
-        });
+        }).then(() => ({ error: null })).catch(e => ({ error: e as Error }));
         if (!jobErr || jobErr.message?.includes("duplicate")) report.qcReplace.regenTriggered = true;
         console.log(`[pool-rework] QC_REPLACE: deleted ${ids.length}, regen queued`);
       } else {
@@ -339,19 +337,17 @@ Deno.serve(async (req) => {
         .limit(MAX_TRAP_RETROFIT);
 
       if (untagged && untagged.length > 0) {
-        const { error: jobErr } = await sb.from("job_queue").insert({
-          function_name: "pool-rework-trap-retrofit",
+        const { error: jobErr } = await enqueueJob(sb, {
+          job_type: "rework_trap_retrofit",
+          package_id: pkg.id,
           payload: {
             package_id: pkg.id,
             curriculum_id: pkg.curriculum_id,
             certification_id: pkg.certification_id,
             question_ids: untagged.map((q) => q.id),
             profession_name: professionName,
-            // NO vocabulary in payload — worker imports from SSOT module
           },
-          status: "pending", job_type: "rework_trap_retrofit",
-          curriculum_id: pkg.curriculum_id, package_id: pkg.id,
-        });
+        }).then(() => ({ error: null })).catch(e => ({ error: e as Error }));
         if (jobErr && !jobErr.message?.includes("duplicate")) {
           console.log(`[pool-rework] Trap enqueue failed: ${jobErr.message}`);
         } else {

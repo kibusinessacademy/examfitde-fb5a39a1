@@ -1,0 +1,1 @@
+INSERT INTO public.ops_job_type_registry (job_type) VALUES ('seo_certification_generate'), ('batch_curriculum_pipeline') ON CONFLICT (job_type) DO NOTHING;
