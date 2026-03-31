@@ -565,21 +565,12 @@ async function cancelPackageBuild(sb: SB, packageId: string) {
       .in("id", ids);
   }
 
-  // Guard: archive conflicting packages for the same curriculum before status change
-  const { data: pkg } = await sb.from("course_packages").select("curriculum_id").eq("id", packageId).maybeSingle();
-  if (pkg?.curriculum_id) {
-    await sb.from("course_packages")
-      .update({ status: "archived", updated_at: new Date().toISOString() })
-      .eq("curriculum_id", pkg.curriculum_id)
-      .neq("id", packageId)
-      .in("status", ["planning", "queued", "building", "failed", "published", "draft"]);
-  }
-
-  // Reset package status
-  const { error: pkgErr } = await sb.from("course_packages")
-    .update({ status: "draft", stuck_reason: null, updated_at: new Date().toISOString() })
-    .eq("id", packageId);
-  if (pkgErr) throw pkgErr;
+  // Safe transition to draft (handles unique constraint atomically)
+  await sb.rpc("safe_transition_package_status", {
+    p_package_id: packageId,
+    p_new_status: "draft",
+    p_extra: { stuck_reason: null },
+  });
 
   // Remove locks
   await sb.from("course_package_locks").delete().eq("package_id", packageId);
