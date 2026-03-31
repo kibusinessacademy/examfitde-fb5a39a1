@@ -84,7 +84,7 @@ Deno.serve(async (req) => {
     }).eq("package_id", packageId).eq("step_key", "repair_exam_pool_quality");
 
     return json({
-      status: "skipped",
+      status: "blocked",
       reason: eligibility.reason,
       guard: "repair_eligibility_matrix",
     });
