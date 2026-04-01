@@ -989,6 +989,7 @@ Deno.serve(async (req) => {
     }
 
     // ── Prereq guard (track-aware) ─────────────────────────────────────
+    const currentStepKey = Object.entries(STEP_TO_JOB_TYPE).find(([, jt]) => jt === job.job_type)?.[0];
     const prereqCandidates = PIPELINE_PREREQS[job.job_type];
     if (prereqCandidates && job.payload?.package_id) {
       // Load all steps for this package to find which prereq actually exists
@@ -1008,6 +1009,35 @@ Deno.serve(async (req) => {
         // "skipped" counts as fulfilled — the step was intentionally bypassed by track logic
         // exception_approved also counts as fulfilled — admin override
         if (prereqStatus !== "done" && prereqStatus !== "skipped" && !prereqInfo?.exception_approved) {
+          const prereqJobType = STEP_TO_JOB_TYPE[prereqStep as keyof typeof STEP_TO_JOB_TYPE] ?? null;
+          const staleLikeStatus = prereqStatus === "queued" || prereqStatus === "enqueued";
+          let activePrereqJobCount = 0;
+
+          if (prereqJobType) {
+            const { count } = await sb
+              .from("job_queue")
+              .select("id", { count: "exact", head: true })
+              .eq("job_type", prereqJobType)
+              .eq("package_id", job.payload.package_id)
+              .in("status", ["pending", "queued", "processing"]);
+            activePrereqJobCount = count ?? 0;
+          }
+
+          if (staleLikeStatus && activePrereqJobCount === 0 && currentStepKey) {
+            const currentArtifactCheck = await checkArtifacts(sb, job.payload.package_id, currentStepKey);
+            if (currentArtifactCheck.ready) {
+              console.warn(`[job-runner] Stale prereq bypass: ${job.job_type} continues although ${prereqStep} is '${prereqStatus}' (pkg ${(job.payload.package_id as string).slice(0, 8)}) because current artifacts are already ready`);
+            } else {
+              console.warn(`[job-runner] Stale prereq detected: ${job.job_type} sees ${prereqStep}='${prereqStatus}' with no active producer job (pkg ${(job.payload.package_id as string).slice(0, 8)}) — delegating to artifact resolver`);
+              // Let the artifact resolver below decide whether to requeue or re-enqueue the producer.
+            }
+
+            if (currentArtifactCheck.ready || !currentArtifactCheck.ready) {
+              // Skip hard prereq requeue for stale queued/enqueued states without an active producer job.
+            } else {
+              // unreachable
+            }
+          } else {
           // Adaptive backoff: if prereq is already enqueued/running, wait longer to avoid hot requeue loops
           const prereqDelayMs = (prereqStatus === "enqueued" || prereqStatus === "running")
             ? 90_000
@@ -1024,6 +1054,7 @@ Deno.serve(async (req) => {
           );
           results.push({ id: job.id, status: "requeued", reason: "prereq_not_done" });
           continue;
+          }
         }
       }
 
@@ -1032,9 +1063,8 @@ Deno.serve(async (req) => {
       // This catches data-loss scenarios where step is "done" but data is missing.
       if (job.payload?.package_id) {
         // Reverse-lookup: job_type → step_key
-        const stepKey = Object.entries(STEP_TO_JOB_TYPE).find(([, jt]) => jt === job.job_type)?.[0];
-        if (stepKey) {
-          const artifactCheck = await checkArtifacts(sb, job.payload.package_id, stepKey);
+        if (currentStepKey) {
+          const artifactCheck = await checkArtifacts(sb, job.payload.package_id, currentStepKey);
           if (!artifactCheck.ready) {
             const blockCount = (job.meta?.artifact_block_count ?? 0) as number;
             const missing = artifactCheck.missingArtifact ?? "unknown";
