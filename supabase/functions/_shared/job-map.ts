@@ -419,6 +419,11 @@ export const JOB_DEFINITIONS: Record<string, JobDefinition> = {
   // ── seeding / orchestration ─────────────────────────────────
   seo_certification_generate:        { pool: "core", edgeFunction: "seo-certification-generate" },
   batch_curriculum_pipeline:         { pool: "core", edgeFunction: "batch-curriculum-pipeline" },
+
+  // ── store / billing ─────────────────────────────────────────
+  expire_store_subscriptions:        { pool: "core" },
+  process_lti_grade_passback:        { pool: "core" },
+  reconcile_store_purchases:         { pool: "core", edgeFunction: "reconcile-store-purchases" },
 };
 
 // ── Backward-compatible derived maps (used by existing code) ──
