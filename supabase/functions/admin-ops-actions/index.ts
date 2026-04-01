@@ -1,4 +1,4 @@
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { batchHealAndDispatch } from "../_shared/heal-dispatch.ts";
 import { enqueueJob } from "../_shared/enqueue.ts";
 
