@@ -46,6 +46,10 @@ export default function HealthTab() {
   const [aiDiagnose, setAiDiagnose] = useState<AIDiagnose | null>(null);
   const [disabledCriticalPolicies, setDisabledCriticalPolicies] = useState<string[]>([]);
   const [blockedSheetOpen, setBlockedSheetOpen] = useState(false);
+  const [failedSheetOpen, setFailedSheetOpen] = useState(false);
+  const [stuckSheetOpen, setStuckSheetOpen] = useState(false);
+  const [buildingSheetOpen, setBuildingSheetOpen] = useState(false);
+  const [publishedSheetOpen, setPublishedSheetOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
   const [lastAutoOps, setLastAutoOps] = useState<{ ts: string; failed_retried: number; stuck_recovered: number } | null>(null);
