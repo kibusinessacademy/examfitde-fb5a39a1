@@ -1034,6 +1034,52 @@ async function runRemediation(
     await logRemediation(sb, runId, a);
   }
 
+  // ── SAFE HEAL 8: Orphan Draft Reaper (auto-reject drafts without competency_id) ──
+  if (healableFindings.some(fi => fi.code === "orphan_drafts_detected")) {
+    const ck8 = `orphan_draft_reap:${new Date().toISOString().slice(0, 10)}`;
+    if (await checkCooldown(sb, ck8, 12)) {
+      try {
+        const { data: result } = await sb.rpc("reap_orphan_draft_questions", { p_grace_hours: 2, p_limit: 500 });
+        const count = (result as any)?.rejected_count ?? 0;
+        const a: RemediationAction = { module_key: "orphan_drafts", action_key: "reap_orphan_drafts", status: count > 0 ? "succeeded" : "attempted", cooldown_key: ck8, payload: { rejected: count } };
+        actions.push(a);
+        await logRemediation(sb, runId, a);
+        if (count > 0) healedCodes.add("orphan_drafts_detected");
+      } catch (e) {
+        const a: RemediationAction = { module_key: "orphan_drafts", action_key: "reap_orphan_drafts", status: "failed", cooldown_key: ck8, reason: String(e) };
+        actions.push(a);
+        await logRemediation(sb, runId, a);
+      }
+    } else {
+      const a: RemediationAction = { module_key: "orphan_drafts", action_key: "reap_orphan_drafts", status: "skipped", cooldown_key: ck8, reason: "cooldown active" };
+      actions.push(a);
+      await logRemediation(sb, runId, a);
+    }
+  }
+
+  // ── SAFE HEAL 9: Stale Council Session Reaper (auto-complete pending >4h) ──
+  if (healableFindings.some(fi => fi.code === "stale_council_sessions_detected" || fi.code === "council_churn_loop_detected")) {
+    const ck9 = `council_session_reap:${new Date().toISOString().slice(0, 10)}`;
+    if (await checkCooldown(sb, ck9, 12)) {
+      try {
+        const { data: result } = await sb.rpc("reap_stale_council_sessions", { p_grace_hours: 4, p_limit: 200 });
+        const count = (result as any)?.completed_count ?? 0;
+        const a: RemediationAction = { module_key: "stale_council_sessions", action_key: "reap_stale_sessions", status: count > 0 ? "succeeded" : "attempted", cooldown_key: ck9, payload: { completed: count, packages: (result as any)?.package_count ?? 0 } };
+        actions.push(a);
+        await logRemediation(sb, runId, a);
+        if (count > 0) { healedCodes.add("stale_council_sessions_detected"); healedCodes.add("council_churn_loop_detected"); }
+      } catch (e) {
+        const a: RemediationAction = { module_key: "stale_council_sessions", action_key: "reap_stale_sessions", status: "failed", cooldown_key: ck9, reason: String(e) };
+        actions.push(a);
+        await logRemediation(sb, runId, a);
+      }
+    } else {
+      const a: RemediationAction = { module_key: "stale_council_sessions", action_key: "reap_stale_sessions", status: "skipped", cooldown_key: ck9, reason: "cooldown active" };
+      actions.push(a);
+      await logRemediation(sb, runId, a);
+    }
+  }
+
   return { actions, healedCodes };
 }
 
