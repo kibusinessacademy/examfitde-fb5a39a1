@@ -795,6 +795,65 @@ async function diagTrends(sb: SB): Promise<AuditFinding[]> {
   return findings;
 }
 
+// MODULE 17: ORPHAN DRAFT QUESTIONS (can never promote without competency_id)
+async function diagOrphanDrafts(sb: SB): Promise<AuditFinding[]> {
+  const findings: AuditFinding[] = [];
+  const M = "orphan_drafts";
+
+  const { data: orphans } = await sb.from("ops_orphan_draft_questions" as any)
+    .select("curriculum_id, curriculum_title, orphan_count, oldest_age_hours").limit(50);
+  
+  if (orphans && orphans.length > 0) {
+    const total = (orphans as any[]).reduce((s: number, o: any) => s + (o.orphan_count || 0), 0);
+    findings.push(f(M, total > 50 ? "critical" : "warning", "orphan_drafts_detected",
+      `${total} draft questions without competency_id across ${orphans.length} curricula — can never auto-promote`,
+      { finding_class: "root_cause", actionability: "auto_heal", metric_value: total,
+        payload: (orphans as any[]).slice(0, 10).map((o: any) => ({ curriculum: o.curriculum_title, count: o.orphan_count, age_hours: o.oldest_age_hours })) }));
+  }
+
+  if (findings.length === 0) findings.push(f(M, "info", "orphan_drafts_ok", "No orphan drafts without competency_id"));
+  return findings;
+}
+
+// MODULE 18: STALE COUNCIL SESSIONS (pending >4h blocks pipeline)
+async function diagStaleCouncilSessions(sb: SB): Promise<AuditFinding[]> {
+  const findings: AuditFinding[] = [];
+  const M = "stale_council_sessions";
+
+  const { data: stale } = await sb.from("ops_stale_council_sessions" as any)
+    .select("package_id, package_title, pending_count, oldest_age_hours").limit(50);
+  
+  if (stale && stale.length > 0) {
+    const totalSessions = (stale as any[]).reduce((s: number, o: any) => s + (o.pending_count || 0), 0);
+    findings.push(f(M, totalSessions > 20 ? "critical" : "warning", "stale_council_sessions_detected",
+      `${totalSessions} council sessions stuck in pending across ${stale.length} packages`,
+      { finding_class: "root_cause", actionability: "auto_heal", metric_value: totalSessions,
+        payload: (stale as any[]).slice(0, 10).map((s: any) => ({ package: s.package_title, pending: s.pending_count, age_hours: s.oldest_age_hours })) }));
+  }
+
+  if (findings.length === 0) findings.push(f(M, "info", "council_sessions_ok", "No stale council sessions"));
+  return findings;
+}
+
+// MODULE 19: COUNCIL CHURN LOOPS (pending sessions + non-done quality_council step)
+async function diagCouncilChurnLoops(sb: SB): Promise<AuditFinding[]> {
+  const findings: AuditFinding[] = [];
+  const M = "council_churn_loops";
+
+  const { data: loops } = await sb.from("ops_council_churn_loops" as any)
+    .select("package_id, package_title, package_status, step_status, step_attempts, pending_sessions").limit(50);
+  
+  if (loops && loops.length > 0) {
+    findings.push(f(M, "critical", "council_churn_loop_detected",
+      `${loops.length} packages in council churn loop (pending sessions block step completion)`,
+      { finding_class: "root_cause", actionability: "auto_heal", metric_value: loops.length,
+        payload: (loops as any[]).slice(0, 10).map((l: any) => ({ package: l.package_title, status: l.package_status, step: l.step_status, attempts: l.step_attempts, pending: l.pending_sessions })) }));
+  }
+
+  if (findings.length === 0) findings.push(f(M, "info", "churn_loops_ok", "No council churn loops"));
+  return findings;
+}
+
 // ═══════════════════════════════════════════════════════════════
 // REMEDIATION LAYER — separate, idempotent, cooldown-gated
 // ═══════════════════════════════════════════════════════════════
@@ -975,6 +1034,52 @@ async function runRemediation(
     await logRemediation(sb, runId, a);
   }
 
+  // ── SAFE HEAL 8: Orphan Draft Reaper (auto-reject drafts without competency_id) ──
+  if (healableFindings.some(fi => fi.code === "orphan_drafts_detected")) {
+    const ck8 = `orphan_draft_reap:${new Date().toISOString().slice(0, 10)}`;
+    if (await checkCooldown(sb, ck8, 12)) {
+      try {
+        const { data: result } = await sb.rpc("reap_orphan_draft_questions", { p_grace_hours: 2, p_limit: 500 });
+        const count = (result as any)?.rejected_count ?? 0;
+        const a: RemediationAction = { module_key: "orphan_drafts", action_key: "reap_orphan_drafts", status: count > 0 ? "succeeded" : "attempted", cooldown_key: ck8, payload: { rejected: count } };
+        actions.push(a);
+        await logRemediation(sb, runId, a);
+        if (count > 0) healedCodes.add("orphan_drafts_detected");
+      } catch (e) {
+        const a: RemediationAction = { module_key: "orphan_drafts", action_key: "reap_orphan_drafts", status: "failed", cooldown_key: ck8, reason: String(e) };
+        actions.push(a);
+        await logRemediation(sb, runId, a);
+      }
+    } else {
+      const a: RemediationAction = { module_key: "orphan_drafts", action_key: "reap_orphan_drafts", status: "skipped", cooldown_key: ck8, reason: "cooldown active" };
+      actions.push(a);
+      await logRemediation(sb, runId, a);
+    }
+  }
+
+  // ── SAFE HEAL 9: Stale Council Session Reaper (auto-complete pending >4h) ──
+  if (healableFindings.some(fi => fi.code === "stale_council_sessions_detected" || fi.code === "council_churn_loop_detected")) {
+    const ck9 = `council_session_reap:${new Date().toISOString().slice(0, 10)}`;
+    if (await checkCooldown(sb, ck9, 12)) {
+      try {
+        const { data: result } = await sb.rpc("reap_stale_council_sessions", { p_grace_hours: 4, p_limit: 200 });
+        const count = (result as any)?.completed_count ?? 0;
+        const a: RemediationAction = { module_key: "stale_council_sessions", action_key: "reap_stale_sessions", status: count > 0 ? "succeeded" : "attempted", cooldown_key: ck9, payload: { completed: count, packages: (result as any)?.package_count ?? 0 } };
+        actions.push(a);
+        await logRemediation(sb, runId, a);
+        if (count > 0) { healedCodes.add("stale_council_sessions_detected"); healedCodes.add("council_churn_loop_detected"); }
+      } catch (e) {
+        const a: RemediationAction = { module_key: "stale_council_sessions", action_key: "reap_stale_sessions", status: "failed", cooldown_key: ck9, reason: String(e) };
+        actions.push(a);
+        await logRemediation(sb, runId, a);
+      }
+    } else {
+      const a: RemediationAction = { module_key: "stale_council_sessions", action_key: "reap_stale_sessions", status: "skipped", cooldown_key: ck9, reason: "cooldown active" };
+      actions.push(a);
+      await logRemediation(sb, runId, a);
+    }
+  }
+
   return { actions, healedCodes };
 }
 
@@ -1019,6 +1124,9 @@ Deno.serve(async (req) => {
     { name: "early_warning", fn: () => diagEarlyWarning(sb) },
     { name: "heal_effectiveness", fn: () => diagHealEffectiveness(sb) },
     { name: "trend_analysis", fn: () => diagTrends(sb) },
+    { name: "orphan_drafts", fn: () => diagOrphanDrafts(sb) },
+    { name: "stale_council_sessions", fn: () => diagStaleCouncilSessions(sb) },
+    { name: "council_churn_loops", fn: () => diagCouncilChurnLoops(sb) },
   ];
 
   const DIAG_BATCH_SIZE = 3;
