@@ -297,6 +297,10 @@ export default function HealthTab() {
         <PlatformCard icon={<Activity className="h-4 w-4" />} label="KI-Kosten" value={formatEurAmount(budget.monthSpent)} sublabel={budget.monthBudget > 0 ? `${budgetPct}% von ${formatEurAmount(budget.monthBudget, 0)}` : `heute: ${formatEurAmount(budget.dailyCost)}`} />
       </div>
       <BlockedPackagesSheet open={blockedSheetOpen} onOpenChange={setBlockedSheetOpen} />
+      <FailedJobsSheet open={failedSheetOpen} onOpenChange={setFailedSheetOpen} />
+      <StuckPackagesSheet open={stuckSheetOpen} onOpenChange={setStuckSheetOpen} />
+      <BuildingPackagesSheet open={buildingSheetOpen} onOpenChange={setBuildingSheetOpen} />
+      <PublishedPackagesSheet open={publishedSheetOpen} onOpenChange={setPublishedSheetOpen} />
     </div>
   );
 }
