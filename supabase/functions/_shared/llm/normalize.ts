@@ -52,6 +52,9 @@ export function isTransientLlmError(err: unknown): boolean {
     "ops_guard", "non_building_package",
     "edge function exceeded",
     "deferred", "all candidates on cooldown",
+    // v15: Pipeline prerequisite not met — transient, retry with backoff
+    "prereq_not_done", "prereq not done",
+    "http 409",
   ];
 
   return TRANSIENT_PATTERNS.some(p => msg.includes(p));
