@@ -280,9 +280,17 @@ function InterventionDetail({ intervention, onResolve, isPending }: { interventi
   );
 }
 
-function KpiCard({ label, value, highlight }: { label: string; value: number; highlight?: boolean }) {
+function KpiCard({ label, value, highlight, onClick }: { label: string; value: number; highlight?: boolean; onClick?: () => void }) {
   return (
-    <Card>
+    <Card
+      className={cn(
+        "transition-all",
+        onClick && "cursor-pointer hover:ring-2 hover:ring-primary/30 active:scale-[0.98]"
+      )}
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+    >
       <CardHeader className="pb-2">
         <CardDescription>{label}</CardDescription>
         <CardTitle className={cn("text-3xl", highlight && "text-destructive")}>{value}</CardTitle>

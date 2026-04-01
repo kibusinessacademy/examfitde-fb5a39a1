@@ -55,9 +55,17 @@ function SignalDot({ signal }: { signal: Signal }) {
   return <span className={cn("inline-block h-2.5 w-2.5 rounded-full", signalColor[signal])} />;
 }
 
-function KpiBox({ label, value, sub, signal }: { label: string; value: string | number; sub?: string; signal?: Signal }) {
+function KpiBox({ label, value, sub, signal, onClick }: { label: string; value: string | number; sub?: string; signal?: Signal; onClick?: () => void }) {
   return (
-    <div className="rounded-xl border border-border bg-card p-3">
+    <div
+      className={cn(
+        "rounded-xl border border-border bg-card p-3 transition-all",
+        onClick && "cursor-pointer hover:ring-2 hover:ring-primary/30 active:scale-[0.98]"
+      )}
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+    >
       <div className="flex items-center justify-between">
         <span className="text-xs text-muted-foreground">{label}</span>
         {signal && <SignalDot signal={signal} />}
