@@ -52,6 +52,12 @@ export async function runAdminOpsAction(
   });
 
   if (error) throw error;
+  if (data && typeof data === 'object' && 'ok' in data && data.ok === false) {
+    const message = 'error' in data && typeof data.error === 'string'
+      ? data.error
+      : `Admin action failed: ${action}`;
+    throw new Error(message);
+  }
   return data;
 }
 

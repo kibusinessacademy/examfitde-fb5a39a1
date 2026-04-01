@@ -1,6 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { batchHealAndDispatch } from "../_shared/heal-dispatch.ts";
-import { enqueueJob } from "../_shared/enqueue.ts";
+import { canEnqueueForPackageState, enqueueJob } from "../_shared/enqueue.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -268,11 +268,16 @@ Deno.serve(async (req) => {
         }
 
         // Step 1: Fetch package details (need curriculum_id for jobs)
-        const { data: pkg } = await sb.from("course_packages").select("id, status, curriculum_id, course_id, certification_id").eq("id", pid).maybeSingle();
+        const { data: pkg } = await sb.from("course_packages").select("id, status, curriculum_id, course_id, certification_id, published_at").eq("id", pid).maybeSingle();
         if (!pkg) return json({ error: `Package not found: ${pid}` }, 404);
 
+        const canRunInCurrentState = canEnqueueForPackageState(mapping.jobType, {
+          status: pkg.status,
+          published_at: (pkg as any).published_at,
+        }).ok;
+
         // Step 1b: Transition to building — use recover_and_reenter for blocked/quality_gate_failed
-        if (pkg.status !== "building") {
+        if (pkg.status !== "building" && !canRunInCurrentState) {
           if (pkg.status === "blocked" || pkg.status === "quality_gate_failed") {
             // recover_and_reenter handles guard triggers, resets failed steps, transitions atomically
             const { data: recoverData, error: recoverErr } = await sb.rpc("recover_and_reenter_package", {
@@ -693,8 +698,14 @@ async function retryPackageStep(sb: SB, packageId: string, stepKey: string, body
     .eq("id", packageId).maybeSingle();
   if (!pkg) throw new Error(`Package not found: ${packageId}`);
 
+  const jobType = `package_${stepKey}`;
+  const canRunInCurrentState = canEnqueueForPackageState(jobType, {
+    status: pkg.status,
+    published_at: pkg.published_at,
+  }).ok;
+
   // 1. Transition to building if needed (same logic as repair actions)
-  if (pkg.status !== "building") {
+  if (pkg.status !== "building" && !canRunInCurrentState) {
     if (pkg.status === "blocked" || pkg.status === "quality_gate_failed") {
       const { data: recoverData, error: recoverErr } = await sb.rpc("recover_and_reenter_package", {
         p_package_id: packageId,
@@ -752,7 +763,7 @@ async function retryPackageStep(sb: SB, packageId: string, stepKey: string, body
 
   // 4. Enqueue a new job via SSOT helper
   const enqResult = await enqueueJob(sb, {
-    job_type: `package_${stepKey}`,
+    job_type: jobType,
     package_id: packageId,
     priority: 25,
     payload: {
