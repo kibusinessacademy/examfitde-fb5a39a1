@@ -11,6 +11,7 @@ import { healOrphanProcessing, healEnqueuedDrift, healStatusLag } from "../_shar
 import { detectEscalationLoops, detectSystemFreeze } from "../_shared/stuck-scan-escalation.ts";
 import { checkStuckPackages, checkBuildingOrphans } from "../_shared/stuck-scan-packages.ts";
 import { runHygiene, healLeaseNoProgress, sweepPoolMismatches, reviveTransientFailed, healTrueStalls, healLearningContentDeadlocks, healLoopGuardFalsePositives, healIntegrityReportMissing, healTrueStallSteps, reapZombieProcessingJobsV2, reapAncientPendingJobs, healFalseLivenessPackages, healValidateExamPoolLoop } from "../_shared/stuck-scan-hygiene.ts";
+import { detectAndMitigateHotLoops } from "../_shared/stuck-scan-hot-loop.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -201,7 +202,10 @@ Deno.serve(async (req) => {
     // ══ 8) Validate Exam Pool Loop → Repair Dispatch ══
     const examPoolLoopRepaired = await healValidateExamPoolLoop(sb);
 
-    console.log(`[stuck-scan] ${results.length} timeout-checked, ${orphanResults.length} orphan-checked, ${buildingPkgResults.length} building-pkg-checked, ${statusLagResults.length} status-lag-healed, ${staleCount} stale jobs killed (liveness guard), ${zombieResults.length} zombie steps fixed, ${escalationResults.length} escalation loops handled, ${revivedCount} transient-failed revived, ${leaseNoProgressHealed} lease-no-progress healed, ${trueStallsHealed.length} true-stalls healed, ${deadlockHealed.length} deadlocks healed, ${loopGuardFalsePositives.length} loop-guard-false-positives healed, ${integrityReportMissing} integrity-report-missing healed, ${trueStallStepsHealed.length} true-stall-steps healed, ${zombieReaperV2Count} zombie-v2 reaped, ${ancientPendingCount} ancient-pending reaped, ${falseLivenessHealed.length} false-liveness healed, ${examPoolLoopRepaired} exam-pool-loops repaired${systemFrozen ? ", ⚫ SYSTEM FREEZE DETECTED" : ""}${poolMismatchFixed > 0 ? `, 🔧 ${poolMismatchFixed} pool mismatches fixed` : ""}`);
+    // ══ 9) Hot-Loop Detection & Auto-Mitigation ══
+    const hotLoopResults = await detectAndMitigateHotLoops(sb);
+
+    console.log(`[stuck-scan] ${results.length} timeout-checked, ${orphanResults.length} orphan-checked, ${buildingPkgResults.length} building-pkg-checked, ${statusLagResults.length} status-lag-healed, ${staleCount} stale jobs killed (liveness guard), ${zombieResults.length} zombie steps fixed, ${escalationResults.length} escalation loops handled, ${revivedCount} transient-failed revived, ${leaseNoProgressHealed} lease-no-progress healed, ${trueStallsHealed.length} true-stalls healed, ${deadlockHealed.length} deadlocks healed, ${loopGuardFalsePositives.length} loop-guard-false-positives healed, ${integrityReportMissing} integrity-report-missing healed, ${trueStallStepsHealed.length} true-stall-steps healed, ${zombieReaperV2Count} zombie-v2 reaped, ${ancientPendingCount} ancient-pending reaped, ${falseLivenessHealed.length} false-liveness healed, ${examPoolLoopRepaired} exam-pool-loops repaired, ${hotLoopResults.length} hot-loops mitigated${systemFrozen ? ", ⚫ SYSTEM FREEZE DETECTED" : ""}${poolMismatchFixed > 0 ? `, 🔧 ${poolMismatchFixed} pool mismatches fixed` : ""}`);
 
     return json({
       ok: true,
@@ -229,6 +233,7 @@ Deno.serve(async (req) => {
       ancient_pending_reaped: ancientPendingCount,
       false_liveness_healed: falseLivenessHealed,
       exam_pool_loop_repaired: examPoolLoopRepaired,
+      hot_loops_mitigated: hotLoopResults,
     });
   } catch (e: unknown) {
     const msg = (e as Error)?.message || String(e);
