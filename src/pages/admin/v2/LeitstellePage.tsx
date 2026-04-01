@@ -4,9 +4,10 @@ import { useAdminQueueSSOT } from '@/hooks/useAdminQueueSSOT';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Link } from 'react-router-dom';
+import { BuildPackageCard, type BuildPackageCardBadge } from '@/components/admin/command/BuildPackageCard';
 import {
   Activity, AlertTriangle, CheckCircle2, XCircle, Clock,
-  Package, Zap, Shield, ArrowRight, Cpu, ListChecks, TrendingDown,
+  Package, Zap, Shield, Cpu, ListChecks, TrendingDown,
   DollarSign, Users, HeadphonesIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -63,9 +64,8 @@ function KpiTile({ label, value, icon, tone = 'neutral', onClick }: {
   );
 }
 
-function CriticalPackageCard({ pkg }: { pkg: AdminPackageSSOT }) {
-  const title = pkg.canonical_title || pkg.raw_title || 'Unbenannt';
-  const warnings: { label: string; tone: 'red' | 'yellow' }[] = [];
+function getBuildPackageWarnings(pkg: AdminPackageSSOT): BuildPackageCardBadge[] {
+  const warnings: BuildPackageCardBadge[] = [];
   if (pkg.is_stuck) warnings.push({ label: 'Festgefahren', tone: 'red' });
   if (pkg.has_stale_publish) warnings.push({ label: 'Stale Publish', tone: 'yellow' });
   if (pkg.has_publish_drift) warnings.push({ label: 'Publish Drift', tone: 'red' });
@@ -74,36 +74,7 @@ function CriticalPackageCard({ pkg }: { pkg: AdminPackageSSOT }) {
   if (pkg.council_complete && !pkg.council_approved) warnings.push({ label: 'Council fertig, nicht approved', tone: 'yellow' });
   if (pkg.blocked_reason) warnings.push({ label: 'Blockiert', tone: 'red' });
 
-  return (
-    <Link
-      to={`/admin/studio/${pkg.package_id}`}
-      className="block rounded-xl border border-border bg-card p-3 hover:bg-muted/50 transition-colors"
-    >
-      <div className="flex items-start justify-between gap-2 mb-2">
-        <div className="min-w-0 flex-1">
-          <div className="text-sm font-semibold text-foreground truncate">{title}</div>
-          <div className="text-[10px] text-muted-foreground font-mono mt-0.5">
-            {pkg.package_id.slice(0, 8)} · {pkg.status}
-          </div>
-        </div>
-        <ArrowRight className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-1" />
-      </div>
-      <div className="flex flex-wrap gap-1">
-        {warnings.map((w, i) => (
-          <Badge
-            key={i}
-            variant="outline"
-            className={cn(
-              "text-[9px] px-1.5 py-0 h-4",
-              w.tone === 'red' ? 'border-destructive/40 text-destructive bg-destructive/5' : 'border-warning/40 text-warning bg-warning/5'
-            )}
-          >
-            {w.label}
-          </Badge>
-        ))}
-      </div>
-    </Link>
-  );
+  return warnings;
 }
 
 export default function LeitstellePage() {
@@ -296,9 +267,19 @@ export default function LeitstellePage() {
             <AlertTriangle className="h-4 w-4 text-destructive" /> Kritische Pakete
           </h2>
           <div className="grid gap-2 sm:grid-cols-2">
-            {criticalPackages.map(pkg => (
-              <CriticalPackageCard key={pkg.package_id} pkg={pkg} />
-            ))}
+            {criticalPackages.map((pkg) => {
+              const title = pkg.canonical_title || pkg.raw_title || 'Unbenannt';
+
+              return (
+                <BuildPackageCard
+                  key={pkg.package_id}
+                  packageId={pkg.package_id}
+                  title={title}
+                  status={pkg.status}
+                  badges={getBuildPackageWarnings(pkg)}
+                />
+              );
+            })}
           </div>
         </div>
       )}
