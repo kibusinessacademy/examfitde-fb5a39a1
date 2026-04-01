@@ -299,11 +299,20 @@ function StatBox({ label, value, alert: isAlert }: { label: string; value: any; 
   );
 }
 
-export function KPICard({ icon, label, value, sublabel, accent, alert: isAlert }: {
-  icon: React.ReactNode; label: string; value: any; sublabel?: string; accent?: string; alert?: boolean;
+export function KPICard({ icon, label, value, sublabel, accent, alert: isAlert, onClick }: {
+  icon: React.ReactNode; label: string; value: any; sublabel?: string; accent?: string; alert?: boolean; onClick?: () => void;
 }) {
   return (
-    <Card className={cn("transition-colors", isAlert ? "border-destructive/40 bg-destructive/5" : accent || "")}>
+    <Card
+      className={cn(
+        "transition-colors",
+        isAlert ? "border-destructive/40 bg-destructive/5" : accent || "",
+        onClick && "cursor-pointer hover:ring-2 hover:ring-primary/30 active:scale-[0.98]"
+      )}
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+    >
       <CardContent className="pt-3 pb-2.5 lg:pt-4 lg:pb-3 px-3 lg:px-6">
         <div className="flex items-center gap-1.5 mb-1">{icon}<span className="text-[10px] lg:text-xs text-muted-foreground uppercase tracking-wider truncate">{label}</span></div>
         <p className={cn("text-lg lg:text-xl font-bold", isAlert && "text-destructive")}>{value}</p>
