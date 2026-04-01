@@ -13,6 +13,10 @@ import {
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { BlockedPackagesSheet } from '@/components/admin/command/BlockedPackagesSheet';
+import { FailedJobsSheet } from '@/components/admin/command/FailedJobsSheet';
+import { StuckPackagesSheet } from '@/components/admin/command/StuckPackagesSheet';
+import { BuildingPackagesSheet } from '@/components/admin/command/BuildingPackagesSheet';
+import { PublishedPackagesSheet } from '@/components/admin/command/PublishedPackagesSheet';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { PackageInfo, QueueHealth, BudgetInfo, AIDiagnose, PlatformKPIs } from './types';
 import { ProductGroup } from './ProductGroup';
@@ -42,6 +46,10 @@ export default function HealthTab() {
   const [aiDiagnose, setAiDiagnose] = useState<AIDiagnose | null>(null);
   const [disabledCriticalPolicies, setDisabledCriticalPolicies] = useState<string[]>([]);
   const [blockedSheetOpen, setBlockedSheetOpen] = useState(false);
+  const [failedSheetOpen, setFailedSheetOpen] = useState(false);
+  const [stuckSheetOpen, setStuckSheetOpen] = useState(false);
+  const [buildingSheetOpen, setBuildingSheetOpen] = useState(false);
+  const [publishedSheetOpen, setPublishedSheetOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
   const [lastAutoOps, setLastAutoOps] = useState<{ ts: string; failed_retried: number; stuck_recovered: number } | null>(null);
@@ -182,21 +190,21 @@ export default function HealthTab() {
       )}
       {/* Job Queue */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-        <KPICard icon={<Clock className="h-4 w-4 text-muted-foreground" />} label="Pending" value={queue.pending} />
-        <KPICard icon={<Loader2 className="h-4 w-4 text-primary animate-spin" />} label="Processing" value={queue.processing} />
-        <KPICard icon={<XCircle className="h-4 w-4 text-destructive" />} label="Failed" value={queue.failed} alert={queue.failed > 0} sublabel={queue.failed > 0 ? 'Auto-Retry alle 5 Min.' : undefined} />
-        <KPICard icon={<AlertTriangle className="h-4 w-4 text-amber-500" />} label="Stuck (>10m)" value={queue.stuck} alert={queue.stuck > 0} sublabel={queue.stuck > 0 ? 'Auto-Recovery aktiv' : undefined} />
+        <KPICard icon={<Clock className="h-4 w-4 text-muted-foreground" />} label="Pending" value={queue.pending} onClick={() => setFailedSheetOpen(true)} />
+        <KPICard icon={<Loader2 className="h-4 w-4 text-primary animate-spin" />} label="Processing" value={queue.processing} onClick={() => setBuildingSheetOpen(true)} />
+        <KPICard icon={<XCircle className="h-4 w-4 text-destructive" />} label="Failed" value={queue.failed} alert={queue.failed > 0} sublabel={queue.failed > 0 ? 'Auto-Retry alle 5 Min.' : undefined} onClick={() => setFailedSheetOpen(true)} />
+        <KPICard icon={<AlertTriangle className="h-4 w-4 text-amber-500" />} label="Stuck (>10m)" value={queue.stuck} alert={queue.stuck > 0} sublabel={queue.stuck > 0 ? 'Auto-Recovery aktiv' : undefined} onClick={() => setStuckSheetOpen(true)} />
       </div>
 
       {/* Product KPIs + Budget */}
       {analysis && (
         <div className="grid grid-cols-3 lg:grid-cols-7 gap-2">
-          <KPICard icon={<CheckCircle2 className="h-4 w-4 text-emerald-500" />} label="Fertig" value={`${analysis.published}/${analysis.total}`} accent="border-emerald-500/20" />
-          <KPICard icon={<Loader2 className="h-4 w-4 text-primary animate-spin" />} label="Produktion" value={analysis.building} accent="border-primary/20" />
+          <KPICard icon={<CheckCircle2 className="h-4 w-4 text-emerald-500" />} label="Fertig" value={`${analysis.published}/${analysis.total}`} accent="border-emerald-500/20" onClick={() => setPublishedSheetOpen(true)} />
+          <KPICard icon={<Loader2 className="h-4 w-4 text-primary animate-spin" />} label="Produktion" value={analysis.building} accent="border-primary/20" onClick={() => setBuildingSheetOpen(true)} />
           <KPICard icon={<Clock className="h-4 w-4 text-muted-foreground" />} label="Queue" value={analysis.queued} />
           <KPICard icon={<Snowflake className="h-4 w-4 text-sky-500" />} label="Frozen" value={analysis.frozen} accent="border-sky-500/20" />
           <KPICard icon={<Pause className="h-4 w-4 text-amber-500" />} label="Blockiert" value={analysis.blocked} alert={analysis.blocked > 0} onClick={() => setBlockedSheetOpen(true)} />
-          <KPICard icon={<XCircle className="h-4 w-4 text-destructive" />} label="Fehler" value={analysis.failed} alert={analysis.failed > 0} />
+          <KPICard icon={<XCircle className="h-4 w-4 text-destructive" />} label="Fehler" value={analysis.failed} alert={analysis.failed > 0} onClick={() => setFailedSheetOpen(true)} />
           <KPICard icon={<TrendingUp className="h-4 w-4 text-primary" />} label="Prognose" value={`~${analysis.estimatedDays}d`} sublabel={analysis.estimatedDate.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })} />
         </div>
       )}
@@ -289,13 +297,26 @@ export default function HealthTab() {
         <PlatformCard icon={<Activity className="h-4 w-4" />} label="KI-Kosten" value={formatEurAmount(budget.monthSpent)} sublabel={budget.monthBudget > 0 ? `${budgetPct}% von ${formatEurAmount(budget.monthBudget, 0)}` : `heute: ${formatEurAmount(budget.dailyCost)}`} />
       </div>
       <BlockedPackagesSheet open={blockedSheetOpen} onOpenChange={setBlockedSheetOpen} />
+      <FailedJobsSheet open={failedSheetOpen} onOpenChange={setFailedSheetOpen} />
+      <StuckPackagesSheet open={stuckSheetOpen} onOpenChange={setStuckSheetOpen} />
+      <BuildingPackagesSheet open={buildingSheetOpen} onOpenChange={setBuildingSheetOpen} />
+      <PublishedPackagesSheet open={publishedSheetOpen} onOpenChange={setPublishedSheetOpen} />
     </div>
   );
 }
 
-function StatBox({ label, value, alert: isAlert }: { label: string; value: any; alert?: boolean }) {
+function StatBox({ label, value, alert: isAlert, onClick }: { label: string; value: any; alert?: boolean; onClick?: () => void }) {
   return (
-    <div className={cn("rounded-md border px-2.5 py-1.5", isAlert && "border-destructive/30 bg-destructive/5")}>
+    <div
+      className={cn(
+        "rounded-md border px-2.5 py-1.5 transition-all",
+        isAlert && "border-destructive/30 bg-destructive/5",
+        onClick && "cursor-pointer hover:ring-2 hover:ring-primary/30 active:scale-[0.98]"
+      )}
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+    >
       <p className="text-[10px] text-muted-foreground">{label}</p>
       <p className={cn("font-bold text-sm", isAlert && "text-destructive")}>{value}</p>
     </div>
@@ -325,11 +346,20 @@ export function KPICard({ icon, label, value, sublabel, accent, alert: isAlert, 
   );
 }
 
-function PlatformCard({ icon, label, value, sublabel, alert: isAlert }: {
-  icon: React.ReactNode; label: string; value: any; sublabel?: string; alert?: boolean;
+function PlatformCard({ icon, label, value, sublabel, alert: isAlert, onClick }: {
+  icon: React.ReactNode; label: string; value: any; sublabel?: string; alert?: boolean; onClick?: () => void;
 }) {
   return (
-    <Card className={cn("hover:shadow-md transition-all", isAlert && "border-amber-500/30")}>
+    <Card
+      className={cn(
+        "hover:shadow-md transition-all",
+        isAlert && "border-amber-500/30",
+        onClick && "cursor-pointer hover:ring-2 hover:ring-primary/30 active:scale-[0.98]"
+      )}
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+    >
       <CardContent className="pt-3 pb-2.5 lg:pt-4 lg:pb-3 px-3 lg:px-6">
         <div className="flex items-center gap-1.5 mb-1 text-muted-foreground">{icon}<span className="text-[10px] lg:text-xs truncate">{label}</span></div>
         <p className="text-base lg:text-lg font-bold">{value}</p>

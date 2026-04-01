@@ -9,11 +9,21 @@ interface KpiCardProps {
   icon?: LucideIcon;
   className?: string;
   valueClassName?: string;
+  onClick?: () => void;
 }
 
-export default function KpiCard({ title, value, subtitle, icon: Icon, className, valueClassName }: KpiCardProps) {
+export default function KpiCard({ title, value, subtitle, icon: Icon, className, valueClassName, onClick }: KpiCardProps) {
   return (
-    <Card className={cn("border border-border/60", className)}>
+    <Card
+      className={cn(
+        "border border-border/60 transition-all",
+        onClick && "cursor-pointer hover:ring-2 hover:ring-primary/30 active:scale-[0.98]",
+        className
+      )}
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+    >
       <CardContent className="p-4 flex items-start gap-3">
         {Icon && (
           <div className="shrink-0 rounded-lg bg-primary/10 p-2.5">
