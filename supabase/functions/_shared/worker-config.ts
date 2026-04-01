@@ -47,16 +47,16 @@ export function getRunnerConfig(kind: RunnerKind): RunnerConfig {
 export type TrackKey = "AUSBILDUNG_VOLL" | "EXAM_FIRST";
 
 /** Hard ceiling across all tracks — must match ops_pipeline_config.wip_limit */
-export const WIP_TOTAL_CAP = 25;
+export const WIP_TOTAL_CAP = 7;
 
 /**
  * WIP quota per track: max packages in "building" status simultaneously.
  * Env-overridable via WIP_QUOTA_AUSBILDUNG_VOLL / WIP_QUOTA_EXAM_FIRST.
- * Phase D: scaled to 25 total cap.
+ * Phase E: Finish-First — focus on 5-7 packages nearest completion.
  */
 export const WIP_QUOTA_DEFAULTS: Record<TrackKey, number> = {
-  AUSBILDUNG_VOLL: 20,
-  EXAM_FIRST: 5,
+  AUSBILDUNG_VOLL: 5,
+  EXAM_FIRST: 2,
 };
 
 export function getTrackQuota(track: TrackKey): number {
