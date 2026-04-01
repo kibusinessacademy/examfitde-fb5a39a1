@@ -79,7 +79,7 @@ export async function enqueueJob(
     // HARDENED: Allow council_review + quality_gate_failed for council jobs
     // HARDENED: Allow blocked for repair jobs (exam rebalance etc.)
     const COUNCIL_JOB_TYPES = new Set(["package_quality_council"]);
-    const REPAIR_JOB_TYPES = new Set(["package_exam_rebalance", "pool_fill_bloom_gaps", "pool_fill_lf_gaps", "package_repair_exam_pool_quality", "package_generate_lesson_minichecks", "package_validate_lesson_minichecks", "package_generate_oral_exam", "package_generate_handbook"]);
+    const REPAIR_JOB_TYPES = new Set(["package_exam_rebalance", "pool_fill_bloom_gaps", "pool_fill_lf_gaps", "package_repair_exam_pool_quality", "package_generate_lesson_minichecks", "package_validate_lesson_minichecks", "package_validate_exam_pool", "package_generate_oral_exam", "package_generate_handbook", "package_run_integrity_check"]);
     const allowedStatuses = COUNCIL_JOB_TYPES.has(opts.job_type)
       ? new Set(["building", "council_review", "quality_gate_failed"])
       : REPAIR_JOB_TYPES.has(opts.job_type)

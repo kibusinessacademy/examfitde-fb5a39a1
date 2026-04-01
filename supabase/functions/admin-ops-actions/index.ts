@@ -687,14 +687,56 @@ async function recoverFailedPackages(sb: SB, body: JsonRow) {
 
 /* ── retry_package_step ── */
 async function retryPackageStep(sb: SB, packageId: string, stepKey: string, body: JsonRow) {
-  // Read existing meta to preserve contract keys (guard_state, stall_reason_code, etc.)
+  // 0. Fetch package context (need status + curriculum_id for transition + job payload)
+  const { data: pkg } = await sb.from("course_packages")
+    .select("id, status, course_id, curriculum_id, certification_id, published_at")
+    .eq("id", packageId).maybeSingle();
+  if (!pkg) throw new Error(`Package not found: ${packageId}`);
+
+  // 1. Transition to building if needed (same logic as repair actions)
+  if (pkg.status !== "building") {
+    if (pkg.status === "blocked" || pkg.status === "quality_gate_failed") {
+      const { data: recoverData, error: recoverErr } = await sb.rpc("recover_and_reenter_package", {
+        p_package_id: packageId,
+        p_reason: `Admin retry step: ${stepKey}`,
+        p_trigger_source: "admin_ops",
+      });
+      if (recoverErr) throw new Error(`Recovery failed: ${recoverErr.message}`);
+      const rd = recoverData as any;
+      if (rd && !rd.ok) throw new Error(`Recovery rejected: ${rd.reason || rd.error || "unknown"}`);
+      console.log(`[admin-ops] recover_and_reenter for retry ${packageId.slice(0, 8)}: status=${rd?.final_status}`);
+    } else if (pkg.status === "done" || pkg.status === "published") {
+      // For done/published packages, direct update (safe_transition may block these)
+      const { error: transErr } = await sb.from("course_packages").update({
+        status: "building",
+        blocked_reason: null,
+        stuck_reason: null,
+        updated_at: new Date().toISOString(),
+      }).eq("id", packageId);
+      if (transErr) throw new Error(`Status transition failed: ${transErr.message}`);
+    } else {
+      const { error: transErr } = await sb.rpc("safe_transition_package_status", {
+        p_package_id: packageId,
+        p_new_status: "building",
+        p_extra: { stuck_reason: null },
+      });
+      if (transErr) throw new Error(`Status transition failed: ${transErr.message}`);
+    }
+
+    // Verify the transition
+    const { data: verify } = await sb.from("course_packages").select("status").eq("id", packageId).maybeSingle();
+    if (verify && verify.status !== "building") {
+      throw new Error(`Status transition to building failed: package is still '${verify.status}'`);
+    }
+  }
+
+  // 2. Read existing meta to preserve contract keys (guard_state, stall_reason_code, etc.)
   const { data: existingStep } = await sb.from("package_steps")
     .select("meta")
     .eq("package_id", packageId).eq("step_key", stepKey)
     .maybeSingle();
 
   const oldMeta = (existingStep as any)?.meta ?? {};
-  // Preserve meta contract keys, clear transient state
   const preservedMeta = {
     ...(oldMeta.guard_state ? { guard_state: oldMeta.guard_state } : {}),
     ...(oldMeta.stall_reason_code ? { stall_reason_code: oldMeta.stall_reason_code } : {}),
@@ -702,18 +744,13 @@ async function retryPackageStep(sb: SB, packageId: string, stepKey: string, body
     retried_at: new Date().toISOString(),
   };
 
-  // Reset the step (preserve meta contract)
+  // 3. Reset the step (preserve meta contract)
   const { error: stepErr } = await sb.from("package_steps")
     .update({ status: "queued", last_error: null, meta: preservedMeta, started_at: null, finished_at: null, attempts: 0, updated_at: new Date().toISOString() })
     .eq("package_id", packageId).eq("step_key", stepKey);
   if (stepErr) throw stepErr;
 
-  // Fetch package context for job payload
-  const { data: pkg } = await sb.from("course_packages")
-    .select("course_id, curriculum_id, certification_id")
-    .eq("id", packageId).single();
-
-  // Enqueue a new job via SSOT helper (ensures worker_pool + idempotency)
+  // 4. Enqueue a new job via SSOT helper
   const enqResult = await enqueueJob(sb, {
     job_type: `package_${stepKey}`,
     package_id: packageId,
@@ -728,7 +765,7 @@ async function retryPackageStep(sb: SB, packageId: string, stepKey: string, body
     },
   });
 
-  return { ok: true, step_key: stepKey, scope: "single_step" };
+  return { ok: true, step_key: stepKey, job_id: enqResult.id, scope: "single_step" };
 }
 
 /* ── cancel_package_build ── */
