@@ -3,7 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { assertSchemaReady } from "../_shared/schema-gate.ts";
 import { PIPELINE_GRAPH, validatePipelineGraph, STEP_TO_JOB_TYPE, ARTIFACT_IMPACT, getArtifactPriorityBump, poolForJobType, JOB_DEFINITIONS } from "../_shared/job-map.ts";
 import { checkArtifacts } from "../_shared/artifact-resolver.ts";
-import { enqueueJob } from "../_shared/enqueue.ts";
+import { enqueueJob, allowedPackageStatusesForJobType } from "../_shared/enqueue.ts";
 import { isRepairActionEligible } from "../_shared/repair-eligibility.ts";
 import { verifyArtifact, buildVerifyAuditMeta } from "../_shared/artifact-verifier.ts";
 
@@ -543,15 +543,14 @@ Deno.serve(async (req) => {
         packageStateCache.set(jobPackageId, pkgState);
       }
 
-      // HARDENED: Allow council_review + quality_gate_failed for quality_council jobs
-      // HARDENED: Allow blocked + quality_gate_failed for integrity_check (recovery diagnostics)
-      const COUNCIL_ALLOWED_STATUSES = new Set(["building", "council_review", "quality_gate_failed"]);
-      const INTEGRITY_ALLOWED_STATUSES = new Set(["building", "blocked", "quality_gate_failed", "council_review"]);
-      const isCouncilJob = job.job_type === "package_quality_council";
-      const isIntegrityJob = job.job_type === "package_run_integrity_check";
-      const allowedStatuses = isCouncilJob ? COUNCIL_ALLOWED_STATUSES
-        : isIntegrityJob ? INTEGRITY_ALLOWED_STATUSES
-        : new Set(["building"]);
+      // SSOT: keep runner executability aligned with shared enqueue/admin-op rules.
+      // Preserve council_review for integrity recovery during council-loop remediation.
+      const allowedStatuses = job.job_type === "package_run_integrity_check"
+        ? new Set([...
+          allowedPackageStatusesForJobType(job.job_type),
+          "council_review",
+        ])
+        : allowedPackageStatusesForJobType(job.job_type);
       const notExecutable = !!pkgState.published_at || !allowedStatuses.has(pkgState.status ?? "");
       if (notExecutable) {
         const reason = `OPS_GUARD:PACKAGE_NOT_EXECUTABLE status=${pkgState.status ?? "missing"} published_at=${pkgState.published_at ? "set" : "null"}`;

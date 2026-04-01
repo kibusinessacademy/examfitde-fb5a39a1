@@ -275,9 +275,10 @@ Deno.serve(async (req) => {
           status: pkg.status,
           published_at: (pkg as any).published_at,
         }).ok;
+        const forceBuildingForManualDispatch = action === "repair_exam_pool_quality";
 
         // Step 1b: Transition to building — use recover_and_reenter for blocked/quality_gate_failed
-        if (pkg.status !== "building" && !canRunInCurrentState) {
+        if (pkg.status !== "building" && (!canRunInCurrentState || forceBuildingForManualDispatch)) {
           if (pkg.status === "blocked" || pkg.status === "quality_gate_failed") {
             // recover_and_reenter handles guard triggers, resets failed steps, transitions atomically
             const { data: recoverData, error: recoverErr } = await sb.rpc("recover_and_reenter_package", {
@@ -327,6 +328,7 @@ Deno.serve(async (req) => {
                 curriculum_id: (pkg as any)?.curriculum_id || null,
                 certification_id: (pkg as any)?.certification_id || null,
                 source: "admin_retry_stalled_step",
+                triggered_by: "admin_ops",
               },
             });
             result = { ok: true, action, step_reset: mapping.stepKey, job_enqueued: enqResult.status !== "duplicate", job_id: enqResult.id, package_id: pid };
@@ -342,7 +344,13 @@ Deno.serve(async (req) => {
             job_type: mapping.jobType,
             package_id: pid,
             priority: 25,
-            payload: { package_id: pid, curriculum_id: pkg.curriculum_id, source: "admin_manual_repair", repair_action: action },
+            payload: {
+              package_id: pid,
+              curriculum_id: pkg.curriculum_id,
+              source: "admin_manual_repair",
+              repair_action: action,
+              triggered_by: "admin_ops",
+            },
           });
           result = { ok: true, action, job_enqueued: enqResult.status !== "duplicate", job_id: enqResult.id, package_id: pid };
         } catch (enqErr: any) {
@@ -703,9 +711,10 @@ async function retryPackageStep(sb: SB, packageId: string, stepKey: string, body
     status: pkg.status,
     published_at: pkg.published_at,
   }).ok;
+  const forceBuildingForManualRetry = stepKey === "validate_exam_pool";
 
   // 1. Transition to building if needed (same logic as repair actions)
-  if (pkg.status !== "building" && !canRunInCurrentState) {
+  if (pkg.status !== "building" && (!canRunInCurrentState || forceBuildingForManualRetry)) {
     if (pkg.status === "blocked" || pkg.status === "quality_gate_failed") {
       const { data: recoverData, error: recoverErr } = await sb.rpc("recover_and_reenter_package", {
         p_package_id: packageId,
@@ -773,6 +782,8 @@ async function retryPackageStep(sb: SB, packageId: string, stepKey: string, body
       course_id: (pkg as any)?.course_id || null,
       curriculum_id: (pkg as any)?.curriculum_id || null,
       certification_id: (pkg as any)?.certification_id || null,
+      source: "admin_retry_package_step",
+      triggered_by: "admin_ops",
     },
   });
 
