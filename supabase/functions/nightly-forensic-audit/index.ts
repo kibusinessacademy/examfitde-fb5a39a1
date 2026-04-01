@@ -1078,6 +1078,9 @@ Deno.serve(async (req) => {
     { name: "early_warning", fn: () => diagEarlyWarning(sb) },
     { name: "heal_effectiveness", fn: () => diagHealEffectiveness(sb) },
     { name: "trend_analysis", fn: () => diagTrends(sb) },
+    { name: "orphan_drafts", fn: () => diagOrphanDrafts(sb) },
+    { name: "stale_council_sessions", fn: () => diagStaleCouncilSessions(sb) },
+    { name: "council_churn_loops", fn: () => diagCouncilChurnLoops(sb) },
   ];
 
   const DIAG_BATCH_SIZE = 3;
