@@ -51,6 +51,21 @@ async function auditLog(
   } catch (_e) { /* best-effort */ }
 }
 
+async function findActivePackageJob(sb: SB, packageId: string, jobType: string) {
+  const { data, error } = await sb
+    .from("job_queue")
+    .select("id, status")
+    .eq("package_id", packageId)
+    .eq("job_type", jobType)
+    .in("status", ["pending", "queued", "processing"])
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data as { id: string; status: string } | null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
@@ -271,11 +286,26 @@ Deno.serve(async (req) => {
         const { data: pkg } = await sb.from("course_packages").select("id, status, curriculum_id, course_id, certification_id, published_at").eq("id", pid).maybeSingle();
         if (!pkg) return json({ error: `Package not found: ${pid}` }, 404);
 
+        const activeJob = await findActivePackageJob(sb, pid, mapping.jobType);
+        if (activeJob) {
+          console.log(`[admin-ops] dedup manual ${action} for ${pid.slice(0, 8)} — active ${mapping.jobType} job ${activeJob.id} (${activeJob.status})`);
+          result = {
+            ok: true,
+            action,
+            job_enqueued: false,
+            already_active: true,
+            job_id: activeJob.id,
+            job_status: activeJob.status,
+            package_id: pid,
+          };
+          break;
+        }
+
         const canRunInCurrentState = canEnqueueForPackageState(mapping.jobType, {
           status: pkg.status,
           published_at: (pkg as any).published_at,
         }).ok;
-        const forceBuildingForManualDispatch = true; // All manual repair actions should transition to building
+        const forceBuildingForManualDispatch = !canRunInCurrentState;
 
         // Step 1b: Transition to building — use recover_and_reenter for blocked/quality_gate_failed
         if (pkg.status !== "building" && (!canRunInCurrentState || forceBuildingForManualDispatch)) {
@@ -362,9 +392,19 @@ Deno.serve(async (req) => {
           await sb.from("auto_heal_log").insert({
             action_type: action,
             target_id: pid,
-            result_status: "applied",
-            result_detail: `Admin manual repair: ${action} for ${pid}`,
-            metadata: { triggered_by: user.id, action },
+            result_status: result && result.ok === false
+              ? "failed"
+              : ((result as any)?.already_active ? "deduped" : "applied"),
+            result_detail: (result as any)?.already_active
+              ? `Admin manual repair deduped: ${action} for ${pid}`
+              : `Admin manual repair: ${action} for ${pid}`,
+            metadata: {
+              triggered_by: user.id,
+              action,
+              ...(result as any)?.already_active
+                ? { active_job_id: (result as any)?.job_id, active_job_status: (result as any)?.job_status }
+                : {},
+            },
           });
         } catch (_e) { /* best-effort */ }
 
@@ -707,11 +747,25 @@ async function retryPackageStep(sb: SB, packageId: string, stepKey: string, body
   if (!pkg) throw new Error(`Package not found: ${packageId}`);
 
   const jobType = `package_${stepKey}`;
+  const activeJob = await findActivePackageJob(sb, packageId, jobType);
+  if (activeJob) {
+    console.log(`[admin-ops] dedup retry ${stepKey} for ${packageId.slice(0, 8)} — active ${jobType} job ${activeJob.id} (${activeJob.status})`);
+    return {
+      ok: true,
+      step_reset: stepKey,
+      job_enqueued: false,
+      already_active: true,
+      job_id: activeJob.id,
+      job_status: activeJob.status,
+      package_id: packageId,
+    };
+  }
+
   const canRunInCurrentState = canEnqueueForPackageState(jobType, {
     status: pkg.status,
     published_at: pkg.published_at,
   }).ok;
-  const forceBuildingForManualRetry = stepKey === "validate_exam_pool";
+  const forceBuildingForManualRetry = !canRunInCurrentState;
 
   // 1. Transition to building if needed (same logic as repair actions)
   if (pkg.status !== "building" && (!canRunInCurrentState || forceBuildingForManualRetry)) {
