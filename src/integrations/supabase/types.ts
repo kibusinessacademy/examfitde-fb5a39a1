@@ -55497,6 +55497,7 @@ export type Database = {
           total_lessons: number
         }[]
       }
+      fn_reconcile_stale_integrity_reports: { Args: never; Returns: Json }
       generate_compliance_report: {
         Args: { p_report_type: string }
         Returns: string
