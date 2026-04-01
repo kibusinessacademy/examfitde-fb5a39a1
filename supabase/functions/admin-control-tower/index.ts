@@ -725,7 +725,9 @@ async function getExamPoolAudit(sb: SB) {
       const pid = r.package_id as string;
       const counts = questionCounts[pid];
       let diagnosis = "unknown";
-      if (counts.review > 0 || counts.approved > 0) diagnosis = "compatible_unapproved";
+      if (counts.approved > 0 && counts.approved === counts.total) diagnosis = "fully_approved";
+      else if (counts.approved > 0 && counts.approved >= counts.total * 0.9) diagnosis = "nearly_approved";
+      else if (counts.review > 0 || counts.approved > 0) diagnosis = "compatible_unapproved";
       else if (counts.tier1_passed > 0) diagnosis = "lifecycle_drift";
       else if (counts.draft > 0) diagnosis = "draft_only";
       return {
