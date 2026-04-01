@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { BlockedPackagesSheet } from '@/components/admin/command/BlockedPackagesSheet';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { PackageInfo, QueueHealth, BudgetInfo, AIDiagnose, PlatformKPIs } from './types';
 import { ProductGroup } from './ProductGroup';
