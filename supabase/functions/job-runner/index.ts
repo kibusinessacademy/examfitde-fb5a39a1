@@ -1890,6 +1890,74 @@ Deno.serve(async (req) => {
           };
         }
       }
+      // ── 4b. Graceful skip/retry: ok=false WITHOUT batch_complete ──
+      // Edge functions return ok=false with retry/skipped/permanent signals
+      // for prereq-not-met, non-building status, backlog-gate, etc.
+      // These MUST NOT fall through to the Completed path + MATERIALIZATION_GUARD.
+      else if (parsed && parsed.ok === false && parsed.batch_complete === undefined) {
+        if (parsed.skipped === true) {
+          // Skipped (e.g. non-building package) — mark completed without artifact check
+          console.log(`[job-runner] ${fnName} SKIPPED: ${parsed.reason || parsed.error || "no reason"}`);
+          finalState = {
+            status: "completed",
+            patch: {
+              result: typeof parsed === "object" ? parsed : { raw: parsed },
+              completed_at: tsNow,
+              meta: { ...(job.meta || {}), skipped: true, skip_reason: parsed.reason || parsed.error },
+            },
+          };
+        } else if (parsed.retry === true || parsed.transient === true) {
+          // Transient/prereq — requeue with backoff (don't burn attempt budget)
+          const backoffMs = (parsed.backoff_seconds || 60) * 1000;
+          console.log(`[job-runner] ${fnName} RETRY: ${parsed.error || "transient"} → requeue +${backoffMs}ms`);
+          finalState = {
+            status: "pending",
+            patch: {
+              run_after: new Date(Date.now() + backoffMs).toISOString(),
+              error: parsed.error || "edge_function_retry",
+              result: typeof parsed === "object" ? parsed : { raw: parsed },
+              meta: { ...(job.meta || {}), last_retry: tsNow },
+            },
+          };
+        } else if (parsed.permanent === true) {
+          console.warn(`[job-runner] ${fnName} PERMANENT: ${parsed.error || "permanent_error"}`);
+          finalState = {
+            status: "failed",
+            patch: {
+              error: parsed.error || "permanent_error",
+              completed_at: tsNow,
+              result: typeof parsed === "object" ? parsed : { raw: parsed },
+            },
+          };
+        } else {
+          // Generic ok=false — attempt-based retry
+          const newAttempts = (job.attempts || 0) + 1;
+          const maxAttempts = job.max_attempts || 3;
+          console.warn(`[job-runner] ${fnName} ok=false: ${parsed.error || "unknown"} (attempt ${newAttempts}/${maxAttempts})`);
+          if (newAttempts >= maxAttempts) {
+            finalState = {
+              status: "failed",
+              patch: {
+                error: `${parsed.error || "edge_function_failed"} (${newAttempts}/${maxAttempts})`,
+                completed_at: tsNow,
+                attempts: newAttempts,
+                result: typeof parsed === "object" ? parsed : { raw: parsed },
+              },
+            };
+          } else {
+            finalState = {
+              status: "pending",
+              patch: {
+                run_after: new Date(Date.now() + computeErrorBackoffMs(newAttempts)).toISOString(),
+                error: `${parsed.error || "edge_function_retry"} — attempt ${newAttempts}/${maxAttempts}`,
+                attempts: newAttempts,
+                result: typeof parsed === "object" ? parsed : { raw: parsed },
+                meta: { ...(job.meta || {}), last_retry: tsNow },
+              },
+            };
+          }
+        }
+      }
       // ── 5. Completed ───────────────────────────────────────────────
       else {
         // ── Auto-heal trigger: if content generation completed with poison pills, enqueue heal job ──
