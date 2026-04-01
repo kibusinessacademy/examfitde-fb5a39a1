@@ -55498,6 +55498,7 @@ export type Database = {
         }[]
       }
       fn_reconcile_stale_integrity_reports: { Args: never; Returns: Json }
+      fn_reconcile_stale_qgf_packages: { Args: never; Returns: Json }
       generate_compliance_report: {
         Args: { p_report_type: string }
         Returns: string
