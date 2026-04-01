@@ -275,7 +275,7 @@ Deno.serve(async (req) => {
           status: pkg.status,
           published_at: (pkg as any).published_at,
         }).ok;
-        const forceBuildingForManualDispatch = action === "repair_exam_pool_quality";
+        const forceBuildingForManualDispatch = true; // All manual repair actions should transition to building
 
         // Step 1b: Transition to building — use recover_and_reenter for blocked/quality_gate_failed
         if (pkg.status !== "building" && (!canRunInCurrentState || forceBuildingForManualDispatch)) {
