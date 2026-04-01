@@ -544,9 +544,14 @@ Deno.serve(async (req) => {
       }
 
       // HARDENED: Allow council_review + quality_gate_failed for quality_council jobs
+      // HARDENED: Allow blocked + quality_gate_failed for integrity_check (recovery diagnostics)
       const COUNCIL_ALLOWED_STATUSES = new Set(["building", "council_review", "quality_gate_failed"]);
+      const INTEGRITY_ALLOWED_STATUSES = new Set(["building", "blocked", "quality_gate_failed", "council_review"]);
       const isCouncilJob = job.job_type === "package_quality_council";
-      const allowedStatuses = isCouncilJob ? COUNCIL_ALLOWED_STATUSES : new Set(["building"]);
+      const isIntegrityJob = job.job_type === "package_run_integrity_check";
+      const allowedStatuses = isCouncilJob ? COUNCIL_ALLOWED_STATUSES
+        : isIntegrityJob ? INTEGRITY_ALLOWED_STATUSES
+        : new Set(["building"]);
       const notExecutable = !!pkgState.published_at || !allowedStatuses.has(pkgState.status ?? "");
       if (notExecutable) {
         const reason = `OPS_GUARD:PACKAGE_NOT_EXECUTABLE status=${pkgState.status ?? "missing"} published_at=${pkgState.published_at ? "set" : "null"}`;
