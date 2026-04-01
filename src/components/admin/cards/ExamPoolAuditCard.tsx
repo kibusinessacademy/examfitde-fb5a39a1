@@ -13,13 +13,17 @@ import { de } from 'date-fns/locale';
 import { toast } from 'sonner';
 
 const diagnosisLabels: Record<string, { label: string; tone: 'red' | 'yellow' | 'green' }> = {
-  compatible_unapproved: { label: 'Validierbar, nicht approved', tone: 'yellow' },
+  fully_approved: { label: 'Alle approved – Step-Drift', tone: 'green' },
+  nearly_approved: { label: 'Fast alle approved', tone: 'green' },
+  compatible_unapproved: { label: 'Teils approved, Validierung nötig', tone: 'yellow' },
   lifecycle_drift: { label: 'Lifecycle-Drift', tone: 'red' },
   draft_only: { label: 'Nur Drafts', tone: 'red' },
   unknown: { label: 'Unbekannt', tone: 'red' },
 };
 
 const DIAGNOSIS_TO_HEAL: Record<string, { action: string; label: string; stepKey?: string }> = {
+  fully_approved: { action: 'retry_package_step', label: 'Exam-Pool validieren', stepKey: 'validate_exam_pool' },
+  nearly_approved: { action: 'retry_package_step', label: 'Exam-Pool validieren', stepKey: 'validate_exam_pool' },
   compatible_unapproved: { action: 'retry_package_step', label: 'Exam-Pool validieren', stepKey: 'validate_exam_pool' },
   lifecycle_drift: { action: 'repair_exam_pool_quality', label: 'Exam-Pool reparieren' },
   draft_only: { action: 'repair_exam_pool_quality', label: 'Exam-Pool neu generieren' },
@@ -104,7 +108,9 @@ export default function ExamPoolAuditCard() {
                         "text-[9px] px-1.5 py-0 h-4",
                         diag.tone === 'red'
                           ? 'border-destructive/40 text-destructive bg-destructive/5'
-                          : 'border-warning/40 text-warning bg-warning/5'
+                          : diag.tone === 'green'
+                            ? 'border-success/40 text-success bg-success/5'
+                            : 'border-warning/40 text-warning bg-warning/5'
                       )}
                     >
                       {diag.label}
