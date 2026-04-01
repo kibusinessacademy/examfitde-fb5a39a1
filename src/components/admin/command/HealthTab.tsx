@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { BlockedPackagesSheet } from '@/components/admin/command/BlockedPackagesSheet';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { PackageInfo, QueueHealth, BudgetInfo, AIDiagnose, PlatformKPIs } from './types';
 import { ProductGroup } from './ProductGroup';
@@ -40,6 +41,7 @@ export default function HealthTab() {
   const [budget, setBudget] = useState<BudgetInfo>({ dailyCost: 0, monthBudget: 0, monthSpent: 0 });
   const [aiDiagnose, setAiDiagnose] = useState<AIDiagnose | null>(null);
   const [disabledCriticalPolicies, setDisabledCriticalPolicies] = useState<string[]>([]);
+  const [blockedSheetOpen, setBlockedSheetOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
   const [lastAutoOps, setLastAutoOps] = useState<{ ts: string; failed_retried: number; stuck_recovered: number } | null>(null);
@@ -193,7 +195,7 @@ export default function HealthTab() {
           <KPICard icon={<Loader2 className="h-4 w-4 text-primary animate-spin" />} label="Produktion" value={analysis.building} accent="border-primary/20" />
           <KPICard icon={<Clock className="h-4 w-4 text-muted-foreground" />} label="Queue" value={analysis.queued} />
           <KPICard icon={<Snowflake className="h-4 w-4 text-sky-500" />} label="Frozen" value={analysis.frozen} accent="border-sky-500/20" />
-          <KPICard icon={<Pause className="h-4 w-4 text-amber-500" />} label="Blockiert" value={analysis.blocked} alert={analysis.blocked > 0} />
+          <KPICard icon={<Pause className="h-4 w-4 text-amber-500" />} label="Blockiert" value={analysis.blocked} alert={analysis.blocked > 0} onClick={() => setBlockedSheetOpen(true)} />
           <KPICard icon={<XCircle className="h-4 w-4 text-destructive" />} label="Fehler" value={analysis.failed} alert={analysis.failed > 0} />
           <KPICard icon={<TrendingUp className="h-4 w-4 text-primary" />} label="Prognose" value={`~${analysis.estimatedDays}d`} sublabel={analysis.estimatedDate.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })} />
         </div>
@@ -286,6 +288,7 @@ export default function HealthTab() {
         <Link to="/admin/command"><PlatformCard icon={<Euro className="h-4 w-4" />} label="Umsatz" value={fmtEur(kpis.revenueCents)} sublabel={`${kpis.ordersPaid} Best.`} /></Link>
         <PlatformCard icon={<Activity className="h-4 w-4" />} label="KI-Kosten" value={formatEurAmount(budget.monthSpent)} sublabel={budget.monthBudget > 0 ? `${budgetPct}% von ${formatEurAmount(budget.monthBudget, 0)}` : `heute: ${formatEurAmount(budget.dailyCost)}`} />
       </div>
+      <BlockedPackagesSheet open={blockedSheetOpen} onOpenChange={setBlockedSheetOpen} />
     </div>
   );
 }
@@ -299,11 +302,20 @@ function StatBox({ label, value, alert: isAlert }: { label: string; value: any; 
   );
 }
 
-export function KPICard({ icon, label, value, sublabel, accent, alert: isAlert }: {
-  icon: React.ReactNode; label: string; value: any; sublabel?: string; accent?: string; alert?: boolean;
+export function KPICard({ icon, label, value, sublabel, accent, alert: isAlert, onClick }: {
+  icon: React.ReactNode; label: string; value: any; sublabel?: string; accent?: string; alert?: boolean; onClick?: () => void;
 }) {
   return (
-    <Card className={cn("transition-colors", isAlert ? "border-destructive/40 bg-destructive/5" : accent || "")}>
+    <Card
+      className={cn(
+        "transition-colors",
+        isAlert ? "border-destructive/40 bg-destructive/5" : accent || "",
+        onClick && "cursor-pointer hover:ring-2 hover:ring-primary/30 active:scale-[0.98]"
+      )}
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+    >
       <CardContent className="pt-3 pb-2.5 lg:pt-4 lg:pb-3 px-3 lg:px-6">
         <div className="flex items-center gap-1.5 mb-1">{icon}<span className="text-[10px] lg:text-xs text-muted-foreground uppercase tracking-wider truncate">{label}</span></div>
         <p className={cn("text-lg lg:text-xl font-bold", isAlert && "text-destructive")}>{value}</p>
