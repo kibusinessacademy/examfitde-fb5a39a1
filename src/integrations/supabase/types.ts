@@ -57393,6 +57393,7 @@ export type Database = {
       }
       run_health_checks: { Args: never; Returns: Json }
       run_nightly_pipeline_guards: { Args: never; Returns: Json }
+      run_rpc_contract_tests: { Args: never; Returns: Json }
       run_scheduler_governance_audit: { Args: never; Returns: Json }
       run_synthetic_probe_suite: { Args: never; Returns: Json }
       run_system_contract_audit: { Args: never; Returns: Json }
