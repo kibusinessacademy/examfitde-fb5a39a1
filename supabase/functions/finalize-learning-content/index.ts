@@ -547,13 +547,14 @@ Deno.serve(async (req) => {
       },
     }, { onConflict: "package_id,step_key" });
 
-  // ── 9. Enqueue downstream — deduplicated via enqueueJobOnce ──
+  // ── 9. Enqueue ONLY the immediate next DAG step ──
+  // Previously this enqueued handbook/minichecks/oral/exam_pool directly,
+  // bypassing the pipeline DAG prerequisites (validate_learning_content,
+  // validate_blueprints, validate_exam_pool). This caused 409/PREREQ_NOT_DONE
+  // failures. Now we only enqueue validate_learning_content; the pipeline-runner
+  // handles all subsequent DAG transitions.
   const downstreamJobs = [
-    { job_type: "package_generate_lesson_minichecks", priority: 15 },
-    { job_type: "package_generate_exam_pool", priority: 15 },
-    { job_type: "package_generate_handbook", priority: 16 },
-    { job_type: "package_generate_oral_exam", priority: 16 },
-    { job_type: "package_build_ai_tutor_index", priority: 16 },
+    { job_type: "package_validate_learning_content", priority: 14 },
   ];
 
   let downstreamEnqueued = 0;
