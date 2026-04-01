@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, ArrowRight, AlertTriangle, Target, Zap, Shield, BookOpen, Trophy } from 'lucide-react';
+import { Loader2, ArrowRight, AlertTriangle, Target, Zap, Shield, BookOpen, Trophy, Brain, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useNextBestAction, type NextBestAction } from '@/hooks/useNextBestAction';
 
@@ -13,19 +13,16 @@ const RISK_CONFIG = {
   high: {
     accent: 'from-destructive to-orange-500',
     bg: 'bg-destructive/5 border-destructive/20',
-    icon: AlertTriangle,
     gaugeColor: 'text-destructive',
   },
   medium: {
     accent: 'from-yellow-500 to-orange-400',
     bg: 'bg-yellow-500/5 border-yellow-500/20',
-    icon: Target,
     gaugeColor: 'text-yellow-500',
   },
   low: {
     accent: 'from-green-500 to-emerald-400',
     bg: 'bg-green-500/5 border-green-500/20',
-    icon: Trophy,
     gaugeColor: 'text-green-500',
   },
 };
@@ -34,9 +31,23 @@ const ACTION_ICONS: Record<string, typeof Zap> = {
   ONBOARDING: BookOpen,
   CRASH_COURSE: Zap,
   WEAKNESS_TRAINING: Shield,
+  SPACED_REPETITION: RotateCcw,
   EXAM_SIMULATION: Target,
   EXAM_FINAL: Trophy,
 };
+
+function buildRoute(action: NextBestAction): string {
+  const payload = action.route_payload;
+  if (!payload) return action.route;
+
+  const params = new URLSearchParams();
+  if (payload.intent) params.set('intent', payload.intent);
+  if (payload.competency_id) params.set('competency_id', payload.competency_id);
+  if (payload.lesson_id) params.set('lesson_id', payload.lesson_id);
+
+  const qs = params.toString();
+  return qs ? `${action.route}?${qs}` : action.route;
+}
 
 export function HeroDecisionCard({ curriculumId }: HeroDecisionCardProps) {
   const { data: action, isLoading } = useNextBestAction(curriculumId);
@@ -56,20 +67,19 @@ export function HeroDecisionCard({ curriculumId }: HeroDecisionCardProps) {
   const config = RISK_CONFIG[action.risk_level] || RISK_CONFIG.high;
   const ActionIcon = ACTION_ICONS[action.action] || Zap;
   const readiness = Math.round(action.readiness_score);
+  const route = buildRoute(action);
 
   return (
     <Card className={cn('overflow-hidden border-2 transition-all', config.bg)}>
       <CardContent className="p-0">
         <div className="flex items-stretch">
-          {/* Accent strip */}
           <div className={cn('w-2 bg-gradient-to-b flex-shrink-0', config.accent)} />
 
           <div className="flex-1 p-5 sm:p-6">
-            {/* Top row: Readiness gauge + status */}
+            {/* Readiness gauge (hidden for onboarding) */}
             {action.action !== 'ONBOARDING' && (
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  {/* Mini gauge */}
                   <div className="relative">
                     <svg className="w-14 h-14 transform -rotate-90">
                       <circle cx="28" cy="28" r="22" fill="none" strokeWidth="4"
@@ -97,7 +107,6 @@ export function HeroDecisionCard({ curriculumId }: HeroDecisionCardProps) {
               </div>
             )}
 
-            {/* Main content */}
             <h2 className="text-xl sm:text-2xl font-display font-bold leading-tight mb-1">
               {action.headline}
             </h2>
@@ -122,8 +131,7 @@ export function HeroDecisionCard({ curriculumId }: HeroDecisionCardProps) {
               </p>
             )}
 
-            {/* Single CTA – the ONLY decision */}
-            <Link to={action.route}>
+            <Link to={route}>
               <Button
                 size="lg"
                 className={cn(
