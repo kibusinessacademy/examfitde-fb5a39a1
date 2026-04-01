@@ -40,6 +40,7 @@ export default function HealthTab() {
   const [budget, setBudget] = useState<BudgetInfo>({ dailyCost: 0, monthBudget: 0, monthSpent: 0 });
   const [aiDiagnose, setAiDiagnose] = useState<AIDiagnose | null>(null);
   const [disabledCriticalPolicies, setDisabledCriticalPolicies] = useState<string[]>([]);
+  const [blockedSheetOpen, setBlockedSheetOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
   const [lastAutoOps, setLastAutoOps] = useState<{ ts: string; failed_retried: number; stuck_recovered: number } | null>(null);
