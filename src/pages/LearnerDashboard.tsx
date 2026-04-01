@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useDashboardSummary, type DashboardEnrollment } from '@/hooks/useDashboardSummary';
 import { HeroDecisionCard } from '@/components/dashboard/HeroDecisionCard';
 import { ReadinessRadar } from '@/components/dashboard/ReadinessRadar';
 import { TopGapsCard } from '@/components/dashboard/TopGapsCard';
@@ -36,113 +36,18 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 
-interface EnrolledCourse {
-  course_id: string;
-  enrolled_at: string;
-  last_accessed_at: string | null;
-  completed_at: string | null;
-  course: {
-    id: string;
-    title: string;
-    description: string | null;
-    thumbnail_url: string | null;
-    estimated_duration: number | null;
-  };
-}
-
-interface CourseProgress {
-  courseId: string;
-  totalLessons: number;
-  completedLessons: number;
-}
-
 export default function LearnerDashboard() {
   const { user, isAdmin } = useAuth();
   const navigate = useNavigate();
-  const [enrollments, setEnrollments] = useState<EnrolledCourse[]>([]);
-  const [progress, setProgress] = useState<Map<string, CourseProgress>>(new Map());
-  const [loading, setLoading] = useState(true);
-  const [activeCurriculumId, setActiveCurriculumId] = useState<string | null>(null);
+  const { data: dashboard, isLoading: loading } = useDashboardSummary();
   const [detailsOpen, setDetailsOpen] = useState(false);
 
-  useEffect(() => {
-    if (user) {
-      fetchDashboardData();
-    }
-  }, [user]);
+  const enrollments = dashboard?.enrollments || [];
+  const activeCurriculumId = dashboard?.active_curriculum_id || null;
 
-  const fetchDashboardData = async () => {
-    if (!user) return;
-
-    const { data: enrollmentData } = await supabase
-      .from('course_enrollments')
-      .select(`
-        course_id,
-        enrolled_at,
-        last_accessed_at,
-        completed_at,
-        course:courses(id, title, description, thumbnail_url, estimated_duration, curriculum_id)
-      `)
-      .eq('user_id', user.id)
-      .order('last_accessed_at', { ascending: false, nullsFirst: false });
-
-    if (enrollmentData) {
-      const typedEnrollments = enrollmentData.map(e => ({
-        ...e,
-        course: e.course as unknown as EnrolledCourse['course'] & { curriculum_id?: string }
-      })) as (EnrolledCourse & { course: EnrolledCourse['course'] & { curriculum_id?: string } })[];
-
-      setEnrollments(typedEnrollments);
-
-      if (typedEnrollments.length > 0 && typedEnrollments[0].course?.curriculum_id) {
-        setActiveCurriculumId(typedEnrollments[0].course.curriculum_id);
-      }
-
-      const progressMap = new Map<string, CourseProgress>();
-
-      for (const enrollment of typedEnrollments) {
-        const { data: modules } = await supabase
-          .from('modules')
-          .select('id')
-          .eq('course_id', enrollment.course_id);
-
-        if (modules && modules.length > 0) {
-          const moduleIds = modules.map(m => m.id);
-
-          const { data: lessons } = await supabase
-            .from('lessons')
-            .select('id')
-            .in('module_id', moduleIds);
-
-          if (lessons) {
-            const lessonIds = lessons.map(l => l.id);
-
-            const { data: progressData } = await supabase
-              .from('learning_progress')
-              .select('lesson_id')
-              .in('lesson_id', lessonIds)
-              .eq('user_id', user.id)
-              .eq('completed', true);
-
-            progressMap.set(enrollment.course_id, {
-              courseId: enrollment.course_id,
-              totalLessons: lessons.length,
-              completedLessons: progressData?.length || 0
-            });
-          }
-        }
-      }
-
-      setProgress(progressMap);
-    }
-
-    setLoading(false);
-  };
-
-  const getCourseProgress = (courseId: string) => {
-    const p = progress.get(courseId);
-    if (!p || p.totalLessons === 0) return 0;
-    return Math.round((p.completedLessons / p.totalLessons) * 100);
+  const getCourseProgress = (e: DashboardEnrollment) => {
+    if (!e.total_lessons || e.total_lessons === 0) return 0;
+    return Math.round((e.completed_lessons / e.total_lessons) * 100);
   };
 
   if (loading) {
@@ -201,20 +106,20 @@ export default function LearnerDashboard() {
             </div>
             <div className="space-y-2">
               {enrollments.slice(0, 2).map((enrollment) => {
-                const courseProgress = getCourseProgress(enrollment.course_id);
+                const courseProgress = getCourseProgress(enrollment);
                 return (
                   <Link key={enrollment.course_id} to={`/course/${enrollment.course_id}`}>
                     <Card className="glass-card hover:border-primary/30 transition-all">
                       <CardContent className="p-3 flex items-center gap-3">
                         <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden">
-                          {enrollment.course.thumbnail_url ? (
-                            <img src={enrollment.course.thumbnail_url} alt="" className="w-full h-full object-cover" />
+                          {enrollment.thumbnail_url ? (
+                            <img src={enrollment.thumbnail_url} alt="" className="w-full h-full object-cover" />
                           ) : (
                             <BookOpen className="h-4 w-4 text-muted-foreground" />
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="text-sm font-medium truncate">{enrollment.course.title}</div>
+                          <div className="text-sm font-medium truncate">{enrollment.title}</div>
                           <Progress value={courseProgress} className="h-1 mt-1" />
                         </div>
                         <span className="text-xs font-medium text-muted-foreground flex-shrink-0">

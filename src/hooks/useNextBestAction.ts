@@ -2,8 +2,16 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 
+export interface NextBestActionRoutePayload {
+  intent: string;
+  competency_id?: string;
+  lesson_id?: string;
+  curriculum_id?: string;
+  due_count?: number;
+}
+
 export interface NextBestAction {
-  action: 'ONBOARDING' | 'CRASH_COURSE' | 'WEAKNESS_TRAINING' | 'EXAM_SIMULATION' | 'EXAM_FINAL';
+  action: 'ONBOARDING' | 'CRASH_COURSE' | 'WEAKNESS_TRAINING' | 'SPACED_REPETITION' | 'EXAM_SIMULATION' | 'EXAM_FINAL';
   headline: string;
   subline: string;
   cta: string;
@@ -16,7 +24,8 @@ export interface NextBestAction {
     field: string;
     score: number;
   } | null;
-  intent: 'onboarding' | 'weakness_training' | 'exam_simulation' | 'exam_final';
+  intent: string;
+  route_payload: NextBestActionRoutePayload;
 }
 
 export function useNextBestAction(curriculumId?: string) {

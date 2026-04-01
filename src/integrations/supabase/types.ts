@@ -55857,6 +55857,7 @@ export type Database = {
           curriculum_id: string
         }[]
       }
+      get_dashboard_summary: { Args: { p_user_id: string }; Returns: Json }
       get_datev_prep_lines: {
         Args: { p_config_name?: string; p_currency?: string; p_month: string }
         Returns: {
