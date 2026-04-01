@@ -57991,6 +57991,7 @@ export type Database = {
         Args: { p_endpoint: string; p_key: string; p_user_id: string }
         Returns: Json
       }
+      validate_all_critical_rpcs: { Args: never; Returns: Json }
       validate_blueprint_constraints: {
         Args: { p_blueprint_id: string; p_variable_values: Json }
         Returns: {
@@ -58004,6 +58005,10 @@ export type Database = {
       }
       validate_course_integrity_v2: {
         Args: { p_curriculum_id: string }
+        Returns: Json
+      }
+      validate_function_references: {
+        Args: { p_func_name: string }
         Returns: Json
       }
       validate_minicheck_quality: {
