@@ -293,9 +293,18 @@ export default function HealthTab() {
   );
 }
 
-function StatBox({ label, value, alert: isAlert }: { label: string; value: any; alert?: boolean }) {
+function StatBox({ label, value, alert: isAlert, onClick }: { label: string; value: any; alert?: boolean; onClick?: () => void }) {
   return (
-    <div className={cn("rounded-md border px-2.5 py-1.5", isAlert && "border-destructive/30 bg-destructive/5")}>
+    <div
+      className={cn(
+        "rounded-md border px-2.5 py-1.5 transition-all",
+        isAlert && "border-destructive/30 bg-destructive/5",
+        onClick && "cursor-pointer hover:ring-2 hover:ring-primary/30 active:scale-[0.98]"
+      )}
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+    >
       <p className="text-[10px] text-muted-foreground">{label}</p>
       <p className={cn("font-bold text-sm", isAlert && "text-destructive")}>{value}</p>
     </div>
