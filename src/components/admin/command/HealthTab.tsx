@@ -190,10 +190,10 @@ export default function HealthTab() {
       )}
       {/* Job Queue */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-        <KPICard icon={<Clock className="h-4 w-4 text-muted-foreground" />} label="Pending" value={queue.pending} />
-        <KPICard icon={<Loader2 className="h-4 w-4 text-primary animate-spin" />} label="Processing" value={queue.processing} />
-        <KPICard icon={<XCircle className="h-4 w-4 text-destructive" />} label="Failed" value={queue.failed} alert={queue.failed > 0} sublabel={queue.failed > 0 ? 'Auto-Retry alle 5 Min.' : undefined} />
-        <KPICard icon={<AlertTriangle className="h-4 w-4 text-amber-500" />} label="Stuck (>10m)" value={queue.stuck} alert={queue.stuck > 0} sublabel={queue.stuck > 0 ? 'Auto-Recovery aktiv' : undefined} />
+        <KPICard icon={<Clock className="h-4 w-4 text-muted-foreground" />} label="Pending" value={queue.pending} onClick={() => setFailedSheetOpen(true)} />
+        <KPICard icon={<Loader2 className="h-4 w-4 text-primary animate-spin" />} label="Processing" value={queue.processing} onClick={() => setBuildingSheetOpen(true)} />
+        <KPICard icon={<XCircle className="h-4 w-4 text-destructive" />} label="Failed" value={queue.failed} alert={queue.failed > 0} sublabel={queue.failed > 0 ? 'Auto-Retry alle 5 Min.' : undefined} onClick={() => setFailedSheetOpen(true)} />
+        <KPICard icon={<AlertTriangle className="h-4 w-4 text-amber-500" />} label="Stuck (>10m)" value={queue.stuck} alert={queue.stuck > 0} sublabel={queue.stuck > 0 ? 'Auto-Recovery aktiv' : undefined} onClick={() => setStuckSheetOpen(true)} />
       </div>
 
       {/* Product KPIs + Budget */}
