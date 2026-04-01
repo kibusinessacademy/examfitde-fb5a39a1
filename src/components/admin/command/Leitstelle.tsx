@@ -247,13 +247,16 @@ function BuildPackageCard({ pkg }: { pkg: PipelinePackage }) {
   const isFullTrack = track === 'AUSBILDUNG_VOLL';
 
   return (
-    <div
+    <Link
+      to={`/admin/studio/${pkg.id}`}
       className={cn(
-        'rounded-2xl border p-4',
+        'rounded-2xl border p-4 block transition-all hover:ring-2 hover:ring-primary/30 hover:scale-[1.01] cursor-pointer',
         hasFailed && 'border-destructive/30 bg-destructive/5',
         isActive && 'border-primary/30 bg-primary/5',
         !hasFailed && !isActive && 'border-border/70 bg-card/50',
       )}
+      role="button"
+      tabIndex={0}
     >
       <div className="mb-3 flex items-start justify-between gap-3">
         <div className="min-w-0">
