@@ -32,6 +32,48 @@ export interface EnqueueResult {
   revived?: boolean;
 }
 
+const COUNCIL_JOB_TYPES = new Set(["package_quality_council"]);
+const REPAIR_JOB_TYPES = new Set([
+  "package_exam_rebalance",
+  "pool_fill_bloom_gaps",
+  "pool_fill_lf_gaps",
+  "package_repair_exam_pool_quality",
+  "package_generate_lesson_minichecks",
+  "package_validate_lesson_minichecks",
+  "package_validate_exam_pool",
+  "package_generate_oral_exam",
+  "package_generate_handbook",
+  "package_run_integrity_check",
+]);
+
+export function allowedPackageStatusesForJobType(jobType: string): Set<string> {
+  if (COUNCIL_JOB_TYPES.has(jobType)) {
+    return new Set(["building", "council_review", "quality_gate_failed"]);
+  }
+
+  if (REPAIR_JOB_TYPES.has(jobType)) {
+    return new Set(["building", "blocked", "quality_gate_failed"]);
+  }
+
+  return new Set(["building"]);
+}
+
+export function canEnqueueForPackageState(
+  jobType: string,
+  pkg: { status: string | null; published_at?: string | null },
+): { ok: boolean; reason: string } {
+  if (pkg.published_at) {
+    return { ok: false, reason: "already_published" };
+  }
+
+  const status = pkg.status ?? "unknown";
+  if (!allowedPackageStatusesForJobType(jobType).has(status)) {
+    return { ok: false, reason: `status_${status}` };
+  }
+
+  return { ok: true, reason: "ok" };
+}
+
 export async function enqueueJob(
   // deno-lint-ignore no-explicit-any
   sb: any,
@@ -76,20 +118,14 @@ export async function enqueueJob(
     if (pkgErr) throw pkgErr;
     if (!pkg) throw new Error(`PACKAGE_NOT_FOUND:${packageId}`);
 
-    // HARDENED: Allow council_review + quality_gate_failed for council jobs
-    // HARDENED: Allow blocked for repair jobs (exam rebalance etc.)
-    const COUNCIL_JOB_TYPES = new Set(["package_quality_council"]);
-    const REPAIR_JOB_TYPES = new Set(["package_exam_rebalance", "pool_fill_bloom_gaps", "pool_fill_lf_gaps", "package_repair_exam_pool_quality", "package_generate_lesson_minichecks", "package_validate_lesson_minichecks", "package_validate_exam_pool", "package_generate_oral_exam", "package_generate_handbook", "package_run_integrity_check"]);
-    const allowedStatuses = COUNCIL_JOB_TYPES.has(opts.job_type)
-      ? new Set(["building", "council_review", "quality_gate_failed"])
-      : REPAIR_JOB_TYPES.has(opts.job_type)
-        ? new Set(["building", "blocked", "quality_gate_failed"])
-        : new Set(["building"]);
-    if (pkg.published_at || !allowedStatuses.has(pkg.status)) {
+    const executionGate = canEnqueueForPackageState(opts.job_type, {
+      status: pkg.status,
+      published_at: pkg.published_at,
+    });
+
+    if (!executionGate.ok) {
       // Fire-and-forget alert for observability
-      const reason = pkg.published_at
-        ? `already_published`
-        : `status_${pkg.status}`;
+      const reason = executionGate.reason;
       try {
         await sb.from("admin_notifications").insert({
           title: "Immutability Guard: enqueue blocked",
