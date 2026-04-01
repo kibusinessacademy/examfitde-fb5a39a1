@@ -6,6 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useCommandData, type PipelinePackage, type TransientOps } from '@/hooks/useCommandData';
 import { deriveStepProgress } from '@/lib/pipeline-steps';
 import { cn } from '@/lib/utils';
+import { Link } from 'react-router-dom';
 import {
   AlertTriangle,
   ArrowRight,
