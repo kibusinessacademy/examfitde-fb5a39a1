@@ -328,7 +328,7 @@ function BuildPackageCard({ pkg }: { pkg: PipelinePackage }) {
           Handbuch
         </div>
       </div>
-    </div>
+    </Link>
   );
 }
 
