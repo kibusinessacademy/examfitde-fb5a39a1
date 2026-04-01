@@ -106,20 +106,20 @@ export default function LearnerDashboard() {
             </div>
             <div className="space-y-2">
               {enrollments.slice(0, 2).map((enrollment) => {
-                const courseProgress = getCourseProgress(enrollment.course_id);
+                const courseProgress = getCourseProgress(enrollment);
                 return (
                   <Link key={enrollment.course_id} to={`/course/${enrollment.course_id}`}>
                     <Card className="glass-card hover:border-primary/30 transition-all">
                       <CardContent className="p-3 flex items-center gap-3">
                         <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden">
-                          {enrollment.course.thumbnail_url ? (
-                            <img src={enrollment.course.thumbnail_url} alt="" className="w-full h-full object-cover" />
+                          {enrollment.thumbnail_url ? (
+                            <img src={enrollment.thumbnail_url} alt="" className="w-full h-full object-cover" />
                           ) : (
                             <BookOpen className="h-4 w-4 text-muted-foreground" />
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="text-sm font-medium truncate">{enrollment.course.title}</div>
+                          <div className="text-sm font-medium truncate">{enrollment.title}</div>
                           <Progress value={courseProgress} className="h-1 mt-1" />
                         </div>
                         <span className="text-xs font-medium text-muted-foreground flex-shrink-0">
