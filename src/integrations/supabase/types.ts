@@ -56075,6 +56075,10 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_next_best_action: {
+        Args: { p_curriculum_id: string; p_user_id: string }
+        Returns: Json
+      }
       get_next_hollow_lessons: {
         Args: { p_limit?: number; p_package_id: string }
         Returns: {
