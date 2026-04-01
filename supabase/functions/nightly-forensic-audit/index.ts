@@ -795,6 +795,65 @@ async function diagTrends(sb: SB): Promise<AuditFinding[]> {
   return findings;
 }
 
+// MODULE 17: ORPHAN DRAFT QUESTIONS (can never promote without competency_id)
+async function diagOrphanDrafts(sb: SB): Promise<AuditFinding[]> {
+  const findings: AuditFinding[] = [];
+  const M = "orphan_drafts";
+
+  const { data: orphans } = await sb.from("ops_orphan_draft_questions" as any)
+    .select("curriculum_id, curriculum_title, orphan_count, oldest_age_hours").limit(50);
+  
+  if (orphans && orphans.length > 0) {
+    const total = (orphans as any[]).reduce((s: number, o: any) => s + (o.orphan_count || 0), 0);
+    findings.push(f(M, total > 50 ? "critical" : "warning", "orphan_drafts_detected",
+      `${total} draft questions without competency_id across ${orphans.length} curricula — can never auto-promote`,
+      { finding_class: "root_cause", actionability: "auto_heal", metric_value: total,
+        payload: (orphans as any[]).slice(0, 10).map((o: any) => ({ curriculum: o.curriculum_title, count: o.orphan_count, age_hours: o.oldest_age_hours })) }));
+  }
+
+  if (findings.length === 0) findings.push(f(M, "info", "orphan_drafts_ok", "No orphan drafts without competency_id"));
+  return findings;
+}
+
+// MODULE 18: STALE COUNCIL SESSIONS (pending >4h blocks pipeline)
+async function diagStaleCouncilSessions(sb: SB): Promise<AuditFinding[]> {
+  const findings: AuditFinding[] = [];
+  const M = "stale_council_sessions";
+
+  const { data: stale } = await sb.from("ops_stale_council_sessions" as any)
+    .select("package_id, package_title, pending_count, oldest_age_hours").limit(50);
+  
+  if (stale && stale.length > 0) {
+    const totalSessions = (stale as any[]).reduce((s: number, o: any) => s + (o.pending_count || 0), 0);
+    findings.push(f(M, totalSessions > 20 ? "critical" : "warning", "stale_council_sessions_detected",
+      `${totalSessions} council sessions stuck in pending across ${stale.length} packages`,
+      { finding_class: "root_cause", actionability: "auto_heal", metric_value: totalSessions,
+        payload: (stale as any[]).slice(0, 10).map((s: any) => ({ package: s.package_title, pending: s.pending_count, age_hours: s.oldest_age_hours })) }));
+  }
+
+  if (findings.length === 0) findings.push(f(M, "info", "council_sessions_ok", "No stale council sessions"));
+  return findings;
+}
+
+// MODULE 19: COUNCIL CHURN LOOPS (pending sessions + non-done quality_council step)
+async function diagCouncilChurnLoops(sb: SB): Promise<AuditFinding[]> {
+  const findings: AuditFinding[] = [];
+  const M = "council_churn_loops";
+
+  const { data: loops } = await sb.from("ops_council_churn_loops" as any)
+    .select("package_id, package_title, package_status, step_status, step_attempts, pending_sessions").limit(50);
+  
+  if (loops && loops.length > 0) {
+    findings.push(f(M, "critical", "council_churn_loop_detected",
+      `${loops.length} packages in council churn loop (pending sessions block step completion)`,
+      { finding_class: "root_cause", actionability: "auto_heal", metric_value: loops.length,
+        payload: (loops as any[]).slice(0, 10).map((l: any) => ({ package: l.package_title, status: l.package_status, step: l.step_status, attempts: l.step_attempts, pending: l.pending_sessions })) }));
+  }
+
+  if (findings.length === 0) findings.push(f(M, "info", "churn_loops_ok", "No council churn loops"));
+  return findings;
+}
+
 // ═══════════════════════════════════════════════════════════════
 // REMEDIATION LAYER — separate, idempotent, cooldown-gated
 // ═══════════════════════════════════════════════════════════════
