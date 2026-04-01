@@ -199,12 +199,12 @@ export default function HealthTab() {
       {/* Product KPIs + Budget */}
       {analysis && (
         <div className="grid grid-cols-3 lg:grid-cols-7 gap-2">
-          <KPICard icon={<CheckCircle2 className="h-4 w-4 text-emerald-500" />} label="Fertig" value={`${analysis.published}/${analysis.total}`} accent="border-emerald-500/20" />
-          <KPICard icon={<Loader2 className="h-4 w-4 text-primary animate-spin" />} label="Produktion" value={analysis.building} accent="border-primary/20" />
+          <KPICard icon={<CheckCircle2 className="h-4 w-4 text-emerald-500" />} label="Fertig" value={`${analysis.published}/${analysis.total}`} accent="border-emerald-500/20" onClick={() => setPublishedSheetOpen(true)} />
+          <KPICard icon={<Loader2 className="h-4 w-4 text-primary animate-spin" />} label="Produktion" value={analysis.building} accent="border-primary/20" onClick={() => setBuildingSheetOpen(true)} />
           <KPICard icon={<Clock className="h-4 w-4 text-muted-foreground" />} label="Queue" value={analysis.queued} />
           <KPICard icon={<Snowflake className="h-4 w-4 text-sky-500" />} label="Frozen" value={analysis.frozen} accent="border-sky-500/20" />
           <KPICard icon={<Pause className="h-4 w-4 text-amber-500" />} label="Blockiert" value={analysis.blocked} alert={analysis.blocked > 0} onClick={() => setBlockedSheetOpen(true)} />
-          <KPICard icon={<XCircle className="h-4 w-4 text-destructive" />} label="Fehler" value={analysis.failed} alert={analysis.failed > 0} />
+          <KPICard icon={<XCircle className="h-4 w-4 text-destructive" />} label="Fehler" value={analysis.failed} alert={analysis.failed > 0} onClick={() => setFailedSheetOpen(true)} />
           <KPICard icon={<TrendingUp className="h-4 w-4 text-primary" />} label="Prognose" value={`~${analysis.estimatedDays}d`} sublabel={analysis.estimatedDate.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })} />
         </div>
       )}
