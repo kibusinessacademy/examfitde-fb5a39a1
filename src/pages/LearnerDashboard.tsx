@@ -2,32 +2,19 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { useDashboardStats } from '@/hooks/useDashboardStats';
+import { HeroDecisionCard } from '@/components/dashboard/HeroDecisionCard';
 import { ReadinessRadar } from '@/components/dashboard/ReadinessRadar';
-import { RiskCostWidget } from '@/components/dashboard/RiskCostWidget';
-import { NextBestAction } from '@/components/dashboard/NextBestAction';
-import { NextBestActionCard } from '@/components/dashboard/NextBestActionCard';
-import { SmartStreakWidget } from '@/components/dashboard/SmartStreakWidget';
-import { ExamTrapsWidget } from '@/components/dashboard/ExamTrapsWidget';
-import { CoachHint } from '@/components/dashboard/CoachHint';
-import { ExamPreview } from '@/components/dashboard/ExamPreview';
-import { SilentMotivation } from '@/components/dashboard/SilentMotivation';
-import { DailyHumorCard } from '@/components/dashboard/DailyHumorCard';
-import ProgressNarrative from '@/components/dashboard/ProgressNarrative';
-import { BadgeHistory } from '@/components/dashboard/BadgeHistory';
-import { ExamReadinessGauge } from '@/components/dashboard/ExamReadinessGauge';
-import { WeaknessLoopWidget } from '@/components/dashboard/WeaknessLoopWidget';
 import { TopGapsCard } from '@/components/dashboard/TopGapsCard';
-import { SmartRecommendationsCard } from '@/components/dashboard/SmartRecommendationsCard';
 import { ReadinessTrendCard } from '@/components/dashboard/ReadinessTrendCard';
-import { ExamFitInsightsPanel } from '@/components/learner/ExamFitInsightsPanel';
+import { ExamReadinessGauge } from '@/components/dashboard/ExamReadinessGauge';
+import { SmartStreakWidget } from '@/components/dashboard/SmartStreakWidget';
+import { ExamPreview } from '@/components/dashboard/ExamPreview';
+import { BadgeHistory } from '@/components/dashboard/BadgeHistory';
 import { MasteryDashboardSection } from '@/features/mastery/components/MasteryDashboardSection';
-import { useConversionEngine } from '@/features/conversion/hooks/useConversionEngine';
-import { ConversionCard } from '@/features/conversion/components/ConversionCard';
 import { useSimulationGate } from '@/hooks/useExamReadiness';
 import { useProductAccessByCurriculum } from '@/hooks/useProductAccess';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import {
   Loader2,
@@ -40,9 +27,14 @@ import {
   Heart,
   Sparkles,
   Mic,
+  ChevronDown,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import PageExplainer from '@/components/admin/PageExplainer';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 
 interface EnrolledCourse {
   course_id: string;
@@ -66,12 +58,12 @@ interface CourseProgress {
 
 export default function LearnerDashboard() {
   const { user, isAdmin } = useAuth();
-  const { data: dashboardStats } = useDashboardStats();
   const navigate = useNavigate();
   const [enrollments, setEnrollments] = useState<EnrolledCourse[]>([]);
   const [progress, setProgress] = useState<Map<string, CourseProgress>>(new Map());
   const [loading, setLoading] = useState(true);
   const [activeCurriculumId, setActiveCurriculumId] = useState<string | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -163,270 +155,139 @@ export default function LearnerDashboard() {
 
   return (
     <div className="py-4 sm:py-8 px-3 sm:px-4">
-      <div className="container mx-auto max-w-6xl">
-        {/* Header */}
-        <div className="mb-5 sm:mb-8">
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-display font-bold mb-1 leading-tight">
-            Willkommen zurück,{' '}
+      <div className="container mx-auto max-w-3xl">
+        {/* ━━━ Compact Header ━━━ */}
+        <div className="mb-5">
+          <h1 className="text-xl sm:text-2xl font-display font-bold leading-tight">
+            Hallo,{' '}
             <span className="text-gradient">
               {user?.user_metadata?.full_name || user?.email?.split('@')[0]}
             </span>
           </h1>
-          <p className="text-sm sm:text-base text-muted-foreground mb-4">
-            Dein Prüfungscockpit – du weißt genau, wo du stehst.
-          </p>
-          <div className="flex flex-wrap items-center gap-2">
-            <Link to="/exam-simulation">
-              <Button size="lg" className="gradient-primary text-primary-foreground shadow-glow font-bold h-12 sm:h-14 px-6 sm:px-8 touch-manipulation">
-                <Target className="h-5 w-5 mr-2" />
-                Prüfung starten
+          {isAdmin && (
+            <Link to="/admin/command">
+              <Button variant="ghost" size="sm" className="mt-1 h-8 text-xs">
+                <Sparkles className="h-3 w-3 mr-1" />
+                Admin
               </Button>
             </Link>
-            {isAdmin && (
-              <Link to="/admin/command">
-                <Button variant="outline" size="sm" className="h-10 touch-manipulation">
-                  <Sparkles className="h-4 w-4 mr-2" />
-                  Admin
-                </Button>
-              </Link>
-            )}
-          </div>
+          )}
         </div>
 
-        <PageExplainer
-          title="Wie funktioniert dein Dashboard?"
-          description="Dein persönliches Prüfungscockpit zeigt dir deinen aktuellen Lernstand, Prüfungsreife und empfiehlt dir die nächsten Schritte. Alles ist darauf ausgerichtet, dich optimal auf deine IHK-Prüfung vorzubereiten."
-          workflow={[
-            { label: 'Diagnose' },
-            { label: 'Lernen' },
-            { label: 'Üben' },
-            { label: 'Dashboard', active: true },
-            { label: 'Prüfung' },
-          ]}
-          actions={[
-            '"Prüfung starten" – Starte eine Prüfungssimulation unter Echtbedingungen',
-            'Klick auf ein Training → Öffnet die Kursübersicht mit Modulen und Lektionen',
-            'Quick Actions unten → Direktzugriff auf Trainer, Simulation, Mündlich, Wiederholung',
-          ]}
-          tips={[
-            'Der Readiness-Gauge zeigt deine geschätzte Bestehenswahrscheinlichkeit',
-            'Coach-Hinweise geben dir personalisierte Lernempfehlungen',
-            'Die Schwächenanalyse identifiziert deine größten Lücken automatisch',
-          ]}
-        />
-
-        {/* Silent Motivation Banner */}
-        {activeCurriculumId && (
-          <div className="mb-4">
-            <SilentMotivation curriculumId={activeCurriculumId} />
-          </div>
-        )}
-
-        {/* ━━━ SECTION 0: ExamFit v2 Insights ━━━ */}
+        {/* ━━━ HERO: Single Decision Card (Above the Fold) ━━━ */}
         {activeCurriculumId && (
           <div className="mb-6">
-            <ExamFitInsightsPanel curriculumId={activeCurriculumId} />
+            <HeroDecisionCard curriculumId={activeCurriculumId} />
           </div>
         )}
 
-        {/* ━━━ SECTION 0a: Mastery Readiness + Weakness Map ━━━ */}
+        {/* ━━━ SECTION 2: Mastery Overview (Readiness + Weakness) ━━━ */}
         {activeCurriculumId && (
           <div className="mb-6">
             <MasteryDashboardSection curriculumId={activeCurriculumId} />
           </div>
         )}
 
-        {/* ━━━ SECTION 0b: Conversion Card ━━━ */}
-        {activeCurriculumId && (
+        {/* ━━━ SECTION 3: Meine Trainings (kompakt) ━━━ */}
+        {enrollments.length > 0 && (
           <div className="mb-6">
-            <ConversionCardWrapper curriculumId={activeCurriculumId} navigate={navigate} />
-          </div>
-        )}
-
-        {/* ━━━ SECTION 0c: Growth Council Nudge ━━━ */}
-        <div className="mb-4">
-          <NextBestActionCard />
-        </div>
-
-        {/* ━━━ SECTION 1: Smart Recommendations + Next Best Action + Coach Hint ━━━ */}
-        {activeCurriculumId && (
-          <div className="space-y-4 mb-6">
-            <SmartRecommendationsCard curriculumId={activeCurriculumId} />
-            <NextBestAction curriculumId={activeCurriculumId} />
-            <CoachHint curriculumId={activeCurriculumId} />
-          </div>
-        )}
-
-        {/* ━━━ SECTION 2: Risk Cost Warning ━━━ */}
-        {activeCurriculumId && (
-          <div className="mb-6">
-            <RiskCostWidget curriculumId={activeCurriculumId} />
-          </div>
-        )}
-
-        {/* ━━━ SECTION 2b: Weakness Loop ━━━ */}
-        {activeCurriculumId && (
-          <div className="mb-6">
-            <WeaknessLoopWidget curriculumId={activeCurriculumId} />
-          </div>
-        )}
-
-        {/* ━━━ SECTION 3: Readiness Gauge + Radar + Trend + Gaps ━━━ */}
-        {activeCurriculumId && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mb-6">
-            <div className="space-y-4">
-              <ExamReadinessGauge curriculumId={activeCurriculumId} />
-              <ReadinessTrendCard curriculumId={activeCurriculumId} />
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-base font-display font-semibold">Meine Trainings</h2>
+              <Link to="/courses">
+                <Button variant="ghost" size="sm" className="text-xs h-7">
+                  Alle <ArrowRight className="h-3 w-3 ml-1" />
+                </Button>
+              </Link>
             </div>
-            <div className="lg:col-span-2 space-y-4">
-              <ReadinessRadar curriculumId={activeCurriculumId} />
-              <TopGapsCard curriculumId={activeCurriculumId} />
-            </div>
-          </div>
-        )}
-
-        {/* Streak + Exam Preview */}
-        {activeCurriculumId && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-6">
-            <SmartStreakWidget />
-            <ExamPreview curriculumId={activeCurriculumId} />
-          </div>
-        )}
-
-        {/* ━━━ SECTION 4: Exam Traps ━━━ */}
-        {activeCurriculumId && (
-          <div className="mb-6">
-            <ExamTrapsWidget curriculumId={activeCurriculumId} />
-          </div>
-        )}
-
-        {/* ━━━ SECTION 4b: Progress Narrative + Badge History + Daily Humor ━━━ */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-          <ProgressNarrative />
-          <div className="space-y-4">
-            <BadgeHistory />
-            {activeCurriculumId && <DailyHumorCard certificationId={activeCurriculumId} />}
-          </div>
-        </div>
-
-        {/* ━━━ SECTION 5: Enrolled Courses ━━━ */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-display font-semibold">Meine Prüfungstrainings</h2>
-            <Link to="/courses">
-              <Button variant="ghost" size="sm">
-                Alle Trainings
-                <ArrowRight className="h-4 w-4 ml-2" />
-              </Button>
-            </Link>
-          </div>
-
-          {enrollments.length === 0 ? (
-            <Card className="glass-card">
-              <CardContent className="p-12 text-center">
-                <GraduationCap className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-xl font-semibold mb-2">Noch kein Prüfungstraining</h3>
-                <p className="text-muted-foreground mb-6">
-                  Starte jetzt deine Prüfungsvorbereitung!
-                </p>
-                <Link to="/courses">
-                  <Button className="gradient-primary text-primary-foreground shadow-glow">
-                    Prüfungstraining entdecken
-                    <ArrowRight className="h-4 w-4 ml-2" />
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {enrollments.map((enrollment) => {
+            <div className="space-y-2">
+              {enrollments.slice(0, 2).map((enrollment) => {
                 const courseProgress = getCourseProgress(enrollment.course_id);
-                const isCompleted = enrollment.completed_at != null;
-
                 return (
-                  <Card key={enrollment.course_id} className="glass-card hover:border-primary/30 transition-all group overflow-hidden">
-                    <div className="flex flex-col sm:flex-row">
-                      <div className="w-full h-32 sm:w-28 sm:h-28 flex-shrink-0 bg-muted rounded-t-lg sm:rounded-l-lg sm:rounded-tr-none overflow-hidden">
-                        {enrollment.course.thumbnail_url ? (
-                          <img
-                            src={enrollment.course.thumbnail_url}
-                            alt={enrollment.course.title}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center gradient-primary opacity-50">
-                            <BookOpen className="h-6 w-6 text-primary-foreground" />
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex-1 p-4">
-                        <CardHeader className="p-0 pb-1.5">
-                          <CardTitle className="text-base font-display group-hover:text-primary transition-colors line-clamp-1">
-                            {enrollment.course.title}
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="p-0">
-                          <div className="mb-2">
-                            <div className="flex items-center justify-between text-xs mb-1">
-                              <span className="text-muted-foreground">Prüfungsreife</span>
-                              <span className="font-medium">{courseProgress}%</span>
-                            </div>
-                            <Progress value={courseProgress} className="h-1.5" />
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                              {enrollment.course.estimated_duration && (
-                                <span className="flex items-center gap-1">
-                                  <Clock className="h-3 w-3" />
-                                  {enrollment.course.estimated_duration} Min.
-                                </span>
-                              )}
-                            </div>
-                            <Link to={`/course/${enrollment.course_id}`}>
-                              <Button size="sm" className="gradient-primary text-primary-foreground text-xs h-7">
-                                {isCompleted ? 'Wiederholen' : 'Fortsetzen'}
-                              </Button>
-                            </Link>
-                          </div>
-                        </CardContent>
-                      </div>
-                    </div>
-                  </Card>
+                  <Link key={enrollment.course_id} to={`/course/${enrollment.course_id}`}>
+                    <Card className="glass-card hover:border-primary/30 transition-all">
+                      <CardContent className="p-3 flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden">
+                          {enrollment.course.thumbnail_url ? (
+                            <img src={enrollment.course.thumbnail_url} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <BookOpen className="h-4 w-4 text-muted-foreground" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium truncate">{enrollment.course.title}</div>
+                          <Progress value={courseProgress} className="h-1 mt-1" />
+                        </div>
+                        <span className="text-xs font-medium text-muted-foreground flex-shrink-0">
+                          {courseProgress}%
+                        </span>
+                      </CardContent>
+                    </Card>
+                  </Link>
                 );
               })}
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
-        {/* ━━━ SECTION 6: Quick Actions ━━━ */}
+        {/* ━━━ SECTION 4: Collapsible Details ━━━ */}
+        <Collapsible open={detailsOpen} onOpenChange={setDetailsOpen}>
+          <CollapsibleTrigger asChild>
+            <Button variant="outline" className="w-full mb-4 h-10 justify-between">
+              <span className="text-sm font-medium">
+                {detailsOpen ? 'Details ausblenden' : 'Detaillierte Analyse anzeigen'}
+              </span>
+              <ChevronDown className={cn('h-4 w-4 transition-transform', detailsOpen && 'rotate-180')} />
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="space-y-4">
+            {activeCurriculumId && (
+              <>
+                {/* Readiness Trend + Gauge */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <ExamReadinessGauge curriculumId={activeCurriculumId} />
+                  <ReadinessTrendCard curriculumId={activeCurriculumId} />
+                </div>
+
+                {/* Radar + Top Gaps */}
+                <ReadinessRadar curriculumId={activeCurriculumId} />
+                <TopGapsCard curriculumId={activeCurriculumId} />
+
+                {/* Streak + Exam Preview */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <SmartStreakWidget />
+                  <ExamPreview curriculumId={activeCurriculumId} />
+                </div>
+
+                {/* Badges */}
+                <BadgeHistory />
+              </>
+            )}
+          </CollapsibleContent>
+        </Collapsible>
+
+        {/* ━━━ SECTION 5: Quick Actions (kompakt) ━━━ */}
         <QuickActionsGrid activeCurriculumId={activeCurriculumId} />
+
+        {/* Empty state */}
+        {enrollments.length === 0 && !activeCurriculumId && (
+          <Card className="glass-card mt-6">
+            <CardContent className="p-10 text-center">
+              <GraduationCap className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+              <h3 className="text-lg font-semibold mb-1">Noch kein Prüfungstraining</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Starte jetzt deine Prüfungsvorbereitung!
+              </p>
+              <Link to="/courses">
+                <Button className="gradient-primary text-primary-foreground shadow-glow">
+                  Training entdecken
+                  <ArrowRight className="h-4 w-4 ml-2" />
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
-  );
-}
-
-function ConversionCardWrapper({ curriculumId, navigate }: { curriculumId: string; navigate: (path: string) => void }) {
-  const conversion = useConversionEngine({ readiness: null });
-
-  return (
-    <ConversionCard
-      headline={conversion.headline}
-      subline={conversion.subline}
-      cta={conversion.cta}
-      onClick={() => {
-        switch (conversion.intent) {
-          case 'weakness_training':
-            navigate(`/course/${curriculumId}`);
-            break;
-          case 'exam_simulation':
-          case 'exam_final':
-            navigate('/exam-simulation');
-            break;
-          default:
-            navigate('/courses');
-        }
-      }}
-    />
   );
 }
 
@@ -439,38 +300,39 @@ function QuickActionsGrid({ activeCurriculumId }: { activeCurriculumId: string |
   const adaptiveBlocked = !entitlementLoading && !hasExamTrainer;
 
   const actions = [
-    { to: '/exam-trainer', icon: Target, label: 'Prüfungstrainer', desc: 'Schriftlich üben', gradient: 'gradient-accent', glow: 'shadow-glow-accent', blocked: false },
-    { to: '/exam-simulation', icon: GraduationCap, label: 'Simulation', desc: simulationBlocked ? '🔒 Noch gesperrt' : 'Prüfung simulieren', gradient: 'gradient-primary', glow: 'shadow-glow-sm', blocked: !!simulationBlocked },
-    { to: adaptiveBlocked ? '/exam-trainer' : `/exam-simulation?mode=adaptive&curriculum=${activeCurriculumId ?? ''}`, icon: Sparkles, label: 'Adaptive Prüfung', desc: adaptiveBlocked ? '🔒 Premium' : 'Schwächen-basiert', gradient: 'bg-gradient-to-br from-violet-500 to-purple-600', glow: 'shadow-glow-sm', blocked: adaptiveBlocked },
-    { to: '/oral-exam', icon: Mic, label: 'Mündlich', desc: 'Mündliche Prüfung', gradient: 'bg-gradient-to-br from-blue-500 to-cyan-500', glow: '', blocked: false },
-    { to: '/spaced-repetition', icon: Brain, label: 'Wiederholen', desc: 'Spaced Repetition', gradient: 'bg-gradient-to-br from-purple-500 to-indigo-600', glow: '', blocked: false },
-    { to: '/exam-anxiety', icon: Heart, label: 'Prüfungsangst', desc: 'Stressabbau', gradient: 'bg-gradient-to-br from-rose-500 to-pink-600', glow: '', blocked: false },
+    { to: '/exam-trainer', icon: Target, label: 'Prüfungstrainer', gradient: 'gradient-accent', blocked: false },
+    { to: '/exam-simulation', icon: GraduationCap, label: 'Simulation', gradient: 'gradient-primary', blocked: !!simulationBlocked },
+    { to: '/oral-exam', icon: Mic, label: 'Mündlich', gradient: 'bg-gradient-to-br from-blue-500 to-cyan-500', blocked: false },
+    { to: '/spaced-repetition', icon: Brain, label: 'Wiederholen', gradient: 'bg-gradient-to-br from-purple-500 to-indigo-600', blocked: false },
+    { to: '/exam-anxiety', icon: Heart, label: 'Stressabbau', gradient: 'bg-gradient-to-br from-rose-500 to-pink-600', blocked: false },
   ];
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
-      {actions.map((action) => {
-        const content = (
-          <Card className={cn(
-            'glass-card transition-all h-full touch-manipulation',
-            action.blocked ? 'opacity-60 cursor-not-allowed' : 'hover:border-primary/30 active:scale-[0.97]'
-          )}>
-            <CardContent className="p-4 sm:p-5 text-center">
-              <div className={`p-3 rounded-xl ${action.gradient} ${action.glow} inline-flex mb-3 ${action.blocked ? 'grayscale' : ''}`}>
-                <action.icon className="h-5 w-5 text-white" />
-              </div>
-              <h3 className="font-display font-bold text-sm">{action.label}</h3>
-              <p className="text-xs text-muted-foreground mt-0.5">{action.desc}</p>
-            </CardContent>
-          </Card>
-        );
+    <div className="mt-6">
+      <h2 className="text-base font-display font-semibold mb-3">Schnellzugriff</h2>
+      <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+        {actions.map((action) => {
+          const content = (
+            <Card className={cn(
+              'glass-card transition-all touch-manipulation',
+              action.blocked ? 'opacity-50 cursor-not-allowed' : 'hover:border-primary/30 active:scale-[0.97]'
+            )}>
+              <CardContent className="p-3 text-center">
+                <div className={`p-2 rounded-lg ${action.gradient} inline-flex mb-1.5 ${action.blocked ? 'grayscale' : ''}`}>
+                  <action.icon className="h-4 w-4 text-white" />
+                </div>
+                <h3 className="font-medium text-xs leading-tight">{action.label}</h3>
+              </CardContent>
+            </Card>
+          );
 
-        if (action.blocked) {
-          return <div key={action.to} className="block" title="Trainiere zuerst offene Schwächen">{content}</div>;
-        }
+          if (action.blocked) {
+            return <div key={action.to}>{content}</div>;
+          }
 
-        return <Link key={action.to} to={action.to} className="block">{content}</Link>;
-      })}
+          return <Link key={action.to} to={action.to}>{content}</Link>;
+        })}
+      </div>
     </div>
   );
 }
