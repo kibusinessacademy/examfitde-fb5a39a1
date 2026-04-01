@@ -140,7 +140,9 @@ const VERIFIERS: Record<string, (sb: SB, job: any) => Promise<VerifyResult>> = {
 
     const { data: cur, error: curErr } = await sb
       .from("curricula").select("beruf_id").eq("id", r.id).single();
-    if (curErr || !cur?.beruf_id) return { ok: false, reason: "NO_BERUF_ID", permanent: true };
+    // FAIL-SOFT: No beruf_id means glossary was intentionally skipped — not a failure.
+    // The edge function returns ok:true + skipped:true in this case.
+    if (curErr || !cur?.beruf_id) return { ok: true, reason: "SKIPPED_NO_BERUF_ID", count: 0 };
 
     const { count, error } = await safeCount(sb, "profession_glossaries", (q) =>
       q.eq("beruf_id", cur.beruf_id),

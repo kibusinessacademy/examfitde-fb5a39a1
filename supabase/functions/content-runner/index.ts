@@ -274,6 +274,34 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
     const { ok, result, error: dispatchError, terminal } = await dispatchJob(job, supabaseUrl, serviceKey);
 
     if (ok) {
+      // ── SKIP GUARD (Branch 4b) ──
+      // If the function returned ok:true + skipped:true, it was intentionally
+      // skipped (e.g. glossary without beruf_id). Mark completed WITHOUT
+      // running the materialization guard — no artifact was expected.
+      const isSkipped = result && typeof result === "object"
+        && result.skipped === true;
+
+      if (isSkipped) {
+        const now = new Date().toISOString();
+        await sb.from("job_queue").update({
+          status: "completed",
+          result: result ?? {},
+          completed_at: now,
+          updated_at: now,
+          locked_at: null,
+          locked_by: null,
+          last_error: null,
+          meta: {
+            ...(job.meta || {}),
+            skipped: true,
+            skip_reason: result.reason || "unknown",
+            skipped_at: now,
+          },
+        }).eq("id", job.id);
+        console.log(`[content-runner] ⏭️ ${job.job_type} (${shortId}) → SKIPPED (reason=${result.reason || "?"})`);
+        return { id: job.id, ok: true, skipped: true };
+      }
+
       // ── BATCH MODE GUARD ──
       // If the job returned batch_mode=true with batch_complete=false,
       // it was enqueued for async batch processing. Don't mark as completed

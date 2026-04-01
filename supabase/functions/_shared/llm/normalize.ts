@@ -52,6 +52,9 @@ export function isTransientLlmError(err: unknown): boolean {
     "ops_guard", "non_building_package",
     "edge function exceeded",
     "deferred", "all candidates on cooldown",
+    // v15: Pipeline prerequisite not met — transient, retry with backoff
+    "prereq_not_done", "prereq not done",
+    "http 409",
   ];
 
   return TRANSIENT_PATTERNS.some(p => msg.includes(p));
@@ -131,13 +134,15 @@ export function classifyError(err: unknown): ErrorClassification {
     };
   }
 
-  // Operational guards (stale locks, health gate, OPS_GUARD) = transient, no cooldown needed
+  // Operational guards (stale locks, health gate, OPS_GUARD, prereqs) = transient, no cooldown needed
   if (
     msg.includes("stale lock") || msg.includes("state lock") || msg.includes("stale_lock") ||
     msg.includes("health_gate") || msg.includes("health gate") ||
     msg.includes("ops_guard") || msg.includes("non_building_package") ||
     msg.includes("edge function exceeded") ||
-    msg.includes("deferred") || msg.includes("all candidates on cooldown")
+    msg.includes("deferred") || msg.includes("all candidates on cooldown") ||
+    msg.includes("prereq_not_done") || msg.includes("prereq not done") ||
+    msg.includes("http 409")
   ) {
     return { isTransient: true, reason: "ops_guard_or_lock" };
   }
