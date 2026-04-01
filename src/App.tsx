@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -20,11 +21,64 @@ const queryClient = new QueryClient({
   },
 });
 
+const OPEN_RADIX_MODAL_SELECTOR = [
+  '[role="dialog"][data-state="open"]',
+  '[role="alertdialog"][data-state="open"]',
+].join(", ");
+
+function usePointerLockRecovery() {
+  const location = useLocation();
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+
+    const unlockIfStale = () => {
+      const hasOpenModal = !!document.querySelector(OPEN_RADIX_MODAL_SELECTOR);
+      if (hasOpenModal) return;
+
+      if (document.body.style.pointerEvents === "none") {
+        document.body.style.pointerEvents = "";
+      }
+
+      if (document.documentElement.style.pointerEvents === "none") {
+        document.documentElement.style.pointerEvents = "";
+      }
+    };
+
+    unlockIfStale();
+
+    const animationFrame = window.requestAnimationFrame(unlockIfStale);
+    const timeout = window.setTimeout(unlockIfStale, 250);
+    const observer = new MutationObserver(unlockIfStale);
+
+    observer.observe(document.body, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: ["style", "data-state"],
+    });
+
+    document.addEventListener("focusin", unlockIfStale, true);
+    document.addEventListener("pointerup", unlockIfStale, true);
+
+    return () => {
+      window.cancelAnimationFrame(animationFrame);
+      window.clearTimeout(timeout);
+      observer.disconnect();
+      document.removeEventListener("focusin", unlockIfStale, true);
+      document.removeEventListener("pointerup", unlockIfStale, true);
+      unlockIfStale();
+    };
+  }, [location.pathname]);
+}
+
 function AppChrome() {
   const { isNative } = useNativeApp();
   const location = useLocation();
   const isAdminRoute = location.pathname.startsWith('/admin');
   const showNativeTabBar = isNative && !isAdminRoute;
+
+  usePointerLockRecovery();
 
   return (
     <>
