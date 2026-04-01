@@ -13,6 +13,10 @@ import {
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { BlockedPackagesSheet } from '@/components/admin/command/BlockedPackagesSheet';
+import { FailedJobsSheet } from '@/components/admin/command/FailedJobsSheet';
+import { StuckPackagesSheet } from '@/components/admin/command/StuckPackagesSheet';
+import { BuildingPackagesSheet } from '@/components/admin/command/BuildingPackagesSheet';
+import { PublishedPackagesSheet } from '@/components/admin/command/PublishedPackagesSheet';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { PackageInfo, QueueHealth, BudgetInfo, AIDiagnose, PlatformKPIs } from './types';
 import { ProductGroup } from './ProductGroup';
