@@ -108,7 +108,9 @@ export default function ExamPoolAuditCard() {
                         "text-[9px] px-1.5 py-0 h-4",
                         diag.tone === 'red'
                           ? 'border-destructive/40 text-destructive bg-destructive/5'
-                          : 'border-warning/40 text-warning bg-warning/5'
+                          : diag.tone === 'green'
+                            ? 'border-success/40 text-success bg-success/5'
+                            : 'border-warning/40 text-warning bg-warning/5'
                       )}
                     >
                       {diag.label}
