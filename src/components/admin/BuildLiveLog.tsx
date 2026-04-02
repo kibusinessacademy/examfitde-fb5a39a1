@@ -92,7 +92,7 @@ function formatLogMessage(step: any): LogEntry {
 
 export default function BuildLiveLog({ packageId, isBuilding }: BuildLiveLogProps) {
   const [logs, setLogs] = useState<LogEntry[]>([]);
-  const [autoScroll, setAutoScroll] = useState(true);
+  const [autoScroll, setAutoScroll] = useState(false);
   const [paused, setPaused] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
