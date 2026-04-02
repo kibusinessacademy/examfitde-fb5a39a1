@@ -177,24 +177,62 @@ export function getStepShortLabel(key: string): string {
 }
 
 /**
+ * Known non-SSOT legacy keys that may appear in step_status_json.
+ * These are NEVER counted for progress or displayed as current step.
+ */
+const LEGACY_STEP_KEYS = new Set([
+  'generate_curriculum', 'generate_lessons', 'generate_modules',
+  'generate_lesson_content', 'generate_handbook_content', 'validate_handbook_content',
+  'generate_oral_exam_content', 'validate_oral_exam_content',
+  'validate_exam_questions', 'generate_exam_questions',
+  'setup_course_package', 'setup_storefront', 'council_review',
+  'launch_marketing', 'post_launch_monitor',
+  'fanout_learning_content', 'finalize_learning_content',
+]);
+
+/**
+ * Fanout patterns: parent step → prerequisite fanout step.
+ * When the parent is 'queued' but the fanout step is 'done',
+ * the parent is effectively running (child jobs are active).
+ */
+const FANOUT_PATTERNS: Record<string, string> = {
+  generate_learning_content: 'fanout_learning_content',
+};
+
+/**
  * Derive real progress & current step from step_status_json (SSOT).
  * Never trust course_packages.build_progress / current_step — they can be stale.
+ * 
+ * - Strips legacy keys from calculation
+ * - Detects fanout patterns (parent queued + fanout done = effectively running)
  */
 export function deriveStepProgress(stepStatuses: Record<string, string> | null | undefined) {
   const statuses = stepStatuses || {};
-  // Only count steps that actually exist in this package's status map
-  const packageSteps = FULL_STEP_ORDER.filter(k => k in statuses);
+  // Only count SSOT steps, never legacy keys
+  const packageSteps = FULL_STEP_ORDER.filter(k => k in statuses && !LEGACY_STEP_KEYS.has(k));
   const total = packageSteps.length || 1;
   const doneCount = packageSteps.filter(k => statuses[k] === 'done' || statuses[k] === 'skipped').length;
   const progress = Math.round((doneCount / total) * 100);
 
-  // Current step = first step that is running/enqueued, or the first non-done step
-  const activeStep = packageSteps.find(k => statuses[k] === 'running' || statuses[k] === 'enqueued');
-  const nextStep = activeStep || packageSteps.find(k => statuses[k] !== 'done' && statuses[k] !== 'skipped');
-  const currentLabel = nextStep
-    ? (isPipelineStepKey(nextStep) ? PIPELINE_STEP_SHORT_LABELS[nextStep] : nextStep)
-    : (doneCount >= total ? 'Fertig' : '—');
-  const isActive = !!activeStep;
+  // Check for fanout-active pattern: parent step is 'queued' but fanout prerequisite is 'done'
+  const fanoutActiveStep = packageSteps.find(k => {
+    if (statuses[k] !== 'queued') return false;
+    const fanoutKey = FANOUT_PATTERNS[k];
+    return fanoutKey && statuses[fanoutKey] === 'done';
+  });
 
-  return { progress, currentLabel, isActive, doneCount, total, activeStepKey: activeStep || null };
+  // Current step = running/enqueued, fanout-active, or first non-done step
+  const activeStep = packageSteps.find(k => statuses[k] === 'running' || statuses[k] === 'enqueued');
+  const effectiveActive = activeStep || fanoutActiveStep;
+  const nextStep = effectiveActive || packageSteps.find(k => statuses[k] !== 'done' && statuses[k] !== 'skipped');
+  
+  const isFanoutActive = !activeStep && !!fanoutActiveStep;
+  const currentLabel = nextStep
+    ? (isPipelineStepKey(nextStep)
+      ? PIPELINE_STEP_SHORT_LABELS[nextStep] + (isFanoutActive ? ' ⚡' : '')
+      : nextStep)
+    : (doneCount >= total ? 'Fertig' : '—');
+  const isActive = !!effectiveActive;
+
+  return { progress, currentLabel, isActive, doneCount, total, activeStepKey: effectiveActive || null, isFanoutActive };
 }
