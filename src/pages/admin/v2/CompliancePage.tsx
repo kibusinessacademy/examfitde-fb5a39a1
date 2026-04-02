@@ -4,8 +4,10 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
-  Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription
-} from '@/components/ui/sheet';
+  AdminSheet as Sheet, AdminSheetContent as SheetContent,
+  AdminSheetHeader as SheetHeader, AdminSheetTitle as SheetTitle,
+  AdminSheetDescription as SheetDescription,
+} from '@/components/admin/AdminSheet';
 import {
   Shield, FileCheck, Eye, Bot, Database,
   CheckCircle2, AlertTriangle, Clock, XCircle,

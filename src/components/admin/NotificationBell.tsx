@@ -5,8 +5,10 @@ import { Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
-  Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger,
-} from '@/components/ui/sheet';
+  AdminSheet as Sheet, AdminSheetContent as SheetContent,
+  AdminSheetHeader as SheetHeader, AdminSheetTitle as SheetTitle,
+  AdminSheetTrigger as SheetTrigger,
+} from '@/components/admin/AdminSheet';
 import { cn } from '@/lib/utils';
 import { Link } from 'react-router-dom';
 import { useRealtimeInvalidation } from '@/hooks/useAdminRealtimeInvalidation';

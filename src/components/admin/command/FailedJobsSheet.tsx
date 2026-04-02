@@ -4,8 +4,9 @@ import { runAdminOpsAction } from '@/integrations/supabase/admin-ops-actions';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import {
-  Sheet, SheetContent, SheetHeader, SheetTitle,
-} from '@/components/ui/sheet';
+  AdminSheet as Sheet, AdminSheetContent as SheetContent,
+  AdminSheetHeader as SheetHeader, AdminSheetTitle as SheetTitle,
+} from '@/components/admin/AdminSheet';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, XCircle, ArrowRight, Play, Trash2, CheckCircle2, AlertTriangle, Skull } from 'lucide-react';

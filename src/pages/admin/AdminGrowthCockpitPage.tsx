@@ -9,8 +9,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription
-} from "@/components/ui/sheet";
+  AdminSheet as Sheet, AdminSheetContent as SheetContent,
+  AdminSheetHeader as SheetHeader, AdminSheetTitle as SheetTitle,
+  AdminSheetDescription as SheetDescription,
+} from "@/components/admin/AdminSheet";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
