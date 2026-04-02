@@ -11,6 +11,7 @@ import { SmartStreakWidget } from '@/components/dashboard/SmartStreakWidget';
 import { ExamPreview } from '@/components/dashboard/ExamPreview';
 import { BadgeHistory } from '@/components/dashboard/BadgeHistory';
 import { MasteryDashboardSection } from '@/features/mastery/components/MasteryDashboardSection';
+import { DailyHumorCard } from '@/components/dashboard/DailyHumorCard';
 import { useSimulationGate } from '@/hooks/useExamReadiness';
 import { useProductAccessByCurriculum } from '@/hooks/useProductAccess';
 import { Button } from '@/components/ui/button';
