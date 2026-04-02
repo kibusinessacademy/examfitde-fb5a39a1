@@ -50,7 +50,7 @@ export default function AdminV2Shell({ children }: Props) {
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* ── Mobile Header ── */}
-      <header className="lg:hidden fixed top-0 inset-x-0 z-50 h-13 border-b border-border bg-background/95 backdrop-blur-sm flex items-center justify-between px-3">
+      <header className="lg:hidden fixed top-0 inset-x-0 z-50 h-[3.25rem] border-b border-border bg-background/95 backdrop-blur-sm flex items-center justify-between px-3">
         <button
           onClick={() => setMobileOpen(!mobileOpen)}
           className="p-2.5 rounded-lg hover:bg-muted active:bg-muted/80 min-w-[44px] min-h-[44px] flex items-center justify-center"
