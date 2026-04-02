@@ -239,6 +239,7 @@ Deno.serve(async (req) => {
       false_liveness_healed: falseLivenessHealed,
       exam_pool_loop_repaired: examPoolLoopRepaired,
       hot_loops_mitigated: hotLoopResults,
+      stale_lock_loops_mitigated: staleLockLoopResults,
     });
   } catch (e: unknown) {
     const msg = (e as Error)?.message || String(e);
