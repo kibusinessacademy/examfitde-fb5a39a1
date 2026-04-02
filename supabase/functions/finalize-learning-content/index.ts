@@ -27,6 +27,7 @@ const MIN_CONTENT_LENGTH = 300;
 const COVERAGE_THRESHOLD = 0.90;      // 90% of lessons must have content
 const MAX_SHARD_RETRIES = 3;          // Hard cap on per-shard requeues
 const STALE_CLAIM_MINUTES = 20;       // Claims older than this are reset
+const STALE_SHARD_MINUTES = 30;       // Pending shards older than this with no active job are stale
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -202,13 +203,139 @@ Deno.serve(async (req) => {
 
     // ── 2. Handle incomplete shards ──
     if (pending.length > 0) {
-      return json({
-        ok: true,
-        batch_complete: false,
-        transient: true,
-        message: `⏳ ${pending.length} shards still processing/pending`,
-        progress: { total: totalShards, completed: completed.length, pending: pending.length, failed: failed.length },
+      // ── Stale shard detection: shards pending for >STALE_SHARD_MINUTES with no active job ──
+      const staleShardThreshold = Date.now() - STALE_SHARD_MINUTES * 60 * 1000;
+      // deno-lint-ignore no-explicit-any
+      const stalePending = pending.filter((s: any) => {
+        const updatedAt = s.meta?.last_requeued_at || s.meta?.created_at;
+        const shardAge = updatedAt ? new Date(updatedAt).getTime() : 0;
+        // If no timestamp or older than threshold, it's stale
+        return !shardAge || shardAge < staleShardThreshold;
       });
+
+      if (stalePending.length > 0) {
+        // Check if there are ANY active shard jobs for this fanout
+        const { data: activeShardJobs } = await sb
+          .from("job_queue")
+          .select("id")
+          .eq("package_id", packageId)
+          .eq("job_type", "lesson_generate_content_shard")
+          .in("status", ["pending", "queued", "processing", "running", "batch_pending"])
+          .filter("payload->>fanout_id", "eq", fanoutId)
+          .limit(1)
+          .maybeSingle();
+
+        if (!activeShardJobs) {
+          // No active jobs for these shards — check if lessons already have content
+          const staleLessonIds: string[] = [];
+          for (const shard of stalePending) {
+            for (const lid of (shard.meta?.lesson_ids || [])) {
+              staleLessonIds.push(lid);
+            }
+          }
+
+          let lessonsWithContent = 0;
+          if (staleLessonIds.length > 0) {
+            const { count } = await sb
+              .from("lessons")
+              .select("id", { count: "exact", head: true })
+              .in("id", staleLessonIds.slice(0, 500))
+              .eq("generation_status", "generated");
+            lessonsWithContent = count ?? 0;
+          }
+
+          const totalStaleLessons = staleLessonIds.length;
+          const coverageRatio = totalStaleLessons > 0 ? lessonsWithContent / totalStaleLessons : 0;
+
+          if (coverageRatio >= COVERAGE_THRESHOLD) {
+            // Lessons already have content — mark stale shards as completed
+            console.warn(`[finalize] STALE_SHARD_RESOLVE: ${stalePending.length} orphaned shards with ${lessonsWithContent}/${totalStaleLessons} lessons already generated — marking completed`);
+            for (const shard of stalePending) {
+              await sb.from("package_content_shards").update({
+                status: "completed",
+                updated_at: new Date().toISOString(),
+                meta: { ...(shard.meta || {}), resolved_as: "stale_with_content", resolved_at: new Date().toISOString() },
+              }).eq("id", shard.id);
+            }
+            // Re-check: are there still non-stale pending shards?
+            // deno-lint-ignore no-explicit-any
+            const remainingPending = pending.filter((s: any) => !stalePending.includes(s));
+            if (remainingPending.length === 0) {
+              console.log(`[finalize] All stale shards resolved — falling through to coverage check`);
+              // Fall through to coverage check below
+            } else {
+              return json({
+                ok: true,
+                batch_complete: false,
+                transient: true,
+                message: `⏳ Resolved ${stalePending.length} stale shards, ${remainingPending.length} still pending`,
+                progress: { total: totalShards, completed: completed.length + stalePending.length, pending: remainingPending.length, failed: failed.length },
+              });
+            }
+          } else {
+            // Lessons don't have content — re-enqueue shard jobs
+            console.warn(`[finalize] STALE_SHARD_REQUEUE: ${stalePending.length} orphaned shards, only ${lessonsWithContent}/${totalStaleLessons} lessons have content — re-enqueuing`);
+            let requeued = 0;
+            for (const shard of stalePending) {
+              const retryCount = Number(shard.meta?.retry_count || 0);
+              if (retryCount >= MAX_SHARD_RETRIES) {
+                // Mark as failed/exhausted
+                await sb.from("package_content_shards").update({
+                  status: "failed",
+                  last_error: "STALE_SHARD_EXHAUSTED",
+                  updated_at: new Date().toISOString(),
+                }).eq("id", shard.id);
+                continue;
+              }
+              await sb.from("package_content_shards").update({
+                updated_at: new Date().toISOString(),
+                meta: { ...(shard.meta || {}), retry_count: retryCount + 1, last_requeued_at: new Date().toISOString() },
+              }).eq("id", shard.id);
+              await enqueueJob(sb, {
+                job_type: "lesson_generate_content_shard",
+                package_id: packageId,
+                payload: {
+                  package_id: packageId,
+                  course_id: courseId,
+                  curriculum_id: curriculumId,
+                  learning_field_id: shard.learning_field_id,
+                  chunk_index: shard.chunk_index,
+                  fanout_id: fanoutId,
+                  lesson_ids: shard.meta?.lesson_ids || [],
+                },
+                priority: 12,
+                max_attempts: 5,
+              });
+              requeued++;
+            }
+            return json({
+              ok: true,
+              batch_complete: false,
+              transient: true,
+              message: `♻️ Re-enqueued ${requeued} stale orphaned shards`,
+              progress: { total: totalShards, completed: completed.length, pending: pending.length, failed: failed.length },
+            });
+          }
+        } else {
+          // Active jobs exist — genuinely still processing
+          return json({
+            ok: true,
+            batch_complete: false,
+            transient: true,
+            message: `⏳ ${pending.length} shards still processing/pending (active jobs found)`,
+            progress: { total: totalShards, completed: completed.length, pending: pending.length, failed: failed.length },
+          });
+        }
+      } else {
+        // All pending shards are recent — genuinely still processing
+        return json({
+          ok: true,
+          batch_complete: false,
+          transient: true,
+          message: `⏳ ${pending.length} shards still processing/pending`,
+          progress: { total: totalShards, completed: completed.length, pending: pending.length, failed: failed.length },
+        });
+      }
     }
 
     // ── 3. Handle failed shards — requeue with retry cap ──
