@@ -31,6 +31,15 @@ export default function AdminV2Shell({ children }: Props) {
 
   // Close on route change
   useEffect(() => { setMobileOpen(false); }, [location.pathname]);
+
+  // Track desktop breakpoint
+  useEffect(() => {
+    const mql = window.matchMedia('(min-width: 1024px)');
+    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
+    mql.addEventListener('change', handler);
+    setIsDesktop(mql.matches);
+    return () => mql.removeEventListener('change', handler);
+  }, []);
   
   // Lock scroll
   useEffect(() => {
