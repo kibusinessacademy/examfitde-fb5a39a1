@@ -298,8 +298,14 @@ async function handleGateChanged(
       status: "running",
       updated_at: new Date().toISOString(),
       meta: { pending_followup: "pool_fill_lf_gaps", lf_gaps: repairResult.missing_lf_coverage, gate_delta_verified: true },
-  }).eq("package_id", packageId).eq("step_key", "repair_exam_pool_quality");
-}
+    }).eq("package_id", packageId).eq("step_key", "repair_exam_pool_quality");
+  } else {
+    await markStepDone(sb, {
+      packageId,
+      stepKey: "repair_exam_pool_quality",
+      meta: { repair_complete: true, qc_reconciled: qcReconciled, gate_delta_verified: true },
+    });
+  }
 
 // ── Helper: No effect → DON'T re-queue, preserve blocked_reason ──
 async function handleNoEffect(
