@@ -87,6 +87,13 @@ export default function LearnerDashboard() {
           </div>
         )}
 
+        {/* ━━━ Witz des Tages ━━━ */}
+        {activeCurriculumId && (
+          <div className="mb-6">
+            <DailyHumorCard curriculumId={activeCurriculumId} />
+          </div>
+        )}
+
         {/* ━━━ SECTION 2: Mastery Overview (Readiness + Weakness) ━━━ */}
         {activeCurriculumId && (
           <div className="mb-6">
