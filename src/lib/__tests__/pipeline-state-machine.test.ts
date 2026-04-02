@@ -220,13 +220,13 @@ describe("pickNextAction — Sequential Step Handoff", () => {
 });
 
 describe("pickNextAction — Full Pipeline Walk-Through", () => {
-  it("simulates complete 20-step pipeline progression", () => {
+  it("simulates complete pipeline progression", () => {
     const steps = makeFullPipeline();
     const order = buildStepOrder(steps);
     const visited: string[] = [];
 
     // Simulate: pick action, mark done, repeat
-    for (let i = 0; i < 25; i++) { // safety limit
+    for (let i = 0; i < 30; i++) { // safety limit
       const action = pickNextAction(steps, order);
       if (!action) break;
       if (action.action !== "enqueue") break;
@@ -238,9 +238,9 @@ describe("pickNextAction — Full Pipeline Walk-Through", () => {
       visited.push(action.stepKey);
     }
 
-    // Must visit all 20 steps in exact SSOT order
+    // Must visit all steps in exact SSOT order
     expect(visited).toEqual(FULL_STEP_ORDER);
-    expect(visited).toHaveLength(20);
+    expect(visited).toHaveLength(FULL_STEP_ORDER.length);
     
     // Final state: all done, no next action
     expect(pickNextAction(steps, order)).toBeNull();
