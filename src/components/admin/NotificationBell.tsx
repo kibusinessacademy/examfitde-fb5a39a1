@@ -69,7 +69,7 @@ export default function NotificationBell() {
   };
 
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
+    <Sheet modal={false} open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="h-4.5 w-4.5" />

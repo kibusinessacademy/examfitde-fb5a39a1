@@ -249,7 +249,7 @@ export default function CrmPanel({ open, onOpenChange }: { open: boolean; onOpen
   const wonValue = wonLeads.reduce((s, l) => s + (l.deal_value_eur || 0), 0);
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet modal={false} open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-xl overflow-y-auto">
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
