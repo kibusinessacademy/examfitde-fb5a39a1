@@ -60,7 +60,7 @@ Deno.serve(async (req) => {
         .limit(200),
     ]);
 
-    const errors = [q1.error, q2.error, q3.error, q4.error, q5.error]
+    const errors = [q1.error, q2.error, q3.error, q4.error, q5.error, q6.error]
       .filter(Boolean)
       .map((e) => e!.message);
 
