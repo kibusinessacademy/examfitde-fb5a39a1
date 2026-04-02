@@ -77,15 +77,14 @@ export default function AdminV2Shell({ children }: Props) {
 
       {/* ── Sidebar (Desktop + Mobile Drawer) ── */}
       <aside
-        {...(!mobileOpen ? { inert: '' as any } : {})}
+        {...(!isDesktop && !mobileOpen ? { inert: '' as any } : {})}
         className={cn(
           "fixed left-0 z-50 bg-card border-r border-border flex flex-col transition-transform duration-200",
           "lg:translate-x-0 lg:top-0 lg:h-full lg:w-56",
           "top-13 h-[calc(100vh-3.25rem)] w-[280px]",
           mobileOpen ? "translate-x-0 pointer-events-auto" : "-translate-x-full pointer-events-none lg:translate-x-0 lg:pointer-events-auto",
-          "[&[inert]]:lg:pointer-events-auto"
         )}
-        aria-hidden={!mobileOpen ? true : undefined}
+        aria-hidden={!isDesktop && !mobileOpen ? true : undefined}
       >
         {/* Desktop Logo */}
         <div className="hidden lg:flex items-center gap-2 h-14 px-4 border-b border-border shrink-0">
