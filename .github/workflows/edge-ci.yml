@@ -72,6 +72,10 @@ jobs:
         run: |
           node scripts/guards/no-gemini-learning-content-guard.mjs
 
+      - name: No-Raw-Step-Insert Guard
+        run: |
+          node scripts/guards/no-raw-step-insert-guard.mjs
+
       - name: No-Direct-LLM-Fetch Guard
         run: |
           node scripts/guards/no-direct-llm-fetch-guard.mjs
