@@ -685,7 +685,7 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
     const staleBefore = new Date(Date.now() - STALE_LOCK_RECOVERY_MS).toISOString();
     const { data: staleRows } = await sb
       .from("job_queue")
-      .select("id")
+      .select("id, attempts, max_attempts")
       .eq("worker_pool", "content")
       .eq("status", "processing")
       .not("locked_by", "is", null)
@@ -694,15 +694,24 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
       .limit(50);
 
     if (staleRows && staleRows.length > 0) {
+      // ── Stale-lock recovery with attempt increment to prevent infinite cycling ──
+      for (const row of staleRows) {
+        const nextAttempts = (row.attempts ?? 0) + 1;
+        const maxAttempts = row.max_attempts ?? 8;
+        const exhausted = nextAttempts >= maxAttempts;
+        await sb.from("job_queue").update({
+          status: exhausted ? "failed" : "pending",
+          run_after: exhausted ? null : new Date(Date.now() + Math.min(nextAttempts * 10_000, 120_000)).toISOString(),
+          locked_at: null,
+          locked_by: null,
+          attempts: nextAttempts,
+          updated_at: new Date().toISOString(),
+          last_error: exhausted
+            ? `STALE_LOCK_EXHAUSTED: ${nextAttempts}/${maxAttempts} attempts by ${WORKER_ID}`
+            : `STALE_LOCK_RECOVERY: attempt ${nextAttempts}/${maxAttempts} by ${WORKER_ID}`,
+        }).eq("id", row.id);
+      }
       const staleIds = staleRows.map((r: { id: string }) => r.id);
-      await sb.from("job_queue").update({
-        status: "pending",
-        run_after: new Date(Date.now() + 5_000).toISOString(),
-        locked_at: null,
-        locked_by: null,
-        updated_at: new Date().toISOString(),
-        last_error: `STALE_LOCK_RECOVERY: released by ${WORKER_ID}`,
-      }).in("id", staleIds);
       // Best-effort: update job meta with recovery info (no RPC dependency)
       for (const sid of staleIds) {
         try {
