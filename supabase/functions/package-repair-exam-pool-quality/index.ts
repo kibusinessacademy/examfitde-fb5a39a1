@@ -293,12 +293,11 @@ async function handleGateChanged(
   }).eq("package_id", packageId).eq("step_key", "validate_exam_pool").in("status", ["failed", "queued"]);
 
   const hasOpenLfGaps = (repairResult.missing_lf_coverage as number) > 0;
-  await sb.from("package_steps").update({
-    status: hasOpenLfGaps ? "running" : "done",
-    updated_at: new Date().toISOString(),
-    meta: hasOpenLfGaps
-      ? { pending_followup: "pool_fill_lf_gaps", lf_gaps: repairResult.missing_lf_coverage, gate_delta_verified: true }
-      : { repair_complete: true, qc_reconciled: qcReconciled, gate_delta_verified: true },
+  if (hasOpenLfGaps) {
+    await sb.from("package_steps").update({
+      status: "running",
+      updated_at: new Date().toISOString(),
+      meta: { pending_followup: "pool_fill_lf_gaps", lf_gaps: repairResult.missing_lf_coverage, gate_delta_verified: true },
   }).eq("package_id", packageId).eq("step_key", "repair_exam_pool_quality");
 }
 
