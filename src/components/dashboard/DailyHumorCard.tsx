@@ -28,16 +28,43 @@ type HumorResponse = {
 };
 
 interface DailyHumorCardProps {
-  certificationId: string;
+  certificationId?: string;
+  curriculumId?: string;
 }
 
-export function DailyHumorCard({ certificationId }: DailyHumorCardProps) {
+export function DailyHumorCard({ certificationId, curriculumId }: DailyHumorCardProps) {
   const [data, setData] = useState<HumorResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [vote, setVote] = useState<-1 | 1 | null>(null);
   const [voteSaving, setVoteSaving] = useState(false);
+  const [resolvedCertId, setResolvedCertId] = useState<string | null>(certificationId ?? null);
+
+  // Resolve certification_id from curriculum_id if needed
+  useEffect(() => {
+    if (certificationId) {
+      setResolvedCertId(certificationId);
+      return;
+    }
+    if (!curriculumId) return;
+
+    (async () => {
+      const { data: pkg } = await supabase
+        .from("course_packages")
+        .select("certification_id")
+        .eq("curriculum_id", curriculumId)
+        .not("certification_id", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (pkg?.certification_id) {
+        setResolvedCertId(pkg.certification_id);
+      }
+    })();
+  }, [certificationId, curriculumId]);
 
   useEffect(() => {
+    if (!resolvedCertId) return;
     let alive = true;
 
     const fetchHumor = async () => {
@@ -47,7 +74,7 @@ export function DailyHumorCard({ certificationId }: DailyHumorCardProps) {
         const token = sessionData?.session?.access_token;
 
         const params = new URLSearchParams({
-          certification_id: certificationId,
+          certification_id: resolvedCertId,
           mode: "daily",
         });
 
@@ -73,7 +100,7 @@ export function DailyHumorCard({ certificationId }: DailyHumorCardProps) {
 
     fetchHumor();
     return () => { alive = false; };
-  }, [certificationId]);
+  }, [resolvedCertId]);
 
   const handleVote = async (v: -1 | 1) => {
     if (!data?.humor || voteSaving) return;
@@ -94,6 +121,9 @@ export function DailyHumorCard({ certificationId }: DailyHumorCardProps) {
       setVoteSaving(false);
     }
   };
+
+  // Not yet resolved
+  if (!resolvedCertId && !loading) return null;
 
   // Opt-out: show minimal disabled state
   if (!loading && data?.disabled) {
