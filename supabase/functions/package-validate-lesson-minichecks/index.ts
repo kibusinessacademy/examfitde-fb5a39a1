@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
+import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 
 /**
  * package-validate-lesson-minichecks
@@ -9,13 +10,22 @@ import { createClient } from "npm:@supabase/supabase-js@2.45.4";
  * - Min items per lesson (≥3, counted across ALL statuses)
  * - Content quality checks (explanation length, option count)
  * - Reports PASS/FAIL + quality metrics; approval via quality_council
+ *
+ * Job-Runner signals:
+ *   NO_MINICHECKS or coverage < 10%  → retry:true, backoff_seconds:300
+ *   coverage ≥ 10% but gate fails    → permanent:true
+ *   gate passes                       → ok:true
  */
 
 const MIN_ITEMS_PER_LESSON = 3;
 const MIN_EXPLANATION_LENGTH = 220;
+const PREREQ_COVERAGE_THRESHOLD = 0.10;
 
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+function json(body: unknown, status = 200, origin: string | null = null) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...getCorsHeaders(origin), "content-type": "application/json" },
+  });
 }
 
 function assertUuid(name: string, v: unknown) {
@@ -24,7 +34,11 @@ function assertUuid(name: string, v: unknown) {
 }
 
 Deno.serve(async (req) => {
-  if (req.method !== "POST") return json({ error: "Use POST" }, 405);
+  const corsResp = handleCorsPreflightRequest(req);
+  if (corsResp) return corsResp;
+
+  const origin = req.headers.get("origin");
+  if (req.method !== "POST") return json({ error: "Use POST" }, 405, origin);
 
   const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   const body = await req.json().catch(() => ({}));
@@ -34,7 +48,7 @@ Deno.serve(async (req) => {
     assertUuid("package_id", p?.package_id);
     assertUuid("curriculum_id", p?.curriculum_id);
   } catch (e: unknown) {
-    return json({ error: (e as Error).message }, 400);
+    return json({ error: (e as Error).message }, 400, origin);
   }
 
   const packageId = p.package_id as string;
@@ -63,15 +77,18 @@ Deno.serve(async (req) => {
       .eq("mode", mode);
 
     if (!totalCount || totalCount === 0) {
-      issues.push({
-        severity: "critical",
-        code: "NO_MINICHECKS",
-        message: `Keine MiniCheck-Fragen (${mode}) für Curriculum gefunden`,
-      });
-      return json({ ok: false, issues, total: 0 });
+      console.log(`[ValidateMini] ${packageId}: NO_MINICHECKS → retry`);
+      return json({
+        ok: false,
+        retry: true,
+        backoff_seconds: 300,
+        error: "GATE_FAIL: NO_MINICHECKS",
+        issues: [{ severity: "critical", code: "NO_MINICHECKS", message: `Keine MiniCheck-Fragen (${mode}) für Curriculum gefunden` }],
+        total: 0,
+      }, 200, origin);
     }
 
-    // Quality checks on draft questions (read-only — NO status changes)
+    // Quality checks on draft questions (read-only)
     const { data: allQuestions } = await sb
       .from("minicheck_questions")
       .select("id, lesson_id, competency_id, question_text, options, explanation, difficulty, status")
@@ -86,13 +103,10 @@ Deno.serve(async (req) => {
 
     for (const q of allQuestions || []) {
       let isValid = true;
-
       const opts = Array.isArray(q.options) ? q.options : [];
-      if (opts.length !== 4) { isValid = false; }
-
-      if (!q.explanation || q.explanation.length < MIN_EXPLANATION_LENGTH) { isValid = false; }
-
-      if (!q.question_text || q.question_text.length < 15) { isValid = false; }
+      if (opts.length !== 4) isValid = false;
+      if (!q.explanation || q.explanation.length < MIN_EXPLANATION_LENGTH) isValid = false;
+      if (!q.question_text || q.question_text.length < 15) isValid = false;
 
       if (isValid) {
         qualityPass++;
@@ -102,7 +116,9 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Coverage check for lesson mode — SSOT: modules → lessons (NOT .eq("course_id"))
+    // Coverage check for lesson mode
+    let coverage: number | null = null;
+
     if (mode === "lesson" && effectiveCourseId) {
       const { data: modules } = await sb
         .from("modules")
@@ -123,11 +139,9 @@ Deno.serve(async (req) => {
 
       const totalLessons = lessons.length;
       if (totalLessons > 0) {
-        const lessonIds = lessons!.map(l => l.id);
+        const lessonIds = lessons.map((l: any) => l.id);
 
-        // Coverage: count ALL minichecks (any status) per lesson — coverage is didactic, not governance
-        // FIX: Use chunked loading to avoid Supabase 1000-row default limit
-        // Verkäufer has 3269 lesson minichecks, Industriemech. 2583 — both silently truncated
+        // Chunked loading to avoid 1000-row default limit
         const allLessonRows: Array<{ lesson_id: string }> = [];
         for (let i = 0; i < lessonIds.length; i += 200) {
           const chunk = lessonIds.slice(i, i + 200);
@@ -141,15 +155,14 @@ Deno.serve(async (req) => {
         }
 
         const countByLesson = new Map<string, number>();
-        for (const r of allLessonRows || []) {
+        for (const r of allLessonRows) {
           if (!r.lesson_id) continue;
           countByLesson.set(r.lesson_id, (countByLesson.get(r.lesson_id) || 0) + 1);
         }
 
         const coveredCount = countByLesson.size;
-        const coverage = coveredCount / totalLessons;
+        coverage = coveredCount / totalLessons;
 
-        // Coverage ≥90% required for Learning-Track
         if (coverage < 0.9) {
           issues.push({
             severity: "critical",
@@ -164,7 +177,7 @@ Deno.serve(async (req) => {
           });
         }
 
-        // Min items per lesson: check ALL lessons (not just covered)
+        // Min items per lesson
         let tooFew = 0;
         for (const lid of lessonIds) {
           const c = countByLesson.get(lid) || 0;
@@ -190,19 +203,52 @@ Deno.serve(async (req) => {
 
     const hasCritical = issues.some(i => i.severity === "critical");
 
-    console.log(`[ValidateMini] ${mode}: ${qualityPass} passed, ${qualityFails} rejected, critical=${hasCritical}`);
+    console.log(`[ValidateMini] ${packageId} ${mode}: ${qualityPass} passed, ${qualityFails} rejected, coverage=${coverage !== null ? (coverage * 100).toFixed(0) + '%' : 'n/a'}, critical=${hasCritical}`);
 
+    // Gate passed
+    if (!hasCritical) {
+      return json({
+        ok: true,
+        total: totalCount,
+        quality_pass: qualityPass,
+        quality_fail: qualityFails,
+        passed_ids: passedIds,
+        issues,
+      }, 200, origin);
+    }
+
+    // Gate failed — classify retry vs permanent
+    const coveragePct = coverage !== null ? (coverage * 100).toFixed(0) : '?';
+
+    if (coverage !== null && coverage < PREREQ_COVERAGE_THRESHOLD) {
+      // Prerequisites not ready yet — retry with backoff
+      return json({
+        ok: false,
+        retry: true,
+        backoff_seconds: 300,
+        error: `GATE_FAIL: LOW_COVERAGE ${coveragePct}% (prereqs not ready)`,
+        total: totalCount,
+        quality_pass: qualityPass,
+        quality_fail: qualityFails,
+        issues,
+      }, 200, origin);
+    }
+
+    // Genuine gate failure — don't retry
     return json({
-      ok: !hasCritical,
+      ok: false,
+      permanent: true,
+      error: `GATE_FAIL: coverage=${coveragePct}%, critical_issues=${issues.filter(i => i.severity === 'critical').length}`,
       total: totalCount,
       quality_pass: qualityPass,
       quality_fail: qualityFails,
       passed_ids: passedIds,
       issues,
-    });
+    }, 200, origin);
+
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error(`[ValidateMini] FATAL: ${msg}`);
-    return json({ ok: false, error: msg }, 500);
+    return json({ ok: false, error: msg }, 500, origin);
   }
 });
