@@ -278,7 +278,7 @@ describe("deriveStepProgress", () => {
     const result = deriveStepProgress(statuses);
     expect(result.progress).toBe(0);
     expect(result.doneCount).toBe(0);
-    expect(result.total).toBe(20);
+    expect(result.total).toBe(FULL_STEP_ORDER.length);
   });
 
   it("returns 100% for all-done", () => {
