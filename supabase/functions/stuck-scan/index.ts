@@ -12,6 +12,7 @@ import { detectEscalationLoops, detectSystemFreeze } from "../_shared/stuck-scan
 import { checkStuckPackages, checkBuildingOrphans } from "../_shared/stuck-scan-packages.ts";
 import { runHygiene, healLeaseNoProgress, sweepPoolMismatches, reviveTransientFailed, healTrueStalls, healLearningContentDeadlocks, healLoopGuardFalsePositives, healIntegrityReportMissing, healTrueStallSteps, reapZombieProcessingJobsV2, reapAncientPendingJobs, healFalseLivenessPackages, healValidateExamPoolLoop } from "../_shared/stuck-scan-hygiene.ts";
 import { detectAndMitigateHotLoops } from "../_shared/stuck-scan-hot-loop.ts";
+import { detectAndMitigateStaleLockLoops } from "../_shared/stuck-scan-stale-lock-loop.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
