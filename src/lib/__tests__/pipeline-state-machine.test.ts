@@ -323,6 +323,33 @@ describe("deriveStepProgress", () => {
     expect(result.progress).toBe(Math.round(10 / FULL_STEP_ORDER.length * 100));
     expect(result.doneCount).toBe(10);
   });
+
+  it("detects fanout-active pattern (parent queued + fanout done)", () => {
+    const statuses: Record<string, string> = {};
+    FULL_STEP_ORDER.forEach(k => (statuses[k] = "queued"));
+    statuses.scaffold_learning_course = "done";
+    statuses.generate_glossary = "done";
+    // Simulate fanout: parent step queued, fanout prerequisite done
+    statuses.fanout_learning_content = "done";
+    // generate_learning_content is still "queued" in SSOT
+    const result = deriveStepProgress(statuses);
+    expect(result.isFanoutActive).toBe(true);
+    expect(result.isActive).toBe(true);
+    expect(result.activeStepKey).toBe("generate_learning_content");
+    expect(result.currentLabel).toContain("Lerninhalte");
+    expect(result.currentLabel).toContain("⚡");
+  });
+
+  it("excludes legacy keys from progress calculation", () => {
+    const statuses: Record<string, string> = {};
+    FULL_STEP_ORDER.forEach(k => (statuses[k] = "queued"));
+    // Add legacy keys — these should NOT affect total count
+    statuses.generate_curriculum = "skipped";
+    statuses.generate_lessons = "skipped";
+    statuses.setup_course_package = "skipped";
+    const result = deriveStepProgress(statuses);
+    expect(result.total).toBe(FULL_STEP_ORDER.length); // Legacy keys excluded
+  });
 });
 
 describe("Sequence Integrity — Critical Invariants", () => {
