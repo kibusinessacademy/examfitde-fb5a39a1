@@ -632,47 +632,65 @@ Deno.serve(async (req) => {
 
   const now = new Date().toISOString();
 
-  // Mark fanout_learning_content as done (upsert — safe if row doesn't exist yet)
-  await sb
-    .from("package_steps")
-    .upsert({
-      package_id: packageId,
-      step_key: "fanout_learning_content",
-      status: "done",
-      updated_at: now,
-    }, { onConflict: "package_id,step_key" });
+  // ── Helper: mark step done safely ──
+  // The guard_ghost_step_finalization trigger blocks status→done when started_at IS NULL.
+  // We MUST set started_at before setting status to done, and we MUST check for errors.
+  async function markStepDoneSafe(stepKey: string, metaPatch: Record<string, unknown>) {
+    // First ensure started_at is set (required by ghost finalization guard)
+    await sb
+      .from("package_steps")
+      .update({ started_at: now, updated_at: now })
+      .eq("package_id", packageId)
+      .eq("step_key", stepKey)
+      .is("started_at", null);
+
+    // Now update to done with merged meta (read-merge-write to preserve protected keys)
+    const { data: existing } = await sb
+      .from("package_steps")
+      .select("meta")
+      .eq("package_id", packageId)
+      .eq("step_key", stepKey)
+      .maybeSingle();
+
+    const mergedMeta = { ...((existing?.meta as Record<string, unknown>) ?? {}), ...metaPatch };
+
+    const { error } = await sb
+      .from("package_steps")
+      .update({
+        status: "done",
+        finished_at: now,
+        updated_at: now,
+        last_error: null,
+        meta: mergedMeta,
+      })
+      .eq("package_id", packageId)
+      .eq("step_key", stepKey);
+
+    if (error) {
+      console.error(`[finalize] ❌ Failed to mark ${stepKey} as done: ${error.message}`);
+    } else {
+      console.log(`[finalize] ✅ Step ${stepKey} → done for ${packageId.slice(0, 8)}`);
+    }
+  }
+
+  // Mark fanout_learning_content as done
+  await markStepDoneSafe("fanout_learning_content", { finalized_at: now });
 
   // Mark generate_learning_content as done
-  await sb
-    .from("package_steps")
-    .upsert({
-      package_id: packageId,
-      step_key: "generate_learning_content",
-      status: "done",
-      updated_at: now,
-      meta: {
-        fanout_id: fanoutId,
-        total_shards: totalShards,
-        total_lessons: totalLessons,
-        good_lessons: withContent,
-        avg_length: avgLength,
-        finalized_at: now,
-      },
-    }, { onConflict: "package_id,step_key" });
+  await markStepDoneSafe("generate_learning_content", {
+    fanout_id: fanoutId,
+    total_shards: totalShards,
+    total_lessons: totalLessons,
+    good_lessons: withContent,
+    avg_length: avgLength,
+    finalized_at: now,
+  });
 
   // Mark finalize_learning_content as done
-  await sb
-    .from("package_steps")
-    .upsert({
-      package_id: packageId,
-      step_key: "finalize_learning_content",
-      status: "done",
-      updated_at: now,
-      meta: {
-        fanout_id: fanoutId,
-        finalized_at: now,
-      },
-    }, { onConflict: "package_id,step_key" });
+  await markStepDoneSafe("finalize_learning_content", {
+    fanout_id: fanoutId,
+    finalized_at: now,
+  });
 
   // ── 9. Enqueue ONLY the immediate next DAG step ──
   // Previously this enqueued handbook/minichecks/oral/exam_pool directly,

@@ -386,6 +386,17 @@ export async function processPackage(
         },
       },
       {
+        stepKey: "finalize_learning_content",
+        jobType: "package_finalize_learning_content",
+        actionType: "finalize_finalize_learning_content",
+        cancelStatuses: ["pending", "failed"],
+        shouldFinalize: (meta) => {
+          const ok = meta?.ok === true || meta?.finalized_at != null;
+          const reason = ok ? (meta?.ok ? "meta.ok=true" : "meta.finalized_at set") : "not_ready";
+          return { ok, reason, snapshot: { ok: !!meta?.ok, finalized_at: meta?.finalized_at ?? null } };
+        },
+      },
+      {
         stepKey: "validate_learning_content",
         jobType: "package_validate_learning_content",
         actionType: "finalize_validate_learning_content",
