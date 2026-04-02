@@ -27,6 +27,7 @@ export default function AdminV2Shell({ children }: Props) {
   const { signOut } = useAuth();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(() => typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches);
 
   // Close on route change
   useEffect(() => { setMobileOpen(false); }, [location.pathname]);
