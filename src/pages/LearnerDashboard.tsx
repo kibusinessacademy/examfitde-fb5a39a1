@@ -174,6 +174,9 @@ export default function LearnerDashboard() {
 
                 {/* Badges */}
                 <BadgeHistory />
+
+                {/* Humor Einstellungen */}
+                <HumorSettings />
               </>
             )}
           </CollapsibleContent>
