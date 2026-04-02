@@ -305,7 +305,7 @@ describe("deriveStepProgress", () => {
     expect(result.isActive).toBe(true);
     expect(result.activeStepKey).toBe("generate_glossary");
     expect(result.currentLabel).toBe("Glossar");
-    expect(result.progress).toBe(5); // 1/20 = 5%
+    expect(result.progress).toBe(Math.round(1 / FULL_STEP_ORDER.length * 100)); // 1/N
   });
 
   it("handles null/undefined input", () => {
