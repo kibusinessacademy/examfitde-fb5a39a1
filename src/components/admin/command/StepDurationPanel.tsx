@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { AdminSheet as Sheet, AdminSheetContent as SheetContent, AdminSheetHeader as SheetHeader, AdminSheetTitle as SheetTitle } from '@/components/admin/AdminSheet';
 
 type StepRow = {
   step_key: string;

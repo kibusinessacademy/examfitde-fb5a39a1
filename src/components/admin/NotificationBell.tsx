@@ -5,8 +5,10 @@ import { Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
-  Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger,
-} from '@/components/ui/sheet';
+  AdminSheet as Sheet, AdminSheetContent as SheetContent,
+  AdminSheetHeader as SheetHeader, AdminSheetTitle as SheetTitle,
+  AdminSheetTrigger as SheetTrigger,
+} from '@/components/admin/AdminSheet';
 import { cn } from '@/lib/utils';
 import { Link } from 'react-router-dom';
 import { useRealtimeInvalidation } from '@/hooks/useAdminRealtimeInvalidation';
@@ -69,7 +71,7 @@ export default function NotificationBell() {
   };
 
   return (
-    <Sheet modal={false} open={open} onOpenChange={setOpen}>
+    <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="h-4.5 w-4.5" />
@@ -91,7 +93,7 @@ export default function NotificationBell() {
             )}
           </div>
         </SheetHeader>
-        <div className="space-y-2 overflow-y-auto max-h-[calc(100vh-120px)]">
+        <div className="space-y-2 max-h-[calc(100vh-120px)]">
           {notifications.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8">Keine Benachrichtigungen.</p>
           ) : (

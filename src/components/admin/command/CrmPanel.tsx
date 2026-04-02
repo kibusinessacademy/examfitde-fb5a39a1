@@ -2,8 +2,10 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import {
-  Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription
-} from '@/components/ui/sheet';
+  AdminSheet as Sheet, AdminSheetContent as SheetContent,
+  AdminSheetHeader as SheetHeader, AdminSheetTitle as SheetTitle,
+  AdminSheetDescription as SheetDescription,
+} from '@/components/admin/AdminSheet';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -139,8 +141,8 @@ function LeadDetailSheet({ lead, open, onOpenChange }: { lead: B2BLead | null; o
   const nextStatus = NEXT_STATUS[lead.status];
 
   return (
-    <Sheet modal={false} open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="w-full sm:max-w-md ">
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             <Building2 className="h-5 w-5 text-primary" />
@@ -249,8 +251,8 @@ export default function CrmPanel({ open, onOpenChange }: { open: boolean; onOpen
   const wonValue = wonLeads.reduce((s, l) => s + (l.deal_value_eur || 0), 0);
 
   return (
-    <Sheet modal={false} open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-xl overflow-y-auto">
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="w-full sm:max-w-xl ">
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             <Users className="h-5 w-5 text-primary" />
@@ -322,7 +324,7 @@ export default function CrmPanel({ open, onOpenChange }: { open: boolean; onOpen
             {/* Pipeline leads */}
             <div>
               <div className="text-xs font-semibold text-foreground mb-2">B2B Pipeline</div>
-              <div className="space-y-1.5 max-h-80 overflow-y-auto">
+              <div className="space-y-1.5 max-h-80 ">
                 {pipeline.map(lead => (
                   <div
                     key={lead.id}
@@ -356,7 +358,7 @@ export default function CrmPanel({ open, onOpenChange }: { open: boolean; onOpen
                   <CheckCircle2 className="h-3.5 w-3.5 text-success" />
                   Gewonnene Deals ({wonLeads.length})
                 </div>
-                <div className="space-y-1 max-h-40 overflow-y-auto">
+                <div className="space-y-1 max-h-40 ">
                   {wonLeads.slice(0, 10).map(lead => (
                     <div
                       key={lead.id}

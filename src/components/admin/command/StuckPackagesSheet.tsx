@@ -5,8 +5,9 @@ import { runAdminOpsAction } from '@/integrations/supabase/admin-ops-actions';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import {
-  Sheet, SheetContent, SheetHeader, SheetTitle,
-} from '@/components/ui/sheet';
+  AdminSheet as Sheet, AdminSheetContent as SheetContent,
+  AdminSheetHeader as SheetHeader, AdminSheetTitle as SheetTitle,
+} from '@/components/admin/AdminSheet';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Wrench, RotateCcw, AlertTriangle, CheckCircle2, ArrowRight, Play } from 'lucide-react';
@@ -325,8 +326,8 @@ export function StuckPackagesSheet({ open, onOpenChange }: {
   });
 
   return (
-    <Sheet modal={false} open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="w-full sm:max-w-lg ">
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             <AlertTriangle className="h-5 w-5 text-warning" />

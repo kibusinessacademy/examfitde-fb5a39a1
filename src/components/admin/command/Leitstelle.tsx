@@ -33,7 +33,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { AdminSheet as Sheet, AdminSheetContent as SheetContent, AdminSheetHeader as SheetHeader, AdminSheetTitle as SheetTitle } from '@/components/admin/AdminSheet';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   AlertDialog,
@@ -907,8 +907,8 @@ export default function Leitstelle() {
         </Card>
       )}
 
-      <Sheet modal={false} open={sheet !== null} onOpenChange={(open) => !open && setSheet(null)}>
-        <SheetContent side="right" className="w-[96vw] overflow-y-auto sm:w-[560px]">
+      <Sheet open={sheet !== null} onOpenChange={(open) => !open && setSheet(null)}>
+        <SheetContent side="right" className="w-[96vw] sm:w-[560px]">
           <SheetHeader>
             <SheetTitle>{sheet === 'bottlenecks' ? 'Bottlenecks & Live-Probleme' : 'Build-Pakete'}</SheetTitle>
           </SheetHeader>

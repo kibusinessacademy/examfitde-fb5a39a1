@@ -2,8 +2,10 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import {
-  Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription
-} from '@/components/ui/sheet';
+  AdminSheet as Sheet, AdminSheetContent as SheetContent,
+  AdminSheetHeader as SheetHeader, AdminSheetTitle as SheetTitle,
+  AdminSheetDescription as SheetDescription,
+} from '@/components/admin/AdminSheet';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -104,8 +106,8 @@ function OrderDetailSheet({ order, open, onOpenChange }: { order: OrderRow | nul
     refunded: 'border-destructive/40 text-destructive bg-destructive/5',
   };
   return (
-    <Sheet modal={false} open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="w-full sm:max-w-md ">
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             <CreditCard className="h-5 w-5 text-primary" />
@@ -164,8 +166,8 @@ export default function FinancePanel({ open, onOpenChange }: { open: boolean; on
   const pendingOrders = orders.filter(o => o.status === 'pending');
 
   return (
-    <Sheet modal={false} open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-xl overflow-y-auto">
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="w-full sm:max-w-xl ">
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             <DollarSign className="h-5 w-5 text-primary" />
@@ -268,7 +270,7 @@ export default function FinancePanel({ open, onOpenChange }: { open: boolean; on
             {/* Recent orders */}
             <div>
               <div className="text-xs font-semibold text-foreground mb-2">Letzte Bestellungen</div>
-              <div className="space-y-1.5 max-h-64 overflow-y-auto">
+              <div className="space-y-1.5 max-h-64 ">
                 {orders.slice(0, 15).map(o => {
                   const statusCls: Record<string, string> = {
                     completed: 'text-success', paid: 'text-success',

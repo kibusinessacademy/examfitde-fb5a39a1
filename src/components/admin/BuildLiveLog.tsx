@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -93,33 +93,39 @@ export default function BuildLiveLog({ packageId, isBuilding }: BuildLiveLogProp
   const [paused, setPaused] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Fetch build steps and convert to log entries
-  const fetchLogs = async () => {
-    if (paused) return;
-    const { data, error } = await (supabase as any)
-      .from('package_steps')
-      .select('*')
-      .eq('package_id', packageId)
-      .order('started_at', { ascending: true, nullsFirst: false });
+  // Fetch build steps with unmount guard
+  useEffect(() => {
+    let active = true;
 
-    if (!error && data) {
+    const fetchLogs = async () => {
+      if (paused) return;
+      const { data, error } = await (supabase as any)
+        .from('package_steps')
+        .select('*')
+        .eq('package_id', packageId)
+        .order('started_at', { ascending: true, nullsFirst: false });
+
+      if (!active || error || !data) return;
+
       const entries = data
         .filter((s: any) => s.status !== 'pending' && s.status !== 'queued')
         .map(formatLogMessage);
       setLogs(entries);
-    }
-  };
+    };
 
-  useEffect(() => {
     fetchLogs();
-  }, [packageId]);
 
-  // Auto-refresh while building
-  useEffect(() => {
-    if (!isBuilding || paused) return;
-    const interval = setInterval(fetchLogs, 4000);
-    return () => clearInterval(interval);
-  }, [isBuilding, paused, packageId]);
+    // Auto-refresh while building
+    let interval: ReturnType<typeof setInterval> | undefined;
+    if (isBuilding && !paused) {
+      interval = setInterval(fetchLogs, 4000);
+    }
+
+    return () => {
+      active = false;
+      if (interval) clearInterval(interval);
+    };
+  }, [packageId, isBuilding, paused]);
 
   if (logs.length === 0 && !isBuilding) return null;
 
