@@ -117,8 +117,8 @@ function TicketDetailSheet({ ticket, open, onOpenChange }: { ticket: SupportTick
   if (!ticket) return null;
 
   return (
-    <Sheet modal={false} open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="w-full sm:max-w-md ">
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             <MessageSquare className="h-5 w-5 text-primary" />
@@ -235,8 +235,8 @@ export default function SupportPanel({ open, onOpenChange }: { open: boolean; on
   const criticalNotifications = notifications.filter((n: any) => n.severity === 'critical' || n.severity === 'high');
 
   return (
-    <Sheet modal={false} open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-xl overflow-y-auto">
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="w-full sm:max-w-xl ">
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             <HeadphonesIcon className="h-5 w-5 text-primary" />
@@ -307,7 +307,7 @@ export default function SupportPanel({ open, onOpenChange }: { open: boolean; on
                     Alle gelesen
                   </Button>
                 </div>
-                <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                <div className="space-y-1.5 max-h-48 ">
                   {notifications.slice(0, 15).map((n: any) => {
                     const sevCls: Record<string, string> = {
                       critical: 'border-destructive/30 bg-destructive/5',
@@ -335,7 +335,7 @@ export default function SupportPanel({ open, onOpenChange }: { open: boolean; on
             {/* Open Tickets */}
             <div>
               <div className="text-xs font-semibold text-foreground mb-2">Support-Tickets</div>
-              <div className="space-y-1.5 max-h-64 overflow-y-auto">
+              <div className="space-y-1.5 max-h-64 ">
                 {tickets.filter(t => t.status !== 'closed').slice(0, 20).map(t => (
                   <div
                     key={t.id}

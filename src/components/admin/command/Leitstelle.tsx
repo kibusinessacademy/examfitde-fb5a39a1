@@ -907,8 +907,8 @@ export default function Leitstelle() {
         </Card>
       )}
 
-      <Sheet modal={false} open={sheet !== null} onOpenChange={(open) => !open && setSheet(null)}>
-        <SheetContent side="right" className="w-[96vw] overflow-y-auto sm:w-[560px]">
+      <Sheet open={sheet !== null} onOpenChange={(open) => !open && setSheet(null)}>
+        <SheetContent side="right" className="w-[96vw] sm:w-[560px]">
           <SheetHeader>
             <SheetTitle>{sheet === 'bottlenecks' ? 'Bottlenecks & Live-Probleme' : 'Build-Pakete'}</SheetTitle>
           </SheetHeader>

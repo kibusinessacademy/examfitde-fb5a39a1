@@ -266,8 +266,8 @@ function AiReviewSheet({ review, open, onOpenChange }: { review: AiReview | null
   if (!review) return null;
 
   return (
-    <Sheet modal={false} open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="w-full sm:max-w-lg ">
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             <Bot className="h-5 w-5 text-primary" />
@@ -394,8 +394,8 @@ function DsgvoSheet({ record, open, onOpenChange }: { record: DsgvoRecord | null
   const isHighRisk = record.risk_level === 'hoch' || record.risk_level === 'high';
 
   return (
-    <Sheet modal={false} open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="w-full sm:max-w-lg ">
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             <Database className="h-5 w-5 text-primary" />

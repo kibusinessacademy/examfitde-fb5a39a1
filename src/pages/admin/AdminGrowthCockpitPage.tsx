@@ -109,8 +109,8 @@ function JobDetailSheet({ job, open, onOpenChange }: { job: GrowthContentJob | n
   const payload = job.payload as Record<string, unknown> | null;
 
   return (
-    <Sheet modal={false} open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="w-full sm:max-w-lg ">
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             <Megaphone className="h-5 w-5 text-primary" />
@@ -197,8 +197,8 @@ function SeoDetailSheet({ page, open, onOpenChange }: { page: SEOContentPage | n
   if (!page) return null;
 
   return (
-    <Sheet modal={false} open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="w-full sm:max-w-lg ">
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5 text-primary" />
@@ -342,7 +342,7 @@ function SocialTab() {
 
       {isLoading && <div className="text-muted-foreground text-sm">Lade Jobs…</div>}
 
-      <div className="space-y-2 max-h-[60vh] overflow-y-auto">
+      <div className="space-y-2 max-h-[60vh] ">
         {jobs.slice(0, 50).map((job: GrowthContentJob) => (
           <div
             key={job.id}
@@ -439,7 +439,7 @@ function SEOTab() {
 
       {isLoading && <div className="text-muted-foreground text-sm">Lade SEO-Seiten…</div>}
 
-      <div className="space-y-2 max-h-[60vh] overflow-y-auto">
+      <div className="space-y-2 max-h-[60vh] ">
         {pages.slice(0, 50).map((page: SEOContentPage) => (
           <div
             key={page.id}
@@ -525,7 +525,7 @@ function LeadsTab() {
       </div>
 
       {isLoading && <div className="text-muted-foreground text-sm">Lade Leads…</div>}
-      <div className="space-y-2 max-h-[60vh] overflow-y-auto">
+      <div className="space-y-2 max-h-[60vh] ">
         {leads.map((lead: any) => (
           <div
             key={lead.id}
