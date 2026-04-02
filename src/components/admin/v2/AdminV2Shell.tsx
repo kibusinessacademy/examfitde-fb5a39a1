@@ -50,7 +50,7 @@ export default function AdminV2Shell({ children }: Props) {
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* ── Mobile Header ── */}
-      <header className="lg:hidden fixed top-0 inset-x-0 z-50 h-13 border-b border-border bg-background/95 backdrop-blur-sm flex items-center justify-between px-3">
+      <header className="lg:hidden fixed top-0 inset-x-0 z-50 h-[3.25rem] border-b border-border bg-background/95 backdrop-blur-sm flex items-center justify-between px-3">
         <button
           onClick={() => setMobileOpen(!mobileOpen)}
           className="p-2.5 rounded-lg hover:bg-muted active:bg-muted/80 min-w-[44px] min-h-[44px] flex items-center justify-center"
@@ -81,7 +81,7 @@ export default function AdminV2Shell({ children }: Props) {
         className={cn(
           "fixed left-0 z-50 bg-card border-r border-border flex flex-col transition-transform duration-200",
           "lg:translate-x-0 lg:top-0 lg:h-full lg:w-56",
-          "top-13 h-[calc(100vh-3.25rem)] w-[280px]",
+          "top-[3.25rem] h-[calc(100vh-3.25rem)] w-[280px]",
           mobileOpen ? "translate-x-0 pointer-events-auto" : "-translate-x-full pointer-events-none lg:translate-x-0 lg:pointer-events-auto",
         )}
         aria-hidden={!isDesktop && !mobileOpen ? true : undefined}
@@ -133,7 +133,7 @@ export default function AdminV2Shell({ children }: Props) {
       {/* ── Main Content ── */}
       <main className={cn(
         "min-h-screen flex flex-col relative z-0",
-        "pt-13 lg:pt-0 lg:ml-56"
+        "pt-[3.25rem] lg:pt-0 lg:ml-56"
       )}>
         <div className="flex-1 px-3 py-4 sm:px-4 lg:px-6 lg:py-6 pb-20 lg:pb-6 max-w-[1400px] w-full mx-auto">
           {children}
@@ -141,7 +141,7 @@ export default function AdminV2Shell({ children }: Props) {
       </main>
 
       {/* ── Mobile Bottom Tab Bar (top 5 items only) ── */}
-      <div className="fixed bottom-0 inset-x-0 z-40 border-t border-border bg-card/95 backdrop-blur px-2 py-1.5 lg:hidden safe-area-bottom">
+      <div className="fixed bottom-0 inset-x-0 z-40 border-t border-border bg-card/95 backdrop-blur px-2 py-1.5 lg:hidden safe-bottom">
         <div className="grid grid-cols-5 gap-1">
           {NAV_ITEMS.filter(item => ['ops', 'qa'].includes(item.group)).slice(0, 5).map((item) => (
             <NavLink
