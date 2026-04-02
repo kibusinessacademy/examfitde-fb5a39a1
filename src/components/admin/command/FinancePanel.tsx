@@ -104,7 +104,7 @@ function OrderDetailSheet({ order, open, onOpenChange }: { order: OrderRow | nul
     refunded: 'border-destructive/40 text-destructive bg-destructive/5',
   };
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet modal={false} open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
@@ -164,7 +164,7 @@ export default function FinancePanel({ open, onOpenChange }: { open: boolean; on
   const pendingOrders = orders.filter(o => o.status === 'pending');
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet modal={false} open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-xl overflow-y-auto">
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">

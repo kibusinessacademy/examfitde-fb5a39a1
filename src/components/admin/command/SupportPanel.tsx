@@ -115,7 +115,7 @@ function TicketDetailSheet({ ticket, open, onOpenChange }: { ticket: SupportTick
   if (!ticket) return null;
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet modal={false} open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
@@ -233,7 +233,7 @@ export default function SupportPanel({ open, onOpenChange }: { open: boolean; on
   const criticalNotifications = notifications.filter((n: any) => n.severity === 'critical' || n.severity === 'high');
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet modal={false} open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-xl overflow-y-auto">
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">

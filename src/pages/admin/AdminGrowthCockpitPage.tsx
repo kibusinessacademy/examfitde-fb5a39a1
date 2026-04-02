@@ -107,7 +107,7 @@ function JobDetailSheet({ job, open, onOpenChange }: { job: GrowthContentJob | n
   const payload = job.payload as Record<string, unknown> | null;
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet modal={false} open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
@@ -195,7 +195,7 @@ function SeoDetailSheet({ page, open, onOpenChange }: { page: SEOContentPage | n
   if (!page) return null;
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet modal={false} open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
