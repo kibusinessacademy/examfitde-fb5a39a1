@@ -80,6 +80,7 @@ Deno.serve(async (req) => {
         step_job_drift: q3.data ?? [],
         prereq_guard_cancelled: q4.data ?? [],
         course_build_progress: q5.data ?? [],
+        step_integrity_signals: q6.data ?? [],
       },
     });
   } catch (e) {
