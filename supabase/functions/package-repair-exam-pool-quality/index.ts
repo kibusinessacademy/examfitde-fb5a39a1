@@ -259,10 +259,10 @@ async function handlePoolHealthyNoReentry(
   qcReconciled: number,
   gateChange: { check_failed?: boolean; check_failed_reason?: string },
 ) {
-  // Mark repair step as done (domain success), but do NOT touch validate_exam_pool
-  await sb.from("package_steps").update({
-    status: "done",
-    updated_at: new Date().toISOString(),
+  // Mark repair step as done via SSOT helper (not raw update)
+  await markStepDone(sb, {
+    packageId,
+    stepKey: "repair_exam_pool_quality",
     meta: {
       repair_complete: true,
       qc_reconciled: qcReconciled,
@@ -272,7 +272,7 @@ async function handlePoolHealthyNoReentry(
       delta_check_failed: gateChange.check_failed ?? false,
       delta_check_failed_reason: gateChange.check_failed_reason ?? null,
     },
-  }).eq("package_id", packageId).eq("step_key", "repair_exam_pool_quality");
+  });
 
   // Append stuck_reason for diagnostics — do NOT clear blocked_reason
   await sb.from("course_packages").update({
