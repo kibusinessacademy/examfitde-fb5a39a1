@@ -111,12 +111,21 @@ export async function enqueueJob(
   if (packageId) {
     const { data: pkg, error: pkgErr } = await sb
       .from("course_packages")
-      .select("id,status,published_at")
+      .select("id,status,published_at,course_id,curriculum_id")
       .eq("id", packageId)
       .maybeSingle();
 
     if (pkgErr) throw pkgErr;
     if (!pkg) throw new Error(`PACKAGE_NOT_FOUND:${packageId}`);
+
+    // ── Payload-Decoupling: auto-resolve secondary IDs from course_packages ──
+    // Ensures jobs never fail due to missing context that is deterministically derivable.
+    if (pkg.course_id && !opts.payload?.course_id) {
+      opts.payload = { ...opts.payload, course_id: pkg.course_id };
+    }
+    if (pkg.curriculum_id && !opts.payload?.curriculum_id) {
+      opts.payload = { ...opts.payload, curriculum_id: pkg.curriculum_id };
+    }
 
     const executionGate = canEnqueueForPackageState(opts.job_type, {
       status: pkg.status,
