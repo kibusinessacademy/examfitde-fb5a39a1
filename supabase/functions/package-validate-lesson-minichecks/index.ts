@@ -83,6 +83,8 @@ Deno.serve(async (req) => {
         retry: true,
         backoff_seconds: 300,
         error: "GATE_FAIL: NO_MINICHECKS",
+        classification: "prereq_not_ready",
+        reason_code: "NO_MINICHECKS",
         issues: [{ severity: "critical", code: "NO_MINICHECKS", message: `Keine MiniCheck-Fragen (${mode}) für Curriculum gefunden` }],
         total: 0,
       }, 200, origin);
