@@ -132,7 +132,7 @@ export default function AdminV2Shell({ children }: Props) {
 
       {/* ── Main Content ── */}
       <main className={cn(
-        "min-h-screen flex flex-col",
+        "min-h-screen flex flex-col relative z-0",
         "pt-13 lg:pt-0 lg:ml-56"
       )}>
         <div className="flex-1 px-3 py-4 sm:px-4 lg:px-6 lg:py-6 pb-20 lg:pb-6 max-w-[1400px] w-full mx-auto">

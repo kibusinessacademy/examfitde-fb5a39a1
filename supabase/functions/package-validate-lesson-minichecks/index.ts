@@ -249,6 +249,13 @@ Deno.serve(async (req) => {
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error(`[ValidateMini] FATAL: ${msg}`);
-    return json({ ok: false, error: msg }, 500, origin);
+    return json({
+      ok: false,
+      retry: true,
+      transient: true,
+      backoff_seconds: 120,
+      error: `UNHANDLED_EXCEPTION: ${msg}`,
+      classification: "transient_error",
+    }, 200, origin);
   }
 });
