@@ -27,9 +27,19 @@ export default function AdminV2Shell({ children }: Props) {
   const { signOut } = useAuth();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(() => typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches);
 
   // Close on route change
   useEffect(() => { setMobileOpen(false); }, [location.pathname]);
+
+  // Track desktop breakpoint
+  useEffect(() => {
+    const mql = window.matchMedia('(min-width: 1024px)');
+    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
+    mql.addEventListener('change', handler);
+    setIsDesktop(mql.matches);
+    return () => mql.removeEventListener('change', handler);
+  }, []);
   
   // Lock scroll
   useEffect(() => {
@@ -66,12 +76,16 @@ export default function AdminV2Shell({ children }: Props) {
       )}
 
       {/* ── Sidebar (Desktop + Mobile Drawer) ── */}
-      <aside className={cn(
-        "fixed left-0 z-50 bg-card border-r border-border flex flex-col transition-transform duration-200",
-        "lg:translate-x-0 lg:top-0 lg:h-full lg:w-56",
-        "top-13 h-[calc(100vh-3.25rem)] w-[280px]",
-        mobileOpen ? "translate-x-0 pointer-events-auto" : "-translate-x-full pointer-events-none lg:translate-x-0 lg:pointer-events-auto"
-      )}>
+      <aside
+        {...(!isDesktop && !mobileOpen ? { inert: '' as any } : {})}
+        className={cn(
+          "fixed left-0 z-50 bg-card border-r border-border flex flex-col transition-transform duration-200",
+          "lg:translate-x-0 lg:top-0 lg:h-full lg:w-56",
+          "top-13 h-[calc(100vh-3.25rem)] w-[280px]",
+          mobileOpen ? "translate-x-0 pointer-events-auto" : "-translate-x-full pointer-events-none lg:translate-x-0 lg:pointer-events-auto",
+        )}
+        aria-hidden={!isDesktop && !mobileOpen ? true : undefined}
+      >
         {/* Desktop Logo */}
         <div className="hidden lg:flex items-center gap-2 h-14 px-4 border-b border-border shrink-0">
           <div className="p-1.5 rounded-lg bg-primary/15 shrink-0">
@@ -118,7 +132,7 @@ export default function AdminV2Shell({ children }: Props) {
 
       {/* ── Main Content ── */}
       <main className={cn(
-        "min-h-screen flex flex-col",
+        "min-h-screen flex flex-col relative z-0",
         "pt-13 lg:pt-0 lg:ml-56"
       )}>
         <div className="flex-1 px-3 py-4 sm:px-4 lg:px-6 lg:py-6 pb-20 lg:pb-6 max-w-[1400px] w-full mx-auto">

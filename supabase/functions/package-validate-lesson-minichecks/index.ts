@@ -83,6 +83,8 @@ Deno.serve(async (req) => {
         retry: true,
         backoff_seconds: 300,
         error: "GATE_FAIL: NO_MINICHECKS",
+        classification: "prereq_not_ready",
+        reason_code: "NO_MINICHECKS",
         issues: [{ severity: "critical", code: "NO_MINICHECKS", message: `Keine MiniCheck-Fragen (${mode}) für Curriculum gefunden` }],
         total: 0,
       }, 200, origin);
@@ -227,6 +229,9 @@ Deno.serve(async (req) => {
         retry: true,
         backoff_seconds: 300,
         error: `GATE_FAIL: LOW_COVERAGE ${coveragePct}% (prereqs not ready)`,
+        classification: "prereq_not_ready",
+        reason_code: "LOW_COVERAGE",
+        coverage_state: coverage < 0.01 ? "none" : "bootstrap",
         total: totalCount,
         quality_pass: qualityPass,
         quality_fail: qualityFails,
@@ -239,6 +244,9 @@ Deno.serve(async (req) => {
       ok: false,
       permanent: true,
       error: `GATE_FAIL: coverage=${coveragePct}%, critical_issues=${issues.filter(i => i.severity === 'critical').length}`,
+      classification: "gate_fail",
+      reason_code: issues.find(i => i.severity === 'critical')?.code || "UNKNOWN",
+      coverage_state: coverage === null ? "none" : coverage < 0.5 ? "partial" : coverage < 0.9 ? "partial" : "ready",
       total: totalCount,
       quality_pass: qualityPass,
       quality_fail: qualityFails,
@@ -249,6 +257,13 @@ Deno.serve(async (req) => {
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error(`[ValidateMini] FATAL: ${msg}`);
-    return json({ ok: false, error: msg }, 500, origin);
+    return json({
+      ok: false,
+      retry: true,
+      transient: true,
+      backoff_seconds: 120,
+      error: `UNHANDLED_EXCEPTION: ${msg}`,
+      classification: "transient_error",
+    }, 200, origin);
   }
 });
