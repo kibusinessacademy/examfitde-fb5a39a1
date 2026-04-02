@@ -56478,15 +56478,7 @@ export type Database = {
           p_enqueue_regen?: boolean
           p_package_id?: string
         }
-        Returns: {
-          out_action_taken: string
-          out_completion_ratio: number
-          out_generated_lessons: number
-          out_needs_regen_count: number
-          out_package_id: string
-          out_package_title: string
-          out_total_lessons: number
-        }[]
+        Returns: Record<string, unknown>[]
       }
       heal_non_building_packages: { Args: { p_limit?: number }; Returns: Json }
       heal_true_stall_steps: {
