@@ -320,7 +320,7 @@ describe("deriveStepProgress", () => {
     // Mark first 10 as done
     FULL_STEP_ORDER.slice(0, 10).forEach(k => (statuses[k] = "done"));
     const result = deriveStepProgress(statuses);
-    expect(result.progress).toBe(50);
+    expect(result.progress).toBe(Math.round(10 / FULL_STEP_ORDER.length * 100));
     expect(result.doneCount).toBe(10);
   });
 });
