@@ -141,7 +141,7 @@ export default function AdminV2Shell({ children }: Props) {
       </main>
 
       {/* ── Mobile Bottom Tab Bar (top 5 items only) ── */}
-      <div className="fixed bottom-0 inset-x-0 z-40 border-t border-border bg-card/95 backdrop-blur px-2 py-1.5 lg:hidden safe-area-bottom">
+      <div className="fixed bottom-0 inset-x-0 z-40 border-t border-border bg-card/95 backdrop-blur px-2 py-1.5 lg:hidden safe-bottom">
         <div className="grid grid-cols-5 gap-1">
           {NAV_ITEMS.filter(item => ['ops', 'qa'].includes(item.group)).slice(0, 5).map((item) => (
             <NavLink
