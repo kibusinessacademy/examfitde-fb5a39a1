@@ -809,10 +809,10 @@ export async function healValidateExamPoolLoop(sb: SupabaseClient) {
               .maybeSingle();
 
             if (!repairStep) {
-              await sb.from("package_steps").insert({
-                package_id: step.package_id,
-                step_key: "repair_exam_pool_quality",
-                status: "queued",
+              await sb.rpc("ensure_package_step", {
+                p_package_id: step.package_id,
+                p_step_key: "repair_exam_pool_quality",
+                p_status: "queued",
               });
             } else if (!["running", "enqueued", "processing"].includes(repairStep.status)) {
               await sb.from("package_steps").update({

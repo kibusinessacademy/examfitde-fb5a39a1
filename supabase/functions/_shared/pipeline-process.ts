@@ -211,11 +211,11 @@ export async function processPackage(
       console.warn(`[runner] 🛡️ Step Completeness Guard: ${shortId} missing Elite steps: ${missingElite.join(", ")}`);
       for (const mk of missingElite) {
         await safeQuery(
-          sb.from("package_steps").insert({
-            package_id: packageId,
-            step_key: mk,
-            status: "queued",
-            meta: { auto_created: true, reason: "step_completeness_guard" },
+          sb.rpc("ensure_package_step", {
+            p_package_id: packageId,
+            p_step_key: mk,
+            p_status: "queued",
+            p_meta: { auto_created: true, reason: "step_completeness_guard" },
           }),
           `insert_missing_step_${mk}`,
         );
