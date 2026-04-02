@@ -1,12 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
-  Activity, CheckCircle2, XCircle, Clock, Loader2, ChevronDown,
-  Terminal, Pause, Play, ArrowDownToLine
+  Activity, CheckCircle2, XCircle, Clock, Loader2,
+  Terminal, Pause, Play
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -92,10 +90,8 @@ function formatLogMessage(step: any): LogEntry {
 
 export default function BuildLiveLog({ packageId, isBuilding }: BuildLiveLogProps) {
   const [logs, setLogs] = useState<LogEntry[]>([]);
-  const [autoScroll, setAutoScroll] = useState(false);
   const [paused, setPaused] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
 
   // Fetch build steps and convert to log entries
   const fetchLogs = async () => {
@@ -125,13 +121,6 @@ export default function BuildLiveLog({ packageId, isBuilding }: BuildLiveLogProp
     return () => clearInterval(interval);
   }, [isBuilding, paused, packageId]);
 
-  // Auto-scroll to bottom
-  useEffect(() => {
-    if (autoScroll && bottomRef.current) {
-      bottomRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [logs, autoScroll]);
-
   if (logs.length === 0 && !isBuilding) return null;
 
   return (
@@ -149,21 +138,9 @@ export default function BuildLiveLog({ packageId, isBuilding }: BuildLiveLogProp
             )}
           </span>
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5">
-              <label className="text-[10px] text-muted-foreground cursor-pointer" htmlFor="autoscroll">
-                Auto-Scroll
-              </label>
-              <Switch id="autoscroll" checked={autoScroll} onCheckedChange={setAutoScroll} className="scale-75" />
-            </div>
             <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setPaused(!paused)}>
               {paused ? <Play className="h-3 w-3" /> : <Pause className="h-3 w-3" />}
             </Button>
-            {!autoScroll && (
-              <Button variant="ghost" size="sm" className="h-6 w-6 p-0"
-                onClick={() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' })}>
-                <ArrowDownToLine className="h-3 w-3" />
-              </Button>
-            )}
           </div>
         </CardTitle>
       </CardHeader>
@@ -205,7 +182,6 @@ export default function BuildLiveLog({ packageId, isBuilding }: BuildLiveLogProp
                 <span>Warte auf nächstes Update…</span>
               </div>
             )}
-            <div ref={bottomRef} />
           </div>
         </ScrollArea>
       </CardContent>
