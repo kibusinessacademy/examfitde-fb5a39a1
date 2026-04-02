@@ -81,7 +81,7 @@ export default function AdminV2Shell({ children }: Props) {
         className={cn(
           "fixed left-0 z-50 bg-card border-r border-border flex flex-col transition-transform duration-200",
           "lg:translate-x-0 lg:top-0 lg:h-full lg:w-56",
-          "top-13 h-[calc(100vh-3.25rem)] w-[280px]",
+          "top-[3.25rem] h-[calc(100vh-3.25rem)] w-[280px]",
           mobileOpen ? "translate-x-0 pointer-events-auto" : "-translate-x-full pointer-events-none lg:translate-x-0 lg:pointer-events-auto",
         )}
         aria-hidden={!isDesktop && !mobileOpen ? true : undefined}
