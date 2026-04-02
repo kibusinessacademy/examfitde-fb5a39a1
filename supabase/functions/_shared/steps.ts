@@ -72,18 +72,52 @@ export async function markStepDone(sb: SB, args: {
     if ((cleanedMeta as any)[k] === undefined) delete (cleanedMeta as any)[k];
   }
 
+  // ── Ensure started_at is set (Ghost-Guard compliance) ──
+  const { data: preCheck } = await sb
+    .from("package_steps")
+    .select("started_at")
+    .eq("package_id", args.packageId)
+    .eq("step_key", args.stepKey)
+    .maybeSingle();
+
+  const updatePayload: Record<string, any> = {
+    status: "done",
+    finished_at,
+    last_error: null,
+    meta: cleanedMeta,
+  };
+
+  // If started_at is missing, backfill it to satisfy ghost-guard
+  if (!preCheck?.started_at) {
+    updatePayload.started_at = finished_at;
+  }
+
   const { error } = await sb
     .from("package_steps")
-    .update({
-      status: "done",
-      finished_at,
-      last_error: null, // Always clear last_error on done
-      meta: cleanedMeta,
-    })
+    .update(updatePayload)
     .eq("package_id", args.packageId)
     .eq("step_key", args.stepKey);
 
-  if (error) throw error;
+  if (error) throw new Error(`markStepDone UPDATE failed for ${args.stepKey}: ${error.message}`);
+
+  // ── Read-after-write verification ──
+  const { data: verify, error: verifyErr } = await sb
+    .from("package_steps")
+    .select("status, finished_at")
+    .eq("package_id", args.packageId)
+    .eq("step_key", args.stepKey)
+    .maybeSingle();
+
+  if (verifyErr) {
+    throw new Error(`markStepDone verify read failed for ${args.stepKey}: ${verifyErr.message}`);
+  }
+
+  if (!verify || verify.status !== "done") {
+    throw new Error(
+      `markStepDone verify MISMATCH for ${args.stepKey}: expected status=done, got=${verify?.status ?? "null"}. ` +
+      `Transaction may have been rolled back by a trigger.`
+    );
+  }
 }
 
 /**

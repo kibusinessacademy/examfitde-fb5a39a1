@@ -55338,6 +55338,15 @@ export type Database = {
         Args: { p_app_account_token?: string; p_user_id: string }
         Returns: string
       }
+      ensure_package_step: {
+        Args: {
+          p_meta?: Json
+          p_package_id: string
+          p_status?: string
+          p_step_key: string
+        }
+        Returns: boolean
+      }
       evaluate_certification_dominance: {
         Args: { p_cert_master_id: string }
         Returns: Json

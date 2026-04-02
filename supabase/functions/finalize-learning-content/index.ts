@@ -636,24 +636,39 @@ Deno.serve(async (req) => {
   // The guard_ghost_step_finalization trigger blocks status→done when started_at IS NULL.
   // We MUST set started_at before setting status to done, and we MUST check for errors.
   async function markStepDoneSafe(stepKey: string, metaPatch: Record<string, unknown>) {
-    // First ensure started_at is set (required by ghost finalization guard)
-    await sb
+    console.log(`[finalize] markStepDoneSafe START: ${stepKey} for ${packageId.slice(0, 8)}`);
+
+    // 1. Ensure started_at is set (required by ghost finalization guard)
+    const { error: startErr } = await sb
       .from("package_steps")
       .update({ started_at: now, updated_at: now })
       .eq("package_id", packageId)
       .eq("step_key", stepKey)
       .is("started_at", null);
 
-    // Now update to done with merged meta (read-merge-write to preserve protected keys)
+    if (startErr) {
+      console.error(`[finalize] ❌ started_at backfill failed for ${stepKey}: ${startErr.message}`);
+    }
+
+    // 2. Read current meta (preserve protected keys via merge)
     const { data: existing } = await sb
       .from("package_steps")
-      .select("meta")
+      .select("meta, status, started_at")
       .eq("package_id", packageId)
       .eq("step_key", stepKey)
       .maybeSingle();
 
+    console.log(`[finalize] Pre-update state for ${stepKey}: status=${existing?.status}, started_at=${existing?.started_at}`);
+
+    // Skip if already done
+    if (existing?.status === "done") {
+      console.log(`[finalize] ✅ Step ${stepKey} already done — skipping`);
+      return;
+    }
+
     const mergedMeta = { ...((existing?.meta as Record<string, unknown>) ?? {}), ...metaPatch };
 
+    // 3. Update to done
     const { error } = await sb
       .from("package_steps")
       .update({
@@ -668,9 +683,26 @@ Deno.serve(async (req) => {
 
     if (error) {
       console.error(`[finalize] ❌ Failed to mark ${stepKey} as done: ${error.message}`);
-    } else {
-      console.log(`[finalize] ✅ Step ${stepKey} → done for ${packageId.slice(0, 8)}`);
+      // Don't silently continue — throw so the caller knows
+      throw new Error(`markStepDoneSafe: ${stepKey} update failed: ${error.message}`);
     }
+
+    // 4. Read-after-write verification
+    const { data: verify, error: verifyErr } = await sb
+      .from("package_steps")
+      .select("status, finished_at")
+      .eq("package_id", packageId)
+      .eq("step_key", stepKey)
+      .maybeSingle();
+
+    if (verifyErr || !verify || verify.status !== "done") {
+      const msg = `markStepDoneSafe VERIFY MISMATCH for ${stepKey}: ` +
+        `expected=done, got=${verify?.status ?? "null"}, err=${verifyErr?.message ?? "none"}`;
+      console.error(`[finalize] ❌ ${msg}`);
+      throw new Error(msg);
+    }
+
+    console.log(`[finalize] ✅ Step ${stepKey} → done (verified) for ${packageId.slice(0, 8)}`);
   }
 
   // Mark fanout_learning_content as done
