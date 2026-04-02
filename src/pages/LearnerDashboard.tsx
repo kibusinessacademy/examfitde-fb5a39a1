@@ -11,6 +11,8 @@ import { SmartStreakWidget } from '@/components/dashboard/SmartStreakWidget';
 import { ExamPreview } from '@/components/dashboard/ExamPreview';
 import { BadgeHistory } from '@/components/dashboard/BadgeHistory';
 import { MasteryDashboardSection } from '@/features/mastery/components/MasteryDashboardSection';
+import { DailyHumorCard } from '@/components/dashboard/DailyHumorCard';
+import { HumorSettings } from '@/components/settings/HumorSettings';
 import { useSimulationGate } from '@/hooks/useExamReadiness';
 import { useProductAccessByCurriculum } from '@/hooks/useProductAccess';
 import { Button } from '@/components/ui/button';
@@ -83,6 +85,13 @@ export default function LearnerDashboard() {
         {activeCurriculumId && (
           <div className="mb-6">
             <HeroDecisionCard curriculumId={activeCurriculumId} />
+          </div>
+        )}
+
+        {/* ━━━ Witz des Tages ━━━ */}
+        {activeCurriculumId && (
+          <div className="mb-6">
+            <DailyHumorCard curriculumId={activeCurriculumId} />
           </div>
         )}
 
@@ -165,6 +174,9 @@ export default function LearnerDashboard() {
 
                 {/* Badges */}
                 <BadgeHistory />
+
+                {/* Humor Einstellungen */}
+                <HumorSettings />
               </>
             )}
           </CollapsibleContent>
