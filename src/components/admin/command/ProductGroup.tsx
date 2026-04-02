@@ -168,6 +168,7 @@ function ProductRow({ pkg, isSubRow }: { pkg: PackageInfo; isSubRow?: boolean })
           {isSubRow ? <span className="text-muted-foreground">↳ </span> : null}{getShortTitle(pkg)}
         </Link>
       </TableCell>
+      <TableCell>{getStatusBadge(pkg.status, pkg.priority)}</TableCell>
       <TableCell><StepBar stepStatuses={stepStatuses} /></TableCell>
       <TableCell className="text-right pr-6"><div className="flex items-center gap-2 justify-end"><Progress value={progress} className="h-1.5 w-20" /><span className="text-xs font-mono text-muted-foreground w-8 text-right">{progress}%</span></div></TableCell>
     </TableRow>
