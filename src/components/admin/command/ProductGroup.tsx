@@ -32,10 +32,18 @@ function getShortTitle(pkg: PackageInfo) {
 }
 
 function StepBar({ stepStatuses }: { stepStatuses: Record<string, string> }) {
+  // Detect fanout-active: parent step queued but fanout prerequisite done
+  const fanoutActive = stepStatuses['generate_learning_content'] === 'queued'
+    && stepStatuses['fanout_learning_content'] === 'done';
+
   return (
     <div className="flex gap-0.5">
       {STEP_ORDER.map(step => {
-        const s = stepStatuses[step];
+        let s = stepStatuses[step];
+        // Override: show fanout-active step as running
+        if (step === 'generate_learning_content' && s === 'queued' && fanoutActive) {
+          s = 'running';
+        }
         return (
           <div key={step} className={cn("flex-1 h-2 rounded-sm",
             s === 'done' || s === 'skipped' ? 'bg-emerald-500' :
@@ -161,7 +169,7 @@ function ProductRow({ pkg, isSubRow }: { pkg: PackageInfo; isSubRow?: boolean })
         </Link>
       </TableCell>
       <TableCell>{getStatusBadge(pkg.status, pkg.priority)}</TableCell>
-      <TableCell><div className="flex gap-0.5">{STEP_ORDER.map(step => { const s = stepStatuses[step]; return <div key={step} className={cn("w-4 h-2 rounded-sm", s === 'done' || s === 'skipped' ? 'bg-emerald-500' : s === 'running' || s === 'enqueued' ? 'bg-primary animate-pulse' : s === 'failed' ? 'bg-destructive' : 'bg-muted')} title={`${STEP_LABELS[step] || step}: ${s || 'ausstehend'}`} />; })}</div></TableCell>
+      <TableCell><StepBar stepStatuses={stepStatuses} /></TableCell>
       <TableCell className="text-right pr-6"><div className="flex items-center gap-2 justify-end"><Progress value={progress} className="h-1.5 w-20" /><span className="text-xs font-mono text-muted-foreground w-8 text-right">{progress}%</span></div></TableCell>
     </TableRow>
   );

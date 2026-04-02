@@ -87,8 +87,8 @@ function makeFullPipeline(statusOverrides?: Record<string, string>): StepRow[] {
 // ════════════════════════════════════════════════════════════════
 
 describe("Pipeline SSOT Registry", () => {
-  it("FULL_STEP_ORDER has exactly 20 steps", () => {
-    expect(FULL_STEP_ORDER).toHaveLength(20);
+  it("FULL_STEP_ORDER has exactly 23 steps", () => {
+    expect(FULL_STEP_ORDER).toHaveLength(23);
   });
 
   it("every step has labels, short labels, and emoji", () => {
@@ -220,13 +220,13 @@ describe("pickNextAction — Sequential Step Handoff", () => {
 });
 
 describe("pickNextAction — Full Pipeline Walk-Through", () => {
-  it("simulates complete 20-step pipeline progression", () => {
+  it("simulates complete pipeline progression", () => {
     const steps = makeFullPipeline();
     const order = buildStepOrder(steps);
     const visited: string[] = [];
 
     // Simulate: pick action, mark done, repeat
-    for (let i = 0; i < 25; i++) { // safety limit
+    for (let i = 0; i < 30; i++) { // safety limit
       const action = pickNextAction(steps, order);
       if (!action) break;
       if (action.action !== "enqueue") break;
@@ -238,9 +238,9 @@ describe("pickNextAction — Full Pipeline Walk-Through", () => {
       visited.push(action.stepKey);
     }
 
-    // Must visit all 20 steps in exact SSOT order
+    // Must visit all steps in exact SSOT order
     expect(visited).toEqual(FULL_STEP_ORDER);
-    expect(visited).toHaveLength(20);
+    expect(visited).toHaveLength(FULL_STEP_ORDER.length);
     
     // Final state: all done, no next action
     expect(pickNextAction(steps, order)).toBeNull();
@@ -278,7 +278,7 @@ describe("deriveStepProgress", () => {
     const result = deriveStepProgress(statuses);
     expect(result.progress).toBe(0);
     expect(result.doneCount).toBe(0);
-    expect(result.total).toBe(20);
+    expect(result.total).toBe(FULL_STEP_ORDER.length);
   });
 
   it("returns 100% for all-done", () => {
@@ -305,7 +305,7 @@ describe("deriveStepProgress", () => {
     expect(result.isActive).toBe(true);
     expect(result.activeStepKey).toBe("generate_glossary");
     expect(result.currentLabel).toBe("Glossar");
-    expect(result.progress).toBe(5); // 1/20 = 5%
+    expect(result.progress).toBe(Math.round(1 / FULL_STEP_ORDER.length * 100)); // 1/N
   });
 
   it("handles null/undefined input", () => {
@@ -320,8 +320,35 @@ describe("deriveStepProgress", () => {
     // Mark first 10 as done
     FULL_STEP_ORDER.slice(0, 10).forEach(k => (statuses[k] = "done"));
     const result = deriveStepProgress(statuses);
-    expect(result.progress).toBe(50);
+    expect(result.progress).toBe(Math.round(10 / FULL_STEP_ORDER.length * 100));
     expect(result.doneCount).toBe(10);
+  });
+
+  it("detects fanout-active pattern (parent queued + fanout done)", () => {
+    const statuses: Record<string, string> = {};
+    FULL_STEP_ORDER.forEach(k => (statuses[k] = "queued"));
+    statuses.scaffold_learning_course = "done";
+    statuses.generate_glossary = "done";
+    // Simulate fanout: parent step queued, fanout prerequisite done
+    statuses.fanout_learning_content = "done";
+    // generate_learning_content is still "queued" in SSOT
+    const result = deriveStepProgress(statuses);
+    expect(result.isFanoutActive).toBe(true);
+    expect(result.isActive).toBe(true);
+    expect(result.activeStepKey).toBe("generate_learning_content");
+    expect(result.currentLabel).toContain("Lerninhalte");
+    expect(result.currentLabel).toContain("⚡");
+  });
+
+  it("excludes legacy keys from progress calculation", () => {
+    const statuses: Record<string, string> = {};
+    FULL_STEP_ORDER.forEach(k => (statuses[k] = "queued"));
+    // Add legacy keys — these should NOT affect total count
+    statuses.generate_curriculum = "skipped";
+    statuses.generate_lessons = "skipped";
+    statuses.setup_course_package = "skipped";
+    const result = deriveStepProgress(statuses);
+    expect(result.total).toBe(FULL_STEP_ORDER.length); // Legacy keys excluded
   });
 });
 

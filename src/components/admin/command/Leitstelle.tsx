@@ -239,13 +239,24 @@ function ActionStrip({
 
 function BuildPackageCard({ pkg }: { pkg: PipelinePackage }) {
   const stepStatuses = (pkg.step_status_json || {}) as Record<string, string>;
-  const { progress, currentLabel, isActive, doneCount, total } = deriveStepProgress(stepStatuses);
+  const { progress, currentLabel, isActive, isFanoutActive, doneCount, total } = deriveStepProgress(stepStatuses);
   const oral = getStepOk(stepStatuses, 'generate_oral_exam', 'validate_oral_exam');
   const tutor = getStepOk(stepStatuses, 'build_ai_tutor_index', 'validate_tutor_index');
   const handbook = getStepOk(stepStatuses, 'generate_handbook', 'validate_handbook');
   const hasFailed = Object.values(stepStatuses).some((s) => s === 'failed');
   const track = (pkg as any).track || 'AUSBILDUNG_VOLL';
   const isFullTrack = track === 'AUSBILDUNG_VOLL';
+
+  // Fanout-aware label: use content_meta when child jobs are running
+  const cm = pkg.content_meta;
+  const fanoutLabel = isFanoutActive && cm
+    ? cm.generated != null && cm.remaining != null
+      ? `${cm.generated}/${cm.generated + cm.remaining} Lektionen`
+      : cm.active_lesson_jobs != null && cm.active_lesson_jobs > 0
+        ? `${cm.active_lesson_jobs} Jobs aktiv`
+        : null
+    : null;
+  const displayLabel = fanoutLabel || currentLabel;
 
   return (
     <Link
@@ -271,7 +282,7 @@ function BuildPackageCard({ pkg }: { pkg: PipelinePackage }) {
             </Badge>
           </div>
           <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-            <span>{currentLabel}</span>
+            <span className={isFanoutActive ? 'text-primary font-medium' : ''}>{displayLabel}</span>
             <span className="text-muted-foreground/50">·</span>
             <span>{doneCount}/{total} Steps</span>
           </div>
