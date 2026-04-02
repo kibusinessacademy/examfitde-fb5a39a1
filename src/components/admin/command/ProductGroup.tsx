@@ -168,8 +168,7 @@ function ProductRow({ pkg, isSubRow }: { pkg: PackageInfo; isSubRow?: boolean })
           {isSubRow ? <span className="text-muted-foreground">↳ </span> : null}{getShortTitle(pkg)}
         </Link>
       </TableCell>
-      <TableCell>{getStatusBadge(pkg.status, pkg.priority)}</TableCell>
-      <TableCell><div className="flex gap-0.5">{STEP_ORDER.map(step => { const s = stepStatuses[step]; return <div key={step} className={cn("w-4 h-2 rounded-sm", s === 'done' || s === 'skipped' ? 'bg-emerald-500' : s === 'running' || s === 'enqueued' ? 'bg-primary animate-pulse' : s === 'failed' ? 'bg-destructive' : 'bg-muted')} title={`${STEP_LABELS[step] || step}: ${s || 'ausstehend'}`} />; })}</div></TableCell>
+      <TableCell><StepBar stepStatuses={stepStatuses} /></TableCell>
       <TableCell className="text-right pr-6"><div className="flex items-center gap-2 justify-end"><Progress value={progress} className="h-1.5 w-20" /><span className="text-xs font-mono text-muted-foreground w-8 text-right">{progress}%</span></div></TableCell>
     </TableRow>
   );
