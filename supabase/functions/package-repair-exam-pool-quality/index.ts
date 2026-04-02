@@ -306,6 +306,7 @@ async function handleGateChanged(
       meta: { repair_complete: true, qc_reconciled: qcReconciled, gate_delta_verified: true },
     });
   }
+}
 
 // ── Helper: No effect → DON'T re-queue, preserve blocked_reason ──
 async function handleNoEffect(
