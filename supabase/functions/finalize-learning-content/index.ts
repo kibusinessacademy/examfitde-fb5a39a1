@@ -27,6 +27,7 @@ const MIN_CONTENT_LENGTH = 300;
 const COVERAGE_THRESHOLD = 0.90;      // 90% of lessons must have content
 const MAX_SHARD_RETRIES = 3;          // Hard cap on per-shard requeues
 const STALE_CLAIM_MINUTES = 20;       // Claims older than this are reset
+const STALE_SHARD_MINUTES = 30;       // Pending shards older than this with no active job are stale
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
