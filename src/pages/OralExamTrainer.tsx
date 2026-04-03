@@ -37,6 +37,7 @@ import { Paywall } from '@/components/shop/Paywall';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import PageExplainer from '@/components/admin/PageExplainer';
+import { useTerminology } from '@/hooks/useProgramType';
 
 type ExamPhase = 'setup' | 'question' | 'listening' | 'evaluation' | 'results';
 
