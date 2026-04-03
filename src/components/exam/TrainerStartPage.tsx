@@ -137,6 +137,7 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
   const isBerufVisible = !!selectedBeruf && filteredBerufe.some((b) => b.id === selectedBeruf.id);
   const canChooseMode = !!selectedBeruf;
   const canStart = !!selectedBeruf && !!selectedMode && isBerufVisible;
+  const TRAINING_MODES = useMemo(() => getTrainingModes(isAcademic), [isAcademic]);
   const selectedModeMeta = TRAINING_MODES.find((m) => m.id === selectedMode) ?? null;
 
   /* ─── Handlers ─── */
