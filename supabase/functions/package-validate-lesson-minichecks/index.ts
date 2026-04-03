@@ -232,11 +232,6 @@ Deno.serve(async (req) => {
           countByLesson.set(r.lesson_id, (countByLesson.get(r.lesson_id) || 0) + 1);
         }
 
-        const countByLesson = new Map<string, number>();
-        for (const r of allLessonRows) {
-          if (!r.lesson_id) continue;
-          countByLesson.set(r.lesson_id, (countByLesson.get(r.lesson_id) || 0) + 1);
-        }
 
         const coveredCount = countByLesson.size;
         coverage = coveredCount / totalLessons;
