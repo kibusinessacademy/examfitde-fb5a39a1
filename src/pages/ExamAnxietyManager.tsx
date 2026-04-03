@@ -332,7 +332,7 @@ export default function ExamAnxietyManager() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <ListChecks className="h-5 w-5 text-green-500" />
-                Prüfungs-Checkliste
+                {t('anxietyChecklist')}
               </CardTitle>
               <CardDescription>
                 Strukturierte Vorbereitung
