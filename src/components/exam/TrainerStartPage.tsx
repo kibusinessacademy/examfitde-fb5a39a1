@@ -84,6 +84,7 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
   const [selectedCategory, setSelectedCategory] = useState<BerufCategory | null>(null);
   const [selectedBeruf, setSelectedBeruf] = useState<TrainerBeruf | null>(null);
   const [selectedMode, setSelectedMode] = useState<TrainingMode | null>(null);
+  const { t, isAcademic } = useTerminology(selectedBeruf?.curriculum_id);
 
   /* ─── Derived data ─── */
   const categoryGroups = useMemo(() => {
