@@ -22,6 +22,14 @@ SELBSTPRÜFUNG (intern, nicht ausgeben):
 ☐ Keine KI-Floskeln, keine Definitionslisten ohne Kontext
 Falls Pflicht fehlt → ergänzen.`;
 
+/** Academic variant — no IHK references, uses Klausur/Modulprüfung framing */
+export const DEPTH_SELF_CHECK_ACADEMIC = `
+SELBSTPRÜFUNG (intern, nicht ausgeben):
+☐ ≥40% Analyse/Transfer ☐ ≥1 Fallanalyse ☐ ≥1 ⚠️ Typischer Denkfehler mit wissenschaftlicher Korrektur
+☐ ≥1 📌 Klausurtipp ☐ ≥1 Modellvergleich oder empirischer Bezug ☐ ≥1 Transferfrage
+☐ Keine KI-Floskeln, keine Definitionslisten ohne Kontext
+Falls Pflicht fehlt → ergänzen.`;
+
 /** @deprecated Use DEPTH_SELF_CHECK — kept for reference only */
 export const DEPTH_SELF_CHECK_V1 = DEPTH_SELF_CHECK;
 
@@ -29,6 +37,10 @@ export const DEPTH_SELF_CHECK_V1 = DEPTH_SELF_CHECK;
 
 export const REGULATORY_GUARD = `
 §-REGEL: Nenne §§/Fristen NUR wenn sicher bekannt. Bei Unsicherheit: "Rechtsgrundlage im IHK-Merkblatt prüfen." Falsche §§ → Auto-Reject.`;
+
+/** Academic variant — references academic sources instead of IHK */
+export const REGULATORY_GUARD_ACADEMIC = `
+§-REGEL: Nenne §§/Quellen/Modelle NUR wenn sicher bekannt. Bei Unsicherheit: "Primärquelle in der Fachliteratur prüfen." Falsche Zuschreibungen → Auto-Reject.`;
 
 // ─── MiniCheck Taxonomy Template ─────────────────────────────────────────────
 
