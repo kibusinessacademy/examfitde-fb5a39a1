@@ -2173,6 +2173,22 @@ Deno.serve(async (req) => {
       }
       await sb.from("job_queue").update(dbPatch).eq("id", job.id);
 
+      // ── STEP SYNC: Update package_steps on permanent/terminal failures ──
+      // Without this, steps stay in 'enqueued'/'queued' and stuck-scan
+      // re-creates failed jobs infinitely.
+      if (finalState.status === "failed" && job.payload?.package_id) {
+        const stepKey = job.job_type?.replace(/^package_/, "");
+        if (stepKey) {
+          const failError = String(patchError ?? "job_failed").slice(0, 2000);
+          await sb.from("package_steps").update({
+            status: "failed",
+            last_error: `Job failed: ${failError}`,
+            updated_at: tsNow,
+          }).eq("package_id", job.payload.package_id).eq("step_key", stepKey)
+            .in("status", ["enqueued", "queued", "running"]);
+        }
+      }
+
       // DLQ write for failed exam pool / question generation
       if (finalState.metricsAction === "dlq") {
         tickMetrics.dlqItems++;
