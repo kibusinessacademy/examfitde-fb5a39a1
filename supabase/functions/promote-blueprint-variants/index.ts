@@ -225,7 +225,7 @@ Deno.serve(async (req) => {
           typical_errors: v.trap_applied ? [v.trap_applied] : [],
           rubric: bp.rubric ?? null,
           expected_answer_points: null,
-          scenario_type: isTransfer ? "transfer" : v.variant_type,
+          scenario_type: isTransfer ? "applied_case" : isTrap ? "error_detection" : "isolated_knowledge",
           question_fingerprint: fp,
           variant_group: bpId,
         });
