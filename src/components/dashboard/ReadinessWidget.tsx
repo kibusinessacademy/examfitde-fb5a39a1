@@ -57,7 +57,7 @@ export function ReadinessWidget({ curriculumId, className }: ReadinessWidgetProp
         bgColor: 'bg-green-500/10', 
         borderColor: 'border-green-500/30',
         icon: CheckCircle2, 
-        label: 'Prüfungsbereit' 
+        label: t('examReady') 
       };
     } else if (score >= 50) {
       return { 
