@@ -106,8 +106,9 @@ Deno.serve(async (req) => {
         .eq("id", bpId)
         .single();
 
-      if (!bp) {
-        results.push({ blueprint_id: bpId, error: "blueprint_not_found", promoted: 0 });
+      if (bpErr || !bp) {
+        console.error("Blueprint fetch failed:", bpId, bpErr?.message, bpErr?.code, bpErr?.details);
+        results.push({ blueprint_id: bpId, error: "blueprint_not_found", detail: bpErr?.message, promoted: 0 });
         continue;
       }
 
