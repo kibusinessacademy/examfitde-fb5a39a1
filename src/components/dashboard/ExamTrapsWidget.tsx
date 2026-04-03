@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useReadinessScore } from '@/hooks/useAdaptiveLearning';
 import { AlertTriangle, TrendingDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useTerminology } from '@/hooks/useProgramType';
 
 interface ExamTrapsWidgetProps {
   curriculumId: string;
@@ -9,11 +10,11 @@ interface ExamTrapsWidgetProps {
 
 export function ExamTrapsWidget({ curriculumId }: ExamTrapsWidgetProps) {
   const { data: readiness } = useReadinessScore(curriculumId);
+  const { t } = useTerminology(curriculumId);
 
   const weakAreas = readiness?.weak_areas || [];
   if (weakAreas.length === 0) return null;
 
-  // Generate trap insights from weak areas
   const traps = weakAreas.slice(0, 3).map((area, idx) => {
     const riskLevel = area.score < 30 ? 'hoch' : area.score < 60 ? 'mittel' : 'niedrig';
     return {
@@ -23,8 +24,8 @@ export function ExamTrapsWidget({ curriculumId }: ExamTrapsWidgetProps) {
       insight: idx === 0
         ? `Dein schwächster Bereich – Risiko: ${riskLevel}`
         : idx === 1
-        ? 'Häufiger Stolperstein in der Prüfung'
-        : 'Prüfer erwarten hier Fachbegriffe',
+        ? t('examTrapInsight')
+        : t('examTermsExpected'),
     };
   });
 
@@ -33,7 +34,7 @@ export function ExamTrapsWidget({ curriculumId }: ExamTrapsWidgetProps) {
       <CardHeader className="pb-2">
         <CardTitle className="text-base font-display flex items-center gap-2">
           <AlertTriangle className="h-4 w-4 text-orange-500" />
-          Prüfungsfallen, die du noch nicht erkennst
+          {t('examTraps')}
         </CardTitle>
       </CardHeader>
       <CardContent className="p-4 pt-0">
@@ -60,7 +61,7 @@ export function ExamTrapsWidget({ curriculumId }: ExamTrapsWidgetProps) {
           ))}
         </div>
         <p className="text-xs text-muted-foreground mt-3 italic">
-          📌 Basierend auf deinem aktuellen Lernstand und typischen Prüfungsschwerpunkten.
+          {t('examTrapsFooter')}
         </p>
       </CardContent>
     </Card>

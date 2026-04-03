@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useReadinessScore, useAdaptiveRecommendation } from '@/hooks/useAdaptiveLearning';
+import { useTerminology } from '@/hooks/useProgramType';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -29,6 +30,7 @@ interface ReadinessWidgetProps {
 export function ReadinessWidget({ curriculumId, className }: ReadinessWidgetProps) {
   const { data: readiness, isLoading: readinessLoading } = useReadinessScore(curriculumId);
   const { data: recommendation, isLoading: recommendationLoading } = useAdaptiveRecommendation(curriculumId);
+  const { t } = useTerminology(curriculumId);
   
   const isLoading = readinessLoading || recommendationLoading;
   
@@ -55,7 +57,7 @@ export function ReadinessWidget({ curriculumId, className }: ReadinessWidgetProp
         bgColor: 'bg-green-500/10', 
         borderColor: 'border-green-500/30',
         icon: CheckCircle2, 
-        label: 'Prüfungsbereit' 
+        label: t('examReady') 
       };
     } else if (score >= 50) {
       return { 

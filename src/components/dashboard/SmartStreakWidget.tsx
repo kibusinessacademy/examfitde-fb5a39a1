@@ -2,20 +2,25 @@ import { Card, CardContent } from '@/components/ui/card';
 import { useDashboardStats } from '@/hooks/useDashboardStats';
 import { Flame, Clock, Brain } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useTerminology } from '@/hooks/useProgramType';
 
-export function SmartStreakWidget() {
+interface SmartStreakWidgetProps {
+  curriculumId?: string;
+}
+
+export function SmartStreakWidget({ curriculumId }: SmartStreakWidgetProps) {
   const { data: stats } = useDashboardStats();
+  const { t } = useTerminology(curriculumId);
 
   const streak = stats?.streak ?? 0;
   const questionsToday = stats?.questions_answered ?? 0;
   const successRate = stats?.success_rate ?? 0;
 
-  // Contextual messages based on actual data
   const getStreakMessage = () => {
     if (streak >= 7) return 'Dein Langzeitgedächtnis profitiert maximal von dieser Regelmäßigkeit.';
     if (streak >= 3) return 'Dein Gehirn bildet gerade stabile Verknüpfungen – weiter so.';
     if (streak === 1) return 'Guter Start – ein zweiter Tag in Folge verdoppelt die Wirkung.';
-    return 'Tägliches Training verbessert dein Prüfungsergebnis um bis zu 23%.';
+    return t('streakMotivation');
   };
 
   const getTimeInsight = () => {
@@ -45,7 +50,7 @@ export function SmartStreakWidget() {
               <span className="text-sm text-muted-foreground">Tage in Folge</span>
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
-              {streak > 0 && 'Prüfungsrelevanz trainiert'}
+              {streak > 0 && t('examRelevance')}
             </p>
           </div>
         </div>
