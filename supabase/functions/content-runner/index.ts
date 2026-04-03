@@ -328,6 +328,82 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
         return { id: job.id, ok: true, batch_pending: true };
       }
 
+      // ── VALIDATOR PERMANENT FAIL GUARD ──
+      // Validators return HTTP 200 with { ok: false, permanent: true } for
+      // fachliche gate failures (e.g. GATE_FAIL: coverage=91%). These must NOT
+      // be treated as transient/empty results — they are permanent failures that
+      // should immediately fail the job and update the step to 'failed'.
+      const isValidatorPermanentFail = result && typeof result === "object"
+        && result.ok === false && result.permanent === true;
+
+      if (isValidatorPermanentFail) {
+        const now = new Date().toISOString();
+        const errorMsg = (result.error || "VALIDATOR_PERMANENT_FAIL").slice(0, 2000);
+        await sb.from("job_queue").update({
+          status: "failed",
+          last_error: errorMsg,
+          completed_at: now,
+          updated_at: now,
+          locked_at: null,
+          locked_by: null,
+          meta: {
+            ...(job.meta || {}),
+            last_error_kind: "permanent",
+            last_error_class: "permanent",
+            last_error_reason: result.reason_code || result.classification || "gate_fail",
+            gate_classification: result.classification,
+            gate_reason_code: result.reason_code,
+            gate_coverage_state: result.coverage_state,
+          },
+        }).eq("id", job.id);
+
+        // Also update the step to 'failed' to prevent stuck-scan from re-enqueueing
+        const packageId = job.payload?.package_id;
+        const stepKey = job.job_type?.replace(/^package_/, "");
+        if (packageId && stepKey) {
+          try {
+            await sb.from("package_steps").update({
+              status: "failed",
+              last_error: errorMsg,
+              started_at: now,
+              updated_at: now,
+            }).eq("package_id", packageId).eq("step_key", stepKey);
+          } catch (_stepErr) {
+            console.warn(`[content-runner] Could not sync step ${stepKey} to failed: ${(_stepErr as Error)?.message}`);
+          }
+        }
+
+        console.warn(`[content-runner] 🚫 ${job.job_type} (${shortId}) VALIDATOR PERMANENT FAIL: ${errorMsg.slice(0, 200)}`);
+        return { id: job.id, ok: false, error: errorMsg, terminal: true };
+      }
+
+      // ── VALIDATOR RETRY GUARD ──
+      // Validators may return { ok: false, retry: true } for prereq-not-ready.
+      // Treat as transient with the validator's requested backoff.
+      const isValidatorRetry = result && typeof result === "object"
+        && result.ok === false && result.retry === true && !result.permanent;
+
+      if (isValidatorRetry) {
+        const now = new Date().toISOString();
+        const backoff = result.backoff_seconds || 300;
+        const errorMsg = (result.error || "VALIDATOR_RETRY").slice(0, 2000);
+        await sb.from("job_queue").update({
+          status: "pending",
+          run_after: new Date(Date.now() + backoff * 1000).toISOString(),
+          last_error: errorMsg,
+          updated_at: now,
+          locked_at: null,
+          locked_by: null,
+          meta: {
+            ...(job.meta || {}),
+            validator_retry: true,
+            validator_classification: result.classification,
+          },
+        }).eq("id", job.id);
+        console.warn(`[content-runner] 🔄 ${job.job_type} (${shortId}) VALIDATOR RETRY — backoff ${backoff}s: ${errorMsg.slice(0, 150)}`);
+        return { id: job.id, ok: false, error: errorMsg, retry: true };
+      }
+
       // ── ZERO-PROGRESS GUARD ──
       // A job that returns ok=true but batch_complete=false with 0 sections written
       // is NOT a real success — it must be treated as transient to allow retry.
