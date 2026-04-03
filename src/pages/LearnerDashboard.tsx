@@ -192,9 +192,9 @@ export default function LearnerDashboard() {
           <Card className="glass-card mt-6">
             <CardContent className="p-10 text-center">
               <GraduationCap className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-              <h3 className="text-lg font-semibold mb-1">Noch kein Prüfungstraining</h3>
+              <h3 className="text-lg font-semibold mb-1">{t('noTrainingYet')}</h3>
               <p className="text-sm text-muted-foreground mb-4">
-                Starte jetzt deine Prüfungsvorbereitung!
+                {t('startPrep')}
               </p>
               <Link to="/courses">
                 <Button className="gradient-primary text-primary-foreground shadow-glow">
