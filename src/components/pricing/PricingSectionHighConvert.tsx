@@ -448,7 +448,10 @@ export default function PricingSectionHighConvert() {
                 size="lg"
                 className="h-12 rounded-2xl px-6 text-base font-semibold gradient-primary text-primary-foreground shadow-glow"
                 onClick={() => {
-                  trackEvent('cta_click', { granular_event: 'pricing_hero_cta', variant: heroVariant });
+                  trackEvent('pricing_hero_primary_click', {
+                    hero_variant: heroVariant,
+                    user_type: user ? 'auth' : 'anon',
+                  });
                   document.getElementById('pricing-plans')?.scrollIntoView({ behavior: 'smooth' });
                 }}
               >
@@ -459,6 +462,12 @@ export default function PricingSectionHighConvert() {
                 size="lg"
                 variant="outline"
                 className="h-12 rounded-2xl px-6 text-base font-semibold"
+                onClick={() => {
+                  trackEvent('pricing_hero_secondary_click', {
+                    hero_variant: heroVariant,
+                    user_type: user ? 'auth' : 'anon',
+                  });
+                }}
                 asChild
               >
                 <Link to="/pruefungsreife-check">Prüfungsreife kostenlos testen</Link>
