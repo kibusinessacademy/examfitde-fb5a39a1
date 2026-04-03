@@ -88,8 +88,8 @@ export default function HomePage() {
             </div>
 
             <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-display font-bold mb-5 animate-fade-in leading-[1.1]">
-              IHK Prüfungstraining:{' '}
-              <span className="text-gradient text-glow">Prüfung sicher bestehen</span>
+              IHK Prüfung bestehen:{' '}
+              <span className="text-gradient text-glow">Online Prüfungstraining mit echten Aufgaben</span>
             </h1>
 
             <p className="text-base sm:text-xl text-muted-foreground mb-8 max-w-2xl mx-auto animate-fade-in" style={{ animationDelay: '0.1s' }}>
