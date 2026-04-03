@@ -307,7 +307,17 @@ export default function PricingSectionHighConvert() {
   const { track: trackEvent } = useTrackGrowthEvent();
   const navigate = useNavigate();
   const { variant: heroVariant } = useExperimentVariant(PRICING_HERO_EXPERIMENT_ID);
+  const heroViewedRef = useRef(false);
 
+  // Fire pricing_hero_view once when variant is resolved
+  useEffect(() => {
+    if (!heroVariant || heroViewedRef.current) return;
+    heroViewedRef.current = true;
+    trackEvent('pricing_hero_view', {
+      hero_variant: heroVariant,
+      user_type: user ? 'auth' : 'anon',
+    });
+  }, [heroVariant]);
   const { data: plans, isLoading } = useQuery({
     queryKey: ['pricing-plans-active'],
     queryFn: async () => {
