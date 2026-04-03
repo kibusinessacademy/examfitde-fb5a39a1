@@ -307,7 +307,6 @@ export default function PricingSectionHighConvert() {
   const { track: trackEvent } = useTrackGrowthEvent();
   const navigate = useNavigate();
   const { variant: heroVariant } = useExperimentVariant(PRICING_HERO_EXPERIMENT_ID);
-  const navigate = useNavigate();
 
   const { data: plans, isLoading } = useQuery({
     queryKey: ['pricing-plans-active'],
