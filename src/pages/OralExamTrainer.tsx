@@ -424,7 +424,7 @@ export default function OralExamTrainer() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Target className="h-5 w-5" />
-              Prüfung vorbereiten
+              {t('examPrepare')}
             </CardTitle>
             <CardDescription>
               Wähle ein Curriculum und starte deine Übungsprüfung
