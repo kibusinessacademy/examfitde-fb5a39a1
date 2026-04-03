@@ -6,6 +6,16 @@ export const SITE_NAME = 'ExamFit';
 export const SITE_LEGAL_NAME = 'ExamFit.de';
 export const DEFAULT_OG_IMAGE = '/og-image.png';
 
+/** Current year for SEO titles — auto-updates every year */
+export const CURRENT_YEAR = new Date().getFullYear();
+
+/** Build a CTR-optimized SEO title with auto-updating year */
+export function seoTitle(base: string, options?: { year?: boolean; suffix?: string }): string {
+  const year = options?.year !== false ? ` (${CURRENT_YEAR})` : '';
+  const suffix = options?.suffix ?? ' | ExamFit';
+  return `${base}${year}${suffix}`;
+}
+
 // URL slug generator with German umlaut handling
 export function generateSlug(text: string): string {
   const charMap: Record<string, string> = {

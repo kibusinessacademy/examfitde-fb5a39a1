@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Shield, Clock, CreditCard, CheckCircle, Star } from 'lucide-react';
 import PageExplainer from '@/components/admin/PageExplainer';
 import { SEOHead } from '@/components/seo/SEOHead';
-import { SITE_URL } from '@/lib/seo';
+import { SITE_URL, seoTitle } from '@/lib/seo';
 
 export default function ShopPage() {
   const { user } = useAuth();
@@ -36,7 +36,7 @@ export default function ShopPage() {
   return (
     <>
       <SEOHead
-        title="IHK Prüfungstraining kaufen (2026): Prüfungsfragen üben & bestehen | ExamFit"
+        title={seoTitle("IHK Prüfungstraining kaufen: Prüfungsfragen üben & bestehen")}
         description="IHK Prüfungstraining online kaufen: Prüfungssimulation, Prüfungsfragen mit Lösungen, KI-Coach & mündliche Prüfung. 39 € einmalig, 12 Monate Zugang, kein Abo."
         canonical={`${SITE_URL}/shop`}
       />

@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { SEOHead } from '@/components/seo/SEOHead';
-import { SITE_URL } from '@/lib/seo';
+import { SITE_URL, seoTitle } from '@/lib/seo';
 import {
   ArrowRight,
   BookOpen,
@@ -17,7 +17,7 @@ export default function PruefungstrainingInstitutionenPage() {
   return (
     <>
       <SEOHead
-        title="IHK Prüfungstraining für Berufsschulen & Bildungsträger (2026) | ExamFit"
+        title={seoTitle("IHK Prüfungstraining für Berufsschulen & Bildungsträger")}
         description="Prüfungsvorbereitung Ausbildung online: ExamFit ergänzt den Unterricht mit adaptivem Prüfungstraining, Prüfungssimulation & KI-Coach. Curriculum-konform, neutral, prüfungsnah."
         canonical={`${SITE_URL}/pruefungstraining-institutionen`}
       />
