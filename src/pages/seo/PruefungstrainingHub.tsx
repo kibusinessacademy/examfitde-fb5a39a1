@@ -59,24 +59,24 @@ const CATEGORIES = [
 
 const FAQS = [
   {
-    question: 'Was ist Prüfungstraining bei ExamFit?',
-    answer: 'ExamFit bietet KI-gestütztes Prüfungstraining für IHK-Prüfungen. Du trainierst mit prüfungsrelevanten Aufgaben, realistischen Simulationen und einem KI-Prüfungscoach – alles darauf ausgerichtet, deine Prüfung sicher zu bestehen.',
+    question: 'Was ist IHK Prüfungstraining bei ExamFit?',
+    answer: 'ExamFit bietet intelligentes Prüfungstraining online mit KI-Unterstützung: Prüfungssimulation, Prüfungsfragen üben, adaptiver Prüfungstrainer und KI-Prüfungscoach – alles darauf ausgerichtet, deine IHK Abschlussprüfung sicher zu bestehen.',
   },
   {
-    question: 'Für welche Prüfungen bietet ExamFit Training an?',
-    answer: 'ExamFit deckt IHK-Ausbildungsprüfungen, Fachwirt- und Betriebswirtprüfungen, Meisterprüfungen, Sachkundeprüfungen (§34a/d/f), AEVO und Projektmanagement-Zertifizierungen ab.',
+    question: 'Für welche IHK Prüfungen bietet ExamFit Prüfungsvorbereitung an?',
+    answer: 'ExamFit deckt IHK-Ausbildungsprüfungen (Kaufleute, IT-Berufe, gewerblich-technische Berufe), Fachwirt- und Betriebswirtprüfungen, Meisterprüfungen, Sachkundeprüfungen (§34a/d/f) und AEVO ab.',
   },
   {
-    question: 'Wie realistisch ist die Prüfungssimulation?',
-    answer: 'Die Prüfungssimulation bildet die echte IHK-Prüfung so genau wie möglich nach: gleiche Zeitvorgaben, gleiche Fragentypen, realistische Schwierigkeit. So erkennst du frühzeitig deine Schwächen.',
+    question: 'Wie realistisch ist die IHK Prüfungssimulation online?',
+    answer: 'Die Prüfungssimulation bildet die echte IHK-Prüfung so genau wie möglich nach: gleiche Zeitvorgaben, prüfungskonforme Aufgabentypen, realistische Schwierigkeit und ein Bestehensindikator. So erkennst du typische Fehler vor der echten Prüfung.',
   },
   {
-    question: 'Was kostet das Prüfungstraining?',
-    answer: 'Das komplette Prüfungstraining kostet 39 € und beinhaltet alle Lernmodule, den Prüfungstrainer mit hunderten Fragen, die Prüfungssimulation und den KI-Prüfungscoach. 12 Monate Zugang.',
+    question: 'Was kostet das IHK Prüfungstraining?',
+    answer: 'Das komplette Prüfungstraining kostet 39 € einmalig (kein Abo) und beinhaltet alle Module: Prüfungsfragen üben, Prüfungssimulation, mündliche Prüfung trainieren und KI-Prüfungscoach. 12 Monate Zugang.',
   },
   {
-    question: 'Reicht Prüfungstraining statt klassischem Lernen?',
-    answer: 'Ja, ExamFit kombiniert gezieltes Prüfungswissen mit aktivem Training. Studien zeigen, dass aktives Üben effektiver ist als passives Lesen. Der KI-Coach erkennt deine Schwächen und passt das Training an.',
+    question: 'Wie bestehe ich die IHK Abschlussprüfung mit ExamFit?',
+    answer: 'ExamFit kombiniert gezieltes Prüfungswissen mit aktivem Training. Das adaptive System erkennt deine Schwächen, trainiert prüfungsrelevante Inhalte und simuliert die echte Prüfungssituation – damit du mit Sicherheit in die Prüfung gehst.',
   },
 ];
 
