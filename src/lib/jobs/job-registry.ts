@@ -18,6 +18,9 @@ export const KNOWN_JOB_TYPES = new Set([
   'quality_gate_precheck',
   'publish_product',
   'package_repair_exam_pool_quality',
+  'package_generate_blueprint_variants',
+  'package_validate_blueprint_variants',
+  'package_promote_blueprint_variants',
   // ── SEO ──
   'seo_foundation',
   'seo_audit',

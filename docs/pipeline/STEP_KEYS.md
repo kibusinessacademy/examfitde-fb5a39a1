@@ -21,6 +21,9 @@ This file is the **Single Source of Truth** for pipeline step keys (`package_ste
 - `expand_handbook` — Depth expansion of handbook sections (heavy models)
 - `validate_handbook_depth` — Optional quality/depth validation (soft gate)
 - `generate_exam_blueprints` — Exam question blueprints from curriculum
+- `generate_blueprint_variants` — AI-generated transfer/trap/context variants per blueprint
+- `validate_blueprint_variants` — Distribution + quality gate validation of variants
+- `promote_blueprint_variants` — Controlled promotion of validated variants to exam pool
 - `generate_exam_pool` — Full exam question generation from blueprints
 - `validate_exam_questions` — AI quality validation of exam questions
 - `generate_oral_scenarios` — Oral exam simulation scenarios
