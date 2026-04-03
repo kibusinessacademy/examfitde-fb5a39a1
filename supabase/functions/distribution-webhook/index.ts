@@ -4,19 +4,23 @@ import { handleCorsPreflightRequest, json } from "../_shared/cors.ts";
 /**
  * distribution-webhook
  * Receives performance data from external tools (Buffer, Later, etc.)
- * or manual API calls to update content_performance.
+ * or manual API calls. INSERT-ONLY snapshots into content_performance.
  *
  * POST body:
  * {
  *   content_type: "blog_article" | "video_script",
  *   content_id: "uuid",
- *   platform: "tiktok" | "instagram" | ...,
+ *   platform: "tiktok" | "instagram_reels" | "youtube_shorts" | "blog_seo",
  *   views?: number,
  *   clicks?: number,
- *   ctr?: number,
+ *   ctr?: number,        // decimal: 0.034 = 3.4%
  *   watch_time_seconds?: number,
  *   conversions?: number,
- *   revenue_eur?: number
+ *   revenue_eur?: number,
+ *   likes?: number,
+ *   comments?: number,
+ *   shares?: number,
+ *   saves?: number
  * }
  */
 Deno.serve(async (req) => {
@@ -33,20 +37,27 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    
+
     if (!body.content_type || !body.content_id || !body.platform) {
       return json(400, { error: "content_type, content_id, and platform are required" }, origin);
     }
 
+    const validTypes = ["blog_article", "video_script"];
+    if (!validTypes.includes(body.content_type)) {
+      return json(400, { error: `content_type must be one of: ${validTypes.join(", ")}` }, origin);
+    }
+
     const today = new Date().toISOString().slice(0, 10);
 
-    // Upsert performance data
+    // Upsert per content+platform+day (snapshot_date unique index)
     const { error } = await sb
       .from("content_performance")
       .upsert(
         {
-          content_job_id: body.content_id,
+          content_type: body.content_type,
+          content_id: body.content_id,
           platform: body.platform,
+          snapshot_date: today,
           snapshot_at: new Date().toISOString(),
           views: body.views ?? 0,
           clicks: body.clicks ?? 0,
@@ -59,12 +70,12 @@ Deno.serve(async (req) => {
           shares: body.shares ?? 0,
           saves: body.saves ?? 0,
         },
-        { onConflict: "id" }
+        { onConflict: "content_type,content_id,platform,snapshot_date" }
       );
 
     if (error) return json(500, { error: error.message }, origin);
 
-    return json(200, { ok: true, message: "Performance data recorded" }, origin);
+    return json(200, { ok: true, message: "Performance snapshot recorded" }, origin);
   } catch (e) {
     return json(500, { error: (e as Error).message }, origin);
   }

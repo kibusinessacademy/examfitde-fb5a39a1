@@ -6401,18 +6401,22 @@ export type Database = {
           avg_watch_time_seconds: number | null
           clicks: number | null
           comments: number | null
-          content_job_id: string
+          content_id: string | null
+          content_job_id: string | null
+          content_type: string | null
           conversion_rate: number | null
           conversions: number | null
           created_at: string
           ctr: number | null
           distribution_job_id: string | null
           id: string
+          is_winner: boolean | null
           lead_completions: number | null
           lead_starts: number | null
           leads: number | null
           likes: number | null
           link_clicks: number | null
+          performance_score: number | null
           platform: string
           profile_visits: number | null
           retention_pct: number | null
@@ -6421,6 +6425,8 @@ export type Database = {
           saves: number | null
           shares: number | null
           snapshot_at: string
+          snapshot_date: string | null
+          updated_at: string | null
           views: number | null
           watch_time_seconds: number | null
         }
@@ -6428,18 +6434,22 @@ export type Database = {
           avg_watch_time_seconds?: number | null
           clicks?: number | null
           comments?: number | null
-          content_job_id: string
+          content_id?: string | null
+          content_job_id?: string | null
+          content_type?: string | null
           conversion_rate?: number | null
           conversions?: number | null
           created_at?: string
           ctr?: number | null
           distribution_job_id?: string | null
           id?: string
+          is_winner?: boolean | null
           lead_completions?: number | null
           lead_starts?: number | null
           leads?: number | null
           likes?: number | null
           link_clicks?: number | null
+          performance_score?: number | null
           platform: string
           profile_visits?: number | null
           retention_pct?: number | null
@@ -6448,6 +6458,8 @@ export type Database = {
           saves?: number | null
           shares?: number | null
           snapshot_at?: string
+          snapshot_date?: string | null
+          updated_at?: string | null
           views?: number | null
           watch_time_seconds?: number | null
         }
@@ -6455,18 +6467,22 @@ export type Database = {
           avg_watch_time_seconds?: number | null
           clicks?: number | null
           comments?: number | null
-          content_job_id?: string
+          content_id?: string | null
+          content_job_id?: string | null
+          content_type?: string | null
           conversion_rate?: number | null
           conversions?: number | null
           created_at?: string
           ctr?: number | null
           distribution_job_id?: string | null
           id?: string
+          is_winner?: boolean | null
           lead_completions?: number | null
           lead_starts?: number | null
           leads?: number | null
           likes?: number | null
           link_clicks?: number | null
+          performance_score?: number | null
           platform?: string
           profile_visits?: number | null
           retention_pct?: number | null
@@ -6475,6 +6491,8 @@ export type Database = {
           saves?: number | null
           shares?: number | null
           snapshot_at?: string
+          snapshot_date?: string | null
+          updated_at?: string | null
           views?: number | null
           watch_time_seconds?: number | null
         }
@@ -13929,14 +13947,14 @@ export type Database = {
       }
       distribution_queue: {
         Row: {
-          asset_id: string
+          asset_id: string | null
           attempts: number
           channel_key: string
           created_at: string
           finished_at: string | null
           id: string
           last_error: string | null
-          launch_plan_id: string
+          launch_plan_id: string | null
           lease_owner: string | null
           lease_until: string | null
           max_attempts: number
@@ -13949,14 +13967,14 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          asset_id: string
+          asset_id?: string | null
           attempts?: number
           channel_key: string
           created_at?: string
           finished_at?: string | null
           id?: string
           last_error?: string | null
-          launch_plan_id: string
+          launch_plan_id?: string | null
           lease_owner?: string | null
           lease_until?: string | null
           max_attempts?: number
@@ -13969,14 +13987,14 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          asset_id?: string
+          asset_id?: string | null
           attempts?: number
           channel_key?: string
           created_at?: string
           finished_at?: string | null
           id?: string
           last_error?: string | null
-          launch_plan_id?: string
+          launch_plan_id?: string | null
           lease_owner?: string | null
           lease_until?: string | null
           max_attempts?: number
@@ -54952,14 +54970,14 @@ export type Database = {
           p_worker_id?: string
         }
         Returns: {
-          asset_id: string
+          asset_id: string | null
           attempts: number
           channel_key: string
           created_at: string
           finished_at: string | null
           id: string
           last_error: string | null
-          launch_plan_id: string
+          launch_plan_id: string | null
           lease_owner: string | null
           lease_until: string | null
           max_attempts: number
