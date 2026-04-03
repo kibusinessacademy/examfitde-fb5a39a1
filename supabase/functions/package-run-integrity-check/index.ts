@@ -994,7 +994,7 @@ async function runCourseReadyGate(
   const passedGates = results.filter(r => r.severity === "blocker" && r.passed).length;
   const score = totalGates > 0 ? Math.round((passedGates / totalGates) * 100) : 0;
 
-  return { results, hardFails, warnings, excellence, score, metrics: {
+  return { results, hardFails, warnings, excellence, score, integrityProfile, metrics: {
     totalApproved, approvedQs: approvedQs ?? [], uniqueLFs, moduleIds, totalCompetencies,
     approvedCountExpected, sampleTruncated,
   } };
