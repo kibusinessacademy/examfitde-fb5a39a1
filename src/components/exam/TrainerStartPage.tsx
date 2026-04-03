@@ -274,9 +274,9 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
           <CardContent className="p-5 sm:p-6">
             <div className="grid gap-3 sm:grid-cols-3">
               {[
-                { label: 'Beruf auswählen', desc: 'Nur Berufe und Prüfungen, keine technischen Curricula.', done: !!selectedBeruf },
+                { label: t('trainerSelectLabel'), desc: t('trainerSelectDesc'), done: !!selectedBeruf },
                 { label: 'Modus wählen', desc: 'Lernen, simulieren oder direkt ins Schnelltraining.', done: !!selectedMode },
-                { label: 'Training starten', desc: 'Direkter Einstieg in deinen prüfungsrelevanten Fragenpool.', done: canStart },
+                { label: t('trainerStartLabel'), desc: t('trainerStartDesc'), done: canStart },
               ].map((s, i) => (
                 <div
                   key={i}
