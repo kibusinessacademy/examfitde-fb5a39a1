@@ -296,6 +296,7 @@ Deno.serve(async (req) => {
           certification_id: p.certification_id || null,
           competency_id: lesson.competency_id,
           learning_field_id: learningFieldId,
+          step_key: lesson.step || "verstehen",
         }, startMs);
 
         // processLesson returns a Response — safely check result
