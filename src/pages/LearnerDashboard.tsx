@@ -215,12 +215,13 @@ function QuickActionsGrid({ activeCurriculumId }: { activeCurriculumId: string |
   const { data: hasExamTrainer, isLoading: entitlementLoading } = useProductAccessByCurriculum(
     activeCurriculumId ?? undefined, 'exam_trainer'
   );
+  const { t } = useTerminology(activeCurriculumId);
   const simulationBlocked = gate && !gate.allowed;
   const adaptiveBlocked = !entitlementLoading && !hasExamTrainer;
 
   const actions = [
-    { to: '/exam-trainer', icon: Target, label: 'Prüfungstrainer', gradient: 'gradient-accent', blocked: false },
-    { to: '/exam-simulation', icon: GraduationCap, label: 'Simulation', gradient: 'gradient-primary', blocked: !!simulationBlocked },
+    { to: '/exam-trainer', icon: Target, label: t('examTrainer'), gradient: 'gradient-accent', blocked: false },
+    { to: '/exam-simulation', icon: GraduationCap, label: t('examSimulation'), gradient: 'gradient-primary', blocked: !!simulationBlocked },
     { to: '/oral-exam', icon: Mic, label: 'Mündlich', gradient: 'bg-gradient-to-br from-blue-500 to-cyan-500', blocked: false },
     { to: '/spaced-repetition', icon: Brain, label: 'Wiederholen', gradient: 'bg-gradient-to-br from-purple-500 to-indigo-600', blocked: false },
     { to: '/exam-anxiety', icon: Heart, label: 'Stressabbau', gradient: 'bg-gradient-to-br from-rose-500 to-pink-600', blocked: false },
