@@ -89,6 +89,7 @@ export default function OralExamTrainer() {
   const { toast } = useToast();
   const [phase, setPhase] = useState<ExamPhase>('setup');
   const [selectedCurriculum, setSelectedCurriculum] = useState<string | null>(null);
+  const { t, isAcademic } = useTerminology(selectedCurriculum);
   const [answer, setAnswer] = useState('');
   const [timeRemaining, setTimeRemaining] = useState(180);
   const [isTimerActive, setIsTimerActive] = useState(false);
