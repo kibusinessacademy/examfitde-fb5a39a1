@@ -100,6 +100,7 @@ export async function loadLessonGenerationData(
       professionName,
       glossaryContext: finalGlossaryContext,
       masteryCtx,
+      programType: programType === "higher_education" ? "higher_education" : "vocational",
     },
   };
 }
