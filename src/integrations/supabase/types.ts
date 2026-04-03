@@ -33191,6 +33191,7 @@ export type Database = {
           remediation_triggers: Json | null
           scenario_type: string
           status: Database["public"]["Enums"]["blueprint_status"]
+          trap_definition: Json | null
           trap_spec: Json | null
           typical_errors: Json | null
           typical_exam_trap: string | null
@@ -33243,6 +33244,7 @@ export type Database = {
           remediation_triggers?: Json | null
           scenario_type?: string
           status?: Database["public"]["Enums"]["blueprint_status"]
+          trap_definition?: Json | null
           trap_spec?: Json | null
           typical_errors?: Json | null
           typical_exam_trap?: string | null
@@ -33295,6 +33297,7 @@ export type Database = {
           remediation_triggers?: Json | null
           scenario_type?: string
           status?: Database["public"]["Enums"]["blueprint_status"]
+          trap_definition?: Json | null
           trap_spec?: Json | null
           typical_errors?: Json | null
           typical_exam_trap?: string | null
@@ -54385,6 +54388,10 @@ export type Database = {
         }[]
       }
       check_telemetry_gap_alerts: { Args: never; Returns: Json }
+      check_trap_coverage_gate: {
+        Args: { p_package_id: string }
+        Returns: Json
+      }
       check_trigger_bindings: {
         Args: never
         Returns: {
