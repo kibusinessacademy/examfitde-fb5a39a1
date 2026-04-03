@@ -99,7 +99,7 @@ export function useAITutor({
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ message, mode, role: currentRole, sessionId, sessionType, conversationHistory, context, mastery_context }),
+        body: JSON.stringify({ message, mode, role: currentRole, sessionId, sessionType, conversationHistory, context: enrichedContext, mastery_context }),
       });
 
       // Handle non-streaming error responses
