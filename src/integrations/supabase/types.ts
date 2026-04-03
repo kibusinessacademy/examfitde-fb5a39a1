@@ -16740,6 +16740,162 @@ export type Database = {
           },
         ]
       }
+      exam_question_variants: {
+        Row: {
+          answer_text: string | null
+          blueprint_id: string
+          cognitive_level: string
+          competency_id: string | null
+          correct_answer: Json | null
+          created_at: string
+          curriculum_id: string
+          distractor_meta: Json | null
+          id: string
+          learning_field_id: string | null
+          options: Json | null
+          quality_flags: Json | null
+          quality_score: number | null
+          question_text: string
+          question_type: string
+          scenario_context: Json | null
+          status: string
+          title: string | null
+          trap_applied: Json | null
+          trap_type: string | null
+          updated_at: string
+          variables: Json | null
+          variant_type: string
+        }
+        Insert: {
+          answer_text?: string | null
+          blueprint_id: string
+          cognitive_level?: string
+          competency_id?: string | null
+          correct_answer?: Json | null
+          created_at?: string
+          curriculum_id: string
+          distractor_meta?: Json | null
+          id?: string
+          learning_field_id?: string | null
+          options?: Json | null
+          quality_flags?: Json | null
+          quality_score?: number | null
+          question_text: string
+          question_type?: string
+          scenario_context?: Json | null
+          status?: string
+          title?: string | null
+          trap_applied?: Json | null
+          trap_type?: string | null
+          updated_at?: string
+          variables?: Json | null
+          variant_type: string
+        }
+        Update: {
+          answer_text?: string | null
+          blueprint_id?: string
+          cognitive_level?: string
+          competency_id?: string | null
+          correct_answer?: Json | null
+          created_at?: string
+          curriculum_id?: string
+          distractor_meta?: Json | null
+          id?: string
+          learning_field_id?: string | null
+          options?: Json | null
+          quality_flags?: Json | null
+          quality_score?: number | null
+          question_text?: string
+          question_type?: string
+          scenario_context?: Json | null
+          status?: string
+          title?: string | null
+          trap_applied?: Json | null
+          trap_type?: string | null
+          updated_at?: string
+          variables?: Json | null
+          variant_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_question_variants_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "blueprint_questions_view"
+            referencedColumns: ["blueprint_id"]
+          },
+          {
+            foreignKeyName: "exam_question_variants_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "question_blueprints"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_question_variants_competency_id_fkey"
+            columns: ["competency_id"]
+            isOneToOne: false
+            referencedRelation: "competencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_question_variants_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_question_variants_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "exam_question_variants_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "exam_question_variants_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "exam_question_variants_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_qc_backlog"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "exam_question_variants_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_qc_backlog_age"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "exam_question_variants_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "exam_question_variants_learning_field_id_fkey"
+            columns: ["learning_field_id"]
+            isOneToOne: false
+            referencedRelation: "learning_fields"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       exam_questions: {
         Row: {
           ai_generated: boolean | null
