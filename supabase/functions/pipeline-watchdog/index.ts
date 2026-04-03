@@ -3,7 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import {
   neutralizeStaleTransientFailed,
   reviveLearningContentStepIfDead,
-  getLearningContentJobState,
+  getLearningContentLiveness,
 } from "../_shared/learning-content-revive.ts";
 import { getNeedsRegenCount } from "../_shared/learning-content-scheduler.ts";
 
@@ -937,11 +937,12 @@ Deno.serve(async (req) => {
       } catch (_) { /* non-critical */ }
     }
 
-    // ── 8) Learning-content liveness guard ──
-    // Detect building packages where generate_learning_content is stuck:
-    // step not done, needs_regen > 0, but no live jobs.
+    // ── 8) Learning-content liveness guard (v2 — shard-aware) ──
+    // Uses composite liveness: parent jobs + shard jobs + shard table state.
+    // Detects shard_orphaned and fully_idle verdicts as deadlock conditions.
     let lcRevivedCount = 0;
     let lcNeutralizedCount = 0;
+    let lcDeadlockCount = 0;
     try {
       const { data: buildingPkgs } = await sb
         .from("course_packages")
@@ -961,14 +962,24 @@ Deno.serve(async (req) => {
 
         if (!step || step.status === "done") continue;
 
-        // Check job state
-        const jobState = await getLearningContentJobState(sb, pkgId);
-        if (jobState.pending > 0 || jobState.processing > 0) continue;
+        // Composite shard-aware liveness check
+        const liveness = await getLearningContentLiveness(sb, pkgId);
+
+        // If healthy or stalled (within grace), skip
+        if (liveness.verdict === "healthy_active" || liveness.verdict === "parent_only_active" || liveness.verdict === "stalled") continue;
+        // If all shards are done (healthy_idle), skip — finalize will handle it
+        if (liveness.verdict === "healthy_idle") continue;
 
         // Use SSOT needs_regen count from scheduler
         const needsRegen = await getNeedsRegenCount(sb, pkgId);
-
         if (!needsRegen || needsRegen <= 0) continue;
+
+        if (liveness.is_deadlocked) {
+          lcDeadlockCount++;
+          console.warn(
+            `[watchdog] 🔴 SHARD_DEADLOCK: pkg=${pkgId.slice(0, 8)} verdict=${liveness.verdict} shards_pending=${liveness.shards_pending} shard_jobs_active=${liveness.shard_jobs_pending + liveness.shard_jobs_processing} needsRegen=${needsRegen}`,
+          );
+        }
 
         // Dead: neutralize stale failed + revive step
         const neutralized = await neutralizeStaleTransientFailed(sb, pkgId, 120);
@@ -977,23 +988,24 @@ Deno.serve(async (req) => {
         const revived = await reviveLearningContentStepIfDead(sb, pkgId, needsRegen);
         if (revived) {
           lcRevivedCount++;
-          actions.push(`LC liveness revive: pkg ${pkgId.slice(0, 8)} (needsRegen=${needsRegen}, neutralized=${neutralized})`);
+          actions.push(`LC shard-aware revive: pkg ${pkgId.slice(0, 8)} verdict=${liveness.verdict} needsRegen=${needsRegen} shards(pending=${liveness.shards_pending},total=${liveness.shards_total}) neutralized=${neutralized}`);
         }
       }
 
-      if (lcRevivedCount > 0) {
-        console.warn(`[watchdog] LC liveness guard: revived=${lcRevivedCount} neutralized=${lcNeutralizedCount}`);
+      if (lcRevivedCount > 0 || lcDeadlockCount > 0) {
+        console.warn(`[watchdog] LC liveness guard v2: revived=${lcRevivedCount} deadlocks=${lcDeadlockCount} neutralized=${lcNeutralizedCount}`);
         try {
           await sb.from("auto_heal_log").insert({
-            action_type: "lc_liveness_revive",
+            action_type: "lc_shard_liveness_revive",
             trigger_source: "pipeline-watchdog",
             result_status: "applied",
-            result_detail: `Revived ${lcRevivedCount} dead learning-content step(s), neutralized ${lcNeutralizedCount} stale jobs`,
+            result_detail: `Shard-aware liveness: revived=${lcRevivedCount} deadlocks_detected=${lcDeadlockCount} neutralized=${lcNeutralizedCount}`,
+            metadata: { lcRevivedCount, lcDeadlockCount, lcNeutralizedCount },
           });
         } catch (_e) { /* best-effort */ }
       }
     } catch (lcErr) {
-      console.error("[watchdog] LC liveness guard error:", (lcErr as Error)?.message);
+      console.error("[watchdog] LC liveness guard v2 error:", (lcErr as Error)?.message);
     }
 
     // ── WIP HARD ENFORCEMENT RECONCILER ──
