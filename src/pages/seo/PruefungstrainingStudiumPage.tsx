@@ -550,11 +550,11 @@ export default function PruefungstrainingStudiumPage() {
                           trackConversion({
                             event: 'cta_click',
                             source: 'studium_segment_b2b_info',
-                            label: 'Mehr für Betriebe',
+                            label: 'Mehr für Unternehmen',
                           })
                         }
                       >
-                        Mehr für Betriebe erfahren
+                        Mehr für Unternehmen erfahren
                       </Button>
                     </Link>
                   </div>

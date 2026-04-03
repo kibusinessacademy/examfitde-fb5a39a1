@@ -114,6 +114,11 @@ const TERMS: Record<string, { vocational: string; higher_education: string }> = 
   anxietyChecklist: { vocational: 'Prüfungs-Checkliste', higher_education: 'Klausur-Checkliste' },
   anxietySOS: { vocational: 'Schnelle Hilfe bei akuter Nervosität direkt vor oder in der Prüfung.', higher_education: 'Schnelle Hilfe bei akuter Nervosität direkt vor oder in der Klausur.' },
   anxietyChecklistLocation: { vocational: 'Prüfungsort und Anfahrt bekannt', higher_education: 'Klausurraum und Anfahrt bekannt' },
+  // DailyHumorCard
+  humorFooter: { vocational: 'Berufsbezogen • geprüft • sicher', higher_education: 'Fachbezogen • geprüft • sicher' },
+  humorSettingsLabel: { vocational: 'Berufsbezogenen Tageswitz anzeigen', higher_education: 'Fachbezogenen Tageswitz anzeigen' },
+  // Auth page
+  authSubline: { vocational: 'Deine IHK-Prüfungsvorbereitung mit KI-Unterstützung', higher_education: 'Deine Klausurvorbereitung mit KI-Unterstützung' },
 };
 
 export type TermKey = keyof typeof TERMS;
