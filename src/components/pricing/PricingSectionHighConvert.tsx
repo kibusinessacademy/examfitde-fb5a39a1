@@ -299,10 +299,14 @@ function getMetaForPlan(plan: PricingPlan) {
 /*  Main component                                                     */
 /* ------------------------------------------------------------------ */
 
+const PRICING_HERO_EXPERIMENT_ID = '28c84c45-be1b-4783-a40e-a34481f75604';
+
 export default function PricingSectionHighConvert() {
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
   const { user } = useAuth();
   const { track: trackEvent } = useTrackGrowthEvent();
+  const navigate = useNavigate();
+  const { variant: heroVariant } = useExperimentVariant(PRICING_HERO_EXPERIMENT_ID);
   const navigate = useNavigate();
 
   const { data: plans, isLoading } = useQuery({
