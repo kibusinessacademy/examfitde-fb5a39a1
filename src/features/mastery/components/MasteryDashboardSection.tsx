@@ -30,6 +30,7 @@ export function MasteryDashboardSection({ curriculumId }: MasteryDashboardSectio
       <ReadinessCard
         readiness={readiness ?? null}
         isLoading={readinessLoading}
+        curriculumId={curriculumId}
       />
       <WeaknessList
         items={weaknesses as WeaknessRow[]}

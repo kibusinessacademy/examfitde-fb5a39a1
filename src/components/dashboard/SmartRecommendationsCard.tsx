@@ -6,6 +6,7 @@ import { Lightbulb, BookOpen, Target, Brain, Loader2, ChevronRight } from 'lucid
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { recordLearningEvent } from '@/lib/learning-telemetry';
+import { useTerminology } from '@/hooks/useProgramType';
 
 const TYPE_ICONS: Record<string, typeof BookOpen> = {
   lesson: BookOpen,
@@ -15,17 +16,18 @@ const TYPE_ICONS: Record<string, typeof BookOpen> = {
   tutor_mode: Lightbulb,
 };
 
-const REASON_LABELS: Record<string, string> = {
-  LOW_MASTERY_HIGH_WEIGHT: '🔴 Niedrige Mastery, hohe Prüfungsrelevanz',
+const getReasonLabels = (isAcademic: boolean): Record<string, string> => ({
+  LOW_MASTERY_HIGH_WEIGHT: isAcademic ? '🔴 Niedrige Mastery, hohe Klausurrelevanz' : '🔴 Niedrige Mastery, hohe Prüfungsrelevanz',
   WEAKNESS_CLUSTER_DETECTED: '⚠️ Schwächencluster erkannt',
   PRE_EXAM_SIM_REQUIRED: '🎯 Simulation empfohlen',
   NO_RECENT_ACTIVITY: '⏰ Keine aktuelle Aktivität',
   REVIEW_DUE: '🔄 Wiederholung fällig',
-};
+});
 
 export function SmartRecommendationsCard({ curriculumId }: { curriculumId: string }) {
   const { data: recs, isLoading } = useActiveRecommendations(curriculumId);
-
+  const { isAcademic } = useTerminology(curriculumId);
+  const REASON_LABELS = getReasonLabels(isAcademic);
   const handleClick = async (rec: UserRecommendation) => {
     // Track recommendation click
     await recordLearningEvent({
