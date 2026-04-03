@@ -97,6 +97,12 @@ export function PricingCards({ defaultTrack = 'ausbildung' }: { defaultTrack?: T
     }
 
     if (plan.checkout_mode === 'sales') {
+      const trackLabel = isStudiumPlan(plan) ? 'studium' : 'ausbildung';
+      trackEvent('cta_click', {
+        plan_key: plan.plan_key,
+        granular_event: 'pricing_contact_enterprise',
+        track: trackLabel,
+      });
       toast.info('Für Enterprise-Anfragen kontaktiere uns bitte.');
       return;
     }
