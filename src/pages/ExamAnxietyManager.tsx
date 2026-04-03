@@ -62,7 +62,7 @@ const VISUALIZATION_THEMES = [
 
 const EXAM_CHECKLIST = [
   { id: 'materials', label: 'Alle Materialien eingepackt (Stift, Ausweis, Taschenrechner)', category: 'Vorbereitung' },
-  { id: 'location', label: 'Prüfungsort und Anfahrt bekannt', category: 'Vorbereitung' },
+  { id: 'location', label: '', category: 'Vorbereitung' }, // dynamically set
   { id: 'sleep', label: 'Ausreichend geschlafen (7-8 Stunden)', category: 'Körper' },
   { id: 'food', label: 'Leichtes Frühstück gegessen', category: 'Körper' },
   { id: 'water', label: 'Wasserflasche dabei', category: 'Körper' },
