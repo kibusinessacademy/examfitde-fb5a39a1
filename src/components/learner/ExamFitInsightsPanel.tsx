@@ -6,21 +6,7 @@ import {
   useReadinessTrend,
 } from "@/hooks/useExamfitInsights";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
-
-function riskLabel(risk?: string | null) {
-  switch (risk) {
-    case "exam_ready":
-      return "Prüfungsbereit";
-    case "on_track":
-      return "Auf Kurs";
-    case "medium_risk":
-      return "Mittleres Risiko";
-    case "high_risk":
-      return "Hohes Risiko";
-    default:
-      return "Noch keine Daten";
-  }
-}
+import { useTerminology } from "@/hooks/useProgramType";
 
 function riskColor(risk?: string | null) {
   switch (risk) {
@@ -42,8 +28,23 @@ export function ExamFitInsightsPanel({ curriculumId }: { curriculumId: string })
   const { data: gaps, isLoading: gapsLoading } = useTopGaps(curriculumId);
   const { data: recs, isLoading: recsLoading } = useActiveRecommendations(curriculumId);
   const { data: trend } = useReadinessTrend(curriculumId);
+  const { t, isAcademic } = useTerminology(curriculumId);
 
-  // Calculate trend delta from last two snapshots
+  function riskLabel(risk?: string | null) {
+    switch (risk) {
+      case "exam_ready":
+        return t('examReady');
+      case "on_track":
+        return "Auf Kurs";
+      case "medium_risk":
+        return "Mittleres Risiko";
+      case "high_risk":
+        return "Hohes Risiko";
+      default:
+        return "Noch keine Daten";
+    }
+  }
+
   const trendDelta =
     trend && trend.length >= 2
       ? Math.round(trend[0].readiness_score - trend[1].readiness_score)
@@ -51,11 +52,10 @@ export function ExamFitInsightsPanel({ curriculumId }: { curriculumId: string })
 
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-      {/* Card 1: Prüfungsreife */}
       <Card className="rounded-2xl border-border bg-card">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium text-muted-foreground">
-            Prüfungsreife
+            {t('examReadiness')}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -81,7 +81,6 @@ export function ExamFitInsightsPanel({ curriculumId }: { curriculumId: string })
         </CardContent>
       </Card>
 
-      {/* Card 2: Top-Schwächen */}
       <Card className="rounded-2xl border-border bg-card">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -110,7 +109,6 @@ export function ExamFitInsightsPanel({ curriculumId }: { curriculumId: string })
         </CardContent>
       </Card>
 
-      {/* Card 3: Nächste Empfehlung */}
       <Card className="rounded-2xl border-border bg-card">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -124,7 +122,7 @@ export function ExamFitInsightsPanel({ curriculumId }: { curriculumId: string })
             <div className="space-y-1">
               <div className="text-sm font-medium">
                 {recs[0].recommendation_type === "exam_sim"
-                  ? "Prüfungssimulation starten"
+                  ? t('examSimRec')
                   : recs[0].recommendation_type === "review"
                   ? "Wiederholung empfohlen"
                   : (recs[0].target_meta as Record<string, unknown>)?.competency_title as string ||
@@ -140,7 +138,6 @@ export function ExamFitInsightsPanel({ curriculumId }: { curriculumId: string })
         </CardContent>
       </Card>
 
-      {/* Card 4: Entwicklung */}
       <Card className="rounded-2xl border-border bg-card">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium text-muted-foreground">
