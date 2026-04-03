@@ -599,7 +599,7 @@ export default function ExamAnxietyManager() {
                         "text-sm",
                         checkedItems.has(item.id) && "line-through text-muted-foreground"
                       )}>
-                        {item.label}
+                        {item.id === 'location' ? t('anxietyChecklistLocation') : item.label}
                       </span>
                     </div>
                   ))}
