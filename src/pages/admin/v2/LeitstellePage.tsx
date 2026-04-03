@@ -241,6 +241,11 @@ export default function LeitstellePage() {
         <RecoveryBoardCard />
       </Suspense>
 
+      {/* Blueprint Variant Stats */}
+      <Suspense fallback={<Skeleton className="h-32" />}>
+        <BlueprintVariantStatsCard />
+      </Suspense>
+
       {/* Exam Pool Lifecycle Audit */}
       <Suspense fallback={<Skeleton className="h-32" />}>
         <ExamPoolAuditCard />
