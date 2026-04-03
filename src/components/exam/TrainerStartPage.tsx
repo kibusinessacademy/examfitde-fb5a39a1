@@ -221,7 +221,7 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
       {!canStart && (
         <p className="mt-3 text-center text-xs text-muted-foreground">
           {!selectedBeruf
-            ? 'Wähle zuerst einen Beruf aus.'
+            ? (isAcademic ? 'Wähle zuerst ein Fach aus.' : 'Wähle zuerst einen Beruf aus.')
             : 'Wähle noch einen Trainingsmodus.'}
         </p>
       )}
