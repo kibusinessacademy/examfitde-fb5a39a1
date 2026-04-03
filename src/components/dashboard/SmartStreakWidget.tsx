@@ -2,6 +2,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { useDashboardStats } from '@/hooks/useDashboardStats';
 import { Flame, Clock, Brain } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useTerminology } from '@/hooks/useProgramType';
 
 interface SmartStreakWidgetProps {
   curriculumId?: string;
@@ -9,8 +10,6 @@ interface SmartStreakWidgetProps {
 
 export function SmartStreakWidget({ curriculumId }: SmartStreakWidgetProps) {
   const { data: stats } = useDashboardStats();
-  // Import dynamically to avoid circular deps – terminology is optional here
-  const { useTerminology } = require('@/hooks/useProgramType');
   const { t } = useTerminology(curriculumId);
 
   const streak = stats?.streak ?? 0;
