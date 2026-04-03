@@ -80,6 +80,9 @@ const QUICK_CALM_STEPS = [
 
 export default function ExamAnxietyManager() {
   const { user } = useAuth();
+  const { data: dashboard } = useDashboardSummary();
+  const activeCurriculumId = dashboard?.active_curriculum_id || null;
+  const { t } = useTerminology(activeCurriculumId);
   const [activeSession, setActiveSession] = useState<SessionType | null>(null);
   const [anxietyBefore, setAnxietyBefore] = useState<number>(5);
   const [anxietyAfter, setAnxietyAfter] = useState<number | null>(null);
