@@ -155,12 +155,12 @@ async function getShardTableState(
 function deriveVerdict(
   parent: { pending: number; processing: number; failed: number },
   shardJobs: { pending: number; processing: number; failed: number },
-  shardTable: { pending: number; processing: number; completed: number; failed: number; total: number; last_activity_at: string | null },
+  shardTable: { pending: number; claimed: number; processing: number; completed: number; failed: number; total: number; last_activity_at: string | null },
   graceWindowMinutes = 15,
 ): { verdict: ShardLivenessVerdict; is_deadlocked: boolean } {
   const parentActive = parent.pending + parent.processing > 0;
   const shardJobsActive = shardJobs.pending + shardJobs.processing > 0;
-  const shardsPendingOrProcessing = shardTable.pending + shardTable.processing;
+  const shardsUnfinished = shardTable.pending + shardTable.claimed + shardTable.processing;
   const hasShards = shardTable.total > 0;
 
   // Case 1: Active shard jobs → healthy
@@ -174,12 +174,12 @@ function deriveVerdict(
   }
 
   // Case 3: All shards done (completed + failed = total), no active jobs → ready for finalize
-  if (hasShards && shardsPendingOrProcessing === 0) {
+  if (hasShards && shardsUnfinished === 0) {
     return { verdict: "healthy_idle", is_deadlocked: false };
   }
 
-  // Case 4: Pending/processing shards but NO active shard jobs → DEADLOCK
-  if (shardsPendingOrProcessing > 0 && !shardJobsActive) {
+  // Case 4: Unfinished shards but NO active shard jobs → potential DEADLOCK
+  if (shardsUnfinished > 0 && !shardJobsActive) {
     // Check grace window — maybe jobs just finished and new ones are being dispatched
     if (shardTable.last_activity_at) {
       const lastActivity = new Date(shardTable.last_activity_at).getTime();
