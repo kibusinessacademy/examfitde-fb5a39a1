@@ -519,10 +519,10 @@ export default function PruefungstrainingStudiumPage() {
                     <Users className="h-6 w-6" />
                   </div>
                   <h3 className="text-xl font-bold text-foreground mb-2">
-                    Für Betriebe & duales Studium
+                    Für Unternehmen & duales Studium
                   </h3>
                   <p className="text-sm leading-6 text-muted-foreground mb-6 flex-1">
-                    Team-Lizenzen für Azubis und dual Studierende. Ab 5 Plätzen, zentrale
+                    Team-Lizenzen für dual Studierende und Mitarbeitende. Ab 5 Plätzen, zentrale
                     Verwaltung.
                   </p>
                   <div className="space-y-3">
