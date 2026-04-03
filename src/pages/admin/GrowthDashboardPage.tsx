@@ -319,13 +319,17 @@ export default function GrowthDashboardPage() {
         {/* Performance Tab */}
         <TabsContent value="performance" className="space-y-2">
           <div className="flex justify-end">
-            <Button variant="outline" size="sm" onClick={() => {
-              supabase.rpc("score_content_performance" as any).then(() => {
-                toast.success("Scores aktualisiert");
+            <Button variant="outline" size="sm" onClick={async () => {
+              try {
+                const { data, error } = await supabase.functions.invoke("growth-score", { body: {} });
+                if (error) throw error;
+                toast.success(`Scores aktualisiert: ${data?.result?.scored ?? 0} bewertet, ${data?.result?.winners_updated ?? 0} Winner`);
                 qc.invalidateQueries({ queryKey: ["growth-performance"] });
                 qc.invalidateQueries({ queryKey: ["growth-blogs"] });
                 qc.invalidateQueries({ queryKey: ["growth-videos"] });
-              });
+              } catch (e: any) {
+                toast.error(e.message);
+              }
             }}>
               <RefreshCw className="w-4 h-4 mr-1" /> Scores berechnen
             </Button>
