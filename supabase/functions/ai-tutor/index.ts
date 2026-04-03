@@ -640,8 +640,8 @@ Deno.serve(async (req) => {
     }
 
     // Now build mode and role prompts WITH profession name
-    const modeRules = getModeRules(validMode as AIMode, professionName);
-    const rolePrompt = getRolePrompt(effectiveRole, professionName);
+    const modeRules = getModeRules(validMode as AIMode, professionName, programType);
+    const rolePrompt = getRolePrompt(effectiveRole, professionName, programType);
 
     // Exam mode block
     if (validMode === AI_MODES.EXAM && !isAllowedInExamMode(message)) {
