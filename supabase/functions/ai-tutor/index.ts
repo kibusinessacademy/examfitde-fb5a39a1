@@ -424,7 +424,7 @@ async function loadSSOTContext(
     ? `\n\n--- SSOT-KONTEXT (serverseitig geladen) ---\n${parts.join('\n')}`
     : '';
 
-  return { contextPrompt, resolvedContext: resolved, professionName };
+  return { contextPrompt, resolvedContext: resolved, professionName, programType };
 }
 
 /**
