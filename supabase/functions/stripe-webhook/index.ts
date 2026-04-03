@@ -170,13 +170,57 @@ Deno.serve(async (req) => {
             }).then(() => {});
 
           } else if (flow === 'pricing_plan') {
-            // ── B2B: Create org + license + seats ──
-            logStep("Fulfilling B2B pricing_plan purchase", { userId, productId, planKey: meta.plan_key });
-
+            const audienceType = meta.audience_type || 'b2c';
             const seatCount = parseInt(meta.seat_count || '1');
             const durationDays = parseInt(meta.duration_days || '365');
             const validUntil = new Date();
             validUntil.setDate(validUntil.getDate() + durationDays);
+
+            if (audienceType === 'b2c' || seatCount <= 1) {
+              // ── B2C pricing_plan: Create personal entitlement (no org) ──
+              logStep("Fulfilling B2C pricing_plan purchase", { userId, productId, planKey: meta.plan_key });
+
+              const { data: existingEnt } = await adminClient
+                .from('entitlements')
+                .select('id')
+                .eq('user_id', userId)
+                .eq('product_id', productId)
+                .eq('source_type', 'stripe')
+                .eq('source_ref', session.id)
+                .maybeSingle();
+
+              if (existingEnt) {
+                logStep("Entitlement already exists (idempotent)", { id: existingEnt.id });
+              } else {
+                await adminClient.from('entitlements').insert({
+                  user_id: userId,
+                  product_id: productId,
+                  source_type: 'stripe',
+                  source_ref: session.id,
+                  valid_from: new Date().toISOString(),
+                  valid_until: validUntil.toISOString(),
+                });
+                logStep("B2C pricing_plan entitlement created", { userId, productId, validUntil: validUntil.toISOString() });
+              }
+
+              await adminClient.from('conversion_events').insert({
+                user_id: userId,
+                event_type: 'checkout_completed',
+                metadata: {
+                  product_id: productId,
+                  session_id: session.id,
+                  flow: 'pricing_plan_b2c',
+                  plan_key: meta.plan_key,
+                  amount_total: session.amount_total,
+                },
+              }).then(() => {});
+
+            } else {
+            // ── B2B: Create org + license + seats ──
+            logStep("Fulfilling B2B pricing_plan purchase", { userId, productId, planKey: meta.plan_key });
+
+
+
 
             // Idempotency: check existing license for this session
             const { data: existingLic } = await adminClient
@@ -276,6 +320,7 @@ Deno.serve(async (req) => {
                 amount_total: session.amount_total,
               },
             }).then(() => {});
+            } // end B2B else
           }
         } catch (newFlowErr) {
           logStep("ERROR: create-payment fulfillment failed", { error: String(newFlowErr) });

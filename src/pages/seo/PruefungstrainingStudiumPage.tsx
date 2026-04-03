@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   GraduationCap,
@@ -13,12 +14,16 @@ import {
   Lightbulb,
   FileText,
   Sparkles,
+  Users,
+  Building,
+  Mail,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { SITE_URL, seoTitle } from '@/lib/seo';
-import { ctaProps } from '@/lib/seo-tracking';
+import { ctaProps, trackConversion } from '@/lib/seo-tracking';
 
 /* ── data ── */
 
@@ -384,6 +389,122 @@ export default function PruefungstrainingStudiumPage() {
                 </Card>
               ))}
             </div>
+          </div>
+        </section>
+
+        {/* ── SEGMENTIERTER CTA-BLOCK ── */}
+        <section className="mx-auto max-w-7xl px-6 py-20 lg:px-8">
+          <SectionHeader
+            eyebrow="Dein Weg"
+            title="Wähle den passenden Einstieg"
+            text="Egal ob du selbst zahlst, über den Betrieb läufst oder eine Hochschule vertrittst – es gibt einen klaren Pfad."
+          />
+          <div className="mt-14 grid gap-6 md:grid-cols-3">
+            {/* Studierende – Self-Pay */}
+            <Card className="rounded-3xl shadow-sm hover:shadow-lg transition-shadow">
+              <CardContent className="p-8 flex flex-col h-full">
+                <div className="mb-4 inline-flex rounded-2xl bg-primary/10 p-3 text-primary w-fit">
+                  <GraduationCap className="h-6 w-6" />
+                </div>
+                <h3 className="text-xl font-bold text-foreground mb-2">Für Studierende</h3>
+                <p className="text-sm leading-6 text-muted-foreground mb-6 flex-1">
+                  Du zahlst selbst und trainierst sofort. Einzelzugang ab 59 € – kein Abo, keine Kündigung.
+                </p>
+                <div className="space-y-3">
+                  <Link to="/preise">
+                    <Button
+                      className="w-full rounded-xl gradient-primary text-primary-foreground shadow-glow"
+                      size="lg"
+                      onClick={() => trackConversion({ event: 'cta_click', source: 'studium_segment_student_buy', label: 'Jetzt Zugang sichern' })}
+                    >
+                      Jetzt Zugang sichern
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </Link>
+                  <Link to="/pruefungsreife-check">
+                    <Button
+                      variant="ghost"
+                      className="w-full rounded-xl text-sm"
+                      onClick={() => trackConversion({ event: 'cta_click', source: 'cta_readiness_check_studium', label: 'Erst kostenlos testen' })}
+                    >
+                      Erst kostenlos testen
+                    </Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Dual / Betriebe */}
+            <Card className="rounded-3xl shadow-sm hover:shadow-lg transition-shadow ring-2 ring-primary">
+              <CardContent className="p-8 flex flex-col h-full relative">
+                <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-xs">
+                  Häufigster Pfad
+                </Badge>
+                <div className="mb-4 inline-flex rounded-2xl bg-accent/10 p-3 text-accent w-fit">
+                  <Users className="h-6 w-6" />
+                </div>
+                <h3 className="text-xl font-bold text-foreground mb-2">Für Betriebe & duales Studium</h3>
+                <p className="text-sm leading-6 text-muted-foreground mb-6 flex-1">
+                  Team-Lizenzen für Azubis und dual Studierende. Ab 5 Plätzen, zentrale Verwaltung.
+                </p>
+                <div className="space-y-3">
+                  <Link to="/preise">
+                    <Button
+                      className="w-full rounded-xl"
+                      size="lg"
+                      onClick={() => trackConversion({ event: 'cta_click', source: 'cta_dual_company', label: 'Team-Lizenz anfragen' })}
+                    >
+                      Team-Lizenz anfragen
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </Link>
+                  <Link to="/pruefungstraining-betriebe">
+                    <Button
+                      variant="ghost"
+                      className="w-full rounded-xl text-sm"
+                      onClick={() => trackConversion({ event: 'cta_click', source: 'studium_segment_b2b_info', label: 'Mehr für Betriebe' })}
+                    >
+                      Mehr für Betriebe erfahren
+                    </Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Hochschulen */}
+            <Card className="rounded-3xl shadow-sm hover:shadow-lg transition-shadow">
+              <CardContent className="p-8 flex flex-col h-full">
+                <div className="mb-4 inline-flex rounded-2xl bg-success/10 p-3 text-success w-fit">
+                  <Building className="h-6 w-6" />
+                </div>
+                <h3 className="text-xl font-bold text-foreground mb-2">Für Hochschulen</h3>
+                <p className="text-sm leading-6 text-muted-foreground mb-6 flex-1">
+                  Kooperationsmodelle, Pilotprojekte und Campus-Lizenzen für wirtschaftsnahe Studiengänge.
+                </p>
+                <div className="space-y-3">
+                  <Link to="/pruefungstraining-institutionen">
+                    <Button
+                      variant="outline"
+                      className="w-full rounded-xl"
+                      size="lg"
+                      onClick={() => trackConversion({ event: 'cta_click', source: 'cta_university_demo', label: 'Demo & Kooperation' })}
+                    >
+                      <Mail className="mr-2 h-4 w-4" />
+                      Demo & Kooperation
+                    </Button>
+                  </Link>
+                  <Link to="/pruefungstraining-institutionen">
+                    <Button
+                      variant="ghost"
+                      className="w-full rounded-xl text-sm"
+                      onClick={() => trackConversion({ event: 'cta_click', source: 'studium_segment_uni_info', label: 'Mehr für Hochschulen' })}
+                    >
+                      Mehr für Hochschulen erfahren
+                    </Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </section>
 
