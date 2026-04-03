@@ -433,7 +433,7 @@ export default function OralExamTrainer() {
           <CardContent className="space-y-6">
             <div>
               <label className="text-sm font-medium mb-2 block">
-                Ausbildungsberuf / Curriculum
+                {isAcademic ? 'Studiengang / Curriculum' : 'Ausbildungsberuf / Curriculum'}
               </label>
               <div className="grid gap-2">
                 {curricula?.map(curriculum => (
