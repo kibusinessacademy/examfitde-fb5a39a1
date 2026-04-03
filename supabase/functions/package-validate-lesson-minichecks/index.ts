@@ -138,8 +138,10 @@ Deno.serve(async (req) => {
       .or("trap_tags.is.null,trap_tags.eq.{}");
 
     if (approvedWithoutTraps && approvedWithoutTraps > 0) {
+      // v3: Downgraded from critical to warning — trap enforcement belongs in publish gate,
+      // not build validation. Critical here caused false-positive loop guard blocks.
       issues.push({
-        severity: "critical",
+        severity: "warning",
         code: "APPROVED_WITHOUT_TRAP",
         message: `${approvedWithoutTraps} approved MiniChecks haben keine Trap-Tags`,
       });

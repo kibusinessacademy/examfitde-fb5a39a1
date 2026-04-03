@@ -167,7 +167,25 @@ Deno.serve(async (req) => {
   const curriculumId = p.curriculum_id as string;
   const certificationId = p.certification_id || null;
   const forceRebuild = Boolean(p?.force_rebuild);
-  const attemptIndex = typeof p?.attempt_index === "number" ? p.attempt_index : 0;
+
+  // v18: Persistent provider rotation — read llm_attempt_index from step meta
+  // so provider rotation survives across job boundaries (not just within one job)
+  let attemptIndex = typeof p?.attempt_index === "number" ? p.attempt_index : 0;
+  if (attemptIndex === 0) {
+    try {
+      const { data: stepRow } = await sb
+        .from("package_steps")
+        .select("meta")
+        .eq("package_id", packageId)
+        .eq("step_key", "generate_handbook")
+        .maybeSingle();
+      const storedIdx = (stepRow?.meta as any)?.llm_attempt_index;
+      if (typeof storedIdx === "number" && storedIdx > 0) {
+        attemptIndex = storedIdx;
+        console.log(`[generate-handbook] Restored llm_attempt_index=${attemptIndex} from step meta`);
+      }
+    } catch { /* best-effort */ }
+  }
 
   // v17: Single-provider-per-invocation strategy.
   // The 55s Edge Function wall-clock limit cannot fit 2×30s provider calls.
