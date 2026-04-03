@@ -86,7 +86,7 @@ Deno.serve(async (req) => {
     // ── 2. LIVE pool analysis (same SSOT as getTrapQualityAudit) ──
     const { data: allQs, error: qErr } = await sb
       .from("exam_questions")
-      .select("id, trap_type, difficulty, cognitive_level, is_trap, question_text, quality_score, created_at, status, qc_status")
+      .select("id, trap_type, difficulty, cognitive_level, is_trap, question_text, created_at, status, qc_status")
       .eq("curriculum_id", curriculumId)
       .eq("status", "approved");
 
@@ -371,7 +371,7 @@ async function redistributeTraps(
       .eq("curriculum_id", curriculumId)
       .eq("status", "approved")
       .eq("trap_type", over.type)
-      .order("quality_score", { ascending: true, nullsFirst: true })
+      .order("created_at", { ascending: true })
       .order("created_at", { ascending: true })
       .limit(toMove);
 
@@ -505,7 +505,7 @@ async function repairDifficultyExcess(
   const mediumKeywords = ["berechne", "ermittle", "welche", "wie viel", "vergleich"];
   const easyQs = questions
     .filter(q => q.difficulty === "easy")
-    .sort((a, b) => ((a.quality_score as number) || 0) - ((b.quality_score as number) || 0));
+    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
   const toReclassify = easyQs.slice(0, toRemove);
   let reclassified = 0;

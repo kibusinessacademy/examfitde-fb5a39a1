@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { SEOHead } from '@/components/seo/SEOHead';
+import { SITE_URL } from '@/lib/seo';
 import {
   ArrowRight,
   BarChart3,
@@ -17,9 +18,9 @@ export default function PruefungstrainingBetriebePage() {
   return (
     <>
       <SEOHead
-        title="IHK Prüfungsvorbereitung für Betriebe – Bestehensquote steigern | ExamFit"
+        title="IHK Prüfungsvorbereitung für Betriebe (2026): Bestehensquote steigern | ExamFit"
         description="IHK Prüfungstraining für Ausbildungsbetriebe: Bestehensquoten erhöhen, Durchfallrisiken erkennen, Ausbildungsqualität messbar machen. Prüfungstrainer mit KI für Ihre Azubis."
-        canonical="/pruefungstraining-betriebe"
+        canonical={`${SITE_URL}/pruefungstraining-betriebe`}
       />
       <div className="min-h-screen">
         {/* Hero */}

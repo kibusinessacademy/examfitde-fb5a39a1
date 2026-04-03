@@ -31,12 +31,12 @@ import {
 } from 'lucide-react';
 
 const FAQ_ITEMS = [
-  { question: 'Wie bestehe ich die IHK Abschlussprüfung?', answer: 'Mit gezieltem Prüfungstraining: ExamFit analysiert deine Schwächen, trainiert prüfungsrelevante Inhalte und simuliert die echte Prüfungssituation – damit du optimal vorbereitet bist.' },
-  { question: 'Wie läuft die IHK Abschlussprüfung ab?', answer: 'Die IHK-Abschlussprüfung besteht aus einem schriftlichen und einem mündlichen Teil (Fachgespräch). ExamFit bereitet dich auf beide Teile vor – mit Prüfungssimulation und KI-gestütztem Fachgespräch-Training.' },
-  { question: 'Ist ExamFit ein Abo?', answer: 'Nein. Du zahlst einmalig 39 € und erhältst 12 Monate Zugriff auf das komplette IHK-Prüfungstraining – inklusive Prüfungssimulation, KI-Coach und mündliche Prüfung.' },
-  { question: 'Welche typischen Fehler kann ich bei der IHK Prüfung vermeiden?', answer: 'Die häufigsten Fehler: zu spät anfangen, nur Theorie lernen, keine Prüfungssimulation machen. ExamFit zeigt dir deine Schwächen und trainiert gezielt die prüfungsrelevanten Themen.' },
-  { question: 'Gibt es IHK Prüfungsfragen mit Lösungen kostenlos?', answer: 'Ja – starte den kostenlosen Prüfungsreife-Check und teste dein Wissen mit echten prüfungsnahen Aufgaben. Für das vollständige Training mit hunderten Fragen und Lösungen gibt es das Prüfungstraining für 39 €.' },
-  { question: 'Kann ich die IHK Prüfung online simulieren?', answer: 'Ja. ExamFit bietet eine realistische IHK-Prüfungssimulation mit Zeitlimit, Gewichtung und Bestehensindikator – so wie in der echten Prüfung.' },
+  { question: 'Wie bestehe ich die IHK Abschlussprüfung?', answer: 'Um die IHK Abschlussprüfung zu bestehen, solltest du mit echten Prüfungsfragen trainieren, Prüfungssimulationen durchführen und gezielt deine Schwächen analysieren. ExamFit bietet dir alle drei Komponenten in einem intelligenten Prüfungstraining – inklusive KI-Prüfungscoach.' },
+  { question: 'Wie läuft die IHK Abschlussprüfung ab?', answer: 'Die IHK-Abschlussprüfung besteht aus einem schriftlichen Teil (Multiple Choice + offene Aufgaben) und einem mündlichen Fachgespräch. ExamFit bereitet dich auf beide Teile vor – mit realistischer Prüfungssimulation und KI-gestütztem Fachgespräch-Training.' },
+  { question: 'Ist ExamFit ein Abo?', answer: 'Nein. Du zahlst einmalig 39 € und erhältst 12 Monate Zugriff auf das komplette IHK-Prüfungstraining – inklusive Prüfungssimulation, KI-Coach und mündliche Prüfung. Kein Abo, keine versteckten Kosten.' },
+  { question: 'Welche typischen Fehler kann ich bei der IHK Prüfung vermeiden?', answer: 'Die häufigsten Fehler bei der IHK Prüfung: zu spät mit der Vorbereitung anfangen, nur Theorie lernen ohne Übung, keine Prüfungssimulation machen und Zeiteinteilung nicht trainieren. ExamFit analysiert deine Schwächen und trainiert gezielt die prüfungsrelevanten Themen.' },
+  { question: 'Gibt es IHK Prüfungsfragen mit Lösungen kostenlos?', answer: 'Ja – starte den kostenlosen Prüfungsreife-Check und teste dein Wissen mit echten prüfungsnahen Aufgaben. Für das vollständige Training mit hunderten Fragen und Lösungen gibt es das Prüfungstraining ab 39 €.' },
+  { question: 'Kann ich die IHK Prüfung online simulieren?', answer: 'Ja. ExamFit bietet eine realistische IHK-Prüfungssimulation mit Zeitlimit, Gewichtung nach Prüfungsteilen und Bestehensindikator – genau wie in der echten IHK-Abschlussprüfung.' },
 ];
 
 export default function HomePage() {
@@ -65,8 +65,8 @@ export default function HomePage() {
   return (
     <>
       <SEOHead
-        title="IHK Prüfungstraining online – Prüfungsvorbereitung mit KI | ExamFit"
-        description="IHK Prüfung bestehen mit intelligentem Prüfungstraining: Prüfungssimulation, Prüfungsfragen üben, KI-Prüfungscoach & mündliche Prüfung trainieren. Einmalig 39 €, kein Abo."
+        title="IHK Prüfung bestehen (2026): Online Prüfungstraining mit echten Aufgaben | ExamFit"
+        description="IHK Prüfungstraining online: Mit Prüfungssimulation, echten Prüfungsfragen & KI-Prüfungscoach die Abschlussprüfung sicher bestehen. 39 € einmalig, kein Abo."
         canonical={`${SITE_URL}/`}
         type="website"
         structuredData={[
@@ -88,8 +88,8 @@ export default function HomePage() {
             </div>
 
             <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-display font-bold mb-5 animate-fade-in leading-[1.1]">
-              IHK Prüfungstraining:{' '}
-              <span className="text-gradient text-glow">Prüfung sicher bestehen</span>
+              IHK Prüfung bestehen:{' '}
+              <span className="text-gradient text-glow">Online Prüfungstraining mit echten Aufgaben</span>
             </h1>
 
             <p className="text-base sm:text-xl text-muted-foreground mb-8 max-w-2xl mx-auto animate-fade-in" style={{ animationDelay: '0.1s' }}>

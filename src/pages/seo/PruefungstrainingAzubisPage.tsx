@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { SEOHead } from '@/components/seo/SEOHead';
+import { SITE_URL } from '@/lib/seo';
 import {
   Target,
   CheckCircle,
@@ -18,9 +19,9 @@ export default function PruefungstrainingAzubisPage() {
   return (
     <>
       <SEOHead
-        title="IHK Abschlussprüfung lernen – Prüfungstraining für Azubis | ExamFit"
-        description="IHK Prüfung online üben: Prüfungssimulation, echte Prüfungsaufgaben & KI-Prüfungscoach für Auszubildende. Abschlussprüfung Ausbildung Vorbereitung – jetzt starten!"
-        canonical="/pruefungstraining-azubis"
+        title="IHK Abschlussprüfung bestehen (2026): Prüfungstraining für Azubis | ExamFit"
+        description="IHK Prüfung online üben: Prüfungssimulation mit echten Prüfungsaufgaben, KI-Prüfungscoach & Schwächenanalyse für Auszubildende. Abschlussprüfung Ausbildung Vorbereitung – jetzt starten!"
+        canonical={`${SITE_URL}/pruefungstraining-azubis`}
       />
       <div className="min-h-screen">
         {/* Hero */}
