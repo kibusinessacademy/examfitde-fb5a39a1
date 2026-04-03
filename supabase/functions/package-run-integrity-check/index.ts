@@ -548,7 +548,7 @@ async function runCourseReadyGate(
   if (moduleIds.length > 0 && !isExamFirstEarly) {
     const { data: miniCheckLessons } = await sb
       .from("lessons")
-      .select("id, module_id, step, minicheck_parsed, content")
+      .select("id, module_id, step, minicheck_parsed, content, competency_id")
       .in("module_id", moduleIds)
       .eq("step", "mini_check");
 
