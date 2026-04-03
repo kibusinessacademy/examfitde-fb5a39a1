@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { SEOHead } from '@/components/seo/SEOHead';
+import { SITE_URL } from '@/lib/seo';
 import {
   ArrowRight,
   BookOpen,
