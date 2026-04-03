@@ -320,6 +320,7 @@ Deno.serve(async (req) => {
                 amount_total: session.amount_total,
               },
             }).then(() => {});
+            } // end B2B else
           }
         } catch (newFlowErr) {
           logStep("ERROR: create-payment fulfillment failed", { error: String(newFlowErr) });
