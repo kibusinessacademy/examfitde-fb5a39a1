@@ -83,6 +83,12 @@ export function useAITutor({
 
       const conversationHistory = messages.map(m => ({ role: m.role, content: m.content }));
 
+      // Ensure curriculumId is set if masteryCurriculumId is provided (for program_type resolution)
+      const enrichedContext = { ...context };
+      if (!enrichedContext.curriculumId && enrichedContext.masteryCurriculumId) {
+        enrichedContext.curriculumId = enrichedContext.masteryCurriculumId;
+      }
+
       const mastery_context = context.masteryUserId && context.masteryCurriculumId
         ? { user_id: context.masteryUserId, curriculum_id: context.masteryCurriculumId }
         : undefined;
@@ -93,7 +99,7 @@ export function useAITutor({
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ message, mode, role: currentRole, sessionId, sessionType, conversationHistory, context, mastery_context }),
+        body: JSON.stringify({ message, mode, role: currentRole, sessionId, sessionType, conversationHistory, context: enrichedContext, mastery_context }),
       });
 
       // Handle non-streaming error responses

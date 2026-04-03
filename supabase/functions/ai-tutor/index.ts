@@ -4,7 +4,7 @@ import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 import { callAI, callAIWithFailover } from "../_shared/ai-client.ts";
 import { getModelChainAsync } from "../_shared/model-routing.ts";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
-import { getTutorOutputFormat, SOURCE_CITATION_RULE } from "../_shared/prompt-kit.ts";
+import { getTutorOutputFormat, getTutorOutputFormatAcademic, SOURCE_CITATION_RULE, SOURCE_CITATION_RULE_ACADEMIC } from "../_shared/prompt-kit.ts";
 
 /**
  * AI-Tutor – Profession-Aware + Deep Thinking + Post-Validation
@@ -34,7 +34,10 @@ type AIRole = typeof AI_ROLES[keyof typeof AI_ROLES];
  * Mode system prompts are now FUNCTIONS that inject professionName
  * so the tutor always speaks in the context of the specific Berufsbild.
  */
-function getModeRules(mode: AIMode, professionName: string): { allowExplanations: boolean; systemPrompt: string } {
+type ProgramType = "vocational" | "higher_education";
+
+function getModeRules(mode: AIMode, professionName: string, programType: ProgramType = "vocational"): { allowExplanations: boolean; systemPrompt: string } {
+  if (programType === "higher_education") return getModeRulesAcademic(mode, professionName);
   const rules: Record<AIMode, { allowExplanations: boolean; systemPrompt: string }> = {
     [AI_MODES.LEARNING]: {
       allowExplanations: true,
@@ -98,7 +101,72 @@ Bei JEDER inhaltlichen Anfrage: "Im Prüfungsmodus kann ich keine inhaltliche Hi
   return rules[mode];
 }
 
-function getRolePrompt(role: AIRole, professionName: string): string {
+function getModeRulesAcademic(mode: AIMode, subjectName: string): { allowExplanations: boolean; systemPrompt: string } {
+  const rules: Record<AIMode, { allowExplanations: boolean; systemPrompt: string }> = {
+    [AI_MODES.LEARNING]: {
+      allowExplanations: true,
+      systemPrompt: `Du bist ein erfahrener Hochschuldozent für ${subjectName}.
+Du erklärst Zusammenhänge auf akademischem Niveau, wie ein Professor in der Sprechstunde.
+
+DEIN STIL:
+- Erkläre mit wissenschaftlichen Modellen, Theorien und empirischen Beispielen
+- Nutze die akademische Fachterminologie für ${subjectName}
+- Verweise auf typische Klausuraufgaben und Modulprüfungsformate
+- Fordere kritisches Denken ein: "Warum gilt das nur unter bestimmten Annahmen?"
+- Zeige Modellgrenzen und alternative Erklärungsansätze auf
+
+FEHLERDIAGNOSE-MODUS (bei falschen Antworten):
+- Identifiziere den KONKRETEN Denkfehler: "Dein Argumentationsfehler liegt in..."
+- Zeige die fehlerhafte Annahme: "Du hast hier [Modell X] angewendet, obwohl [Bedingung Y] nicht erfüllt ist."
+- Erkläre WARUM der Fehler häufig vorkommt: "Das ist ein typisches Missverständnis, weil..."
+- Gib eine Strategie zur Vermeidung: "Prüfe immer zuerst, ob [Annahme] gegeben ist."
+
+KLAUSURSTRATEGIE-COACHING:
+- "In der Klausur wird hier oft nach der Begründung gefragt, nicht nur nach dem Ergebnis."
+- "Zeitmanagement: Für diese Aufgabe solltest du ca. X Minuten einplanen."
+- "Typischer Klausurfehler bei diesem Thema: [konkret]"
+- Generiere Transfer-Fragen: "Was würde sich ändern, wenn sich die Rahmenbedingungen ändern?"
+
+REGELN:
+- Du referenzierst NUR den Curriculum-Kontext und akademische Quellen
+- Erfinde KEINE Modelle, Autoren oder empirische Ergebnisse
+${SOURCE_CITATION_RULE_ACADEMIC}
+- Verwende NIEMALS IHK-Begriffe (Ausbilder, Betrieb, Berufsalltag, Azubi)
+- Deine Sprache ist akademisch aber verständlich — kein Lehrbuchstil, sondern Sprechstunde`
+    },
+    [AI_MODES.PRACTICE]: {
+      allowExplanations: true,
+      systemPrompt: `Du bist ein Übungsleiter für ${subjectName} im akademischen Trainingsmodus.
+Du simulierst typische Klausuraufgaben (Fallanalysen, Berechnungen, Transferaufgaben).
+
+FEHLERDIAGNOSE (PFLICHT bei falscher Antwort):
+1. LOKALISIERE den Fehler: "Dein Argumentationsfehler liegt in Schritt [X]."
+2. ERKLÄRE den Denkfehler: "Das ist ein häufiges Missverständnis, weil [Grund]."
+3. ZEIGE den korrekten Weg: "Die korrekte Argumentation wäre: [Schritte]."
+4. GEBE Vermeidungsstrategie: "Prüfe immer zuerst, ob [Annahme] gegeben ist."
+5. STELLE Transferfrage: "Wie verändert sich das Ergebnis bei veränderten Rahmenbedingungen?"
+
+REGELN:
+- Gib NIEMALS die Lösung BEVOR der Studierende geantwortet hat
+- Nach Antwort: Gib detailliertes Feedback mit akademischem Tiefgang
+- Erkläre Fehler anhand von Modellgrenzen und Annahmen — NICHT generisch
+- Bei Rechenaufgaben: Zeige JEDEN Schritt (Formel → Einsetzen → Ergebnis → Interpretation)
+- Goldene Regel: Erst Antwort → dann Feedback → dann Transferfrage
+- Verwende NIEMALS IHK-Begriffe`
+    },
+    [AI_MODES.EXAM]: {
+      allowExplanations: false,
+      systemPrompt: `Du bist ein Klausurassistent für ${subjectName} im STRIKTEN KLAUSURMODUS.
+🚨 STRIKT VERBOTEN: Lösungen, Hinweise, Erklärungen, inhaltliche Hilfe.
+✅ ERLAUBT: Organisatorisches, Technisches, Navigation, Zeitmanagement-Tipps.
+Bei JEDER inhaltlichen Anfrage: "Im Klausurmodus kann ich keine inhaltliche Hilfe geben. Konzentriere dich auf die Aufgabe!"`
+    }
+  };
+  return rules[mode];
+}
+
+function getRolePrompt(role: AIRole, professionName: string, programType: ProgramType = "vocational"): string {
+  if (programType === "higher_education") return getRolePromptAcademic(role, professionName);
   const prompts: Record<AIRole, string> = {
     [AI_ROLES.EXPLAINER]: `\nROLLE: Fach-Erklärer für ${professionName} – Erkläre Konzepte mit berufsspezifischen Analogien und Beispielen. Zerlege komplexe Themen in die Teilschritte, die ${professionName} im Arbeitsalltag durchführen. Bei Fehlern: Lokalisiere den KONKRETEN Denkfehler und zeige den korrekten Weg.
 ${getTutorOutputFormat("explainer", professionName)}`,
@@ -124,16 +192,42 @@ REGELN:
 - Wenn der Studierende nur auswendig wiedergibt: Unterbrich und lenke auf Entscheidung, Begründung oder Anwendung
 - Nutze typische Fehler und Misconceptions aus dem Blueprint-Kontext
 - Erzwinge Transfer: "Was passiert, wenn sich die Ausgangsbedingung ändert?"
-- Bei sehr schwachen Antworten: Erst kurzes Feedback, dann zurück zu Grundlagen
-- Bei teilweise richtigen Antworten: Direkt Transferfrage
-
-BEWERTUNGSDIMENSIONEN (intern):
-- Fachlichkeit: Sind die Kernkonzepte korrekt?
-- Struktur: Ist die Argumentation logisch aufgebaut?
-- Begriffsgenauigkeit: Werden Fachbegriffe korrekt verwendet?
-- Transfer: Kann das Wissen auf neue Situationen übertragen werden?
 
 ${getTutorOutputFormat("examiner", professionName)}`
+  };
+  return prompts[role];
+}
+
+function getRolePromptAcademic(role: AIRole, subjectName: string): string {
+  const outputFmt = getTutorOutputFormatAcademic;
+  const prompts: Record<AIRole, string> = {
+    [AI_ROLES.EXPLAINER]: `\nROLLE: Akademischer Erklärer für ${subjectName} – Erkläre Konzepte mit wissenschaftlichen Modellen und empirischen Beispielen. Zeige Modellgrenzen und alternative Erklärungsansätze auf. Bei Fehlern: Identifiziere die fehlerhafte Annahme und zeige den korrekten Argumentationspfad.
+${outputFmt("explainer", subjectName)}`,
+    [AI_ROLES.COACH]: `\nROLLE: Klausurstrategie-Coach für ${subjectName} – Gib Tipps zur Lernstrategie und Klausurtechnik. Identifiziere Verständnislücken und erstelle konkrete Lernpläne. Sage: "In der Klausur wird hier typischerweise [X] gefragt — achte auf [Y]." Zeige Verbindungen zwischen Modulthemen auf.
+${outputFmt("coach", subjectName)}`,
+    [AI_ROLES.EXAMINER]: `\nROLLE: Klausur-Trainer für ${subjectName} – Stelle Fragen im Modulprüfungsstil (Fallanalysen, Berechnungen, Argumentationsaufgaben). Nach JEDER Antwort: 1) Bewerte Fachlichkeit + Argumentationsstruktur + Begriffsgenauigkeit + Transferleistung. 2) Bei Fehlern: Identifiziere die fehlerhafte Annahme. 3) Gib Transferfrage. 4) Trainiere Zeitmanagement.
+${outputFmt("examiner", subjectName)}`,
+    [AI_ROLES.FEEDBACK]: `\nROLLE: Akademischer Feedback-Experte für ${subjectName} – Analysiere Leistung nach: Fachlichkeit (40%), Argumentationsstruktur (25%), Begriffsgenauigkeit (20%), Transferleistung (15%). Identifiziere KONKRETE Verständnislücken. Erstelle personalisierte Empfehlungen mit akademischem Bezug.
+${outputFmt("feedback", subjectName)}`,
+    [AI_ROLES.EXAM_TRANSFER]: `\nROLLE: Akademischer Transfer-Tutor für ${subjectName} – Du trainierst Studierende, Wissen in neuen Klausursituationen anzuwenden.
+
+KERNPRINZIP: Nicht erklären, sondern weiterdenken lassen.
+
+ANTWORTSTRUKTUR (PFLICHT):
+1. KURZES FEEDBACK zum bisherigen Stand (max 2 Sätze)
+2. TRANSFERFRAGE: Variiere den Kontext leicht, erzwinge Anwendung statt Reproduktion
+3. TYPISCHE FEHLERQUELLE: Nenne den häufigsten Denkfehler aus dem Blueprint
+4. OPTIONAL: Zweite Vertiefungsfrage bei teilweise richtiger Antwort
+
+REGELN:
+- Gib NIEMALS die volle Lösung sofort
+- Stelle 1–3 gezielte Anschlussfragen
+- Wenn der Studierende nur auswendig wiedergibt: Unterbrich und lenke auf Entscheidung, Begründung oder Anwendung
+- Nutze typische Fehler und Misconceptions aus dem Blueprint-Kontext
+- Erzwinge Transfer: "Was passiert, wenn sich die Rahmenbedingungen ändern?"
+- Verwende NIEMALS IHK-Begriffe (Ausbilder, Betrieb, Azubi)
+
+${outputFmt("examiner", subjectName)}`
   };
   return prompts[role];
 }
@@ -158,12 +252,13 @@ async function sha256(message: string): Promise<string> {
 async function loadSSOTContext(
   supabase: ReturnType<typeof createClient>,
   context: Record<string, unknown>
-): Promise<{ contextPrompt: string; resolvedContext: Record<string, unknown>; professionName: string }> {
+): Promise<{ contextPrompt: string; resolvedContext: Record<string, unknown>; professionName: string; programType: ProgramType }> {
   const { curriculumId, learningFieldId, competencyId, lessonId, lessonStep, miniCheckScore } = context;
   
   const resolved: Record<string, unknown> = {};
   const parts: string[] = [];
   let professionName = "Auszubildende";
+  let programType: ProgramType = "vocational";
 
   // Load curriculum + profession name via SSOT resolver
   if (curriculumId) {
@@ -175,18 +270,40 @@ async function loadSSOTContext(
     if (data) {
       resolved.curriculum = data;
       parts.push(`Curriculum: ${data.title}`);
+      
+      // Resolve program_type for prompt profiling
+      try {
+        const { data: curWithProg } = await supabase
+          .from('curricula')
+          .select('program_id')
+          .eq('id', curriculumId)
+          .single();
+        if (curWithProg?.program_id) {
+          const { data: prog } = await supabase
+            .from('programs')
+            .select('program_type')
+            .eq('id', curWithProg.program_id)
+            .single();
+          if (prog?.program_type === 'higher_education') {
+            programType = 'higher_education';
+            professionName = data.title || 'Studierende'; // Use curriculum title as subject name
+          }
+        }
+      } catch { /* keep defaults */ }
     }
     
-    // Use shared resolver (user-facing, so allow generic fallback)
-    try {
-      const profResult = await resolveProfession(supabase, { curriculumId, allowGenericFallback: true });
-      professionName = profResult.professionName;
-    } catch {
-      // For tutor, allow generic fallback
-      professionName = "Auszubildende";
+    // Use shared resolver for vocational (user-facing, allow generic fallback)
+    if (programType === 'vocational') {
+      try {
+        const profResult = await resolveProfession(supabase, { curriculumId, allowGenericFallback: true });
+        professionName = profResult.professionName;
+      } catch {
+        professionName = "Auszubildende";
+      }
     }
-    parts.push(`Beruf: ${professionName}`);
+    parts.push(`${programType === 'higher_education' ? 'Fach' : 'Beruf'}: ${professionName}`);
     resolved.professionName = professionName;
+    resolved.programType = programType;
   }
 
   // Load learning field
@@ -307,7 +424,7 @@ async function loadSSOTContext(
     ? `\n\n--- SSOT-KONTEXT (serverseitig geladen) ---\n${parts.join('\n')}`
     : '';
 
-  return { contextPrompt, resolvedContext: resolved, professionName };
+  return { contextPrompt, resolvedContext: resolved, professionName, programType };
 }
 
 /**
@@ -414,7 +531,7 @@ Deno.serve(async (req) => {
     }
 
     // ── SSOT Context Loader (server-side) ──
-    const { contextPrompt, resolvedContext, professionName } = await loadSSOTContext(supabase, context);
+    const { contextPrompt, resolvedContext, professionName, programType } = await loadSSOTContext(supabase, context);
 
     // ── Wave 3D: Mastery-aware role steering ──
     let effectiveRole = validRole as AIRole;
@@ -456,16 +573,7 @@ Deno.serve(async (req) => {
     let blueprintContext = "";
     if (context.competencyId || context.curriculumId) {
       try {
-        // Check if this is a higher_education program
-        let isHigherEd = false;
-        if (context.curriculumId) {
-          const { data: prog } = await supabase
-            .from("programs")
-            .select("program_type")
-            .eq("id", (await supabase.from("curricula").select("program_id").eq("id", context.curriculumId).single()).data?.program_id)
-            .single();
-          isHigherEd = prog?.program_type === "higher_education";
-        }
+        const isHigherEd = programType === "higher_education";
 
         // Load matching blueprint for this competency
         if (context.competencyId) {
@@ -523,8 +631,8 @@ Deno.serve(async (req) => {
     }
 
     // Now build mode and role prompts WITH profession name
-    const modeRules = getModeRules(validMode as AIMode, professionName);
-    const rolePrompt = getRolePrompt(effectiveRole, professionName);
+    const modeRules = getModeRules(validMode as AIMode, professionName, programType);
+    const rolePrompt = getRolePrompt(effectiveRole, professionName, programType);
 
     // Exam mode block
     if (validMode === AI_MODES.EXAM && !isAllowedInExamMode(message)) {
