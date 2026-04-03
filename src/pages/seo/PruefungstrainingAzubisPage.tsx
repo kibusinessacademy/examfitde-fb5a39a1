@@ -19,7 +19,7 @@ export default function PruefungstrainingAzubisPage() {
   return (
     <>
       <SEOHead
-        title="IHK Abschlussprüfung bestehen (2026): Prüfungstraining für Azubis | ExamFit"
+        title={seoTitle("IHK Abschlussprüfung bestehen: Prüfungstraining für Azubis")}
         description="IHK Prüfung online üben: Prüfungssimulation mit echten Prüfungsaufgaben, KI-Prüfungscoach & Schwächenanalyse für Auszubildende. Abschlussprüfung Ausbildung Vorbereitung – jetzt starten!"
         canonical={`${SITE_URL}/pruefungstraining-azubis`}
       />

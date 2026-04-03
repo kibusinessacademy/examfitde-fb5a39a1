@@ -36,7 +36,7 @@ export default function ShopPage() {
   return (
     <>
       <SEOHead
-        title="IHK Prüfungstraining kaufen (2026): Prüfungsfragen üben & bestehen | ExamFit"
+        title={seoTitle("IHK Prüfungstraining kaufen: Prüfungsfragen üben & bestehen")}
         description="IHK Prüfungstraining online kaufen: Prüfungssimulation, Prüfungsfragen mit Lösungen, KI-Coach & mündliche Prüfung. 39 € einmalig, 12 Monate Zugang, kein Abo."
         canonical={`${SITE_URL}/shop`}
       />

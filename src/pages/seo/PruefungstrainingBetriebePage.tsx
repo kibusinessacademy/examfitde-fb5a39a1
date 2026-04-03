@@ -18,7 +18,7 @@ export default function PruefungstrainingBetriebePage() {
   return (
     <>
       <SEOHead
-        title="IHK Prüfungsvorbereitung für Betriebe (2026): Bestehensquote steigern | ExamFit"
+        title={seoTitle("IHK Prüfungsvorbereitung für Betriebe: Bestehensquote steigern")}
         description="IHK Prüfungstraining für Ausbildungsbetriebe: Bestehensquoten erhöhen, Durchfallrisiken erkennen, Ausbildungsqualität messbar machen. Prüfungstrainer mit KI für Ihre Azubis."
         canonical={`${SITE_URL}/pruefungstraining-betriebe`}
       />
