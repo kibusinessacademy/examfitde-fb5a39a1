@@ -361,11 +361,16 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
         const packageId = job.payload?.package_id;
         const stepKey = job.job_type?.replace(/^package_/, "");
         if (packageId && stepKey) {
-          await sb.from("package_steps").update({
-            status: "failed",
-            last_error: errorMsg,
-            updated_at: now,
-          }).eq("package_id", packageId).eq("step_key", stepKey);
+          try {
+            await sb.from("package_steps").update({
+              status: "failed",
+              last_error: errorMsg,
+              started_at: now,
+              updated_at: now,
+            }).eq("package_id", packageId).eq("step_key", stepKey);
+          } catch (_stepErr) {
+            console.warn(`[content-runner] Could not sync step ${stepKey} to failed: ${(_stepErr as Error)?.message}`);
+          }
         }
 
         console.warn(`[content-runner] 🚫 ${job.job_type} (${shortId}) VALIDATOR PERMANENT FAIL: ${errorMsg.slice(0, 200)}`);

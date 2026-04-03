@@ -2180,12 +2180,17 @@ Deno.serve(async (req) => {
         const stepKey = job.job_type?.replace(/^package_/, "");
         if (stepKey) {
           const failError = String(patchError ?? "job_failed").slice(0, 2000);
-          await sb.from("package_steps").update({
-            status: "failed",
-            last_error: `Job failed: ${failError}`,
-            updated_at: tsNow,
-          }).eq("package_id", job.payload.package_id).eq("step_key", stepKey)
-            .in("status", ["enqueued", "queued", "running"]);
+          try {
+            await sb.from("package_steps").update({
+              status: "failed",
+              last_error: `Job failed: ${failError}`,
+              started_at: tsNow,
+              updated_at: tsNow,
+            }).eq("package_id", job.payload.package_id).eq("step_key", stepKey)
+              .in("status", ["enqueued", "queued", "running"]);
+          } catch (_stepErr) {
+            console.warn(`[job-runner] Could not sync step ${stepKey} to failed: ${(_stepErr as Error)?.message}`);
+          }
         }
       }
 
