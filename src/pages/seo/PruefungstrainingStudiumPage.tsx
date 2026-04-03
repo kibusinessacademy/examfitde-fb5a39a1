@@ -459,7 +459,7 @@ export default function PruefungstrainingStudiumPage() {
             <SectionHeader
               eyebrow="Dein Weg"
               title="Wähle den passenden Einstieg"
-              text="Egal ob du selbst zahlst, über den Betrieb läufst oder eine Hochschule vertrittst."
+              text="Egal ob du selbst zahlst, über dein Unternehmen läufst oder eine Hochschule vertrittst."
             />
             <div className="mt-14 grid gap-6 md:grid-cols-3">
               {/* Studierende – Self-Pay */}
