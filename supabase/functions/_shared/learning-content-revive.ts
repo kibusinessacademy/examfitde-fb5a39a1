@@ -115,6 +115,7 @@ async function getShardTableState(
   packageId: string,
 ): Promise<{
   pending: number;
+  claimed: number;
   processing: number;
   completed: number;
   failed: number;
@@ -127,7 +128,7 @@ async function getShardTableState(
     .eq("package_id", packageId);
 
   if (error || !data || data.length === 0) {
-    return { pending: 0, processing: 0, completed: 0, failed: 0, total: 0, last_activity_at: null };
+    return { pending: 0, claimed: 0, processing: 0, completed: 0, failed: 0, total: 0, last_activity_at: null };
   }
 
   let lastActivity: string | null = null;
@@ -138,7 +139,8 @@ async function getShardTableState(
   }
 
   return {
-    pending: data.filter((r: any) => r.status === "pending" || r.status === "claimed").length,
+    pending: data.filter((r: any) => r.status === "pending").length,
+    claimed: data.filter((r: any) => r.status === "claimed").length,
     processing: data.filter((r: any) => r.status === "processing").length,
     completed: data.filter((r: any) => r.status === "completed").length,
     failed: data.filter((r: any) => r.status === "failed").length,
