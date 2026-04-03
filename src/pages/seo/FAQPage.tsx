@@ -184,8 +184,8 @@ export default function FAQPage() {
   return (
     <>
       <SEOHead
-        title="Häufige Fragen (FAQ) | ExamFit"
-        description="Antworten auf häufig gestellte Fragen zu ExamFit: Preise, Produkte, Prüfungsvorbereitung, Zahlung und technischer Support."
+        title="IHK Prüfung Fragen und Antworten – FAQ | ExamFit"
+        description="Häufige Fragen zur IHK Prüfungsvorbereitung: Wie bestehe ich die IHK Abschlussprüfung? Was kostet Prüfungstraining? Tipps, Preise & Erfahrungen."
         canonical={`${SITE_URL}/faq`}
         structuredData={structuredData}
       />
@@ -199,11 +199,11 @@ export default function FAQPage() {
 
           <div className="text-center mb-12">
             <h1 className="text-3xl md:text-4xl font-display font-bold mb-4">
-              Häufige Fragen <span className="text-gradient">(FAQ)</span>
+              IHK Prüfung: Häufige Fragen <span className="text-gradient">& Antworten</span>
             </h1>
             <p className="text-muted-foreground max-w-2xl mx-auto">
-              Hier findest du Antworten auf die häufigsten Fragen rund um ExamFit, 
-              unsere Produkte und die Prüfungsvorbereitung.
+              Alles, was du über die IHK Prüfungsvorbereitung wissen musst: Tipps, Kosten, 
+              Prüfungsablauf und wie du mit ExamFit deine Abschlussprüfung sicher bestehst.
             </p>
           </div>
 

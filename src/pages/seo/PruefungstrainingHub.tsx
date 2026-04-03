@@ -106,8 +106,8 @@ const PruefungstrainingHub = () => {
   return (
     <>
       <SEOHead
-        title="Prüfungstraining – IHK-Prüfung sicher bestehen"
-        description="KI-gestütztes Prüfungstraining für IHK-Prüfungen: Ausbildung, Fachwirt, Betriebswirt, Meister, AEVO & Sachkunde. Realistische Prüfungssimulation, Musterfragen & KI-Prüfungscoach. Jetzt starten!"
+        title="IHK Prüfungstraining online – Prüfungssimulation & Prüfungsfragen | ExamFit"
+        description="IHK Prüfungstraining online mit echten Prüfungsfragen: Ausbildung, Fachwirt, Meister, AEVO & Sachkunde. Prüfungssimulation, KI-Prüfungscoach & adaptive Prüfungsvorbereitung. Jetzt starten!"
         canonical={`${SITE_URL}/pruefungstraining`}
         structuredData={structuredData}
       />
@@ -117,7 +117,7 @@ const PruefungstrainingHub = () => {
         <section className="text-center max-w-4xl mx-auto space-y-6">
           <Breadcrumbs items={[{ label: 'Start', href: '/' }, { label: 'Prüfungstraining' }]} />
           <h1 className="text-4xl md:text-5xl font-display font-bold tracking-tight">
-            Prüfungstraining – IHK-Prüfung <span className="text-primary">sicher bestehen</span>
+            IHK Prüfungstraining online: <span className="text-primary">Abschlussprüfung bestehen</span>
           </h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
             KI-gestütztes Prüfungstraining mit realistischer Simulation, prüfungsrelevanten Aufgaben und persönlichem KI-Prüfungscoach. Für Azubis, Fachwirte & Meister.
