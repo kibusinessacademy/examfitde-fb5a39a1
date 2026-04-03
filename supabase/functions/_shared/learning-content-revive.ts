@@ -257,12 +257,18 @@ export async function getLearningContentJobState(
   };
 }
 
+const REVIVE_COOLDOWN_MINUTES = 10;
+
 /**
  * Detect and revive a dead generate_learning_content step.
  *
  * Now uses composite shard-aware liveness instead of parent-only checks.
  *
  * Dead = step is not 'done', needsRegen > 0, and verdict is shard_orphaned or fully_idle.
+ *
+ * Hardened with:
+ *  - Cooldown guard: won't revive if last revive was < REVIVE_COOLDOWN_MINUTES ago
+ *  - fully_idle grace: won't revive if step was updated < 10 min ago (pre-fanout window)
  *
  * Returns true if revived, false if no action needed.
  */
@@ -276,7 +282,7 @@ export async function reviveLearningContentStepIfDead(
   // Load step
   const { data: step } = await sb
     .from("package_steps")
-    .select("id, status, meta")
+    .select("id, status, meta, updated_at")
     .eq("package_id", packageId)
     .eq("step_key", "generate_learning_content")
     .maybeSingle();
@@ -284,11 +290,28 @@ export async function reviveLearningContentStepIfDead(
   if (!step) return false;
   if (step.status === "done") return false;
 
+  // ── Cooldown guard: don't double-revive ──
+  const lastReviveAt = step.meta?.liveness_requeued_at;
+  if (lastReviveAt) {
+    const elapsed = Date.now() - new Date(lastReviveAt).getTime();
+    if (elapsed < REVIVE_COOLDOWN_MINUTES * 60_000) {
+      return false;
+    }
+  }
+
   // Use composite liveness
   const liveness = await getLearningContentLiveness(sb, packageId);
 
   // Only revive if genuinely deadlocked or fully idle
   if (!liveness.is_deadlocked && liveness.verdict !== "fully_idle") return false;
+
+  // ── fully_idle grace: don't revive steps that were just updated (pre-fanout window) ──
+  if (liveness.verdict === "fully_idle" && step.updated_at) {
+    const stepAge = Date.now() - new Date(step.updated_at).getTime();
+    if (stepAge < REVIVE_COOLDOWN_MINUTES * 60_000) {
+      return false;
+    }
+  }
 
   // Dead: needsRegen > 0, no live jobs → reset step to queued
   const { error } = await sb
@@ -307,6 +330,7 @@ export async function reviveLearningContentStepIfDead(
         liveness_verdict: liveness.verdict,
         liveness_shard_state: {
           shards_pending: liveness.shards_pending,
+          shards_claimed: liveness.shards_claimed,
           shards_completed: liveness.shards_completed,
           shard_jobs_active: liveness.shard_jobs_pending + liveness.shard_jobs_processing,
           parent_jobs_active: liveness.parent_pending + liveness.parent_processing,
@@ -321,7 +345,7 @@ export async function reviveLearningContentStepIfDead(
   }
 
   console.warn(
-    `[revive] LIVENESS_REQUEUE package=${packageId.slice(0, 8)} step=${step.id.slice(0, 8)} verdict=${liveness.verdict} needsRegen=${needsRegenCount} shards=${liveness.shards_total}(pending=${liveness.shards_pending})`,
+    `[revive] LIVENESS_REQUEUE package=${packageId.slice(0, 8)} step=${step.id.slice(0, 8)} verdict=${liveness.verdict} needsRegen=${needsRegenCount} shards=${liveness.shards_total}(pending=${liveness.shards_pending},claimed=${liveness.shards_claimed})`,
   );
   return true;
 }
