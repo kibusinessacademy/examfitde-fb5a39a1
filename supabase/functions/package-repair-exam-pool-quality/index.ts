@@ -2,6 +2,29 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { markStepDone } from "../_shared/steps.ts";
 import { enqueueJob } from "../_shared/enqueue.ts";
+
+/** Ensure the repair step exists before markStepDone (prevents MISMATCH crash) */
+async function ensureRepairStep(sb: ReturnType<typeof createClient>, packageId: string) {
+  try {
+    await sb.rpc("ensure_package_step", {
+      p_package_id: packageId,
+      p_step_key: "repair_exam_pool_quality",
+    });
+  } catch (e) {
+    // Fallback: direct upsert
+    await sb.from("package_steps").upsert({
+      package_id: packageId,
+      step_key: "repair_exam_pool_quality",
+      status: "running",
+      started_at: new Date().toISOString(),
+    }, { onConflict: "package_id,step_key", ignoreDuplicates: true });
+  }
+  // Ensure started_at is set (Ghost Guard)
+  await sb.from("package_steps").update({
+    started_at: new Date().toISOString(),
+    status: "running",
+  }).eq("package_id", packageId).eq("step_key", "repair_exam_pool_quality").is("started_at", null);
+}
 import {
   isRepairActionEligible,
   captureGateSnapshot,
@@ -259,6 +282,8 @@ async function handlePoolHealthyNoReentry(
   qcReconciled: number,
   gateChange: { check_failed?: boolean; check_failed_reason?: string },
 ) {
+  // Ensure repair step exists before markStepDone (prevents MISMATCH crash)
+  await ensureRepairStep(sb, packageId);
   // Mark repair step as done via SSOT helper (not raw update)
   await markStepDone(sb, {
     packageId,
@@ -293,6 +318,7 @@ async function handleGateChanged(
   }).eq("package_id", packageId).eq("step_key", "validate_exam_pool").in("status", ["failed", "queued"]);
 
   const hasOpenLfGaps = (repairResult.missing_lf_coverage as number) > 0;
+  await ensureRepairStep(sb, packageId);
   if (hasOpenLfGaps) {
     await sb.from("package_steps").update({
       status: "running",
@@ -316,6 +342,8 @@ async function handleNoEffect(
   preSnapshot: Record<string, unknown>,
   gateChange: { check_failed?: boolean; check_failed_reason?: string },
 ) {
+  // Ensure repair step exists before updating it
+  await ensureRepairStep(sb, packageId);
   // FIX: Mark repair step as 'blocked' (not 'done') — no-effect is NOT success
   await sb.from("package_steps").update({
     status: "blocked",
