@@ -2,16 +2,7 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, ArrowRight, CheckCircle, Loader2, Sparkles } from 'lucide-react';
-
-// Step order for didactic progression
-const STEP_ORDER = ['einstieg', 'verstehen', 'anwenden', 'wiederholen', 'mini_check'];
-const STEP_LABELS: Record<string, string> = {
-  einstieg: 'Einstieg',
-  verstehen: 'Verstehen',
-  anwenden: 'Anwenden',
-  wiederholen: 'Wiederholen',
-  mini_check: 'Mini-Check',
-};
+import { STEP_LABELS } from '@/lib/step-config';
 
 interface Lesson {
   id: string;
@@ -40,7 +31,6 @@ export default function LessonNavigation({
   onComplete,
   onNavigate,
 }: LessonNavigationProps) {
-  // Determine the next step label for "Weiter mit..."
   const getNextStepLabel = () => {
     if (!nextLesson) return null;
     return STEP_LABELS[nextLesson.step] || nextLesson.step;

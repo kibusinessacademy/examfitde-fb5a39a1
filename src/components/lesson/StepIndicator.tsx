@@ -1,55 +1,5 @@
 import { Badge } from '@/components/ui/badge';
-import { 
-  Lightbulb, 
-  BookOpen, 
-  PenTool, 
-  RotateCcw, 
-  ClipboardCheck 
-} from 'lucide-react';
-
-const stepConfig: Record<string, { 
-  label: string; 
-  description: string;
-  icon: React.ElementType; 
-  color: string;
-  bgColor: string;
-}> = {
-  einstieg: { 
-    label: 'Einstieg', 
-    description: 'Aktivierung des Vorwissens',
-    icon: Lightbulb, 
-    color: 'text-blue-400',
-    bgColor: 'bg-blue-500/20'
-  },
-  verstehen: { 
-    label: 'Verstehen', 
-    description: 'Neues Wissen aufnehmen',
-    icon: BookOpen, 
-    color: 'text-purple-400',
-    bgColor: 'bg-purple-500/20'
-  },
-  anwenden: { 
-    label: 'Anwenden', 
-    description: 'Wissen praktisch nutzen',
-    icon: PenTool, 
-    color: 'text-green-400',
-    bgColor: 'bg-green-500/20'
-  },
-  wiederholen: { 
-    label: 'Wiederholen', 
-    description: 'Gelerntes festigen',
-    icon: RotateCcw, 
-    color: 'text-orange-400',
-    bgColor: 'bg-orange-500/20'
-  },
-  mini_check: { 
-    label: 'Mini-Check', 
-    description: 'Wissen überprüfen',
-    icon: ClipboardCheck, 
-    color: 'text-pink-400',
-    bgColor: 'bg-pink-500/20'
-  },
-};
+import { STEP_ORDER, STEP_CONFIG } from '@/lib/step-config';
 
 interface StepIndicatorProps {
   currentStep: string;
@@ -57,17 +7,18 @@ interface StepIndicatorProps {
 }
 
 export default function StepIndicator({ currentStep, lessonTitle }: StepIndicatorProps) {
-  const stepInfo = stepConfig[currentStep] || stepConfig.einstieg;
+  const stepInfo = STEP_CONFIG[currentStep] || STEP_CONFIG.einstieg;
   const StepIcon = stepInfo.icon;
 
   return (
     <>
-      {/* 5-Step Progress Indicator */}
+      {/* Step Progress Indicator */}
       <div className="flex items-center justify-center gap-2 mb-8">
-        {Object.entries(stepConfig).map(([key, config], idx) => {
+        {STEP_ORDER.map((key, idx) => {
+          const config = STEP_CONFIG[key];
           const Icon = config.icon;
           const isActive = key === currentStep;
-          const isPast = Object.keys(stepConfig).indexOf(currentStep) > idx;
+          const isPast = STEP_ORDER.indexOf(currentStep as typeof STEP_ORDER[number]) > idx;
 
           return (
             <div key={key} className="flex items-center">
@@ -80,7 +31,7 @@ export default function StepIndicator({ currentStep, lessonTitle }: StepIndicato
               >
                 <Icon className={`h-5 w-5 ${isActive ? config.color : isPast ? 'text-primary' : 'text-muted-foreground'}`} />
               </div>
-              {idx < Object.keys(stepConfig).length - 1 && (
+              {idx < STEP_ORDER.length - 1 && (
                 <div className={`w-8 h-0.5 ${isPast ? 'bg-primary' : 'bg-muted'}`} />
               )}
             </div>
@@ -101,4 +52,5 @@ export default function StepIndicator({ currentStep, lessonTitle }: StepIndicato
   );
 }
 
-export { stepConfig };
+/** @deprecated Import STEP_CONFIG from '@/lib/step-config' instead */
+export { STEP_CONFIG as stepConfig } from '@/lib/step-config';
