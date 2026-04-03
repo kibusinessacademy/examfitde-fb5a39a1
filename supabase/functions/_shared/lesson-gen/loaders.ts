@@ -50,14 +50,14 @@ export async function loadLessonGenerationData(
   // These depend on lesson/profession but are independent of each other
   const lfId = (lesson as any).modules?.learning_field_id;
 
-  // Fetch beruf_id once (needed for glossary)
-  const berufPromise = sb.from("curricula").select("beruf_id").eq("id", req.curriculumId).maybeSingle()
-    .then((r: any) => r.data?.beruf_id || null)
-    .catch(() => null);
+  // Fetch beruf_id + program_type once (needed for glossary + prompt profiling)
+  const curriculaPromise = sb.from("curricula").select("beruf_id, program_type").eq("id", req.curriculumId).maybeSingle()
+    .then((r: any) => ({ berufId: r.data?.beruf_id || null, programType: r.data?.program_type || "vocational" }))
+    .catch(() => ({ berufId: null, programType: "vocational" }));
 
   const phase2Promises: [
     Promise<any>,                         // LF data
-    Promise<string | null>,               // beruf_id
+    Promise<{ berufId: string | null; programType: string }>, // curricula data
     Promise<any>,                         // mastery context
   ] = [
     // LF data
@@ -69,8 +69,8 @@ export async function loadLessonGenerationData(
           .then((r: any) => r.data)
       : Promise.resolve(null),
 
-    // beruf_id (for glossary, resolved after)
-    berufPromise,
+    // curricula data (beruf_id + program_type)
+    curriculaPromise,
 
     // Mastery context (moved here from context.ts to parallelize)
     (async () => {
@@ -80,7 +80,8 @@ export async function loadLessonGenerationData(
     })(),
   ];
 
-  const [lfData, berufId, masteryCtx] = await Promise.all(phase2Promises);
+  const [lfData, curriculaData, masteryCtx] = await Promise.all(phase2Promises);
+  const { berufId, programType } = curriculaData;
 
   // Glossary: uses beruf_id + lfCode (both now available)
   let finalGlossaryContext = "";
@@ -99,6 +100,7 @@ export async function loadLessonGenerationData(
       professionName,
       glossaryContext: finalGlossaryContext,
       masteryCtx,
+      programType: programType === "higher_education" ? "higher_education" : "vocational",
     },
   };
 }
