@@ -371,7 +371,7 @@ async function redistributeTraps(
       .eq("curriculum_id", curriculumId)
       .eq("status", "approved")
       .eq("trap_type", over.type)
-      .order("quality_score", { ascending: true, nullsFirst: true })
+      .order("created_at", { ascending: true })
       .order("created_at", { ascending: true })
       .limit(toMove);
 
