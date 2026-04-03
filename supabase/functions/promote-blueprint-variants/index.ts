@@ -54,6 +54,19 @@ function cognitiveTodifficulty(level: string): string {
   }
 }
 
+const VALID_TRAP_TYPES = new Set([
+  "typical_error", "misconception", "incomplete_logic",
+  "practice_error", "operator_risk", "calculation_trap",
+]);
+
+function sanitizeTrapType(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  if (VALID_TRAP_TYPES.has(raw)) return raw;
+  // Map common variant trap names to valid types
+  if (raw === "trap_shift") return "typical_error";
+  return "typical_error"; // safe fallback for unknown trap types
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
