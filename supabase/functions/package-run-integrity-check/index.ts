@@ -1081,6 +1081,7 @@ Deno.serve(async (req) => {
     const INTEGRITY_PREREQ_BY_TRACK: Record<string, string> = {
       EXAM_FIRST: "validate_oral_exam",
       AUSBILDUNG_VOLL: "generate_handbook",
+      STUDIUM: "generate_handbook",
     };
     const prereqStep = INTEGRITY_PREREQ_BY_TRACK[track] ?? INTEGRITY_PREREQ_BY_TRACK["AUSBILDUNG_VOLL"];
     if (!(await prereqDone(sb, packageId, prereqStep))) {
