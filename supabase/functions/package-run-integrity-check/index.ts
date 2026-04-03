@@ -877,8 +877,9 @@ async function runCourseReadyGate(
       AUSBILDUNG_VOLL: 10,
       ELITE: 15,
       EXAM_FIRST: 5,
+      STUDIUM: 0, // Higher-Ed: traps are not an IHK concept
     };
-    const trapMinTarget = TRAP_MIN_PCT[trackEarly] ?? 10;
+    const trapMinTarget = isHigherEd ? 0 : (TRAP_MIN_PCT[trackEarly] ?? 10);
     const trapPassed = trapPct >= trapMinTarget;
 
     // Tiered severity: >25% missing = blocker, >10% missing = warning
