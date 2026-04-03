@@ -252,7 +252,7 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
         {/* Outcome badges */}
         <div className="flex flex-wrap items-center gap-3 mt-4 text-xs text-muted-foreground">
           <span className="flex items-center gap-1">
-            <CheckCircle2 className="h-3.5 w-3.5 text-accent" /> Prüfungsnahe Aufgaben
+            <CheckCircle2 className="h-3.5 w-3.5 text-accent" /> {t('trainerTasksLabel')}
           </span>
           <span className="flex items-center gap-1">
             <Zap className="h-3.5 w-3.5 text-accent" /> Sofort Feedback
