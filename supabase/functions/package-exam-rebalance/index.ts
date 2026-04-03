@@ -505,7 +505,7 @@ async function repairDifficultyExcess(
   const mediumKeywords = ["berechne", "ermittle", "welche", "wie viel", "vergleich"];
   const easyQs = questions
     .filter(q => q.difficulty === "easy")
-    .sort((a, b) => ((a.quality_score as number) || 0) - ((b.quality_score as number) || 0));
+    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
   const toReclassify = easyQs.slice(0, toRemove);
   let reclassified = 0;
