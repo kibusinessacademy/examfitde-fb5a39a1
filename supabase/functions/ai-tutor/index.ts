@@ -452,6 +452,76 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── Exam Transfer Routing: auto-activate for higher_education programs ──
+    let blueprintContext = "";
+    if (context.competencyId || context.curriculumId) {
+      try {
+        // Check if this is a higher_education program
+        let isHigherEd = false;
+        if (context.curriculumId) {
+          const { data: prog } = await supabase
+            .from("programs")
+            .select("program_type")
+            .eq("id", (await supabase.from("curricula").select("program_id").eq("id", context.curriculumId).single()).data?.program_id)
+            .single();
+          isHigherEd = prog?.program_type === "higher_education";
+        }
+
+        // Load matching blueprint for this competency
+        if (context.competencyId) {
+          const { data: blueprints } = await supabase
+            .from("question_blueprints")
+            .select("name, canonical_statement, knowledge_type, cognitive_level, typical_exam_trap, trap_definition, typical_errors, rubric, exam_context_type, didactic_intent")
+            .eq("competency_id", context.competencyId)
+            .in("status", ["draft", "review", "approved"])
+            .limit(3);
+
+          if (blueprints?.length) {
+            const bpParts: string[] = ["\n--- BLUEPRINT-KONTEXT ---"];
+            for (const bp of blueprints) {
+              bpParts.push(`Blueprint: ${bp.name}`);
+              bpParts.push(`Kanonische Aussage: ${bp.canonical_statement}`);
+              bpParts.push(`Wissenstyp: ${bp.knowledge_type}, Kognitionsstufe: ${bp.cognitive_level}`);
+              if (bp.typical_exam_trap) bpParts.push(`Typische Prüfungsfalle: ${bp.typical_exam_trap}`);
+              if (bp.trap_definition) {
+                const trap = bp.trap_definition as Record<string, unknown>;
+                if (trap.misconception) bpParts.push(`Misconception: ${trap.misconception}`);
+                if (trap.error_model) bpParts.push(`Fehlermodell: ${trap.error_model}`);
+              }
+              if (bp.typical_errors && Array.isArray(bp.typical_errors)) {
+                const errLines = (bp.typical_errors as Array<Record<string, unknown>>)
+                  .map(e => `  - ${e.error} (Häufigkeit: ${e.frequency})`);
+                if (errLines.length) bpParts.push(`Typische Fehler:\n${errLines.join("\n")}`);
+              }
+              if (bp.rubric) {
+                const rubric = bp.rubric as Record<string, number>;
+                const rubricStr = Object.entries(rubric).map(([k, v]) => `${k}: ${Math.round(v * 100)}%`).join(", ");
+                bpParts.push(`Bewertungsraster: ${rubricStr}`);
+              }
+              bpParts.push("---");
+            }
+            blueprintContext = bpParts.join("\n");
+            resolvedContext._blueprints = blueprints;
+
+            // Auto-route to exam_transfer for higher_education when blueprint supports it
+            if (isHigherEd && effectiveRole !== AI_ROLES.EXAM_TRANSFER) {
+              const bp = blueprints[0];
+              const cogLevel = bp.cognitive_level;
+              const hasTrap = !!(bp.trap_definition || bp.typical_exam_trap);
+              const hasErrors = Array.isArray(bp.typical_errors) && (bp.typical_errors as unknown[]).length > 0;
+
+              if (["apply", "analyze", "evaluate"].includes(cogLevel) && (hasTrap || hasErrors)) {
+                effectiveRole = AI_ROLES.EXAM_TRANSFER;
+                console.log(`[ai-tutor] Auto-routed to exam_transfer for higher_education (cognitive_level=${cogLevel})`);
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("[ai-tutor] Blueprint/exam_transfer routing failed:", e);
+      }
+    }
+
     // Now build mode and role prompts WITH profession name
     const modeRules = getModeRules(validMode as AIMode, professionName);
     const rolePrompt = getRolePrompt(effectiveRole, professionName);
