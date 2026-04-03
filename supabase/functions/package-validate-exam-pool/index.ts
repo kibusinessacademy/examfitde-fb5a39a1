@@ -527,6 +527,11 @@ Deno.serve(async (req) => {
     // Idempotent success: already fully validated (0 unresolved)
     if (unresolvedCount === 0 && approvedCount > 0) {
       console.log(`[validate-exam] IDEMPOTENT_SUCCESS: no pending + all approved (${approvedCount})`);
+      // FIX: Write ok=true into step meta so pipeline finalization can pick it up
+      await sb.from("package_steps").update({
+        meta: { ok: true, validation_passed: true, approved_count: approvedCount, idempotent: true },
+        updated_at: new Date().toISOString(),
+      }).eq("package_id", packageId).eq("step_key", "validate_exam_pool");
       return json({
         ok: true,
         batch_complete: true,
