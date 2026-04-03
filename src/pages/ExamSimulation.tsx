@@ -190,6 +190,7 @@ export default function ExamSimulation() {
           <ResultsScreen 
             result={result as ExamResult} 
             sessionId={currentSessionId}
+            curriculumId={session?.curriculum_id}
             onRestart={() => {
               setExamResult(null);
               navigate('/exam-simulation');
