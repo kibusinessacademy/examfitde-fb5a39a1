@@ -212,7 +212,7 @@ Deno.serve(async (req) => {
           correct_answer: norm.correct_answer,
           explanation: v.answer_text ?? null,
           difficulty: cognitiveTodifficulty(v.cognitive_level ?? bp.cognitive_level ?? "apply"),
-          question_type: v.question_type ?? bp.question_type ?? "concept",
+          question_type: v.question_type ?? bp.knowledge_type ?? "concept",
           cognitive_level: v.cognitive_level ?? bp.cognitive_level ?? "understand",
           status: "draft",
           qc_status: "tier1_passed",
