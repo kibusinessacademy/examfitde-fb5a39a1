@@ -356,7 +356,7 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
                 <Input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Beruf suchen, z. B. Verkäufer oder Fachinformatiker"
+                  placeholder={isAcademic ? 'Fach suchen, z. B. BWL oder Wirtschaftsinformatik' : 'Beruf suchen, z. B. Verkäufer oder Fachinformatiker'}
                   className="h-12 rounded-xl pl-10 text-base"
                   aria-label="Beruf suchen"
                 />
