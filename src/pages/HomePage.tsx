@@ -65,8 +65,8 @@ export default function HomePage() {
   return (
     <>
       <SEOHead
-        title="IHK Prüfungstraining online – Prüfungsvorbereitung mit KI | ExamFit"
-        description="IHK Prüfung bestehen mit intelligentem Prüfungstraining: Prüfungssimulation, Prüfungsfragen üben, KI-Prüfungscoach & mündliche Prüfung trainieren. Einmalig 39 €, kein Abo."
+        title="IHK Prüfung bestehen (2026): Online Prüfungstraining mit echten Aufgaben | ExamFit"
+        description="IHK Prüfungstraining online: Mit Prüfungssimulation, echten Prüfungsfragen & KI-Prüfungscoach die Abschlussprüfung sicher bestehen. 39 € einmalig, kein Abo."
         canonical={`${SITE_URL}/`}
         type="website"
         structuredData={[
