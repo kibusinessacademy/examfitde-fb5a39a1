@@ -179,36 +179,35 @@ async function runCourseReadyGate(
 
   // ═══════════════════════════════════════════════
   // GATE 2: Oral-Exam Pflichtprüfung
+  // Higher-Ed: skip (no IHK oral exam format)
   // ═══════════════════════════════════════════════
   const { data: pkgFlags } = await sb.from("course_packages").select("feature_flags").eq("id", packageId).maybeSingle();
-  const includeOral = (pkgFlags as any)?.feature_flags?.include_oral_exam !== false;
+  const includeOral = !isHigherEd && (pkgFlags as any)?.feature_flags?.include_oral_exam !== false;
 
-  if (includeOral) {
+  if (isHigherEd) {
+    results.push({
+      gate: "oral_exam_ready",
+      passed: true,
+      severity: "blocker",
+      detail: "Skipped (higher_ed profile — no IHK oral exam)",
+    });
+  } else if (includeOral) {
     // FIX: oral_exam_sessionsets uses package_id, NOT curriculum_id
     const [{ count: bpCount }, { count: ssCount }] = await Promise.all([
       sb.from("oral_exam_blueprints").select("id", { count: "exact", head: true }).eq("curriculum_id", curriculumId ?? courseId),
       sb.from("oral_exam_sessionsets").select("id", { count: "exact", head: true }).eq("package_id", packageId),
     ]);
 
-    // FIX: Many oral_exam_blueprints have learning_field_id = NULL because
-    // the generator didn't set it. Fall back to counting distinct blueprints
-    // that exist (blueprint count >= 10 already ensures coverage).
-    // Also try to match by learning_field_id where available.
     const { data: oralBpLFs } = await sb
       .from("oral_exam_blueprints")
       .select("learning_field_id, title")
       .eq("curriculum_id", curriculumId ?? courseId);
     const uniqueOralLFs = new Set((oralBpLFs ?? []).map((b: any) => b.learning_field_id).filter(Boolean));
-    // If learning_field_id is mostly NULL, count unique title prefixes as proxy for LF coverage
     const hasLfIds = uniqueOralLFs.size > 0;
     let oralCoveragePct: number;
-    // FIX: 0/0 must be treated as N/A → 100% (no LFs to measure against)
-    // This occurs in EXAM_FIRST tracks where moduleIds is empty.
     if (hasLfIds) {
       oralCoveragePct = pctOrNA(uniqueOralLFs.size, moduleIds.length);
     } else {
-      // Fallback: if we have >= 10 blueprints and they cover diverse topics, consider coverage met
-      // Use distinct title patterns as proxy (each LF typically has 2 blueprints)
       const distinctTitles = new Set((oralBpLFs ?? []).map((b: any) => {
         const t = (b.title || "").replace(/^Mündliche Prüfung:\s*/i, "").trim();
         return t.split(/\s+/).slice(0, 3).join(" ").toLowerCase();
