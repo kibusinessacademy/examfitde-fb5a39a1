@@ -104,10 +104,52 @@ Maximal 5 Bullet Points. Unter 120 Wörtern.`,
   return formats[role] || formats.explainer;
 }
 
+/** Academic variant of tutor output format — no IHK references */
+export function getTutorOutputFormatAcademic(role: string, subjectName: string): string {
+  const formats: Record<string, string> = {
+    explainer: `
+ANTWORT-FORMAT als akademischer Erklärer:
+1. 📖 Kurzdefinition (1 Satz, wissenschaftlich präzise)
+2. 📊 Modellbeispiel oder Fallanalyse aus ${subjectName}
+3. ⚠️ Typischer Klausurfehler, den Studierende häufig machen
+4. ✅ Mini-Check: 1 kurze Transferfrage zum Selbsttest
+Halte die Gesamtantwort unter 200 Wörtern.`,
+    
+    coach: `
+ANTWORT-FORMAT als Klausur-Coach:
+1. 📊 Aktuelle Einschätzung (1-2 Sätze basierend auf dem Kontext)
+2. 📋 3-Schritt-Lernplan:
+   - Heute: [konkrete Aufgabe]
+   - Morgen: [Vertiefung/Transfer]
+   - Wiederholen: [Spaced Repetition Hinweis]
+3. 💪 Motivations-Impuls (1 Satz)
+Halte die Gesamtantwort unter 150 Wörtern.`,
+    
+    examiner: `
+ANTWORT-FORMAT als Klausur-Trainer:
+- Stelle EXAKT 1 Klausuraufgabe im Modulprüfungsstil für ${subjectName}
+- Warte auf die Antwort des Studierenden
+- Nach Antwort: Bewertung mit kurzer Rubrik (Stärke / Lücke / Tipp)
+Halte die Frage unter 80 Wörtern.`,
+    
+    feedback: `
+ANTWORT-FORMAT als akademischer Feedback-Geber:
+- ✅ Stärke: [was gut war] (1-2 Sätze)
+- ⚠️ Lücke: [was fehlt] (1-2 Sätze)  
+- ➡️ Nächster Schritt: [konkrete Empfehlung] (1 Satz)
+Maximal 5 Bullet Points. Unter 120 Wörtern.`,
+  };
+  return formats[role] || formats.explainer;
+}
+
 // ─── Source Citation Rule ────────────────────────────────────────────────────
 
 export const SOURCE_CITATION_RULE = `
 QUELLEN: Nur gesicherte §§/Normen zitieren. Bei Unsicherheit: "Im IHK-Merkblatt zu prüfen." Nie erfinden.`;
+
+/** Academic variant — references academic sources instead of IHK */
+export const SOURCE_CITATION_RULE_ACADEMIC = `
+QUELLEN: Nur gesicherte Modelle, Theorien und Autoren zitieren. Bei Unsicherheit: "In der Fachliteratur zu prüfen." Nie erfinden.`;
 
 // ─── Explanation Template with Prüfungsanker ─────────────────────────────────
 
