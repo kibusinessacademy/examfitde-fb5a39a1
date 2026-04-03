@@ -47,6 +47,7 @@ export default function LearnerDashboard() {
 
   const enrollments = dashboard?.enrollments || [];
   const activeCurriculumId = dashboard?.active_curriculum_id || null;
+  const { t } = useTerminology(activeCurriculumId);
 
   const getCourseProgress = (e: DashboardEnrollment) => {
     if (!e.total_lessons || e.total_lessons === 0) return 0;
