@@ -6,6 +6,7 @@ import { Lightbulb, BookOpen, Target, Brain, Loader2, ChevronRight } from 'lucid
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { recordLearningEvent } from '@/lib/learning-telemetry';
+import { useTerminology } from '@/hooks/useProgramType';
 
 const TYPE_ICONS: Record<string, typeof BookOpen> = {
   lesson: BookOpen,
