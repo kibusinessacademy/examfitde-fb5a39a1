@@ -184,7 +184,7 @@ export default function PruefungstrainingStudiumPage() {
             <div className="grid md:grid-cols-2 gap-8">
               {[
                 { icon: Target, title: '🎯 Prüfungslogik statt Lernchaos', text: 'Du trainierst genau das, was bewertet wird – nicht alles.' },
-                { icon: BarChart3, title: '📊 Prüfungsreife sichtbar machen', text: 'Kein „Ich glaube, ich kann's" – sondern: Du weißt es.' },
+                { icon: BarChart3, title: '📊 Prüfungsreife sichtbar machen', text: 'Kein „Ich glaube, ich kanns" – sondern: Du weißt es.' },
                 { icon: RefreshCw, title: '🔁 Transfer statt Auswendiglernen', text: 'Du lernst nicht nur Inhalte – du lernst, sie anzuwenden.' },
                 { icon: Brain, title: '🧠 Denken wie im Studium', text: 'Analyse, Bewertung, Transfer – genau das, was in Klausuren verlangt wird.' },
               ].map(({ icon: Icon, title, text }) => (
