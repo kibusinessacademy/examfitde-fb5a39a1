@@ -36,8 +36,8 @@ export default function ShopPage() {
   return (
     <>
       <SEOHead
-        title="Prüfungstraining kaufen – 39 € einmalig | ExamFit"
-        description="Kaufe dein IHK-Prüfungstraining: Einmalzahlung, 12 Monate Zugang, kein Abo. Für über 50 Ausbildungsberufe."
+        title="IHK Prüfungstraining kaufen – Prüfungsfragen üben | ExamFit"
+        description="IHK Prüfungstraining online kaufen: Prüfungssimulation, Prüfungsfragen mit Lösungen, KI-Coach & mündliche Prüfung. 39 € einmalig, 12 Monate Zugang, kein Abo."
         canonical={`${SITE_URL}/shop`}
       />
 
