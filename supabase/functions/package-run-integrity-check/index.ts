@@ -453,6 +453,7 @@ async function runCourseReadyGate(
       AUSBILDUNG_VOLL: { remember: { max: 25 }, understand: { min: 12 }, apply: { min: 25 }, analyze: { min: 12 }, evaluate: { min: 2 } },
       EXAM_FIRST:      { remember: { max: 35 }, understand: { min: 8 },  apply: { min: 20 }, analyze: { min: 8 },  evaluate: { min: 1 } },
       ELITE:           { remember: { max: 20 }, understand: { min: 15 }, apply: { min: 30 }, analyze: { min: 15 }, evaluate: { min: 3 } },
+      STUDIUM:         { remember: { max: 20 }, understand: { min: 15 }, apply: { min: 20 }, analyze: { min: 15 }, evaluate: { min: 5 } },
     };
     const bloomTh = BLOOM_TARGETS[trackEarly] ?? BLOOM_TARGETS["AUSBILDUNG_VOLL"];
 
