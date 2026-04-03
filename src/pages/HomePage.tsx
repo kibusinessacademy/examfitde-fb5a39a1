@@ -88,12 +88,12 @@ export default function HomePage() {
             </div>
 
             <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-display font-bold mb-5 animate-fade-in leading-[1.1]">
-              Wie prüfungsreif{' '}
-              <span className="text-gradient text-glow">bist du wirklich?</span>
+              IHK Prüfungstraining:{' '}
+              <span className="text-gradient text-glow">Prüfung sicher bestehen</span>
             </h1>
 
             <p className="text-base sm:text-xl text-muted-foreground mb-8 max-w-2xl mx-auto animate-fade-in" style={{ animationDelay: '0.1s' }}>
-              Starte den kostenlosen Prüfungsreife-Check oder trainiere direkt mit echten prüfungsnahen Aufgaben für deine Abschlussprüfung.
+              Bereite dich gezielt auf deine IHK Abschlussprüfung vor – mit Prüfungssimulation, adaptivem Prüfungstrainer und KI-Prüfungscoach. Kostenlos testen oder direkt starten.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-3 justify-center animate-fade-in" style={{ animationDelay: '0.2s' }}>
