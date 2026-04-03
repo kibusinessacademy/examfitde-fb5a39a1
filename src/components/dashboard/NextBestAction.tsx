@@ -4,22 +4,24 @@ import { Button } from '@/components/ui/button';
 import { useAdaptiveRecommendation } from '@/hooks/useAdaptiveLearning';
 import { Loader2, Sparkles, BookOpen, Target, Mic, Brain, ArrowRight, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useTerminology } from '@/hooks/useProgramType';
 
 interface NextBestActionProps {
   curriculumId: string;
 }
 
-const ACTION_CONFIG = {
-  DIAGNOSTIC: { icon: Sparkles, label: 'Diagnosetest starten', accent: 'from-purple-500 to-indigo-600' },
-  COURSE: { icon: BookOpen, label: 'Prüfungseinheit starten', accent: 'from-primary to-secondary' },
-  SIMULATION: { icon: Target, label: 'Prüfungssimulation starten', accent: 'from-accent to-green-500' },
-  ORAL_TRAINER: { icon: Mic, label: 'Mündlich üben', accent: 'from-blue-500 to-cyan-500' },
-  WEAKNESS_MODE: { icon: Brain, label: 'Schwächenmodus starten', accent: 'from-orange-500 to-red-500' },
-  CONTINUE: { icon: ArrowRight, label: 'Weiter trainieren', accent: 'from-primary to-accent' },
-};
-
 export function NextBestAction({ curriculumId }: NextBestActionProps) {
   const { data: recommendation, isLoading } = useAdaptiveRecommendation(curriculumId);
+  const { t } = useTerminology(curriculumId);
+
+  const ACTION_CONFIG = {
+    DIAGNOSTIC: { icon: Sparkles, label: 'Diagnosetest starten', accent: 'from-purple-500 to-indigo-600' },
+    COURSE: { icon: BookOpen, label: t('examUnit'), accent: 'from-primary to-secondary' },
+    SIMULATION: { icon: Target, label: t('examSimStart'), accent: 'from-accent to-green-500' },
+    ORAL_TRAINER: { icon: Mic, label: 'Mündlich üben', accent: 'from-blue-500 to-cyan-500' },
+    WEAKNESS_MODE: { icon: Brain, label: 'Schwächenmodus starten', accent: 'from-orange-500 to-red-500' },
+    CONTINUE: { icon: ArrowRight, label: 'Weiter trainieren', accent: 'from-primary to-accent' },
+  };
 
   if (isLoading) {
     return (
@@ -40,7 +42,6 @@ export function NextBestAction({ curriculumId }: NextBestActionProps) {
     <Card className="glass-card border-primary/30 overflow-hidden">
       <CardContent className="p-0">
         <div className="flex items-stretch">
-          {/* Accent strip */}
           <div className={cn('w-1.5 bg-gradient-to-b', config.accent)} />
 
           <div className="flex-1 p-5">

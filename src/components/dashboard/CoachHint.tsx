@@ -2,6 +2,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { useReadinessScore } from '@/hooks/useAdaptiveLearning';
 import { useDashboardStats } from '@/hooks/useDashboardStats';
 import { GraduationCap } from 'lucide-react';
+import { useTerminology } from '@/hooks/useProgramType';
 
 interface CoachHintProps {
   curriculumId: string;
@@ -10,28 +11,28 @@ interface CoachHintProps {
 export function CoachHint({ curriculumId }: CoachHintProps) {
   const { data: readiness } = useReadinessScore(curriculumId);
   const { data: stats } = useDashboardStats();
+  const { t } = useTerminology(curriculumId);
 
   const score = readiness?.overall_readiness || 0;
   const streak = stats?.streak ?? 0;
   const successRate = stats?.success_rate ?? 0;
   const weakCount = readiness?.weak_areas?.length ?? 0;
 
-  // Generate contextual, non-chatbot coach hints
   const getHint = (): string | null => {
     if (streak > 5 && weakCount > 2) {
-      return 'Du lernst regelmäßig – aber zu linear. Für deine Prüfung wäre jetzt gezieltes Schwächen-Training effektiver.';
+      return t('coachHintLinear');
     }
     if (successRate > 80 && score < 70) {
-      return 'Deine Trefferquote ist gut, aber die Prüfungsreife noch niedrig. Dir fehlen Wiederholungen in kritischen Bereichen.';
+      return t('coachHintLowReadiness');
     }
     if (score >= 80) {
-      return 'Du bist fast prüfungsreif. Konzentriere dich jetzt auf Simulationen unter Zeitdruck – das macht den Unterschied.';
+      return t('coachHintAlmostReady');
     }
     if (weakCount >= 3) {
-      return `Du hast ${weakCount} kritische Lücken. Schließe die 2 wichtigsten – das hebt deine Prüfungsreife um ~15%.`;
+      return `Du hast ${weakCount} ${t('coachHintGaps')}`;
     }
     if (streak === 0) {
-      return 'Tägliches Training von nur 10 Minuten verbessert dein Prüfungsergebnis messbar. Starte heute.';
+      return t('coachHintStreak');
     }
     return null;
   };
@@ -48,7 +49,7 @@ export function CoachHint({ curriculumId }: CoachHintProps) {
           </div>
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-primary mb-1">
-              Dein Prüfungscoach
+              {t('examCoach')}
             </p>
             <p className="text-sm text-muted-foreground leading-relaxed">
               {hint}

@@ -6,6 +6,7 @@ import { Progress } from '@/components/ui/progress';
 import { useExamReadiness } from '@/hooks/useExamReadiness';
 import { Loader2, ShieldCheck, ShieldAlert, Shield, AlertTriangle, CheckCircle2, Lock, Target, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useTerminology } from '@/hooks/useProgramType';
 
 interface ExamReadinessGaugeProps {
   curriculumId: string;
@@ -13,6 +14,7 @@ interface ExamReadinessGaugeProps {
 
 export function ExamReadinessGauge({ curriculumId }: ExamReadinessGaugeProps) {
   const { data: readiness, isLoading } = useExamReadiness(curriculumId);
+  const { t } = useTerminology(curriculumId);
 
   if (isLoading) {
     return (
@@ -29,10 +31,10 @@ export function ExamReadinessGauge({ curriculumId }: ExamReadinessGaugeProps) {
   const { readiness_level, overall_readiness, mastery_score, simulation_score, mastered_count, partial_count, not_mastered_count, total_competencies, simulation_allowed, active_weakness_count } = readiness;
 
   const config = readiness_level === 'ready'
-    ? { icon: ShieldCheck, color: 'text-green-500', bg: 'bg-green-500/10', border: 'border-green-500/30', label: 'Prüfungsreif', ring: 'text-green-500' }
+    ? { icon: ShieldCheck, color: 'text-green-500', bg: 'bg-green-500/10', border: 'border-green-500/30', label: t('examReadyFull'), ring: 'text-green-500' }
     : readiness_level === 'almost_ready'
-    ? { icon: Shield, color: 'text-yellow-500', bg: 'bg-yellow-500/10', border: 'border-yellow-500/30', label: 'Fast prüfungsreif', ring: 'text-yellow-500' }
-    : { icon: ShieldAlert, color: 'text-orange-500', bg: 'bg-orange-500/10', border: 'border-orange-500/30', label: 'Noch nicht prüfungsreif', ring: 'text-orange-500' };
+    ? { icon: Shield, color: 'text-yellow-500', bg: 'bg-yellow-500/10', border: 'border-yellow-500/30', label: t('almostReady'), ring: 'text-yellow-500' }
+    : { icon: ShieldAlert, color: 'text-orange-500', bg: 'bg-orange-500/10', border: 'border-orange-500/30', label: t('notReady'), ring: 'text-orange-500' };
 
   const Icon = config.icon;
 
@@ -42,7 +44,7 @@ export function ExamReadinessGauge({ curriculumId }: ExamReadinessGaugeProps) {
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg font-display flex items-center gap-2">
             <Icon className={cn('h-5 w-5', config.color)} />
-            Prüfungsreife-Score
+            {t('examReadinessScore')}
           </CardTitle>
           <Badge variant="outline" className={cn('gap-1', config.color)}>
             {config.label}
@@ -50,13 +52,11 @@ export function ExamReadinessGauge({ curriculumId }: ExamReadinessGaugeProps) {
         </div>
       </CardHeader>
       <CardContent className="p-6 pt-4">
-        {/* Gauge */}
         <div className="text-center mb-6">
           <div className="relative inline-flex items-center justify-center">
             <svg className="w-36 h-36 transform -rotate-90">
               <circle cx="72" cy="72" r="60" fill="none" stroke="currentColor" strokeWidth="10" className="text-muted/20" />
-              <circle
-                cx="72" cy="72" r="60" fill="none" stroke="currentColor" strokeWidth="10"
+              <circle cx="72" cy="72" r="60" fill="none" stroke="currentColor" strokeWidth="10"
                 strokeDasharray={`${(overall_readiness / 100) * 377} 377`}
                 strokeLinecap="round"
                 className={config.ring}
@@ -69,7 +69,6 @@ export function ExamReadinessGauge({ curriculumId }: ExamReadinessGaugeProps) {
           </div>
         </div>
 
-        {/* Score breakdown */}
         <div className="grid grid-cols-2 gap-3 mb-5">
           <div className="text-center p-3 rounded-lg bg-muted/50">
             <div className="text-xl font-bold text-primary">{Math.round(mastery_score)}%</div>
@@ -81,7 +80,6 @@ export function ExamReadinessGauge({ curriculumId }: ExamReadinessGaugeProps) {
           </div>
         </div>
 
-        {/* Competency stats */}
         <div className="space-y-2 mb-5">
           <div className="flex items-center justify-between text-sm">
             <span className="flex items-center gap-2">
@@ -109,7 +107,6 @@ export function ExamReadinessGauge({ curriculumId }: ExamReadinessGaugeProps) {
           )}
         </div>
 
-        {/* Simulation CTA */}
         <div className="mt-5">
           {simulation_allowed ? (
             <Link to="/exam-simulation">

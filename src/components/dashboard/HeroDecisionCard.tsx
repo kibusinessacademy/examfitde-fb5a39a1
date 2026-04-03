@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Loader2, ArrowRight, AlertTriangle, Target, Zap, Shield, BookOpen, Trophy, Brain, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useNextBestAction, type NextBestAction } from '@/hooks/useNextBestAction';
+import { useTerminology } from '@/hooks/useProgramType';
 
 interface HeroDecisionCardProps {
   curriculumId: string;
@@ -51,6 +52,7 @@ function buildRoute(action: NextBestAction): string {
 
 export function HeroDecisionCard({ curriculumId }: HeroDecisionCardProps) {
   const { data: action, isLoading } = useNextBestAction(curriculumId);
+  const { t } = useTerminology(curriculumId);
 
   if (isLoading) {
     return (
@@ -76,7 +78,6 @@ export function HeroDecisionCard({ curriculumId }: HeroDecisionCardProps) {
           <div className={cn('w-2 bg-gradient-to-b flex-shrink-0', config.accent)} />
 
           <div className="flex-1 p-5 sm:p-6">
-            {/* Readiness gauge (hidden for onboarding) */}
             {action.action !== 'ONBOARDING' && (
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
@@ -95,12 +96,12 @@ export function HeroDecisionCard({ curriculumId }: HeroDecisionCardProps) {
                   </div>
                   <div>
                     <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      Prüfungsreife
+                      {t('examReadiness')}
                     </div>
                     <div className={cn('text-sm font-semibold', config.gaugeColor)}>
-                      {action.risk_level === 'high' && 'Nicht bestanden'}
-                      {action.risk_level === 'medium' && 'Fast geschafft'}
-                      {action.risk_level === 'low' && 'Prüfungsbereit'}
+                      {action.risk_level === 'high' && t('notPassed')}
+                      {action.risk_level === 'medium' && t('almostDone')}
+                      {action.risk_level === 'low' && t('examReady')}
                     </div>
                   </div>
                 </div>
@@ -111,7 +112,6 @@ export function HeroDecisionCard({ curriculumId }: HeroDecisionCardProps) {
               {action.headline}
             </h2>
 
-            {/* Bottleneck callout */}
             {action.bottleneck && (
               <div className="flex items-center gap-2 mt-2 mb-3 px-3 py-2 rounded-lg bg-muted/50 border border-border">
                 <AlertTriangle className="h-4 w-4 text-orange-500 flex-shrink-0" />
