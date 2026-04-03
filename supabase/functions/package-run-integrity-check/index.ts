@@ -663,10 +663,12 @@ async function runCourseReadyGate(
   }
 
   // ═══════════════════════════════════════════════
-  // GATE 5d: Competency Full Step Coverage — every competency needs all 5 didactic steps
-  // SSOT: einstieg, verstehen, anwenden, wiederholen, mini_check
+  // GATE 5d: Competency Full Step Coverage — every competency needs all didactic steps
+  // SSOT: vocational = 5 steps, higher_ed = 7 steps (incl. reflektieren, transfer)
   // ═══════════════════════════════════════════════
-  const REQUIRED_STEPS = ["einstieg", "verstehen", "anwenden", "wiederholen", "mini_check"];
+  const REQUIRED_STEPS_VOCATIONAL = ["einstieg", "verstehen", "anwenden", "wiederholen", "mini_check"];
+  const REQUIRED_STEPS_HIGHER_ED = ["einstieg", "verstehen", "anwenden", "reflektieren", "transfer", "wiederholen", "mini_check"];
+  const REQUIRED_STEPS = isHigherEd ? REQUIRED_STEPS_HIGHER_ED : REQUIRED_STEPS_VOCATIONAL;
   if (moduleIds.length > 0 && !isExamFirstEarly && totalCompetencies > 0) {
     const { data: stepLessons } = await sb
       .from("lessons")
@@ -696,8 +698,9 @@ async function runCourseReadyGate(
     const totalIncomplete = incompleteComps.length + compsWithNoLesson;
 
     const fullStepCoveragePct = pctOrNA(fullCoverageCount, totalCompetencies);
-    // AUSBILDUNG_VOLL: 100% blocker (every competency must have 5/5 steps)
-    const fullStepThreshold = trackEarly === "ELITE" ? 100 : trackEarly === "AUSBILDUNG_VOLL" ? 95 : 80;
+    const stepCountLabel = isHigherEd ? "7" : "5";
+    // Higher-Ed: 80% threshold (new content, fewer steps initially populated)
+    const fullStepThreshold = trackEarly === "ELITE" ? 100 : trackEarly === "STUDIUM" ? 80 : trackEarly === "AUSBILDUNG_VOLL" ? 95 : 80;
     const fullStepPassed = fullStepCoveragePct >= fullStepThreshold;
     results.push({
       gate: "competency_full_step_coverage",
