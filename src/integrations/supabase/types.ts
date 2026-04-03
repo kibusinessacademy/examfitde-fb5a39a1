@@ -3365,6 +3365,120 @@ export type Database = {
           },
         ]
       }
+      blog_articles: {
+        Row: {
+          content_md: string
+          created_at: string
+          generated_by_model: string | null
+          id: string
+          keywords: string[] | null
+          meta_description: string | null
+          published_at: string | null
+          reading_time_min: number | null
+          slug: string
+          source_curriculum_id: string | null
+          source_package_id: string | null
+          source_question_id: string | null
+          status: string
+          title: string
+          updated_at: string
+          word_count: number | null
+        }
+        Insert: {
+          content_md: string
+          created_at?: string
+          generated_by_model?: string | null
+          id?: string
+          keywords?: string[] | null
+          meta_description?: string | null
+          published_at?: string | null
+          reading_time_min?: number | null
+          slug: string
+          source_curriculum_id?: string | null
+          source_package_id?: string | null
+          source_question_id?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+          word_count?: number | null
+        }
+        Update: {
+          content_md?: string
+          created_at?: string
+          generated_by_model?: string | null
+          id?: string
+          keywords?: string[] | null
+          meta_description?: string | null
+          published_at?: string | null
+          reading_time_min?: number | null
+          slug?: string
+          source_curriculum_id?: string | null
+          source_package_id?: string | null
+          source_question_id?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+          word_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blog_articles_source_question_id_fkey"
+            columns: ["source_question_id"]
+            isOneToOne: false
+            referencedRelation: "exam_questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "blog_articles_source_question_id_fkey"
+            columns: ["source_question_id"]
+            isOneToOne: false
+            referencedRelation: "exam_questions_elite_v"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "blog_articles_source_question_id_fkey"
+            columns: ["source_question_id"]
+            isOneToOne: false
+            referencedRelation: "exam_questions_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "blog_articles_source_question_id_fkey"
+            columns: ["source_question_id"]
+            isOneToOne: false
+            referencedRelation: "stale_elite_annotations_v"
+            referencedColumns: ["question_id"]
+          },
+          {
+            foreignKeyName: "blog_articles_source_question_id_fkey"
+            columns: ["source_question_id"]
+            isOneToOne: false
+            referencedRelation: "v_exam_questions_approved"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "blog_articles_source_question_id_fkey"
+            columns: ["source_question_id"]
+            isOneToOne: false
+            referencedRelation: "v_exam_questions_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "blog_articles_source_question_id_fkey"
+            columns: ["source_question_id"]
+            isOneToOne: false
+            referencedRelation: "v_exam_questions_sanitized"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "blog_articles_source_question_id_fkey"
+            columns: ["source_question_id"]
+            isOneToOne: false
+            referencedRelation: "v_exam_relevant_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       blog_posts: {
         Row: {
           author_name: string | null
@@ -39393,6 +39507,120 @@ export type Database = {
             columns: ["content_job_id"]
             isOneToOne: false
             referencedRelation: "content_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      video_scripts: {
+        Row: {
+          body_text: string
+          caption_text: string | null
+          created_at: string
+          cta_text: string
+          format_type: string
+          generated_by_model: string | null
+          hook_text: string
+          id: string
+          render_url: string | null
+          script_json: Json | null
+          source_curriculum_id: string | null
+          source_package_id: string | null
+          source_question_id: string | null
+          status: string
+          twist_text: string | null
+          updated_at: string
+        }
+        Insert: {
+          body_text: string
+          caption_text?: string | null
+          created_at?: string
+          cta_text?: string
+          format_type?: string
+          generated_by_model?: string | null
+          hook_text: string
+          id?: string
+          render_url?: string | null
+          script_json?: Json | null
+          source_curriculum_id?: string | null
+          source_package_id?: string | null
+          source_question_id?: string | null
+          status?: string
+          twist_text?: string | null
+          updated_at?: string
+        }
+        Update: {
+          body_text?: string
+          caption_text?: string | null
+          created_at?: string
+          cta_text?: string
+          format_type?: string
+          generated_by_model?: string | null
+          hook_text?: string
+          id?: string
+          render_url?: string | null
+          script_json?: Json | null
+          source_curriculum_id?: string | null
+          source_package_id?: string | null
+          source_question_id?: string | null
+          status?: string
+          twist_text?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_scripts_source_question_id_fkey"
+            columns: ["source_question_id"]
+            isOneToOne: false
+            referencedRelation: "exam_questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "video_scripts_source_question_id_fkey"
+            columns: ["source_question_id"]
+            isOneToOne: false
+            referencedRelation: "exam_questions_elite_v"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "video_scripts_source_question_id_fkey"
+            columns: ["source_question_id"]
+            isOneToOne: false
+            referencedRelation: "exam_questions_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "video_scripts_source_question_id_fkey"
+            columns: ["source_question_id"]
+            isOneToOne: false
+            referencedRelation: "stale_elite_annotations_v"
+            referencedColumns: ["question_id"]
+          },
+          {
+            foreignKeyName: "video_scripts_source_question_id_fkey"
+            columns: ["source_question_id"]
+            isOneToOne: false
+            referencedRelation: "v_exam_questions_approved"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "video_scripts_source_question_id_fkey"
+            columns: ["source_question_id"]
+            isOneToOne: false
+            referencedRelation: "v_exam_questions_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "video_scripts_source_question_id_fkey"
+            columns: ["source_question_id"]
+            isOneToOne: false
+            referencedRelation: "v_exam_questions_sanitized"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "video_scripts_source_question_id_fkey"
+            columns: ["source_question_id"]
+            isOneToOne: false
+            referencedRelation: "v_exam_relevant_questions"
             referencedColumns: ["id"]
           },
         ]
