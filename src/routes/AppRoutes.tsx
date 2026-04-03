@@ -177,6 +177,8 @@ const AppRoutes = () => {
           <Route path="/datenschutz" element={<DatenschutzPage />} />
           <Route path="/impressum" element={<ImpressumPage />} />
           <Route path="/wissen/:slug" element={<WissenArticlePage />} />
+          <Route path="/blog" element={<BlogIndexPage />} />
+          <Route path="/blog/:slug" element={<BlogArticlePage />} />
         </Route>
         
         {/* Main Layout Routes */}
