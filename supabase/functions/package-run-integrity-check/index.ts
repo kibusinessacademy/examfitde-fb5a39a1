@@ -706,7 +706,7 @@ async function runCourseReadyGate(
       gate: "competency_full_step_coverage",
       passed: fullStepPassed,
       severity: "blocker",
-      detail: `${fullCoverageCount}/${totalCompetencies} competencies have all 5 steps (${fullStepCoveragePct.toFixed(1)}%, min ${fullStepThreshold}%). ${totalIncomplete} incomplete.`,
+      detail: `${fullCoverageCount}/${totalCompetencies} competencies have all ${stepCountLabel} steps (${fullStepCoveragePct.toFixed(1)}%, min ${fullStepThreshold}%). ${totalIncomplete} incomplete. [profile=${integrityProfile}]`,
     });
     if (!fullStepPassed) {
       hardFails.push(`COMPETENCY_STEP_GAP: Only ${fullCoverageCount}/${totalCompetencies} competencies have full 5-step coverage (${fullStepCoveragePct.toFixed(1)}%<${fullStepThreshold}%)`);
