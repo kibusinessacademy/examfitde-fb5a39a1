@@ -13,7 +13,8 @@ export const AI_ROLES = {
   EXPLAINER: 'explainer',
   COACH: 'coach',
   EXAMINER: 'examiner',
-  FEEDBACK: 'feedback'
+  FEEDBACK: 'feedback',
+  EXAM_TRANSFER: 'exam_transfer'
 } as const;
 
 export type AIMode = typeof AI_MODES[keyof typeof AI_MODES];
