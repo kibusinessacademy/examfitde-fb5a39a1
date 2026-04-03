@@ -77,9 +77,25 @@ Deno.serve(async (req) => {
         .maybeSingle();
       if (existing) return new Response(JSON.stringify({ variant: existing.variant }), { headers });
 
-      // Deterministic assignment based on user id hash
-      const hash = Array.from(auth.user.id).reduce((s, c) => s + c.charCodeAt(0), 0);
-      const variant = hash % 2 === 0 ? "A" : "B";
+      // Get experiment allocation to support N variants
+      const { data: experiment } = await admin.from("experiments")
+        .select("allocation")
+        .eq("id", experimentId)
+        .single();
+
+      let variant = "A";
+      if (experiment?.allocation) {
+        const alloc = experiment.allocation as Record<string, number>;
+        const entries = Object.entries(alloc);
+        const hash = Array.from(auth.user.id).reduce((s, c) => s + c.charCodeAt(0), 0);
+        const total = entries.reduce((sum, [, pct]) => sum + pct, 0);
+        const roll = hash % total;
+        let cumulative = 0;
+        for (const [key, pct] of entries) {
+          cumulative += pct;
+          if (roll < cumulative) { variant = key; break; }
+        }
+      }
 
       await admin.from("experiment_assignments").insert({
         experiment_id: experimentId,
