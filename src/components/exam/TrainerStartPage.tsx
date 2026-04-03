@@ -358,7 +358,7 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder={isAcademic ? 'Fach suchen, z. B. BWL oder Wirtschaftsinformatik' : 'Beruf suchen, z. B. Verkäufer oder Fachinformatiker'}
                   className="h-12 rounded-xl pl-10 text-base"
-                  aria-label="Beruf suchen"
+                  aria-label={isAcademic ? 'Fach suchen' : 'Beruf suchen'}
                 />
               </div>
 
