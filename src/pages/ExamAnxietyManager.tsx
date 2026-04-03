@@ -27,6 +27,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { useTerminology } from '@/hooks/useProgramType';
+import { useDashboardSummary } from '@/hooks/useDashboardSummary';
 
 type SessionType = 'breathing' | 'visualization' | 'checklist' | 'quick_calm';
 
