@@ -23,7 +23,8 @@ const AI_ROLES = {
   EXPLAINER: 'explainer',
   COACH: 'coach',
   EXAMINER: 'examiner',
-  FEEDBACK: 'feedback'
+  FEEDBACK: 'feedback',
+  EXAM_TRANSFER: 'exam_transfer'
 } as const;
 
 type AIMode = typeof AI_MODES[keyof typeof AI_MODES];
@@ -106,7 +107,33 @@ ${getTutorOutputFormat("coach", professionName)}`,
     [AI_ROLES.EXAMINER]: `\nROLLE: Prüfungs-Trainer für ${professionName} – Stelle Fragen im IHK-Prüfungsstil (Fallstudien, Berechnungen, Entscheidungsszenarien). Nach JEDER Antwort: 1) Bewerte Fachlichkeit + Struktur + Begriffssicherheit + Praxisbezug. 2) Bei Fehlern: Lokalisiere den EXAKTEN Denkfehler ("Du hast in Schritt X..."). 3) Gib Transferfrage ("Was wäre anders, wenn...?"). 4) Trainiere Zeitmanagement.
 ${getTutorOutputFormat("examiner", professionName)}`,
     [AI_ROLES.FEEDBACK]: `\nROLLE: Fehlerdiagnose-Experte für ${professionName} – Analysiere Leistung nach: Fachlichkeit (40%), Struktur (25%), Begriffssicherheit (20%), Praxisbezug (15%). Identifiziere KONKRETE Kompetenzlücken mit Bezug zum Lernfeld. Erstelle personalisierte Empfehlungen: "Du solltest [X] wiederholen, weil [Y]." Erstelle einen konkreten 48-Stunden-Lernplan bei Schwächen.
-${getTutorOutputFormat("feedback", professionName)}`
+${getTutorOutputFormat("feedback", professionName)}`,
+    [AI_ROLES.EXAM_TRANSFER]: `\nROLLE: Transfer-Tutor für ${professionName} – Du trainierst Studierende, Wissen in neuen Klausursituationen anzuwenden.
+
+KERNPRINZIP: Nicht erklären, sondern weiterdenken lassen.
+
+ANTWORTSTRUKTUR (PFLICHT):
+1. KURZES FEEDBACK zum bisherigen Stand (max 2 Sätze)
+2. TRANSFERFRAGE: Variiere den Kontext leicht, erzwinge Anwendung statt Reproduktion
+3. TYPISCHE FEHLERQUELLE: Nenne den häufigsten Denkfehler aus dem Blueprint
+4. OPTIONAL: Zweite Vertiefungsfrage bei teilweise richtiger Antwort
+
+REGELN:
+- Gib NIEMALS die volle Lösung sofort
+- Stelle 1–3 gezielte Anschlussfragen
+- Wenn der Studierende nur auswendig wiedergibt: Unterbrich und lenke auf Entscheidung, Begründung oder Anwendung
+- Nutze typische Fehler und Misconceptions aus dem Blueprint-Kontext
+- Erzwinge Transfer: "Was passiert, wenn sich die Ausgangsbedingung ändert?"
+- Bei sehr schwachen Antworten: Erst kurzes Feedback, dann zurück zu Grundlagen
+- Bei teilweise richtigen Antworten: Direkt Transferfrage
+
+BEWERTUNGSDIMENSIONEN (intern):
+- Fachlichkeit: Sind die Kernkonzepte korrekt?
+- Struktur: Ist die Argumentation logisch aufgebaut?
+- Begriffsgenauigkeit: Werden Fachbegriffe korrekt verwendet?
+- Transfer: Kann das Wissen auf neue Situationen übertragen werden?
+
+${getTutorOutputFormat("examiner", professionName)}`
   };
   return prompts[role];
 }
@@ -425,6 +452,76 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── Exam Transfer Routing: auto-activate for higher_education programs ──
+    let blueprintContext = "";
+    if (context.competencyId || context.curriculumId) {
+      try {
+        // Check if this is a higher_education program
+        let isHigherEd = false;
+        if (context.curriculumId) {
+          const { data: prog } = await supabase
+            .from("programs")
+            .select("program_type")
+            .eq("id", (await supabase.from("curricula").select("program_id").eq("id", context.curriculumId).single()).data?.program_id)
+            .single();
+          isHigherEd = prog?.program_type === "higher_education";
+        }
+
+        // Load matching blueprint for this competency
+        if (context.competencyId) {
+          const { data: blueprints } = await supabase
+            .from("question_blueprints")
+            .select("name, canonical_statement, knowledge_type, cognitive_level, typical_exam_trap, trap_definition, typical_errors, rubric, exam_context_type, didactic_intent")
+            .eq("competency_id", context.competencyId)
+            .in("status", ["draft", "review", "approved"])
+            .limit(3);
+
+          if (blueprints?.length) {
+            const bpParts: string[] = ["\n--- BLUEPRINT-KONTEXT ---"];
+            for (const bp of blueprints) {
+              bpParts.push(`Blueprint: ${bp.name}`);
+              bpParts.push(`Kanonische Aussage: ${bp.canonical_statement}`);
+              bpParts.push(`Wissenstyp: ${bp.knowledge_type}, Kognitionsstufe: ${bp.cognitive_level}`);
+              if (bp.typical_exam_trap) bpParts.push(`Typische Prüfungsfalle: ${bp.typical_exam_trap}`);
+              if (bp.trap_definition) {
+                const trap = bp.trap_definition as Record<string, unknown>;
+                if (trap.misconception) bpParts.push(`Misconception: ${trap.misconception}`);
+                if (trap.error_model) bpParts.push(`Fehlermodell: ${trap.error_model}`);
+              }
+              if (bp.typical_errors && Array.isArray(bp.typical_errors)) {
+                const errLines = (bp.typical_errors as Array<Record<string, unknown>>)
+                  .map(e => `  - ${e.error} (Häufigkeit: ${e.frequency})`);
+                if (errLines.length) bpParts.push(`Typische Fehler:\n${errLines.join("\n")}`);
+              }
+              if (bp.rubric) {
+                const rubric = bp.rubric as Record<string, number>;
+                const rubricStr = Object.entries(rubric).map(([k, v]) => `${k}: ${Math.round(v * 100)}%`).join(", ");
+                bpParts.push(`Bewertungsraster: ${rubricStr}`);
+              }
+              bpParts.push("---");
+            }
+            blueprintContext = bpParts.join("\n");
+            resolvedContext._blueprints = blueprints;
+
+            // Auto-route to exam_transfer for higher_education when blueprint supports it
+            if (isHigherEd && effectiveRole !== AI_ROLES.EXAM_TRANSFER) {
+              const bp = blueprints[0];
+              const cogLevel = bp.cognitive_level;
+              const hasTrap = !!(bp.trap_definition || bp.typical_exam_trap);
+              const hasErrors = Array.isArray(bp.typical_errors) && (bp.typical_errors as unknown[]).length > 0;
+
+              if (["apply", "analyze", "evaluate"].includes(cogLevel) && (hasTrap || hasErrors)) {
+                effectiveRole = AI_ROLES.EXAM_TRANSFER;
+                console.log(`[ai-tutor] Auto-routed to exam_transfer for higher_education (cognitive_level=${cogLevel})`);
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("[ai-tutor] Blueprint/exam_transfer routing failed:", e);
+      }
+    }
+
     // Now build mode and role prompts WITH profession name
     const modeRules = getModeRules(validMode as AIMode, professionName);
     const rolePrompt = getRolePrompt(effectiveRole, professionName);
@@ -438,7 +535,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const systemPrompt = modeRules.systemPrompt + rolePrompt + contextPrompt;
+    const systemPrompt = modeRules.systemPrompt + rolePrompt + contextPrompt + blueprintContext;
     const aiMessages = [
       { role: "system" as const, content: systemPrompt },
       ...conversationHistory.slice(-10).map((m: any) => ({ role: m.role as "user" | "assistant", content: m.content })),
