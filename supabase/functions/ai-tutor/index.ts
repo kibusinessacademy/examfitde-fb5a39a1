@@ -252,12 +252,13 @@ async function sha256(message: string): Promise<string> {
 async function loadSSOTContext(
   supabase: ReturnType<typeof createClient>,
   context: Record<string, unknown>
-): Promise<{ contextPrompt: string; resolvedContext: Record<string, unknown>; professionName: string }> {
+): Promise<{ contextPrompt: string; resolvedContext: Record<string, unknown>; professionName: string; programType: ProgramType }> {
   const { curriculumId, learningFieldId, competencyId, lessonId, lessonStep, miniCheckScore } = context;
   
   const resolved: Record<string, unknown> = {};
   const parts: string[] = [];
   let professionName = "Auszubildende";
+  let programType: ProgramType = "vocational";
 
   // Load curriculum + profession name via SSOT resolver
   if (curriculumId) {
