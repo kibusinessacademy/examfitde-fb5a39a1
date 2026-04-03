@@ -40,17 +40,42 @@ interface GeneratedVariant {
   scenario_context?: Record<string, unknown> | null;
 }
 
-function pickVariantTypes(count: number): VariantType[] {
-  const pool: VariantType[] = [
-    "parameter_shift", "parameter_shift", "parameter_shift", "parameter_shift",
-    "context_shift", "context_shift", "context_shift", "context_shift",
-    "trap_shift", "trap_shift", "trap_shift", "trap_shift",
-    "structure_shift", "structure_shift", "structure_shift",
-    "transfer_shift", "transfer_shift", "transfer_shift", "transfer_shift", "transfer_shift",
+/**
+ * Deterministic variant type distribution.
+ * Studium (higher_education) gets more transfer_shift.
+ * Ratios are enforced, not random.
+ */
+function pickVariantTypes(count: number, isStudium = false): VariantType[] {
+  // Target ratios: [parameter, context, trap, structure, transfer]
+  const ratios: Record<string, number[]> = {
+    studium:    [0.13, 0.20, 0.20, 0.13, 0.34],
+    vocational: [0.20, 0.20, 0.20, 0.13, 0.27],
+  };
+  const r = isStudium ? ratios.studium : ratios.vocational;
+  const types: VariantType[] = [
+    "parameter_shift", "context_shift", "trap_shift",
+    "structure_shift", "transfer_shift",
   ];
+
+  // Allocate deterministically with largest-remainder method
+  const raw = r.map(p => p * count);
+  const floors = raw.map(Math.floor);
+  let remaining = count - floors.reduce((a, b) => a + b, 0);
+  const remainders = raw.map((v, i) => ({ i, r: v - floors[i] }));
+  remainders.sort((a, b) => b.r - a.r);
+  for (let j = 0; j < remaining; j++) floors[remainders[j].i]++;
+
+  // Build list and shuffle
   const out: VariantType[] = [];
-  for (let i = 0; i < count; i++) out.push(pool[i % pool.length]);
-  return out.sort(() => Math.random() - 0.5);
+  for (let i = 0; i < types.length; i++) {
+    for (let j = 0; j < floors[i]; j++) out.push(types[i]);
+  }
+  // Fisher-Yates shuffle
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
 }
 
 function buildVariantPrompt(bp: Blueprint, variantType: VariantType, subjectName: string): string {
@@ -107,22 +132,18 @@ Gib NUR valides JSON zurück:
 function scoreVariant(bp: Blueprint, variant: GeneratedVariant, variantType: VariantType): { score: number; flags: string[] } {
   const flags: string[] = [];
 
-  // Gate: Trap vorhanden
   if (!variant.trap_type && !variant.trap_applied) flags.push("MISSING_TRAP");
 
-  // Gate: Distraktoren
   if (variant.options && variant.options.length >= 4) {
     const wrong = variant.options.filter(o => !o.is_correct);
     if (wrong.length < 3) flags.push("TOO_FEW_DISTRACTORS");
     if (wrong.filter(o => !o.source_error).length > 1) flags.push("DISTRACTOR_WITHOUT_ERROR_MODEL");
   }
 
-  // Gate: Transfer braucht Kontext
   if (variantType === "transfer_shift" && !variant.scenario_context) {
     flags.push("TRANSFER_WITHOUT_NEW_CONTEXT");
   }
 
-  // Gate: Mindestlänge
   if ((variant.question_text?.length ?? 0) < 30) flags.push("QUESTION_TOO_SHORT");
 
   const score = Math.max(0, 100 - flags.length * 20);
@@ -141,7 +162,12 @@ Deno.serve(async (req) => {
     );
 
     const body = await req.json();
-    const { blueprintId, count = 20, subjectName = "Wirtschaftsinformatik" } = body;
+    const {
+      blueprintId,
+      count = 20,
+      subjectName = "Wirtschaftsinformatik",
+      isStudium = true,
+    } = body;
 
     if (!blueprintId) {
       return new Response(JSON.stringify({ error: "blueprintId required" }), {
@@ -150,7 +176,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Load blueprint
     const { data: bp, error: bpErr } = await sb
       .from("question_blueprints")
       .select("*")
@@ -165,7 +190,7 @@ Deno.serve(async (req) => {
     }
 
     const blueprint = bp as Blueprint;
-    const variantTypes = pickVariantTypes(count);
+    const variantTypes = pickVariantTypes(count, isStudium);
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
     if (!LOVABLE_API_KEY) {
@@ -174,6 +199,11 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    // Log target distribution for observability
+    const dist: Record<string, number> = {};
+    for (const t of variantTypes) dist[t] = (dist[t] ?? 0) + 1;
+    console.log("Target distribution:", JSON.stringify(dist));
 
     const results: Array<{ variant_type: string; quality_score: number; status: string }> = [];
     const rows: unknown[] = [];
@@ -200,17 +230,13 @@ Deno.serve(async (req) => {
         if (!aiResp.ok) {
           const errText = await aiResp.text();
           console.error(`AI error for variant ${variantType}:`, aiResp.status, errText);
-          if (aiResp.status === 429 || aiResp.status === 402) {
-            // Stop generating on rate limit / payment
-            break;
-          }
+          if (aiResp.status === 429 || aiResp.status === 402) break;
           continue;
         }
 
         const aiData = await aiResp.json();
         const content = aiData.choices?.[0]?.message?.content ?? "";
 
-        // Extract JSON from response
         const jsonMatch = content.match(/\{[\s\S]*\}/);
         if (!jsonMatch) {
           console.error("No JSON in AI response for", variantType);
@@ -251,7 +277,6 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Batch insert
     if (rows.length > 0) {
       const { error: insertErr } = await sb.from("exam_question_variants").insert(rows);
       if (insertErr) {
@@ -263,12 +288,18 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Compute actual distribution
+    const actualDist: Record<string, number> = {};
+    for (const r of results) actualDist[r.variant_type] = (actualDist[r.variant_type] ?? 0) + 1;
+
     return new Response(JSON.stringify({
       ok: true,
       blueprint_id: blueprintId,
       blueprint_name: blueprint.name,
       generated: rows.length,
       requested: count,
+      target_distribution: dist,
+      actual_distribution: actualDist,
       results,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
