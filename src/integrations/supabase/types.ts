@@ -55609,16 +55609,28 @@ export type Database = {
         Args: { p_curriculum_id: string }
         Returns: Json
       }
-      fn_minicheck_qualifies_for_approval: {
-        Args: {
-          p_competency_id: string
-          p_correct_answer: number
-          p_explanation: string
-          p_options: Json
-          p_question_text: string
-        }
-        Returns: boolean
-      }
+      fn_minicheck_qualifies_for_approval:
+        | {
+            Args: {
+              p_competency_id: string
+              p_correct_answer: number
+              p_explanation: string
+              p_options: Json
+              p_question_text: string
+            }
+            Returns: boolean
+          }
+        | {
+            Args: {
+              p_competency_id: string
+              p_correct_answer: number
+              p_explanation: string
+              p_options: Json
+              p_question_text: string
+              p_trap_tags?: string[]
+            }
+            Returns: boolean
+          }
       fn_package_learning_content_materialized: {
         Args: { p_package_id: string }
         Returns: {
