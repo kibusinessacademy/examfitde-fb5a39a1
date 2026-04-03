@@ -85,12 +85,15 @@ interface GateResult {
   value?: number;
 }
 
+// ── Integrity Profile Types ──
+type IntegrityProfile = "vocational" | "higher_ed";
+
 async function runCourseReadyGate(
   sb: ReturnType<typeof createClient>,
   courseId: string,
   curriculumId: string | null,
   packageId: string,
-): Promise<{ results: GateResult[]; hardFails: string[]; warnings: string[]; excellence: string[]; score: number }> {
+): Promise<{ results: GateResult[]; hardFails: string[]; warnings: string[]; excellence: string[]; score: number; integrityProfile: IntegrityProfile }> {
   const results: GateResult[] = [];
   const hardFails: string[] = [];
   const warnings: string[] = [];
@@ -108,6 +111,21 @@ async function runCourseReadyGate(
   const { data: pkgTrackEarly } = await sb.from("course_packages").select("track").eq("id", packageId).maybeSingle();
   const trackEarly = (pkgTrackEarly as any)?.track ?? "AUSBILDUNG_VOLL";
   const isExamFirstEarly = trackEarly === "EXAM_FIRST";
+
+  // ── Derive integrity profile from curricula.program_type (SSOT) ──
+  let integrityProfile: IntegrityProfile = "vocational";
+  if (curriculumId) {
+    const { data: currRow } = await sb
+      .from("curricula")
+      .select("program_type")
+      .eq("id", curriculumId)
+      .maybeSingle();
+    const pt = (currRow as any)?.program_type;
+    if (pt === "higher_education") integrityProfile = "higher_ed";
+    // continuing_education defaults to vocational for now
+  }
+  const isHigherEd = integrityProfile === "higher_ed";
+  console.log(`[integrity-check] pkg=${packageId.slice(0, 8)} integrity_profile=${integrityProfile} track=${trackEarly}`);
 
   let totalLessons = 0;
   let placeholderCount = 0;
