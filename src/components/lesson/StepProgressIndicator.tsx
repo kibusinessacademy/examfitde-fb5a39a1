@@ -1,15 +1,6 @@
 import { cn } from '@/lib/utils';
 import { Check, Circle, Lock } from 'lucide-react';
-
-// Step order for didactic progression
-const STEP_ORDER = ['einstieg', 'verstehen', 'anwenden', 'wiederholen', 'mini_check'];
-const STEP_LABELS: Record<string, string> = {
-  einstieg: 'Einstieg',
-  verstehen: 'Verstehen',
-  anwenden: 'Anwenden',
-  wiederholen: 'Wiederholen',
-  mini_check: 'Mini-Check',
-};
+import { STEP_ORDER, STEP_LABELS } from '@/lib/step-config';
 
 interface StepProgress {
   step: string;
@@ -30,9 +21,8 @@ export function StepProgressIndicator({
   onStepClick,
   className,
 }: StepProgressIndicatorProps) {
-  const currentStepIndex = STEP_ORDER.indexOf(currentStep);
+  const currentStepIndex = STEP_ORDER.indexOf(currentStep as typeof STEP_ORDER[number]);
   
-  // Build step status map
   const stepStatusMap = new Map<string, { lessonId: string; completed: boolean }>();
   steps.forEach(s => {
     stepStatusMap.set(s.step, { lessonId: s.lessonId, completed: s.completed });
@@ -49,7 +39,6 @@ export function StepProgressIndicator({
         
         return (
           <div key={step} className="flex items-center">
-            {/* Step indicator */}
             <button
               onClick={() => isClickable && onStepClick?.(stepData!.lessonId)}
               disabled={!isClickable}
@@ -73,7 +62,6 @@ export function StepProgressIndicator({
               <span className="sm:hidden">{idx + 1}</span>
             </button>
             
-            {/* Connector line */}
             {idx < STEP_ORDER.length - 1 && (
               <div className={cn(
                 "w-4 sm:w-8 h-0.5 mx-0.5",

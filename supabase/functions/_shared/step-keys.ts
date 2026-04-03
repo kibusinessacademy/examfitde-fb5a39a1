@@ -9,8 +9,10 @@ export const STEP_KEY_MAP: Record<string, string> = {
   einstieg: "step_1_introduction",
   verstehen: "step_2_understanding",
   anwenden: "step_3_application",
-  wiederholen: "step_4_repetition",
-  mini_check: "step_5_minicheck",
+  reflektieren: "step_4_reflection",
+  transfer: "step_5_transfer",
+  wiederholen: "step_6_repetition",
+  mini_check: "step_7_minicheck",
 };
 
 /** Legacy keys written before canonical mapping was enforced */
@@ -18,8 +20,11 @@ const LEGACY_MAP: Record<string, string> = {
   step_einstieg: "step_1_introduction",
   step_verstehen: "step_2_understanding",
   step_anwenden: "step_3_application",
-  step_wiederholen: "step_4_repetition",
-  step_mini_check: "step_5_minicheck",
+  step_wiederholen: "step_6_repetition",
+  step_mini_check: "step_7_minicheck",
+  // Old numbering compatibility
+  step_4_repetition: "step_6_repetition",
+  step_5_minicheck: "step_7_minicheck",
 };
 
 const CANONICAL_VALUES = new Set(Object.values(STEP_KEY_MAP));
