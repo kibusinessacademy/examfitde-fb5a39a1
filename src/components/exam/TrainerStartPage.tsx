@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useTerminology } from '@/hooks/useProgramType';
 import {
   Search, GraduationCap, Briefcase, Laptop, Wrench, HeartPulse,
   Cog, Truck, UtensilsCrossed, MoreHorizontal,
