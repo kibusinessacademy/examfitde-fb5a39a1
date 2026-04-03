@@ -107,7 +107,18 @@ export function PricingCards({ defaultTrack = 'ausbildung' }: { defaultTrack?: T
     }
 
     setCheckoutLoading(plan.id);
-    trackEvent('cta_click', { plan_key: plan.plan_key, price_cents: plan.price_cents });
+
+    // Granular tracking by audience + track
+    const trackLabel = isStudiumPlan(plan) ? 'studium' : 'ausbildung';
+    const audienceLabel = plan.audience_type === 'b2b' ? 'b2b' : 'b2c';
+    const granularEvent = `pricing_buy_${trackLabel}_${audienceLabel}`;
+    trackEvent('cta_click', {
+      plan_key: plan.plan_key,
+      price_cents: plan.price_cents,
+      granular_event: granularEvent,
+      audience_type: plan.audience_type,
+      track: trackLabel,
+    });
 
     try {
       const { data, error } = await supabase.functions.invoke('create-payment', {
