@@ -543,7 +543,7 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
             <CardHeader>
               <CardTitle className="text-xl">3. Training starten</CardTitle>
               <CardDescription>
-                Dein Einstieg wird erst aktiv, wenn Beruf und Modus gewählt sind.
+                Dein Einstieg wird erst aktiv, wenn {isAcademic ? 'Fach' : 'Beruf'} und Modus gewählt sind.
               </CardDescription>
             </CardHeader>
             <CardContent>{summaryContent}</CardContent>
