@@ -377,8 +377,8 @@ export default function OralExamTrainer() {
       </div>
 
       <PageExplainer
-        title="Wie funktioniert die mündliche Prüfung?"
-        description="Die KI simuliert einen IHK-Prüfer: Sie stellt dir Fragen per Sprachausgabe, du antwortest per Mikrofon oder Text. Danach bewertet die KI deine Antwort nach echten IHK-Kriterien."
+        title={t('oralHowTitle')}
+        description={t('oralHowDesc')}
         workflow={[
           { label: 'Curriculum wählen', active: phase === 'setup' },
           { label: 'Frage hören', active: phase === 'question' },
