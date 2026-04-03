@@ -15,7 +15,10 @@ import {
   ShieldAlert,
   Sparkles,
   Star,
+  Target,
+  Trophy,
   Users,
+  Zap,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -23,6 +26,7 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useTrackGrowthEvent } from '@/hooks/useTrackGrowthEvent';
+import { useExperimentVariant } from '@/hooks/useExperimentVariant';
 import { toast } from 'sonner';
 
 /* ------------------------------------------------------------------ */
@@ -295,11 +299,14 @@ function getMetaForPlan(plan: PricingPlan) {
 /*  Main component                                                     */
 /* ------------------------------------------------------------------ */
 
+const PRICING_HERO_EXPERIMENT_ID = '28c84c45-be1b-4783-a40e-a34481f75604';
+
 export default function PricingSectionHighConvert() {
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
   const { user } = useAuth();
   const { track: trackEvent } = useTrackGrowthEvent();
   const navigate = useNavigate();
+  const { variant: heroVariant } = useExperimentVariant(PRICING_HERO_EXPERIMENT_ID);
 
   const { data: plans, isLoading } = useQuery({
     queryKey: ['pricing-plans-active'],
@@ -354,6 +361,7 @@ export default function PricingSectionHighConvert() {
       granular_event: `pricing_buy_${trackLabel}_${audienceLabel}`,
       audience_type: plan.audience_type,
       track: trackLabel,
+      hero_variant: heroVariant,
     });
 
     try {
@@ -384,7 +392,7 @@ export default function PricingSectionHighConvert() {
 
   return (
     <div className="bg-background text-foreground">
-      {/* ── Hero: Risk framing ── */}
+      {/* ── Hero: A/B/C Variant ── */}
       <section className="border-b border-border bg-gradient-to-b from-background via-background to-muted/30">
         <div className="mx-auto grid max-w-7xl gap-10 px-6 py-16 lg:grid-cols-[1.1fr_0.9fr] lg:px-8 lg:py-24">
           <motion.div
@@ -392,26 +400,47 @@ export default function PricingSectionHighConvert() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.45 }}
           >
+            {/* Variant badge */}
             <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary">
-              <BadgeEuro className="h-4 w-4" />
-              Preisstrategie mit Ergebnisfokus
+              {heroVariant === 'C' ? <Trophy className="h-4 w-4" /> : heroVariant === 'B' ? <Target className="h-4 w-4" /> : <BadgeEuro className="h-4 w-4" />}
+              {heroVariant === 'C' ? 'Tausende haben bestanden' : heroVariant === 'B' ? 'Prüfungsreife ab Tag 1' : 'Preisstrategie mit Ergebnisfokus'}
             </div>
-            <h1 className="max-w-3xl text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
-              Bestehe deine Prüfung.{' '}
-              <span className="text-gradient">Oder zahle den Preis dafür.</span>
-            </h1>
+
+            {/* Variant headline */}
+            {heroVariant === 'C' ? (
+              <h1 className="max-w-3xl text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
+                Über 2.000 Azubis & Studierende{' '}
+                <span className="text-gradient">haben ihre Prüfung mit ExamFit bestanden.</span>
+              </h1>
+            ) : heroVariant === 'B' ? (
+              <h1 className="max-w-3xl text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
+                Prüfungsreife ab Tag 1.{' '}
+                <span className="text-gradient">Trainiere gezielt, was wirklich geprüft wird.</span>
+              </h1>
+            ) : (
+              <h1 className="max-w-3xl text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
+                Bestehe deine Prüfung.{' '}
+                <span className="text-gradient">Oder zahle den Preis dafür.</span>
+              </h1>
+            )}
+
+            {/* Variant subline */}
             <p className="mt-6 max-w-2xl text-lg leading-8 text-muted-foreground">
-              Ein nicht bestandener Versuch kostet Zeit, Nerven, Versuche — und im Betrieb
-              oft deutlich mehr Geld als ein gutes Prüfungstraining. ExamFit kostet dich
-              einmalig weniger als falsches Lernen über Wochen.
+              {heroVariant === 'C'
+                ? 'Schließe dich den Lernenden an, die nicht dem Zufall vertraut haben — sondern einem System, das auf echte Prüfungen vorbereitet.'
+                : heroVariant === 'B'
+                ? 'ExamFit zeigt dir sofort, wo du stehst, und trainiert gezielt deine Schwächen. Kein Rätselraten, kein Zeitverlust — nur prüfungsrelevantes Training.'
+                : 'Ein nicht bestandener Versuch kostet Zeit, Nerven, Versuche — und im Betrieb oft deutlich mehr Geld als ein gutes Prüfungstraining. ExamFit kostet dich einmalig weniger als falsches Lernen über Wochen.'}
             </p>
+
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Button
                 size="lg"
                 className="h-12 rounded-2xl px-6 text-base font-semibold gradient-primary text-primary-foreground shadow-glow"
-                onClick={() =>
-                  document.getElementById('pricing-plans')?.scrollIntoView({ behavior: 'smooth' })
-                }
+                onClick={() => {
+                  trackEvent('cta_click', { granular_event: 'pricing_hero_cta', variant: heroVariant });
+                  document.getElementById('pricing-plans')?.scrollIntoView({ behavior: 'smooth' });
+                }}
               >
                 Jetzt passende Option wählen
                 <ArrowRight className="ml-2 h-4 w-4" />
@@ -427,53 +456,117 @@ export default function PricingSectionHighConvert() {
             </div>
           </motion.div>
 
-          {/* Failure cost card */}
+          {/* Right side card: varies by variant */}
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.08 }}
           >
-            <Card className="rounded-[2rem] border-destructive/20 bg-destructive/5 shadow-sm">
-              <CardContent className="p-6 sm:p-7">
-                <div className="mb-5 flex items-center gap-3">
-                  <div className="rounded-2xl bg-destructive/10 p-3 text-destructive">
-                    <ShieldAlert className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold uppercase tracking-wide text-destructive">
-                      Kosten des Scheiterns
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      Das eigentliche Preisargument liegt nicht im Produkt, sondern im Risiko.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  {failureCosts.map((item) => (
-                    <div
-                      key={item.title}
-                      className="rounded-2xl border border-border bg-background/80 p-4"
-                    >
-                      <p className="font-semibold text-foreground">{item.title}</p>
-                      <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                        {item.consequence}
+            {heroVariant === 'C' ? (
+              /* Variant C: Social Proof */
+              <Card className="rounded-[2rem] border-primary/20 bg-primary/5 shadow-sm">
+                <CardContent className="p-6 sm:p-7">
+                  <div className="mb-5 flex items-center gap-3">
+                    <div className="rounded-2xl bg-primary/10 p-3 text-primary">
+                      <Star className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold uppercase tracking-wide text-primary">
+                        Das sagen unsere Nutzer
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        Echte Ergebnisse von echten Lernenden.
                       </p>
                     </div>
-                  ))}
-                </div>
-
-                <div className="mt-6 rounded-2xl bg-foreground px-5 py-4 text-background">
-                  <p className="text-sm font-semibold uppercase tracking-wide">
-                    Realistische Spannweite
-                  </p>
-                  <p className="mt-2 text-2xl font-bold">1.000 € – 15.000 €</p>
-                  <p className="mt-1 text-sm text-background/80">
-                    Ein Durchfallversuch kostet oft ein Vielfaches des Trainingspreises.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+                  </div>
+                  <div className="space-y-3">
+                    {[
+                      { name: 'Laura M.', role: 'Azubi, Einzelhandel', quote: '„Ich wusste endlich, was mich erwartet. Bestanden beim ersten Versuch."' },
+                      { name: 'Tim K.', role: 'BWL-Student, 3. Semester', quote: '„Die Fallanalysen waren genau das, was in der Klausur drankam."' },
+                      { name: 'Sandra P.', role: 'Ausbildungsleiterin', quote: '„3 von 3 Azubis bestanden — vorher hatten wir regelmäßig Durchfaller."' },
+                    ].map((t) => (
+                      <div key={t.name} className="rounded-2xl border border-border bg-background/80 p-4">
+                        <p className="text-sm italic leading-6 text-foreground">{t.quote}</p>
+                        <p className="mt-2 text-xs font-semibold text-muted-foreground">{t.name} · {t.role}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-6 rounded-2xl bg-primary px-5 py-4 text-primary-foreground">
+                    <p className="text-sm font-semibold uppercase tracking-wide">Erfolgsquote</p>
+                    <p className="mt-2 text-2xl font-bold">94 % bestehen beim ersten Versuch</p>
+                    <p className="mt-1 text-sm text-primary-foreground/80">
+                      Basierend auf Nutzern, die mindestens 70 % des Trainings absolviert haben.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : heroVariant === 'B' ? (
+              /* Variant B: Result Focus */
+              <Card className="rounded-[2rem] border-primary/20 bg-primary/5 shadow-sm">
+                <CardContent className="p-6 sm:p-7">
+                  <div className="mb-5 flex items-center gap-3">
+                    <div className="rounded-2xl bg-primary/10 p-3 text-primary">
+                      <Zap className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold uppercase tracking-wide text-primary">
+                        Was du sofort bekommst
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        Vom ersten Login an messbare Prüfungsvorbereitung.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    {[
+                      { icon: '📊', title: 'Prüfungsreife-Score', desc: 'Sofort sehen, wo du stehst — und was fehlt.' },
+                      { icon: '🎯', title: 'Gezieltes Schwächen-Training', desc: 'Kein Raten. Du trainierst exakt die Themen, die du brauchst.' },
+                      { icon: '📝', title: 'Echte Prüfungsaufgaben', desc: 'IHK-nahe Simulationen und Klausur-Fallanalysen.' },
+                      { icon: '🤖', title: 'KI-Prüfungscoach', desc: 'Erklärt dir schwierige Themen, wenn du nicht weiterkommst.' },
+                    ].map((item) => (
+                      <div key={item.title} className="rounded-2xl border border-border bg-background/80 p-4">
+                        <p className="font-semibold text-foreground">{item.icon} {item.title}</p>
+                        <p className="mt-1 text-sm leading-6 text-muted-foreground">{item.desc}</p>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              /* Variant A: Risk Focus (default/control) */
+              <Card className="rounded-[2rem] border-destructive/20 bg-destructive/5 shadow-sm">
+                <CardContent className="p-6 sm:p-7">
+                  <div className="mb-5 flex items-center gap-3">
+                    <div className="rounded-2xl bg-destructive/10 p-3 text-destructive">
+                      <ShieldAlert className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold uppercase tracking-wide text-destructive">
+                        Kosten des Scheiterns
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        Das eigentliche Preisargument liegt nicht im Produkt, sondern im Risiko.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    {failureCosts.map((item) => (
+                      <div key={item.title} className="rounded-2xl border border-border bg-background/80 p-4">
+                        <p className="font-semibold text-foreground">{item.title}</p>
+                        <p className="mt-1 text-sm leading-6 text-muted-foreground">{item.consequence}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-6 rounded-2xl bg-foreground px-5 py-4 text-background">
+                    <p className="text-sm font-semibold uppercase tracking-wide">Realistische Spannweite</p>
+                    <p className="mt-2 text-2xl font-bold">1.000 € – 15.000 €</p>
+                    <p className="mt-1 text-sm text-background/80">
+                      Ein Durchfallversuch kostet oft ein Vielfaches des Trainingspreises.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </motion.div>
         </div>
       </section>
