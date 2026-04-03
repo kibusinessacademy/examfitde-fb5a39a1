@@ -239,7 +239,7 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
       >
         <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-sm text-primary">
           <GraduationCap className="h-4 w-4" />
-          Prüfungstrainer
+          {t('trainerTitle')}
         </div>
 
         <h1 className="text-3xl font-display font-bold tracking-tight text-foreground sm:text-4xl">
