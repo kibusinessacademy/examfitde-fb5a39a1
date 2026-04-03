@@ -23,6 +23,8 @@ export interface LessonData {
   glossaryContext: string;
   /** Pre-loaded mastery context (OPT-1: parallelized with LF/glossary) */
   masteryCtx: any | null;
+  /** Program type: "vocational" | "higher_education" — drives prompt profiling */
+  programType: "vocational" | "higher_education";
 }
 
 export interface LessonContext {
