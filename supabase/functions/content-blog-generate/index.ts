@@ -24,7 +24,7 @@ serve(async (req) => {
     // Get random approved questions not yet used for blog articles
     const { data: questions, error: qErr } = await supabase
       .from("exam_questions")
-      .select("id, question_text, correct_answer, explanation, options, difficulty, cognitive_level, curriculum_id, package_id")
+      .select("id, question_text, correct_answer, explanation, options, difficulty, cognitive_level, curriculum_id")
       .eq("status", "approved")
       .not("question_text", "is", null)
       .order("created_at", { ascending: false })
