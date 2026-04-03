@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Smile, ThumbsUp, ThumbsDown, RefreshCw, EyeOff } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTerminology } from "@/hooks/useProgramType";
 
 type Humor = {
   id: string;
@@ -38,6 +39,7 @@ export function DailyHumorCard({ certificationId, curriculumId }: DailyHumorCard
   const [vote, setVote] = useState<-1 | 1 | null>(null);
   const [voteSaving, setVoteSaving] = useState(false);
   const [resolvedCertId, setResolvedCertId] = useState<string | null>(certificationId ?? null);
+  const { t } = useTerminology(curriculumId);
 
   // Resolve certification_id from curriculum_id if needed
   useEffect(() => {
@@ -197,7 +199,7 @@ export function DailyHumorCard({ certificationId, curriculumId }: DailyHumorCard
             )}
 
             <p className="text-[10px] text-muted-foreground mt-2 opacity-60">
-              Berufsbezogen • geprüft • sicher
+              {t('humorFooter')}
             </p>
           </>
         )}

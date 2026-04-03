@@ -459,7 +459,7 @@ export default function PruefungstrainingStudiumPage() {
             <SectionHeader
               eyebrow="Dein Weg"
               title="Wähle den passenden Einstieg"
-              text="Egal ob du selbst zahlst, über den Betrieb läufst oder eine Hochschule vertrittst."
+              text="Egal ob du selbst zahlst, über dein Unternehmen läufst oder eine Hochschule vertrittst."
             />
             <div className="mt-14 grid gap-6 md:grid-cols-3">
               {/* Studierende – Self-Pay */}
@@ -519,10 +519,10 @@ export default function PruefungstrainingStudiumPage() {
                     <Users className="h-6 w-6" />
                   </div>
                   <h3 className="text-xl font-bold text-foreground mb-2">
-                    Für Betriebe & duales Studium
+                    Für Unternehmen & duales Studium
                   </h3>
                   <p className="text-sm leading-6 text-muted-foreground mb-6 flex-1">
-                    Team-Lizenzen für Azubis und dual Studierende. Ab 5 Plätzen, zentrale
+                    Team-Lizenzen für dual Studierende und Mitarbeitende. Ab 5 Plätzen, zentrale
                     Verwaltung.
                   </p>
                   <div className="space-y-3">
@@ -550,11 +550,11 @@ export default function PruefungstrainingStudiumPage() {
                           trackConversion({
                             event: 'cta_click',
                             source: 'studium_segment_b2b_info',
-                            label: 'Mehr für Betriebe',
+                            label: 'Mehr für Unternehmen',
                           })
                         }
                       >
-                        Mehr für Betriebe erfahren
+                        Mehr für Unternehmen erfahren
                       </Button>
                     </Link>
                   </div>
