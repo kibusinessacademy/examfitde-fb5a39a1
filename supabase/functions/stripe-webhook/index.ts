@@ -219,10 +219,8 @@ Deno.serve(async (req) => {
             // ── B2B: Create org + license + seats ──
             logStep("Fulfilling B2B pricing_plan purchase", { userId, productId, planKey: meta.plan_key });
 
-            const seatCount = parseInt(meta.seat_count || '1');
-            const durationDays = parseInt(meta.duration_days || '365');
-            const validUntil = new Date();
-            validUntil.setDate(validUntil.getDate() + durationDays);
+
+
 
             // Idempotency: check existing license for this session
             const { data: existingLic } = await adminClient
