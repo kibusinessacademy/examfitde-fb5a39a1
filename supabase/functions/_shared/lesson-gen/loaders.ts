@@ -57,7 +57,7 @@ export async function loadLessonGenerationData(
 
   const phase2Promises: [
     Promise<any>,                         // LF data
-    Promise<string | null>,               // beruf_id
+    Promise<{ berufId: string | null; programType: string }>, // curricula data
     Promise<any>,                         // mastery context
   ] = [
     // LF data
@@ -69,8 +69,8 @@ export async function loadLessonGenerationData(
           .then((r: any) => r.data)
       : Promise.resolve(null),
 
-    // beruf_id (for glossary, resolved after)
-    berufPromise,
+    // curricula data (beruf_id + program_type)
+    curriculaPromise,
 
     // Mastery context (moved here from context.ts to parallelize)
     (async () => {
@@ -80,7 +80,8 @@ export async function loadLessonGenerationData(
     })(),
   ];
 
-  const [lfData, berufId, masteryCtx] = await Promise.all(phase2Promises);
+  const [lfData, curriculaData, masteryCtx] = await Promise.all(phase2Promises);
+  const { berufId, programType } = curriculaData;
 
   // Glossary: uses beruf_id + lfCode (both now available)
   let finalGlossaryContext = "";
