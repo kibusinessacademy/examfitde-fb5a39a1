@@ -18,8 +18,8 @@ export default function PruefungstrainingAzubisPage() {
   return (
     <>
       <SEOHead
-        title="Prüfungstraining für Auszubildende | ExamFit"
-        description="Trainiere genau das, was in der IHK-Abschlussprüfung drankommt. Echte Prüfungsaufgaben, Simulationen und KI-Prüfungscoach – damit du sicher bestehst."
+        title="IHK Abschlussprüfung lernen – Prüfungstraining für Azubis | ExamFit"
+        description="IHK Prüfung online üben: Prüfungssimulation, echte Prüfungsaufgaben & KI-Prüfungscoach für Auszubildende. Abschlussprüfung Ausbildung Vorbereitung – jetzt starten!"
         canonical="/pruefungstraining-azubis"
       />
       <div className="min-h-screen">
