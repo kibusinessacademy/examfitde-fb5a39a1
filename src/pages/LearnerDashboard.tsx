@@ -15,6 +15,7 @@ import { DailyHumorCard } from '@/components/dashboard/DailyHumorCard';
 import { HumorSettings } from '@/components/settings/HumorSettings';
 import { useSimulationGate } from '@/hooks/useExamReadiness';
 import { useProductAccessByCurriculum } from '@/hooks/useProductAccess';
+import { useTerminology } from '@/hooks/useProgramType';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
