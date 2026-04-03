@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
@@ -307,7 +307,17 @@ export default function PricingSectionHighConvert() {
   const { track: trackEvent } = useTrackGrowthEvent();
   const navigate = useNavigate();
   const { variant: heroVariant } = useExperimentVariant(PRICING_HERO_EXPERIMENT_ID);
+  const heroViewedRef = useRef(false);
 
+  // Fire pricing_hero_view once when variant is resolved
+  useEffect(() => {
+    if (!heroVariant || heroViewedRef.current) return;
+    heroViewedRef.current = true;
+    trackEvent('pricing_hero_view', {
+      hero_variant: heroVariant,
+      user_type: user ? 'auth' : 'anon',
+    });
+  }, [heroVariant]);
   const { data: plans, isLoading } = useQuery({
     queryKey: ['pricing-plans-active'],
     queryFn: async () => {
@@ -438,7 +448,10 @@ export default function PricingSectionHighConvert() {
                 size="lg"
                 className="h-12 rounded-2xl px-6 text-base font-semibold gradient-primary text-primary-foreground shadow-glow"
                 onClick={() => {
-                  trackEvent('cta_click', { granular_event: 'pricing_hero_cta', variant: heroVariant });
+                  trackEvent('pricing_hero_primary_click', {
+                    hero_variant: heroVariant,
+                    user_type: user ? 'auth' : 'anon',
+                  });
                   document.getElementById('pricing-plans')?.scrollIntoView({ behavior: 'smooth' });
                 }}
               >
@@ -449,6 +462,12 @@ export default function PricingSectionHighConvert() {
                 size="lg"
                 variant="outline"
                 className="h-12 rounded-2xl px-6 text-base font-semibold"
+                onClick={() => {
+                  trackEvent('pricing_hero_secondary_click', {
+                    hero_variant: heroVariant,
+                    user_type: user ? 'auth' : 'anon',
+                  });
+                }}
                 asChild
               >
                 <Link to="/pruefungsreife-check">Prüfungsreife kostenlos testen</Link>
