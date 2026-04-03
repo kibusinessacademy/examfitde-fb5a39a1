@@ -69,8 +69,9 @@ export interface LearningContentLivenessState {
   shard_jobs_processing: number;
   shard_jobs_failed: number;
 
-  // Shard table state (package_content_shards)
+  // Shard table state (package_content_shards) — claimed separated from pending
   shards_pending: number;
+  shards_claimed: number;
   shards_processing: number;
   shards_completed: number;
   shards_failed: number;
