@@ -361,6 +361,7 @@ export default function PricingSectionHighConvert() {
       granular_event: `pricing_buy_${trackLabel}_${audienceLabel}`,
       audience_type: plan.audience_type,
       track: trackLabel,
+      hero_variant: heroVariant,
     });
 
     try {
