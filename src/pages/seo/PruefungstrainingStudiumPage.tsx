@@ -14,12 +14,16 @@ import {
   Lightbulb,
   FileText,
   Sparkles,
+  Users,
+  Building,
+  Mail,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { SITE_URL, seoTitle } from '@/lib/seo';
-import { ctaProps } from '@/lib/seo-tracking';
+import { ctaProps, trackConversion } from '@/lib/seo-tracking';
 
 /* ── data ── */
 
