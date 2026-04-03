@@ -4,7 +4,7 @@ import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 import { callAI, callAIWithFailover } from "../_shared/ai-client.ts";
 import { getModelChainAsync } from "../_shared/model-routing.ts";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
-import { getTutorOutputFormat, SOURCE_CITATION_RULE } from "../_shared/prompt-kit.ts";
+import { getTutorOutputFormat, getTutorOutputFormatAcademic, SOURCE_CITATION_RULE, SOURCE_CITATION_RULE_ACADEMIC } from "../_shared/prompt-kit.ts";
 
 /**
  * AI-Tutor – Profession-Aware + Deep Thinking + Post-Validation
