@@ -35,7 +35,7 @@ function assertUuid(name: string, v: unknown) {
   if (!v || typeof v !== "string" || !re.test(v)) throw new Error(`INVALID_${name.toUpperCase()}`);
 }
 
-/** Paginated fetch to avoid Supabase 1000-row default limit */
+/** Paginated fetch with deterministic ordering to avoid missed rows */
 async function fetchAllRows<T>(
   sb: ReturnType<typeof createClient>,
   table: string,
@@ -46,7 +46,7 @@ async function fetchAllRows<T>(
   const all: T[] = [];
   let from = 0;
   while (true) {
-    let q = sb.from(table).select(select).range(from, from + pageSize - 1);
+    let q = sb.from(table).select(select).order("id", { ascending: true }).range(from, from + pageSize - 1);
     for (const f of filters) {
       if (f.op === "eq") q = q.eq(f.col, f.val);
       else if (f.op === "in") q = q.in(f.col, f.val as string[]);
@@ -197,43 +197,41 @@ Deno.serve(async (req) => {
 
       let lessons: any[] = [];
       if (moduleIds.length > 0) {
-        const { data: modLessons } = await sb
-          .from("lessons")
-          .select("id")
-          .in("module_id", moduleIds)
-          .not("content", "is", null)
-          .neq("step", "mini_check");
-        lessons = modLessons || [];
+        // Paginated lesson fetch (handles >1000 lessons)
+        lessons = await fetchAllRows(
+          sb, "lessons", "id",
+          [
+            { op: "in", col: "module_id", val: moduleIds },
+            { op: "not.is", col: "content", val: null },
+            { op: "neq", col: "step", val: "mini_check" },
+          ],
+        );
       }
 
       const totalLessons = lessons.length;
       if (totalLessons > 0) {
         const lessonIds = lessons.map((l: any) => l.id);
 
-        // ── FIX: Use DISTINCT lesson_id query to avoid 1000-row limit ──
-        // Instead of fetching all rows and deduplicating, fetch approved
-        // MiniChecks grouped by lesson_id using paginated approach
-        const allLessonRows: Array<{ lesson_id: string }> = [];
-        for (let i = 0; i < lessonIds.length; i += 200) {
-          const chunk = lessonIds.slice(i, i + 200);
-          const rows = await fetchAllRows<{ lesson_id: string }>(
-            sb,
-            "minicheck_questions",
-            "lesson_id",
-            [
-              { op: "in", col: "lesson_id", val: chunk },
-              { op: "eq", col: "mode", val: "lesson" },
-              { op: "eq", col: "status", val: "approved" },
-            ],
-          );
-          allLessonRows.push(...rows);
-        }
+        // Use curriculum_id filter (indexed) + paginated fetch with ORDER BY
+        const allLessonRows = await fetchAllRows<{ lesson_id: string }>(
+          sb,
+          "minicheck_questions",
+          "lesson_id",
+          [
+            { op: "eq", col: "curriculum_id", val: curriculumId },
+            { op: "eq", col: "mode", val: "lesson" },
+            { op: "eq", col: "status", val: "approved" },
+          ],
+        );
 
+        // Build count map, only for lessons in this course
+        const lessonIdSet = new Set(lessonIds);
         const countByLesson = new Map<string, number>();
         for (const r of allLessonRows) {
-          if (!r.lesson_id) continue;
+          if (!r.lesson_id || !lessonIdSet.has(r.lesson_id)) continue;
           countByLesson.set(r.lesson_id, (countByLesson.get(r.lesson_id) || 0) + 1);
         }
+
 
         const coveredCount = countByLesson.size;
         coverage = coveredCount / totalLessons;
