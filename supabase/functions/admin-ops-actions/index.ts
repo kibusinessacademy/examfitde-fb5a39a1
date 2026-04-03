@@ -538,14 +538,50 @@ async function captureBeforeState(sb: SB, type: string, body: JsonRow) {
 /* ── Scoped: requeue_failed_jobs ── */
 async function requeueFailedJobs(sb: SB, body: JsonRow) {
   const limit = typeof body.limit === "number" ? Math.max(1, Math.min(100, body.limit)) : 20;
+  const now = new Date().toISOString();
+
+  // Helper: filter out jobs that already have an active counterpart (same idempotency_key)
+  async function safeRequeue(ids: string[]): Promise<{ updated: number; skipped: number }> {
+    // Fetch failed jobs with their idempotency keys
+    const { data: failedJobs, error: fetchErr } = await sb.from("job_queue")
+      .select("id, idempotency_key")
+      .in("id", ids)
+      .eq("status", "failed");
+    if (fetchErr) throw fetchErr;
+    if (!failedJobs?.length) return { updated: 0, skipped: ids.length };
+
+    // Check which idempotency keys already have an active job
+    const ikeys = failedJobs
+      .map((j: any) => j.idempotency_key)
+      .filter((k: any) => k != null);
+
+    let activeKeys = new Set<string>();
+    if (ikeys.length > 0) {
+      const { data: activeJobs } = await sb.from("job_queue")
+        .select("idempotency_key")
+        .in("idempotency_key", ikeys)
+        .in("status", ["pending", "queued", "processing"]);
+      activeKeys = new Set((activeJobs ?? []).map((j: any) => j.idempotency_key));
+    }
+
+    const safeIds = failedJobs
+      .filter((j: any) => !j.idempotency_key || !activeKeys.has(j.idempotency_key))
+      .map((j: any) => j.id);
+
+    const skipped = failedJobs.length - safeIds.length;
+    if (!safeIds.length) return { updated: 0, skipped };
+
+    const { error } = await sb.from("job_queue")
+      .update({ status: "pending", last_error: null, attempts: 0, locked_by: null, locked_at: null, started_at: null, updated_at: now })
+      .in("id", safeIds);
+    if (error) throw error;
+    return { updated: safeIds.length, skipped };
+  }
 
   if (Array.isArray(body.job_ids) && body.job_ids.length > 0) {
     const ids = body.job_ids.map(String).slice(0, 100);
-    const { error } = await sb.from("job_queue")
-      .update({ status: "pending", last_error: null, attempts: 0, locked_by: null, locked_at: null, started_at: null, updated_at: new Date().toISOString() })
-      .in("id", ids).eq("status", "failed");
-    if (error) throw error;
-    return { ok: true, updated: ids.length, scope: "job_ids" };
+    const result = await safeRequeue(ids);
+    return { ok: true, ...result, scope: "job_ids" };
   }
 
   let query = sb.from("job_queue").select("id").eq("status", "failed");
@@ -554,14 +590,11 @@ async function requeueFailedJobs(sb: SB, body: JsonRow) {
 
   const { data: jobs, error: fetchErr } = await query.order("updated_at", { ascending: false }).limit(limit);
   if (fetchErr) throw fetchErr;
-  if (!jobs?.length) return { ok: true, updated: 0 };
+  if (!jobs?.length) return { ok: true, updated: 0, skipped: 0 };
 
   const ids = jobs.map((j: any) => j.id);
-  const { error: updErr } = await sb.from("job_queue")
-    .update({ status: "pending", last_error: null, attempts: 0, locked_by: null, locked_at: null, started_at: null, updated_at: new Date().toISOString() })
-    .in("id", ids);
-  if (updErr) throw updErr;
-  return { ok: true, updated: ids.length, scope: body.package_id ? "package" : body.job_type ? "job_type" : "global" };
+  const result = await safeRequeue(ids);
+  return { ok: true, ...result, scope: body.package_id ? "package" : body.job_type ? "job_type" : "global" };
 }
 
 /* ── Scoped: release_provider_cooldowns ── */
