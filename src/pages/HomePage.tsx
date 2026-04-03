@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { useEffect } from 'react';
 import { SEOHead } from '@/components/seo/SEOHead';
-import { generateFAQSchema, generateCourseListSchema, SITE_URL } from '@/lib/seo';
+import { generateFAQSchema, generateCourseListSchema, SITE_URL, seoTitle } from '@/lib/seo';
 import { Testimonials } from '@/components/marketing/Testimonials';
 import { StickyCTA } from '@/components/marketing/StickyCTA';
 import { trackConversion } from '@/lib/seo-tracking';
