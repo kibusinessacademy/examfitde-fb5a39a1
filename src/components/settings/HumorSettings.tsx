@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Smile } from "lucide-react";
 import { toast } from "sonner";
+import { useTerminology } from "@/hooks/useProgramType";
 
 type Prefs = {
   humor_enabled: boolean;
@@ -14,7 +15,11 @@ type Prefs = {
   modernity_range: string;
 };
 
-export function HumorSettings() {
+interface HumorSettingsProps {
+  curriculumId?: string | null;
+}
+
+export function HumorSettings({ curriculumId }: HumorSettingsProps) {
   const [prefs, setPrefs] = useState<Prefs>({
     humor_enabled: true,
     humor_push_enabled: false,
@@ -22,6 +27,7 @@ export function HumorSettings() {
     modernity_range: "45-80",
   });
   const [loading, setLoading] = useState(true);
+  const { t } = useTerminology(curriculumId);
 
   useEffect(() => {
     (async () => {
@@ -82,7 +88,7 @@ export function HumorSettings() {
 
         <div className="flex items-center justify-between">
           <Label htmlFor="humor-toggle" className="text-sm">
-            Berufsbezogenen Tageswitz anzeigen
+            {t('humorSettingsLabel')}
           </Label>
           <Switch
             id="humor-toggle"

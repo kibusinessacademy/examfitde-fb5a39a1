@@ -178,7 +178,7 @@ export default function LearnerDashboard() {
                 <BadgeHistory />
 
                 {/* Humor Einstellungen */}
-                <HumorSettings />
+                <HumorSettings curriculumId={activeCurriculumId} />
               </>
             )}
           </CollapsibleContent>
