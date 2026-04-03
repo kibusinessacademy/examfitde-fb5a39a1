@@ -535,7 +535,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const systemPrompt = modeRules.systemPrompt + rolePrompt + contextPrompt;
+    const systemPrompt = modeRules.systemPrompt + rolePrompt + contextPrompt + blueprintContext;
     const aiMessages = [
       { role: "system" as const, content: systemPrompt },
       ...conversationHistory.slice(-10).map((m: any) => ({ role: m.role as "user" | "assistant", content: m.content })),
