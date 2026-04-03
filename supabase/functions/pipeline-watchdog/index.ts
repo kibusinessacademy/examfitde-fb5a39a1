@@ -3,7 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import {
   neutralizeStaleTransientFailed,
   reviveLearningContentStepIfDead,
-  getLearningContentJobState,
+  getLearningContentLiveness,
 } from "../_shared/learning-content-revive.ts";
 import { getNeedsRegenCount } from "../_shared/learning-content-scheduler.ts";
 
