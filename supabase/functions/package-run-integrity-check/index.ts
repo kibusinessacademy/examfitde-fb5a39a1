@@ -947,8 +947,9 @@ async function runCourseReadyGate(
       AUSBILDUNG_VOLL: 15,
       ELITE: 20,
       EXAM_FIRST: 10,
+      STUDIUM: 0, // Higher-Ed: conflict-type is IHK-specific
     };
-    const conflictMinTarget = CONFLICT_MIN_PCT[trackEarly] ?? 15;
+    const conflictMinTarget = isHigherEd ? 0 : (CONFLICT_MIN_PCT[trackEarly] ?? 15);
     const conflictPassed = conflictPct >= conflictMinTarget;
 
     // Conflict distribution breakdown
