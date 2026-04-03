@@ -360,7 +360,7 @@ export default function ExamAnxietyManager() {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">
-                Schnelle Hilfe bei akuter Nervosität direkt vor oder in der Prüfung.
+                {t('anxietySOS')}
               </p>
             </CardContent>
           </Card>
