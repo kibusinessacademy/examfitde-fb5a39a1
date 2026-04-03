@@ -302,7 +302,7 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
       {!isLoading && popularBerufe.length > 0 && !selectedCategory && !search.trim() && (
         <div className="mb-6">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-foreground">Beliebte Berufe</h2>
+            <h2 className="text-lg font-semibold text-foreground">{isAcademic ? 'Beliebte Fächer' : 'Beliebte Berufe'}</h2>
             <Badge variant="secondary" className="rounded-full text-xs">
               Schnellzugriff
             </Badge>
