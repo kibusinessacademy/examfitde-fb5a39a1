@@ -15,7 +15,10 @@ import {
   ShieldAlert,
   Sparkles,
   Star,
+  Target,
+  Trophy,
   Users,
+  Zap,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -23,6 +26,7 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useTrackGrowthEvent } from '@/hooks/useTrackGrowthEvent';
+import { useExperimentVariant } from '@/hooks/useExperimentVariant';
 import { toast } from 'sonner';
 
 /* ------------------------------------------------------------------ */
