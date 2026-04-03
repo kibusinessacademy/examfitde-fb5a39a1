@@ -388,7 +388,7 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
                         {CATEGORY_META[key].label}
                       </div>
                       <div className="mt-1 text-xs text-muted-foreground">
-                        {categoryCounts[key] || 0} Berufe
+                        {categoryCounts[key] || 0} {isAcademic ? 'Fächer' : 'Berufe'}
                       </div>
                     </button>
                   );
