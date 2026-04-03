@@ -31,10 +31,12 @@ import {
 } from 'lucide-react';
 
 const FAQ_ITEMS = [
-  { question: 'Ist ExamFit ein Abo?', answer: 'Nein. Du zahlst einmalig und erhältst für 12 Monate Zugriff.' },
-  { question: 'Für wen ist ExamFit geeignet?', answer: 'Für Auszubildende, die sich gezielt auf ihre Abschlussprüfung vorbereiten möchten.' },
-  { question: 'Ist ExamFit Ersatz für Berufsschule oder Ausbildung?', answer: 'Nein. ExamFit ergänzt deine Vorbereitung mit prüfungsnahem Training.' },
-  { question: 'Kann ich erst kostenlos testen?', answer: 'Ja. Du kannst den Prüfungsreife-Check kostenlos und ohne Anmeldung starten.' },
+  { question: 'Wie bestehe ich die IHK Abschlussprüfung?', answer: 'Mit gezieltem Prüfungstraining: ExamFit analysiert deine Schwächen, trainiert prüfungsrelevante Inhalte und simuliert die echte Prüfungssituation – damit du optimal vorbereitet bist.' },
+  { question: 'Wie läuft die IHK Abschlussprüfung ab?', answer: 'Die IHK-Abschlussprüfung besteht aus einem schriftlichen und einem mündlichen Teil (Fachgespräch). ExamFit bereitet dich auf beide Teile vor – mit Prüfungssimulation und KI-gestütztem Fachgespräch-Training.' },
+  { question: 'Ist ExamFit ein Abo?', answer: 'Nein. Du zahlst einmalig 39 € und erhältst 12 Monate Zugriff auf das komplette IHK-Prüfungstraining – inklusive Prüfungssimulation, KI-Coach und mündliche Prüfung.' },
+  { question: 'Welche typischen Fehler kann ich bei der IHK Prüfung vermeiden?', answer: 'Die häufigsten Fehler: zu spät anfangen, nur Theorie lernen, keine Prüfungssimulation machen. ExamFit zeigt dir deine Schwächen und trainiert gezielt die prüfungsrelevanten Themen.' },
+  { question: 'Gibt es IHK Prüfungsfragen mit Lösungen kostenlos?', answer: 'Ja – starte den kostenlosen Prüfungsreife-Check und teste dein Wissen mit echten prüfungsnahen Aufgaben. Für das vollständige Training mit hunderten Fragen und Lösungen gibt es das Prüfungstraining für 39 €.' },
+  { question: 'Kann ich die IHK Prüfung online simulieren?', answer: 'Ja. ExamFit bietet eine realistische IHK-Prüfungssimulation mit Zeitlimit, Gewichtung und Bestehensindikator – so wie in der echten Prüfung.' },
 ];
 
 export default function HomePage() {
