@@ -30,6 +30,7 @@ interface ReadinessWidgetProps {
 export function ReadinessWidget({ curriculumId, className }: ReadinessWidgetProps) {
   const { data: readiness, isLoading: readinessLoading } = useReadinessScore(curriculumId);
   const { data: recommendation, isLoading: recommendationLoading } = useAdaptiveRecommendation(curriculumId);
+  const { t } = useTerminology(curriculumId);
   
   const isLoading = readinessLoading || recommendationLoading;
   
