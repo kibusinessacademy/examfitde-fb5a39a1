@@ -17,8 +17,8 @@ export default function PruefungstrainingBetriebePage() {
   return (
     <>
       <SEOHead
-        title="Prüfungstraining für Ausbildungsbetriebe | ExamFit"
-        description="Bestehensquoten erhöhen, Durchfallrisiken erkennen, Ausbildungsqualität messbar machen. ExamFit – das intelligente Prüfungstrainings-System für Ihre Auszubildenden."
+        title="IHK Prüfungsvorbereitung für Betriebe – Bestehensquote steigern | ExamFit"
+        description="IHK Prüfungstraining für Ausbildungsbetriebe: Bestehensquoten erhöhen, Durchfallrisiken erkennen, Ausbildungsqualität messbar machen. Prüfungstrainer mit KI für Ihre Azubis."
         canonical="/pruefungstraining-betriebe"
       />
       <div className="min-h-screen">

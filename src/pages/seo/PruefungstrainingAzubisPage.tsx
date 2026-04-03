@@ -32,13 +32,13 @@ export default function PruefungstrainingAzubisPage() {
             </div>
 
             <h1 className="text-4xl md:text-6xl lg:text-7xl font-display font-bold mb-6 animate-fade-in">
-              Bereit für die{' '}
-              <span className="text-gradient text-glow">Abschlussprüfung?</span>
+              IHK Abschlussprüfung lernen:{' '}
+              <span className="text-gradient text-glow">Prüfungstraining für Azubis</span>
             </h1>
 
             <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto animate-fade-in" style={{ animationDelay: '0.1s' }}>
-              Trainiere genau das, was in der Prüfung drankommt – mit echten Prüfungsaufgaben,
-              Simulationen und deinem persönlichen KI-Prüfungscoach.
+              IHK Prüfung online üben – mit prüfungsnahen Aufgaben, realistischer Prüfungssimulation 
+              und deinem persönlichen KI-Prüfungscoach. Typische Fehler vermeiden, sicher bestehen.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center animate-fade-in" style={{ animationDelay: '0.2s' }}>
