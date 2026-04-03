@@ -11342,6 +11342,8 @@ export type Database = {
           kmk_version: string | null
           normalized_data: Json | null
           passing_rules: Json | null
+          program_id: string | null
+          program_type: string
           seeding_completed_at: string | null
           seeding_version: string | null
           source_file_name: string | null
@@ -11371,6 +11373,8 @@ export type Database = {
           kmk_version?: string | null
           normalized_data?: Json | null
           passing_rules?: Json | null
+          program_id?: string | null
+          program_type?: string
           seeding_completed_at?: string | null
           seeding_version?: string | null
           source_file_name?: string | null
@@ -11400,6 +11404,8 @@ export type Database = {
           kmk_version?: string | null
           normalized_data?: Json | null
           passing_rules?: Json | null
+          program_id?: string | null
+          program_type?: string
           seeding_completed_at?: string | null
           seeding_version?: string | null
           source_file_name?: string | null
@@ -11459,6 +11465,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_course_display_ssot"
             referencedColumns: ["beruf_id"]
+          },
+          {
+            foreignKeyName: "curricula_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "programs"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -16610,6 +16623,7 @@ export type Database = {
           elite_score_breakdown: Json | null
           exam_part: string | null
           exam_weight: number | null
+          expected_answer_points: Json | null
           explanation: string | null
           global_canonical_hash: string | null
           id: string
@@ -16629,6 +16643,7 @@ export type Database = {
           question_type: string
           reviewed_at: string | null
           reviewed_by: string | null
+          rubric: Json | null
           scenario_type: string | null
           status: Database["public"]["Enums"]["question_status"] | null
           time_estimate_seconds: number | null
@@ -16662,6 +16677,7 @@ export type Database = {
           elite_score_breakdown?: Json | null
           exam_part?: string | null
           exam_weight?: number | null
+          expected_answer_points?: Json | null
           explanation?: string | null
           global_canonical_hash?: string | null
           id?: string
@@ -16681,6 +16697,7 @@ export type Database = {
           question_type?: string
           reviewed_at?: string | null
           reviewed_by?: string | null
+          rubric?: Json | null
           scenario_type?: string | null
           status?: Database["public"]["Enums"]["question_status"] | null
           time_estimate_seconds?: number | null
@@ -16714,6 +16731,7 @@ export type Database = {
           elite_score_breakdown?: Json | null
           exam_part?: string | null
           exam_weight?: number | null
+          expected_answer_points?: Json | null
           explanation?: string | null
           global_canonical_hash?: string | null
           id?: string
@@ -16733,6 +16751,7 @@ export type Database = {
           question_type?: string
           reviewed_at?: string | null
           reviewed_by?: string | null
+          rubric?: Json | null
           scenario_type?: string | null
           status?: Database["public"]["Enums"]["question_status"] | null
           time_estimate_seconds?: number | null
@@ -20132,13 +20151,16 @@ export type Database = {
           curriculum_id: string
           description: string | null
           difficulty_tier: string | null
+          ects: number | null
           exam_part: string | null
           exam_time_minutes: number | null
+          exam_type: string | null
           hours: number | null
           id: string
           ihk_focus_areas: Json | null
           min_mastery_pct: number | null
           question_target: number | null
+          semester_recommended: number | null
           sort_order: number | null
           title: string
           weight_percent: number | null
@@ -20150,13 +20172,16 @@ export type Database = {
           curriculum_id: string
           description?: string | null
           difficulty_tier?: string | null
+          ects?: number | null
           exam_part?: string | null
           exam_time_minutes?: number | null
+          exam_type?: string | null
           hours?: number | null
           id?: string
           ihk_focus_areas?: Json | null
           min_mastery_pct?: number | null
           question_target?: number | null
+          semester_recommended?: number | null
           sort_order?: number | null
           title: string
           weight_percent?: number | null
@@ -20168,13 +20193,16 @@ export type Database = {
           curriculum_id?: string
           description?: string | null
           difficulty_tier?: string | null
+          ects?: number | null
           exam_part?: string | null
           exam_time_minutes?: number | null
+          exam_type?: string | null
           hours?: number | null
           id?: string
           ihk_focus_areas?: Json | null
           min_mastery_pct?: number | null
           question_target?: number | null
+          semester_recommended?: number | null
           sort_order?: number | null
           title?: string
           weight_percent?: number | null
@@ -31261,6 +31289,54 @@ export type Database = {
           },
         ]
       }
+      programs: {
+        Row: {
+          created_at: string
+          degree_type: string | null
+          ects_total: number | null
+          field_of_study: string | null
+          id: string
+          institution_name: string | null
+          institution_type: string | null
+          language_code: string
+          program_type: string
+          slug: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          degree_type?: string | null
+          ects_total?: number | null
+          field_of_study?: string | null
+          id?: string
+          institution_name?: string | null
+          institution_type?: string | null
+          language_code?: string
+          program_type?: string
+          slug: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          degree_type?: string | null
+          ects_total?: number | null
+          field_of_study?: string | null
+          id?: string
+          institution_name?: string | null
+          institution_type?: string | null
+          language_code?: string
+          program_type?: string
+          slug?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       progress_narratives: {
         Row: {
           content: string
@@ -33215,6 +33291,7 @@ export type Database = {
           question_template: string
           real_world_context: boolean
           remediation_triggers: Json | null
+          rubric: Json | null
           scenario_type: string
           status: Database["public"]["Enums"]["blueprint_status"]
           trap_definition: Json | null
@@ -33268,6 +33345,7 @@ export type Database = {
           question_template: string
           real_world_context?: boolean
           remediation_triggers?: Json | null
+          rubric?: Json | null
           scenario_type?: string
           status?: Database["public"]["Enums"]["blueprint_status"]
           trap_definition?: Json | null
@@ -33321,6 +33399,7 @@ export type Database = {
           question_template?: string
           real_world_context?: boolean
           remediation_triggers?: Json | null
+          rubric?: Json | null
           scenario_type?: string
           status?: Database["public"]["Enums"]["blueprint_status"]
           trap_definition?: Json | null
@@ -58195,6 +58274,7 @@ export type Database = {
         | "projektmanagement"
         | "aufstiegsfortbildung"
         | "sonstige"
+        | "studium"
       cognitive_level:
         | "remember"
         | "understand"
@@ -58310,6 +58390,8 @@ export type Database = {
         | "einstieg"
         | "verstehen"
         | "anwenden"
+        | "reflektieren"
+        | "transfer"
         | "wiederholen"
         | "mini_check"
       org_access_status:
@@ -58325,6 +58407,7 @@ export type Database = {
         | "EXAM_FIRST"
         | "FORTBILDUNG"
         | "ZERTIFIKAT"
+        | "STUDIUM"
       qa_severity: "low" | "medium" | "high" | "critical"
       qa_status: "open" | "resolved" | "accepted_risk"
       question_difficulty: "easy" | "medium" | "hard" | "very_hard"
@@ -58537,6 +58620,7 @@ export const Constants = {
         "projektmanagement",
         "aufstiegsfortbildung",
         "sonstige",
+        "studium",
       ],
       cognitive_level: [
         "remember",
@@ -58666,6 +58750,8 @@ export const Constants = {
         "einstieg",
         "verstehen",
         "anwenden",
+        "reflektieren",
+        "transfer",
         "wiederholen",
         "mini_check",
       ],
@@ -58677,6 +58763,7 @@ export const Constants = {
         "EXAM_FIRST",
         "FORTBILDUNG",
         "ZERTIFIKAT",
+        "STUDIUM",
       ],
       qa_severity: ["low", "medium", "high", "critical"],
       qa_status: ["open", "resolved", "accepted_risk"],
