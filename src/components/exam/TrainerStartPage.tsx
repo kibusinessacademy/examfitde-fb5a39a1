@@ -243,11 +243,10 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
         </div>
 
         <h1 className="text-3xl font-display font-bold tracking-tight text-foreground sm:text-4xl">
-          Trainiere echte Prüfungsfragen für deinen Beruf
+          {t('trainerHeadline')}
         </h1>
         <p className="mt-3 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
-          Wähle deinen Beruf, starte deinen Modus und bereite dich gezielt auf die
-          IHK- oder Abschlussprüfung vor.
+          {t('trainerSubline')}
         </p>
 
         {/* Outcome badges */}
