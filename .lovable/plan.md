@@ -1,39 +1,30 @@
-## SEO-Keyword-Optimierung – ExamFit
+## Content Automation Engine – Implementierungsplan
 
-### 1. Homepage (`HomePage.tsx`) – Branding + High Intent
-- **Title**: `IHK Prüfungstraining online – Prüfungsvorbereitung mit KI | ExamFit`
-- **Meta**: High-Intent Keywords einbauen (Prüfungssimulation, Prüfungsfragen üben, Abschlussprüfung bestehen)
-- **H1** optimieren: Keyword "IHK Prüfungstraining" einbauen
-- **FAQ erweitern**: Long-Tail Keywords als Fragen (z.B. "Wie bestehe ich die IHK Abschlussprüfung?", "Wie läuft die IHK Prüfung ab?")
-- **Section-Headlines** mit Mid-Tail Keywords anreichern
+### Phase 1: Datenbank-Fundament
+**Migration** mit zwei neuen Tabellen:
+- `blog_articles` – SEO-Artikel mit Titel, Slug, Content (Markdown), Meta-Description, Keywords, Status (draft/published), `source_question_id`, `generated_at`
+- `video_scripts` – Video-Skripte mit Hook, Body, CTA, Format-Typ (durchfall/mini_klausur/aha_moment), `source_question_id`, Status, Caption-Text
 
-### 2. Shop (`ShopPage.tsx`) – Money Page
-- **Title**: `IHK Prüfungstraining kaufen – Prüfungsfragen üben | ExamFit`
-- **Meta**: "IHK Prüfungsfragen üben", "Prüfungssimulation", "Abschlussprüfung online"
-- **H1**: "IHK Prüfungstraining" Keyword einfügen
+### Phase 2: SEO Blog-Agent (Edge Function)
+- `content-blog-generate` Edge Function:
+  - Zieht zufällige approved Fragen aus `exam_questions` (Studium-Fokus)
+  - Generiert per Lovable AI (Gemini Flash) einen SEO-optimierten Blog-Artikel
+  - Prompt: Frage → Erklärung → Transfer → Prüfungstipp → CTA
+  - Speichert direkt als `published` in `blog_articles`
+- Dynamische `/blog` Index-Seite + `/blog/:slug` Artikel-Seite
+- Dynamische Sitemap-Erweiterung (`/sitemap-blog.xml`)
 
-### 3. Landing Pages – High Intent + Mid Tail
-- **Azubis**: Title → `IHK Abschlussprüfung lernen – Prüfungstraining für Azubis | ExamFit`
-- **Betriebe**: Title → `IHK Prüfungsvorbereitung für Betriebe – Bestehensquote steigern | ExamFit`
-- **Institutionen**: Title → `IHK Prüfungstraining für Berufsschulen & Institutionen | ExamFit`
+### Phase 3: Video-Skript-Agent (Edge Function)  
+- `content-video-generate` Edge Function:
+  - Zieht Fragen + Erklärungen aus dem Pool
+  - Generiert Skript im gewählten Format (Durchfall-Realität / Mini-Klausur / Aha-Moment)
+  - Speichert in `video_scripts` mit strukturiertem JSON (hook, problem, beispiel, twist, cta)
+- Admin-Seite zum Triggern + Vorschau der generierten Skripte
+- Remotion-basierte MP4-Generierung als separater Schritt (on-demand pro Skript)
 
-### 4. FAQ Page – Long-Tail Keywords
-- Fragen mit Suchintent erweitern: "typische Fehler IHK Prüfung vermeiden", "wie läuft die IHK Abschlussprüfung ab"
+### Phase 4: Cron-Automation
+- Täglicher Cron-Job der beide Agents triggert (10 Blog-Artikel + 10 Video-Skripte)
 
-### 5. Neue SEO-Content-Seiten vorbereiten
-- `PruefungstrainingHub.tsx` als zentrale Hub-Seite mit Mid-Tail Keywords
-- Interne Verlinkung zwischen allen Money Pages stärken
-
-### 6. Structured Data erweitern
-- SoftwareApplication Schema auf Homepage
-- EducationalOrganization Schema mit mehr Keywords
-
-### Dateien die geändert werden:
-- `src/pages/HomePage.tsx`
-- `src/pages/ShopPage.tsx`
-- `src/pages/seo/PruefungstrainingAzubisPage.tsx`
-- `src/pages/seo/PruefungstrainingBetriebePage.tsx`
-- `src/pages/seo/PruefungstrainingInstitutionenPage.tsx`
-- `src/pages/seo/FAQPage.tsx`
-- `src/pages/seo/PruefungstrainingHub.tsx`
-- `src/lib/seo.ts`
+### Nicht in Scope (bewusst):
+- Automatische MP4-Massenproduktion (zu teuer/langsam für Cron → on-demand)
+- Social Media Posting API (braucht externe Tokens)

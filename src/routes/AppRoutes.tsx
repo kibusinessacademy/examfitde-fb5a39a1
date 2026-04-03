@@ -49,6 +49,8 @@ const WirtschaftsfachwirtPage = lazy(() => import('@/pages/seo/Wirtschaftsfachwi
 const PruefungstrainingStudiumPage = lazy(() => import('@/pages/seo/PruefungstrainingStudiumPage'));
 import ProgrammaticSEODispatcher from '@/pages/seo/ProgrammaticSEODispatcher';
 const PruefungsreifeCheck = lazy(() => import('@/components/marketing/PruefungsreifeCheck'));
+const BlogIndexPage = lazy(() => import('@/pages/seo/BlogIndexPage'));
+const BlogArticlePage = lazy(() => import('@/pages/seo/BlogArticlePage'));
 
 // Legal Pages
 const AGBPage = lazy(() => import('@/pages/seo/AGBPage'));
@@ -175,6 +177,8 @@ const AppRoutes = () => {
           <Route path="/datenschutz" element={<DatenschutzPage />} />
           <Route path="/impressum" element={<ImpressumPage />} />
           <Route path="/wissen/:slug" element={<WissenArticlePage />} />
+          <Route path="/blog" element={<BlogIndexPage />} />
+          <Route path="/blog/:slug" element={<BlogArticlePage />} />
         </Route>
         
         {/* Main Layout Routes */}
