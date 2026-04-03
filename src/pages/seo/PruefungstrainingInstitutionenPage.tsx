@@ -17,9 +17,9 @@ export default function PruefungstrainingInstitutionenPage() {
   return (
     <>
       <SEOHead
-        title="IHK Prüfungstraining für Berufsschulen & Bildungsträger | ExamFit"
+        title="IHK Prüfungstraining für Berufsschulen & Bildungsträger (2026) | ExamFit"
         description="Prüfungsvorbereitung Ausbildung online: ExamFit ergänzt den Unterricht mit adaptivem Prüfungstraining, Prüfungssimulation & KI-Coach. Curriculum-konform, neutral, prüfungsnah."
-        canonical="/pruefungstraining-institutionen"
+        canonical={`${SITE_URL}/pruefungstraining-institutionen`}
       />
       <div className="min-h-screen">
         {/* Hero */}
