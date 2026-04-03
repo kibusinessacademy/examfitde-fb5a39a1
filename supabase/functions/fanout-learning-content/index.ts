@@ -101,18 +101,82 @@ Deno.serve(async (req) => {
   // ── Check for existing active fanout ──
   const { data: existingShards } = await sb
     .from("package_content_shards")
-    .select("fanout_id, status")
+    .select("id, fanout_id, status, learning_field_id, chunk_index, meta")
     .eq("package_id", packageId)
     .in("status", ["pending", "processing", "claimed"]);
 
   if (existingShards && existingShards.length > 0) {
     const fanoutId = existingShards[0].fanout_id;
+
+    // ── DEADLOCK GUARD: Check if shard jobs actually exist ──
+    const { data: activeShardJobs } = await sb
+      .from("job_queue")
+      .select("id")
+      .eq("package_id", packageId)
+      .eq("job_type", "lesson_generate_content_shard")
+      .in("status", ["pending", "queued", "processing"])
+      .limit(1);
+
+    const hasActiveJobs = activeShardJobs && activeShardJobs.length > 0;
+
+    if (hasActiveJobs) {
+      // Jobs still running — normal "wait" response
+      return json({
+        ok: true,
+        batch_complete: false,
+        message: `Fan-out already active (fanout_id=${fanoutId}, ${existingShards.length} shards active)`,
+        fanout_id: fanoutId,
+        active_shards: existingShards.length,
+      });
+    }
+
+    // ── DEADLOCK RECOVERY: Pending shards exist but no jobs → re-enqueue shard jobs ──
+    console.warn(
+      `[fanout] DEADLOCK_RECOVERY: ${existingShards.length} pending shards but 0 active jobs for package=${packageId.slice(0, 8)} fanout=${fanoutId.slice(0, 8)}`,
+    );
+
+    const pendingShards = existingShards.filter((s: any) => s.status === "pending");
+    let revived = 0;
+    const now = Date.now();
+
+    for (let i = 0; i < pendingShards.length; i++) {
+      const shard = pendingShards[i];
+      const lessonIds = (shard.meta as any)?.lesson_ids || [];
+      try {
+        await enqueueJob(sb, {
+          job_type: "lesson_generate_content_shard",
+          package_id: packageId,
+          batch_cursor: { lf: shard.learning_field_id, ci: shard.chunk_index },
+          payload: {
+            package_id: packageId,
+            course_id: courseId,
+            curriculum_id: curriculumId,
+            certification_id: certificationId,
+            learning_field_id: shard.learning_field_id,
+            chunk_index: shard.chunk_index,
+            fanout_id: fanoutId,
+            lesson_ids: lessonIds,
+            revived: true,
+          },
+          priority: 12,
+          run_after: new Date(now + i * 100).toISOString(),
+          max_attempts: 5,
+        });
+        revived++;
+      } catch (e) {
+        console.error(`[fanout] revive enqueue failed shard=${shard.id}: ${(e as Error).message}`);
+      }
+    }
+
+    console.log(`[fanout] DEADLOCK_RECOVERY: revived ${revived}/${pendingShards.length} shard jobs`);
+
     return json({
       ok: true,
       batch_complete: false,
-      message: `Fan-out already active (fanout_id=${fanoutId}, ${existingShards.length} shards active)`,
+      deadlock_recovery: true,
+      revived_shards: revived,
+      total_pending: pendingShards.length,
       fanout_id: fanoutId,
-      active_shards: existingShards.length,
     });
   }
 
@@ -208,6 +272,7 @@ Deno.serve(async (req) => {
       await enqueueJob(sb, {
         job_type: "lesson_generate_content_shard",
         package_id: packageId,
+        batch_cursor: { lf: sj.learningFieldId, ci: sj.chunkIndex },
         payload: {
           package_id: packageId,
           course_id: courseId,
