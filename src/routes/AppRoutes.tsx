@@ -152,6 +152,7 @@ const AppRoutes = () => {
           <Route path="/pruefungstraining-azubis" element={<PruefungstrainingAzubisPage />} />
           <Route path="/pruefungstraining-betriebe" element={<PruefungstrainingBetriebePage />} />
           <Route path="/pruefungstraining-institutionen" element={<PruefungstrainingInstitutionenPage />} />
+          <Route path="/pruefungstraining-studium" element={<PruefungstrainingStudiumPage />} />
           <Route path="/ihk-pruefungen/:slug" element={<BerufDetailPage />} />
           <Route path="/berufe" element={<BerufePage />} />
           <Route path="/berufe/:slug" element={<BerufDetailPage />} />
