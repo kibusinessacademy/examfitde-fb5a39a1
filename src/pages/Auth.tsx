@@ -178,7 +178,7 @@ export default function Auth() {
               ExamFit
             </h1>
             <p className="text-xl text-muted-foreground mb-8">
-              Deine IHK-Prüfungsvorbereitung mit KI-Unterstützung
+              Deine Prüfungsvorbereitung mit KI-Unterstützung
             </p>
           </div>
         </div>
