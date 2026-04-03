@@ -26,7 +26,8 @@ const getReasonLabels = (isAcademic: boolean): Record<string, string> => ({
 
 export function SmartRecommendationsCard({ curriculumId }: { curriculumId: string }) {
   const { data: recs, isLoading } = useActiveRecommendations(curriculumId);
-
+  const { isAcademic } = useTerminology(curriculumId);
+  const REASON_LABELS = getReasonLabels(isAcademic);
   const handleClick = async (rec: UserRecommendation) => {
     // Track recommendation click
     await recordLearningEvent({
