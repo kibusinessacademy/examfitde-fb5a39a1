@@ -105,13 +105,33 @@ const faqs: FAQItem[] = [
   // Prüfung
   {
     category: 'Prüfungsvorbereitung',
-    question: 'Wann sollte ich mit der Vorbereitung beginnen?',
-    answer: 'Wir empfehlen, 3-6 Monate vor der Prüfung zu starten. So hast du genug Zeit für gründliches Lernen und Wiederholen. Unser adaptives System hilft dir, die Zeit optimal zu nutzen.',
+    question: 'Wann sollte ich mit der IHK Prüfungsvorbereitung beginnen?',
+    answer: 'Wir empfehlen, 3-6 Monate vor der Prüfung zu starten. So hast du genug Zeit für gründliches Lernen und Wiederholen. Unser adaptives Prüfungstraining hilft dir, die Zeit optimal zu nutzen.',
   },
   {
     category: 'Prüfungsvorbereitung',
-    question: 'Sind die Prüfungsfragen identisch mit den echten Prüfungen?',
-    answer: 'Unsere Fragen orientieren sich an Inhalt, Stil und Schwierigkeitsgrad der offiziellen Abschlussprüfungen. Da die Prüfungen urheberrechtlich geschützt sind, verwenden wir keine Originalfragen, sondern vergleichbare Fragen zu allen prüfungsrelevanten Themen. ExamFit ist unabhängig und nicht mit IHK oder HWK verbunden.',
+    question: 'Sind die Prüfungsfragen identisch mit den echten IHK Prüfungsaufgaben?',
+    answer: 'Unsere Fragen orientieren sich an Inhalt, Stil und Schwierigkeitsgrad der offiziellen IHK-Abschlussprüfungen. Da die Prüfungen urheberrechtlich geschützt sind, verwenden wir keine Originalfragen, sondern vergleichbare prüfungsnahe Fragen zu allen relevanten Themen.',
+  },
+  {
+    category: 'Prüfungsvorbereitung',
+    question: 'Wie bestehe ich die IHK Abschlussprüfung sicher?',
+    answer: 'Drei Schlüssel zum Bestehen: 1) Früh anfangen (3-6 Monate vorher), 2) Prüfungssimulation nutzen statt nur Theorie lesen, 3) Schwächen gezielt trainieren. ExamFit kombiniert alle drei Ansätze in einem System.',
+  },
+  {
+    category: 'Prüfungsvorbereitung',
+    question: 'Welche typischen Fehler sollte ich bei der IHK Prüfung vermeiden?',
+    answer: 'Die häufigsten Fehler: Zu spät mit der Vorbereitung beginnen, nur passiv Theorie lesen, keine Prüfungssimulation machen, Zeitmanagement nicht üben und Schwächen ignorieren. ExamFit hilft dir, alle diese Fehler zu vermeiden.',
+  },
+  {
+    category: 'Prüfungsvorbereitung',
+    question: 'Kann ich die IHK Prüfung online simulieren?',
+    answer: 'Ja. ExamFit bietet eine realistische IHK-Prüfungssimulation online: echte Zeitvorgaben, prüfungskonforme Aufgabentypen, Bestehensindikator und sofortige Auswertung deiner Schwächen.',
+  },
+  {
+    category: 'Prüfungsvorbereitung',
+    question: 'Gibt es IHK Prüfungsaufgaben mit Lösungen zum Üben?',
+    answer: 'Ja, ExamFit bietet hunderte prüfungsnahe Aufgaben mit ausführlichen Lösungen und Erklärungen. Der KI-Coach erklärt dir zusätzlich, warum eine Antwort richtig oder falsch ist.',
   },
   {
     category: 'Prüfungsvorbereitung',
@@ -120,8 +140,8 @@ const faqs: FAQItem[] = [
   },
   {
     category: 'Prüfungsvorbereitung',
-    question: 'Garantiert ExamFit das Bestehen der Prüfung?',
-    answer: 'Wir können kein Bestehen garantieren, da der Prüfungserfolg von vielen Faktoren abhängt. Unsere Statistik zeigt jedoch, dass 98% unserer aktiven Nutzer ihre Prüfung bestehen.',
+    question: 'Garantiert ExamFit das Bestehen der IHK Prüfung?',
+    answer: 'Wir können kein Bestehen garantieren, da der Prüfungserfolg von vielen Faktoren abhängt. Unsere Statistik zeigt jedoch, dass 98% unserer aktiven Nutzer ihre IHK-Prüfung bestehen.',
   },
 
   // Technisch
