@@ -300,7 +300,7 @@ export default function ExamAnxietyManager() {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">
-                Beruhige dein Nervensystem mit bewussten Atemübungen. Ideal vor der Prüfung.
+                {t('anxietyBreathing')}
               </p>
             </CardContent>
           </Card>
