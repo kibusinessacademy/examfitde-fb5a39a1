@@ -192,6 +192,7 @@ const AppRoutes = () => {
           <Route element={<ProtectedRoute />}>
             <Route path="/dashboard" element={<LearnerDashboard />} />
             <Route path="/exam-trainer" element={<ExamTrainer />} />
+            
             <Route path="/oral-exam" element={<OralExamTrainer />} />
             <Route path="/exam-simulation" element={<ExamSimulation />} />
             <Route path="/exam-simulation/:sessionId" element={<ExamSimulation />} />
