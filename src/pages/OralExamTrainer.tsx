@@ -369,10 +369,10 @@ export default function OralExamTrainer() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold flex items-center gap-3">
           <Mic className="h-8 w-8 text-primary" />
-          Mündliche Prüfungssimulation
+          {t('oralTitle')}
         </h1>
         <p className="text-muted-foreground mt-2">
-          Trainiere für deine mündliche IHK-Abschlussprüfung mit KI-gestütztem Feedback
+          {t('oralSubline')}
         </p>
       </div>
 
