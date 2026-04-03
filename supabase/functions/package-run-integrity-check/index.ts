@@ -521,6 +521,7 @@ async function runCourseReadyGate(
       AUSBILDUNG_VOLL: { min: 85, severity: "blocker" },
       ELITE:           { min: 90, severity: "blocker" },
       EXAM_FIRST:      { min: 60, severity: "warning" },
+      STUDIUM:         { min: 75, severity: "blocker" },
     };
     const compTh = COMP_COVERAGE_THRESHOLDS[trackEarly] ?? COMP_COVERAGE_THRESHOLDS["AUSBILDUNG_VOLL"];
     const compCoveragePassed = compCoveragePct >= compTh.min;
