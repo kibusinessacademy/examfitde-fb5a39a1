@@ -50,10 +50,10 @@ export async function loadLessonGenerationData(
   // These depend on lesson/profession but are independent of each other
   const lfId = (lesson as any).modules?.learning_field_id;
 
-  // Fetch beruf_id once (needed for glossary)
-  const berufPromise = sb.from("curricula").select("beruf_id").eq("id", req.curriculumId).maybeSingle()
-    .then((r: any) => r.data?.beruf_id || null)
-    .catch(() => null);
+  // Fetch beruf_id + program_type once (needed for glossary + prompt profiling)
+  const curriculaPromise = sb.from("curricula").select("beruf_id, program_type").eq("id", req.curriculumId).maybeSingle()
+    .then((r: any) => ({ berufId: r.data?.beruf_id || null, programType: r.data?.program_type || "vocational" }))
+    .catch(() => ({ berufId: null, programType: "vocational" }));
 
   const phase2Promises: [
     Promise<any>,                         // LF data
