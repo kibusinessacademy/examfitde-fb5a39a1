@@ -270,18 +270,40 @@ async function loadSSOTContext(
     if (data) {
       resolved.curriculum = data;
       parts.push(`Curriculum: ${data.title}`);
+      
+      // Resolve program_type for prompt profiling
+      try {
+        const { data: curWithProg } = await supabase
+          .from('curricula')
+          .select('program_id')
+          .eq('id', curriculumId)
+          .single();
+        if (curWithProg?.program_id) {
+          const { data: prog } = await supabase
+            .from('programs')
+            .select('program_type')
+            .eq('id', curWithProg.program_id)
+            .single();
+          if (prog?.program_type === 'higher_education') {
+            programType = 'higher_education';
+            professionName = data.title || 'Studierende'; // Use curriculum title as subject name
+          }
+        }
+      } catch { /* keep defaults */ }
     }
     
-    // Use shared resolver (user-facing, so allow generic fallback)
-    try {
-      const profResult = await resolveProfession(supabase, { curriculumId, allowGenericFallback: true });
-      professionName = profResult.professionName;
-    } catch {
-      // For tutor, allow generic fallback
-      professionName = "Auszubildende";
+    // Use shared resolver for vocational (user-facing, allow generic fallback)
+    if (programType === 'vocational') {
+      try {
+        const profResult = await resolveProfession(supabase, { curriculumId, allowGenericFallback: true });
+        professionName = profResult.professionName;
+      } catch {
+        professionName = "Auszubildende";
+      }
     }
-    parts.push(`Beruf: ${professionName}`);
+    parts.push(`${programType === 'higher_education' ? 'Fach' : 'Beruf'}: ${professionName}`);
     resolved.professionName = professionName;
+    resolved.programType = programType;
   }
 
   // Load learning field
