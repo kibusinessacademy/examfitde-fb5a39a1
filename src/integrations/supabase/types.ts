@@ -3612,6 +3612,13 @@ export type Database = {
             referencedRelation: "question_blueprints"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "blueprint_audit_log_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "v_blueprint_variant_stats"
+            referencedColumns: ["blueprint_id"]
+          },
         ]
       }
       blueprint_constraints: {
@@ -3663,6 +3670,13 @@ export type Database = {
             referencedRelation: "question_blueprints"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "blueprint_constraints_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "v_blueprint_variant_stats"
+            referencedColumns: ["blueprint_id"]
+          },
         ]
       }
       blueprint_correct_answers: {
@@ -3707,6 +3721,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "question_blueprints"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "blueprint_correct_answers_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "v_blueprint_variant_stats"
+            referencedColumns: ["blueprint_id"]
           },
         ]
       }
@@ -3755,6 +3776,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "question_blueprints"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "blueprint_distractors_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "v_blueprint_variant_stats"
+            referencedColumns: ["blueprint_id"]
           },
         ]
       }
@@ -3806,6 +3834,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "question_blueprints"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "blueprint_param_sets_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "v_blueprint_variant_stats"
+            referencedColumns: ["blueprint_id"]
           },
         ]
       }
@@ -4046,6 +4081,13 @@ export type Database = {
             referencedRelation: "question_blueprints"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "blueprint_variables_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "v_blueprint_variant_stats"
+            referencedColumns: ["blueprint_id"]
+          },
         ]
       }
       blueprint_variants: {
@@ -4102,6 +4144,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "question_blueprints"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "blueprint_variants_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "v_blueprint_variant_stats"
+            referencedColumns: ["blueprint_id"]
           },
           {
             foreignKeyName: "blueprint_variants_exam_question_id_fkey"
@@ -4206,6 +4255,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "question_blueprints"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "blueprint_versions_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "v_blueprint_variant_stats"
+            referencedColumns: ["blueprint_id"]
           },
         ]
       }
@@ -6177,6 +6233,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "question_blueprints"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_jobs_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "v_blueprint_variant_stats"
+            referencedColumns: ["blueprint_id"]
           },
           {
             foreignKeyName: "content_jobs_hook_id_fkey"
@@ -16832,6 +16895,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "exam_question_variants_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "v_blueprint_variant_stats"
+            referencedColumns: ["blueprint_id"]
+          },
+          {
             foreignKeyName: "exam_question_variants_competency_id_fkey"
             columns: ["competency_id"]
             isOneToOne: false
@@ -17073,6 +17143,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "question_blueprints"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_questions_blueprint_fk"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "v_blueprint_variant_stats"
+            referencedColumns: ["blueprint_id"]
           },
           {
             foreignKeyName: "exam_questions_competency_id_fkey"
@@ -24047,6 +24124,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "question_blueprints"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "oral_exam_questions_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "v_blueprint_variant_stats"
+            referencedColumns: ["blueprint_id"]
           },
           {
             foreignKeyName: "oral_exam_questions_competency_id_fkey"
@@ -36097,6 +36181,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "spaced_repetition_cards_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "v_blueprint_variant_stats"
+            referencedColumns: ["blueprint_id"]
+          },
+          {
             foreignKeyName: "spaced_repetition_cards_competency_id_fkey"
             columns: ["competency_id"]
             isOneToOne: false
@@ -42487,6 +42578,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "exam_questions_blueprint_fk"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "v_blueprint_variant_stats"
+            referencedColumns: ["blueprint_id"]
+          },
+          {
             foreignKeyName: "exam_questions_competency_id_fkey"
             columns: ["competency_id"]
             isOneToOne: false
@@ -46513,6 +46611,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "blueprint_param_sets_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "v_blueprint_variant_stats"
+            referencedColumns: ["blueprint_id"]
+          },
+          {
             foreignKeyName: "question_blueprints_curriculum_id_fkey"
             columns: ["curriculum_id"]
             isOneToOne: false
@@ -50182,6 +50287,95 @@ export type Database = {
         }
         Relationships: []
       }
+      v_blueprint_variant_stats: {
+        Row: {
+          avg_quality: number | null
+          blueprint_id: string | null
+          blueprint_name: string | null
+          blueprint_status:
+            | Database["public"]["Enums"]["blueprint_status"]
+            | null
+          competency_id: string | null
+          context_count: number | null
+          curriculum_id: string | null
+          gate_status: string | null
+          in_review: number | null
+          learning_field_id: string | null
+          parameter_count: number | null
+          promoted: number | null
+          skipped: number | null
+          structure_count: number | null
+          total_variants: number | null
+          transfer_count: number | null
+          transfer_pct: number | null
+          trap_count: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "question_blueprints_competency_id_fkey"
+            columns: ["competency_id"]
+            isOneToOne: false
+            referencedRelation: "competencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_blueprints_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_blueprints_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "question_blueprints_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "question_blueprints_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "question_blueprints_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_qc_backlog"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "question_blueprints_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_qc_backlog_age"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "question_blueprints_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "question_blueprints_learning_field_id_fkey"
+            columns: ["learning_field_id"]
+            isOneToOne: false
+            referencedRelation: "learning_fields"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_building_package_eta: {
         Row: {
           blocked_steps: number | null
@@ -50720,6 +50914,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "exam_questions_blueprint_fk"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "v_blueprint_variant_stats"
+            referencedColumns: ["blueprint_id"]
+          },
+          {
             foreignKeyName: "exam_questions_competency_id_fkey"
             columns: ["competency_id"]
             isOneToOne: false
@@ -50832,6 +51033,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "question_blueprints"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_questions_blueprint_fk"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "v_blueprint_variant_stats"
+            referencedColumns: ["blueprint_id"]
           },
           {
             foreignKeyName: "exam_questions_competency_id_fkey"
@@ -51163,6 +51371,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "question_blueprints"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_questions_blueprint_fk"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "v_blueprint_variant_stats"
+            referencedColumns: ["blueprint_id"]
           },
           {
             foreignKeyName: "exam_questions_competency_id_fkey"

@@ -14,6 +14,9 @@ export type PipelineStepKey =
   | "validate_learning_content"
   | "auto_seed_exam_blueprints"
   | "validate_blueprints"
+  | "generate_blueprint_variants"
+  | "validate_blueprint_variants"
+  | "promote_blueprint_variants"
   | "generate_exam_pool"
   | "validate_exam_pool"
   | "repair_exam_pool_quality"
@@ -43,6 +46,9 @@ export const STEP_TO_JOB_TYPE: Record<PipelineStepKey, string> = {
   validate_learning_content: "package_validate_learning_content",
   auto_seed_exam_blueprints: "package_auto_seed_exam_blueprints",
   validate_blueprints: "package_validate_blueprints",
+  generate_blueprint_variants: "package_generate_blueprint_variants",
+  validate_blueprint_variants: "package_validate_blueprint_variants",
+  promote_blueprint_variants: "package_promote_blueprint_variants",
   generate_exam_pool: "package_generate_exam_pool",
   validate_exam_pool: "package_validate_exam_pool",
   repair_exam_pool_quality: "package_repair_exam_pool_quality",
@@ -76,6 +82,9 @@ export const FULL_STEP_ORDER: PipelineStepKey[] = [
   "validate_learning_content",
   "auto_seed_exam_blueprints",
   "validate_blueprints",
+  "generate_blueprint_variants",
+  "validate_blueprint_variants",
+  "promote_blueprint_variants",
   "generate_exam_pool",
   "validate_exam_pool",
   "repair_exam_pool_quality",
@@ -286,6 +295,9 @@ export const JOB_DEFINITIONS: Record<string, JobDefinition> = {
   handbook_expand_section:           { pool: "content", edgeFunction: "expand-handbook-section" },
   package_validate_handbook_depth:   { pool: "core", edgeFunction: "package-validate-handbook-depth" },
   package_auto_seed_exam_blueprints: { pool: "core", edgeFunction: "package-auto-seed-exam-blueprints" },
+  package_generate_blueprint_variants:  { pool: "content", edgeFunction: "generate-blueprint-variants" },
+  package_validate_blueprint_variants:  { pool: "core", edgeFunction: "validate-blueprint-variants" },
+  package_promote_blueprint_variants:   { pool: "core", edgeFunction: "promote-blueprint-variants" },
   package_build_ai_tutor_index:      { pool: "core", edgeFunction: "package-build-ai-tutor-index" },
   package_elite_harden:              { pool: "core", edgeFunction: "package-elite-harden" },
   package_run_integrity_check:       { pool: "core", edgeFunction: "package-run-integrity-check" },
@@ -502,7 +514,10 @@ export const PIPELINE_GRAPH: PipelineNode[] = [
   { key: "validate_learning_content", dependsOn: ["finalize_learning_content"], requires: ["finalized_learning_content"], produces: ["validated_learning_content"], weight: 3 },
   { key: "auto_seed_exam_blueprints", dependsOn: ["validate_learning_content"], requires: ["validated_learning_content"], produces: ["exam_blueprints"], weight: 6 },
   { key: "validate_blueprints", dependsOn: ["auto_seed_exam_blueprints"], requires: ["exam_blueprints"], produces: ["validated_blueprints"], weight: 2 },
-  { key: "generate_exam_pool", dependsOn: ["validate_blueprints"], requires: ["validated_blueprints"], produces: ["exam_questions"], weight: 8 },
+  { key: "generate_blueprint_variants", dependsOn: ["validate_blueprints"], requires: ["validated_blueprints"], produces: ["blueprint_variants"], weight: 6 },
+  { key: "validate_blueprint_variants", dependsOn: ["generate_blueprint_variants"], requires: ["blueprint_variants"], produces: ["validated_blueprint_variants"], weight: 2 },
+  { key: "promote_blueprint_variants", dependsOn: ["validate_blueprint_variants"], requires: ["validated_blueprint_variants"], produces: ["promoted_variants"], weight: 3 },
+  { key: "generate_exam_pool", dependsOn: ["promote_blueprint_variants"], requires: ["promoted_variants"], produces: ["exam_questions"], weight: 8 },
   { key: "validate_exam_pool", dependsOn: ["generate_exam_pool"], requires: ["exam_questions"], produces: ["validated_exam_pool"], weight: 3 },
   { key: "repair_exam_pool_quality", dependsOn: ["generate_exam_pool"], requires: ["exam_questions"], produces: ["repaired_exam_pool"], weight: 4 },
   { key: "build_ai_tutor_index", dependsOn: ["validate_exam_pool"], requires: ["validated_exam_pool"], produces: ["tutor_index"], weight: 4 },
