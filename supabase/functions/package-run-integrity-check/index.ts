@@ -85,12 +85,15 @@ interface GateResult {
   value?: number;
 }
 
+// ── Integrity Profile Types ──
+type IntegrityProfile = "vocational" | "higher_ed";
+
 async function runCourseReadyGate(
   sb: ReturnType<typeof createClient>,
   courseId: string,
   curriculumId: string | null,
   packageId: string,
-): Promise<{ results: GateResult[]; hardFails: string[]; warnings: string[]; excellence: string[]; score: number }> {
+): Promise<{ results: GateResult[]; hardFails: string[]; warnings: string[]; excellence: string[]; score: number; integrityProfile: IntegrityProfile }> {
   const results: GateResult[] = [];
   const hardFails: string[] = [];
   const warnings: string[] = [];
@@ -108,6 +111,21 @@ async function runCourseReadyGate(
   const { data: pkgTrackEarly } = await sb.from("course_packages").select("track").eq("id", packageId).maybeSingle();
   const trackEarly = (pkgTrackEarly as any)?.track ?? "AUSBILDUNG_VOLL";
   const isExamFirstEarly = trackEarly === "EXAM_FIRST";
+
+  // ── Derive integrity profile from curricula.program_type (SSOT) ──
+  let integrityProfile: IntegrityProfile = "vocational";
+  if (curriculumId) {
+    const { data: currRow } = await sb
+      .from("curricula")
+      .select("program_type")
+      .eq("id", curriculumId)
+      .maybeSingle();
+    const pt = (currRow as any)?.program_type;
+    if (pt === "higher_education") integrityProfile = "higher_ed";
+    // continuing_education defaults to vocational for now
+  }
+  const isHigherEd = integrityProfile === "higher_ed";
+  console.log(`[integrity-check] pkg=${packageId.slice(0, 8)} integrity_profile=${integrityProfile} track=${trackEarly}`);
 
   let totalLessons = 0;
   let placeholderCount = 0;
@@ -161,36 +179,35 @@ async function runCourseReadyGate(
 
   // ═══════════════════════════════════════════════
   // GATE 2: Oral-Exam Pflichtprüfung
+  // Higher-Ed: skip (no IHK oral exam format)
   // ═══════════════════════════════════════════════
   const { data: pkgFlags } = await sb.from("course_packages").select("feature_flags").eq("id", packageId).maybeSingle();
-  const includeOral = (pkgFlags as any)?.feature_flags?.include_oral_exam !== false;
+  const includeOral = !isHigherEd && (pkgFlags as any)?.feature_flags?.include_oral_exam !== false;
 
-  if (includeOral) {
+  if (isHigherEd) {
+    results.push({
+      gate: "oral_exam_ready",
+      passed: true,
+      severity: "blocker",
+      detail: "Skipped (higher_ed profile — no IHK oral exam)",
+    });
+  } else if (includeOral) {
     // FIX: oral_exam_sessionsets uses package_id, NOT curriculum_id
     const [{ count: bpCount }, { count: ssCount }] = await Promise.all([
       sb.from("oral_exam_blueprints").select("id", { count: "exact", head: true }).eq("curriculum_id", curriculumId ?? courseId),
       sb.from("oral_exam_sessionsets").select("id", { count: "exact", head: true }).eq("package_id", packageId),
     ]);
 
-    // FIX: Many oral_exam_blueprints have learning_field_id = NULL because
-    // the generator didn't set it. Fall back to counting distinct blueprints
-    // that exist (blueprint count >= 10 already ensures coverage).
-    // Also try to match by learning_field_id where available.
     const { data: oralBpLFs } = await sb
       .from("oral_exam_blueprints")
       .select("learning_field_id, title")
       .eq("curriculum_id", curriculumId ?? courseId);
     const uniqueOralLFs = new Set((oralBpLFs ?? []).map((b: any) => b.learning_field_id).filter(Boolean));
-    // If learning_field_id is mostly NULL, count unique title prefixes as proxy for LF coverage
     const hasLfIds = uniqueOralLFs.size > 0;
     let oralCoveragePct: number;
-    // FIX: 0/0 must be treated as N/A → 100% (no LFs to measure against)
-    // This occurs in EXAM_FIRST tracks where moduleIds is empty.
     if (hasLfIds) {
       oralCoveragePct = pctOrNA(uniqueOralLFs.size, moduleIds.length);
     } else {
-      // Fallback: if we have >= 10 blueprints and they cover diverse topics, consider coverage met
-      // Use distinct title patterns as proxy (each LF typically has 2 blueprints)
       const distinctTitles = new Set((oralBpLFs ?? []).map((b: any) => {
         const t = (b.title || "").replace(/^Mündliche Prüfung:\s*/i, "").trim();
         return t.split(/\s+/).slice(0, 3).join(" ").toLowerCase();
@@ -251,6 +268,7 @@ async function runCourseReadyGate(
     AUSBILDUNG_VOLL: { minApproved: 500, minHardishPct: 40, maxEasyPct: 17 },
     EXAM_FIRST:      { minApproved: 60,  minHardishPct: 20, maxEasyPct: 25 },
     ELITE:           { minApproved: 800, minHardishPct: 45, maxEasyPct: 12 },
+    STUDIUM:         { minApproved: 200, minHardishPct: 30, maxEasyPct: 20 },
   };
   const poolTh = POOL_THRESHOLDS[trackEarly] ?? POOL_THRESHOLDS["AUSBILDUNG_VOLL"];
 
@@ -435,6 +453,7 @@ async function runCourseReadyGate(
       AUSBILDUNG_VOLL: { remember: { max: 25 }, understand: { min: 12 }, apply: { min: 25 }, analyze: { min: 12 }, evaluate: { min: 2 } },
       EXAM_FIRST:      { remember: { max: 35 }, understand: { min: 8 },  apply: { min: 20 }, analyze: { min: 8 },  evaluate: { min: 1 } },
       ELITE:           { remember: { max: 20 }, understand: { min: 15 }, apply: { min: 30 }, analyze: { min: 15 }, evaluate: { min: 3 } },
+      STUDIUM:         { remember: { max: 20 }, understand: { min: 15 }, apply: { min: 20 }, analyze: { min: 15 }, evaluate: { min: 5 } },
     };
     const bloomTh = BLOOM_TARGETS[trackEarly] ?? BLOOM_TARGETS["AUSBILDUNG_VOLL"];
 
@@ -502,6 +521,7 @@ async function runCourseReadyGate(
       AUSBILDUNG_VOLL: { min: 85, severity: "blocker" },
       ELITE:           { min: 90, severity: "blocker" },
       EXAM_FIRST:      { min: 60, severity: "warning" },
+      STUDIUM:         { min: 75, severity: "blocker" },
     };
     const compTh = COMP_COVERAGE_THRESHOLDS[trackEarly] ?? COMP_COVERAGE_THRESHOLDS["AUSBILDUNG_VOLL"];
     const compCoveragePassed = compCoveragePct >= compTh.min;
@@ -643,10 +663,12 @@ async function runCourseReadyGate(
   }
 
   // ═══════════════════════════════════════════════
-  // GATE 5d: Competency Full Step Coverage — every competency needs all 5 didactic steps
-  // SSOT: einstieg, verstehen, anwenden, wiederholen, mini_check
+  // GATE 5d: Competency Full Step Coverage — every competency needs all didactic steps
+  // SSOT: vocational = 5 steps, higher_ed = 7 steps (incl. reflektieren, transfer)
   // ═══════════════════════════════════════════════
-  const REQUIRED_STEPS = ["einstieg", "verstehen", "anwenden", "wiederholen", "mini_check"];
+  const REQUIRED_STEPS_VOCATIONAL = ["einstieg", "verstehen", "anwenden", "wiederholen", "mini_check"];
+  const REQUIRED_STEPS_HIGHER_ED = ["einstieg", "verstehen", "anwenden", "reflektieren", "transfer", "wiederholen", "mini_check"];
+  const REQUIRED_STEPS = isHigherEd ? REQUIRED_STEPS_HIGHER_ED : REQUIRED_STEPS_VOCATIONAL;
   if (moduleIds.length > 0 && !isExamFirstEarly && totalCompetencies > 0) {
     const { data: stepLessons } = await sb
       .from("lessons")
@@ -676,14 +698,15 @@ async function runCourseReadyGate(
     const totalIncomplete = incompleteComps.length + compsWithNoLesson;
 
     const fullStepCoveragePct = pctOrNA(fullCoverageCount, totalCompetencies);
-    // AUSBILDUNG_VOLL: 100% blocker (every competency must have 5/5 steps)
-    const fullStepThreshold = trackEarly === "ELITE" ? 100 : trackEarly === "AUSBILDUNG_VOLL" ? 95 : 80;
+    const stepCountLabel = isHigherEd ? "7" : "5";
+    // Higher-Ed: 80% threshold (new content, fewer steps initially populated)
+    const fullStepThreshold = trackEarly === "ELITE" ? 100 : trackEarly === "STUDIUM" ? 80 : trackEarly === "AUSBILDUNG_VOLL" ? 95 : 80;
     const fullStepPassed = fullStepCoveragePct >= fullStepThreshold;
     results.push({
       gate: "competency_full_step_coverage",
       passed: fullStepPassed,
       severity: "blocker",
-      detail: `${fullCoverageCount}/${totalCompetencies} competencies have all 5 steps (${fullStepCoveragePct.toFixed(1)}%, min ${fullStepThreshold}%). ${totalIncomplete} incomplete.`,
+      detail: `${fullCoverageCount}/${totalCompetencies} competencies have all ${stepCountLabel} steps (${fullStepCoveragePct.toFixed(1)}%, min ${fullStepThreshold}%). ${totalIncomplete} incomplete. [profile=${integrityProfile}]`,
     });
     if (!fullStepPassed) {
       hardFails.push(`COMPETENCY_STEP_GAP: Only ${fullCoverageCount}/${totalCompetencies} competencies have full 5-step coverage (${fullStepCoveragePct.toFixed(1)}%<${fullStepThreshold}%)`);
@@ -753,6 +776,7 @@ async function runCourseReadyGate(
       AUSBILDUNG_VOLL: 5,
       ELITE: 3,
       EXAM_FIRST: 5,
+      STUDIUM: 5,
     };
     const easyMinTarget = EASY_MIN_PCT[trackEarly] ?? 5;
     const easyTooLow = easyPct < easyMinTarget;
@@ -784,10 +808,18 @@ async function runCourseReadyGate(
   }
 
   // ═══════════════════════════════════════════════
-  // GATE 9: Exam-Part Coverage (NEW: Fix 2)
+  // GATE 9: Exam-Part Coverage
   // Questions must be mapped to Teil 1 / Teil 2
+  // Higher-Ed: skip (no IHK exam parts)
   // ═══════════════════════════════════════════════
-  if (totalApproved > 0) {
+  if (isHigherEd) {
+    results.push({
+      gate: "exam_part_coverage",
+      passed: true,
+      severity: "warning",
+      detail: "Skipped (higher_ed profile — no IHK exam part structure)",
+    });
+  } else if (totalApproved > 0) {
     const withExamPart = (approvedQs ?? []).filter((q: any) => q.exam_part).length;
     const examPartPct = (withExamPart / totalApproved) * 100;
     const examPartPassed = examPartPct >= 80;
@@ -845,8 +877,9 @@ async function runCourseReadyGate(
       AUSBILDUNG_VOLL: 10,
       ELITE: 15,
       EXAM_FIRST: 5,
+      STUDIUM: 0, // Higher-Ed: traps are not an IHK concept
     };
-    const trapMinTarget = TRAP_MIN_PCT[trackEarly] ?? 10;
+    const trapMinTarget = isHigherEd ? 0 : (TRAP_MIN_PCT[trackEarly] ?? 10);
     const trapPassed = trapPct >= trapMinTarget;
 
     // Tiered severity: >25% missing = blocker, >10% missing = warning
@@ -914,8 +947,9 @@ async function runCourseReadyGate(
       AUSBILDUNG_VOLL: 15,
       ELITE: 20,
       EXAM_FIRST: 10,
+      STUDIUM: 0, // Higher-Ed: conflict-type is IHK-specific
     };
-    const conflictMinTarget = CONFLICT_MIN_PCT[trackEarly] ?? 15;
+    const conflictMinTarget = isHigherEd ? 0 : (CONFLICT_MIN_PCT[trackEarly] ?? 15);
     const conflictPassed = conflictPct >= conflictMinTarget;
 
     // Conflict distribution breakdown
@@ -960,7 +994,7 @@ async function runCourseReadyGate(
   const passedGates = results.filter(r => r.severity === "blocker" && r.passed).length;
   const score = totalGates > 0 ? Math.round((passedGates / totalGates) * 100) : 0;
 
-  return { results, hardFails, warnings, excellence, score, metrics: {
+  return { results, hardFails, warnings, excellence, score, integrityProfile, metrics: {
     totalApproved, approvedQs: approvedQs ?? [], uniqueLFs, moduleIds, totalCompetencies,
     approvedCountExpected, sampleTruncated,
   } };
@@ -1047,6 +1081,7 @@ Deno.serve(async (req) => {
     const INTEGRITY_PREREQ_BY_TRACK: Record<string, string> = {
       EXAM_FIRST: "validate_oral_exam",
       AUSBILDUNG_VOLL: "generate_handbook",
+      STUDIUM: "generate_handbook",
     };
     const prereqStep = INTEGRITY_PREREQ_BY_TRACK[track] ?? INTEGRITY_PREREQ_BY_TRACK["AUSBILDUNG_VOLL"];
     if (!(await prereqDone(sb, packageId, prereqStep))) {
@@ -1159,13 +1194,14 @@ Deno.serve(async (req) => {
       hard_fail_reasons: gate.hardFails,
     };
 
-    const CURRENT_REPORT_VERSION = "COURSE_READY_v1.6";
-    const CURRENT_REPORT_VERSION_NUM = 16;
+    const CURRENT_REPORT_VERSION = "COURSE_READY_v1.7";
+    const CURRENT_REPORT_VERSION_NUM = 17;
     const report = {
       score: gate.score,
       generated_at: new Date().toISOString(),
       gate_version: CURRENT_REPORT_VERSION,
       version_num: CURRENT_REPORT_VERSION_NUM,
+      integrity_profile: gate.integrityProfile,
       sample_metadata: {
         approved_question_count_total: approvedCountExpected,
         approved_question_count_loaded: totalApproved,
