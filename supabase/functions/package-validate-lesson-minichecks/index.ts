@@ -3,13 +3,16 @@ import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 
 /**
- * package-validate-lesson-minichecks
- * 
+ * package-validate-lesson-minichecks  (V2 — approved-based logic)
+ *
  * Quality gate for MiniCheck questions (read-only — NO status changes):
- * - Coverage check (Learning-Track: ≥90% lessons must have MiniChecks)
- * - Min items per lesson (≥3, counted across ALL statuses)
- * - Content quality checks (explanation length, option count)
- * - Reports PASS/FAIL + quality metrics; approval via quality_council
+ * - Counts APPROVED questions (not drafts — auto-QC trigger handles promotion)
+ * - Coverage check (Learning-Track: ≥90% lessons must have approved MiniChecks)
+ * - Min items per lesson (≥3 approved)
+ * - Trap coverage (approved without traps = blocker)
+ * - Audit completeness (approved without audit metadata = warning)
+ * - Drift check (curriculum_id mismatch via competency chain)
+ * - Publish-gate integration
  *
  * Job-Runner signals:
  *   NO_MINICHECKS or coverage < 10%  → retry:true, backoff_seconds:300
@@ -18,7 +21,6 @@ import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
  */
 
 const MIN_ITEMS_PER_LESSON = 3;
-const MIN_EXPLANATION_LENGTH = 220;
 const PREREQ_COVERAGE_THRESHOLD = 0.10;
 
 function json(body: unknown, status = 200, origin: string | null = null) {
@@ -31,6 +33,34 @@ function json(body: unknown, status = 200, origin: string | null = null) {
 function assertUuid(name: string, v: unknown) {
   const re = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (!v || typeof v !== "string" || !re.test(v)) throw new Error(`INVALID_${name.toUpperCase()}`);
+}
+
+/** Paginated fetch to avoid Supabase 1000-row default limit */
+async function fetchAllRows<T>(
+  sb: ReturnType<typeof createClient>,
+  table: string,
+  select: string,
+  filters: Array<{ op: string; col: string; val: unknown }>,
+  pageSize = 1000,
+): Promise<T[]> {
+  const all: T[] = [];
+  let from = 0;
+  while (true) {
+    let q = sb.from(table).select(select).range(from, from + pageSize - 1);
+    for (const f of filters) {
+      if (f.op === "eq") q = q.eq(f.col, f.val);
+      else if (f.op === "in") q = q.in(f.col, f.val as string[]);
+      else if (f.op === "not.is") q = q.not(f.col, "is", f.val);
+      else if (f.op === "neq") q = q.neq(f.col, f.val);
+    }
+    const { data, error } = await q;
+    if (error) throw new Error(`DB_ERROR: ${error.message}`);
+    if (!data || data.length === 0) break;
+    all.push(...(data as T[]));
+    if (data.length < pageSize) break;
+    from += pageSize;
+  }
+  return all;
 }
 
 Deno.serve(async (req) => {
@@ -69,7 +99,14 @@ Deno.serve(async (req) => {
 
     const issues: Array<{ severity: string; code: string; message: string }> = [];
 
-    // Count total MiniCheck questions (all statuses)
+    // ── V2: Count APPROVED questions (auto-QC trigger handles promotion) ──
+    const { count: approvedCount } = await sb
+      .from("minicheck_questions")
+      .select("id", { count: "exact", head: true })
+      .eq("curriculum_id", curriculumId)
+      .eq("mode", mode)
+      .eq("status", "approved");
+
     const { count: totalCount } = await sb
       .from("minicheck_questions")
       .select("id", { count: "exact", head: true })
@@ -87,48 +124,68 @@ Deno.serve(async (req) => {
         reason_code: "NO_MINICHECKS",
         issues: [{ severity: "critical", code: "NO_MINICHECKS", message: `Keine MiniCheck-Fragen (${mode}) für Curriculum gefunden` }],
         total: 0,
+        approved: 0,
       }, 200, origin);
     }
 
-    // Quality checks: count approved (auto-QC promoted) + remaining drafts
-    const { count: approvedCount } = await sb
+    // ── V2: Trap coverage among approved ──
+    const { count: approvedWithoutTraps } = await sb
       .from("minicheck_questions")
       .select("id", { count: "exact", head: true })
       .eq("curriculum_id", curriculumId)
       .eq("mode", mode)
-      .eq("status", "approved");
+      .eq("status", "approved")
+      .or("trap_tags.is.null,trap_tags.eq.{}");
 
-    const { data: draftQuestions } = await sb
-      .from("minicheck_questions")
-      .select("id, lesson_id, competency_id, question_text, options, explanation, difficulty, status, trap_tags")
-      .eq("curriculum_id", curriculumId)
-      .eq("mode", mode)
-      .eq("status", "draft")
-      .limit(2000);
-
-    let qualityPass = approvedCount || 0;
-    let qualityFails = 0;
-    const passedIds: string[] = [];
-
-    // Check remaining drafts (those that failed auto-QC trigger)
-    for (const q of draftQuestions || []) {
-      let isValid = true;
-      const opts = Array.isArray(q.options) ? q.options : [];
-      if (opts.length !== 4) isValid = false;
-      if (!q.explanation || q.explanation.length < MIN_EXPLANATION_LENGTH) isValid = false;
-      if (!q.question_text || q.question_text.length < 15) isValid = false;
-      const trapTags = Array.isArray(q.trap_tags) ? q.trap_tags : [];
-      if (trapTags.length === 0) isValid = false;
-
-      if (isValid) {
-        qualityPass++;
-        passedIds.push(q.id);
-      } else {
-        qualityFails++;
-      }
+    if (approvedWithoutTraps && approvedWithoutTraps > 0) {
+      issues.push({
+        severity: "critical",
+        code: "APPROVED_WITHOUT_TRAP",
+        message: `${approvedWithoutTraps} approved MiniChecks haben keine Trap-Tags`,
+      });
     }
 
-    // Coverage check for lesson mode
+    // ── V2: Audit completeness among approved ──
+    const { count: approvedWithoutAudit } = await sb
+      .from("minicheck_questions")
+      .select("id", { count: "exact", head: true })
+      .eq("curriculum_id", curriculumId)
+      .eq("mode", mode)
+      .eq("status", "approved")
+      .is("approved_by", null);
+
+    if (approvedWithoutAudit && approvedWithoutAudit > 0) {
+      issues.push({
+        severity: "warning",
+        code: "APPROVED_WITHOUT_AUDIT",
+        message: `${approvedWithoutAudit} approved MiniChecks ohne Audit-Metadaten (approved_by)`,
+      });
+    }
+
+    // ── V2: Drift check ──
+    const { count: driftCount } = await sb
+      .from("v_minicheck_curriculum_drift" as any)
+      .select("question_id", { count: "exact", head: true });
+
+    if (driftCount && driftCount > 0) {
+      issues.push({
+        severity: "warning",
+        code: "CURRICULUM_DRIFT",
+        message: `${driftCount} MiniChecks mit curriculum_id-Drift (stored ≠ derived)`,
+      });
+    }
+
+    // ── Remaining drafts (info only — auto-QC should have caught them) ──
+    const draftCount = (totalCount || 0) - (approvedCount || 0);
+    if (draftCount > 0) {
+      issues.push({
+        severity: "info",
+        code: "REMAINING_DRAFTS",
+        message: `${draftCount} MiniChecks noch im Draft-Status (Auto-QC hat sie nicht promoted)`,
+      });
+    }
+
+    // ── Coverage check for lesson mode ──
     let coverage: number | null = null;
 
     if (mode === "lesson" && effectiveCourseId) {
@@ -153,17 +210,23 @@ Deno.serve(async (req) => {
       if (totalLessons > 0) {
         const lessonIds = lessons.map((l: any) => l.id);
 
-        // Chunked loading to avoid 1000-row default limit
+        // ── FIX: Use DISTINCT lesson_id query to avoid 1000-row limit ──
+        // Instead of fetching all rows and deduplicating, fetch approved
+        // MiniChecks grouped by lesson_id using paginated approach
         const allLessonRows: Array<{ lesson_id: string }> = [];
         for (let i = 0; i < lessonIds.length; i += 200) {
           const chunk = lessonIds.slice(i, i + 200);
-          const { data: chunkRows } = await sb
-            .from("minicheck_questions")
-            .select("lesson_id")
-            .in("lesson_id", chunk)
-            .eq("mode", "lesson")
-            .limit(5000);
-          if (chunkRows) allLessonRows.push(...chunkRows);
+          const rows = await fetchAllRows<{ lesson_id: string }>(
+            sb,
+            "minicheck_questions",
+            "lesson_id",
+            [
+              { op: "in", col: "lesson_id", val: chunk },
+              { op: "eq", col: "mode", val: "lesson" },
+              { op: "eq", col: "status", val: "approved" },
+            ],
+          );
+          allLessonRows.push(...rows);
         }
 
         const countByLesson = new Map<string, number>();
@@ -189,7 +252,7 @@ Deno.serve(async (req) => {
           });
         }
 
-        // Min items per lesson
+        // Min items per lesson (approved only)
         let tooFew = 0;
         for (const lid of lessonIds) {
           const c = countByLesson.get(lid) || 0;
@@ -199,81 +262,107 @@ Deno.serve(async (req) => {
           issues.push({
             severity: "critical",
             code: "MIN_ITEMS_PER_LESSON",
-            message: `${tooFew} Lektionen haben <${MIN_ITEMS_PER_LESSON} MiniChecks (Pflicht)`,
+            message: `${tooFew} Lektionen haben <${MIN_ITEMS_PER_LESSON} approved MiniChecks`,
           });
         }
       }
     }
 
-    if (qualityFails > 0) {
-      issues.push({
-        severity: "info",
-        code: "QUALITY_REJECTS",
-        message: `${qualityFails} Fragen fielen durch die Qualitätsprüfung`,
+    // ── V2: Publish-gate check ──
+    let publishGatePassed: boolean | null = null;
+    try {
+      const { data: pgResult } = await sb.rpc("fn_minicheck_publish_gate", {
+        p_curriculum_id: curriculumId,
       });
+      publishGatePassed = pgResult === true;
+      if (!publishGatePassed) {
+        issues.push({
+          severity: "warning",
+          code: "PUBLISH_GATE_FAIL",
+          message: "MiniCheck Publish-Gate nicht bestanden (Kompetenz-/LF-/Trap-Abdeckung unzureichend)",
+        });
+      }
+    } catch {
+      // Function might not exist yet — non-critical
     }
 
-    const hasCritical = issues.some(i => i.severity === "critical");
+    const hasCritical = issues.some((i) => i.severity === "critical");
 
-    console.log(`[ValidateMini] ${packageId} ${mode}: ${qualityPass} passed, ${qualityFails} rejected, coverage=${coverage !== null ? (coverage * 100).toFixed(0) + '%' : 'n/a'}, critical=${hasCritical}`);
+    console.log(
+      `[ValidateMini] ${packageId} ${mode}: approved=${approvedCount}, total=${totalCount}, ` +
+        `coverage=${coverage !== null ? (coverage * 100).toFixed(0) + "%" : "n/a"}, ` +
+        `publishGate=${publishGatePassed}, critical=${hasCritical}`,
+    );
 
     // Gate passed
     if (!hasCritical) {
-      return json({
-        ok: true,
-        total: totalCount,
-        quality_pass: qualityPass,
-        quality_fail: qualityFails,
-        passed_ids: passedIds,
-        issues,
-      }, 200, origin);
+      return json(
+        {
+          ok: true,
+          total: totalCount,
+          approved: approvedCount || 0,
+          draft: draftCount,
+          coverage: coverage !== null ? Math.round(coverage * 100) : null,
+          publish_gate: publishGatePassed,
+          issues,
+        },
+        200,
+        origin,
+      );
     }
 
     // Gate failed — classify retry vs permanent
-    const coveragePct = coverage !== null ? (coverage * 100).toFixed(0) : '?';
+    const coveragePct = coverage !== null ? (coverage * 100).toFixed(0) : "?";
 
     if (coverage !== null && coverage < PREREQ_COVERAGE_THRESHOLD) {
-      // Prerequisites not ready yet — retry with backoff
-      return json({
-        ok: false,
-        retry: true,
-        backoff_seconds: 300,
-        error: `GATE_FAIL: LOW_COVERAGE ${coveragePct}% (prereqs not ready)`,
-        classification: "prereq_not_ready",
-        reason_code: "LOW_COVERAGE",
-        coverage_state: coverage < 0.01 ? "none" : "bootstrap",
-        total: totalCount,
-        quality_pass: qualityPass,
-        quality_fail: qualityFails,
-        issues,
-      }, 200, origin);
+      return json(
+        {
+          ok: false,
+          retry: true,
+          backoff_seconds: 300,
+          error: `GATE_FAIL: LOW_COVERAGE ${coveragePct}% (prereqs not ready)`,
+          classification: "prereq_not_ready",
+          reason_code: "LOW_COVERAGE",
+          coverage_state: coverage < 0.01 ? "none" : "bootstrap",
+          total: totalCount,
+          approved: approvedCount || 0,
+          issues,
+        },
+        200,
+        origin,
+      );
     }
 
-    // Genuine gate failure — don't retry
-    return json({
-      ok: false,
-      permanent: true,
-      error: `GATE_FAIL: coverage=${coveragePct}%, critical_issues=${issues.filter(i => i.severity === 'critical').length}`,
-      classification: "gate_fail",
-      reason_code: issues.find(i => i.severity === 'critical')?.code || "UNKNOWN",
-      coverage_state: coverage === null ? "none" : coverage < 0.5 ? "partial" : coverage < 0.9 ? "partial" : "ready",
-      total: totalCount,
-      quality_pass: qualityPass,
-      quality_fail: qualityFails,
-      passed_ids: passedIds,
-      issues,
-    }, 200, origin);
-
+    return json(
+      {
+        ok: false,
+        permanent: true,
+        error: `GATE_FAIL: coverage=${coveragePct}%, critical_issues=${issues.filter((i) => i.severity === "critical").length}`,
+        classification: "gate_fail",
+        reason_code: issues.find((i) => i.severity === "critical")?.code || "UNKNOWN",
+        coverage_state:
+          coverage === null ? "none" : coverage < 0.5 ? "partial" : coverage < 0.9 ? "partial" : "ready",
+        total: totalCount,
+        approved: approvedCount || 0,
+        issues,
+      },
+      200,
+      origin,
+    );
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error(`[ValidateMini] FATAL: ${msg}`);
-    return json({
-      ok: false,
-      retry: true,
-      transient: true,
-      backoff_seconds: 120,
-      error: `UNHANDLED_EXCEPTION: ${msg}`,
-      classification: "transient_error",
-    }, 200, origin);
+    return json(
+      {
+        ok: false,
+        retry: true,
+        transient: true,
+        backoff_seconds: 120,
+        error: `UNHANDLED_EXCEPTION: ${msg}`,
+        classification: "transient_error",
+      },
+      200,
+      origin,
+    );
   }
 });
