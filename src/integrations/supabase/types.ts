@@ -22318,6 +22318,7 @@ export type Database = {
           source_blueprint_id: string | null
           status: string
           trap_tags: string[] | null
+          trap_type: string | null
           updated_at: string
         }
         Insert: {
@@ -22338,6 +22339,7 @@ export type Database = {
           source_blueprint_id?: string | null
           status?: string
           trap_tags?: string[] | null
+          trap_type?: string | null
           updated_at?: string
         }
         Update: {
@@ -22358,6 +22360,7 @@ export type Database = {
           source_blueprint_id?: string | null
           status?: string
           trap_tags?: string[] | null
+          trap_type?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -51204,6 +51207,21 @@ export type Database = {
         }
         Relationships: []
       }
+      v_minicheck_qc_overview: {
+        Row: {
+          approval_rate: number | null
+          approved: number | null
+          competencies_covered: number | null
+          curriculum_id: string | null
+          curriculum_title: string | null
+          publish_gate: Json | null
+          still_draft: number | null
+          total_questions: number | null
+          trap_coverage: number | null
+          with_trap: number | null
+        }
+        Relationships: []
+      }
       v_mobile_store_purchase_audit: {
         Row: {
           active_but_expired: boolean | null
@@ -55499,6 +55517,20 @@ export type Database = {
           p_package_id: string
           p_stale_minutes?: number
           p_step_key: string
+        }
+        Returns: boolean
+      }
+      fn_minicheck_publish_gate: {
+        Args: { p_curriculum_id: string }
+        Returns: Json
+      }
+      fn_minicheck_qualifies_for_approval: {
+        Args: {
+          p_competency_id: string
+          p_correct_answer: number
+          p_explanation: string
+          p_options: Json
+          p_question_text: string
         }
         Returns: boolean
       }
