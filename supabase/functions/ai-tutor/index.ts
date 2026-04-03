@@ -573,16 +573,7 @@ Deno.serve(async (req) => {
     let blueprintContext = "";
     if (context.competencyId || context.curriculumId) {
       try {
-        // Check if this is a higher_education program
-        let isHigherEd = false;
-        if (context.curriculumId) {
-          const { data: prog } = await supabase
-            .from("programs")
-            .select("program_type")
-            .eq("id", (await supabase.from("curricula").select("program_id").eq("id", context.curriculumId).single()).data?.program_id)
-            .single();
-          isHigherEd = prog?.program_type === "higher_education";
-        }
+        const isHigherEd = programType === "higher_education";
 
         // Load matching blueprint for this competency
         if (context.competencyId) {
