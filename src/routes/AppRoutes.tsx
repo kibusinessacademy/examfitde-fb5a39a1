@@ -15,7 +15,6 @@ const CoursesPage = lazy(() => import('@/pages/CoursesPage'));
 const CourseDetailPage = lazy(() => import('@/pages/CourseDetailPage'));
 const LearnerDashboard = lazy(() => import('@/pages/LearnerDashboard'));
 const ExamTrainer = lazy(() => import('@/pages/ExamTrainer'));
-const TutorTest = lazy(() => import('@/pages/TutorTest'));
 const Auth = lazy(() => import('@/pages/Auth'));
 const ResetPassword = lazy(() => import('@/pages/auth/ResetPassword'));
 const NotFound = lazy(() => import('@/pages/NotFound'));
