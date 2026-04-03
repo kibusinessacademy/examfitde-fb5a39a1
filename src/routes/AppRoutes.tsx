@@ -46,6 +46,7 @@ const PruefungstrainingDetailPage = lazy(() => import('@/pages/seo/Pruefungstrai
 const KarrierePage = lazy(() => import('@/pages/seo/KarrierePage'));
 const BetriebeLandingPage = lazy(() => import('@/pages/seo/BetriebeLandingPage'));
 const WirtschaftsfachwirtPage = lazy(() => import('@/pages/seo/WirtschaftsfachwirtPage'));
+const PruefungstrainingStudiumPage = lazy(() => import('@/pages/seo/PruefungstrainingStudiumPage'));
 import ProgrammaticSEODispatcher from '@/pages/seo/ProgrammaticSEODispatcher';
 const PruefungsreifeCheck = lazy(() => import('@/components/marketing/PruefungsreifeCheck'));
 
