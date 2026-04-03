@@ -344,9 +344,9 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
           {/* Step 1: Beruf */}
           <Card className="rounded-2xl border-border bg-card">
             <CardHeader className="pb-3">
-              <CardTitle className="text-xl">1. Wähle deinen Beruf</CardTitle>
+              <CardTitle className="text-xl">1. {t('trainerSelectLabel')}</CardTitle>
               <CardDescription>
-                Suche nach deinem Ausbildungsberuf oder wähle eine Kategorie.
+                {isAcademic ? 'Suche nach deinem Studienfach oder wähle eine Kategorie.' : 'Suche nach deinem Ausbildungsberuf oder wähle eine Kategorie.'}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
