@@ -808,10 +808,18 @@ async function runCourseReadyGate(
   }
 
   // ═══════════════════════════════════════════════
-  // GATE 9: Exam-Part Coverage (NEW: Fix 2)
+  // GATE 9: Exam-Part Coverage
   // Questions must be mapped to Teil 1 / Teil 2
+  // Higher-Ed: skip (no IHK exam parts)
   // ═══════════════════════════════════════════════
-  if (totalApproved > 0) {
+  if (isHigherEd) {
+    results.push({
+      gate: "exam_part_coverage",
+      passed: true,
+      severity: "warning",
+      detail: "Skipped (higher_ed profile — no IHK exam part structure)",
+    });
+  } else if (totalApproved > 0) {
     const withExamPart = (approvedQs ?? []).filter((q: any) => q.exam_part).length;
     const examPartPct = (withExamPart / totalApproved) * 100;
     const examPartPassed = examPartPct >= 80;
