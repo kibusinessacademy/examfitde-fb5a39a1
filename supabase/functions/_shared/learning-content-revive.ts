@@ -227,6 +227,7 @@ export async function getLearningContentLiveness(
     shard_jobs_processing: shardJobs.processing,
     shard_jobs_failed: shardJobs.failed,
     shards_pending: shardTable.pending,
+    shards_claimed: shardTable.claimed,
     shards_processing: shardTable.processing,
     shards_completed: shardTable.completed,
     shards_failed: shardTable.failed,
