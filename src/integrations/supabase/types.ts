@@ -20546,6 +20546,13 @@ export type Database = {
             referencedRelation: "minicheck_questions"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "lesson_minicheck_questions_minicheck_id_fkey"
+            columns: ["minicheck_id"]
+            isOneToOne: false
+            referencedRelation: "v_minicheck_curriculum_drift"
+            referencedColumns: ["question_id"]
+          },
         ]
       }
       lesson_outcomes: {
@@ -22297,10 +22304,20 @@ export type Database = {
             referencedRelation: "minicheck_questions"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "minicheck_attempts_minicheck_question_id_fkey"
+            columns: ["minicheck_question_id"]
+            isOneToOne: false
+            referencedRelation: "v_minicheck_curriculum_drift"
+            referencedColumns: ["question_id"]
+          },
         ]
       }
       minicheck_questions: {
         Row: {
+          approval_reason: string | null
+          approved_at: string | null
+          approved_by: string | null
           cognitive_level: string | null
           competency_id: string | null
           correct_answer: number
@@ -22322,6 +22339,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          approval_reason?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
           cognitive_level?: string | null
           competency_id?: string | null
           correct_answer: number
@@ -22343,6 +22363,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          approval_reason?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
           cognitive_level?: string | null
           competency_id?: string | null
           correct_answer?: number
@@ -51207,18 +51230,80 @@ export type Database = {
         }
         Relationships: []
       }
+      v_minicheck_curriculum_drift: {
+        Row: {
+          competency_id: string | null
+          competency_title: string | null
+          derived_curriculum_id: string | null
+          question_id: string | null
+          stored_curriculum_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learning_fields_curriculum_id_fkey"
+            columns: ["derived_curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "learning_fields_curriculum_id_fkey"
+            columns: ["derived_curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "learning_fields_curriculum_id_fkey"
+            columns: ["derived_curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "learning_fields_curriculum_id_fkey"
+            columns: ["derived_curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "learning_fields_curriculum_id_fkey"
+            columns: ["derived_curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_qc_backlog"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "learning_fields_curriculum_id_fkey"
+            columns: ["derived_curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_qc_backlog_age"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "learning_fields_curriculum_id_fkey"
+            columns: ["derived_curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+        ]
+      }
       v_minicheck_qc_overview: {
         Row: {
           approval_rate: number | null
           approved: number | null
+          auto_approved_count: number | null
           competencies_covered: number | null
           curriculum_id: string | null
           curriculum_title: string | null
           publish_gate: Json | null
           still_draft: number | null
           total_questions: number | null
-          trap_coverage: number | null
-          with_trap: number | null
+          trap_coverage_approved: number | null
+          with_trap_tags: number | null
+          with_trap_type: number | null
         }
         Relationships: []
       }

@@ -90,25 +90,35 @@ Deno.serve(async (req) => {
       }, 200, origin);
     }
 
-    // Quality checks on draft questions (read-only)
-    const { data: allQuestions } = await sb
+    // Quality checks: count approved (auto-QC promoted) + remaining drafts
+    const { count: approvedCount } = await sb
       .from("minicheck_questions")
-      .select("id, lesson_id, competency_id, question_text, options, explanation, difficulty, status")
+      .select("id", { count: "exact", head: true })
+      .eq("curriculum_id", curriculumId)
+      .eq("mode", mode)
+      .eq("status", "approved");
+
+    const { data: draftQuestions } = await sb
+      .from("minicheck_questions")
+      .select("id, lesson_id, competency_id, question_text, options, explanation, difficulty, status, trap_tags")
       .eq("curriculum_id", curriculumId)
       .eq("mode", mode)
       .eq("status", "draft")
       .limit(2000);
 
-    let qualityPass = 0;
+    let qualityPass = approvedCount || 0;
     let qualityFails = 0;
     const passedIds: string[] = [];
 
-    for (const q of allQuestions || []) {
+    // Check remaining drafts (those that failed auto-QC trigger)
+    for (const q of draftQuestions || []) {
       let isValid = true;
       const opts = Array.isArray(q.options) ? q.options : [];
       if (opts.length !== 4) isValid = false;
       if (!q.explanation || q.explanation.length < MIN_EXPLANATION_LENGTH) isValid = false;
       if (!q.question_text || q.question_text.length < 15) isValid = false;
+      const trapTags = Array.isArray(q.trap_tags) ? q.trap_tags : [];
+      if (trapTags.length === 0) isValid = false;
 
       if (isValid) {
         qualityPass++;
