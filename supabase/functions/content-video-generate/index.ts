@@ -25,7 +25,7 @@ serve(async (req) => {
     // Get random approved questions with good explanations
     const { data: questions, error: qErr } = await supabase
       .from("exam_questions")
-      .select("id, question_text, correct_answer, explanation, options, difficulty, cognitive_level, curriculum_id, package_id, trap_type")
+      .select("id, question_text, correct_answer, explanation, options, difficulty, cognitive_level, curriculum_id, trap_type")
       .eq("status", "approved")
       .not("explanation", "is", null)
       .not("question_text", "is", null)
