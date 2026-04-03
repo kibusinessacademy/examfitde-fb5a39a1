@@ -399,7 +399,7 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
               <div>
                 <div className="mb-3 flex items-center justify-between">
                   <div className="text-sm font-medium text-muted-foreground">
-                    {selectedCategory ? CATEGORY_META[selectedCategory].label : 'Alle Berufe'}
+                    {selectedCategory ? CATEGORY_META[selectedCategory].label : (isAcademic ? 'Alle Fächer' : 'Alle Berufe')}
                   </div>
                   <div className="text-xs text-muted-foreground">
                     {filteredBerufe.length} Treffer
