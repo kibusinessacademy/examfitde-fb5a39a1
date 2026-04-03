@@ -455,11 +455,11 @@ export default function OralExamTrainer() {
             <div className="bg-muted/50 p-4 rounded-lg space-y-2">
               <h4 className="font-medium">So funktioniert's:</h4>
               <ul className="text-sm text-muted-foreground space-y-1">
-                <li>• 5 offene Fragen im IHK-Prüfungsstil</li>
+                <li>• {t('oralQStyle')}</li>
                 <li>• 3 Minuten Antwortzeit pro Frage</li>
-                <li>• KI-Bewertung nach IHK-Kriterien</li>
+                <li>• {t('oralCriteria')}</li>
                 <li>• Detailliertes Feedback nach jeder Antwort</li>
-                {speechSupported && <li>• <strong>Neu:</strong> Sprachaufnahme für authentische Prüfungssimulation</li>}
+                {speechSupported && <li>• <strong>Neu:</strong> Sprachaufnahme für authentische Simulation</li>}
               </ul>
             </div>
 
