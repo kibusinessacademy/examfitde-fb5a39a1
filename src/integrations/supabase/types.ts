@@ -3371,8 +3371,10 @@ export type Database = {
           created_at: string
           generated_by_model: string | null
           id: string
+          is_winner: boolean | null
           keywords: string[] | null
           meta_description: string | null
+          performance_score: number | null
           published_at: string | null
           reading_time_min: number | null
           slug: string
@@ -3381,6 +3383,7 @@ export type Database = {
           source_question_id: string | null
           status: string
           title: string
+          total_views: number | null
           updated_at: string
           word_count: number | null
         }
@@ -3389,8 +3392,10 @@ export type Database = {
           created_at?: string
           generated_by_model?: string | null
           id?: string
+          is_winner?: boolean | null
           keywords?: string[] | null
           meta_description?: string | null
+          performance_score?: number | null
           published_at?: string | null
           reading_time_min?: number | null
           slug: string
@@ -3399,6 +3404,7 @@ export type Database = {
           source_question_id?: string | null
           status?: string
           title: string
+          total_views?: number | null
           updated_at?: string
           word_count?: number | null
         }
@@ -3407,8 +3413,10 @@ export type Database = {
           created_at?: string
           generated_by_model?: string | null
           id?: string
+          is_winner?: boolean | null
           keywords?: string[] | null
           meta_description?: string | null
+          performance_score?: number | null
           published_at?: string | null
           reading_time_min?: number | null
           slug?: string
@@ -3417,6 +3425,7 @@ export type Database = {
           source_question_id?: string | null
           status?: string
           title?: string
+          total_views?: number | null
           updated_at?: string
           word_count?: number | null
         }
@@ -39521,12 +39530,15 @@ export type Database = {
           generated_by_model: string | null
           hook_text: string
           id: string
+          is_winner: boolean | null
+          performance_score: number | null
           render_url: string | null
           script_json: Json | null
           source_curriculum_id: string | null
           source_package_id: string | null
           source_question_id: string | null
           status: string
+          total_views: number | null
           twist_text: string | null
           updated_at: string
         }
@@ -39539,12 +39551,15 @@ export type Database = {
           generated_by_model?: string | null
           hook_text: string
           id?: string
+          is_winner?: boolean | null
+          performance_score?: number | null
           render_url?: string | null
           script_json?: Json | null
           source_curriculum_id?: string | null
           source_package_id?: string | null
           source_question_id?: string | null
           status?: string
+          total_views?: number | null
           twist_text?: string | null
           updated_at?: string
         }
@@ -39557,12 +39572,15 @@ export type Database = {
           generated_by_model?: string | null
           hook_text?: string
           id?: string
+          is_winner?: boolean | null
+          performance_score?: number | null
           render_url?: string | null
           script_json?: Json | null
           source_curriculum_id?: string | null
           source_package_id?: string | null
           source_question_id?: string | null
           status?: string
+          total_views?: number | null
           twist_text?: string | null
           updated_at?: string
         }
@@ -55699,6 +55717,7 @@ export type Database = {
         Args: { p_curriculum_id: string; p_package_id: string }
         Returns: number
       }
+      enqueue_growth_distribution: { Args: never; Returns: Json }
       enqueue_integrity_rechecks: {
         Args: { p_cap?: number; p_reason?: string }
         Returns: Json
@@ -57850,6 +57869,7 @@ export type Database = {
         Args: { p_org_id: string; p_product_id?: string }
         Returns: Json
       }
+      score_content_performance: { Args: never; Returns: Json }
       search_berufe: {
         Args: { lim?: number; q: string }
         Returns: {
