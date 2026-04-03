@@ -223,7 +223,7 @@ Deno.serve(async (req) => {
           distractor_meta: v.distractor_meta ?? [],
           typical_errors: v.trap_applied ? [v.trap_applied] : [],
           rubric: bp.rubric ?? null,
-          expected_answer_points: bp.expected_answer_points ?? null,
+          expected_answer_points: null,
           scenario_type: isTransfer ? "transfer" : v.variant_type,
           question_fingerprint: fp,
           variant_group: bpId,
