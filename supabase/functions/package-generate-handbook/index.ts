@@ -637,13 +637,26 @@ Deno.serve(async (req) => {
   // If we attempted generation but wrote nothing, signal blocked_by_guard / provider_empty
   if (writtenCount === 0 && batchFields.length > 0) {
     const failReason = llmFailCount > 0 ? "blocked_by_guard" : "provider_empty";
-    console.warn(`[generate-handbook] ZERO_WRITE_BATCH: ${batchFields.length} attempted, 0 written. Reason: ${failReason}`);
+    const nextAttemptIndex = attemptIndex + 1;
+    console.warn(`[generate-handbook] ZERO_WRITE_BATCH: ${batchFields.length} attempted, 0 written. Reason: ${failReason}. Persisting llm_attempt_index=${nextAttemptIndex}`);
+
+    // v18: Persist incremented attempt index to step meta for provider rotation
+    try {
+      const { data: curStep } = await sb.from("package_steps").select("meta")
+        .eq("package_id", packageId).eq("step_key", "generate_handbook").maybeSingle();
+      const curMeta = (curStep?.meta as Record<string, unknown>) || {};
+      await sb.from("package_steps").update({
+        meta: { ...curMeta, llm_attempt_index: nextAttemptIndex, last_fail_reason: failReason },
+      }).eq("package_id", packageId).eq("step_key", "generate_handbook");
+    } catch { /* best-effort */ }
+
     return json({
       ok: false,
       retry: true,
       batch_complete: false,
       zero_write: true,
       fail_reason: failReason,
+      attempt_index: nextAttemptIndex,
       progress,
       sections_attempted: batchFields.length,
       sections_rejected: llmFailCount,
