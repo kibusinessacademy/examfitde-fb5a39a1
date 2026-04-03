@@ -86,7 +86,7 @@ Deno.serve(async (req) => {
     // ── 2. LIVE pool analysis (same SSOT as getTrapQualityAudit) ──
     const { data: allQs, error: qErr } = await sb
       .from("exam_questions")
-      .select("id, trap_type, difficulty, cognitive_level, is_trap, question_text, quality_score, created_at, status, qc_status")
+      .select("id, trap_type, difficulty, cognitive_level, is_trap, question_text, created_at, status, qc_status")
       .eq("curriculum_id", curriculumId)
       .eq("status", "approved");
 
