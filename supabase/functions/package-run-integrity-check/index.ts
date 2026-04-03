@@ -268,6 +268,7 @@ async function runCourseReadyGate(
     AUSBILDUNG_VOLL: { minApproved: 500, minHardishPct: 40, maxEasyPct: 17 },
     EXAM_FIRST:      { minApproved: 60,  minHardishPct: 20, maxEasyPct: 25 },
     ELITE:           { minApproved: 800, minHardishPct: 45, maxEasyPct: 12 },
+    STUDIUM:         { minApproved: 200, minHardishPct: 30, maxEasyPct: 20 },
   };
   const poolTh = POOL_THRESHOLDS[trackEarly] ?? POOL_THRESHOLDS["AUSBILDUNG_VOLL"];
 
