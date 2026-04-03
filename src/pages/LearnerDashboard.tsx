@@ -170,7 +170,7 @@ export default function LearnerDashboard() {
 
                 {/* Streak + Exam Preview */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <SmartStreakWidget />
+                  <SmartStreakWidget curriculumId={activeCurriculumId} />
                   <ExamPreview curriculumId={activeCurriculumId} />
                 </div>
 
