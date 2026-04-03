@@ -7,7 +7,10 @@ type GrowthEventType =
   | 'cta_click'
   | 'checkout_started'
   | 'checkout_completed'
-  | 'dismissed';
+  | 'dismissed'
+  | 'pricing_hero_view'
+  | 'pricing_hero_primary_click'
+  | 'pricing_hero_secondary_click';
 
 /**
  * Thin tracking hook for growth/conversion events.
