@@ -1,0 +1,2 @@
+ALTER TABLE public.experiments DROP CONSTRAINT experiments_type_check;
+ALTER TABLE public.experiments ADD CONSTRAINT experiments_type_check CHECK (type = ANY (ARRAY['seo','sales','learning','frontend']));
