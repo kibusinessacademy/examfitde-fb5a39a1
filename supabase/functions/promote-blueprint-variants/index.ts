@@ -102,7 +102,7 @@ Deno.serve(async (req) => {
       // Fetch blueprint metadata
       const { data: bp, error: bpErr } = await sb
         .from("question_blueprints")
-        .select("name, curriculum_id, learning_field_id, competency_id, question_type, cognitive_level, rubric, trap_definition")
+        .select("name, curriculum_id, learning_field_id, competency_id, knowledge_type, cognitive_level, rubric, trap_definition")
         .eq("id", bpId)
         .single();
 
