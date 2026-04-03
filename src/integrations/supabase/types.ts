@@ -45245,6 +45245,7 @@ export type Database = {
       ops_learning_content_shard_liveness: {
         Row: {
           deadlock_verdict: string | null
+          is_deadlocked: boolean | null
           last_parent_job_at: string | null
           last_shard_job_at: string | null
           last_shard_update_at: string | null
@@ -45256,6 +45257,7 @@ export type Database = {
           shard_jobs_failed: number | null
           shard_jobs_pending: number | null
           shard_jobs_processing: number | null
+          shards_claimed: number | null
           shards_completed: number | null
           shards_failed: number | null
           shards_pending: number | null
