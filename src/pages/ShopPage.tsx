@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Shield, Clock, CreditCard, CheckCircle, Star } from 'lucide-react';
 import PageExplainer from '@/components/admin/PageExplainer';
 import { SEOHead } from '@/components/seo/SEOHead';
-import { SITE_URL } from '@/lib/seo';
+import { SITE_URL, seoTitle } from '@/lib/seo';
 
 export default function ShopPage() {
   const { user } = useAuth();
