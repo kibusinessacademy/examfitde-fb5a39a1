@@ -27,6 +27,7 @@ const ExamPoolAuditCard = lazy(() => import('@/components/admin/cards/ExamPoolAu
 const TrapCoverageAuditCard = lazy(() => import('@/components/admin/cards/TrapCoverageAuditCard'));
 const TrapDistributionAuditCard = lazy(() => import('@/components/admin/cards/TrapDistributionAuditCard'));
 const BlueprintMatchAuditCard = lazy(() => import('@/components/admin/cards/BlueprintMatchAuditCard'));
+const BlueprintVariantStatsCard = lazy(() => import('@/components/admin/cards/BlueprintVariantStatsCard'));
 const BlockedButReadyCard = lazy(() => import('@/components/admin/cards/BlockedButReadyCard'));
 const RecoveryBoardCard = lazy(() => import('@/components/admin/cards/RecoveryBoardCard'));
 const ValidateGuardDiagnosticsCard = lazy(() => import('@/components/admin/cards/ValidateGuardDiagnosticsCard'));
