@@ -569,13 +569,16 @@ async function runCourseReadyGate(
     //   2. approved minicheck_questions exist for the same competency_id (table-based)
     const totalMC = miniCheckLessons?.length ?? 0;
 
-    // Collect competency_ids from unparsed minicheck lessons
-    const unparsedLessons = (miniCheckLessons ?? []).filter((l: any) => !l.minicheck_parsed);
-    let effectiveUnparsed = unparsedLessons.length;
+    // ── Classify each minicheck lesson: embedded vs table-backed vs uncovered ──
+    const embeddedLessons = (miniCheckLessons ?? []).filter((l: any) => l.minicheck_parsed);
+    const nonEmbeddedLessons = (miniCheckLessons ?? []).filter((l: any) => !l.minicheck_parsed);
 
-    if (unparsedLessons.length > 0) {
-      // Check if minicheck_questions exist for these competencies
-      const mcLessonCompIds = unparsedLessons
+    let tableBackedCount = 0;
+    let uncoveredCount = nonEmbeddedLessons.length;
+    const coveredCompetencies = new Set<string>();
+
+    if (nonEmbeddedLessons.length > 0) {
+      const mcLessonCompIds = nonEmbeddedLessons
         .map((l: any) => l.competency_id)
         .filter(Boolean);
 
@@ -587,35 +590,28 @@ async function runCourseReadyGate(
           .eq("status", "approved")
           .in("competency_id", mcLessonCompIds);
 
-        const coveredCompetencies = new Set((mcqCoverage ?? []).map((r: any) => r.competency_id));
-        // Lessons whose competency has table-based questions count as "effectively parsed"
-        effectiveUnparsed = unparsedLessons.filter((l: any) =>
-          !l.competency_id || !coveredCompetencies.has(l.competency_id)
+        (mcqCoverage ?? []).forEach((r: any) => coveredCompetencies.add(r.competency_id));
+        tableBackedCount = nonEmbeddedLessons.filter((l: any) =>
+          l.competency_id && coveredCompetencies.has(l.competency_id)
         ).length;
+        uncoveredCount = nonEmbeddedLessons.length - tableBackedCount;
       }
     }
 
-    // Also check for placeholder-only MiniChecks (content has _placeholder: true or no questions)
-    const emptyMC = (miniCheckLessons ?? []).filter((l: any) => {
-      if (l.minicheck_parsed) return false; // already parsed in content
-      const c = l.content;
-      if (!c) return true;
-      if (c._placeholder) return true;
-      // Structured JSON must have questions array with items
-      if (Array.isArray(c.questions) && c.questions.length >= 3) return false;
-      // HTML-based must have substantial content
-      if (typeof c.html === "string" && c.html.length > 200) return false;
-      // If table-based questions exist for this competency, it's not empty
-      return false; // Already checked via effectiveUnparsed
-    }).length;
-    const mcParsedPassed = effectiveUnparsed === 0;
+    const mcParsedPassed = uncoveredCount === 0;
     results.push({
       gate: "minicheck_parsed",
       passed: mcParsedPassed,
       severity: "blocker",
-      detail: `${totalMC} MiniCheck lessons: ${unparsedLessons.length} without embedded JSON, ${effectiveUnparsed} without table-based coverage`,
+      detail: `${totalMC} MiniCheck lessons: ${embeddedLessons.length} embedded, ${tableBackedCount} table-backed, ${uncoveredCount} uncovered`,
+      minicheck_materialization: {
+        total: totalMC,
+        embedded_count: embeddedLessons.length,
+        table_backed_count: tableBackedCount,
+        uncovered_count: uncoveredCount,
+      },
     });
-    if (!mcParsedPassed) hardFails.push(`MINICHECK_UNPARSED: ${effectiveUnparsed} lessons without embedded or table-based MiniCheck questions of ${totalMC} total`);
+    if (!mcParsedPassed) hardFails.push(`MINICHECK_UNPARSED: ${uncoveredCount} lessons without embedded or table-based MiniCheck questions of ${totalMC} total`);
   } else if (isExamFirstEarly) {
     results.push({
       gate: "minicheck_coverage",
