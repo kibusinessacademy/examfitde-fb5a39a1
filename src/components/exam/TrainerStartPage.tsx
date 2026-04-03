@@ -474,8 +474,8 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
               <CardTitle className="text-xl">2. Wähle deinen Modus</CardTitle>
               <CardDescription>
                 {canChooseMode
-                  ? 'Passe dein Training an dein aktuelles Ziel an.'
-                  : 'Wähle zuerst einen Beruf, um den Modus freizuschalten.'}
+                   ? 'Passe dein Training an dein aktuelles Ziel an.'
+                   : (isAcademic ? 'Wähle zuerst ein Fach, um den Modus freizuschalten.' : 'Wähle zuerst einen Beruf, um den Modus freizuschalten.')}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
