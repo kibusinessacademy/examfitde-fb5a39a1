@@ -146,6 +146,7 @@ Deno.serve(async (req) => {
         await enqueueJob(sb, {
           job_type: "lesson_generate_content_shard",
           package_id: packageId,
+          batch_cursor: { lf: shard.learning_field_id, ci: shard.chunk_index },
           payload: {
             package_id: packageId,
             course_id: courseId,
