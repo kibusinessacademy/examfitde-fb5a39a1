@@ -34,36 +34,38 @@ const CATEGORY_ICONS: Record<BerufCategory, React.ComponentType<{ className?: st
   sonstige: MoreHorizontal,
 };
 
-/* ─── Training modes ─── */
-const TRAINING_MODES: {
+/* ─── Training modes (will be rendered with dynamic labels) ─── */
+function getTrainingModes(isAcademic: boolean): {
   id: TrainingMode;
   title: string;
   subtitle: string;
   summaryHint: string;
   icon: React.ComponentType<{ className?: string }>;
-}[] = [
-  {
-    id: 'learn',
-    title: 'Lernmodus',
-    subtitle: 'Mit Erklärungen, Feedback und didaktischer Begleitung',
-    summaryHint: 'Mit Erklärungen nach jeder Frage',
-    icon: Brain,
-  },
-  {
-    id: 'exam',
-    title: 'Prüfungsmodus',
-    subtitle: 'Prüfungsnahe Simulation mit Zeitdruck und Bewertung',
-    summaryHint: 'Echte Prüfungssimulation mit Zeitdruck',
-    icon: Target,
-  },
-  {
-    id: 'quick',
-    title: 'Schnelltraining',
-    subtitle: 'Direkt 10 gemischte Fragen starten',
-    summaryHint: '10 gemischte Fragen, sofort los',
-    icon: PlayCircle,
-  },
-];
+}[] {
+  return [
+    {
+      id: 'learn',
+      title: 'Lernmodus',
+      subtitle: 'Mit Erklärungen, Feedback und didaktischer Begleitung',
+      summaryHint: 'Mit Erklärungen nach jeder Frage',
+      icon: Brain,
+    },
+    {
+      id: 'exam',
+      title: isAcademic ? 'Klausurmodus' : 'Prüfungsmodus',
+      subtitle: isAcademic ? 'Klausurnahe Simulation mit Zeitdruck und Bewertung' : 'Prüfungsnahe Simulation mit Zeitdruck und Bewertung',
+      summaryHint: isAcademic ? 'Echte Klausursimulation mit Zeitdruck' : 'Echte Prüfungssimulation mit Zeitdruck',
+      icon: Target,
+    },
+    {
+      id: 'quick',
+      title: 'Schnelltraining',
+      subtitle: 'Direkt 10 gemischte Fragen starten',
+      summaryHint: '10 gemischte Fragen, sofort los',
+      icon: PlayCircle,
+    },
+  ];
+}
 
 /* ─── Popular berufe slugs (top picks for quick access) ─── */
 const POPULAR_SLUGS = [
