@@ -417,8 +417,8 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
                     {!isLoading && filteredBerufe.length === 0 && (
                       <div className="rounded-xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
                         {berufe && berufe.length === 0
-                          ? 'Aktuell sind noch keine freigegebenen Prüfungstrainer verfügbar.'
-                          : 'Kein Beruf gefunden. Passe deine Suche oder Kategorie an.'}
+                          ? t('trainerEmpty')
+                          : (isAcademic ? 'Kein Fach gefunden. Passe deine Suche oder Kategorie an.' : 'Kein Beruf gefunden. Passe deine Suche oder Kategorie an.')}
                       </div>
                     )}
 
