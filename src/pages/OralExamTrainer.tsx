@@ -387,7 +387,7 @@ export default function OralExamTrainer() {
           { label: 'Ergebnis', active: phase === 'results' },
         ]}
         actions={[
-          'Curriculum wählen, dann "Prüfung starten"',
+          'Curriculum wählen, dann "' + t('examStart') + '"',
           'Frage wird automatisch vorgelesen – danach kannst du per Mikrofon oder Text antworten',
           '3 Minuten Antwortzeit pro Frage',
           'Nach jeder Antwort: KI-Bewertung mit Musterantwort und Nachfragen',
