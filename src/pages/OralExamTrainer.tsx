@@ -37,6 +37,7 @@ import { Paywall } from '@/components/shop/Paywall';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import PageExplainer from '@/components/admin/PageExplainer';
+import { useTerminology } from '@/hooks/useProgramType';
 
 type ExamPhase = 'setup' | 'question' | 'listening' | 'evaluation' | 'results';
 
@@ -88,6 +89,7 @@ export default function OralExamTrainer() {
   const { toast } = useToast();
   const [phase, setPhase] = useState<ExamPhase>('setup');
   const [selectedCurriculum, setSelectedCurriculum] = useState<string | null>(null);
+  const { t, isAcademic } = useTerminology(selectedCurriculum);
   const [answer, setAnswer] = useState('');
   const [timeRemaining, setTimeRemaining] = useState(180);
   const [isTimerActive, setIsTimerActive] = useState(false);
@@ -367,16 +369,16 @@ export default function OralExamTrainer() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold flex items-center gap-3">
           <Mic className="h-8 w-8 text-primary" />
-          Mündliche Prüfungssimulation
+          {t('oralTitle')}
         </h1>
         <p className="text-muted-foreground mt-2">
-          Trainiere für deine mündliche IHK-Abschlussprüfung mit KI-gestütztem Feedback
+          {t('oralSubline')}
         </p>
       </div>
 
       <PageExplainer
-        title="Wie funktioniert die mündliche Prüfung?"
-        description="Die KI simuliert einen IHK-Prüfer: Sie stellt dir Fragen per Sprachausgabe, du antwortest per Mikrofon oder Text. Danach bewertet die KI deine Antwort nach echten IHK-Kriterien."
+        title={t('oralHowTitle')}
+        description={t('oralHowDesc')}
         workflow={[
           { label: 'Curriculum wählen', active: phase === 'setup' },
           { label: 'Frage hören', active: phase === 'question' },
@@ -385,7 +387,7 @@ export default function OralExamTrainer() {
           { label: 'Ergebnis', active: phase === 'results' },
         ]}
         actions={[
-          'Curriculum wählen, dann "Prüfung starten"',
+          'Curriculum wählen, dann "' + t('examStart') + '"',
           'Frage wird automatisch vorgelesen – danach kannst du per Mikrofon oder Text antworten',
           '3 Minuten Antwortzeit pro Frage',
           'Nach jeder Antwort: KI-Bewertung mit Musterantwort und Nachfragen',
@@ -422,7 +424,7 @@ export default function OralExamTrainer() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Target className="h-5 w-5" />
-              Prüfung vorbereiten
+              {t('examPrepare')}
             </CardTitle>
             <CardDescription>
               Wähle ein Curriculum und starte deine Übungsprüfung
@@ -431,7 +433,7 @@ export default function OralExamTrainer() {
           <CardContent className="space-y-6">
             <div>
               <label className="text-sm font-medium mb-2 block">
-                Ausbildungsberuf / Curriculum
+                {isAcademic ? 'Studiengang / Curriculum' : 'Ausbildungsberuf / Curriculum'}
               </label>
               <div className="grid gap-2">
                 {curricula?.map(curriculum => (
@@ -453,11 +455,11 @@ export default function OralExamTrainer() {
             <div className="bg-muted/50 p-4 rounded-lg space-y-2">
               <h4 className="font-medium">So funktioniert's:</h4>
               <ul className="text-sm text-muted-foreground space-y-1">
-                <li>• 5 offene Fragen im IHK-Prüfungsstil</li>
+                <li>• {t('oralQStyle')}</li>
                 <li>• 3 Minuten Antwortzeit pro Frage</li>
-                <li>• KI-Bewertung nach IHK-Kriterien</li>
+                <li>• {t('oralCriteria')}</li>
                 <li>• Detailliertes Feedback nach jeder Antwort</li>
-                {speechSupported && <li>• <strong>Neu:</strong> Sprachaufnahme für authentische Prüfungssimulation</li>}
+                {speechSupported && <li>• <strong>Neu:</strong> Sprachaufnahme für authentische Simulation</li>}
               </ul>
             </div>
 
@@ -472,7 +474,7 @@ export default function OralExamTrainer() {
               ) : (
                 <Play className="h-4 w-4 mr-2" />
               )}
-              Prüfung starten
+              {t('examStart')}
             </Button>
           </CardContent>
         </Card>

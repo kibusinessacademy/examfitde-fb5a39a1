@@ -27,6 +27,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { useTerminology } from '@/hooks/useProgramType';
+import { useDashboardSummary } from '@/hooks/useDashboardSummary';
 
 type SessionType = 'breathing' | 'visualization' | 'checklist' | 'quick_calm';
 
@@ -60,7 +62,7 @@ const VISUALIZATION_THEMES = [
 
 const EXAM_CHECKLIST = [
   { id: 'materials', label: 'Alle Materialien eingepackt (Stift, Ausweis, Taschenrechner)', category: 'Vorbereitung' },
-  { id: 'location', label: 'Prüfungsort und Anfahrt bekannt', category: 'Vorbereitung' },
+  { id: 'location', label: '__DYNAMIC_LOCATION__', category: 'Vorbereitung' },
   { id: 'sleep', label: 'Ausreichend geschlafen (7-8 Stunden)', category: 'Körper' },
   { id: 'food', label: 'Leichtes Frühstück gegessen', category: 'Körper' },
   { id: 'water', label: 'Wasserflasche dabei', category: 'Körper' },
@@ -78,6 +80,9 @@ const QUICK_CALM_STEPS = [
 
 export default function ExamAnxietyManager() {
   const { user } = useAuth();
+  const { data: dashboard } = useDashboardSummary();
+  const activeCurriculumId = dashboard?.active_curriculum_id || null;
+  const { t } = useTerminology(activeCurriculumId);
   const [activeSession, setActiveSession] = useState<SessionType | null>(null);
   const [anxietyBefore, setAnxietyBefore] = useState<number>(5);
   const [anxietyAfter, setAnxietyAfter] = useState<number | null>(null);
@@ -243,7 +248,7 @@ export default function ExamAnxietyManager() {
         <div className="mb-8">
           <h1 className="text-3xl font-bold flex items-center gap-3">
             <Heart className="h-8 w-8 text-primary" />
-            Prüfungsangst-Manager
+            {t('anxietyTitle')}
           </h1>
           <p className="text-muted-foreground mt-2">
             Techniken zur Beruhigung und mentalen Vorbereitung
@@ -295,7 +300,7 @@ export default function ExamAnxietyManager() {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">
-                Beruhige dein Nervensystem mit bewussten Atemübungen. Ideal vor der Prüfung.
+                {t('anxietyBreathing')}
               </p>
             </CardContent>
           </Card>
@@ -327,7 +332,7 @@ export default function ExamAnxietyManager() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <ListChecks className="h-5 w-5 text-green-500" />
-                Prüfungs-Checkliste
+                {t('anxietyChecklist')}
               </CardTitle>
               <CardDescription>
                 Strukturierte Vorbereitung
@@ -355,7 +360,7 @@ export default function ExamAnxietyManager() {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">
-                Schnelle Hilfe bei akuter Nervosität direkt vor oder in der Prüfung.
+                {t('anxietySOS')}
               </p>
             </CardContent>
           </Card>
@@ -554,7 +559,7 @@ export default function ExamAnxietyManager() {
           <CardHeader className="text-center">
             <CardTitle className="flex items-center justify-center gap-2">
               <ListChecks className="h-6 w-6 text-green-500" />
-              Prüfungs-Checkliste
+              {t('anxietyChecklist')}
             </CardTitle>
             <CardDescription>
               {checkedItems.size} / {EXAM_CHECKLIST.length} erledigt
@@ -594,7 +599,7 @@ export default function ExamAnxietyManager() {
                         "text-sm",
                         checkedItems.has(item.id) && "line-through text-muted-foreground"
                       )}>
-                        {item.label}
+                        {item.id === 'location' ? t('anxietyChecklistLocation') : item.label}
                       </span>
                     </div>
                   ))}

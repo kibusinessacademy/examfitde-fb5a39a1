@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useTerminology } from '@/hooks/useProgramType';
 import {
   Search, GraduationCap, Briefcase, Laptop, Wrench, HeartPulse,
   Cog, Truck, UtensilsCrossed, MoreHorizontal,
@@ -33,36 +34,38 @@ const CATEGORY_ICONS: Record<BerufCategory, React.ComponentType<{ className?: st
   sonstige: MoreHorizontal,
 };
 
-/* ─── Training modes ─── */
-const TRAINING_MODES: {
+/* ─── Training modes (will be rendered with dynamic labels) ─── */
+function getTrainingModes(isAcademic: boolean): {
   id: TrainingMode;
   title: string;
   subtitle: string;
   summaryHint: string;
   icon: React.ComponentType<{ className?: string }>;
-}[] = [
-  {
-    id: 'learn',
-    title: 'Lernmodus',
-    subtitle: 'Mit Erklärungen, Feedback und didaktischer Begleitung',
-    summaryHint: 'Mit Erklärungen nach jeder Frage',
-    icon: Brain,
-  },
-  {
-    id: 'exam',
-    title: 'Prüfungsmodus',
-    subtitle: 'Prüfungsnahe Simulation mit Zeitdruck und Bewertung',
-    summaryHint: 'Echte Prüfungssimulation mit Zeitdruck',
-    icon: Target,
-  },
-  {
-    id: 'quick',
-    title: 'Schnelltraining',
-    subtitle: 'Direkt 10 gemischte Fragen starten',
-    summaryHint: '10 gemischte Fragen, sofort los',
-    icon: PlayCircle,
-  },
-];
+}[] {
+  return [
+    {
+      id: 'learn',
+      title: 'Lernmodus',
+      subtitle: 'Mit Erklärungen, Feedback und didaktischer Begleitung',
+      summaryHint: 'Mit Erklärungen nach jeder Frage',
+      icon: Brain,
+    },
+    {
+      id: 'exam',
+      title: isAcademic ? 'Klausurmodus' : 'Prüfungsmodus',
+      subtitle: isAcademic ? 'Klausurnahe Simulation mit Zeitdruck und Bewertung' : 'Prüfungsnahe Simulation mit Zeitdruck und Bewertung',
+      summaryHint: isAcademic ? 'Echte Klausursimulation mit Zeitdruck' : 'Echte Prüfungssimulation mit Zeitdruck',
+      icon: Target,
+    },
+    {
+      id: 'quick',
+      title: 'Schnelltraining',
+      subtitle: 'Direkt 10 gemischte Fragen starten',
+      summaryHint: '10 gemischte Fragen, sofort los',
+      icon: PlayCircle,
+    },
+  ];
+}
 
 /* ─── Popular berufe slugs (top picks for quick access) ─── */
 const POPULAR_SLUGS = [
@@ -83,6 +86,7 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
   const [selectedCategory, setSelectedCategory] = useState<BerufCategory | null>(null);
   const [selectedBeruf, setSelectedBeruf] = useState<TrainerBeruf | null>(null);
   const [selectedMode, setSelectedMode] = useState<TrainingMode | null>(null);
+  const { t, isAcademic } = useTerminology(selectedBeruf?.curriculum_id);
 
   /* ─── Derived data ─── */
   const categoryGroups = useMemo(() => {
@@ -133,6 +137,7 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
   const isBerufVisible = !!selectedBeruf && filteredBerufe.some((b) => b.id === selectedBeruf.id);
   const canChooseMode = !!selectedBeruf;
   const canStart = !!selectedBeruf && !!selectedMode && isBerufVisible;
+  const TRAINING_MODES = useMemo(() => getTrainingModes(isAcademic), [isAcademic]);
   const selectedModeMeta = TRAINING_MODES.find((m) => m.id === selectedMode) ?? null;
 
   /* ─── Handlers ─── */
@@ -170,7 +175,7 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
     <>
       <div className="space-y-4 rounded-xl border border-border bg-muted/30 p-4">
         <div>
-          <div className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">Beruf</div>
+          <div className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">{isAcademic ? 'Fach' : 'Beruf'}</div>
           <div className={cn('font-medium', selectedBeruf ? 'text-foreground' : 'text-muted-foreground')}>
             {selectedBeruf?.bezeichnung_kurz || 'Noch nicht ausgewählt'}
           </div>
@@ -216,7 +221,7 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
       {!canStart && (
         <p className="mt-3 text-center text-xs text-muted-foreground">
           {!selectedBeruf
-            ? 'Wähle zuerst einen Beruf aus.'
+            ? (isAcademic ? 'Wähle zuerst ein Fach aus.' : 'Wähle zuerst einen Beruf aus.')
             : 'Wähle noch einen Trainingsmodus.'}
         </p>
       )}
@@ -234,21 +239,20 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
       >
         <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-sm text-primary">
           <GraduationCap className="h-4 w-4" />
-          Prüfungstrainer
+          {t('trainerTitle')}
         </div>
 
         <h1 className="text-3xl font-display font-bold tracking-tight text-foreground sm:text-4xl">
-          Trainiere echte Prüfungsfragen für deinen Beruf
+          {t('trainerHeadline')}
         </h1>
         <p className="mt-3 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
-          Wähle deinen Beruf, starte deinen Modus und bereite dich gezielt auf die
-          IHK- oder Abschlussprüfung vor.
+          {t('trainerSubline')}
         </p>
 
         {/* Outcome badges */}
         <div className="flex flex-wrap items-center gap-3 mt-4 text-xs text-muted-foreground">
           <span className="flex items-center gap-1">
-            <CheckCircle2 className="h-3.5 w-3.5 text-accent" /> Prüfungsnahe Aufgaben
+            <CheckCircle2 className="h-3.5 w-3.5 text-accent" /> {t('trainerTasksLabel')}
           </span>
           <span className="flex items-center gap-1">
             <Zap className="h-3.5 w-3.5 text-accent" /> Sofort Feedback
@@ -270,9 +274,9 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
           <CardContent className="p-5 sm:p-6">
             <div className="grid gap-3 sm:grid-cols-3">
               {[
-                { label: 'Beruf auswählen', desc: 'Nur Berufe und Prüfungen, keine technischen Curricula.', done: !!selectedBeruf },
+                { label: t('trainerSelectLabel'), desc: t('trainerSelectDesc'), done: !!selectedBeruf },
                 { label: 'Modus wählen', desc: 'Lernen, simulieren oder direkt ins Schnelltraining.', done: !!selectedMode },
-                { label: 'Training starten', desc: 'Direkter Einstieg in deinen prüfungsrelevanten Fragenpool.', done: canStart },
+                { label: t('trainerStartLabel'), desc: t('trainerStartDesc'), done: canStart },
               ].map((s, i) => (
                 <div
                   key={i}
@@ -298,7 +302,7 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
       {!isLoading && popularBerufe.length > 0 && !selectedCategory && !search.trim() && (
         <div className="mb-6">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-foreground">Beliebte Berufe</h2>
+            <h2 className="text-lg font-semibold text-foreground">{isAcademic ? 'Beliebte Fächer' : 'Beliebte Berufe'}</h2>
             <Badge variant="secondary" className="rounded-full text-xs">
               Schnellzugriff
             </Badge>
@@ -340,9 +344,9 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
           {/* Step 1: Beruf */}
           <Card className="rounded-2xl border-border bg-card">
             <CardHeader className="pb-3">
-              <CardTitle className="text-xl">1. Wähle deinen Beruf</CardTitle>
+              <CardTitle className="text-xl">1. {t('trainerSelectLabel')}</CardTitle>
               <CardDescription>
-                Suche nach deinem Ausbildungsberuf oder wähle eine Kategorie.
+                {isAcademic ? 'Suche nach deinem Studienfach oder wähle eine Kategorie.' : 'Suche nach deinem Ausbildungsberuf oder wähle eine Kategorie.'}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -352,9 +356,9 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
                 <Input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Beruf suchen, z. B. Verkäufer oder Fachinformatiker"
+                  placeholder={isAcademic ? 'Fach suchen, z. B. BWL oder Wirtschaftsinformatik' : 'Beruf suchen, z. B. Verkäufer oder Fachinformatiker'}
                   className="h-12 rounded-xl pl-10 text-base"
-                  aria-label="Beruf suchen"
+                  aria-label={isAcademic ? 'Fach suchen' : 'Beruf suchen'}
                 />
               </div>
 
@@ -384,7 +388,7 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
                         {CATEGORY_META[key].label}
                       </div>
                       <div className="mt-1 text-xs text-muted-foreground">
-                        {categoryCounts[key] || 0} Berufe
+                        {categoryCounts[key] || 0} {isAcademic ? 'Fächer' : 'Berufe'}
                       </div>
                     </button>
                   );
@@ -395,7 +399,7 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
               <div>
                 <div className="mb-3 flex items-center justify-between">
                   <div className="text-sm font-medium text-muted-foreground">
-                    {selectedCategory ? CATEGORY_META[selectedCategory].label : 'Alle Berufe'}
+                    {selectedCategory ? CATEGORY_META[selectedCategory].label : (isAcademic ? 'Alle Fächer' : 'Alle Berufe')}
                   </div>
                   <div className="text-xs text-muted-foreground">
                     {filteredBerufe.length} Treffer
@@ -413,8 +417,8 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
                     {!isLoading && filteredBerufe.length === 0 && (
                       <div className="rounded-xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
                         {berufe && berufe.length === 0
-                          ? 'Aktuell sind noch keine freigegebenen Prüfungstrainer verfügbar.'
-                          : 'Kein Beruf gefunden. Passe deine Suche oder Kategorie an.'}
+                          ? t('trainerEmpty')
+                          : (isAcademic ? 'Kein Fach gefunden. Passe deine Suche oder Kategorie an.' : 'Kein Beruf gefunden. Passe deine Suche oder Kategorie an.')}
                       </div>
                     )}
 
@@ -470,8 +474,8 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
               <CardTitle className="text-xl">2. Wähle deinen Modus</CardTitle>
               <CardDescription>
                 {canChooseMode
-                  ? 'Passe dein Training an dein aktuelles Ziel an.'
-                  : 'Wähle zuerst einen Beruf, um den Modus freizuschalten.'}
+                   ? 'Passe dein Training an dein aktuelles Ziel an.'
+                   : (isAcademic ? 'Wähle zuerst ein Fach, um den Modus freizuschalten.' : 'Wähle zuerst einen Beruf, um den Modus freizuschalten.')}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -539,7 +543,7 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
             <CardHeader>
               <CardTitle className="text-xl">3. Training starten</CardTitle>
               <CardDescription>
-                Dein Einstieg wird erst aktiv, wenn Beruf und Modus gewählt sind.
+                Dein Einstieg wird erst aktiv, wenn {isAcademic ? 'Fach' : 'Beruf'} und Modus gewählt sind.
               </CardDescription>
             </CardHeader>
             <CardContent>{summaryContent}</CardContent>
