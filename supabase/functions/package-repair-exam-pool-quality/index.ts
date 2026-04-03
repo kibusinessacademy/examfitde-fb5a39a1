@@ -282,6 +282,8 @@ async function handlePoolHealthyNoReentry(
   qcReconciled: number,
   gateChange: { check_failed?: boolean; check_failed_reason?: string },
 ) {
+  // Ensure repair step exists before markStepDone (prevents MISMATCH crash)
+  await ensureRepairStep(sb, packageId);
   // Mark repair step as done via SSOT helper (not raw update)
   await markStepDone(sb, {
     packageId,
