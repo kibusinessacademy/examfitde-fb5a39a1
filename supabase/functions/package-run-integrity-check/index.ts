@@ -776,6 +776,7 @@ async function runCourseReadyGate(
       AUSBILDUNG_VOLL: 5,
       ELITE: 3,
       EXAM_FIRST: 5,
+      STUDIUM: 5,
     };
     const easyMinTarget = EASY_MIN_PCT[trackEarly] ?? 5;
     const easyTooLow = easyPct < easyMinTarget;
