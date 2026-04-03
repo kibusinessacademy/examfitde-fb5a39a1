@@ -2,10 +2,11 @@
  * lesson-gen/prompt-builder.ts — Assemble system + user prompts
  * No DB calls. No LLM calls. Pure string assembly.
  * 
- * v2: Program-type-aware — academic vs. vocational prompt profiling.
+ * v3: Program-type-aware — academic vs. vocational prompt profiling
+ *     including step-level prompt selection.
  */
 
-import { STEP_PROMPTS, buildMiniCheckPrompt } from "../lesson-gen-prompts.ts";
+import { STEP_PROMPTS, STEP_PROMPTS_ACADEMIC, buildMiniCheckPrompt } from "../lesson-gen-prompts.ts";
 import type { LessonData, LessonContext, LessonRequest, LessonPrompts } from "./types.ts";
 
 // ─── Academic prompt profiling ──────────────────────────────────────────────
@@ -44,8 +45,12 @@ export function buildLessonPrompts(
   data: LessonData,
   ctx: LessonContext,
 ): LessonPrompts {
-  const stepConfig = STEP_PROMPTS[req.stepKey] || STEP_PROMPTS.verstehen;
   const isAcademic = data.programType === "higher_education";
+
+  // Select the correct step prompt set based on program type
+  const stepPrompts = isAcademic ? STEP_PROMPTS_ACADEMIC : STEP_PROMPTS;
+  const stepConfig = stepPrompts[req.stepKey] || stepPrompts.verstehen
+    || STEP_PROMPTS[req.stepKey] || STEP_PROMPTS.verstehen;
 
   const userPrompt = req.isMiniCheck
     ? isAcademic
