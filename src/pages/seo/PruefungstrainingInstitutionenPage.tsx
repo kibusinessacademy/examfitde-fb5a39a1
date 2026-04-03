@@ -16,8 +16,8 @@ export default function PruefungstrainingInstitutionenPage() {
   return (
     <>
       <SEOHead
-        title="Prüfungsvorbereitung für Berufsschulen & IHK | ExamFit"
-        description="ExamFit unterstützt Auszubildende gezielt bei der Prüfungsvorbereitung – auf Basis des Ausbildungsrahmenplans. Neutral, prüfungsnah, transparent."
+        title="IHK Prüfungstraining für Berufsschulen & Bildungsträger | ExamFit"
+        description="Prüfungsvorbereitung Ausbildung online: ExamFit ergänzt den Unterricht mit adaptivem Prüfungstraining, Prüfungssimulation & KI-Coach. Curriculum-konform, neutral, prüfungsnah."
         canonical="/pruefungstraining-institutionen"
       />
       <div className="min-h-screen">

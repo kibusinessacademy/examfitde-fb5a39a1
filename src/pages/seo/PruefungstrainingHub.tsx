@@ -59,24 +59,24 @@ const CATEGORIES = [
 
 const FAQS = [
   {
-    question: 'Was ist Prüfungstraining bei ExamFit?',
-    answer: 'ExamFit bietet KI-gestütztes Prüfungstraining für IHK-Prüfungen. Du trainierst mit prüfungsrelevanten Aufgaben, realistischen Simulationen und einem KI-Prüfungscoach – alles darauf ausgerichtet, deine Prüfung sicher zu bestehen.',
+    question: 'Was ist IHK Prüfungstraining bei ExamFit?',
+    answer: 'ExamFit bietet intelligentes Prüfungstraining online mit KI-Unterstützung: Prüfungssimulation, Prüfungsfragen üben, adaptiver Prüfungstrainer und KI-Prüfungscoach – alles darauf ausgerichtet, deine IHK Abschlussprüfung sicher zu bestehen.',
   },
   {
-    question: 'Für welche Prüfungen bietet ExamFit Training an?',
-    answer: 'ExamFit deckt IHK-Ausbildungsprüfungen, Fachwirt- und Betriebswirtprüfungen, Meisterprüfungen, Sachkundeprüfungen (§34a/d/f), AEVO und Projektmanagement-Zertifizierungen ab.',
+    question: 'Für welche IHK Prüfungen bietet ExamFit Prüfungsvorbereitung an?',
+    answer: 'ExamFit deckt IHK-Ausbildungsprüfungen (Kaufleute, IT-Berufe, gewerblich-technische Berufe), Fachwirt- und Betriebswirtprüfungen, Meisterprüfungen, Sachkundeprüfungen (§34a/d/f) und AEVO ab.',
   },
   {
-    question: 'Wie realistisch ist die Prüfungssimulation?',
-    answer: 'Die Prüfungssimulation bildet die echte IHK-Prüfung so genau wie möglich nach: gleiche Zeitvorgaben, gleiche Fragentypen, realistische Schwierigkeit. So erkennst du frühzeitig deine Schwächen.',
+    question: 'Wie realistisch ist die IHK Prüfungssimulation online?',
+    answer: 'Die Prüfungssimulation bildet die echte IHK-Prüfung so genau wie möglich nach: gleiche Zeitvorgaben, prüfungskonforme Aufgabentypen, realistische Schwierigkeit und ein Bestehensindikator. So erkennst du typische Fehler vor der echten Prüfung.',
   },
   {
-    question: 'Was kostet das Prüfungstraining?',
-    answer: 'Das komplette Prüfungstraining kostet 39 € und beinhaltet alle Lernmodule, den Prüfungstrainer mit hunderten Fragen, die Prüfungssimulation und den KI-Prüfungscoach. 12 Monate Zugang.',
+    question: 'Was kostet das IHK Prüfungstraining?',
+    answer: 'Das komplette Prüfungstraining kostet 39 € einmalig (kein Abo) und beinhaltet alle Module: Prüfungsfragen üben, Prüfungssimulation, mündliche Prüfung trainieren und KI-Prüfungscoach. 12 Monate Zugang.',
   },
   {
-    question: 'Reicht Prüfungstraining statt klassischem Lernen?',
-    answer: 'Ja, ExamFit kombiniert gezieltes Prüfungswissen mit aktivem Training. Studien zeigen, dass aktives Üben effektiver ist als passives Lesen. Der KI-Coach erkennt deine Schwächen und passt das Training an.',
+    question: 'Wie bestehe ich die IHK Abschlussprüfung mit ExamFit?',
+    answer: 'ExamFit kombiniert gezieltes Prüfungswissen mit aktivem Training. Das adaptive System erkennt deine Schwächen, trainiert prüfungsrelevante Inhalte und simuliert die echte Prüfungssituation – damit du mit Sicherheit in die Prüfung gehst.',
   },
 ];
 
@@ -106,8 +106,8 @@ const PruefungstrainingHub = () => {
   return (
     <>
       <SEOHead
-        title="Prüfungstraining – IHK-Prüfung sicher bestehen"
-        description="KI-gestütztes Prüfungstraining für IHK-Prüfungen: Ausbildung, Fachwirt, Betriebswirt, Meister, AEVO & Sachkunde. Realistische Prüfungssimulation, Musterfragen & KI-Prüfungscoach. Jetzt starten!"
+        title="IHK Prüfungstraining online – Prüfungssimulation & Prüfungsfragen | ExamFit"
+        description="IHK Prüfungstraining online mit echten Prüfungsfragen: Ausbildung, Fachwirt, Meister, AEVO & Sachkunde. Prüfungssimulation, KI-Prüfungscoach & adaptive Prüfungsvorbereitung. Jetzt starten!"
         canonical={`${SITE_URL}/pruefungstraining`}
         structuredData={structuredData}
       />
@@ -117,7 +117,7 @@ const PruefungstrainingHub = () => {
         <section className="text-center max-w-4xl mx-auto space-y-6">
           <Breadcrumbs items={[{ label: 'Start', href: '/' }, { label: 'Prüfungstraining' }]} />
           <h1 className="text-4xl md:text-5xl font-display font-bold tracking-tight">
-            Prüfungstraining – IHK-Prüfung <span className="text-primary">sicher bestehen</span>
+            IHK Prüfungstraining online: <span className="text-primary">Abschlussprüfung bestehen</span>
           </h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
             KI-gestütztes Prüfungstraining mit realistischer Simulation, prüfungsrelevanten Aufgaben und persönlichem KI-Prüfungscoach. Für Azubis, Fachwirte & Meister.

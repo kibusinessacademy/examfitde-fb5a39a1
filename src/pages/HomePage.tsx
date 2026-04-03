@@ -31,10 +31,12 @@ import {
 } from 'lucide-react';
 
 const FAQ_ITEMS = [
-  { question: 'Ist ExamFit ein Abo?', answer: 'Nein. Du zahlst einmalig und erhältst für 12 Monate Zugriff.' },
-  { question: 'Für wen ist ExamFit geeignet?', answer: 'Für Auszubildende, die sich gezielt auf ihre Abschlussprüfung vorbereiten möchten.' },
-  { question: 'Ist ExamFit Ersatz für Berufsschule oder Ausbildung?', answer: 'Nein. ExamFit ergänzt deine Vorbereitung mit prüfungsnahem Training.' },
-  { question: 'Kann ich erst kostenlos testen?', answer: 'Ja. Du kannst den Prüfungsreife-Check kostenlos und ohne Anmeldung starten.' },
+  { question: 'Wie bestehe ich die IHK Abschlussprüfung?', answer: 'Mit gezieltem Prüfungstraining: ExamFit analysiert deine Schwächen, trainiert prüfungsrelevante Inhalte und simuliert die echte Prüfungssituation – damit du optimal vorbereitet bist.' },
+  { question: 'Wie läuft die IHK Abschlussprüfung ab?', answer: 'Die IHK-Abschlussprüfung besteht aus einem schriftlichen und einem mündlichen Teil (Fachgespräch). ExamFit bereitet dich auf beide Teile vor – mit Prüfungssimulation und KI-gestütztem Fachgespräch-Training.' },
+  { question: 'Ist ExamFit ein Abo?', answer: 'Nein. Du zahlst einmalig 39 € und erhältst 12 Monate Zugriff auf das komplette IHK-Prüfungstraining – inklusive Prüfungssimulation, KI-Coach und mündliche Prüfung.' },
+  { question: 'Welche typischen Fehler kann ich bei der IHK Prüfung vermeiden?', answer: 'Die häufigsten Fehler: zu spät anfangen, nur Theorie lernen, keine Prüfungssimulation machen. ExamFit zeigt dir deine Schwächen und trainiert gezielt die prüfungsrelevanten Themen.' },
+  { question: 'Gibt es IHK Prüfungsfragen mit Lösungen kostenlos?', answer: 'Ja – starte den kostenlosen Prüfungsreife-Check und teste dein Wissen mit echten prüfungsnahen Aufgaben. Für das vollständige Training mit hunderten Fragen und Lösungen gibt es das Prüfungstraining für 39 €.' },
+  { question: 'Kann ich die IHK Prüfung online simulieren?', answer: 'Ja. ExamFit bietet eine realistische IHK-Prüfungssimulation mit Zeitlimit, Gewichtung und Bestehensindikator – so wie in der echten Prüfung.' },
 ];
 
 export default function HomePage() {
@@ -63,8 +65,8 @@ export default function HomePage() {
   return (
     <>
       <SEOHead
-        title="IHK-Prüfung bestehen – Prüfungstraining für Azubis | ExamFit"
-        description="Bereite dich gezielt auf deine IHK-Prüfung vor. Prüfungssimulation, KI-Prüfungscoach & mündliche Prüfung trainieren. Einmalig 39 €."
+        title="IHK Prüfungstraining online – Prüfungsvorbereitung mit KI | ExamFit"
+        description="IHK Prüfung bestehen mit intelligentem Prüfungstraining: Prüfungssimulation, Prüfungsfragen üben, KI-Prüfungscoach & mündliche Prüfung trainieren. Einmalig 39 €, kein Abo."
         canonical={`${SITE_URL}/`}
         type="website"
         structuredData={[
@@ -86,12 +88,12 @@ export default function HomePage() {
             </div>
 
             <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-display font-bold mb-5 animate-fade-in leading-[1.1]">
-              Wie prüfungsreif{' '}
-              <span className="text-gradient text-glow">bist du wirklich?</span>
+              IHK Prüfungstraining:{' '}
+              <span className="text-gradient text-glow">Prüfung sicher bestehen</span>
             </h1>
 
             <p className="text-base sm:text-xl text-muted-foreground mb-8 max-w-2xl mx-auto animate-fade-in" style={{ animationDelay: '0.1s' }}>
-              Starte den kostenlosen Prüfungsreife-Check oder trainiere direkt mit echten prüfungsnahen Aufgaben für deine Abschlussprüfung.
+              Bereite dich gezielt auf deine IHK Abschlussprüfung vor – mit Prüfungssimulation, adaptivem Prüfungstrainer und KI-Prüfungscoach. Kostenlos testen oder direkt starten.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-3 justify-center animate-fade-in" style={{ animationDelay: '0.2s' }}>
@@ -162,11 +164,11 @@ export default function HomePage() {
         <section className="py-12 sm:py-16 md:py-20 px-3 sm:px-4 bg-muted/30">
           <div className="container mx-auto max-w-4xl text-center">
             <h2 className="text-2xl sm:text-3xl md:text-4xl font-display font-bold mb-4 sm:mb-6">
-              So hilft dir ExamFit bei der{' '}
-              <span className="text-gradient">Prüfungsvorbereitung</span>
+              IHK Prüfungsvorbereitung online:{' '}
+              <span className="text-gradient">Gezielt trainieren statt blind lernen</span>
             </h2>
             <p className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto mb-12">
-              Nicht blind lernen, sondern gezielt trainieren — mit einem System, das deine Schwächen erkennt.
+              Prüfungstraining für Azubis – mit adaptiver Schwächenanalyse, echten Prüfungsfragen und einem System, das dich Schritt für Schritt prüfungsreif macht.
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
@@ -190,7 +192,7 @@ export default function HomePage() {
           <div className="container mx-auto max-w-6xl">
             <div className="text-center mb-8 md:mb-16">
               <h2 className="text-2xl sm:text-3xl md:text-4xl font-display font-bold mb-4">
-                So trainierst du mit <span className="text-gradient">ExamFit</span>
+                Prüfungstraining für Ausbildung: <span className="text-gradient">So wirst du prüfungsreif</span>
               </h2>
             </div>
 
