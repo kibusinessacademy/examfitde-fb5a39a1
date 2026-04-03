@@ -124,7 +124,6 @@ serve(async (req) => {
           content_md: article.content_md,
           source_question_id: question.id,
           source_curriculum_id: question.curriculum_id,
-          source_package_id: question.package_id,
           status: "published",
           published_at: new Date().toISOString(),
           word_count: wordCount,

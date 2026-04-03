@@ -134,7 +134,6 @@ serve(async (req) => {
           },
           source_question_id: question.id,
           source_curriculum_id: question.curriculum_id,
-          source_package_id: question.package_id,
           status: "ready",
         });
 
