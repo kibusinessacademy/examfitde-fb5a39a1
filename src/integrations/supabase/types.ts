@@ -58589,6 +58589,8 @@ export type Database = {
         | "error_detection"
         | "comparison"
         | "classification"
+        | "diagnose"
+        | "elaborate"
       distractor_error_type:
         | "common_misconception"
         | "overgeneralization"
@@ -58619,6 +58621,10 @@ export type Database = {
         | "documentation_analysis"
         | "legal_evaluation"
         | "communication_scenario"
+        | "calculation_analysis"
+        | "case_study"
+        | "model_comparison"
+        | "strategic_decision"
       exam_mode: "simulation" | "practice" | "timed_exam"
       exam_relevance: "low" | "medium" | "high"
       finance_event_type:
@@ -58941,6 +58947,8 @@ export const Constants = {
         "error_detection",
         "comparison",
         "classification",
+        "diagnose",
+        "elaborate",
       ],
       distractor_error_type: [
         "common_misconception",
@@ -58974,6 +58982,10 @@ export const Constants = {
         "documentation_analysis",
         "legal_evaluation",
         "communication_scenario",
+        "calculation_analysis",
+        "case_study",
+        "model_comparison",
+        "strategic_decision",
       ],
       exam_mode: ["simulation", "practice", "timed_exam"],
       exam_relevance: ["low", "medium", "high"],
