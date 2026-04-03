@@ -1194,13 +1194,14 @@ Deno.serve(async (req) => {
       hard_fail_reasons: gate.hardFails,
     };
 
-    const CURRENT_REPORT_VERSION = "COURSE_READY_v1.6";
-    const CURRENT_REPORT_VERSION_NUM = 16;
+    const CURRENT_REPORT_VERSION = "COURSE_READY_v1.7";
+    const CURRENT_REPORT_VERSION_NUM = 17;
     const report = {
       score: gate.score,
       generated_at: new Date().toISOString(),
       gate_version: CURRENT_REPORT_VERSION,
       version_num: CURRENT_REPORT_VERSION_NUM,
+      integrity_profile: gate.integrityProfile,
       sample_metadata: {
         approved_question_count_total: approvedCountExpected,
         approved_question_count_loaded: totalApproved,
