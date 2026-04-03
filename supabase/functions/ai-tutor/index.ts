@@ -531,7 +531,7 @@ Deno.serve(async (req) => {
     }
 
     // ── SSOT Context Loader (server-side) ──
-    const { contextPrompt, resolvedContext, professionName } = await loadSSOTContext(supabase, context);
+    const { contextPrompt, resolvedContext, professionName, programType } = await loadSSOTContext(supabase, context);
 
     // ── Wave 3D: Mastery-aware role steering ──
     let effectiveRole = validRole as AIRole;
