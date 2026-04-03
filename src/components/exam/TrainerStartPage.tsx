@@ -175,7 +175,7 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
     <>
       <div className="space-y-4 rounded-xl border border-border bg-muted/30 p-4">
         <div>
-          <div className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">Beruf</div>
+          <div className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">{isAcademic ? 'Fach' : 'Beruf'}</div>
           <div className={cn('font-medium', selectedBeruf ? 'text-foreground' : 'text-muted-foreground')}>
             {selectedBeruf?.bezeichnung_kurz || 'Noch nicht ausgewählt'}
           </div>
