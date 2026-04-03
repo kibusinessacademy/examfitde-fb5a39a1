@@ -35,7 +35,7 @@ function assertUuid(name: string, v: unknown) {
   if (!v || typeof v !== "string" || !re.test(v)) throw new Error(`INVALID_${name.toUpperCase()}`);
 }
 
-/** Paginated fetch to avoid Supabase 1000-row default limit */
+/** Paginated fetch with deterministic ordering to avoid missed rows */
 async function fetchAllRows<T>(
   sb: ReturnType<typeof createClient>,
   table: string,
@@ -46,7 +46,7 @@ async function fetchAllRows<T>(
   const all: T[] = [];
   let from = 0;
   while (true) {
-    let q = sb.from(table).select(select).range(from, from + pageSize - 1);
+    let q = sb.from(table).select(select).order("id", { ascending: true }).range(from, from + pageSize - 1);
     for (const f of filters) {
       if (f.op === "eq") q = q.eq(f.col, f.val);
       else if (f.op === "in") q = q.in(f.col, f.val as string[]);
