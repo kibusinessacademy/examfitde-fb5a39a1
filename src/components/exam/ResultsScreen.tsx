@@ -8,14 +8,17 @@ import { cn } from '@/lib/utils';
 import type { ExamResult } from '@/hooks/useExamSimulation';
 import { LessonRecommendations } from './LessonRecommendations';
 import { BadgeShareSection } from './BadgeShareSection';
+import { useTerminology } from '@/hooks/useProgramType';
 
 interface ResultsScreenProps {
   result: ExamResult;
   sessionId?: string;
   onRestart: () => void;
+  curriculumId?: string;
 }
 
-export function ResultsScreen({ result, sessionId, onRestart }: ResultsScreenProps) {
+export function ResultsScreen({ result, sessionId, onRestart, curriculumId }: ResultsScreenProps) {
+  const { t } = useTerminology(curriculumId);
   const passedClass = result.passed 
     ? "border-primary/50" 
     : "border-destructive/50";
@@ -132,7 +135,7 @@ export function ResultsScreen({ result, sessionId, onRestart }: ResultsScreenPro
       {/* Actions */}
       <div className="flex gap-4">
         <Button variant="outline" className="flex-1" onClick={onRestart}>
-          Neue Prüfung
+          {t('newExam')}
         </Button>
         {sessionId && (
           <Button variant="outline" className="flex-1 gap-2" asChild>
