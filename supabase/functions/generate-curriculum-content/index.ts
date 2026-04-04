@@ -312,7 +312,7 @@ Deno.serve(async (req) => {
     return json({
       success: true,
       curriculumId,
-      beruf: beruf.bezeichnung_kurz,
+      beruf: beruf?.bezeichnung_kurz ?? curr.title,
       learningFields: learningFields.length,
       competencies: totalComps,
     });
