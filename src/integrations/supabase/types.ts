@@ -17199,6 +17199,7 @@ export type Database = {
           bloom_level_validated: string | null
           blueprint_id: string | null
           canonical_hash: string | null
+          certification_id: string | null
           cognitive_level: string | null
           competency_id: string | null
           complexity_score: number | null
@@ -17227,6 +17228,7 @@ export type Database = {
           item_guessing: number | null
           item_usage_count: number | null
           learning_field_id: string | null
+          meta: Json | null
           multi_variable: boolean | null
           normalized_hash: string | null
           options: Json
@@ -17234,6 +17236,7 @@ export type Database = {
           question_fingerprint: string | null
           question_text: string
           question_type: string
+          review_state: string | null
           reviewed_at: string | null
           reviewed_by: string | null
           rubric: Json | null
@@ -17253,6 +17256,7 @@ export type Database = {
           bloom_level_validated?: string | null
           blueprint_id?: string | null
           canonical_hash?: string | null
+          certification_id?: string | null
           cognitive_level?: string | null
           competency_id?: string | null
           complexity_score?: number | null
@@ -17281,6 +17285,7 @@ export type Database = {
           item_guessing?: number | null
           item_usage_count?: number | null
           learning_field_id?: string | null
+          meta?: Json | null
           multi_variable?: boolean | null
           normalized_hash?: string | null
           options: Json
@@ -17288,6 +17293,7 @@ export type Database = {
           question_fingerprint?: string | null
           question_text: string
           question_type?: string
+          review_state?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           rubric?: Json | null
@@ -17307,6 +17313,7 @@ export type Database = {
           bloom_level_validated?: string | null
           blueprint_id?: string | null
           canonical_hash?: string | null
+          certification_id?: string | null
           cognitive_level?: string | null
           competency_id?: string | null
           complexity_score?: number | null
@@ -17335,6 +17342,7 @@ export type Database = {
           item_guessing?: number | null
           item_usage_count?: number | null
           learning_field_id?: string | null
+          meta?: Json | null
           multi_variable?: boolean | null
           normalized_hash?: string | null
           options?: Json
@@ -17342,6 +17350,7 @@ export type Database = {
           question_fingerprint?: string | null
           question_text?: string
           question_type?: string
+          review_state?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           rubric?: Json | null
