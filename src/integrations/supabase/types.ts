@@ -37779,6 +37779,20 @@ export type Database = {
             foreignKeyName: "standalone_license_devices_license_id_fkey"
             columns: ["license_id"]
             isOneToOne: false
+            referencedRelation: "v_admin_standalone_license_risk"
+            referencedColumns: ["license_id"]
+          },
+          {
+            foreignKeyName: "standalone_license_devices_license_id_fkey"
+            columns: ["license_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_standalone_licenses"
+            referencedColumns: ["license_id"]
+          },
+          {
+            foreignKeyName: "standalone_license_devices_license_id_fkey"
+            columns: ["license_id"]
+            isOneToOne: false
             referencedRelation: "v_standalone_license_risk"
             referencedColumns: ["license_id"]
           },
@@ -37815,6 +37829,20 @@ export type Database = {
             columns: ["license_id"]
             isOneToOne: false
             referencedRelation: "standalone_licenses"
+            referencedColumns: ["license_id"]
+          },
+          {
+            foreignKeyName: "standalone_license_events_license_id_fkey"
+            columns: ["license_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_standalone_license_risk"
+            referencedColumns: ["license_id"]
+          },
+          {
+            foreignKeyName: "standalone_license_events_license_id_fkey"
+            columns: ["license_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_standalone_licenses"
             referencedColumns: ["license_id"]
           },
           {
@@ -51616,6 +51644,132 @@ export type Database = {
           run_after: string | null
           started_at: string | null
           updated_at: string | null
+        }
+        Relationships: []
+      }
+      v_admin_standalone_license_devices: {
+        Row: {
+          course_id: string | null
+          course_title: string | null
+          device_fingerprint: string | null
+          email: string | null
+          first_seen_at: string | null
+          id: string | null
+          last_seen_at: string | null
+          license_id: string | null
+          metadata: Json | null
+          package_id: string | null
+          package_title: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "standalone_license_devices_license_id_fkey"
+            columns: ["license_id"]
+            isOneToOne: false
+            referencedRelation: "standalone_licenses"
+            referencedColumns: ["license_id"]
+          },
+          {
+            foreignKeyName: "standalone_license_devices_license_id_fkey"
+            columns: ["license_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_standalone_license_risk"
+            referencedColumns: ["license_id"]
+          },
+          {
+            foreignKeyName: "standalone_license_devices_license_id_fkey"
+            columns: ["license_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_standalone_licenses"
+            referencedColumns: ["license_id"]
+          },
+          {
+            foreignKeyName: "standalone_license_devices_license_id_fkey"
+            columns: ["license_id"]
+            isOneToOne: false
+            referencedRelation: "v_standalone_license_risk"
+            referencedColumns: ["license_id"]
+          },
+        ]
+      }
+      v_admin_standalone_license_events: {
+        Row: {
+          course_id: string | null
+          course_title: string | null
+          created_at: string | null
+          detail: Json | null
+          email: string | null
+          event_status: string | null
+          event_type: string | null
+          id: string | null
+          license_id: string | null
+          package_id: string | null
+          package_title: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "standalone_license_events_license_id_fkey"
+            columns: ["license_id"]
+            isOneToOne: false
+            referencedRelation: "standalone_licenses"
+            referencedColumns: ["license_id"]
+          },
+          {
+            foreignKeyName: "standalone_license_events_license_id_fkey"
+            columns: ["license_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_standalone_license_risk"
+            referencedColumns: ["license_id"]
+          },
+          {
+            foreignKeyName: "standalone_license_events_license_id_fkey"
+            columns: ["license_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_standalone_licenses"
+            referencedColumns: ["license_id"]
+          },
+          {
+            foreignKeyName: "standalone_license_events_license_id_fkey"
+            columns: ["license_id"]
+            isOneToOne: false
+            referencedRelation: "v_standalone_license_risk"
+            referencedColumns: ["license_id"]
+          },
+        ]
+      }
+      v_admin_standalone_license_risk: {
+        Row: {
+          course_title: string | null
+          device_count: number | null
+          device_limit: number | null
+          email: string | null
+          last_seen_at: string | null
+          license_id: string | null
+          package_title: string | null
+          risk_level: string | null
+          status: string | null
+        }
+        Relationships: []
+      }
+      v_admin_standalone_licenses: {
+        Row: {
+          course_id: string | null
+          course_title: string | null
+          device_count: number | null
+          device_limit: number | null
+          email: string | null
+          expires_at: string | null
+          id: string | null
+          issued_at: string | null
+          last_opened_at: string | null
+          last_seen_at: string | null
+          last_validated_at: string | null
+          license_id: string | null
+          metadata: Json | null
+          package_id: string | null
+          package_title: string | null
+          risk_level: string | null
+          status: string | null
         }
         Relationships: []
       }
