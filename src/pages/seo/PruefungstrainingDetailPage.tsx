@@ -3,6 +3,7 @@ import DOMPurify from 'dompurify';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { Breadcrumbs } from '@/components/seo/Breadcrumbs';
 import { generateFAQSchema, generateBreadcrumbSchema, generateCourseSchema, SITE_URL } from '@/lib/seo';
+import { PRICING } from '@/config/pricing';
 import { useCertificationCatalog } from '@/hooks/useCertificationSEO';
 import { useCertificationSEOPage } from '@/hooks/useCertificationSEO';
 import { usePublishedCertifications } from '@/hooks/usePublishedCertifications';
