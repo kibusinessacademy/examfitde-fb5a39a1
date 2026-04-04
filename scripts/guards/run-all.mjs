@@ -16,6 +16,7 @@ const guards = [
   "no-nano-learning-content-guard.mjs",
   "auto-publish-postcondition-guard.mjs",
   "no-legacy-entitlement-rpc-guard.mjs",
+  "dag-parity-guard.mjs",
 ];
 
 function run(file) {
