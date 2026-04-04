@@ -131,7 +131,7 @@ function GateClassDetail({ step }: { step: any }) {
   );
 }
 
-
+function PackagePipeline({ pkg, steps }: { pkg: any; steps: any[] }) {
   const [expanded, setExpanded] = useState(true);
   const pkgSteps = steps.filter(s => s.package_id === pkg.id);
   const sortedSteps = STEP_ORDER.map(key => pkgSteps.find(s => s.step_key === key)).filter(Boolean);
