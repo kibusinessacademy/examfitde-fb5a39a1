@@ -229,6 +229,7 @@ const AppRoutes = () => {
           <Route path="queue" element={<QueuePage />} />
           <Route path="marketing" element={<MarketingPage />} />
           <Route path="compliance" element={<CompliancePage />} />
+          <Route path="licenses" element={<StandaloneLicensesPage />} />
           <Route path="learner-preview" element={<AdminLearnerPreviewPage />} />
           <Route path="growth" element={<AdminGrowthCockpitPage />} />
           <Route path="growth-engine" element={<GrowthDashboardPage />} />
