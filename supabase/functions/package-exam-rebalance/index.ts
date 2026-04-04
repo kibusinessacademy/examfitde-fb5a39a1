@@ -46,6 +46,20 @@ interface TrapCorridor {
   hard_below_pct: number;
 }
 
+function buildRegressionMeta(
+  existingMeta: Record<string, unknown> | null | undefined,
+  reason: string,
+  caller: "repair_rpc" = "repair_rpc",
+) {
+  return {
+    ...(existingMeta ?? {}),
+    allow_regression: true,
+    allow_regression_by: caller,
+    last_reset_reason: reason,
+    last_reset_at: new Date().toISOString(),
+  };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
@@ -200,23 +214,43 @@ Deno.serve(async (req) => {
       }
 
       for (const stepKey of ["run_integrity_check", "auto_publish"]) {
+        const { data: stepRow } = await sb.from("package_steps")
+          .select("meta")
+          .eq("package_id", packageId)
+          .eq("step_key", stepKey)
+          .maybeSingle();
+
         await sb.from("package_steps").update({
           status: "queued",
           attempts: 0,
           started_at: null,
           finished_at: null,
           last_error: `exam-rebalance-v2: reset after ${actions.length} repair actions`,
+          meta: buildRegressionMeta(
+            (stepRow?.meta as Record<string, unknown> | null | undefined),
+            `exam-rebalance-v2:${stepKey}`,
+          ),
         }).eq("package_id", packageId).eq("step_key", stepKey);
       }
 
       if (actions.some(a => a.type.includes("bloom") || a.type.includes("difficulty"))) {
         for (const sk of ["quality_council", "elite_harden"]) {
+          const { data: stepRow } = await sb.from("package_steps")
+            .select("meta")
+            .eq("package_id", packageId)
+            .eq("step_key", sk)
+            .maybeSingle();
+
           await sb.from("package_steps").update({
             status: "queued",
             attempts: 0,
             started_at: null,
             finished_at: null,
             last_error: "exam-rebalance-v2: reset for re-validation",
+            meta: buildRegressionMeta(
+              (stepRow?.meta as Record<string, unknown> | null | undefined),
+              `exam-rebalance-v2:${sk}`,
+            ),
           }).eq("package_id", packageId).eq("step_key", sk);
         }
       }
