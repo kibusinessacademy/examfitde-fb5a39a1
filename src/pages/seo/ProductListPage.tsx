@@ -7,6 +7,7 @@ import { SEOHead } from '@/components/seo/SEOHead';
 import { Breadcrumbs } from '@/components/seo/Breadcrumbs';
 import { useBerufPages } from '@/hooks/useSEOPages';
 import { SITE_URL, PRODUCT_PRICES } from '@/lib/seo';
+import { PRICING } from '@/config/pricing';
 
 /**
  * Single-product strategy: All product list pages redirect to one unified product page.
