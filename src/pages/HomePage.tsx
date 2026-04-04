@@ -269,7 +269,7 @@ export default function HomePage() {
                   className="w-full gradient-primary text-primary-foreground shadow-glow rounded-xl h-14 text-lg group"
                   onClick={() => trackConversion({ event: 'cta_click', source: 'pricing', label: 'buy_click' })}
                 >
-                  Jetzt Prüfungstraining starten – 24,90 €
+                  Jetzt Prüfungstraining starten – {PRICING.defaultPrice}
                   <ArrowRight className="h-5 w-5 ml-2 group-hover:translate-x-1 transition-transform" />
                 </Button>
               </Link>
