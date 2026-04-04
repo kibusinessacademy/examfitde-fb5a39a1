@@ -4,6 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useEffect } from 'react';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { generateFAQSchema, generateCourseListSchema, SITE_URL, seoTitle } from '@/lib/seo';
+import { PRICING } from '@/config/pricing';
 import { Testimonials } from '@/components/marketing/Testimonials';
 import { StickyCTA } from '@/components/marketing/StickyCTA';
 import { trackConversion } from '@/lib/seo-tracking';
@@ -33,9 +34,9 @@ import {
 const FAQ_ITEMS = [
   { question: 'Wie bestehe ich die IHK Abschlussprüfung?', answer: 'Um die IHK Abschlussprüfung zu bestehen, solltest du mit echten Prüfungsfragen trainieren, Prüfungssimulationen durchführen und gezielt deine Schwächen analysieren. ExamFit bietet dir alle drei Komponenten in einem intelligenten Prüfungstraining – inklusive KI-Prüfungscoach.' },
   { question: 'Wie läuft die IHK Abschlussprüfung ab?', answer: 'Die IHK-Abschlussprüfung besteht aus einem schriftlichen Teil (Multiple Choice + offene Aufgaben) und einem mündlichen Fachgespräch. ExamFit bereitet dich auf beide Teile vor – mit realistischer Prüfungssimulation und KI-gestütztem Fachgespräch-Training.' },
-  { question: 'Ist ExamFit ein Abo?', answer: 'Nein. Du zahlst einmalig 24,90 € und erhältst 12 Monate Zugriff auf das komplette Prüfungstraining – inklusive Prüfungssimulation, KI-Coach und mündliche Prüfung. Kein Abo, keine versteckten Kosten.' },
+  { question: 'Ist ExamFit ein Abo?', answer: `Nein. Du zahlst einmalig ${PRICING.defaultPrice} und erhältst ${PRICING.defaultAccess} Zugriff auf das komplette Prüfungstraining – inklusive Prüfungssimulation, KI-Coach und mündliche Prüfung. ${PRICING.noSubscription}, keine versteckten Kosten.` },
   { question: 'Welche typischen Fehler kann ich bei der IHK Prüfung vermeiden?', answer: 'Die häufigsten Fehler bei der IHK Prüfung: zu spät mit der Vorbereitung anfangen, nur Theorie lernen ohne Übung, keine Prüfungssimulation machen und Zeiteinteilung nicht trainieren. ExamFit analysiert deine Schwächen und trainiert gezielt die prüfungsrelevanten Themen.' },
-  { question: 'Gibt es IHK Prüfungsfragen mit Lösungen kostenlos?', answer: 'Ja – starte den kostenlosen Prüfungsreife-Check und teste dein Wissen mit echten prüfungsnahen Aufgaben. Für das vollständige Training mit hunderten Fragen und Lösungen gibt es das Prüfungstraining ab 24,90 €.' },
+  { question: 'Gibt es IHK Prüfungsfragen mit Lösungen kostenlos?', answer: `Ja – starte den kostenlosen Prüfungsreife-Check und teste dein Wissen mit echten prüfungsnahen Aufgaben. Für das vollständige Training mit hunderten Fragen und Lösungen gibt es das Prüfungstraining ab ${PRICING.defaultPrice}.` },
   { question: 'Kann ich die IHK Prüfung online simulieren?', answer: 'Ja. ExamFit bietet eine realistische IHK-Prüfungssimulation mit Zeitlimit, Gewichtung nach Prüfungsteilen und Bestehensindikator – genau wie in der echten IHK-Abschlussprüfung.' },
 ];
 
@@ -66,7 +67,7 @@ export default function HomePage() {
     <>
       <SEOHead
         title={seoTitle("Prüfung bestehen: Online Prüfungstraining für Ausbildung & Studium")}
-        description="Prüfungstraining online: IHK-Abschlussprüfung oder Klausur im Studium – mit Prüfungssimulation, adaptivem Training & KI-Coach sicher bestehen. 24,90 € einmalig."
+        description={`Prüfungstraining online: IHK-Abschlussprüfung oder Klausur im Studium – mit Prüfungssimulation, adaptivem Training & KI-Coach sicher bestehen. ${PRICING.defaultPrice} einmalig.`}
         canonical={`${SITE_URL}/`}
         type="website"
         structuredData={[
@@ -241,7 +242,7 @@ export default function HomePage() {
               </div>
 
               <div className="flex items-baseline gap-2 justify-center mb-2">
-                <span className="text-4xl sm:text-5xl font-display font-bold text-gradient">24,90 €</span>
+                <span className="text-4xl sm:text-5xl font-display font-bold text-gradient">{PRICING.defaultPrice}</span>
                 <span className="text-muted-foreground">einmalig</span>
               </div>
               <p className="text-sm text-muted-foreground mb-6">12 Monate Zugang · Kein Abo · Sofort starten</p>
@@ -268,7 +269,7 @@ export default function HomePage() {
                   className="w-full gradient-primary text-primary-foreground shadow-glow rounded-xl h-14 text-lg group"
                   onClick={() => trackConversion({ event: 'cta_click', source: 'pricing', label: 'buy_click' })}
                 >
-                  Jetzt Prüfungstraining starten – 24,90 €
+                  Jetzt Prüfungstraining starten – {PRICING.defaultPrice}
                   <ArrowRight className="h-5 w-5 ml-2 group-hover:translate-x-1 transition-transform" />
                 </Button>
               </Link>
@@ -362,7 +363,7 @@ export default function HomePage() {
                       className="rounded-xl h-14 px-8"
                       onClick={() => trackConversion({ event: 'cta_click', source: 'bottom_cta', label: 'secondary_shop' })}
                     >
-                      Prüfungstraining ansehen – 24,90 €
+                      Prüfungstraining ansehen – {PRICING.defaultPrice}
                     </Button>
                   </Link>
                 </div>

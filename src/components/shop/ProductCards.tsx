@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { PRICING } from '@/config/pricing';
 import { Check, Target, Brain, Mic, Sparkles, GraduationCap, BookOpen, Shield, Clock } from 'lucide-react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -162,7 +163,7 @@ function SingleProductCard({
           {/* Price Display */}
           <div className="space-y-1 text-center pt-4 border-t border-border">
             <div className="text-4xl font-display font-bold text-gradient">
-              {priceData ? formatPrice(priceData.total_price_cents) : '24,90 €'}
+              {priceData ? formatPrice(priceData.total_price_cents) : PRICING.defaultPrice}
             </div>
             {quantity > 1 && priceData && (
               <p className="text-sm text-muted-foreground">

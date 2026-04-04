@@ -7,6 +7,7 @@ import { SEOHead } from '@/components/seo/SEOHead';
 import { Breadcrumbs } from '@/components/seo/Breadcrumbs';
 import { useBerufPages } from '@/hooks/useSEOPages';
 import { SITE_URL, PRODUCT_PRICES } from '@/lib/seo';
+import { PRICING } from '@/config/pricing';
 
 /**
  * Single-product strategy: All product list pages redirect to one unified product page.
@@ -20,7 +21,7 @@ function ProductListPageComponent() {
     <>
       <SEOHead
         title="Intelligentes Prüfungstraining – IHK-Prüfungsvorbereitung | ExamFit"
-        description="ExamFit Prüfungstraining für alle IHK-Ausbildungsberufe. Prüfungssimulation, KI-Coach, mündliche Prüfung – alles in einem Produkt für 24,90 €."
+        description={`ExamFit Prüfungstraining für alle IHK-Ausbildungsberufe. Prüfungssimulation, KI-Coach, mündliche Prüfung – alles in einem Produkt für ${PRICING.defaultPrice}.`}
         canonical={`${SITE_URL}/pruefungstraining`}
         type="product"
       />

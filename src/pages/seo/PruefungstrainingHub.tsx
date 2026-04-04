@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { Breadcrumbs } from '@/components/seo/Breadcrumbs';
 import { generateFAQSchema, generateBreadcrumbSchema, SITE_URL } from '@/lib/seo';
+import { PRICING } from '@/config/pricing';
 import { useCertificationCatalog } from '@/hooks/useCertificationSEO';
 import { usePublishedCertifications } from '@/hooks/usePublishedCertifications';
 import { Target, GraduationCap, Award, BookOpen, Shield, Briefcase, ArrowRight, CheckCircle2, Zap, Brain, Clock } from 'lucide-react';
@@ -72,7 +73,7 @@ const FAQS = [
   },
   {
     question: 'Was kostet das IHK Prüfungstraining?',
-    answer: 'Das komplette Prüfungstraining kostet 24,90 € einmalig (kein Abo) und beinhaltet alle Module: Prüfungsfragen üben, Prüfungssimulation, mündliche Prüfung trainieren und KI-Prüfungscoach. 12 Monate Zugang.',
+    answer: `Das komplette Prüfungstraining kostet ${PRICING.defaultPrice} einmalig (${PRICING.noSubscription.toLowerCase()}) und beinhaltet alle Module: Prüfungsfragen üben, Prüfungssimulation, mündliche Prüfung trainieren und KI-Prüfungscoach. ${PRICING.defaultAccess} Zugang.`,
   },
   {
     question: 'Wie bestehe ich die IHK Abschlussprüfung mit ExamFit?',
@@ -236,7 +237,7 @@ const PruefungstrainingHub = () => {
         {/* CTA */}
         <section className="text-center py-8 space-y-4 bg-card rounded-2xl border border-border">
           <h2 className="text-2xl font-bold">Bereit für deine Prüfung?</h2>
-          <p className="text-muted-foreground">Starte jetzt mit dem Prüfungstraining – nur 24,90 € für 12 Monate.</p>
+          <p className="text-muted-foreground">Starte jetzt mit dem Prüfungstraining – nur {PRICING.defaultPrice} für {PRICING.defaultAccess}.</p>
           <Link to="/shop">
             <Button size="lg" className="shadow-glow">
               <Target className="mr-2 h-5 w-5" /> Jetzt Prüfungstraining starten

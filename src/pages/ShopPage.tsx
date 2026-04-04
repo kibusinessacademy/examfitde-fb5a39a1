@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { PRICING } from '@/config/pricing';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -37,7 +38,7 @@ export default function ShopPage() {
     <>
       <SEOHead
         title={seoTitle("IHK Prüfungstraining kaufen: Prüfungsfragen üben & bestehen")}
-        description="IHK Prüfungstraining online kaufen: Prüfungssimulation, Prüfungsfragen mit Lösungen, KI-Coach & mündliche Prüfung. 24,90 € einmalig, 12 Monate Zugang, kein Abo."
+        description={`IHK Prüfungstraining online kaufen: Prüfungssimulation, Prüfungsfragen mit Lösungen, KI-Coach & mündliche Prüfung. ${PRICING.defaultPrice} einmalig, ${PRICING.defaultAccess} Zugang, ${PRICING.noSubscription}.`}
         canonical={`${SITE_URL}/shop`}
       />
 
@@ -53,7 +54,7 @@ export default function ShopPage() {
           </h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
             Abschlussprüfung Vorbereitung online – Prüfungssimulation, adaptive Schwächenanalyse & KI-Prüfungscoach. 
-            Einmalzahlung 24,90 €, 12 Monate Zugang, kein Abo.
+            Einmalzahlung {PRICING.defaultPrice}, {PRICING.defaultAccess} Zugang, {PRICING.noSubscription}.
           </p>
         </div>
 

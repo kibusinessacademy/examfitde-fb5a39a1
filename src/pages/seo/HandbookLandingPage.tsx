@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { SEOHead } from '@/components/seo/SEOHead';
+import { PRICING } from '@/config/pricing';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
@@ -82,7 +83,7 @@ export default function HandbookLandingPage() {
       "@type": "Offer",
       "price": "0",
       "priceCurrency": "EUR",
-      "description": "Im Bundle enthalten (24,90 €)",
+      "description": `Im Bundle enthalten (${PRICING.defaultPrice})`,
       "availability": "https://schema.org/InStock"
     },
     "aggregateRating": {
@@ -348,7 +349,7 @@ export default function HandbookLandingPage() {
               </p>
               <Button asChild size="lg" className="gap-2 text-lg px-8">
                 <Link to="/shop">
-                  Bundle für 24,90 € sichern
+                  Bundle für {PRICING.defaultPrice} sichern
                   <ArrowRight className="h-5 w-5" />
                 </Link>
               </Button>

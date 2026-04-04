@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { PRICING } from '@/config/pricing';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -115,7 +116,7 @@ export default function HandbookChapterPage() {
                 </p>
                 <Button asChild size="lg" className="gap-2">
                   <Link to="/shop">
-                    Prüfungstraining für 24,90 € freischalten
+                    Prüfungstraining für {PRICING.defaultPrice} freischalten
                     <ArrowRight className="h-4 w-4" />
                   </Link>
                 </Button>

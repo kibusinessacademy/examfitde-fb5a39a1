@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { SITE_URL, seoTitle } from '@/lib/seo';
+import { PRICING } from '@/config/pricing';
 import {
   ArrowRight,
   BarChart3,
@@ -137,7 +138,7 @@ export default function PruefungstrainingBetriebePage() {
                   Mehrplatzlizenzen ab 5 Auszubildenden mit automatischem Mengenrabatt.
                 </p>
                 <div className="flex items-baseline gap-2 justify-center mb-8">
-                  <span className="text-4xl font-display font-bold text-gradient">24,90 €</span>
+                  <span className="text-4xl font-display font-bold text-gradient">{PRICING.defaultPrice}</span>
                   <span className="text-muted-foreground">pro Lizenz · einmalig · 12 Monate</span>
                 </div>
                 <Link to="/shop">

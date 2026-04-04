@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { Breadcrumbs } from '@/components/seo/Breadcrumbs';
 import { SITE_URL, generateFAQSchema } from '@/lib/seo';
+import { PRICING } from '@/config/pricing';
 import {
   Accordion,
   AccordionContent,
@@ -57,7 +58,7 @@ const faqs: FAQItem[] = [
   {
     category: 'Preise & Zahlung',
     question: 'Was kostet das Prüfungstraining?',
-    answer: 'Das komplette Prüfungstraining kostet 24,90€ als Einmalzahlung für 12 Monate Zugang. Alle Funktionen sind enthalten – keine versteckten Kosten.',
+    answer: `Das komplette Prüfungstraining kostet ${PRICING.defaultPrice} als Einmalzahlung für ${PRICING.defaultAccess} Zugang. Alle Funktionen sind enthalten – keine versteckten Kosten.`,
   },
   {
     category: 'Preise & Zahlung',

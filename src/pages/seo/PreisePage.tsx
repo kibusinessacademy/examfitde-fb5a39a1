@@ -1,5 +1,6 @@
 import { SEOHead } from '@/components/seo/SEOHead';
 import { SITE_URL, generateFAQSchema } from '@/lib/seo';
+import { PRICING } from '@/config/pricing';
 import PricingSectionHighConvert from '@/components/pricing/PricingSectionHighConvert';
 
 const faqs = [
@@ -36,7 +37,7 @@ export default function PreisePage() {
     <>
       <SEOHead
         title="Preise – Prüfungstraining für Ausbildung & Studium | ExamFit"
-        description="ExamFit Prüfungstraining: Ausbildung ab 24,90 €, Studium ab 24,90 €. Einmalzahlung, 12 Monate Zugang, kein Abo. Team-Lizenzen für Betriebe & Hochschulen."
+        description={`ExamFit Prüfungstraining: Ausbildung ab ${PRICING.defaultPrice}, Studium ab ${PRICING.defaultPrice}. Einmalzahlung, ${PRICING.defaultAccess} Zugang, ${PRICING.noSubscription}. Team-Lizenzen für Betriebe & Hochschulen.`}
         canonical={`${SITE_URL}/preise`}
         structuredData={structuredData}
       />
