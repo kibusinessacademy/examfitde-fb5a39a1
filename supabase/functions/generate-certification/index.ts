@@ -182,7 +182,7 @@ Deno.serve(async (req) => {
           learning_field_id: lf.id,
           curriculum_id: curriculum.id,
           title: `${lf.title} – Kompetenz ${c + 1}`,
-          code: `${slug}-lf${lf.position}-k${c + 1}`,
+          code: `${slug}-lf${lf.sort_order}-k${c + 1}`,
           enrichment_version: 2, // ← satisfy guard_building_requires_enrichment
         });
       }
