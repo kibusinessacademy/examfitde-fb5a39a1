@@ -99,12 +99,14 @@ export async function loadCachedGlossary(
 /**
  * Load glossary from cache or generate on-demand.
  * Has an explicit 80s timeout on the LLM call to stay within edge runtime limits.
+ * @param track - Track key for profile-aware prompt (default: AUSBILDUNG_VOLL)
  */
 export async function loadOrGenerateGlossary(
   sb: SB,
   berufId: string,
   professionName: string,
   curriculumId?: string,
+  track?: string,
 ): Promise<ProfessionGlossary> {
   // 1) Check cache
   const { data: cached } = await sb
@@ -121,6 +123,7 @@ export async function loadOrGenerateGlossary(
   }
 
   // 2) Build curriculum context (compact)
+  const profile = getContentProfile(track || "AUSBILDUNG_VOLL");
   let curriculumContext = "";
   if (curriculumId) {
     const { data: lfs } = await sb
@@ -131,16 +134,15 @@ export async function loadOrGenerateGlossary(
       .limit(10);
 
     if (lfs?.length) {
-      curriculumContext = `\nLernfelder: ${lfs.map(lf => `${lf.code}: ${lf.title}`).join("; ")}`;
+      const label = profile.glossary.fieldLabel === "Modul" ? "Module" : "Lernfelder";
+      curriculumContext = `\n${label}: ${lfs.map(lf => `${lf.code}: ${lf.title}`).join("; ")}`;
     }
   }
 
   // 3) Generate glossary with explicit timeout
-  console.log(`[glossary-loader] Generating glossary for "${professionName}"...`);
+  console.log(`[glossary-loader] Generating glossary for "${professionName}" (track=${profile.track})...`);
   const chain = await getModelChainAsync("learning_content");
-  const prompt = GLOSSARY_PROMPT
-    .replace("{PROFESSION}", professionName)
-    .replace("{CURRICULUM_CONTEXT}", curriculumContext);
+  const prompt = buildGlossaryPrompt(profile, professionName, curriculumContext);
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 80_000); // 80s hard limit
