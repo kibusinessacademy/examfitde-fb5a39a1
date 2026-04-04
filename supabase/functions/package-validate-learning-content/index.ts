@@ -60,24 +60,17 @@ function json(body: unknown, status = 200) {
   });
 }
 
-// ── Tier 1: Structural checks (no LLM) ──
-interface T1Result {
-  lessonId: string;
-  title: string;
-  step: string;
-  passed: boolean;
-  issues: string[];
-}
+// ── Tier 1: Structural checks (no LLM) — structured ValidationIssue[] ──
 
 function tier1Check(
   lesson: { id: string; title: string; step: string; content: any },
   professionName: string,
 ): T1Result {
-  const issues: string[] = [];
+  const issues: ValidationIssue[] = [];
   const c = lesson.content;
 
   if (!c || c._placeholder === true || c._placeholder === "true") {
-    issues.push("PLACEHOLDER_STILL_PRESENT");
+    issues.push({ code: "PLACEHOLDER_STILL_PRESENT", severity: "critical" });
     return { lessonId: lesson.id, title: lesson.title, step: lesson.step, passed: false, issues };
   }
 
@@ -85,39 +78,41 @@ function tier1Check(
 
   if (isMiniCheck) {
     if (!c.questions || !Array.isArray(c.questions)) {
-      issues.push("MINICHECK_NO_QUESTIONS");
+      issues.push({ code: "MINICHECK_NO_QUESTIONS", severity: "error" });
     } else {
-      if (c.questions.length < 4) issues.push(`MINICHECK_TOO_FEW_QUESTIONS: ${c.questions.length}/4`);
+      if (c.questions.length < 4) {
+        issues.push({ code: "MINICHECK_TOO_FEW_QUESTIONS", severity: "error", metric: c.questions.length, threshold: 4 });
+      }
       for (let i = 0; i < c.questions.length; i++) {
         const q = c.questions[i];
-        if (!q.question || q.question.length < 20) issues.push(`Q${i + 1}_TOO_SHORT`);
-        if (!q.options || q.options.length < 4) issues.push(`Q${i + 1}_TOO_FEW_OPTIONS`);
-        if (q.correct_answer === undefined || q.correct_answer === null) issues.push(`Q${i + 1}_NO_CORRECT_ANSWER`);
+        if (!q.question || q.question.length < 20) issues.push({ code: "QUESTION_TOO_SHORT", severity: "warning", detail: `Q${i + 1}` });
+        if (!q.options || q.options.length < 4) issues.push({ code: "QUESTION_TOO_FEW_OPTIONS", severity: "warning", detail: `Q${i + 1}` });
+        if (q.correct_answer === undefined || q.correct_answer === null) issues.push({ code: "QUESTION_NO_CORRECT_ANSWER", severity: "error", detail: `Q${i + 1}` });
       }
     }
     const contentStr = JSON.stringify(c);
     if (contentStr.length < MIN_MINICHECK_LENGTH) {
-      issues.push(`MINICHECK_CONTENT_TOO_SHORT: ${contentStr.length}/${MIN_MINICHECK_LENGTH}`);
+      issues.push({ code: "MINICHECK_CONTENT_TOO_SHORT", severity: "error", metric: contentStr.length, threshold: MIN_MINICHECK_LENGTH });
     }
   } else {
     const html = c.html || "";
     if (html.length < MIN_HTML_LENGTH) {
-      issues.push(`HTML_TOO_SHORT: ${html.length}/${MIN_HTML_LENGTH}`);
+      issues.push({ code: "HTML_TOO_SHORT", severity: "error", metric: html.length, threshold: MIN_HTML_LENGTH });
     }
     const wordCount = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().split(' ').filter((w: string) => w.length > 0).length;
     if (wordCount < MIN_HTML_WORD_COUNT) {
-      issues.push(`WORD_COUNT_TOO_LOW: ${wordCount}/${MIN_HTML_WORD_COUNT} (target: ${TARGET_HTML_WORD_COUNT})`);
+      issues.push({ code: "WORD_COUNT_TOO_LOW", severity: "error", metric: wordCount, threshold: MIN_HTML_WORD_COUNT, detail: `target: ${TARGET_HTML_WORD_COUNT}` });
     }
     if (!/<h[3-4]>/i.test(html)) {
-      issues.push("MISSING_HEADING_H3_H4");
+      issues.push({ code: "MISSING_HEADING_H3_H4", severity: "warning" });
     }
     if (html.includes("Platzhalter") || html.includes("Lorem ipsum") || html.includes("[TODO]")) {
-      issues.push("PLACEHOLDER_TEXT_FOUND");
+      issues.push({ code: "PLACEHOLDER_TEXT_FOUND", severity: "critical" });
     }
     const htmlLower = html.toLowerCase();
     for (const pattern of META_TEXT_PATTERNS) {
       if (pattern.test(htmlLower)) {
-        issues.push("META_TEXT_DETECTED: AI editing artifact in lesson content");
+        issues.push({ code: "META_TEXT_DETECTED", severity: "error", detail: "AI editing artifact in lesson content" });
         break;
       }
     }
@@ -126,7 +121,7 @@ function tier1Check(
   const contentStr = JSON.stringify(c).slice(0, 8000);
   const contam = checkContamination(contentStr, professionName);
   if (contam.isContaminated) {
-    issues.push(`CONTAMINATION: ${contam.detectedIndustry} [${contam.matchedTerms.slice(0, 3).join(", ")}]`);
+    issues.push({ code: "CONTAMINATION", severity: "critical", detail: `${contam.detectedIndustry} [${contam.matchedTerms.slice(0, 3).join(", ")}]` });
   }
 
   return { lessonId: lesson.id, title: lesson.title, step: lesson.step, passed: issues.length === 0, issues };
