@@ -183,3 +183,49 @@ export async function getShardSummary(
     progress_pct: data.overall_progress_pct ?? 0,
   };
 }
+
+/**
+ * Fanout re-enqueue guard: prevents deadlock loops by checking
+ * whether shards are already materialized or in-flight.
+ */
+export async function shouldSkipFanoutReEnqueue(
+  sb: any,
+  packageId: string,
+): Promise<{ skip: boolean; reason?: string }> {
+  // Check if shards already exist
+  const { data: shards } = await sb
+    .from("package_content_shards")
+    .select("status")
+    .eq("package_id", packageId);
+
+  const total = shards?.length ?? 0;
+  if (total === 0) return { skip: false };
+
+  const pending = (shards ?? []).filter((s: any) => s.status === "pending").length;
+  const processing = (shards ?? []).filter((s: any) => s.status === "processing").length;
+  const completed = (shards ?? []).filter((s: any) => s.status === "completed").length;
+  const failed = (shards ?? []).filter((s: any) => s.status === "failed").length;
+
+  if (pending > 0 || processing > 0) {
+    return { skip: true, reason: `shards_in_flight: ${pending} pending, ${processing} processing` };
+  }
+
+  if (completed + failed === total) {
+    return { skip: true, reason: `fanout_already_materialized: ${completed} completed, ${failed} failed of ${total}` };
+  }
+
+  // Check re-enqueue frequency (loop guard)
+  const { data: recentJobs } = await sb
+    .from("job_queue")
+    .select("id")
+    .like("job_type", "%fanout_learning_content%")
+    .eq("payload->>package_id", packageId)
+    .gte("created_at", new Date(Date.now() - 30 * 60 * 1000).toISOString());
+
+  const recentCount = recentJobs?.length ?? 0;
+  if (recentCount >= 3) {
+    return { skip: true, reason: `loop_guard: ${recentCount} fanout jobs in last 30min` };
+  }
+
+  return { skip: false };
+}
