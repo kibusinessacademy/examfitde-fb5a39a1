@@ -245,6 +245,16 @@ Deno.serve(async (req) => {
     professionName = prof.professionName;
   } catch { /* fallback */ }
 
+  // Resolve track for content profile
+  try {
+    const { data: pkgTrack } = await sb
+      .from("course_packages")
+      .select("track")
+      .eq("id", packageId)
+      .maybeSingle();
+    if (pkgTrack?.track) packageTrack = pkgTrack.track;
+  } catch { /* fallback to AUSBILDUNG_VOLL */ }
+
   // 1) Load learning fields
   const { data: fields, error: lfErr } = await sb
     .from("learning_fields")
@@ -552,6 +562,7 @@ Deno.serve(async (req) => {
       startMs,
       _handbookChain,
       _expandChain,
+      packageTrack,
     );
 
     const hasRealContent = generated.content.length >= MIN_SECTION_CHARS;
