@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, X } from 'lucide-react';
 import { trackConversion } from '@/lib/seo-tracking';
+import { PRICING } from '@/config/pricing';
 
 const EXCLUDED_ROUTES = ['/shop', '/checkout', '/auth', '/pruefungsreife-check'];
 const SCROLL_THRESHOLD = 0.35;
