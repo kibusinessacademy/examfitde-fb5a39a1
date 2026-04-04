@@ -69,6 +69,7 @@ const KursePage = lazy(() => import('@/pages/admin/v2/KursePage'));
 const QueuePage = lazy(() => import('@/pages/admin/v2/QueuePage'));
 const MarketingPage = lazy(() => import('@/pages/admin/v2/MarketingPage'));
 const CompliancePage = lazy(() => import('@/pages/admin/v2/CompliancePage'));
+const StandaloneLicensesPage = lazy(() => import('@/pages/admin/v2/StandaloneLicensesPage'));
 const AdminDeactivatedPage = lazy(() => import('@/components/admin/v2/AdminDeactivatedPage'));
 const AdminLearnerPreviewPage = lazy(() => import('@/pages/admin/AdminLearnerPreviewPage'));
 const AdminTestAreaPage = lazy(() => import('@/pages/admin/AdminTestAreaPage'));
