@@ -1,8 +1,12 @@
 /**
- * merge-step-meta.ts — Safe meta-merge helper for package_steps
+ * merge-step-meta.ts — Atomic meta-merge helper for package_steps
  *
- * Prevents accidental data loss by always reading existing meta
- * before writing. Use this instead of raw `.update({ meta: ... })`.
+ * Uses DB-side `merge_package_step_meta` RPC to atomically merge
+ * JSONB patches via `coalesce(meta,'{}'::jsonb) || patch`.
+ *
+ * This prevents read-modify-write race conditions when multiple
+ * concurrent processes (watchdogs, validators, healers, reconcilers)
+ * update the same step's meta simultaneously.
  *
  * The DB trigger `trg_guard_package_step_meta_contract` is the last
  * line of defense, but this helper avoids the issue at source.
@@ -14,21 +18,30 @@ export async function mergePackageStepMeta(
   stepKey: string,
   patch: Record<string, unknown>,
 ): Promise<void> {
-  const { data: step } = await sb
-    .from("package_steps")
-    .select("meta")
-    .eq("package_id", packageId)
-    .eq("step_key", stepKey)
-    .maybeSingle();
+  const { error } = await sb.rpc("merge_package_step_meta", {
+    p_package_id: packageId,
+    p_step_key: stepKey,
+    p_patch: patch,
+  });
 
-  const oldMeta = (step?.meta ?? {}) as Record<string, unknown>;
-  const merged = { ...oldMeta, ...patch };
+  if (error) throw error;
+}
 
-  const { error } = await sb
-    .from("package_steps")
-    .update({ meta: merged })
-    .eq("package_id", packageId)
-    .eq("step_key", stepKey);
+/**
+ * Remove specific keys from package_steps.meta atomically.
+ * Used to clear block states, temporary flags, etc.
+ */
+export async function removePackageStepMetaKeys(
+  sb: any,
+  packageId: string,
+  stepKey: string,
+  keys: string[],
+): Promise<void> {
+  const { error } = await sb.rpc("remove_package_step_meta_keys", {
+    p_package_id: packageId,
+    p_step_key: stepKey,
+    p_keys: keys,
+  });
 
   if (error) throw error;
 }

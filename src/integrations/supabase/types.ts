@@ -59565,6 +59565,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      merge_package_step_meta: {
+        Args: { p_package_id: string; p_patch: Json; p_step_key: string }
+        Returns: undefined
+      }
       month_start: { Args: { p_any: string }; Returns: string }
       next_package_queue_position: { Args: never; Returns: number }
       normalize_beruf_name: { Args: { input: string }; Returns: string }
@@ -60015,6 +60019,10 @@ export type Database = {
       release_system_execution_lease: {
         Args: { p_lease_key: string; p_owner_key?: string }
         Returns: Json
+      }
+      remove_package_step_meta_keys: {
+        Args: { p_keys: string[]; p_package_id: string; p_step_key: string }
+        Returns: undefined
       }
       renew_package_lease: {
         Args: {
