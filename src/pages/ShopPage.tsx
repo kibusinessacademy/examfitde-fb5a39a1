@@ -37,7 +37,7 @@ export default function ShopPage() {
     <>
       <SEOHead
         title={seoTitle("IHK Prüfungstraining kaufen: Prüfungsfragen üben & bestehen")}
-        description="IHK Prüfungstraining online kaufen: Prüfungssimulation, Prüfungsfragen mit Lösungen, KI-Coach & mündliche Prüfung. 39 € einmalig, 12 Monate Zugang, kein Abo."
+        description="IHK Prüfungstraining online kaufen: Prüfungssimulation, Prüfungsfragen mit Lösungen, KI-Coach & mündliche Prüfung. 24,90 € einmalig, 12 Monate Zugang, kein Abo."
         canonical={`${SITE_URL}/shop`}
       />
 
