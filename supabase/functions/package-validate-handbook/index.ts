@@ -134,6 +134,12 @@ Deno.serve(async (req) => {
     return json({ error: (e as Error).message }, 400);
   }
 
+  // ── Resolve track profile for content-style validation ──
+  const { data: pkgTrackRow } = await sb.from("course_packages").select("track").eq("id", packageId).maybeSingle();
+  const track = (pkgTrackRow as any)?.track ?? "AUSBILDUNG_VOLL";
+  const profile = getContentProfile(track);
+  const isAcademic = profile.handbook.type === "learning_script";
+
   // ── INCOMPLETE GUARD: Check if handbook generation is still in progress ──
   // SSOT: Use chapters as expected count, NOT learning_fields.
   // A handbook may have fewer chapters than learning fields (e.g. 5 chapters for 10 LFs,
