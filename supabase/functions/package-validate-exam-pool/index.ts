@@ -144,11 +144,11 @@ async function updateValidateExamPoolStepMeta(
     ...(args.hadProgress ? { last_progress_at: args.nowIso } : {}),
   };
 
-  const { error } = await sb
-    .from("package_steps")
-    .update({ meta: newMeta })
-    .eq("package_id", args.packageId)
-    .eq("step_key", "validate_exam_pool");
+  const { error } = await sb.rpc("merge_package_step_meta", {
+    p_package_id: args.packageId,
+    p_step_key: "validate_exam_pool",
+    p_patch: newMeta,
+  });
 
   if (error) console.warn(`[validate-exam] step meta update failed: ${error.message}`);
 }

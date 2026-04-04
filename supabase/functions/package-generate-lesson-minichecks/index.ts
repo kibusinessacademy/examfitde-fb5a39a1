@@ -6,6 +6,7 @@ import { getModelChainAsync } from "../_shared/model-routing.ts";
 import { shouldSoftStop, getTimeBudget } from "../_shared/time-budget.ts";
 import { bootstrapLLMLogging } from "../_shared/llm-log-bootstrap.ts";
 import { shouldUseBatch, BATCH_DEFAULT_MODEL } from "../_shared/batch/routing-config.ts";
+import { mergePackageStepMeta } from "../_shared/merge-step-meta.ts";
 import { buildBatchRequests, submitBatchViaFunction } from "../_shared/batch/enqueue-openai.ts";
 
 /**
@@ -622,12 +623,10 @@ Deno.serve(async (req) => {
 
       // Set step to blocked — pipeline stops visibly, never silently passes
       await sb.from("package_steps")
-        .update({
-          status: "blocked",
-          meta: nextMeta,
-        })
+        .update({ status: "blocked" })
         .eq("package_id", packageId)
         .eq("step_key", "generate_lesson_minichecks");
+      await mergePackageStepMeta(sb, packageId, "generate_lesson_minichecks", nextMeta);
 
       return json({
         ok: false,
@@ -641,10 +640,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    await sb.from("package_steps")
-      .update({ meta: nextMeta })
-      .eq("package_id", packageId)
-      .eq("step_key", "generate_lesson_minichecks");
+    await mergePackageStepMeta(sb, packageId, "generate_lesson_minichecks", nextMeta);
 
     return json({
       ok: true,
