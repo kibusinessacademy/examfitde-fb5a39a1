@@ -231,7 +231,7 @@ Deno.serve(async (req) => {
       chain.map(c => ({ provider: c.provider as any, model: c.model })),
       {
         messages: [
-          { role: "system", content: SYSTEM_PROMPT },
+          { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
         temperature: 0.3,
