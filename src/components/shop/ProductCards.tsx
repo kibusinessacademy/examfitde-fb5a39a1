@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { PRICING } from '@/config/pricing';
 import { Check, Target, Brain, Mic, Sparkles, GraduationCap, BookOpen, Shield, Clock } from 'lucide-react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
