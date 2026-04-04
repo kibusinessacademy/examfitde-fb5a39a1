@@ -12,6 +12,7 @@
  */
 
 import { poolForJobType, type WorkerPool, assertKnownJobType } from "./job-map.ts";
+import { checkFanoutLoopGuard } from "./fanout-loop-guard.ts";
 
 export interface EnqueueOpts {
   job_type: string;
