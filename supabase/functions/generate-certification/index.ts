@@ -116,15 +116,11 @@ Deno.serve(async (req) => {
       .insert({
         curriculum_id: curriculum.id,
         certification_id: cert.id,
-        track: classification.track,
+        track: trackEnumMap[classification.track] ?? "EXAM_FIRST",
+        certification_type: certTypeEnumMap[classification.certificationType] ?? "sonstige",
         integrity_profile: classification.validationProfile,
         status: "queued",
         priority: body.priority ?? 5,
-        meta: {
-          origin: "generate-certification",
-          blueprint_types: blueprintTypes,
-          certification_type: classification.certificationType,
-        },
       })
       .select("id")
       .single();
