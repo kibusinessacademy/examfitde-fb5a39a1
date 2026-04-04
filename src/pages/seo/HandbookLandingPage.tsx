@@ -82,7 +82,7 @@ export default function HandbookLandingPage() {
       "@type": "Offer",
       "price": "0",
       "priceCurrency": "EUR",
-      "description": "Im Bundle enthalten (39 €)",
+      "description": "Im Bundle enthalten (24,90 €)",
       "availability": "https://schema.org/InStock"
     },
     "aggregateRating": {
