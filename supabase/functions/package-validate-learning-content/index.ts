@@ -4,37 +4,39 @@ import { checkContamination } from "../_shared/contamination-guard.ts";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
 import { callAIJSON } from "../_shared/ai-client.ts";
 import { getModel } from "../_shared/model-routing.ts";
+import {
+  classifyLearningContent,
+  shouldRetryValidation,
+  buildContentFingerprint,
+  type GateClassification,
+  type ValidationSnapshot,
+} from "../_shared/learning-content-gate.ts";
 
 /**
- * package-validate-learning-content — Pipeline Step (between generate_learning_content & auto_seed_exam_blueprints)
+ * package-validate-learning-content — Gate-Classified Pipeline Validator (v2)
  *
- * Two-tier quality gate for generated lesson content:
+ * Instead of binary pass/fail, classifies into:
+ *   healthy                    → step=done, DAG continues
+ *   soft_pass_with_debt        → step=done with debt flag, DAG continues
+ *   repair_required            → enqueue targeted repair, no blind retries
+ *   major_regeneration_required → enqueue major regen, no blind retries
+ *   hard_fail                  → block pipeline
  *
  * TIER 1 (All lessons, no LLM — instant):
- *   - Min content length (HTML ≥ 400 chars, mini_check ≥ 200 chars)
- *   - Required HTML structure (h3, li/ol/ul for text steps)
- *   - No placeholder markers remaining
- *   - Contamination guard (cross-profession terms)
- *   - Mini-check: exactly 4 questions, each with 4 options
+ *   - Min content length, required HTML structure, placeholder/contamination checks
  *
  * TIER 2 (Random sample ≤ 4 lessons, LLM validation):
- *   - Sends to validate-content prompt for deep quality scoring
- *   - If sample avg < 70 → entire step fails (triggers re-generation)
- *   - Individual lessons scoring < 60 → marked for regeneration
- *   - Early exit: if first 2 calls all rate-limited, skip Tier 2 and trust Tier 1
- *
- * On failure: resets generate_learning_content step to re-run for failed lessons.
+ *   - Deep quality scoring on sample
  */
 
 const SAMPLE_SIZE = 4;
 const MIN_HTML_LENGTH = 400;
-const MIN_HTML_WORD_COUNT = 80; // Lowered: generator produces 120-200 words; 200 caused infinite auto-heal loops
-const TARGET_HTML_WORD_COUNT = 200; // Realistic target for batch-generated content
+const MIN_HTML_WORD_COUNT = 80;
+const TARGET_HTML_WORD_COUNT = 200;
 const MIN_MINICHECK_LENGTH = 200;
 const SAMPLE_PASS_THRESHOLD = 70;
 const INDIVIDUAL_REJECT_THRESHOLD = 60;
 
-// META_TEXT patterns (same as exam-pool-cleanup — system-wide standard)
 const META_TEXT_PATTERNS = [
   /\bich muss\b/i, /\bich ändere\b/i, /\btippfehler\b/i,
   /\bes tut mir leid\b/i, /\bich habe einen fehler\b/i,
@@ -74,7 +76,6 @@ function tier1Check(
   const isMiniCheck = lesson.step === "mini_check" || c.type === "mini_check";
 
   if (isMiniCheck) {
-    // Mini-check structural checks
     if (!c.questions || !Array.isArray(c.questions)) {
       issues.push("MINICHECK_NO_QUESTIONS");
     } else {
@@ -91,12 +92,10 @@ function tier1Check(
       issues.push(`MINICHECK_CONTENT_TOO_SHORT: ${contentStr.length}/${MIN_MINICHECK_LENGTH}`);
     }
   } else {
-    // Text step structural checks
     const html = c.html || "";
     if (html.length < MIN_HTML_LENGTH) {
       issues.push(`HTML_TOO_SHORT: ${html.length}/${MIN_HTML_LENGTH}`);
     }
-    // NEW: Word count check (audit: median 160 too low for premium)
     const wordCount = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().split(' ').filter((w: string) => w.length > 0).length;
     if (wordCount < MIN_HTML_WORD_COUNT) {
       issues.push(`WORD_COUNT_TOO_LOW: ${wordCount}/${MIN_HTML_WORD_COUNT} (target: ${TARGET_HTML_WORD_COUNT})`);
@@ -107,7 +106,6 @@ function tier1Check(
     if (html.includes("Platzhalter") || html.includes("Lorem ipsum") || html.includes("[TODO]")) {
       issues.push("PLACEHOLDER_TEXT_FOUND");
     }
-    // NEW: Meta-text detection (AI editing artifacts in lessons)
     const htmlLower = html.toLowerCase();
     for (const pattern of META_TEXT_PATTERNS) {
       if (pattern.test(htmlLower)) {
@@ -117,20 +115,13 @@ function tier1Check(
     }
   }
 
-  // Contamination guard (both types)
   const contentStr = JSON.stringify(c).slice(0, 8000);
   const contam = checkContamination(contentStr, professionName);
   if (contam.isContaminated) {
     issues.push(`CONTAMINATION: ${contam.detectedIndustry} [${contam.matchedTerms.slice(0, 3).join(", ")}]`);
   }
 
-  return {
-    lessonId: lesson.id,
-    title: lesson.title,
-    step: lesson.step,
-    passed: issues.length === 0,
-    issues,
-  };
+  return { lessonId: lesson.id, title: lesson.title, step: lesson.step, passed: issues.length === 0, issues };
 }
 
 // ── Tier 2: LLM validation on sample ──
@@ -141,7 +132,6 @@ async function tier2Validate(
 ): Promise<{ lessonId: string; score: number; decision: string; issues: string[] }> {
   const routed = getModel("quality_audit");
   const isMiniCheck = lesson.step === "mini_check" || lesson.content?.type === "mini_check";
-  const mode = isMiniCheck ? "question" : "lesson";
 
   const VALIDATION_PROMPT = isMiniCheck
     ? `Du bist ein IHK-Prüfungsexperte. Validiere diese Mini-Check-Fragen für ${professionName}. Prüfe: Eindeutigkeit, Distraktoren-Qualität, IHK-Konformität, Berufsbezug. Antworte NUR mit JSON: {"overall_score": 0-100, "decision": "approve|revise|reject", "dimension_scores": {...}, "critical_issues": [...]}`
@@ -172,9 +162,22 @@ async function tier2Validate(
   } catch (e) {
     const errMsg = (e as Error).message || "";
     console.error(`[validate-lessons] LLM validation failed for ${lesson.id}: ${errMsg}`);
-    // Any LLM error → skip (don't penalize score). Trust Tier 1 structural checks.
     return { lessonId: lesson.id, score: -1, decision: "skipped", issues: [`LLM_ERROR: ${errMsg}`] };
   }
+}
+
+// ── Failure mode aggregation ──
+function aggregateFailureModes(t1Failed: T1Result[]): { code: string; count: number }[] {
+  const counts = new Map<string, number>();
+  for (const f of t1Failed) {
+    for (const issue of f.issues) {
+      const code = issue.split(":")[0].trim();
+      counts.set(code, (counts.get(code) || 0) + 1);
+    }
+  }
+  return [...counts.entries()]
+    .map(([code, count]) => ({ code, count }))
+    .sort((a, b) => b.count - a.count);
 }
 
 Deno.serve(async (req) => {
@@ -202,10 +205,7 @@ Deno.serve(async (req) => {
     return json({ error: "Missing package_id or course_id" }, 400);
   }
 
-  // Merge feature_flags from payload + DB
   const effectiveFlags = { ...(pkgRow?.feature_flags || {}), ...featureFlags };
-  // If has_minichecks is true, mini_check lessons are validated by validate_lesson_minichecks,
-  // NOT by this validator. Checking inline questions here causes false SSOT mismatch failures.
   const skipMiniCheckLessons = effectiveFlags.has_minichecks === true || effectiveFlags.has_learning_course === true;
 
   // ── Resolve profession ──
@@ -217,15 +217,24 @@ Deno.serve(async (req) => {
     return json({ error: (e as Error).message }, 400);
   }
 
+  // ── Load step meta for fingerprint-based retry guard ──
+  const { data: stepRow } = await sb
+    .from("package_steps")
+    .select("meta")
+    .eq("package_id", packageId)
+    .eq("step_key", "validate_learning_content")
+    .maybeSingle();
+
+  const stepMeta = (stepRow?.meta as Record<string, any>) || {};
+
   // ── Load all lessons ──
   const { data: allLessons, error: fetchErr } = await sb
     .from("lessons")
-    .select("id, title, step, content, module_id, modules!inner(course_id, title)")
+    .select("id, title, step, content, module_id, updated_at, modules!inner(course_id, title)")
     .eq("modules.course_id", courseId);
 
   if (fetchErr) return json({ error: fetchErr.message }, 500);
 
-  // Filter out mini_check lessons when separate minicheck validation is active
   const allNonPlaceholder = (allLessons || []).filter((l: any) => l.content && l.content._placeholder !== true);
   const lessons = skipMiniCheckLessons
     ? allNonPlaceholder.filter((l: any) => l.step !== "mini_check" && l.content?.type !== "mini_check")
@@ -234,41 +243,66 @@ Deno.serve(async (req) => {
   if (skippedMiniChecks > 0) {
     console.log(`[validate-lessons] Skipping ${skippedMiniChecks} mini_check lessons (validated by validate_lesson_minichecks)`);
   }
-  // totalLessons = non-minicheck content lessons (for placeholder ratio)
+
   const totalContentLessons = skipMiniCheckLessons
     ? (allLessons || []).filter((l: any) => l.step !== "mini_check" && l.content?.type !== "mini_check").length
     : (allLessons || []).length;
   const totalLessons = totalContentLessons;
-  const placeholderCount = totalLessons - lessons.length;
 
   if (lessons.length === 0) {
-    // ── Distinguish: 0 total lessons (predecessor failure) vs all placeholders (retriable) ──
     if (totalLessons === 0) {
-      // PERMANENT FAILURE: No lessons exist at all → scaffold_learning_course failed silently.
-      // Return 422 so job-runner treats this as a non-retriable error.
-      // Retrying will never help — the predecessor step must be re-run first.
-      console.error(`[validate-lessons] PERMANENT: 0 total lessons for course ${courseId} — scaffold_learning_course likely failed. Predecessor must be re-run.`);
+      console.error(`[validate-lessons] PERMANENT: 0 total lessons for course ${courseId}`);
       return json({
         ok: false,
         batch_complete: false,
         error: "PREDECESSOR_FAILURE_NO_LESSONS",
-        message: `❌ PERMANENT: Kein einziges Lesson existiert für diesen Kurs. scaffold_learning_course muss erneut ausgeführt werden.`,
-        placeholders: 0,
-        total: 0,
+        message: `❌ PERMANENT: Kein einziges Lesson existiert für diesen Kurs.`,
         permanent: true,
       }, 422);
     }
-
-    // RETRIABLE: Lessons exist but all are placeholders → content gen incomplete
-    console.error(`[validate-lessons] BLOCKING: ${placeholderCount}/${totalLessons} lessons are still placeholders — content generation incomplete`);
     return json({
       ok: false,
       batch_complete: false,
       error: "ALL_LESSONS_ARE_PLACEHOLDERS",
-      message: `❌ BLOCKIERT: Alle ${totalLessons} Lektionen sind Platzhalter. Content-Generierung muss zuerst vollständig laufen.`,
-      placeholders: placeholderCount,
-      total: totalLessons,
+      message: `❌ BLOCKIERT: Alle ${totalLessons} Lektionen sind Platzhalter.`,
     }, 500);
+  }
+
+  // ── Fingerprint-based retry guard ──
+  const maxUpdatedAt = lessons.reduce((max: string | null, l: any) => {
+    const u = l.updated_at;
+    return u && (!max || u > max) ? u : max;
+  }, null as string | null);
+
+  const currentFingerprint = buildContentFingerprint({
+    packageId,
+    lessonCount: lessons.length,
+    maxUpdatedAt,
+  });
+
+  const retryAllowed = shouldRetryValidation({
+    previousFingerprint: stepMeta.last_validation_fingerprint || null,
+    currentFingerprint,
+    previousGateClass: stepMeta.gate_class || null,
+    repairCompletedSinceLastValidation: !!(
+      stepMeta.last_repair_completed_at &&
+      stepMeta.last_validate_completed_at &&
+      stepMeta.last_repair_completed_at > stepMeta.last_validate_completed_at
+    ),
+  });
+
+  if (!retryAllowed) {
+    const prevClass = stepMeta.gate_class || "unknown";
+    console.log(`[validate-lessons] SKIP_RETRY: fingerprint unchanged, previous gate_class=${prevClass}`);
+    return json({
+      ok: false,
+      batch_complete: false,
+      skipped: true,
+      reason: "FINGERPRINT_UNCHANGED",
+      gate_class: prevClass,
+      reason_code: stepMeta.reason_code || "REPAIR_ALREADY_ENQUEUED",
+      message: `⏭ Validator übersprungen: Keine Content-Änderung seit letzter Validierung (gate_class=${prevClass}). Warte auf Repair-Abschluss.`,
+    });
   }
 
   console.log(`[validate-lessons] Validating ${lessons.length} lessons for ${professionName} (pkg ${packageId.slice(0, 8)})`);
@@ -278,14 +312,14 @@ Deno.serve(async (req) => {
   // ═══════════════════════════════════════
   const t1Results = lessons.map((l: any) => tier1Check(l, professionName));
   const t1Failed = t1Results.filter(r => !r.passed);
-  const t1PassRate = ((t1Results.length - t1Failed.length) / t1Results.length) * 100;
+  const t1PassRate = ((t1Results.length - t1Failed.length) / t1Results.length);
+  const t1PassPct = t1PassRate * 100;
 
-  console.log(`[validate-lessons] Tier 1: ${t1Results.length - t1Failed.length}/${t1Results.length} passed (${t1PassRate.toFixed(1)}%)`);
+  console.log(`[validate-lessons] Tier 1: ${t1Results.length - t1Failed.length}/${t1Results.length} passed (${t1PassPct.toFixed(1)}%)`);
 
-  // Batch update qc_status for Tier 1 failures (max 50 to avoid timeout)
+  // Batch update qc_status for Tier 1 failures
   const failIds = t1Failed.map(f => f.lessonId);
   if (failIds.length > 0) {
-    // Batch update in chunks of 50
     for (let i = 0; i < failIds.length; i += 50) {
       const chunk = failIds.slice(i, i + 50);
       await sb.from("lessons").update({
@@ -295,14 +329,36 @@ Deno.serve(async (req) => {
     }
   }
 
-  // If > 20% fail Tier 1, abort early — content generation has systemic issues
-  if (t1PassRate < 80) {
-    const criticalFails = t1Failed.filter(f =>
-      f.issues.some(i => i.includes("PLACEHOLDER") || i.includes("CONTAMINATION"))
-    );
+  // ── Gate Classification (replaces binary pass/fail) ──
+  const snapshot: ValidationSnapshot = {
+    tier1PassRate: t1PassRate,
+    catastrophicFailures: 0, // Will be detected from critical fail patterns
+    materializedLessons: lessons.length,
+    totalLessons,
+    ssotBroken: false,
+    invalidStructure: false,
+  };
+
+  // Detect catastrophic failures (placeholder/contamination on >30% of failures)
+  const criticalFails = t1Failed.filter(f =>
+    f.issues.some(i => i.includes("PLACEHOLDER") || i.includes("CONTAMINATION"))
+  );
+  if (criticalFails.length > totalLessons * 0.3) {
+    snapshot.catastrophicFailures = criticalFails.length;
+  }
+
+  const classification = classifyLearningContent(snapshot);
+
+  console.log(`[validate-lessons] Gate Classification: ${classification.gateClass} (reason: ${classification.reasonCode}, downstream: ${classification.allowsDownstream})`);
+
+  // ── Failure mode map for repair jobs ──
+  const failureModes = aggregateFailureModes(t1Failed);
+  const affectedLessons = t1Failed.map(f => f.lessonId);
+
+  // ── For hard_fail with catastrophic issues: reset critical placeholders ──
+  if (classification.gateClass === "hard_fail" && criticalFails.length > 0) {
     const criticalIds = criticalFails.map(f => f.lessonId);
-    // Batch reset critical failures
-    for (const lessonId of criticalIds) {
+    for (const lessonId of criticalIds.slice(0, 50)) {
       const { error: rpcErr } = await sb.rpc("pipeline_write_lesson_content_v2" as any, {
         p_lesson_id: lessonId,
         p_content: { _placeholder: true, _regeneration_reason: "tier1_critical_fail" },
@@ -310,158 +366,228 @@ Deno.serve(async (req) => {
       });
       if (rpcErr) console.error(`[validate] RPC placeholder reset failed for ${lessonId}: ${rpcErr.message}`);
     }
-
-    return json({
-      ok: false,
-      tier1_pass_rate: t1PassRate,
-      tier1_failures: t1Failed.length,
-      critical_reset: criticalFails.length,
-      message: `❌ Tier 1 fehlgeschlagen: ${t1Failed.length}/${t1Results.length} Lektionen haben strukturelle Mängel. ${criticalFails.length} zur Neugenerierung markiert.`,
-      details: t1Failed.slice(0, 20),
-    });
   }
 
   // ═══════════════════════════════════════
-  // TIER 2: LLM validation (random sample)
+  // TIER 2: LLM validation (only for healthy/soft_pass candidates)
   // ═══════════════════════════════════════
-  const t1Passed = t1Results.filter(r => r.passed);
-  const sampleSize = Math.min(SAMPLE_SIZE, t1Passed.length);
+  let t2Results: Array<{ lessonId: string; score: number; decision: string; issues: string[] }> = [];
+  let avgScore = 100;
 
-  // Stratified sample: pick from different steps to get coverage
-  const byStep = new Map<string, typeof t1Passed>();
-  for (const r of t1Passed) {
-    const arr = byStep.get(r.step) || [];
-    arr.push(r);
-    byStep.set(r.step, arr);
-  }
+  if (classification.allowsDownstream) {
+    // Only run expensive LLM checks when the gate class allows downstream
+    const t1Passed = t1Results.filter(r => r.passed);
+    const sampleSize = Math.min(SAMPLE_SIZE, t1Passed.length);
 
-  const sample: string[] = [];
-  const stepsArray = [...byStep.entries()];
-  let idx = 0;
-  while (sample.length < sampleSize && stepsArray.some(([, arr]) => arr.length > 0)) {
-    const [, arr] = stepsArray[idx % stepsArray.length];
-    if (arr.length > 0) {
-      const randomIdx = Math.floor(Math.random() * arr.length);
-      sample.push(arr[randomIdx].lessonId);
-      arr.splice(randomIdx, 1);
+    const byStep = new Map<string, typeof t1Passed>();
+    for (const r of t1Passed) {
+      const arr = byStep.get(r.step) || [];
+      arr.push(r);
+      byStep.set(r.step, arr);
     }
-    idx++;
-  }
 
-  console.log(`[validate-lessons] Tier 2: Sampling ${sample.length} lessons for LLM validation`);
-
-  // ── Run Tier 2 LLM calls IN PARALLEL to stay within edge function timeout ──
-  // Previous sequential approach with 8-12s delays caused 504 timeouts (4×40s > 150s limit)
-  const t2Promises = sample.map(async (lessonId) => {
-    const lesson = lessons.find((l: any) => l.id === lessonId);
-    if (!lesson) return null;
-
-    const result = await tier2Validate(sb, {
-      id: lesson.id,
-      title: lesson.title,
-      step: lesson.step,
-      content: lesson.content,
-      moduleName: (lesson as any).modules?.title || "",
-    }, professionName);
-
-    // Update individual lesson qc_status for scored results
-    if (result.score >= 0) {
-      await sb.from("lessons").update({
-        qc_status: result.decision === "approve" ? "approved" : result.decision === "reject" ? "rejected" : "needs_revision",
-        quality_flags: {
-          tier2_score: result.score,
-          tier2_decision: result.decision,
-          validated_at: new Date().toISOString(),
-        },
-      }).eq("id", lesson.id);
-
-      // Mark rejected lessons for re-generation
-      if (result.score < INDIVIDUAL_REJECT_THRESHOLD) {
-        const { error: rpcErr } = await sb.rpc("pipeline_write_lesson_content_v2" as any, {
-          p_lesson_id: lesson.id,
-          p_content: { _placeholder: true, _regeneration_reason: `LLM score ${result.score}/100` },
-          p_source: 'validate-learning-content',
-        });
-        if (rpcErr) console.error(`[validate] RPC reject-reset failed for ${lesson.id}: ${rpcErr.message}`);
+    const sample: string[] = [];
+    const stepsArray = [...byStep.entries()];
+    let idx = 0;
+    while (sample.length < sampleSize && stepsArray.some(([, arr]) => arr.length > 0)) {
+      const [, arr] = stepsArray[idx % stepsArray.length];
+      if (arr.length > 0) {
+        const randomIdx = Math.floor(Math.random() * arr.length);
+        sample.push(arr[randomIdx].lessonId);
+        arr.splice(randomIdx, 1);
       }
+      idx++;
     }
 
-    return result;
-  });
+    console.log(`[validate-lessons] Tier 2: Sampling ${sample.length} lessons for LLM validation`);
 
-  const t2ResultsRaw = await Promise.all(t2Promises);
-  const t2Results = t2ResultsRaw.filter(Boolean) as Array<{ lessonId: string; score: number; decision: string; issues: string[] }>;
+    const t2Promises = sample.map(async (lessonId) => {
+      const lesson = lessons.find((l: any) => l.id === lessonId);
+      if (!lesson) return null;
+      const result = await tier2Validate(sb, {
+        id: lesson.id,
+        title: lesson.title,
+        step: lesson.step,
+        content: lesson.content,
+        moduleName: (lesson as any).modules?.title || "",
+      }, professionName);
+      if (result.score >= 0) {
+        await sb.from("lessons").update({
+          qc_status: result.decision === "approve" ? "approved" : result.decision === "reject" ? "rejected" : "needs_revision",
+          quality_flags: {
+            tier2_score: result.score,
+            tier2_decision: result.decision,
+            validated_at: new Date().toISOString(),
+          },
+        }).eq("id", lesson.id);
+        if (result.score < INDIVIDUAL_REJECT_THRESHOLD) {
+          const { error: rpcErr } = await sb.rpc("pipeline_write_lesson_content_v2" as any, {
+            p_lesson_id: lesson.id,
+            p_content: { _placeholder: true, _regeneration_reason: `LLM score ${result.score}/100` },
+            p_source: 'validate-learning-content',
+          });
+          if (rpcErr) console.error(`[validate] RPC reject-reset failed for ${lesson.id}: ${rpcErr.message}`);
+        }
+      }
+      return result;
+    });
 
-  // Filter out rate-limited results (score=-1) from average calculation
-  const scoredResults = t2Results.filter(r => r.score >= 0);
-  const avgScore = scoredResults.length > 0
-    ? scoredResults.reduce((sum, r) => sum + r.score, 0) / scoredResults.length
-    : 100; // If all were rate-limited, trust Tier 1
-  const rejected = scoredResults.filter(r => r.score < INDIVIDUAL_REJECT_THRESHOLD);
-  const skippedCount = t2Results.length - scoredResults.length;
-  if (skippedCount > 0) console.log(`[validate-lessons] Tier 2: ${skippedCount} samples skipped due to rate limits`);
+    const t2ResultsRaw = await Promise.all(t2Promises);
+    t2Results = t2ResultsRaw.filter(Boolean) as typeof t2Results;
 
-  console.log(`[validate-lessons] Tier 2: avg=${avgScore.toFixed(1)}, rejected=${rejected.length}/${t2Results.length}`);
+    const scoredResults = t2Results.filter(r => r.score >= 0);
+    avgScore = scoredResults.length > 0
+      ? scoredResults.reduce((sum, r) => sum + r.score, 0) / scoredResults.length
+      : 100;
 
-  // Batch mark all non-sampled passed lessons as tier1_passed (in chunks)
-  const sampledSet = new Set(sample);
-  const passedNotSampled = t1Passed.filter(r => !sampledSet.has(r.lessonId)).map(r => r.lessonId);
-  for (let i = 0; i < passedNotSampled.length; i += 100) {
-    const chunk = passedNotSampled.slice(i, i + 100);
-    await sb.from("lessons").update({
-      qc_status: "tier1_passed",
-      quality_flags: { validated_at: new Date().toISOString(), tier1: "passed" },
-    }).in("id", chunk);
+    // Mark non-sampled passed lessons as tier1_passed
+    const sampledSet = new Set(sample);
+    const passedNotSampled = t1Results.filter(r => r.passed && !sampledSet.has(r.lessonId)).map(r => r.lessonId);
+    for (let i = 0; i < passedNotSampled.length; i += 100) {
+      const chunk = passedNotSampled.slice(i, i + 100);
+      await sb.from("lessons").update({
+        qc_status: "tier1_passed",
+        quality_flags: { validated_at: new Date().toISOString(), tier1: "passed" },
+      }).in("id", chunk);
+    }
   }
 
-  // ── Decision ──
-  const overallPass = avgScore >= SAMPLE_PASS_THRESHOLD && t1PassRate >= 80;
+  // ── Determine final step outcome based on classification ──
+  const overallPass = classification.allowsDownstream && avgScore >= SAMPLE_PASS_THRESHOLD;
 
-  // Write validation summary to package
+  // ── Persist gate classification + fingerprint in step meta ──
+  const now = new Date().toISOString();
+  const metaUpdate: Record<string, any> = {
+    gate_class: classification.gateClass,
+    repair_action: classification.repairAction,
+    reason_code: classification.reasonCode,
+    quality_debt: classification.qualityDebt,
+    tier1_pass_rate: t1PassRate,
+    tier1_total: t1Results.length,
+    tier1_passed: t1Results.length - t1Failed.length,
+    tier2_avg_score: avgScore,
+    affected_lessons_count: affectedLessons.length,
+    top_failure_modes: failureModes.slice(0, 5),
+    last_validation_fingerprint: currentFingerprint,
+    last_validate_completed_at: now,
+    allows_downstream: overallPass,
+    validation_passed: overallPass || undefined,
+  };
+
+  // Merge with existing meta (preserve protected keys)
+  await sb
+    .from("package_steps")
+    .update({
+      meta: { ...stepMeta, ...metaUpdate },
+      ...(overallPass ? { status: "done", completed_at: now } : {}),
+    })
+    .eq("package_id", packageId)
+    .eq("step_key", "validate_learning_content");
+
+  // ── Enqueue repair jobs for non-passing classifications ──
+  if (classification.repairAction === "enqueue_targeted_repair" || classification.repairAction === "enqueue_major_regeneration") {
+    const repairJobType = classification.repairAction === "enqueue_targeted_repair"
+      ? "repair_learning_content"
+      : "regenerate_learning_content_cluster";
+
+    const idempotencyKey = `${repairJobType}:${packageId}`;
+
+    // Check for existing active repair job
+    const { data: existingRepair } = await sb
+      .from("job_queue")
+      .select("id, status")
+      .eq("package_id", packageId)
+      .eq("job_type", repairJobType)
+      .in("status", ["pending", "queued", "processing"])
+      .maybeSingle();
+
+    if (!existingRepair) {
+      const { error: enqErr } = await sb.from("job_queue").insert({
+        package_id: packageId,
+        job_type: repairJobType,
+        payload: {
+          package_id: packageId,
+          course_id: courseId,
+          curriculum_id: curriculumId,
+          lessons: affectedLessons.slice(0, 100), // Cap at 100 lesson IDs
+          failure_modes: failureModes.slice(0, 10),
+          repair_mode: classification.repairAction === "enqueue_targeted_repair" ? "targeted" : "major",
+          requested_by: "validate_learning_content",
+          gate_class: classification.gateClass,
+        },
+        status: "pending",
+        idempotency_key: idempotencyKey,
+        priority: classification.repairAction === "enqueue_major_regeneration" ? 85 : 70,
+        worker_pool: "content",
+        max_attempts: 3,
+      });
+
+      if (enqErr) {
+        console.error(`[validate-lessons] Failed to enqueue ${repairJobType}: ${enqErr.message}`);
+      } else {
+        console.log(`[validate-lessons] Enqueued ${repairJobType} for package ${packageId.slice(0, 8)} (${affectedLessons.length} affected lessons)`);
+        // Update meta with repair enqueue timestamp
+        await sb
+          .from("package_steps")
+          .update({ meta: { ...stepMeta, ...metaUpdate, repair_enqueued_at: now, repair_job_type: repairJobType } })
+          .eq("package_id", packageId)
+          .eq("step_key", "validate_learning_content");
+      }
+    } else {
+      console.log(`[validate-lessons] Repair job ${repairJobType} already active (${existingRepair.status}) for ${packageId.slice(0, 8)}`);
+    }
+  }
+
+  // ── Write summary to package ──
   await sb.from("course_packages").update({
-    last_error: overallPass ? null : `Lesson validation: avg=${avgScore.toFixed(0)}, t1_pass=${t1PassRate.toFixed(0)}%`,
+    last_error: overallPass ? null : `Lesson validation: gate=${classification.gateClass}, t1=${t1PassPct.toFixed(0)}%, t2_avg=${avgScore.toFixed(0)}`,
   }).eq("id", packageId);
 
-  // Log to ops_alerts on failure
+  // ── Ops alert on non-healthy ──
   if (!overallPass) {
     try {
       await sb.from("ops_alerts").insert({
         source: "validate-learning-content",
-        severity: "warning",
-        message: `Lesson QC failed for pkg ${packageId.slice(0, 8)}: avg_score=${avgScore.toFixed(0)}, t1_pass=${t1PassRate.toFixed(0)}%`,
+        severity: classification.gateClass === "hard_fail" ? "error" : "warning",
+        message: `Lesson QC: gate=${classification.gateClass} for pkg ${packageId.slice(0, 8)}: t1=${t1PassPct.toFixed(0)}%, repair=${classification.repairAction}`,
         payload: {
           packageId,
+          gate_class: classification.gateClass,
+          reason_code: classification.reasonCode,
           tier1_pass_rate: t1PassRate,
           tier2_avg_score: avgScore,
-          tier2_rejected: rejected.length,
+          repair_action: classification.repairAction,
+          affected_lessons_count: affectedLessons.length,
         },
       });
     } catch (_e) { /* best-effort */ }
   }
 
-  const errorSummary = overallPass
-    ? null
-    : `Tier1 ${t1PassRate.toFixed(0)}% pass, Tier2 avg ${avgScore.toFixed(0)}/100, ${rejected.length} rejected`;
-
   return json({
     ok: overallPass,
     batch_complete: overallPass,
-    error: errorSummary,
-    // If failed, mark as failed (not batch_cursor) so pipeline retries after re-generation
+    gate_class: classification.gateClass,
+    reason_code: classification.reasonCode,
+    repair_action: classification.repairAction,
+    quality_debt: classification.qualityDebt,
+    allows_downstream: classification.allowsDownstream,
+    error: overallPass ? null : `Gate: ${classification.gateClass} — ${classification.reasonCode}`,
     tier1: {
       total: t1Results.length,
       passed: t1Results.length - t1Failed.length,
       failed: t1Failed.length,
-      pass_rate: t1PassRate,
+      pass_rate: t1PassPct,
     },
     tier2: {
       sample_size: t2Results.length,
       avg_score: avgScore,
-      rejected: rejected.length,
+      rejected: t2Results.filter(r => r.score >= 0 && r.score < INDIVIDUAL_REJECT_THRESHOLD).length,
       results: t2Results,
     },
+    top_failure_modes: failureModes.slice(0, 5),
+    affected_lessons_count: affectedLessons.length,
     message: overallPass
-      ? `✅ Lesson QC bestanden: Tier 1 ${t1PassRate.toFixed(0)}%, Tier 2 avg ${avgScore.toFixed(0)}/100`
-      : `❌ Lesson QC fehlgeschlagen: Tier 1 ${t1PassRate.toFixed(0)}%, Tier 2 avg ${avgScore.toFixed(0)}/100. ${rejected.length} Lektionen zur Neugenerierung markiert.`,
+      ? `✅ Lesson QC bestanden (${classification.gateClass}): Tier 1 ${t1PassPct.toFixed(0)}%, Tier 2 avg ${avgScore.toFixed(0)}/100`
+      : `⚠️ Gate: ${classification.gateClass} — Tier 1 ${t1PassPct.toFixed(0)}%, Action: ${classification.repairAction}`,
   });
 });
