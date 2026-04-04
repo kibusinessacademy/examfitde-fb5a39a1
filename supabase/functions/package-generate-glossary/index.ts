@@ -38,12 +38,20 @@ Deno.serve(async (req) => {
     return json({ error: "Missing package_id or curriculum_id" }, 400);
   }
 
-  // Resolve beruf_id and profession name
+  // Resolve beruf_id, profession name, and track
   const { data: cu } = await sb
     .from("curricula")
     .select("beruf_id, berufe(bezeichnung_kurz)")
     .eq("id", curriculumId)
     .maybeSingle();
+
+  // Resolve track from package
+  const { data: pkgRow } = await sb
+    .from("course_packages")
+    .select("track")
+    .eq("id", packageId)
+    .maybeSingle();
+  const track = pkgRow?.track || "AUSBILDUNG_VOLL";
 
   const berufId = cu?.beruf_id;
   const professionName = (cu as any)?.berufe?.bezeichnung_kurz || "Unbekannt";
@@ -71,7 +79,7 @@ Deno.serve(async (req) => {
   const startMs = Date.now();
 
   try {
-    const glossary = await loadOrGenerateGlossary(sb, berufId, professionName, curriculumId);
+    const glossary = await loadOrGenerateGlossary(sb, berufId, professionName, curriculumId, track);
     const durationMs = Date.now() - startMs;
 
     const termCount = glossary.fachbegriffe
