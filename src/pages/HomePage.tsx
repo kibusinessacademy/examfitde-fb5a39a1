@@ -201,7 +201,7 @@ export default function HomePage() {
                 { icon: Brain, color: 'text-primary', title: 'Adaptives Training', text: 'Das System erkennt deine Schwächen und trainiert gezielt.' },
                 { icon: Mic, color: 'text-accent', title: 'Mündliche Prüfung', text: 'Übe das Fachgespräch mit KI-Feedback zu deinen Antworten.' },
                 { icon: TrendingUp, color: 'text-success', title: 'Fortschritt messen', text: 'Der Prüfungsreife-Indikator zeigt dir in Echtzeit, wo du stehst.' },
-                { icon: Target, color: 'text-warning', title: 'Nach Rahmenplan', text: 'Alle Inhalte basieren auf dem offiziellen Ausbildungsrahmenplan.' },
+                { icon: Target, color: 'text-warning', title: 'Nach Rahmenplan', text: 'Alle Inhalte basieren auf dem offiziellen Ausbildungsrahmenplan oder Modulhandbuch.' },
               ].map(({ icon: Icon, color, title, text }) => (
                 <div key={title} className="glass-card rounded-2xl p-5 sm:p-6 text-center hover:border-primary/30 transition-colors">
                   <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-muted/50 mb-4">
