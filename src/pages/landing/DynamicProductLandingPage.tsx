@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { loadLandingData } from "@/lib/landing/loadLandingData";
 import { buildLandingMessaging } from "@/lib/landing/buildLandingMessaging";
 import { buildSeoMeta } from "@/lib/landing/buildSeoMeta";
@@ -8,6 +8,9 @@ import { SITE_URL } from "@/lib/seo";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { TrackingEvents } from "@/lib/tracking/track";
+import { startProductCheckout } from "@/lib/checkout/startProductCheckout";
+import { toast } from "sonner";
 import {
   ArrowRight,
   CheckCircle,
@@ -92,9 +95,11 @@ function getModuleDescription(moduleKey: string, landingType: string): string {
 
 export default function DynamicProductLandingPage() {
   const { slug = "", landingType = "FORTBILDUNG" } = useParams();
+  const navigate = useNavigate();
   const [data, setData] = useState<Awaited<ReturnType<typeof loadLandingData>> | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
 
   useEffect(() => {
     let mounted = true;

@@ -31154,6 +31154,56 @@ export type Database = {
           },
         ]
       }
+      product_prices: {
+        Row: {
+          access_months: number
+          active: boolean
+          amount_cents: number
+          billing_type: string
+          compare_at_cents: number | null
+          created_at: string
+          currency: string
+          id: string
+          product_id: string
+          stripe_price_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          access_months?: number
+          active?: boolean
+          amount_cents: number
+          billing_type?: string
+          compare_at_cents?: number | null
+          created_at?: string
+          currency?: string
+          id?: string
+          product_id: string
+          stripe_price_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          access_months?: number
+          active?: boolean
+          amount_cents?: number
+          billing_type?: string
+          compare_at_cents?: number | null
+          created_at?: string
+          currency?: string
+          id?: string
+          product_id?: string
+          stripe_price_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_prices_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_pricing_configs: {
         Row: {
           access_months: number
@@ -39175,6 +39225,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      tracking_events: {
+        Row: {
+          created_at: string
+          event_name: string
+          id: string
+          landing_type: string | null
+          metadata: Json
+          page_path: string | null
+          product_slug: string | null
+          session_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_name: string
+          id?: string
+          landing_type?: string | null
+          metadata?: Json
+          page_path?: string | null
+          product_slug?: string | null
+          session_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_name?: string
+          id?: string
+          landing_type?: string | null
+          metadata?: Json
+          page_path?: string | null
+          product_slug?: string | null
+          session_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
       }
       trap_distribution_rules: {
         Row: {

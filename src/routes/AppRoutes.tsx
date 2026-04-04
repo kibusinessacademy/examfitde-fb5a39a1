@@ -99,6 +99,7 @@ const DrillSession = lazy(() => import('@/pages/DrillSession'));
 // Shop Pages
 const ShopPage = lazy(() => import('@/pages/ShopPage'));
 const PurchaseSuccessPage = lazy(() => import('@/pages/PurchaseSuccessPage'));
+const CheckoutSuccessPage = lazy(() => import('@/pages/checkout/CheckoutSuccessPage'));
 
 // Handbook Pages
 const HandbookPage = lazy(() => import('@/pages/HandbookPage'));
@@ -123,6 +124,7 @@ const AppRoutes = () => {
         
         {/* Purchase Success (standalone) */}
         <Route path="/purchase-success" element={<PurchaseSuccessPage />} />
+        <Route path="/checkout/success" element={<CheckoutSuccessPage />} />
 
         {/* ExamFit@work Public Routes */}
         <Route path="/work" element={<WorkHomePage />} />
