@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { SITE_URL, seoTitle } from '@/lib/seo';
+import { PRICING } from '@/config/pricing';
 import {
   ArrowRight,
   BarChart3,
