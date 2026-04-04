@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { checkContamination } from "../_shared/contamination-guard.ts";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
+import { getContentProfile } from "../_shared/track-content-profiles.ts";
 
 /**
  * package-validate-handbook — Pipeline Step (after generate_handbook)
@@ -132,6 +133,12 @@ Deno.serve(async (req) => {
   } catch (e) {
     return json({ error: (e as Error).message }, 400);
   }
+
+  // ── Resolve track profile for content-style validation ──
+  const { data: pkgTrackRow } = await sb.from("course_packages").select("track").eq("id", packageId).maybeSingle();
+  const track = (pkgTrackRow as any)?.track ?? "AUSBILDUNG_VOLL";
+  const profile = getContentProfile(track);
+  const isAcademic = profile.handbook.type === "learning_script";
 
   // ── INCOMPLETE GUARD: Check if handbook generation is still in progress ──
   // SSOT: Use chapters as expected count, NOT learning_fields.
@@ -278,20 +285,64 @@ Deno.serve(async (req) => {
   const passRate = (passed / results.length) * 100;
   const depthRate = (depthEnrichedCount / results.length) * 100;
 
-  console.log(`[validate-handbook] ${passed}/${results.length} sections passed (${passRate.toFixed(1)}%), depth: ${depthRate.toFixed(0)}%, heading-only: ${headingOnlyCount}`);
+  // ── V3: Track-aware content-style validation ──
+  const trackContentWarnings: string[] = [];
+  const allContent = (sections as any[]).map(s => s.content_markdown || "").join("\n");
+
+  if (isAcademic) {
+    // STUDIUM handbook must contain model comparisons & transfer sections
+    const hasModelComparison = /modellvergleich|gegenüberstellung|modelle?\s+im\s+vergleich|vergleich\s+(der|von)\s+modelle/i.test(allContent)
+      || /vs\.|versus|im\s+gegensatz/i.test(allContent);
+    if (!hasModelComparison) {
+      trackContentWarnings.push("STUDIUM_NO_MODEL_COMPARISON: Kein Modellvergleich/Gegenüberstellung gefunden");
+    }
+
+    const hasTransfer = /transfer|anwendung|fallbeispiel|praxisbezug|empirisch/i.test(allContent);
+    if (!hasTransfer) {
+      trackContentWarnings.push("STUDIUM_NO_TRANSFER: Keine Transfer-/Anwendungsabschnitte gefunden");
+    }
+
+    const hasTheory = /theori|konzept|framework|paradigma|hypothes/i.test(allContent);
+    if (!hasTheory) {
+      trackContentWarnings.push("STUDIUM_NO_THEORY: Keine theoretischen Grundlagen/Frameworks gefunden");
+    }
+
+    // Check for IHK contamination in academic content
+    const ihkTerms = /IHK|Ausbilder|Azubi|Berufsalltag|Berichtsheft|Gesellenprüfung/i.test(allContent);
+    if (ihkTerms) {
+      trackContentWarnings.push("STUDIUM_IHK_CONTAMINATION: IHK-spezifische Begriffe in akademischem Handbuch");
+    }
+  } else {
+    // Vocational handbook must contain exam traps and practical formulas
+    const hasExamTraps = /prüfungsfalle|typische?\s+fehler|häufige?\s+verwechslung|achtung|vorsicht/i.test(allContent);
+    if (!hasExamTraps) {
+      trackContentWarnings.push("VOCATIONAL_NO_EXAM_TRAPS: Keine Prüfungsfallen/typische Fehler gefunden");
+    }
+
+    const hasMerkschema = /merkschemata|eselsbrücke|checkliste|merkregel|formelsammlung/i.test(allContent);
+    if (!hasMerkschema) {
+      trackContentWarnings.push("VOCATIONAL_NO_MERKSCHEMA: Keine Merkschemata/Checklisten gefunden");
+    }
+  }
+
+  if (trackContentWarnings.length > 0) {
+    console.log(`[validate-handbook] Track content warnings (${track}): ${trackContentWarnings.join(", ")}`);
+  }
+
+  console.log(`[validate-handbook] ${passed}/${results.length} sections passed (${passRate.toFixed(1)}%), depth: ${depthRate.toFixed(0)}%, heading-only: ${headingOnlyCount}, track=${track}`);
 
   // ── Determine overall pass ──
   const placeholderRate = (placeholderCount / results.length) * 100;
   const headingOnlyRate = (headingOnlyCount / results.length) * 100;
   
-  // NEW: Total handbook character count check
+  // Total handbook character count check
   const totalHandbookChars = (sections as any[]).reduce((sum, s) => sum + (s.content_markdown || '').length, 0);
   const handbookSizePass = totalHandbookChars >= MIN_HANDBOOK_TOTAL_CHARS;
   
   const overallPass = passRate >= 60 
     && placeholderRate <= 30 
     && headingOnlyRate <= 10
-    && handbookSizePass  // NEW: handbook must meet minimum total size
+    && handbookSizePass
     && chapterIssues.length === 0;
 
   if (!overallPass) {
@@ -320,6 +371,8 @@ Deno.serve(async (req) => {
   return json({
     ok: overallPass,
     batch_complete: overallPass,
+    track,
+    handbook_type: profile.handbook.type,
     chapters: chapters.length,
     sections: {
       total: results.length,
@@ -335,9 +388,10 @@ Deno.serve(async (req) => {
       min_handbook_chars: MIN_HANDBOOK_TOTAL_CHARS,
     },
     chapter_issues: chapterIssues,
+    track_content_warnings: trackContentWarnings,
     failures: results.filter(r => !r.passed).slice(0, 15),
     message: overallPass
-      ? `✅ Handbook QC bestanden: ${passed}/${results.length} Sektionen (${passRate.toFixed(0)}%), ${depthEnrichedCount} mit Tiefe, ${totalHandbookChars} Zeichen`
-      : `❌ Handbook QC fehlgeschlagen: ${passed}/${results.length} (${passRate.toFixed(0)}%), ${placeholderCount} Platzhalter, ${headingOnlyCount} heading-only, ${totalHandbookChars}/${MIN_HANDBOOK_TOTAL_CHARS} Zeichen`,
+      ? `✅ Handbook QC bestanden: ${passed}/${results.length} Sektionen (${passRate.toFixed(0)}%), ${depthEnrichedCount} mit Tiefe, ${totalHandbookChars} Zeichen [${profile.handbook.type}]`
+      : `❌ Handbook QC fehlgeschlagen: ${passed}/${results.length} (${passRate.toFixed(0)}%), ${placeholderCount} Platzhalter, ${headingOnlyCount} heading-only, ${totalHandbookChars}/${MIN_HANDBOOK_TOTAL_CHARS} Zeichen [${profile.handbook.type}]`,
   });
 });
