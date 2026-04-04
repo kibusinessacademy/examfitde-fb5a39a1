@@ -145,6 +145,7 @@ function PackagePipeline({ pkg, steps }: { pkg: any; steps: any[] }) {
                 {step.step_key === 'generate_learning_content' && (isRunning || isFailed) && (
                   <CompetencyBundleProgress packageId={pkg.id} />
                 )}
+                {step.step_key === 'validate_learning_content' && <GateClassDetail step={step} />}
               </div>
             );
           })}
