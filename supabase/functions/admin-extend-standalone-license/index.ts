@@ -2,6 +2,7 @@
  * admin-extend-standalone-license
  *
  * Extends the expiry date of a standalone license and reactivates it.
+ * Requires authenticated admin user (JWT + user_roles).
  * Input: { license_id, expires_at, actor? }
  */
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -20,19 +21,64 @@ function json(data: unknown, status = 200) {
   });
 }
 
+async function requireAdmin(req: Request): Promise<{ userId: string } | Response> {
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    return json({ error: "Unauthorized" }, 401);
+  }
+
+  const sb = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_ANON_KEY")!,
+    { global: { headers: { Authorization: authHeader } } },
+  );
+
+  const token = authHeader.replace("Bearer ", "");
+  const { data: claims, error } = await sb.auth.getClaims(token);
+  if (error || !claims?.claims?.sub) {
+    return json({ error: "Unauthorized" }, 401);
+  }
+
+  const userId = claims.claims.sub as string;
+
+  const serviceSb = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+  );
+
+  const { data: roles } = await serviceSb
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId)
+    .eq("role", "admin");
+
+  if (!roles || roles.length === 0) {
+    return json({ error: "Admin access required" }, 403);
+  }
+
+  return { userId };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    const authResult = await requireAdmin(req);
+    if (authResult instanceof Response) return authResult;
+
     const sb = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
     const body = await req.json();
-    const { license_id, expires_at, actor = "admin" } = body;
+    const {
+      license_id,
+      expires_at,
+      actor = authResult.userId,
+    } = body;
 
     if (!license_id || !expires_at) {
       return json({ error: "Missing license_id or expires_at" }, 400);

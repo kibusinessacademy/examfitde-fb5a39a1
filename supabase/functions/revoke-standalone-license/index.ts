@@ -1,9 +1,10 @@
 /**
  * revoke-standalone-license
  *
- * Revokes or suspends a standalone license. Logs the event for audit.
+ * Revokes, suspends, or reactivates a standalone license. Logs the event for audit.
+ * Requires authenticated admin user (checked via JWT + user_roles).
  *
- * Input: { license_id, reason?, action?: 'revoke'|'suspend', actor? }
+ * Input: { license_id, reason?, action?: 'revoke'|'suspend'|'reactivate', actor? }
  * Output: { ok, license_id, status }
  */
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -22,43 +23,64 @@ function json(data: unknown, status = 200) {
   });
 }
 
+async function requireAdmin(req: Request): Promise<{ userId: string } | Response> {
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    return json({ error: "Unauthorized" }, 401);
+  }
+
+  const sb = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_ANON_KEY")!,
+    { global: { headers: { Authorization: authHeader } } },
+  );
+
+  const token = authHeader.replace("Bearer ", "");
+  const { data: claims, error } = await sb.auth.getClaims(token);
+  if (error || !claims?.claims?.sub) {
+    return json({ error: "Unauthorized" }, 401);
+  }
+
+  const userId = claims.claims.sub as string;
+
+  const serviceSb = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+  );
+
+  const { data: roles } = await serviceSb
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId)
+    .eq("role", "admin");
+
+  if (!roles || roles.length === 0) {
+    return json({ error: "Admin access required" }, 403);
+  }
+
+  return { userId };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    const authResult = await requireAdmin(req);
+    if (authResult instanceof Response) return authResult;
+
     const sb = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
-
-    // ── Auth check: require service_role or admin ──
-    const authHeader = req.headers.get("Authorization");
-    if (authHeader && !authHeader.includes(Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!.slice(0, 20))) {
-      // If not service_role, verify admin via JWT
-      const token = authHeader.replace("Bearer ", "");
-      const { data: claims, error: claimsErr } = await sb.auth.getClaims(token);
-      if (claimsErr || !claims?.claims?.sub) {
-        return json({ error: "Unauthorized" }, 401);
-      }
-      // Check admin role
-      const { data: roles } = await sb
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", claims.claims.sub)
-        .eq("role", "admin");
-      if (!roles || roles.length === 0) {
-        return json({ error: "Admin access required" }, 403);
-      }
-    }
 
     const body = await req.json();
     const {
       license_id,
       reason = "manual_revoke",
       action = "revoke",
-      actor = "admin",
+      actor = authResult.userId,
     } = body;
 
     if (!license_id) {
@@ -69,7 +91,6 @@ Deno.serve(async (req) => {
       return json({ error: "Invalid action. Must be: revoke, suspend, or reactivate" }, 400);
     }
 
-    // Map action to status
     const statusMap: Record<string, string> = {
       revoke: "revoked",
       suspend: "suspended",
@@ -77,7 +98,6 @@ Deno.serve(async (req) => {
     };
     const newStatus = statusMap[action];
 
-    // Verify license exists
     const { data: license, error: licErr } = await sb
       .from("standalone_licenses")
       .select("license_id, status")
@@ -88,12 +108,10 @@ Deno.serve(async (req) => {
       return json({ error: "License not found" }, 404);
     }
 
-    // Guard: can't reactivate a revoked license without explicit reason
     if (action === "reactivate" && license.status === "revoked" && !reason) {
       return json({ error: "Reactivating a revoked license requires a reason" }, 400);
     }
 
-    // Update status
     const { error: updErr } = await sb
       .from("standalone_licenses")
       .update({
@@ -106,7 +124,6 @@ Deno.serve(async (req) => {
       return json({ error: updErr.message }, 500);
     }
 
-    // Log event
     await sb.from("standalone_license_events").insert({
       license_id,
       event_type: action === "reactivate" ? "reactivated" : action === "suspend" ? "suspended" : "revoked",

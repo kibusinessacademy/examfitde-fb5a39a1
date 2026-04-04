@@ -93,6 +93,14 @@ const FORBIDDEN_PATTERNS = [
   "cdn.",
   "unpkg.com",
   "jsdelivr.net",
+  "http://",
+  "https://",
+];
+
+const CLEARTEXT_SNAPSHOT_NAMES = [
+  "snapshot.json",
+  "snapshot.pretty.json",
+  "backup-snapshot.json",
 ];
 
 function findForbiddenPatterns(text: string): string[] {
