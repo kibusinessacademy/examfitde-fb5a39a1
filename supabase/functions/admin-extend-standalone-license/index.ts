@@ -1,88 +1,23 @@
 /**
  * admin-extend-standalone-license
- *
- * Extends the expiry date of a standalone license and reactivates it.
- * Requires authenticated admin user (JWT + user_roles).
- * Input: { license_id, expires_at, actor? }
+ * Extends expiry and reactivates a license. Requires admin JWT.
  */
-import { createClient } from "npm:@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
-
-function json(data: unknown, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
-}
-
-async function requireAdmin(req: Request): Promise<{ userId: string } | Response> {
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader?.startsWith("Bearer ")) {
-    return json({ error: "Unauthorized" }, 401);
-  }
-
-  const sb = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_ANON_KEY")!,
-    { global: { headers: { Authorization: authHeader } } },
-  );
-
-  const token = authHeader.replace("Bearer ", "");
-  const { data: claims, error } = await sb.auth.getClaims(token);
-  if (error || !claims?.claims?.sub) {
-    return json({ error: "Unauthorized" }, 401);
-  }
-
-  const userId = claims.claims.sub as string;
-
-  const serviceSb = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-  );
-
-  const { data: roles } = await serviceSb
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", userId)
-    .eq("role", "admin");
-
-  if (!roles || roles.length === 0) {
-    return json({ error: "Admin access required" }, 403);
-  }
-
-  return { userId };
-}
+import { handleCors, json, requireAdmin } from "../_shared/adminGuard.ts";
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const cors = handleCors(req);
+  if (cors) return cors;
 
   try {
-    const authResult = await requireAdmin(req);
-    if (authResult instanceof Response) return authResult;
-
-    const sb = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
+    const auth = await requireAdmin(req);
+    if (auth instanceof Response) return auth;
+    const { sb, userId } = auth;
 
     const body = await req.json();
-    const {
-      license_id,
-      expires_at,
-      actor = authResult.userId,
-    } = body;
+    const { license_id, expires_at } = body;
 
-    if (!license_id || !expires_at) {
-      return json({ error: "Missing license_id or expires_at" }, 400);
-    }
+    if (!license_id || typeof license_id !== "string") return json({ error: "Missing license_id" }, 400);
+    if (!expires_at || isNaN(Date.parse(expires_at))) return json({ error: "Invalid expires_at" }, 400);
 
     const { data: existing, error: loadErr } = await sb
       .from("standalone_licenses")
@@ -90,43 +25,27 @@ Deno.serve(async (req) => {
       .eq("license_id", license_id)
       .single();
 
-    if (loadErr || !existing) {
-      return json({ error: "License not found" }, 404);
-    }
+    if (loadErr || !existing) return json({ error: "License not found" }, 404);
 
     const { error: updErr } = await sb
       .from("standalone_licenses")
-      .update({
-        expires_at,
-        status: "active",
-        updated_at: new Date().toISOString(),
-      })
+      .update({ expires_at, status: "active", updated_at: new Date().toISOString() })
       .eq("license_id", license_id);
 
-    if (updErr) {
-      return json({ error: updErr.message }, 500);
-    }
+    if (updErr) return json({ error: updErr.message }, 500);
 
     await sb.from("standalone_license_events").insert({
       license_id,
       event_type: "expiry_extended",
       event_status: "ok",
-      detail: {
-        previous_expires_at: existing.expires_at,
-        next_expires_at: expires_at,
-        previous_status: existing.status,
-        actor,
-      },
+      detail: { previous_expires_at: existing.expires_at, next_expires_at: expires_at, previous_status: existing.status, actor: userId },
     });
 
-    console.log(
-      `[extend-license] ${license_id} exp=${expires_at} by=${actor}`,
-    );
-
+    console.log(`[extend-license] ${license_id} exp=${expires_at} by=${userId}`);
     return json({ ok: true, license_id, expires_at });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    console.error("[extend-license] Fatal:", message);
-    return json({ error: message }, 500);
+    const msg = err instanceof Error ? err.message : "Unknown error";
+    console.error("[extend-license] Fatal:", msg);
+    return json({ error: msg }, 500);
   }
 });
