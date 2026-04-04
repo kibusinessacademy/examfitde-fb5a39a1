@@ -161,15 +161,16 @@ Deno.serve(async (req) => {
 
     const lfInserts = learningFieldDefs.map((lf, i) => ({
       curriculum_id: curriculum.id,
+      code: `${slug}-lf-${i + 1}`,
       title: lf.title,
       description: lf.description ?? "",
-      position: i + 1,
+      sort_order: i + 1,
     }));
 
     const { data: lfs, error: lfError } = await sb
       .from("learning_fields")
       .insert(lfInserts)
-      .select("id, title, position");
+      .select("id, title, sort_order");
     if (lfError) throw lfError;
 
     // 4. Create competencies for each LF + mark enriched
