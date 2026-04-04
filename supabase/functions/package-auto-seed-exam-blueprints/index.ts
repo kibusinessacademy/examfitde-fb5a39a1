@@ -517,33 +517,41 @@ async function handleSeed(sb: ReturnType<typeof createClient>, p: any) {
   let aiCallCount = 0;
   const MAX_AI_CALLS = 30;
 
-  if (!comps?.length) {
-    // Fallback: seed from LFs
-    console.log(`[SeedV4] No competencies — seeding from ${lfs.length} LFs`);
-    for (const lf of lfs) {
-      const existing = existingByLf.get(lf.id) || [];
-      const existingCogLevels = new Set(existing.map(b => b.cognitive_level));
-      const missingFacets = BLUEPRINT_FACETS.filter(f => !existingCogLevels.has(f.cognitive));
+  // ── Build set of LFs that have competencies ──
+  const lfsWithComps = new Set((comps || []).map(c => c.learning_field_id));
+  // LFs WITHOUT any competencies need the LF-fallback path
+  const lfsWithoutComps = lfs.filter(lf => !lfsWithComps.has(lf.id));
 
-      if (missingFacets.length > 0 && aiCallCount < MAX_AI_CALLS) {
-        const fakeComp: CompetencyData = {
-          id: lf.id, learning_field_id: lf.id, code: lf.code, title: lf.title,
-          description: null, taxonomy_level: null, bloom_level: null,
-          action_verb: null, typical_misconceptions: null, exam_relevance_tier: null,
-        };
-        const templates = await generateBlueprintTemplates(berufName, fakeComp, lf.title, missingFacets, glossaryTerms);
-        aiCallCount++;
+  if (lfsWithoutComps.length > 0) {
+    console.log(`[SeedV4] ⚠️ ${lfsWithoutComps.length} LFs have NO competencies — using LF-fallback: ${lfsWithoutComps.map(l => l.title).join(", ")}`);
+  }
 
-        for (let i = 0; i < missingFacets.length; i++) {
-          toInsert.push(buildBlueprintRow(curriculumId, lf.id, null, lf.title, missingFacets[i], templates[i], lf.exam_part));
-        }
+  // ── Path A: LF-fallback for LFs without competencies ──
+  for (const lf of lfsWithoutComps) {
+    const existing = existingByLf.get(lf.id) || [];
+    const existingCogLevels = new Set(existing.map(b => b.cognitive_level));
+    const missingFacets = BLUEPRINT_FACETS.filter(f => !existingCogLevels.has(f.cognitive));
+
+    if (missingFacets.length > 0 && aiCallCount < MAX_AI_CALLS) {
+      const fakeComp: CompetencyData = {
+        id: lf.id, learning_field_id: lf.id, code: lf.code, title: lf.title,
+        description: null, taxonomy_level: null, bloom_level: null,
+        action_verb: null, typical_misconceptions: null, exam_relevance_tier: null,
+      };
+      const templates = await generateBlueprintTemplates(berufName, fakeComp, lf.title, missingFacets, glossaryTerms);
+      aiCallCount++;
+
+      for (let i = 0; i < missingFacets.length; i++) {
+        toInsert.push(buildBlueprintRow(curriculumId, lf.id, null, lf.title, missingFacets[i], templates[i], lf.exam_part));
       }
-
-      // Upgrade empty-template blueprints
-      upgradeEmptyBlueprints(existing, lfs, berufName, toUpgrade, lf);
     }
-  } else {
-    // Main path: seed from enriched competencies
+
+    // Upgrade empty-template blueprints
+    upgradeEmptyBlueprints(existing, lfs, berufName, toUpgrade, lf);
+  }
+
+  // ── Path B: Competency-based seeding for LFs WITH competencies ──
+  if (comps?.length) {
     console.log(`[SeedV4] Seeding from ${comps.length} competencies for "${berufName}"`);
 
     const BATCH_SIZE = 8;
@@ -645,6 +653,14 @@ async function handleSeed(sb: ReturnType<typeof createClient>, p: any) {
     return json({ ok: false, error: msg, ai_calls: aiCallCount, existing: totalExisting, batch_complete: false }, 500);
   }
 
+  // ── Diagnostics for forensics ──
+  const seededLfIds = [...new Set(toInsert.map((r: any) => r.learning_field_id))];
+  const allLfIds = lfs.map(lf => lf.id);
+  const missingLfIds = allLfIds.filter(id => {
+    const hasBps = (existingBps || []).some(bp => bp.learning_field_id === id) || toInsert.some((r: any) => r.learning_field_id === id);
+    return !hasBps;
+  });
+
   return json({
     ok: true,
     seeded: insertedCount,
@@ -652,9 +668,16 @@ async function handleSeed(sb: ReturnType<typeof createClient>, p: any) {
     existing: totalExisting,
     ai_calls: aiCallCount,
     beruf: berufName,
-    source: comps?.length ? "competencies" : "learning_fields",
+    source: comps?.length ? "hybrid" : "learning_fields",
     health,
-    version: "4.0.1",
+    version: "4.1.0",
+    diagnostics: {
+      eligible_learning_fields_count: allLfIds.length,
+      seeded_learning_fields_count: seededLfIds.length,
+      lfs_without_competencies: lfsWithoutComps.map(lf => ({ id: lf.id, title: lf.title })),
+      missing_learning_field_ids: missingLfIds,
+      selection_source: lfsWithoutComps.length > 0 ? "hybrid_competency_and_lf_fallback" : "competencies",
+    },
   });
 }
 
