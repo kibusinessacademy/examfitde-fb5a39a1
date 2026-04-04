@@ -1,90 +1,24 @@
 /**
  * admin-update-standalone-license-status
- *
- * Changes the status of a standalone license and logs an audit event.
- * Requires authenticated admin user (JWT + user_roles).
- * Input: { license_id, next_status, reason?, actor? }
+ * Changes license status with audit event. Requires admin JWT.
  */
-import { createClient } from "npm:@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
-
-function json(data: unknown, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
-}
-
-async function requireAdmin(req: Request): Promise<{ userId: string } | Response> {
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader?.startsWith("Bearer ")) {
-    return json({ error: "Unauthorized" }, 401);
-  }
-
-  const sb = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_ANON_KEY")!,
-    { global: { headers: { Authorization: authHeader } } },
-  );
-
-  const token = authHeader.replace("Bearer ", "");
-  const { data: claims, error } = await sb.auth.getClaims(token);
-  if (error || !claims?.claims?.sub) {
-    return json({ error: "Unauthorized" }, 401);
-  }
-
-  const userId = claims.claims.sub as string;
-
-  const serviceSb = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-  );
-
-  const { data: roles } = await serviceSb
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", userId)
-    .eq("role", "admin");
-
-  if (!roles || roles.length === 0) {
-    return json({ error: "Admin access required" }, 403);
-  }
-
-  return { userId };
-}
+import { handleCors, json, requireAdmin } from "../_shared/adminGuard.ts";
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const cors = handleCors(req);
+  if (cors) return cors;
 
   try {
-    const authResult = await requireAdmin(req);
-    if (authResult instanceof Response) return authResult;
-
-    const sb = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
+    const auth = await requireAdmin(req);
+    if (auth instanceof Response) return auth;
+    const { sb, userId } = auth;
 
     const body = await req.json();
-    const {
-      license_id,
-      next_status,
-      reason = null,
-      actor = authResult.userId,
-    } = body;
+    const { license_id, next_status, reason = null } = body;
 
-    if (!license_id || !next_status) {
-      return json({ error: "Missing license_id or next_status" }, 400);
+    if (!license_id || typeof license_id !== "string") {
+      return json({ error: "Missing license_id" }, 400);
     }
-
     if (!["active", "revoked", "suspended", "expired"].includes(next_status)) {
       return json({ error: "Invalid next_status" }, 400);
     }
@@ -95,21 +29,14 @@ Deno.serve(async (req) => {
       .eq("license_id", license_id)
       .single();
 
-    if (loadErr || !existing) {
-      return json({ error: "License not found" }, 404);
-    }
+    if (loadErr || !existing) return json({ error: "License not found" }, 404);
 
     const { error: updateErr } = await sb
       .from("standalone_licenses")
-      .update({
-        status: next_status,
-        updated_at: new Date().toISOString(),
-      })
+      .update({ status: next_status, updated_at: new Date().toISOString() })
       .eq("license_id", license_id);
 
-    if (updateErr) {
-      return json({ error: updateErr.message }, 500);
-    }
+    if (updateErr) return json({ error: updateErr.message }, 500);
 
     const eventMap: Record<string, string> = {
       revoked: "revoked",
@@ -122,27 +49,12 @@ Deno.serve(async (req) => {
       license_id,
       event_type: eventMap[next_status] || "validated",
       event_status: "ok",
-      detail: {
-        previous_status: existing.status,
-        next_status,
-        reason,
-        actor,
-      },
+      detail: { previous_status: existing.status, next_status, reason, actor: userId },
     });
 
-    console.log(
-      `[license-status] ${license_id} ${existing.status}→${next_status} by=${actor}`,
-    );
-
-    return json({
-      ok: true,
-      license_id,
-      previous_status: existing.status,
-      next_status,
-    });
+    return json({ ok: true, license_id, previous_status: existing.status, next_status });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    console.error("[license-status] Fatal:", message);
-    return json({ error: message }, 500);
+    const msg = err instanceof Error ? err.message : "Unknown error";
+    return json({ error: msg }, 500);
   }
 });
