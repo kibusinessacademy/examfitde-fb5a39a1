@@ -376,6 +376,7 @@ Deno.serve(async (req) => {
     },
     chapter_issues: chapterIssues,
     track_content_warnings: trackContentWarnings,
+    policy_meta: buildValidatorMeta(policy, trackContentWarnings),
     failures: results.filter(r => !r.passed).slice(0, 15),
     message: overallPass
       ? `✅ Handbook QC bestanden: ${passed}/${results.length} Sektionen (${passRate.toFixed(0)}%), ${depthEnrichedCount} mit Tiefe, ${totalHandbookChars} Zeichen [${profile.handbook.type}]`
