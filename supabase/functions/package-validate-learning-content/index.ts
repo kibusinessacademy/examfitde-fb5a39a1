@@ -169,19 +169,7 @@ async function tier2Validate(
   }
 }
 
-// ── Failure mode aggregation ──
-function aggregateFailureModes(t1Failed: T1Result[]): { code: string; count: number }[] {
-  const counts = new Map<string, number>();
-  for (const f of t1Failed) {
-    for (const issue of f.issues) {
-      const code = issue.split(":")[0].trim();
-      counts.set(code, (counts.get(code) || 0) + 1);
-    }
-  }
-  return [...counts.entries()]
-    .map(([code, count]) => ({ code, count }))
-    .sort((a, b) => b.count - a.count);
-}
+// aggregateFailureModes and detectCatastrophicFailures imported from _shared/validation-issue.ts
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "Use POST" }, 405);
