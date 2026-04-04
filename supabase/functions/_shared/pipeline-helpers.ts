@@ -194,6 +194,7 @@ export function pickNextAction(steps: StepRow[], stepOrder: StepKey[]): StepActi
 // ═══════════════════════════════════════════════════════════════
 
 import { PIPELINE_GRAPH, type PipelineStepKey } from "./job-map.ts";
+import { isCapabilityGranted } from "./capability-gating.ts";
 
 /**
  * Returns ALL independently actionable steps (parallel branches).
@@ -202,7 +203,9 @@ import { PIPELINE_GRAPH, type PipelineStepKey } from "./job-map.ts";
  *   - generate_lesson_minichecks → validate_lesson_minichecks
  *   - generate_handbook → ... → validate_handbook_depth
  *
- * A step is independently actionable if ALL its DAG predecessors are done/skipped.
+ * A step is independently actionable if ALL its DAG predecessors are done/skipped,
+ * OR if validate_learning_content has granted capabilities for that step
+ * (capability-aware routing for repair_required packages).
  */
 export function pickParallelActions(steps: StepRow[], stepOrder: StepKey[]): StepAction[] {
   const byKey = new Map<string, StepRow>();
@@ -218,7 +221,17 @@ export function pickParallelActions(steps: StepRow[], stepOrder: StepKey[]): Ste
     const deps = dagDeps.get(key) ?? [];
     return deps.every(dep => {
       const s = byKey.get(dep);
-      return s && (s.status === "done" || s.status === "skipped");
+      if (!s) return false;
+      if (s.status === "done" || s.status === "skipped") return true;
+
+      // Capability-aware: if dep is validate_learning_content and it has
+      // granted this step via capabilities, treat as met
+      if (dep === "validate_learning_content") {
+        const meta = (s.meta ?? {}) as Record<string, unknown>;
+        return isCapabilityGranted(key, meta);
+      }
+
+      return false;
     });
   }
 

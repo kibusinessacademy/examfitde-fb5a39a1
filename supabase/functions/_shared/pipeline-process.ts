@@ -6,6 +6,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { inferBackoffSeconds, getFanOutConfig, STEP_TO_JOB_TYPE, PIPELINE_GRAPH, type PipelineStepKey } from "./job-map.ts";
+import { isCapabilityGranted } from "./capability-gating.ts";
 import { markStepDone } from "./steps.ts";
 import { classifyStep } from "./step-weight.ts";
 import {
@@ -293,7 +294,13 @@ export async function processPackage(
       const deps = dagDeps.get(k) ?? [];
       const unmetDeps = deps.filter(dep => {
         const depStep = byKey.get(dep);
-        return depStep && depStep.status !== "done" && depStep.status !== "skipped";
+        if (!depStep) return true;
+        if (depStep.status === "done" || depStep.status === "skipped") return false;
+        // Capability-aware: validate_learning_content can grant specific downstream steps
+        if (dep === "validate_learning_content") {
+          return !isCapabilityGranted(k, (depStep.meta ?? {}) as Record<string, unknown>);
+        }
+        return true;
       });
 
       if (unmetDeps.length > 0) {
@@ -752,7 +759,14 @@ export async function processPackage(
       const deps = dagDepsZombie.get(k) ?? [];
       const unmetDeps = deps.filter(dep => {
         const depStep = byKey.get(dep);
-        return !depStep || !isTerminalStatus(depStep.status);
+        if (!depStep || !isTerminalStatus(depStep.status)) {
+          // Capability-aware: validate_learning_content can grant specific downstream steps
+          if (dep === "validate_learning_content" && depStep) {
+            return !isCapabilityGranted(k, (depStep.meta ?? {}) as Record<string, unknown>);
+          }
+          return true;
+        }
+        return false;
       });
       if (unmetDeps.length > 0) {
         console.warn(`[runner] 🧟 ZOMBIE blocked: step ${k} DAG predecessors not done: ${unmetDeps.join(", ")}`);

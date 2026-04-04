@@ -6,12 +6,14 @@ import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Activity, CheckCircle2, Clock, Loader2, Radio, RefreshCw,
-  XCircle, AlertTriangle, HeartPulse, Timer, ChevronDown, ChevronRight
+  XCircle, AlertTriangle, HeartPulse, Timer, ChevronDown, ChevronRight,
+  Shield, Wrench, Zap
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { useState } from 'react';
 import { CompetencyBundleProgress } from './CompetencyBundleProgress';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 import {
   FULL_STEP_ORDER,
@@ -47,6 +49,85 @@ function HeartbeatAge({ ts }: { ts: string | null }) {
       <HeartPulse className="h-2.5 w-2.5" />
       {ageSec}s
     </span>
+  );
+}
+
+const GATE_CLASS_CONFIG: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; icon: typeof Shield }> = {
+  healthy: { label: 'Healthy', variant: 'default', icon: CheckCircle2 },
+  soft_pass_with_debt: { label: 'Soft Pass', variant: 'secondary', icon: AlertTriangle },
+  repair_required: { label: 'Repair', variant: 'outline', icon: Wrench },
+  major_regeneration_required: { label: 'Major Regen', variant: 'destructive', icon: Zap },
+  hard_fail: { label: 'Hard Fail', variant: 'destructive', icon: XCircle },
+};
+
+function GateClassDetail({ step }: { step: any }) {
+  const meta = step.meta as Record<string, unknown> | null;
+  const gateClass = meta?.gate_class as string | undefined;
+  if (!gateClass) return null;
+
+  const config = GATE_CLASS_CONFIG[gateClass] || { label: gateClass, variant: 'outline' as const, icon: Shield };
+  const GateIcon = config.icon;
+  const tier1Rate = meta?.tier1_pass_rate != null ? (Number(meta.tier1_pass_rate) * 100).toFixed(0) : null;
+  const reasonCode = meta?.reason_code as string | undefined;
+  const repairAction = meta?.repair_action as string | undefined;
+  const capabilities = meta?.capabilities as Record<string, boolean> | undefined;
+  const failureModes = meta?.top_failure_modes as Array<{ code: string; count: number }> | undefined;
+  const affectedCount = meta?.affected_lessons_count as number | undefined;
+
+  const capLabels: Record<string, string> = {
+    allowsBlueprintSeeding: 'Blueprints',
+    allowsExamPoolGeneration: 'Exam-Pool',
+    allowsMiniCheckGeneration: 'MiniChecks',
+    allowsHandbookGeneration: 'Handbook',
+    allowsTutorIndexing: 'Tutor-Index',
+  };
+
+  return (
+    <div className="ml-7 mt-0.5 mb-1 px-2 py-1.5 rounded bg-muted/50 border border-border/40 space-y-1">
+      <div className="flex items-center gap-1.5 flex-wrap">
+        <GateIcon className="h-3 w-3" />
+        <Badge variant={config.variant} className="text-[9px]">{config.label}</Badge>
+        {tier1Rate && <span className="text-[10px] text-muted-foreground">T1: {tier1Rate}%</span>}
+        {reasonCode && <span className="text-[10px] text-muted-foreground font-mono">{reasonCode}</span>}
+        {repairAction && repairAction !== 'none' && (
+          <Badge variant="outline" className="text-[9px]">
+            <Wrench className="h-2.5 w-2.5 mr-0.5" />
+            {repairAction === 'enqueue_targeted_repair' ? 'Targeted' : repairAction === 'enqueue_major_regeneration' ? 'Major' : repairAction}
+          </Badge>
+        )}
+        {affectedCount != null && affectedCount > 0 && (
+          <span className="text-[10px] text-muted-foreground">{affectedCount} betroffen</span>
+        )}
+      </div>
+
+      {capabilities && (
+        <div className="flex items-center gap-1 flex-wrap">
+          <span className="text-[9px] text-muted-foreground">Caps:</span>
+          {Object.entries(capabilities).map(([key, allowed]) => (
+            <span
+              key={key}
+              className={cn(
+                "text-[9px] px-1 py-0.5 rounded",
+                allowed ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground line-through"
+              )}
+            >
+              {capLabels[key] || key}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {failureModes && failureModes.length > 0 && (
+        <div className="flex items-center gap-1 flex-wrap">
+          <span className="text-[9px] text-muted-foreground">Fehler:</span>
+          {failureModes.slice(0, 5).map(fm => (
+            <span key={fm.code} className="text-[9px] font-mono text-muted-foreground">
+              {fm.code}×{fm.count}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -145,6 +226,7 @@ function PackagePipeline({ pkg, steps }: { pkg: any; steps: any[] }) {
                 {step.step_key === 'generate_learning_content' && (isRunning || isFailed) && (
                   <CompetencyBundleProgress packageId={pkg.id} />
                 )}
+                {step.step_key === 'validate_learning_content' && <GateClassDetail step={step} />}
               </div>
             );
           })}
