@@ -215,6 +215,14 @@ Deno.serve(async (req) => {
     return json({ error: (e as Error).message }, 400);
   }
 
+  // ── Resolve integrity profile + validation policy ──
+  const integrityProfile = resolveIntegrityProfile({
+    integrity_profile: pkgRow?.integrity_profile,
+    track: pkgRow?.track,
+  });
+  const validationPolicy = getValidationPolicy(integrityProfile);
+  console.log(`[validate-lessons] Profile: ${integrityProfile}, policy: ${validationPolicy.policyVersion}`);
+
   // ── Load step meta for fingerprint-based retry guard ──
   const { data: stepRow } = await sb
     .from("package_steps")
