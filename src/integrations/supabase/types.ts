@@ -10862,6 +10862,7 @@ export type Database = {
           feature_flags: Json | null
           id: string
           integrity_passed: boolean
+          integrity_profile: string | null
           integrity_report: Json | null
           integrity_report_version: string | null
           integrity_report_version_num: number | null
@@ -10915,6 +10916,7 @@ export type Database = {
           feature_flags?: Json | null
           id?: string
           integrity_passed?: boolean
+          integrity_profile?: string | null
           integrity_report?: Json | null
           integrity_report_version?: string | null
           integrity_report_version_num?: number | null
@@ -10968,6 +10970,7 @@ export type Database = {
           feature_flags?: Json | null
           id?: string
           integrity_passed?: boolean
+          integrity_profile?: string | null
           integrity_report?: Json | null
           integrity_report_version?: string | null
           integrity_report_version_num?: number | null
@@ -58614,6 +58617,7 @@ export type Database = {
           feature_flags: Json | null
           id: string
           integrity_passed: boolean
+          integrity_profile: string | null
           integrity_report: Json | null
           integrity_report_version: string | null
           integrity_report_version_num: number | null
@@ -58945,6 +58949,7 @@ export type Database = {
           feature_flags: Json | null
           id: string
           integrity_passed: boolean
+          integrity_profile: string | null
           integrity_report: Json | null
           integrity_report_version: string | null
           integrity_report_version_num: number | null
