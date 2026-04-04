@@ -12,6 +12,7 @@ import {
   safeRpc, safeQuery, isTransientStepError,
 } from "./pipeline-helpers.ts";
 import { checkLoopGuard, checkRetryLoopGuard, applyLoopGuardBlock, updateLoopGuardMeta, updateRetryLoopGuardMeta } from "./loop-guard.ts";
+import { mergePackageStepMeta } from "./merge-step-meta.ts";
 
 // ── Sanitize error messages (strip HTML from 502/503 Cloudflare pages) ──
 function sanitizeErrorMsg(msg: string): string {
