@@ -27,12 +27,20 @@ const BUCKET = "standalone-bundles";
 
 // ── Eligibility ──
 
-const EXPORTABLE_STATUSES = ["approved", "active", "published", "review"];
+const ALWAYS_ELIGIBLE_STATUSES = ["approved", "active", "published", "review"];
 
-/** A lesson is standalone-eligible if it has an exportable status AND renderable content. */
+/**
+ * A lesson is standalone-eligible if:
+ * 1. It has a whitelisted status (approved/active/published/review), OR
+ * 2. It has renderable content regardless of status (draft with real content).
+ *
+ * Lessons without any renderable content are never eligible.
+ */
 function isStandaloneEligible(lesson: any): boolean {
-  if (!EXPORTABLE_STATUSES.includes(lesson.status)) return false;
-  return hasRenderableContent(lesson.content);
+  if (!hasRenderableContent(lesson.content)) return false;
+  if (ALWAYS_ELIGIBLE_STATUSES.includes(lesson.status)) return true;
+  // Draft lessons with real content are eligible
+  return true;
 }
 
 function hasRenderableContent(content: any): boolean {
