@@ -8,6 +8,7 @@ import { bootstrapLLMLogging } from "../_shared/llm-log-bootstrap.ts";
 import { shouldUseBatch, BATCH_DEFAULT_MODEL } from "../_shared/batch/routing-config.ts";
 import { mergePackageStepMeta } from "../_shared/merge-step-meta.ts";
 import { buildBatchRequests, submitBatchViaFunction } from "../_shared/batch/enqueue-openai.ts";
+import { getContentProfile } from "../_shared/track-content-profiles.ts";
 
 /**
  * package-generate-lesson-minichecks
