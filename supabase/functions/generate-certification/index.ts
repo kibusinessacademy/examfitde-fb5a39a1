@@ -74,14 +74,14 @@ Deno.serve(async (req) => {
 
     if (certError) throw certError;
 
-    // 2. Create curriculum — map to real DB enums
-    const trackEnumMap: Record<string, string> = {
+    // 2. Create curriculum — map to real DB enums (fail-fast on unknown)
+    const TRACK_ENUM: Record<string, string> = {
       FORTBILDUNG: "FORTBILDUNG",
       CERTIFICATION: "ZERTIFIKAT",
       AUSBILDUNG: "AUSBILDUNG_VOLL",
       STUDIUM: "STUDIUM",
     };
-    const certTypeEnumMap: Record<string, string> = {
+    const CERT_TYPE_ENUM: Record<string, string> = {
       IHK_AUFSTIEG: "aufstiegsfortbildung",
       MEISTER: "aufstiegsfortbildung",
       AEVO: "aufstiegsfortbildung",
@@ -95,14 +95,23 @@ Deno.serve(async (req) => {
       GENERAL: "sonstige",
     };
 
+    const curriculumTrack = TRACK_ENUM[classification.track];
+    if (!curriculumTrack) {
+      throw new Error(`Unsupported curriculum track mapping: ${classification.track}`);
+    }
+    const curriculumCertType = CERT_TYPE_ENUM[classification.certificationType];
+    if (!curriculumCertType) {
+      throw new Error(`Unsupported certification type mapping: ${classification.certificationType}`);
+    }
+
     const { data: curriculum, error: curriculumError } = await sb
       .from("curricula")
       .insert({
         title: `${title} – Curriculum`,
         certification_id: cert.id,
         status: "draft",
-        track: trackEnumMap[classification.track] ?? "EXAM_FIRST",
-        certification_type: certTypeEnumMap[classification.certificationType] ?? "sonstige",
+        track: curriculumTrack,
+        certification_type: curriculumCertType,
         program_type: classification.track === "STUDIUM" ? "higher_education" : "vocational",
       })
       .select("id")
@@ -116,8 +125,8 @@ Deno.serve(async (req) => {
       .insert({
         curriculum_id: curriculum.id,
         certification_id: cert.id,
-        track: trackEnumMap[classification.track] ?? "EXAM_FIRST",
-        certification_type: certTypeEnumMap[classification.certificationType] ?? "sonstige",
+        track: curriculumTrack,
+        certification_type: curriculumCertType,
         integrity_profile: classification.validationProfile,
         status: "queued",
         priority: body.priority ?? 5,
