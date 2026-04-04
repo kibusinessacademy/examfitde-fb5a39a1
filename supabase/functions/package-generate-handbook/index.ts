@@ -64,6 +64,7 @@ async function generateSectionContent(
   startMs: number,
   chain: Array<{ provider: string; model: string }>,
   expandChain?: Array<{ provider: string; model: string }>,
+  track?: string,
 ): Promise<{ content: string; provider: string; model: string }> {
   if (shouldSoftStop(startMs, "handbook")) {
     console.warn(`[generate-handbook] Soft-stop reached before LLM call for ${fieldCode}`);
@@ -86,7 +87,8 @@ async function generateSectionContent(
     // v17: Single provider per invocation — give it the full soft-stop budget (~45s)
     const perProviderMs = 45_000;
     
-    const systemMsg = `IHK-Prüfungscoach, ${professionName}. Handbuch-Abschnitt, ${wordTarget} Wörter. Pflicht: Grundlagen, Formeln, Prüfungsfallen, Merkschemata. Markdown, keine Meta-Kommentare.`;
+    const handbookProfile = getContentProfile(track || "AUSBILDUNG_VOLL");
+    const systemMsg = `${handbookProfile.handbook.persona}, ${professionName}. Handbuch-Abschnitt, ${wordTarget} Wörter. ${handbookProfile.handbook.structurePrompt.split("\n").slice(1).map(l => l.replace(/^\d+\.\s*\*\*/, "").replace(/\*\*.*/, "").trim()).filter(Boolean).join(", ")}. Markdown, keine Meta-Kommentare.`;
     
     const result = await callAIWithFailover(chain, {
       messages: [
