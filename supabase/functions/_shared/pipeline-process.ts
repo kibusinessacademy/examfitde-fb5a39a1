@@ -759,7 +759,14 @@ export async function processPackage(
       const deps = dagDepsZombie.get(k) ?? [];
       const unmetDeps = deps.filter(dep => {
         const depStep = byKey.get(dep);
-        return !depStep || !isTerminalStatus(depStep.status);
+        if (!depStep || !isTerminalStatus(depStep.status)) {
+          // Capability-aware: validate_learning_content can grant specific downstream steps
+          if (dep === "validate_learning_content" && depStep) {
+            return !isCapabilityGranted(k, (depStep.meta ?? {}) as Record<string, unknown>);
+          }
+          return true;
+        }
+        return false;
       });
       if (unmetDeps.length > 0) {
         console.warn(`[runner] 🧟 ZOMBIE blocked: step ${k} DAG predecessors not done: ${unmetDeps.join(", ")}`);
