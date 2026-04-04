@@ -37,14 +37,15 @@ export type ExamQuestionRow = {
   ai_generated: boolean;
 };
 
-function pickQuestionType(allowed: string[] | null | undefined, knowledgeType: string): string {
-  const list = Array.isArray(allowed) ? allowed : [];
-  if (list.includes("mc_single")) return "mc_single";
-  if (list.includes("mc_multi")) return "mc_multi";
-  if (list.includes("true_false")) return "true_false";
-  if (list.length > 0) return list[0];
-  if (knowledgeType === "calculation") return "mc_single";
-  return "mc_single";
+// Valid question_type values: concept, procedure, calculation, case_study, transfer
+function pickQuestionType(_allowed: string[] | null | undefined, knowledgeType: string): string {
+  switch (knowledgeType) {
+    case "calculation": return "calculation";
+    case "procedure": return "procedure";
+    case "regulation": return "procedure"; // regulation maps to procedure type
+    case "concept":
+    default: return "concept";
+  }
 }
 
 function buildQuestionText(bp: BlueprintQuestionSource): string {
