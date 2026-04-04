@@ -794,6 +794,16 @@ Deno.serve(async (req) => {
 
         logInteraction(supabase, user.id, sessionId, sessionType, validMode, message, fullResponse, 0, false, null, conversationHistory.length).catch(console.error);
 
+        // Persist messages to tutor session
+        if (persistentSessionId && fullResponse) {
+          saveMessages(supabase, persistentSessionId, message, fullResponse, {
+            mode: validMode,
+            role: effectiveRole,
+            professionName,
+            programType,
+          }).catch(console.error);
+        }
+
         if (generationId && validMode !== AI_MODES.EXAM) {
           postValidateTutorResponse(supabase, user.id, message, fullResponse, resolvedContext, generationId, professionName).catch(console.error);
         }
