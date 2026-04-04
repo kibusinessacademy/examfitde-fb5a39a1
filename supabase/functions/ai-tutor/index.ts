@@ -5,6 +5,8 @@ import { callAI, callAIWithFailover } from "../_shared/ai-client.ts";
 import { getModelChainAsync } from "../_shared/model-routing.ts";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
 import { getTutorOutputFormat, getTutorOutputFormatAcademic, SOURCE_CITATION_RULE, SOURCE_CITATION_RULE_ACADEMIC } from "../_shared/prompt-kit.ts";
+import { loadRecentMiniCheckMistakes, loadRecentExamMistakes, buildErrorContextPrompt, generateSuggestedPrompts } from "../_shared/tutor/context-loader.ts";
+import { findOrCreateSession, saveMessages, loadSessionHistory } from "../_shared/tutor/session-manager.ts";
 
 /**
  * AI-Tutor – Profession-Aware + Deep Thinking + Post-Validation
