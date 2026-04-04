@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 import { getContentProfile } from "../_shared/track-content-profiles.ts";
+import { resolveIntegrityProfile, getValidationPolicy, buildValidatorMeta } from "../_shared/validation/learning-content-policy.ts";
 
 /**
  * package-validate-lesson-minichecks  (V3 — track-aware approved-based logic)

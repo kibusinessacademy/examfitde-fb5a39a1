@@ -3,6 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { checkContamination } from "../_shared/contamination-guard.ts";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
 import { getContentProfile } from "../_shared/track-content-profiles.ts";
+import { resolveIntegrityProfile, getValidationPolicy, buildValidatorMeta } from "../_shared/validation/learning-content-policy.ts";
 
 /**
  * package-validate-handbook — Pipeline Step (after generate_handbook)
