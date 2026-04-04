@@ -17,7 +17,7 @@ function json(body: unknown, status = 200) {
   });
 }
 
-const SYSTEM_PROMPT = `Du bist ein Experte für deutsche Berufsausbildung (IHK/HWK).
+const VOCATIONAL_SYSTEM_PROMPT = `Du bist ein Experte für deutsche Berufsausbildung (IHK/HWK).
 Erstelle für den genannten Ausbildungsberuf einen realistischen schulischen Rahmenlehrplan.
 
 Antworte AUSSCHLIESSLICH mit einem validen JSON-Objekt:
@@ -48,6 +48,107 @@ Regeln:
 - Praxisnahe, berufsspezifische Inhalte
 - Codes fortlaufend: LF01, LF02 und LF01-K01, LF01-K02`;
 
+const HIGHER_ED_SYSTEM_PROMPT = `Du bist ein Hochschuldozent und Experte für akademische Studienprogramme.
+Erstelle für den genannten Studiengang einen modularen Studienplan.
+
+Antworte AUSSCHLIESSLICH mit einem validen JSON-Objekt:
+{
+  "learningFields": [
+    {
+      "code": "M01",
+      "title": "Modulbezeichnung",
+      "description": "Qualifikationsziele und Kompetenzen (2-4 Sätze)",
+      "hours": 150,
+      "competencies": [
+        {
+          "code": "M01-K01",
+          "title": "Kompetenz-Titel",
+          "description": "Beschreibung (1-2 Sätze)",
+          "taxonomyLevel": "Analysieren"
+        }
+      ]
+    }
+  ]
+}
+
+Regeln:
+- 12-20 Module für einen Bachelor-Studiengang, 8-12 für Master
+- Pro Modul 3-6 Kompetenzen
+- Taxonomiestufen: Wissen, Verstehen, Anwenden, Analysieren, Transfer, Bewerten
+- Höhere kognitive Stufen (Analysieren, Transfer) mit mindestens 40% Anteil
+- Prüfungsformen: Klausur, Hausarbeit, Fallanalyse, Projektarbeit
+- Akademische Terminologie und wissenschaftlicher Anspruch
+- Codes fortlaufend: M01, M02 und M01-K01, M01-K02`;
+
+const FORTBILDUNG_SYSTEM_PROMPT = `Du bist ein Experte für berufliche Fortbildung und IHK-Aufstiegsqualifikationen.
+Erstelle für die genannte Fortbildung einen strukturierten Rahmenplan.
+
+Antworte AUSSCHLIESSLICH mit einem validen JSON-Objekt:
+{
+  "learningFields": [
+    {
+      "code": "HQ01",
+      "title": "Handlungsbereich / Qualifikationsfeld",
+      "description": "Kompetenzformulierung (2-4 Sätze)",
+      "hours": 100,
+      "competencies": [
+        {
+          "code": "HQ01-K01",
+          "title": "Kompetenz-Titel",
+          "description": "Beschreibung (1-2 Sätze)",
+          "taxonomyLevel": "Anwenden"
+        }
+      ]
+    }
+  ]
+}
+
+Regeln:
+- 6-10 Handlungsbereiche/Qualifikationsfelder
+- Pro Bereich 3-6 Kompetenzen
+- Taxonomiestufen: Wissen, Verstehen, Anwenden, Analysieren, Synthese, Bewerten
+- Fokus auf Transfer, Führung und betriebswirtschaftliche Handlungskompetenz
+- Gesamtstunden: 600-1200 je nach Fortbildungsumfang
+- Codes fortlaufend: HQ01, HQ02 und HQ01-K01, HQ01-K02`;
+
+/**
+ * Determine which system prompt and user prompt to use based on track/program_type.
+ */
+function resolvePrompts(curr: { title: string; program_type?: string; track?: string }, beruf: any | null): { systemPrompt: string; userPrompt: string } {
+  const pt = curr.program_type?.toLowerCase() ?? "";
+  const track = curr.track?.toUpperCase() ?? "";
+
+  // Higher Education (Studium)
+  if (pt === "higher_education" || track === "STUDIUM") {
+    return {
+      systemPrompt: HIGHER_ED_SYSTEM_PROMPT,
+      userPrompt: `Erstelle einen modularen Studienplan für: ${curr.title}\nProgrammtyp: Hochschulstudium (Bachelor/Master)`,
+    };
+  }
+
+  // Fortbildung
+  if (track === "FORTBILDUNG" || ["fortbildung_ihk", "fortbildung_hwk", "aufstiegsfortbildung"].includes(pt)) {
+    return {
+      systemPrompt: FORTBILDUNG_SYSTEM_PROMPT,
+      userPrompt: `Erstelle einen Rahmenplan für die Fortbildung: ${curr.title}`,
+    };
+  }
+
+  // Vocational (default) — requires beruf
+  if (beruf) {
+    return {
+      systemPrompt: VOCATIONAL_SYSTEM_PROMPT,
+      userPrompt: `Erstelle einen Rahmenlehrplan für: ${beruf.bezeichnung_kurz}${beruf.bezeichnung_lang ? ` (${beruf.bezeichnung_lang})` : ""}\nZuständigkeit: ${beruf.zustaendigkeit}\nAusbildungsdauer: ${beruf.ausbildungsdauer_monate} Monate`,
+    };
+  }
+
+  // Fallback: use title directly (e.g. Zertifikat without beruf)
+  return {
+    systemPrompt: VOCATIONAL_SYSTEM_PROMPT,
+    userPrompt: `Erstelle einen Rahmenlehrplan für: ${curr.title}`,
+  };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Use POST" }, 405);
@@ -63,10 +164,10 @@ Deno.serve(async (req) => {
   if (!curriculumId) return json({ error: "curriculum_id required" }, 400);
 
   try {
-    // 1) Load curriculum + beruf
+    // 1) Load curriculum (including track/program_type for routing)
     const { data: curr, error: currErr } = await sb
       .from("curricula")
-      .select("id, title, beruf_id, status")
+      .select("id, title, beruf_id, status, program_type, track")
       .eq("id", curriculumId)
       .single();
 
@@ -89,21 +190,21 @@ Deno.serve(async (req) => {
       return json({ message: "Had LFs, now frozen", curriculumId, learningFields: existingLF });
     }
 
-    // 2) Get beruf info
-    const { data: beruf } = await sb
-      .from("berufe")
-      .select("bezeichnung_kurz, bezeichnung_lang, zustaendigkeit, ausbildungsdauer_monate, taetigkeitsprofil")
-      .eq("id", curr.beruf_id)
-      .single();
+    // 2) Get beruf info (only for vocational tracks — nullable for Studium/Fortbildung/Zertifikat)
+    let beruf: any = null;
+    if (curr.beruf_id) {
+      const { data } = await sb
+        .from("berufe")
+        .select("bezeichnung_kurz, bezeichnung_lang, zustaendigkeit, ausbildungsdauer_monate, taetigkeitsprofil")
+        .eq("id", curr.beruf_id)
+        .single();
+      beruf = data;
+    }
 
-    if (!beruf) return json({ error: "Beruf not found" }, 404);
+    // Resolve prompts based on track/program_type (no more hard 404 on missing beruf)
+    const { systemPrompt, userPrompt } = resolvePrompts(curr, beruf);
 
-    console.log(`[GenContent] Generating LFs for: ${beruf.bezeichnung_kurz}`);
-
-    // 3) AI generation
-    const userPrompt = `Erstelle einen Rahmenlehrplan für: ${beruf.bezeichnung_kurz}${beruf.bezeichnung_lang ? ` (${beruf.bezeichnung_lang})` : ""}
-Zuständigkeit: ${beruf.zustaendigkeit}
-Ausbildungsdauer: ${beruf.ausbildungsdauer_monate} Monate`;
+    console.log(`[GenContent] Generating LFs for: ${curr.title} (track=${curr.track ?? "default"}, program_type=${curr.program_type ?? "vocational"})`);
 
     // v11: Failover chain — policy-first, then model-routing chain
     let chain: Array<{ provider: string; model: string }> = [];
@@ -130,7 +231,7 @@ Ausbildungsdauer: ${beruf.ausbildungsdauer_monate} Monate`;
       chain.map(c => ({ provider: c.provider as any, model: c.model })),
       {
         messages: [
-          { role: "system", content: SYSTEM_PROMPT },
+          { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
         temperature: 0.3,
@@ -211,7 +312,7 @@ Ausbildungsdauer: ${beruf.ausbildungsdauer_monate} Monate`;
     return json({
       success: true,
       curriculumId,
-      beruf: beruf.bezeichnung_kurz,
+      beruf: beruf?.bezeichnung_kurz ?? curr.title,
       learningFields: learningFields.length,
       competencies: totalComps,
     });
