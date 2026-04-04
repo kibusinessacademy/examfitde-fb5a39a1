@@ -24,6 +24,7 @@ export const adminNavModules: AdminNavItem[] = [
   { path: '/admin/growth', label: 'Growth', icon: TrendingUp, group: 'navigation' },
   { path: '/admin/marketing', label: 'Marketing', icon: Megaphone, group: 'navigation' },
   { path: '/admin/compliance', label: 'Compliance', icon: Shield, group: 'navigation' },
+  { path: '/admin/licenses', label: 'Lizenzen', icon: Key, group: 'navigation' },
 ];
 
 export const adminQuickActions: AdminNavItem[] = [];
