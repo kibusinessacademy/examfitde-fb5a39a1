@@ -55,9 +55,9 @@ export const WIP_TOTAL_CAP = 13;
  * Phase E: Finish-First — focus on 5-7 packages nearest completion.
  */
 export const WIP_QUOTA_DEFAULTS: Record<TrackKey, number> = {
-  AUSBILDUNG_VOLL: 5,
-  EXAM_FIRST: 2,
-  STUDIUM: 2,
+  AUSBILDUNG_VOLL: 6,
+  EXAM_FIRST: 4,
+  STUDIUM: 3,
 };
 
 export function getTrackQuota(track: TrackKey): number {
