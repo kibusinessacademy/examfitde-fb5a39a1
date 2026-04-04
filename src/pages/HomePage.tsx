@@ -282,11 +282,12 @@ export default function HomePage() {
               <p className="text-muted-foreground">Gleiches System, passende Argumente für jede Rolle.</p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
               {[
-                { to: '/pruefungstraining-azubis', icon: GraduationCap, color: 'text-primary', title: 'Für Auszubildende', text: 'Prüfung simulieren, Schwächen erkennen, sicher bestehen.' },
-                { to: '/pruefungstraining-betriebe', icon: Building2, color: 'text-accent', title: 'Für Ausbildungsbetriebe', text: 'Prüfungsreife der Azubis mess- und steuerbar machen.' },
-                { to: '/pruefungstraining-institutionen', icon: BookOpen, color: 'text-success', title: 'Für Berufsschulen & IHK', text: 'Prüfungskonforme Ergänzung, nicht Ersatz des Unterrichts.' },
+                { to: '/pruefungstraining-azubis', icon: GraduationCap, color: 'text-primary', title: 'Für Auszubildende', text: 'IHK-Prüfung simulieren, Schwächen erkennen, sicher bestehen.' },
+                { to: '/pruefungstraining-studium', icon: BookOpen, color: 'text-blue-400', title: 'Für Studierende', text: 'Klausuren gezielt vorbereiten – adaptiv, strukturiert, prüfungsnah.' },
+                { to: '/pruefungstraining-betriebe', icon: Building2, color: 'text-accent', title: 'Für Betriebe', text: 'Prüfungsreife der Azubis mess- und steuerbar machen.' },
+                { to: '/pruefungstraining-institutionen', icon: BookOpen, color: 'text-success', title: 'Für Bildungsträger', text: 'Prüfungskonforme Ergänzung für Berufsschulen und Hochschulen.' },
               ].map(({ to, icon: Icon, color, title, text }) => (
                 <Link key={to} to={to} className="glass-card rounded-2xl p-6 sm:p-8 group hover:border-primary/30 transition-all duration-300">
                   <Icon className={`h-10 w-10 ${color} mb-4`} />
