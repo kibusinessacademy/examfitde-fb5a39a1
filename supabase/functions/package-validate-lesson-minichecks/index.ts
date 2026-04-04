@@ -1,15 +1,17 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
+import { getContentProfile } from "../_shared/track-content-profiles.ts";
 
 /**
- * package-validate-lesson-minichecks  (V2 — approved-based logic)
+ * package-validate-lesson-minichecks  (V3 — track-aware approved-based logic)
  *
  * Quality gate for MiniCheck questions (read-only — NO status changes):
  * - Counts APPROVED questions (not drafts — auto-QC trigger handles promotion)
  * - Coverage check (Learning-Track: ≥90% lessons must have approved MiniChecks)
  * - Min items per lesson (≥3 approved)
- * - Trap coverage (approved without traps = blocker)
+ * - Trap coverage (approved without traps = blocker for vocational, warning for academic)
+ * - Bloom distribution check (track-aware: STUDIUM requires higher cognitive levels)
  * - Audit completeness (approved without audit metadata = warning)
  * - Drift check (curriculum_id mismatch via competency chain)
  * - Publish-gate integration
