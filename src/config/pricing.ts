@@ -24,6 +24,18 @@ export const PRICING = {
       access: '12 Monate',
       label: 'Einzellizenz Studium',
     },
+    zertifizierung: {
+      priceDisplay: 'ab 19,00 €',
+      priceCents: 1900,
+      access: '12 Monate',
+      label: 'Einzellizenz Zertifizierung',
+    },
+    fortbildung: {
+      priceDisplay: 'ab 39,00 €',
+      priceCents: 3900,
+      access: '12 Monate',
+      label: 'Einzellizenz Fortbildung',
+    },
   },
   b2b: {
     tiers: [
