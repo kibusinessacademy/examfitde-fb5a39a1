@@ -100,15 +100,22 @@ export function rebalanceQuotas(
     }
   }
 
-  // Distribute lendable to hungry tracks (most targets first)
+  // Distribute lendable proportionally to hungry tracks (by target count)
   const hungry = tracks
     .filter((t) => stats[t].targets > 0)
     .sort((a, b) => stats[b].targets - stats[a].targets);
 
-  for (const t of hungry) {
-    if (lendable <= 0) break;
-    effective[t] += lendable;
-    lendable = 0;
+  if (hungry.length > 0 && lendable > 0) {
+    const totalTargets = hungry.reduce((s, t) => s + stats[t].targets, 0);
+    let distributed = 0;
+    for (let i = 0; i < hungry.length; i++) {
+      const t = hungry[i];
+      const share = i === hungry.length - 1
+        ? lendable - distributed  // last track gets remainder
+        : Math.floor((stats[t].targets / totalTargets) * lendable);
+      effective[t] += share;
+      distributed += share;
+    }
   }
 
   // Enforce total cap
