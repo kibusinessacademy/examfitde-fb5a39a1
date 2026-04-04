@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
         while (true) {
           const { data: page } = await sb
             .from("exam_questions")
-            .select("id, blueprint_id, competency_id, question_type, question_text, options, explanation, trap_type, conflict_type, review_state, status")
+            .select("id, blueprint_id, competency_id, question_type, question_text, options, correct_answer, explanation, trap_type, conflict_type, review_state, status")
             .eq("certification_id", cert.id)
             .order("id", { ascending: true })
             .range(qFrom, qFrom + 499);
