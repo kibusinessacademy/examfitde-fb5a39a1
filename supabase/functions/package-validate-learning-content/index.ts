@@ -194,7 +194,7 @@ Deno.serve(async (req) => {
   // Resolve course_id from package if not provided directly
   let pkgRow: any = null;
   if (packageId) {
-    const { data } = await sb.from("course_packages").select("course_id, feature_flags").eq("id", packageId).maybeSingle();
+    const { data } = await sb.from("course_packages").select("course_id, feature_flags, integrity_profile, track").eq("id", packageId).maybeSingle();
     pkgRow = data;
     if (!courseId && pkgRow?.course_id) courseId = pkgRow.course_id;
   }
