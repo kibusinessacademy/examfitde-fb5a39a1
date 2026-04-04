@@ -162,7 +162,7 @@ function SingleProductCard({
           {/* Price Display */}
           <div className="space-y-1 text-center pt-4 border-t border-border">
             <div className="text-4xl font-display font-bold text-gradient">
-              {priceData ? formatPrice(priceData.total_price_cents) : '39 €'}
+              {priceData ? formatPrice(priceData.total_price_cents) : '24,90 €'}
             </div>
             {quantity > 1 && priceData && (
               <p className="text-sm text-muted-foreground">
