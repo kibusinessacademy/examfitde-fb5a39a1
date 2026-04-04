@@ -67,7 +67,7 @@ export default function HomePage() {
     <>
       <SEOHead
         title={seoTitle("Prüfung bestehen: Online Prüfungstraining für Ausbildung & Studium")}
-        description="Prüfungstraining online: IHK-Abschlussprüfung oder Klausur im Studium – mit Prüfungssimulation, adaptivem Training & KI-Coach sicher bestehen. 24,90 € einmalig."
+        description={`Prüfungstraining online: IHK-Abschlussprüfung oder Klausur im Studium – mit Prüfungssimulation, adaptivem Training & KI-Coach sicher bestehen. ${PRICING.defaultPrice} einmalig.`}
         canonical={`${SITE_URL}/`}
         type="website"
         structuredData={[
