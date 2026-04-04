@@ -76,6 +76,8 @@ export const STEP_TO_JOB_TYPE: Record<PipelineStepKey, string> = {
   backup_standalone_bundle: "backup_standalone_bundle",
   auto_publish: "package_auto_publish",
 };
+
+/**
  * Canonical step ordering — superset of all possible steps.
  * Steps not present in a package's DB rows are simply skipped.
  */
