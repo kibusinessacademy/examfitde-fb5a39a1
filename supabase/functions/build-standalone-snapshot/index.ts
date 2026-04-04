@@ -252,6 +252,8 @@ Deno.serve(async (req) => {
         sort_order: l.sort_order,
         duration_minutes: l.duration_minutes,
         exam_block: l.exam_block,
+        source_status: l.status,
+        has_renderable_content: hasRenderableContent(l.content),
         content_blocks: parseContentBlocks(l.content),
       })),
       minichecks: groupMinichecksByLesson(minichecks),
