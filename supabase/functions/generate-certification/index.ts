@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { classifyCertification } from "../_shared/certifications/classify-certification.ts";
 import { selectBlueprintTypes } from "../_shared/certifications/select-blueprint-types.ts";
+import { deriveDbTrack, deriveDbCertificationType } from "../_shared/certifications/types.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
