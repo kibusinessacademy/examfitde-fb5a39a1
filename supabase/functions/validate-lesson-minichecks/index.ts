@@ -303,13 +303,23 @@ Deno.serve(async (req) => {
           "id, curriculum_id, competency_id, question_text, options, correct_answer, explanation, difficulty, trap_type, trap_tags, mode, status, source_blueprint_id, cognitive_level",
         )) as MiniCheckRecord[];
 
-        // Fetch competencies for coverage check
-        const competencies = (await fetchAllRows(
-          sb,
-          "competencies",
-          { curriculum_id: curriculum.id },
-          "id",
-        )) as Array<{ id: string }>;
+        // Fetch competencies via learning_fields (competencies don't have curriculum_id directly)
+        const { data: lfRows, error: lfErr } = await sb
+          .from("learning_fields")
+          .select("id")
+          .eq("curriculum_id", curriculum.id);
+        if (lfErr) throw lfErr;
+        const lfIds = (lfRows ?? []).map((lf: any) => lf.id);
+        
+        let competencies: Array<{ id: string }> = [];
+        if (lfIds.length > 0) {
+          const { data: compRows, error: compErr } = await sb
+            .from("competencies")
+            .select("id")
+            .in("learning_field_id", lfIds);
+          if (compErr) throw compErr;
+          competencies = (compRows ?? []) as Array<{ id: string }>;
+        }
 
         const result = validateMiniChecks({
           certSlug: cert.slug,
