@@ -287,6 +287,8 @@ export const JOB_DEFINITIONS: Record<string, JobDefinition> = {
   package_validate_exam_pool:        { pool: "core", edgeFunction: "package-validate-exam-pool" },
   package_repair_exam_pool_quality:  { pool: "core", edgeFunction: "package-repair-exam-pool-quality" },
   package_validate_learning_content: { pool: "core", edgeFunction: "package-validate-learning-content" },
+  repair_learning_content:           { pool: "content", edgeFunction: "repair-learning-content" },
+  regenerate_learning_content_cluster: { pool: "content", edgeFunction: "regenerate-learning-content-cluster" },
   package_validate_oral_exam:        { pool: "core", edgeFunction: "package-validate-oral-exam" },
   package_validate_tutor_index:      { pool: "core", edgeFunction: "package-validate-tutor-index" },
   package_validate_lesson_minichecks:{ pool: "core", edgeFunction: "package-validate-lesson-minichecks" },

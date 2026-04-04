@@ -38,6 +38,8 @@ const REPAIR_JOB_TYPES = new Set([
   "pool_fill_bloom_gaps",
   "pool_fill_lf_gaps",
   "package_repair_exam_pool_quality",
+  "repair_learning_content",
+  "regenerate_learning_content_cluster",
   "package_generate_lesson_minichecks",
   "package_validate_lesson_minichecks",
   "package_validate_exam_pool",
