@@ -356,7 +356,7 @@ export default function HomePage() {
                       className="rounded-xl h-14 px-8"
                       onClick={() => trackConversion({ event: 'cta_click', source: 'bottom_cta', label: 'secondary_shop' })}
                     >
-                      Prüfungstraining ansehen – 39 €
+                      Prüfungstraining ansehen – 24,90 €
                     </Button>
                   </Link>
                 </div>
