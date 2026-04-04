@@ -63,7 +63,7 @@ export function AITutorChat({
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   
-  const { messages, isLoading, sendMessage, clearMessages } = useAITutor({
+  const { messages, isLoading, sendMessage, clearMessages, suggestedPrompts } = useAITutor({
     mode,
     sessionId,
     sessionType,
@@ -161,6 +161,25 @@ export function AITutorChat({
             )}
           </div>
         </ScrollArea>
+
+        {/* Suggested Prompts */}
+        {messages.length === 0 && suggestedPrompts.length > 0 && (
+          <div className="px-4 pb-2 flex flex-wrap gap-1.5">
+            {suggestedPrompts.map((prompt, idx) => (
+              <button
+                key={idx}
+                onClick={() => {
+                  setInput('');
+                  sendMessage(prompt);
+                }}
+                disabled={isLoading}
+                className="text-xs px-3 py-1.5 rounded-full border border-border bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+              >
+                {prompt}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Input */}
         <form onSubmit={handleSubmit} className="p-4 border-t flex gap-2">

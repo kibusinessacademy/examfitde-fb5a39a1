@@ -1499,6 +1499,41 @@ export type Database = {
           },
         ]
       }
+      ai_tutor_messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          role: string
+          session_id: string
+          source_context: Json
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          role: string
+          session_id: string
+          source_context?: Json
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          role?: string
+          session_id?: string
+          source_context?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_tutor_messages_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "ai_tutor_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_tutor_policies: {
         Row: {
           created_at: string
@@ -1522,6 +1557,56 @@ export type Database = {
           version?: number
         }
         Relationships: []
+      }
+      ai_tutor_sessions: {
+        Row: {
+          competency_id: string | null
+          created_at: string
+          curriculum_id: string
+          exam_session_id: string | null
+          id: string
+          lesson_id: string | null
+          minicheck_attempt_id: string | null
+          mode: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          competency_id?: string | null
+          created_at?: string
+          curriculum_id: string
+          exam_session_id?: string | null
+          id?: string
+          lesson_id?: string | null
+          minicheck_attempt_id?: string | null
+          mode?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          competency_id?: string | null
+          created_at?: string
+          curriculum_id?: string
+          exam_session_id?: string | null
+          id?: string
+          lesson_id?: string | null
+          minicheck_attempt_id?: string | null
+          mode?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_tutor_sessions_exam_session_id_fkey"
+            columns: ["exam_session_id"]
+            isOneToOne: false
+            referencedRelation: "exam_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       ai_usage_log: {
         Row: {

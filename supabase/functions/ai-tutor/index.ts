@@ -5,6 +5,8 @@ import { callAI, callAIWithFailover } from "../_shared/ai-client.ts";
 import { getModelChainAsync } from "../_shared/model-routing.ts";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
 import { getTutorOutputFormat, getTutorOutputFormatAcademic, SOURCE_CITATION_RULE, SOURCE_CITATION_RULE_ACADEMIC } from "../_shared/prompt-kit.ts";
+import { loadRecentMiniCheckMistakes, loadRecentExamMistakes, buildErrorContextPrompt, generateSuggestedPrompts } from "../_shared/tutor/context-loader.ts";
+import { findOrCreateSession, saveMessages, loadSessionHistory } from "../_shared/tutor/session-manager.ts";
 
 /**
  * AI-Tutor – Profession-Aware + Deep Thinking + Post-Validation
@@ -418,7 +420,34 @@ async function loadSSOTContext(
     } catch (e) {
       console.warn('[ai-tutor] Learning context enrichment failed:', e);
     }
+
+    // ── Recent Mistakes Context (MiniCheck + Exam) ──
+    try {
+      const [miniMistakes, examMistakes] = await Promise.all([
+        loadRecentMiniCheckMistakes(supabase, context._userId as string, curriculumId as string, 3),
+        loadRecentExamMistakes(supabase, context._userId as string, curriculumId as string, 3),
+      ]);
+
+      const allMistakes = [...miniMistakes, ...examMistakes];
+      if (allMistakes.length > 0) {
+        resolved.recentMistakes = allMistakes;
+        const errorPrompt = buildErrorContextPrompt(allMistakes);
+        parts.push(errorPrompt);
+      }
+    } catch (e) {
+      console.warn('[ai-tutor] Recent mistakes loading failed:', e);
+    }
   }
+
+  // ── Suggested Prompts ──
+  const hasMistakes = !!(resolved.recentMistakes as unknown[])?.length;
+  const hasWeaknesses = !!(resolved.topGaps as unknown[])?.length;
+  resolved.suggestedPrompts = generateSuggestedPrompts(
+    context._mode as string || 'learning',
+    hasMistakes,
+    hasWeaknesses,
+    programType,
+  );
 
   const contextPrompt = parts.length > 0
     ? `\n\n--- SSOT-KONTEXT (serverseitig geladen) ---\n${parts.join('\n')}`
@@ -524,14 +553,31 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabase = createClient(supabaseUrl, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
     const { data: { user }, error: userError } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''));
-    // Inject user_id into context so loadSSOTContext can filter by user
+    // Inject user_id and mode into context so loadSSOTContext can use them
     if (user) context._userId = user.id;
+    context._mode = validMode;
     if (userError || !user) {
       return new Response(JSON.stringify({ error: 'Invalid token' }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     // ── SSOT Context Loader (server-side) ──
     const { contextPrompt, resolvedContext, professionName, programType } = await loadSSOTContext(supabase, context);
+
+    // ── Persistent Session Management ──
+    let persistentSessionId: string | null = null;
+    if (context.curriculumId) {
+      try {
+        persistentSessionId = await findOrCreateSession(supabase, {
+          userId: user.id,
+          curriculumId: context.curriculumId as string,
+          lessonId: context.lessonId as string | null,
+          competencyId: context.competencyId as string | null,
+          mode: validMode,
+        });
+      } catch (e) {
+        console.warn('[ai-tutor] Session creation failed:', e);
+      }
+    }
 
     // ── Wave 3D: Mastery-aware role steering ──
     let effectiveRole = validRole as AIRole;
@@ -638,7 +684,7 @@ Deno.serve(async (req) => {
     if (validMode === AI_MODES.EXAM && !isAllowedInExamMode(message)) {
       const blocked = 'Im Prüfungsmodus kann ich keine inhaltliche Hilfe geben. Konzentriere dich auf die Aufgabe!';
       await logInteraction(supabase, user.id, sessionId, sessionType, validMode, message, blocked, 0, true, 'Inhaltliche Anfrage im Prüfungsmodus', conversationHistory.length);
-      return new Response(JSON.stringify({ response: blocked, mode: validMode, wasBlocked: true, blockReason: 'exam_mode' }), {
+      return new Response(JSON.stringify({ response: blocked, mode: validMode, wasBlocked: true, blockReason: 'exam_mode', suggestedPrompts: resolvedContext.suggestedPrompts || [] }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" }
       });
     }
@@ -747,6 +793,16 @@ Deno.serve(async (req) => {
         }
 
         logInteraction(supabase, user.id, sessionId, sessionType, validMode, message, fullResponse, 0, false, null, conversationHistory.length).catch(console.error);
+
+        // Persist messages to tutor session
+        if (persistentSessionId && fullResponse) {
+          saveMessages(supabase, persistentSessionId, message, fullResponse, {
+            mode: validMode,
+            role: effectiveRole,
+            professionName,
+            programType,
+          }).catch(console.error);
+        }
 
         if (generationId && validMode !== AI_MODES.EXAM) {
           postValidateTutorResponse(supabase, user.id, message, fullResponse, resolvedContext, generationId, professionName).catch(console.error);

@@ -66,6 +66,7 @@ export function useAITutor({
   const [isLoading, setIsLoading] = useState(false);
   const [currentRole, setCurrentRole] = useState<AIRole>(initialRole);
   const [context, setContext] = useState<AITutorContext>(initialContext);
+  const [suggestedPrompts, setSuggestedPrompts] = useState<string[]>([]);
   const { toast } = useToast();
 
   const sendMessage = useCallback(async (message: string) => {
@@ -117,7 +118,6 @@ export function useAITutor({
       // Handle SSE streaming response
       if (contentType.includes("text/event-stream") && resp.body) {
         let assistantContent = "";
-        let wasBlocked = false;
 
         const reader = resp.body.getReader();
         const decoder = new TextDecoder();
@@ -192,6 +192,10 @@ export function useAITutor({
           timestamp: new Date(),
           wasBlocked: data.wasBlocked,
         }]);
+        // Update suggested prompts from server response
+        if (data.suggestedPrompts?.length) {
+          setSuggestedPrompts(data.suggestedPrompts);
+        }
         if (data.wasBlocked) {
           toast({ title: 'Hinweis', description: 'Im Prüfungsmodus ist keine inhaltliche Hilfe verfügbar.' });
         }
@@ -214,5 +218,5 @@ export function useAITutor({
     setContext(prev => ({ ...prev, ...newContext }));
   }, []);
 
-  return { messages, isLoading, sendMessage, clearMessages, mode, role: currentRole, setRole: setCurrentRole, updateContext };
+  return { messages, isLoading, sendMessage, clearMessages, mode, role: currentRole, setRole: setCurrentRole, updateContext, suggestedPrompts };
 }
