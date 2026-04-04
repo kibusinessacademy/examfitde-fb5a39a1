@@ -57509,11 +57509,11 @@ export type Database = {
       get_unenriched_curricula_batch: {
         Args: { p_limit?: number }
         Returns: {
-          beruf_kurz: string
-          beruf_lang: string
-          curriculum_id: string
-          curriculum_title: string
+          bezeichnung_kurz: string
+          bezeichnung_lang: string
+          id: string
           taetigkeitsprofil: string
+          title: string
           unenriched_count: number
           zustaendigkeit: string
         }[]
