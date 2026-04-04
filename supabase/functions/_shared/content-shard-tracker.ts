@@ -214,17 +214,14 @@ export async function shouldSkipFanoutReEnqueue(
     return { skip: true, reason: `fanout_already_materialized: ${completed} completed, ${failed} failed of ${total}` };
   }
 
-  // Check re-enqueue frequency (loop guard)
-  const { data: recentJobs } = await sb
-    .from("job_queue")
-    .select("id")
-    .like("job_type", "%fanout_learning_content%")
-    .eq("payload->>package_id", packageId)
-    .gte("created_at", new Date(Date.now() - 30 * 60 * 1000).toISOString());
+  // Check re-enqueue frequency (loop guard) via reliable SQL RPC
+  const { data: recentCount, error: rpcErr } = await sb.rpc("count_recent_fanout_jobs", {
+    p_package_id: packageId,
+  });
 
-  const recentCount = recentJobs?.length ?? 0;
-  if (recentCount >= 3) {
-    return { skip: true, reason: `loop_guard: ${recentCount} fanout jobs in last 30min` };
+  const cnt = rpcErr ? 0 : (recentCount ?? 0);
+  if (cnt >= 3) {
+    return { skip: true, reason: `loop_guard: ${cnt} fanout jobs in last 30min` };
   }
 
   return { skip: false };
