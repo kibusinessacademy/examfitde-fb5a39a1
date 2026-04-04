@@ -169,7 +169,7 @@ export function generateBlueprintRows(input: {
         expected_trap_type: trapType,
         question_template: `{${spec.knowledge_type}_template}`,
         scenario_type: spec.exam_context_type === "isolated_knowledge" ? "single_competency" : "applied_scenario",
-        exam_relevance_score: relevance === "high" ? 8 : relevance === "medium" ? 5 : 3,
+        exam_relevance_score: relevance === "high" ? 5 : relevance === "medium" ? 3 : 1,
         real_world_context: spec.exam_context_type !== "isolated_knowledge",
         allowed_question_types: ["mc_single", "mc_multi"],
         status: "draft",
