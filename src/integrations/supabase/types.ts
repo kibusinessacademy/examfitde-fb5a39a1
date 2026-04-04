@@ -4963,6 +4963,51 @@ export type Database = {
         }
         Relationships: []
       }
+      certification_blueprint_templates: {
+        Row: {
+          active: boolean
+          blueprint_type: string
+          created_at: string
+          description: string | null
+          difficulty_rules: Json
+          id: string
+          profile_key: string
+          prompt_contract: Json
+          question_formats: string[]
+          title: string
+          trap_distribution: Json
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          blueprint_type: string
+          created_at?: string
+          description?: string | null
+          difficulty_rules?: Json
+          id?: string
+          profile_key: string
+          prompt_contract?: Json
+          question_formats?: string[]
+          title: string
+          trap_distribution?: Json
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          blueprint_type?: string
+          created_at?: string
+          description?: string | null
+          difficulty_rules?: Json
+          id?: string
+          profile_key?: string
+          prompt_contract?: Json
+          question_formats?: string[]
+          title?: string
+          trap_distribution?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
       certification_catalog: {
         Row: {
           bloom_distribution: Json | null
@@ -5190,6 +5235,42 @@ export type Database = {
           },
         ]
       }
+      certification_profiles: {
+        Row: {
+          blueprint_defaults: Json
+          created_at: string
+          id: string
+          profile_key: string
+          scoring_weights: Json
+          title: string
+          tutor_rules: Json
+          updated_at: string
+          validation_rules: Json
+        }
+        Insert: {
+          blueprint_defaults?: Json
+          created_at?: string
+          id?: string
+          profile_key: string
+          scoring_weights?: Json
+          title: string
+          tutor_rules?: Json
+          updated_at?: string
+          validation_rules?: Json
+        }
+        Update: {
+          blueprint_defaults?: Json
+          created_at?: string
+          id?: string
+          profile_key?: string
+          scoring_weights?: Json
+          title?: string
+          tutor_rules?: Json
+          updated_at?: string
+          validation_rules?: Json
+        }
+        Relationships: []
+      }
       certification_seo_pages: {
         Row: {
           certification_catalog_id: string | null
@@ -5261,6 +5342,75 @@ export type Database = {
             referencedColumns: ["certification_id"]
           },
         ]
+      }
+      certifications: {
+        Row: {
+          active: boolean
+          calculation_heavy: boolean
+          certification_type: string
+          created_at: string
+          exam_modes: string[]
+          framework_heavy: boolean
+          id: string
+          international: boolean
+          language: string
+          level: string | null
+          meta: Json
+          oral_exam_enabled: boolean
+          provider: string | null
+          provider_type: string | null
+          short_title: string | null
+          slug: string
+          title: string
+          track: string
+          updated_at: string
+          validation_profile: string
+        }
+        Insert: {
+          active?: boolean
+          calculation_heavy?: boolean
+          certification_type: string
+          created_at?: string
+          exam_modes?: string[]
+          framework_heavy?: boolean
+          id?: string
+          international?: boolean
+          language?: string
+          level?: string | null
+          meta?: Json
+          oral_exam_enabled?: boolean
+          provider?: string | null
+          provider_type?: string | null
+          short_title?: string | null
+          slug: string
+          title: string
+          track: string
+          updated_at?: string
+          validation_profile: string
+        }
+        Update: {
+          active?: boolean
+          calculation_heavy?: boolean
+          certification_type?: string
+          created_at?: string
+          exam_modes?: string[]
+          framework_heavy?: boolean
+          id?: string
+          international?: boolean
+          language?: string
+          level?: string | null
+          meta?: Json
+          oral_exam_enabled?: boolean
+          provider?: string | null
+          provider_type?: string | null
+          short_title?: string | null
+          slug?: string
+          title?: string
+          track?: string
+          updated_at?: string
+          validation_profile?: string
+        }
+        Relationships: []
       }
       channel_performance_profiles: {
         Row: {
@@ -11582,6 +11732,7 @@ export type Database = {
         Row: {
           beruf_id: string | null
           bibb_quelle: string | null
+          certification_id: string | null
           certification_type:
             | Database["public"]["Enums"]["certification_type"]
             | null
@@ -11613,6 +11764,7 @@ export type Database = {
         Insert: {
           beruf_id?: string | null
           bibb_quelle?: string | null
+          certification_id?: string | null
           certification_type?:
             | Database["public"]["Enums"]["certification_type"]
             | null
@@ -11644,6 +11796,7 @@ export type Database = {
         Update: {
           beruf_id?: string | null
           bibb_quelle?: string | null
+          certification_id?: string | null
           certification_type?:
             | Database["public"]["Enums"]["certification_type"]
             | null
@@ -11721,6 +11874,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_course_display_ssot"
             referencedColumns: ["beruf_id"]
+          },
+          {
+            foreignKeyName: "curricula_certification_id_fkey"
+            columns: ["certification_id"]
+            isOneToOne: false
+            referencedRelation: "certifications"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "curricula_program_id_fkey"
