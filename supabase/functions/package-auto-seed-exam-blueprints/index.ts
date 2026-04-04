@@ -661,6 +661,38 @@ async function handleSeed(sb: ReturnType<typeof createClient>, p: any) {
     return !hasBps;
   });
 
+  // ── LF COVERAGE GUARD (v4.2) ─────────────────────────────────────
+  // Fail-closed: If after seeding, any LF has ZERO blueprints, that's
+  // a structural defect. Report it explicitly so validate_blueprints
+  // can act on real diagnostics instead of silent MISSING_LF_COVERAGE.
+  const coveredLfCount = allLfIds.length - missingLfIds.length;
+  if (missingLfIds.length > 0) {
+    const missingTitles = missingLfIds.map(id => {
+      const lf = lfs.find(l => l.id === id);
+      return lf ? `${lf.code || '?'}: ${lf.title}` : id.slice(0, 8);
+    });
+    console.error(`[SeedV4] ❌ LF_COVERAGE_GAP: ${missingLfIds.length}/${allLfIds.length} LFs have ZERO blueprints after seeding: ${missingTitles.join(", ")}`);
+
+    // If more than 30% of LFs are missing, fail hard — this is a systemic issue
+    if (missingLfIds.length / allLfIds.length > 0.3) {
+      return json({
+        ok: false,
+        error: `LF_COVERAGE_CRITICAL: ${missingLfIds.length}/${allLfIds.length} LFs uncovered (>${Math.round(0.3 * 100)}% threshold). Seeder selection logic may be broken.`,
+        retry: true,
+        diagnostics: {
+          eligible_learning_fields_count: allLfIds.length,
+          covered_learning_fields_count: coveredLfCount,
+          missing_learning_field_ids: missingLfIds,
+          missing_learning_field_names: missingTitles,
+          lfs_without_competencies: lfsWithoutComps.map(lf => ({ id: lf.id, title: lf.title })),
+          selection_source: lfsWithoutComps.length > 0 ? "hybrid_competency_and_lf_fallback" : "competencies",
+        },
+      }, 500);
+    }
+    // Below 30% — warn but continue (partial coverage is recoverable)
+    console.warn(`[SeedV4] ⚠️ LF_COVERAGE_WARN: ${missingLfIds.length} LFs missing, continuing with partial coverage`);
+  }
+
   return json({
     ok: true,
     seeded: insertedCount,
@@ -670,12 +702,17 @@ async function handleSeed(sb: ReturnType<typeof createClient>, p: any) {
     beruf: berufName,
     source: comps?.length ? "hybrid" : "learning_fields",
     health,
-    version: "4.1.0",
+    version: "4.2.0",
     diagnostics: {
       eligible_learning_fields_count: allLfIds.length,
+      covered_learning_fields_count: coveredLfCount,
       seeded_learning_fields_count: seededLfIds.length,
       lfs_without_competencies: lfsWithoutComps.map(lf => ({ id: lf.id, title: lf.title })),
       missing_learning_field_ids: missingLfIds,
+      missing_learning_field_names: missingLfIds.map(id => {
+        const lf = lfs.find(l => l.id === id);
+        return lf ? `${lf.code || '?'}: ${lf.title}` : id.slice(0, 8);
+      }),
       selection_source: lfsWithoutComps.length > 0 ? "hybrid_competency_and_lf_fallback" : "competencies",
     },
   });
