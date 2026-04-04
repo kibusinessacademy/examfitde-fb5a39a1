@@ -349,7 +349,7 @@ export default function HandbookLandingPage() {
               </p>
               <Button asChild size="lg" className="gap-2 text-lg px-8">
                 <Link to="/shop">
-                  Bundle für 24,90 € sichern
+                  Bundle für {PRICING.defaultPrice} sichern
                   <ArrowRight className="h-5 w-5" />
                 </Link>
               </Button>

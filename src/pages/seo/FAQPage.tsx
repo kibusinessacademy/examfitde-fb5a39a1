@@ -58,7 +58,7 @@ const faqs: FAQItem[] = [
   {
     category: 'Preise & Zahlung',
     question: 'Was kostet das Prüfungstraining?',
-    answer: 'Das komplette Prüfungstraining kostet 24,90€ als Einmalzahlung für 12 Monate Zugang. Alle Funktionen sind enthalten – keine versteckten Kosten.',
+    answer: `Das komplette Prüfungstraining kostet ${PRICING.defaultPrice} als Einmalzahlung für ${PRICING.defaultAccess} Zugang. Alle Funktionen sind enthalten – keine versteckten Kosten.`,
   },
   {
     category: 'Preise & Zahlung',

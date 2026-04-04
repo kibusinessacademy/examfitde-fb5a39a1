@@ -19,7 +19,7 @@ const CAREER_LEVELS = [
     subtitle: 'IHK-Abschlussprüfung',
     description: 'Starte mit dem Fundament: Bestehe deine IHK-Abschlussprüfung sicher mit realistischer Simulation und KI-Prüfungscoach.',
     icon: GraduationCap,
-    price: 'ab 24,90 €',
+    price: `ab ${PRICING.defaultPrice}`,
     dqr: 'DQR 3–4',
     examples: ['Industriekaufmann/-frau', 'Fachinformatiker/in', 'Kaufleute für Büromanagement'],
     href: '/pruefungstraining/ausbildung',

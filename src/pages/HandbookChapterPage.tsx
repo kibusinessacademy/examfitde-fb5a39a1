@@ -116,7 +116,7 @@ export default function HandbookChapterPage() {
                 </p>
                 <Button asChild size="lg" className="gap-2">
                   <Link to="/shop">
-                    Prüfungstraining für 24,90 € freischalten
+                    Prüfungstraining für {PRICING.defaultPrice} freischalten
                     <ArrowRight className="h-4 w-4" />
                   </Link>
                 </Button>
