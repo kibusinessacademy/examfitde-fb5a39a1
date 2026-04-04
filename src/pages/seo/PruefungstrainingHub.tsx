@@ -72,7 +72,7 @@ const FAQS = [
   },
   {
     question: 'Was kostet das IHK Prüfungstraining?',
-    answer: 'Das komplette Prüfungstraining kostet 39 € einmalig (kein Abo) und beinhaltet alle Module: Prüfungsfragen üben, Prüfungssimulation, mündliche Prüfung trainieren und KI-Prüfungscoach. 12 Monate Zugang.',
+    answer: 'Das komplette Prüfungstraining kostet 24,90 € einmalig (kein Abo) und beinhaltet alle Module: Prüfungsfragen üben, Prüfungssimulation, mündliche Prüfung trainieren und KI-Prüfungscoach. 12 Monate Zugang.',
   },
   {
     question: 'Wie bestehe ich die IHK Abschlussprüfung mit ExamFit?',
@@ -236,7 +236,7 @@ const PruefungstrainingHub = () => {
         {/* CTA */}
         <section className="text-center py-8 space-y-4 bg-card rounded-2xl border border-border">
           <h2 className="text-2xl font-bold">Bereit für deine Prüfung?</h2>
-          <p className="text-muted-foreground">Starte jetzt mit dem Prüfungstraining – nur 39 € für 12 Monate.</p>
+          <p className="text-muted-foreground">Starte jetzt mit dem Prüfungstraining – nur 24,90 € für 12 Monate.</p>
           <Link to="/shop">
             <Button size="lg" className="shadow-glow">
               <Target className="mr-2 h-5 w-5" /> Jetzt Prüfungstraining starten

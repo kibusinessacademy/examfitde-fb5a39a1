@@ -37,7 +37,7 @@ export default function ShopPage() {
     <>
       <SEOHead
         title={seoTitle("IHK Prüfungstraining kaufen: Prüfungsfragen üben & bestehen")}
-        description="IHK Prüfungstraining online kaufen: Prüfungssimulation, Prüfungsfragen mit Lösungen, KI-Coach & mündliche Prüfung. 39 € einmalig, 12 Monate Zugang, kein Abo."
+        description="IHK Prüfungstraining online kaufen: Prüfungssimulation, Prüfungsfragen mit Lösungen, KI-Coach & mündliche Prüfung. 24,90 € einmalig, 12 Monate Zugang, kein Abo."
         canonical={`${SITE_URL}/shop`}
       />
 
@@ -53,7 +53,7 @@ export default function ShopPage() {
           </h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
             Abschlussprüfung Vorbereitung online – Prüfungssimulation, adaptive Schwächenanalyse & KI-Prüfungscoach. 
-            Einmalzahlung 39 €, 12 Monate Zugang, kein Abo.
+            Einmalzahlung 24,90 €, 12 Monate Zugang, kein Abo.
           </p>
         </div>
 

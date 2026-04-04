@@ -1,30 +1,43 @@
-## Content Automation Engine – Implementierungsplan
+## Phase 1: Stripe Pricing Update (24,90€)
 
-### Phase 1: Datenbank-Fundament
-**Migration** mit zwei neuen Tabellen:
-- `blog_articles` – SEO-Artikel mit Titel, Slug, Content (Markdown), Meta-Description, Keywords, Status (draft/published), `source_question_id`, `generated_at`
-- `video_scripts` – Video-Skripte mit Hook, Body, CTA, Format-Typ (durchfall/mini_klausur/aha_moment), `source_question_id`, Status, Caption-Text
+1. **Neuen Stripe-Preis anlegen**: 24,90€ (2490 Cents) für `prod_UGgwt89kfo6vz2` (ExamFit Ausbildung – Einzellizenz)
+2. **Neuen Stripe-Preis anlegen**: 24,90€ für `prod_UGgxoWqiuLfzUl` (ExamFit Studium – Einzellizenz) — von 59€ auf 24,90€
+3. **B2B Staffelpreise** in Stripe aktualisieren:
+   - 5 Seats: 22€/Seat
+   - 10 Seats: 19€/Seat  
+   - 25 Seats: 16€/Seat
+   - 50+ Seats: 12€/Seat
+4. **Alle Preisreferenzen im Code updaten** (HomePage, ShopPage, FAQs, SEO-Beschreibungen: 39€ → 24,90€)
 
-### Phase 2: SEO Blog-Agent (Edge Function)
-- `content-blog-generate` Edge Function:
-  - Zieht zufällige approved Fragen aus `exam_questions` (Studium-Fokus)
-  - Generiert per Lovable AI (Gemini Flash) einen SEO-optimierten Blog-Artikel
-  - Prompt: Frage → Erklärung → Transfer → Prüfungstipp → CTA
-  - Speichert direkt als `published` in `blog_articles`
-- Dynamische `/blog` Index-Seite + `/blog/:slug` Artikel-Seite
-- Dynamische Sitemap-Erweiterung (`/sitemap-blog.xml`)
+## Phase 2: Conversion-optimierte Landingpages
 
-### Phase 3: Video-Skript-Agent (Edge Function)  
-- `content-video-generate` Edge Function:
-  - Zieht Fragen + Erklärungen aus dem Pool
-  - Generiert Skript im gewählten Format (Durchfall-Realität / Mini-Klausur / Aha-Moment)
-  - Speichert in `video_scripts` mit strukturiertem JSON (hook, problem, beispiel, twist, cta)
-- Admin-Seite zum Triggern + Vorschau der generierten Skripte
-- Remotion-basierte MP4-Generierung als separater Schritt (on-demand pro Skript)
+5. **HomePage Hero** neu positionieren:
+   - Headline: "Bereit für die Prüfung?" statt Feature-Liste
+   - Prüfungsreife-Check CTA prominent
+   - Value Stack: Was alles enthalten ist
+   - Preisanker (IHK 300-1000€ vs. ExamFit 24,90€)
+   - Trust Badges + Social Proof
 
-### Phase 4: Cron-Automation
-- Täglicher Cron-Job der beide Agents triggert (10 Blog-Artikel + 10 Video-Skripte)
+6. **Segment-Landingpages** (5 Stück, SEO-optimiert):
+   - `/azubis` – Azubi-fokussiert (Angst → Kontrolle → Klarheit)
+   - `/betriebe` – B2B aktualisiert (neue Staffelpreise)
+   - `/fortbildung` – Betriebswirt/Fachwirt/Meister/Bilanzbuchhalter
+   - `/zertifizierungen` – Scrum/PRINCE2/AWS
+   - `/institutionen` – Berufsschulen/IHK/Bildungsträger
 
-### Nicht in Scope (bewusst):
-- Automatische MP4-Massenproduktion (zu teuer/langsam für Cron → on-demand)
-- Social Media Posting API (braucht externe Tokens)
+7. **ShopPage** aktualisieren:
+   - 24,90€ Preis
+   - Value Stack visuell
+   - Preisanker-Block
+
+## Phase 3: Traffic Engine (danach)
+
+8. Blog/Video-Agents → Landingpages verlinken
+9. Ad-Creative-Vorlagen aus SSOT
+10. SEO-Content-Seeding für neue Landingpages
+
+---
+
+**Reihenfolge**: Phase 1 (Stripe) → Phase 2 (Landingpages) → Phase 3 (Traffic)
+
+**Hinweis**: Alte Stripe-Preise bleiben aktiv für Bestandskunden. Neue Preise werden für neue Checkouts verwendet.

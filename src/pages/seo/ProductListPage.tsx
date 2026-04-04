@@ -20,7 +20,7 @@ function ProductListPageComponent() {
     <>
       <SEOHead
         title="Intelligentes Prüfungstraining – IHK-Prüfungsvorbereitung | ExamFit"
-        description="ExamFit Prüfungstraining für alle IHK-Ausbildungsberufe. Prüfungssimulation, KI-Coach, mündliche Prüfung – alles in einem Produkt für 39 €."
+        description="ExamFit Prüfungstraining für alle IHK-Ausbildungsberufe. Prüfungssimulation, KI-Coach, mündliche Prüfung – alles in einem Produkt für 24,90 €."
         canonical={`${SITE_URL}/pruefungstraining`}
         type="product"
       />

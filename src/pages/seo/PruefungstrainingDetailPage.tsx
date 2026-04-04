@@ -34,7 +34,7 @@ function generateFAQs(cert: any) {
     },
     {
       question: `Was kostet das Prüfungstraining für ${name}?`,
-      answer: `Das komplette Prüfungstraining für ${name} kostet 39 € einmalig und beinhaltet 12 Monate Zugang zu allen Lernmodulen, dem Prüfungstrainer mit ${questions}+ Aufgaben, der Prüfungssimulation und dem KI-Prüfungscoach.`,
+      answer: `Das komplette Prüfungstraining für ${name} kostet 24,90 € einmalig und beinhaltet 12 Monate Zugang zu allen Lernmodulen, dem Prüfungstrainer mit ${questions}+ Aufgaben, der Prüfungssimulation und dem KI-Prüfungscoach.`,
     },
     {
       question: `Wie hoch ist die Durchfallquote bei der Prüfung ${name}?`,
@@ -181,7 +181,7 @@ const PruefungstrainingDetailPage = () => {
             { icon: BookOpen, label: 'Prüfungsaufgaben', value: `${questions}+` },
             { icon: Brain, label: 'KI-Coach', value: 'Inklusive' },
             { icon: Clock, label: 'Zugang', value: '12 Monate' },
-            { icon: BarChart3, label: 'Preis', value: '39 €' },
+            { icon: BarChart3, label: 'Preis', value: '24,90 €' },
           ].map(stat => (
             <Card key={stat.label} className="text-center">
               <CardContent className="py-4 space-y-1">
@@ -337,7 +337,7 @@ const PruefungstrainingDetailPage = () => {
           <h2 className="text-2xl font-bold">Bereit für die Prüfung {name}?</h2>
           {isPublished ? (
             <>
-              <p className="text-muted-foreground">Starte jetzt – 39 € für 12 Monate Prüfungstraining.</p>
+              <p className="text-muted-foreground">Starte jetzt – 24,90 € für 12 Monate Prüfungstraining.</p>
               <Link to="/shop">
                 <Button size="lg" className="shadow-glow">
                   <Target className="mr-2 h-5 w-5" /> Jetzt Prüfungstraining starten

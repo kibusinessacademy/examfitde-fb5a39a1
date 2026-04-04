@@ -36,7 +36,7 @@ export default function PreisePage() {
     <>
       <SEOHead
         title="Preise – Prüfungstraining für Ausbildung & Studium | ExamFit"
-        description="ExamFit Prüfungstraining: Ausbildung ab 39 €, Studium ab 59 €. Einmalzahlung, 12 Monate Zugang, kein Abo. Team-Lizenzen für Betriebe & Hochschulen."
+        description="ExamFit Prüfungstraining: Ausbildung ab 24,90 €, Studium ab 24,90 €. Einmalzahlung, 12 Monate Zugang, kein Abo. Team-Lizenzen für Betriebe & Hochschulen."
         canonical={`${SITE_URL}/preise`}
         structuredData={structuredData}
       />
