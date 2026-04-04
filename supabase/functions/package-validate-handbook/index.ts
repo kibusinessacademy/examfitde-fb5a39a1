@@ -139,7 +139,10 @@ Deno.serve(async (req) => {
   const { data: pkgTrackRow } = await sb.from("course_packages").select("track").eq("id", packageId).maybeSingle();
   const track = (pkgTrackRow as any)?.track ?? "AUSBILDUNG_VOLL";
   const profile = getContentProfile(track);
+  const integrityProfile = resolveIntegrityProfile({ track });
+  const policy = getValidationPolicy(integrityProfile);
   const isAcademic = profile.handbook.type === "learning_script";
+  const trackWarnings: string[] = [];
 
   // ── INCOMPLETE GUARD: Check if handbook generation is still in progress ──
   // SSOT: Use chapters as expected count, NOT learning_fields.
