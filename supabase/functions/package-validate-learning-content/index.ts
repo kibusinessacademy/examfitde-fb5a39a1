@@ -275,7 +275,7 @@ Deno.serve(async (req) => {
 
   // ── Fingerprint-based retry guard (v2 — hardened) ──
   const maxUpdatedAt = lessons.reduce((max: string | null, l: any) => {
-    const u = l.updated_at;
+    const u = l.created_at;
     return u && (!max || u > max) ? u : max;
   }, null as string | null);
 
