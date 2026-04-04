@@ -267,15 +267,15 @@ Deno.serve(async (req) => {
       }, 422);
     }
     return json({
-      ok: false,
-      completed: false,
+      ok: true,
+      completed: true,
       error: "ALL_LESSONS_ARE_PLACEHOLDERS",
       permanent: false,
-      gate_class: "hard_fail",
+      gate_class: "major_regeneration_required",
       reason_code: "NO_MATERIALIZED_CONTENT",
       advance_pipeline: false,
       repair_enqueued: false,
-      message: `❌ BLOCKIERT: Alle ${totalLessons} Lektionen sind Platzhalter.`,
+      message: `⚠️ Alle ${totalLessons} Lektionen sind Platzhalter — Major Regeneration erforderlich.`,
     });
   }
 
@@ -290,7 +290,6 @@ Deno.serve(async (req) => {
     lessonCount: lessons.length,
     maxUpdatedAt,
     materializedCount: lessons.length,
-    failedCount: 0, // Will be updated after T1, but fingerprint uses pre-validation state
     placeholderCount,
   });
 
@@ -305,16 +304,37 @@ Deno.serve(async (req) => {
     .limit(1);
 
   const repairInFlight = (activeRepairJobs?.length ?? 0) > 0;
-  const repairEnqueuedSinceLastValidation = !!(
-    stepMeta.repair_enqueued_at &&
-    stepMeta.last_validate_completed_at &&
-    stepMeta.repair_enqueued_at > stepMeta.last_validate_completed_at
+
+  // Derive repair state from BOTH step meta AND job_queue for robustness
+  const lastValidateAt = stepMeta.last_validate_completed_at || null;
+  let repairEnqueuedSinceLastValidation = !!(
+    stepMeta.repair_enqueued_at && lastValidateAt &&
+    stepMeta.repair_enqueued_at > lastValidateAt
   );
-  const repairCompletedSinceLastValidation = !!(
-    stepMeta.last_repair_completed_at &&
-    stepMeta.last_validate_completed_at &&
-    stepMeta.last_repair_completed_at > stepMeta.last_validate_completed_at
+  let repairCompletedSinceLastValidation = !!(
+    stepMeta.last_repair_completed_at && lastValidateAt &&
+    stepMeta.last_repair_completed_at > lastValidateAt
   );
+
+  // Cross-check against job_queue if meta says no repair but DB might disagree
+  if (!repairEnqueuedSinceLastValidation && !repairCompletedSinceLastValidation && lastValidateAt) {
+    const { data: recentRepairJobs } = await sb
+      .from("job_queue")
+      .select("id, status, created_at, completed_at")
+      .eq("package_id", packageId)
+      .in("job_type", repairJobTypes)
+      .gt("created_at", lastValidateAt)
+      .limit(1);
+
+    if (recentRepairJobs && recentRepairJobs.length > 0) {
+      const rj = recentRepairJobs[0];
+      if (["pending", "queued", "processing"].includes(rj.status)) {
+        repairEnqueuedSinceLastValidation = true;
+      } else if (rj.status === "completed" && rj.completed_at) {
+        repairCompletedSinceLastValidation = true;
+      }
+    }
+  }
 
   const retryDecision = shouldRetryValidation({
     previousFingerprint: stepMeta.last_validation_fingerprint || null,
