@@ -91,10 +91,8 @@ Deno.serve(async (req) => {
     const classification = classifyCertification(title);
     const blueprintTypes = selectBlueprintTypes(classification);
 
-    const curriculumTrack = TRACK_ENUM[classification.track];
-    if (!curriculumTrack) throw new Error(`Unsupported track: ${classification.track}`);
-    const curriculumCertType = CERT_TYPE_ENUM[classification.certificationType];
-    if (!curriculumCertType) throw new Error(`Unsupported cert type: ${classification.certificationType}`);
+    const curriculumTrack = deriveDbTrack(classification.track);
+    const curriculumCertType = deriveDbCertificationType(classification.track, classification.certificationType);
 
     // ════════════════════════════════════════════════════════════════
     // TRANSACTION A: Create all artefacts + infrastructure
