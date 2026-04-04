@@ -95,9 +95,11 @@ function getModuleDescription(moduleKey: string, landingType: string): string {
 
 export default function DynamicProductLandingPage() {
   const { slug = "", landingType = "FORTBILDUNG" } = useParams();
+  const navigate = useNavigate();
   const [data, setData] = useState<Awaited<ReturnType<typeof loadLandingData>> | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
 
   useEffect(() => {
     let mounted = true;
