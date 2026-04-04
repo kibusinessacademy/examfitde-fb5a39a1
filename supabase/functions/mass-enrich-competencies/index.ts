@@ -210,16 +210,30 @@ Deno.serve(async (req) => {
       for (const cid of targetCurriculumIds) {
         const { data: cData } = await sb
           .from("curricula")
-          .select("id, beruf_id")
+          .select("id, beruf_id, title")
           .eq("id", cid)
           .single();
         if (!cData) continue;
-        const { data: beruf } = await sb
-          .from("berufe")
-          .select("bezeichnung_kurz, bezeichnung_lang, taetigkeitsprofil, zustaendigkeit")
-          .eq("id", cData.beruf_id)
-          .single();
-        if (!beruf) continue;
+
+        let berufKurz = cData.title;
+        let berufLang: string | null = cData.title;
+        let taetigkeitsprofil: string | null = null;
+        let zustaendigkeit = "Hochschule";
+
+        if (cData.beruf_id) {
+          const { data: beruf } = await sb
+            .from("berufe")
+            .select("bezeichnung_kurz, bezeichnung_lang, taetigkeitsprofil, zustaendigkeit")
+            .eq("id", cData.beruf_id)
+            .single();
+          if (beruf) {
+            berufKurz = beruf.bezeichnung_kurz;
+            berufLang = beruf.bezeichnung_lang;
+            taetigkeitsprofil = beruf.taetigkeitsprofil;
+            zustaendigkeit = beruf.zustaendigkeit;
+          }
+        }
+
         // Count unenriched
         const { data: countData } = await sb.rpc(
           "count_unenriched_competencies_for_curriculum",
@@ -229,10 +243,10 @@ Deno.serve(async (req) => {
         if (unenriched === 0) continue;
         targetResults.push({
           curriculum_id: cid,
-          beruf_kurz: beruf.bezeichnung_kurz,
-          beruf_lang: beruf.bezeichnung_lang,
-          taetigkeitsprofil: beruf.taetigkeitsprofil,
-          zustaendigkeit: beruf.zustaendigkeit,
+          beruf_kurz: berufKurz,
+          beruf_lang: berufLang,
+          taetigkeitsprofil: taetigkeitsprofil,
+          zustaendigkeit: zustaendigkeit,
           unenriched_count: unenriched,
         });
       }
