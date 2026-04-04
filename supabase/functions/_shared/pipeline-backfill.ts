@@ -109,13 +109,28 @@ export async function backfillPipelinePool(
         .contains("payload", { catalog_id: cert.id });
 
       if ((pendingIngest ?? 0) === 0) {
+        // Derive track & certification_type from catalog entry
+        const catalogTrack = String(cert.track || "").toUpperCase();
+        let dbTrack = "AUSBILDUNG_VOLL";
+        let dbCertType: string = "ausbildung";
+        if (catalogTrack === "FORTBILDUNG" || catalogTrack === "FORTBILDUNG_IHK") {
+          dbTrack = "FORTBILDUNG";
+          dbCertType = "fortbildung_ihk";
+        } else if (catalogTrack === "ZERTIFIKAT" || catalogTrack === "CERTIFICATION" || catalogTrack === "BRANCHENZERTIFIKAT") {
+          dbTrack = "ZERTIFIKAT";
+          dbCertType = "branchenzertifikat";
+        } else if (catalogTrack === "STUDIUM" || catalogTrack === "HIGHER_EDUCATION") {
+          dbTrack = "STUDIUM";
+          dbCertType = "studium";
+        }
+
         const { data: newCurr, error: currErr } = await sb
           .from("curricula")
           .insert({
             title: cert.title,
             status: "draft",
-            certification_type: cert.track || "ausbildung",
-            track: "AUSBILDUNG_VOLL",
+            certification_type: dbCertType,
+            track: dbTrack,
           })
           .select("id")
           .single();
