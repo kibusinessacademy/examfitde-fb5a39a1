@@ -101,6 +101,13 @@ export default function DynamicProductLandingPage() {
   const [loading, setLoading] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
 
+  // ── Tracking: landing_view ──
+  useEffect(() => {
+    if (!loading && data?.certification) {
+      TrackingEvents.landingView(slug, landingType);
+    }
+  }, [loading, slug, landingType, data?.certification]);
+
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -168,6 +175,30 @@ export default function DynamicProductLandingPage() {
   const painPoints = data.profile?.target_pain_points ?? [];
   const faqs = (data.profile?.faq_seed ?? []) as Array<{ question: string; answer: string }>;
 
+  const handlePrimaryCta = async () => {
+    if (checkoutLoading) return;
+    setCheckoutLoading(true);
+    try {
+      await TrackingEvents.ctaPrimaryClick(slug, primaryCta, price);
+      const result = await startProductCheckout(slug);
+      if (!result.ok) {
+        toast.error(result.error ?? "Checkout konnte nicht gestartet werden.");
+      } else if (result.already_entitled) {
+        toast.info("Du hast bereits Zugriff auf dieses Produkt.");
+        navigate("/dashboard");
+      }
+    } catch {
+      toast.error("Ein Fehler ist aufgetreten. Bitte versuche es erneut.");
+    } finally {
+      setCheckoutLoading(false);
+    }
+  };
+
+  const handleSecondaryCta = () => {
+    TrackingEvents.ctaSecondaryClick(slug, secondaryCta);
+    navigate("/pruefungsreife-check");
+  };
+
   const seo = buildSeoMeta({
     title: data.certification.title,
     landingType,
@@ -217,17 +248,23 @@ export default function DynamicProductLandingPage() {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center animate-fade-in" style={{ animationDelay: '0.2s' }}>
-              <Link to="/shop">
-                <Button size="lg" className="gradient-primary text-primary-foreground shadow-glow rounded-xl h-14 px-8 text-lg">
-                  {primaryCta}
-                  <ArrowRight className="h-5 w-5 ml-2" />
-                </Button>
-              </Link>
-              <Link to="/pruefungsreife-check">
-                <Button size="lg" variant="outline" className="rounded-xl h-14 px-8 text-lg border-border hover:bg-muted/50">
-                  {secondaryCta}
-                </Button>
-              </Link>
+              <Button
+                size="lg"
+                className="gradient-primary text-primary-foreground shadow-glow rounded-xl h-14 px-8 text-lg"
+                onClick={handlePrimaryCta}
+                disabled={checkoutLoading}
+              >
+                {checkoutLoading ? "Wird geladen…" : primaryCta}
+                <ArrowRight className="h-5 w-5 ml-2" />
+              </Button>
+              <Button
+                size="lg"
+                variant="outline"
+                className="rounded-xl h-14 px-8 text-lg border-border hover:bg-muted/50"
+                onClick={handleSecondaryCta}
+              >
+                {secondaryCta}
+              </Button>
             </div>
 
             {/* Trust bar */}
@@ -379,12 +416,15 @@ export default function DynamicProductLandingPage() {
             <p className="text-muted-foreground">
               Starte jetzt dein Training – {price} € für {accessMonths} Monate.
             </p>
-            <Link to="/shop">
-              <Button size="lg" className="gradient-primary text-primary-foreground shadow-glow rounded-xl h-14 px-10 text-lg">
-                {primaryCta}
-                <ArrowRight className="h-5 w-5 ml-2" />
-              </Button>
-            </Link>
+            <Button
+              size="lg"
+              className="gradient-primary text-primary-foreground shadow-glow rounded-xl h-14 px-10 text-lg"
+              onClick={handlePrimaryCta}
+              disabled={checkoutLoading}
+            >
+              {checkoutLoading ? "Wird geladen…" : primaryCta}
+              <ArrowRight className="h-5 w-5 ml-2" />
+            </Button>
           </div>
         </section>
       </div>
