@@ -130,6 +130,24 @@ export function classifyCertification(title: string): ClassificationResult {
     };
   }
 
+  // STUDIUM / Hochschule
+  if (
+    n.includes("bachelor") || n.includes("master") || n.includes("studium") ||
+    n.includes("dual") || n.includes("hochschule") || n.includes("universität") ||
+    n.includes("university") || n.includes("semester") || n.includes("ects") ||
+    n.includes("modulprüfung") || n.includes("klausur")
+  ) {
+    return {
+      track: "STUDIUM" as Track,
+      certificationType: "GENERAL",
+      validationProfile: "STUDIUM",
+      examModes: ["schriftlich"],
+      oralExamEnabled: false,
+      calculationHeavy: false,
+      frameworkHeavy: false,
+    };
+  }
+
   // Default
   return {
     track: "CERTIFICATION",

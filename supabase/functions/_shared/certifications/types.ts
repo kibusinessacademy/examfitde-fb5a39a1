@@ -4,6 +4,33 @@ export type Track =
   | "FORTBILDUNG"
   | "CERTIFICATION";
 
+/**
+ * Derives the DB-level certification_type enum from a classification Track + CertificationType.
+ */
+export function deriveDbCertificationType(track: Track, certType: CertificationType): string {
+  if (track === "STUDIUM") return "studium";
+  if (track === "FORTBILDUNG") {
+    if (certType === "IHK_AUFSTIEG" || certType === "MEISTER" || certType === "AEVO" || certType === "FINANCE")
+      return "fortbildung_ihk";
+    return "fortbildung_ihk";
+  }
+  if (track === "CERTIFICATION") return "branchenzertifikat";
+  return "ausbildung";
+}
+
+/**
+ * Derives the DB-level product_track enum from a classification Track.
+ */
+export function deriveDbTrack(track: Track): string {
+  const map: Record<Track, string> = {
+    AUSBILDUNG: "AUSBILDUNG_VOLL",
+    FORTBILDUNG: "FORTBILDUNG",
+    CERTIFICATION: "ZERTIFIKAT",
+    STUDIUM: "STUDIUM",
+  };
+  return map[track] ?? "AUSBILDUNG_VOLL";
+}
+
 export type ValidationProfile =
   | "AUSBILDUNG_VOLL"
   | "AUSBILDUNG_LIGHT"

@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { classifyCertification } from "../_shared/certifications/classify-certification.ts";
 import { selectBlueprintTypes } from "../_shared/certifications/select-blueprint-types.ts";
+import { deriveDbTrack, deriveDbCertificationType } from "../_shared/certifications/types.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -45,25 +46,12 @@ type FactoryReasonCode =
   | "FACTORY_ENRICHMENT_INCOMPLETE"
   | "FACTORY_BUILDING_TRANSITION_FAILED";
 
-// ── Track→DB enum mappings ─────────────────────────────────────────
+// ── Track→DB enum mappings (now delegated to shared helpers) ──────
 const TRACK_ENUM: Record<string, string> = {
   FORTBILDUNG: "FORTBILDUNG",
   CERTIFICATION: "ZERTIFIKAT",
   AUSBILDUNG: "AUSBILDUNG_VOLL",
   STUDIUM: "STUDIUM",
-};
-const CERT_TYPE_ENUM: Record<string, string> = {
-  IHK_AUFSTIEG: "aufstiegsfortbildung",
-  MEISTER: "aufstiegsfortbildung",
-  AEVO: "aufstiegsfortbildung",
-  FINANCE: "aufstiegsfortbildung",
-  PROJECT_MANAGEMENT: "branchenzertifikat",
-  CLOUD: "branchenzertifikat",
-  SECURITY: "branchenzertifikat",
-  DATA: "branchenzertifikat",
-  PRIVACY: "branchenzertifikat",
-  ERP: "branchenzertifikat",
-  GENERAL: "sonstige",
 };
 
 Deno.serve(async (req) => {
@@ -103,10 +91,8 @@ Deno.serve(async (req) => {
     const classification = classifyCertification(title);
     const blueprintTypes = selectBlueprintTypes(classification);
 
-    const curriculumTrack = TRACK_ENUM[classification.track];
-    if (!curriculumTrack) throw new Error(`Unsupported track: ${classification.track}`);
-    const curriculumCertType = CERT_TYPE_ENUM[classification.certificationType];
-    if (!curriculumCertType) throw new Error(`Unsupported cert type: ${classification.certificationType}`);
+    const curriculumTrack = deriveDbTrack(classification.track);
+    const curriculumCertType = deriveDbCertificationType(classification.track, classification.certificationType);
 
     // ════════════════════════════════════════════════════════════════
     // TRANSACTION A: Create all artefacts + infrastructure
