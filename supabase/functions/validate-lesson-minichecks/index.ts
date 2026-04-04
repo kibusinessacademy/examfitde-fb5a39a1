@@ -322,10 +322,11 @@ Deno.serve(async (req) => {
 
         results.push(result);
       } catch (e) {
+        const errMsg = e instanceof Error ? e.message : (typeof e === 'object' ? JSON.stringify(e) : String(e));
         results.push({
           certification_slug: cert.slug,
           ok: false,
-          error: e instanceof Error ? e.message : String(e),
+          error: errMsg,
         });
       }
     }
