@@ -50,6 +50,7 @@ const PruefungstrainingStudiumPage = lazy(() => import('@/pages/seo/Pruefungstra
 const FortbildungLandingPage = lazy(() => import('@/pages/seo/FortbildungLandingPage'));
 const ZertifizierungenLandingPage = lazy(() => import('@/pages/seo/ZertifizierungenLandingPage'));
 const ProductLandingPage = lazy(() => import('@/pages/seo/ProductLandingPage'));
+const DynamicProductLandingPage = lazy(() => import('@/pages/landing/DynamicProductLandingPage'));
 import ProgrammaticSEODispatcher from '@/pages/seo/ProgrammaticSEODispatcher';
 const PruefungsreifeCheck = lazy(() => import('@/components/marketing/PruefungsreifeCheck'));
 const BlogIndexPage = lazy(() => import('@/pages/seo/BlogIndexPage'));
