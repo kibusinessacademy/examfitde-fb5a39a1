@@ -17,12 +17,26 @@ export default function IntegrityReportCard({ report, curriculumId, packageId }:
     if (!curriculumId && !packageId) return;
     const fetchLive = async () => {
       const sb = supabase as any;
-      const [qRes, oralRes, hbRes, tutorRes, realnessRes] = await Promise.all([
+      const [qTotalRes, qApprovedRes, qDraftRes, oralBlueprintRes, oralTemplateRes, hbRes, tutorRes, realnessRes] = await Promise.all([
+        // Total exam questions — head:true avoids fetching rows (no 1000-row limit)
         curriculumId
-          ? sb.from('exam_questions').select('id, status', { count: 'exact' }).eq('curriculum_id', curriculumId)
-          : Promise.resolve({ data: [], count: 0 }),
+          ? sb.from('exam_questions').select('id', { count: 'exact', head: true }).eq('curriculum_id', curriculumId)
+          : Promise.resolve({ count: 0 }),
+        // Approved count — server-side filter + head:true
+        curriculumId
+          ? sb.from('exam_questions').select('id', { count: 'exact', head: true }).eq('curriculum_id', curriculumId).eq('status', 'approved')
+          : Promise.resolve({ count: 0 }),
+        // Draft count — server-side filter + head:true
+        curriculumId
+          ? sb.from('exam_questions').select('id', { count: 'exact', head: true }).eq('curriculum_id', curriculumId).eq('status', 'draft')
+          : Promise.resolve({ count: 0 }),
+        // Oral blueprints
         curriculumId
           ? sb.from('oral_exam_blueprints').select('id', { count: 'exact', head: true }).eq('curriculum_id', curriculumId)
+          : Promise.resolve({ count: 0 }),
+        // Oral session templates (the actual prepared scenarios, not learner sessions)
+        packageId
+          ? sb.from('oral_exam_session_templates').select('id', { count: 'exact', head: true }).eq('package_id', packageId)
           : Promise.resolve({ count: 0 }),
         curriculumId
           ? sb.from('handbook_chapters').select('id', { count: 'exact', head: true }).eq('curriculum_id', curriculumId)
@@ -36,14 +50,13 @@ export default function IntegrityReportCard({ report, curriculumId, packageId }:
             }).then(r => r.data)
           : Promise.resolve(null),
       ]);
-      const qData = qRes.data || [];
       const realnessJson = realnessRes as any;
       const realness = realnessJson?.ok ? realnessJson.realness : null;
       setLiveCounts({
-        questions: qRes.count ?? qData.length,
-        questionsApproved: qData.filter?.((r: any) => r.status === 'approved').length ?? 0,
-        questionsDraft: qData.filter?.((r: any) => r.status === 'draft').length ?? 0,
-        oralBlueprints: oralRes.count ?? 0,
+        questions: qTotalRes.count ?? 0,
+        questionsApproved: qApprovedRes.count ?? 0,
+        questionsDraft: qDraftRes.count ?? 0,
+        oralBlueprints: Math.max(oralBlueprintRes.count ?? 0, oralTemplateRes.count ?? 0),
         handbookChapters: hbRes.count ?? 0,
         tutorIndex: tutorRes.count ?? 0,
         lessonsTotal: realness?.lessons_total ?? 0,
