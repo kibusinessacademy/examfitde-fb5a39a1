@@ -371,6 +371,8 @@ Deno.serve(async (req) => {
   return json({
     ok: overallPass,
     batch_complete: overallPass,
+    track,
+    handbook_type: profile.handbook.type,
     chapters: chapters.length,
     sections: {
       total: results.length,
@@ -386,9 +388,10 @@ Deno.serve(async (req) => {
       min_handbook_chars: MIN_HANDBOOK_TOTAL_CHARS,
     },
     chapter_issues: chapterIssues,
+    track_content_warnings: trackContentWarnings,
     failures: results.filter(r => !r.passed).slice(0, 15),
     message: overallPass
-      ? `✅ Handbook QC bestanden: ${passed}/${results.length} Sektionen (${passRate.toFixed(0)}%), ${depthEnrichedCount} mit Tiefe, ${totalHandbookChars} Zeichen`
-      : `❌ Handbook QC fehlgeschlagen: ${passed}/${results.length} (${passRate.toFixed(0)}%), ${placeholderCount} Platzhalter, ${headingOnlyCount} heading-only, ${totalHandbookChars}/${MIN_HANDBOOK_TOTAL_CHARS} Zeichen`,
+      ? `✅ Handbook QC bestanden: ${passed}/${results.length} Sektionen (${passRate.toFixed(0)}%), ${depthEnrichedCount} mit Tiefe, ${totalHandbookChars} Zeichen [${profile.handbook.type}]`
+      : `❌ Handbook QC fehlgeschlagen: ${passed}/${results.length} (${passRate.toFixed(0)}%), ${placeholderCount} Platzhalter, ${headingOnlyCount} heading-only, ${totalHandbookChars}/${MIN_HANDBOOK_TOTAL_CHARS} Zeichen [${profile.handbook.type}]`,
   });
 });
