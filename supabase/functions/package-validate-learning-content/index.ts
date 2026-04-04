@@ -479,7 +479,7 @@ Deno.serve(async (req) => {
     .from("package_steps")
     .update({
       meta: { ...stepMeta, ...metaUpdate },
-      ...(overallPass ? { status: "done", completed_at: now } : {}),
+      ...(overallPass ? { status: "done", finished_at: now, started_at: stepMeta.started_at || now } : {}),
     })
     .eq("package_id", packageId)
     .eq("step_key", "validate_learning_content");
