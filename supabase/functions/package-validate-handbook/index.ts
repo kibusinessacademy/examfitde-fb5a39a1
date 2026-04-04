@@ -285,20 +285,64 @@ Deno.serve(async (req) => {
   const passRate = (passed / results.length) * 100;
   const depthRate = (depthEnrichedCount / results.length) * 100;
 
-  console.log(`[validate-handbook] ${passed}/${results.length} sections passed (${passRate.toFixed(1)}%), depth: ${depthRate.toFixed(0)}%, heading-only: ${headingOnlyCount}`);
+  // ── V3: Track-aware content-style validation ──
+  const trackContentWarnings: string[] = [];
+  const allContent = (sections as any[]).map(s => s.content_markdown || "").join("\n");
+
+  if (isAcademic) {
+    // STUDIUM handbook must contain model comparisons & transfer sections
+    const hasModelComparison = /modellvergleich|gegenüberstellung|modelle?\s+im\s+vergleich|vergleich\s+(der|von)\s+modelle/i.test(allContent)
+      || /vs\.|versus|im\s+gegensatz/i.test(allContent);
+    if (!hasModelComparison) {
+      trackContentWarnings.push("STUDIUM_NO_MODEL_COMPARISON: Kein Modellvergleich/Gegenüberstellung gefunden");
+    }
+
+    const hasTransfer = /transfer|anwendung|fallbeispiel|praxisbezug|empirisch/i.test(allContent);
+    if (!hasTransfer) {
+      trackContentWarnings.push("STUDIUM_NO_TRANSFER: Keine Transfer-/Anwendungsabschnitte gefunden");
+    }
+
+    const hasTheory = /theori|konzept|framework|paradigma|hypothes/i.test(allContent);
+    if (!hasTheory) {
+      trackContentWarnings.push("STUDIUM_NO_THEORY: Keine theoretischen Grundlagen/Frameworks gefunden");
+    }
+
+    // Check for IHK contamination in academic content
+    const ihkTerms = /IHK|Ausbilder|Azubi|Berufsalltag|Berichtsheft|Gesellenprüfung/i.test(allContent);
+    if (ihkTerms) {
+      trackContentWarnings.push("STUDIUM_IHK_CONTAMINATION: IHK-spezifische Begriffe in akademischem Handbuch");
+    }
+  } else {
+    // Vocational handbook must contain exam traps and practical formulas
+    const hasExamTraps = /prüfungsfalle|typische?\s+fehler|häufige?\s+verwechslung|achtung|vorsicht/i.test(allContent);
+    if (!hasExamTraps) {
+      trackContentWarnings.push("VOCATIONAL_NO_EXAM_TRAPS: Keine Prüfungsfallen/typische Fehler gefunden");
+    }
+
+    const hasMerkschema = /merkschemata|eselsbrücke|checkliste|merkregel|formelsammlung/i.test(allContent);
+    if (!hasMerkschema) {
+      trackContentWarnings.push("VOCATIONAL_NO_MERKSCHEMA: Keine Merkschemata/Checklisten gefunden");
+    }
+  }
+
+  if (trackContentWarnings.length > 0) {
+    console.log(`[validate-handbook] Track content warnings (${track}): ${trackContentWarnings.join(", ")}`);
+  }
+
+  console.log(`[validate-handbook] ${passed}/${results.length} sections passed (${passRate.toFixed(1)}%), depth: ${depthRate.toFixed(0)}%, heading-only: ${headingOnlyCount}, track=${track}`);
 
   // ── Determine overall pass ──
   const placeholderRate = (placeholderCount / results.length) * 100;
   const headingOnlyRate = (headingOnlyCount / results.length) * 100;
   
-  // NEW: Total handbook character count check
+  // Total handbook character count check
   const totalHandbookChars = (sections as any[]).reduce((sum, s) => sum + (s.content_markdown || '').length, 0);
   const handbookSizePass = totalHandbookChars >= MIN_HANDBOOK_TOTAL_CHARS;
   
   const overallPass = passRate >= 60 
     && placeholderRate <= 30 
     && headingOnlyRate <= 10
-    && handbookSizePass  // NEW: handbook must meet minimum total size
+    && handbookSizePass
     && chapterIssues.length === 0;
 
   if (!overallPass) {
