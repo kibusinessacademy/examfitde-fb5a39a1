@@ -99,6 +99,7 @@ const DrillSession = lazy(() => import('@/pages/DrillSession'));
 // Shop Pages
 const ShopPage = lazy(() => import('@/pages/ShopPage'));
 const PurchaseSuccessPage = lazy(() => import('@/pages/PurchaseSuccessPage'));
+const CheckoutSuccessPage = lazy(() => import('@/pages/checkout/CheckoutSuccessPage'));
 
 // Handbook Pages
 const HandbookPage = lazy(() => import('@/pages/HandbookPage'));
