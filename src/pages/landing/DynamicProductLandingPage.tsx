@@ -101,6 +101,13 @@ export default function DynamicProductLandingPage() {
   const [loading, setLoading] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
 
+  // ── Tracking: landing_view ──
+  useEffect(() => {
+    if (!loading && data?.certification) {
+      TrackingEvents.landingView(slug, landingType);
+    }
+  }, [loading, slug, landingType, data?.certification]);
+
   useEffect(() => {
     let mounted = true;
     (async () => {
