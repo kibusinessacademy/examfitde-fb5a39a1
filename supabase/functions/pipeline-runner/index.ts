@@ -94,11 +94,11 @@ Deno.serve(async (req) => {
   const processedPackageIds = new Set<string>();
 
   try {
-    // ── Track-Fair WIP Quota Calculation ──
-    const { data: wipRows } = await sb
-      .from("course_packages")
-      .select("track")
-      .eq("status", "building");
+    // ── Track-Fair WIP Quota Calculation (consolidated queries) ──
+    const [{ data: wipRows }, { data: targetRows }] = await Promise.all([
+      sb.from("course_packages").select("track").eq("status", "building"),
+      sb.from("course_packages").select("track").eq("status", "queued").lte("priority", 10),
+    ]);
 
     const wipByTrack: Record<string, number> = {};
     for (const r of (wipRows ?? []) as { track: string }[]) {
@@ -107,14 +107,9 @@ Deno.serve(async (req) => {
     }
 
     const targetsByTrack: Record<string, number> = {};
-    for (const track of TRACK_ACQUISITION_ORDER) {
-      const { count } = await sb
-        .from("course_packages")
-        .select("id", { count: "exact", head: true })
-        .eq("status", "queued")
-        .eq("track", track)
-        .lte("priority", 10);
-      targetsByTrack[track] = count ?? 0;
+    for (const r of (targetRows ?? []) as { track: string }[]) {
+      const t = String(r.track || "AUSBILDUNG_VOLL");
+      targetsByTrack[t] = (targetsByTrack[t] ?? 0) + 1;
     }
 
     const trackStats: Record<WipTrackKey, TrackStats> = {} as any;
