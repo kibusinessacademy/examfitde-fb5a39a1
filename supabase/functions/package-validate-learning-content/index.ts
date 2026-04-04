@@ -24,6 +24,13 @@ import {
   hasAnyDownstreamCapability,
   type LearningContentCapabilities,
 } from "../_shared/learning-content-capabilities.ts";
+import {
+  resolveIntegrityProfile,
+  getValidationPolicy,
+  buildTier2Prompt,
+  buildProfileMeta,
+  type ValidationPolicy,
+} from "../_shared/validation/learning-content-policy.ts";
 
 /**
  * package-validate-learning-content — Gate-Classified Pipeline Validator (v2.1)
