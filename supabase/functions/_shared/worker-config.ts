@@ -44,20 +44,21 @@ export function getRunnerConfig(kind: RunnerKind): RunnerConfig {
 // SSOT: Track-aware WIP Quotas (Fair Scheduling + Auto-Rebalance)
 // ═══════════════════════════════════════════════════════════════
 
-export type TrackKey = "AUSBILDUNG_VOLL" | "EXAM_FIRST" | "STUDIUM";
+export type TrackKey = "AUSBILDUNG_VOLL" | "EXAM_FIRST" | "STUDIUM" | "FORTBILDUNG" | "ZERTIFIKAT";
 
 /** Hard ceiling across all tracks — must match ops_pipeline_config.wip_limit */
 export const WIP_TOTAL_CAP = 13;
 
 /**
  * WIP quota per track: max packages in "building" status simultaneously.
- * Env-overridable via WIP_QUOTA_AUSBILDUNG_VOLL / WIP_QUOTA_EXAM_FIRST / WIP_QUOTA_STUDIUM.
- * Phase E: Finish-First — focus on 5-7 packages nearest completion.
+ * Env-overridable via WIP_QUOTA_<TRACK>.
  */
 export const WIP_QUOTA_DEFAULTS: Record<TrackKey, number> = {
-  AUSBILDUNG_VOLL: 6,
-  EXAM_FIRST: 4,
-  STUDIUM: 3,
+  AUSBILDUNG_VOLL: 4,
+  FORTBILDUNG: 4,
+  ZERTIFIKAT: 3,
+  EXAM_FIRST: 1,
+  STUDIUM: 1,
 };
 
 export function getTrackQuota(track: TrackKey): number {
@@ -65,7 +66,7 @@ export function getTrackQuota(track: TrackKey): number {
 }
 
 /** Acquisition order: primary track first, then secondary tracks. */
-export const TRACK_ACQUISITION_ORDER: TrackKey[] = ["AUSBILDUNG_VOLL", "STUDIUM", "EXAM_FIRST"];
+export const TRACK_ACQUISITION_ORDER: TrackKey[] = ["FORTBILDUNG", "ZERTIFIKAT", "AUSBILDUNG_VOLL", "STUDIUM", "EXAM_FIRST"];
 
 // ═══════════════════════════════════════════════════════════════
 // Auto-Rebalance: lend idle track slots to hungry tracks
