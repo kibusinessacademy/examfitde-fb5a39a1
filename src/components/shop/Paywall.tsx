@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Lock, ShoppingCart, CheckCircle, Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { PRICING } from '@/config/pricing';
 
 interface PaywallProps {
   feature: 'learning_course' | 'exam_trainer' | 'ai_tutor' | 'oral_trainer';
