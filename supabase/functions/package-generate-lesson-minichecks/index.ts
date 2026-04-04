@@ -375,7 +375,7 @@ Deno.serve(async (req) => {
         const targetMode: "lesson" | "drill" = target.lessonId ? "lesson" : "drill";
         const { system, user } = buildMiniCheckPrompt(
           target.title, target.content, target.competencyTitle,
-          itemCount, targetMode, professionName,
+          itemCount, targetMode, professionName, pkgRow?.track,
         );
         const customId = `mc_${curriculumId.slice(0, 8)}_${(target.lessonId || target.competencyId || target.id).slice(0, 8)}_${idx}_${Date.now()}`;
         return {
@@ -447,7 +447,8 @@ Deno.serve(async (req) => {
         target.competencyTitle,
         itemCount,
         targetMode,
-        professionName
+        professionName,
+        pkgRow?.track,
       );
 
       try {
