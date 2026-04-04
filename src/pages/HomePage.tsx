@@ -236,7 +236,7 @@ export default function HomePage() {
               </div>
 
               <div className="flex items-baseline gap-2 justify-center mb-6 mt-4 sm:mt-0">
-                <span className="text-4xl sm:text-5xl font-display font-bold text-gradient">39 €</span>
+                <span className="text-4xl sm:text-5xl font-display font-bold text-gradient">24,90 €</span>
                 <span className="text-muted-foreground">einmalig · 12 Monate</span>
               </div>
 
