@@ -14,6 +14,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { callAIWithFailover } from "./ai-client.ts";
 import { getModelChainAsync } from "./model-routing.ts";
+import { getContentProfile, type ContentProfile } from "./track-content-profiles.ts";
 
 type SB = ReturnType<typeof createClient>;
 
@@ -32,22 +33,45 @@ export interface ProfessionGlossary {
   };
 }
 
-// Lean prompt — optimized for speed (must complete in <60s on flash models)
-const GLOSSARY_PROMPT = `Du bist ein IHK-Prüfungsexperte. Erstelle ein kompaktes Fachglosssar für "{PROFESSION}".
+// ── Track-aware glossary prompt builder ──────────────────────────
+function buildGlossaryPrompt(profile: ContentProfile, professionName: string, curriculumContext: string): string {
+  const [minTerms, maxTerms] = profile.glossary.termRange;
+  const fieldLabel = profile.glossary.fieldLabel;
+  const examLabel = profile.glossary.examLabel;
 
-ANFORDERUNGEN (halte dich an die Mengenangaben!):
-1. FACHBEGRIFFE: 50-80 berufsspezifische Begriffe, gruppiert nach max 6 Lernfeldern. NUR berufsspezifische Begriffe, KEINE generischen BWL-Begriffe.
-2. FORMELN: 5-8 prüfungsrelevante Formeln mit Name, Formel, kurzem Beispiel.
-3. PRÜFUNGSFALLEN: 8-12 typische IHK-Fehler.
-4. SZENARIEN: 5 kurze Praxisszenarien (Titel, 1 Satz Beschreibung, Akteure).
-5. RECHENBEISPIELE: 3 typische Aufgaben mit Lösung.
-6. BRANCHENSPEZIFISCH: Je 5-8 Einträge für Akteure, Umgebungen, Dokumente, Tools.
+  const sections: string[] = [
+    `Du bist ${profile.glossary.persona}. Erstelle ein kompaktes Fachglossar für "${professionName}".`,
+    `\nANFORDERUNGEN (halte dich an die Mengenangaben!):`,
+    `1. FACHBEGRIFFE: ${minTerms}-${maxTerms} fachspezifische Begriffe, gruppiert nach max 6 ${fieldLabel}ern. NUR fachspezifische Begriffe, KEINE generischen BWL-Begriffe.`,
+  ];
 
-{CURRICULUM_CONTEXT}
+  if (profile.glossary.includeFormulas) {
+    sections.push(`2. FORMELN: 5-8 ${examLabel.toLowerCase()}-relevante Formeln mit Name, Formel, kurzem Beispiel.`);
+  }
+  if (profile.glossary.includeExamTraps) {
+    sections.push(`3. PRÜFUNGSFALLEN: 8-12 typische ${examLabel}-Fehler.`);
+  }
+  if (profile.glossary.includeScenarios) {
+    sections.push(`4. SZENARIEN: 5 kurze Praxisszenarien (Titel, 1 Satz Beschreibung, Akteure).`);
+  }
+  if (profile.glossary.includeCalculations) {
+    sections.push(`5. RECHENBEISPIELE: 3 typische Aufgaben mit Lösung.`);
+  }
+  sections.push(`6. BRANCHENSPEZIFISCH: Je 5-8 Einträge für Akteure, Umgebungen, Dokumente, Tools.`);
 
-Antworte NUR mit JSON:
-{"fachbegriffe":{"Lernfeld":["Begriff"]},"formeln":[{"name":"","formel":"","beispiel":""}],"pruefungsfallen":[""],"szenarien":[{"titel":"","beschreibung":"","akteure":[""]}],"rechenbeispiele":[{"aufgabe":"","loesung":"","formel":""}],"branchenspezifisch":{"typische_akteure":[""],"arbeitsumgebungen":[""],"dokumente":[""],"werkzeuge_software":[""]}}`;
+  if (profile.glossary.includeModels) {
+    sections.push(`7. THEORIEMODELLE: 5-8 zentrale Modelle/Theorien mit Name, Kurzbeschreibung, Anwendungsbereich und Grenzen.`);
+  }
 
+  sections.push(curriculumContext);
+  sections.push(`\nAntworte NUR mit JSON:`);
+  sections.push(`{"fachbegriffe":{"${fieldLabel}":["Begriff"]},"formeln":[{"name":"","formel":"","beispiel":""}],"pruefungsfallen":[""],"szenarien":[{"titel":"","beschreibung":"","akteure":[""]}],"rechenbeispiele":[{"aufgabe":"","loesung":"","formel":""}],"branchenspezifisch":{"typische_akteure":[""],"arbeitsumgebungen":[""],"dokumente":[""],"werkzeuge_software":[""]}${profile.glossary.includeModels ? ',"theoriemodelle":[{"name":"","beschreibung":"","anwendung":"","grenzen":""}]' : ''}}`);
+
+  return sections.join("\n");
+}
+
+// Legacy constant for backward compatibility
+const GLOSSARY_PROMPT = buildGlossaryPrompt(getContentProfile("AUSBILDUNG_VOLL"), "{PROFESSION}", "{CURRICULUM_CONTEXT}");
 /**
  * Read glossary from cache ONLY (no generation). Returns null if not cached.
  * Use this in time-critical functions like content generation.
