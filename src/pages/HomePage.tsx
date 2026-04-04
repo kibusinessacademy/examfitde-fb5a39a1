@@ -65,14 +65,14 @@ export default function HomePage() {
   return (
     <>
       <SEOHead
-        title={seoTitle("IHK Prüfung bestehen: Online Prüfungstraining mit echten Aufgaben")}
-        description="IHK Prüfungstraining online: Mit Prüfungssimulation, echten Prüfungsfragen & KI-Prüfungscoach die Abschlussprüfung sicher bestehen. 39 € einmalig, kein Abo."
+        title={seoTitle("Prüfung bestehen: Online Prüfungstraining für Ausbildung & Studium")}
+        description="Prüfungstraining online: IHK-Abschlussprüfung oder Klausur im Studium – mit Prüfungssimulation, adaptivem Training & KI-Coach sicher bestehen. 39 € einmalig."
         canonical={`${SITE_URL}/`}
         type="website"
         structuredData={[
           generateFAQSchema(FAQ_ITEMS),
           generateCourseListSchema([
-            { name: 'IHK-Prüfungstraining', url: `${SITE_URL}/shop`, description: 'Komplett-Prüfungstraining für IHK-Ausbildungsberufe', price: 39 },
+            { name: 'Prüfungstraining', url: `${SITE_URL}/shop`, description: 'Komplett-Prüfungstraining für IHK-Ausbildungsberufe und Studiengänge', price: 39 },
           ]),
         ]}
       />
@@ -88,12 +88,12 @@ export default function HomePage() {
             </div>
 
             <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-display font-bold mb-5 animate-fade-in leading-[1.1]">
-              IHK Prüfung bestehen:{' '}
-              <span className="text-gradient text-glow">Online Prüfungstraining mit echten Aufgaben</span>
+              Prüfung bestehen:{' '}
+              <span className="text-gradient text-glow">Online Training mit echten Aufgaben</span>
             </h1>
 
             <p className="text-base sm:text-xl text-muted-foreground mb-8 max-w-2xl mx-auto animate-fade-in" style={{ animationDelay: '0.1s' }}>
-              Bereite dich gezielt auf deine IHK Abschlussprüfung vor – mit Prüfungssimulation, adaptivem Prüfungstrainer und KI-Prüfungscoach. Kostenlos testen oder direkt starten.
+              Ob IHK-Abschlussprüfung oder Klausur im Studium – bereite dich gezielt vor mit Prüfungssimulation, adaptivem Training und KI-Prüfungscoach. Kostenlos testen oder direkt starten.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-3 justify-center animate-fade-in" style={{ animationDelay: '0.2s' }}>
