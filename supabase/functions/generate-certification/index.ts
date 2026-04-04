@@ -194,7 +194,7 @@ Deno.serve(async (req) => {
     const lernfelderArray = (lfs ?? []).map((lf) => ({
       id: lf.id,
       title: lf.title,
-      position: lf.position,
+      sort_order: lf.sort_order,
     }));
     const { error: ndError } = await sb
       .from("curricula")
