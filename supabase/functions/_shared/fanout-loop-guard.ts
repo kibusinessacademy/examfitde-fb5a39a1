@@ -110,14 +110,16 @@ async function logFanoutBlock(
 ): Promise<void> {
   try {
     await sb.from("auto_heal_log").insert({
-      package_id: packageId,
       action_type: "fanout_loop_guard",
+      trigger_source: "enqueue_guard",
+      target_type: "package",
+      target_id: packageId,
       result_status: "blocked",
-      details: {
+      result_detail: reason,
+      metadata: {
         job_type: jobType,
         recent_count: recentCount,
         active_count: activeCount,
-        reason,
       },
     });
   } catch (_e) {
