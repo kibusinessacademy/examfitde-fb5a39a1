@@ -646,6 +646,7 @@ Deno.serve(async (req) => {
     quality_debt: classification.qualityDebt,
     advance_pipeline: overallPass,
     repair_enqueued: repairEnqueued,
+    capabilities,
     tier1: {
       total: t1Results.length,
       passed: t1Results.length - t1Failed.length,
