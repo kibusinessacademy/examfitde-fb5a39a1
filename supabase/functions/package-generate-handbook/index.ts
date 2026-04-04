@@ -8,6 +8,7 @@ import { validateGeneratedSection, filterValidSections, verifyHandbookCoverage }
 import { loadFieldCompetencies, loadFieldTopicDepth, loadExamQuestionSample, buildElitePrompt, type CompetencyContext } from "../_shared/handbook-context.ts";
 import { shouldUseBatch, BATCH_DEFAULT_MODEL } from "../_shared/batch/routing-config.ts";
 import { buildBatchRequests, submitBatchViaFunction } from "../_shared/batch/enqueue-openai.ts";
+import { getContentProfile } from "../_shared/track-content-profiles.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
