@@ -58662,6 +58662,10 @@ export type Database = {
         Args: { p_package_id: string }
         Returns: Json
       }
+      reconcile_queued_steps_to_jobs: {
+        Args: { p_package_id: string }
+        Returns: Json
+      }
       record_admin_course_test_run: {
         Args: {
           p_curriculum_id: string
