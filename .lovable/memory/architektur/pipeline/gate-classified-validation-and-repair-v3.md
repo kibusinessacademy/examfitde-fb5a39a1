@@ -18,11 +18,12 @@ Das Validierungssystem nutzt eine granulare Gate-Klassifizierung zur Steuerung d
 
 ## P2-Erweiterungen
 
-### 3. Capability-aware DAG Gating
+### 3. Capability-aware DAG Gating (mit Enforcement)
 - `_shared/capability-gating.ts`: SSOT-Mapping step_key → capability flag
 - `isCapabilityGranted()`: prüft ob validate_learning_content eine capability für einen Downstream-Step gewährt hat
-- `pipeline-helpers.ts` `areDependenciesMet()`: akzeptiert jetzt capability-granted deps von validate_learning_content
-- `pipeline-process.ts`: DAG integrity guard + zombie check respektieren capabilities
+- `pipeline-helpers.ts` `areDependenciesMet()`: Bei `gate_class=repair_required` wird Capability enforced — auch wenn Step `done` ist. Steps ohne Capability werden blockiert.
+- `pipeline-process.ts`: DAG integrity guard + zombie check enforced ebenfalls Capabilities bei `repair_required`
+- `major_regeneration_required` / `hard_fail` blockieren **alle** direkten Downstream-Steps
 - Betrifft: `auto_seed_exam_blueprints`, `generate_lesson_minichecks`, `generate_handbook`
 
 ### 4. Admin UI Gate Visibility

@@ -222,15 +222,30 @@ export function pickParallelActions(steps: StepRow[], stepOrder: StepKey[]): Ste
     return deps.every(dep => {
       const s = byKey.get(dep);
       if (!s) return false;
-      if (s.status === "done" || s.status === "skipped") return true;
 
-      // Capability-aware: if dep is validate_learning_content and it has
-      // granted this step via capabilities, treat as met
+      // Capability-enforcement for validate_learning_content:
+      // When gate_class is repair_required, capability MUST be granted
+      // even if the step is "done". This prevents blocked capabilities
+      // (e.g. allowsHandbookGeneration=false) from being bypassed.
       if (dep === "validate_learning_content") {
         const meta = (s.meta ?? {}) as Record<string, unknown>;
+        const gateClass = meta.gate_class as string | undefined;
+
+        if (gateClass === "repair_required") {
+          // Only allow if capability is explicitly granted
+          return isCapabilityGranted(key, meta);
+        }
+        if (gateClass === "major_regeneration_required" || gateClass === "hard_fail") {
+          // Block all direct downstream
+          return false;
+        }
+        // healthy / soft_pass_with_debt / no gate_class (legacy) → normal path
+        if (s.status === "done" || s.status === "skipped") return true;
+        // Not done and no capability override → not met
         return isCapabilityGranted(key, meta);
       }
 
+      if (s.status === "done" || s.status === "skipped") return true;
       return false;
     });
   }

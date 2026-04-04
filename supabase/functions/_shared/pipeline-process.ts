@@ -295,8 +295,20 @@ export async function processPackage(
       const unmetDeps = deps.filter(dep => {
         const depStep = byKey.get(dep);
         if (!depStep) return true;
+        // Capability-enforcement: validate_learning_content with repair_required
+        // must check capability even when done
+        if (dep === "validate_learning_content") {
+          const meta = (depStep.meta ?? {}) as Record<string, unknown>;
+          const gateClass = meta.gate_class as string | undefined;
+          if (gateClass === "repair_required") {
+            return !isCapabilityGranted(k, meta);
+          }
+          if (gateClass === "major_regeneration_required" || gateClass === "hard_fail") {
+            return true; // unmet — block all downstream
+          }
+        }
         if (depStep.status === "done" || depStep.status === "skipped") return false;
-        // Capability-aware: validate_learning_content can grant specific downstream steps
+        // Non-done validate_learning_content: check capability bypass
         if (dep === "validate_learning_content") {
           return !isCapabilityGranted(k, (depStep.meta ?? {}) as Record<string, unknown>);
         }
@@ -759,8 +771,19 @@ export async function processPackage(
       const deps = dagDepsZombie.get(k) ?? [];
       const unmetDeps = deps.filter(dep => {
         const depStep = byKey.get(dep);
-        if (!depStep || !isTerminalStatus(depStep.status)) {
-          // Capability-aware: validate_learning_content can grant specific downstream steps
+        if (!depStep) return true;
+        // Capability-enforcement for zombie check
+        if (dep === "validate_learning_content" && depStep) {
+          const meta = (depStep.meta ?? {}) as Record<string, unknown>;
+          const gateClass = meta.gate_class as string | undefined;
+          if (gateClass === "repair_required") {
+            return !isCapabilityGranted(k, meta);
+          }
+          if (gateClass === "major_regeneration_required" || gateClass === "hard_fail") {
+            return true;
+          }
+        }
+        if (!isTerminalStatus(depStep.status)) {
           if (dep === "validate_learning_content" && depStep) {
             return !isCapabilityGranted(k, (depStep.meta ?? {}) as Record<string, unknown>);
           }
