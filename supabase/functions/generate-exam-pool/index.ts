@@ -121,12 +121,14 @@ Deno.serve(async (req) => {
           validation_profile: cert.validation_profile,
         });
       } catch (e) {
-        results.push({ slug: cert.slug, ok: false, error: e instanceof Error ? e.message : String(e) });
+        const errMsg = e instanceof Error ? e.message : (typeof e === 'object' && e !== null ? JSON.stringify(e) : String(e));
+        results.push({ slug: cert.slug, ok: false, error: errMsg });
       }
     }
 
     return json(200, { ok: true, results }, req);
   } catch (e) {
-    return json(500, { ok: false, error: e instanceof Error ? e.message : String(e) }, req);
+    const errMsg = e instanceof Error ? e.message : (typeof e === 'object' && e !== null ? JSON.stringify(e) : String(e));
+    return json(500, { ok: false, error: errMsg }, req);
   }
 });
