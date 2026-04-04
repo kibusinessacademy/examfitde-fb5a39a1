@@ -420,7 +420,34 @@ async function loadSSOTContext(
     } catch (e) {
       console.warn('[ai-tutor] Learning context enrichment failed:', e);
     }
+
+    // ── Recent Mistakes Context (MiniCheck + Exam) ──
+    try {
+      const [miniMistakes, examMistakes] = await Promise.all([
+        loadRecentMiniCheckMistakes(supabase, context._userId as string, curriculumId as string, 3),
+        loadRecentExamMistakes(supabase, context._userId as string, curriculumId as string, 3),
+      ]);
+
+      const allMistakes = [...miniMistakes, ...examMistakes];
+      if (allMistakes.length > 0) {
+        resolved.recentMistakes = allMistakes;
+        const errorPrompt = buildErrorContextPrompt(allMistakes);
+        parts.push(errorPrompt);
+      }
+    } catch (e) {
+      console.warn('[ai-tutor] Recent mistakes loading failed:', e);
+    }
   }
+
+  // ── Suggested Prompts ──
+  const hasMistakes = !!(resolved.recentMistakes as unknown[])?.length;
+  const hasWeaknesses = !!(resolved.topGaps as unknown[])?.length;
+  resolved.suggestedPrompts = generateSuggestedPrompts(
+    context._mode as string || 'learning',
+    hasMistakes,
+    hasWeaknesses,
+    programType,
+  );
 
   const contextPrompt = parts.length > 0
     ? `\n\n--- SSOT-KONTEXT (serverseitig geladen) ---\n${parts.join('\n')}`
