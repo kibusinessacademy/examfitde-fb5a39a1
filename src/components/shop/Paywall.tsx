@@ -22,19 +22,19 @@ const FEATURE_NAMES: Record<PaywallProps['feature'], string> = {
 const FEATURE_PRODUCTS: Record<PaywallProps['feature'], { key: string; price: string }[]> = {
   learning_course: [
     { key: 'learning_course', price: '19 €' },
-    { key: 'bundle', price: '39 €' },
+    { key: 'bundle', price: '24,90 €' },
   ],
   exam_trainer: [
-    { key: 'exam_trainer', price: '29 €' },
-    { key: 'bundle', price: '39 €' },
+    { key: 'exam_trainer', price: '24,90 €' },
+    { key: 'bundle', price: '24,90 €' },
   ],
   ai_tutor: [
-    { key: 'exam_trainer', price: '29 €' },
-    { key: 'bundle', price: '39 €' },
+    { key: 'exam_trainer', price: '24,90 €' },
+    { key: 'bundle', price: '24,90 €' },
   ],
   oral_trainer: [
-    { key: 'exam_trainer', price: '29 €' },
-    { key: 'bundle', price: '39 €' },
+    { key: 'exam_trainer', price: '24,90 €' },
+    { key: 'bundle', price: '24,90 €' },
   ],
 };
 

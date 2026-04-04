@@ -53,7 +53,7 @@ export default function ShopPage() {
           </h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
             Abschlussprüfung Vorbereitung online – Prüfungssimulation, adaptive Schwächenanalyse & KI-Prüfungscoach. 
-            Einmalzahlung 39 €, 12 Monate Zugang, kein Abo.
+            Einmalzahlung 24,90 €, 12 Monate Zugang, kein Abo.
           </p>
         </div>
 

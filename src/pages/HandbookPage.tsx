@@ -206,7 +206,7 @@ export default function HandbookPage() {
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Button asChild size="lg" className="gap-2">
                   <Link to="/shop">
-                    Bundle für 39 € sichern
+                    Bundle für 24,90 € sichern
                     <ArrowRight className="h-4 w-4" />
                   </Link>
                 </Button>
