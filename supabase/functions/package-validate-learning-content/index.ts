@@ -625,6 +625,7 @@ Deno.serve(async (req) => {
           repair_action: classification.repairAction,
           repair_enqueued: repairEnqueued,
           affected_lessons_count: affectedLessons.length,
+          capabilities,
         },
       });
     } catch (_e) { /* best-effort */ }
