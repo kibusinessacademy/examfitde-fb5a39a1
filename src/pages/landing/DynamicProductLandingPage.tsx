@@ -416,12 +416,15 @@ export default function DynamicProductLandingPage() {
             <p className="text-muted-foreground">
               Starte jetzt dein Training – {price} € für {accessMonths} Monate.
             </p>
-            <Link to="/shop">
-              <Button size="lg" className="gradient-primary text-primary-foreground shadow-glow rounded-xl h-14 px-10 text-lg">
-                {primaryCta}
-                <ArrowRight className="h-5 w-5 ml-2" />
-              </Button>
-            </Link>
+            <Button
+              size="lg"
+              className="gradient-primary text-primary-foreground shadow-glow rounded-xl h-14 px-10 text-lg"
+              onClick={handlePrimaryCta}
+              disabled={checkoutLoading}
+            >
+              {checkoutLoading ? "Wird geladen…" : primaryCta}
+              <ArrowRight className="h-5 w-5 ml-2" />
+            </Button>
           </div>
         </section>
       </div>
