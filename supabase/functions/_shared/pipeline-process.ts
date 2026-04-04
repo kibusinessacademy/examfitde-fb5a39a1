@@ -294,7 +294,13 @@ export async function processPackage(
       const deps = dagDeps.get(k) ?? [];
       const unmetDeps = deps.filter(dep => {
         const depStep = byKey.get(dep);
-        return depStep && depStep.status !== "done" && depStep.status !== "skipped";
+        if (!depStep) return true;
+        if (depStep.status === "done" || depStep.status === "skipped") return false;
+        // Capability-aware: validate_learning_content can grant specific downstream steps
+        if (dep === "validate_learning_content") {
+          return !isCapabilityGranted(k, (depStep.meta ?? {}) as Record<string, unknown>);
+        }
+        return true;
       });
 
       if (unmetDeps.length > 0) {
