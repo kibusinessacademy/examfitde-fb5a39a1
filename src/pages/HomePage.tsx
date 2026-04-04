@@ -235,10 +235,16 @@ export default function HomePage() {
                 Komplett-Zugang
               </div>
 
-              <div className="flex items-baseline gap-2 justify-center mb-6 mt-4 sm:mt-0">
-                <span className="text-4xl sm:text-5xl font-display font-bold text-gradient">24,90 €</span>
-                <span className="text-muted-foreground">einmalig · 12 Monate</span>
+              {/* Preisanker */}
+              <div className="mb-4 mt-4 sm:mt-0">
+                <p className="text-xs text-muted-foreground line-through">IHK Vorbereitungskurse: 300–1.000 €</p>
               </div>
+
+              <div className="flex items-baseline gap-2 justify-center mb-2">
+                <span className="text-4xl sm:text-5xl font-display font-bold text-gradient">24,90 €</span>
+                <span className="text-muted-foreground">einmalig</span>
+              </div>
+              <p className="text-sm text-muted-foreground mb-6">12 Monate Zugang · Kein Abo · Sofort starten</p>
 
               <div className="grid sm:grid-cols-2 gap-3 text-left mb-8">
                 {[
@@ -262,12 +268,12 @@ export default function HomePage() {
                   className="w-full gradient-primary text-primary-foreground shadow-glow rounded-xl h-14 text-lg group"
                   onClick={() => trackConversion({ event: 'cta_click', source: 'pricing', label: 'buy_click' })}
                 >
-                  Prüfungstraining starten
+                  Jetzt Prüfungstraining starten – 24,90 €
                   <ArrowRight className="h-5 w-5 ml-2 group-hover:translate-x-1 transition-transform" />
                 </Button>
               </Link>
 
-              <p className="text-xs text-muted-foreground mt-3">24,90 € einmalig · 12 Monate Zugriff · kein Abo</p>
+              <p className="text-xs text-muted-foreground mt-3">Sichere Zahlung via Stripe · Sofortiger Zugang</p>
             </div>
           </div>
         </section>
