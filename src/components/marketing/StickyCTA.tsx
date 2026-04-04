@@ -63,8 +63,8 @@ export function StickyCTA() {
       <div className="container mx-auto max-w-2xl">
         <div className="glass-strong rounded-2xl px-4 py-3 flex items-center justify-between gap-3 shadow-lg border border-primary/20">
           <div className="flex items-center gap-3 min-w-0">
-            <span className="text-sm font-semibold whitespace-nowrap">24,90 € einmalig</span>
-            <span className="text-xs text-muted-foreground hidden sm:inline">· 12 Monate · Kein Abo</span>
+            <span className="text-sm font-semibold whitespace-nowrap">{PRICING.defaultPrice} einmalig</span>
+            <span className="text-xs text-muted-foreground hidden sm:inline">· {PRICING.defaultAccess} · {PRICING.noSubscription}</span>
           </div>
           <div className="flex items-center gap-2">
             <Link to="/pruefungsreife-check">
