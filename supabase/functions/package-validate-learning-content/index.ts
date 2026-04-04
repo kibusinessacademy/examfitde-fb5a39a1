@@ -4,6 +4,8 @@ import { checkContamination } from "../_shared/contamination-guard.ts";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
 import { callAIJSON } from "../_shared/ai-client.ts";
 import { getModel } from "../_shared/model-routing.ts";
+import { mergePackageStepMeta } from "../_shared/merge-step-meta.ts";
+import { enqueueJob } from "../_shared/enqueue.ts";
 import {
   classifyLearningContent,
   shouldRetryValidation,
@@ -13,20 +15,15 @@ import {
 } from "../_shared/learning-content-gate.ts";
 
 /**
- * package-validate-learning-content — Gate-Classified Pipeline Validator (v2)
+ * package-validate-learning-content — Gate-Classified Pipeline Validator (v2.1)
  *
- * Instead of binary pass/fail, classifies into:
- *   healthy                    → step=done, DAG continues
- *   soft_pass_with_debt        → step=done with debt flag, DAG continues
- *   repair_required            → enqueue targeted repair, no blind retries
- *   major_regeneration_required → enqueue major regen, no blind retries
- *   hard_fail                  → block pipeline
- *
- * TIER 1 (All lessons, no LLM — instant):
- *   - Min content length, required HTML structure, placeholder/contamination checks
- *
- * TIER 2 (Random sample ≤ 4 lessons, LLM validation):
- *   - Deep quality scoring on sample
+ * P0 hardening:
+ *  - Retry guard returns structured reason, forces repair if stuck without mechanism
+ *  - Repair enqueue uses SSOT enqueueJob helper with idempotency
+ *  - Meta persistence via mergePackageStepMeta (contract-safe)
+ *  - Runner-compatible returns: routing states are ok:true, only hard_fail is ok:false
+ *  - Fingerprint includes materialized/failed/placeholder counts
+ *  - No placeholder reset on hard_fail (mark only, don't destroy data)
  */
 
 const SAMPLE_SIZE = 4;
@@ -249,26 +246,40 @@ Deno.serve(async (req) => {
     : (allLessons || []).length;
   const totalLessons = totalContentLessons;
 
+  // Count placeholder lessons for fingerprint
+  const placeholderCount = (allLessons || []).filter(
+    (l: any) => !l.content || l.content._placeholder === true
+  ).length;
+
   if (lessons.length === 0) {
     if (totalLessons === 0) {
       console.error(`[validate-lessons] PERMANENT: 0 total lessons for course ${courseId}`);
       return json({
         ok: false,
-        batch_complete: false,
+        completed: false,
         error: "PREDECESSOR_FAILURE_NO_LESSONS",
-        message: `❌ PERMANENT: Kein einziges Lesson existiert für diesen Kurs.`,
         permanent: true,
+        gate_class: "hard_fail",
+        reason_code: "NO_MATERIALIZED_CONTENT",
+        advance_pipeline: false,
+        repair_enqueued: false,
+        message: `❌ PERMANENT: Kein einziges Lesson existiert für diesen Kurs.`,
       }, 422);
     }
     return json({
       ok: false,
-      batch_complete: false,
+      completed: false,
       error: "ALL_LESSONS_ARE_PLACEHOLDERS",
+      permanent: false,
+      gate_class: "hard_fail",
+      reason_code: "NO_MATERIALIZED_CONTENT",
+      advance_pipeline: false,
+      repair_enqueued: false,
       message: `❌ BLOCKIERT: Alle ${totalLessons} Lektionen sind Platzhalter.`,
-    }, 500);
+    });
   }
 
-  // ── Fingerprint-based retry guard ──
+  // ── Fingerprint-based retry guard (v2 — hardened) ──
   const maxUpdatedAt = lessons.reduce((max: string | null, l: any) => {
     const u = l.updated_at;
     return u && (!max || u > max) ? u : max;
@@ -278,31 +289,65 @@ Deno.serve(async (req) => {
     packageId,
     lessonCount: lessons.length,
     maxUpdatedAt,
+    materializedCount: lessons.length,
+    failedCount: 0, // Will be updated after T1, but fingerprint uses pre-validation state
+    placeholderCount,
   });
 
-  const retryAllowed = shouldRetryValidation({
+  // ── Check repair state for retry guard ──
+  const repairJobTypes = ["repair_learning_content", "regenerate_learning_content_cluster"];
+  const { data: activeRepairJobs } = await sb
+    .from("job_queue")
+    .select("id, status, job_type")
+    .eq("package_id", packageId)
+    .in("job_type", repairJobTypes)
+    .in("status", ["pending", "queued", "processing"])
+    .limit(1);
+
+  const repairInFlight = (activeRepairJobs?.length ?? 0) > 0;
+  const repairEnqueuedSinceLastValidation = !!(
+    stepMeta.repair_enqueued_at &&
+    stepMeta.last_validate_completed_at &&
+    stepMeta.repair_enqueued_at > stepMeta.last_validate_completed_at
+  );
+  const repairCompletedSinceLastValidation = !!(
+    stepMeta.last_repair_completed_at &&
+    stepMeta.last_validate_completed_at &&
+    stepMeta.last_repair_completed_at > stepMeta.last_validate_completed_at
+  );
+
+  const retryDecision = shouldRetryValidation({
     previousFingerprint: stepMeta.last_validation_fingerprint || null,
     currentFingerprint,
     previousGateClass: stepMeta.gate_class || null,
-    repairCompletedSinceLastValidation: !!(
-      stepMeta.last_repair_completed_at &&
-      stepMeta.last_validate_completed_at &&
-      stepMeta.last_repair_completed_at > stepMeta.last_validate_completed_at
-    ),
+    repairCompletedSinceLastValidation,
+    repairEnqueuedSinceLastValidation,
+    repairInFlight,
   });
 
-  if (!retryAllowed) {
+  if (!retryDecision.retry) {
     const prevClass = stepMeta.gate_class || "unknown";
-    console.log(`[validate-lessons] SKIP_RETRY: fingerprint unchanged, previous gate_class=${prevClass}`);
-    return json({
-      ok: false,
-      batch_complete: false,
-      skipped: true,
-      reason: "FINGERPRINT_UNCHANGED",
-      gate_class: prevClass,
-      reason_code: stepMeta.reason_code || "REPAIR_ALREADY_ENQUEUED",
-      message: `⏭ Validator übersprungen: Keine Content-Änderung seit letzter Validierung (gate_class=${prevClass}). Warte auf Repair-Abschluss.`,
-    });
+
+    if (retryDecision.reason === "no_repair_mechanism") {
+      // CRITICAL: Package is stuck without any repair mechanism.
+      // Force-enqueue repair based on previous classification instead of silently skipping.
+      console.warn(`[validate-lessons] NO_REPAIR_MECHANISM: gate_class=${prevClass}, forcing repair enqueue for ${packageId.slice(0, 8)}`);
+      // Fall through to run validation — this will re-classify and enqueue repair
+    } else {
+      // Repair is in-flight or enqueued — safe to skip
+      console.log(`[validate-lessons] SKIP_RETRY: ${retryDecision.reason}, gate_class=${prevClass}`);
+      return json({
+        ok: true,
+        completed: true,
+        skipped: true,
+        reason: retryDecision.reason,
+        gate_class: prevClass,
+        reason_code: stepMeta.reason_code || "REPAIR_ALREADY_ENQUEUED",
+        advance_pipeline: false,
+        repair_enqueued: repairInFlight || repairEnqueuedSinceLastValidation,
+        message: `⏭ Validator übersprungen: ${retryDecision.reason} (gate_class=${prevClass}).`,
+      });
+    }
   }
 
   console.log(`[validate-lessons] Validating ${lessons.length} lessons for ${professionName} (pkg ${packageId.slice(0, 8)})`);
@@ -332,19 +377,28 @@ Deno.serve(async (req) => {
   // ── Gate Classification (replaces binary pass/fail) ──
   const snapshot: ValidationSnapshot = {
     tier1PassRate: t1PassRate,
-    catastrophicFailures: 0, // Will be detected from critical fail patterns
+    catastrophicFailures: 0,
     materializedLessons: lessons.length,
     totalLessons,
     ssotBroken: false,
     invalidStructure: false,
   };
 
-  // Detect catastrophic failures (placeholder/contamination on >30% of failures)
+  // Detect catastrophic failures:
+  // - Placeholder/contamination on >30% of ALL lessons (not just failures)
+  // - OR massive structural absence (>50% empty/unreadable)
   const criticalFails = t1Failed.filter(f =>
-    f.issues.some(i => i.includes("PLACEHOLDER") || i.includes("CONTAMINATION"))
+    f.issues.some(i =>
+      i.includes("PLACEHOLDER_STILL_PRESENT") ||
+      i.includes("CONTAMINATION") ||
+      i.includes("PLACEHOLDER_TEXT_FOUND")
+    )
   );
-  if (criticalFails.length > totalLessons * 0.3) {
-    snapshot.catastrophicFailures = criticalFails.length;
+  const emptyContentFails = t1Failed.filter(f =>
+    f.issues.some(i => i.includes("HTML_TOO_SHORT") && i.includes("/400"))
+  );
+  if (criticalFails.length > totalLessons * 0.3 || emptyContentFails.length > totalLessons * 0.5) {
+    snapshot.catastrophicFailures = criticalFails.length + emptyContentFails.length;
   }
 
   const classification = classifyLearningContent(snapshot);
@@ -355,16 +409,18 @@ Deno.serve(async (req) => {
   const failureModes = aggregateFailureModes(t1Failed);
   const affectedLessons = t1Failed.map(f => f.lessonId);
 
-  // ── For hard_fail with catastrophic issues: reset critical placeholders ──
+  // ── For hard_fail with catastrophic issues: MARK (don't reset) lessons ──
   if (classification.gateClass === "hard_fail" && criticalFails.length > 0) {
     const criticalIds = criticalFails.map(f => f.lessonId);
-    for (const lessonId of criticalIds.slice(0, 50)) {
-      const { error: rpcErr } = await sb.rpc("pipeline_write_lesson_content_v2" as any, {
-        p_lesson_id: lessonId,
-        p_content: { _placeholder: true, _regeneration_reason: "tier1_critical_fail" },
-        p_source: 'validate-learning-content',
-      });
-      if (rpcErr) console.error(`[validate] RPC placeholder reset failed for ${lessonId}: ${rpcErr.message}`);
+    for (let i = 0; i < criticalIds.length; i += 50) {
+      const chunk = criticalIds.slice(i, i + 50);
+      await sb.from("lessons").update({
+        quality_flags: {
+          needs_regeneration: true,
+          regeneration_reason: "tier1_critical_fail",
+          flagged_at: new Date().toISOString(),
+        },
+      }).in("id", chunk);
     }
   }
 
@@ -375,7 +431,6 @@ Deno.serve(async (req) => {
   let avgScore = 100;
 
   if (classification.allowsDownstream) {
-    // Only run expensive LLM checks when the gate class allows downstream
     const t1Passed = t1Results.filter(r => r.passed);
     const sampleSize = Math.min(SAMPLE_SIZE, t1Passed.length);
 
@@ -421,12 +476,13 @@ Deno.serve(async (req) => {
           },
         }).eq("id", lesson.id);
         if (result.score < INDIVIDUAL_REJECT_THRESHOLD) {
-          const { error: rpcErr } = await sb.rpc("pipeline_write_lesson_content_v2" as any, {
-            p_lesson_id: lesson.id,
-            p_content: { _placeholder: true, _regeneration_reason: `LLM score ${result.score}/100` },
-            p_source: 'validate-learning-content',
-          });
-          if (rpcErr) console.error(`[validate] RPC reject-reset failed for ${lesson.id}: ${rpcErr.message}`);
+          await sb.from("lessons").update({
+            quality_flags: {
+              needs_regeneration: true,
+              regeneration_reason: `LLM score ${result.score}/100`,
+              flagged_at: new Date().toISOString(),
+            },
+          }).eq("id", lesson.id);
         }
       }
       return result;
@@ -455,86 +511,82 @@ Deno.serve(async (req) => {
   // ── Determine final step outcome based on classification ──
   const overallPass = classification.allowsDownstream && avgScore >= SAMPLE_PASS_THRESHOLD;
 
-  // ── Persist gate classification + fingerprint in step meta ──
+  // ── Persist gate classification in step meta (contract-safe merge) ──
   const now = new Date().toISOString();
-  const metaUpdate: Record<string, any> = {
+  const metaPatch: Record<string, any> = {
     gate_class: classification.gateClass,
     repair_action: classification.repairAction,
     reason_code: classification.reasonCode,
     quality_debt: classification.qualityDebt,
+    allows_downstream: overallPass,
     tier1_pass_rate: t1PassRate,
     tier1_total: t1Results.length,
     tier1_passed: t1Results.length - t1Failed.length,
     tier2_avg_score: avgScore,
     affected_lessons_count: affectedLessons.length,
-    top_failure_modes: failureModes.slice(0, 5),
+    top_failure_modes: failureModes.slice(0, 10),
     last_validation_fingerprint: currentFingerprint,
     last_validate_completed_at: now,
-    allows_downstream: overallPass,
-    validation_passed: overallPass || undefined,
   };
+  if (overallPass) {
+    metaPatch.validation_passed = true;
+  }
 
-  // Merge with existing meta (preserve protected keys)
-  await sb
-    .from("package_steps")
-    .update({
-      meta: { ...stepMeta, ...metaUpdate },
-      ...(overallPass ? { status: "done", finished_at: now, started_at: stepMeta.started_at || now } : {}),
-    })
-    .eq("package_id", packageId)
-    .eq("step_key", "validate_learning_content");
+  await mergePackageStepMeta(sb, packageId, "validate_learning_content", metaPatch);
 
-  // ── Enqueue repair jobs for non-passing classifications ──
-  if (classification.repairAction === "enqueue_targeted_repair" || classification.repairAction === "enqueue_major_regeneration") {
+  // If passing, also update step status to done
+  if (overallPass) {
+    await sb
+      .from("package_steps")
+      .update({ status: "done", finished_at: now, started_at: stepMeta.started_at || now })
+      .eq("package_id", packageId)
+      .eq("step_key", "validate_learning_content");
+  }
+
+  // ── Enqueue repair jobs for non-passing classifications (via SSOT helper) ──
+  let repairEnqueued = false;
+  if (
+    classification.repairAction === "enqueue_targeted_repair" ||
+    classification.repairAction === "enqueue_major_regeneration"
+  ) {
     const repairJobType = classification.repairAction === "enqueue_targeted_repair"
       ? "repair_learning_content"
       : "regenerate_learning_content_cluster";
 
-    const idempotencyKey = `${repairJobType}:${packageId}`;
-
-    // Check for existing active repair job
-    const { data: existingRepair } = await sb
-      .from("job_queue")
-      .select("id, status")
-      .eq("package_id", packageId)
-      .eq("job_type", repairJobType)
-      .in("status", ["pending", "queued", "processing"])
-      .maybeSingle();
-
-    if (!existingRepair) {
-      const { error: enqErr } = await sb.from("job_queue").insert({
-        package_id: packageId,
+    try {
+      const result = await enqueueJob(sb, {
         job_type: repairJobType,
+        package_id: packageId,
         payload: {
           package_id: packageId,
           course_id: courseId,
           curriculum_id: curriculumId,
-          lessons: affectedLessons.slice(0, 100), // Cap at 100 lesson IDs
+          lessons: affectedLessons.slice(0, 100),
           failure_modes: failureModes.slice(0, 10),
           repair_mode: classification.repairAction === "enqueue_targeted_repair" ? "targeted" : "major",
           requested_by: "validate_learning_content",
           gate_class: classification.gateClass,
         },
-        status: "pending",
-        idempotency_key: idempotencyKey,
         priority: classification.repairAction === "enqueue_major_regeneration" ? 85 : 70,
-        worker_pool: "content",
         max_attempts: 3,
       });
 
-      if (enqErr) {
-        console.error(`[validate-lessons] Failed to enqueue ${repairJobType}: ${enqErr.message}`);
-      } else {
-        console.log(`[validate-lessons] Enqueued ${repairJobType} for package ${packageId.slice(0, 8)} (${affectedLessons.length} affected lessons)`);
-        // Update meta with repair enqueue timestamp
-        await sb
-          .from("package_steps")
-          .update({ meta: { ...stepMeta, ...metaUpdate, repair_enqueued_at: now, repair_job_type: repairJobType } })
-          .eq("package_id", packageId)
-          .eq("step_key", "validate_learning_content");
-      }
-    } else {
-      console.log(`[validate-lessons] Repair job ${repairJobType} already active (${existingRepair.status}) for ${packageId.slice(0, 8)}`);
+      repairEnqueued = true;
+      console.log(`[validate-lessons] Enqueued ${repairJobType} (${result.revived ? "revived" : "new"}) for pkg ${packageId.slice(0, 8)} — ${affectedLessons.length} affected lessons`);
+
+      // Persist repair enqueue timestamp
+      await mergePackageStepMeta(sb, packageId, "validate_learning_content", {
+        repair_enqueued_at: now,
+        repair_job_type: repairJobType,
+        repair_job_id: result.id,
+      });
+    } catch (enqErr: any) {
+      console.error(`[validate-lessons] Failed to enqueue ${repairJobType}: ${enqErr.message}`);
+      // Still mark that we attempted
+      await mergePackageStepMeta(sb, packageId, "validate_learning_content", {
+        repair_enqueue_error: enqErr.message,
+        repair_enqueue_attempted_at: now,
+      });
     }
   }
 
@@ -557,21 +609,28 @@ Deno.serve(async (req) => {
           tier1_pass_rate: t1PassRate,
           tier2_avg_score: avgScore,
           repair_action: classification.repairAction,
+          repair_enqueued: repairEnqueued,
           affected_lessons_count: affectedLessons.length,
         },
       });
     } catch (_e) { /* best-effort */ }
   }
 
+  // ── Runner-compatible response ──
+  // Routing states (repair_required, major_regen) are ok:true completed:true
+  // Only hard_fail is ok:false
+  const isHardFail = classification.gateClass === "hard_fail";
+
   return json({
-    ok: overallPass,
-    batch_complete: overallPass,
+    ok: !isHardFail,
+    completed: true,
+    permanent: isHardFail,
     gate_class: classification.gateClass,
     reason_code: classification.reasonCode,
     repair_action: classification.repairAction,
     quality_debt: classification.qualityDebt,
-    allows_downstream: classification.allowsDownstream,
-    error: overallPass ? null : `Gate: ${classification.gateClass} — ${classification.reasonCode}`,
+    advance_pipeline: overallPass,
+    repair_enqueued: repairEnqueued,
     tier1: {
       total: t1Results.length,
       passed: t1Results.length - t1Failed.length,
@@ -588,6 +647,8 @@ Deno.serve(async (req) => {
     affected_lessons_count: affectedLessons.length,
     message: overallPass
       ? `✅ Lesson QC bestanden (${classification.gateClass}): Tier 1 ${t1PassPct.toFixed(0)}%, Tier 2 avg ${avgScore.toFixed(0)}/100`
-      : `⚠️ Gate: ${classification.gateClass} — Tier 1 ${t1PassPct.toFixed(0)}%, Action: ${classification.repairAction}`,
+      : isHardFail
+        ? `❌ Hard Fail: ${classification.reasonCode} — Tier 1 ${t1PassPct.toFixed(0)}%`
+        : `⚠️ ${classification.gateClass}: Tier 1 ${t1PassPct.toFixed(0)}%, Repair: ${repairEnqueued ? "enqueued" : "pending"}`,
   });
 });

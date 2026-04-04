@@ -152,50 +152,91 @@ export function classifyLearningContent(snapshot: ValidationSnapshot): GateClass
   };
 }
 
-// ── Retry Guard ──
+// ── Retry Guard (v2 — hardened) ──
 
 export interface RetryGuardParams {
   previousFingerprint: string | null;
   currentFingerprint: string;
   previousGateClass: string | null;
   repairCompletedSinceLastValidation: boolean;
+  /** Whether a repair job was enqueued since last validation */
+  repairEnqueuedSinceLastValidation: boolean;
+  /** Whether a repair job is currently active (pending/queued/processing) */
+  repairInFlight: boolean;
 }
 
 /**
  * Determines if re-running the validator is worthwhile.
  * Prevents identical retries that burn attempts without progress.
+ *
+ * v2 hardening: refuses to silently skip when no repair mechanism
+ * is active — forces the caller to enqueue repair instead of
+ * letting the package hang in a "clean but stuck" state.
  */
-export function shouldRetryValidation(params: RetryGuardParams): boolean {
+export function shouldRetryValidation(params: RetryGuardParams): {
+  retry: boolean;
+  reason: "first_run" | "fingerprint_changed" | "repair_completed" | "repair_in_flight" | "repair_enqueued" | "no_repair_mechanism" | "same_fingerprint_blocking";
+} {
   // First run or fingerprint changed → always retry
-  if (!params.previousFingerprint) return true;
-  if (params.previousFingerprint !== params.currentFingerprint) return true;
-
-  // Repair completed since last validation → retry to check repair effect
-  if (params.repairCompletedSinceLastValidation) return true;
-
-  // Same fingerprint + non-passing gate class → skip (no progress possible)
-  if (
-    params.previousGateClass &&
-    ["repair_required", "major_regeneration_required", "hard_fail"].includes(params.previousGateClass)
-  ) {
-    return false;
+  if (!params.previousFingerprint) {
+    return { retry: true, reason: "first_run" };
+  }
+  if (params.previousFingerprint !== params.currentFingerprint) {
+    return { retry: true, reason: "fingerprint_changed" };
   }
 
-  return true;
+  // Repair completed since last validation → retry to check repair effect
+  if (params.repairCompletedSinceLastValidation) {
+    return { retry: true, reason: "repair_completed" };
+  }
+
+  // Same fingerprint + non-passing gate class: check repair state
+  const isBlockingGateClass =
+    params.previousGateClass &&
+    ["repair_required", "major_regeneration_required", "hard_fail"].includes(params.previousGateClass);
+
+  if (!isBlockingGateClass) {
+    // healthy or soft_pass — shouldn't normally retry, but allow it
+    return { retry: true, reason: "first_run" };
+  }
+
+  // Blocking gate class with same fingerprint:
+  // Only skip if repair is already in-flight or enqueued
+  if (params.repairInFlight) {
+    return { retry: false, reason: "repair_in_flight" };
+  }
+  if (params.repairEnqueuedSinceLastValidation) {
+    return { retry: false, reason: "repair_enqueued" };
+  }
+
+  // CRITICAL: No repair mechanism active and content unchanged.
+  // Return a special reason so the caller knows to force-enqueue repair.
+  return { retry: false, reason: "no_repair_mechanism" };
 }
 
-// ── Fingerprint ──
+// ── Fingerprint (v2 — strengthened) ──
 
 /**
  * Creates a content fingerprint for change detection.
- * Uses lesson count + max updated_at as a lightweight proxy.
+ * v2: includes materialized count, failed count, and placeholder count
+ * for higher sensitivity to content state changes.
  */
 export function buildContentFingerprint(params: {
   packageId: string;
   lessonCount: number;
   maxUpdatedAt: string | null;
+  materializedCount: number;
+  failedCount: number;
+  placeholderCount: number;
 }): string {
-  return `${params.packageId}:${params.lessonCount}:${params.maxUpdatedAt ?? "none"}`;
+  return [
+    params.packageId,
+    params.lessonCount,
+    params.materializedCount,
+    params.failedCount,
+    params.placeholderCount,
+    params.maxUpdatedAt ?? "none",
+  ].join(":");
 }
 
 // ── Downstream allowance (mirrors DB function fn_learning_content_allows_downstream) ──
