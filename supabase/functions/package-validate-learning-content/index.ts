@@ -549,7 +549,12 @@ Deno.serve(async (req) => {
 
   // ── Persist gate classification + capabilities in step meta (contract-safe merge) ──
   const now = new Date().toISOString();
+  const profileMeta = buildProfileMeta(integrityProfile, validationPolicy, {
+    integrity_profile: pkgRow?.integrity_profile,
+    track: pkgRow?.track,
+  });
   const metaPatch: Record<string, any> = {
+    ...profileMeta,
     gate_class: classification.gateClass,
     repair_action: classification.repairAction,
     reason_code: classification.reasonCode,
