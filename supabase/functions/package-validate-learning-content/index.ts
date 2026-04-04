@@ -139,13 +139,17 @@ async function tier2Validate(
   sb: ReturnType<typeof createClient>,
   lesson: { id: string; title: string; step: string; content: any; moduleName: string },
   professionName: string,
+  policy?: ValidationPolicy,
 ): Promise<{ lessonId: string; score: number; decision: string; issues: string[] }> {
   const routed = getModel("quality_audit");
   const isMiniCheck = lesson.step === "mini_check" || lesson.content?.type === "mini_check";
 
-  const VALIDATION_PROMPT = isMiniCheck
-    ? `Du bist ein IHK-Prüfungsexperte. Validiere diese Mini-Check-Fragen für ${professionName}. Prüfe: Eindeutigkeit, Distraktoren-Qualität, IHK-Konformität, Berufsbezug. Antworte NUR mit JSON: {"overall_score": 0-100, "decision": "approve|revise|reject", "dimension_scores": {...}, "critical_issues": [...]}`
-    : `Du bist ein IHK-Prüfer und Didaktik-Experte für ${professionName}. Bewerte den Lerninhalt nach: Fachliche Korrektheit (25%), Didaktische Qualität (20%), Prüfungsrelevanz (15%), Sprachliche Klarheit (10%), Vollständigkeit (10%), Berufsbezug (20%). Antworte NUR mit JSON: {"overall_score": 0-100, "decision": "approve|revise|reject", "dimension_scores": {...}, "critical_issues": [...]}`;
+  // Use profile-aware prompt if policy is provided
+  const VALIDATION_PROMPT = policy
+    ? buildTier2Prompt(policy, professionName, isMiniCheck)
+    : isMiniCheck
+      ? `Du bist ein IHK-Prüfungsexperte. Validiere diese Mini-Check-Fragen für ${professionName}. Prüfe: Eindeutigkeit, Distraktoren-Qualität, IHK-Konformität, Berufsbezug. Antworte NUR mit JSON: {"overall_score": 0-100, "decision": "approve|revise|reject", "dimension_scores": {...}, "critical_issues": [...]}`
+      : `Du bist ein IHK-Prüfer und Didaktik-Experte für ${professionName}. Bewerte den Lerninhalt nach: Fachliche Korrektheit (25%), Didaktische Qualität (20%), Prüfungsrelevanz (15%), Sprachliche Klarheit (10%), Vollständigkeit (10%), Berufsbezug (20%). Antworte NUR mit JSON: {"overall_score": 0-100, "decision": "approve|revise|reject", "dimension_scores": {...}, "critical_issues": [...]}`;
 
   try {
     const aiResult = await callAIJSON({
