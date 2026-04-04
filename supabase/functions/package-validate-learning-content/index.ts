@@ -420,7 +420,11 @@ Deno.serve(async (req) => {
   // Detect catastrophic failures using structured issue codes + severity
   snapshot.catastrophicFailures = detectCatastrophicFailures(t1Failed, totalLessons);
 
-  const classification = classifyLearningContent(snapshot);
+  const classification = classifyLearningContent(snapshot, {
+    thresholdHealthy: validationPolicy.thresholdHealthy,
+    thresholdSoftPass: validationPolicy.thresholdSoftPass,
+    thresholdRepairable: validationPolicy.thresholdRepairable,
+  });
 
   // ── Derive capability-based downstream routing ──
   const capabilities = deriveLearningContentCapabilities({
