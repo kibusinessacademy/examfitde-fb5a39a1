@@ -13,7 +13,7 @@ export interface StandaloneLicense {
   package_title: string;
   status: string;
   device_limit: number;
-  expires_at: string;
+  expires_at: string | null;
   last_validated_at: string | null;
   last_opened_at: string | null;
   issued_at: string;
@@ -59,19 +59,23 @@ export interface LicenseRisk {
   risk_level: "ok" | "warning" | "critical";
 }
 
+/* ── Helper: call the single admin-read function ── */
+async function adminRead<T>(view: string, extra?: Record<string, unknown>): Promise<T[]> {
+  const { data, error } = await supabase.functions.invoke(
+    "admin-read-standalone-licenses",
+    { body: { view, ...extra } },
+  );
+  if (error) throw new Error(error.message ?? "Admin-Read fehlgeschlagen");
+  if (data?.error) throw new Error(data.error);
+  return (data?.data ?? []) as T[];
+}
+
 /* ── Queries ── */
 
 export function useStandaloneLicenses() {
   return useQuery({
     queryKey: ["standalone-licenses"],
-    queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from("v_admin_standalone_licenses")
-        .select("*")
-        .order("issued_at", { ascending: false });
-      if (error) throw error;
-      return (data ?? []) as StandaloneLicense[];
-    },
+    queryFn: () => adminRead<StandaloneLicense>("licenses"),
     refetchInterval: 30_000,
   });
 }
@@ -79,16 +83,7 @@ export function useStandaloneLicenses() {
 export function useLicenseDevices(licenseId: string | null) {
   return useQuery({
     queryKey: ["standalone-license-devices", licenseId],
-    queryFn: async () => {
-      if (!licenseId) return [];
-      const { data, error } = await (supabase as any)
-        .from("v_admin_standalone_license_devices")
-        .select("*")
-        .eq("license_id", licenseId)
-        .order("first_seen_at", { ascending: false });
-      if (error) throw error;
-      return (data ?? []) as LicenseDevice[];
-    },
+    queryFn: () => adminRead<LicenseDevice>("devices", { license_id: licenseId }),
     enabled: !!licenseId,
   });
 }
@@ -96,16 +91,7 @@ export function useLicenseDevices(licenseId: string | null) {
 export function useLicenseEvents(licenseId: string | null) {
   return useQuery({
     queryKey: ["standalone-license-events", licenseId],
-    queryFn: async () => {
-      if (!licenseId) return [];
-      const { data, error } = await (supabase as any)
-        .from("v_admin_standalone_license_events")
-        .select("*")
-        .eq("license_id", licenseId)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return (data ?? []) as LicenseEvent[];
-    },
+    queryFn: () => adminRead<LicenseEvent>("events", { license_id: licenseId }),
     enabled: !!licenseId,
   });
 }
@@ -113,17 +99,16 @@ export function useLicenseEvents(licenseId: string | null) {
 export function useLicenseRiskBoard() {
   return useQuery({
     queryKey: ["standalone-license-risk"],
-    queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from("v_admin_standalone_license_risk")
-        .select("*")
-        .order("last_seen_at", { ascending: false });
-      if (error) throw error;
-      return (data ?? []) as LicenseRisk[];
-    },
+    queryFn: () => adminRead<LicenseRisk>("risk"),
     refetchInterval: 30_000,
   });
 }
+
+/* ── Shared invalidation keys ── */
+const ALL_LICENSE_KEYS = [
+  "standalone-licenses",
+  "standalone-license-risk",
+] as const;
 
 /* ── Mutations ── */
 
@@ -144,13 +129,11 @@ export function useUpdateLicenseStatus() {
     },
     onSuccess: (_, vars) => {
       toast.success(`Lizenz ${vars.next_status}`);
-      qc.invalidateQueries({ queryKey: ["standalone-licenses"] });
-      qc.invalidateQueries({ queryKey: ["standalone-license-risk"] });
+      ALL_LICENSE_KEYS.forEach((k) => qc.invalidateQueries({ queryKey: [k] }));
       qc.invalidateQueries({ queryKey: ["standalone-license-events", vars.license_id] });
+      qc.invalidateQueries({ queryKey: ["standalone-license-devices", vars.license_id] });
     },
-    onError: (err: Error) => {
-      toast.error(`Fehler: ${err.message}`);
-    },
+    onError: (err: Error) => toast.error(`Fehler: ${err.message}`),
   });
 }
 
@@ -170,13 +153,11 @@ export function useRemoveDevice() {
     },
     onSuccess: (_, vars) => {
       toast.success("Gerät entfernt");
+      ALL_LICENSE_KEYS.forEach((k) => qc.invalidateQueries({ queryKey: [k] }));
       qc.invalidateQueries({ queryKey: ["standalone-license-devices", vars.license_id] });
-      qc.invalidateQueries({ queryKey: ["standalone-licenses"] });
       qc.invalidateQueries({ queryKey: ["standalone-license-events", vars.license_id] });
     },
-    onError: (err: Error) => {
-      toast.error(`Fehler: ${err.message}`);
-    },
+    onError: (err: Error) => toast.error(`Fehler: ${err.message}`),
   });
 }
 
@@ -196,11 +177,9 @@ export function useExtendLicense() {
     },
     onSuccess: (_, vars) => {
       toast.success("Ablaufdatum verlängert");
-      qc.invalidateQueries({ queryKey: ["standalone-licenses"] });
+      ALL_LICENSE_KEYS.forEach((k) => qc.invalidateQueries({ queryKey: [k] }));
       qc.invalidateQueries({ queryKey: ["standalone-license-events", vars.license_id] });
     },
-    onError: (err: Error) => {
-      toast.error(`Fehler: ${err.message}`);
-    },
+    onError: (err: Error) => toast.error(`Fehler: ${err.message}`),
   });
 }
