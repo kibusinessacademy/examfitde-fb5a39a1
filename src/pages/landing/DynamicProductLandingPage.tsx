@@ -248,17 +248,23 @@ export default function DynamicProductLandingPage() {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center animate-fade-in" style={{ animationDelay: '0.2s' }}>
-              <Link to="/shop">
-                <Button size="lg" className="gradient-primary text-primary-foreground shadow-glow rounded-xl h-14 px-8 text-lg">
-                  {primaryCta}
-                  <ArrowRight className="h-5 w-5 ml-2" />
-                </Button>
-              </Link>
-              <Link to="/pruefungsreife-check">
-                <Button size="lg" variant="outline" className="rounded-xl h-14 px-8 text-lg border-border hover:bg-muted/50">
-                  {secondaryCta}
-                </Button>
-              </Link>
+              <Button
+                size="lg"
+                className="gradient-primary text-primary-foreground shadow-glow rounded-xl h-14 px-8 text-lg"
+                onClick={handlePrimaryCta}
+                disabled={checkoutLoading}
+              >
+                {checkoutLoading ? "Wird geladen…" : primaryCta}
+                <ArrowRight className="h-5 w-5 ml-2" />
+              </Button>
+              <Button
+                size="lg"
+                variant="outline"
+                className="rounded-xl h-14 px-8 text-lg border-border hover:bg-muted/50"
+                onClick={handleSecondaryCta}
+              >
+                {secondaryCta}
+              </Button>
             </div>
 
             {/* Trust bar */}
