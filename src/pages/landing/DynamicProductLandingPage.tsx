@@ -175,6 +175,30 @@ export default function DynamicProductLandingPage() {
   const painPoints = data.profile?.target_pain_points ?? [];
   const faqs = (data.profile?.faq_seed ?? []) as Array<{ question: string; answer: string }>;
 
+  const handlePrimaryCta = async () => {
+    if (checkoutLoading) return;
+    setCheckoutLoading(true);
+    try {
+      await TrackingEvents.ctaPrimaryClick(slug, primaryCta, price);
+      const result = await startProductCheckout(slug);
+      if (!result.ok) {
+        toast.error(result.error ?? "Checkout konnte nicht gestartet werden.");
+      } else if (result.already_entitled) {
+        toast.info("Du hast bereits Zugriff auf dieses Produkt.");
+        navigate("/dashboard");
+      }
+    } catch {
+      toast.error("Ein Fehler ist aufgetreten. Bitte versuche es erneut.");
+    } finally {
+      setCheckoutLoading(false);
+    }
+  };
+
+  const handleSecondaryCta = () => {
+    TrackingEvents.ctaSecondaryClick(slug, secondaryCta);
+    navigate("/pruefungsreife-check");
+  };
+
   const seo = buildSeoMeta({
     title: data.certification.title,
     landingType,
