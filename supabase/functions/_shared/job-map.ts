@@ -70,10 +70,12 @@ export const STEP_TO_JOB_TYPE: Record<PipelineStepKey, string> = {
   elite_harden: "package_elite_harden",
   run_integrity_check: "package_run_integrity_check",
   quality_council: "package_quality_council",
+  build_standalone_snapshot: "build_standalone_snapshot",
+  build_standalone_bundle: "build_standalone_bundle",
+  validate_standalone_bundle: "validate_standalone_bundle",
+  backup_standalone_bundle: "backup_standalone_bundle",
   auto_publish: "package_auto_publish",
 };
-
-/**
  * Canonical step ordering — superset of all possible steps.
  * Steps not present in a package's DB rows are simply skipped.
  */
