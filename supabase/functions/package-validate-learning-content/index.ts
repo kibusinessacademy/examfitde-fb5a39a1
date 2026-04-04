@@ -398,26 +398,20 @@ Deno.serve(async (req) => {
     invalidStructure: false,
   };
 
-  // Detect catastrophic failures:
-  // - Placeholder/contamination on >30% of ALL lessons (not just failures)
-  // - OR massive structural absence (>50% empty/unreadable)
-  const criticalFails = t1Failed.filter(f =>
-    f.issues.some(i =>
-      i.includes("PLACEHOLDER_STILL_PRESENT") ||
-      i.includes("CONTAMINATION") ||
-      i.includes("PLACEHOLDER_TEXT_FOUND")
-    )
-  );
-  const emptyContentFails = t1Failed.filter(f =>
-    f.issues.some(i => i.includes("HTML_TOO_SHORT") && i.includes("/400"))
-  );
-  if (criticalFails.length > totalLessons * 0.3 || emptyContentFails.length > totalLessons * 0.5) {
-    snapshot.catastrophicFailures = criticalFails.length + emptyContentFails.length;
-  }
+  // Detect catastrophic failures using structured issue codes + severity
+  snapshot.catastrophicFailures = detectCatastrophicFailures(t1Failed, totalLessons);
 
   const classification = classifyLearningContent(snapshot);
 
-  console.log(`[validate-lessons] Gate Classification: ${classification.gateClass} (reason: ${classification.reasonCode}, downstream: ${classification.allowsDownstream})`);
+  // ── Derive capability-based downstream routing ──
+  const capabilities = deriveLearningContentCapabilities({
+    gateClass: classification.gateClass,
+    tier1PassRate: t1PassRate,
+    materializedLessons: lessons.length,
+    totalLessons,
+  });
+
+  console.log(`[validate-lessons] Gate Classification: ${classification.gateClass} (reason: ${classification.reasonCode}, capabilities: ${JSON.stringify(capabilities)})`);
 
   // ── Failure mode map for repair jobs ──
   const failureModes = aggregateFailureModes(t1Failed);
