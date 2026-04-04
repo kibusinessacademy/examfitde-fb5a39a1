@@ -239,6 +239,7 @@ Deno.serve(async (req) => {
   }
 
   let professionName = "Ausbildungsberuf";
+  let packageTrack = "AUSBILDUNG_VOLL";
   try {
     const prof = await resolveProfession(sb, { certificationId, curriculumId });
     professionName = prof.professionName;
