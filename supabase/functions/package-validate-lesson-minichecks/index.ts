@@ -98,6 +98,9 @@ Deno.serve(async (req) => {
     const hasLearningCourse = featureFlags.has_learning_course ?? (pkgRow?.track === "AUSBILDUNG_VOLL");
     const effectiveCourseId = courseId || pkgRow?.course_id;
     const mode: "lesson" | "drill" = hasLearningCourse ? "lesson" : "drill";
+    const track = pkgRow?.track ?? "AUSBILDUNG_VOLL";
+    const profile = getContentProfile(track);
+    const isAcademic = profile.minicheck.type === "understanding";
 
     const issues: Array<{ severity: string; code: string; message: string }> = [];
 
