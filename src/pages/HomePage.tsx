@@ -72,7 +72,7 @@ export default function HomePage() {
         structuredData={[
           generateFAQSchema(FAQ_ITEMS),
           generateCourseListSchema([
-            { name: 'Prüfungstraining', url: `${SITE_URL}/shop`, description: 'Komplett-Prüfungstraining für IHK-Ausbildungsberufe und Studiengänge', price: 39 },
+            { name: 'Prüfungstraining', url: `${SITE_URL}/shop`, description: 'Komplett-Prüfungstraining für IHK-Ausbildungsberufe und Studiengänge', price: 24.90 },
           ]),
         ]}
       />
