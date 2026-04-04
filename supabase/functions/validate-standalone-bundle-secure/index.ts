@@ -257,10 +257,12 @@ Deno.serve(async (req) => {
       hardFails.push(`forbidden_patterns:${forbidden.join(",")}`);
     }
 
-    // Also check for unencrypted snapshot
-    const snapshotJsonRes = await sb.storage.from(bucket).download(`${basePath}/snapshot.json`);
-    if (!snapshotJsonRes.error && snapshotJsonRes.data) {
-      hardFails.push("unencrypted_snapshot_present");
+    // Also check for unencrypted snapshots (multiple possible names)
+    for (const snName of CLEARTEXT_SNAPSHOT_NAMES) {
+      const clearRes = await sb.storage.from(bucket).download(`${basePath}/${snName}`);
+      if (!clearRes.error && clearRes.data) {
+        hardFails.push(`unencrypted_snapshot_present:${snName}`);
+      }
     }
 
     // ── 10. Content checks ──
