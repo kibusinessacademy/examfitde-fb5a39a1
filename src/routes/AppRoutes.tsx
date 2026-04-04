@@ -124,6 +124,7 @@ const AppRoutes = () => {
         
         {/* Purchase Success (standalone) */}
         <Route path="/purchase-success" element={<PurchaseSuccessPage />} />
+        <Route path="/checkout/success" element={<CheckoutSuccessPage />} />
 
         {/* ExamFit@work Public Routes */}
         <Route path="/work" element={<WorkHomePage />} />
