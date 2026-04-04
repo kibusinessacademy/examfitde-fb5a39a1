@@ -237,7 +237,7 @@ const PruefungstrainingHub = () => {
         {/* CTA */}
         <section className="text-center py-8 space-y-4 bg-card rounded-2xl border border-border">
           <h2 className="text-2xl font-bold">Bereit für deine Prüfung?</h2>
-          <p className="text-muted-foreground">Starte jetzt mit dem Prüfungstraining – nur 24,90 € für 12 Monate.</p>
+          <p className="text-muted-foreground">Starte jetzt mit dem Prüfungstraining – nur {PRICING.defaultPrice} für {PRICING.defaultAccess}.</p>
           <Link to="/shop">
             <Button size="lg" className="shadow-glow">
               <Target className="mr-2 h-5 w-5" /> Jetzt Prüfungstraining starten

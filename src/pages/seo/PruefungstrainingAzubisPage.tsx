@@ -159,7 +159,7 @@ export default function PruefungstrainingAzubisPage() {
                 Prüfungskonform nach Ausbildungsrahmenplan · Entwickelt für Auszubildende · Keine Schulnoten, kein Druck – nur Vorbereitung
               </p>
               <div className="flex items-baseline gap-2 justify-center mb-6">
-                <span className="text-4xl font-display font-bold text-gradient">24,90 €</span>
+                <span className="text-4xl font-display font-bold text-gradient">{PRICING.defaultPrice}</span>
                 <span className="text-muted-foreground">einmalig</span>
               </div>
               <Link to="/shop">

@@ -338,7 +338,7 @@ const PruefungstrainingDetailPage = () => {
           <h2 className="text-2xl font-bold">Bereit für die Prüfung {name}?</h2>
           {isPublished ? (
             <>
-              <p className="text-muted-foreground">Starte jetzt – 24,90 € für 12 Monate Prüfungstraining.</p>
+              <p className="text-muted-foreground">Starte jetzt – {PRICING.defaultPrice} für {PRICING.defaultAccess} Prüfungstraining.</p>
               <Link to="/shop">
                 <Button size="lg" className="shadow-glow">
                   <Target className="mr-2 h-5 w-5" /> Jetzt Prüfungstraining starten
