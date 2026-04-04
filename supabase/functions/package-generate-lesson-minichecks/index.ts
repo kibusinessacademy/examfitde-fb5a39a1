@@ -8,6 +8,7 @@ import { bootstrapLLMLogging } from "../_shared/llm-log-bootstrap.ts";
 import { shouldUseBatch, BATCH_DEFAULT_MODEL } from "../_shared/batch/routing-config.ts";
 import { mergePackageStepMeta } from "../_shared/merge-step-meta.ts";
 import { buildBatchRequests, submitBatchViaFunction } from "../_shared/batch/enqueue-openai.ts";
+import { getContentProfile } from "../_shared/track-content-profiles.ts";
 
 /**
  * package-generate-lesson-minichecks
@@ -74,19 +75,23 @@ function buildMiniCheckPrompt(
   competencyTitle: string,
   itemCount: number,
   mode: "lesson" | "drill",
-  professionName: string
+  professionName: string,
+  track?: string,
 ): { system: string; user: string } {
-  const system = `Du bist ein erfahrener IHK-Prüfungsexperte und Fachdidaktiker für den Beruf "${professionName}".
+  const profile = getContentProfile(track || "AUSBILDUNG_VOLL");
+  const mc = profile.minicheck;
+
+  const system = `Du bist ein ${mc.persona} für "${professionName}".
 Deine Aufgabe: Erstelle exakt ${itemCount} MiniCheck-Fragen im Multiple-Choice-Format.
 
 REGELN:
 - Jede Frage hat genau 4 Antwortoptionen (A-D)
 - Genau EINE Antwort ist korrekt
-- Distraktoren müssen fachlich plausibel sein (typische IHK-Fallen)
+- Distraktoren müssen fachlich plausibel sein (${mc.distractorStyle})
 - Erklärung muss begründen, warum die richtige Antwort korrekt ist UND warum jeder Distraktor falsch ist
-- Schwierigkeitsverteilung: 30% leicht, 40% mittel, 30% schwer
-- Kognitive Stufen variieren: remember, understand, apply, analyze
-- Keine Trivialfragen ("Was ist...?"), sondern Anwendungs-/Transferfragen
+- Schwierigkeitsverteilung: ${mc.bloomDistribution}
+- Kognitive Stufen variieren: remember, understand, apply, analyze${profile.track === "STUDIUM" ? ", evaluate" : ""}
+- ${mc.questionStyle}
 
 AUSGABE: Reines JSON-Array, kein Markdown, kein Kommentar:
 [{
@@ -95,7 +100,7 @@ AUSGABE: Reines JSON-Array, kein Markdown, kein Kommentar:
   "correct_answer": 0,
   "explanation": "Richtig ist A, weil... B ist falsch, weil... C ist falsch, weil... D ist falsch, weil...",
   "difficulty": "easy|medium|hard",
-  "cognitive_level": "remember|understand|apply|analyze",
+  "cognitive_level": "remember|understand|apply|analyze${profile.track === "STUDIUM" ? "|evaluate" : ""}",
   "trap_tags": ["verwechslung_paragraph", "rechenfehler", ...]
 }]`;
 
@@ -370,7 +375,7 @@ Deno.serve(async (req) => {
         const targetMode: "lesson" | "drill" = target.lessonId ? "lesson" : "drill";
         const { system, user } = buildMiniCheckPrompt(
           target.title, target.content, target.competencyTitle,
-          itemCount, targetMode, professionName,
+          itemCount, targetMode, professionName, pkgRow?.track,
         );
         const customId = `mc_${curriculumId.slice(0, 8)}_${(target.lessonId || target.competencyId || target.id).slice(0, 8)}_${idx}_${Date.now()}`;
         return {
@@ -442,7 +447,8 @@ Deno.serve(async (req) => {
         target.competencyTitle,
         itemCount,
         targetMode,
-        professionName
+        professionName,
+        pkgRow?.track,
       );
 
       try {

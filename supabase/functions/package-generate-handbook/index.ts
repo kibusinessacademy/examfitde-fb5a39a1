@@ -8,6 +8,7 @@ import { validateGeneratedSection, filterValidSections, verifyHandbookCoverage }
 import { loadFieldCompetencies, loadFieldTopicDepth, loadExamQuestionSample, buildElitePrompt, type CompetencyContext } from "../_shared/handbook-context.ts";
 import { shouldUseBatch, BATCH_DEFAULT_MODEL } from "../_shared/batch/routing-config.ts";
 import { buildBatchRequests, submitBatchViaFunction } from "../_shared/batch/enqueue-openai.ts";
+import { getContentProfile } from "../_shared/track-content-profiles.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -63,6 +64,7 @@ async function generateSectionContent(
   startMs: number,
   chain: Array<{ provider: string; model: string }>,
   expandChain?: Array<{ provider: string; model: string }>,
+  track?: string,
 ): Promise<{ content: string; provider: string; model: string }> {
   if (shouldSoftStop(startMs, "handbook")) {
     console.warn(`[generate-handbook] Soft-stop reached before LLM call for ${fieldCode}`);
@@ -85,7 +87,8 @@ async function generateSectionContent(
     // v17: Single provider per invocation — give it the full soft-stop budget (~45s)
     const perProviderMs = 45_000;
     
-    const systemMsg = `IHK-Prüfungscoach, ${professionName}. Handbuch-Abschnitt, ${wordTarget} Wörter. Pflicht: Grundlagen, Formeln, Prüfungsfallen, Merkschemata. Markdown, keine Meta-Kommentare.`;
+    const handbookProfile = getContentProfile(track || "AUSBILDUNG_VOLL");
+    const systemMsg = `${handbookProfile.handbook.persona}, ${professionName}. Handbuch-Abschnitt, ${wordTarget} Wörter. ${handbookProfile.handbook.structurePrompt.split("\n").slice(1).map(l => l.replace(/^\d+\.\s*\*\*/, "").replace(/\*\*.*/, "").trim()).filter(Boolean).join(", ")}. Markdown, keine Meta-Kommentare.`;
     
     const result = await callAIWithFailover(chain, {
       messages: [
@@ -236,10 +239,21 @@ Deno.serve(async (req) => {
   }
 
   let professionName = "Ausbildungsberuf";
+  let packageTrack = "AUSBILDUNG_VOLL";
   try {
     const prof = await resolveProfession(sb, { certificationId, curriculumId });
     professionName = prof.professionName;
   } catch { /* fallback */ }
+
+  // Resolve track for content profile
+  try {
+    const { data: pkgTrack } = await sb
+      .from("course_packages")
+      .select("track")
+      .eq("id", packageId)
+      .maybeSingle();
+    if (pkgTrack?.track) packageTrack = pkgTrack.track;
+  } catch { /* fallback to AUSBILDUNG_VOLL */ }
 
   // 1) Load learning fields
   const { data: fields, error: lfErr } = await sb
@@ -548,6 +562,7 @@ Deno.serve(async (req) => {
       startMs,
       _handbookChain,
       _expandChain,
+      packageTrack,
     );
 
     const hasRealContent = generated.content.length >= MIN_SECTION_CHARS;
