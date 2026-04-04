@@ -6,12 +6,14 @@ import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Activity, CheckCircle2, Clock, Loader2, Radio, RefreshCw,
-  XCircle, AlertTriangle, HeartPulse, Timer, ChevronDown, ChevronRight
+  XCircle, AlertTriangle, HeartPulse, Timer, ChevronDown, ChevronRight,
+  Shield, Wrench, Zap
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { useState } from 'react';
 import { CompetencyBundleProgress } from './CompetencyBundleProgress';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 import {
   FULL_STEP_ORDER,
