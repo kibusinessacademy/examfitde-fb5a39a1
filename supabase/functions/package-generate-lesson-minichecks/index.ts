@@ -641,10 +641,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    await sb.from("package_steps")
-      .update({ meta: nextMeta })
-      .eq("package_id", packageId)
-      .eq("step_key", "generate_lesson_minichecks");
+    await mergePackageStepMeta(sb, packageId, "generate_lesson_minichecks", nextMeta);
 
     return json({
       ok: true,

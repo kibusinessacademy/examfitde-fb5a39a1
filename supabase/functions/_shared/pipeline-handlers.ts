@@ -101,22 +101,14 @@ export async function handleJobFailed(
     const updatedMeta = updateRetryLoopGuardMeta(stepMeta, errorMsg);
     const retryGuard = checkRetryLoopGuard(updatedMeta, errorMsg, stepAttempts);
     if (retryGuard.blocked) {
-      // Persist the updated meta before blocking
-      await safeQuery(
-        sb.from("package_steps").update({ meta: updatedMeta })
-          .eq("package_id", packageId).eq("step_key", stepKey),
-        "loop_guard_meta_update",
-      );
+      // Persist the updated meta atomically before blocking
+      await mergePackageStepMeta(sb, packageId, stepKey, updatedMeta);
       await applyLoopGuardBlock(sb, packageId, stepKey, runnerId, retryGuard);
       return { packageId, stepKey, loop_guard_blocked: true, reason: retryGuard.reason, metrics: retryGuard.metrics };
     }
     // Always persist the updated zero_generation_streak even if not blocked
     if (updatedMeta !== stepMeta) {
-      await safeQuery(
-        sb.from("package_steps").update({ meta: updatedMeta })
-          .eq("package_id", packageId).eq("step_key", stepKey),
-        "loop_guard_retry_meta_update",
-      );
+      await mergePackageStepMeta(sb, packageId, stepKey, updatedMeta);
       // Update stepMeta reference for downstream use
       Object.assign(stepMeta, updatedMeta);
     }
