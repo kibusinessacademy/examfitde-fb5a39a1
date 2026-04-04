@@ -158,8 +158,20 @@ export async function enqueueJob(
   // ── F-3: Fanout Loop Guard — prevents re-enqueue storms across ALL paths ──
   const fanoutCheck = await checkFanoutLoopGuard(sb, opts.job_type, packageId);
   if (fanoutCheck.blocked) {
-    // Return a synthetic result so callers don't crash
     console.log(`[enqueue] FANOUT_BLOCKED: ${opts.job_type} for ${packageId?.slice(0, 8)} — ${fanoutCheck.reason}`);
+    return {
+      id: "00000000-0000-0000-0000-000000000000",
+      job_type: opts.job_type,
+      worker_pool: worker_pool,
+      status: "blocked_by_guard",
+      revived: false,
+    } as EnqueueResult;
+  }
+
+  // ── F-4: Validation Requeue Guard — prevents no-progress validation loops ──
+  const valCheck = await checkValidationRequeueGuard(sb, opts.job_type, packageId);
+  if (valCheck.blocked) {
+    console.log(`[enqueue] VALIDATION_BLOCKED: ${opts.job_type} for ${packageId?.slice(0, 8)} — ${valCheck.reason}`);
     return {
       id: "00000000-0000-0000-0000-000000000000",
       job_type: opts.job_type,
