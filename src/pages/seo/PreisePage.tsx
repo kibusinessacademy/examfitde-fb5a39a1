@@ -1,5 +1,6 @@
 import { SEOHead } from '@/components/seo/SEOHead';
 import { SITE_URL, generateFAQSchema } from '@/lib/seo';
+import { PRICING } from '@/config/pricing';
 import PricingSectionHighConvert from '@/components/pricing/PricingSectionHighConvert';
 
 const faqs = [
