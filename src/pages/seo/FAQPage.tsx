@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { Breadcrumbs } from '@/components/seo/Breadcrumbs';
 import { SITE_URL, generateFAQSchema } from '@/lib/seo';
+import { PRICING } from '@/config/pricing';
 import {
   Accordion,
   AccordionContent,
