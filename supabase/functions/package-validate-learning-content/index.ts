@@ -521,10 +521,10 @@ Deno.serve(async (req) => {
     }
   }
 
-  // ── Determine final step outcome based on classification ──
-  const overallPass = classification.allowsDownstream && avgScore >= SAMPLE_PASS_THRESHOLD;
+  // ── Determine final step outcome based on classification + capabilities ──
+  const overallPass = hasAnyDownstreamCapability(capabilities) && avgScore >= SAMPLE_PASS_THRESHOLD;
 
-  // ── Persist gate classification in step meta (contract-safe merge) ──
+  // ── Persist gate classification + capabilities in step meta (contract-safe merge) ──
   const now = new Date().toISOString();
   const metaPatch: Record<string, any> = {
     gate_class: classification.gateClass,
@@ -532,6 +532,7 @@ Deno.serve(async (req) => {
     reason_code: classification.reasonCode,
     quality_debt: classification.qualityDebt,
     allows_downstream: overallPass,
+    capabilities,
     tier1_pass_rate: t1PassRate,
     tier1_total: t1Results.length,
     tier1_passed: t1Results.length - t1Failed.length,
