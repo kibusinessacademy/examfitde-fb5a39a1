@@ -34,7 +34,7 @@ function generateFAQs(cert: any) {
     },
     {
       question: `Was kostet das Prüfungstraining für ${name}?`,
-      answer: `Das komplette Prüfungstraining für ${name} kostet 39 € einmalig und beinhaltet 12 Monate Zugang zu allen Lernmodulen, dem Prüfungstrainer mit ${questions}+ Aufgaben, der Prüfungssimulation und dem KI-Prüfungscoach.`,
+      answer: `Das komplette Prüfungstraining für ${name} kostet 24,90 € einmalig und beinhaltet 12 Monate Zugang zu allen Lernmodulen, dem Prüfungstrainer mit ${questions}+ Aufgaben, der Prüfungssimulation und dem KI-Prüfungscoach.`,
     },
     {
       question: `Wie hoch ist die Durchfallquote bei der Prüfung ${name}?`,
