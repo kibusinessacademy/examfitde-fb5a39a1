@@ -290,7 +290,6 @@ Deno.serve(async (req) => {
     lessonCount: lessons.length,
     maxUpdatedAt,
     materializedCount: lessons.length,
-    failedCount: 0, // Will be updated after T1, but fingerprint uses pre-validation state
     placeholderCount,
   });
 
