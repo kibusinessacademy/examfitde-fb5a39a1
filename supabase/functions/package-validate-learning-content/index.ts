@@ -234,7 +234,11 @@ Deno.serve(async (req) => {
   if (skippedMiniChecks > 0) {
     console.log(`[validate-lessons] Skipping ${skippedMiniChecks} mini_check lessons (validated by validate_lesson_minichecks)`);
   }
-  const totalLessons = allLessons?.length || 0;
+  // totalLessons = non-minicheck content lessons (for placeholder ratio)
+  const totalContentLessons = skipMiniCheckLessons
+    ? (allLessons || []).filter((l: any) => l.step !== "mini_check" && l.content?.type !== "mini_check").length
+    : (allLessons || []).length;
+  const totalLessons = totalContentLessons;
   const placeholderCount = totalLessons - lessons.length;
 
   if (lessons.length === 0) {
