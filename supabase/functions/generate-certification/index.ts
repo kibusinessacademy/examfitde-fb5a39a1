@@ -74,15 +74,36 @@ Deno.serve(async (req) => {
 
     if (certError) throw certError;
 
-    // 2. Create curriculum
+    // 2. Create curriculum — map to real DB enums
+    const trackEnumMap: Record<string, string> = {
+      FORTBILDUNG: "FORTBILDUNG",
+      CERTIFICATION: "ZERTIFIKAT",
+      AUSBILDUNG: "AUSBILDUNG_VOLL",
+      STUDIUM: "STUDIUM",
+    };
+    const certTypeEnumMap: Record<string, string> = {
+      IHK_AUFSTIEG: "aufstiegsfortbildung",
+      MEISTER: "aufstiegsfortbildung",
+      AEVO: "aufstiegsfortbildung",
+      FINANCE: "aufstiegsfortbildung",
+      PROJECT_MANAGEMENT: "branchenzertifikat",
+      CLOUD: "branchenzertifikat",
+      SECURITY: "branchenzertifikat",
+      DATA: "branchenzertifikat",
+      PRIVACY: "branchenzertifikat",
+      ERP: "branchenzertifikat",
+      GENERAL: "sonstige",
+    };
+
     const { data: curriculum, error: curriculumError } = await sb
       .from("curricula")
       .insert({
         title: `${title} – Curriculum`,
         certification_id: cert.id,
         status: "draft",
-        track: classification.track,
-        certification_type: classification.track === "FORTBILDUNG" ? "fortbildung" : "zertifizierung",
+        track: trackEnumMap[classification.track] ?? "EXAM_FIRST",
+        certification_type: certTypeEnumMap[classification.certificationType] ?? "sonstige",
+        program_type: classification.track === "STUDIUM" ? "higher_education" : "vocational",
       })
       .select("id")
       .single();
