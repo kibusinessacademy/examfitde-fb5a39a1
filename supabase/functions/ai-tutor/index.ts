@@ -684,7 +684,7 @@ Deno.serve(async (req) => {
     if (validMode === AI_MODES.EXAM && !isAllowedInExamMode(message)) {
       const blocked = 'Im Prüfungsmodus kann ich keine inhaltliche Hilfe geben. Konzentriere dich auf die Aufgabe!';
       await logInteraction(supabase, user.id, sessionId, sessionType, validMode, message, blocked, 0, true, 'Inhaltliche Anfrage im Prüfungsmodus', conversationHistory.length);
-      return new Response(JSON.stringify({ response: blocked, mode: validMode, wasBlocked: true, blockReason: 'exam_mode' }), {
+      return new Response(JSON.stringify({ response: blocked, mode: validMode, wasBlocked: true, blockReason: 'exam_mode', suggestedPrompts: resolvedContext.suggestedPrompts || [] }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" }
       });
     }
