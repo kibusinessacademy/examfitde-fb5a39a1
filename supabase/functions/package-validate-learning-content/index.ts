@@ -501,7 +501,7 @@ Deno.serve(async (req) => {
         step: lesson.step,
         content: lesson.content,
         moduleName: (lesson as any).modules?.title || "",
-      }, professionName);
+      }, professionName, validationPolicy);
       if (result.score >= 0) {
         await sb.from("lessons").update({
           qc_status: result.decision === "approve" ? "approved" : result.decision === "reject" ? "rejected" : "needs_revision",
