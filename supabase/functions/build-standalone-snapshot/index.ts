@@ -25,6 +25,27 @@ function json(data: unknown, status = 200) {
 const SCHEMA_VERSION = "1.0.0";
 const BUCKET = "standalone-bundles";
 
+// ── Eligibility ──
+
+const EXPORTABLE_STATUSES = ["approved", "active", "published", "review"];
+
+/** A lesson is standalone-eligible if it has an exportable status AND renderable content. */
+function isStandaloneEligible(lesson: any): boolean {
+  if (!EXPORTABLE_STATUSES.includes(lesson.status)) return false;
+  return hasRenderableContent(lesson.content);
+}
+
+function hasRenderableContent(content: any): boolean {
+  if (!content) return false;
+  if (typeof content === "string") return content.trim().length > 0;
+  if (Array.isArray(content)) return content.length > 0;
+  if (typeof content === "object") {
+    if (content.blocks && Array.isArray(content.blocks)) return content.blocks.length > 0;
+    return Object.keys(content).length > 0;
+  }
+  return false;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -86,17 +107,40 @@ Deno.serve(async (req) => {
       .eq("course_id", course_id)
       .order("sort_order");
 
-    // ── 4. Load lessons ──
+    // ── 4. Load ALL lessons (eligibility filter applied in-memory) ──
     const moduleIds = (modules || []).map((m: any) => m.id);
-    let lessons: any[] = [];
+    let allLessons: any[] = [];
     if (moduleIds.length > 0) {
       const { data } = await sb
         .from("lessons")
         .select("id, module_id, title, step, content, sort_order, duration_minutes, status, exam_block, weight_tag")
         .in("module_id", moduleIds)
-        .eq("status", "approved")
         .order("sort_order");
-      lessons = data || [];
+      allLessons = data || [];
+    }
+
+    // Apply eligibility filter
+    const lessons = allLessons.filter(isStandaloneEligible);
+    const skippedLessons = allLessons.filter((l) => !isStandaloneEligible(l));
+
+    console.log(`[snapshot] Lessons: ${allLessons.length} total, ${lessons.length} eligible, ${skippedLessons.length} skipped`);
+
+    // ── FAIL-CLOSED: modules exist but zero exportable lessons ──
+    if ((modules || []).length > 0 && lessons.length === 0) {
+      const reason = `Snapshot contains zero exportable lessons despite ${(modules || []).length} modules (${allLessons.length} total lessons, none eligible). ` +
+        `Statuses found: ${[...new Set(allLessons.map((l: any) => l.status))].join(", ") || "none"}`;
+      console.error(`[snapshot] FAIL-CLOSED: ${reason}`);
+      await markFailed(sb, artifactId, reason);
+      return json({ error: reason }, 422);
+    }
+
+    // ── FAIL-CLOSED: lessons with no renderable content ──
+    const emptyContentLessons = lessons.filter((l) => !hasRenderableContent(l.content));
+    if (emptyContentLessons.length > 0 && emptyContentLessons.length === lessons.length) {
+      const reason = `All ${lessons.length} eligible lessons have no renderable content`;
+      console.error(`[snapshot] FAIL-CLOSED: ${reason}`);
+      await markFailed(sb, artifactId, reason);
+      return json({ error: reason }, 422);
     }
 
     // ── 5. Load minichecks ──
@@ -148,6 +192,21 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── Collect warnings ──
+    const warnings: string[] = [];
+    if (handbookSections.length === 0 && curriculum_id) {
+      warnings.push("handbook_empty");
+    }
+    if (minichecks.length === 0) {
+      warnings.push("no_minichecks");
+    }
+    if (emptyContentLessons.length > 0) {
+      warnings.push(`${emptyContentLessons.length}_lessons_without_content`);
+    }
+    if (skippedLessons.length > 0) {
+      warnings.push(`${skippedLessons.length}_lessons_skipped_ineligible`);
+    }
+
     // ── 7. Build snapshot ──
     const snapshot = {
       meta: {
@@ -162,6 +221,7 @@ Deno.serve(async (req) => {
         track: pkg?.track || null,
         offline_mode: true,
         player_version: "1.0.0",
+        eligibility_rule: "approved_or_renderable_content_v1",
       },
       course: {
         title: course.title,
@@ -224,6 +284,22 @@ Deno.serve(async (req) => {
       .join("");
 
     // ── 10. Update artifact record ──
+    const metadata = {
+      module_count: (modules || []).length,
+      lesson_count: lessons.length,
+      lesson_total: allLessons.length,
+      lesson_skipped: skippedLessons.length,
+      minicheck_count: minichecks.length,
+      handbook_chapter_count: handbookSections.length,
+      lessons_without_content: emptyContentLessons.length,
+      warnings,
+      eligibility_rule: "approved_or_renderable_content_v1",
+      status_distribution: allLessons.reduce((acc: Record<string, number>, l: any) => {
+        acc[l.status] = (acc[l.status] || 0) + 1;
+        return acc;
+      }, {}),
+    };
+
     await sb
       .from("standalone_artifact_versions")
       .update({
@@ -233,29 +309,30 @@ Deno.serve(async (req) => {
         mime_type: "application/json",
         checksum_sha256: checksum,
         size_bytes: snapshotBytes.length,
-        metadata: {
-          lesson_count: lessons.length,
-          module_count: (modules || []).length,
-          minicheck_count: minichecks.length,
-          handbook_chapter_count: handbookSections.length,
-        },
+        metadata,
       })
       .eq("id", artifactId);
 
-    console.log(`[snapshot] ✅ Snapshot completed: ${storagePath} (${snapshotBytes.length} bytes, sha256=${checksum.slice(0, 12)}...)`);
+    if (warnings.length > 0) {
+      console.warn(`[snapshot] ⚠️ Warnings: ${warnings.join(", ")}`);
+    }
+    console.log(`[snapshot] ✅ Snapshot completed: ${storagePath} (${snapshotBytes.length} bytes, ${lessons.length}/${allLessons.length} lessons, sha256=${checksum.slice(0, 12)}...)`);
 
     return json({
       ok: true,
       artifact_id: artifactId,
       storage_path: storagePath,
-      checksum: checksum,
+      checksum,
       size_bytes: snapshotBytes.length,
       stats: {
         modules: (modules || []).length,
         lessons: lessons.length,
+        lessons_total: allLessons.length,
+        lessons_skipped: skippedLessons.length,
         minichecks: minichecks.length,
         handbook_chapters: handbookSections.length,
       },
+      warnings,
     });
   } catch (err: any) {
     console.error("[snapshot] Error:", err);
