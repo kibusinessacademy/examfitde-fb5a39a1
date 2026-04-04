@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { Breadcrumbs } from '@/components/seo/Breadcrumbs';
 import { generateFAQSchema, generateBreadcrumbSchema, SITE_URL } from '@/lib/seo';
+import { PRICING } from '@/config/pricing';
 import { useCertificationCatalog } from '@/hooks/useCertificationSEO';
 import { usePublishedCertifications } from '@/hooks/usePublishedCertifications';
 import { Target, GraduationCap, Award, BookOpen, Shield, Briefcase, ArrowRight, CheckCircle2, Zap, Brain, Clock } from 'lucide-react';
