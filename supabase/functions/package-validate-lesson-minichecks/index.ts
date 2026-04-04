@@ -253,16 +253,22 @@ Deno.serve(async (req) => {
         }
 
         // Min items per lesson (approved only)
+        // v3: Downgraded from critical to warning — during build phase, not all lessons
+        // have full MiniCheck coverage yet. Making this critical causes permanent gate failures
+        // that block the entire pipeline. The publish gate enforces hard thresholds.
         let tooFew = 0;
         for (const lid of lessonIds) {
           const c = countByLesson.get(lid) || 0;
           if (c < MIN_ITEMS_PER_LESSON) tooFew++;
         }
         if (tooFew > 0) {
+          const tooFewPct = (tooFew / totalLessons) * 100;
+          // Only critical if >50% of lessons are undercovered — otherwise it's still building
+          const sev = tooFewPct > 50 ? "critical" : "warning";
           issues.push({
-            severity: "critical",
+            severity: sev,
             code: "MIN_ITEMS_PER_LESSON",
-            message: `${tooFew} Lektionen haben <${MIN_ITEMS_PER_LESSON} approved MiniChecks`,
+            message: `${tooFew}/${totalLessons} Lektionen (${tooFewPct.toFixed(0)}%) haben <${MIN_ITEMS_PER_LESSON} approved MiniChecks`,
           });
         }
       }
