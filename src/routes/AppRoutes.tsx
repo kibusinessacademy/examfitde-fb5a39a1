@@ -47,6 +47,8 @@ const KarrierePage = lazy(() => import('@/pages/seo/KarrierePage'));
 const BetriebeLandingPage = lazy(() => import('@/pages/seo/BetriebeLandingPage'));
 const WirtschaftsfachwirtPage = lazy(() => import('@/pages/seo/WirtschaftsfachwirtPage'));
 const PruefungstrainingStudiumPage = lazy(() => import('@/pages/seo/PruefungstrainingStudiumPage'));
+const FortbildungLandingPage = lazy(() => import('@/pages/seo/FortbildungLandingPage'));
+const ZertifizierungenLandingPage = lazy(() => import('@/pages/seo/ZertifizierungenLandingPage'));
 import ProgrammaticSEODispatcher from '@/pages/seo/ProgrammaticSEODispatcher';
 const PruefungsreifeCheck = lazy(() => import('@/components/marketing/PruefungsreifeCheck'));
 const BlogIndexPage = lazy(() => import('@/pages/seo/BlogIndexPage'));
@@ -169,6 +171,8 @@ const AppRoutes = () => {
           <Route path="/preise" element={<PreisePage />} />
           <Route path="/karriere" element={<KarrierePage />} />
           <Route path="/betriebe" element={<BetriebeLandingPage />} />
+          <Route path="/fortbildung" element={<FortbildungLandingPage />} />
+          <Route path="/zertifizierungen" element={<ZertifizierungenLandingPage />} />
           <Route path="/pruefungshandbuch" element={<HandbookLandingPage />} />
           <Route path="/wissen" element={<WissenPage />} />
           <Route path="/wissen/alle" element={<WissenAllePage />} />
