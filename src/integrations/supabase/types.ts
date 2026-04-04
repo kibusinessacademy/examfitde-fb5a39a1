@@ -31801,6 +31801,9 @@ export type Database = {
       }
       programs: {
         Row: {
+          aliases: string[] | null
+          canonical_title: string | null
+          cluster: string | null
           created_at: string
           degree_type: string | null
           ects_total: number | null
@@ -31809,13 +31812,18 @@ export type Database = {
           institution_name: string | null
           institution_type: string | null
           language_code: string
+          priority_wave: number | null
           program_type: string
           slug: string
           status: string
+          study_mode: string | null
           title: string
           updated_at: string
         }
         Insert: {
+          aliases?: string[] | null
+          canonical_title?: string | null
+          cluster?: string | null
           created_at?: string
           degree_type?: string | null
           ects_total?: number | null
@@ -31824,13 +31832,18 @@ export type Database = {
           institution_name?: string | null
           institution_type?: string | null
           language_code?: string
+          priority_wave?: number | null
           program_type?: string
           slug: string
           status?: string
+          study_mode?: string | null
           title: string
           updated_at?: string
         }
         Update: {
+          aliases?: string[] | null
+          canonical_title?: string | null
+          cluster?: string | null
           created_at?: string
           degree_type?: string | null
           ects_total?: number | null
@@ -31839,9 +31852,11 @@ export type Database = {
           institution_name?: string | null
           institution_type?: string | null
           language_code?: string
+          priority_wave?: number | null
           program_type?: string
           slug?: string
           status?: string
+          study_mode?: string | null
           title?: string
           updated_at?: string
         }
