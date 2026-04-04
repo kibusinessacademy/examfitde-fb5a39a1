@@ -178,8 +178,8 @@ Deno.serve(async (req) => {
     let professionContext = curriculum?.title || "Ausbildungsberuf";
     if (curriculum?.beruf_id) {
       try {
-        const prof = await resolveProfession(sb, curriculum.beruf_id);
-        if (prof?.bezeichnung_kurz) professionContext = prof.bezeichnung_kurz;
+        const prof = await resolveProfession(sb, { curriculumId });
+        professionContext = prof.professionName;
       } catch { /* fallback to title */ }
     }
 

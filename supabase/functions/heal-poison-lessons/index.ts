@@ -99,8 +99,8 @@ Deno.serve(async (req) => {
     // Resolve profession
     let professionName = "Fachkraft";
     try {
-      const resolved = await resolveProfession(sb, courseId, curriculumId);
-      professionName = resolved.name;
+      const resolved = await resolveProfession(sb, { curriculumId });
+      professionName = resolved.professionName;
     } catch { /* fallback */ }
 
     // Use repair_content chain (stronger models for retry)
