@@ -11,8 +11,6 @@ import { Badge } from "@/components/ui/badge";
 import { TrackingEvents } from "@/lib/tracking/track";
 import { startProductCheckout } from "@/lib/checkout/startProductCheckout";
 import { toast } from "sonner";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import {
   ArrowRight,
   CheckCircle,
