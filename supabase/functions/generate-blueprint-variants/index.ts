@@ -230,9 +230,11 @@ Deno.serve(async (req) => {
 
       // Enqueue individual per-blueprint jobs instead of inline processing
       const jobRows = blueprints.map((bp) => ({
-        job_type: "generate_blueprint_variants",
+        job_type: "package_generate_blueprint_variants",
         payload: {
           package_id: packageId,
+          curriculum_id: pkg.curriculum_id,
+          course_id: pkg.course_id,
           blueprintId: bp.id,
           count: countPerBlueprint,
           subjectName: resolvedSubject,
