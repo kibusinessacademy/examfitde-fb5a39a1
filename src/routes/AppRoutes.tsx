@@ -171,6 +171,8 @@ const AppRoutes = () => {
           <Route path="/preise" element={<PreisePage />} />
           <Route path="/karriere" element={<KarrierePage />} />
           <Route path="/betriebe" element={<BetriebeLandingPage />} />
+          <Route path="/fortbildung" element={<FortbildungLandingPage />} />
+          <Route path="/zertifizierungen" element={<ZertifizierungenLandingPage />} />
           <Route path="/pruefungshandbuch" element={<HandbookLandingPage />} />
           <Route path="/wissen" element={<WissenPage />} />
           <Route path="/wissen/alle" element={<WissenAllePage />} />
