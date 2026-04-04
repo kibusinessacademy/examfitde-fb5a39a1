@@ -300,16 +300,17 @@ Deno.serve(async (req) => {
       failures.push("FACTORY_MISSING_STEP_BACKBONE");
     }
 
-    // Check enrichment completeness
+    // Check enrichment completeness (competencies are linked via learning_fields)
+    const lfIds = (lfs ?? []).map((lf) => lf.id);
     const { count: totalComps } = await sb
       .from("competencies")
       .select("id", { count: "exact", head: true })
-      .eq("curriculum_id", curriculum.id);
+      .in("learning_field_id", lfIds.length ? lfIds : ["__none__"]);
 
     const { count: enrichedComps } = await sb
       .from("competencies")
       .select("id", { count: "exact", head: true })
-      .eq("curriculum_id", curriculum.id)
+      .in("learning_field_id", lfIds.length ? lfIds : ["__none__"])
       .gte("enrichment_version", 2);
 
     if (totalComps !== enrichedComps) {
