@@ -30,6 +30,7 @@ export type ExamQuestionRecord = {
   question_type: string | null;
   question_text: string | null;
   options: Array<{ id: string; text: string; is_correct: boolean }> | null;
+  correct_answer: number | null;
   explanation: string | null;
   trap_type: string | null;
   conflict_type: string | null;
