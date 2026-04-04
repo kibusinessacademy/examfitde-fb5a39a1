@@ -46,25 +46,12 @@ type FactoryReasonCode =
   | "FACTORY_ENRICHMENT_INCOMPLETE"
   | "FACTORY_BUILDING_TRANSITION_FAILED";
 
-// ── Track→DB enum mappings ─────────────────────────────────────────
+// ── Track→DB enum mappings (now delegated to shared helpers) ──────
 const TRACK_ENUM: Record<string, string> = {
   FORTBILDUNG: "FORTBILDUNG",
   CERTIFICATION: "ZERTIFIKAT",
   AUSBILDUNG: "AUSBILDUNG_VOLL",
   STUDIUM: "STUDIUM",
-};
-const CERT_TYPE_ENUM: Record<string, string> = {
-  IHK_AUFSTIEG: "aufstiegsfortbildung",
-  MEISTER: "aufstiegsfortbildung",
-  AEVO: "aufstiegsfortbildung",
-  FINANCE: "aufstiegsfortbildung",
-  PROJECT_MANAGEMENT: "branchenzertifikat",
-  CLOUD: "branchenzertifikat",
-  SECURITY: "branchenzertifikat",
-  DATA: "branchenzertifikat",
-  PRIVACY: "branchenzertifikat",
-  ERP: "branchenzertifikat",
-  GENERAL: "sonstige",
 };
 
 Deno.serve(async (req) => {
