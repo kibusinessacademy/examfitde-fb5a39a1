@@ -16,9 +16,7 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { license_id, next_status, reason = null } = body;
 
-    if (!license_id || typeof license_id !== "string") {
-      return json({ error: "Missing license_id" }, 400);
-    }
+    if (!license_id || typeof license_id !== "string") return json({ error: "Missing license_id" }, 400);
     if (!["active", "revoked", "suspended", "expired"].includes(next_status)) {
       return json({ error: "Invalid next_status" }, 400);
     }
@@ -39,10 +37,7 @@ Deno.serve(async (req) => {
     if (updateErr) return json({ error: updateErr.message }, 500);
 
     const eventMap: Record<string, string> = {
-      revoked: "revoked",
-      suspended: "suspended",
-      active: "reactivated",
-      expired: "expired",
+      revoked: "revoked", suspended: "suspended", active: "reactivated", expired: "expired",
     };
 
     await sb.from("standalone_license_events").insert({
@@ -52,9 +47,11 @@ Deno.serve(async (req) => {
       detail: { previous_status: existing.status, next_status, reason, actor: userId },
     });
 
+    console.log(`[license-status] ${license_id} ${existing.status}→${next_status} by=${userId}`);
     return json({ ok: true, license_id, previous_status: existing.status, next_status });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";
+    console.error("[license-status] Fatal:", msg);
     return json({ error: msg }, 500);
   }
 });
