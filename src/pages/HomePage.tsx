@@ -65,14 +65,14 @@ export default function HomePage() {
   return (
     <>
       <SEOHead
-        title={seoTitle("IHK Prüfung bestehen: Online Prüfungstraining mit echten Aufgaben")}
-        description="IHK Prüfungstraining online: Mit Prüfungssimulation, echten Prüfungsfragen & KI-Prüfungscoach die Abschlussprüfung sicher bestehen. 39 € einmalig, kein Abo."
+        title={seoTitle("Prüfung bestehen: Online Prüfungstraining für Ausbildung & Studium")}
+        description="Prüfungstraining online: IHK-Abschlussprüfung oder Klausur im Studium – mit Prüfungssimulation, adaptivem Training & KI-Coach sicher bestehen. 39 € einmalig."
         canonical={`${SITE_URL}/`}
         type="website"
         structuredData={[
           generateFAQSchema(FAQ_ITEMS),
           generateCourseListSchema([
-            { name: 'IHK-Prüfungstraining', url: `${SITE_URL}/shop`, description: 'Komplett-Prüfungstraining für IHK-Ausbildungsberufe', price: 39 },
+            { name: 'Prüfungstraining', url: `${SITE_URL}/shop`, description: 'Komplett-Prüfungstraining für IHK-Ausbildungsberufe und Studiengänge', price: 39 },
           ]),
         ]}
       />
@@ -88,12 +88,12 @@ export default function HomePage() {
             </div>
 
             <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-display font-bold mb-5 animate-fade-in leading-[1.1]">
-              IHK Prüfung bestehen:{' '}
-              <span className="text-gradient text-glow">Online Prüfungstraining mit echten Aufgaben</span>
+              Prüfung bestehen:{' '}
+              <span className="text-gradient text-glow">Online Training mit echten Aufgaben</span>
             </h1>
 
             <p className="text-base sm:text-xl text-muted-foreground mb-8 max-w-2xl mx-auto animate-fade-in" style={{ animationDelay: '0.1s' }}>
-              Bereite dich gezielt auf deine IHK Abschlussprüfung vor – mit Prüfungssimulation, adaptivem Prüfungstrainer und KI-Prüfungscoach. Kostenlos testen oder direkt starten.
+              Ob IHK-Abschlussprüfung oder Klausur im Studium – bereite dich gezielt vor mit Prüfungssimulation, adaptivem Training und KI-Prüfungscoach. Kostenlos testen oder direkt starten.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-3 justify-center animate-fade-in" style={{ animationDelay: '0.2s' }}>
@@ -164,11 +164,11 @@ export default function HomePage() {
         <section className="py-12 sm:py-16 md:py-20 px-3 sm:px-4 bg-muted/30">
           <div className="container mx-auto max-w-4xl text-center">
             <h2 className="text-2xl sm:text-3xl md:text-4xl font-display font-bold mb-4 sm:mb-6">
-              IHK Prüfungsvorbereitung online:{' '}
+              Prüfungsvorbereitung online:{' '}
               <span className="text-gradient">Gezielt trainieren statt blind lernen</span>
             </h2>
             <p className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto mb-12">
-              Prüfungstraining für Azubis – mit adaptiver Schwächenanalyse, echten Prüfungsfragen und einem System, das dich Schritt für Schritt prüfungsreif macht.
+              Prüfungstraining für Azubis und Studierende – mit adaptiver Schwächenanalyse, echten Prüfungsaufgaben und einem System, das dich Schritt für Schritt prüfungsreif macht.
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
@@ -192,7 +192,7 @@ export default function HomePage() {
           <div className="container mx-auto max-w-6xl">
             <div className="text-center mb-8 md:mb-16">
               <h2 className="text-2xl sm:text-3xl md:text-4xl font-display font-bold mb-4">
-                Prüfungstraining für Ausbildung: <span className="text-gradient">So wirst du prüfungsreif</span>
+                Prüfungstraining für Ausbildung & Studium: <span className="text-gradient">So wirst du prüfungsreif</span>
               </h2>
             </div>
 
@@ -201,7 +201,7 @@ export default function HomePage() {
                 { icon: Brain, color: 'text-primary', title: 'Adaptives Training', text: 'Das System erkennt deine Schwächen und trainiert gezielt.' },
                 { icon: Mic, color: 'text-accent', title: 'Mündliche Prüfung', text: 'Übe das Fachgespräch mit KI-Feedback zu deinen Antworten.' },
                 { icon: TrendingUp, color: 'text-success', title: 'Fortschritt messen', text: 'Der Prüfungsreife-Indikator zeigt dir in Echtzeit, wo du stehst.' },
-                { icon: Target, color: 'text-warning', title: 'Nach Rahmenplan', text: 'Alle Inhalte basieren auf dem offiziellen Ausbildungsrahmenplan.' },
+                { icon: Target, color: 'text-warning', title: 'Nach Rahmenplan', text: 'Alle Inhalte basieren auf dem offiziellen Ausbildungsrahmenplan oder Modulhandbuch.' },
               ].map(({ icon: Icon, color, title, text }) => (
                 <div key={title} className="glass-card rounded-2xl p-5 sm:p-6 text-center hover:border-primary/30 transition-colors">
                   <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-muted/50 mb-4">
@@ -282,11 +282,12 @@ export default function HomePage() {
               <p className="text-muted-foreground">Gleiches System, passende Argumente für jede Rolle.</p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
               {[
-                { to: '/pruefungstraining-azubis', icon: GraduationCap, color: 'text-primary', title: 'Für Auszubildende', text: 'Prüfung simulieren, Schwächen erkennen, sicher bestehen.' },
-                { to: '/pruefungstraining-betriebe', icon: Building2, color: 'text-accent', title: 'Für Ausbildungsbetriebe', text: 'Prüfungsreife der Azubis mess- und steuerbar machen.' },
-                { to: '/pruefungstraining-institutionen', icon: BookOpen, color: 'text-success', title: 'Für Berufsschulen & IHK', text: 'Prüfungskonforme Ergänzung, nicht Ersatz des Unterrichts.' },
+                { to: '/pruefungstraining-azubis', icon: GraduationCap, color: 'text-primary', title: 'Für Auszubildende', text: 'IHK-Prüfung simulieren, Schwächen erkennen, sicher bestehen.' },
+                { to: '/pruefungstraining-studium', icon: BookOpen, color: 'text-blue-400', title: 'Für Studierende', text: 'Klausuren gezielt vorbereiten – adaptiv, strukturiert, prüfungsnah.' },
+                { to: '/pruefungstraining-betriebe', icon: Building2, color: 'text-accent', title: 'Für Betriebe', text: 'Prüfungsreife der Azubis mess- und steuerbar machen.' },
+                { to: '/pruefungstraining-institutionen', icon: BookOpen, color: 'text-success', title: 'Für Bildungsträger', text: 'Prüfungskonforme Ergänzung für Berufsschulen und Hochschulen.' },
               ].map(({ to, icon: Icon, color, title, text }) => (
                 <Link key={to} to={to} className="glass-card rounded-2xl p-6 sm:p-8 group hover:border-primary/30 transition-all duration-300">
                   <Icon className={`h-10 w-10 ${color} mb-4`} />

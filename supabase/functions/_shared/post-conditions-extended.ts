@@ -149,9 +149,11 @@ export async function assertExtendedPostConditions(sb: SB, args: {
   }
 
   // ── generate_lesson_minichecks ──
+  // v2: Check BOTH embedded minicheck_parsed AND table-backed minicheck_questions
+  // The SSOT for minichecks has migrated to the minicheck_questions table
   if (stepKey === "generate_lesson_minichecks") {
     const { data: pkg } = await sb
-      .from("course_packages").select("course_id").eq("id", packageId).single();
+      .from("course_packages").select("course_id, curriculum_id").eq("id", packageId).single();
     if (!pkg?.course_id) throw hollowError("HOLLOW_MINICHECKS", { reason: "no course_id" });
 
     const { data: lessons } = await sb
@@ -161,17 +163,46 @@ export async function assertExtendedPostConditions(sb: SB, args: {
     const total = lessons?.length ?? 0;
     if (total === 0) throw hollowError("HOLLOW_MINICHECKS", { total_lessons: 0, with_minichecks: 0 });
 
-    const withMinicheck = (lessons ?? []).filter((l: any) => {
+    // Count lessons with embedded minichecks
+    const withEmbedded = (lessons ?? []).filter((l: any) => {
       if (!l.minicheck_parsed) return false;
       if (Array.isArray(l.minicheck_parsed)) return l.minicheck_parsed.length > 0;
       if (typeof l.minicheck_parsed === "object") return Object.keys(l.minicheck_parsed).length > 0;
       return false;
     }).length;
 
+    // Count competencies with table-backed minicheck_questions (the new SSOT)
+    let tableBackedCompetencies = 0;
+    if (pkg.curriculum_id) {
+      const { count } = await sb
+        .from("minicheck_questions")
+        .select("competency_id", { count: "exact", head: true })
+        .eq("status", "approved")
+        .in("competency_id", (await sb
+          .from("competencies")
+          .select("id")
+          .in("learning_field_id", (await sb
+            .from("learning_fields")
+            .select("id")
+            .eq("curriculum_id", pkg.curriculum_id)
+          ).data?.map((lf: any) => lf.id) ?? [])
+        ).data?.map((c: any) => c.id) ?? []);
+      tableBackedCompetencies = count ?? 0;
+    }
+
+    // Total coverage = max of embedded OR table-backed
+    const withMinicheck = Math.max(withEmbedded, tableBackedCompetencies);
+
     const minRequired = Math.max(1, Math.ceil(total * 0.8));
     if (withMinicheck < minRequired) {
       throw hollowError("HOLLOW_MINICHECKS", {
-        total_lessons: total, with_minichecks: withMinicheck, min_required: minRequired,
+        total_lessons: total,
+        with_embedded: withEmbedded,
+        with_table_backed: tableBackedCompetencies,
+        with_minichecks: withMinicheck,
+        min_required: minRequired,
+        fp_real: withMinicheck,
+        fp_placeholders: total - withMinicheck,
       });
     }
 
