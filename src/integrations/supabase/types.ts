@@ -30991,6 +30991,124 @@ export type Database = {
         }
         Relationships: []
       }
+      product_landing_profiles: {
+        Row: {
+          active: boolean
+          certification_id: string
+          created_at: string
+          faq_seed: Json
+          hero_headline: string
+          hero_subline: string
+          id: string
+          landing_type: string
+          primary_cta: string
+          primary_goal: string
+          proof_items: string[]
+          secondary_cta: string | null
+          seo_description: string | null
+          seo_title: string | null
+          target_pain_points: string[]
+          updated_at: string
+          usp_items: string[]
+        }
+        Insert: {
+          active?: boolean
+          certification_id: string
+          created_at?: string
+          faq_seed?: Json
+          hero_headline: string
+          hero_subline: string
+          id?: string
+          landing_type: string
+          primary_cta: string
+          primary_goal: string
+          proof_items?: string[]
+          secondary_cta?: string | null
+          seo_description?: string | null
+          seo_title?: string | null
+          target_pain_points?: string[]
+          updated_at?: string
+          usp_items?: string[]
+        }
+        Update: {
+          active?: boolean
+          certification_id?: string
+          created_at?: string
+          faq_seed?: Json
+          hero_headline?: string
+          hero_subline?: string
+          id?: string
+          landing_type?: string
+          primary_cta?: string
+          primary_goal?: string
+          proof_items?: string[]
+          secondary_cta?: string | null
+          seo_description?: string | null
+          seo_title?: string | null
+          target_pain_points?: string[]
+          updated_at?: string
+          usp_items?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_landing_profiles_certification_id_fkey"
+            columns: ["certification_id"]
+            isOneToOne: false
+            referencedRelation: "certifications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_module_configs: {
+        Row: {
+          ai_tutor: boolean
+          certification_id: string
+          created_at: string
+          exam_simulation: boolean
+          exam_trainer: boolean
+          handbook: boolean
+          id: string
+          mini_checks: boolean
+          module_notes: Json
+          oral_exam: boolean
+          updated_at: string
+        }
+        Insert: {
+          ai_tutor?: boolean
+          certification_id: string
+          created_at?: string
+          exam_simulation?: boolean
+          exam_trainer?: boolean
+          handbook?: boolean
+          id?: string
+          mini_checks?: boolean
+          module_notes?: Json
+          oral_exam?: boolean
+          updated_at?: string
+        }
+        Update: {
+          ai_tutor?: boolean
+          certification_id?: string
+          created_at?: string
+          exam_simulation?: boolean
+          exam_trainer?: boolean
+          handbook?: boolean
+          id?: string
+          mini_checks?: boolean
+          module_notes?: Json
+          oral_exam?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_module_configs_certification_id_fkey"
+            columns: ["certification_id"]
+            isOneToOne: true
+            referencedRelation: "certifications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_price_tiers: {
         Row: {
           created_at: string | null
@@ -31033,6 +31151,59 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_level_pricing"
             referencedColumns: ["product_id"]
+          },
+        ]
+      }
+      product_pricing_configs: {
+        Row: {
+          access_months: number
+          active: boolean
+          b2b_price_10: number | null
+          b2b_price_200: number | null
+          b2b_price_50: number | null
+          certification_id: string
+          compare_at_price: number | null
+          created_at: string
+          currency: string
+          id: string
+          one_time_price: number
+          updated_at: string
+        }
+        Insert: {
+          access_months?: number
+          active?: boolean
+          b2b_price_10?: number | null
+          b2b_price_200?: number | null
+          b2b_price_50?: number | null
+          certification_id: string
+          compare_at_price?: number | null
+          created_at?: string
+          currency?: string
+          id?: string
+          one_time_price: number
+          updated_at?: string
+        }
+        Update: {
+          access_months?: number
+          active?: boolean
+          b2b_price_10?: number | null
+          b2b_price_200?: number | null
+          b2b_price_50?: number | null
+          certification_id?: string
+          compare_at_price?: number | null
+          created_at?: string
+          currency?: string
+          id?: string
+          one_time_price?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_pricing_configs_certification_id_fkey"
+            columns: ["certification_id"]
+            isOneToOne: true
+            referencedRelation: "certifications"
+            referencedColumns: ["id"]
           },
         ]
       }
