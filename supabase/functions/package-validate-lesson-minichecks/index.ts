@@ -388,6 +388,7 @@ Deno.serve(async (req) => {
           coverage: coverage !== null ? Math.round(coverage * 100) : null,
           publish_gate: publishGatePassed,
           issues,
+          policy_meta: buildValidatorMeta(policy, trackWarnings),
         },
         200,
         origin,
