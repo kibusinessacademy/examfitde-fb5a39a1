@@ -13,6 +13,17 @@ import {
   type GateClassification,
   type ValidationSnapshot,
 } from "../_shared/learning-content-gate.ts";
+import {
+  type ValidationIssue,
+  type T1Result,
+  aggregateFailureModes,
+  detectCatastrophicFailures,
+} from "../_shared/validation-issue.ts";
+import {
+  deriveLearningContentCapabilities,
+  hasAnyDownstreamCapability,
+  type LearningContentCapabilities,
+} from "../_shared/learning-content-capabilities.ts";
 
 /**
  * package-validate-learning-content — Gate-Classified Pipeline Validator (v2.1)
