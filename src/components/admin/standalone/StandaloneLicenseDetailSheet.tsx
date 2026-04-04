@@ -92,7 +92,11 @@ export function StandaloneLicenseDetailSheet({ license, onClose }: Props) {
               <Detail label="Geräte" value={`${license.device_count}/${license.device_limit}`} />
               <Detail
                 label="Ablauf"
-                value={format(new Date(license.expires_at), "dd.MM.yyyy")}
+                value={
+                  license.expires_at
+                    ? format(new Date(license.expires_at), "dd.MM.yyyy")
+                    : "—"
+                }
               />
               <Detail
                 label="Letzte Validierung"
