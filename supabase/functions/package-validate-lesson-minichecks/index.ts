@@ -101,7 +101,10 @@ Deno.serve(async (req) => {
     const mode: "lesson" | "drill" = hasLearningCourse ? "lesson" : "drill";
     const track = pkgRow?.track ?? "AUSBILDUNG_VOLL";
     const profile = getContentProfile(track);
+    const integrityProfile = resolveIntegrityProfile({ track });
+    const policy = getValidationPolicy(integrityProfile);
     const isAcademic = profile.minicheck.type === "understanding";
+    const trackWarnings: string[] = [];
 
     const issues: Array<{ severity: string; code: string; message: string }> = [];
 
