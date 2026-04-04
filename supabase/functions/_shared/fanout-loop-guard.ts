@@ -12,12 +12,16 @@
  *   3. Log every block to auto_heal_log for observability
  */
 
-/** Job types subject to fanout loop protection */
+/**
+ * Job types subject to fanout loop protection.
+ *
+ * IMPORTANT: Only PARENT/ORCHESTRATOR types go here — NOT individual
+ * shard/child jobs. Shard jobs (lesson_generate_content_shard) are
+ * legitimately created in bulk during a single fanout and are already
+ * deduplicated via batch_cursor in the unique index.
+ */
 export const FANOUT_GUARDED_JOB_TYPES = new Set([
-  "lesson_generate_content_shard",
-  "package_generate_blueprint_variants",
   "package_fanout_learning_content",
-  // repair fanout types that can loop
   "regenerate_learning_content_cluster",
 ]);
 
