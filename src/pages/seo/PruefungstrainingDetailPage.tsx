@@ -181,7 +181,7 @@ const PruefungstrainingDetailPage = () => {
             { icon: BookOpen, label: 'Prüfungsaufgaben', value: `${questions}+` },
             { icon: Brain, label: 'KI-Coach', value: 'Inklusive' },
             { icon: Clock, label: 'Zugang', value: '12 Monate' },
-            { icon: BarChart3, label: 'Preis', value: '39 €' },
+            { icon: BarChart3, label: 'Preis', value: '24,90 €' },
           ].map(stat => (
             <Card key={stat.label} className="text-center">
               <CardContent className="py-4 space-y-1">
