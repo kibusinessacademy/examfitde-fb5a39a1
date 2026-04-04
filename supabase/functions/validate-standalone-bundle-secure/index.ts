@@ -203,14 +203,15 @@ Deno.serve(async (req) => {
       hardFails.push("license_incomplete");
     }
 
-    // Signature verification (only if public key available)
+    // Signature verification
     if (publicKeyPem && license!.signature) {
       const signatureOk = await verifyLicenseSignature(license!, publicKeyPem);
       if (!signatureOk) {
         hardFails.push("license_signature_invalid");
       }
     } else if (!publicKeyPem) {
-      warnings.push("license_signature_skipped_no_public_key");
+      // No public key = hard fail in production
+      hardFails.push("license_signature_skipped_no_public_key");
     }
 
     // ── 6. Cross-reference checks ──
