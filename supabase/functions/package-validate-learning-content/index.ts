@@ -417,28 +417,33 @@ Deno.serve(async (req) => {
   const failureModes = aggregateFailureModes(t1Failed);
   const affectedLessons = t1Failed.map(f => f.lessonId);
 
-  // ── For hard_fail with catastrophic issues: MARK (don't reset) lessons ──
-  if (classification.gateClass === "hard_fail" && criticalFails.length > 0) {
-    const criticalIds = criticalFails.map(f => f.lessonId);
-    for (let i = 0; i < criticalIds.length; i += 50) {
-      const chunk = criticalIds.slice(i, i + 50);
-      await sb.from("lessons").update({
-        quality_flags: {
-          needs_regeneration: true,
-          regeneration_reason: "tier1_critical_fail",
-          flagged_at: new Date().toISOString(),
-        },
-      }).in("id", chunk);
+  // ── For hard_fail with critical issues: MARK (don't reset) lessons ──
+  if (classification.gateClass === "hard_fail") {
+    const criticalLessons = t1Failed.filter(f =>
+      f.issues.some(i => i.severity === "critical")
+    );
+    if (criticalLessons.length > 0) {
+      const criticalIds = criticalLessons.map(f => f.lessonId);
+      for (let i = 0; i < criticalIds.length; i += 50) {
+        const chunk = criticalIds.slice(i, i + 50);
+        await sb.from("lessons").update({
+          quality_flags: {
+            needs_regeneration: true,
+            regeneration_reason: "tier1_critical_fail",
+            flagged_at: new Date().toISOString(),
+          },
+        }).in("id", chunk);
+      }
     }
   }
 
   // ═══════════════════════════════════════
-  // TIER 2: LLM validation (only for healthy/soft_pass candidates)
+  // TIER 2: LLM validation (only when downstream is allowed)
   // ═══════════════════════════════════════
   let t2Results: Array<{ lessonId: string; score: number; decision: string; issues: string[] }> = [];
   let avgScore = 100;
 
-  if (classification.allowsDownstream) {
+  if (hasAnyDownstreamCapability(capabilities)) {
     const t1Passed = t1Results.filter(r => r.passed);
     const sampleSize = Math.min(SAMPLE_SIZE, t1Passed.length);
 
