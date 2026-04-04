@@ -63,9 +63,73 @@ export interface ValidationPolicy {
 
   // Hard-fail flags
   hardFailOnMissingExamContext: boolean;
+
+  // ── MiniCheck rules ──
+  minicheck: {
+    /** Minimum fraction of higher-order Bloom levels (apply/analyze/evaluate/create) */
+    minHigherOrderBloomPct: number;
+    /** Maximum fraction of pure-recall Bloom levels (remember) */
+    maxRememberBloomPct: number;
+    /** Severity for missing trap_tags: "warning" | "info" */
+    missingTrapSeverity: "warning" | "info";
+    /** Bloom levels considered "higher order" */
+    higherOrderLevels: string[];
+    /** Coverage threshold for publish gate */
+    coverageThreshold: number;
+    /** Min approved items per lesson */
+    minItemsPerLesson: number;
+  };
+
+  // ── Handbook rules ──
+  handbook: {
+    /** Required structural sections (regex patterns) */
+    requiredSections: Array<{ pattern: RegExp; label: string }>;
+    /** Contamination terms to detect (opposite-track terms) */
+    contaminationTerms: string[];
+    /** Contamination severity */
+    contaminationSeverity: "warning" | "info";
+    /** Min section length (chars) for basis validation */
+    minSectionLength: number;
+    /** Min prose length (chars) */
+    minProseLength: number;
+  };
+
+  // ── Blueprint rules ──
+  blueprint: {
+    /** Min fraction of transfer/application variants */
+    minTransferVariantPct: number;
+    /** Required variant types */
+    requiredVariantTypes: string[];
+  };
 }
 
-const POLICY_VERSION = "2026-04-04-v1";
+const POLICY_VERSION = "2026-04-04-v2";
+
+// ── Shared constants ──
+const IHK_CONTAMINATION_TERMS = [
+  "Berichtsheft", "Azubi", "Ausbildungsrahmenplan", "Ausbildungsbetrieb",
+  "Ausbildungsordnung", "Zwischenprüfung", "Gesellenprüfung",
+  "Ausbildungsnachweis", "überbetriebliche Unterweisung",
+];
+
+const ACADEMIC_CONTAMINATION_TERMS = [
+  "Seminararbeit", "Studienordnung", "Modulhandbuch", "Klausurzulassung",
+  "Bachelorarbeit", "Masterarbeit", "ECTS",
+];
+
+const ACADEMIC_HANDBOOK_SECTIONS: Array<{ pattern: RegExp; label: string }> = [
+  { pattern: /modellvergleich|theorievergleich|gegenüberstellung/i, label: "Modellvergleich" },
+  { pattern: /transfer|anwendung|fallbeispiel|praxisbezug/i, label: "Transfer/Anwendung" },
+  { pattern: /theor(ie|etisch)|framework|modell|konzept/i, label: "Theoretische Grundlagen" },
+];
+
+const VOCATIONAL_HANDBOOK_SECTIONS: Array<{ pattern: RegExp; label: string }> = [
+  { pattern: /prüfungsfalle|typische\s+fehler|häufige\s+fehler/i, label: "Prüfungsfallen" },
+  { pattern: /merkschema|eselsbrücke|checkliste|merkhilfe/i, label: "Merkschemata" },
+  { pattern: /formel|berechnung|kalkulation/i, label: "Formeln & Berechnungen" },
+];
+
+// ── Policy definitions ──
 
 export function getValidationPolicy(profile: IntegrityProfile): ValidationPolicy {
   switch (profile) {
@@ -88,6 +152,28 @@ export function getValidationPolicy(profile: IntegrityProfile): ValidationPolicy
         tier2Dimensions: "Fachliche Korrektheit (25%), Akademische Tiefe & Terminologie (20%), Theorie-Modell-Bezug (15%), Begriffspräzision (15%), Didaktische Klarheit (15%), Strukturelle Vollständigkeit (10%)",
 
         hardFailOnMissingExamContext: false,
+
+        minicheck: {
+          minHigherOrderBloomPct: 0.30,
+          maxRememberBloomPct: 0.30,
+          missingTrapSeverity: "info",
+          higherOrderLevels: ["apply", "analyze", "evaluate", "create"],
+          coverageThreshold: 0.90,
+          minItemsPerLesson: 3,
+        },
+
+        handbook: {
+          requiredSections: ACADEMIC_HANDBOOK_SECTIONS,
+          contaminationTerms: IHK_CONTAMINATION_TERMS,
+          contaminationSeverity: "warning",
+          minSectionLength: 800,
+          minProseLength: 500,
+        },
+
+        blueprint: {
+          minTransferVariantPct: 0.34,
+          requiredVariantTypes: ["concept", "transfer", "analysis"],
+        },
       };
 
     case "WEITERBILDUNG":
@@ -109,6 +195,28 @@ export function getValidationPolicy(profile: IntegrityProfile): ValidationPolicy
         tier2Dimensions: "Fachliche Korrektheit (25%), Praxisrelevanz (20%), Handlungskompetenz (15%), Sprachliche Klarheit (15%), Vollständigkeit (15%), Berufsbezug (10%)",
 
         hardFailOnMissingExamContext: false,
+
+        minicheck: {
+          minHigherOrderBloomPct: 0.20,
+          maxRememberBloomPct: 0.40,
+          missingTrapSeverity: "warning",
+          higherOrderLevels: ["apply", "analyze", "evaluate"],
+          coverageThreshold: 0.90,
+          minItemsPerLesson: 3,
+        },
+
+        handbook: {
+          requiredSections: VOCATIONAL_HANDBOOK_SECTIONS,
+          contaminationTerms: ACADEMIC_CONTAMINATION_TERMS,
+          contaminationSeverity: "info",
+          minSectionLength: 800,
+          minProseLength: 500,
+        },
+
+        blueprint: {
+          minTransferVariantPct: 0.20,
+          requiredVariantTypes: ["concept", "procedure"],
+        },
       };
 
     default: // AUSBILDUNG_VOLL, AUSBILDUNG_LIGHT
@@ -130,6 +238,28 @@ export function getValidationPolicy(profile: IntegrityProfile): ValidationPolicy
         tier2Dimensions: "Fachliche Korrektheit (25%), Didaktische Qualität (20%), Prüfungsrelevanz (15%), Sprachliche Klarheit (10%), Vollständigkeit (10%), Berufsbezug (20%)",
 
         hardFailOnMissingExamContext: true,
+
+        minicheck: {
+          minHigherOrderBloomPct: 0.20,
+          maxRememberBloomPct: 0.40,
+          missingTrapSeverity: "warning",
+          higherOrderLevels: ["apply", "analyze", "evaluate"],
+          coverageThreshold: 0.90,
+          minItemsPerLesson: 3,
+        },
+
+        handbook: {
+          requiredSections: VOCATIONAL_HANDBOOK_SECTIONS,
+          contaminationTerms: ACADEMIC_CONTAMINATION_TERMS,
+          contaminationSeverity: "info",
+          minSectionLength: 800,
+          minProseLength: 500,
+        },
+
+        blueprint: {
+          minTransferVariantPct: 0.20,
+          requiredVariantTypes: ["concept", "procedure"],
+        },
       };
   }
 }
@@ -164,6 +294,43 @@ export type StudiumReasonCode =
   | "CONCEPT_PRECISION_TOO_LOW"
   | "ACADEMIC_DEPTH_TOO_LOW"
   | "ANALYTICAL_EXPLANATION_TOO_WEAK";
+
+// ── Structured validator output ──
+
+export interface PolicyValidationMeta {
+  track: string;
+  is_academic: boolean;
+  profile_used: IntegrityProfile;
+  policy_version: string;
+  thresholds_applied: Record<string, number>;
+  track_warnings: string[];
+}
+
+/**
+ * Build structured meta for validator outputs.
+ * This enables the Control Tower to display why a course soft-failed per track.
+ */
+export function buildValidatorMeta(
+  policy: ValidationPolicy,
+  trackWarnings: string[] = [],
+): PolicyValidationMeta {
+  return {
+    track: policy.profile,
+    is_academic: policy.profile === "STUDIUM",
+    profile_used: policy.profile,
+    policy_version: policy.policyVersion,
+    thresholds_applied: {
+      healthy: policy.thresholdHealthy,
+      soft_pass: policy.thresholdSoftPass,
+      repairable: policy.thresholdRepairable,
+      minicheck_higher_order_bloom_pct: policy.minicheck.minHigherOrderBloomPct,
+      minicheck_max_remember_pct: policy.minicheck.maxRememberBloomPct,
+      minicheck_coverage: policy.minicheck.coverageThreshold,
+      blueprint_transfer_variant_pct: policy.blueprint.minTransferVariantPct,
+    },
+    track_warnings: trackWarnings,
+  };
+}
 
 /**
  * Build profile-specific meta for step persistence.

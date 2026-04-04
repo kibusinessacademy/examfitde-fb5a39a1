@@ -3,6 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { checkContamination } from "../_shared/contamination-guard.ts";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
 import { getContentProfile } from "../_shared/track-content-profiles.ts";
+import { resolveIntegrityProfile, getValidationPolicy, buildValidatorMeta } from "../_shared/validation/learning-content-policy.ts";
 
 /**
  * package-validate-handbook — Pipeline Step (after generate_handbook)
@@ -138,7 +139,10 @@ Deno.serve(async (req) => {
   const { data: pkgTrackRow } = await sb.from("course_packages").select("track").eq("id", packageId).maybeSingle();
   const track = (pkgTrackRow as any)?.track ?? "AUSBILDUNG_VOLL";
   const profile = getContentProfile(track);
+  const integrityProfile = resolveIntegrityProfile({ track });
+  const policy = getValidationPolicy(integrityProfile);
   const isAcademic = profile.handbook.type === "learning_script";
+  const trackWarnings: string[] = [];
 
   // ── INCOMPLETE GUARD: Check if handbook generation is still in progress ──
   // SSOT: Use chapters as expected count, NOT learning_fields.
@@ -289,39 +293,22 @@ Deno.serve(async (req) => {
   const trackContentWarnings: string[] = [];
   const allContent = (sections as any[]).map(s => s.content_markdown || "").join("\n");
 
-  if (isAcademic) {
-    // STUDIUM handbook must contain model comparisons & transfer sections
-    const hasModelComparison = /modellvergleich|gegenüberstellung|modelle?\s+im\s+vergleich|vergleich\s+(der|von)\s+modelle/i.test(allContent)
-      || /vs\.|versus|im\s+gegensatz/i.test(allContent);
-    if (!hasModelComparison) {
-      trackContentWarnings.push("STUDIUM_NO_MODEL_COMPARISON: Kein Modellvergleich/Gegenüberstellung gefunden");
+  // Policy-driven structural checks
+  for (const reqSection of policy.handbook.requiredSections) {
+    if (!reqSection.pattern.test(allContent)) {
+      const code = isAcademic
+        ? `STUDIUM_NO_${reqSection.label.toUpperCase().replace(/[/\s]+/g, "_")}`
+        : `VOCATIONAL_NO_${reqSection.label.toUpperCase().replace(/[/\s]+/g, "_")}`;
+      trackContentWarnings.push(`${code}: Kein(e) ${reqSection.label} gefunden`);
     }
+  }
 
-    const hasTransfer = /transfer|anwendung|fallbeispiel|praxisbezug|empirisch/i.test(allContent);
-    if (!hasTransfer) {
-      trackContentWarnings.push("STUDIUM_NO_TRANSFER: Keine Transfer-/Anwendungsabschnitte gefunden");
-    }
-
-    const hasTheory = /theori|konzept|framework|paradigma|hypothes/i.test(allContent);
-    if (!hasTheory) {
-      trackContentWarnings.push("STUDIUM_NO_THEORY: Keine theoretischen Grundlagen/Frameworks gefunden");
-    }
-
-    // Check for IHK contamination in academic content
-    const ihkTerms = /IHK|Ausbilder|Azubi|Berufsalltag|Berichtsheft|Gesellenprüfung/i.test(allContent);
-    if (ihkTerms) {
-      trackContentWarnings.push("STUDIUM_IHK_CONTAMINATION: IHK-spezifische Begriffe in akademischem Handbuch");
-    }
-  } else {
-    // Vocational handbook must contain exam traps and practical formulas
-    const hasExamTraps = /prüfungsfalle|typische?\s+fehler|häufige?\s+verwechslung|achtung|vorsicht/i.test(allContent);
-    if (!hasExamTraps) {
-      trackContentWarnings.push("VOCATIONAL_NO_EXAM_TRAPS: Keine Prüfungsfallen/typische Fehler gefunden");
-    }
-
-    const hasMerkschema = /merkschemata|eselsbrücke|checkliste|merkregel|formelsammlung/i.test(allContent);
-    if (!hasMerkschema) {
-      trackContentWarnings.push("VOCATIONAL_NO_MERKSCHEMA: Keine Merkschemata/Checklisten gefunden");
+  // Policy-driven contamination check
+  for (const term of policy.handbook.contaminationTerms) {
+    if (new RegExp(term, "i").test(allContent)) {
+      const code = isAcademic ? "STUDIUM_IHK_CONTAMINATION" : "VOCATIONAL_ACADEMIC_CONTAMINATION";
+      trackContentWarnings.push(`${code}: Track-fremder Begriff "${term}" in Handbuch`);
+      break; // one contamination warning is enough
     }
   }
 
@@ -389,6 +376,7 @@ Deno.serve(async (req) => {
     },
     chapter_issues: chapterIssues,
     track_content_warnings: trackContentWarnings,
+    policy_meta: buildValidatorMeta(policy, trackContentWarnings),
     failures: results.filter(r => !r.passed).slice(0, 15),
     message: overallPass
       ? `✅ Handbook QC bestanden: ${passed}/${results.length} Sektionen (${passRate.toFixed(0)}%), ${depthEnrichedCount} mit Tiefe, ${totalHandbookChars} Zeichen [${profile.handbook.type}]`

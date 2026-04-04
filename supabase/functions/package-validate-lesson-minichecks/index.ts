@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 import { getContentProfile } from "../_shared/track-content-profiles.ts";
+import { resolveIntegrityProfile, getValidationPolicy, buildValidatorMeta } from "../_shared/validation/learning-content-policy.ts";
 
 /**
  * package-validate-lesson-minichecks  (V3 — track-aware approved-based logic)
@@ -100,7 +101,10 @@ Deno.serve(async (req) => {
     const mode: "lesson" | "drill" = hasLearningCourse ? "lesson" : "drill";
     const track = pkgRow?.track ?? "AUSBILDUNG_VOLL";
     const profile = getContentProfile(track);
+    const integrityProfile = resolveIntegrityProfile({ track });
+    const policy = getValidationPolicy(integrityProfile);
     const isAcademic = profile.minicheck.type === "understanding";
+    const trackWarnings: string[] = [];
 
     const issues: Array<{ severity: string; code: string; message: string }> = [];
 
@@ -143,9 +147,7 @@ Deno.serve(async (req) => {
       .or("trap_tags.is.null,trap_tags.eq.{}");
 
     if (approvedWithoutTraps && approvedWithoutTraps > 0) {
-      // v3: Track-aware trap severity — academic tracks don't use IHK traps
-      // For vocational: warning (publish gate enforces). For academic: info only.
-      const trapSeverity = isAcademic ? "info" : "warning";
+      const trapSeverity = policy.minicheck.missingTrapSeverity;
       issues.push({
         severity: trapSeverity,
         code: "APPROVED_WITHOUT_TRAP",
@@ -210,45 +212,41 @@ Deno.serve(async (req) => {
       const totalForBloom = approvedRows.length;
 
       if (isAcademic) {
-        // STUDIUM: require ≥30% apply+analyze+evaluate, ≤30% remember
+        // STUDIUM: use policy thresholds
         const higherOrderPct = totalForBloom > 0
           ? ((bloomCounts.apply + bloomCounts.analyze + bloomCounts.evaluate) / totalForBloom) * 100
           : 0;
         const rememberPct = totalForBloom > 0 ? (bloomCounts.remember / totalForBloom) * 100 : 0;
 
-        if (higherOrderPct < 30) {
-          issues.push({
-            severity: "warning",
-            code: "BLOOM_HIGHER_ORDER_LOW",
-            message: `Studium-MiniChecks: nur ${higherOrderPct.toFixed(0)}% apply+analyze+evaluate (min 30%). Transfer-/Analysefragen fehlen.`,
-          });
+        if (higherOrderPct < policy.minicheck.minHigherOrderBloomPct * 100) {
+          const msg = `Studium-MiniChecks: nur ${higherOrderPct.toFixed(0)}% apply+analyze+evaluate (min ${(policy.minicheck.minHigherOrderBloomPct * 100).toFixed(0)}%). Transfer-/Analysefragen fehlen.`;
+          issues.push({ severity: "warning", code: "BLOOM_HIGHER_ORDER_LOW", message: msg });
+          trackWarnings.push(`BLOOM_HIGHER_ORDER_LOW: ${higherOrderPct.toFixed(0)}%`);
         }
-        if (rememberPct > 30) {
-          issues.push({
-            severity: "warning",
-            code: "BLOOM_REMEMBER_HIGH",
-            message: `Studium-MiniChecks: ${rememberPct.toFixed(0)}% remember (max 30%). Zu viel reine Reproduktion.`,
-          });
+        if (rememberPct > policy.minicheck.maxRememberBloomPct * 100) {
+          const msg = `Studium-MiniChecks: ${rememberPct.toFixed(0)}% remember (max ${(policy.minicheck.maxRememberBloomPct * 100).toFixed(0)}%). Zu viel reine Reproduktion.`;
+          issues.push({ severity: "warning", code: "BLOOM_REMEMBER_HIGH", message: msg });
+          trackWarnings.push(`BLOOM_REMEMBER_HIGH: ${rememberPct.toFixed(0)}%`);
         }
       } else {
-        // Vocational: require ≥20% apply+analyze, ≤40% remember
+        // Vocational: use policy thresholds
         const applyAnalyzePct = totalForBloom > 0
           ? ((bloomCounts.apply + bloomCounts.analyze) / totalForBloom) * 100
           : 0;
         const rememberPct = totalForBloom > 0 ? (bloomCounts.remember / totalForBloom) * 100 : 0;
 
-        if (applyAnalyzePct < 20) {
+        if (applyAnalyzePct < policy.minicheck.minHigherOrderBloomPct * 100) {
           issues.push({
             severity: "warning",
             code: "BLOOM_APPLY_LOW",
-            message: `MiniChecks: nur ${applyAnalyzePct.toFixed(0)}% apply+analyze (min 20%). Anwendungsfragen fehlen.`,
+            message: `MiniChecks: nur ${applyAnalyzePct.toFixed(0)}% apply+analyze (min ${(policy.minicheck.minHigherOrderBloomPct * 100).toFixed(0)}%). Anwendungsfragen fehlen.`,
           });
         }
-        if (rememberPct > 40) {
+        if (rememberPct > policy.minicheck.maxRememberBloomPct * 100) {
           issues.push({
             severity: "warning",
             code: "BLOOM_REMEMBER_HIGH",
-            message: `MiniChecks: ${rememberPct.toFixed(0)}% remember (max 40%). Zu viel reine Reproduktion.`,
+            message: `MiniChecks: ${rememberPct.toFixed(0)}% remember (max ${(policy.minicheck.maxRememberBloomPct * 100).toFixed(0)}%). Zu viel reine Reproduktion.`,
           });
         }
       }
@@ -390,6 +388,7 @@ Deno.serve(async (req) => {
           coverage: coverage !== null ? Math.round(coverage * 100) : null,
           publish_gate: publishGatePassed,
           issues,
+          policy_meta: buildValidatorMeta(policy, trackWarnings),
         },
         200,
         origin,
