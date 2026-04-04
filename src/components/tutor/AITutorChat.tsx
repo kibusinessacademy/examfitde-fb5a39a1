@@ -63,7 +63,7 @@ export function AITutorChat({
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   
-  const { messages, isLoading, sendMessage, clearMessages } = useAITutor({
+  const { messages, isLoading, sendMessage, clearMessages, suggestedPrompts } = useAITutor({
     mode,
     sessionId,
     sessionType,
