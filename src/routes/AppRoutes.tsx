@@ -151,6 +151,7 @@ const AppRoutes = () => {
           <Route path="/sachkunde/:slug" element={<CertificationSEOPage />} />
           <Route path="/projektmanagement" element={<CertificationCategoryPage />} />
           <Route path="/projektmanagement/:slug" element={<CertificationSEOPage />} />
+          <Route path="/produkt/:slug" element={<ProductLandingPage />} />
 
           <Route path="/:slug" element={<ProgrammaticSEODispatcher />} />
 
