@@ -59,13 +59,25 @@ export interface GateClassification {
 
 // ── Thresholds (SSOT) ──
 
-const THRESHOLD_HEALTHY = 0.80;
-const THRESHOLD_SOFT_PASS = 0.70;
-const THRESHOLD_REPAIRABLE = 0.55;
+const DEFAULT_THRESHOLD_HEALTHY = 0.80;
+const DEFAULT_THRESHOLD_SOFT_PASS = 0.70;
+const DEFAULT_THRESHOLD_REPAIRABLE = 0.55;
 
 // ── Classification ──
 
-export function classifyLearningContent(snapshot: ValidationSnapshot): GateClassification {
+export interface GateThresholdOverrides {
+  thresholdHealthy?: number;
+  thresholdSoftPass?: number;
+  thresholdRepairable?: number;
+}
+
+export function classifyLearningContent(
+  snapshot: ValidationSnapshot,
+  overrides?: GateThresholdOverrides,
+): GateClassification {
+  const THRESHOLD_HEALTHY = overrides?.thresholdHealthy ?? DEFAULT_THRESHOLD_HEALTHY;
+  const THRESHOLD_SOFT_PASS = overrides?.thresholdSoftPass ?? DEFAULT_THRESHOLD_SOFT_PASS;
+  const THRESHOLD_REPAIRABLE = overrides?.thresholdRepairable ?? DEFAULT_THRESHOLD_REPAIRABLE;
   const coverage =
     snapshot.totalLessons > 0
       ? snapshot.materializedLessons / snapshot.totalLessons
