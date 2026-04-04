@@ -267,7 +267,7 @@ export default function HomePage() {
                 </Button>
               </Link>
 
-              <p className="text-xs text-muted-foreground mt-3">39 € einmalig · 12 Monate Zugriff · kein Abo</p>
+              <p className="text-xs text-muted-foreground mt-3">24,90 € einmalig · 12 Monate Zugriff · kein Abo</p>
             </div>
           </div>
         </section>
