@@ -192,7 +192,7 @@ export default function HomePage() {
           <div className="container mx-auto max-w-6xl">
             <div className="text-center mb-8 md:mb-16">
               <h2 className="text-2xl sm:text-3xl md:text-4xl font-display font-bold mb-4">
-                Prüfungstraining für Ausbildung: <span className="text-gradient">So wirst du prüfungsreif</span>
+                Prüfungstraining für Ausbildung & Studium: <span className="text-gradient">So wirst du prüfungsreif</span>
               </h2>
             </div>
 
