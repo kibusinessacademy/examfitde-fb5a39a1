@@ -13,6 +13,17 @@ import {
   type GateClassification,
   type ValidationSnapshot,
 } from "../_shared/learning-content-gate.ts";
+import {
+  type ValidationIssue,
+  type T1Result,
+  aggregateFailureModes,
+  detectCatastrophicFailures,
+} from "../_shared/validation-issue.ts";
+import {
+  deriveLearningContentCapabilities,
+  hasAnyDownstreamCapability,
+  type LearningContentCapabilities,
+} from "../_shared/learning-content-capabilities.ts";
 
 /**
  * package-validate-learning-content — Gate-Classified Pipeline Validator (v2.1)
@@ -49,24 +60,17 @@ function json(body: unknown, status = 200) {
   });
 }
 
-// ── Tier 1: Structural checks (no LLM) ──
-interface T1Result {
-  lessonId: string;
-  title: string;
-  step: string;
-  passed: boolean;
-  issues: string[];
-}
+// ── Tier 1: Structural checks (no LLM) — structured ValidationIssue[] ──
 
 function tier1Check(
   lesson: { id: string; title: string; step: string; content: any },
   professionName: string,
 ): T1Result {
-  const issues: string[] = [];
+  const issues: ValidationIssue[] = [];
   const c = lesson.content;
 
   if (!c || c._placeholder === true || c._placeholder === "true") {
-    issues.push("PLACEHOLDER_STILL_PRESENT");
+    issues.push({ code: "PLACEHOLDER_STILL_PRESENT", severity: "critical" });
     return { lessonId: lesson.id, title: lesson.title, step: lesson.step, passed: false, issues };
   }
 
@@ -74,39 +78,41 @@ function tier1Check(
 
   if (isMiniCheck) {
     if (!c.questions || !Array.isArray(c.questions)) {
-      issues.push("MINICHECK_NO_QUESTIONS");
+      issues.push({ code: "MINICHECK_NO_QUESTIONS", severity: "error" });
     } else {
-      if (c.questions.length < 4) issues.push(`MINICHECK_TOO_FEW_QUESTIONS: ${c.questions.length}/4`);
+      if (c.questions.length < 4) {
+        issues.push({ code: "MINICHECK_TOO_FEW_QUESTIONS", severity: "error", metric: c.questions.length, threshold: 4 });
+      }
       for (let i = 0; i < c.questions.length; i++) {
         const q = c.questions[i];
-        if (!q.question || q.question.length < 20) issues.push(`Q${i + 1}_TOO_SHORT`);
-        if (!q.options || q.options.length < 4) issues.push(`Q${i + 1}_TOO_FEW_OPTIONS`);
-        if (q.correct_answer === undefined || q.correct_answer === null) issues.push(`Q${i + 1}_NO_CORRECT_ANSWER`);
+        if (!q.question || q.question.length < 20) issues.push({ code: "QUESTION_TOO_SHORT", severity: "warning", detail: `Q${i + 1}` });
+        if (!q.options || q.options.length < 4) issues.push({ code: "QUESTION_TOO_FEW_OPTIONS", severity: "warning", detail: `Q${i + 1}` });
+        if (q.correct_answer === undefined || q.correct_answer === null) issues.push({ code: "QUESTION_NO_CORRECT_ANSWER", severity: "error", detail: `Q${i + 1}` });
       }
     }
     const contentStr = JSON.stringify(c);
     if (contentStr.length < MIN_MINICHECK_LENGTH) {
-      issues.push(`MINICHECK_CONTENT_TOO_SHORT: ${contentStr.length}/${MIN_MINICHECK_LENGTH}`);
+      issues.push({ code: "MINICHECK_CONTENT_TOO_SHORT", severity: "error", metric: contentStr.length, threshold: MIN_MINICHECK_LENGTH });
     }
   } else {
     const html = c.html || "";
     if (html.length < MIN_HTML_LENGTH) {
-      issues.push(`HTML_TOO_SHORT: ${html.length}/${MIN_HTML_LENGTH}`);
+      issues.push({ code: "HTML_TOO_SHORT", severity: "error", metric: html.length, threshold: MIN_HTML_LENGTH });
     }
     const wordCount = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().split(' ').filter((w: string) => w.length > 0).length;
     if (wordCount < MIN_HTML_WORD_COUNT) {
-      issues.push(`WORD_COUNT_TOO_LOW: ${wordCount}/${MIN_HTML_WORD_COUNT} (target: ${TARGET_HTML_WORD_COUNT})`);
+      issues.push({ code: "WORD_COUNT_TOO_LOW", severity: "error", metric: wordCount, threshold: MIN_HTML_WORD_COUNT, detail: `target: ${TARGET_HTML_WORD_COUNT}` });
     }
     if (!/<h[3-4]>/i.test(html)) {
-      issues.push("MISSING_HEADING_H3_H4");
+      issues.push({ code: "MISSING_HEADING_H3_H4", severity: "warning" });
     }
     if (html.includes("Platzhalter") || html.includes("Lorem ipsum") || html.includes("[TODO]")) {
-      issues.push("PLACEHOLDER_TEXT_FOUND");
+      issues.push({ code: "PLACEHOLDER_TEXT_FOUND", severity: "critical" });
     }
     const htmlLower = html.toLowerCase();
     for (const pattern of META_TEXT_PATTERNS) {
       if (pattern.test(htmlLower)) {
-        issues.push("META_TEXT_DETECTED: AI editing artifact in lesson content");
+        issues.push({ code: "META_TEXT_DETECTED", severity: "error", detail: "AI editing artifact in lesson content" });
         break;
       }
     }
@@ -115,7 +121,7 @@ function tier1Check(
   const contentStr = JSON.stringify(c).slice(0, 8000);
   const contam = checkContamination(contentStr, professionName);
   if (contam.isContaminated) {
-    issues.push(`CONTAMINATION: ${contam.detectedIndustry} [${contam.matchedTerms.slice(0, 3).join(", ")}]`);
+    issues.push({ code: "CONTAMINATION", severity: "critical", detail: `${contam.detectedIndustry} [${contam.matchedTerms.slice(0, 3).join(", ")}]` });
   }
 
   return { lessonId: lesson.id, title: lesson.title, step: lesson.step, passed: issues.length === 0, issues };
@@ -163,19 +169,7 @@ async function tier2Validate(
   }
 }
 
-// ── Failure mode aggregation ──
-function aggregateFailureModes(t1Failed: T1Result[]): { code: string; count: number }[] {
-  const counts = new Map<string, number>();
-  for (const f of t1Failed) {
-    for (const issue of f.issues) {
-      const code = issue.split(":")[0].trim();
-      counts.set(code, (counts.get(code) || 0) + 1);
-    }
-  }
-  return [...counts.entries()]
-    .map(([code, count]) => ({ code, count }))
-    .sort((a, b) => b.count - a.count);
-}
+// aggregateFailureModes and detectCatastrophicFailures imported from _shared/validation-issue.ts
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "Use POST" }, 405);
@@ -404,53 +398,52 @@ Deno.serve(async (req) => {
     invalidStructure: false,
   };
 
-  // Detect catastrophic failures:
-  // - Placeholder/contamination on >30% of ALL lessons (not just failures)
-  // - OR massive structural absence (>50% empty/unreadable)
-  const criticalFails = t1Failed.filter(f =>
-    f.issues.some(i =>
-      i.includes("PLACEHOLDER_STILL_PRESENT") ||
-      i.includes("CONTAMINATION") ||
-      i.includes("PLACEHOLDER_TEXT_FOUND")
-    )
-  );
-  const emptyContentFails = t1Failed.filter(f =>
-    f.issues.some(i => i.includes("HTML_TOO_SHORT") && i.includes("/400"))
-  );
-  if (criticalFails.length > totalLessons * 0.3 || emptyContentFails.length > totalLessons * 0.5) {
-    snapshot.catastrophicFailures = criticalFails.length + emptyContentFails.length;
-  }
+  // Detect catastrophic failures using structured issue codes + severity
+  snapshot.catastrophicFailures = detectCatastrophicFailures(t1Failed, totalLessons);
 
   const classification = classifyLearningContent(snapshot);
 
-  console.log(`[validate-lessons] Gate Classification: ${classification.gateClass} (reason: ${classification.reasonCode}, downstream: ${classification.allowsDownstream})`);
+  // ── Derive capability-based downstream routing ──
+  const capabilities = deriveLearningContentCapabilities({
+    gateClass: classification.gateClass,
+    tier1PassRate: t1PassRate,
+    materializedLessons: lessons.length,
+    totalLessons,
+  });
+
+  console.log(`[validate-lessons] Gate Classification: ${classification.gateClass} (reason: ${classification.reasonCode}, capabilities: ${JSON.stringify(capabilities)})`);
 
   // ── Failure mode map for repair jobs ──
   const failureModes = aggregateFailureModes(t1Failed);
   const affectedLessons = t1Failed.map(f => f.lessonId);
 
-  // ── For hard_fail with catastrophic issues: MARK (don't reset) lessons ──
-  if (classification.gateClass === "hard_fail" && criticalFails.length > 0) {
-    const criticalIds = criticalFails.map(f => f.lessonId);
-    for (let i = 0; i < criticalIds.length; i += 50) {
-      const chunk = criticalIds.slice(i, i + 50);
-      await sb.from("lessons").update({
-        quality_flags: {
-          needs_regeneration: true,
-          regeneration_reason: "tier1_critical_fail",
-          flagged_at: new Date().toISOString(),
-        },
-      }).in("id", chunk);
+  // ── For hard_fail with critical issues: MARK (don't reset) lessons ──
+  if (classification.gateClass === "hard_fail") {
+    const criticalLessons = t1Failed.filter(f =>
+      f.issues.some(i => i.severity === "critical")
+    );
+    if (criticalLessons.length > 0) {
+      const criticalIds = criticalLessons.map(f => f.lessonId);
+      for (let i = 0; i < criticalIds.length; i += 50) {
+        const chunk = criticalIds.slice(i, i + 50);
+        await sb.from("lessons").update({
+          quality_flags: {
+            needs_regeneration: true,
+            regeneration_reason: "tier1_critical_fail",
+            flagged_at: new Date().toISOString(),
+          },
+        }).in("id", chunk);
+      }
     }
   }
 
   // ═══════════════════════════════════════
-  // TIER 2: LLM validation (only for healthy/soft_pass candidates)
+  // TIER 2: LLM validation (only when downstream is allowed)
   // ═══════════════════════════════════════
   let t2Results: Array<{ lessonId: string; score: number; decision: string; issues: string[] }> = [];
   let avgScore = 100;
 
-  if (classification.allowsDownstream) {
+  if (hasAnyDownstreamCapability(capabilities)) {
     const t1Passed = t1Results.filter(r => r.passed);
     const sampleSize = Math.min(SAMPLE_SIZE, t1Passed.length);
 
@@ -528,10 +521,10 @@ Deno.serve(async (req) => {
     }
   }
 
-  // ── Determine final step outcome based on classification ──
-  const overallPass = classification.allowsDownstream && avgScore >= SAMPLE_PASS_THRESHOLD;
+  // ── Determine final step outcome based on classification + capabilities ──
+  const overallPass = hasAnyDownstreamCapability(capabilities) && avgScore >= SAMPLE_PASS_THRESHOLD;
 
-  // ── Persist gate classification in step meta (contract-safe merge) ──
+  // ── Persist gate classification + capabilities in step meta (contract-safe merge) ──
   const now = new Date().toISOString();
   const metaPatch: Record<string, any> = {
     gate_class: classification.gateClass,
@@ -539,6 +532,7 @@ Deno.serve(async (req) => {
     reason_code: classification.reasonCode,
     quality_debt: classification.qualityDebt,
     allows_downstream: overallPass,
+    capabilities,
     tier1_pass_rate: t1PassRate,
     tier1_total: t1Results.length,
     tier1_passed: t1Results.length - t1Failed.length,
@@ -631,6 +625,7 @@ Deno.serve(async (req) => {
           repair_action: classification.repairAction,
           repair_enqueued: repairEnqueued,
           affected_lessons_count: affectedLessons.length,
+          capabilities,
         },
       });
     } catch (_e) { /* best-effort */ }
@@ -651,6 +646,7 @@ Deno.serve(async (req) => {
     quality_debt: classification.qualityDebt,
     advance_pipeline: overallPass,
     repair_enqueued: repairEnqueued,
+    capabilities,
     tier1: {
       total: t1Results.length,
       passed: t1Results.length - t1Failed.length,
