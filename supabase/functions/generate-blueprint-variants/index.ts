@@ -177,38 +177,43 @@ Deno.serve(async (req) => {
     const packageId = body.package_id ?? body.payload?.package_id;
 
     if (!blueprintId && packageId) {
-      console.log(`[generate-blueprint-variants] Package-level dispatch for ${packageId}`);
+      console.log(`[generate-blueprint-variants] Package-level dispatch → enqueue-only for ${packageId}`);
 
-      // Resolve curriculum track for isStudium detection
+      // Resolve curriculum for blueprint lookup
       const { data: pkg } = await sb
         .from("course_packages")
         .select("curriculum_id, course_id")
         .eq("id", packageId)
         .maybeSingle();
 
-      if (pkg?.curriculum_id) {
-        const { data: cur } = await sb
-          .from("curricula")
-          .select("track, program_type")
-          .eq("id", pkg.curriculum_id)
-          .maybeSingle();
-        if (cur) {
-          isStudium = cur.track === "STUDIUM" || cur.program_type === "higher_education";
-          // Resolve subject name
-          const { data: course } = await sb
-            .from("courses")
-            .select("title")
-            .eq("id", pkg.course_id)
-            .maybeSingle();
-          if (course?.title) subjectName = course.title;
-        }
+      if (!pkg?.curriculum_id) {
+        return new Response(JSON.stringify({ error: "Package or curriculum not found", package_id: packageId }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
 
-      // Find all validated blueprints for this package's curriculum
+      // Resolve subject name + isStudium
+      const { data: cur } = await sb
+        .from("curricula")
+        .select("track, program_type")
+        .eq("id", pkg.curriculum_id)
+        .maybeSingle();
+      if (cur) {
+        isStudium = cur.track === "STUDIUM" || cur.program_type === "higher_education";
+      }
+      const { data: course } = await sb
+        .from("courses")
+        .select("title")
+        .eq("id", pkg.course_id)
+        .maybeSingle();
+      const resolvedSubject = course?.title ?? subjectName;
+
+      // Find all approved blueprints
       const { data: blueprints, error: bpListErr } = await sb
         .from("question_blueprints")
         .select("id")
-        .eq("curriculum_id", pkg?.curriculum_id)
+        .eq("curriculum_id", pkg.curriculum_id)
         .eq("status", "approved");
 
       if (bpListErr || !blueprints || blueprints.length === 0) {
@@ -221,135 +226,41 @@ Deno.serve(async (req) => {
         });
       }
 
-      console.log(`[generate-blueprint-variants] Found ${blueprints.length} blueprints for package ${packageId}`);
-
-      const allResults: Array<{ blueprint_id: string; generated: number; errors: number }> = [];
       const countPerBlueprint = Math.max(5, Math.floor(count / blueprints.length));
 
-      for (const bp of blueprints) {
-        try {
-          // Recursive call with specific blueprintId
-          const subBody = { blueprintId: bp.id, count: countPerBlueprint, subjectName, isStudium };
-          const subReq = new Request(req.url, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(subBody),
-          });
-          // We don't actually recurse — just use the same logic inline below
-          // For now, collect and process after the if-block
-          allResults.push({ blueprint_id: bp.id, generated: 0, errors: 0 });
-        } catch (e) {
-          console.error(`Error processing blueprint ${bp.id}:`, e);
-          allResults.push({ blueprint_id: bp.id, generated: 0, errors: 1 });
-        }
+      // Enqueue individual per-blueprint jobs instead of inline processing
+      const jobRows = blueprints.map((bp) => ({
+        job_type: "generate_blueprint_variants",
+        payload: {
+          package_id: packageId,
+          blueprintId: bp.id,
+          count: countPerBlueprint,
+          subjectName: resolvedSubject,
+          isStudium,
+        },
+        status: "pending",
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }));
+
+      const { error: enqueueErr } = await sb.from("job_queue").insert(jobRows);
+
+      if (enqueueErr) {
+        console.error(`[generate-blueprint-variants] Enqueue error:`, enqueueErr);
+        return new Response(JSON.stringify({ error: "Failed to enqueue blueprint jobs", detail: enqueueErr.message }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
 
-      // Process each blueprint inline (simplified fan-out)
-      let totalGenerated = 0;
-      let totalErrors = 0;
-
-      for (let bpIdx = 0; bpIdx < blueprints.length; bpIdx++) {
-        const bpId = blueprints[bpIdx].id;
-        try {
-          const { data: bpData, error: bpErr } = await sb
-            .from("question_blueprints")
-            .select("*")
-            .eq("id", bpId)
-            .single();
-
-          if (bpErr || !bpData) {
-            allResults[bpIdx].errors = 1;
-            totalErrors++;
-            continue;
-          }
-
-          const blueprint = bpData as Blueprint;
-          const variantTypes = pickVariantTypes(countPerBlueprint, isStudium);
-          const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-          if (!LOVABLE_API_KEY) break;
-
-          const rows: unknown[] = [];
-          for (const variantType of variantTypes) {
-            const prompt = buildVariantPrompt(blueprint, variantType, subjectName);
-            try {
-              const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-                method: "POST",
-                headers: {
-                  Authorization: `Bearer ${LOVABLE_API_KEY}`,
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                  model: "google/gemini-2.5-flash",
-                  messages: [
-                    { role: "system", content: "Du bist ein Prüfungsfragen-Generator für akademische Klausuren. Antworte ausschließlich mit validem JSON." },
-                    { role: "user", content: prompt },
-                  ],
-                }),
-              });
-
-              if (!aiResp.ok) {
-                const errText = await aiResp.text();
-                console.error(`AI error:`, aiResp.status, errText);
-                if (aiResp.status === 429 || aiResp.status === 402) break;
-                continue;
-              }
-
-              const aiData = await aiResp.json();
-              const content = aiData.choices?.[0]?.message?.content ?? "";
-              const jsonMatch = content.match(/\{[\s\S]*\}/);
-              if (!jsonMatch) continue;
-
-              const variant: GeneratedVariant = JSON.parse(jsonMatch[0]);
-              const { score, flags } = scoreVariant(blueprint, variant, variantType);
-
-              rows.push({
-                blueprint_id: blueprint.id,
-                curriculum_id: blueprint.curriculum_id,
-                learning_field_id: blueprint.learning_field_id,
-                competency_id: blueprint.competency_id,
-                variant_type: variantType,
-                question_type: blueprint.knowledge_type,
-                cognitive_level: blueprint.cognitive_level,
-                title: blueprint.name,
-                question_text: variant.question_text,
-                answer_text: variant.answer_text ?? null,
-                options: variant.options ?? null,
-                correct_answer: variant.correct_answer ?? null,
-                trap_type: variant.trap_type ?? (blueprint.trap_definition as any)?.trap_type ?? null,
-                trap_applied: variant.trap_applied ?? null,
-                distractor_meta: variant.distractor_meta ?? null,
-                variables: variant.variables ?? null,
-                scenario_context: variant.scenario_context ?? null,
-                quality_score: score,
-                quality_flags: flags,
-                status: score >= 80 ? "review" : "draft",
-              });
-            } catch (e) {
-              console.error(`Error generating ${variantType}:`, e);
-            }
-          }
-
-          if (rows.length > 0) {
-            const { error: insertErr } = await sb.from("exam_question_variants").insert(rows);
-            if (insertErr) console.error(`Insert error for bp ${bpId}:`, insertErr);
-            else totalGenerated += rows.length;
-          }
-          allResults[bpIdx].generated = rows.length;
-        } catch (e) {
-          console.error(`Blueprint ${bpId} error:`, e);
-          allResults[bpIdx].errors = 1;
-          totalErrors++;
-        }
-      }
+      console.log(`[generate-blueprint-variants] Enqueued ${blueprints.length} per-blueprint jobs for ${packageId}`);
 
       return new Response(JSON.stringify({
-        ok: totalGenerated > 0,
-        mode: "package_fanout",
+        ok: true,
+        mode: "package_fanout_enqueue",
         package_id: packageId,
-        blueprints_processed: blueprints.length,
-        total_generated: totalGenerated,
-        total_errors: totalErrors,
-        details: allResults,
+        blueprints_enqueued: blueprints.length,
+        count_per_blueprint: countPerBlueprint,
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

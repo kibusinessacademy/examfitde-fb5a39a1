@@ -56720,6 +56720,10 @@ export type Database = {
           q_count: number
         }[]
       }
+      count_recent_fanout_jobs: {
+        Args: { p_package_id: string; p_window?: string }
+        Returns: number
+      }
       count_unenriched_competencies_for_curriculum: {
         Args: { p_curriculum_id: string }
         Returns: number
