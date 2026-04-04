@@ -1,4 +1,4 @@
-import { LayoutDashboard, BookOpen, ListChecks, GraduationCap, TrendingUp, Megaphone, Shield } from 'lucide-react';
+import { LayoutDashboard, BookOpen, ListChecks, GraduationCap, TrendingUp, Megaphone, Shield, Key } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 export interface AdminNavItem {
