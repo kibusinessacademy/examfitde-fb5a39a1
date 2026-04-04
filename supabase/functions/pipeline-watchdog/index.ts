@@ -1008,10 +1008,13 @@ Deno.serve(async (req) => {
       console.error("[watchdog] LC liveness guard v2 error:", (lcErr as Error)?.message);
     }
 
-    // ── WIP HARD ENFORCEMENT RECONCILER ──
+    // ── WIP HARD ENFORCEMENT RECONCILER (with Churn-Breaker) ──
     // Periodically check that building count <= wip_limit.
     // If exceeded, demote lowest-priority packages back to queued.
+    // CHURN-BREAKER: max 3 demotions per package per hour to prevent reconciler thrashing.
+    const MAX_DEMOTIONS_PER_PKG_PER_HOUR = 3;
     let wipDemotedCount = 0;
+    let wipChurnBlockedCount = 0;
     try {
       const { data: wipRow } = await sb
         .from("ops_pipeline_config")
@@ -1033,7 +1036,30 @@ Deno.serve(async (req) => {
         const toKeep = allBuilding.slice(0, wipLimit);
         const toDemote = allBuilding.slice(wipLimit);
 
+        // ── Churn-Breaker: load recent demotion counts per package ──
+        const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+        const { data: recentDemotions } = await sb
+          .from("auto_heal_log")
+          .select("metadata")
+          .eq("action_type", "wip_reconciler_demotion")
+          .gte("created_at", oneHourAgo);
+
+        // Build demotion count map: package_id → count in last hour
+        const demotionCounts = new Map<string, number>();
+        for (const row of recentDemotions || []) {
+          const pid = (row.metadata as any)?.package_id;
+          if (pid) demotionCounts.set(pid, (demotionCounts.get(pid) ?? 0) + 1);
+        }
+
         for (const pkg of toDemote) {
+          const recentCount = demotionCounts.get(pkg.id) ?? 0;
+          if (recentCount >= MAX_DEMOTIONS_PER_PKG_PER_HOUR) {
+            wipChurnBlockedCount++;
+            console.warn(`[watchdog] CHURN_BREAKER: skipping demotion for ${(pkg.id as string).slice(0, 8)} (${recentCount} demotions in last hour)`);
+            actions.push(`WIP churn-breaker: skipped demotion for ${(pkg.id as string).slice(0, 8)} (${recentCount}/${MAX_DEMOTIONS_PER_PKG_PER_HOUR} demotions/hr)`);
+            continue;
+          }
+
           await sb.from("course_packages")
             .update({ status: "queued", updated_at: new Date().toISOString() })
             .eq("id", pkg.id)
@@ -1051,16 +1077,27 @@ Deno.serve(async (req) => {
 
           wipDemotedCount++;
           actions.push(`WIP reconciler: demoted pkg ${(pkg.id as string).slice(0, 8)} (prio=${pkg.priority}) from building→queued (kept ${toKeep.length}/${allBuilding.length})`);
+
+          // ── Log individual demotion for churn tracking ──
+          try {
+            await sb.from("auto_heal_log").insert({
+              action_type: "wip_reconciler_demotion",
+              trigger_source: "pipeline-watchdog",
+              result_status: "applied",
+              result_detail: `Demoted pkg ${(pkg.id as string).slice(0, 8)} (prio=${pkg.priority}, progress=${pkg.build_progress}%)`,
+              metadata: { package_id: pkg.id, priority: pkg.priority, build_progress: pkg.build_progress },
+            });
+          } catch (_e) { /* best-effort */ }
         }
 
-        if (wipDemotedCount > 0) {
+        if (wipDemotedCount > 0 || wipChurnBlockedCount > 0) {
           try {
             await sb.from("auto_heal_log").insert({
               action_type: "wip_reconciler",
               trigger_source: "pipeline-watchdog",
-              result_status: "applied",
-              result_detail: `Demoted ${wipDemotedCount} excess building packages (wip_limit=${wipLimit}, was=${allBuilding.length})`,
-              metadata: { wip_limit: wipLimit, total_building: allBuilding.length, demoted: wipDemotedCount, kept: toKeep.map((p: any) => p.id.slice(0, 8)) },
+              result_status: wipDemotedCount > 0 ? "applied" : "churn_blocked",
+              result_detail: `WIP reconciler: demoted=${wipDemotedCount}, churn_blocked=${wipChurnBlockedCount} (wip_limit=${wipLimit}, was=${allBuilding.length})`,
+              metadata: { wip_limit: wipLimit, total_building: allBuilding.length, demoted: wipDemotedCount, churn_blocked: wipChurnBlockedCount, kept: toKeep.map((p: any) => p.id.slice(0, 8)) },
             });
           } catch (_e) { /* best-effort */ }
         }
