@@ -136,12 +136,29 @@ function parseEnrichmentsFromAIResponse(aiResp: {
 
 /* ── Profession prompt builder ── */
 
+function buildAcademicPrompt(programTitle: string): string {
+  return `Du bist Hochschuldozent für "${programTitle}" und bereitest Studierende auf Klausuren vor.
+
+AUFGABE: Erstelle fachspezifische Enrichments die EXAKT zum akademischen Kontext von "${programTitle}" passen.
+- Misconceptions: Typische Denkfehler die in Klausuren und Prüfungen vorkommen
+- Transfer-Kontexte: Reale Anwendungskontexte in Forschung, Wirtschaft und Praxis
+- Handlungssituationen: Authentische Fallanalysen und Transferaufgaben
+- Verwende korrekte wissenschaftliche Fachsprache
+- Fokus auf kritische Analyse, Modellvergleiche und Transferleistungen
+- KEINE berufsschulspezifischen Referenzen — alles muss akademisch fundiert sein`;
+}
+
 function buildProfessionPrompt(
   berufKurz: string,
   berufLang: string | null,
   taetigkeitsprofil: string | null,
   zustaendigkeit: string,
 ): string {
+  // Academic fallback: no profession → use academic prompt
+  if (zustaendigkeit === "Hochschule") {
+    return buildAcademicPrompt(berufKurz);
+  }
+
   const berufName = berufLang || berufKurz;
   const examMap: Record<string, string> = {
     IHK: "IHK-Abschlussprüfung",
