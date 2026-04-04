@@ -553,14 +553,31 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabase = createClient(supabaseUrl, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
     const { data: { user }, error: userError } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''));
-    // Inject user_id into context so loadSSOTContext can filter by user
+    // Inject user_id and mode into context so loadSSOTContext can use them
     if (user) context._userId = user.id;
+    context._mode = validMode;
     if (userError || !user) {
       return new Response(JSON.stringify({ error: 'Invalid token' }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     // ── SSOT Context Loader (server-side) ──
     const { contextPrompt, resolvedContext, professionName, programType } = await loadSSOTContext(supabase, context);
+
+    // ── Persistent Session Management ──
+    let persistentSessionId: string | null = null;
+    if (context.curriculumId) {
+      try {
+        persistentSessionId = await findOrCreateSession(supabase, {
+          userId: user.id,
+          curriculumId: context.curriculumId as string,
+          lessonId: context.lessonId as string | null,
+          competencyId: context.competencyId as string | null,
+          mode: validMode,
+        });
+      } catch (e) {
+        console.warn('[ai-tutor] Session creation failed:', e);
+      }
+    }
 
     // ── Wave 3D: Mastery-aware role steering ──
     let effectiveRole = validRole as AIRole;
