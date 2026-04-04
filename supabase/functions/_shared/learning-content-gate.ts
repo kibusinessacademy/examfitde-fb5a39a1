@@ -226,14 +226,12 @@ export function buildContentFingerprint(params: {
   lessonCount: number;
   maxUpdatedAt: string | null;
   materializedCount: number;
-  failedCount: number;
   placeholderCount: number;
 }): string {
   return [
     params.packageId,
     params.lessonCount,
     params.materializedCount,
-    params.failedCount,
     params.placeholderCount,
     params.maxUpdatedAt ?? "none",
   ].join(":");
