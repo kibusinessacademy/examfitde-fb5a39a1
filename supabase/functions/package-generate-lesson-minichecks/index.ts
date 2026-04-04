@@ -623,12 +623,10 @@ Deno.serve(async (req) => {
 
       // Set step to blocked — pipeline stops visibly, never silently passes
       await sb.from("package_steps")
-        .update({
-          status: "blocked",
-          meta: nextMeta,
-        })
+        .update({ status: "blocked" })
         .eq("package_id", packageId)
         .eq("step_key", "generate_lesson_minichecks");
+      await mergePackageStepMeta(sb, packageId, "generate_lesson_minichecks", nextMeta);
 
       return json({
         ok: false,
