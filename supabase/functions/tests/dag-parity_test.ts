@@ -63,7 +63,7 @@ Deno.test("DAG: every FULL_STEP_ORDER entry has a STEP_TO_JOB_TYPE mapping", () 
 });
 
 Deno.test("DAG: every STEP_TO_JOB_TYPE key exists in FULL_STEP_ORDER", () => {
-  const orderSet = new Set(FULL_STEP_ORDER);
+  const orderSet = new Set(FULL_STEP_ORDER as readonly string[]);
   const orphans = Object.keys(STEP_TO_JOB_TYPE).filter((k) => !orderSet.has(k));
   assertEquals(
     orphans,
