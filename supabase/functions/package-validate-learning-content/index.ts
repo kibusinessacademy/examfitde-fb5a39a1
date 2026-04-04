@@ -221,7 +221,7 @@ Deno.serve(async (req) => {
   // ── Load all lessons ──
   const { data: allLessons, error: fetchErr } = await sb
     .from("lessons")
-    .select("id, title, step, content, module_id, updated_at, modules!inner(course_id, title)")
+    .select("id, title, step, content, module_id, created_at, modules!inner(course_id, title)")
     .eq("modules.course_id", courseId);
 
   if (fetchErr) return json({ error: fetchErr.message }, 500);
