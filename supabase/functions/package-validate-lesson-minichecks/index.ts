@@ -183,6 +183,79 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ── V3: Track-aware Bloom distribution check among approved questions ──
+    if (approvedCount && approvedCount >= 20) {
+      const approvedRows = await fetchAllRows<{ cognitive_level: string | null }>(
+        sb, "minicheck_questions", "cognitive_level",
+        [
+          { op: "eq", col: "curriculum_id", val: curriculumId },
+          { op: "eq", col: "mode", val: mode },
+          { op: "eq", col: "status", val: "approved" },
+        ],
+      );
+
+      const bloomBuckets: Record<string, string[]> = {
+        remember: ["remember", "erinnern"],
+        understand: ["understand", "verstehen"],
+        apply: ["apply", "anwenden"],
+        analyze: ["analyze", "analysieren"],
+        evaluate: ["evaluate", "bewerten", "create", "erschaffen"],
+      };
+      const bloomCounts: Record<string, number> = {};
+      for (const [bucket, aliases] of Object.entries(bloomBuckets)) {
+        bloomCounts[bucket] = approvedRows.filter((q) =>
+          aliases.includes((q.cognitive_level || "").toLowerCase())
+        ).length;
+      }
+      const totalForBloom = approvedRows.length;
+
+      if (isAcademic) {
+        // STUDIUM: require ≥30% apply+analyze+evaluate, ≤30% remember
+        const higherOrderPct = totalForBloom > 0
+          ? ((bloomCounts.apply + bloomCounts.analyze + bloomCounts.evaluate) / totalForBloom) * 100
+          : 0;
+        const rememberPct = totalForBloom > 0 ? (bloomCounts.remember / totalForBloom) * 100 : 0;
+
+        if (higherOrderPct < 30) {
+          issues.push({
+            severity: "warning",
+            code: "BLOOM_HIGHER_ORDER_LOW",
+            message: `Studium-MiniChecks: nur ${higherOrderPct.toFixed(0)}% apply+analyze+evaluate (min 30%). Transfer-/Analysefragen fehlen.`,
+          });
+        }
+        if (rememberPct > 30) {
+          issues.push({
+            severity: "warning",
+            code: "BLOOM_REMEMBER_HIGH",
+            message: `Studium-MiniChecks: ${rememberPct.toFixed(0)}% remember (max 30%). Zu viel reine Reproduktion.`,
+          });
+        }
+      } else {
+        // Vocational: require ≥20% apply+analyze, ≤40% remember
+        const applyAnalyzePct = totalForBloom > 0
+          ? ((bloomCounts.apply + bloomCounts.analyze) / totalForBloom) * 100
+          : 0;
+        const rememberPct = totalForBloom > 0 ? (bloomCounts.remember / totalForBloom) * 100 : 0;
+
+        if (applyAnalyzePct < 20) {
+          issues.push({
+            severity: "warning",
+            code: "BLOOM_APPLY_LOW",
+            message: `MiniChecks: nur ${applyAnalyzePct.toFixed(0)}% apply+analyze (min 20%). Anwendungsfragen fehlen.`,
+          });
+        }
+        if (rememberPct > 40) {
+          issues.push({
+            severity: "warning",
+            code: "BLOOM_REMEMBER_HIGH",
+            message: `MiniChecks: ${rememberPct.toFixed(0)}% remember (max 40%). Zu viel reine Reproduktion.`,
+          });
+        }
+      }
+
+      console.log(`[ValidateMini] Bloom dist: ${Object.entries(bloomCounts).map(([k, v]) => `${k}=${v}`).join(", ")} (track=${track}, academic=${isAcademic})`);
+    }
+
     // ── Remaining drafts (info only — auto-QC should have caught them) ──
     const draftCount = (totalCount || 0) - (approvedCount || 0);
     if (draftCount > 0) {
