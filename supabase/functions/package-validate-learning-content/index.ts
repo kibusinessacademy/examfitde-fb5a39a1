@@ -24,6 +24,13 @@ import {
   hasAnyDownstreamCapability,
   type LearningContentCapabilities,
 } from "../_shared/learning-content-capabilities.ts";
+import {
+  resolveIntegrityProfile,
+  getValidationPolicy,
+  buildTier2Prompt,
+  buildProfileMeta,
+  type ValidationPolicy,
+} from "../_shared/validation/learning-content-policy.ts";
 
 /**
  * package-validate-learning-content — Gate-Classified Pipeline Validator (v2.1)
@@ -132,13 +139,17 @@ async function tier2Validate(
   sb: ReturnType<typeof createClient>,
   lesson: { id: string; title: string; step: string; content: any; moduleName: string },
   professionName: string,
+  policy?: ValidationPolicy,
 ): Promise<{ lessonId: string; score: number; decision: string; issues: string[] }> {
   const routed = getModel("quality_audit");
   const isMiniCheck = lesson.step === "mini_check" || lesson.content?.type === "mini_check";
 
-  const VALIDATION_PROMPT = isMiniCheck
-    ? `Du bist ein IHK-Prüfungsexperte. Validiere diese Mini-Check-Fragen für ${professionName}. Prüfe: Eindeutigkeit, Distraktoren-Qualität, IHK-Konformität, Berufsbezug. Antworte NUR mit JSON: {"overall_score": 0-100, "decision": "approve|revise|reject", "dimension_scores": {...}, "critical_issues": [...]}`
-    : `Du bist ein IHK-Prüfer und Didaktik-Experte für ${professionName}. Bewerte den Lerninhalt nach: Fachliche Korrektheit (25%), Didaktische Qualität (20%), Prüfungsrelevanz (15%), Sprachliche Klarheit (10%), Vollständigkeit (10%), Berufsbezug (20%). Antworte NUR mit JSON: {"overall_score": 0-100, "decision": "approve|revise|reject", "dimension_scores": {...}, "critical_issues": [...]}`;
+  // Use profile-aware prompt if policy is provided
+  const VALIDATION_PROMPT = policy
+    ? buildTier2Prompt(policy, professionName, isMiniCheck)
+    : isMiniCheck
+      ? `Du bist ein IHK-Prüfungsexperte. Validiere diese Mini-Check-Fragen für ${professionName}. Prüfe: Eindeutigkeit, Distraktoren-Qualität, IHK-Konformität, Berufsbezug. Antworte NUR mit JSON: {"overall_score": 0-100, "decision": "approve|revise|reject", "dimension_scores": {...}, "critical_issues": [...]}`
+      : `Du bist ein IHK-Prüfer und Didaktik-Experte für ${professionName}. Bewerte den Lerninhalt nach: Fachliche Korrektheit (25%), Didaktische Qualität (20%), Prüfungsrelevanz (15%), Sprachliche Klarheit (10%), Vollständigkeit (10%), Berufsbezug (20%). Antworte NUR mit JSON: {"overall_score": 0-100, "decision": "approve|revise|reject", "dimension_scores": {...}, "critical_issues": [...]}`;
 
   try {
     const aiResult = await callAIJSON({
@@ -187,7 +198,7 @@ Deno.serve(async (req) => {
   // Resolve course_id from package if not provided directly
   let pkgRow: any = null;
   if (packageId) {
-    const { data } = await sb.from("course_packages").select("course_id, feature_flags").eq("id", packageId).maybeSingle();
+    const { data } = await sb.from("course_packages").select("course_id, feature_flags, integrity_profile, track").eq("id", packageId).maybeSingle();
     pkgRow = data;
     if (!courseId && pkgRow?.course_id) courseId = pkgRow.course_id;
   }
@@ -207,6 +218,14 @@ Deno.serve(async (req) => {
   } catch (e) {
     return json({ error: (e as Error).message }, 400);
   }
+
+  // ── Resolve integrity profile + validation policy ──
+  const integrityProfile = resolveIntegrityProfile({
+    integrity_profile: pkgRow?.integrity_profile,
+    track: pkgRow?.track,
+  });
+  const validationPolicy = getValidationPolicy(integrityProfile);
+  console.log(`[validate-lessons] Profile: ${integrityProfile}, policy: ${validationPolicy.policyVersion}`);
 
   // ── Load step meta for fingerprint-based retry guard ──
   const { data: stepRow } = await sb
@@ -401,7 +420,11 @@ Deno.serve(async (req) => {
   // Detect catastrophic failures using structured issue codes + severity
   snapshot.catastrophicFailures = detectCatastrophicFailures(t1Failed, totalLessons);
 
-  const classification = classifyLearningContent(snapshot);
+  const classification = classifyLearningContent(snapshot, {
+    thresholdHealthy: validationPolicy.thresholdHealthy,
+    thresholdSoftPass: validationPolicy.thresholdSoftPass,
+    thresholdRepairable: validationPolicy.thresholdRepairable,
+  });
 
   // ── Derive capability-based downstream routing ──
   const capabilities = deriveLearningContentCapabilities({
@@ -478,7 +501,7 @@ Deno.serve(async (req) => {
         step: lesson.step,
         content: lesson.content,
         moduleName: (lesson as any).modules?.title || "",
-      }, professionName);
+      }, professionName, validationPolicy);
       if (result.score >= 0) {
         await sb.from("lessons").update({
           qc_status: result.decision === "approve" ? "approved" : result.decision === "reject" ? "rejected" : "needs_revision",
@@ -526,7 +549,12 @@ Deno.serve(async (req) => {
 
   // ── Persist gate classification + capabilities in step meta (contract-safe merge) ──
   const now = new Date().toISOString();
+  const profileMeta = buildProfileMeta(integrityProfile, validationPolicy, {
+    integrity_profile: pkgRow?.integrity_profile,
+    track: pkgRow?.track,
+  });
   const metaPatch: Record<string, any> = {
+    ...profileMeta,
     gate_class: classification.gateClass,
     repair_action: classification.repairAction,
     reason_code: classification.reasonCode,
