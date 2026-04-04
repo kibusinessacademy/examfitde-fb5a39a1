@@ -164,10 +164,10 @@ Deno.serve(async (req) => {
   if (!curriculumId) return json({ error: "curriculum_id required" }, 400);
 
   try {
-    // 1) Load curriculum + beruf
+    // 1) Load curriculum (including track/program_type for routing)
     const { data: curr, error: currErr } = await sb
       .from("curricula")
-      .select("id, title, beruf_id, status")
+      .select("id, title, beruf_id, status, program_type, track")
       .eq("id", curriculumId)
       .single();
 
@@ -190,21 +190,21 @@ Deno.serve(async (req) => {
       return json({ message: "Had LFs, now frozen", curriculumId, learningFields: existingLF });
     }
 
-    // 2) Get beruf info
-    const { data: beruf } = await sb
-      .from("berufe")
-      .select("bezeichnung_kurz, bezeichnung_lang, zustaendigkeit, ausbildungsdauer_monate, taetigkeitsprofil")
-      .eq("id", curr.beruf_id)
-      .single();
+    // 2) Get beruf info (only for vocational tracks — nullable for Studium/Fortbildung/Zertifikat)
+    let beruf: any = null;
+    if (curr.beruf_id) {
+      const { data } = await sb
+        .from("berufe")
+        .select("bezeichnung_kurz, bezeichnung_lang, zustaendigkeit, ausbildungsdauer_monate, taetigkeitsprofil")
+        .eq("id", curr.beruf_id)
+        .single();
+      beruf = data;
+    }
 
-    if (!beruf) return json({ error: "Beruf not found" }, 404);
+    // Resolve prompts based on track/program_type (no more hard 404 on missing beruf)
+    const { systemPrompt, userPrompt } = resolvePrompts(curr, beruf);
 
-    console.log(`[GenContent] Generating LFs for: ${beruf.bezeichnung_kurz}`);
-
-    // 3) AI generation
-    const userPrompt = `Erstelle einen Rahmenlehrplan für: ${beruf.bezeichnung_kurz}${beruf.bezeichnung_lang ? ` (${beruf.bezeichnung_lang})` : ""}
-Zuständigkeit: ${beruf.zustaendigkeit}
-Ausbildungsdauer: ${beruf.ausbildungsdauer_monate} Monate`;
+    console.log(`[GenContent] Generating LFs for: ${curr.title} (track=${curr.track ?? "default"}, program_type=${curr.program_type ?? "vocational"})`);
 
     // v11: Failover chain — policy-first, then model-routing chain
     let chain: Array<{ provider: string; model: string }> = [];
