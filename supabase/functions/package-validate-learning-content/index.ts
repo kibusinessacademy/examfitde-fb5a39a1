@@ -188,16 +188,25 @@ Deno.serve(async (req) => {
   let courseId = p.course_id;
   const curriculumId = p.curriculum_id;
   const certificationId = p.certification_id || null;
+  const featureFlags = p.feature_flags || {};
 
   // Resolve course_id from package if not provided directly
-  if (packageId && !courseId) {
-    const { data: pkg } = await sb.from("course_packages").select("course_id").eq("id", packageId).maybeSingle();
-    if (pkg?.course_id) courseId = pkg.course_id;
+  let pkgRow: any = null;
+  if (packageId) {
+    const { data } = await sb.from("course_packages").select("course_id, feature_flags").eq("id", packageId).maybeSingle();
+    pkgRow = data;
+    if (!courseId && pkgRow?.course_id) courseId = pkgRow.course_id;
   }
 
   if (!packageId || !courseId) {
     return json({ error: "Missing package_id or course_id" }, 400);
   }
+
+  // Merge feature_flags from payload + DB
+  const effectiveFlags = { ...(pkgRow?.feature_flags || {}), ...featureFlags };
+  // If has_minichecks is true, mini_check lessons are validated by validate_lesson_minichecks,
+  // NOT by this validator. Checking inline questions here causes false SSOT mismatch failures.
+  const skipMiniCheckLessons = effectiveFlags.has_minichecks === true || effectiveFlags.has_learning_course === true;
 
   // ── Resolve profession ──
   let professionName: string;
@@ -216,8 +225,20 @@ Deno.serve(async (req) => {
 
   if (fetchErr) return json({ error: fetchErr.message }, 500);
 
-  const lessons = (allLessons || []).filter((l: any) => l.content && l.content._placeholder !== true);
-  const totalLessons = allLessons?.length || 0;
+  // Filter out mini_check lessons when separate minicheck validation is active
+  const allNonPlaceholder = (allLessons || []).filter((l: any) => l.content && l.content._placeholder !== true);
+  const lessons = skipMiniCheckLessons
+    ? allNonPlaceholder.filter((l: any) => l.step !== "mini_check" && l.content?.type !== "mini_check")
+    : allNonPlaceholder;
+  const skippedMiniChecks = allNonPlaceholder.length - lessons.length;
+  if (skippedMiniChecks > 0) {
+    console.log(`[validate-lessons] Skipping ${skippedMiniChecks} mini_check lessons (validated by validate_lesson_minichecks)`);
+  }
+  // totalLessons = non-minicheck content lessons (for placeholder ratio)
+  const totalContentLessons = skipMiniCheckLessons
+    ? (allLessons || []).filter((l: any) => l.step !== "mini_check" && l.content?.type !== "mini_check").length
+    : (allLessons || []).length;
+  const totalLessons = totalContentLessons;
   const placeholderCount = totalLessons - lessons.length;
 
   if (lessons.length === 0) {
