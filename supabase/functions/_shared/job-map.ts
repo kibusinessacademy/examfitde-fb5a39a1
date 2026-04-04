@@ -34,6 +34,10 @@ export type PipelineStepKey =
   | "elite_harden"
   | "run_integrity_check"
   | "quality_council"
+  | "build_standalone_snapshot"
+  | "build_standalone_bundle"
+  | "validate_standalone_bundle"
+  | "backup_standalone_bundle"
   | "auto_publish";
 
 /** Maps step_key → job_type in job_queue */
