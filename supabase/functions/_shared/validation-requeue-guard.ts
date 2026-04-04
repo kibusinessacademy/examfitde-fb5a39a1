@@ -1,5 +1,5 @@
 /**
- * F-4 / F-4.1: Stateful Validation Requeue Guard
+ * F-4 / F-4.1 / F-4.2: Stateful Validation Requeue Guard
  *
  * Prevents no-progress validation loops by checking whether the
  * gate-relevant state has changed since the last failed validation.
@@ -12,7 +12,11 @@
  *   5. Block state is persisted to package_steps.meta for ops visibility (F-4.1)
  *   6. Progress detection includes artifact-level changes, not just step status (F-4.1)
  *   7. Gate signature prefers structured meta over error-string parsing (F-4.1)
+ *   8. Artifact FK mapping corrected to use curriculum_id via course_packages (F-4.2)
+ *   9. Meta updates use atomic DB-side JSONB merge RPC (F-4.2)
  */
+
+import { mergePackageStepMeta, removePackageStepMetaKeys } from "./merge-step-meta.ts";
 
 /** Validator job types subject to requeue guard */
 export const VALIDATION_GUARDED_JOB_TYPES = new Set([
@@ -40,26 +44,43 @@ const UPSTREAM_PROGRESS_STEPS: Record<string, string[]> = {
   package_validate_blueprint_variants: ["generate_blueprint_variants"],
 };
 
-/** Artifact tables to check for data-level changes per validator */
-const ARTIFACT_PROGRESS_SOURCES: Record<string, { table: string; fk: string; }[]> = {
+/**
+ * Artifact tables for data-level progress detection.
+ *
+ * F-4.2 SCHEMA-VERIFIED mapping:
+ *   - minicheck_questions: FK=curriculum_id, HAS updated_at
+ *   - exam_questions:      FK=curriculum_id, NO updated_at → use created_at
+ *   - handbook_chapters:   FK=curriculum_id, HAS updated_at
+ *   - oral_exam_questions: NO curriculum_id, NO updated_at → not usable for artifact progress
+ *   - package_content_shards: FK=package_id, HAS updated_at ✅ (direct)
+ *
+ * Tables without package_id require resolving curriculum_id from course_packages first.
+ */
+interface ArtifactSource {
+  table: string;
+  /** The FK column on this table — either 'package_id' (direct) or 'curriculum_id' (indirect) */
+  fk: "package_id" | "curriculum_id";
+  /** Which timestamp column to check for changes */
+  ts_col: "updated_at" | "created_at";
+}
+
+const ARTIFACT_PROGRESS_SOURCES: Record<string, ArtifactSource[]> = {
   package_validate_lesson_minichecks: [
-    { table: "minicheck_questions", fk: "package_id" },
+    { table: "minicheck_questions", fk: "curriculum_id", ts_col: "updated_at" },
   ],
   package_validate_exam_pool: [
-    { table: "exam_questions", fk: "package_id" },
+    { table: "exam_questions", fk: "curriculum_id", ts_col: "created_at" },
   ],
   package_validate_learning_content: [
-    { table: "learning_content", fk: "package_id" },
+    { table: "package_content_shards", fk: "package_id", ts_col: "updated_at" },
   ],
   package_validate_handbook: [
-    { table: "handbook_chapters", fk: "package_id" },
+    { table: "handbook_chapters", fk: "curriculum_id", ts_col: "updated_at" },
   ],
   package_validate_handbook_depth: [
-    { table: "handbook_chapters", fk: "package_id" },
+    { table: "handbook_chapters", fk: "curriculum_id", ts_col: "updated_at" },
   ],
-  package_validate_oral_exam: [
-    { table: "oral_exam_questions", fk: "package_id" },
-  ],
+  // oral_exam_questions has no usable FK or timestamp — rely on step-level progress only
 };
 
 const MAX_IDENTICAL_FAILS = 3;
@@ -163,10 +184,24 @@ export async function checkValidationRequeueGuard(
   }
 }
 
-// ─── Progress Detection (F-4.1) ───────────────────────────────────────────
+// ─── Progress Detection (F-4.1 + F-4.2) ──────────────────────────────────
+
+/**
+ * Resolve curriculum_id for a package (needed for indirect FK lookups).
+ * Cached per call — a package's curriculum_id doesn't change mid-request.
+ */
+async function getCurriculumIdForPackage(sb: any, packageId: string): Promise<string | null> {
+  const { data } = await sb
+    .from("course_packages")
+    .select("curriculum_id")
+    .eq("id", packageId)
+    .maybeSingle();
+  return data?.curriculum_id ?? null;
+}
 
 /**
  * Check for upstream progress via both step-level and artifact-level signals.
+ * F-4.2: Uses correct FK chains (curriculum_id via course_packages).
  */
 async function checkUpstreamProgress(
   sb: any,
@@ -191,26 +226,40 @@ async function checkUpstreamProgress(
     }
   }
 
-  // B) Artifact-level: relevant data rows updated after the last fail
+  // B) Artifact-level: relevant data rows changed after the last fail
   const artifactSources = ARTIFACT_PROGRESS_SOURCES[jobType];
-  if (artifactSources && artifactSources.length > 0) {
-    for (const src of artifactSources) {
-      try {
-        const { data: recentArtifact } = await sb
-          .from(src.table)
-          .select("updated_at")
-          .eq(src.fk, packageId)
-          .gt("updated_at", lastFailAt.toISOString())
-          .order("updated_at", { ascending: false })
-          .limit(1);
+  if (!artifactSources || artifactSources.length === 0) return false;
 
-        if (recentArtifact && recentArtifact.length > 0) {
-          console.log(`[val-guard] Artifact progress detected in ${src.table} for pkg ${packageId.slice(0, 8)}`);
-          return true;
-        }
-      } catch (_e) {
-        // Table might not exist or lack updated_at — skip gracefully
+  // Resolve curriculum_id if any source needs it
+  let curriculumId: string | null = null;
+  const needsCurriculum = artifactSources.some((s) => s.fk === "curriculum_id");
+  if (needsCurriculum) {
+    curriculumId = await getCurriculumIdForPackage(sb, packageId);
+    if (!curriculumId) {
+      // Cannot resolve — skip artifact check gracefully
+      console.warn(`[val-guard] No curriculum_id found for pkg ${packageId.slice(0, 8)}, skipping artifact progress check`);
+      return false;
+    }
+  }
+
+  for (const src of artifactSources) {
+    try {
+      const fkValue = src.fk === "package_id" ? packageId : curriculumId!;
+      const { data: recentArtifact } = await sb
+        .from(src.table)
+        .select(src.ts_col)
+        .eq(src.fk, fkValue)
+        .gt(src.ts_col, lastFailAt.toISOString())
+        .order(src.ts_col, { ascending: false })
+        .limit(1);
+
+      if (recentArtifact && recentArtifact.length > 0) {
+        console.log(`[val-guard] Artifact progress detected in ${src.table} (via ${src.fk}) for pkg ${packageId.slice(0, 8)}`);
+        return true;
       }
+    } catch (_e) {
+      // Table might not exist or column mismatch — skip gracefully
+      console.warn(`[val-guard] Artifact check failed for ${src.table}: ${_e}`);
     }
   }
 
@@ -253,9 +302,18 @@ function extractGateSignature(lastError: any, meta: any): string {
   return `err:${errorStr.slice(0, 200)}`;
 }
 
-// ─── Block State Persistence (F-4.1) ──────────────────────────────────────
+// ─── Block State Persistence (F-4.1 + F-4.2 atomic) ──────────────────────
 
-/** Persist block state to package_steps.meta so it's visible in ops dashboards */
+const BLOCK_META_KEYS = [
+  "validation_requeue_blocked",
+  "validation_requeue_reason",
+  "validation_requeue_signature",
+  "validation_requeue_blocked_at",
+  "validation_requeue_identical_fails",
+  "validation_requeue_cooldown_until",
+];
+
+/** Persist block state atomically via DB-side JSONB merge RPC (F-4.2) */
 async function persistBlockState(
   sb: any,
   jobType: string,
@@ -265,37 +323,22 @@ async function persistBlockState(
   identicalCount: number,
   cooldownUntil?: string,
 ): Promise<void> {
-  // Map job type to step key (strip "package_" prefix)
   const stepKey = jobType.replace(/^package_/, "");
   try {
-    // Read current meta, merge block state
-    const { data: step } = await sb
-      .from("package_steps")
-      .select("id, meta")
-      .eq("package_id", packageId)
-      .eq("step_key", stepKey)
-      .maybeSingle();
-
-    if (step) {
-      const currentMeta = (step.meta && typeof step.meta === "object") ? step.meta : {};
-      await sb.from("package_steps").update({
-        meta: {
-          ...currentMeta,
-          validation_requeue_blocked: true,
-          validation_requeue_reason: reason.slice(0, 500),
-          validation_requeue_signature: gateSignature,
-          validation_requeue_blocked_at: new Date().toISOString(),
-          validation_requeue_identical_fails: identicalCount,
-          validation_requeue_cooldown_until: cooldownUntil || null,
-        },
-      }).eq("id", step.id);
-    }
+    await mergePackageStepMeta(sb, packageId, stepKey, {
+      validation_requeue_blocked: true,
+      validation_requeue_reason: reason.slice(0, 500),
+      validation_requeue_signature: gateSignature,
+      validation_requeue_blocked_at: new Date().toISOString(),
+      validation_requeue_identical_fails: identicalCount,
+      validation_requeue_cooldown_until: cooldownUntil || null,
+    });
   } catch (_e) {
     // fire-and-forget — never break the guard
   }
 }
 
-/** Clear block state from package_steps.meta when upstream progress is detected */
+/** Clear block state atomically via DB-side key removal RPC (F-4.2) */
 async function clearBlockState(
   sb: any,
   jobType: string,
@@ -303,23 +346,7 @@ async function clearBlockState(
 ): Promise<void> {
   const stepKey = jobType.replace(/^package_/, "");
   try {
-    const { data: step } = await sb
-      .from("package_steps")
-      .select("id, meta")
-      .eq("package_id", packageId)
-      .eq("step_key", stepKey)
-      .maybeSingle();
-
-    if (step?.meta?.validation_requeue_blocked) {
-      const currentMeta = { ...step.meta };
-      delete currentMeta.validation_requeue_blocked;
-      delete currentMeta.validation_requeue_reason;
-      delete currentMeta.validation_requeue_signature;
-      delete currentMeta.validation_requeue_blocked_at;
-      delete currentMeta.validation_requeue_identical_fails;
-      delete currentMeta.validation_requeue_cooldown_until;
-      await sb.from("package_steps").update({ meta: currentMeta }).eq("id", step.id);
-    }
+    await removePackageStepMetaKeys(sb, packageId, stepKey, BLOCK_META_KEYS);
   } catch (_e) {
     // fire-and-forget
   }
