@@ -83,10 +83,6 @@ Deno.serve(async (req) => {
         status: "draft",
         track: classification.track,
         certification_type: classification.track === "FORTBILDUNG" ? "fortbildung" : "zertifizierung",
-        meta: {
-          source_type: "certification_generator",
-          validation_profile: classification.validationProfile,
-        },
       })
       .select("id")
       .single();
