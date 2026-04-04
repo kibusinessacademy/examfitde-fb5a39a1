@@ -174,9 +174,10 @@ Deno.serve(async (req) => {
         product_id: product.id,
         user_id: user.id,
         product_slug: product.slug,
-        flow: "product_checkout",
+        flow: "paywall_variant",
         checkout_source: "create-payment",
         access_months: String(price.access_months),
+        duration_days: String(price.access_months * 30),
       },
     });
 
