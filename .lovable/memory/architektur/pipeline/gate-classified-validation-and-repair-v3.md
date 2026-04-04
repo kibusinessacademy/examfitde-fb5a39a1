@@ -7,20 +7,30 @@ Das Validierungssystem nutzt eine granulare Gate-Klassifizierung zur Steuerung d
 
 ### 1. Strukturierte Failure-Codes
 - `_shared/validation-issue.ts`: Definiert `ValidationIssue { code, severity, detail?, metric?, threshold? }` und `T1Result` als SSOT-Typen
-- `tier1Check()` erzeugt jetzt typisierte Issues statt Strings (z.B. `{ code: "HTML_TOO_SHORT", severity: "error", metric: 123, threshold: 400 }`)
+- `tier1Check()` erzeugt jetzt typisierte Issues statt Strings
 - `aggregateFailureModes()` nutzt `issue.code` direkt statt `issue.split(":")[0]`
-- `detectCatastrophicFailures()` prüft `issue.severity === "critical"` und `issue.metric < threshold * 0.3` statt String-Matching
+- `detectCatastrophicFailures()` prüft `issue.severity === "critical"` und `issue.metric < threshold * 0.3`
 
 ### 2. Capability-basiertes Downstream-Routing
-- `_shared/learning-content-capabilities.ts`: Definiert `LearningContentCapabilities` mit 5 per-Step Flags
-- `deriveLearningContentCapabilities()` leitet aus `gateClass + tier1PassRate + coverage` ab:
-  - `healthy` / `soft_pass_with_debt` → alle 5 Capabilities true
-  - `repair_required` → Blueprints/MiniChecks bei coverage≥90%, ExamPool zusätzlich tier1≥60%, Handbook/Tutor blocked
-  - `major_regeneration_required` / `hard_fail` → alles blocked
-- Capabilities werden in `package_steps.meta.capabilities` persistiert
-- Response enthält `capabilities`-Objekt für Runner/Leitstelle/UI
+- `_shared/learning-content-capabilities.ts`: `LearningContentCapabilities` mit 5 per-Step Flags
+- `deriveLearningContentCapabilities()`: healthy/soft_pass → alles; repair_required → selektiv; major_regen/hard_fail → nichts
+- Capabilities in `package_steps.meta.capabilities` persistiert
 
-### 3. SSOT-Dateien
-- `_shared/validation-issue.ts`: ValidationIssue, T1Result, aggregateFailureModes, detectCatastrophicFailures
-- `_shared/learning-content-capabilities.ts`: LearningContentCapabilities, deriveLearningContentCapabilities, hasAnyDownstreamCapability
-- `_shared/learning-content-gate.ts`: Gate-Klassifikation, Fingerprint, Retry-Guard (unverändert von v2.1)
+## P2-Erweiterungen
+
+### 3. Capability-aware DAG Gating
+- `_shared/capability-gating.ts`: SSOT-Mapping step_key → capability flag
+- `isCapabilityGranted()`: prüft ob validate_learning_content eine capability für einen Downstream-Step gewährt hat
+- `pipeline-helpers.ts` `areDependenciesMet()`: akzeptiert jetzt capability-granted deps von validate_learning_content
+- `pipeline-process.ts`: DAG integrity guard + zombie check respektieren capabilities
+- Betrifft: `auto_seed_exam_blueprints`, `generate_lesson_minichecks`, `generate_handbook`
+
+### 4. Admin UI Gate Visibility
+- `RealtimePipelineMonitor.tsx`: `GateClassDetail` Komponente zeigt für validate_learning_content:
+  - Gate-Class Badge (farbcodiert)
+  - Tier-1 Pass Rate
+  - Reason Code
+  - Repair Action Badge
+  - Capabilities (grün = erlaubt, durchgestrichen = blockiert)
+  - Top Failure Modes mit Counts
+  - Betroffene Lektionen Count
