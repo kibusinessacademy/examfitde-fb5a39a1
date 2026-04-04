@@ -73,7 +73,7 @@ const FAQS = [
   },
   {
     question: 'Was kostet das IHK Prüfungstraining?',
-    answer: 'Das komplette Prüfungstraining kostet 24,90 € einmalig (kein Abo) und beinhaltet alle Module: Prüfungsfragen üben, Prüfungssimulation, mündliche Prüfung trainieren und KI-Prüfungscoach. 12 Monate Zugang.',
+    answer: `Das komplette Prüfungstraining kostet ${PRICING.defaultPrice} einmalig (${PRICING.noSubscription.toLowerCase()}) und beinhaltet alle Module: Prüfungsfragen üben, Prüfungssimulation, mündliche Prüfung trainieren und KI-Prüfungscoach. ${PRICING.defaultAccess} Zugang.`,
   },
   {
     question: 'Wie bestehe ich die IHK Abschlussprüfung mit ExamFit?',
