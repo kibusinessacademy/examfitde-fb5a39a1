@@ -294,6 +294,18 @@ Deno.serve(async (req) => {
       .join("");
 
     // ── 10. Update artifact record ──
+    // ── Readiness classification ──
+    const contentProvenance = lessons.reduce((acc: Record<string, number>, l: any) => {
+      acc[l.status] = (acc[l.status] || 0) + 1;
+      return acc;
+    }, {});
+    const approvedCount = contentProvenance["approved"] || 0;
+    const readiness =
+      lessons.length === 0 ? "blocked" :
+      approvedCount === lessons.length ? "playable_verified" :
+      warnings.length === 0 ? "playable" :
+      "playable_with_gaps";
+
     const metadata = {
       module_count: (modules || []).length,
       lesson_count: lessons.length,
@@ -303,6 +315,8 @@ Deno.serve(async (req) => {
       handbook_chapter_count: handbookSections.length,
       lessons_without_content: emptyContentLessons.length,
       warnings,
+      readiness,
+      content_provenance: contentProvenance,
       eligibility_rule: "approved_or_renderable_content_v1",
       status_distribution: allLessons.reduce((acc: Record<string, number>, l: any) => {
         acc[l.status] = (acc[l.status] || 0) + 1;
