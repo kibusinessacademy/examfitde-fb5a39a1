@@ -37739,6 +37739,144 @@ export type Database = {
           },
         ]
       }
+      standalone_license_devices: {
+        Row: {
+          created_at: string
+          device_fingerprint: string
+          id: string
+          last_seen_at: string | null
+          license_id: string
+          metadata: Json | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          device_fingerprint: string
+          id?: string
+          last_seen_at?: string | null
+          license_id: string
+          metadata?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          device_fingerprint?: string
+          id?: string
+          last_seen_at?: string | null
+          license_id?: string
+          metadata?: Json | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "standalone_license_devices_license_id_fkey"
+            columns: ["license_id"]
+            isOneToOne: false
+            referencedRelation: "standalone_licenses"
+            referencedColumns: ["license_id"]
+          },
+          {
+            foreignKeyName: "standalone_license_devices_license_id_fkey"
+            columns: ["license_id"]
+            isOneToOne: false
+            referencedRelation: "v_standalone_license_risk"
+            referencedColumns: ["license_id"]
+          },
+        ]
+      }
+      standalone_license_events: {
+        Row: {
+          created_at: string
+          detail: Json | null
+          event_status: string
+          event_type: string
+          id: string
+          license_id: string
+        }
+        Insert: {
+          created_at?: string
+          detail?: Json | null
+          event_status?: string
+          event_type: string
+          id?: string
+          license_id: string
+        }
+        Update: {
+          created_at?: string
+          detail?: Json | null
+          event_status?: string
+          event_type?: string
+          id?: string
+          license_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "standalone_license_events_license_id_fkey"
+            columns: ["license_id"]
+            isOneToOne: false
+            referencedRelation: "standalone_licenses"
+            referencedColumns: ["license_id"]
+          },
+          {
+            foreignKeyName: "standalone_license_events_license_id_fkey"
+            columns: ["license_id"]
+            isOneToOne: false
+            referencedRelation: "v_standalone_license_risk"
+            referencedColumns: ["license_id"]
+          },
+        ]
+      }
+      standalone_licenses: {
+        Row: {
+          course_id: string
+          created_at: string
+          curriculum_id: string | null
+          device_limit: number
+          email: string | null
+          expires_at: string
+          id: string
+          last_opened_at: string | null
+          last_validated_at: string | null
+          license_id: string
+          metadata: Json | null
+          package_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          course_id: string
+          created_at?: string
+          curriculum_id?: string | null
+          device_limit?: number
+          email?: string | null
+          expires_at: string
+          id?: string
+          last_opened_at?: string | null
+          last_validated_at?: string | null
+          license_id: string
+          metadata?: Json | null
+          package_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          course_id?: string
+          created_at?: string
+          curriculum_id?: string | null
+          device_limit?: number
+          email?: string | null
+          expires_at?: string
+          id?: string
+          last_opened_at?: string | null
+          last_validated_at?: string | null
+          license_id?: string
+          metadata?: Json | null
+          package_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       standalone_restore_events: {
         Row: {
           artifact_version_id: string
@@ -56282,6 +56420,20 @@ export type Database = {
             referencedColumns: ["package_id"]
           },
         ]
+      }
+      v_standalone_license_risk: {
+        Row: {
+          device_count: number | null
+          device_limit: number | null
+          email: string | null
+          expires_at: string | null
+          last_device_seen: string | null
+          last_validated_at: string | null
+          license_id: string | null
+          risk_level: string | null
+          status: string | null
+        }
+        Relationships: []
       }
       v_unified_open_alerts: {
         Row: {
