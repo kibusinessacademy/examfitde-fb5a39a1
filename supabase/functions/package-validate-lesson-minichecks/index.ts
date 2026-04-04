@@ -143,12 +143,13 @@ Deno.serve(async (req) => {
       .or("trap_tags.is.null,trap_tags.eq.{}");
 
     if (approvedWithoutTraps && approvedWithoutTraps > 0) {
-      // v3: Downgraded from critical to warning — trap enforcement belongs in publish gate,
-      // not build validation. Critical here caused false-positive loop guard blocks.
+      // v3: Track-aware trap severity — academic tracks don't use IHK traps
+      // For vocational: warning (publish gate enforces). For academic: info only.
+      const trapSeverity = isAcademic ? "info" : "warning";
       issues.push({
-        severity: "warning",
+        severity: trapSeverity,
         code: "APPROVED_WITHOUT_TRAP",
-        message: `${approvedWithoutTraps} approved MiniChecks haben keine Trap-Tags`,
+        message: `${approvedWithoutTraps} approved MiniChecks haben keine Trap-Tags${isAcademic ? " (akademisch: info only)" : ""}`,
       });
     }
 
