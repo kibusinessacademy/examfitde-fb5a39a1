@@ -47,6 +47,8 @@ const KarrierePage = lazy(() => import('@/pages/seo/KarrierePage'));
 const BetriebeLandingPage = lazy(() => import('@/pages/seo/BetriebeLandingPage'));
 const WirtschaftsfachwirtPage = lazy(() => import('@/pages/seo/WirtschaftsfachwirtPage'));
 const PruefungstrainingStudiumPage = lazy(() => import('@/pages/seo/PruefungstrainingStudiumPage'));
+const FortbildungLandingPage = lazy(() => import('@/pages/seo/FortbildungLandingPage'));
+const ZertifizierungenLandingPage = lazy(() => import('@/pages/seo/ZertifizierungenLandingPage'));
 import ProgrammaticSEODispatcher from '@/pages/seo/ProgrammaticSEODispatcher';
 const PruefungsreifeCheck = lazy(() => import('@/components/marketing/PruefungsreifeCheck'));
 const BlogIndexPage = lazy(() => import('@/pages/seo/BlogIndexPage'));
