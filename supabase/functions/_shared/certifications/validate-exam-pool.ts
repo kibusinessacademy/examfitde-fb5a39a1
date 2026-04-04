@@ -30,6 +30,7 @@ export type ExamQuestionRecord = {
   question_type: string | null;
   question_text: string | null;
   options: Array<{ id: string; text: string; is_correct: boolean }> | null;
+  correct_answer: number | null;
   explanation: string | null;
   trap_type: string | null;
   conflict_type: string | null;
@@ -141,6 +142,33 @@ export function validateExamPool(input: {
       severity: "error",
       detail: `${invalidCorrectness.length} questions have invalid correctness logic`,
       affected_ids: invalidCorrectness.map((q) => q.id),
+    });
+  }
+
+  // --- correct_answer pointer check ---
+  const invalidPointer = questions.filter((q) => {
+    if (!Array.isArray(q.options) || q.options.length === 0) return false; // caught above
+    if (typeof q.correct_answer !== "number") return true;
+    if (q.correct_answer < 0 || q.correct_answer >= q.options.length) return true;
+    return q.options[q.correct_answer]?.is_correct !== true;
+  });
+  if (invalidPointer.length) {
+    findings.push({
+      code: "CORRECT_ANSWER_POINTER_INVALID",
+      severity: "error",
+      detail: `${invalidPointer.length} questions have correct_answer that does not match options[].is_correct`,
+      affected_ids: invalidPointer.map((q) => q.id),
+    });
+  }
+
+  // --- review_state drift check ---
+  const nonPending = questions.filter((q) => q.review_state && q.review_state !== "pending");
+  if (nonPending.length) {
+    findings.push({
+      code: "REVIEW_STATE_DRIFT",
+      severity: "warning",
+      detail: `${nonPending.length}/${questions.length} questions have review_state != pending (expected for initial generation)`,
+      affected_ids: nonPending.map((q) => q.id),
     });
   }
 
