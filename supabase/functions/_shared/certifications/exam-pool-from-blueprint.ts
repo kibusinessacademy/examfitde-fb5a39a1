@@ -137,8 +137,14 @@ function deriveConflictType(bp: BlueprintQuestionSource): string {
  */
 function deriveExamPart(bp: BlueprintQuestionSource): string | null {
   const ctx = (bp.exam_context_type ?? "").toLowerCase();
+  // Legacy/future pattern matching
   if (ctx.includes("teil_2") || ctx.includes("part_2") || ctx.includes("mündlich")) return "teil_2";
   if (ctx.includes("teil_1") || ctx.includes("part_1") || ctx.includes("schriftlich")) return "teil_1";
+  // Deterministic mapping for actual enum values — mirrors fn_derive_exam_part in DB
+  const TEIL_1_TYPES = ["isolated_knowledge", "calculation_analysis", "error_detection", "legal_evaluation", "applied_case", "prioritization", "model_comparison"];
+  const TEIL_2_TYPES = ["case_study", "strategic_decision", "multi_step_case"];
+  if (TEIL_1_TYPES.includes(ctx)) return "teil_1";
+  if (TEIL_2_TYPES.includes(ctx)) return "teil_2";
   // No silent default — DB trigger will also catch this
   return null;
 }
@@ -220,7 +226,7 @@ export function buildExamQuestionRow(input: {
     difficulty,
     ai_generated: true,
     qc_status: isPromotable ? "tier1_passed" : "needs_review",
-    exam_part: examPart ?? "teil_1", // DB column NOT NULL — fallback, trigger will re-evaluate
+    exam_part: examPart ?? "", // Empty string — trigger will derive or mark needs_review
     distractor_meta: {
       source_blueprint_id: bp.id,
       source_knowledge_type: bp.knowledge_type,
