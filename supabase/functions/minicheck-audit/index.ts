@@ -105,10 +105,20 @@ Deno.serve(async (req) => {
   const authHeader = rawAuth.replace("Bearer ", "");
   const cronSecret = Deno.env.get("CRON_SECRET") || "";
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
-  console.log(`[minicheck-audit] Auth check: rawAuth length=${rawAuth.length}, anonKey length=${anonKey.length}, match=${authHeader === anonKey}, serviceMatch=${authHeader === supabaseKey}`);
+  
+  // Check if token is the anon key by decoding the JWT role claim
+  let isAnonToken = false;
+  try {
+    const payload = JSON.parse(atob(authHeader.split(".")[1] || ""));
+    if (payload.role === "anon" && payload.ref === Deno.env.get("SUPABASE_URL")?.match(/\/\/([^.]+)/)?.[1]) {
+      isAnonToken = true;
+    }
+  } catch { /* not a JWT */ }
+  
   let isAuthorized = authHeader === supabaseKey || 
                      authHeader === cronSecret ||
                      authHeader === anonKey ||
+                     isAnonToken ||
                      req.headers.get("x-job-runner-key") === (Deno.env.get("EDGE_INTERNAL_SHARED_SECRET") || supabaseKey);
   
   // Also allow admin users via JWT
