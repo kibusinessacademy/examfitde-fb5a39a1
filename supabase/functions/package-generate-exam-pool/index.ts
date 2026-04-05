@@ -1860,7 +1860,7 @@ Deno.serve(async (req) => {
     const ssotBudget = getRemainingGenerationBudget(globalTotal, certificationLevel, packageTrack);
     if (ssotBudget <= 0) {
       console.log(`[ExamPool-v5] SSOT HARD CAP reached: ${globalTotal} >= ${ssotMaxCap} (budget=0, tier=${ssotTiered.tier})`);
-      const shouldMarkDone = !isFanOut || await allFanOutSubJobsDone(sb, packageId);
+      const shouldMarkDone = !isFanOut || await allFanOutSubJobsDone(sb, packageId, currentJobId);
       if (shouldMarkDone) {
         await markStepDone(sb, { packageId, stepKey: "generate_exam_pool", meta: { hard_cap: true, total_questions: globalTotal, cap: ssotMaxCap, tier: ssotTiered.tier } });
         console.log(`[ExamPool-v5] ✅ Step generate_exam_pool marked DONE (HARD_CAP, ${globalTotal} questions)`);
@@ -1879,7 +1879,7 @@ Deno.serve(async (req) => {
       const lfPropTarget = Math.ceil(examTarget * (1 / Math.max(1, new Set(bps.map(b => (b as BlueprintInfo).learning_field_id).filter(Boolean)).size)));
       if (lfNow >= lfPropTarget || globalTotal >= shipTarget || globalTotal >= ssotMaxCap) {
         console.log(`[ExamPool-v5] PRE-BATCH TARGET REACHED: lf=${lfNow}/${lfPropTarget}, global=${globalTotal}/${shipTarget}`);
-        const shouldMarkDone = await allFanOutSubJobsDone(sb, packageId);
+        const shouldMarkDone = await allFanOutSubJobsDone(sb, packageId, currentJobId);
         if (shouldMarkDone) {
           await markStepDone(sb, { packageId, stepKey: "generate_exam_pool", meta: { total_questions: globalTotal, target: examTarget, pre_batch_target_reached: true } });
           console.log(`[ExamPool-v5] ✅ Step generate_exam_pool marked DONE (pre-batch target reached, ${globalTotal} questions)`);
@@ -2482,7 +2482,7 @@ Deno.serve(async (req) => {
           { generated: generatedThisRun, inserted: insertedThisRun, blueprints_found: bps.length, blueprints_used: bpsProcessed, reason: "ZERO_OUTPUT_INVARIANT" },
         );
       }
-      const shouldMarkDone = !isFanOut || await allFanOutSubJobsDone(sb, packageId);
+      const shouldMarkDone = !isFanOut || await allFanOutSubJobsDone(sb, packageId, currentJobId);
       if (shouldMarkDone) {
         await markStepDone(sb, { packageId, stepKey: "generate_exam_pool", meta: { total_questions: actualTotal, target: examTarget, generated: generatedThisRun, inserted: insertedThisRun } });
         console.log(`[ExamPool-v5] ✅ Step generate_exam_pool marked DONE (target reached, ${actualTotal} questions)`);
