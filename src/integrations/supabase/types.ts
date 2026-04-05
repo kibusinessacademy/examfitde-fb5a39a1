@@ -59631,6 +59631,10 @@ export type Database = {
         Args: { p_course_id: string }
         Returns: undefined
       }
+      admin_unseal_package_for_regen: {
+        Args: { p_package_id: string }
+        Returns: undefined
+      }
       append_next_adaptive_question: {
         Args: { p_session_id: string }
         Returns: string
