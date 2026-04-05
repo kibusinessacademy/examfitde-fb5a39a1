@@ -133,15 +133,14 @@ function deriveConflictType(bp: BlueprintQuestionSource): string {
 
 /**
  * Derives exam_part from blueprint context.
- * Default: teil_1 (safe fallback for vocational exams).
+ * Returns null if not derivable — caller must handle.
  */
-function deriveExamPart(bp: BlueprintQuestionSource): string {
-  // Blueprints with exam_context_type hints
+function deriveExamPart(bp: BlueprintQuestionSource): string | null {
   const ctx = (bp.exam_context_type ?? "").toLowerCase();
   if (ctx.includes("teil_2") || ctx.includes("part_2") || ctx.includes("mündlich")) return "teil_2";
   if (ctx.includes("teil_1") || ctx.includes("part_1") || ctx.includes("schriftlich")) return "teil_1";
-  // Default to teil_1 — safest for threshold checks
-  return "teil_1";
+  // No silent default — DB trigger will also catch this
+  return null;
 }
 
 /**
@@ -167,15 +166,22 @@ function deriveDifficulty(cognitiveLevel: string): string {
  * Checks structural completeness for tier1 promotion eligibility.
  * Returns reason code if NOT eligible, null if promotable.
  */
-function checkTier1Eligibility(bp: BlueprintQuestionSource, questionText: string, explanation: string): string | null {
-  if (!bp.id) return "missing_blueprint_id";
-  if (!bp.competency_id) return "missing_competency_id";
-  if (!bp.curriculum_id) return "missing_curriculum_id";
-  if (!bp.learning_field_id) return "missing_learning_field_id";
-  if (!bp.cognitive_level) return "missing_cognitive_level";
-  if (questionText.length < 60) return "question_text_too_short";
-  if (!explanation || explanation.length < 20) return "explanation_too_short";
-  return null;
+/**
+ * Checks structural completeness for tier1 promotion eligibility.
+ * Returns array of all reason codes (empty = eligible).
+ * Mirrors fn_exam_question_tier1_eligibility in DB.
+ */
+function checkTier1Eligibility(bp: BlueprintQuestionSource, questionText: string, explanation: string, examPart: string | null): string[] {
+  const reasons: string[] = [];
+  if (!bp.id) reasons.push("missing_blueprint_id");
+  if (!bp.competency_id) reasons.push("missing_competency_id");
+  if (!bp.curriculum_id) reasons.push("missing_curriculum_id");
+  if (!bp.learning_field_id) reasons.push("missing_learning_field_id");
+  if (!bp.cognitive_level) reasons.push("missing_cognitive_level");
+  if (!examPart) reasons.push("missing_exam_part");
+  if (questionText.length < 60) reasons.push("question_text_too_short");
+  if (!explanation || explanation.length < 20) reasons.push("explanation_too_short");
+  return reasons;
 }
 
 export function buildExamQuestionRow(input: {
@@ -190,9 +196,9 @@ export function buildExamQuestionRow(input: {
   const examPart = deriveExamPart(bp);
   const difficulty = deriveDifficulty(bp.cognitive_level);
 
-  // Structural validation for auto-promotion
-  const blockReason = checkTier1Eligibility(bp, questionText, explanation);
-  const isPromotable = blockReason === null;
+  // Structural validation — mirrors DB fn_exam_question_tier1_eligibility
+  const blockReasons = checkTier1Eligibility(bp, questionText, explanation, examPart);
+  const isPromotable = blockReasons.length === 0;
 
   return {
     certification_id: input.certificationId,
@@ -214,7 +220,7 @@ export function buildExamQuestionRow(input: {
     difficulty,
     ai_generated: true,
     qc_status: isPromotable ? "tier1_passed" : "needs_review",
-    exam_part: examPart,
+    exam_part: examPart ?? "teil_1", // DB column NOT NULL — fallback, trigger will re-evaluate
     distractor_meta: {
       source_blueprint_id: bp.id,
       source_knowledge_type: bp.knowledge_type,
@@ -223,12 +229,12 @@ export function buildExamQuestionRow(input: {
       expected_trap_type: trapType,
     },
     meta: {
-      generator_version: "2026-04-05-exam-pool-v2",
+      generator_version: "2026-04-05-exam-pool-v3",
       source: "blueprint_derived",
       didactic_intent: bp.didactic_intent,
       decision_structure: bp.decision_structure,
       exam_relevance_score: bp.exam_relevance_score ?? null,
-      ...(blockReason ? { promotion_block_reason: blockReason } : {}),
+      ...(blockReasons.length > 0 ? { promotion_block_reasons: blockReasons } : {}),
     },
   };
 }
