@@ -101,9 +101,11 @@ Deno.serve(async (req) => {
   const sb = createClient(supabaseUrl, supabaseKey);
 
   // Auth: accept cron secret, service role, anon key (pg_net), or admin JWT
-  const authHeader = req.headers.get("authorization")?.replace("Bearer ", "") || "";
+  const rawAuth = req.headers.get("authorization") || "";
+  const authHeader = rawAuth.replace("Bearer ", "");
   const cronSecret = Deno.env.get("CRON_SECRET") || "";
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
+  console.log(`[minicheck-audit] Auth check: rawAuth length=${rawAuth.length}, anonKey length=${anonKey.length}, match=${authHeader === anonKey}, serviceMatch=${authHeader === supabaseKey}`);
   let isAuthorized = authHeader === supabaseKey || 
                      authHeader === cronSecret ||
                      authHeader === anonKey ||
