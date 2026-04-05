@@ -110,7 +110,7 @@ async function runCourseReadyGate(
   // Determine track early for gate skipping
   const { data: pkgTrackEarly } = await sb.from("course_packages").select("track").eq("id", packageId).maybeSingle();
   const trackEarly = (pkgTrackEarly as any)?.track ?? "AUSBILDUNG_VOLL";
-  const isExamFirstEarly = trackEarly === "EXAM_FIRST";
+  const isExamFirstEarly = trackEarly === "EXAM_FIRST" || trackEarly === "EXAM_FIRST_PLUS";
 
   // ── Derive integrity profile from curricula.program_type (SSOT) ──
   let integrityProfile: IntegrityProfile = "vocational";
@@ -731,8 +731,10 @@ async function runCourseReadyGate(
   // ═══════════════════════════════════════════════
   // Reuse track detected at top of function
   const isExamFirst = isExamFirstEarly;
+  // EXAM_FIRST skips handbook entirely; EXAM_FIRST_PLUS requires handbook
+  const isExamOnly = trackEarly === "EXAM_FIRST";
 
-  if (!isExamFirst) {
+  if (!isExamOnly) {
     const { data: hbSections } = await sb
       .from("handbook_chapters")
       .select("id, handbook_sections(content_markdown, content_tier)")
@@ -984,7 +986,7 @@ async function runCourseReadyGate(
   // ═══════════════════════════════════════════════
   if (hardishPct >= 45) excellence.push(`HARDISH_EXCELLENT: ${hardishPct.toFixed(1)}% (hard=${hardOnlyPct.toFixed(1)}% very_hard=${veryHardPct.toFixed(1)}%)`);
   if (totalApproved >= 850) excellence.push(`EXAM_POOL_DOMINANT: ${totalApproved} approved`);
-  if (!isExamFirst) {
+  if (!isExamOnly) {
     const hbGate = results.find(r => r.gate === "handbook_depth");
     if (hbGate && (hbGate.value ?? 0) >= 50000) excellence.push(`HANDBOOK_DEEP: ${hbGate.value} chars`);
   }
@@ -1238,7 +1240,7 @@ Deno.serve(async (req) => {
 
     // ── Runtime Policy Violation Guard (EXAM_FIRST) ──
     // Detects if Full-Track thresholds leaked into EXAM_FIRST evaluation
-    const isExamFirstRuntime = track === "EXAM_FIRST";
+    const isExamFirstRuntime = track === "EXAM_FIRST" || track === "EXAM_FIRST_PLUS";
     let policyViolation = false;
 
     if (isExamFirstRuntime && gate.hardFails.length > 0) {
