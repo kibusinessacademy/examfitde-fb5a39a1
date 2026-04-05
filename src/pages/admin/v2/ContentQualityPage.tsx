@@ -1,4 +1,4 @@
-import { useState, useMemo, lazy, Suspense } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
@@ -10,7 +10,7 @@ import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import {
-  Search, Play, Download, AlertTriangle, ShieldAlert,
+  Search, Play, AlertTriangle,
   BookOpen, GraduationCap, FileText, ChevronRight,
 } from 'lucide-react';
 import { ContentQualityFindingDrawer } from '@/components/admin/content-quality/ContentQualityFindingDrawer';
@@ -32,6 +32,7 @@ interface PackageRow {
   warning_count: number;
   info_count: number;
   overall_severity: Severity;
+  severity_rank: number;
   reheal_recommended: boolean;
 }
 
@@ -42,6 +43,7 @@ export interface FindingRow {
   artifact_type: string;
   artifact_id: string;
   severity: Severity;
+  severity_rank: number;
   status: FindingStatus;
   title: string | null;
   excerpt: string | null;
@@ -58,11 +60,11 @@ export interface FindingRow {
 
 // ── Severity helpers ──
 
-const severityConfig: Record<Severity, { label: string; class: string; order: number }> = {
-  critical: { label: 'Critical', class: 'bg-rose-500/15 text-rose-400 border-rose-500/30', order: 0 },
-  error: { label: 'Error', class: 'bg-orange-500/15 text-orange-400 border-orange-500/30', order: 1 },
-  warning: { label: 'Warning', class: 'bg-amber-500/15 text-amber-400 border-amber-500/30', order: 2 },
-  info: { label: 'Info', class: 'bg-muted text-muted-foreground border-border', order: 3 },
+const severityConfig: Record<Severity, { label: string; class: string }> = {
+  critical: { label: 'Critical', class: 'bg-rose-500/15 text-rose-400 border-rose-500/30' },
+  error: { label: 'Error', class: 'bg-orange-500/15 text-orange-400 border-orange-500/30' },
+  warning: { label: 'Warning', class: 'bg-amber-500/15 text-amber-400 border-amber-500/30' },
+  info: { label: 'Info', class: 'bg-muted text-muted-foreground border-border' },
 };
 
 const artifactIcons: Record<string, typeof BookOpen> = {
@@ -83,6 +85,8 @@ export default function ContentQualityPage() {
   const qc = useQueryClient();
   const [search, setSearch] = useState('');
   const [severityFilter, setSeverityFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('open');
+  const [artifactFilter, setArtifactFilter] = useState<string>('all');
   const [onlyCritical, setOnlyCritical] = useState(false);
   const [onlyReheal, setOnlyReheal] = useState(false);
   const [selectedPkgId, setSelectedPkgId] = useState<string | null>(null);
@@ -96,24 +100,30 @@ export default function ContentQualityPage() {
         .from('v_admin_content_quality_packages' as any)
         .select('*')
         .gt('open_findings', 0)
-        .order('critical_count', { ascending: false });
+        .order('severity_rank', { ascending: true });
       if (error) throw error;
       return (data ?? []) as unknown as PackageRow[];
     },
     staleTime: 60_000,
   });
 
-  // ── Findings for selected package ──
+  // ── Findings for selected package (server-side filtered) ──
   const { data: findings, isLoading: findingsLoading } = useQuery({
-    queryKey: ['content-quality-findings', selectedPkgId],
+    queryKey: ['content-quality-findings', selectedPkgId, statusFilter, artifactFilter, severityFilter],
     queryFn: async () => {
       if (!selectedPkgId) return [];
-      const { data, error } = await supabase
+      let q = supabase
         .from('v_admin_content_quality_findings' as any)
         .select('*')
-        .eq('package_id', selectedPkgId)
-        .eq('status', 'open')
-        .order('severity', { ascending: true });
+        .eq('package_id', selectedPkgId);
+
+      if (statusFilter !== 'all') q = q.eq('status', statusFilter);
+      if (artifactFilter !== 'all') q = q.eq('artifact_type', artifactFilter);
+      if (severityFilter !== 'all') q = q.eq('severity', severityFilter);
+
+      q = q.order('severity_rank', { ascending: true });
+
+      const { data, error } = await q;
       if (error) throw error;
       return (data ?? []) as unknown as FindingRow[];
     },
@@ -123,34 +133,33 @@ export default function ContentQualityPage() {
   // ── Run audit mutation ──
   const runAudit = useMutation({
     mutationFn: async () => {
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-      const url = `https://${projectId}.supabase.co/functions/v1/content-quality-audit`;
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}` },
-        body: JSON.stringify({ scope: 'published_packages' }),
+      const res = await supabase.functions.invoke('content-quality-audit', {
+        body: { scope: 'published_packages' },
       });
-      if (!res.ok) throw new Error(await res.text());
-      return res.json();
+      if (res.error) throw res.error;
+      return res.data;
     },
-    onSuccess: (data) => {
-      toast.success(`Audit abgeschlossen: ${data.finding_count} Findings, ${data.critical_count} Critical`);
+    onSuccess: (data: any) => {
+      if (data?.error === 'AUDIT_ALREADY_RUNNING') {
+        toast.warning('Audit läuft bereits');
+        return;
+      }
+      toast.success(`Audit abgeschlossen: ${data?.finding_count ?? 0} Findings, ${data?.critical_count ?? 0} Critical`);
       qc.invalidateQueries({ queryKey: ['content-quality-packages'] });
     },
     onError: (e) => toast.error(`Audit fehlgeschlagen: ${e.message}`),
   });
 
-  // ── Filtered packages ──
+  // ── Filtered packages (client-side search + toggles only) ──
   const filtered = useMemo(() => {
     if (!packages) return [];
     return packages.filter(p => {
       if (search && !p.package_title?.toLowerCase().includes(search.toLowerCase()) && !p.package_id.includes(search)) return false;
-      if (severityFilter !== 'all' && p.overall_severity !== severityFilter) return false;
       if (onlyCritical && p.overall_severity !== 'critical') return false;
       if (onlyReheal && !p.reheal_recommended) return false;
       return true;
     });
-  }, [packages, search, severityFilter, onlyCritical, onlyReheal]);
+  }, [packages, search, onlyCritical, onlyReheal]);
 
   // ── KPIs ──
   const kpis = useMemo(() => {
@@ -202,10 +211,32 @@ export default function ContentQualityPage() {
             <SelectValue placeholder="Severity" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Alle</SelectItem>
+            <SelectItem value="all">Alle Severity</SelectItem>
             <SelectItem value="critical">Critical</SelectItem>
             <SelectItem value="error">Error</SelectItem>
             <SelectItem value="warning">Warning</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-[130px] h-9 text-sm">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Alle Status</SelectItem>
+            <SelectItem value="open">Open</SelectItem>
+            <SelectItem value="rehealing">Rehealing</SelectItem>
+            <SelectItem value="resolved">Resolved</SelectItem>
+            <SelectItem value="ignored">Ignored</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={artifactFilter} onValueChange={setArtifactFilter}>
+          <SelectTrigger className="w-[140px] h-9 text-sm">
+            <SelectValue placeholder="Artefakt" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Alle Artefakte</SelectItem>
+            <SelectItem value="handbook_chapter">Handbuch</SelectItem>
+            <SelectItem value="lesson">Lektion</SelectItem>
           </SelectContent>
         </Select>
         <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
@@ -244,6 +275,7 @@ export default function ContentQualityPage() {
                     <div className="text-sm font-medium truncate">{pkg.package_title || pkg.package_id.slice(0, 8)}</div>
                     <div className="flex items-center gap-2 mt-0.5">
                       <SeverityBadge severity={pkg.overall_severity} />
+                      {pkg.track && <span className="text-[9px] font-mono text-muted-foreground">{pkg.track}</span>}
                       <span className="text-[10px] text-muted-foreground">
                         {pkg.open_findings} Findings · {pkg.critical_count}C / {pkg.error_count}E / {pkg.warning_count}W
                       </span>
@@ -272,7 +304,7 @@ export default function ContentQualityPage() {
             ) : findingsLoading ? (
               Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-16 mx-3 my-2 rounded-lg" />)
             ) : !findings?.length ? (
-              <div className="p-6 text-center text-sm text-muted-foreground">Keine offenen Findings</div>
+              <div className="p-6 text-center text-sm text-muted-foreground">Keine Findings für aktuelle Filter</div>
             ) : (
               findings.map(f => {
                 const ArtIcon = artifactIcons[f.artifact_type] ?? FileText;
