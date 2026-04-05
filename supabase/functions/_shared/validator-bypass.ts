@@ -107,7 +107,8 @@ export async function checkValidatorBypass(
  * Build bypass meta to store in package_steps.meta when a step is bypassed.
  */
 export function buildBypassMeta(result: BypassResult, extra?: Record<string, unknown>): Record<string, unknown> {
-  return {
+  // Core bypass fields only — step-specific metrics go in `extra`
+  const meta: Record<string, unknown> = {
     validation_passed: true,
     bypassed: true,
     bypass_reason: result.reason,
@@ -117,14 +118,17 @@ export function buildBypassMeta(result: BypassResult, extra?: Record<string, unk
     validator_version: result.validatorVersion,
     fingerprint_version: result.fingerprintVersion,
     bypassed_at: new Date().toISOString(),
-    chapter_count: result.chapterCount,
-    section_count: result.totalSections,
-    expanded_sections: result.expandedSections,
-    approved_count: result.approvedCount,
-    total_count: result.totalCount,
-    trap_count: result.trapCount,
-    ...(extra ?? {}),
   };
+
+  // Only include step-specific metrics that are actually set (non-null)
+  if (result.chapterCount != null) meta.chapter_count = result.chapterCount;
+  if (result.totalSections != null) meta.section_count = result.totalSections;
+  if (result.expandedSections != null) meta.expanded_sections = result.expandedSections;
+  if (result.approvedCount != null) meta.approved_count = result.approvedCount;
+  if (result.totalCount != null) meta.total_count = result.totalCount;
+  if (result.trapCount != null) meta.trap_count = result.trapCount;
+
+  return { ...meta, ...(extra ?? {}) };
 }
 
 /**
