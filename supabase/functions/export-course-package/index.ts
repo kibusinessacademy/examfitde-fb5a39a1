@@ -23,6 +23,31 @@ function safeFilename(name: string) {
     .substring(0, 60);
 }
 
+/** Extract HTML string from lesson content (may be JSON with html field or raw string) */
+function extractHtml(content: unknown): string | null {
+  if (!content) return null;
+  if (typeof content === "string") {
+    // Could be raw HTML or JSON string
+    if (content.trim().startsWith("{") || content.trim().startsWith("[")) {
+      try {
+        const parsed = JSON.parse(content);
+        if (parsed?.html) return parsed.html;
+        if (parsed?._placeholder) return null;
+        return content; // return raw if no html field
+      } catch { return content; }
+    }
+    return content;
+  }
+  if (typeof content === "object") {
+    const obj = content as Record<string, unknown>;
+    if (obj._placeholder) return null;
+    if (typeof obj.html === "string") return obj.html;
+    // Fallback: stringify the object
+    return JSON.stringify(content);
+  }
+  return null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
