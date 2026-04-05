@@ -61212,26 +61212,16 @@ export type Database = {
         Args: { p_package_id: string; p_repair_action: string }
         Returns: Json
       }
-      fn_is_step_bypass_eligible:
-        | {
-            Args: {
-              p_current_fingerprint: string
-              p_package_id: string
-              p_step_key: string
-              p_validator_version?: string
-            }
-            Returns: Json
-          }
-        | {
-            Args: {
-              p_current_fingerprint: string
-              p_fingerprint_version?: string
-              p_package_id: string
-              p_step_key: string
-              p_validator_version: string
-            }
-            Returns: Json
-          }
+      fn_is_step_bypass_eligible: {
+        Args: {
+          p_current_fingerprint: string
+          p_fingerprint_version?: string
+          p_package_id: string
+          p_step_key: string
+          p_validator_version: string
+        }
+        Returns: Json
+      }
       fn_is_true_stall: {
         Args: {
           p_package_id: string
