@@ -1,4 +1,4 @@
-import { ZodSchema, ZodError } from "zod";
+import { z, ZodError } from "zod";
 
 /**
  * Contract validation error with structured details.
@@ -17,12 +17,14 @@ export class ContractValidationError extends Error {
 /**
  * Parse and validate input against a Zod schema.
  * Throws ContractValidationError on failure (fail-closed).
+ *
+ * Uses z.ZodTypeAny generic for full type inference from schema.
  */
-export function parse_contract<T>(
-  schema: ZodSchema<T>,
+export function parse_contract<TSchema extends z.ZodTypeAny>(
+  schema: TSchema,
   input: unknown,
   message = "Invalid contract payload",
-): T {
+): z.infer<TSchema> {
   const result = schema.safeParse(input);
   if (!result.success) {
     throw new ContractValidationError(message, result.error);
