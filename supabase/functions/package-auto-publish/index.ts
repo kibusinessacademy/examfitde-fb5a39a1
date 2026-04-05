@@ -81,6 +81,49 @@ Deno.serve(async (req) => {
       return json({ ok: false, retry: true, error: "PREREQ_NOT_DONE: run_integrity_check" }, 409);
     }
 
+    // ══════════════════════════════════════════════════════════════
+    // QUALITY GATE v2 — LESSON STATUS GUARD (fail-closed)
+    // Published packages must NOT contain draft lessons with failing QC.
+    // ══════════════════════════════════════════════════════════════
+    {
+      // Resolve course_id → modules → lessons
+      const { data: modRows } = await sb.from("modules").select("id").eq("course_id", courseId);
+      const moduleIds = (modRows || []).map((m: any) => m.id);
+      if (moduleIds.length > 0) {
+        const { count: draftFailedCount } = await sb
+          .from("lessons")
+          .select("id", { count: "exact", head: true })
+          .in("module_id", moduleIds)
+          .eq("status", "draft")
+          .in("qc_status", ["tier1_failed", "needs_revision"]);
+
+        if ((draftFailedCount ?? 0) > 0) {
+          console.log(`[auto-publish] 🛑 LESSON_QC_GATE: ${draftFailedCount} lessons are draft+failed`);
+          await sb.from("course_packages").update({ status: "quality_gate_failed" }).eq("id", packageId);
+          await notify(sb, "🛑 Lesson-QC Gate: draft Lessons mit Fehlern",
+            `${draftFailedCount} Lessons sind noch draft + tier1_failed/needs_revision`,
+            "quality", "error", "course_package", packageId);
+          return json({
+            ok: false, retry: false,
+            error: "LESSON_QC_GATE_FAILED",
+            draft_failed_count: draftFailedCount,
+          }, 422);
+        }
+      }
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // QUALITY GATE v2 — COUNCIL CONSISTENCY GUARD (fail-closed)
+    // council_approved MUST align with quality_council step status.
+    // ══════════════════════════════════════════════════════════════
+    {
+      const councilStepDone = await prereqDone(sb, packageId, "quality_council");
+      if (!councilStepDone) {
+        console.log(`[auto-publish] 🛑 COUNCIL_GATE: quality_council step not done`);
+        return json({ ok: false, retry: true, error: "PREREQ_NOT_DONE: quality_council" }, 409);
+      }
+    }
+
     // ── PUBLISH-GATE: validate approved question count ──
     const { data: publishGate } = await sb.rpc("validate_publish_readiness", { p_package_id: packageId });
     if (publishGate && !publishGate.ok) {

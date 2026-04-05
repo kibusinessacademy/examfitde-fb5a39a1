@@ -18,6 +18,10 @@ interface PublishInputs {
   hasTutorIndex: boolean;
   integrityPassed: boolean;
   qualityCouncilPassed: boolean;
+  /** Quality Gate v2: lesson QC status */
+  lessonQcFailedCount?: number;
+  /** Quality Gate v2: council step actually completed */
+  councilStepDone?: boolean;
 }
 
 export function canAutoPublish(input: PublishInputs) {
@@ -55,6 +59,16 @@ export function canAutoPublish(input: PublishInputs) {
 
   if (!input.qualityCouncilPassed) {
     missing.push("quality_council");
+  }
+
+  // Quality Gate v2: lesson content must pass QC
+  if ((input.lessonQcFailedCount ?? 0) > 0) {
+    missing.push("lesson_qc_failed");
+  }
+
+  // Quality Gate v2: council step must actually be done
+  if (input.councilStepDone === false) {
+    missing.push("council_step_not_done");
   }
 
   return {
