@@ -2,6 +2,15 @@
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 import { validateAuth, unauthorizedResponse } from "../_shared/auth.ts";
+import { FULL_STEP_ORDER } from "../_shared/job-map.ts";
+import {
+  normalizeTrackStrict,
+  getTrackCapabilities,
+  getSkippedSteps,
+  getRequiredSteps,
+  type Track,
+} from "../_shared/track-capabilities.ts";
+import { mergePackageStepMeta } from "../_shared/merge-step-meta.ts";
 
 Deno.serve(async (req) => {
   const corsResponse = handleCorsPreflightRequest(req);
