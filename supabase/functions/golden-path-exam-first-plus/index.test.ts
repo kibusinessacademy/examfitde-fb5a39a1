@@ -153,7 +153,7 @@ Deno.test("All 4 tracks have unique capability fingerprints", () => {
   const tracks = ["AUSBILDUNG_VOLL", "EXAM_FIRST", "EXAM_FIRST_PLUS", "STUDIUM"] as const;
   const fingerprints = tracks.map(t => {
     const c = getTrackCapabilities(t);
-    return JSON.stringify([c.hasLearningCourse, c.hasMiniChecks, c.hasHandbook, c.hasOralExam, c.isExamCentric]);
+    return JSON.stringify([c.hasLearningCourse, c.hasMiniChecks, c.hasHandbook, c.hasOralExam, c.isExamCentric, c.eliteHardenEligible, c.tutorMode]);
   });
 
   const unique = new Set(fingerprints);
