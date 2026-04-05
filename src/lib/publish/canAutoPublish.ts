@@ -61,6 +61,16 @@ export function canAutoPublish(input: PublishInputs) {
     missing.push("quality_council");
   }
 
+  // Quality Gate v2: lesson content must pass QC
+  if ((input.lessonQcFailedCount ?? 0) > 0) {
+    missing.push("lesson_qc_failed");
+  }
+
+  // Quality Gate v2: council step must actually be done
+  if (input.councilStepDone === false) {
+    missing.push("council_step_not_done");
+  }
+
   return {
     allowed: missing.length === 0,
     missing,
