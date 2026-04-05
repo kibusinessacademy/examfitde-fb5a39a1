@@ -11652,6 +11652,93 @@ export type Database = {
         }
         Relationships: []
       }
+      course_upgrade_decisions: {
+        Row: {
+          applied_at: string | null
+          applied_by: string | null
+          created_at: string
+          current_track: string
+          curriculum_id: string
+          decision: string
+          id: string
+          package_id: string
+          reasons: Json
+          recommended_track: string
+          score: number
+        }
+        Insert: {
+          applied_at?: string | null
+          applied_by?: string | null
+          created_at?: string
+          current_track: string
+          curriculum_id: string
+          decision: string
+          id?: string
+          package_id: string
+          reasons?: Json
+          recommended_track: string
+          score: number
+        }
+        Update: {
+          applied_at?: string | null
+          applied_by?: string | null
+          created_at?: string
+          current_track?: string
+          curriculum_id?: string
+          decision?: string
+          id?: string
+          package_id?: string
+          reasons?: Json
+          recommended_track?: string
+          score?: number
+        }
+        Relationships: []
+      }
+      course_upgrade_scores: {
+        Row: {
+          active_users_30d: number
+          b2b_signals: number
+          completion_rate: number
+          computed_at: string
+          created_at: string
+          curriculum_id: string
+          id: string
+          package_id: string
+          revenue_30d: number
+          sessions_30d: number
+          total_score: number
+          updated_at: string
+        }
+        Insert: {
+          active_users_30d?: number
+          b2b_signals?: number
+          completion_rate?: number
+          computed_at?: string
+          created_at?: string
+          curriculum_id: string
+          id?: string
+          package_id: string
+          revenue_30d?: number
+          sessions_30d?: number
+          total_score?: number
+          updated_at?: string
+        }
+        Update: {
+          active_users_30d?: number
+          b2b_signals?: number
+          completion_rate?: number
+          computed_at?: string
+          created_at?: string
+          curriculum_id?: string
+          id?: string
+          package_id?: string
+          revenue_30d?: number
+          sessions_30d?: number
+          total_score?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       courses: {
         Row: {
           autopilot_runner_id: string | null
