@@ -112,7 +112,7 @@ Deno.serve(async (req) => {
       const { data: bps } = await sb
         .from("question_blueprints")
         .select("id")
-        .eq("curriculum_id", curriculumId)
+        .eq("curriculum_id", resolvedCurriculumId)
         .order("id", { ascending: true });
       blueprintIds = (bps ?? []).map((b: any) => b.id);
     }
