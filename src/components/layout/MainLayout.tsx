@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { GraduationCap, LogOut, User, Menu, X, Download } from 'lucide-react';
 import { useState } from 'react';
-import { NativeTabBar } from '@/components/native/NativeTabBar';
+
 import { useNativeApp } from '@/hooks/useNativeApp';
 
 const NAV_ITEMS = [
@@ -159,9 +159,7 @@ export default function MainLayout() {
       <main className={isNative ? 'pb-20' : ''}>
         <Outlet />
       </main>
-
-      {/* Native Tab Bar */}
-      <NativeTabBar />
+      {/* Native Tab Bar is rendered in App.tsx with admin-route filtering */}
 
       {/* Footer - hidden in native/PWA mode */}
       {!isNative && (
