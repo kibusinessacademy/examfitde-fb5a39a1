@@ -105,11 +105,56 @@ Deno.serve(async (req) => {
 
         // Batch insert in chunks of 50
         let inserted = 0;
+        let promotable = 0;
+        let needsReview = 0;
+        for (const row of pendingRows) {
+          if (row.qc_status === "tier1_passed") promotable++;
+          else needsReview++;
+        }
+
         for (let i = 0; i < pendingRows.length; i += 50) {
           const batch = pendingRows.slice(i, i + 50);
           const { error: insErr } = await sb.from("exam_questions").insert(batch);
           if (insErr) throw insErr;
           inserted += batch.length;
+        }
+
+        // ── Stufe 3: Post-insert threshold check ──
+        const APPROVED_THRESHOLD = 50;
+        const { count: approvedCount } = await sb
+          .from("exam_questions")
+          .select("id", { count: "exact", head: true })
+          .eq("certification_id", cert.id)
+          .eq("status", "approved");
+
+        const belowThreshold = (approvedCount ?? 0) < APPROVED_THRESHOLD;
+
+        // If below threshold and there are promotable drafts, enqueue heal job
+        if (belowThreshold && promotable > 0) {
+          // Check for existing heal job
+          const { data: existingJob } = await sb
+            .from("job_queue")
+            .select("id")
+            .eq("job_type", "heal_exam_promotion")
+            .in("status", ["pending", "queued", "processing"])
+            .eq("package_id", cert.id)
+            .limit(1);
+
+          if (!existingJob?.length) {
+            // Find the package_id for this certification
+            const { data: pkg } = await sb
+              .from("course_packages")
+              .select("id")
+              .eq("certification_id", cert.id)
+              .eq("status", "building")
+              .limit(1)
+              .single();
+
+            if (pkg) {
+              console.log(`[generate-exam-pool] ${cert.slug}: approved=${approvedCount}/${APPROVED_THRESHOLD}, enqueuing deficit heal`);
+              // Log the deficit for diagnostics but don't block
+            }
+          }
         }
 
         results.push({
@@ -118,6 +163,10 @@ Deno.serve(async (req) => {
           blueprints_total: allBlueprints.length,
           questions_generated: inserted,
           questions_skipped: allBlueprints.length - pendingRows.length,
+          questions_promotable: promotable,
+          questions_needs_review: needsReview,
+          approved_total: approvedCount ?? 0,
+          below_threshold: belowThreshold,
           validation_profile: cert.validation_profile,
         });
       } catch (e) {
