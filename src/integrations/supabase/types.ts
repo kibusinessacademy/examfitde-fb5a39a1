@@ -61357,39 +61357,51 @@ export type Database = {
           curriculum_id: string
           heal_action: string
           id: string
-          notes: string
+          notes: string | null
           package_id: string
-          processed_at: string
+          processed_at: string | null
           reason_codes: string[]
           source: string
-          source_test_run_id: string
+          source_test_run_id: string | null
           status: string
           updated_at: string
         }[]
+        SetofOptions: {
+          from: "*"
+          to: "admin_course_auto_heal_queue"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       get_admin_auto_test_queue: {
         Args: { p_limit?: number }
         Returns: {
-          approved_questions: number
-          council_approved: boolean
-          curriculum_id: string
-          integrity_passed: boolean
-          latest_qa_at: string
-          latest_qa_issue_codes: string[]
-          latest_qa_notes: string
-          latest_qa_status: string
-          lessons_count: number
-          never_tested: boolean
-          package_id: string
-          published_at: string
-          qa_freshness_bucket: string
-          queue_score: number
-          reason_codes: string[]
-          test_priority: string
-          title: string
-          tutor_index_count: number
-          updated_at: string
+          approved_questions: number | null
+          council_approved: boolean | null
+          curriculum_id: string | null
+          integrity_passed: boolean | null
+          latest_qa_at: string | null
+          latest_qa_issue_codes: string[] | null
+          latest_qa_notes: string | null
+          latest_qa_status: string | null
+          lessons_count: number | null
+          never_tested: boolean | null
+          package_id: string | null
+          published_at: string | null
+          qa_freshness_bucket: string | null
+          queue_score: number | null
+          reason_codes: string[] | null
+          test_priority: string | null
+          title: string | null
+          tutor_index_count: number | null
+          updated_at: string | null
         }[]
+        SetofOptions: {
+          from: "*"
+          to: "v_admin_auto_test_queue_v2"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       get_admin_course_preview_deep_links: {
         Args: { p_curriculum_id: string }
@@ -61426,23 +61438,35 @@ export type Database = {
           curriculum_id: string
           id: string
           issue_codes: string[]
-          notes: string
+          notes: string | null
           package_id: string
           test_status: string
           tested_by: string
         }[]
+        SetofOptions: {
+          from: "*"
+          to: "admin_course_test_runs"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       get_admin_course_test_run_latest: {
         Args: never
         Returns: {
-          created_at: string
-          curriculum_id: string
-          issue_codes: string[]
-          notes: string
-          package_id: string
-          test_status: string
-          tested_by: string
+          created_at: string | null
+          curriculum_id: string | null
+          issue_codes: string[] | null
+          notes: string | null
+          package_id: string | null
+          test_status: string | null
+          tested_by: string | null
         }[]
+        SetofOptions: {
+          from: "*"
+          to: "v_admin_course_test_run_latest"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       get_admin_growth_content_jobs: {
         Args: { p_status?: string }
@@ -61980,6 +62004,10 @@ export type Database = {
           seat_status: string
           user_id: string
         }[]
+      }
+      get_package_content_progress: {
+        Args: { p_package_id: string }
+        Returns: Json
       }
       get_package_question_counts: {
         Args: { p_curriculum_ids: string[] }
