@@ -54,13 +54,26 @@ Deno.serve(async (req) => {
 
   try {
     assertUuid("package_id", p?.package_id);
-    assertUuid("course_id", p?.course_id);
   } catch (e: unknown) {
     return json({ error: (e as Error).message }, 400);
   }
 
   const packageId = p.package_id as string;
-  const courseId = p.course_id as string;
+  let courseId = p.course_id as string | undefined;
+
+  // ── Payload-decoupling: resolve missing course_id from package ──
+  if (!courseId || !/^[0-9a-f]{8}-/i.test(courseId)) {
+    const { data: pkg } = await sb
+      .from("course_packages")
+      .select("course_id")
+      .eq("id", packageId)
+      .maybeSingle();
+    if (!pkg?.course_id) {
+      return json({ error: "Could not resolve course_id for package" }, 400);
+    }
+    courseId = pkg.course_id;
+    console.log(`[auto-publish] Resolved course_id=${courseId} from package`);
+  }
 
   // ── Top-level try/catch to prevent bare 500s ──
   try {
