@@ -51,7 +51,7 @@ export function getTieredTarget(
     certificationLevel === 'fachwirt' ||
     certificationLevel === 'meister'
   ) {
-    return { min: 500, target: 1200, max: 2000, tier: 'large' };
+    return { min: 500, target: 1200, max: 2200, tier: 'large' };
   }
 
   // Small tier: Sachkunde, Projektmanagement
