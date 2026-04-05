@@ -513,6 +513,18 @@ export async function processPackage(
           return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true", snapshot: { ok: !!ok } };
         },
       },
+      // ── Previously missing: generate_handbook finalization rule ──
+      {
+        stepKey: "generate_handbook",
+        jobType: "package_generate_handbook",
+        actionType: "finalize_generate_handbook",
+        cancelStatuses: ["pending", "failed"],
+        shouldFinalize: (meta) => {
+          const ok = meta?.ok === true || meta?.batch_complete === true;
+          const reason = meta?.ok ? "meta.ok=true" : meta?.batch_complete ? "meta.batch_complete=true" : "not_ready";
+          return { ok, reason, snapshot: { ok: !!meta?.ok, batch_complete: !!meta?.batch_complete } };
+        },
+      },
       {
         stepKey: "validate_handbook",
         jobType: "package_validate_handbook",
