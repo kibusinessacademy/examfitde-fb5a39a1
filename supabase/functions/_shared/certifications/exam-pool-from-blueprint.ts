@@ -21,7 +21,7 @@ export type ExamQuestionRow = {
   competency_id: string | null;
   learning_field_id: string | null;
   blueprint_id: string;
-  status: "draft";
+  status: "draft" | "approved";
   review_state: "pending";
   question_type: string;
   question_text: string;
@@ -34,7 +34,10 @@ export type ExamQuestionRow = {
   distractor_meta: Record<string, unknown>;
   meta: Record<string, unknown>;
   cognitive_level: string;
+  difficulty: string;
   ai_generated: boolean;
+  qc_status: string;
+  exam_part: string;
 };
 
 // Valid question_type values: concept, procedure, calculation, case_study, transfer
@@ -128,6 +131,53 @@ function deriveConflictType(bp: BlueprintQuestionSource): string {
   return "concept_conflict";
 }
 
+/**
+ * Derives exam_part from blueprint context.
+ * Default: teil_1 (safe fallback for vocational exams).
+ */
+function deriveExamPart(bp: BlueprintQuestionSource): string {
+  // Blueprints with exam_context_type hints
+  const ctx = (bp.exam_context_type ?? "").toLowerCase();
+  if (ctx.includes("teil_2") || ctx.includes("part_2") || ctx.includes("mündlich")) return "teil_2";
+  if (ctx.includes("teil_1") || ctx.includes("part_1") || ctx.includes("schriftlich")) return "teil_1";
+  // Default to teil_1 — safest for threshold checks
+  return "teil_1";
+}
+
+/**
+ * Derives difficulty from cognitive_level (Bloom taxonomy mapping).
+ */
+function deriveDifficulty(cognitiveLevel: string): string {
+  switch (cognitiveLevel) {
+    case "remember":
+    case "understand":
+      return "easy";
+    case "apply":
+      return "medium";
+    case "analyze":
+    case "evaluate":
+    case "create":
+      return "hard";
+    default:
+      return "medium";
+  }
+}
+
+/**
+ * Checks structural completeness for tier1 promotion eligibility.
+ * Returns reason code if NOT eligible, null if promotable.
+ */
+function checkTier1Eligibility(bp: BlueprintQuestionSource, questionText: string, explanation: string): string | null {
+  if (!bp.id) return "missing_blueprint_id";
+  if (!bp.competency_id) return "missing_competency_id";
+  if (!bp.curriculum_id) return "missing_curriculum_id";
+  if (!bp.learning_field_id) return "missing_learning_field_id";
+  if (!bp.cognitive_level) return "missing_cognitive_level";
+  if (questionText.length < 60) return "question_text_too_short";
+  if (!explanation || explanation.length < 20) return "explanation_too_short";
+  return null;
+}
+
 export function buildExamQuestionRow(input: {
   certificationId: string;
   blueprint: BlueprintQuestionSource;
@@ -135,6 +185,14 @@ export function buildExamQuestionRow(input: {
   const bp = input.blueprint;
   const questionType = pickQuestionType(bp.allowed_question_types, bp.knowledge_type);
   const trapType = bp.expected_trap_type ?? "typical_error";
+  const questionText = buildQuestionText(bp);
+  const explanation = buildExplanation(bp);
+  const examPart = deriveExamPart(bp);
+  const difficulty = deriveDifficulty(bp.cognitive_level);
+
+  // Structural validation for auto-promotion
+  const blockReason = checkTier1Eligibility(bp, questionText, explanation);
+  const isPromotable = blockReason === null;
 
   return {
     certification_id: input.certificationId,
@@ -145,15 +203,18 @@ export function buildExamQuestionRow(input: {
     status: "draft",
     review_state: "pending",
     question_type: questionType,
-    question_text: buildQuestionText(bp),
+    question_text: questionText,
     options: buildOptions(bp, questionType),
-    correct_answer: 0, // index 0 = option A (always correct in template)
-    explanation: buildExplanation(bp),
+    correct_answer: 0,
+    explanation,
     trap_type: trapType,
     is_trap: true,
     conflict_type: deriveConflictType(bp),
     cognitive_level: bp.cognitive_level,
+    difficulty,
     ai_generated: true,
+    qc_status: isPromotable ? "tier1_passed" : "needs_review",
+    exam_part: examPart,
     distractor_meta: {
       source_blueprint_id: bp.id,
       source_knowledge_type: bp.knowledge_type,
@@ -162,11 +223,12 @@ export function buildExamQuestionRow(input: {
       expected_trap_type: trapType,
     },
     meta: {
-      generator_version: "2026-04-04-exam-pool-v1",
+      generator_version: "2026-04-05-exam-pool-v2",
       source: "blueprint_derived",
       didactic_intent: bp.didactic_intent,
       decision_structure: bp.decision_structure,
       exam_relevance_score: bp.exam_relevance_score ?? null,
+      ...(blockReason ? { promotion_block_reason: blockReason } : {}),
     },
   };
 }
