@@ -86,7 +86,7 @@ Deno.serve(async (req) => {
     // ── 1. Load package ──
     const { data: pkg, error: pkgErr } = await sb
       .from("course_packages")
-      .select("id, status, course_id, curriculum_id, integrity_passed, integrity_report, blocked_reason, track")
+      .select("id, status, course_id, curriculum_id, integrity_passed, integrity_report, blocked_reason, track, is_rebuild")
       .eq("id", packageId)
       .maybeSingle();
 
@@ -95,6 +95,7 @@ Deno.serve(async (req) => {
     const curriculumId = pkg.curriculum_id as string;
     const courseId = pkg.course_id as string;
     const track = (pkg.track as string) || "AUSBILDUNG_VOLL";
+    const isRebuild = pkg.is_rebuild === true;
 
     if (!curriculumId) return json({ error: "package has no curriculum_id" }, 400);
 
