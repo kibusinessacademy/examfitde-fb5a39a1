@@ -15,6 +15,10 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+function stripPrefix(title: string | null | undefined): string {
+  return (title || '').replace(/^ExamFit\s*–\s*/i, '');
+}
+
 const STATUS_FILTERS = [
   { key: 'all', label: 'Alle' },
   { key: 'pending', label: 'Pending' },
