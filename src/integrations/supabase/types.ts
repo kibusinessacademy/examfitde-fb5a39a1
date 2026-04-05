@@ -59615,12 +59615,20 @@ export type Database = {
         Args: { p_action_id: string }
         Returns: undefined
       }
+      admin_force_depublish_and_rebuild: {
+        Args: { p_package_id: string }
+        Returns: undefined
+      }
       admin_reset_code_lockout: {
         Args: { p_code: string; p_note?: string }
         Returns: undefined
       }
       admin_unblock_user: {
         Args: { p_reason?: string; p_user_id: string }
+        Returns: undefined
+      }
+      admin_unseal_course_for_regen: {
+        Args: { p_course_id: string }
         Returns: undefined
       }
       append_next_adaptive_question: {
