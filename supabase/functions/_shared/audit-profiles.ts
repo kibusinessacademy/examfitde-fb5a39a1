@@ -1,5 +1,5 @@
 /**
- * Track-Aware Audit Profiles — SSOT
+ * Track-Aware Audit Profiles — SSOT (v3 hardened)
  *
  * Central profile definitions for all tracks (Ausbildung, Studium,
  * Fortbildung, Meister, Zertifikat). Used by the content-audit-engine
@@ -530,17 +530,28 @@ export const AUDIT_PROFILES: Record<TrackKey, AuditProfile> = {
 // ── Helpers ──
 
 const TRACK_ALIASES: Record<string, TrackKey> = {
-  AUSBILDUNG: "AUSBILDUNG_VOLL",
+  // Canonical
   AUSBILDUNG_VOLL: "AUSBILDUNG_VOLL",
   EXAM_FIRST: "EXAM_FIRST",
   EXAM_FIRST_PLUS: "EXAM_FIRST_PLUS",
   STUDIUM: "STUDIUM",
-  BACHELOR: "STUDIUM",
-  MASTER: "STUDIUM",
-  HIGHER_ED: "STUDIUM",
   FORTBILDUNG: "FORTBILDUNG",
   MEISTER: "MEISTER",
   ZERTIFIKAT: "ZERTIFIKAT",
+  // Aliases
+  AUSBILDUNG: "AUSBILDUNG_VOLL",
+  ELITE: "AUSBILDUNG_VOLL",
+  "AUSBILDUNG-VOLL": "AUSBILDUNG_VOLL",
+  AUSBILDUNG_VOLL_ELITE: "AUSBILDUNG_VOLL",
+  EXAMFIRST: "EXAM_FIRST",
+  "EXAM-FIRST": "EXAM_FIRST",
+  "EXAM-FIRST-PLUS": "EXAM_FIRST_PLUS",
+  EXAMFIRSTPLUS: "EXAM_FIRST_PLUS",
+  BACHELOR: "STUDIUM",
+  MASTER: "STUDIUM",
+  HIGHER_ED: "STUDIUM",
+  HIGHER_EDUCATION: "STUDIUM",
+  ACADEMIC: "STUDIUM",
   CERT: "ZERTIFIKAT",
   CERTIFICATION: "ZERTIFIKAT",
 };
