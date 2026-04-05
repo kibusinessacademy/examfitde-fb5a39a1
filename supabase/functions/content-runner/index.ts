@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { bootstrapLLMLogging } from "../_shared/llm-log-bootstrap.ts";
-import { inferBackoffSeconds, edgeFunctionForJobType, poolForJobType } from "../_shared/job-map.ts";
+import { inferBackoffSeconds, edgeFunctionForJobType, poolForJobType, STEP_TO_JOB_TYPE } from "../_shared/job-map.ts";
 import { isTransientLlmError, classifyError } from "../_shared/llm/normalize.ts";
 import { setProviderCooldown, cleanupExpiredCooldowns, filterCooledDownProviders, isOnCooldown } from "../_shared/llm/provider-cooldown.ts";
 import { getModelChainAsync } from "../_shared/model-routing.ts";
@@ -525,6 +525,39 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
           liveness_status: "healthy",
           meta: { ...resetProviderTransientMeta(job, successProvider, successModel), ...auditMeta },
         }).eq("id", job.id);
+
+        // ── GHOST-COMPLETION FIX: Propagate ok/batch_complete to package_steps.meta ──
+        // Without this, the pipeline-runner's finalization rules never see ok=true
+        // and steps stay in queued/running forever despite completed jobs.
+        const resultOk = result && typeof result === "object" && result.ok === true;
+        const resultBatchComplete = result && typeof result === "object" && result.batch_complete === true;
+        if (resultOk || resultBatchComplete) {
+          const packageId = job.payload?.package_id;
+          // Reverse-lookup step_key from job_type
+          const JOB_TYPE_TO_STEP = Object.fromEntries(
+            Object.entries(STEP_TO_JOB_TYPE).map(([k, v]) => [v, k])
+          );
+          const stepKey = JOB_TYPE_TO_STEP[job.job_type];
+          if (packageId && stepKey) {
+            try {
+              const metaPatch: Record<string, unknown> = {};
+              if (resultOk) metaPatch.ok = true;
+              if (resultBatchComplete) metaPatch.batch_complete = true;
+              if (result.validation_passed != null) metaPatch.validation_passed = result.validation_passed;
+              metaPatch.last_completed_job_id = job.id;
+              metaPatch.last_completed_at = now;
+              await sb.rpc("merge_package_step_meta", {
+                p_package_id: packageId,
+                p_step_key: stepKey,
+                p_patch: metaPatch,
+              });
+              console.log(`[content-runner] 📋 Propagated ok=${resultOk} batch_complete=${resultBatchComplete} to package_steps.meta for ${stepKey} (${packageId.slice(0, 8)})`);
+            } catch (metaErr) {
+              console.warn(`[content-runner] ⚠️ Failed to propagate step meta for ${stepKey}: ${(metaErr as Error).message}`);
+              // Non-blocking — job is already completed
+            }
+          }
+        }
 
         // Signal provider success to circuit breaker
         recordProviderSuccess();
