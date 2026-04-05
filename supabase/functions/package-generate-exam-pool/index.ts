@@ -1637,6 +1637,7 @@ Deno.serve(async (req) => {
     DIFFICULTY_DISTRIBUTION = p.options.difficulty_distribution;
   }
 
+  const currentJobId: string | undefined = p.job_id || body.job_id || undefined;
   const batchCursor = p._batch_cursor || p.batch_cursor || null;
   const generatedSoFar = batchCursor?.generated ?? 0;
   const bpIndex = batchCursor?.blueprint_index ?? 0;
