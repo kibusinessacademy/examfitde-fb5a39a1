@@ -23676,11 +23676,63 @@ export type Database = {
           },
         ]
       }
+      minicheck_audit_log: {
+        Row: {
+          batch_end: number
+          batch_start: number
+          completed_at: string | null
+          created_at: string
+          curriculum_id: string
+          error_details: Json
+          errors_fixed: number
+          errors_found: number
+          id: string
+          model: string
+          questions_checked: number
+          run_type: string
+          started_at: string
+          status: string
+        }
+        Insert: {
+          batch_end?: number
+          batch_start?: number
+          completed_at?: string | null
+          created_at?: string
+          curriculum_id: string
+          error_details?: Json
+          errors_fixed?: number
+          errors_found?: number
+          id?: string
+          model?: string
+          questions_checked?: number
+          run_type?: string
+          started_at?: string
+          status?: string
+        }
+        Update: {
+          batch_end?: number
+          batch_start?: number
+          completed_at?: string | null
+          created_at?: string
+          curriculum_id?: string
+          error_details?: Json
+          errors_fixed?: number
+          errors_found?: number
+          id?: string
+          model?: string
+          questions_checked?: number
+          run_type?: string
+          started_at?: string
+          status?: string
+        }
+        Relationships: []
+      }
       minicheck_questions: {
         Row: {
           approval_reason: string | null
           approved_at: string | null
           approved_by: string | null
+          audit_status: string | null
           cognitive_level: string | null
           competency_id: string | null
           correct_answer: number
@@ -23690,6 +23742,7 @@ export type Database = {
           distractor_meta: Json | null
           explanation: string | null
           id: string
+          last_audited_at: string | null
           lesson_id: string | null
           mode: string
           options: Json
@@ -23705,6 +23758,7 @@ export type Database = {
           approval_reason?: string | null
           approved_at?: string | null
           approved_by?: string | null
+          audit_status?: string | null
           cognitive_level?: string | null
           competency_id?: string | null
           correct_answer: number
@@ -23714,6 +23768,7 @@ export type Database = {
           distractor_meta?: Json | null
           explanation?: string | null
           id?: string
+          last_audited_at?: string | null
           lesson_id?: string | null
           mode?: string
           options: Json
@@ -23729,6 +23784,7 @@ export type Database = {
           approval_reason?: string | null
           approved_at?: string | null
           approved_by?: string | null
+          audit_status?: string | null
           cognitive_level?: string | null
           competency_id?: string | null
           correct_answer?: number
@@ -23738,6 +23794,7 @@ export type Database = {
           distractor_meta?: Json | null
           explanation?: string | null
           id?: string
+          last_audited_at?: string | null
           lesson_id?: string | null
           mode?: string
           options?: Json
