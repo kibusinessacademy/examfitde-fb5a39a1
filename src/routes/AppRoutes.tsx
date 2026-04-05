@@ -76,6 +76,7 @@ const AdminTestAreaPage = lazy(() => import('@/pages/admin/AdminTestAreaPage'));
 const AdminGrowthCockpitPage = lazy(() => import('@/pages/admin/AdminGrowthCockpitPage'));
 const GrowthDashboardPage = lazy(() => import('@/pages/admin/GrowthDashboardPage'));
 const CourseWorkspace = lazy(() => import('@/pages/admin/CourseWorkspace'));
+const TrackOpsPage = lazy(() => import('@/pages/admin/TrackOpsPage'));
 
 // ExamFit@work public pages
 const WorkHomePage = lazy(() => import('@/pages/work/WorkHomePage'));
@@ -234,6 +235,7 @@ const AppRoutes = () => {
           <Route path="growth" element={<AdminGrowthCockpitPage />} />
           <Route path="growth-engine" element={<GrowthDashboardPage />} />
           <Route path="testbereich" element={<AdminTestAreaPage />} />
+          <Route path="track-ops" element={<TrackOpsPage />} />
           <Route path="*" element={<AdminDeactivatedPage />} />
         </Route>
 
