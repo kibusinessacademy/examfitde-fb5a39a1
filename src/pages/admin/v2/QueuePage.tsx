@@ -259,7 +259,12 @@ export default function QueuePage() {
 
   const filtered = useMemo(() => {
     if (!jobs) return [];
-    let list = jobs;
+
+    const activeStatuses = new Set(['pending', 'queued', 'processing', 'running', 'batch_pending', 'failed']);
+    let list = statusFilter === 'all'
+      ? jobs.filter(j => activeStatuses.has(j.job_status))
+      : jobs;
+
     if (statusFilter !== 'all') {
       if (statusFilter === 'pending') {
         list = list.filter(j => j.job_status === 'pending' || j.job_status === 'queued');
@@ -267,6 +272,7 @@ export default function QueuePage() {
         list = list.filter(j => j.job_status === statusFilter);
       }
     }
+
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter(j =>
@@ -276,6 +282,7 @@ export default function QueuePage() {
         (j.last_error || '').toLowerCase().includes(q)
       );
     }
+
     return list;
   }, [jobs, search, statusFilter]);
 
