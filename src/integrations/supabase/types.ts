@@ -61176,6 +61176,22 @@ export type Database = {
         Args: { p_curriculum_id: string }
         Returns: string
       }
+      fn_derive_exam_part: { Args: { p_blueprint_id: string }; Returns: string }
+      fn_exam_question_tier1_eligibility: {
+        Args: {
+          p_blueprint_id: string
+          p_cognitive_level: string
+          p_competency_id: string
+          p_correct_answer: number
+          p_curriculum_id: string
+          p_exam_part: string
+          p_explanation: string
+          p_learning_field_id: string
+          p_options: Json
+          p_question_text: string
+        }
+        Returns: Json
+      }
       fn_has_gate_state_changed: {
         Args: { p_post_snapshot: Json; p_pre_snapshot: Json }
         Returns: Json
