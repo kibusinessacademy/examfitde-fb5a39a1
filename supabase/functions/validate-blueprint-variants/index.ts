@@ -64,6 +64,24 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Resolve curriculum_id from package_id if needed
+    let resolvedCurriculumId = curriculumId;
+    if (!resolvedCurriculumId && packageId) {
+      const { data: pkg } = await sb
+        .from("course_packages")
+        .select("curriculum_id")
+        .eq("id", packageId)
+        .single();
+      resolvedCurriculumId = pkg?.curriculum_id ?? null;
+    }
+
+    if (!blueprintId && !resolvedCurriculumId) {
+      return new Response(JSON.stringify({ error: "Could not resolve curriculum_id from package" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Fetch blueprints to validate
     let blueprintIds: string[] = [];
     if (blueprintId) {
@@ -72,7 +90,7 @@ Deno.serve(async (req) => {
       const { data: bps } = await sb
         .from("question_blueprints")
         .select("id")
-        .eq("curriculum_id", curriculumId)
+        .eq("curriculum_id", resolvedCurriculumId!)
         .order("id", { ascending: true });
       blueprintIds = (bps ?? []).map((b: any) => b.id);
     }
