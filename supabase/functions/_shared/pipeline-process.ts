@@ -461,6 +461,38 @@ export async function processPackage(
           return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true", snapshot: { ok: !!ok } };
         },
       },
+      // ── Previously missing: Blueprint-Variant chain finalization rules ──
+      {
+        stepKey: "generate_blueprint_variants",
+        jobType: "package_generate_blueprint_variants",
+        actionType: "finalize_generate_blueprint_variants",
+        cancelStatuses: ["pending", "failed"],
+        shouldFinalize: (meta) => {
+          const ok = meta?.ok === true || meta?.batch_complete === true;
+          const reason = meta?.ok ? "meta.ok=true" : meta?.batch_complete ? "meta.batch_complete=true" : "not_ready";
+          return { ok, reason, snapshot: { ok: !!meta?.ok, batch_complete: !!meta?.batch_complete } };
+        },
+      },
+      {
+        stepKey: "validate_blueprint_variants",
+        jobType: "package_validate_blueprint_variants",
+        actionType: "finalize_validate_blueprint_variants",
+        cancelStatuses: ["pending", "failed"],
+        shouldFinalize: (meta) => {
+          const ok = meta?.ok === true;
+          return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true", snapshot: { ok: !!ok } };
+        },
+      },
+      {
+        stepKey: "promote_blueprint_variants",
+        jobType: "package_promote_blueprint_variants",
+        actionType: "finalize_promote_blueprint_variants",
+        cancelStatuses: ["pending", "failed"],
+        shouldFinalize: (meta) => {
+          const ok = meta?.ok === true;
+          return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true", snapshot: { ok: !!ok } };
+        },
+      },
       {
         stepKey: "generate_oral_exam",
         jobType: "package_generate_oral_exam",
