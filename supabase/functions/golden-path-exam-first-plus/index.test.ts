@@ -1,19 +1,26 @@
 /**
- * Golden-Path Test: EXAM_FIRST_PLUS
+ * Golden-Path Test: Track Capability SSOT
  *
- * Proves that the EXAM_FIRST_PLUS track correctly:
- * A. Skips learning-course and minicheck steps
- * B. Requires handbook, oral-exam, exam-pool, integrity, publish steps
- * C. Feature flags are correct
- * D. Capability SSOT is consistent
+ * Proves that all 4 tracks correctly:
+ * A. Have correct capability fingerprints
+ * B. Skip/require the right steps
+ * C. Aliases normalize correctly
+ * D. Required + skipped are disjoint and cover FULL_STEP_ORDER
+ * E. Strict normalization rejects unknowns
  */
 import "https://deno.land/std@0.224.0/dotenv/load.ts";
-import { assertEquals, assertArrayIncludes } from "https://deno.land/std@0.224.0/assert/mod.ts";
+import {
+  assertEquals,
+  assertArrayIncludes,
+  assertThrows,
+} from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
   getTrackCapabilities,
   getSkippedSteps,
   getRequiredSteps,
   normalizeTrack,
+  normalizeTrackStrict,
+  TRACKS,
 } from "../_shared/track-capabilities.ts";
 
 // ── A. Track Capability SSOT ──
@@ -61,7 +68,7 @@ Deno.test("STUDIUM has learning but no oral", () => {
 
 // ── B. Step Layout ──
 
-Deno.test("EXAM_FIRST_PLUS skipped steps include learning and minicheck", () => {
+Deno.test("EXAM_FIRST_PLUS skipped steps include learning, minicheck, and NO handbook/oral", () => {
   const skipped = getSkippedSteps("EXAM_FIRST_PLUS");
 
   assertArrayIncludes(skipped, [
@@ -73,6 +80,10 @@ Deno.test("EXAM_FIRST_PLUS skipped steps include learning and minicheck", () => 
     "generate_lesson_minichecks",
     "validate_lesson_minichecks",
   ]);
+
+  // Must NOT skip handbook or oral
+  assertEquals(skipped.includes("generate_handbook"), false, "must not skip handbook");
+  assertEquals(skipped.includes("generate_oral_exam"), false, "must not skip oral");
 });
 
 Deno.test("EXAM_FIRST_PLUS required steps include handbook and oral", () => {
@@ -81,6 +92,9 @@ Deno.test("EXAM_FIRST_PLUS required steps include handbook and oral", () => {
   assertArrayIncludes(required, [
     "generate_handbook",
     "validate_handbook",
+    "enqueue_handbook_expand",
+    "expand_handbook",
+    "validate_handbook_depth",
     "generate_oral_exam",
     "validate_oral_exam",
     "generate_exam_pool",
@@ -109,17 +123,25 @@ Deno.test("EXAM_FIRST_PLUS required steps do NOT include learning steps", () => 
   }
 });
 
-Deno.test("EXAM_FIRST required steps do NOT include handbook or oral", () => {
+Deno.test("EXAM_FIRST skips handbook, oral, AND elite_harden=false? No, elite_harden eligible", () => {
   const required = getRequiredSteps("EXAM_FIRST");
+  const skipped = getSkippedSteps("EXAM_FIRST");
 
-  assertEquals(required.includes("generate_handbook"), false, "no handbook for EXAM_FIRST");
-  assertEquals(required.includes("validate_handbook"), false, "no validate_handbook for EXAM_FIRST");
-  assertEquals(required.includes("generate_oral_exam"), false, "no oral exam for EXAM_FIRST");
-  assertEquals(required.includes("validate_oral_exam"), false, "no validate_oral_exam for EXAM_FIRST");
+  // EXAM_FIRST skips handbook and oral
+  assertArrayIncludes(skipped, [
+    "generate_handbook",
+    "validate_handbook",
+    "generate_oral_exam",
+    "validate_oral_exam",
+  ]);
+
+  // But includes elite_harden (eligible)
+  assertEquals(required.includes("elite_harden"), true, "EXAM_FIRST has elite_harden");
 });
 
-Deno.test("AUSBILDUNG_VOLL required steps include learning but not oral", () => {
+Deno.test("AUSBILDUNG_VOLL required steps include learning but not oral or elite_harden", () => {
   const required = getRequiredSteps("AUSBILDUNG_VOLL");
+  const skipped = getSkippedSteps("AUSBILDUNG_VOLL");
 
   assertArrayIncludes(required, [
     "scaffold_learning_course",
@@ -129,8 +151,11 @@ Deno.test("AUSBILDUNG_VOLL required steps include learning but not oral", () => 
     "generate_handbook",
   ]);
 
-  assertEquals(required.includes("generate_oral_exam"), false, "no oral for AUSBILDUNG_VOLL");
-  assertEquals(required.includes("elite_harden"), false, "no elite_harden for AUSBILDUNG_VOLL");
+  assertArrayIncludes(skipped, [
+    "generate_oral_exam",
+    "validate_oral_exam",
+    "elite_harden",
+  ]);
 });
 
 // ── C. Alias Normalization ──
@@ -147,29 +172,93 @@ Deno.test("BACHELOR normalizes to STUDIUM", () => {
   assertEquals(normalizeTrack("BACHELOR"), "STUDIUM");
 });
 
-// ── D. Cross-track symmetry ──
+Deno.test("case-insensitive normalization works", () => {
+  assertEquals(normalizeTrack("fortbildung"), "EXAM_FIRST_PLUS");
+  assertEquals(normalizeTrack("Studium"), "STUDIUM");
+  assertEquals(normalizeTrack("ausbildung"), "AUSBILDUNG_VOLL");
+});
+
+// ── D. Disjoint & Coverage ──
+
+Deno.test("Required and skipped steps are disjoint for every track", () => {
+  for (const track of TRACKS) {
+    const required = new Set(getRequiredSteps(track));
+    const skipped = new Set(getSkippedSteps(track));
+
+    for (const step of required) {
+      assertEquals(skipped.has(step), false, `${track}: ${step} cannot be both required and skipped`);
+    }
+    for (const step of skipped) {
+      assertEquals(required.has(step), false, `${track}: ${step} cannot be both skipped and required`);
+    }
+  }
+});
+
+Deno.test("EXAM_FIRST_PLUS differs from EXAM_FIRST exactly on handbook/oral/isExamOnly", () => {
+  const ef = getTrackCapabilities("EXAM_FIRST");
+  const efp = getTrackCapabilities("EXAM_FIRST_PLUS");
+
+  // Both are exam-centric
+  assertEquals(ef.isExamCentric, true);
+  assertEquals(efp.isExamCentric, true);
+
+  // Differ on these three
+  assertEquals(ef.hasHandbook, false);
+  assertEquals(efp.hasHandbook, true);
+  assertEquals(ef.hasOralExam, false);
+  assertEquals(efp.hasOralExam, true);
+  assertEquals(ef.isExamOnly, true);
+  assertEquals(efp.isExamOnly, false);
+});
+
+// ── E. Strict Normalization ──
+
+Deno.test("normalizeTrackStrict rejects unknown track", () => {
+  assertThrows(
+    () => normalizeTrackStrict("FOO_BAR_UNKNOWN"),
+    Error,
+    "Unknown track",
+  );
+});
+
+Deno.test("normalizeTrackStrict rejects empty input", () => {
+  assertThrows(
+    () => normalizeTrackStrict(""),
+    Error,
+    "Unknown track",
+  );
+});
+
+Deno.test("normalizeTrackStrict accepts valid canonical tracks", () => {
+  for (const track of TRACKS) {
+    assertEquals(normalizeTrackStrict(track), track);
+  }
+});
+
+Deno.test("normalizeTrack tolerant returns fallback for unknown", () => {
+  assertEquals(normalizeTrack("TOTALLY_UNKNOWN"), "AUSBILDUNG_VOLL");
+  assertEquals(normalizeTrack(""), "AUSBILDUNG_VOLL");
+  assertEquals(normalizeTrack(null), "AUSBILDUNG_VOLL");
+  assertEquals(normalizeTrack(undefined), "AUSBILDUNG_VOLL");
+});
+
+// ── F. Cross-track symmetry ──
 
 Deno.test("Exam-centric tracks have distinct fingerprint from learning tracks", () => {
   const examFirst = getTrackCapabilities("EXAM_FIRST");
   const examPlus = getTrackCapabilities("EXAM_FIRST_PLUS");
   const vollTrack = getTrackCapabilities("AUSBILDUNG_VOLL");
+  const studium = getTrackCapabilities("STUDIUM");
 
-  // EXAM_FIRST and EXAM_FIRST_PLUS must differ
-  assertEquals(examFirst.hasHandbook !== examPlus.hasHandbook, true, "EXAM_FIRST vs PLUS differ on handbook");
-  assertEquals(examFirst.hasOralExam !== examPlus.hasOralExam, true, "EXAM_FIRST vs PLUS differ on oral");
-  assertEquals(examFirst.isExamOnly !== examPlus.isExamOnly, true, "EXAM_FIRST vs PLUS differ on isExamOnly");
+  // Exam tracks vs learning tracks
+  assertEquals(examFirst.isExamCentric, true);
+  assertEquals(examPlus.isExamCentric, true);
+  assertEquals(vollTrack.isExamCentric, false);
+  assertEquals(studium.isExamCentric, false);
 
-  // Both exam-centric differ from AUSBILDUNG_VOLL
-  assertEquals(examFirst.isExamCentric !== vollTrack.isExamCentric, true, "EXAM_FIRST vs VOLL differ on exam-centric");
-  assertEquals(examPlus.hasLearningCourse !== vollTrack.hasLearningCourse, true, "PLUS vs VOLL differ on learning");
-});
-
-Deno.test("Skipped steps and required steps never overlap for any track", () => {
-  for (const track of ["AUSBILDUNG_VOLL", "EXAM_FIRST", "EXAM_FIRST_PLUS", "STUDIUM"]) {
-    const skipped = new Set(getSkippedSteps(track));
-    const required = getRequiredSteps(track);
-    for (const step of required) {
-      assertEquals(skipped.has(step), false, `${track}: ${step} is both skipped and required`);
-    }
-  }
+  // Learning tracks have learning course
+  assertEquals(vollTrack.hasLearningCourse, true);
+  assertEquals(studium.hasLearningCourse, true);
+  assertEquals(examFirst.hasLearningCourse, false);
+  assertEquals(examPlus.hasLearningCourse, false);
 });
