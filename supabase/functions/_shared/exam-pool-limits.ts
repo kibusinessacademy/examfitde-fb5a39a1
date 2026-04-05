@@ -17,7 +17,7 @@
 
 export const MIN_QUESTIONS_PER_PACKAGE = 500;
 export const TARGET_QUESTIONS_PER_PACKAGE = 1000;
-export const MAX_QUESTIONS_PER_PACKAGE = 2000;
+export const MAX_QUESTIONS_PER_PACKAGE = 2200;
 export const REBUILD_HEADROOM_PCT = 0.10; // +10% for rebuild packages
 
 export type PoolSizeStatus = 'insufficient' | 'good' | 'strong' | 'oversized';
