@@ -172,7 +172,7 @@ Deno.serve(async (req) => {
 
     // Package-level dispatch: if no blueprintId but package_id given,
     // look up all validated blueprints and process them sequentially
-    const packageId = body.package_id ?? body.payload?.package_id;
+    const packageId = p.package_id ?? p.packageId ?? null;
 
     if (!blueprintId && packageId) {
       console.log(`[generate-blueprint-variants] Package-level dispatch → enqueue-only for ${packageId}`);
