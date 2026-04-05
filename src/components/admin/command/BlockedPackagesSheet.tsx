@@ -213,11 +213,10 @@ export function BlockedPackagesSheet({ open, onOpenChange }: {
     queryFn: async () => {
       const sb = supabase as any;
 
-      // Fetch blocked packages with integrity report
+      // Use ops_blocked_packages which has integrity_report column
       const { data: pkgs, error } = await sb
-        .from('v_admin_packages_ssot')
-        .select('package_id, canonical_title, integrity_report, status')
-        .eq('status', 'blocked');
+        .from('ops_blocked_packages')
+        .select('package_id, title, integrity_report, status, block_reason, block_priority');
 
       if (error) throw error;
 
@@ -239,7 +238,7 @@ export function BlockedPackagesSheet({ open, onOpenChange }: {
 
         return {
           id: p.package_id,
-          title: p.canonical_title || 'Unbenannt',
+          title: p.title || 'Unbenannt',
           score: p.integrity_report?.score ?? 0,
           hard_fail_reasons: summary.hard_fail_reasons || [],
           warnings: report.warnings || [],
