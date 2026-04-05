@@ -1879,7 +1879,8 @@ Deno.serve(async (req) => {
       console.log(`[ExamPool-v5] SSOT HARD CAP reached: ${globalTotal} >= ${ssotMaxCap} (budget=0, tier=${ssotTiered.tier})`);
       const shouldMarkDone = !isFanOut || await allFanOutSubJobsDone(sb, packageId);
       if (shouldMarkDone) {
-        // build_progress auto-computed by DB trigger from package_steps
+        await markStepDone(sb, { packageId, stepKey: "generate_exam_pool", meta: { hard_cap: true, total_questions: globalTotal, cap: ssotMaxCap, tier: ssotTiered.tier } });
+        console.log(`[ExamPool-v5] ✅ Step generate_exam_pool marked DONE (HARD_CAP, ${globalTotal} questions)`);
       }
       return json({ ok: true, batch_complete: true, engine: "v5-ihk-quality", total_questions: globalTotal, hard_cap: true, cap: ssotMaxCap, ssot_tier: ssotTiered.tier });
     }
@@ -2470,7 +2471,8 @@ Deno.serve(async (req) => {
       }
       const shouldMarkDone = !isFanOut || await allFanOutSubJobsDone(sb, packageId);
       if (shouldMarkDone) {
-        // build_progress auto-computed by DB trigger from package_steps
+        await markStepDone(sb, { packageId, stepKey: "generate_exam_pool", meta: { total_questions: actualTotal, target: examTarget, generated: generatedThisRun, inserted: insertedThisRun } });
+        console.log(`[ExamPool-v5] ✅ Step generate_exam_pool marked DONE (target reached, ${actualTotal} questions)`);
       }
       return json(withMetrics(
         { ok: true, batch_complete: true, engine: "v5-ihk-quality", total_questions: actualTotal, training_pool: trainingThisChunk, target: examTarget, ...resultMeta },
@@ -2488,7 +2490,8 @@ Deno.serve(async (req) => {
             { generated: questionsThisChunk, inserted: 0, blueprints_found: bps.length, blueprints_used: bpsProcessed, reason: "HOLLOW_LOOP_CAP" },
           );
         }
-        // build_progress auto-computed by DB trigger from package_steps
+        await markStepDone(sb, { packageId, stepKey: "generate_exam_pool", meta: { total_questions: actualTotal, loop_capped: true, loops: currentLoop } });
+        console.log(`[ExamPool-v5] ✅ Step generate_exam_pool marked DONE (loop_capped, ${actualTotal} questions)`);
         return json(withMetrics(
           { ok: true, batch_complete: true, total_questions: actualTotal, loop_capped: true, ...resultMeta },
           { generated: generatedThisRun, inserted: insertedThisRun, blueprints_found: bps.length, blueprints_used: bpsProcessed },
