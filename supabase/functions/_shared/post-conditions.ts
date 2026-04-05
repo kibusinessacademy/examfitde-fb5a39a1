@@ -175,8 +175,11 @@ export async function assertStepPostConditions(sb: SB, args: {
 
   // ── generate_exam_pool: must have meaningful question count ──
   if (stepKey === "generate_exam_pool") {
-    const { data: pkg } = await sb.from("course_packages").select("curriculum_id, meta").eq("id", packageId).single();
-    if (!pkg?.curriculum_id) throw new Error("HOLLOW_EXAM_POOL: no curriculum_id on package");
+    const { data: pkg, error: pkgErr } = await sb.from("course_packages").select("curriculum_id, meta").eq("id", packageId).single();
+    if (pkgErr) {
+      console.error(`[post-conditions] generate_exam_pool pkg lookup error for ${packageId}:`, JSON.stringify(pkgErr));
+    }
+    if (!pkg?.curriculum_id) throw new Error(`HOLLOW_EXAM_POOL: no curriculum_id on package (pkgErr=${pkgErr?.message ?? 'none'}, pkg=${JSON.stringify(pkg)})`);
 
     const { count, error } = await sb
       .from("exam_questions")
