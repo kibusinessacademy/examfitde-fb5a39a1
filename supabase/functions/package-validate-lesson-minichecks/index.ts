@@ -3,27 +3,24 @@ import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 import { getContentProfile } from "../_shared/track-content-profiles.ts";
 import { resolveIntegrityProfile, getValidationPolicy, buildValidatorMeta } from "../_shared/validation/learning-content-policy.ts";
+import { checkValidatorBypass, buildBypassMeta, buildFullRunMeta, buildFailedRunMeta } from "../_shared/validator-bypass.ts";
+import { mergePackageStepMeta } from "../_shared/merge-step-meta.ts";
 
 /**
- * package-validate-lesson-minichecks  (V3 — track-aware approved-based logic)
+ * package-validate-lesson-minichecks  (V4 — with fingerprint bypass, Pattern E)
  *
  * Quality gate for MiniCheck questions (read-only — NO status changes):
- * - Counts APPROVED questions (not drafts — auto-QC trigger handles promotion)
+ * - Fingerprint bypass: skips full validation if artifact unchanged
+ * - Counts APPROVED questions (auto-QC trigger handles promotion)
  * - Coverage check (Learning-Track: ≥90% lessons must have approved MiniChecks)
  * - Min items per lesson (≥3 approved)
- * - Trap coverage (approved without traps = blocker for vocational, warning for academic)
- * - Bloom distribution check (track-aware: STUDIUM requires higher cognitive levels)
- * - Audit completeness (approved without audit metadata = warning)
- * - Drift check (curriculum_id mismatch via competency chain)
+ * - Trap coverage, Bloom distribution, Audit completeness, Drift check
  * - Publish-gate integration
- *
- * Job-Runner signals:
- *   NO_MINICHECKS or coverage < 10%  → retry:true, backoff_seconds:300
- *   coverage ≥ 10% but < 90%         → retry:true, backoff_seconds:300 (repairable)
- *   coverage ≥ 90% but critical      → permanent:true (structural failure)
- *   gate passes                       → ok:true
  */
 
+const VALIDATOR_VERSION = "v1";
+const FINGERPRINT_VERSION = "v1";
+const STEP_KEY = "validate_lesson_minichecks";
 const MIN_ITEMS_PER_LESSON = 3;
 const PREREQ_COVERAGE_THRESHOLD = 0.10;
 
@@ -90,6 +87,36 @@ Deno.serve(async (req) => {
   const courseId = p.course_id as string | undefined;
 
   try {
+    // ── Phase 0: Check bypass eligibility (Pattern E) ──
+    const bypass = await checkValidatorBypass(sb, {
+      packageId,
+      stepKey: STEP_KEY,
+      curriculumId,
+      validatorVersion: VALIDATOR_VERSION,
+      fingerprintVersion: FINGERPRINT_VERSION,
+      fingerprintFn: "fn_compute_minicheck_fingerprint",
+    });
+
+    if (bypass.eligible) {
+      console.log(`[ValidateMini] BYPASS for ${packageId.slice(0, 8)}: ${bypass.reason} (fp=${bypass.fingerprint?.slice(0, 12)})`);
+
+      await mergePackageStepMeta(sb, packageId, STEP_KEY,
+        buildBypassMeta(bypass, { quality_tier: "reused" }),
+      );
+
+      return json({
+        ok: true,
+        total: bypass.totalCount ?? 0,
+        approved: bypass.approvedCount ?? 0,
+        bypassed: true,
+        bypass_reason: bypass.reason,
+        quality_tier: "reused",
+      }, 200, origin);
+    }
+
+    console.log(`[ValidateMini] FULL RUN for ${packageId.slice(0, 8)}: bypass_ineligible=${bypass.reason}`);
+
+    // ── Phase 1: Full validation (unchanged logic from V3) ──
     const { data: pkgRow } = await sb
       .from("course_packages")
       .select("track, feature_flags, course_id")
@@ -109,7 +136,7 @@ Deno.serve(async (req) => {
 
     const issues: Array<{ severity: string; code: string; message: string }> = [];
 
-    // ── V2: Count APPROVED questions (auto-QC trigger handles promotion) ──
+    // Count APPROVED questions
     const { count: approvedCount } = await sb
       .from("minicheck_questions")
       .select("id", { count: "exact", head: true })
@@ -125,20 +152,21 @@ Deno.serve(async (req) => {
 
     if (!totalCount || totalCount === 0) {
       console.log(`[ValidateMini] ${packageId}: NO_MINICHECKS → retry`);
+      // Store failure meta
+      await mergePackageStepMeta(sb, packageId, STEP_KEY,
+        buildFailedRunMeta(bypass.fingerprint, VALIDATOR_VERSION,
+          { total: 0, approved: 0 }, "no_minichecks", FINGERPRINT_VERSION),
+      );
       return json({
-        ok: false,
-        retry: true,
-        backoff_seconds: 300,
+        ok: false, retry: true, backoff_seconds: 300,
         error: "GATE_FAIL: NO_MINICHECKS",
-        classification: "prereq_not_ready",
-        reason_code: "NO_MINICHECKS",
+        classification: "prereq_not_ready", reason_code: "NO_MINICHECKS",
         issues: [{ severity: "critical", code: "NO_MINICHECKS", message: `Keine MiniCheck-Fragen (${mode}) für Curriculum gefunden` }],
-        total: 0,
-        approved: 0,
+        total: 0, approved: 0,
       }, 200, origin);
     }
 
-    // ── V2: Trap coverage among approved ──
+    // Trap coverage among approved
     const { count: approvedWithoutTraps } = await sb
       .from("minicheck_questions")
       .select("id", { count: "exact", head: true })
@@ -150,13 +178,12 @@ Deno.serve(async (req) => {
     if (approvedWithoutTraps && approvedWithoutTraps > 0) {
       const trapSeverity = policy.minicheck.missingTrapSeverity;
       issues.push({
-        severity: trapSeverity,
-        code: "APPROVED_WITHOUT_TRAP",
+        severity: trapSeverity, code: "APPROVED_WITHOUT_TRAP",
         message: `${approvedWithoutTraps} approved MiniChecks haben keine Trap-Tags${isAcademic ? " (akademisch: info only)" : ""}`,
       });
     }
 
-    // ── V2: Audit completeness among approved ──
+    // Audit completeness among approved
     const { count: approvedWithoutAudit } = await sb
       .from("minicheck_questions")
       .select("id", { count: "exact", head: true })
@@ -167,26 +194,24 @@ Deno.serve(async (req) => {
 
     if (approvedWithoutAudit && approvedWithoutAudit > 0) {
       issues.push({
-        severity: "warning",
-        code: "APPROVED_WITHOUT_AUDIT",
+        severity: "warning", code: "APPROVED_WITHOUT_AUDIT",
         message: `${approvedWithoutAudit} approved MiniChecks ohne Audit-Metadaten (approved_by)`,
       });
     }
 
-    // ── V2: Drift check ──
+    // Drift check
     const { count: driftCount } = await sb
       .from("v_minicheck_curriculum_drift" as any)
       .select("question_id", { count: "exact", head: true });
 
     if (driftCount && driftCount > 0) {
       issues.push({
-        severity: "warning",
-        code: "CURRICULUM_DRIFT",
+        severity: "warning", code: "CURRICULUM_DRIFT",
         message: `${driftCount} MiniChecks mit curriculum_id-Drift (stored ≠ derived)`,
       });
     }
 
-    // ── V3: Track-aware Bloom distribution check among approved questions ──
+    // Track-aware Bloom distribution check
     if (approvedCount && approvedCount >= 20) {
       const approvedRows = await fetchAllRows<{ cognitive_level: string | null }>(
         sb, "minicheck_questions", "cognitive_level",
@@ -213,59 +238,44 @@ Deno.serve(async (req) => {
       const totalForBloom = approvedRows.length;
 
       if (isAcademic) {
-        // STUDIUM: use policy thresholds
         const higherOrderPct = totalForBloom > 0
-          ? ((bloomCounts.apply + bloomCounts.analyze + bloomCounts.evaluate) / totalForBloom) * 100
-          : 0;
+          ? ((bloomCounts.apply + bloomCounts.analyze + bloomCounts.evaluate) / totalForBloom) * 100 : 0;
         const rememberPct = totalForBloom > 0 ? (bloomCounts.remember / totalForBloom) * 100 : 0;
-
         if (higherOrderPct < policy.minicheck.minHigherOrderBloomPct * 100) {
-          const msg = `Studium-MiniChecks: nur ${higherOrderPct.toFixed(0)}% apply+analyze+evaluate (min ${(policy.minicheck.minHigherOrderBloomPct * 100).toFixed(0)}%). Transfer-/Analysefragen fehlen.`;
-          issues.push({ severity: "warning", code: "BLOOM_HIGHER_ORDER_LOW", message: msg });
+          issues.push({ severity: "warning", code: "BLOOM_HIGHER_ORDER_LOW",
+            message: `Studium-MiniChecks: nur ${higherOrderPct.toFixed(0)}% apply+analyze+evaluate (min ${(policy.minicheck.minHigherOrderBloomPct * 100).toFixed(0)}%)` });
           trackWarnings.push(`BLOOM_HIGHER_ORDER_LOW: ${higherOrderPct.toFixed(0)}%`);
         }
         if (rememberPct > policy.minicheck.maxRememberBloomPct * 100) {
-          const msg = `Studium-MiniChecks: ${rememberPct.toFixed(0)}% remember (max ${(policy.minicheck.maxRememberBloomPct * 100).toFixed(0)}%). Zu viel reine Reproduktion.`;
-          issues.push({ severity: "warning", code: "BLOOM_REMEMBER_HIGH", message: msg });
+          issues.push({ severity: "warning", code: "BLOOM_REMEMBER_HIGH",
+            message: `Studium-MiniChecks: ${rememberPct.toFixed(0)}% remember (max ${(policy.minicheck.maxRememberBloomPct * 100).toFixed(0)}%)` });
           trackWarnings.push(`BLOOM_REMEMBER_HIGH: ${rememberPct.toFixed(0)}%`);
         }
       } else {
-        // Vocational: use policy thresholds
         const applyAnalyzePct = totalForBloom > 0
-          ? ((bloomCounts.apply + bloomCounts.analyze) / totalForBloom) * 100
-          : 0;
+          ? ((bloomCounts.apply + bloomCounts.analyze) / totalForBloom) * 100 : 0;
         const rememberPct = totalForBloom > 0 ? (bloomCounts.remember / totalForBloom) * 100 : 0;
-
         if (applyAnalyzePct < policy.minicheck.minHigherOrderBloomPct * 100) {
-          issues.push({
-            severity: "warning",
-            code: "BLOOM_APPLY_LOW",
-            message: `MiniChecks: nur ${applyAnalyzePct.toFixed(0)}% apply+analyze (min ${(policy.minicheck.minHigherOrderBloomPct * 100).toFixed(0)}%). Anwendungsfragen fehlen.`,
-          });
+          issues.push({ severity: "warning", code: "BLOOM_APPLY_LOW",
+            message: `MiniChecks: nur ${applyAnalyzePct.toFixed(0)}% apply+analyze (min ${(policy.minicheck.minHigherOrderBloomPct * 100).toFixed(0)}%)` });
         }
         if (rememberPct > policy.minicheck.maxRememberBloomPct * 100) {
-          issues.push({
-            severity: "warning",
-            code: "BLOOM_REMEMBER_HIGH",
-            message: `MiniChecks: ${rememberPct.toFixed(0)}% remember (max ${(policy.minicheck.maxRememberBloomPct * 100).toFixed(0)}%). Zu viel reine Reproduktion.`,
-          });
+          issues.push({ severity: "warning", code: "BLOOM_REMEMBER_HIGH",
+            message: `MiniChecks: ${rememberPct.toFixed(0)}% remember (max ${(policy.minicheck.maxRememberBloomPct * 100).toFixed(0)}%)` });
         }
       }
 
       console.log(`[ValidateMini] Bloom dist: ${Object.entries(bloomCounts).map(([k, v]) => `${k}=${v}`).join(", ")} (track=${track}, academic=${isAcademic})`);
     }
 
-    // ── Remaining drafts (info only — auto-QC should have caught them) ──
+    // Remaining drafts (info only)
     const draftCount = (totalCount || 0) - (approvedCount || 0);
     if (draftCount > 0) {
-      issues.push({
-        severity: "info",
-        code: "REMAINING_DRAFTS",
-        message: `${draftCount} MiniChecks noch im Draft-Status (Auto-QC hat sie nicht promoted)`,
-      });
+      issues.push({ severity: "info", code: "REMAINING_DRAFTS",
+        message: `${draftCount} MiniChecks noch im Draft-Status (Auto-QC hat sie nicht promoted)` });
     }
 
-    // ── Coverage check for lesson mode ──
+    // Coverage check for lesson mode
     let coverage: number | null = null;
 
     if (mode === "lesson" && effectiveCourseId) {
@@ -277,7 +287,6 @@ Deno.serve(async (req) => {
 
       let lessons: any[] = [];
       if (moduleIds.length > 0) {
-        // Paginated lesson fetch (handles >1000 lessons)
         lessons = await fetchAllRows(
           sb, "lessons", "id",
           [
@@ -292,11 +301,8 @@ Deno.serve(async (req) => {
       if (totalLessons > 0) {
         const lessonIds = lessons.map((l: any) => l.id);
 
-        // Use curriculum_id filter (indexed) + paginated fetch with ORDER BY
         const allLessonRows = await fetchAllRows<{ lesson_id: string }>(
-          sb,
-          "minicheck_questions",
-          "lesson_id",
+          sb, "minicheck_questions", "lesson_id",
           [
             { op: "eq", col: "curriculum_id", val: curriculumId },
             { op: "eq", col: "mode", val: "lesson" },
@@ -304,7 +310,6 @@ Deno.serve(async (req) => {
           ],
         );
 
-        // Build count map, only for lessons in this course
         const lessonIdSet = new Set(lessonIds);
         const countByLesson = new Map<string, number>();
         for (const r of allLessonRows) {
@@ -312,28 +317,17 @@ Deno.serve(async (req) => {
           countByLesson.set(r.lesson_id, (countByLesson.get(r.lesson_id) || 0) + 1);
         }
 
-
         const coveredCount = countByLesson.size;
         coverage = coveredCount / totalLessons;
 
         if (coverage < 0.9) {
-          issues.push({
-            severity: "critical",
-            code: "LOW_COVERAGE",
-            message: `MiniCheck-Abdeckung: ${(coverage * 100).toFixed(0)}% der Lektionen (${coveredCount}/${totalLessons}) — mindestens 90% erforderlich`,
-          });
+          issues.push({ severity: "critical", code: "LOW_COVERAGE",
+            message: `MiniCheck-Abdeckung: ${(coverage * 100).toFixed(0)}% der Lektionen (${coveredCount}/${totalLessons}) — mindestens 90% erforderlich` });
         } else if (coverage < 0.97) {
-          issues.push({
-            severity: "warning",
-            code: "PARTIAL_COVERAGE",
-            message: `MiniCheck-Abdeckung: ${(coverage * 100).toFixed(0)}% der Lektionen (${coveredCount}/${totalLessons})`,
-          });
+          issues.push({ severity: "warning", code: "PARTIAL_COVERAGE",
+            message: `MiniCheck-Abdeckung: ${(coverage * 100).toFixed(0)}% der Lektionen (${coveredCount}/${totalLessons})` });
         }
 
-        // Min items per lesson (approved only)
-        // v3: Downgraded from critical to warning — during build phase, not all lessons
-        // have full MiniCheck coverage yet. Making this critical causes permanent gate failures
-        // that block the entire pipeline. The publish gate enforces hard thresholds.
         let tooFew = 0;
         for (const lid of lessonIds) {
           const c = countByLesson.get(lid) || 0;
@@ -341,18 +335,14 @@ Deno.serve(async (req) => {
         }
         if (tooFew > 0) {
           const tooFewPct = (tooFew / totalLessons) * 100;
-          // Only critical if >50% of lessons are undercovered — otherwise it's still building
           const sev = tooFewPct > 50 ? "critical" : "warning";
-          issues.push({
-            severity: sev,
-            code: "MIN_ITEMS_PER_LESSON",
-            message: `${tooFew}/${totalLessons} Lektionen (${tooFewPct.toFixed(0)}%) haben <${MIN_ITEMS_PER_LESSON} approved MiniChecks`,
-          });
+          issues.push({ severity: sev, code: "MIN_ITEMS_PER_LESSON",
+            message: `${tooFew}/${totalLessons} Lektionen (${tooFewPct.toFixed(0)}%) haben <${MIN_ITEMS_PER_LESSON} approved MiniChecks` });
         }
       }
     }
 
-    // ── V2: Publish-gate check ──
+    // Publish-gate check
     let publishGatePassed: boolean | null = null;
     try {
       const { data: pgResult } = await sb.rpc("fn_minicheck_publish_gate", {
@@ -360,17 +350,15 @@ Deno.serve(async (req) => {
       });
       publishGatePassed = pgResult === true;
       if (!publishGatePassed) {
-        issues.push({
-          severity: "warning",
-          code: "PUBLISH_GATE_FAIL",
-          message: "MiniCheck Publish-Gate nicht bestanden (Kompetenz-/LF-/Trap-Abdeckung unzureichend)",
-        });
+        issues.push({ severity: "warning", code: "PUBLISH_GATE_FAIL",
+          message: "MiniCheck Publish-Gate nicht bestanden (Kompetenz-/LF-/Trap-Abdeckung unzureichend)" });
       }
     } catch {
       // Function might not exist yet — non-critical
     }
 
     const hasCritical = issues.some((i) => i.severity === "critical");
+    const gatePassed = !hasCritical;
 
     console.log(
       `[ValidateMini] ${packageId} ${mode}: approved=${approvedCount}, total=${totalCount}, ` +
@@ -378,102 +366,79 @@ Deno.serve(async (req) => {
         `publishGate=${publishGatePassed}, critical=${hasCritical}`,
     );
 
-    // Gate passed
-    if (!hasCritical) {
-      return json(
-        {
-          ok: true,
-          total: totalCount,
-          approved: approvedCount || 0,
-          draft: draftCount,
-          coverage: coverage !== null ? Math.round(coverage * 100) : null,
-          publish_gate: publishGatePassed,
-          issues,
-          policy_meta: buildValidatorMeta(policy, trackWarnings),
-        },
-        200,
-        origin,
+    // ── Phase 2: Store fingerprint meta — conditional on pass/fail ──
+    const validationMetrics = {
+      total: totalCount,
+      approved: approvedCount || 0,
+      coverage_pct: coverage !== null ? Math.round(coverage * 100) : null,
+      publish_gate: publishGatePassed,
+    };
+
+    if (bypass.fingerprint && gatePassed) {
+      await mergePackageStepMeta(sb, packageId, STEP_KEY,
+        buildFullRunMeta(bypass.fingerprint, VALIDATOR_VERSION, validationMetrics, FINGERPRINT_VERSION),
+      );
+    } else if (bypass.fingerprint && !gatePassed) {
+      const failReason = issues.find((i) => i.severity === "critical")?.code || "gate_failed";
+      await mergePackageStepMeta(sb, packageId, STEP_KEY,
+        buildFailedRunMeta(bypass.fingerprint, VALIDATOR_VERSION, validationMetrics, failReason, FINGERPRINT_VERSION),
       );
     }
 
+    // Gate passed
+    if (gatePassed) {
+      return json({
+        ok: true,
+        total: totalCount, approved: approvedCount || 0, draft: draftCount,
+        coverage: coverage !== null ? Math.round(coverage * 100) : null,
+        publish_gate: publishGatePassed,
+        issues, bypassed: false,
+        policy_meta: buildValidatorMeta(policy, trackWarnings),
+      }, 200, origin);
+    }
+
     // Gate failed — classify retry vs permanent
-    // v4: coverage < 90% is ALWAYS retryable (upstream generation may still be running).
-    // Only mark permanent if coverage is high but structural issues remain.
     const coveragePct = coverage !== null ? (coverage * 100).toFixed(0) : "?";
     const criticalCount = issues.filter((i) => i.severity === "critical").length;
 
     if (coverage !== null && coverage < PREREQ_COVERAGE_THRESHOLD) {
-      return json(
-        {
-          ok: false,
-          retry: true,
-          backoff_seconds: 300,
-          error: `GATE_FAIL: LOW_COVERAGE ${coveragePct}% (prereqs not ready)`,
-          classification: "prereq_not_ready",
-          reason_code: "LOW_COVERAGE",
-          coverage_state: coverage < 0.01 ? "none" : "bootstrap",
-          total: totalCount,
-          approved: approvedCount || 0,
-          issues,
-        },
-        200,
-        origin,
-      );
+      return json({
+        ok: false, retry: true, backoff_seconds: 300,
+        error: `GATE_FAIL: LOW_COVERAGE ${coveragePct}% (prereqs not ready)`,
+        classification: "prereq_not_ready", reason_code: "LOW_COVERAGE",
+        coverage_state: coverage < 0.01 ? "none" : "bootstrap",
+        total: totalCount, approved: approvedCount || 0, issues,
+      }, 200, origin);
     }
 
-    // v4 FIX: coverage between 10-90% → retry (upstream may still produce questions)
-    // Only permanent if coverage ≥ 90% AND critical issues persist (structural defect)
     const PERMANENT_THRESHOLD = 0.90;
     if (coverage === null || coverage < PERMANENT_THRESHOLD) {
       console.log(`[ValidateMini] ${packageId}: coverage=${coveragePct}% < 90% → RETRY (not permanent)`);
-      return json(
-        {
-          ok: false,
-          retry: true,
-          backoff_seconds: 300,
-          error: `GATE_FAIL: coverage=${coveragePct}%, critical_issues=${criticalCount} (retryable — awaiting upstream)`,
-          classification: "gate_fail_retryable",
-          reason_code: issues.find((i) => i.severity === "critical")?.code || "LOW_COVERAGE",
-          coverage_state: coverage === null ? "none" : coverage < 0.5 ? "partial" : "improving",
-          total: totalCount,
-          approved: approvedCount || 0,
-          issues,
-        },
-        200,
-        origin,
-      );
+      return json({
+        ok: false, retry: true, backoff_seconds: 300,
+        error: `GATE_FAIL: coverage=${coveragePct}%, critical_issues=${criticalCount} (retryable — awaiting upstream)`,
+        classification: "gate_fail_retryable",
+        reason_code: issues.find((i) => i.severity === "critical")?.code || "LOW_COVERAGE",
+        coverage_state: coverage === null ? "none" : coverage < 0.5 ? "partial" : "improving",
+        total: totalCount, approved: approvedCount || 0, issues,
+      }, 200, origin);
     }
 
     // Coverage ≥ 90% but critical issues → permanent structural failure
-    return json(
-      {
-        ok: false,
-        permanent: true,
-        error: `GATE_FAIL: coverage=${coveragePct}%, critical_issues=${criticalCount}`,
-        classification: "gate_fail",
-        reason_code: issues.find((i) => i.severity === "critical")?.code || "UNKNOWN",
-        coverage_state: "ready_but_defective",
-        total: totalCount,
-        approved: approvedCount || 0,
-        issues,
-      },
-      200,
-      origin,
-    );
+    return json({
+      ok: false, permanent: true,
+      error: `GATE_FAIL: coverage=${coveragePct}%, critical_issues=${criticalCount}`,
+      classification: "gate_fail",
+      reason_code: issues.find((i) => i.severity === "critical")?.code || "UNKNOWN",
+      coverage_state: "ready_but_defective",
+      total: totalCount, approved: approvedCount || 0, issues,
+    }, 200, origin);
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error(`[ValidateMini] FATAL: ${msg}`);
-    return json(
-      {
-        ok: false,
-        retry: true,
-        transient: true,
-        backoff_seconds: 120,
-        error: `UNHANDLED_EXCEPTION: ${msg}`,
-        classification: "transient_error",
-      },
-      200,
-      origin,
-    );
+    return json({
+      ok: false, retry: true, transient: true, backoff_seconds: 120,
+      error: `UNHANDLED_EXCEPTION: ${msg}`, classification: "transient_error",
+    }, 200, origin);
   }
 });

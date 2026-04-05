@@ -1,20 +1,19 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
-import { checkValidatorBypass, buildBypassMeta, buildFullRunMeta } from "../_shared/validator-bypass.ts";
+import { checkValidatorBypass, buildBypassMeta, buildFullRunMeta, buildFailedRunMeta } from "../_shared/validator-bypass.ts";
 import { mergePackageStepMeta } from "../_shared/merge-step-meta.ts";
 
 /**
- * package-validate-handbook-depth — Optional Quality/Elite Gate
+ * package-validate-handbook-depth — Optional Quality/Elite Gate (v3 hardened)
  *
- * v2: Fingerprint-based bypass support.
- * If handbook artifact is unchanged since last successful validation,
- * the step is bypassed (marked done) without running the expensive checks.
- *
- * Soft gate: validates depth/quality of expanded handbook sections.
- * This step does NOT block basis publication — it only assigns quality tiers.
+ * v3: Conditional priming — only primes bypass on actual pass.
+ *     Failed validations store failure meta (no bypass priming).
+ *     No-data cases also store explicit failure meta.
  */
 
-const VALIDATOR_VERSION = "v1";
+const VALIDATOR_VERSION = "v2";
+const FINGERPRINT_VERSION = "v1";
+const STEP_KEY = "validate_handbook_depth";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -52,41 +51,43 @@ Deno.serve(async (req) => {
   // ── Phase 1: Check bypass eligibility ──
   const bypass = await checkValidatorBypass(sb, {
     packageId,
-    stepKey: "validate_handbook_depth",
+    stepKey: STEP_KEY,
     curriculumId,
     validatorVersion: VALIDATOR_VERSION,
+    fingerprintVersion: FINGERPRINT_VERSION,
     fingerprintFn: "fn_compute_handbook_depth_fingerprint",
   });
 
   if (bypass.eligible) {
     console.log(`[validate-handbook-depth] BYPASS for ${packageId.slice(0, 8)}: ${bypass.reason} (fp=${bypass.fingerprint?.slice(0, 12)})`);
 
-    // Atomically store bypass meta
-    await mergePackageStepMeta(sb, packageId, "validate_handbook_depth",
+    await mergePackageStepMeta(sb, packageId, STEP_KEY,
       buildBypassMeta(bypass, { quality_tier: "reused" }),
     );
 
     return json({
-      ok: true,
-      batch_complete: true,
-      basis_pass: true,
-      depth_pass: true,
-      quality_tier: "reused",
-      bypassed: true,
-      bypass_reason: bypass.reason,
+      ok: true, batch_complete: true, basis_pass: true,
+      depth_pass: true, quality_tier: "reused",
+      bypassed: true, bypass_reason: bypass.reason,
       fingerprint: bypass.fingerprint,
     });
   }
 
   console.log(`[validate-handbook-depth] FULL RUN for ${packageId.slice(0, 8)}: bypass_ineligible=${bypass.reason}`);
 
-  // ── Phase 2: Full validation (unchanged logic) ──
+  // ── Phase 2: Full validation ──
   const { data: chapters, error: chErr } = await sb
     .from("handbook_chapters")
     .select("id")
     .eq("curriculum_id", curriculumId);
 
   if (chErr || !chapters?.length) {
+    // FIX: Store explicit failure meta for no-data cases
+    await mergePackageStepMeta(sb, packageId, STEP_KEY,
+      buildFailedRunMeta(bypass.fingerprint, VALIDATOR_VERSION,
+        { chapter_count: 0, section_count: 0 },
+        "no_chapters_found", FINGERPRINT_VERSION),
+    );
     return json({
       ok: true, batch_complete: true, basis_pass: true,
       depth_pass: false, quality_tier: "standard", message: "No chapters found",
@@ -106,6 +107,11 @@ Deno.serve(async (req) => {
   const totalSections = allSections.length;
 
   if (totalSections === 0) {
+    await mergePackageStepMeta(sb, packageId, STEP_KEY,
+      buildFailedRunMeta(bypass.fingerprint, VALIDATOR_VERSION,
+        { chapter_count: chapters.length, section_count: 0 },
+        "no_sections_found", FINGERPRINT_VERSION),
+    );
     return json({
       ok: true, batch_complete: true, basis_pass: true,
       depth_pass: false, quality_tier: "standard", message: "No sections",
@@ -148,37 +154,38 @@ Deno.serve(async (req) => {
 
   console.log(`[validate-handbook-depth] Package ${packageId.slice(0, 8)}: tier=${qualityTier}, expand_coverage=${expandCoverage}%, avg_depth=${avgDepthScore}%, expanded=${expanded.length}/${totalSections}, failed_soft=${failedSoft}, pending=${pending}`);
 
-  // ── Phase 3: Store fingerprint for future bypass ──
-  if (bypass.fingerprint) {
-    await mergePackageStepMeta(sb, packageId, "validate_handbook_depth",
-      buildFullRunMeta(bypass.fingerprint, VALIDATOR_VERSION, {
-        quality_tier: qualityTier,
-        chapter_count: chapters.length,
-        section_count: totalSections,
-        expanded_sections: expanded.length,
-        expand_coverage_pct: expandCoverage,
-        avg_depth_score: avgDepthScore,
-      }),
+  // ── Phase 3: Store meta — conditional on pass/fail ──
+  const validationMetrics = {
+    quality_tier: qualityTier,
+    chapter_count: chapters.length,
+    section_count: totalSections,
+    expanded_sections: expanded.length,
+    expand_coverage_pct: expandCoverage,
+    avg_depth_score: avgDepthScore,
+  };
+
+  if (bypass.fingerprint && depthPass) {
+    // FIX: Only prime bypass on actual pass
+    await mergePackageStepMeta(sb, packageId, STEP_KEY,
+      buildFullRunMeta(bypass.fingerprint, VALIDATOR_VERSION, validationMetrics, FINGERPRINT_VERSION),
+    );
+  } else if (bypass.fingerprint) {
+    // Failed validation — store failure meta, do NOT prime bypass
+    await mergePackageStepMeta(sb, packageId, STEP_KEY,
+      buildFailedRunMeta(bypass.fingerprint, VALIDATOR_VERSION, validationMetrics,
+        "depth_threshold_not_met", FINGERPRINT_VERSION),
     );
   }
 
   return json({
-    ok: true,
-    batch_complete: true,
-    basis_pass: true,
-    depth_pass: depthPass,
-    quality_tier: qualityTier,
-    soft_fail: !depthPass,
-    bypassed: false,
+    ok: true, batch_complete: true, basis_pass: true,
+    depth_pass: depthPass, quality_tier: qualityTier,
+    soft_fail: !depthPass, bypassed: false,
     fingerprint: bypass.fingerprint,
     metrics: {
-      total_sections: totalSections,
-      expanded_sections: expanded.length,
-      expand_coverage_pct: expandCoverage,
-      avg_depth_score: avgDepthScore,
-      failed_soft: failedSoft,
-      pending,
-      not_ready: notReady,
+      total_sections: totalSections, expanded_sections: expanded.length,
+      expand_coverage_pct: expandCoverage, avg_depth_score: avgDepthScore,
+      failed_soft: failedSoft, pending, not_ready: notReady,
       marker_counts: markerCounts,
     },
   });
