@@ -131,28 +131,27 @@ Deno.serve(async (req) => {
 
         // If below threshold and there are promotable drafts, enqueue heal job
         if (belowThreshold && promotable > 0) {
-          // Check for existing heal job
-          const { data: existingJob } = await sb
-            .from("job_queue")
+          // Resolve package_id from certification (NOT cert.id!)
+          const { data: pkg } = await sb
+            .from("course_packages")
             .select("id")
-            .eq("job_type", "heal_exam_promotion")
-            .in("status", ["pending", "queued", "processing"])
-            .eq("package_id", cert.id)
-            .limit(1);
+            .eq("certification_id", cert.id)
+            .eq("status", "building")
+            .limit(1)
+            .single();
 
-          if (!existingJob?.length) {
-            // Find the package_id for this certification
-            const { data: pkg } = await sb
-              .from("course_packages")
+          if (pkg) {
+            // Check for existing heal job using correct package_id
+            const { data: existingJob } = await sb
+              .from("job_queue")
               .select("id")
-              .eq("certification_id", cert.id)
-              .eq("status", "building")
-              .limit(1)
-              .single();
+              .eq("job_type", "heal_exam_promotion")
+              .in("status", ["pending", "queued", "processing"])
+              .eq("package_id", pkg.id)
+              .limit(1);
 
-            if (pkg) {
-              console.log(`[generate-exam-pool] ${cert.slug}: approved=${approvedCount}/${APPROVED_THRESHOLD}, enqueuing deficit heal`);
-              // Log the deficit for diagnostics but don't block
+            if (!existingJob?.length) {
+              console.log(`[generate-exam-pool] ${cert.slug}: approved=${approvedCount}/${APPROVED_THRESHOLD}, package=${pkg.id}, deficit heal eligible`);
             }
           }
         }
