@@ -10,11 +10,16 @@ const corsHeaders = {
 };
 
 // ── Standard step backbone (active steps) ──────────────────────────
+// MUST stay in sync with FULL_STEP_ORDER in job-map.ts and
+// assert_step_backbone() in the DB.
 const STEP_BACKBONE: string[] = [
   "scaffold_learning_course",
   "generate_glossary",
   "auto_seed_exam_blueprints",
   "validate_blueprints",
+  "generate_blueprint_variants",
+  "validate_blueprint_variants",
+  "promote_blueprint_variants",
   "generate_learning_content",
   "fanout_learning_content",
   "finalize_learning_content",
