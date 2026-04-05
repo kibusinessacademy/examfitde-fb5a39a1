@@ -89,3 +89,72 @@ export function detectGenericContent(
     genericRatio,
   };
 }
+
+// ── Severity & Audit Layer ──
+
+export type ContentSeverity = "info" | "warning" | "error" | "critical";
+
+export function resolveGenericSeverity(input: {
+  genericPhraseCount: number;
+  spellingErrorCount: number;
+  genericRatio: number;
+  artifactType: string;
+}): ContentSeverity {
+  const { genericPhraseCount, spellingErrorCount, genericRatio, artifactType } = input;
+  const handbookBoost = artifactType === "handbook_chapter" ? 1 : 0;
+
+  if (
+    genericRatio >= 0.20 ||
+    genericPhraseCount >= 8 ||
+    spellingErrorCount >= 4 + handbookBoost
+  ) return "critical";
+
+  if (
+    genericRatio >= 0.12 ||
+    genericPhraseCount >= 5 ||
+    spellingErrorCount >= 2
+  ) return "error";
+
+  if (
+    genericRatio >= 0.06 ||
+    genericPhraseCount >= 3 ||
+    spellingErrorCount >= 1
+  ) return "warning";
+
+  return "info";
+}
+
+export function isAutoRehealEligible(input: {
+  artifactType: string;
+  severity: ContentSeverity;
+}): boolean {
+  if (input.severity !== "critical" && input.severity !== "error") return false;
+  return ["lesson", "handbook_chapter", "tutor_snippet"].includes(input.artifactType);
+}
+
+export interface GenericContentAuditResult extends GenericContentResult {
+  severity: ContentSeverity;
+  autoRehealEligible: boolean;
+}
+
+/**
+ * Full audit wrapper: detects generic content + resolves severity + reheal eligibility.
+ */
+export function auditGenericContent(
+  html: string,
+  artifactType: string,
+): GenericContentAuditResult {
+  const base = detectGenericContent(html);
+  const severity = resolveGenericSeverity({
+    genericPhraseCount: base.genericPhraseCount,
+    spellingErrorCount: base.spellingErrors.length,
+    genericRatio: base.genericRatio,
+    artifactType,
+  });
+
+  return {
+    ...base,
+    severity,
+    autoRehealEligible: isAutoRehealEligible({ artifactType, severity }),
+  };
+}
