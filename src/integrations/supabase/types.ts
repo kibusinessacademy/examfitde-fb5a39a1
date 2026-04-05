@@ -55793,6 +55793,25 @@ export type Database = {
         }
         Relationships: []
       }
+      v_ops_job_claimability: {
+        Row: {
+          age_hours: number | null
+          attempts: number | null
+          block_reason: string | null
+          claimable_now: boolean | null
+          created_at: string | null
+          job_id: string | null
+          job_status: string | null
+          job_type: string | null
+          locked_by: string | null
+          minutes_until_claimable: number | null
+          package_id: string | null
+          pkg_status: string | null
+          run_after: string | null
+          track: Database["public"]["Enums"]["product_track"] | null
+        }
+        Relationships: []
+      }
       v_ops_job_failure_classification: {
         Row: {
           attempts: number | null
@@ -55955,6 +55974,18 @@ export type Database = {
           title: string | null
           total_retry_attempts: number | null
           zombie_class: string | null
+        }
+        Relationships: []
+      }
+      v_ops_worker_liveness: {
+        Row: {
+          claimable_now: number | null
+          future_blocked: number | null
+          oldest_claimable_at: string | null
+          oldest_claimable_hours: number | null
+          pending_count: number | null
+          processing_count: number | null
+          worker_pool_stalled: boolean | null
         }
         Relationships: []
       }
