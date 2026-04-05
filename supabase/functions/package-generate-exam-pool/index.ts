@@ -1450,12 +1450,15 @@ async function enqueueLearningFieldJobs(
   return { enqueued, learningFields: lfCount, skipped, skipped_covered, skipped_cooldown, skipped_dedup, errors, lf_details };
 }
 
-async function allFanOutSubJobsDone(sb: ReturnType<typeof createClient>, packageId: string): Promise<boolean> {
-  const { count } = await sb.from("job_queue").select("id", { count: "exact", head: true })
+async function allFanOutSubJobsDone(sb: ReturnType<typeof createClient>, packageId: string, excludeJobId?: string): Promise<boolean> {
+  let query = sb.from("job_queue").select("id", { count: "exact", head: true })
     .eq("job_type", "package_generate_exam_pool")
     .in("status", ["pending", "processing"])
     .contains("payload", { package_id: packageId, _fan_out: true });
-  return (count ?? 0) === 0;
+  if (excludeJobId) query = query.neq("id", excludeJobId);
+  const { count } = await query;
+  // Allow ≤1 because the current job (if still in 'processing') is the caller itself
+  return (count ?? 0) <= (excludeJobId ? 0 : 1);
 }
 
 // ── Batch Submission for Exam Pool (OpenAI Batch API — 50% cost savings) ─────
