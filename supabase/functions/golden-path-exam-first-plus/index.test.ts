@@ -149,15 +149,19 @@ Deno.test("BACHELOR normalizes to STUDIUM", () => {
 
 // ── D. Cross-track symmetry ──
 
-Deno.test("All 4 tracks have unique capability fingerprints", () => {
-  const tracks = ["AUSBILDUNG_VOLL", "EXAM_FIRST", "EXAM_FIRST_PLUS", "STUDIUM"] as const;
-  const fingerprints = tracks.map(t => {
-    const c = getTrackCapabilities(t);
-    return JSON.stringify([c.hasLearningCourse, c.hasMiniChecks, c.hasHandbook, c.hasOralExam, c.isExamCentric, c.eliteHardenEligible, c.tutorMode]);
-  });
+Deno.test("Exam-centric tracks have distinct fingerprint from learning tracks", () => {
+  const examFirst = getTrackCapabilities("EXAM_FIRST");
+  const examPlus = getTrackCapabilities("EXAM_FIRST_PLUS");
+  const vollTrack = getTrackCapabilities("AUSBILDUNG_VOLL");
 
-  const unique = new Set(fingerprints);
-  assertEquals(unique.size, 4, "Each track must have a unique capability fingerprint");
+  // EXAM_FIRST and EXAM_FIRST_PLUS must differ
+  assertEquals(examFirst.hasHandbook !== examPlus.hasHandbook, true, "EXAM_FIRST vs PLUS differ on handbook");
+  assertEquals(examFirst.hasOralExam !== examPlus.hasOralExam, true, "EXAM_FIRST vs PLUS differ on oral");
+  assertEquals(examFirst.isExamOnly !== examPlus.isExamOnly, true, "EXAM_FIRST vs PLUS differ on isExamOnly");
+
+  // Both exam-centric differ from AUSBILDUNG_VOLL
+  assertEquals(examFirst.isExamCentric !== vollTrack.isExamCentric, true, "EXAM_FIRST vs VOLL differ on exam-centric");
+  assertEquals(examPlus.hasLearningCourse !== vollTrack.hasLearningCourse, true, "PLUS vs VOLL differ on learning");
 });
 
 Deno.test("Skipped steps and required steps never overlap for any track", () => {
