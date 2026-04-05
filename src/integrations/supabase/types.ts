@@ -59615,6 +59615,10 @@ export type Database = {
         Args: { p_action_id: string }
         Returns: undefined
       }
+      admin_force_depublish_and_rebuild: {
+        Args: { p_package_id: string }
+        Returns: undefined
+      }
       admin_reset_code_lockout: {
         Args: { p_code: string; p_note?: string }
         Returns: undefined
