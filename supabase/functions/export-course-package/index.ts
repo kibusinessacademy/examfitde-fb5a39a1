@@ -261,7 +261,7 @@ Deno.serve(async (req) => {
           while (true) {
             const { data: batch, error: lErr } = await sb
               .from("lessons")
-              .select("id, title, sort_order, qc_status, step, status, duration_minutes, competency_id, exam_block, weight_tag, exam_relevance_score, mastery_weight, quality_gate_status, quality_flags")
+              .select("id, title, sort_order, qc_status, step, status, duration_minutes, competency_id, exam_block, weight_tag, exam_relevance_score, mastery_weight, quality_gate_status, quality_flags, content")
               .eq("module_id", mod.id as string)
               .order("sort_order")
               .range(offset, offset + pageSize - 1);
@@ -294,6 +294,7 @@ Deno.serve(async (req) => {
                   mastery_weight: l.mastery_weight,
                   quality_gate_status: l.quality_gate_status,
                   quality_flags: l.quality_flags,
+                  content_html: extractHtml(l.content),
                 });
             }
             if (batch.length < pageSize) break;
