@@ -17,6 +17,7 @@ const guards = [
   "auto-publish-postcondition-guard.mjs",
   "no-legacy-entitlement-rpc-guard.mjs",
   "dag-parity-guard.mjs",
+  "edge-deploy-drift-guard.mjs",
 ];
 
 function run(file) {
