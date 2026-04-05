@@ -1,5 +1,5 @@
 /**
- * Content Audit Engine — SSOT (v3 hardened)
+ * Content Audit Engine — SSOT (v4 hardened)
  *
  * Core audit logic that applies track-aware profiles to any artifact.
  * Layers:
@@ -55,6 +55,11 @@ const MIN_CONTENT_LENGTH: Record<string, { critical: number; error: number }> = 
   tutor_response:    { critical: 10,  error: 50 },
   seo_article:       { critical: 20,  error: 200 },
 };
+
+// Tracks where lesson blueprint & learning field are CRITICAL (not just error)
+const STRICT_LESSON_TRACKS: Set<string> = new Set([
+  "AUSBILDUNG_VOLL", "FORTBILDUNG", "MEISTER",
+]);
 
 // ── Main Entry Point ──
 
@@ -130,6 +135,7 @@ function pushStructuralFlags(
   const isLesson = at === "lesson";
   const isLearningContent = ["lesson", "handbook_chapter"].includes(at);
   const isTutor = at === "tutor_response";
+  const isStrictTrack = STRICT_LESSON_TRACKS.has(profile.track);
 
   // ── Curriculum: CRITICAL for all ──
   if (s.requireCurriculum && !input.curriculum_id) {
@@ -146,14 +152,24 @@ function pushStructuralFlags(
     flags.push({ layer: "A", code: "MISSING_BLUEPRINT", severity: "critical", field: "blueprint_id", message: "Blueprint-Referenz fehlt für Prüfungsfrage" });
   }
 
-  // ── Blueprint for lessons: error (not warning) ──
+  // ── Blueprint for lessons: CRITICAL for strict tracks, error otherwise ──
   if (s.requireBlueprintForLessons && isLesson && !input.blueprint_id) {
-    flags.push({ layer: "A", code: "MISSING_LESSON_BLUEPRINT", severity: "error", field: "blueprint_id", message: "Lesson ohne Blueprint-Referenz" });
+    flags.push({
+      layer: "A", code: "MISSING_LESSON_BLUEPRINT",
+      severity: isStrictTrack ? "critical" : "error",
+      field: "blueprint_id",
+      message: "Lesson ohne Blueprint-Referenz",
+    });
   }
 
-  // ── Learning field: error ──
+  // ── Learning field: CRITICAL for AUSBILDUNG_VOLL, error for others ──
   if (s.requireLessonToLearningField && isLesson && !input.learning_field_id) {
-    flags.push({ layer: "A", code: "MISSING_LEARNING_FIELD", severity: "error", field: "learning_field_id", message: "Lektion ohne Lernfeld-Zuordnung" });
+    flags.push({
+      layer: "A", code: "MISSING_LEARNING_FIELD",
+      severity: profile.track === "AUSBILDUNG_VOLL" ? "critical" : "error",
+      field: "learning_field_id",
+      message: "Lektion ohne Lernfeld-Zuordnung",
+    });
   }
 
   // ── Exam type tag: error for questions ──
@@ -171,9 +187,28 @@ function pushStructuralFlags(
     flags.push({ layer: "A", code: "MISSING_WEIGHT", severity: "info", field: "weight_percentage", message: "Gewichtung fehlt" });
   }
 
-  // ── Tutor reference object: CRITICAL ──
-  if (s.requireTutorReferenceObject && isTutor && !input.curriculum_id) {
-    flags.push({ layer: "A", code: "TUTOR_MISSING_REFERENCE", severity: "critical", field: "curriculum_id", message: "Tutor-Antwort ohne Referenzobjekt" });
+  // ── Tutor reference object: CRITICAL — requires competency/lesson/session, not just curriculum ──
+  if (s.requireTutorReferenceObject && isTutor) {
+    const hasReferenceObject = !!(input.competency_id || input.lesson_id || input.exam_session_id);
+    if (!hasReferenceObject) {
+      flags.push({
+        layer: "A", code: "TUTOR_MISSING_REFERENCE_OBJECT", severity: "critical",
+        field: "competency_id|lesson_id|exam_session_id",
+        message: "Tutor-Antwort ohne Referenzobjekt (competency, lesson oder exam_session erforderlich)",
+      });
+    }
+  }
+
+  // ── MiniCheck requirement for lessons: CRITICAL for strict tracks ──
+  if (s.requireMiniCheckForLessons && isLesson) {
+    const hasMinicheck = input.meta?.has_minicheck === true;
+    if (!hasMinicheck) {
+      flags.push({
+        layer: "A", code: "LESSON_NO_MINICHECK", severity: isStrictTrack ? "critical" : "error",
+        field: "meta.has_minicheck",
+        message: "Lesson verletzt Pflicht-MiniCheck-Struktur",
+      });
+    }
   }
 
   // ── Content length: artifact-type-specific thresholds ──
@@ -234,11 +269,15 @@ function pushExamQualityFlags(
   }
 
   // ── Pure definition / knowledge question heuristic ──
+  // Severity & penalty are track-dependent
   const definitionSignals = /\b(was ist|was versteht man|was bedeutet|definieren sie|wie lautet die definition)\b/i;
   if (definitionSignals.test(text)) {
-    penalty += 5;
+    const isTransferTrack = STRICT_LESSON_TRACKS.has(profile.track);
+    const sev: AuditSeverity = isTransferTrack ? "warning" : "info";
+    const pen = isTransferTrack ? 10 : 5;
+    penalty += pen;
     flags.push({
-      layer: "B", code: "PURE_KNOWLEDGE_QUESTION", severity: "info",
+      layer: "B", code: "PURE_KNOWLEDGE_QUESTION", severity: sev,
       message: "Reine Wissens-/Definitionsfrage erkannt",
       suggestion: "Transfer- oder Anwendungsbezug herstellen",
     });
@@ -311,10 +350,10 @@ function pushLanguageFlags(
     }
   }
 
-  // Passive ratio check
+  // Passive ratio check — NOTE: regex WITHOUT /g flag to avoid lastIndex state bug
   if (sentences.length >= 3) {
-    const passivePatterns = /\bwird\b|\bwurde\b|\bwerden\b|\bwurden\b|\bworden\b/gi;
-    const passiveSentences = sentences.filter((s) => passivePatterns.test(s)).length;
+    const passivePattern = /\bwird\b|\bwurde\b|\bwerden\b|\bwurden\b|\bworden\b/i;
+    const passiveSentences = sentences.filter((s) => passivePattern.test(s)).length;
     const passiveRatio = passiveSentences / sentences.length;
     if (passiveRatio > lang.maxPassiveRatio) {
       penalty += Math.round((passiveRatio - lang.maxPassiveRatio) * 30);
@@ -349,22 +388,45 @@ function pushDidacticFlags(
   let score = 100;
   const lower = plainText.toLowerCase();
 
-  // Check for didactic structural elements (heuristic)
-  if (d.requireEntryStep && !hasContentSignal(lower, ["einstieg", "lernziel", "überblick", "einführung", "vorwissen"])) {
-    score -= 15;
-    flags.push({ layer: "D", code: "MISSING_ENTRY_STEP", severity: "warning", message: "Einstiegsphase fehlt (Lernziel/Überblick)" });
+  // Prefer structured meta signals over keyword heuristics
+  const meta = input.meta ?? {};
+  const useMetaSignals = meta.has_entry_step !== undefined;
+
+  if (d.requireEntryStep) {
+    const present = useMetaSignals
+      ? meta.has_entry_step === true
+      : hasContentSignal(lower, ["einstieg", "lernziel", "überblick", "einführung", "vorwissen"]);
+    if (!present) {
+      score -= 15;
+      flags.push({ layer: "D", code: "MISSING_ENTRY_STEP", severity: "warning", message: "Einstiegsphase fehlt (Lernziel/Überblick)" });
+    }
   }
-  if (d.requireExplanationStep && !hasContentSignal(lower, ["erklärung", "definition", "grundlage", "theorie", "konzept", "modell"])) {
-    score -= 15;
-    flags.push({ layer: "D", code: "MISSING_EXPLANATION", severity: "warning", message: "Erklärungsphase fehlt" });
+  if (d.requireExplanationStep) {
+    const present = useMetaSignals
+      ? meta.has_explanation_step === true
+      : hasContentSignal(lower, ["erklärung", "definition", "grundlage", "theorie", "konzept", "modell"]);
+    if (!present) {
+      score -= 15;
+      flags.push({ layer: "D", code: "MISSING_EXPLANATION", severity: "warning", message: "Erklärungsphase fehlt" });
+    }
   }
-  if (d.requireApplicationStep && !hasContentSignal(lower, ["beispiel", "anwendung", "praxis", "fallbeispiel", "übung", "aufgabe", "szenario"])) {
-    score -= 20;
-    flags.push({ layer: "D", code: "MISSING_APPLICATION", severity: "error", message: "Anwendungs-/Beispielphase fehlt" });
+  if (d.requireApplicationStep) {
+    const present = useMetaSignals
+      ? meta.has_application_step === true
+      : hasContentSignal(lower, ["beispiel", "anwendung", "praxis", "fallbeispiel", "übung", "aufgabe", "szenario"]);
+    if (!present) {
+      score -= 20;
+      flags.push({ layer: "D", code: "MISSING_APPLICATION", severity: "error", message: "Anwendungs-/Beispielphase fehlt" });
+    }
   }
-  if (d.requireRevisionStep && !hasContentSignal(lower, ["zusammenfassung", "wiederholung", "fazit", "kernpunkte", "merke"])) {
-    score -= 10;
-    flags.push({ layer: "D", code: "MISSING_REVISION", severity: "warning", message: "Wiederholungsphase fehlt" });
+  if (d.requireRevisionStep) {
+    const present = useMetaSignals
+      ? meta.has_revision_step === true
+      : hasContentSignal(lower, ["zusammenfassung", "wiederholung", "fazit", "kernpunkte", "merke"]);
+    if (!present) {
+      score -= 10;
+      flags.push({ layer: "D", code: "MISSING_REVISION", severity: "warning", message: "Wiederholungsphase fehlt" });
+    }
   }
 
   // Lesson-specific: transfer check
