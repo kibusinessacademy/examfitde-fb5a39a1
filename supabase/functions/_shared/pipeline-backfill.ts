@@ -113,12 +113,9 @@ export async function backfillPipelinePool(
         const catalogTrack = String(cert.track || "").toUpperCase();
         let dbTrack = "AUSBILDUNG_VOLL";
         let dbCertType: string = "ausbildung";
-        if (catalogTrack === "FORTBILDUNG" || catalogTrack === "FORTBILDUNG_IHK") {
-          dbTrack = "FORTBILDUNG";
-          dbCertType = "fortbildung_ihk";
-        } else if (catalogTrack === "ZERTIFIKAT" || catalogTrack === "CERTIFICATION" || catalogTrack === "BRANCHENZERTIFIKAT") {
-          dbTrack = "ZERTIFIKAT";
-          dbCertType = "branchenzertifikat";
+        if (catalogTrack === "FORTBILDUNG" || catalogTrack === "FORTBILDUNG_IHK" || catalogTrack === "ZERTIFIKAT" || catalogTrack === "CERTIFICATION" || catalogTrack === "BRANCHENZERTIFIKAT") {
+          dbTrack = "EXAM_FIRST_PLUS";
+          dbCertType = catalogTrack === "FORTBILDUNG" || catalogTrack === "FORTBILDUNG_IHK" ? "fortbildung_ihk" : "branchenzertifikat";
         } else if (catalogTrack === "STUDIUM" || catalogTrack === "HIGHER_EDUCATION") {
           dbTrack = "STUDIUM";
           dbCertType = "studium";

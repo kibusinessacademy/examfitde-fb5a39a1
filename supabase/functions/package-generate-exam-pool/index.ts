@@ -1662,14 +1662,14 @@ Deno.serve(async (req) => {
 
   try {
     if (!isFanOut) {
-      // Check if this is an EXAM_FIRST track — skip content prereqs
-      const isExamFirst = packageTrack === "EXAM_FIRST";
+      // Check if this is an exam-centric track — skip content prereqs
+      const isExamCentric = packageTrack === "EXAM_FIRST" || packageTrack === "EXAM_FIRST_PLUS";
 
       // Prerequisite: blueprint seeding must always be done
       const seedDone = await prereqDone(sb, packageId, "auto_seed_exam_blueprints");
-      // Content prereqs only for non-EXAM_FIRST tracks
-      const scaffoldDone = isExamFirst || await prereqDone(sb, packageId, "scaffold_learning_course");
-      const contentDone = isExamFirst || await prereqDone(sb, packageId, "generate_learning_content");
+      // Content prereqs only for non-exam-centric tracks
+      const scaffoldDone = isExamCentric || await prereqDone(sb, packageId, "scaffold_learning_course");
+      const contentDone = isExamCentric || await prereqDone(sb, packageId, "generate_learning_content");
       
       if (!scaffoldDone || !contentDone || !seedDone) {
         const missingStep = !seedDone ? "auto_seed_exam_blueprints"
@@ -1688,8 +1688,8 @@ Deno.serve(async (req) => {
         return json({ ok: false, retry: true, error: `PREREQ_NOT_DONE: ${missingStep}` }, 409);
       }
 
-      // Placeholder Guard: only for non-EXAM_FIRST tracks
-      if (!isExamFirst) {
+      // Placeholder Guard: only for non-exam-centric tracks
+      if (!isExamCentric) {
         const courseId = p.course_id;
         if (courseId) {
           const { data: guardResult } = await sb.rpc("check_no_placeholder_lessons", { p_course_id: courseId });

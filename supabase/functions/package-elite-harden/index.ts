@@ -558,10 +558,10 @@ Deno.serve(async (req) => {
     .select("track")
     .eq("id", packageId)
     .single();
-  const isExamFirst = trackPkg?.track === "EXAM_FIRST";
+  const isExamFirst = trackPkg?.track === "EXAM_FIRST" || trackPkg?.track === "EXAM_FIRST_PLUS";
   const requestedPhase = p.phase as Phase | undefined;
   const phase: Phase = isExamFirst && !requestedPhase
-    ? "annotations_only"  // Auto-force annotations_only for EXAM_FIRST
+    ? "annotations_only"  // Auto-force annotations_only for exam-centric tracks
     : (["annotations_only", "minichecks_only", "oral_only", "all"] as Phase[])
         .includes(requestedPhase as Phase) ? requestedPhase as Phase : "all";
   const idempotencyKey: string | null = typeof p.idempotency_key === "string" ? p.idempotency_key : null;
