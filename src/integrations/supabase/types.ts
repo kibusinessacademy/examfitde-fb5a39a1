@@ -5435,6 +5435,7 @@ export type Database = {
           certification_type: string
           created_at: string
           exam_modes: string[]
+          exam_structure: string | null
           framework_heavy: boolean
           id: string
           international: boolean
@@ -5442,8 +5443,10 @@ export type Database = {
           level: string | null
           meta: Json
           oral_exam_enabled: boolean
+          oral_exam_weight: string | null
           provider: string | null
           provider_type: string | null
+          recommended_question_count: number | null
           short_title: string | null
           slug: string
           title: string
@@ -5457,6 +5460,7 @@ export type Database = {
           certification_type: string
           created_at?: string
           exam_modes?: string[]
+          exam_structure?: string | null
           framework_heavy?: boolean
           id?: string
           international?: boolean
@@ -5464,8 +5468,10 @@ export type Database = {
           level?: string | null
           meta?: Json
           oral_exam_enabled?: boolean
+          oral_exam_weight?: string | null
           provider?: string | null
           provider_type?: string | null
+          recommended_question_count?: number | null
           short_title?: string | null
           slug: string
           title: string
@@ -5479,6 +5485,7 @@ export type Database = {
           certification_type?: string
           created_at?: string
           exam_modes?: string[]
+          exam_structure?: string | null
           framework_heavy?: boolean
           id?: string
           international?: boolean
@@ -5486,8 +5493,10 @@ export type Database = {
           level?: string | null
           meta?: Json
           oral_exam_enabled?: boolean
+          oral_exam_weight?: string | null
           provider?: string | null
           provider_type?: string | null
+          recommended_question_count?: number | null
           short_title?: string | null
           slug?: string
           title?: string
@@ -61440,6 +61449,7 @@ export type Database = {
         | "FORTBILDUNG"
         | "ZERTIFIKAT"
         | "STUDIUM"
+        | "EXAM_FIRST_PLUS"
       qa_severity: "low" | "medium" | "high" | "critical"
       qa_status: "open" | "resolved" | "accepted_risk"
       question_difficulty: "easy" | "medium" | "hard" | "very_hard"
@@ -61802,6 +61812,7 @@ export const Constants = {
         "FORTBILDUNG",
         "ZERTIFIKAT",
         "STUDIUM",
+        "EXAM_FIRST_PLUS",
       ],
       qa_severity: ["low", "medium", "high", "critical"],
       qa_status: ["open", "resolved", "accepted_risk"],
