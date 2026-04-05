@@ -2,42 +2,69 @@
  * Track-aware Artifact Prerequisites (SSOT)
  *
  * Not all pipeline steps require the same artifacts in every track.
- * EXAM_FIRST now includes elite_harden (annotations_only) for SSOT metrics,
- * but run_integrity_check still does NOT require elite_ready in EXAM_FIRST.
- *
  * Steps NOT listed here fall back to the static PIPELINE_GRAPH requires[].
  * Steps listed here OVERRIDE the static requires[] completely for that track.
+ *
+ * EXAM_FIRST skips learning content chain entirely → exam blueprints
+ * can start without validated_learning_content.
  */
 
-export type Track = "AUSBILDUNG_VOLL" | "ELITE" | "EXAM_FIRST";
+import { type TrackKey } from "./track-normalize.ts";
 
 /**
  * Per-step, per-track artifact overrides.
  * If a step+track combo is listed here, this list replaces PIPELINE_GRAPH.requires.
  * If not listed, the static PIPELINE_GRAPH.requires[] is used unchanged.
  */
-const TRACK_ARTIFACT_OVERRIDES: Record<string, Partial<Record<Track, string[]>>> = {
-  // elite_harden: EXAM_FIRST can run it too when eligibility is met
-  // (eligibility checked at runtime in artifact-resolver via approved question count).
-  // EXAM_FIRST only needs validated_exam_pool — same as AUSBILDUNG_VOLL.
+const TRACK_ARTIFACT_OVERRIDES: Record<string, Partial<Record<TrackKey, string[]>>> = {
+  // EXAM_FIRST: blueprints don't need validated_learning_content
+  // (no learning course in EXAM_FIRST)
+  auto_seed_exam_blueprints: {
+    AUSBILDUNG_VOLL: ["validated_learning_content"],  // default from PIPELINE_GRAPH
+    EXAM_FIRST: [],                                    // no learning content prerequisite
+    STUDIUM: ["validated_learning_content"],
+  },
+
+  // EXAM_FIRST: handbook doesn't require validated_learning_content
+  generate_handbook: {
+    AUSBILDUNG_VOLL: ["validated_learning_content"],
+    EXAM_FIRST: ["validated_blueprints"],              // handbook from blueprints only
+    STUDIUM: ["validated_learning_content"],
+  },
+
+  // elite_harden: all tracks need validated_exam_pool
   elite_harden: {
-    AUSBILDUNG_VOLL: ["validated_exam_pool"],  // default from PIPELINE_GRAPH
-    ELITE: ["validated_exam_pool"],
-    EXAM_FIRST: ["validated_exam_pool"],        // eligible when >= 60 approved questions
+    AUSBILDUNG_VOLL: ["validated_exam_pool"],
+    EXAM_FIRST: ["validated_exam_pool"],
+    STUDIUM: ["validated_exam_pool"],
   },
 
-  // run_integrity_check: ELITE needs elite_ready, EXAM_FIRST does NOT
+  // run_integrity_check: track-specific artifact requirements
   run_integrity_check: {
-    AUSBILDUNG_VOLL: ["elite_ready"],  // default from PIPELINE_GRAPH
-    ELITE: ["elite_ready"],             // alias for full pipeline
-    EXAM_FIRST: [],                     // no mandatory elite gate — but elite_harden may have run optionally
+    AUSBILDUNG_VOLL: [
+      "elite_ready",
+      "validated_minichecks",
+      "validated_handbook_depth",
+      "validated_oral_exam",
+      "validated_tutor_index",
+    ],
+    EXAM_FIRST: [
+      "elite_ready",
+      "validated_tutor_index",
+    ],
+    STUDIUM: [
+      "elite_ready",
+      "validated_minichecks",
+      "validated_handbook_depth",
+      "validated_tutor_index",
+    ],
   },
 
-  // quality_council: ELITE needs integrity_passed, EXAM_FIRST needs validated_exam_pool
+  // quality_council: depends on integrity
   quality_council: {
-    AUSBILDUNG_VOLL: ["integrity_passed"],  // default from PIPELINE_GRAPH
-    ELITE: ["integrity_passed"],             // alias for full pipeline
-    EXAM_FIRST: ["validated_exam_pool"],     // skip integrity check entirely
+    AUSBILDUNG_VOLL: ["integrity_passed"],
+    EXAM_FIRST: ["integrity_passed"],
+    STUDIUM: ["integrity_passed"],
   },
 };
 
@@ -51,9 +78,9 @@ export function getTrackArtifactOverride(
   track: string,
 ): string[] | null {
   const overrides = TRACK_ARTIFACT_OVERRIDES[stepKey];
-  if (!overrides) return null; // no override → use static graph
+  if (!overrides) return null;
 
-  const resolved = overrides[track as Track];
+  const resolved = overrides[track as TrackKey];
   if (resolved !== undefined) return resolved;
 
   // Fallback: treat unknown tracks like AUSBILDUNG_VOLL (full pipeline)
