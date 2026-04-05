@@ -8,6 +8,7 @@
 export const TRACKS = [
   "AUSBILDUNG_VOLL",
   "EXAM_FIRST",
+  "EXAM_FIRST_PLUS",
   "STUDIUM",
 ] as const;
 
@@ -19,12 +20,16 @@ const TRACK_ALIASES: Record<string, Track> = {
   "AUSBILDUNG-VOLL": "AUSBILDUNG_VOLL",
   AUSBILDUNG_VOLL_ELITE: "AUSBILDUNG_VOLL",
   ELITE: "AUSBILDUNG_VOLL",
-  FORTBILDUNG: "AUSBILDUNG_VOLL",
-  ZERTIFIKAT: "AUSBILDUNG_VOLL",
 
   EXAM_FIRST: "EXAM_FIRST",
   EXAMFIRST: "EXAM_FIRST",
   "EXAM-FIRST": "EXAM_FIRST",
+
+  EXAM_FIRST_PLUS: "EXAM_FIRST_PLUS",
+  "EXAM-FIRST-PLUS": "EXAM_FIRST_PLUS",
+  EXAMFIRSTPLUS: "EXAM_FIRST_PLUS",
+  FORTBILDUNG: "EXAM_FIRST_PLUS",
+  ZERTIFIKAT: "EXAM_FIRST_PLUS",
 
   STUDIUM: "STUDIUM",
   HIGHER_ED: "STUDIUM",
@@ -44,7 +49,12 @@ export function isAcademicTrack(track: unknown): boolean {
 }
 
 export function isExamFirstTrack(track: unknown): boolean {
-  return normalizeTrack(track) === "EXAM_FIRST";
+  const t = normalizeTrack(track);
+  return t === "EXAM_FIRST" || t === "EXAM_FIRST_PLUS";
+}
+
+export function isExamFirstPlusTrack(track: unknown): boolean {
+  return normalizeTrack(track) === "EXAM_FIRST_PLUS";
 }
 
 export function isFullVocationalTrack(track: unknown): boolean {
