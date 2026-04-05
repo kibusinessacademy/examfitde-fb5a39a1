@@ -215,14 +215,14 @@ export function BlockedPackagesSheet({ open, onOpenChange }: {
 
       // Fetch blocked packages with integrity report
       const { data: pkgs, error } = await sb
-        .from('course_packages')
-        .select('id, title, integrity_report, status')
+        .from('v_admin_packages_ssot')
+        .select('package_id, canonical_title, integrity_report, status')
         .eq('status', 'blocked');
 
       if (error) throw error;
 
       // Fetch blocker details
-      const ids = (pkgs || []).map((p: any) => p.id);
+      const ids = (pkgs || []).map((p: any) => p.package_id);
       const { data: blockers } = ids.length > 0
         ? await sb.from('ops_package_blockers').select('*').in('package_id', ids)
         : { data: [] };
@@ -235,11 +235,11 @@ export function BlockedPackagesSheet({ open, onOpenChange }: {
       return (pkgs || []).map((p: any) => {
         const report = p.integrity_report?.v3 || {};
         const summary = report.summary || {};
-        const blocker = blockerMap.get(p.id);
+        const blocker = blockerMap.get(p.package_id);
 
         return {
-          id: p.id,
-          title: p.title || 'Unbenannt',
+          id: p.package_id,
+          title: p.canonical_title || 'Unbenannt',
           score: p.integrity_report?.score ?? 0,
           hard_fail_reasons: summary.hard_fail_reasons || [],
           warnings: report.warnings || [],
