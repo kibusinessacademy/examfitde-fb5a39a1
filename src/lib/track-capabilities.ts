@@ -91,7 +91,7 @@ export const cap = {
 
 // ── Step-level SSOT for track switches ──
 
-/** Steps that must be SKIPPED for a given track */
+/** Steps that must be SKIPPED for a given track (fully symmetric) */
 export function getSkippedSteps(track: unknown): string[] {
   const c = getTrackCapabilities(track);
   const skipped: string[] = [];
@@ -110,6 +110,24 @@ export function getSkippedSteps(track: unknown): string[] {
       "generate_lesson_minichecks",
       "validate_lesson_minichecks",
     );
+  }
+  if (!c.hasHandbook) {
+    skipped.push(
+      "generate_handbook",
+      "validate_handbook",
+      "enqueue_handbook_expand",
+      "expand_handbook",
+      "validate_handbook_depth",
+    );
+  }
+  if (!c.hasOralExam) {
+    skipped.push(
+      "generate_oral_exam",
+      "validate_oral_exam",
+    );
+  }
+  if (!c.eliteHardenEligible) {
+    skipped.push("elite_harden");
   }
 
   return skipped;

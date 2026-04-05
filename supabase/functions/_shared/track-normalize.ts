@@ -38,7 +38,23 @@ const TRACK_ALIASES: Record<string, TrackKey> = {
   ACADEMIC: "STUDIUM",
 };
 
-export function normalizeTrack(input: unknown): TrackKey {
+/**
+ * Tolerant normalization — falls back to default.
+ */
+export function normalizeTrack(input: unknown, fallback: TrackKey = "AUSBILDUNG_VOLL"): TrackKey {
   const raw = String(input ?? "").trim().toUpperCase();
-  return TRACK_ALIASES[raw] ?? "AUSBILDUNG_VOLL";
+  return TRACK_ALIASES[raw] ?? fallback;
+}
+
+/**
+ * Strict normalization — throws on unknown track.
+ * Use in pipeline/orchestration/admin-ops code.
+ */
+export function normalizeTrackStrict(input: unknown): TrackKey {
+  const raw = String(input ?? "").trim().toUpperCase();
+  const normalized = TRACK_ALIASES[raw];
+  if (!normalized) {
+    throw new Error(`Unknown track: ${raw || "<empty>"}`);
+  }
+  return normalized;
 }
