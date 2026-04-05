@@ -31,6 +31,7 @@ const FULL_STEP_ORDER = [
 // EXAM_FIRST track only has these steps
 const EXAM_FIRST_STEPS = new Set([
   'auto_seed_exam_blueprints','validate_blueprints',
+  'generate_blueprint_variants','validate_blueprint_variants','promote_blueprint_variants',
   'generate_exam_pool','validate_exam_pool',
   'build_ai_tutor_index','validate_tutor_index',
   'generate_oral_exam','validate_oral_exam',
