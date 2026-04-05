@@ -39,9 +39,27 @@ const TRACK_ALIASES: Record<string, Track> = {
   ACADEMIC: "STUDIUM",
 };
 
-export function normalizeTrack(input: unknown): Track {
+/**
+ * Strict track normalization — throws on unknown input.
+ * Use in pipeline/orchestration/admin-ops code where an unknown track
+ * must be a hard error, not a silent fallback.
+ */
+export function normalizeTrackStrict(input: unknown): Track {
   const raw = String(input ?? "").trim().toUpperCase();
-  return TRACK_ALIASES[raw] ?? "AUSBILDUNG_VOLL";
+  const normalized = TRACK_ALIASES[raw];
+  if (!normalized) {
+    throw new Error(`Unknown track: ${raw || "<empty>"}`);
+  }
+  return normalized;
+}
+
+/**
+ * Tolerant track normalization — falls back to default.
+ * Use in UI/import/display code where a missing track should not crash.
+ */
+export function normalizeTrack(input: unknown, fallback: Track = "AUSBILDUNG_VOLL"): Track {
+  const raw = String(input ?? "").trim().toUpperCase();
+  return TRACK_ALIASES[raw] ?? fallback;
 }
 
 export function isAcademicTrack(track: unknown): boolean {

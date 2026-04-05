@@ -15,19 +15,48 @@ export type Track = (typeof TRACKS)[number];
 const TRACK_ALIASES: Record<string, Track> = {
   AUSBILDUNG_VOLL: "AUSBILDUNG_VOLL",
   AUSBILDUNG: "AUSBILDUNG_VOLL",
+  "AUSBILDUNG-VOLL": "AUSBILDUNG_VOLL",
+  AUSBILDUNG_VOLL_ELITE: "AUSBILDUNG_VOLL",
+  ELITE: "AUSBILDUNG_VOLL",
+
   EXAM_FIRST: "EXAM_FIRST",
+  EXAMFIRST: "EXAM_FIRST",
+  "EXAM-FIRST": "EXAM_FIRST",
+
   EXAM_FIRST_PLUS: "EXAM_FIRST_PLUS",
+  "EXAM-FIRST-PLUS": "EXAM_FIRST_PLUS",
+  EXAMFIRSTPLUS: "EXAM_FIRST_PLUS",
   FORTBILDUNG: "EXAM_FIRST_PLUS",
   ZERTIFIKAT: "EXAM_FIRST_PLUS",
+
   STUDIUM: "STUDIUM",
   HIGHER_ED: "STUDIUM",
+  HIGHER_EDUCATION: "STUDIUM",
   BACHELOR: "STUDIUM",
   MASTER: "STUDIUM",
+  ACADEMIC: "STUDIUM",
 };
 
-export function normalizeTrack(input: unknown): Track {
+/**
+ * Strict normalization — throws on unknown track.
+ * Use in pipeline/orchestration/admin-ops.
+ */
+export function normalizeTrackStrict(input: unknown): Track {
   const raw = String(input ?? "").trim().toUpperCase();
-  return TRACK_ALIASES[raw] ?? "AUSBILDUNG_VOLL";
+  const normalized = TRACK_ALIASES[raw];
+  if (!normalized) {
+    throw new Error(`Unknown track: ${raw || "<empty>"}`);
+  }
+  return normalized;
+}
+
+/**
+ * Tolerant normalization — falls back to default.
+ * Use in display/import code.
+ */
+export function normalizeTrack(input: unknown, fallback: Track = "AUSBILDUNG_VOLL"): Track {
+  const raw = String(input ?? "").trim().toUpperCase();
+  return TRACK_ALIASES[raw] ?? fallback;
 }
 
 export type TrackCapabilities = {
@@ -88,9 +117,11 @@ export function getTrackCapabilities(track: unknown): TrackCapabilities {
   return TRACK_CAPABILITIES[normalizeTrack(track)];
 }
 
+/** Steps that must be SKIPPED for a given track (fully symmetric) */
 export function getSkippedSteps(track: unknown): string[] {
   const c = getTrackCapabilities(track);
   const skipped: string[] = [];
+
   if (!c.hasLearningCourse) {
     skipped.push(
       "scaffold_learning_course",
@@ -103,9 +134,26 @@ export function getSkippedSteps(track: unknown): string[] {
   if (!c.hasMiniChecks) {
     skipped.push("generate_lesson_minichecks", "validate_lesson_minichecks");
   }
+  if (!c.hasHandbook) {
+    skipped.push(
+      "generate_handbook",
+      "validate_handbook",
+      "enqueue_handbook_expand",
+      "expand_handbook",
+      "validate_handbook_depth",
+    );
+  }
+  if (!c.hasOralExam) {
+    skipped.push("generate_oral_exam", "validate_oral_exam");
+  }
+  if (!c.eliteHardenEligible) {
+    skipped.push("elite_harden");
+  }
+
   return skipped;
 }
 
+/** Steps that must be ACTIVE for a given track */
 export function getRequiredSteps(track: unknown): string[] {
   const c = getTrackCapabilities(track);
   const steps: string[] = [
@@ -122,6 +170,7 @@ export function getRequiredSteps(track: unknown): string[] {
     "quality_council",
     "auto_publish",
   ];
+
   if (c.hasLearningCourse) {
     steps.push(
       "scaffold_learning_course", "fanout_learning_content",
