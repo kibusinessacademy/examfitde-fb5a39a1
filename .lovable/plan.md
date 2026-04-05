@@ -1,43 +1,69 @@
-## Phase 1: Stripe Pricing Update (24,90€)
 
-1. **Neuen Stripe-Preis anlegen**: 24,90€ (2490 Cents) für `prod_UGgwt89kfo6vz2` (ExamFit Ausbildung – Einzellizenz)
-2. **Neuen Stripe-Preis anlegen**: 24,90€ für `prod_UGgxoWqiuLfzUl` (ExamFit Studium – Einzellizenz) — von 59€ auf 24,90€
-3. **B2B Staffelpreise** in Stripe aktualisieren:
-   - 5 Seats: 22€/Seat
-   - 10 Seats: 19€/Seat  
-   - 25 Seats: 16€/Seat
-   - 50+ Seats: 12€/Seat
-4. **Alle Preisreferenzen im Code updaten** (HomePage, ShopPage, FAQs, SEO-Beschreibungen: 39€ → 24,90€)
 
-## Phase 2: Conversion-optimierte Landingpages
+# Plan: MiniCheck-Antwortqualität heilen + Exportfunktion reparieren
 
-5. **HomePage Hero** neu positionieren:
-   - Headline: "Bereit für die Prüfung?" statt Feature-Liste
-   - Prüfungsreife-Check CTA prominent
-   - Value Stack: Was alles enthalten ist
-   - Preisanker (IHK 300-1000€ vs. ExamFit 24,90€)
-   - Trust Badges + Social Proof
+## Kontext (Verkäufer-Paket)
+- **Package**: `59b6e214-e181-4c2b-986e-1ce544984d04` / Course: `ae943f8c-da2e-422e-af5f-d7ff721cbf0c`
+- **Curriculum**: `63635f46-0186-49e7-80c1-67925dbdf638`
+- 200 Lessons, davon 192 auf `draft` — aber 160 haben echten HTML-Content (8-12KB)
+- 5.401 MiniCheck-Fragen (alle approved), aber Antwortschlüssel teilweise fehlerhaft
+- 419 Exam-Fragen ohne `blueprint_id` (28%)
 
-6. **Segment-Landingpages** (5 Stück, SEO-optimiert):
-   - `/azubis` – Azubi-fokussiert (Angst → Kontrolle → Klarheit)
-   - `/betriebe` – B2B aktualisiert (neue Staffelpreise)
-   - `/fortbildung` – Betriebswirt/Fachwirt/Meister/Bilanzbuchhalter
-   - `/zertifizierungen` – Scrum/PRINCE2/AWS
-   - `/institutionen` – Berufsschulen/IHK/Bildungsträger
-
-7. **ShopPage** aktualisieren:
-   - 24,90€ Preis
-   - Value Stack visuell
-   - Preisanker-Block
-
-## Phase 3: Traffic Engine (danach)
-
-8. Blog/Video-Agents → Landingpages verlinken
-9. Ad-Creative-Vorlagen aus SSOT
-10. SEO-Content-Seeding für neue Landingpages
+## Zwei Arbeitspakete
 
 ---
 
-**Reihenfolge**: Phase 1 (Stripe) → Phase 2 (Landingpages) → Phase 3 (Traffic)
+### 1. Exportfunktion reparieren
 
-**Hinweis**: Alte Stripe-Preise bleiben aktiv für Bestandskunden. Neue Preise werden für neue Checkouts verwendet.
+**Problem**: `export-course-package/index.ts` Zeile 264 — die Lesson-Query selektiert **kein `content`-Feld**. Der ZIP-Export enthält daher nur Metadaten, keine Lerninhalte.
+
+**Fix**:
+- `content` zum SELECT in der Lesson-Query hinzufügen (Zeile 264)
+- Das `content`-Feld im Lesson-Objekt (Zeile 277-297) mappen — als `content_html` extrahiert (nur das HTML-Feld aus dem JSON)
+- Sicherstellen, dass die Dateigröße handhabbar bleibt (content wird pro Lesson ~10KB sein, bei 200 Lessons ~2MB — kein Problem)
+
+**Datei**: `supabase/functions/export-course-package/index.ts`
+
+---
+
+### 2. MiniCheck-Antwortqualität heilen (AI-gestützt)
+
+**Problem**: Teils falsche `correct_answer`-Indizes, fehlerhafte Rechenlogik, inkonsistente Optionen.
+
+**Ansatz**: AI-gestütztes Batch-Audit über die 5.401 MiniCheck-Fragen:
+- Script nutzt die AI-Gateway-Skill, um Batches von ~20 Fragen gleichzeitig zu validieren
+- AI prüft: Stimmt `correct_answer` mit der fachlich richtigen Lösung überein? Sind die Optionen konsistent? Sind Rechenwege korrekt?
+- Ergebnis: Liste der fehlerhaften Fragen mit korrektem `correct_answer`
+- Korrekturen werden via `supabase--insert` (UPDATE) direkt in `minicheck_questions` geschrieben
+
+**Zusätzlich (Datenbereinigung)**:
+- 192 Lessons von `draft` → `published` setzen (Content ist vorhanden)
+- 419 Exam-Fragen ohne `blueprint_id` auf passende Blueprints verteilen
+
+---
+
+### 3. Governance-Reconciliation
+
+- `quality_gate_status` der Lessons auf `passed` setzen
+- `auto_publish` Step-Status synchronisieren
+
+---
+
+## Technische Details
+
+| Schritt | Tool/Datei | Aktion |
+|---|---|---|
+| Export-Fix | `export-course-package/index.ts:264` | `content` zum SELECT + Mapping |
+| MiniCheck-Audit | AI-Gateway Script | Batch-Validierung mit Gemini |
+| MiniCheck-Fix | `supabase--insert` | UPDATE fehlerhafte `correct_answer` |
+| Lesson-Status | `supabase--insert` | UPDATE 192 Lessons → `published` |
+| Blueprint-Bind | `supabase--insert` | UPDATE 419 Fragen mit `blueprint_id` |
+| Governance | `supabase--insert` | Steps + Quality Gates reconciliieren |
+
+## Reihenfolge
+1. Export-Fix (Code-Änderung + Deploy)
+2. Lesson-Status-Healing (DB)
+3. Blueprint-Rückverfolgbarkeit (DB)
+4. MiniCheck-Audit + Fix (AI-Script + DB)
+5. Governance-Reconciliation (DB)
+
