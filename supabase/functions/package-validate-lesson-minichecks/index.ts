@@ -19,7 +19,8 @@ import { resolveIntegrityProfile, getValidationPolicy, buildValidatorMeta } from
  *
  * Job-Runner signals:
  *   NO_MINICHECKS or coverage < 10%  → retry:true, backoff_seconds:300
- *   coverage ≥ 10% but gate fails    → permanent:true
+ *   coverage ≥ 10% but < 90%         → retry:true, backoff_seconds:300 (repairable)
+ *   coverage ≥ 90% but critical      → permanent:true (structural failure)
  *   gate passes                       → ok:true
  */
 
@@ -396,7 +397,10 @@ Deno.serve(async (req) => {
     }
 
     // Gate failed — classify retry vs permanent
+    // v4: coverage < 90% is ALWAYS retryable (upstream generation may still be running).
+    // Only mark permanent if coverage is high but structural issues remain.
     const coveragePct = coverage !== null ? (coverage * 100).toFixed(0) : "?";
+    const criticalCount = issues.filter((i) => i.severity === "critical").length;
 
     if (coverage !== null && coverage < PREREQ_COVERAGE_THRESHOLD) {
       return json(
@@ -417,15 +421,38 @@ Deno.serve(async (req) => {
       );
     }
 
+    // v4 FIX: coverage between 10-90% → retry (upstream may still produce questions)
+    // Only permanent if coverage ≥ 90% AND critical issues persist (structural defect)
+    const PERMANENT_THRESHOLD = 0.90;
+    if (coverage === null || coverage < PERMANENT_THRESHOLD) {
+      console.log(`[ValidateMini] ${packageId}: coverage=${coveragePct}% < 90% → RETRY (not permanent)`);
+      return json(
+        {
+          ok: false,
+          retry: true,
+          backoff_seconds: 300,
+          error: `GATE_FAIL: coverage=${coveragePct}%, critical_issues=${criticalCount} (retryable — awaiting upstream)`,
+          classification: "gate_fail_retryable",
+          reason_code: issues.find((i) => i.severity === "critical")?.code || "LOW_COVERAGE",
+          coverage_state: coverage === null ? "none" : coverage < 0.5 ? "partial" : "improving",
+          total: totalCount,
+          approved: approvedCount || 0,
+          issues,
+        },
+        200,
+        origin,
+      );
+    }
+
+    // Coverage ≥ 90% but critical issues → permanent structural failure
     return json(
       {
         ok: false,
         permanent: true,
-        error: `GATE_FAIL: coverage=${coveragePct}%, critical_issues=${issues.filter((i) => i.severity === "critical").length}`,
+        error: `GATE_FAIL: coverage=${coveragePct}%, critical_issues=${criticalCount}`,
         classification: "gate_fail",
         reason_code: issues.find((i) => i.severity === "critical")?.code || "UNKNOWN",
-        coverage_state:
-          coverage === null ? "none" : coverage < 0.5 ? "partial" : coverage < 0.9 ? "partial" : "ready",
+        coverage_state: "ready_but_defective",
         total: totalCount,
         approved: approvedCount || 0,
         issues,
