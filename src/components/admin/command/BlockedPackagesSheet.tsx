@@ -215,8 +215,8 @@ export function BlockedPackagesSheet({ open, onOpenChange }: {
 
       // Fetch blocked packages with integrity report
       const { data: pkgs, error } = await sb
-        .from('course_packages')
-        .select('id, title, integrity_report, status')
+        .from('v_admin_packages_ssot')
+        .select('package_id, canonical_title, integrity_report, status')
         .eq('status', 'blocked');
 
       if (error) throw error;
