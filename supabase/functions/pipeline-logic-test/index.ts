@@ -890,8 +890,8 @@ Deno.serve(async (req) => {
         .select("step_key", { count: "exact", head: true })
         .eq("package_id", pkg.id);
 
-      // EXAM_FIRST = 11 steps, AUSBILDUNG_VOLL = 17 steps
-      const expectedMin = pkg.track === 'EXAM_FIRST' ? 11 : 14;
+      // EXAM_FIRST = 11 steps, EXAM_FIRST_PLUS = 13 steps, AUSBILDUNG_VOLL = 17 steps
+      const expectedMin = (pkg.track === 'EXAM_FIRST') ? 11 : (pkg.track === 'EXAM_FIRST_PLUS') ? 13 : 14;
       if ((count ?? 0) < expectedMin) {
         missingSteps.push({ package_id: pkg.id, step_count: count, track: pkg.track, expected_min: expectedMin });
       }
