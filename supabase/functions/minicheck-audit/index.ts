@@ -98,6 +98,8 @@ Deno.serve(async (req) => {
     });
   }
 
+  const sb = createClient(supabaseUrl, supabaseKey);
+
   // Auth: accept cron secret, service role, anon key (pg_net), or admin JWT
   const authHeader = req.headers.get("authorization")?.replace("Bearer ", "") || "";
   const cronSecret = Deno.env.get("CRON_SECRET") || "";
@@ -124,8 +126,6 @@ Deno.serve(async (req) => {
       status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
-
-  const sb = createClient(supabaseUrl, supabaseKey);
   
   let targetCurriculumId: string | null = null;
   let maxLimit = MAX_QUESTIONS_PER_RUN;
