@@ -1,20 +1,20 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
+import { checkValidatorBypass, buildBypassMeta, buildFullRunMeta } from "../_shared/validator-bypass.ts";
+import { mergePackageStepMeta } from "../_shared/merge-step-meta.ts";
 
 /**
  * package-validate-handbook-depth — Optional Quality/Elite Gate
  *
+ * v2: Fingerprint-based bypass support.
+ * If handbook artifact is unchanged since last successful validation,
+ * the step is bypassed (marked done) without running the expensive checks.
+ *
  * Soft gate: validates depth/quality of expanded handbook sections.
  * This step does NOT block basis publication — it only assigns quality tiers.
- *
- * Checks:
- * - Depth markers (examples, exam traps, transfer, misconceptions)
- * - Expansion coverage (% of sections expanded)
- * - Quality scores
- *
- * Results in a quality_tier: "standard" | "enhanced" | "elite"
- * This is informational — it NEVER fails the pipeline.
  */
+
+const VALIDATOR_VERSION = "v1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -29,10 +29,10 @@ function json(body: unknown, status = 200) {
 }
 
 // Thresholds for quality tiers
-const ELITE_DEPTH_SCORE = 75;    // ≥75% depth markers → elite
-const ENHANCED_DEPTH_SCORE = 40; // ≥40% → enhanced, below → standard
-const ELITE_EXPAND_COVERAGE = 90; // ≥90% sections expanded → can be elite
-const ENHANCED_EXPAND_COVERAGE = 50; // ≥50% → enhanced
+const ELITE_DEPTH_SCORE = 75;
+const ENHANCED_DEPTH_SCORE = 40;
+const ELITE_EXPAND_COVERAGE = 90;
+const ENHANCED_EXPAND_COVERAGE = 50;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -49,7 +49,38 @@ Deno.serve(async (req) => {
     return json({ error: "package_id and curriculum_id required" }, 400);
   }
 
-  // Load chapters
+  // ── Phase 1: Check bypass eligibility ──
+  const bypass = await checkValidatorBypass(sb, {
+    packageId,
+    stepKey: "validate_handbook_depth",
+    curriculumId,
+    validatorVersion: VALIDATOR_VERSION,
+    fingerprintFn: "fn_compute_handbook_depth_fingerprint",
+  });
+
+  if (bypass.eligible) {
+    console.log(`[validate-handbook-depth] BYPASS for ${packageId.slice(0, 8)}: ${bypass.reason} (fp=${bypass.fingerprint?.slice(0, 12)})`);
+
+    // Atomically store bypass meta
+    await mergePackageStepMeta(sb, packageId, "validate_handbook_depth",
+      buildBypassMeta(bypass, { quality_tier: "reused" }),
+    );
+
+    return json({
+      ok: true,
+      batch_complete: true,
+      basis_pass: true,
+      depth_pass: true,
+      quality_tier: "reused",
+      bypassed: true,
+      bypass_reason: bypass.reason,
+      fingerprint: bypass.fingerprint,
+    });
+  }
+
+  console.log(`[validate-handbook-depth] FULL RUN for ${packageId.slice(0, 8)}: bypass_ineligible=${bypass.reason}`);
+
+  // ── Phase 2: Full validation (unchanged logic) ──
   const { data: chapters, error: chErr } = await sb
     .from("handbook_chapters")
     .select("id")
@@ -57,18 +88,13 @@ Deno.serve(async (req) => {
 
   if (chErr || !chapters?.length) {
     return json({
-      ok: true,
-      batch_complete: true,
-      basis_pass: true,
-      depth_pass: false,
-      quality_tier: "standard",
-      message: "No chapters found",
+      ok: true, batch_complete: true, basis_pass: true,
+      depth_pass: false, quality_tier: "standard", message: "No chapters found",
     });
   }
 
   const chapterIds = chapters.map((c: any) => c.id);
 
-  // Load all sections with expand data
   const { data: sections, error: secErr } = await sb
     .from("handbook_sections")
     .select("id, basis_content, expanded_content, expand_status, content_tier, quality_score, depth_markers")
@@ -81,12 +107,8 @@ Deno.serve(async (req) => {
 
   if (totalSections === 0) {
     return json({
-      ok: true,
-      batch_complete: true,
-      basis_pass: true,
-      depth_pass: false,
-      quality_tier: "standard",
-      message: "No sections",
+      ok: true, batch_complete: true, basis_pass: true,
+      depth_pass: false, quality_tier: "standard", message: "No sections",
     });
   }
 
@@ -101,7 +123,6 @@ Deno.serve(async (req) => {
     ? Math.round(depthScores.reduce((a, b) => a + b, 0) / depthScores.length)
     : 0;
 
-  // Count depth marker coverage across all expanded sections
   const markerCounts: Record<string, number> = {};
   for (const s of expanded) {
     const markers = (s.depth_markers || {}) as Record<string, boolean>;
@@ -110,7 +131,6 @@ Deno.serve(async (req) => {
     }
   }
 
-  // Determine quality tier
   let qualityTier: "standard" | "enhanced" | "elite" = "standard";
   let depthPass = false;
 
@@ -128,7 +148,20 @@ Deno.serve(async (req) => {
 
   console.log(`[validate-handbook-depth] Package ${packageId.slice(0, 8)}: tier=${qualityTier}, expand_coverage=${expandCoverage}%, avg_depth=${avgDepthScore}%, expanded=${expanded.length}/${totalSections}, failed_soft=${failedSoft}, pending=${pending}`);
 
-  // This step ALWAYS passes (soft gate) — quality_tier is informational
+  // ── Phase 3: Store fingerprint for future bypass ──
+  if (bypass.fingerprint) {
+    await mergePackageStepMeta(sb, packageId, "validate_handbook_depth",
+      buildFullRunMeta(bypass.fingerprint, VALIDATOR_VERSION, {
+        quality_tier: qualityTier,
+        chapter_count: chapters.length,
+        section_count: totalSections,
+        expanded_sections: expanded.length,
+        expand_coverage_pct: expandCoverage,
+        avg_depth_score: avgDepthScore,
+      }),
+    );
+  }
+
   return json({
     ok: true,
     batch_complete: true,
@@ -136,6 +169,8 @@ Deno.serve(async (req) => {
     depth_pass: depthPass,
     quality_tier: qualityTier,
     soft_fail: !depthPass,
+    bypassed: false,
+    fingerprint: bypass.fingerprint,
     metrics: {
       total_sections: totalSections,
       expanded_sections: expanded.length,
