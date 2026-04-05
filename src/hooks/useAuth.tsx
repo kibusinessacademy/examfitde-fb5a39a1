@@ -28,6 +28,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [roles, setRoles] = useState<AppRole[]>([]);
   const activeRoleRequestRef = useRef(0);
   const authReadyRef = useRef(false);
+  const currentUserIdRef = useRef<string | null>(null);
 
   const loadRoles = useCallback(async (userId: string | null) => {
     const requestId = ++activeRoleRequestRef.current;
@@ -75,6 +76,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!isMounted) return;
 
       const nextUser = nextSession?.user ?? null;
+      const nextUserId = nextUser?.id ?? null;
+
+      // Prevent premature navigation: set loading=true when user changes
+      // so that downstream consumers (e.g. Auth redirect) wait for roles
+      if (authReadyRef.current && nextUserId !== currentUserIdRef.current) {
+        setLoading(true);
+      }
+      currentUserIdRef.current = nextUserId;
+
       setSession(nextSession);
       setUser(nextUser);
 
