@@ -203,6 +203,36 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ═══ F. POST-REBUILD TRIM: reject weakest surplus if over MAX_QUESTIONS_PER_PACKAGE ═══
+    if (isRebuild && questions.length > MAX_QUESTIONS_PER_PACKAGE) {
+      const surplus = questions.length - MAX_QUESTIONS_PER_PACKAGE;
+      // Fetch weakest questions (oldest, lowest quality) to trim
+      const { data: trimCandidates } = await sb
+        .from("exam_questions")
+        .select("id")
+        .eq("curriculum_id", curriculumId)
+        .eq("status", "approved")
+        .order("created_at", { ascending: true })
+        .limit(surplus);
+
+      if (trimCandidates && trimCandidates.length > 0) {
+        const trimIds = trimCandidates.map(q => q.id);
+        const { error: trimErr } = await sb
+          .from("exam_questions")
+          .update({ status: "rejected", meta: { rejected_reason: "rebuild_pool_trim", trimmed_at: new Date().toISOString() } })
+          .in("id", trimIds);
+
+        if (!trimErr) {
+          actions.push({
+            type: "rebuild_pool_trim",
+            detail: `Trimmed ${trimIds.length} oldest questions to stay within ${MAX_QUESTIONS_PER_PACKAGE} cap`,
+            affected_count: trimIds.length,
+          });
+          console.log(`[exam-rebalance] Rebuild trim: rejected ${trimIds.length} surplus questions`);
+        }
+      }
+    }
+
     // ── 6. Unblock + reset pipeline tail ──
     if (actions.length > 0) {
       // Use safe_transition to prevent unique constraint violations
