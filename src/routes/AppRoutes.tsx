@@ -70,6 +70,7 @@ const QueuePage = lazy(() => import('@/pages/admin/v2/QueuePage'));
 const MarketingPage = lazy(() => import('@/pages/admin/v2/MarketingPage'));
 const CompliancePage = lazy(() => import('@/pages/admin/v2/CompliancePage'));
 const StandaloneLicensesPage = lazy(() => import('@/pages/admin/v2/StandaloneLicensesPage'));
+const ContentQualityPage = lazy(() => import('@/pages/admin/v2/ContentQualityPage'));
 const AdminDeactivatedPage = lazy(() => import('@/components/admin/v2/AdminDeactivatedPage'));
 const AdminLearnerPreviewPage = lazy(() => import('@/pages/admin/AdminLearnerPreviewPage'));
 const AdminTestAreaPage = lazy(() => import('@/pages/admin/AdminTestAreaPage'));
@@ -236,6 +237,7 @@ const AppRoutes = () => {
           <Route path="growth-engine" element={<GrowthDashboardPage />} />
           <Route path="testbereich" element={<AdminTestAreaPage />} />
           <Route path="track-ops" element={<TrackOpsPage />} />
+          <Route path="content-quality" element={<ContentQualityPage />} />
           <Route path="*" element={<AdminDeactivatedPage />} />
         </Route>
 
