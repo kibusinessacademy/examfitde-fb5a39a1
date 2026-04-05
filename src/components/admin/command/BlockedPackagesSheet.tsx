@@ -238,7 +238,7 @@ export function BlockedPackagesSheet({ open, onOpenChange }: {
 
         return {
           id: p.package_id,
-          title: p.canonical_title || 'Unbenannt',
+          title: p.title || 'Unbenannt',
           score: p.integrity_report?.score ?? 0,
           hard_fail_reasons: summary.hard_fail_reasons || [],
           warnings: report.warnings || [],
