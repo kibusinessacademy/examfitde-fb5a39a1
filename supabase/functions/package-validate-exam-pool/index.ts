@@ -96,7 +96,6 @@ async function finalizeExamPoolSnapshot(
     .update({
       guard_state: classification.guard_state ?? null,
       reason_code: classification.reason_code ?? null,
-      meta: { action: classification.action ?? null },
     })
     .eq("id", snapshotId);
   if (error) console.warn(`[validate-exam] snapshot finalize failed: ${error.message}`);
