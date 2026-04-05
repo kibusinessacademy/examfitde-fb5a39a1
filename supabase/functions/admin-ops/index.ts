@@ -547,23 +547,16 @@ Deno.serve(async (req) => {
       return json({ success: true, dry_run: dryRun, count: results.length, errors, results });
     }
 
-    // ── switch_to_exam_first (safe track switch + step rebuild) ──
-    if (action === "switch_to_exam_first") {
-      const EXAM_FIRST_STEPS = [
-        "scaffold_learning_course",
-        "auto_seed_exam_blueprints",
-        "validate_blueprints",
-        "generate_exam_pool",
-        "validate_exam_pool",
-        "build_ai_tutor_index",
-        "validate_tutor_index",
-        "generate_oral_exam",
-        "validate_oral_exam",
-        "elite_harden",
-        "run_integrity_check",
-        "quality_council",
-        "auto_publish",
-      ];
+    // ── switch_track (generic SSOT-driven track switch) ──────────
+    // Supports: switch_to_exam_first, switch_to_exam_first_plus
+    if (action === "switch_to_exam_first" || action === "switch_to_exam_first_plus") {
+      const TARGET_TRACK: Track = action === "switch_to_exam_first" ? "EXAM_FIRST" : "EXAM_FIRST_PLUS";
+      const targetCaps = getTrackCapabilities(TARGET_TRACK);
+      const targetRequired = new Set(getRequiredSteps(TARGET_TRACK));
+      const targetSkipped = new Set(getSkippedSteps(TARGET_TRACK));
+
+      // Build sort_order from global FULL_STEP_ORDER
+      const STEP_RANK = new Map((FULL_STEP_ORDER as readonly string[]).map((s: string, i: number) => [s, i + 1]));
 
       const dryRun = Boolean(body.dry_run);
       const maxTargets = clampInt(body.max_targets, 1, 50, 25);
@@ -572,7 +565,19 @@ Deno.serve(async (req) => {
       const targets = (batchIds.length > 0 ? batchIds : singleId ? [singleId] : []).slice(0, maxTargets);
       if (!targets.length) return json({ error: "package_id or package_ids required" }, 400);
 
-      async function switchOne(pkgId: string) {
+      // Job types to cancel when disabling learning/minicheck modules
+      const LEARNING_JOB_TYPES = [
+        "lesson_generate_content",
+        "package_generate_learning_content",
+        "package_generate_lesson_minichecks",
+        "package_validate_learning_content",
+        "package_scaffold_learning_course",
+        "package_fanout_learning_content",
+        "package_finalize_learning_content",
+        "package_validate_lesson_minichecks",
+      ];
+
+      async function switchOneGeneric(pkgId: string) {
         const id = assertUuid(pkgId, "package_id");
 
         const { data: pkg, error: pkgErr } = await sb
@@ -582,197 +587,32 @@ Deno.serve(async (req) => {
           .single();
         if (pkgErr || !pkg) throw new Error(`Package ${id} not found`);
 
-        if (pkg.track === "EXAM_FIRST" && !dryRun) {
-          return { package_id: id, title: pkg.title, skipped: true, reason: "already EXAM_FIRST" };
-        }
-
-        // Get existing steps
-        const { data: existingSteps } = await sb
-          .from("package_steps")
-          .select("step_key, status")
-          .eq("package_id", id);
-        const existingKeys = new Set((existingSteps ?? []).map((s: any) => s.step_key));
-
-        // Steps to remove (didaktik-only steps not in EXAM_FIRST)
-        const stepsToRemove = [...existingKeys].filter(k => !EXAM_FIRST_STEPS.includes(k));
-        const stepsToAdd = EXAM_FIRST_STEPS.filter(k => !existingKeys.has(k));
-
-        const newFlags = {
-          ...(pkg.feature_flags || {}),
-          has_learning_course: false,
-          has_minichecks: false,
-          has_handbook: false,
-          has_exam_trainer: true,
-          has_oral_exam_trainer: true,
-          has_ai_tutor: true,
-          _track_switch_authorized: true,
-        };
-
-        if (dryRun) {
-          return {
-            package_id: id,
-            title: pkg.title,
-            previous_track: pkg.track,
-            current_status: pkg.status,
-            steps_to_remove: stepsToRemove,
-            steps_to_add: stepsToAdd,
-            will_set_track: "EXAM_FIRST",
-          };
-        }
-
-        // 1) Cancel active lesson jobs for this package
-        await sb.from("job_queue")
-          .update({ status: "cancelled", updated_at: new Date().toISOString() })
-          .eq("status", "pending")
-          .in("job_type", ["lesson_generate_content", "package_generate_learning_content", "package_generate_lesson_minichecks"])
-          .or(`package_id.eq.${id}`);
-
-        // 2) Remove didaktik-only steps
-        if (stepsToRemove.length > 0) {
-          for (const sk of stepsToRemove) {
-            await sb.from("package_steps").delete().eq("package_id", id).eq("step_key", sk);
-          }
-        }
-
-        // 3) Add missing EXAM_FIRST steps
-        if (stepsToAdd.length > 0) {
-          const rows = stepsToAdd.map((sk, i) => ({
-            package_id: id,
-            step_key: sk,
-            status: "queued",
-            sort_order: EXAM_FIRST_STEPS.indexOf(sk) + 1,
-            meta: { auto_created: true, reason: "switch_to_exam_first" },
-          }));
-          await sb.from("package_steps").upsert(rows, {
-            onConflict: "package_id,step_key",
-            ignoreDuplicates: true,
-          });
-        }
-
-        // 4) Reset all remaining steps to queued
-        await sb.from("package_steps")
-          .update({ status: "queued", meta: { reset_reason: "switch_to_exam_first" } })
-          .eq("package_id", id);
-
-        // 5) Update package (track + flags + status) — bypass trigger via flag
-        await sb.from("course_packages").update({
-          track: "EXAM_FIRST",
-          feature_flags: newFlags,
-          status: "building",
-          updated_at: new Date().toISOString(),
-        }).eq("id", id);
-
-        // 6) Clear generation lock
-        if (pkg.course_id) {
-          await sb.from("course_generation_locks").delete().eq("course_id", pkg.course_id);
-        }
-
-        return {
-          package_id: id,
-          title: pkg.title,
-          previous_track: pkg.track,
-          new_track: "EXAM_FIRST",
-          removed_steps: stepsToRemove,
-          added_steps: stepsToAdd,
-        };
-      }
-
-      const results = [];
-      const errors = [];
-      for (const tid of targets) {
-        try {
-          results.push(await switchOne(tid));
-        } catch (e: any) {
-          errors.push({ package_id: tid, error: e.message });
-        }
-      }
-
-      await auditLog("switch_to_exam_first", targets[0], {
-        dry_run: dryRun,
-        target_count: targets.length,
-        success_count: results.length,
-        error_count: errors.length,
-        package_ids: targets,
-      });
-
-      console.log(`[admin-ops] switch_to_exam_first: ${results.length}/${targets.length} switched (dry=${dryRun}) by ${user!.id}`);
-      return json({ success: true, dry_run: dryRun, count: results.length, errors, results });
-    }
-
-    // ── switch_to_exam_first_plus (track switch + step realignment) ──
-    if (action === "switch_to_exam_first_plus") {
-      const EXAM_FIRST_PLUS_REQUIRED_STEPS = [
-        "auto_seed_exam_blueprints",
-        "validate_blueprints",
-        "generate_blueprint_variants",
-        "validate_blueprint_variants",
-        "promote_blueprint_variants",
-        "generate_exam_pool",
-        "validate_exam_pool",
-        "build_ai_tutor_index",
-        "validate_tutor_index",
-        "generate_handbook",
-        "validate_handbook",
-        "enqueue_handbook_expand",
-        "expand_handbook",
-        "validate_handbook_depth",
-        "generate_oral_exam",
-        "validate_oral_exam",
-        "elite_harden",
-        "run_integrity_check",
-        "quality_council",
-        "auto_publish",
-      ];
-
-      const LEARNING_STEPS_TO_SKIP = [
-        "scaffold_learning_course",
-        "fanout_learning_content",
-        "generate_learning_content",
-        "finalize_learning_content",
-        "validate_learning_content",
-        "generate_lesson_minichecks",
-        "validate_lesson_minichecks",
-      ];
-
-      const dryRun = Boolean(body.dry_run);
-      const maxTargets = clampInt(body.max_targets, 1, 50, 25);
-      const singleId = body.package_id ? String(body.package_id) : null;
-      const batchIds: string[] = Array.isArray(body.package_ids) ? body.package_ids : [];
-      const targets = (batchIds.length > 0 ? batchIds : singleId ? [singleId] : []).slice(0, maxTargets);
-      if (!targets.length) return json({ error: "package_id or package_ids required" }, 400);
-
-      async function switchOnePlus(pkgId: string) {
-        const id = assertUuid(pkgId, "package_id");
-
-        const { data: pkg, error: pkgErr } = await sb
-          .from("course_packages")
-          .select("id, track, course_id, status, feature_flags, title")
-          .eq("id", id)
-          .single();
-        if (pkgErr || !pkg) throw new Error(`Package ${id} not found`);
-
-        if (pkg.track === "EXAM_FIRST_PLUS" && !dryRun) {
-          return { package_id: id, title: pkg.title, skipped: true, reason: "already EXAM_FIRST_PLUS" };
+        if (pkg.track === TARGET_TRACK && !dryRun) {
+          return { package_id: id, title: pkg.title, skipped: true, reason: `already ${TARGET_TRACK}` };
         }
 
         const { data: existingSteps } = await sb
           .from("package_steps")
           .select("step_key, status")
           .eq("package_id", id);
-        const existingKeys = new Set((existingSteps ?? []).map((s: any) => s.step_key));
+        const stepMap = new Map((existingSteps ?? []).map((s: any) => [s.step_key, s.status]));
 
-        const stepsToSkip = LEARNING_STEPS_TO_SKIP.filter(k => existingKeys.has(k));
-        const stepsToAdd = EXAM_FIRST_PLUS_REQUIRED_STEPS.filter(k => !existingKeys.has(k));
+        const stepsToSkip = [...targetSkipped].filter(k => stepMap.has(k) && stepMap.get(k) !== "skipped");
+        const stepsToAdd = [...targetRequired].filter(k => !stepMap.has(k));
+        const stepsToReactivate = [...targetRequired].filter(k => {
+          const status = stepMap.get(k);
+          return status && ["skipped", "cancelled", "failed", "blocked"].includes(status);
+        });
 
         const newFlags = {
           ...(pkg.feature_flags || {}),
-          has_learning_course: false,
-          has_practice_course_h5p: false,
-          has_minichecks: false,
-          has_handbook: true,
+          has_learning_course: targetCaps.hasLearningCourse,
+          has_practice_course_h5p: targetCaps.hasLearningCourse,
+          has_minichecks: targetCaps.hasMiniChecks,
+          has_handbook: targetCaps.hasHandbook,
           has_exam_trainer: true,
           has_exam_simulation: true,
-          has_oral_exam_trainer: true,
+          has_oral_exam_trainer: targetCaps.hasOralExam,
           has_ai_tutor: true,
           _track_switch_authorized: true,
         };
@@ -785,43 +625,38 @@ Deno.serve(async (req) => {
             current_status: pkg.status,
             steps_to_skip: stepsToSkip,
             steps_to_add: stepsToAdd,
-            will_set_track: "EXAM_FIRST_PLUS",
+            steps_to_reactivate: stepsToReactivate,
+            will_set_track: TARGET_TRACK,
           };
         }
 
-        // 1) Cancel active learning/minicheck jobs
+        // 1) Cancel active learning/minicheck jobs (including processing!)
         await sb.from("job_queue")
           .update({ status: "cancelled", updated_at: new Date().toISOString() })
-          .in("status", ["pending", "queued"])
-          .in("job_type", [
-            "lesson_generate_content",
-            "package_generate_learning_content",
-            "package_generate_lesson_minichecks",
-            "package_validate_learning_content",
-            "package_scaffold_learning_course",
-            "package_fanout_learning_content",
-          ])
-          .or(`package_id.eq.${id}`);
+          .in("status", ["pending", "queued", "processing"])
+          .in("job_type", LEARNING_JOB_TYPES)
+          .eq("package_id", id);
 
-        // 2) Set learning steps to skipped
+        // 2) Set irrelevant steps to skipped (using atomic meta merge)
         for (const sk of stepsToSkip) {
           await sb.from("package_steps")
-            .update({
-              status: "skipped",
-              meta: { skip_reason: "switch_to_exam_first_plus", skipped_at: new Date().toISOString() },
-            })
+            .update({ status: "skipped" })
             .eq("package_id", id)
             .eq("step_key", sk);
+          await mergePackageStepMeta(sb, id, sk, {
+            skip_reason: action,
+            skipped_at: new Date().toISOString(),
+          });
         }
 
-        // 3) Add missing EXAM_FIRST_PLUS steps
+        // 3) Add missing required steps with sort_order from FULL_STEP_ORDER
         if (stepsToAdd.length > 0) {
           const rows = stepsToAdd.map((sk) => ({
             package_id: id,
             step_key: sk,
             status: "queued",
-            sort_order: EXAM_FIRST_PLUS_REQUIRED_STEPS.indexOf(sk) + 1,
-            meta: { auto_created: true, reason: "switch_to_exam_first_plus" },
+            sort_order: STEP_RANK.get(sk) ?? 999,
+            meta: { auto_created: true, reason: action },
           }));
           await sb.from("package_steps").upsert(rows, {
             onConflict: "package_id,step_key",
@@ -829,22 +664,21 @@ Deno.serve(async (req) => {
           });
         }
 
-        // 4) Ensure active steps are queued (not stuck in old states)
-        for (const sk of EXAM_FIRST_PLUS_REQUIRED_STEPS) {
-          if (!stepsToAdd.includes(sk) && existingKeys.has(sk)) {
-            const step = (existingSteps ?? []).find((s: any) => s.step_key === sk);
-            if (step && step.status === "skipped") {
-              await sb.from("package_steps")
-                .update({ status: "queued", meta: { reactivated_reason: "switch_to_exam_first_plus" } })
-                .eq("package_id", id)
-                .eq("step_key", sk);
-            }
-          }
+        // 4) Reactivate required steps stuck in non-active states
+        for (const sk of stepsToReactivate) {
+          await sb.from("package_steps")
+            .update({ status: "queued" })
+            .eq("package_id", id)
+            .eq("step_key", sk);
+          await mergePackageStepMeta(sb, id, sk, {
+            reactivated_reason: action,
+            reactivated_at: new Date().toISOString(),
+          });
         }
 
         // 5) Update package track + flags + status
         await sb.from("course_packages").update({
-          track: "EXAM_FIRST_PLUS",
+          track: TARGET_TRACK,
           feature_flags: newFlags,
           status: "building",
           updated_at: new Date().toISOString(),
@@ -859,9 +693,10 @@ Deno.serve(async (req) => {
           package_id: id,
           title: pkg.title,
           previous_track: pkg.track,
-          new_track: "EXAM_FIRST_PLUS",
+          new_track: TARGET_TRACK,
           skipped_steps: stepsToSkip,
           added_steps: stepsToAdd,
+          reactivated_steps: stepsToReactivate,
         };
       }
 
@@ -869,21 +704,22 @@ Deno.serve(async (req) => {
       const errors = [];
       for (const tid of targets) {
         try {
-          results.push(await switchOnePlus(tid));
+          results.push(await switchOneGeneric(tid));
         } catch (e: any) {
           errors.push({ package_id: tid, error: e.message });
         }
       }
 
-      await auditLog("switch_to_exam_first_plus", targets[0], {
+      await auditLog(action, targets[0], {
         dry_run: dryRun,
+        target_track: TARGET_TRACK,
         target_count: targets.length,
         success_count: results.length,
         error_count: errors.length,
         package_ids: targets,
       });
 
-      console.log(`[admin-ops] switch_to_exam_first_plus: ${results.length}/${targets.length} switched (dry=${dryRun}) by ${user!.id}`);
+      console.log(`[admin-ops] ${action}: ${results.length}/${targets.length} switched (dry=${dryRun}) by ${user!.id}`);
       return json({ success: true, dry_run: dryRun, count: results.length, errors, results });
     }
 
