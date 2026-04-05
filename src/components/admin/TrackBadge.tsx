@@ -1,6 +1,6 @@
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { BookOpen, Target, GraduationCap } from 'lucide-react';
+import { BookOpen, Target, GraduationCap, Zap } from 'lucide-react';
 import type { ProductTrack, CertificationType } from '@/hooks/useTrackConfig';
 import { CERT_TYPE_LABELS, TRACK_LABELS } from '@/hooks/useTrackConfig';
 
@@ -14,15 +14,18 @@ interface TrackBadgeProps {
 export default function TrackBadge({ track, certType, showCertType = false, size = 'xs' }: TrackBadgeProps) {
   const t = (track || 'AUSBILDUNG_VOLL') as ProductTrack;
   const isExamFirst = t === 'EXAM_FIRST';
+  const isExamFirstPlus = t === 'EXAM_FIRST_PLUS';
   const isStudium = t === 'STUDIUM';
   const textSize = size === 'sm' ? 'text-xs' : 'text-[10px]';
 
-  const Icon = isStudium ? GraduationCap : isExamFirst ? Target : BookOpen;
+  const Icon = isStudium ? GraduationCap : isExamFirstPlus ? Zap : isExamFirst ? Target : BookOpen;
   const badgeClass = isStudium
     ? 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border-cyan-500/30'
-    : isExamFirst
-      ? 'bg-accent/20 text-accent-foreground border-accent/40'
-      : 'bg-primary/10 text-primary border-primary/30';
+    : isExamFirstPlus
+      ? 'bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-500/30'
+      : isExamFirst
+        ? 'bg-accent/20 text-accent-foreground border-accent/40'
+        : 'bg-primary/10 text-primary border-primary/30';
 
   return (
     <span className="inline-flex items-center gap-1">
