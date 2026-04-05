@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { enqueueJob } from "../_shared/enqueue.ts";
+import { MAX_QUESTIONS_PER_PACKAGE } from "../_shared/exam-pool-limits.ts";
 
 /**
  * package-exam-rebalance — Targeted exam pool repair orchestrator
