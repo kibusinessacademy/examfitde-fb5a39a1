@@ -28,6 +28,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [roles, setRoles] = useState<AppRole[]>([]);
   const activeRoleRequestRef = useRef(0);
   const authReadyRef = useRef(false);
+  const currentUserIdRef = useRef<string | null>(null);
 
   const loadRoles = useCallback(async (userId: string | null) => {
     const requestId = ++activeRoleRequestRef.current;
