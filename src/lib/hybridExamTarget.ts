@@ -71,7 +71,7 @@ export interface HybridTargetResult {
 
 import { MAX_QUESTIONS_PER_PACKAGE } from './examPoolLimits';
 
-const HARD_CAP = MAX_QUESTIONS_PER_PACKAGE; // SSOT: 2000
+const HARD_CAP = MAX_QUESTIONS_PER_PACKAGE; // SSOT: 2200
 
 function getBaseByDuration(months: number | null | undefined, track: string): number {
   if (track === 'EXAM_FIRST' || track === 'EXAM_FIRST_PLUS') return 1000;

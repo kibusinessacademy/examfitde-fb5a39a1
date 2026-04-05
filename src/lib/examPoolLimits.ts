@@ -19,7 +19,7 @@
 // ─── Hard Constants (nicht überschreibbar) ───────────────────
 export const MIN_QUESTIONS_PER_PACKAGE = 500;
 export const TARGET_QUESTIONS_PER_PACKAGE = 1000;
-export const MAX_QUESTIONS_PER_PACKAGE = 2000;
+export const MAX_QUESTIONS_PER_PACKAGE = 2200;
 export const REBUILD_HEADROOM_PCT = 0.10; // +10% for rebuild packages
 
 // ─── Pool Size Status ────────────────────────────────────────
@@ -51,7 +51,7 @@ export function getTieredTarget(
     certificationLevel === 'fachwirt' ||
     certificationLevel === 'meister'
   ) {
-    return { min: 500, target: 1200, max: 2000, tier: 'large' };
+    return { min: 500, target: 1200, max: 2200, tier: 'large' };
   }
 
   // Small tier: Sachkunde, Projektmanagement
@@ -63,7 +63,7 @@ export function getTieredTarget(
   }
 
   // Medium tier: Standard Ausbildung
-  return { min: 500, target: 1000, max: 2000, tier: 'medium' };
+  return { min: 500, target: 1000, max: 2200, tier: 'medium' };
 }
 
 // ─── Effective Max Cap (rebuild-aware) ───────────────────────

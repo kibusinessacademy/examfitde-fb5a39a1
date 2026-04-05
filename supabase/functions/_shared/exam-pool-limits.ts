@@ -7,8 +7,8 @@
  * Operative Regel:
  *   < 500         → insufficient (Publish blockiert)
  *   500–999       → good (publishable)
- *   1000–2000     → strong (optimal)
- *   > 2000        → oversized (Generator stoppt)
+ *   1000–2200     → strong (optimal)
+ *   > 2200        → oversized (Generator stoppt)
  *
  * Rebuild-Pakete (is_rebuild=true) erhalten temporär +10%
  * über dem normalen Max-Cap, um Rebalance-Spielraum zu schaffen.
@@ -17,7 +17,7 @@
 
 export const MIN_QUESTIONS_PER_PACKAGE = 500;
 export const TARGET_QUESTIONS_PER_PACKAGE = 1000;
-export const MAX_QUESTIONS_PER_PACKAGE = 2000;
+export const MAX_QUESTIONS_PER_PACKAGE = 2200;
 export const REBUILD_HEADROOM_PCT = 0.10; // +10% for rebuild packages
 
 export type PoolSizeStatus = 'insufficient' | 'good' | 'strong' | 'oversized';
@@ -46,7 +46,7 @@ export function getTieredTarget(
     certificationLevel === 'fachwirt' ||
     certificationLevel === 'meister'
   ) {
-    return { min: 500, target: 1200, max: 2000, tier: 'large' };
+    return { min: 500, target: 1200, max: 2200, tier: 'large' };
   }
 
   if (
@@ -56,7 +56,7 @@ export function getTieredTarget(
     return { min: 500, target: 800, max: 1500, tier: 'small' };
   }
 
-  return { min: 500, target: 1000, max: 2000, tier: 'medium' };
+  return { min: 500, target: 1000, max: 2200, tier: 'medium' };
 }
 
 /**
