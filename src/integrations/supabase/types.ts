@@ -59623,6 +59623,10 @@ export type Database = {
         Args: { p_reason?: string; p_user_id: string }
         Returns: undefined
       }
+      admin_unseal_course_for_regen: {
+        Args: { p_course_id: string }
+        Returns: undefined
+      }
       append_next_adaptive_question: {
         Args: { p_session_id: string }
         Returns: string
