@@ -36,8 +36,8 @@ export function NativeTabBar({
   const { isNative, isIOS } = useNativeApp();
   const location = useLocation();
 
-  // Only show on native/PWA
-  if (!isNative) return null;
+  // Never show on admin routes or non-native
+  if (!isNative || location.pathname.startsWith('/admin')) return null;
 
   return (
     <nav 

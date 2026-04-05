@@ -159,9 +159,7 @@ export default function MainLayout() {
       <main className={isNative ? 'pb-20' : ''}>
         <Outlet />
       </main>
-
-      {/* Native Tab Bar */}
-      <NativeTabBar />
+      {/* Native Tab Bar is rendered in App.tsx with admin-route filtering */}
 
       {/* Footer - hidden in native/PWA mode */}
       {!isNative && (
