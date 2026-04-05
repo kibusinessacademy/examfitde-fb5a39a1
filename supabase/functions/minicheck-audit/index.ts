@@ -98,15 +98,27 @@ Deno.serve(async (req) => {
     });
   }
 
-  // Auth: accept cron secret, service role, or anon key (for pg_net cron calls)
+  // Auth: accept cron secret, service role, anon key (pg_net), or admin JWT
   const authHeader = req.headers.get("authorization")?.replace("Bearer ", "") || "";
   const cronSecret = Deno.env.get("CRON_SECRET") || "";
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
-  const isAuthorized = authHeader === supabaseKey || 
-                       authHeader === cronSecret ||
-                       authHeader === anonKey ||
-                       req.headers.get("x-job-runner-key") === (Deno.env.get("EDGE_INTERNAL_SHARED_SECRET") || supabaseKey);
+  let isAuthorized = authHeader === supabaseKey || 
+                     authHeader === cronSecret ||
+                     authHeader === anonKey ||
+                     req.headers.get("x-job-runner-key") === (Deno.env.get("EDGE_INTERNAL_SHARED_SECRET") || supabaseKey);
   
+  // Also allow admin users via JWT
+  if (!isAuthorized && authHeader) {
+    const userClient = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: `Bearer ${authHeader}` } },
+    });
+    const { data: { user } } = await userClient.auth.getUser();
+    if (user) {
+      const { data: roles } = await sb.from("user_roles").select("role").eq("user_id", user.id).eq("role", "admin");
+      if (roles && roles.length > 0) isAuthorized = true;
+    }
+  }
+
   if (!isAuthorized) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
