@@ -5,12 +5,20 @@
  *
  * Enforces SSOT Naming Contract: all system-boundary code must use snake_case.
  * camelCase is only allowed in explicit UI mappers or the canonicalizer.
+ *
+ * Modes:
+ *   --mode=report   (default) Report violations, exit 0
+ *   --mode=warn     Report violations, exit 0 (same as report)
+ *   --mode=strict   Report violations, exit 1 if any found
  */
 
 import fs from "node:fs";
 import path from "node:path";
 
 const ROOT = process.cwd();
+const args = process.argv.slice(2);
+const modeArg = args.find(a => a.startsWith("--mode="));
+const MODE = modeArg ? modeArg.split("=")[1] : "report";
 
 const TARGET_DIRS = [
   "supabase/functions",
@@ -20,10 +28,14 @@ const TARGET_DIRS = [
   "src/lib/pipeline",
 ];
 
+/** Files where camelCase aliases are explicitly allowed */
 const ALLOWED_FILES = new Set([
   "src/lib/contracts/canonicalize.ts",
   "src/lib/ui/mappers/package-mappers.ts",
 ]);
+
+/** Directories to always skip */
+const SKIP_DIRS = new Set(["node_modules", ".git", "dist"]);
 
 const FORBIDDEN_PATTERNS = [
   /\bpackageId\b/g,
@@ -37,6 +49,7 @@ const FORBIDDEN_PATTERNS = [
   /\bprogramType\b/g,
   /\brunAfter\b/g,
   /\bpayloadVersion\b/g,
+  /\blearningFieldFilter\b/g,
 ];
 
 const EXTENSIONS = new Set([".ts", ".tsx", ".js", ".mjs"]);
@@ -45,9 +58,9 @@ function walk(dir) {
   const out = [];
   if (!fs.existsSync(dir)) return out;
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (SKIP_DIRS.has(entry.name)) continue;
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
-      if (entry.name === "node_modules") continue;
       out.push(...walk(full));
     } else if (EXTENSIONS.has(path.extname(entry.name))) {
       out.push(full);
@@ -79,7 +92,8 @@ for (const relDir of TARGET_DIRS) {
 }
 
 if (violations.length > 0) {
-  console.error("\n❌ CamelCase contract violations found in backend/system code:\n");
+  const label = MODE === "strict" ? "❌" : "⚠️";
+  console.error(`\n${label} CamelCase contract violations found in backend/system code:\n`);
   const byFile = {};
   for (const v of violations) {
     if (!byFile[v.file]) byFile[v.file] = new Set();
@@ -89,9 +103,12 @@ if (violations.length > 0) {
     console.error(`  ${file}: ${[...tokens].join(", ")}`);
   }
   console.error(`\n  Total: ${violations.length} violations in ${Object.keys(byFile).length} files`);
-  console.error("  Allowed only in explicit UI mappers or canonicalizers.\n");
-  // Currently warn-only — change to process.exit(1) when legacy is cleaned up
-  process.exit(0);
-}
+  console.error("  Allowed only in explicit UI mappers or canonicalizers.");
+  console.error(`  Mode: ${MODE}\n`);
 
-console.log("✅ No forbidden camelCase contract tokens found in backend/system code.");
+  if (MODE === "strict") {
+    process.exit(1);
+  }
+} else {
+  console.log("✅ No forbidden camelCase contract tokens found in backend/system code.");
+}
