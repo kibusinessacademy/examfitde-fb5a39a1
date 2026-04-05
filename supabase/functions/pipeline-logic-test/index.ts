@@ -18,6 +18,7 @@ function json(body: unknown, status = 200) {
 const FULL_STEP_ORDER = [
   'scaffold_learning_course','generate_glossary','generate_learning_content','validate_learning_content',
   'auto_seed_exam_blueprints','validate_blueprints',
+  'generate_blueprint_variants','validate_blueprint_variants','promote_blueprint_variants',
   'generate_exam_pool','validate_exam_pool',
   'build_ai_tutor_index','validate_tutor_index',
   'generate_oral_exam','validate_oral_exam',
