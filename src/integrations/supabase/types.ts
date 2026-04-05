@@ -61357,15 +61357,21 @@ export type Database = {
           curriculum_id: string
           heal_action: string
           id: string
-          notes: string
+          notes: string | null
           package_id: string
-          processed_at: string
+          processed_at: string | null
           reason_codes: string[]
           source: string
-          source_test_run_id: string
+          source_test_run_id: string | null
           status: string
           updated_at: string
         }[]
+        SetofOptions: {
+          from: "*"
+          to: "admin_course_auto_heal_queue"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       get_admin_auto_test_queue: {
         Args: { p_limit?: number }
