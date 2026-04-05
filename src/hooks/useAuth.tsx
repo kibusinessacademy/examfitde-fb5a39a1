@@ -75,6 +75,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!isMounted) return;
 
       const nextUser = nextSession?.user ?? null;
+
+      // Prevent premature navigation: set loading=true when user changes
+      // so that downstream consumers (e.g. Auth redirect) wait for roles
+      if (authReadyRef.current && nextUser?.id !== user?.id) {
+        setLoading(true);
+      }
+
       setSession(nextSession);
       setUser(nextUser);
 
