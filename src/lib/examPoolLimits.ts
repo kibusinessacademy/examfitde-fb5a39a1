@@ -63,7 +63,7 @@ export function getTieredTarget(
   }
 
   // Medium tier: Standard Ausbildung
-  return { min: 500, target: 1000, max: 2000, tier: 'medium' };
+  return { min: 500, target: 1000, max: 2200, tier: 'medium' };
 }
 
 // ─── Effective Max Cap (rebuild-aware) ───────────────────────
