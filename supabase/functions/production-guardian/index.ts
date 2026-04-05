@@ -974,6 +974,33 @@ Deno.serve(async (req) => {
           metadata: z,
         });
       }
+
+      // ── G4b: AUTO-RECONCILE HARD_STALLED — materialize missing jobs ──
+      const hardStalled = (zombies ?? []).filter((z: any) => z.zombie_class === "HARD_STALLED");
+      for (const z of hardStalled) {
+        try {
+          const { data: reconciled, error: recErr } = await sb.rpc("reconcile_queued_steps_to_jobs", {
+            p_package_id: z.package_id,
+          });
+          if (recErr) {
+            console.error(`[Guardian] G4b reconcile failed for ${z.package_id}: ${recErr.message}`);
+          } else if (reconciled?.reconciled_jobs > 0) {
+            console.log(`[Guardian] G4b: reconciled ${reconciled.reconciled_jobs} jobs for ${z.title || z.package_id}`);
+            actions.push(`G4b: reconciled ${reconciled.reconciled_jobs} jobs for ${z.title || z.package_id.slice(0, 8)}`);
+            await sb.from("auto_heal_log").insert({
+              action_type: "step_to_job_reconciliation",
+              target_type: "course_package",
+              target_id: z.package_id,
+              trigger_source: "production-guardian",
+              result_status: "healed",
+              result_detail: `Reconciled ${reconciled.reconciled_jobs} missing jobs`,
+              metadata: { ...reconciled, zombie_class: z.zombie_class },
+            });
+          }
+        } catch (recE) {
+          console.error(`[Guardian] G4b reconcile error ${z.package_id}: ${(recE as Error).message}`);
+        }
+      }
     } catch (e) {
       console.error("[Guardian] G4 zombie guard error:", (e as Error).message);
     }
