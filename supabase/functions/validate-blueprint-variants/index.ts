@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -46,17 +46,37 @@ Deno.serve(async (req) => {
     );
 
     const body = await req.json();
-    const {
-      blueprintId,
-      curriculumId,
-      isStudium = true,
-      minVariants = 10,
-      minAvgQuality = 70,
-      maxFlaggedPct = 30,
-    } = body;
+    const p = body.payload || body;
 
-    if (!blueprintId && !curriculumId) {
-      return new Response(JSON.stringify({ error: "blueprintId or curriculumId required" }), {
+    // Boundary normalization: accept both camelCase and snake_case
+    const blueprintId = p.blueprintId ?? p.blueprint_id ?? null;
+    const curriculumId = p.curriculumId ?? p.curriculum_id ?? null;
+    const packageId = p.package_id ?? p.packageId ?? null;
+    const isStudium = p.isStudium ?? p.is_studium ?? true;
+    const minVariants = p.minVariants ?? p.min_variants ?? 10;
+    const minAvgQuality = p.minAvgQuality ?? p.min_avg_quality ?? 70;
+    const maxFlaggedPct = p.maxFlaggedPct ?? p.max_flagged_pct ?? 30;
+
+    if (!blueprintId && !curriculumId && !packageId) {
+      return new Response(JSON.stringify({ error: "blueprintId, curriculumId, or package_id required" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Resolve curriculum_id from package_id if needed
+    let resolvedCurriculumId = curriculumId;
+    if (!resolvedCurriculumId && packageId) {
+      const { data: pkg } = await sb
+        .from("course_packages")
+        .select("curriculum_id")
+        .eq("id", packageId)
+        .single();
+      resolvedCurriculumId = pkg?.curriculum_id ?? null;
+    }
+
+    if (!blueprintId && !resolvedCurriculumId) {
+      return new Response(JSON.stringify({ error: "Could not resolve curriculum_id from package" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -70,7 +90,7 @@ Deno.serve(async (req) => {
       const { data: bps } = await sb
         .from("question_blueprints")
         .select("id")
-        .eq("curriculum_id", curriculumId)
+        .eq("curriculum_id", resolvedCurriculumId!)
         .order("id", { ascending: true });
       blueprintIds = (bps ?? []).map((b: any) => b.id);
     }
