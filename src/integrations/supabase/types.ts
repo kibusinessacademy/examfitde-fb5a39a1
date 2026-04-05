@@ -52966,6 +52966,7 @@ export type Database = {
           package_id: string | null
           reheal_job_id: string | null
           severity: string | null
+          severity_rank: number | null
           spelling_error_count: number | null
           spelling_errors: Json | null
           status: string | null
@@ -52988,6 +52989,7 @@ export type Database = {
           package_id?: string | null
           reheal_job_id?: string | null
           severity?: string | null
+          severity_rank?: never
           spelling_error_count?: number | null
           spelling_errors?: Json | null
           status?: string | null
@@ -53010,6 +53012,7 @@ export type Database = {
           package_id?: string | null
           reheal_job_id?: string | null
           severity?: string | null
+          severity_rank?: never
           spelling_error_count?: number | null
           spelling_errors?: Json | null
           status?: string | null
@@ -53042,6 +53045,7 @@ export type Database = {
           package_status: string | null
           package_title: string | null
           reheal_recommended: boolean | null
+          severity_rank: number | null
           track: Database["public"]["Enums"]["product_track"] | null
           warning_count: number | null
         }
