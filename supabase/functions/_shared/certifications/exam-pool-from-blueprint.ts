@@ -21,7 +21,7 @@ export type ExamQuestionRow = {
   competency_id: string | null;
   learning_field_id: string | null;
   blueprint_id: string;
-  status: "draft";
+  status: "draft" | "approved";
   review_state: "pending";
   question_type: string;
   question_text: string;
@@ -34,7 +34,10 @@ export type ExamQuestionRow = {
   distractor_meta: Record<string, unknown>;
   meta: Record<string, unknown>;
   cognitive_level: string;
+  difficulty: string;
   ai_generated: boolean;
+  qc_status: string;
+  exam_part: string;
 };
 
 // Valid question_type values: concept, procedure, calculation, case_study, transfer
