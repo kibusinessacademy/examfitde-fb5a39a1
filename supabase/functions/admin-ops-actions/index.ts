@@ -571,11 +571,24 @@ async function requeueFailedJobs(sb: SB, body: JsonRow) {
     const skipped = failedJobs.length - safeIds.length;
     if (!safeIds.length) return { updated: 0, skipped };
 
-    const { error } = await sb.from("job_queue")
-      .update({ status: "pending", last_error: null, attempts: 0, locked_by: null, locked_at: null, started_at: null, updated_at: now })
-      .in("id", safeIds);
-    if (error) throw error;
-    return { updated: safeIds.length, skipped };
+    // Requeue one-by-one to gracefully handle unique constraint violations
+    let updated = 0;
+    let constraintSkipped = 0;
+    for (const jobId of safeIds) {
+      const { error } = await sb.from("job_queue")
+        .update({ status: "pending", last_error: null, attempts: 0, locked_by: null, locked_at: null, started_at: null, updated_at: now })
+        .eq("id", jobId);
+      if (error) {
+        if (error.message?.includes("duplicate key") || error.code === "23505") {
+          constraintSkipped++;
+          console.warn(`[requeue] Skipped job ${jobId}: unique constraint conflict`);
+          continue;
+        }
+        throw error;
+      }
+      updated++;
+    }
+    return { updated, skipped: skipped + constraintSkipped };
   }
 
   if (Array.isArray(body.job_ids) && body.job_ids.length > 0) {
