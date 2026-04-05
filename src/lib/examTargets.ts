@@ -23,7 +23,7 @@ export function getExamTarget(
   durationMonths: number | null | undefined,
   track: string = 'AUSBILDUNG_VOLL',
 ): ExamTargetConfig {
-  if (track === 'EXAM_FIRST') {
+  if (track === 'EXAM_FIRST' || track === 'EXAM_FIRST_PLUS') {
     return {
       target: 1200,
       shipTarget: 1000,

@@ -37,6 +37,7 @@ export function getTieredTarget(
 ): TieredTarget {
   if (
     track === 'EXAM_FIRST' ||
+    track === 'EXAM_FIRST_PLUS' ||
     certificationLevel === 'fachwirt' ||
     certificationLevel === 'meister'
   ) {

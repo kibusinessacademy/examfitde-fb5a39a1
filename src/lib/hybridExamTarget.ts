@@ -74,7 +74,7 @@ import { MAX_QUESTIONS_PER_PACKAGE } from './examPoolLimits';
 const HARD_CAP = MAX_QUESTIONS_PER_PACKAGE; // SSOT: 2000
 
 function getBaseByDuration(months: number | null | undefined, track: string): number {
-  if (track === 'EXAM_FIRST') return 1000;
+  if (track === 'EXAM_FIRST' || track === 'EXAM_FIRST_PLUS') return 1000;
   const m = months ?? 36;
   if (m <= 24) return 500;
   if (m <= 30) return 700;
