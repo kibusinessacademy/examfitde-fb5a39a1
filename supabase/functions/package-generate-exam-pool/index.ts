@@ -1450,12 +1450,15 @@ async function enqueueLearningFieldJobs(
   return { enqueued, learningFields: lfCount, skipped, skipped_covered, skipped_cooldown, skipped_dedup, errors, lf_details };
 }
 
-async function allFanOutSubJobsDone(sb: ReturnType<typeof createClient>, packageId: string): Promise<boolean> {
-  const { count } = await sb.from("job_queue").select("id", { count: "exact", head: true })
+async function allFanOutSubJobsDone(sb: ReturnType<typeof createClient>, packageId: string, excludeJobId?: string): Promise<boolean> {
+  let query = sb.from("job_queue").select("id", { count: "exact", head: true })
     .eq("job_type", "package_generate_exam_pool")
     .in("status", ["pending", "processing"])
     .contains("payload", { package_id: packageId, _fan_out: true });
-  return (count ?? 0) === 0;
+  if (excludeJobId) query = query.neq("id", excludeJobId);
+  const { count } = await query;
+  // Allow ≤1 because the current job (if still in 'processing') is the caller itself
+  return (count ?? 0) <= (excludeJobId ? 0 : 1);
 }
 
 // ── Batch Submission for Exam Pool (OpenAI Batch API — 50% cost savings) ─────
@@ -1634,6 +1637,7 @@ Deno.serve(async (req) => {
     DIFFICULTY_DISTRIBUTION = p.options.difficulty_distribution;
   }
 
+  const currentJobId: string | undefined = p.job_id || body.job_id || undefined;
   const batchCursor = p._batch_cursor || p.batch_cursor || null;
   const generatedSoFar = batchCursor?.generated ?? 0;
   const bpIndex = batchCursor?.blueprint_index ?? 0;
@@ -1847,28 +1851,7 @@ Deno.serve(async (req) => {
       console.log(`[ExamPool-v5] Start "${professionName}": target=${examTarget}, engine=v5-ihk-quality`);
     }
 
-    // ── BATCH ROUTING: Collect all blueprint prompts and submit as one batch ──
-    const forceSyncMode = p._force_sync === true || p.force_sync === true;
-    if (isFanOut && shouldUseBatch("package_generate_exam_pool", { forceSyncMode, itemCount: bps.length })) {
-      return await submitExamPoolBatch(sb, bps as BlueprintInfo[], {
-        packageId, curriculumId, professionName, glossaryContext,
-        examTarget, lfTarget, learningFieldFilter: p.learning_field_filter,
-        jobId: p.job_id || body.job_id,
-      });
-    }
-
-    // Load existing hashes for dedup
-    const { data: existingQs } = await sb.from("exam_questions").select("question_text").eq("curriculum_id", curriculumId).limit(5000);
-    const existingHashes = new Set<string>();
-    if (existingQs) for (const q of existingQs) existingHashes.add(simpleHash(q.question_text));
-
-    const existingNgramSets: Set<string>[] = [];
-    if (existingQs) {
-      const recent = existingQs.slice(-300);
-      for (const q of recent) existingNgramSets.push(textNgrams(q.question_text));
-    }
-
-    // ─── SSOT HARD CAP (global, excludes rejected/pruned) ──────
+    // ─── SSOT HARD CAP (global, excludes rejected/pruned) — MUST run BEFORE batch routing ──────
     const { count: preCheckCount } = await sb.from("exam_questions")
       .select("id", { count: "exact", head: true })
       .eq("curriculum_id", curriculumId)
@@ -1877,12 +1860,42 @@ Deno.serve(async (req) => {
     const ssotBudget = getRemainingGenerationBudget(globalTotal, certificationLevel, packageTrack);
     if (ssotBudget <= 0) {
       console.log(`[ExamPool-v5] SSOT HARD CAP reached: ${globalTotal} >= ${ssotMaxCap} (budget=0, tier=${ssotTiered.tier})`);
-      const shouldMarkDone = !isFanOut || await allFanOutSubJobsDone(sb, packageId);
+      const shouldMarkDone = !isFanOut || await allFanOutSubJobsDone(sb, packageId, currentJobId);
       if (shouldMarkDone) {
         await markStepDone(sb, { packageId, stepKey: "generate_exam_pool", meta: { hard_cap: true, total_questions: globalTotal, cap: ssotMaxCap, tier: ssotTiered.tier } });
         console.log(`[ExamPool-v5] ✅ Step generate_exam_pool marked DONE (HARD_CAP, ${globalTotal} questions)`);
       }
       return json({ ok: true, batch_complete: true, engine: "v5-ihk-quality", total_questions: globalTotal, hard_cap: true, cap: ssotMaxCap, ssot_tier: ssotTiered.tier });
+    }
+
+    // ─── TARGET-REACHED CHECK (before batch routing — prevents infinite batch loop) ──────
+    if (isFanOut && p.learning_field_filter) {
+      const { count: lfActualPre } = await sb.from("exam_questions")
+        .select("id", { count: "exact", head: true })
+        .eq("curriculum_id", curriculumId)
+        .eq("learning_field_id", p.learning_field_filter)
+        .neq("status", "rejected");
+      const lfNow = lfActualPre ?? 0;
+      const lfPropTarget = Math.ceil(examTarget * (1 / Math.max(1, new Set(bps.map(b => (b as BlueprintInfo).learning_field_id).filter(Boolean)).size)));
+      if (lfNow >= lfPropTarget || globalTotal >= shipTarget || globalTotal >= ssotMaxCap) {
+        console.log(`[ExamPool-v5] PRE-BATCH TARGET REACHED: lf=${lfNow}/${lfPropTarget}, global=${globalTotal}/${shipTarget}`);
+        const shouldMarkDone = await allFanOutSubJobsDone(sb, packageId, currentJobId);
+        if (shouldMarkDone) {
+          await markStepDone(sb, { packageId, stepKey: "generate_exam_pool", meta: { total_questions: globalTotal, target: examTarget, pre_batch_target_reached: true } });
+          console.log(`[ExamPool-v5] ✅ Step generate_exam_pool marked DONE (pre-batch target reached, ${globalTotal} questions)`);
+        }
+        return json({ ok: true, batch_complete: true, engine: "v5-ihk-quality", total_questions: globalTotal, pre_batch_target_reached: true });
+      }
+    }
+
+    // ── BATCH ROUTING: Collect all blueprint prompts and submit as one batch ──
+    const forceSyncMode = p._force_sync === true || p.force_sync === true;
+    if (isFanOut && shouldUseBatch("package_generate_exam_pool", { forceSyncMode, itemCount: bps.length })) {
+      return await submitExamPoolBatch(sb, bps as BlueprintInfo[], {
+        packageId, curriculumId, professionName, glossaryContext,
+        examTarget, lfTarget, learningFieldFilter: p.learning_field_filter,
+        jobId: p.job_id || body.job_id,
+      });
     }
 
     // ─── ANTI-DOMINANZ CAP (per-LF runtime guard) ──────
@@ -2469,7 +2482,7 @@ Deno.serve(async (req) => {
           { generated: generatedThisRun, inserted: insertedThisRun, blueprints_found: bps.length, blueprints_used: bpsProcessed, reason: "ZERO_OUTPUT_INVARIANT" },
         );
       }
-      const shouldMarkDone = !isFanOut || await allFanOutSubJobsDone(sb, packageId);
+      const shouldMarkDone = !isFanOut || await allFanOutSubJobsDone(sb, packageId, currentJobId);
       if (shouldMarkDone) {
         await markStepDone(sb, { packageId, stepKey: "generate_exam_pool", meta: { total_questions: actualTotal, target: examTarget, generated: generatedThisRun, inserted: insertedThisRun } });
         console.log(`[ExamPool-v5] ✅ Step generate_exam_pool marked DONE (target reached, ${actualTotal} questions)`);
