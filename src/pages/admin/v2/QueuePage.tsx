@@ -115,7 +115,7 @@ function JobRow({ job, onAction, actionPending }: {
               <span className="text-[10px] text-muted-foreground">⏱ {formatAge(job.age_minutes * 60)}</span>
               <span className="text-[10px] text-muted-foreground">{job.attempts}/{job.max_attempts}</span>
               {job.package_title && (
-                <span className="text-[10px] text-muted-foreground truncate max-w-[120px]">📦 {job.package_title}</span>
+                <span className="text-[10px] text-muted-foreground truncate max-w-[120px]">📦 {stripPrefix(job.package_title)}</span>
               )}
             </div>
           </div>
@@ -150,7 +150,7 @@ function JobRow({ job, onAction, actionPending }: {
               <div className="flex items-center gap-1">
                 <span className="font-medium text-foreground">Paket:</span>
                 <Link to={`/admin/studio/${job.package_id}`} className="text-primary hover:underline flex items-center gap-0.5">
-                  {job.package_title || job.package_id.slice(0, 8)} <ArrowRight className="h-2.5 w-2.5" />
+                  {stripPrefix(job.package_title) || job.package_id.slice(0, 8)} <ArrowRight className="h-2.5 w-2.5" />
                 </Link>
               </div>
             )}

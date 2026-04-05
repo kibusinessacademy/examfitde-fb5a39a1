@@ -52,7 +52,7 @@ function JobItem({ job, onAction, busy }: {
               to={`/admin/studio/${job.package_id}`}
               className="text-[10px] text-primary hover:underline flex items-center gap-0.5 mt-0.5"
             >
-              {job.package_title} <ArrowRight className="h-2.5 w-2.5" />
+              {(job.package_title || '').replace(/^ExamFit\s*–\s*/i, '')} <ArrowRight className="h-2.5 w-2.5" />
             </Link>
           )}
         </div>
