@@ -1,6 +1,7 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { runContentAudit, type AuditInput } from "../_shared/content-audit-engine.ts";
-import type { ContentAuditResult, AuditFlag } from "../_shared/content-audit-types.ts";
+import type { ContentAuditResult } from "../_shared/content-audit-types.ts";
+import { normalizeTrack } from "../_shared/audit-profiles.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -64,7 +65,7 @@ Deno.serve(async (req) => {
   // Create audit run
   const { data: run, error: runError } = await sb
     .from("content_quality_audit_runs")
-    .insert({ scope: "published_packages", status: "running", meta: { detector_version: "v2", engine: "track-aware" } })
+    .insert({ scope: "published_packages", status: "running", meta: { detector_version: "v3", engine: "track-aware-hardened" } })
     .select("id")
     .single();
 
@@ -75,7 +76,7 @@ Deno.serve(async (req) => {
   const runId = run.id;
 
   try {
-    // Get published packages with track info
+    // Get published packages — track comes from SSOT (DB), not from request
     const { data: packages, error: pkgErr } = await sb
       .from("course_packages")
       .select("id, curriculum_id, course_id, status, track")
@@ -90,7 +91,8 @@ Deno.serve(async (req) => {
     let warningCount = 0;
 
     for (const pkg of packages ?? []) {
-      const track = String(pkg.track ?? "AUSBILDUNG_VOLL");
+      // SSOT: Track from DB, normalized through audit-profiles
+      const track = normalizeTrack(pkg.track);
       const findings: FindingInsert[] = [];
 
       // ── Scan handbook chapters (paginated) ──
@@ -107,15 +109,14 @@ Deno.serve(async (req) => {
           if (!chapters || chapters.length === 0) break;
           for (const ch of chapters) {
             artifactCount++;
-            const auditInput: AuditInput = {
+            const result = runContentAudit({
               track,
               artifact_type: "handbook_chapter",
               artifact_id: ch.id,
               curriculum_id: pkg.curriculum_id,
               title: ch.title,
               content: ch.content,
-            };
-            const result = runContentAudit(auditInput);
+            });
             if (result.audit_status !== "approved") {
               findings.push(resultToFinding(runId, pkg, "handbook_chapter", ch.id, ch.title, ch.content, result));
             }
@@ -139,7 +140,7 @@ Deno.serve(async (req) => {
           if (!lessons || lessons.length === 0) break;
           for (const ls of lessons) {
             artifactCount++;
-            const auditInput: AuditInput = {
+            const result = runContentAudit({
               track,
               artifact_type: "lesson",
               artifact_id: ls.id,
@@ -148,8 +149,7 @@ Deno.serve(async (req) => {
               learning_field_id: (ls as any).learning_field_id ?? null,
               title: ls.title,
               content: ls.content,
-            };
-            const result = runContentAudit(auditInput);
+            });
             if (result.audit_status !== "approved") {
               findings.push(resultToFinding(runId, pkg, "lesson", ls.id, ls.title, ls.content, result));
             }
@@ -208,7 +208,7 @@ Deno.serve(async (req) => {
 
     return json(200, {
       ok: true, run_id: runId,
-      engine: "track-aware-v2",
+      engine: "track-aware-v3-hardened",
       package_count: packages?.length ?? 0,
       artifact_count: artifactCount,
       finding_count: findingCount,
@@ -219,7 +219,7 @@ Deno.serve(async (req) => {
   } catch (e) {
     await sb.from("content_quality_audit_runs").update({
       status: "failed", finished_at: new Date().toISOString(),
-      meta: { error: String(e), engine: "track-aware-v2" },
+      meta: { error: String(e), engine: "track-aware-v3-hardened" },
     }).eq("id", runId);
 
     return json(500, { ok: false, error: String(e), run_id: runId });
@@ -229,11 +229,10 @@ Deno.serve(async (req) => {
 // ── Helpers ──
 
 function severityFromAuditResult(result: ContentAuditResult): string {
-  const maxSeverity = result.flags.reduce<string>((worst, f) => {
-    const rank: Record<string, number> = { critical: 0, error: 1, warning: 2, info: 3 };
+  const rank: Record<string, number> = { critical: 0, error: 1, warning: 2, info: 3 };
+  return result.flags.reduce<string>((worst, f) => {
     return (rank[f.severity] ?? 3) < (rank[worst] ?? 3) ? f.severity : worst;
   }, "info");
-  return maxSeverity;
 }
 
 function resultToFinding(
@@ -246,7 +245,6 @@ function resultToFinding(
   result: ContentAuditResult,
 ): FindingInsert {
   const severity = severityFromAuditResult(result);
-  const genericFlags = result.flags.filter(f => f.code === "GENERIC_PHRASES");
   const spellingFlags = result.flags.filter(f => f.code === "SPELLING_ERRORS");
 
   return {
@@ -260,17 +258,14 @@ function resultToFinding(
     status: "open",
     title,
     excerpt: String(content ?? "").replace(/<[^>]+>/g, " ").slice(0, 300),
-    generic_phrase_count: genericFlags.length > 0 ? result.generic_score : 0,
+    generic_phrase_count: result.generic_score,
     spelling_error_count: spellingFlags.length,
     generic_ratio: result.generic_score / 100,
-    generic_phrases: result.flags
-      .filter(f => f.layer === "C")
-      .map(f => f.message),
+    generic_phrases: result.flags.filter(f => f.layer === "C").map(f => f.message),
     spelling_errors: spellingFlags.map(f => f.message),
-    detector_version: "v2-track-aware",
-    auto_reheal_eligible: severity === "critical" || severity === "error"
-      ? ["lesson", "handbook_chapter", "tutor_snippet"].includes(artifactType)
-      : false,
+    detector_version: "v3-track-aware-hardened",
+    auto_reheal_eligible: (severity === "critical" || severity === "error")
+      && ["lesson", "handbook_chapter", "tutor_snippet"].includes(artifactType),
   };
 }
 
@@ -286,13 +281,6 @@ async function upsertPackageSummary(sb: any, runId: string, packageId: string) {
   const errorC = open.filter((x: any) => x.severity === "error").length;
   const warning = open.filter((x: any) => x.severity === "warning").length;
 
-  const handbookCritical = open.filter(
-    (x: any) => x.severity === "critical" && x.artifact_type === "handbook_chapter"
-  ).length;
-  const lessonCritical = open.filter(
-    (x: any) => x.severity === "critical" && x.artifact_type === "lesson"
-  ).length;
-
   const overallSeverity =
     critical > 0 ? "critical" : errorC > 0 ? "error" : warning > 0 ? "warning" : "info";
 
@@ -305,8 +293,8 @@ async function upsertPackageSummary(sb: any, runId: string, packageId: string) {
     error_count: errorC,
     warning_count: warning,
     info_count: 0,
-    handbook_critical_count: handbookCritical,
-    lesson_critical_count: lessonCritical,
+    handbook_critical_count: open.filter((x: any) => x.severity === "critical" && x.artifact_type === "handbook_chapter").length,
+    lesson_critical_count: open.filter((x: any) => x.severity === "critical" && x.artifact_type === "lesson").length,
     overall_severity: overallSeverity,
     reheal_recommended: critical > 0 || errorC >= 3,
   }, { onConflict: "package_id" });
