@@ -1954,12 +1954,14 @@ Deno.serve(async (req) => {
             },
           };
         } else if (parsed.permanent === true) {
-          console.warn(`[job-runner] ${fnName} PERMANENT: ${parsed.error || "permanent_error"}`);
+          const permAttempts = (job.attempts || 0) + 1;
+          console.warn(`[job-runner] ${fnName} PERMANENT: ${parsed.error || "permanent_error"} (attempt ${permAttempts}/${job.max_attempts || 25})`);
           finalState = {
             status: "failed",
             patch: {
               error: parsed.error || "permanent_error",
               completed_at: tsNow,
+              attempts: permAttempts,
               result: typeof parsed === "object" ? parsed : { raw: parsed },
             },
           };
