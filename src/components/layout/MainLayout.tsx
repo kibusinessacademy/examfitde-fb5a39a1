@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { GraduationCap, LogOut, User, Menu, X, Download } from 'lucide-react';
 import { useState } from 'react';
-import { NativeTabBar } from '@/components/native/NativeTabBar';
+
 import { useNativeApp } from '@/hooks/useNativeApp';
 
 const NAV_ITEMS = [
