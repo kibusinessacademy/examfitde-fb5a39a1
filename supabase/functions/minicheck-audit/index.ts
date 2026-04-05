@@ -98,11 +98,13 @@ Deno.serve(async (req) => {
     });
   }
 
-  // Auth: accept cron secret or service role
+  // Auth: accept cron secret, service role, or anon key (for pg_net cron calls)
   const authHeader = req.headers.get("authorization")?.replace("Bearer ", "") || "";
   const cronSecret = Deno.env.get("CRON_SECRET") || "";
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
   const isAuthorized = authHeader === supabaseKey || 
                        authHeader === cronSecret ||
+                       authHeader === anonKey ||
                        req.headers.get("x-job-runner-key") === (Deno.env.get("EDGE_INTERNAL_SHARED_SECRET") || supabaseKey);
   
   if (!isAuthorized) {
