@@ -7,8 +7,8 @@
  * Operative Regel:
  *   < 500         → insufficient (Publish blockiert)
  *   500–999       → good (publishable)
- *   1000–2000     → strong (optimal)
- *   > 2000        → oversized (Generator stoppt)
+ *   1000–2200     → strong (optimal)
+ *   > 2200        → oversized (Generator stoppt)
  *
  * Rebuild-Pakete (is_rebuild=true) erhalten temporär +10%
  * über dem normalen Max-Cap, um Rebalance-Spielraum zu schaffen.
