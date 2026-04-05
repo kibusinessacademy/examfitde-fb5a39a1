@@ -187,13 +187,13 @@ Deno.serve(async (req) => {
     .eq("course_id", courseId);
 
   if (!modules || modules.length === 0) {
-    // EXAM_FIRST / ZERTIFIKAT packages may not have modules — skip fanout gracefully
+    // Exam-centric packages (EXAM_FIRST / EXAM_FIRST_PLUS) may not have modules — skip fanout gracefully
     console.log(`[fanout] No modules for course ${courseId} (package=${packageId.slice(0,8)}) — marking step done`);
     await sb.from("package_steps").update({
       status: "done",
       updated_at: new Date().toISOString(),
     }).eq("package_id", packageId).eq("step_key", "fanout_learning_content");
-    return json({ ok: true, skipped: true, batch_complete: true, message: "No modules — EXAM_FIRST skip" });
+    return json({ ok: true, skipped: true, batch_complete: true, message: "No modules — exam-centric skip" });
   }
 
   const moduleIds = modules.map((m: any) => m.id);

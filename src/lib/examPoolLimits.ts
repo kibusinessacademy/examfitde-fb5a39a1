@@ -43,6 +43,7 @@ export function getTieredTarget(
   // Large tier: Fachwirt, Meister, EXAM_FIRST
   if (
     track === 'EXAM_FIRST' ||
+    track === 'EXAM_FIRST_PLUS' ||
     certificationLevel === 'fachwirt' ||
     certificationLevel === 'meister'
   ) {

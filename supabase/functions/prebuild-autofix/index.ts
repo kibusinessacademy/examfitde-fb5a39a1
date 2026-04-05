@@ -193,12 +193,12 @@ Deno.serve(async (req) => {
                 autofix: true,
                 track,
                 feature_flags: featureFlags,
-                include_learning_course: featureFlags.has_learning_course ?? (track === "AUSBILDUNG_VOLL"),
+                include_learning_course: featureFlags.has_learning_course ?? (track === "AUSBILDUNG_VOLL" || track === "STUDIUM"),
                 include_exam_pool: featureFlags.has_exam_trainer ?? true,
-                include_oral_exam: featureFlags.has_oral_exam_trainer ?? (track === "AUSBILDUNG_VOLL"),
-                include_ai_tutor: featureFlags.has_ai_tutor ?? (track === "AUSBILDUNG_VOLL"),
-                include_handbook: featureFlags.has_handbook ?? (track === "AUSBILDUNG_VOLL"),
-                exam_target: track === "EXAM_FIRST" ? 1200 : 1000,
+                include_oral_exam: featureFlags.has_oral_exam_trainer ?? (track === "EXAM_FIRST_PLUS"),
+                include_ai_tutor: featureFlags.has_ai_tutor ?? true,
+                include_handbook: featureFlags.has_handbook ?? (track !== "EXAM_FIRST"),
+                exam_target: (track === "EXAM_FIRST" || track === "EXAM_FIRST_PLUS") ? 1200 : 1000,
               },
             });
           fixes.push({

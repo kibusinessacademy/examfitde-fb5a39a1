@@ -50,19 +50,19 @@ export async function checkArtifacts(
   const track = normalizeTrack((pkg as any)?.track);
 
   // ── EXAM_FIRST elite_harden eligibility gate ──────────────────────
-  // elite_harden is now allowed for EXAM_FIRST but only if >= 60 approved questions.
+  // elite_harden is allowed for exam-centric tracks but only if >= 60 approved questions.
   // Below threshold → skip silently (not an error, just not eligible yet).
-  if (stepKey === "elite_harden" && track === "EXAM_FIRST" && pkg?.curriculum_id) {
+  if (stepKey === "elite_harden" && (track === "EXAM_FIRST" || track === "EXAM_FIRST_PLUS") && pkg?.curriculum_id) {
     const { count } = await sb
       .from("exam_questions")
       .select("id", { count: "exact", head: true })
       .eq("curriculum_id", pkg.curriculum_id)
       .eq("status", "approved");
     if ((count ?? 0) < ELITE_HARDEN_MIN_APPROVED) {
-      console.log(`[artifact-resolver] elite_harden skipped for EXAM_FIRST: only ${count ?? 0} approved (need ${ELITE_HARDEN_MIN_APPROVED})`);
+      console.log(`[artifact-resolver] elite_harden skipped for ${track}: only ${count ?? 0} approved (need ${ELITE_HARDEN_MIN_APPROVED})`);
       return { ready: false, missingArtifact: "elite_harden_eligibility", producerStep: "generate_exam_pool" };
     }
-    console.log(`[artifact-resolver] elite_harden ELIGIBLE for EXAM_FIRST: ${count} approved >= ${ELITE_HARDEN_MIN_APPROVED}`);
+    console.log(`[artifact-resolver] elite_harden ELIGIBLE for ${track}: ${count} approved >= ${ELITE_HARDEN_MIN_APPROVED}`);
   }
 
   // Check for a track-specific override; fall back to static PIPELINE_GRAPH.requires[]

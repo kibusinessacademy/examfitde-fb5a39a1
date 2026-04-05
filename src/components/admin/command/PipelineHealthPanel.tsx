@@ -162,7 +162,7 @@ export default function PipelineHealthPanel() {
     const starved = wip.queued > 0 && wip.building === 0;
     const atCap = wip.building >= quota;
     const sev = starved ? 'crit' as const : atCap ? 'warn' as const : 'ok' as const;
-    const shortTrack = track === 'AUSBILDUNG_VOLL' ? 'Elite' : track === 'EXAM_FIRST' ? 'Exam-First' : track;
+    const shortTrack = track === 'AUSBILDUNG_VOLL' ? 'Elite' : track === 'EXAM_FIRST' ? 'Exam-First' : track === 'EXAM_FIRST_PLUS' ? 'Exam-First+' : track === 'STUDIUM' ? 'Studium' : track;
     return {
       label: `${shortTrack} WIP`,
       value: `${wip.building}/${quota}`,

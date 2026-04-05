@@ -48,15 +48,54 @@ export function isAcademicTrack(track: unknown): boolean {
   return normalizeTrack(track) === "STUDIUM";
 }
 
+/** True for EXAM_FIRST or EXAM_FIRST_PLUS — exam-centric tracks without full learning course. */
 export function isExamFirstTrack(track: unknown): boolean {
   const t = normalizeTrack(track);
   return t === "EXAM_FIRST" || t === "EXAM_FIRST_PLUS";
 }
 
+/** True only for EXAM_FIRST_PLUS (cert/Fachwirt premium track). */
 export function isExamFirstPlusTrack(track: unknown): boolean {
   return normalizeTrack(track) === "EXAM_FIRST_PLUS";
 }
 
+/** True only for bare EXAM_FIRST (no handbook, no oral). */
+export function isExamOnlyTrack(track: unknown): boolean {
+  return normalizeTrack(track) === "EXAM_FIRST";
+}
+
 export function isFullVocationalTrack(track: unknown): boolean {
   return normalizeTrack(track) === "AUSBILDUNG_VOLL";
+}
+
+// ── Semantic Track Grouping Helpers (SSOT) ────────────────────
+
+/** Exam-centric tracks: no learning course, skip content prereqs. */
+export function isExamCentricTrack(track: unknown): boolean {
+  const t = normalizeTrack(track);
+  return t === "EXAM_FIRST" || t === "EXAM_FIRST_PLUS";
+}
+
+/** Tracks that include a full learning course chain. */
+export function hasLearningCourseTrack(track: unknown): boolean {
+  const t = normalizeTrack(track);
+  return t === "AUSBILDUNG_VOLL" || t === "STUDIUM";
+}
+
+/** Tracks that include handbook generation. */
+export function hasHandbookTrack(track: unknown): boolean {
+  const t = normalizeTrack(track);
+  return t !== "EXAM_FIRST"; // All tracks except bare EXAM_FIRST
+}
+
+/** Tracks that include oral exam. */
+export function hasOralExamTrack(track: unknown): boolean {
+  const t = normalizeTrack(track);
+  return t === "EXAM_FIRST_PLUS"; // Only EXAM_FIRST_PLUS by default
+}
+
+/** Tracks that include minicheck generation. */
+export function hasMiniChecksTrack(track: unknown): boolean {
+  const t = normalizeTrack(track);
+  return t === "AUSBILDUNG_VOLL" || t === "STUDIUM";
 }

@@ -24,8 +24,8 @@ export function deriveDbCertificationType(track: Track, certType: CertificationT
 export function deriveDbTrack(track: Track): string {
   const map: Record<Track, string> = {
     AUSBILDUNG: "AUSBILDUNG_VOLL",
-    FORTBILDUNG: "FORTBILDUNG",
-    CERTIFICATION: "ZERTIFIKAT",
+    FORTBILDUNG: "EXAM_FIRST_PLUS",
+    CERTIFICATION: "EXAM_FIRST_PLUS",
     STUDIUM: "STUDIUM",
   };
   return map[track] ?? "AUSBILDUNG_VOLL";
