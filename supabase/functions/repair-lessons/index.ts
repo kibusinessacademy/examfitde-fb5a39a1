@@ -78,9 +78,10 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json().catch(() => ({}));
-    const courseId = body.courseId || null;
-    const dryRun = body.dryRun === true;
-    const batchSize = Math.min(body.batchSize || 10, 20);
+    const p = body.payload || body;
+    const courseId = p.courseId ?? p.course_id ?? null;
+    const dryRun = p.dryRun === true || p.dry_run === true;
+    const batchSize = Math.min(p.batchSize ?? p.batch_size ?? 10, 20);
 
     const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
 
