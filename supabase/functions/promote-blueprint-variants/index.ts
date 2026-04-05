@@ -79,16 +79,29 @@ Deno.serve(async (req) => {
     );
 
     const body = await req.json();
-    const {
-      blueprintId,
-      curriculumId,
-      maxPerBlueprint = 15,
-      minQualityScore = 80,
-      dryRun = false,
-    } = body;
+    const p = body.payload || body;
 
-    if (!blueprintId && !curriculumId) {
-      return json(400, { error: "blueprintId or curriculumId required" });
+    // ── Boundary normalization: accept both camelCase and snake_case ──
+    const blueprintId = p.blueprintId ?? p.blueprint_id ?? null;
+    const curriculumId = p.curriculumId ?? p.curriculum_id ?? null;
+    const packageId = p.package_id ?? p.packageId ?? null;
+    const maxPerBlueprint = p.maxPerBlueprint ?? p.max_per_blueprint ?? 15;
+    const minQualityScore = p.minQualityScore ?? p.min_quality_score ?? 80;
+    const dryRun = p.dryRun ?? p.dry_run ?? false;
+
+    // If neither blueprintId nor curriculumId, try to resolve from packageId
+    let resolvedCurriculumId = curriculumId;
+    if (!blueprintId && !resolvedCurriculumId && packageId) {
+      const { data: pkg } = await sb
+        .from("course_packages")
+        .select("curriculum_id")
+        .eq("id", packageId)
+        .maybeSingle();
+      resolvedCurriculumId = pkg?.curriculum_id ?? null;
+    }
+
+    if (!blueprintId && !resolvedCurriculumId) {
+      return json(400, { error: "blueprintId/blueprint_id or curriculumId/curriculum_id (or package_id) required" });
     }
 
     // ── Step 1: Resolve blueprint IDs ──

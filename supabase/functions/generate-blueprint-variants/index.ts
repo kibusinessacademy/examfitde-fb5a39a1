@@ -162,15 +162,13 @@ Deno.serve(async (req) => {
     );
 
     const body = await req.json();
-    let {
-      blueprintId,
-      count = 20,
-      subjectName = "Wirtschaftsinformatik",
-      isStudium = true,
-    } = body;
+    const p = body.payload || body;
 
-    // Normalize: accept blueprint_id or blueprintId
-    blueprintId = blueprintId ?? body.blueprint_id;
+    // ── Boundary normalization: accept both camelCase and snake_case ──
+    let blueprintId = p.blueprintId ?? p.blueprint_id ?? null;
+    const count = p.count ?? 20;
+    let subjectName = p.subjectName ?? p.subject_name ?? "Wirtschaftsinformatik";
+    let isStudium = p.isStudium ?? p.is_studium ?? true;
 
     // Package-level dispatch: if no blueprintId but package_id given,
     // look up all validated blueprints and process them sequentially
