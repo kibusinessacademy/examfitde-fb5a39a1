@@ -1,5 +1,6 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { auditGenericContent } from "../_shared/generic-content-detector.ts";
+import { runContentAudit, type AuditInput } from "../_shared/content-audit-engine.ts";
+import type { ContentAuditResult, AuditFlag } from "../_shared/content-audit-types.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -21,6 +22,7 @@ type FindingInsert = {
   artifact_type: string;
   artifact_id: string;
   severity: string;
+  status: string;
   title?: string | null;
   excerpt?: string | null;
   generic_phrase_count: number;
@@ -62,7 +64,7 @@ Deno.serve(async (req) => {
   // Create audit run
   const { data: run, error: runError } = await sb
     .from("content_quality_audit_runs")
-    .insert({ scope: "published_packages", status: "running", meta: { detector_version: "v1" } })
+    .insert({ scope: "published_packages", status: "running", meta: { detector_version: "v2", engine: "track-aware" } })
     .select("id")
     .single();
 
@@ -73,10 +75,10 @@ Deno.serve(async (req) => {
   const runId = run.id;
 
   try {
-    // Get published packages
+    // Get published packages with track info
     const { data: packages, error: pkgErr } = await sb
       .from("course_packages")
-      .select("id, curriculum_id, course_id, status")
+      .select("id, curriculum_id, course_id, status, track")
       .eq("status", "published");
 
     if (pkgErr) throw pkgErr;
@@ -88,6 +90,7 @@ Deno.serve(async (req) => {
     let warningCount = 0;
 
     for (const pkg of packages ?? []) {
+      const track = String(pkg.track ?? "AUSBILDUNG_VOLL");
       const findings: FindingInsert[] = [];
 
       // ── Scan handbook chapters (paginated) ──
@@ -104,9 +107,17 @@ Deno.serve(async (req) => {
           if (!chapters || chapters.length === 0) break;
           for (const ch of chapters) {
             artifactCount++;
-            const r = auditGenericContent(ch.content ?? "", "handbook_chapter");
-            if (r.severity !== "info") {
-              findings.push(makeFinding(runId, pkg, "handbook_chapter", ch.id, ch.title, ch.content, r));
+            const auditInput: AuditInput = {
+              track,
+              artifact_type: "handbook_chapter",
+              artifact_id: ch.id,
+              curriculum_id: pkg.curriculum_id,
+              title: ch.title,
+              content: ch.content,
+            };
+            const result = runContentAudit(auditInput);
+            if (result.audit_status !== "approved") {
+              findings.push(resultToFinding(runId, pkg, "handbook_chapter", ch.id, ch.title, ch.content, result));
             }
           }
           if (chapters.length < 500) break;
@@ -120,7 +131,7 @@ Deno.serve(async (req) => {
         while (true) {
           const { data: lessons } = await sb
             .from("lessons")
-            .select("id, title, content")
+            .select("id, title, content, competency_id, learning_field_id")
             .eq("curriculum_id", pkg.curriculum_id)
             .order("id", { ascending: true })
             .range(from, from + 499);
@@ -128,9 +139,19 @@ Deno.serve(async (req) => {
           if (!lessons || lessons.length === 0) break;
           for (const ls of lessons) {
             artifactCount++;
-            const r = auditGenericContent(ls.content ?? "", "lesson");
-            if (r.severity !== "info") {
-              findings.push(makeFinding(runId, pkg, "lesson", ls.id, ls.title, ls.content, r));
+            const auditInput: AuditInput = {
+              track,
+              artifact_type: "lesson",
+              artifact_id: ls.id,
+              curriculum_id: pkg.curriculum_id,
+              competency_id: (ls as any).competency_id ?? null,
+              learning_field_id: (ls as any).learning_field_id ?? null,
+              title: ls.title,
+              content: ls.content,
+            };
+            const result = runContentAudit(auditInput);
+            if (result.audit_status !== "approved") {
+              findings.push(resultToFinding(runId, pkg, "lesson", ls.id, ls.title, ls.content, result));
             }
           }
           if (lessons.length < 500) break;
@@ -138,10 +159,9 @@ Deno.serve(async (req) => {
         }
       }
 
-      // ── Dedup: close old open/rehealing findings for artifacts we're about to re-scan ──
+      // ── Dedup: close old open/rehealing findings for artifacts we're re-scanning ──
       if (findings.length > 0) {
         const artifactIds = [...new Set(findings.map(f => f.artifact_id))];
-        // Close old findings for these artifacts in batches
         for (let i = 0; i < artifactIds.length; i += 100) {
           const chunk = artifactIds.slice(i, i + 100);
           await sb
@@ -188,6 +208,7 @@ Deno.serve(async (req) => {
 
     return json(200, {
       ok: true, run_id: runId,
+      engine: "track-aware-v2",
       package_count: packages?.length ?? 0,
       artifact_count: artifactCount,
       finding_count: findingCount,
@@ -198,22 +219,36 @@ Deno.serve(async (req) => {
   } catch (e) {
     await sb.from("content_quality_audit_runs").update({
       status: "failed", finished_at: new Date().toISOString(),
-      meta: { error: String(e) },
+      meta: { error: String(e), engine: "track-aware-v2" },
     }).eq("id", runId);
 
     return json(500, { ok: false, error: String(e), run_id: runId });
   }
 });
 
-function makeFinding(
+// ── Helpers ──
+
+function severityFromAuditResult(result: ContentAuditResult): string {
+  const maxSeverity = result.flags.reduce<string>((worst, f) => {
+    const rank: Record<string, number> = { critical: 0, error: 1, warning: 2, info: 3 };
+    return (rank[f.severity] ?? 3) < (rank[worst] ?? 3) ? f.severity : worst;
+  }, "info");
+  return maxSeverity;
+}
+
+function resultToFinding(
   runId: string,
   pkg: { id: string; curriculum_id: string | null; course_id: string | null },
   artifactType: string,
   artifactId: string,
   title: string | null,
   content: string | null,
-  r: ReturnType<typeof auditGenericContent>,
+  result: ContentAuditResult,
 ): FindingInsert {
+  const severity = severityFromAuditResult(result);
+  const genericFlags = result.flags.filter(f => f.code === "GENERIC_PHRASES");
+  const spellingFlags = result.flags.filter(f => f.code === "SPELLING_ERRORS");
+
   return {
     audit_run_id: runId,
     package_id: pkg.id,
@@ -221,16 +256,21 @@ function makeFinding(
     course_id: pkg.course_id,
     artifact_type: artifactType,
     artifact_id: artifactId,
-    severity: r.severity,
+    severity,
+    status: "open",
     title,
     excerpt: String(content ?? "").replace(/<[^>]+>/g, " ").slice(0, 300),
-    generic_phrase_count: r.genericPhraseCount,
-    spelling_error_count: r.spellingErrors.length,
-    generic_ratio: r.genericRatio,
-    generic_phrases: r.genericPhrases,
-    spelling_errors: r.spellingErrors,
-    detector_version: "v1",
-    auto_reheal_eligible: r.autoRehealEligible,
+    generic_phrase_count: genericFlags.length > 0 ? result.generic_score : 0,
+    spelling_error_count: spellingFlags.length,
+    generic_ratio: result.generic_score / 100,
+    generic_phrases: result.flags
+      .filter(f => f.layer === "C")
+      .map(f => f.message),
+    spelling_errors: spellingFlags.map(f => f.message),
+    detector_version: "v2-track-aware",
+    auto_reheal_eligible: severity === "critical" || severity === "error"
+      ? ["lesson", "handbook_chapter", "tutor_snippet"].includes(artifactType)
+      : false,
   };
 }
 
