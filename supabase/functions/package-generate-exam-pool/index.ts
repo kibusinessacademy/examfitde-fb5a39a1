@@ -1847,28 +1847,7 @@ Deno.serve(async (req) => {
       console.log(`[ExamPool-v5] Start "${professionName}": target=${examTarget}, engine=v5-ihk-quality`);
     }
 
-    // ── BATCH ROUTING: Collect all blueprint prompts and submit as one batch ──
-    const forceSyncMode = p._force_sync === true || p.force_sync === true;
-    if (isFanOut && shouldUseBatch("package_generate_exam_pool", { forceSyncMode, itemCount: bps.length })) {
-      return await submitExamPoolBatch(sb, bps as BlueprintInfo[], {
-        packageId, curriculumId, professionName, glossaryContext,
-        examTarget, lfTarget, learningFieldFilter: p.learning_field_filter,
-        jobId: p.job_id || body.job_id,
-      });
-    }
-
-    // Load existing hashes for dedup
-    const { data: existingQs } = await sb.from("exam_questions").select("question_text").eq("curriculum_id", curriculumId).limit(5000);
-    const existingHashes = new Set<string>();
-    if (existingQs) for (const q of existingQs) existingHashes.add(simpleHash(q.question_text));
-
-    const existingNgramSets: Set<string>[] = [];
-    if (existingQs) {
-      const recent = existingQs.slice(-300);
-      for (const q of recent) existingNgramSets.push(textNgrams(q.question_text));
-    }
-
-    // ─── SSOT HARD CAP (global, excludes rejected/pruned) ──────
+    // ─── SSOT HARD CAP (global, excludes rejected/pruned) — MUST run BEFORE batch routing ──────
     const { count: preCheckCount } = await sb.from("exam_questions")
       .select("id", { count: "exact", head: true })
       .eq("curriculum_id", curriculumId)
@@ -1883,6 +1862,36 @@ Deno.serve(async (req) => {
         console.log(`[ExamPool-v5] ✅ Step generate_exam_pool marked DONE (HARD_CAP, ${globalTotal} questions)`);
       }
       return json({ ok: true, batch_complete: true, engine: "v5-ihk-quality", total_questions: globalTotal, hard_cap: true, cap: ssotMaxCap, ssot_tier: ssotTiered.tier });
+    }
+
+    // ─── TARGET-REACHED CHECK (before batch routing — prevents infinite batch loop) ──────
+    if (isFanOut && p.learning_field_filter) {
+      const { count: lfActualPre } = await sb.from("exam_questions")
+        .select("id", { count: "exact", head: true })
+        .eq("curriculum_id", curriculumId)
+        .eq("learning_field_id", p.learning_field_filter)
+        .neq("status", "rejected");
+      const lfNow = lfActualPre ?? 0;
+      const lfPropTarget = Math.ceil(examTarget * (1 / Math.max(1, new Set(bps.map(b => (b as BlueprintInfo).learning_field_id).filter(Boolean)).size)));
+      if (lfNow >= lfPropTarget || globalTotal >= shipTarget || globalTotal >= ssotMaxCap) {
+        console.log(`[ExamPool-v5] PRE-BATCH TARGET REACHED: lf=${lfNow}/${lfPropTarget}, global=${globalTotal}/${shipTarget}`);
+        const shouldMarkDone = await allFanOutSubJobsDone(sb, packageId);
+        if (shouldMarkDone) {
+          await markStepDone(sb, { packageId, stepKey: "generate_exam_pool", meta: { total_questions: globalTotal, target: examTarget, pre_batch_target_reached: true } });
+          console.log(`[ExamPool-v5] ✅ Step generate_exam_pool marked DONE (pre-batch target reached, ${globalTotal} questions)`);
+        }
+        return json({ ok: true, batch_complete: true, engine: "v5-ihk-quality", total_questions: globalTotal, pre_batch_target_reached: true });
+      }
+    }
+
+    // ── BATCH ROUTING: Collect all blueprint prompts and submit as one batch ──
+    const forceSyncMode = p._force_sync === true || p.force_sync === true;
+    if (isFanOut && shouldUseBatch("package_generate_exam_pool", { forceSyncMode, itemCount: bps.length })) {
+      return await submitExamPoolBatch(sb, bps as BlueprintInfo[], {
+        packageId, curriculumId, professionName, glossaryContext,
+        examTarget, lfTarget, learningFieldFilter: p.learning_field_filter,
+        jobId: p.job_id || body.job_id,
+      });
     }
 
     // ─── ANTI-DOMINANZ CAP (per-LF runtime guard) ──────
