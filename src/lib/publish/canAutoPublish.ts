@@ -18,6 +18,10 @@ interface PublishInputs {
   hasTutorIndex: boolean;
   integrityPassed: boolean;
   qualityCouncilPassed: boolean;
+  /** Quality Gate v2: lesson QC status */
+  lessonQcFailedCount?: number;
+  /** Quality Gate v2: council step actually completed */
+  councilStepDone?: boolean;
 }
 
 export function canAutoPublish(input: PublishInputs) {
