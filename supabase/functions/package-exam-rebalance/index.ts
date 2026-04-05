@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { enqueueJob } from "../_shared/enqueue.ts";
+import { MAX_QUESTIONS_PER_PACKAGE } from "../_shared/exam-pool-limits.ts";
 
 /**
  * package-exam-rebalance — Targeted exam pool repair orchestrator
@@ -85,7 +86,7 @@ Deno.serve(async (req) => {
     // ── 1. Load package ──
     const { data: pkg, error: pkgErr } = await sb
       .from("course_packages")
-      .select("id, status, course_id, curriculum_id, integrity_passed, integrity_report, blocked_reason, track")
+      .select("id, status, course_id, curriculum_id, integrity_passed, integrity_report, blocked_reason, track, is_rebuild")
       .eq("id", packageId)
       .maybeSingle();
 
@@ -94,6 +95,7 @@ Deno.serve(async (req) => {
     const curriculumId = pkg.curriculum_id as string;
     const courseId = pkg.course_id as string;
     const track = (pkg.track as string) || "AUSBILDUNG_VOLL";
+    const isRebuild = pkg.is_rebuild === true;
 
     if (!curriculumId) return json({ error: "package has no curriculum_id" }, 400);
 
@@ -198,6 +200,36 @@ Deno.serve(async (req) => {
       if (trapsNoType.length > 0) {
         const result = await tagIsTrapsWithoutType(sb, trapsNoType);
         if (result.affected_count > 0) actions.push(result);
+      }
+    }
+
+    // ═══ F. POST-REBUILD TRIM: reject weakest surplus if over MAX_QUESTIONS_PER_PACKAGE ═══
+    if (isRebuild && questions.length > MAX_QUESTIONS_PER_PACKAGE) {
+      const surplus = questions.length - MAX_QUESTIONS_PER_PACKAGE;
+      // Fetch weakest questions (oldest, lowest quality) to trim
+      const { data: trimCandidates } = await sb
+        .from("exam_questions")
+        .select("id")
+        .eq("curriculum_id", curriculumId)
+        .eq("status", "approved")
+        .order("created_at", { ascending: true })
+        .limit(surplus);
+
+      if (trimCandidates && trimCandidates.length > 0) {
+        const trimIds = trimCandidates.map(q => q.id);
+        const { error: trimErr } = await sb
+          .from("exam_questions")
+          .update({ status: "rejected", meta: { rejected_reason: "rebuild_pool_trim", trimmed_at: new Date().toISOString() } })
+          .in("id", trimIds);
+
+        if (!trimErr) {
+          actions.push({
+            type: "rebuild_pool_trim",
+            detail: `Trimmed ${trimIds.length} oldest questions to stay within ${MAX_QUESTIONS_PER_PACKAGE} cap`,
+            affected_count: trimIds.length,
+          });
+          console.log(`[exam-rebalance] Rebuild trim: rejected ${trimIds.length} surplus questions`);
+        }
       }
     }
 

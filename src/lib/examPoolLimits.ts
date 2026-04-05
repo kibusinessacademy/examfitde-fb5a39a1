@@ -11,12 +11,16 @@
  *   small   (sachkunde, kurze Berufe)      → 500–800
  *   medium  (standard Ausbildung)          → 800–1200
  *   large   (Fachwirt, Meister, EXAM_FIRST) → 1200–2000
+ *
+ * Rebuild-Pakete (is_rebuild=true) erhalten temporär +10%
+ * über dem normalen Max-Cap für Rebalance-Spielraum.
  */
 
 // ─── Hard Constants (nicht überschreibbar) ───────────────────
 export const MIN_QUESTIONS_PER_PACKAGE = 500;
 export const TARGET_QUESTIONS_PER_PACKAGE = 1000;
 export const MAX_QUESTIONS_PER_PACKAGE = 2000;
+export const REBUILD_HEADROOM_PCT = 0.10; // +10% for rebuild packages
 
 // ─── Pool Size Status ────────────────────────────────────────
 export type PoolSizeStatus = 'insufficient' | 'good' | 'strong' | 'oversized';
@@ -62,6 +66,23 @@ export function getTieredTarget(
   return { min: 500, target: 1000, max: 2000, tier: 'medium' };
 }
 
+// ─── Effective Max Cap (rebuild-aware) ───────────────────────
+/**
+ * Returns the effective max cap, boosted by +10% for rebuild packages.
+ */
+export function getEffectiveMaxCap(
+  certificationLevel: string,
+  track: string,
+  isRebuild: boolean,
+): number {
+  const tiered = getTieredTarget(certificationLevel, track);
+  const baseCap = Math.min(tiered.max, MAX_QUESTIONS_PER_PACKAGE);
+  if (isRebuild) {
+    return Math.ceil(baseCap * (1 + REBUILD_HEADROOM_PCT));
+  }
+  return baseCap;
+}
+
 // ─── Generator Guard ─────────────────────────────────────────
 /**
  * Prüft ob noch generiert werden darf.
@@ -71,9 +92,8 @@ export function getRemainingGenerationBudget(
   currentCount: number,
   certificationLevel: string = 'ausbildung',
   track: string = 'AUSBILDUNG_VOLL',
+  isRebuild: boolean = false,
 ): number {
-  const tiered = getTieredTarget(certificationLevel, track);
-  // Stop at hard cap
-  const cap = Math.min(tiered.max, MAX_QUESTIONS_PER_PACKAGE);
+  const cap = getEffectiveMaxCap(certificationLevel, track, isRebuild);
   return Math.max(0, cap - currentCount);
 }

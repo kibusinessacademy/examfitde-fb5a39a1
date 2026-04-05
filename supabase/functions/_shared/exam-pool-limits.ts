@@ -9,11 +9,16 @@
  *   500–999       → good (publishable)
  *   1000–2000     → strong (optimal)
  *   > 2000        → oversized (Generator stoppt)
+ *
+ * Rebuild-Pakete (is_rebuild=true) erhalten temporär +10%
+ * über dem normalen Max-Cap, um Rebalance-Spielraum zu schaffen.
+ * Nach erfolgreicher Re-Validierung werden Überschuss-Fragen getrimmt.
  */
 
 export const MIN_QUESTIONS_PER_PACKAGE = 500;
 export const TARGET_QUESTIONS_PER_PACKAGE = 1000;
 export const MAX_QUESTIONS_PER_PACKAGE = 2000;
+export const REBUILD_HEADROOM_PCT = 0.10; // +10% for rebuild packages
 
 export type PoolSizeStatus = 'insufficient' | 'good' | 'strong' | 'oversized';
 
@@ -54,12 +59,28 @@ export function getTieredTarget(
   return { min: 500, target: 1000, max: 2000, tier: 'medium' };
 }
 
+/**
+ * Returns the effective max cap, boosted by +10% for rebuild packages.
+ */
+export function getEffectiveMaxCap(
+  certificationLevel: string,
+  track: string,
+  isRebuild: boolean,
+): number {
+  const tiered = getTieredTarget(certificationLevel, track);
+  const baseCap = Math.min(tiered.max, MAX_QUESTIONS_PER_PACKAGE);
+  if (isRebuild) {
+    return Math.ceil(baseCap * (1 + REBUILD_HEADROOM_PCT));
+  }
+  return baseCap;
+}
+
 export function getRemainingGenerationBudget(
   currentCount: number,
   certificationLevel: string = 'ausbildung',
   track: string = 'AUSBILDUNG_VOLL',
+  isRebuild: boolean = false,
 ): number {
-  const tiered = getTieredTarget(certificationLevel, track);
-  const cap = Math.min(tiered.max, MAX_QUESTIONS_PER_PACKAGE);
+  const cap = getEffectiveMaxCap(certificationLevel, track, isRebuild);
   return Math.max(0, cap - currentCount);
 }

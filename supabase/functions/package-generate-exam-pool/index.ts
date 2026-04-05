@@ -3,7 +3,7 @@ import { assertSchemaReady } from "../_shared/schema-gate.ts";
 import { bootstrapLLMLogging } from "../_shared/llm-log-bootstrap.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { calculateHybridTargetFromDefaults } from "../_shared/hybridExamTarget.ts";
-import { getRemainingGenerationBudget, MAX_QUESTIONS_PER_PACKAGE, getTieredTarget } from "../_shared/exam-pool-limits.ts";
+import { getRemainingGenerationBudget, MAX_QUESTIONS_PER_PACKAGE, getTieredTarget, getEffectiveMaxCap } from "../_shared/exam-pool-limits.ts";
 import type { HybridTargetResult } from "../_shared/hybridExamTarget.ts";
 import { callAIJSON, logLLMCostEvent } from "../_shared/ai-client.ts";
 import type { AIProvider } from "../_shared/ai-client.ts";
@@ -1639,10 +1639,11 @@ Deno.serve(async (req) => {
 
   if (!packageId || !curriculumId) return json({ error: "Missing package_id or curriculum_id" }, 400);
 
-  // ─── SSOT: Load track + certification_level for budget computation ───
+  // ─── SSOT: Load track + is_rebuild for budget computation ───
   const { data: pkgMeta } = await sb.from("course_packages")
-    .select("track").eq("id", packageId).maybeSingle();
+    .select("track, is_rebuild").eq("id", packageId).maybeSingle();
   const packageTrack = pkgMeta?.track ?? "AUSBILDUNG_VOLL";
+  const isRebuild = pkgMeta?.is_rebuild === true;
 
   // Resolve certification_level from catalog (best-effort, defaults to 'ausbildung')
   let certificationLevel = "ausbildung";
@@ -1657,8 +1658,8 @@ Deno.serve(async (req) => {
   } catch (_e) { /* best-effort */ }
 
   const ssotTiered = getTieredTarget(certificationLevel, packageTrack);
-  const ssotMaxCap = Math.min(ssotTiered.max, MAX_QUESTIONS_PER_PACKAGE);
-  console.log(`[ExamPool-v5] SSOT_BUDGET: certLevel=${certificationLevel}, track=${packageTrack}, tier=${ssotTiered.tier}, max=${ssotMaxCap}`);
+  const ssotMaxCap = getEffectiveMaxCap(certificationLevel, packageTrack, isRebuild);
+  console.log(`[ExamPool-v5] SSOT_BUDGET: certLevel=${certificationLevel}, track=${packageTrack}, tier=${ssotTiered.tier}, max=${ssotMaxCap}${isRebuild ? " (rebuild +10%)" : ""}`);
 
   try {
     if (!isFanOut) {
