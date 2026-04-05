@@ -108,7 +108,7 @@ export function requiresHandbook(track: ProductTrack): boolean {
 }
 
 export function requiresTutorIndex(track: ProductTrack): boolean {
-  return track !== 'EXAM_FIRST' || track === 'EXAM_FIRST_PLUS';
+  return track !== 'EXAM_FIRST';
 }
 
 export function isExamOnlyScore(track: ProductTrack): boolean {
