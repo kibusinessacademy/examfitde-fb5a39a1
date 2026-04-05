@@ -5,12 +5,13 @@
  * Edge-function version. Client-side mirror: src/lib/tracks.ts
  */
 
-export type TrackKey = "AUSBILDUNG_VOLL" | "EXAM_FIRST" | "STUDIUM";
+export type TrackKey = "AUSBILDUNG_VOLL" | "EXAM_FIRST" | "EXAM_FIRST_PLUS" | "STUDIUM";
 
 const TRACK_ALIASES: Record<string, TrackKey> = {
   // ── Canonical ─────────────────────────────────────
   AUSBILDUNG_VOLL: "AUSBILDUNG_VOLL",
   EXAM_FIRST: "EXAM_FIRST",
+  EXAM_FIRST_PLUS: "EXAM_FIRST_PLUS",
   STUDIUM: "STUDIUM",
 
   // ── AUSBILDUNG_VOLL aliases ───────────────────────
@@ -18,12 +19,16 @@ const TRACK_ALIASES: Record<string, TrackKey> = {
   ELITE: "AUSBILDUNG_VOLL",
   "AUSBILDUNG-VOLL": "AUSBILDUNG_VOLL",
   AUSBILDUNG_VOLL_ELITE: "AUSBILDUNG_VOLL",
-  FORTBILDUNG: "AUSBILDUNG_VOLL",
-  ZERTIFIKAT: "AUSBILDUNG_VOLL",
 
   // ── EXAM_FIRST aliases ────────────────────────────
   EXAMFIRST: "EXAM_FIRST",
   "EXAM-FIRST": "EXAM_FIRST",
+
+  // ── EXAM_FIRST_PLUS aliases ───────────────────────
+  "EXAM-FIRST-PLUS": "EXAM_FIRST_PLUS",
+  EXAMFIRSTPLUS: "EXAM_FIRST_PLUS",
+  FORTBILDUNG: "EXAM_FIRST_PLUS",
+  ZERTIFIKAT: "EXAM_FIRST_PLUS",
 
   // ── STUDIUM aliases ───────────────────────────────
   HIGHER_ED: "STUDIUM",

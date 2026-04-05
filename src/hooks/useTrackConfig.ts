@@ -10,7 +10,7 @@ export type CertificationType =
   | 'projektmanagement'
   | 'studium';
 
-export type ProductTrack = 'AUSBILDUNG_VOLL' | 'EXAM_FIRST' | 'STUDIUM';
+export type ProductTrack = 'AUSBILDUNG_VOLL' | 'EXAM_FIRST' | 'EXAM_FIRST_PLUS' | 'STUDIUM';
 
 export type AiTutorMode = 'full' | 'limited_exam' | 'off';
 
@@ -39,6 +39,7 @@ export const CERT_TYPE_LABELS: Record<CertificationType, string> = {
 export const TRACK_LABELS: Record<ProductTrack, string> = {
   AUSBILDUNG_VOLL: 'Vollprodukt',
   EXAM_FIRST: 'Exam-First',
+  EXAM_FIRST_PLUS: 'Exam-First Plus',
   STUDIUM: 'Studium',
 };
 
@@ -60,9 +61,20 @@ export const DEFAULT_FLAGS: Record<ProductTrack, FeatureFlags> = {
     has_minichecks: false,
     has_exam_trainer: true,
     has_exam_simulation: true,
-    has_oral_exam_trainer: true,
+    has_oral_exam_trainer: false,
     has_ai_tutor: true,
     has_handbook: false,
+    ai_tutor_mode: 'limited_exam',
+  },
+  EXAM_FIRST_PLUS: {
+    has_learning_course: false,
+    has_practice_course_h5p: false,
+    has_minichecks: false,
+    has_exam_trainer: true,
+    has_exam_simulation: true,
+    has_oral_exam_trainer: true,
+    has_ai_tutor: true,
+    has_handbook: true,
     ai_tutor_mode: 'limited_exam',
   },
   STUDIUM: {
@@ -92,15 +104,19 @@ export function requiresLearning(track: ProductTrack): boolean {
 }
 
 export function requiresHandbook(track: ProductTrack): boolean {
-  return track === 'AUSBILDUNG_VOLL' || track === 'STUDIUM';
+  return track === 'AUSBILDUNG_VOLL' || track === 'STUDIUM' || track === 'EXAM_FIRST_PLUS';
 }
 
 export function requiresTutorIndex(track: ProductTrack): boolean {
-  return track === 'AUSBILDUNG_VOLL' || track === 'STUDIUM';
+  return track !== 'EXAM_FIRST';
 }
 
 export function isExamOnlyScore(track: ProductTrack): boolean {
   return track === 'EXAM_FIRST';
+}
+
+export function isExamPlusScore(track: ProductTrack): boolean {
+  return track === 'EXAM_FIRST_PLUS';
 }
 
 export function isHigherEd(track: ProductTrack): boolean {
@@ -114,8 +130,9 @@ export function useTrackConfig(pkg: { track?: string; feature_flags?: any; certi
     const flags: FeatureFlags = pkg?.feature_flags || DEFAULT_FLAGS[track];
     const activeSteps = getActivePipelineStepsUI(flags as unknown as Record<string, boolean>);
     const isExamFirst = track === 'EXAM_FIRST';
+    const isExamFirstPlus = track === 'EXAM_FIRST_PLUS';
     const isStudium = track === 'STUDIUM';
 
-    return { track, certType, flags, activeSteps, isExamFirst, isStudium };
+    return { track, certType, flags, activeSteps, isExamFirst, isExamFirstPlus, isStudium };
   }, [pkg?.track, pkg?.feature_flags, pkg?.certification_type]);
 }

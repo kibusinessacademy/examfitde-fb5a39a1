@@ -20,26 +20,26 @@ const TRACK_ARTIFACT_OVERRIDES: Record<string, Partial<Record<TrackKey, string[]
   // EXAM_FIRST: blueprints don't need validated_learning_content
   // (no learning course in EXAM_FIRST)
   auto_seed_exam_blueprints: {
-    AUSBILDUNG_VOLL: ["validated_learning_content"],  // default from PIPELINE_GRAPH
-    EXAM_FIRST: [],                                    // no learning content prerequisite
+    AUSBILDUNG_VOLL: ["validated_learning_content"],
+    EXAM_FIRST: [],
+    EXAM_FIRST_PLUS: [],
     STUDIUM: ["validated_learning_content"],
   },
 
-  // EXAM_FIRST: handbook doesn't require validated_learning_content
   generate_handbook: {
     AUSBILDUNG_VOLL: ["validated_learning_content"],
-    EXAM_FIRST: ["validated_blueprints"],              // handbook from blueprints only
+    EXAM_FIRST: ["validated_blueprints"],
+    EXAM_FIRST_PLUS: ["validated_blueprints"],
     STUDIUM: ["validated_learning_content"],
   },
 
-  // elite_harden: all tracks need validated_exam_pool
   elite_harden: {
     AUSBILDUNG_VOLL: ["validated_exam_pool"],
     EXAM_FIRST: ["validated_exam_pool"],
+    EXAM_FIRST_PLUS: ["validated_exam_pool"],
     STUDIUM: ["validated_exam_pool"],
   },
 
-  // run_integrity_check: track-specific artifact requirements
   run_integrity_check: {
     AUSBILDUNG_VOLL: [
       "elite_ready",
@@ -52,6 +52,11 @@ const TRACK_ARTIFACT_OVERRIDES: Record<string, Partial<Record<TrackKey, string[]
       "elite_ready",
       "validated_tutor_index",
     ],
+    EXAM_FIRST_PLUS: [
+      "elite_ready",
+      "validated_handbook",
+      "validated_tutor_index",
+    ],
     STUDIUM: [
       "elite_ready",
       "validated_minichecks",
@@ -60,10 +65,10 @@ const TRACK_ARTIFACT_OVERRIDES: Record<string, Partial<Record<TrackKey, string[]
     ],
   },
 
-  // quality_council: depends on integrity
   quality_council: {
     AUSBILDUNG_VOLL: ["integrity_passed"],
     EXAM_FIRST: ["integrity_passed"],
+    EXAM_FIRST_PLUS: ["integrity_passed"],
     STUDIUM: ["integrity_passed"],
   },
 };
