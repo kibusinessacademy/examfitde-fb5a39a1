@@ -242,6 +242,11 @@ export default function LeitstellePage() {
         <RecoveryBoardCard />
       </Suspense>
 
+      {/* Blueprint Pre-Flight Gate */}
+      <Suspense fallback={<Skeleton className="h-32" />}>
+        <BlueprintPreflightCard />
+      </Suspense>
+
       {/* Blueprint Variant Stats */}
       <Suspense fallback={<Skeleton className="h-32" />}>
         <BlueprintVariantStatsCard />
