@@ -109,6 +109,24 @@ export async function detectAndMitigateHotLoops(
       const hasProgress = await checkStepProgress(sb, cand.package_id, cand.job_type);
       if (hasProgress) continue; // Real work happening — not a hot loop
 
+      // ── DM1: meta.ok=true guard — if the step already has a success signal,
+      // the finalization bridge should handle it, NOT the hot-loop freezer.
+      // Freezing a step with meta.ok=true causes ghost-completion stalls.
+      const stepKeyForOk = jobTypeToStepKey(cand.job_type);
+      if (stepKeyForOk) {
+        const { data: okCheck } = await sb
+          .from("package_steps")
+          .select("meta")
+          .eq("package_id", cand.package_id)
+          .eq("step_key", stepKeyForOk)
+          .maybeSingle();
+        const okMeta = (okCheck?.meta ?? {}) as Record<string, unknown>;
+        if (okMeta.ok === true || okMeta.batch_complete === true) {
+          console.log(`[stuck-scan] 🛡️ Hot-loop guard SKIPPED for ${cand.job_type}/${cand.package_id.slice(0, 8)}: meta.ok=true — deferring to finalization bridge`);
+          continue;
+        }
+      }
+
       // ── 3) Determine severity level ──
       const level: HotLoopResult["level"] =
         cand.count >= HOT_LOOP_FREEZE_THRESHOLD
