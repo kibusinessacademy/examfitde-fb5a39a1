@@ -21742,6 +21742,33 @@ export type Database = {
         }
         Relationships: []
       }
+      job_type_policies: {
+        Row: {
+          can_run_when_not_building: boolean
+          exempt_from_auto_cancel: boolean
+          is_repair: boolean
+          job_type: string
+          notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          can_run_when_not_building?: boolean
+          exempt_from_auto_cancel?: boolean
+          is_repair?: boolean
+          job_type: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          can_run_when_not_building?: boolean
+          exempt_from_auto_cancel?: boolean
+          is_repair?: boolean
+          job_type?: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       jobtype_limits: {
         Row: {
           job_type: string
@@ -64655,6 +64682,13 @@ export type Database = {
           p_question_text: string
         }
         Returns: Json
+      }
+      fn_guard_no_rpc_overloads: {
+        Args: never
+        Returns: {
+          function_name: string
+          overload_count: number
+        }[]
       }
       fn_has_gate_state_changed: {
         Args: { p_post_snapshot: Json; p_pre_snapshot: Json }
