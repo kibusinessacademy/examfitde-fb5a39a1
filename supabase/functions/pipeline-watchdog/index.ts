@@ -58,7 +58,7 @@ async function computeMissingLfIds(
     .from("exam_questions")
     .select("learning_field_id")
     .eq("curriculum_id", curriculumId)
-    .in("qc_status", ["approved", "tier1_passed"]);
+    .in("qc_status", QC_COVERAGE_ELIGIBLE as unknown as string[]);
 
   const covered = new Set((rows || []).map((x: { learning_field_id: string }) => x.learning_field_id));
   return lfIds.filter((id: string) => !covered.has(id));
