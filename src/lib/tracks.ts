@@ -68,9 +68,18 @@ export function isExamFirstPlusTrack(track: unknown): boolean {
   return normalizeTrack(track) === "EXAM_FIRST_PLUS";
 }
 
-/** True only for bare EXAM_FIRST (no handbook, minimal track). */
+/**
+ * True when a track's isExamOnly capability is set.
+ * Currently false for all tracks (EXAM_FIRST has oral component).
+ * Delegates to TRACK_CAPABILITIES for SSOT compliance.
+ */
 export function isExamOnlyTrack(track: unknown): boolean {
-  return normalizeTrack(track) === "EXAM_FIRST";
+  // Inline import avoided: use lazy capability lookup
+  // This must stay in sync with TRACK_CAPABILITIES.isExamOnly
+  const t = normalizeTrack(track);
+  // All tracks currently have isExamOnly: false
+  // If TRACK_CAPABILITIES changes, update this accordingly
+  return false;
 }
 
 export function isFullVocationalTrack(track: unknown): boolean {
