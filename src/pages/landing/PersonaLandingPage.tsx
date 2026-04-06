@@ -45,7 +45,7 @@ export default function PersonaLandingPage({ personaType }: PersonaLandingProps)
         // Load certification by slug
         const { data: cert, error: certErr } = await supabase
           .from("certifications")
-          .select("id, slug, title, track, certification_type, validation_profile, oral_component, learning_field_count, min_question_target")
+          .select("id, slug, title, track, certification_type, validation_profile, oral_exam_enabled, recommended_question_count")
           .eq("slug", slug)
           .single();
         if (certErr || !cert) throw new Error("Prüfungstraining nicht gefunden");
