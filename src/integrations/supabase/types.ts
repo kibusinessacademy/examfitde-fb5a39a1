@@ -60228,6 +60228,13 @@ export type Database = {
         }
         Relationships: []
       }
+      v_ops_resilience_dashboard: {
+        Row: {
+          data: Json | null
+          section: string | null
+        }
+        Relationships: []
+      }
       v_ops_shadow_zombies: {
         Row: {
           active_jobs: number | null
