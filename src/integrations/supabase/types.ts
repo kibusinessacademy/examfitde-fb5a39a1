@@ -11592,6 +11592,7 @@ export type Database = {
           last_error: string | null
           last_progress_at: string | null
           locked_at: string | null
+          persona_profile: string
           pipeline_mode: Database["public"]["Enums"]["pipeline_mode"]
           priority: number
           product_id: string | null
@@ -11646,6 +11647,7 @@ export type Database = {
           last_error?: string | null
           last_progress_at?: string | null
           locked_at?: string | null
+          persona_profile?: string
           pipeline_mode?: Database["public"]["Enums"]["pipeline_mode"]
           priority?: number
           product_id?: string | null
@@ -11700,6 +11702,7 @@ export type Database = {
           last_error?: string | null
           last_progress_at?: string | null
           locked_at?: string | null
+          persona_profile?: string
           pipeline_mode?: Database["public"]["Enums"]["pipeline_mode"]
           priority?: number
           product_id?: string | null
@@ -66490,6 +66493,7 @@ export type Database = {
           last_error: string | null
           last_progress_at: string | null
           locked_at: string | null
+          persona_profile: string
           pipeline_mode: Database["public"]["Enums"]["pipeline_mode"]
           priority: number
           product_id: string | null
@@ -66822,6 +66826,7 @@ export type Database = {
           last_error: string | null
           last_progress_at: string | null
           locked_at: string | null
+          persona_profile: string
           pipeline_mode: Database["public"]["Enums"]["pipeline_mode"]
           priority: number
           product_id: string | null
