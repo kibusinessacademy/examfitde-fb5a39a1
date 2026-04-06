@@ -550,11 +550,13 @@ Deno.serve(async (req) => {
         .eq("curriculum_id", curriculumId);
 
       // Memory-safe: count approved per LF with aggregate query
+      // FIX: tier1_passed questions are coverage-equivalent — they passed structural
+      // validation and have status=approved. Excluding them caused false MISSING_LF_COVERAGE.
       const { data: approvedLfRows } = await sb
         .from("exam_questions")
         .select("learning_field_id")
         .eq("curriculum_id", curriculumId)
-        .in("qc_status", ["approved"])
+        .in("qc_status", ["approved", "tier1_passed"])
         .not("learning_field_id", "is", null)
         .limit(1000);
 
