@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { runAdminOpsAction, unblockPackage } from '@/integrations/supabase/admin-ops-actions';
+import { runAdminOpsAction } from '@/integrations/supabase/admin-ops-actions';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import {
@@ -10,13 +10,16 @@ import {
 } from '@/components/admin/AdminSheet';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Wrench, RotateCcw, AlertTriangle, CheckCircle2, ArrowRight } from 'lucide-react';
+import { Loader2, Wrench, RotateCcw, AlertTriangle, CheckCircle2, ArrowRight, ShieldOff } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 interface BlockedPackage {
   id: string;
   title: string;
   score: number;
+  status: string;
+  block_reason: string;
+  build_progress: number;
   hard_fail_reasons: string[];
   warnings: string[];
   readiness_score: number;
@@ -30,9 +33,15 @@ type HealAction = {
   description: string;
 };
 
-function mapHardFailsToHealActions(hardFails: string[]): HealAction[] {
+function mapHardFailsToHealActions(hardFails: string[], blockReason: string): HealAction[] {
   const actions: HealAction[] = [];
   const seen = new Set<string>();
+
+  // For admin_hold, offer unblock
+  if (blockReason.startsWith('admin_hold')) {
+    actions.push({ key: 'unblock', label: 'Admin-Hold aufheben', description: 'Paket zurück in die Pipeline freigeben' });
+    return actions;
+  }
 
   for (const reason of hardFails) {
     const upper = reason.toUpperCase();
@@ -82,7 +91,6 @@ function mapHardFailsToHealActions(hardFails: string[]): HealAction[] {
 }
 
 function formatReasonCode(reason: string): { label: string; detail: string } {
-  // Extract the code prefix and detail
   const colonIdx = reason.indexOf(':');
   if (colonIdx > 0) {
     return {
@@ -98,8 +106,9 @@ function BlockedPackageItem({ pkg, onHeal, busy }: {
   onHeal: (packageId: string, action: string, stepKey?: string) => void;
   busy: boolean;
 }) {
-  const healActions = mapHardFailsToHealActions(pkg.hard_fail_reasons);
+  const healActions = mapHardFailsToHealActions(pkg.hard_fail_reasons, pkg.block_reason);
   const scoreTone = pkg.score >= 90 ? 'text-amber-500' : pkg.score >= 70 ? 'text-orange-500' : 'text-destructive';
+  const isAdminHold = pkg.block_reason.startsWith('admin_hold');
 
   return (
     <div className="rounded-xl border border-border bg-card p-4 space-y-3">
@@ -114,52 +123,72 @@ function BlockedPackageItem({ pkg, onHeal, busy }: {
             <ArrowRight className="h-3 w-3 shrink-0" />
           </Link>
           <div className="text-[10px] text-muted-foreground font-mono mt-0.5">
-            {pkg.id.slice(0, 8)}
+            {pkg.id.slice(0, 8)} · {pkg.build_progress}%
           </div>
         </div>
         <div className="text-right shrink-0">
-          <div className={cn("text-lg font-bold", scoreTone)}>{pkg.score}</div>
-          <div className="text-[10px] text-muted-foreground">Score</div>
-        </div>
-      </div>
-
-      {/* Hard Fail Reasons */}
-      <div className="space-y-1.5">
-        <div className="text-[11px] font-semibold text-destructive flex items-center gap-1">
-          <AlertTriangle className="h-3 w-3" />
-          Blockadegründe
-        </div>
-        {pkg.hard_fail_reasons.map((reason, i) => {
-          const { label, detail } = formatReasonCode(reason);
-          return (
-            <div key={i} className="rounded-lg border border-destructive/20 bg-destructive/5 p-2">
-              <div className="text-xs font-medium text-foreground">{label}</div>
-              {detail && <div className="text-[11px] text-muted-foreground mt-0.5">{detail}</div>}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Warnings (collapsed) */}
-      {pkg.warnings.length > 0 && (
-        <div className="space-y-1">
-          <div className="text-[11px] font-semibold text-warning flex items-center gap-1">
-            <AlertTriangle className="h-3 w-3" />
-            Warnungen ({pkg.warnings.length})
-          </div>
-          {pkg.warnings.slice(0, 2).map((w, i) => {
-            const { label, detail } = formatReasonCode(w);
-            return (
-              <div key={i} className="rounded-lg border border-warning/20 bg-warning/5 p-2">
-                <div className="text-[11px] font-medium text-foreground">{label}</div>
-                {detail && <div className="text-[10px] text-muted-foreground mt-0.5">{detail}</div>}
-              </div>
-            );
-          })}
-          {pkg.warnings.length > 2 && (
-            <div className="text-[10px] text-muted-foreground pl-2">+{pkg.warnings.length - 2} weitere</div>
+          {isAdminHold ? (
+            <Badge variant="outline" className="text-[10px] border-warning/50 text-warning">Hold</Badge>
+          ) : (
+            <>
+              <div className={cn("text-lg font-bold", scoreTone)}>{pkg.score}</div>
+              <div className="text-[10px] text-muted-foreground">Score</div>
+            </>
           )}
         </div>
+      </div>
+
+      {/* Block Reason */}
+      {isAdminHold ? (
+        <div className="rounded-lg border border-warning/20 bg-warning/5 p-2">
+          <div className="text-xs font-medium text-foreground">Admin Hold</div>
+          <div className="text-[10px] text-muted-foreground mt-0.5">
+            {pkg.block_reason.replace('admin_hold:', '').trim() || 'Manuell blockiert'}
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Hard Fail Reasons */}
+          {pkg.hard_fail_reasons.length > 0 && (
+            <div className="space-y-1.5">
+              <div className="text-[11px] font-semibold text-destructive flex items-center gap-1">
+                <AlertTriangle className="h-3 w-3" />
+                Blockadegründe
+              </div>
+              {pkg.hard_fail_reasons.map((reason, i) => {
+                const { label, detail } = formatReasonCode(reason);
+                return (
+                  <div key={i} className="rounded-lg border border-destructive/20 bg-destructive/5 p-2">
+                    <div className="text-xs font-medium text-foreground">{label}</div>
+                    {detail && <div className="text-[11px] text-muted-foreground mt-0.5">{detail}</div>}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Warnings (collapsed) */}
+          {pkg.warnings.length > 0 && (
+            <div className="space-y-1">
+              <div className="text-[11px] font-semibold text-warning flex items-center gap-1">
+                <AlertTriangle className="h-3 w-3" />
+                Warnungen ({pkg.warnings.length})
+              </div>
+              {pkg.warnings.slice(0, 2).map((w, i) => {
+                const { label, detail } = formatReasonCode(w);
+                return (
+                  <div key={i} className="rounded-lg border border-warning/20 bg-warning/5 p-2">
+                    <div className="text-[11px] font-medium text-foreground">{label}</div>
+                    {detail && <div className="text-[10px] text-muted-foreground mt-0.5">{detail}</div>}
+                  </div>
+                );
+              })}
+              {pkg.warnings.length > 2 && (
+                <div className="text-[10px] text-muted-foreground pl-2">+{pkg.warnings.length - 2} weitere</div>
+              )}
+            </div>
+          )}
+        </>
       )}
 
       {/* Heal Actions */}
@@ -179,6 +208,8 @@ function BlockedPackageItem({ pkg, onHeal, busy }: {
               onClick={() => {
                 if (action.key === 'retry_stalled_step') {
                   onHeal(pkg.id, action.key, 'run_integrity_check');
+                } else if (action.key === 'unblock') {
+                  onHeal(pkg.id, 'unblock_package');
                 } else {
                   onHeal(pkg.id, action.key);
                 }
@@ -207,20 +238,19 @@ export function BlockedPackagesSheet({ open, onOpenChange }: {
 }) {
   const { toast } = useToast();
   const qc = useQueryClient();
+  const [showAdminHolds, setShowAdminHolds] = useState(false);
 
   const { data: blockedPackages = [], isLoading } = useQuery({
     queryKey: ['blocked-packages-detail'],
     queryFn: async () => {
       const sb = supabase as any;
 
-      // Use ops_blocked_packages which has integrity_report column
       const { data: pkgs, error } = await sb
         .from('ops_blocked_packages')
-        .select('package_id, title, integrity_report, status, block_reason, block_priority');
+        .select('package_id, title, integrity_report, status, block_reason, block_priority, build_progress');
 
       if (error) throw error;
 
-      // Fetch blocker details
       const ids = (pkgs || []).map((p: any) => p.package_id);
       const { data: blockers } = ids.length > 0
         ? await sb.from('ops_package_blockers').select('*').in('package_id', ids)
@@ -239,6 +269,9 @@ export function BlockedPackagesSheet({ open, onOpenChange }: {
         return {
           id: p.package_id,
           title: p.title || 'Unbenannt',
+          status: p.status,
+          block_reason: p.block_reason || 'unknown',
+          build_progress: p.build_progress ?? 0,
           score: p.integrity_report?.score ?? 0,
           hard_fail_reasons: summary.hard_fail_reasons || [],
           warnings: report.warnings || [],
@@ -246,21 +279,34 @@ export function BlockedPackagesSheet({ open, onOpenChange }: {
           qc_approved_pct: blocker?.qc_approved_pct ?? 0,
           blocker_count: blocker?.blocker_count ?? 0,
         } as BlockedPackage;
-      }).sort((a: BlockedPackage, b: BlockedPackage) => b.score - a.score);
+      }).sort((a: BlockedPackage, b: BlockedPackage) => {
+        // Admin holds last
+        const aHold = a.block_reason.startsWith('admin_hold') ? 1 : 0;
+        const bHold = b.block_reason.startsWith('admin_hold') ? 1 : 0;
+        if (aHold !== bHold) return aHold - bHold;
+        return b.score - a.score;
+      });
     },
     enabled: open,
     staleTime: 15_000,
   });
+
+  const nonHoldPackages = blockedPackages.filter(p => !p.block_reason.startsWith('admin_hold'));
+  const holdPackages = blockedPackages.filter(p => p.block_reason.startsWith('admin_hold'));
+  const displayPackages = showAdminHolds ? holdPackages : nonHoldPackages;
 
   const healMutation = useMutation({
     mutationFn: async ({ packageId, action, stepKey }: { packageId: string; action: string; stepKey?: string }) => {
       if (action === 'retry_stalled_step') {
         return runAdminOpsAction('retry_package_step', { package_id: packageId, step_key: stepKey || 'run_integrity_check' });
       }
+      if (action === 'unblock_package') {
+        return runAdminOpsAction('unblock_package' as any, { package_id: packageId });
+      }
       return runAdminOpsAction(action as any, { package_id: packageId });
     },
     onSuccess: (_data, vars) => {
-      toast({ title: 'Reparatur gestartet', description: `Aktion "${vars.action}" für Paket wurde eingeplant.` });
+      toast({ title: 'Aktion gestartet', description: `Aktion "${vars.action}" für Paket wurde eingeplant.` });
       qc.invalidateQueries({ queryKey: ['blocked-packages-detail'] });
       qc.invalidateQueries({ queryKey: ['command-data'] });
     },
@@ -271,27 +317,57 @@ export function BlockedPackagesSheet({ open, onOpenChange }: {
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-lg ">
+      <SheetContent side="right" className="w-full sm:max-w-lg">
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             <AlertTriangle className="h-5 w-5 text-destructive" />
-            Blockierte Pakete ({blockedPackages.length})
+            Blockierte Pakete ({nonHoldPackages.length})
+            {holdPackages.length > 0 && (
+              <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                +{holdPackages.length} Admin-Hold
+              </Badge>
+            )}
           </SheetTitle>
         </SheetHeader>
+
+        {/* Tab toggle */}
+        {holdPackages.length > 0 && (
+          <div className="flex gap-2 mt-3">
+            <Button
+              size="sm"
+              variant={!showAdminHolds ? 'default' : 'outline'}
+              className="text-xs h-7"
+              onClick={() => setShowAdminHolds(false)}
+            >
+              Blockiert ({nonHoldPackages.length})
+            </Button>
+            <Button
+              size="sm"
+              variant={showAdminHolds ? 'default' : 'outline'}
+              className="text-xs h-7"
+              onClick={() => setShowAdminHolds(true)}
+            >
+              <ShieldOff className="h-3 w-3 mr-1" />
+              Admin-Hold ({holdPackages.length})
+            </Button>
+          </div>
+        )}
 
         <div className="mt-4 space-y-3">
           {isLoading && (
             <div className="text-sm text-muted-foreground">Lade blockierte Pakete…</div>
           )}
 
-          {!isLoading && blockedPackages.length === 0 && (
+          {!isLoading && displayPackages.length === 0 && (
             <div className="rounded-xl border border-success/20 bg-success/5 p-4 flex items-center gap-3">
               <CheckCircle2 className="h-5 w-5 text-success" />
-              <div className="text-sm text-foreground">Keine blockierten Pakete.</div>
+              <div className="text-sm text-foreground">
+                {showAdminHolds ? 'Keine Admin-Hold Pakete.' : 'Keine blockierten Pakete.'}
+              </div>
             </div>
           )}
 
-          {blockedPackages.map((pkg) => (
+          {displayPackages.map((pkg) => (
             <BlockedPackageItem
               key={pkg.id}
               pkg={pkg}
