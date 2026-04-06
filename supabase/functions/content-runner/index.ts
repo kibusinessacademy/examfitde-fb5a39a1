@@ -891,6 +891,20 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
   });
   jobs = ((jobs ?? []) as any[]).slice(0, claimCount);
 
+  // ── Also claim prebuild-pool jobs (variant materialization) ──
+  const prebuildSlots = Math.max(1, Math.floor(claimCount / 3)); // reserve ~1/3 for prebuild
+  // deno-lint-ignore no-explicit-any
+  const { data: prebuildJobs, error: prebuildErr } = await sb.rpc("claim_pending_jobs_v4" as any, {
+    p_limit: prebuildSlots,
+    p_worker_id: WORKER_ID,
+    p_lock_timeout_minutes: CONTENT_LOCK_TIMEOUT_MINUTES,
+    p_worker_pool: "prebuild",
+  });
+  if (!prebuildErr && prebuildJobs && prebuildJobs.length > 0) {
+    console.log(`[content-runner] Also claimed ${prebuildJobs.length} prebuild job(s)`);
+    jobs = [...(jobs ?? []), ...(prebuildJobs as any[])];
+  }
+
   if (claimErr) {
     console.error(`[content-runner] claim error: ${claimErr.message}`);
     return { claimed: 0, succeeded: 0, failed: 0, deferred: 0 };
