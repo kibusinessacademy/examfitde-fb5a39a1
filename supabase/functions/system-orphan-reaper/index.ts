@@ -136,7 +136,16 @@ Deno.serve(async (req) => {
   }
 
   // 5. WIP Enforcement: demote excess building packages
-  const WIP_CAP = 13;
+  // DM3: Read WIP cap from config (SSOT) instead of hardcoding
+  let WIP_CAP = 14;
+  try {
+    const { data: wipCfg } = await sb
+      .from("ops_pipeline_config")
+      .select("value")
+      .eq("key", "wip_total_cap")
+      .maybeSingle();
+    if (wipCfg?.value) WIP_CAP = Number(wipCfg.value) || 14;
+  } catch { /* fallback to 14 */ }
   const { data: buildingPkgs } = await sb
     .from("course_packages")
     .select("id, priority, build_progress, updated_at")
