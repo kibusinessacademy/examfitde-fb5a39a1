@@ -5,6 +5,7 @@ import { getModelChainAsync } from "../_shared/model-routing.ts";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
 import { bootstrapLLMLogging } from "../_shared/llm-log-bootstrap.ts";
 import { MAX_QUESTIONS_PER_PACKAGE } from "../_shared/exam-pool-limits.ts";
+import { QC_COVERAGE_ELIGIBLE } from "../_shared/qc-status.ts";
 
 /**
  * pool-fill-lf-gaps — Targeted LF gap-fill worker
@@ -93,7 +94,7 @@ async function countCoveredQuestions(
     .select("id", { count: "exact", head: true })
     .eq("curriculum_id", curriculumId)
     .eq("learning_field_id", lfId)
-    .in("qc_status", ["approved", "tier1_passed"]);
+    .in("qc_status", QC_COVERAGE_ELIGIBLE as unknown as string[]);
   return count ?? 0;
 }
 
@@ -154,7 +155,7 @@ Deno.serve(async (req) => {
         .from("exam_questions")
         .select("learning_field_id")
         .eq("curriculum_id", curriculumId)
-        .in("qc_status", ["approved", "tier1_passed"])
+        .in("qc_status", QC_COVERAGE_ELIGIBLE as unknown as string[])
         .limit(5000);
 
       const coveredSet = new Set((coveredRows || []).map((x: any) => x.learning_field_id));

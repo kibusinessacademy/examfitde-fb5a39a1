@@ -157,7 +157,7 @@ async function artifactExists(
         .eq("curriculum_id", curriculumId);
 
       if (artifact === "validated_exam_pool") {
-        // Only validated_exam_pool needs the strict QC filter
+        // Only validated_exam_pool needs the strict QC filter — use SSOT constants
         readyQuery = readyQuery.or("status.eq.approved,qc_status.eq.approved,qc_status.eq.tier1_passed");
       }
       // For "exam_questions" artifact: count ALL questions (draft included)

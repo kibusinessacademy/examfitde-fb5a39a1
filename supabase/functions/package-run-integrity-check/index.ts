@@ -3,6 +3,7 @@ import { pctOrNA } from "../_shared/math-helpers.ts";
 import { checkExamPartMappingDrift } from "../_shared/exam-part-mappings.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { enqueueJob } from "../_shared/enqueue.ts";
+import { QC_COVERAGE_ELIGIBLE } from "../_shared/qc-status.ts";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -28,7 +29,7 @@ async function fetchAllApprovedQuestions(
     .from("exam_questions")
     .select("id", { count: "exact", head: true })
     .eq("curriculum_id", currFilter)
-    .in("qc_status", ["approved", "tier1_passed"]);
+    .in("qc_status", QC_COVERAGE_ELIGIBLE as unknown as string[]);
 
   const expectedCount = totalExpected ?? 0;
 
@@ -40,7 +41,7 @@ async function fetchAllApprovedQuestions(
       .from("exam_questions")
       .select("id, difficulty, cognitive_level, learning_field_id, competency_id, blueprint_id, exam_part, is_trap, trap_type, conflict_type, complexity_score, scenario_type")
       .eq("curriculum_id", currFilter)
-      .in("qc_status", ["approved", "tier1_passed"])
+      .in("qc_status", QC_COVERAGE_ELIGIBLE as unknown as string[])
       .order("id", { ascending: true })
       .range(offset, offset + PAGE_SIZE - 1);
 

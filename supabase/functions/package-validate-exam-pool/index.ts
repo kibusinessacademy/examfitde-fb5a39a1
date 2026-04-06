@@ -5,6 +5,7 @@ import { resolveProfession } from "../_shared/profession-resolver.ts";
 import { callAIJSON } from "../_shared/ai-client.ts";
 import { getModel } from "../_shared/model-routing.ts";
 import { handleDbFailure } from "../_shared/job-fail.ts";
+import { QC_COVERAGE_ELIGIBLE } from "../_shared/qc-status.ts";
 
 // ── Snapshot Write-Path Helpers ──
 
@@ -556,7 +557,7 @@ Deno.serve(async (req) => {
         .from("exam_questions")
         .select("learning_field_id")
         .eq("curriculum_id", curriculumId)
-        .in("qc_status", ["approved", "tier1_passed"])
+        .in("qc_status", QC_COVERAGE_ELIGIBLE as unknown as string[])
         .not("learning_field_id", "is", null)
         .limit(1000);
 
