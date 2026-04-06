@@ -173,17 +173,18 @@ else
   green "✅ Guard 6 passed: no direct progress calculations bypassing SSOT view"
 fi
 
-# ── Guard 7: No inline QC status arrays — must use shared SSOT helpers ─
+# ── Guard 7: No inline QC coverage status arrays — must use shared SSOT helpers ─
+# Only flags hardcoded coverage-eligible arrays: ["approved", "tier1_passed"]
+# Does NOT flag other qc_status filters (e.g. tier1_failed, needs_revision, pending)
 echo ""
 echo "🔍 Guard 7: inline QC coverage status arrays..."
 QC_INLINE_HITS=$(grep -rn --include='*.ts' --include='*.tsx' \
-  -e "qc_status.*IN.*approved.*tier1_passed" \
-  -e "qc_status.*in.*approved.*tier1_passed" \
-  -e '\.in("qc_status"' \
-  -e "\.in('qc_status'" \
   -e '"approved", "tier1_passed"' \
   -e "'approved', 'tier1_passed'" \
   -e '"approved","tier1_passed"' \
+  -e "'approved','tier1_passed'" \
+  -e '"tier1_passed", "approved"' \
+  -e "'tier1_passed', 'approved'" \
   src/ supabase/functions/ \
   | grep -v 'qc-status\.ts' \
   | grep -v 'qcStatus\.ts' \
