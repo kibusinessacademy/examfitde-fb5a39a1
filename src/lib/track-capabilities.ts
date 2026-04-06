@@ -31,7 +31,7 @@ export const TRACK_CAPABILITIES: Record<Track, TrackCapabilities> = {
     hasLearningCourse: true,
     hasMiniChecks: true,
     hasHandbook: true,
-    hasOralExam: false,
+    hasOralExam: true,
     isExamCentric: false,
     isExamOnly: false,
     eliteHardenEligible: false,
