@@ -4280,6 +4280,57 @@ export type Database = {
           },
         ]
       }
+      blueprint_variant_inventory: {
+        Row: {
+          approved_count: number
+          blueprint_id: string
+          coverage_ratio: number | null
+          created_at: string
+          curriculum_id: string
+          fingerprint: string | null
+          id: string
+          last_error: string | null
+          last_job_at: string | null
+          materialized_count: number
+          package_id: string | null
+          status: string
+          target_count: number
+          updated_at: string
+        }
+        Insert: {
+          approved_count?: number
+          blueprint_id: string
+          coverage_ratio?: number | null
+          created_at?: string
+          curriculum_id: string
+          fingerprint?: string | null
+          id?: string
+          last_error?: string | null
+          last_job_at?: string | null
+          materialized_count?: number
+          package_id?: string | null
+          status?: string
+          target_count?: number
+          updated_at?: string
+        }
+        Update: {
+          approved_count?: number
+          blueprint_id?: string
+          coverage_ratio?: number | null
+          created_at?: string
+          curriculum_id?: string
+          fingerprint?: string | null
+          id?: string
+          last_error?: string | null
+          last_job_at?: string | null
+          materialized_count?: number
+          package_id?: string | null
+          status?: string
+          target_count?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       blueprint_variants: {
         Row: {
           blueprint_id: string
@@ -65098,6 +65149,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      fn_is_variant_inventory_ready: {
+        Args: { p_package_id: string }
+        Returns: boolean
+      }
       fn_minicheck_publish_gate: {
         Args: { p_curriculum_id: string }
         Returns: Json
@@ -65159,6 +65214,10 @@ export type Database = {
           p_reason?: string
         }
         Returns: undefined
+      }
+      fn_update_package_prebuild_status: {
+        Args: { p_package_id: string }
+        Returns: string
       }
       fn_validate_blueprint_preflight: {
         Args: { p_blueprint_id: string }
