@@ -61864,13 +61864,7 @@ export type Database = {
         }
         Returns: string
       }
-      compute_priority_scores: {
-        Args: never
-        Returns: {
-          scored: number
-          skipped: number
-        }[]
-      }
+      compute_priority_scores: { Args: never; Returns: number }
       compute_qa_release_gate: { Args: never; Returns: Json }
       compute_question_hash: { Args: { p_text: string }; Returns: string }
       compute_readiness: {
