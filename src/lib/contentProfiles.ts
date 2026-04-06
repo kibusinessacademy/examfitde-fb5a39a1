@@ -215,14 +215,19 @@ const TRACK_PROFILES: Record<Track, ContentProfile> = {
 };
 
 /**
- * Get content profile. Priority: persona_profile > track fallback.
+ * Get content profile. Accepts either:
+ * - A track string (legacy): getContentProfile("AUSBILDUNG_VOLL")
+ * - A package object: getContentProfile({ track, persona_profile })
  */
-export function getContentProfile(pkg: {
-  track?: unknown;
-  persona_profile?: string | null;
-}): ContentProfile {
-  const persona = resolvePersonaProfile(pkg);
-  return PERSONA_PROFILES[persona];
+export function getContentProfile(input: unknown): ContentProfile {
+  if (typeof input === "object" && input !== null && !Array.isArray(input)) {
+    const pkg = input as { track?: unknown; persona_profile?: string | null };
+    const persona = resolvePersonaProfile(pkg);
+    return PERSONA_PROFILES[persona];
+  }
+  // Legacy: track string
+  const track = normalizeTrack(input);
+  return TRACK_PROFILES[track];
 }
 
 // ── Legacy exports for backward compat ────────────────────────
