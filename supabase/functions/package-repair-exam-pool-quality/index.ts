@@ -377,10 +377,9 @@ async function handleNoEffect(
   preSnapshot: Record<string, unknown>,
   gateChange: { check_failed?: boolean; check_failed_reason?: string },
 ) {
-  // Ensure repair step exists before updating it
-  await ensureRepairStep(sb, packageId);
-  // FIX: Mark repair step as 'blocked' (not 'done') — no-effect is NOT success
-  await sb.from("package_steps").update({
+  const stepExists = await ensureRepairStep(sb, packageId);
+  if (stepExists) {
+    await sb.from("package_steps").update({
     status: "blocked",
     updated_at: new Date().toISOString(),
     meta: {
