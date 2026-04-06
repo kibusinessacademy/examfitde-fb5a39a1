@@ -47,7 +47,7 @@ export function getRunnerConfig(kind: RunnerKind): RunnerConfig {
 export type TrackKey = "AUSBILDUNG_VOLL" | "EXAM_FIRST" | "EXAM_FIRST_PLUS" | "STUDIUM";
 
 /** Hard ceiling across all tracks — must match ops_pipeline_config.wip_limit */
-export const WIP_TOTAL_CAP = 13;
+export const WIP_TOTAL_CAP = 14;
 
 /**
  * WIP quota per track: max packages in "building" status simultaneously.
