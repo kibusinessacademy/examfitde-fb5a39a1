@@ -26,7 +26,14 @@ export interface AdminQueueJob {
   health_signal: 'zombie' | 'stale_lock' | 'exhausted' | 'retriable' | 'aging' | 'normal';
 }
 
-type QueueFilters = { status?: string; jobType?: string };
+export interface QueueCounts {
+  pending: number;
+  processing: number;
+  failed: number;
+  completed_1h: number;
+  cancelled: number;
+  total: number;
+}
 
 type QueueHealthSignal = AdminQueueJob['health_signal'];
 
@@ -95,53 +102,68 @@ function mapLegacyJob(job: OpsJobItem): AdminQueueJob {
   });
 }
 
-function applyFilters(jobs: AdminQueueJob[], filters?: QueueFilters) {
-  let list = jobs;
+/**
+ * Server-side counts — never truncated by row limits.
+ */
+export function useAdminQueueCounts() {
+  return useQuery<QueueCounts>({
+    queryKey: ['admin', 'queue-counts'],
+    queryFn: async () => {
+      const oneHourAgo = new Date(Date.now() - 3600_000).toISOString();
 
-  if (filters?.status) {
-    list = list.filter((job) => job.job_status === filters.status);
-  }
+      const [pending, processing, failed, completed1h, cancelled] = await Promise.all([
+        supabase.from('job_queue').select('id', { head: true, count: 'exact' }).in('status', ['pending', 'queued']),
+        supabase.from('job_queue').select('id', { head: true, count: 'exact' }).in('status', ['processing', 'running', 'batch_pending']),
+        supabase.from('job_queue').select('id', { head: true, count: 'exact' }).eq('status', 'failed'),
+        supabase.from('job_queue').select('id', { head: true, count: 'exact' }).eq('status', 'completed').gte('updated_at', oneHourAgo),
+        supabase.from('job_queue').select('id', { head: true, count: 'exact' }).eq('status', 'cancelled'),
+      ]);
 
-  if (filters?.jobType) {
-    list = list.filter((job) => job.job_type === filters.jobType);
-  }
-
-  return [...list]
-    .sort((a, b) => {
-      const priorityA = a.priority ?? Number.MAX_SAFE_INTEGER;
-      const priorityB = b.priority ?? Number.MAX_SAFE_INTEGER;
-      if (priorityA !== priorityB) return priorityA - priorityB;
-      return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-    })
-    .slice(0, 500);
+      return {
+        pending: pending.count ?? 0,
+        processing: processing.count ?? 0,
+        failed: failed.count ?? 0,
+        completed_1h: completed1h.count ?? 0,
+        cancelled: cancelled.count ?? 0,
+        total: (pending.count ?? 0) + (processing.count ?? 0) + (failed.count ?? 0),
+      };
+    },
+    refetchInterval: 10_000,
+    staleTime: 5_000,
+  });
 }
 
-export function useAdminQueueSSOT(filters?: QueueFilters) {
+export function useAdminQueueSSOT(statusFilter?: string) {
   return useQuery({
-    queryKey: ['admin', 'queue-ssot', filters],
+    queryKey: ['admin', 'queue-ssot', statusFilter],
     queryFn: async (): Promise<AdminQueueJob[]> => {
-      // Primary: SSOT view — exclude cancelled/archived jobs
+      // Map UI filter to actual DB statuses
+      const statusMap: Record<string, string[]> = {
+        pending: ['pending', 'queued'],
+        processing: ['processing', 'running', 'batch_pending'],
+        failed: ['failed'],
+        completed: ['completed'],
+        cancelled: ['cancelled'],
+      };
+
+      // Default: show active statuses only
+      const statuses = statusFilter && statusFilter !== 'all'
+        ? statusMap[statusFilter] || [statusFilter]
+        : ['pending', 'queued', 'processing', 'running', 'batch_pending', 'failed'];
+
       try {
-        let query = (supabase as any)
+        const query = (supabase as any)
           .from('v_admin_queue_ssot')
           .select('*')
-          .not('job_status', 'eq', 'cancelled')
+          .in('job_status', statuses)
           .order('priority', { ascending: true })
           .order('created_at', { ascending: true })
-          .limit(500);
-
-        if (filters?.status) {
-          query = query.eq('job_status', filters.status);
-        }
-        if (filters?.jobType) {
-          query = query.eq('job_type', filters.jobType);
-        }
+          .limit(200);
 
         const { data, error } = await query;
-        if (!error && Array.isArray(data) && data.length >= 0) {
-          return data.map((row) => normalizeQueueJob(row as Partial<AdminQueueJob>));
+        if (!error && Array.isArray(data)) {
+          return data.map((row: any) => normalizeQueueJob(row as Partial<AdminQueueJob>));
         }
-
         console.warn('[admin-queue] SSOT view error, using fallback:', error?.message);
       } catch (e) {
         console.warn('[admin-queue] SSOT query exception, using fallback:', e);
@@ -150,7 +172,7 @@ export function useAdminQueueSSOT(filters?: QueueFilters) {
       // Fallback: edge function
       try {
         const fallbackJobs = await adminRpc.opsQueueOverview();
-        return applyFilters(fallbackJobs.map(mapLegacyJob), filters);
+        return fallbackJobs.map(mapLegacyJob).slice(0, 200);
       } catch (e) {
         console.warn('[admin-queue] Fallback also failed:', e);
         return [];
