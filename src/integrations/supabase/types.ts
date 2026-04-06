@@ -64619,6 +64619,7 @@ export type Database = {
           package_id: string
         }[]
       }
+      fn_cancel_zombie_jobs: { Args: never; Returns: number }
       fn_capture_gate_snapshot: {
         Args: { p_package_id: string }
         Returns: Json

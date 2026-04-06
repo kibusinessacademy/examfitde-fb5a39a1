@@ -140,6 +140,20 @@ async function dispatchJob(job: any, supabaseUrl: string, serviceKey: string): P
 
     if (!res.ok) {
       const text = await res.text().catch(() => "");
+      
+      // ── HTTP 409 RETRY GUARD ──
+      // Edge functions return HTTP 409 with { retry: true } when prerequisites
+      // are not met (e.g. PREREQ_NOT_DONE). Treat as validator retry to avoid
+      // burning attempts and creating retry storms.
+      if (res.status === 409) {
+        try {
+          const body409 = JSON.parse(text);
+          if (body409?.retry === true) {
+            return { ok: true, result: { ...body409, ok: false, retry: true, backoff_seconds: 300 } };
+          }
+        } catch { /* not JSON, fall through to normal error */ }
+      }
+      
       return { ok: false, error: `HTTP ${res.status}: ${text.slice(0, 300)}` };
     }
 
