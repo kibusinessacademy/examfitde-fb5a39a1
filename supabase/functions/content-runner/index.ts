@@ -580,6 +580,24 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
     } else {
       // Transient or permanent failure
       const errorStr = sanitizeError(dispatchError || "");
+
+      // ── SELF-POISONING GUARD ──
+      // "all_candidates_on_cooldown" is a ROUTER STATE, not a provider error.
+      // Do NOT count it as transient, do NOT set new cooldowns, just requeue.
+      if (errorStr.includes("all_candidates_on_cooldown")) {
+        const deferAt = new Date(Date.now() + 20_000).toISOString(); // 20s backoff
+        await sb.from("job_queue").update({
+          status: "pending",
+          run_after: deferAt,
+          locked_at: null,
+          locked_by: null,
+          updated_at: new Date().toISOString(),
+          last_error: `ROUTING_DEFERRED: all_candidates_on_cooldown — requeued without attempt increment`,
+        }).eq("id", job.id);
+        console.warn(`[content-runner] ⏸️ ROUTING_DEFERRED ${job.job_type} (${shortId}) — all candidates on cooldown, requeue in 20s (no attempt increment)`);
+        return { id: job.id, ok: false, error: "routing_deferred", terminal: false };
+      }
+
       const classification = classifyError(errorStr);
       const isTransientErr = classification.isTransient;
       const now = new Date().toISOString();

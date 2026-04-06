@@ -148,20 +148,14 @@ export async function filterCooledDownProviders(
       return available;
     }
 
-    // All on cooldown — pick the one expiring soonest
-    let best = chain[0];
-    let bestUntil = Infinity;
-    for (const c of chain) {
-      const cd = activeCooldowns.find((x: any) => x.provider === c.provider && x.model === c.model);
-      const until = cd ? new Date(cd.until_at).getTime() : 0;
-      if (until < bestUntil) {
-        bestUntil = until;
-        best = c;
-      }
-    }
-    const remainSec = Math.round((bestUntil - nowMs) / 1000);
-    console.warn(`[COOLDOWN] ALL providers on cooldown — using least-cooled: ${best.provider}/${best.model} (${remainSec}s remaining)`);
-    return [best];
+    // All on cooldown — return empty to trigger deferral upstream.
+    // DO NOT return a "least-cooled" candidate — that re-enters the loop.
+    const soonest = activeCooldowns.reduce((a: any, b: any) =>
+      new Date(a.until_at).getTime() < new Date(b.until_at).getTime() ? a : b
+    );
+    const remainSec = Math.round((new Date(soonest.until_at).getTime() - nowMs) / 1000);
+    console.warn(`[COOLDOWN] ALL providers on cooldown — deferring dispatch (soonest expires in ${remainSec}s: ${soonest.provider}/${soonest.model} [${soonest.job_type}])`);
+    return [];
   } catch (e) {
     console.warn(`[COOLDOWN] DB check failed (proceeding unfiltered): ${(e as Error)?.message?.slice(0, 100)}`);
     return chain;
