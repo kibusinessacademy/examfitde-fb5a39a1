@@ -31,7 +31,7 @@ describe("Capability snapshots", () => {
       hasLearningCourse: true,
       hasMiniChecks: true,
       hasHandbook: true,
-      hasOralExam: false,
+      hasOralExam: true,
       isExamCentric: false,
       isExamOnly: false,
       eliteHardenEligible: false,
@@ -143,13 +143,13 @@ describe("getSkippedSteps / getRequiredSteps symmetry", () => {
 // ── Track-specific step assertions ───────────────────────────
 
 describe("Step composition per track", () => {
-  it("AUSBILDUNG_VOLL includes learning + minichecks + handbook, no oral/elite", () => {
+  it("AUSBILDUNG_VOLL includes learning + minichecks + handbook + oral, no elite", () => {
     const req = getRequiredSteps("AUSBILDUNG_VOLL");
     const skip = getSkippedSteps("AUSBILDUNG_VOLL");
     expect(req).toContain("scaffold_learning_course");
     expect(req).toContain("generate_lesson_minichecks");
     expect(req).toContain("generate_handbook");
-    expect(skip).toContain("generate_oral_exam");
+    expect(req).toContain("generate_oral_exam");
     expect(skip).toContain("elite_harden");
   });
 
