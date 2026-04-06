@@ -58,7 +58,7 @@ Deno.serve(async (req) => {
       sb.from("exam_questions")
         .select("id, learning_field_id, cognitive_level, bloom_level_validated, scenario_type, exam_part, time_estimate_seconds, typical_errors, item_difficulty, item_discrimination, discrimination_tier, normalized_hash, status, competency_id")
         .eq("curriculum_id", targetCurriculumId)
-        .in("status", ["approved", "tier1_passed", "pending"])
+        .in("status", [...QC_COVERAGE_ELIGIBLE, "pending"] as string[])
         .limit(5000),
       sb.from("question_blueprints")
         .select("id, learning_field_id, exam_context_type, typical_errors, bloom_level")

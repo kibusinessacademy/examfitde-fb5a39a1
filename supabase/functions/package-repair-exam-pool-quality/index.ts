@@ -160,7 +160,7 @@ Deno.serve(async (req) => {
     .from("exam_questions")
     .select("id", { count: "exact", head: true })
     .eq("curriculum_id", cid)
-    .in("qc_status", ["approved", "tier1_passed"]);
+    .in("qc_status", QC_COVERAGE_ELIGIBLE as unknown as string[]);
 
   const { count: postRepairUnresolved } = await sb
     .from("exam_questions")

@@ -109,7 +109,7 @@ async function computeExamPoolDeficit(
     .from("exam_questions")
     .select("id", { count: "exact", head: true })
     .eq("curriculum_id", curriculumId)
-    .in("status", ["approved", "tier1_passed"]); // SSOT: QC_COVERAGE_ELIGIBLE
+    .in("status", QC_COVERAGE_ELIGIBLE as unknown as string[]);
 
   const actual = approvedCount ?? 0;
 

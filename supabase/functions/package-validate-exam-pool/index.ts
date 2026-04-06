@@ -496,7 +496,8 @@ Deno.serve(async (req) => {
   } else {
     // Fallback: individual count queries (memory-safe)
     console.warn(`[validate-exam] qcAgg RPC failed (${qcAggErr?.message}), using fallback counts`);
-    for (const qs of ["pending", "approved", "tier1_passed", "tier1_failed", "needs_revision", "pruned_quality", "retired", "rejected"]) {
+    const ALL_QC_STATUSES = [...QC_COVERAGE_ELIGIBLE, ...QC_UNRESOLVED, ...QC_TERMINAL_REJECTED, "pending", "retired"];
+    for (const qs of ALL_QC_STATUSES) {
       const { count } = await sb
         .from("exam_questions")
         .select("id", { count: "exact", head: true })
