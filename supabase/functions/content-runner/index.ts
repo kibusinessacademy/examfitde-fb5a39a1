@@ -111,6 +111,13 @@ async function dispatchJob(job: any, supabaseUrl: string, serviceKey: string): P
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
+    // Normalize camelCase→snake_case payload keys (safety net for orphan_reconciler compat)
+    const rawPayload = job.payload ?? {};
+    const normalizedPayload = { ...rawPayload };
+    if (rawPayload.packageId && !rawPayload.package_id) normalizedPayload.package_id = rawPayload.packageId;
+    if (rawPayload.courseId && !rawPayload.course_id) normalizedPayload.course_id = rawPayload.courseId;
+    if (rawPayload.curriculumId && !rawPayload.curriculum_id) normalizedPayload.curriculum_id = rawPayload.curriculumId;
+
     const res = await fetch(url, {
       method: "POST",
       headers: {
@@ -118,7 +125,7 @@ async function dispatchJob(job: any, supabaseUrl: string, serviceKey: string): P
         Authorization: `Bearer ${serviceKey}`,
       },
       body: JSON.stringify({
-        ...(job.payload ?? {}),
+        ...normalizedPayload,
         attempts: job.attempts ?? 0,
         attempt_index: (job.meta?.transient_attempts ?? job.attempts ?? 0),
         max_attempts: job.max_attempts ?? 8,
