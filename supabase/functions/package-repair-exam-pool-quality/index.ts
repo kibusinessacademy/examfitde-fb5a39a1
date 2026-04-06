@@ -379,23 +379,27 @@ async function handleNoEffect(
 ) {
   const stepExists = await ensureRepairStep(sb, packageId);
   if (stepExists) {
+    // FIX: Mark repair step as 'blocked' (not 'done') — no-effect is NOT success
     await sb.from("package_steps").update({
-    status: "blocked",
-    updated_at: new Date().toISOString(),
-    meta: {
-      repair_complete: false,
-      qc_reconciled: qcReconciled,
-      no_effect_repair: true,
-      no_effect_repair_at: new Date().toISOString(),
-      no_effect_reason: gateChange.check_failed
-        ? "delta_check_unavailable"
-        : "repair_did_not_change_blocking_gate",
-      gate_delta_verified: false,
-      pre_gate_snapshot: preSnapshot,
-      delta_check_failed: gateChange.check_failed ?? false,
-      delta_check_failed_reason: gateChange.check_failed_reason ?? null,
-    },
-  }).eq("package_id", packageId).eq("step_key", "repair_exam_pool_quality");
+      status: "blocked",
+      updated_at: new Date().toISOString(),
+      meta: {
+        repair_complete: false,
+        qc_reconciled: qcReconciled,
+        no_effect_repair: true,
+        no_effect_repair_at: new Date().toISOString(),
+        no_effect_reason: gateChange.check_failed
+          ? "delta_check_unavailable"
+          : "repair_did_not_change_blocking_gate",
+        gate_delta_verified: false,
+        pre_gate_snapshot: preSnapshot,
+        delta_check_failed: gateChange.check_failed ?? false,
+        delta_check_failed_reason: gateChange.check_failed_reason ?? null,
+      },
+    }).eq("package_id", packageId).eq("step_key", "repair_exam_pool_quality");
+  } else {
+    console.warn(`[repair-exam-pool] Step row missing in handleNoEffect — skipping step update`);
+  }
 
   // FIX D: Do NOT clear blocked_reason — preserve the diagnostic trail.
   const existingBlockedReason = preSnapshot.blocked_reason as string | null;
