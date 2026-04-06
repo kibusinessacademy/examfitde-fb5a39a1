@@ -134,6 +134,25 @@ export async function processPackage(
     }
   }
 
+  // ── SSOT Step Reconciliation: skip steps that don't belong to this track ──
+  try {
+    const { data: reconResult } = await safeRpc(sb, "fn_reconcile_package_steps_to_ssot", { p_package_id: packageId });
+    if (reconResult && (reconResult as any)?.steps_fixed > 0) {
+      console.log(`[runner] 🔧 Reconciled ${shortId}: skipped ${(reconResult as any).steps_fixed} drifted steps (${(reconResult as any).fixed_steps?.join(",")})`);
+      // Re-load steps after reconciliation
+      const { data: refreshedSteps } = await sb
+        .from("package_steps")
+        .select("step_key,status,attempts,max_attempts,timeout_seconds,started_at,meta,job_id,last_error,updated_at")
+        .eq("package_id", packageId);
+      if (refreshedSteps) {
+        (steps as any[]).length = 0;
+        (steps as any[]).push(...refreshedSteps);
+      }
+    }
+  } catch (_reconErr) {
+    console.warn(`[runner] Reconcile guard error for ${shortId}: ${(_reconErr as Error).message}`);
+  }
+
   {
     const nowMs = Date.now();
     const pendingSteps = (steps || []).filter((s: any) => s.status !== 'done' && s.status !== 'skipped' && s.status !== 'blocked');
