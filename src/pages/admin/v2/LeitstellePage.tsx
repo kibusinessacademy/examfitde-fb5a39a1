@@ -32,6 +32,9 @@ const BlueprintPreflightCard = lazy(() => import('@/components/admin/cards/Bluep
 const BlockedButReadyCard = lazy(() => import('@/components/admin/cards/BlockedButReadyCard'));
 const RecoveryBoardCard = lazy(() => import('@/components/admin/cards/RecoveryBoardCard'));
 const ValidateGuardDiagnosticsCard = lazy(() => import('@/components/admin/cards/ValidateGuardDiagnosticsCard'));
+const BatchActionsCard = lazy(() => import('@/components/admin/cards/BatchActionsCard'));
+const WorkerLivenessCard = lazy(() => import('@/components/admin/cards/WorkerLivenessCard'));
+const ThroughputCard = lazy(() => import('@/components/admin/cards/ThroughputCard'));
 
 function KpiTile({ label, value, icon, tone = 'neutral', onClick }: {
   label: string;
