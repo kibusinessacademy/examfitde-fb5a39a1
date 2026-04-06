@@ -4,9 +4,10 @@ import {
   getTrackCapabilities,
   getSkippedSteps,
   getRequiredSteps,
+  resolveHasOralExam,
   cap,
 } from "../track-capabilities";
-import type { TrackCapabilities } from "../track-capabilities";
+import type { TrackCapabilities, CertificationContext } from "../track-capabilities";
 import { TRACKS } from "../tracks";
 
 // ── Capability map completeness ──────────────────────────────
@@ -54,7 +55,7 @@ describe("Capability snapshots", () => {
       hasMiniChecks: false,
       hasHandbook: true,
       canSupportOralExam: true,
-      hasOralExam: true,
+      hasOralExam: false, // cert-based
       isExamCentric: true,
       isExamOnly: false,
       eliteHardenEligible: true,
@@ -102,10 +103,10 @@ describe("cap convenience accessors", () => {
     expect(cap.hasLearningCourse("EXAM_FIRST")).toBe(false);
   });
 
-  it("cap.hasOralExam", () => {
+  it("cap.hasOralExam (static default only)", () => {
     expect(cap.hasOralExam("AUSBILDUNG_VOLL")).toBe(true);
     expect(cap.hasOralExam("EXAM_FIRST")).toBe(true);
-    expect(cap.hasOralExam("EXAM_FIRST_PLUS")).toBe(true);
+    expect(cap.hasOralExam("EXAM_FIRST_PLUS")).toBe(false); // cert-based → static false
     expect(cap.hasOralExam("STUDIUM")).toBe(false);
   });
 
@@ -128,11 +129,44 @@ describe("cap convenience accessors", () => {
   });
 });
 
+// ── resolveHasOralExam — cert-based resolver ─────────────────
+
+describe("resolveHasOralExam", () => {
+  it("AUSBILDUNG_VOLL → always true regardless of cert", () => {
+    expect(resolveHasOralExam("AUSBILDUNG_VOLL")).toBe(true);
+    expect(resolveHasOralExam("AUSBILDUNG_VOLL", null)).toBe(true);
+    expect(resolveHasOralExam("AUSBILDUNG_VOLL", { oral_exam_enabled: false })).toBe(true);
+  });
+
+  it("EXAM_FIRST → always true regardless of cert", () => {
+    expect(resolveHasOralExam("EXAM_FIRST")).toBe(true);
+    expect(resolveHasOralExam("EXAM_FIRST", { oral_exam_enabled: false })).toBe(true);
+  });
+
+  it("EXAM_FIRST_PLUS → cert-based", () => {
+    expect(resolveHasOralExam("EXAM_FIRST_PLUS")).toBe(false);
+    expect(resolveHasOralExam("EXAM_FIRST_PLUS", null)).toBe(false);
+    expect(resolveHasOralExam("EXAM_FIRST_PLUS", { oral_exam_enabled: false })).toBe(false);
+    expect(resolveHasOralExam("EXAM_FIRST_PLUS", { oral_exam_enabled: null })).toBe(false);
+    expect(resolveHasOralExam("EXAM_FIRST_PLUS", { oral_exam_enabled: true })).toBe(true);
+  });
+
+  it("STUDIUM → always false regardless of cert", () => {
+    expect(resolveHasOralExam("STUDIUM")).toBe(false);
+    expect(resolveHasOralExam("STUDIUM", { oral_exam_enabled: true })).toBe(false);
+  });
+
+  it("works with aliases", () => {
+    expect(resolveHasOralExam("FORTBILDUNG", { oral_exam_enabled: true })).toBe(true);
+    expect(resolveHasOralExam("ZERTIFIKAT")).toBe(false);
+  });
+});
+
 // ── Skipped / Required steps — symmetry & completeness ───────
 
 describe("getSkippedSteps / getRequiredSteps symmetry", () => {
   for (const track of TRACKS) {
-    describe(track, () => {
+    describe(`${track} (no cert context)`, () => {
       const skipped = getSkippedSteps(track);
       const required = getRequiredSteps(track);
 
@@ -176,14 +210,39 @@ describe("Step composition per track", () => {
     expect(req).toContain("generate_exam_pool");
   });
 
-  it("EXAM_FIRST_PLUS has handbook + oral + elite, no learning/minichecks", () => {
-    const req = getRequiredSteps("EXAM_FIRST_PLUS");
-    const skip = getSkippedSteps("EXAM_FIRST_PLUS");
-    expect(req).toContain("generate_handbook");
+  it("EXAM_FIRST_PLUS without cert skips oral, with cert includes oral", () => {
+    // Without certification → no oral exam
+    const reqNoCert = getRequiredSteps("EXAM_FIRST_PLUS");
+    const skipNoCert = getSkippedSteps("EXAM_FIRST_PLUS");
+    expect(reqNoCert).toContain("generate_handbook");
+    expect(reqNoCert).toContain("elite_harden");
+    expect(skipNoCert).toContain("generate_oral_exam");
+    expect(skipNoCert).toContain("scaffold_learning_course");
+
+    // With certification oral_exam_enabled = true → oral exam active
+    const cert: CertificationContext = { oral_exam_enabled: true };
+    const reqCert = getRequiredSteps("EXAM_FIRST_PLUS", cert);
+    const skipCert = getSkippedSteps("EXAM_FIRST_PLUS", cert);
+    expect(reqCert).toContain("generate_oral_exam");
+    expect(reqCert).toContain("validate_oral_exam");
+    expect(skipCert).not.toContain("generate_oral_exam");
+
+    // With certification oral_exam_enabled = false → no oral exam
+    const certOff: CertificationContext = { oral_exam_enabled: false };
+    const reqCertOff = getRequiredSteps("EXAM_FIRST_PLUS", certOff);
+    const skipCertOff = getSkippedSteps("EXAM_FIRST_PLUS", certOff);
+    expect(skipCertOff).toContain("generate_oral_exam");
+    expect(reqCertOff).not.toContain("generate_oral_exam");
+  });
+
+  it("EXAM_FIRST_PLUS with context object syntax", () => {
+    const ctx = { track: "EXAM_FIRST_PLUS", certification: { oral_exam_enabled: true } };
+    const req = getRequiredSteps(ctx);
     expect(req).toContain("generate_oral_exam");
-    expect(req).toContain("elite_harden");
-    expect(skip).toContain("scaffold_learning_course");
-    expect(skip).toContain("generate_lesson_minichecks");
+
+    const ctxOff = { track: "EXAM_FIRST_PLUS", certification: { oral_exam_enabled: false } };
+    const skip = getSkippedSteps(ctxOff);
+    expect(skip).toContain("generate_oral_exam");
   });
 
   it("STUDIUM has learning + minichecks + handbook, no oral/elite", () => {

@@ -133,7 +133,7 @@ describe("Track boolean helpers", () => {
       isExamCentricTrack: true,
       hasLearningCourseTrack: false,
       hasHandbookTrack: true,
-      hasOralExamTrack: true,
+      hasOralExamTrack: false, // cert-based, static default is false
       hasMiniChecksTrack: false,
     },
     STUDIUM: {

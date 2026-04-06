@@ -4,6 +4,7 @@ import {
   TRACK_CAPABILITIES,
   getSkippedSteps,
   getRequiredSteps,
+  resolveHasOralExam,
 } from "../track-capabilities";
 import {
   DEFAULT_FLAGS,
@@ -23,6 +24,7 @@ describe("Cross-SSOT Consistency", () => {
   for (const track of TRACKS) {
     const cap = TRACK_CAPABILITIES[track];
     const flags = DEFAULT_FLAGS[track as ProductTrack];
+    // For step tests, use static defaults (no cert context)
     const required = getRequiredSteps(track);
     const skipped = getSkippedSteps(track);
 
@@ -37,7 +39,8 @@ describe("Cross-SSOT Consistency", () => {
       it("hasHandbook ↔ has_handbook flag", () => {
         expect(cap.hasHandbook).toBe(flags.has_handbook);
       });
-      it("hasOralExam ↔ has_oral_exam_trainer flag", () => {
+      it("hasOralExam (static default) ↔ has_oral_exam_trainer flag", () => {
+        // Both represent static defaults — cert-based resolution is separate
         expect(cap.hasOralExam).toBe(flags.has_oral_exam_trainer);
       });
 
@@ -52,7 +55,7 @@ describe("Cross-SSOT Consistency", () => {
         expect(requiresTutorIndex(track as ProductTrack)).toBe(true);
       });
 
-      // capabilities ↔ step composition
+      // capabilities ↔ step composition (static, no cert context)
       it("hasLearningCourse → scaffold_learning_course in required/skipped", () => {
         if (cap.hasLearningCourse) {
           expect(required).toContain("scaffold_learning_course");
@@ -71,8 +74,9 @@ describe("Cross-SSOT Consistency", () => {
           expect(required).not.toContain("generate_handbook");
         }
       });
-      it("hasOralExam → generate_oral_exam in required/skipped", () => {
-        if (cap.hasOralExam) {
+      it("resolveHasOralExam (static) → generate_oral_exam in required/skipped", () => {
+        const effectiveOral = resolveHasOralExam(track);
+        if (effectiveOral) {
           expect(required).toContain("generate_oral_exam");
           expect(skipped).not.toContain("generate_oral_exam");
         } else {
@@ -103,7 +107,35 @@ describe("Cross-SSOT Consistency", () => {
 });
 
 // ═══════════════════════════════════════════════════════════════
-// 2. New-Track Drift Guard — every canonical track must exist in ALL maps
+// 2. EXAM_FIRST_PLUS cert-based oral exam cross-SSOT
+// ═══════════════════════════════════════════════════════════════
+
+describe("EXAM_FIRST_PLUS cert-based oral exam cross-SSOT", () => {
+  it("static hasOralExam is false", () => {
+    expect(TRACK_CAPABILITIES.EXAM_FIRST_PLUS.hasOralExam).toBe(false);
+  });
+  it("canSupportOralExam is true", () => {
+    expect(TRACK_CAPABILITIES.EXAM_FIRST_PLUS.canSupportOralExam).toBe(true);
+  });
+  it("DEFAULT_FLAGS has_oral_exam_trainer is false", () => {
+    expect(DEFAULT_FLAGS.EXAM_FIRST_PLUS.has_oral_exam_trainer).toBe(false);
+  });
+  it("resolver with cert enabled → steps include oral", () => {
+    const req = getRequiredSteps("EXAM_FIRST_PLUS", { oral_exam_enabled: true });
+    const skip = getSkippedSteps("EXAM_FIRST_PLUS", { oral_exam_enabled: true });
+    expect(req).toContain("generate_oral_exam");
+    expect(skip).not.toContain("generate_oral_exam");
+  });
+  it("resolver with cert disabled → steps skip oral", () => {
+    const req = getRequiredSteps("EXAM_FIRST_PLUS", { oral_exam_enabled: false });
+    const skip = getSkippedSteps("EXAM_FIRST_PLUS", { oral_exam_enabled: false });
+    expect(req).not.toContain("generate_oral_exam");
+    expect(skip).toContain("generate_oral_exam");
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// 3. New-Track Drift Guard — every canonical track must exist in ALL maps
 // ═══════════════════════════════════════════════════════════════
 
 describe("New-Track Drift Guard", () => {
@@ -134,7 +166,7 @@ describe("New-Track Drift Guard", () => {
 });
 
 // ═══════════════════════════════════════════════════════════════
-// 3. Pipeline Contract — hard invariants that must never break
+// 4. Pipeline Contract — hard invariants that must never break
 // ═══════════════════════════════════════════════════════════════
 
 const CORE_STEPS = [
