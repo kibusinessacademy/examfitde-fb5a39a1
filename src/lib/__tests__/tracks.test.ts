@@ -116,7 +116,7 @@ describe("Track boolean helpers", () => {
       isAcademicTrack: false,
       isExamFirstTrack: true,
       isExamFirstPlusTrack: false,
-      isExamOnlyTrack: true,
+      isExamOnlyTrack: false,
       isFullVocationalTrack: false,
       isExamCentricTrack: true,
       hasLearningCourseTrack: false,

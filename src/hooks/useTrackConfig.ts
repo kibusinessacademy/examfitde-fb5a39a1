@@ -12,7 +12,7 @@ export type CertificationType =
 
 export type ProductTrack = 'AUSBILDUNG_VOLL' | 'EXAM_FIRST' | 'EXAM_FIRST_PLUS' | 'STUDIUM';
 
-export type AiTutorMode = 'full' | 'limited_exam' | 'off';
+export type AiTutorMode = 'full' | 'limited_exam' | 'exam_only' | 'off';
 
 export interface FeatureFlags {
   has_learning_course: boolean;
@@ -69,7 +69,7 @@ export const DEFAULT_FLAGS: Record<ProductTrack, FeatureFlags> = {
     has_oral_exam_trainer: true,
     has_ai_tutor: true,
     has_handbook: false,
-    ai_tutor_mode: 'limited_exam',
+    ai_tutor_mode: 'exam_only',
   },
   EXAM_FIRST_PLUS: {
     has_learning_course: false,
