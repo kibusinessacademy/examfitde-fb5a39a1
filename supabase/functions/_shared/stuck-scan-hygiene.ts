@@ -927,3 +927,69 @@ export async function healValidateExamPoolLoop(sb: SupabaseClient) {
   }
   return repaired;
 }
+
+/**
+ * DM2: Placeholder Reconciliation
+ * If generate_learning_content is done but needs_regen > 0 and no active
+ * content generation job exists, enqueue a new one to clear remaining placeholders.
+ * This prevents PLACEHOLDER_GUARD from blocking downstream steps indefinitely.
+ */
+export async function healPlaceholderStalls(sb: SupabaseClient) {
+  let healed = 0;
+  try {
+    const { data: staleSteps } = await sb
+      .from("package_steps")
+      .select("package_id, meta")
+      .eq("step_key", "generate_learning_content")
+      .eq("status", "done");
+
+    for (const step of staleSteps || []) {
+      const meta = (step.meta ?? {}) as Record<string, unknown>;
+      const needsRegen = typeof meta.needs_regen === "number" ? meta.needs_regen : 0;
+      if (needsRegen <= 0) continue;
+
+      // Check if package is building
+      const { data: pkg } = await sb
+        .from("course_packages")
+        .select("id, status, curriculum_id")
+        .eq("id", step.package_id)
+        .eq("status", "building")
+        .maybeSingle();
+      if (!pkg) continue;
+
+      // Check no active content gen job
+      const { count: activeJobs } = await sb
+        .from("job_queue")
+        .select("id", { count: "exact", head: true })
+        .eq("package_id", step.package_id)
+        .eq("job_type", "package_generate_learning_content")
+        .in("status", ["pending", "processing"]);
+
+      if ((activeJobs ?? 0) > 0) continue;
+
+      // Enqueue regen job
+      try {
+        await enqueueJob(sb, {
+          job_type: "package_generate_learning_content",
+          package_id: step.package_id,
+          priority: 1,
+          payload: {
+            package_id: step.package_id,
+            curriculum_id: pkg.curriculum_id,
+            reason: "placeholder_reconciliation",
+          },
+        });
+        healed++;
+        console.log(`[stuck-scan] 🔧 Placeholder reconciliation: enqueued content regen for ${step.package_id.slice(0, 8)} (needs_regen=${needsRegen})`);
+      } catch (e) {
+        // Duplicate — already handled
+        if (!(e as Error).message?.includes("duplicate")) {
+          console.warn(`[stuck-scan] Placeholder reconciliation enqueue error: ${(e as Error).message}`);
+        }
+      }
+    }
+  } catch (err) {
+    console.warn(`[stuck-scan] Placeholder reconciliation error: ${(err as Error).message}`);
+  }
+  return healed;
+}
