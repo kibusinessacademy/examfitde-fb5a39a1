@@ -38,6 +38,12 @@ const SCHEDULE_TIERS: Record<string, { functions: string[]; bodies: Record<strin
     functions: [],
     bodies: {},
   },
+  daily: {
+    functions: ["curriculum-discovery"],
+    bodies: {
+      "curriculum-discovery": JSON.stringify({ action: "evaluate", limit: 50 }),
+    },
+  },
   hourly: {
     functions: ["unified-audit-runner", "knowledge-graph-rollout-orchestrator"],
     bodies: {
