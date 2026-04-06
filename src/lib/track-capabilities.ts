@@ -82,6 +82,7 @@ export const cap = {
   hasLearningCourse: (t: unknown) => getTrackCapabilities(t).hasLearningCourse,
   hasMiniChecks: (t: unknown) => getTrackCapabilities(t).hasMiniChecks,
   hasHandbook: (t: unknown) => getTrackCapabilities(t).hasHandbook,
+  canSupportOralExam: (t: unknown) => getTrackCapabilities(t).canSupportOralExam,
   hasOralExam: (t: unknown) => getTrackCapabilities(t).hasOralExam,
   isExamCentric: (t: unknown) => getTrackCapabilities(t).isExamCentric,
   isExamOnly: (t: unknown) => getTrackCapabilities(t).isExamOnly,

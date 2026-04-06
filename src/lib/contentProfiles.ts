@@ -107,7 +107,7 @@ export const EXAM_FIRST_PROFILE: ContentProfile = {
 
   includeLearningCourse: false,
   includeMiniChecks: false,
-  includeHandbook: true,
+  includeHandbook: false,
   includeHandbookExpand: false,
 
   includeExamPool: true,
@@ -116,7 +116,7 @@ export const EXAM_FIRST_PROFILE: ContentProfile = {
   recommendedApprovedExamQuestions: 500,
 
   includeOralExam: true,
-  oralExamOptional: true,
+  oralExamOptional: false,
   includeTutorIndex: true,
   tutorDepth: "reduced",
 
