@@ -69,7 +69,7 @@ export const DEFAULT_FLAGS: Record<ProductTrack, FeatureFlags> = {
     has_oral_exam_trainer: true,
     has_ai_tutor: true,
     has_handbook: false,
-    ai_tutor_mode: 'limited_exam',
+    ai_tutor_mode: 'exam_only',
   },
   EXAM_FIRST_PLUS: {
     has_learning_course: false,
