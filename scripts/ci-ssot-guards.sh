@@ -173,6 +173,36 @@ else
   green "✅ Guard 6 passed: no direct progress calculations bypassing SSOT view"
 fi
 
+# ── Guard 7: No inline QC coverage status arrays — must use shared SSOT helpers ─
+# Only flags hardcoded coverage-eligible arrays: ["approved", "tier1_passed"]
+# Does NOT flag other qc_status filters (e.g. tier1_failed, needs_revision, pending)
+echo ""
+echo "🔍 Guard 7: inline QC coverage status arrays..."
+QC_INLINE_HITS=$(grep -rn --include='*.ts' --include='*.tsx' \
+  -e '"approved", "tier1_passed"' \
+  -e "'approved', 'tier1_passed'" \
+  -e '"approved","tier1_passed"' \
+  -e "'approved','tier1_passed'" \
+  -e '"tier1_passed", "approved"' \
+  -e "'tier1_passed', 'approved'" \
+  src/ supabase/functions/ \
+  | grep -v 'qc-status\.ts' \
+  | grep -v 'qcStatus\.ts' \
+  | grep -v 'qcStatus\.test\.ts' \
+  | grep -v 'ci-ssot-guards' \
+  | grep -v 'node_modules' \
+  | grep -v '\.test\.' \
+  || true)
+
+if [ -n "$QC_INLINE_HITS" ]; then
+  red "❌ Guard 7 FAILED: inline QC coverage status arrays found outside SSOT helpers"
+  echo "$QC_INLINE_HITS"
+  echo "Use QC_COVERAGE_ELIGIBLE from qc-status.ts / qcStatus.ts instead. See docs/SSOT_RULES.md"
+  FAIL=1
+else
+  green "✅ Guard 7 passed: no inline QC coverage arrays outside SSOT helpers"
+fi
+
 # ── Summary ─────────────────────────────────────────────────────────
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

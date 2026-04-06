@@ -5,7 +5,7 @@ import { resolveProfession } from "../_shared/profession-resolver.ts";
 import { callAIJSON } from "../_shared/ai-client.ts";
 import { getModel } from "../_shared/model-routing.ts";
 import { handleDbFailure } from "../_shared/job-fail.ts";
-import { QC_COVERAGE_ELIGIBLE } from "../_shared/qc-status.ts";
+import { QC_COVERAGE_ELIGIBLE, QC_UNRESOLVED, QC_TERMINAL_REJECTED } from "../_shared/qc-status.ts";
 
 // ── Snapshot Write-Path Helpers ──
 
@@ -496,7 +496,8 @@ Deno.serve(async (req) => {
   } else {
     // Fallback: individual count queries (memory-safe)
     console.warn(`[validate-exam] qcAgg RPC failed (${qcAggErr?.message}), using fallback counts`);
-    for (const qs of ["pending", "approved", "tier1_passed", "tier1_failed", "needs_revision", "pruned_quality", "retired", "rejected"]) {
+    const ALL_QC_STATUSES = [...QC_COVERAGE_ELIGIBLE, ...QC_UNRESOLVED, ...QC_TERMINAL_REJECTED, "pending", "retired"];
+    for (const qs of ALL_QC_STATUSES) {
       const { count } = await sb
         .from("exam_questions")
         .select("id", { count: "exact", head: true })

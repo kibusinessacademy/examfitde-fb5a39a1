@@ -63517,6 +63517,10 @@ export type Database = {
         Args: { p_post_snapshot: Json; p_pre_snapshot: Json }
         Returns: Json
       }
+      fn_is_qc_coverage_eligible: {
+        Args: { p_qc_status: string; p_status?: string }
+        Returns: boolean
+      }
       fn_is_real_step_regression: {
         Args: { p_new_status: string; p_old_status: string }
         Returns: boolean
