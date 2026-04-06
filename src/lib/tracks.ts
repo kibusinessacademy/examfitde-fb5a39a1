@@ -39,11 +39,6 @@ const TRACK_ALIASES: Record<string, Track> = {
   ACADEMIC: "STUDIUM",
 };
 
-/**
- * Strict track normalization — throws on unknown input.
- * Use in pipeline/orchestration/admin-ops code where an unknown track
- * must be a hard error, not a silent fallback.
- */
 export function normalizeTrackStrict(input: unknown): Track {
   const raw = String(input ?? "").trim().toUpperCase();
   const normalized = TRACK_ALIASES[raw];
@@ -53,10 +48,6 @@ export function normalizeTrackStrict(input: unknown): Track {
   return normalized;
 }
 
-/**
- * Tolerant track normalization — falls back to default.
- * Use in UI/import/display code where a missing track should not crash.
- */
 export function normalizeTrack(input: unknown, fallback: Track = "AUSBILDUNG_VOLL"): Track {
   const raw = String(input ?? "").trim().toUpperCase();
   return TRACK_ALIASES[raw] ?? fallback;
@@ -106,10 +97,13 @@ export function hasHandbookTrack(track: unknown): boolean {
   return t !== "EXAM_FIRST"; // All tracks except bare EXAM_FIRST
 }
 
-/** Tracks that include oral exam by default. */
+/**
+ * Tracks that have oral exam STATICALLY enabled by default.
+ * For EXAM_FIRST_PLUS (cert-based), use resolveHasOralExam() instead.
+ */
 export function hasOralExamTrack(track: unknown): boolean {
   const t = normalizeTrack(track);
-  return t === "AUSBILDUNG_VOLL" || t === "EXAM_FIRST" || t === "EXAM_FIRST_PLUS";
+  return t === "AUSBILDUNG_VOLL" || t === "EXAM_FIRST";
 }
 
 /** Tracks that include minicheck generation. */

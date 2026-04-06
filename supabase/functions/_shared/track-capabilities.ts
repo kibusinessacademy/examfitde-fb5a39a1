@@ -37,10 +37,6 @@ const TRACK_ALIASES: Record<string, Track> = {
   ACADEMIC: "STUDIUM",
 };
 
-/**
- * Strict normalization — throws on unknown track.
- * Use in pipeline/orchestration/admin-ops.
- */
 export function normalizeTrackStrict(input: unknown): Track {
   const raw = String(input ?? "").trim().toUpperCase();
   const normalized = TRACK_ALIASES[raw];
@@ -50,10 +46,6 @@ export function normalizeTrackStrict(input: unknown): Track {
   return normalized;
 }
 
-/**
- * Tolerant normalization — falls back to default.
- * Use in display/import code.
- */
 export function normalizeTrack(input: unknown, fallback: Track = "AUSBILDUNG_VOLL"): Track {
   const raw = String(input ?? "").trim().toUpperCase();
   return TRACK_ALIASES[raw] ?? fallback;
@@ -99,7 +91,7 @@ export const TRACK_CAPABILITIES: Record<Track, TrackCapabilities> = {
     hasMiniChecks: false,
     hasHandbook: true,
     canSupportOralExam: true,
-    hasOralExam: true,
+    hasOralExam: false, // cert-based — use resolveHasOralExam()
     isExamCentric: true,
     isExamOnly: false,
     eliteHardenEligible: true,
@@ -122,9 +114,56 @@ export function getTrackCapabilities(track: unknown): TrackCapabilities {
   return TRACK_CAPABILITIES[normalizeTrack(track)];
 }
 
-/** Steps that must be SKIPPED for a given track (fully symmetric) */
-export function getSkippedSteps(track: unknown): string[] {
+// ── Cert-based oral exam resolver ──
+
+export type CertificationContext = {
+  oral_exam_enabled?: boolean | null;
+};
+
+export function resolveHasOralExam(
+  track: unknown,
+  certification?: CertificationContext | null,
+): boolean {
   const c = getTrackCapabilities(track);
+  if (!c.canSupportOralExam) return false;
+  if (c.hasOralExam) return true;
+
+  const t = normalizeTrack(track);
+  if (t === "EXAM_FIRST_PLUS") {
+    return certification?.oral_exam_enabled === true;
+  }
+
+  return false;
+}
+
+export type TrackResolutionContext = {
+  track: unknown;
+  certification?: CertificationContext | null;
+};
+
+function normalizeCtxArgs(
+  trackOrCtx: unknown,
+  certification?: CertificationContext | null,
+): { track: unknown; cert: CertificationContext | null | undefined } {
+  if (
+    trackOrCtx != null &&
+    typeof trackOrCtx === "object" &&
+    "track" in (trackOrCtx as Record<string, unknown>)
+  ) {
+    const ctx = trackOrCtx as TrackResolutionContext;
+    return { track: ctx.track, cert: ctx.certification };
+  }
+  return { track: trackOrCtx, cert: certification };
+}
+
+/** Steps that must be SKIPPED for a given track (fully symmetric) */
+export function getSkippedSteps(
+  trackOrCtx: unknown | TrackResolutionContext,
+  certification?: CertificationContext | null,
+): string[] {
+  const { track, cert } = normalizeCtxArgs(trackOrCtx, certification);
+  const c = getTrackCapabilities(track);
+  const effectiveOral = resolveHasOralExam(track, cert);
   const skipped: string[] = [];
 
   if (!c.hasLearningCourse) {
@@ -148,7 +187,7 @@ export function getSkippedSteps(track: unknown): string[] {
       "validate_handbook_depth",
     );
   }
-  if (!c.hasOralExam) {
+  if (!effectiveOral) {
     skipped.push("generate_oral_exam", "validate_oral_exam");
   }
   if (!c.eliteHardenEligible) {
@@ -159,8 +198,13 @@ export function getSkippedSteps(track: unknown): string[] {
 }
 
 /** Steps that must be ACTIVE for a given track */
-export function getRequiredSteps(track: unknown): string[] {
+export function getRequiredSteps(
+  trackOrCtx: unknown | TrackResolutionContext,
+  certification?: CertificationContext | null,
+): string[] {
+  const { track, cert } = normalizeCtxArgs(trackOrCtx, certification);
   const c = getTrackCapabilities(track);
+  const effectiveOral = resolveHasOralExam(track, cert);
   const steps: string[] = [
     "auto_seed_exam_blueprints",
     "validate_blueprints",
@@ -185,7 +229,7 @@ export function getRequiredSteps(track: unknown): string[] {
   }
   if (c.hasMiniChecks) steps.push("generate_lesson_minichecks", "validate_lesson_minichecks");
   if (c.hasHandbook) steps.push("generate_handbook", "validate_handbook", "enqueue_handbook_expand", "expand_handbook", "validate_handbook_depth");
-  if (c.hasOralExam) steps.push("generate_oral_exam", "validate_oral_exam");
+  if (effectiveOral) steps.push("generate_oral_exam", "validate_oral_exam");
   if (c.eliteHardenEligible) steps.push("elite_harden");
   return steps;
 }

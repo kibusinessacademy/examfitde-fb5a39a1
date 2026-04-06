@@ -61,11 +61,11 @@ describe("DEFAULT_FLAGS", () => {
     expect(f.ai_tutor_mode).toBe("limited_exam");
   });
 
-  it("EXAM_FIRST_PLUS has handbook + oral, no learning", () => {
+  it("EXAM_FIRST_PLUS has handbook, no learning, oral is cert-based (static false)", () => {
     const f = DEFAULT_FLAGS.EXAM_FIRST_PLUS;
     expect(f.has_learning_course).toBe(false);
     expect(f.has_handbook).toBe(true);
-    expect(f.has_oral_exam_trainer).toBe(true);
+    expect(f.has_oral_exam_trainer).toBe(false); // cert-based — resolved at runtime
     expect(f.has_minichecks).toBe(false);
     expect(f.ai_tutor_mode).toBe("limited_exam");
   });
