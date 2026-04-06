@@ -3,6 +3,8 @@
  * 
  * Wird von PageExplainer-Bannern auf jeder Admin-Seite genutzt,
  * um sofort zu erklären, was man hier tun kann.
+ *
+ * NUR V2-Routen: command, studio, queue
  */
 
 export interface PageDescription {
@@ -40,115 +42,21 @@ export const PAGE_DESCRIPTIONS: Record<string, PageDescription> = {
       'Ein Re-run von Schritten kann KI-Kosten verursachen.',
     ],
   },
-  '/admin/quality': {
-    title: 'Qualität prüfen & sicherstellen',
-    description: 'Hier prüfst du die Qualität aller Kurspakete, siehst Elite-Metriken und stellst Compliance sicher.',
+  '/admin/queue': {
+    title: 'Queue — Job-Management',
+    description: 'Alle aktiven und abgeschlossenen Jobs. Retry, Priorisierung und Fehleranalyse.',
     actions: [
-      'Elite-Matrix: Qualitäts-Übersicht pro Beruf',
-      'Review Inbox: Manuelle Prüfung ausstehender Inhalte',
-      'AZAV/ISO Compliance-Checklisten',
-      'Lernfeld-Abdeckung pro Kurs prüfen',
-    ],
-  },
-  '/admin/ops': {
-    title: 'System überwachen & steuern',
-    description: 'Systemstatus, Job-Queue, Pipeline-Live-Ansicht und AI Worker-Management.',
-    actions: [
-      'Ampel & Alerts: Systemgesundheit auf einen Blick',
-      'Queue: Alle Jobs mit Status, Fehler und Retry-Optionen',
-      'Pipeline Live: Echtzeit-Fortschritt aktiver Builds',
-      'AI Workers: Kosten, Rate-Limits, Concurrency steuern',
-    ],
-    tips: [
-      'Bei gehäuften Fehlern prüfe zuerst die Budget-Limits unter Finanzen.',
-    ],
-  },
-  '/admin/content': {
-    title: 'Content & SEO verwalten',
-    description: 'Seiten, Blog-Beiträge, Assets und SEO-Einstellungen zentral steuern.',
-    actions: [
-      'Seiten erstellen und bearbeiten',
-      'Blog-Beiträge verwalten',
-      'Assets und Medien hochladen',
-      'SEO-Metriken prüfen und Redirects setzen',
-    ],
-  },
-  '/admin/business': {
-    title: 'Finanzen & Lizenzen',
-    description: 'Umsatz, KI-Kosten, Lizenz-Verwaltung und Steuer-Exporte.',
-    actions: [
-      'Umsatz und Kosten im Überblick',
-      'Lizenzen verwalten und zuweisen',
-      'Steuer-Export für Buchhaltung erzeugen',
-    ],
-  },
-  '/admin/handbook': {
-    title: 'System-Handbuch',
-    description: 'Vollständige Dokumentation: Wie funktionieren Workflows, was bedeuten Statuswerte, wie löse ich Probleme?',
-    actions: [
-      'Workflow-Dokumentation lesen',
-      'Fehlerbehebung nachschlagen',
-      'Glossar: Technische Begriffe verstehen',
-      'Als PDF/Text exportieren',
-    ],
-  },
-  '/admin/crm': {
-    title: 'CRM — Kontakte & Segmente',
-    description: 'Verwalte Nutzer, Segmente und Kundenbeziehungen. Erkenne Churn-Risiken und steuere gezielte Ansprachen.',
-    actions: [
-      'Nutzerliste filtern und durchsuchen',
-      'Segmente erstellen und pflegen',
-      'Churn-Risiko-Dashboard prüfen',
-      'Nutzerprofile und Aktivitätshistorie einsehen',
-    ],
-  },
-  '/admin/support': {
-    title: 'Support — Tickets & FAQ',
-    description: 'Bearbeite Support-Anfragen, pflege FAQ-Einträge und behalte offene Tickets im Blick.',
-    actions: [
-      'Offene Tickets sichten und beantworten',
-      'FAQ-Einträge erstellen und aktualisieren',
-      'Ticket-Statistiken und Antwortzeiten prüfen',
-      'Eskalierte Anfragen priorisieren',
-    ],
-  },
-  '/admin/growth': {
-    title: 'Wachstum — Conversion & Engagement',
-    description: 'Analysiere Wachstumskennzahlen, Conversion-Funnels und Engagement-Metriken. Steuere Nudges und Kampagnen.',
-    actions: [
-      'Conversion-Funnel analysieren',
-      'Engagement-Metriken nach Kohorte prüfen',
-      'Nudge Engine konfigurieren',
-      'A/B-Tests und Kampagnen-Performance auswerten',
-    ],
-  },
-  '/admin/scale': {
-    title: 'Skalierung — Infrastruktur & Kapazität',
-    description: 'Kapazitätsplanung, Multi-Mandanten-Steuerung und Infrastruktur-Monitoring für skalierbaren Betrieb.',
-    actions: [
-      'Kapazitätsauslastung prüfen',
-      'Mandanten und Instanzen verwalten',
-      'Auto-Scaling-Regeln konfigurieren',
-      'Performance-Benchmarks vergleichen',
-    ],
-  },
-  '/admin/social': {
-    title: 'Social Engine — Content-Generierung',
-    description: 'Generiere Social-Media-Posts, E-Mails, Blog-Artikel und Nurture-Sequenzen für alle Plattformen.',
-    actions: [
-      'Posts für LinkedIn, Instagram, Facebook generieren',
-      'E-Mail-Kampagnen und Blog-Artikel erstellen',
-      'Wochen-Content-Pläne automatisch planen',
-      'Nurture-Sequenzen für Lead-Magnets aufsetzen',
+      'Aktive Jobs und deren Status prüfen',
+      'Fehlgeschlagene Jobs erneut starten',
+      'Job-Prioritäten anpassen',
+      'Batch-Operationen für mehrere Jobs',
     ],
   },
 };
 
 /** Get description for a route, with fallback */
 export function getPageDescription(path: string): PageDescription | null {
-  // Exact match
   if (PAGE_DESCRIPTIONS[path]) return PAGE_DESCRIPTIONS[path];
-  // Try parent path
   const parent = path.replace(/\/[^/]+$/, '');
   if (PAGE_DESCRIPTIONS[parent]) return PAGE_DESCRIPTIONS[parent];
   return null;
