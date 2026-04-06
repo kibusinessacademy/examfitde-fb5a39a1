@@ -144,25 +144,39 @@ export function buildErrorContextPrompt(mistakes: RecentMistake[]): string {
 /**
  * Generate suggested prompts based on tutor mode and context
  */
+/**
+ * Generate suggested prompts based on tutor mode, context, and persona.
+ */
 export function generateSuggestedPrompts(
   mode: string,
   hasMistakes: boolean,
   hasWeaknesses: boolean,
   programType: string = 'vocational',
+  personaProfile?: string | null,
 ): string[] {
   const isAcademic = programType === 'higher_education';
+  const persona = personaProfile || (isAcademic ? 'STUDIUM' : 'AZUBI_LOW_ROI');
+
+  // Persona-specific exam question prompts
+  const examQuestionPrompt: Record<string, string> = {
+    STUDIUM: 'Stelle eine Transferfrage',
+    AZUBI_HIGH_ROI: 'Simuliere eine IHK-Prüfungsfrage',
+    AZUBI_LOW_ROI: 'Wie wird das in der Prüfung gefragt?',
+    SACHKUNDE: 'Stelle eine §-basierte Entscheidungsfrage',
+    FACHWIRT: 'Gib mir eine Handlungssituation',
+  };
 
   const basePrompts: Record<string, string[]> = {
     learning: [
       'Erklär mir das einfacher',
       hasMistakes ? 'Warum war meine Antwort falsch?' : 'Gib mir ein Beispiel dazu',
-      isAcademic ? 'Welche Modelle gibt es dazu?' : 'Wie wird das in der Prüfung gefragt?',
+      examQuestionPrompt[persona] || 'Wie wird das in der Prüfung gefragt?',
       hasWeaknesses ? 'Was sind meine größten Schwächen?' : 'Was sollte ich als Nächstes lernen?',
     ],
     practice: [
       'Stell mir eine Übungsfrage',
       hasMistakes ? 'Erkläre meinen letzten Fehler' : 'Gib mir eine schwierigere Aufgabe',
-      isAcademic ? 'Stelle eine Transferfrage' : 'Simuliere eine IHK-Frage',
+      examQuestionPrompt[persona] || 'Simuliere eine Prüfungsfrage',
       'Was muss ich noch üben?',
     ],
     exam: [

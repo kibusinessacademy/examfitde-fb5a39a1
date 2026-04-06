@@ -442,11 +442,29 @@ async function loadSSOTContext(
   // ── Suggested Prompts ──
   const hasMistakes = !!(resolved.recentMistakes as unknown[])?.length;
   const hasWeaknesses = !!(resolved.topGaps as unknown[])?.length;
+  
+  // Resolve persona profile for prompt suggestions
+  let personaProfile: string | null = null;
+  if (curriculumId) {
+    try {
+      const { data: pkgData } = await supabase
+        .from('course_packages')
+        .select('persona_profile')
+        .eq('curriculum_id', curriculumId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      personaProfile = pkgData?.persona_profile || null;
+    } catch { /* keep null */ }
+  }
+  resolved.personaProfile = personaProfile;
+  
   resolved.suggestedPrompts = generateSuggestedPrompts(
     context._mode as string || 'learning',
     hasMistakes,
     hasWeaknesses,
     programType,
+    personaProfile,
   );
 
   const contextPrompt = parts.length > 0
