@@ -114,7 +114,7 @@ export default function ResilienceDashboardPage() {
               </div>
             )}
             {totals.blueprint_share_pct > 60 && (
-              <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+              <p className="mt-2 text-xs text-warning">
                 ⚠ Blueprint-Variants belegen &gt;60% der Pending-Queue — Fan-Out-Cap prüfen.
               </p>
             )}
