@@ -516,14 +516,14 @@ Deno.serve(async (req) => {
 
   const pendingQcCount = qcCounts.pending || 0;
   if (pendingQcCount === 0) {
-    const approvedCount = (qcCounts.approved || 0) + (qcCounts["null"] || 0);
+    // SSOT FIX: tier1_passed is coverage-eligible (QC_COVERAGE_ELIGIBLE) and counts as approved-equivalent.
+    // Previously only qcCounts.approved was counted, causing GATE_BLOCKED for pools where all questions
+    // passed Tier 1 but hadn't been promoted to qc_status='approved' yet.
+    const approvedCount = (qcCounts.approved || 0) + (qcCounts["null"] || 0) + (qcCounts.tier1_passed || 0);
     const rejectedCount = qcCounts.rejected || 0;
-    const tier1PassedCount = qcCounts.tier1_passed || 0;
     const failedCount = (qcCounts.tier1_failed || 0) + (qcCounts.needs_revision || 0);
-    // FIX: Exclude rejected (terminal) and tier1_passed (pre-promotion) from unresolved count.
-    // Previously: unresolvedCount = total - approved, which permanently included rejected questions
-    // causing infinite validate→repair loops since rejected questions can never be "resolved".
-    const unresolvedCount = Math.max(0, (totalQuestionCount ?? 0) - approvedCount - rejectedCount - tier1PassedCount);
+    // Exclude rejected (terminal) from unresolved count.
+    const unresolvedCount = Math.max(0, (totalQuestionCount ?? 0) - approvedCount - rejectedCount);
 
     // Idempotent success: already fully validated (0 unresolved)
     if (unresolvedCount === 0 && approvedCount > 0) {
