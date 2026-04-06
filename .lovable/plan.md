@@ -1,69 +1,37 @@
 
+# Admin UI Komplett-Überarbeitung
 
-# Plan: MiniCheck-Antwortqualität heilen + Exportfunktion reparieren
+## Ist-Zustand
+Die 3 Admin-Seiten (Command, Studio, Queue) existieren bereits mit SSOT-Daten. Hauptprobleme:
+- **403-Fehler** auf `ops_validate_exam_pool_progress` (fehlende Berechtigungen)
+- **Alte Leitstelle** (`Leitstelle.tsx`, 1080 Zeilen) noch vorhanden, wird aber nicht geroutet → aufräumen
+- **Fehlende Bulk-Aktionen** auf der Leitstelle (z.B. Admin-Hold aufheben, Pakete rebuilden)
+- **Recovery Board** und **Finalization Stall** Daten werden geladen, aber fehlende interaktive Buttons
 
-## Kontext (Verkäufer-Paket)
-- **Package**: `59b6e214-e181-4c2b-986e-1ce544984d04` / Course: `ae943f8c-da2e-422e-af5f-d7ff721cbf0c`
-- **Curriculum**: `63635f46-0186-49e7-80c1-67925dbdf638`
-- 200 Lessons, davon 192 auf `draft` — aber 160 haben echten HTML-Content (8-12KB)
-- 5.401 MiniCheck-Fragen (alle approved), aber Antwortschlüssel teilweise fehlerhaft
-- 419 Exam-Fragen ohne `blueprint_id` (28%)
+## Plan
 
-## Zwei Arbeitspakete
+### Phase 1: Daten-Zugang sichern
+- Fix `ops_validate_exam_pool_progress` View-Berechtigung (GRANT SELECT)
+- Sicherstellen, dass alle Admin-Views für `authenticated` zugänglich sind
 
----
+### Phase 2: Leitstelle (Command) härten
+- **KPI-Karten** mit Live-Daten und Klick-Aktionen (bereits vorhanden, aber prüfen)
+- **Schnellaktionen** hinzufügen:
+  - Admin-Hold aufheben (Batch für alle 266 Pakete)
+  - Failed Jobs requeuen
+  - Cooldowns freigeben
+  - Stuck Steps resetten
+- **Recovery Board** mit "Rebuild starten" und "Status ändern" Buttons
+- Alte `Leitstelle.tsx` als dead code entfernen
 
-### 1. Exportfunktion reparieren
+### Phase 3: Studio (Kurse) erweitern
+- **Heal-Aktionen** pro Paket sind vorhanden → prüfen ob alle funktionieren
+- **Batch-Aktionen** hinzufügen (alle Blockierten freigeben, Track wechseln)
 
-**Problem**: `export-course-package/index.ts` Zeile 264 — die Lesson-Query selektiert **kein `content`-Feld**. Der ZIP-Export enthält daher nur Metadaten, keine Lerninhalte.
+### Phase 4: Queue (Jobs) erweitern
+- Ist bereits gut → Batch-Aktionen (retry all failed, purge) prüfen
+- **Worker-Liveness** Panel einbauen
 
-**Fix**:
-- `content` zum SELECT in der Lesson-Query hinzufügen (Zeile 264)
-- Das `content`-Feld im Lesson-Objekt (Zeile 277-297) mappen — als `content_html` extrahiert (nur das HTML-Feld aus dem JSON)
-- Sicherstellen, dass die Dateigröße handhabbar bleibt (content wird pro Lesson ~10KB sein, bei 200 Lessons ~2MB — kein Problem)
-
-**Datei**: `supabase/functions/export-course-package/index.ts`
-
----
-
-### 2. MiniCheck-Antwortqualität heilen (AI-gestützt)
-
-**Problem**: Teils falsche `correct_answer`-Indizes, fehlerhafte Rechenlogik, inkonsistente Optionen.
-
-**Ansatz**: AI-gestütztes Batch-Audit über die 5.401 MiniCheck-Fragen:
-- Script nutzt die AI-Gateway-Skill, um Batches von ~20 Fragen gleichzeitig zu validieren
-- AI prüft: Stimmt `correct_answer` mit der fachlich richtigen Lösung überein? Sind die Optionen konsistent? Sind Rechenwege korrekt?
-- Ergebnis: Liste der fehlerhaften Fragen mit korrektem `correct_answer`
-- Korrekturen werden via `supabase--insert` (UPDATE) direkt in `minicheck_questions` geschrieben
-
-**Zusätzlich (Datenbereinigung)**:
-- 192 Lessons von `draft` → `published` setzen (Content ist vorhanden)
-- 419 Exam-Fragen ohne `blueprint_id` auf passende Blueprints verteilen
-
----
-
-### 3. Governance-Reconciliation
-
-- `quality_gate_status` der Lessons auf `passed` setzen
-- `auto_publish` Step-Status synchronisieren
-
----
-
-## Technische Details
-
-| Schritt | Tool/Datei | Aktion |
-|---|---|---|
-| Export-Fix | `export-course-package/index.ts:264` | `content` zum SELECT + Mapping |
-| MiniCheck-Audit | AI-Gateway Script | Batch-Validierung mit Gemini |
-| MiniCheck-Fix | `supabase--insert` | UPDATE fehlerhafte `correct_answer` |
-| Lesson-Status | `supabase--insert` | UPDATE 192 Lessons → `published` |
-| Blueprint-Bind | `supabase--insert` | UPDATE 419 Fragen mit `blueprint_id` |
-| Governance | `supabase--insert` | Steps + Quality Gates reconciliieren |
-
-## Reihenfolge
-1. Export-Fix (Code-Änderung + Deploy)
-2. Lesson-Status-Healing (DB)
-3. Blueprint-Rückverfolgbarkeit (DB)
-4. MiniCheck-Audit + Fix (AI-Script + DB)
-5. Governance-Reconciliation (DB)
-
+### Phase 5: Aufräumen
+- Alte `Leitstelle.tsx` entfernen
+- Ungenutzte Hooks/APIs entfernen
