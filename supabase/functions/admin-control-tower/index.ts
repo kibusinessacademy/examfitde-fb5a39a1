@@ -114,6 +114,8 @@ Deno.serve(async (req) => {
         return json(await getBlockedButReady(sb));
       case "recovery_board":
         return json(await getRecoveryBoard(sb));
+      case "resilience_dashboard":
+        return json(await getResilienceDashboard(sb));
       default:
         return json({ error: `Unknown action: ${action}` }, 400);
     }
