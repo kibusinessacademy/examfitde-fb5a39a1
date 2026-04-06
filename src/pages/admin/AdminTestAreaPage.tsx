@@ -170,23 +170,23 @@ function LearnerTestTab({ previewMode }: { previewMode: PreviewMode }) {
                 </span>
               </div>
               <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6">
-                <LinkButton href={previewUrl(`/learner/dashboard/${c.curriculum_id}`, previewMode)} icon={LayoutDashboard}>
+                <LinkButton href={previewUrl(`/dashboard?curriculum=${c.curriculum_id}`, previewMode)} icon={LayoutDashboard}>
                   Dashboard
                 </LinkButton>
-                <LinkButton href={previewUrl(`/learner/course/${c.curriculum_id}`, previewMode)} icon={BookOpen}>
+                <LinkButton href={previewUrl(`/courses`, previewMode)} icon={BookOpen}>
                   Kurs
                 </LinkButton>
-                <LinkButton href={previewUrl(`/learner/exam/${c.curriculum_id}`, previewMode)} icon={FileQuestion}>
+                <LinkButton href={previewUrl(`/exam-trainer?curriculum=${c.curriculum_id}`, previewMode)} icon={FileQuestion}>
                   Prüfung
                 </LinkButton>
-                <LinkButton href={previewUrl(`/learner/tutor/${c.curriculum_id}`, previewMode)} icon={Brain}>
+                <LinkButton href={previewUrl(`/oral-exam?curriculum=${c.curriculum_id}`, previewMode)} icon={Brain}>
                   Tutor
                 </LinkButton>
-                <LinkButton href={previewUrl(`/learner/oral-exam/${c.curriculum_id}`, previewMode)} icon={Megaphone}>
+                <LinkButton href={previewUrl(`/oral-exam?curriculum=${c.curriculum_id}`, previewMode)} icon={Megaphone}>
                   Oral
                 </LinkButton>
                 <LinkButton
-                  href={previewUrl(`/learner/exam/adaptive/${c.curriculum_id}`, "adaptive")}
+                  href={previewUrl(`/exam-trainer?curriculum=${c.curriculum_id}`, "adaptive")}
                   icon={Sparkles}
                   variant="default"
                 >
