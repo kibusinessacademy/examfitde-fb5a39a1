@@ -9,6 +9,7 @@ export interface RouteResult {
   provider?: string;
   model?: string;
   reason: string;
+  lastResort?: boolean; // true when cooldown was bypassed
 }
 
 function getSb() {
@@ -53,5 +54,78 @@ export async function resolveAvailableRoute(
   } catch (e) {
     console.error(`[LOAD-BALANCER] Unexpected error:`, (e as Error).message);
     return { ok: false, reason: `exception: ${(e as Error).message}` };
+  }
+}
+
+/**
+ * LAST-RESORT: When ALL providers for a workload are on cooldown,
+ * pick the one whose cooldown expires soonest and force-route through it.
+ * This prevents total pipeline stalls from simultaneous cooldowns.
+ *
+ * Returns null if no policy exists at all (genuine misconfiguration).
+ */
+export async function resolveLastResortRoute(
+  workloadKey: string,
+): Promise<RouteResult | null> {
+  const sb = getSb();
+  if (!sb) return null;
+
+  try {
+    // Get the routing policy chain for this workload
+    const { data: policy } = await sb
+      .from("llm_provider_routing_policies")
+      .select("provider_chain")
+      .eq("workload_key", workloadKey)
+      .eq("is_enabled", true)
+      .limit(1)
+      .single();
+
+    if (!policy?.provider_chain) return null;
+
+    const chain = policy.provider_chain as Array<{ provider: string; model: string }>;
+    if (chain.length === 0) return null;
+
+    // Find the candidate with the shortest remaining cooldown
+    let bestCandidate = chain[0];
+    let shortestRemaining = Infinity;
+
+    for (const entry of chain) {
+      const { data: cd } = await sb
+        .from("llm_provider_cooldowns")
+        .select("until_at")
+        .eq("provider", entry.provider)
+        .eq("model", entry.model)
+        .gt("until_at", new Date().toISOString())
+        .order("until_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (!cd) {
+        // Not even on cooldown — should have been caught by normal routing
+        return { ok: true, provider: entry.provider, model: entry.model, reason: "not_on_cooldown" };
+      }
+
+      const remaining = new Date(cd.until_at).getTime() - Date.now();
+      if (remaining < shortestRemaining) {
+        shortestRemaining = remaining;
+        bestCandidate = entry;
+      }
+    }
+
+    console.warn(
+      `[LOAD-BALANCER] LAST_RESORT: ${workloadKey} → ${bestCandidate.provider}/${bestCandidate.model} ` +
+      `(cooldown bypassed, shortest remaining: ${Math.round(shortestRemaining / 1000)}s)`
+    );
+
+    return {
+      ok: true,
+      provider: bestCandidate.provider,
+      model: bestCandidate.model,
+      reason: "last_resort_cooldown_bypass",
+      lastResort: true,
+    };
+  } catch (e) {
+    console.error(`[LOAD-BALANCER] LAST_RESORT error:`, (e as Error).message);
+    return null;
   }
 }

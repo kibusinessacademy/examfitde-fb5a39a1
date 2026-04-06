@@ -5,7 +5,7 @@ import { inferBackoffSeconds, edgeFunctionForJobType, poolForJobType, STEP_TO_JO
 import { isTransientLlmError, classifyError } from "../_shared/llm/normalize.ts";
 import { setProviderCooldown, cleanupExpiredCooldowns, filterCooledDownProviders, isOnCooldown } from "../_shared/llm/provider-cooldown.ts";
 import { getModelChainAsync } from "../_shared/model-routing.ts";
-import { resolveAvailableRoute } from "../_shared/llm/provider-load-balancer.ts";
+import { resolveAvailableRoute, resolveLastResortRoute } from "../_shared/llm/provider-load-balancer.ts";
 import { checkCircuitBreaker, recordPermanentProviderFailure, recordProviderSuccess, isPermanentProviderError } from "../_shared/llm/provider-circuit-breaker.ts";
 
 import { PIPELINE_GRAPH, validatePipelineGraph } from "../_shared/job-map.ts";
@@ -969,6 +969,8 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
   const healthyJobs: typeof jobs = [];
   let totalDeferred = 0;
 
+  const LAST_RESORT_MAX_PER_WORKLOAD = 2; // max jobs to force through when all providers on cooldown
+
   for (const [workloadKey, wkJobs] of jobsByWorkload) {
     const route = await resolveAvailableRoute(workloadKey);
     if (!route?.ok) {
@@ -983,6 +985,38 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
         continue;
       }
 
+      // ── LAST RESORT: bypass cooldown for a small batch to prevent total stall ──
+      const lastResort = await resolveLastResortRoute(workloadKey);
+      if (lastResort?.ok) {
+        const forceThrough = wkJobs.slice(0, LAST_RESORT_MAX_PER_WORKLOAD);
+        const deferred = wkJobs.slice(LAST_RESORT_MAX_PER_WORKLOAD);
+
+        console.warn(
+          `[content-runner] LAST_RESORT: forcing ${forceThrough.length}/${wkJobs.length} ${workloadKey} job(s) through ` +
+          `${lastResort.provider}/${lastResort.model} despite cooldown`
+        );
+        healthyJobs.push(...forceThrough);
+
+        // Defer the rest
+        if (deferred.length > 0) {
+          const deferMs = 15_000;
+          const deferAt = new Date(Date.now() + deferMs).toISOString();
+          for (const job of deferred) {
+            await sb.from("job_queue").update({
+              status: "pending",
+              run_after: deferAt,
+              locked_at: null,
+              locked_by: null,
+              updated_at: new Date().toISOString(),
+              last_error: `HEALTH_GATE: ${workloadKey} on cooldown, deferred ${deferMs / 1000}s (last-resort active for ${forceThrough.length} jobs) by ${WORKER_ID}`,
+            }).eq("id", job.id).eq("status", "processing");
+          }
+          totalDeferred += deferred.length;
+        }
+        continue;
+      }
+
+      // True last resort failed too — full defer
       const deferMs = 10_000;
       console.warn(
         `[content-runner] HEALTH_GATE: no healthy route for ${workloadKey} — deferring ${wkJobs.length} job(s) by ${deferMs / 1000}s`,
