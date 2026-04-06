@@ -10,7 +10,7 @@ import { detectAndFixZombieSteps } from "../_shared/stuck-scan-zombies.ts";
 import { healOrphanProcessing, healEnqueuedDrift, healStatusLag } from "../_shared/stuck-scan-healers.ts";
 import { detectEscalationLoops, detectSystemFreeze } from "../_shared/stuck-scan-escalation.ts";
 import { checkStuckPackages, checkBuildingOrphans } from "../_shared/stuck-scan-packages.ts";
-import { runHygiene, healLeaseNoProgress, sweepPoolMismatches, reviveTransientFailed, healTrueStalls, healLearningContentDeadlocks, healLoopGuardFalsePositives, healIntegrityReportMissing, healTrueStallSteps, reapZombieProcessingJobsV2, reapAncientPendingJobs, healFalseLivenessPackages, healValidateExamPoolLoop } from "../_shared/stuck-scan-hygiene.ts";
+import { runHygiene, healLeaseNoProgress, sweepPoolMismatches, reviveTransientFailed, healTrueStalls, healLearningContentDeadlocks, healLoopGuardFalsePositives, healIntegrityReportMissing, healTrueStallSteps, reapZombieProcessingJobsV2, reapAncientPendingJobs, healFalseLivenessPackages, healValidateExamPoolLoop, healPlaceholderStalls } from "../_shared/stuck-scan-hygiene.ts";
 import { detectAndMitigateHotLoops } from "../_shared/stuck-scan-hot-loop.ts";
 import { detectAndMitigateStaleLockLoops } from "../_shared/stuck-scan-stale-lock-loop.ts";
 import { detectAndMitigateRequeueLoops } from "../_shared/stuck-scan-requeue-loop.ts";
@@ -237,6 +237,17 @@ Deno.serve(async (req) => {
       console.warn(`[stuck-scan] non-building reaper error: ${(e as Error)?.message?.slice(0, 100)}`);
     }
 
+    // ══ 14) DM2: Placeholder Reconciliation ══
+    let placeholderHealed = 0;
+    try {
+      placeholderHealed = await healPlaceholderStalls(sb);
+      if (placeholderHealed > 0) {
+        console.warn(`[stuck-scan] 🔧 Placeholder reconciliation: ${placeholderHealed} content regen jobs enqueued`);
+      }
+    } catch (e) {
+      console.warn(`[stuck-scan] placeholder reconciliation error: ${(e as Error)?.message?.slice(0, 100)}`);
+    }
+
     console.log(`[stuck-scan] ${results.length} timeout-checked, ${orphanResults.length} orphan-checked, ${buildingPkgResults.length} building-pkg-checked, ${statusLagResults.length} status-lag-healed, ${staleCount} stale jobs killed (liveness guard), ${zombieResults.length} zombie steps fixed, ${escalationResults.length} escalation loops handled, ${revivedCount} transient-failed revived, ${leaseNoProgressHealed} lease-no-progress healed, ${trueStallsHealed.length} true-stalls healed, ${deadlockHealed.length} deadlocks healed, ${loopGuardFalsePositives.length} loop-guard-false-positives healed, ${integrityReportMissing} integrity-report-missing healed, ${trueStallStepsHealed.length} true-stall-steps healed, ${zombieReaperV2Count} zombie-v2 reaped, ${ancientPendingCount} ancient-pending reaped, ${falseLivenessHealed.length} false-liveness healed, ${examPoolLoopRepaired} exam-pool-loops repaired, ${hotLoopResults.length} hot-loops mitigated, ${staleLockLoopResults.length} stale-lock-loops mitigated, ${requeueLoopResults.length} requeue-loops mitigated, ${staleLockRecovered} stale-lock-recovered, ${nonBuildingReaped} non-building-reaped${systemFrozen ? ", ⚫ SYSTEM FREEZE DETECTED" : ""}${poolMismatchFixed > 0 ? `, 🔧 ${poolMismatchFixed} pool mismatches fixed` : ""}`);
 
 
@@ -271,6 +282,7 @@ Deno.serve(async (req) => {
       requeue_loops_mitigated: requeueLoopResults,
       stale_lock_auto_recovered: staleLockRecovered,
       non_building_jobs_reaped: nonBuildingReaped,
+      placeholder_stalls_healed: placeholderHealed,
     });
   } catch (e: unknown) {
     const msg = (e as Error)?.message || String(e);
