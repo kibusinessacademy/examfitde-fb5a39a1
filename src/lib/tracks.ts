@@ -109,7 +109,7 @@ export function hasHandbookTrack(track: unknown): boolean {
 /** Tracks that include oral exam. */
 export function hasOralExamTrack(track: unknown): boolean {
   const t = normalizeTrack(track);
-  return t === "EXAM_FIRST_PLUS"; // Only EXAM_FIRST_PLUS by default
+  return t === "AUSBILDUNG_VOLL" || t === "EXAM_FIRST_PLUS";
 }
 
 /** Tracks that include minicheck generation. */
