@@ -337,6 +337,21 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ── PRE-FLIGHT VALIDATION for single blueprint ──
+    const { data: preflight } = await sb.rpc("fn_validate_blueprint_preflight", { p_blueprint_id: blueprintId });
+    if (preflight && !(preflight as any).eligible) {
+      console.warn(`[generate-blueprint-variants] ⚠️ Blueprint ${blueprintId} failed pre-flight:`, preflight);
+      return new Response(JSON.stringify({
+        ok: false,
+        error: "Blueprint failed pre-flight validation",
+        blueprint_id: blueprintId,
+        preflight,
+      }), {
+        status: 422,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const blueprint = bp as Blueprint;
     const variantTypes = pickVariantTypes(count, isStudium);
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
