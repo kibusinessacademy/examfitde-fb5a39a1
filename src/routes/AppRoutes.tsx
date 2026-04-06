@@ -51,6 +51,8 @@ const FortbildungLandingPage = lazy(() => import('@/pages/seo/FortbildungLanding
 const ZertifizierungenLandingPage = lazy(() => import('@/pages/seo/ZertifizierungenLandingPage'));
 const ProductLandingPage = lazy(() => import('@/pages/seo/ProductLandingPage'));
 const DynamicProductLandingPage = lazy(() => import('@/pages/landing/DynamicProductLandingPage'));
+const PersonaLandingPage = lazy(() => import('@/pages/landing/PersonaLandingPage'));
+const PersonaLandingHubPage = lazy(() => import('@/pages/landing/PersonaLandingHubPage'));
 import ProgrammaticSEODispatcher from '@/pages/seo/ProgrammaticSEODispatcher';
 const PruefungsreifeCheck = lazy(() => import('@/components/marketing/PruefungsreifeCheck'));
 const BlogIndexPage = lazy(() => import('@/pages/seo/BlogIndexPage'));
@@ -160,6 +162,12 @@ const AppRoutes = () => {
           <Route path="/projektmanagement/:slug" element={<CertificationSEOPage />} />
           <Route path="/produkt/:slug" element={<ProductLandingPage />} />
           <Route path="/landing/:landingType/:slug" element={<DynamicProductLandingPage />} />
+
+          {/* Persona-specific SEO landing pages */}
+          <Route path="/pruefungstraining-azubis/:slug" element={<PersonaLandingPage personaType="azubi" />} />
+          <Route path="/pruefungstraining-sachkunde/:slug" element={<PersonaLandingPage personaType="sachkunde" />} />
+          <Route path="/pruefungstraining-fachwirt/:slug" element={<PersonaLandingPage personaType="fachwirt" />} />
+          <Route path="/pruefungstraining-studium/:slug" element={<PersonaLandingPage personaType="studium" />} />
 
           <Route path="/:slug" element={<ProgrammaticSEODispatcher />} />
 
