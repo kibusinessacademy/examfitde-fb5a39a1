@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useAdminQueueSSOT, AdminQueueJob } from '@/hooks/useAdminQueueSSOT';
+import { useAdminQueueSSOT, useAdminQueueCounts, AdminQueueJob } from '@/hooks/useAdminQueueSSOT';
 import { runAdminOpsAction } from '@/integrations/supabase/admin-ops-actions';
+import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,15 +19,6 @@ import { cn } from '@/lib/utils';
 function stripPrefix(title: string | null | undefined): string {
   return (title || '').replace(/^ExamFit\s*–\s*/i, '');
 }
-
-const STATUS_FILTERS = [
-  { key: 'all', label: 'Alle' },
-  { key: 'pending', label: 'Pending' },
-  { key: 'processing', label: 'Processing' },
-  { key: 'failed', label: 'Failed' },
-  { key: 'completed', label: 'Completed' },
-  { key: 'cancelled', label: 'Cancelled' },
-] as const;
 
 function formatAge(seconds: number): string {
   if (seconds < 60) return `${Math.round(seconds)}s`;
@@ -59,19 +51,19 @@ function statusColor(status: string): string {
 
 function diagnoseJob(job: AdminQueueJob): { text: string; severity: 'info' | 'warning' | 'error' } | null {
   if (job.health_signal === 'zombie') {
-    return { text: `Job hängt seit ${formatAge(job.age_minutes * 60)} im Status „processing" ohne Fortschritt. Lock vermutlich verloren.`, severity: 'error' };
+    return { text: `Job hängt seit ${formatAge(job.age_minutes * 60)} im Status „processing" ohne Fortschritt.`, severity: 'error' };
   }
   if (job.health_signal === 'exhausted') {
-    return { text: `Alle ${job.max_attempts} Versuche aufgebraucht. Letzter Fehler: ${job.last_error?.slice(0, 120) || 'unbekannt'}. Manuelles Eingreifen nötig.`, severity: 'error' };
+    return { text: `Alle ${job.max_attempts} Versuche aufgebraucht. Fehler: ${job.last_error?.slice(0, 120) || 'unbekannt'}`, severity: 'error' };
   }
   if (job.health_signal === 'stale_lock') {
-    return { text: 'Lock ist veraltet – Worker wurde möglicherweise unterbrochen. Job kann freigeschaltet werden.', severity: 'warning' };
+    return { text: 'Lock ist veraltet – Worker wurde möglicherweise unterbrochen.', severity: 'warning' };
   }
   if (job.health_signal === 'retriable' && job.last_error) {
-    return { text: `Fehlgeschlagen nach ${job.attempts}/${job.max_attempts} Versuchen. Fehler: ${job.last_error.slice(0, 120)}`, severity: 'warning' };
+    return { text: `Fehlgeschlagen: ${job.attempts}/${job.max_attempts} Versuche. ${job.last_error.slice(0, 120)}`, severity: 'warning' };
   }
   if (job.health_signal === 'aging') {
-    return { text: `Job wartet seit ${formatAge(job.age_minutes * 60)} – möglicherweise niedrige Priorität oder Worker-Engpass.`, severity: 'info' };
+    return { text: `Job wartet seit ${formatAge(job.age_minutes * 60)}.`, severity: 'info' };
   }
   return null;
 }
@@ -85,9 +77,9 @@ function JobRow({ job, onAction, actionPending }: {
   const [expanded, setExpanded] = useState(false);
   const diagnosis = diagnoseJob(job);
 
+  const isFailed = job.job_status === 'failed';
   const isZombie = job.health_signal === 'zombie';
   const isExhausted = job.health_signal === 'exhausted';
-  const isFailed = job.job_status === 'failed';
   const isRetriable = job.health_signal === 'retriable' || isExhausted;
   const isStaleLock = job.health_signal === 'stale_lock';
 
@@ -125,7 +117,6 @@ function JobRow({ job, onAction, actionPending }: {
 
       {expanded && (
         <div className="px-3 pb-3 space-y-2.5 border-t border-border pt-2.5">
-          {/* Diagnosis */}
           {diagnosis && (
             <div className={cn(
               "rounded-lg border p-2 text-xs",
@@ -144,7 +135,6 @@ function JobRow({ job, onAction, actionPending }: {
             </div>
           )}
 
-          {/* Details */}
           <div className="space-y-1 text-xs text-muted-foreground">
             {job.package_id && (
               <div className="flex items-center gap-1">
@@ -160,14 +150,12 @@ function JobRow({ job, onAction, actionPending }: {
             {(job.meta as any)?.worker_pool && <div><span className="font-medium text-foreground">Worker Pool:</span> {(job.meta as any).worker_pool}</div>}
           </div>
 
-          {/* Error */}
           {job.last_error && (
             <div className="rounded-lg bg-destructive/5 border border-destructive/20 p-2 text-destructive text-[11px] font-mono break-all line-clamp-4">
               {job.last_error}
             </div>
           )}
 
-          {/* Actions */}
           <div className="flex flex-wrap gap-2 pt-1">
             {(isRetriable || isFailed) && (
               <Button size="sm" variant="outline" disabled={actionPending} className="text-xs h-8"
@@ -206,11 +194,15 @@ function JobRow({ job, onAction, actionPending }: {
 }
 
 export default function QueuePage() {
-  const { data: jobs, isLoading, error } = useAdminQueueSSOT();
-  const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [search, setSearch] = useState('');
   const { toast } = useToast();
   const qc = useQueryClient();
+
+  // Server-side counts — always accurate
+  const { data: counts } = useAdminQueueCounts();
+  // Jobs list — filtered by status to avoid truncation
+  const { data: jobs, isLoading, error } = useAdminQueueSSOT(statusFilter);
 
   const actionMutation = useMutation({
     mutationFn: async ({ jobId, action }: { jobId: string; action: string }) => {
@@ -233,11 +225,21 @@ export default function QueuePage() {
     mutationFn: async (action: string) => {
       if (action === 'retry_all_failed') return runAdminOpsAction('requeue_failed_jobs', { limit: 50 });
       if (action === 'kill_all_zombies') return runAdminOpsAction('kill_stale_processing_jobs', { limit: 50 });
-      if (action === 'release_all_locks') return runAdminOpsAction('release_stale_leases', { limit: 50 });
+      if (action === 'purge_failed') {
+        // Delete all failed jobs directly
+        const { error } = await supabase.from('job_queue').delete().eq('status', 'failed');
+        if (error) throw new Error(error.message);
+        return { purged: true };
+      }
+      if (action === 'purge_cancelled') {
+        const { error } = await supabase.from('job_queue').delete().eq('status', 'cancelled');
+        if (error) throw new Error(error.message);
+        return { purged: true };
+      }
       return null;
     },
     onSuccess: (_, action) => {
-      toast({ title: 'Batch-Aktion ausgeführt', description: action.replace(/_/g, ' ') });
+      toast({ title: 'Aktion ausgeführt', description: action.replace(/_/g, ' ') });
       qc.invalidateQueries({ queryKey: ['admin'] });
     },
     onError: (err: Error) => {
@@ -245,46 +247,22 @@ export default function QueuePage() {
     },
   });
 
-  const summary = useMemo(() => {
-    if (!jobs) return null;
-    return {
-      pending: jobs.filter(j => j.job_status === 'pending' || j.job_status === 'queued').length,
-      processing: jobs.filter(j => ['processing', 'running', 'batch_pending'].includes(j.job_status)).length,
-      failed: jobs.filter(j => j.job_status === 'failed').length,
-      completed: jobs.filter(j => j.job_status === 'completed').length,
-      zombies: jobs.filter(j => j.health_signal === 'zombie').length,
-      exhausted: jobs.filter(j => j.health_signal === 'exhausted').length,
-    };
-  }, [jobs]);
-
+  // Client-side search filter on already status-filtered jobs
   const filtered = useMemo(() => {
     if (!jobs) return [];
+    if (!search.trim()) return jobs;
+    const q = search.toLowerCase();
+    return jobs.filter(j =>
+      j.job_type.toLowerCase().includes(q) ||
+      j.job_id.toLowerCase().includes(q) ||
+      (j.package_title || '').toLowerCase().includes(q) ||
+      (j.last_error || '').toLowerCase().includes(q)
+    );
+  }, [jobs, search]);
 
-    const activeStatuses = new Set(['pending', 'queued', 'processing', 'running', 'batch_pending', 'failed']);
-    let list = statusFilter === 'all'
-      ? jobs.filter(j => activeStatuses.has(j.job_status))
-      : jobs;
-
-    if (statusFilter !== 'all') {
-      if (statusFilter === 'pending') {
-        list = list.filter(j => j.job_status === 'pending' || j.job_status === 'queued');
-      } else {
-        list = list.filter(j => j.job_status === statusFilter);
-      }
-    }
-
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      list = list.filter(j =>
-        j.job_type.toLowerCase().includes(q) ||
-        j.job_id.toLowerCase().includes(q) ||
-        (j.package_title || '').toLowerCase().includes(q) ||
-        (j.last_error || '').toLowerCase().includes(q)
-      );
-    }
-
-    return list;
-  }, [jobs, search, statusFilter]);
+  // Zombies/exhausted from loaded jobs
+  const zombieCount = useMemo(() => jobs?.filter(j => j.health_signal === 'zombie').length ?? 0, [jobs]);
+  const exhaustedCount = useMemo(() => jobs?.filter(j => j.health_signal === 'exhausted').length ?? 0, [jobs]);
 
   if (error) {
     return (
@@ -294,113 +272,128 @@ export default function QueuePage() {
     );
   }
 
+  const c = counts ?? { pending: 0, processing: 0, failed: 0, completed_1h: 0, cancelled: 0, total: 0 };
+
   return (
     <div className="space-y-4">
       <div>
         <h1 className="text-xl font-bold text-foreground">Queue</h1>
-        <p className="text-xs text-muted-foreground mt-0.5">Operations Queue · Echtdaten</p>
+        <p className="text-xs text-muted-foreground mt-0.5">Operations Queue · Echtdaten (Server-Counts)</p>
       </div>
 
-      {/* Summary – clickable tiles */}
-      {summary && (
-        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-          <button onClick={() => setStatusFilter('pending')} className={cn("rounded-lg border border-border bg-card p-2 text-center transition-colors hover:bg-muted/50", statusFilter === 'pending' && "ring-2 ring-primary")}>
-            <div className="text-lg font-bold text-foreground">{summary.pending}</div>
-            <div className="text-[10px] text-muted-foreground">Pending</div>
-          </button>
-          <button onClick={() => setStatusFilter('processing')} className={cn("rounded-lg border border-primary/30 bg-primary/5 p-2 text-center transition-colors hover:bg-primary/10", statusFilter === 'processing' && "ring-2 ring-primary")}>
-            <div className="text-lg font-bold text-primary">{summary.processing}</div>
-            <div className="text-[10px] text-muted-foreground">Processing</div>
-          </button>
-          <button onClick={() => setStatusFilter('failed')} className={cn("rounded-lg border border-destructive/30 bg-destructive/5 p-2 text-center transition-colors hover:bg-destructive/10", statusFilter === 'failed' && "ring-2 ring-primary")}>
-            <div className="text-lg font-bold text-destructive">{summary.failed}</div>
-            <div className="text-[10px] text-muted-foreground">Failed</div>
-          </button>
-          <button onClick={() => setStatusFilter('completed')} className={cn("rounded-lg border border-success/30 bg-success/5 p-2 text-center transition-colors hover:bg-success/10", statusFilter === 'completed' && "ring-2 ring-primary")}>
-            <div className="text-lg font-bold text-success">{summary.completed}</div>
-            <div className="text-[10px] text-muted-foreground">Done 1h</div>
-          </button>
-          <button onClick={() => setStatusFilter('all')} className={cn("rounded-lg border border-destructive/30 bg-destructive/5 p-2 text-center transition-colors hover:bg-destructive/10")}>
-            <div className="text-lg font-bold text-destructive">{summary.zombies}</div>
-            <div className="text-[10px] text-muted-foreground">Zombies</div>
-          </button>
-          <button onClick={() => setStatusFilter('all')} className={cn("rounded-lg border border-warning/30 bg-warning/5 p-2 text-center transition-colors hover:bg-warning/10")}>
-            <div className="text-lg font-bold text-warning">{summary.exhausted}</div>
-            <div className="text-[10px] text-muted-foreground">Erschöpft</div>
-          </button>
-        </div>
-      )}
+      {/* Summary tiles — server-side counts, always accurate */}
+      <div className="grid grid-cols-3 gap-2">
+        <button onClick={() => setStatusFilter('pending')} className={cn("rounded-lg border border-border bg-card p-2 text-center transition-colors hover:bg-muted/50", statusFilter === 'pending' && "ring-2 ring-primary")}>
+          <div className="text-lg font-bold text-foreground">{c.pending}</div>
+          <div className="text-[10px] text-muted-foreground">Pending</div>
+        </button>
+        <button onClick={() => setStatusFilter('processing')} className={cn("rounded-lg border border-primary/30 bg-primary/5 p-2 text-center transition-colors hover:bg-primary/10", statusFilter === 'processing' && "ring-2 ring-primary")}>
+          <div className="text-lg font-bold text-primary">{c.processing}</div>
+          <div className="text-[10px] text-muted-foreground">Processing</div>
+        </button>
+        <button onClick={() => setStatusFilter('failed')} className={cn("rounded-lg border border-destructive/30 bg-destructive/5 p-2 text-center transition-colors hover:bg-destructive/10", statusFilter === 'failed' && "ring-2 ring-primary")}>
+          <div className="text-lg font-bold text-destructive">{c.failed}</div>
+          <div className="text-[10px] text-muted-foreground">Failed</div>
+        </button>
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        <button onClick={() => setStatusFilter('completed')} className={cn("rounded-lg border border-success/30 bg-success/5 p-2 text-center transition-colors hover:bg-success/10", statusFilter === 'completed' && "ring-2 ring-primary")}>
+          <div className="text-lg font-bold text-success">{c.completed_1h}</div>
+          <div className="text-[10px] text-muted-foreground">Done 1h</div>
+        </button>
+        <button onClick={() => setStatusFilter('cancelled')} className={cn("rounded-lg border border-border bg-card p-2 text-center transition-colors hover:bg-muted/50", statusFilter === 'cancelled' && "ring-2 ring-primary")}>
+          <div className="text-lg font-bold text-muted-foreground">{c.cancelled}</div>
+          <div className="text-[10px] text-muted-foreground">Cancelled</div>
+        </button>
+        <button onClick={() => setStatusFilter('all')} className={cn("rounded-lg border border-border bg-card p-2 text-center transition-colors hover:bg-muted/50", statusFilter === 'all' && "ring-2 ring-primary")}>
+          <div className="text-lg font-bold text-foreground">{c.total}</div>
+          <div className="text-[10px] text-muted-foreground">Aktiv gesamt</div>
+        </button>
+      </div>
 
-      {/* Batch Actions */}
-      {summary && (summary.failed > 0 || summary.zombies > 0) && (
-        <div className="flex flex-wrap gap-2">
-          {summary.failed > 0 && (
+      {/* Batch actions */}
+      <div className="flex flex-wrap gap-2">
+        {c.failed > 0 && (
+          <>
             <Button size="sm" variant="outline" disabled={batchMutation.isPending} className="text-xs"
               onClick={() => batchMutation.mutate('retry_all_failed')}>
               {batchMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1.5" /> : <Play className="h-3 w-3 mr-1.5" />}
-              Alle {summary.failed} Failed Jobs requeuen
+              Failed requeuen (max 50)
             </Button>
-          )}
-          {summary.zombies > 0 && (
-            <Button size="sm" variant="outline" disabled={batchMutation.isPending} className="text-xs"
-              onClick={() => batchMutation.mutate('kill_all_zombies')}>
-              <Skull className="h-3 w-3 mr-1.5" />
-              Alle {summary.zombies} Zombies killen
+            <Button size="sm" variant="outline" disabled={batchMutation.isPending}
+              className="text-xs border-destructive/30 text-destructive hover:bg-destructive/10"
+              onClick={() => {
+                if (confirm(`Alle ${c.failed} fehlgeschlagenen Jobs endgültig löschen?`)) {
+                  batchMutation.mutate('purge_failed');
+                }
+              }}>
+              <Trash2 className="h-3 w-3 mr-1.5" />
+              Alle {c.failed} Failed löschen
             </Button>
-          )}
-        </div>
-      )}
-
-      {/* Search + Filter */}
-      <div className="space-y-2">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Suchen nach Job-Typ, ID, Paket oder Fehler…"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="pl-9 h-10 text-sm"
-          />
-        </div>
-        <div className="flex flex-wrap gap-1.5">
-          {STATUS_FILTERS.map(f => (
-            <button
-              key={f.key}
-              onClick={() => setStatusFilter(f.key)}
-              className={cn(
-                "px-2.5 py-1 rounded-lg text-xs font-medium transition-colors",
-                statusFilter === f.key
-                  ? "bg-primary/10 text-primary"
-                  : "bg-muted/50 text-muted-foreground hover:bg-muted"
-              )}
-            >
-              {f.label}
-              {f.key !== 'all' && summary && (
-                <span className="ml-1 text-[10px] opacity-60">
-                  {f.key === 'pending' ? summary.pending :
-                   f.key === 'processing' ? summary.processing :
-                   f.key === 'failed' ? summary.failed :
-                   summary.completed}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
+          </>
+        )}
+        {c.cancelled > 0 && (
+          <Button size="sm" variant="outline" disabled={batchMutation.isPending}
+            className="text-xs border-muted-foreground/30 text-muted-foreground hover:bg-muted/30"
+            onClick={() => {
+              if (confirm(`Alle ${c.cancelled} abgebrochenen Jobs löschen?`)) {
+                batchMutation.mutate('purge_cancelled');
+              }
+            }}>
+            <Trash2 className="h-3 w-3 mr-1.5" />
+            Cancelled löschen
+          </Button>
+        )}
       </div>
 
-      {/* Job List */}
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Suchen nach Job-Typ, ID, Paket oder Fehler…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="pl-10 h-10 bg-card border-border"
+        />
+      </div>
+
+      {/* Status filter chips */}
+      <div className="flex flex-wrap gap-1.5">
+        {[
+          { key: 'all', label: 'Alle' },
+          { key: 'pending', label: `Pending ${c.pending}` },
+          { key: 'processing', label: `Processing ${c.processing}` },
+          { key: 'failed', label: `Failed ${c.failed}` },
+          { key: 'completed', label: `Completed ${c.completed_1h}` },
+          { key: 'cancelled', label: `Cancelled ${c.cancelled}` },
+        ].map(f => (
+          <button
+            key={f.key}
+            onClick={() => setStatusFilter(f.key)}
+            className={cn(
+              "text-xs px-2.5 py-1 rounded-full border transition-colors",
+              statusFilter === f.key
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-card text-muted-foreground border-border hover:bg-muted/50"
+            )}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Job list */}
       {isLoading ? (
         <div className="space-y-2">
-          {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-16" />)}
+          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-16 w-full rounded-xl" />)}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="text-center py-12 text-sm text-muted-foreground">
-          <ListChecks className="h-8 w-8 mx-auto mb-2 opacity-40" />
-          Keine Jobs gefunden.
+        <div className="rounded-xl border border-border bg-card p-6 text-center text-sm text-muted-foreground">
+          {search ? 'Keine Jobs gefunden für diese Suche.' : 'Keine Jobs in dieser Kategorie.'}
         </div>
       ) : (
         <div className="space-y-2">
-          {filtered.map(job => (
+          {filtered.map((job) => (
             <JobRow
               key={job.job_id}
               job={job}
@@ -408,6 +401,11 @@ export default function QueuePage() {
               actionPending={actionMutation.isPending}
             />
           ))}
+          {filtered.length >= 200 && (
+            <p className="text-xs text-muted-foreground text-center py-2">
+              Zeige max. 200 Jobs. Verwende Filter oder Suche für mehr Präzision.
+            </p>
+          )}
         </div>
       )}
     </div>
