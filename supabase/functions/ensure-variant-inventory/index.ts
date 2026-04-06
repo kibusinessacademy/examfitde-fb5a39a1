@@ -11,7 +11,7 @@ const corsHeaders = {
  *
  * For a given package/curriculum:
  * 1. Discovers all approved blueprints
- * 2. Upserts inventory rows (blueprint_variant_inventory)
+ * 2. Seeds inventory rows via fn_upsert_variant_inventory (ensures full coverage)
  * 3. Identifies missing/partial blueprints
  * 4. Enqueues targeted generate_blueprint_variants jobs for gaps
  * 5. Updates package variant_prebuild_status
@@ -69,12 +69,13 @@ Deno.serve(async (req) => {
     if (allBlueprints.length === 0) {
       // No blueprints → nothing to prebuild
       await sb.from("course_packages")
-        .update({ variant_prebuild_status: "pending" })
+        .update({ variant_prebuild_status: "not_required" })
         .eq("id", packageId);
 
       return new Response(JSON.stringify({
         ok: true,
         blueprints_total: 0,
+        seeded: 0,
         gaps: 0,
         enqueued: 0,
       }), {
@@ -82,21 +83,23 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Upsert inventory rows for all blueprints
-    const inventoryRows = allBlueprints.map(bp => ({
-      blueprint_id: bp.id,
-      curriculum_id: pkg.curriculum_id,
-      package_id: packageId,
-      target_count: 20,
-    }));
-
-    // Batch upsert
-    for (const row of inventoryRows) {
-      await sb.from("blueprint_variant_inventory")
-        .upsert(row, { onConflict: "blueprint_id,curriculum_id" });
+    // ── Seed inventory rows for ALL approved blueprints via fn_upsert_variant_inventory ──
+    // This ensures every blueprint has an inventory entry, closing the blindspot
+    let seeded = 0;
+    for (const bp of allBlueprints) {
+      // deno-lint-ignore no-explicit-any
+      await sb.rpc("fn_upsert_variant_inventory" as any, {
+        p_blueprint_id: bp.id,
+        p_curriculum_id: pkg.curriculum_id,
+        p_package_id: packageId,
+        p_target_count: 6,
+        p_new_materialized: 0,
+        p_new_approved: 0,
+      });
+      seeded++;
     }
 
-    // Read current inventory state
+    // Read current inventory state (now guaranteed to have all blueprints)
     const { data: inventory } = await sb
       .from("blueprint_variant_inventory")
       .select("blueprint_id, status, materialized_count, target_count")
@@ -141,24 +144,18 @@ Deno.serve(async (req) => {
       enqueued++;
     }
 
-    // Update package prebuild status
+    // Update package prebuild status (now SSOT-aware)
+    // deno-lint-ignore no-explicit-any
     await sb.rpc("fn_update_package_prebuild_status" as any, {
       p_package_id: packageId,
     });
 
-    // Set to materializing if we enqueued work
-    if (enqueued > 0) {
-      await sb.from("course_packages")
-        .update({ variant_prebuild_status: "materializing" })
-        .eq("id", packageId)
-        .eq("variant_prebuild_status", "pending");
-    }
-
-    console.log(`[ensure-variant-inventory] Done: ${allBlueprints.length} blueprints, ${gaps.length} gaps, ${enqueued} enqueued`);
+    console.log(`[ensure-variant-inventory] Done: ${allBlueprints.length} blueprints, ${seeded} seeded, ${gaps.length} gaps, ${enqueued} enqueued`);
 
     return new Response(JSON.stringify({
       ok: true,
       blueprints_total: allBlueprints.length,
+      seeded,
       gaps: gaps.length,
       enqueued,
     }), {

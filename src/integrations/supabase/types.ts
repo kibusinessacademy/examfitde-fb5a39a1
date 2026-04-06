@@ -65225,15 +65225,50 @@ export type Database = {
         Args: { p_package_id: string }
         Returns: string
       }
-      fn_upsert_variant_inventory: {
-        Args: {
-          p_blueprint_id: string
-          p_curriculum_id: string
-          p_new_approved?: number
-          p_new_materialized?: number
-        }
-        Returns: undefined
-      }
+      fn_upsert_variant_inventory:
+        | {
+            Args: {
+              p_blueprint_id: string
+              p_curriculum_id: string
+              p_new_approved?: number
+              p_new_materialized?: number
+            }
+            Returns: undefined
+          }
+        | {
+            Args: {
+              p_blueprint_id: string
+              p_curriculum_id: string
+              p_fingerprint?: string
+              p_last_error?: string
+              p_new_approved?: number
+              p_new_materialized?: number
+              p_package_id?: string
+              p_target_count?: number
+            }
+            Returns: {
+              approved_count: number
+              blueprint_id: string
+              coverage_ratio: number | null
+              created_at: string
+              curriculum_id: string
+              fingerprint: string | null
+              id: string
+              last_error: string | null
+              last_job_at: string | null
+              materialized_count: number
+              package_id: string | null
+              status: string
+              target_count: number
+              updated_at: string
+            }
+            SetofOptions: {
+              from: "*"
+              to: "blueprint_variant_inventory"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
       fn_validate_blueprint_preflight: {
         Args: { p_blueprint_id: string }
         Returns: Json

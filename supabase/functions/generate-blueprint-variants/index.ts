@@ -452,12 +452,12 @@ Deno.serve(async (req) => {
 
       // ── Update blueprint_variant_inventory ──
       try {
-        const approvedCount = rows.filter(r => r.status === "review").length;
+        const reviewReadyCount = rows.filter(r => r.status === "review" || r.status === "approved" || r.status === "promoted").length;
         await sb.rpc("fn_upsert_variant_inventory" as any, {
           p_blueprint_id: blueprintId,
           p_curriculum_id: blueprint.curriculum_id,
           p_new_materialized: rows.length,
-          p_new_approved: approvedCount,
+          p_new_approved: reviewReadyCount,
         });
       } catch (invErr) {
         console.warn("[generate-blueprint-variants] Inventory update failed (non-fatal):", invErr);
