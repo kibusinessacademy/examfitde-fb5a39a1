@@ -38,12 +38,13 @@ Deno.test("EXAM_FIRST_PLUS capabilities are correct", () => {
   assertEquals(cap.tutorMode, "limited_exam", "tutor mode = limited_exam");
 });
 
-Deno.test("EXAM_FIRST capabilities differ from PLUS", () => {
+Deno.test("EXAM_FIRST capabilities differ from PLUS on handbook only", () => {
   const cap = getTrackCapabilities("EXAM_FIRST");
 
   assertEquals(cap.hasHandbook, false, "EXAM_FIRST has no handbook");
-  assertEquals(cap.hasOralExam, false, "EXAM_FIRST has no oral exam");
-  assertEquals(cap.isExamOnly, true, "EXAM_FIRST is exam-only");
+  assertEquals(cap.hasOralExam, true, "EXAM_FIRST has oral exam");
+  assertEquals(cap.isExamOnly, false, "EXAM_FIRST is not exam-only");
+  assertEquals(cap.canSupportOralExam, true, "EXAM_FIRST can support oral exam");
 });
 
 Deno.test("AUSBILDUNG_VOLL has full learning", () => {
@@ -194,7 +195,7 @@ Deno.test("Required and skipped steps are disjoint for every track", () => {
   }
 });
 
-Deno.test("EXAM_FIRST_PLUS differs from EXAM_FIRST exactly on handbook/oral/isExamOnly", () => {
+Deno.test("EXAM_FIRST_PLUS differs from EXAM_FIRST on handbook only", () => {
   const ef = getTrackCapabilities("EXAM_FIRST");
   const efp = getTrackCapabilities("EXAM_FIRST_PLUS");
 
@@ -202,13 +203,17 @@ Deno.test("EXAM_FIRST_PLUS differs from EXAM_FIRST exactly on handbook/oral/isEx
   assertEquals(ef.isExamCentric, true);
   assertEquals(efp.isExamCentric, true);
 
-  // Differ on these three
+  // Both have oral exam now
+  assertEquals(ef.hasOralExam, true);
+  assertEquals(efp.hasOralExam, true);
+
+  // Both are not exam-only
+  assertEquals(ef.isExamOnly, false);
+  assertEquals(efp.isExamOnly, false);
+
+  // Differ on handbook
   assertEquals(ef.hasHandbook, false);
   assertEquals(efp.hasHandbook, true);
-  assertEquals(ef.hasOralExam, false);
-  assertEquals(efp.hasOralExam, true);
-  assertEquals(ef.isExamOnly, true);
-  assertEquals(efp.isExamOnly, false);
 });
 
 // ── E. Strict Normalization ──
