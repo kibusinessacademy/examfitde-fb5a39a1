@@ -23880,6 +23880,7 @@ export type Database = {
       }
       llm_provider_cooldowns: {
         Row: {
+          job_type: string
           model: string
           provider: string
           reason: string
@@ -23887,6 +23888,7 @@ export type Database = {
           until_at: string
         }
         Insert: {
+          job_type?: string
           model: string
           provider: string
           reason: string
@@ -23894,6 +23896,7 @@ export type Database = {
           until_at: string
         }
         Update: {
+          job_type?: string
           model?: string
           provider?: string
           reason?: string
