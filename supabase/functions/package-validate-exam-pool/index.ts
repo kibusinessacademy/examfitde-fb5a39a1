@@ -469,185 +469,126 @@ Deno.serve(async (req) => {
 
   if (!packageId || !curriculumId) return json({ error: "Missing package_id or curriculum_id" }, 400);
 
-  // ── Artifact Guard: don't run if 0 questions exist at all ──
-  // FIX: Previously checked for status='approved', but THIS step is the one that
-  // validates and approves questions. Checking for 'approved' created a deadlock
-  // (Henne-Ei / chicken-egg). Now checks for ANY questions (incl. draft).
-  const { count: totalQuestionCount } = await sb
-    .from("exam_questions")
-    .select("id", { count: "exact", head: true })
-    .eq("curriculum_id", curriculumId);
-
-  if ((totalQuestionCount ?? 0) === 0) {
-    console.log(`[validate-exam] NO_QUESTIONS_EXIST for curriculum ${curriculumId.slice(0,8)} — backoff 120s`);
-    return json({ ok: false, transient: true, backoff_seconds: 120, error: "NO_QUESTIONS_EXIST_YET" });
+  // ══════════════════════════════════════════════════════════════
+  // PRE-GATE: fn_classify_exam_pool_gate — canonical 4-level classification
+  // Replaces the old binary gate logic with: PASS | WAITING_FOR_MATERIALIZATION | REPAIRABLE | HARD_FAIL
+  // ══════════════════════════════════════════════════════════════
+  let gateClassification: Record<string, unknown> | null = null;
+  try {
+    const { data: gateResult, error: gateErr } = await sb.rpc("fn_classify_exam_pool_gate", { p_package_id: packageId });
+    if (!gateErr && gateResult) {
+      gateClassification = gateResult as Record<string, unknown>;
+    } else {
+      console.warn(`[validate-exam] fn_classify_exam_pool_gate failed: ${gateErr?.message} — falling back to legacy`);
+    }
+  } catch (e) {
+    console.warn(`[validate-exam] Gate classification error: ${(e as Error)?.message?.slice(0, 100)}`);
   }
 
-  // ── Deterministic no-pending guard (prevents 409 retry loops) ──
-  // FIX v3.1: Use aggregate COUNT instead of loading all rows to prevent OOM on large curricula (41k+ questions)
-  const { data: qcAgg, error: qcAggErr } = await sb.rpc("count_exam_qc_status", { p_curriculum_id: curriculumId });
-  
-  let qcCounts: Record<string, number> = {};
-  if (!qcAggErr && qcAgg) {
-    // RPC returns array of {qc_status, cnt}
-    for (const row of (qcAgg as any[])) {
-      qcCounts[row.qc_status || "null"] = Number(row.cnt);
-    }
-  } else {
-    // Fallback: individual count queries (memory-safe)
-    console.warn(`[validate-exam] qcAgg RPC failed (${qcAggErr?.message}), using fallback counts`);
-    const ALL_QC_STATUSES = [...QC_COVERAGE_ELIGIBLE, ...QC_UNRESOLVED, ...QC_TERMINAL_REJECTED, "pending", "retired"];
-    for (const qs of ALL_QC_STATUSES) {
-      const { count } = await sb
-        .from("exam_questions")
-        .select("id", { count: "exact", head: true })
-        .eq("curriculum_id", curriculumId)
-        .eq("qc_status", qs);
-      if ((count ?? 0) > 0) qcCounts[qs] = count!;
-    }
-    // Also count null qc_status
-    const { count: nullCount } = await sb
-      .from("exam_questions")
-      .select("id", { count: "exact", head: true })
-      .eq("curriculum_id", curriculumId)
-      .is("qc_status", null);
-    if ((nullCount ?? 0) > 0) qcCounts["null"] = nullCount!;
-  }
+  if (gateClassification) {
+    const gateStatus = gateClassification.gate_status as string;
+    const reasonCodes = (gateClassification.reason_codes as string[]) || [];
+    const metrics = (gateClassification.metrics as Record<string, number>) || {};
+    const recommendedAction = gateClassification.recommended_action as string;
 
-  const pendingQcCount = qcCounts.pending || 0;
-  if (pendingQcCount === 0) {
-    // SSOT FIX: tier1_passed is coverage-eligible (QC_COVERAGE_ELIGIBLE) and counts as approved-equivalent.
-    // Previously only qcCounts.approved was counted, causing GATE_BLOCKED for pools where all questions
-    // passed Tier 1 but hadn't been promoted to qc_status='approved' yet.
-    const approvedCount = (qcCounts.approved || 0) + (qcCounts["null"] || 0) + (qcCounts.tier1_passed || 0);
-    const rejectedCount = qcCounts.rejected || 0;
-    const failedCount = (qcCounts.tier1_failed || 0) + (qcCounts.needs_revision || 0);
-    // Exclude rejected (terminal) from unresolved count.
-    const unresolvedCount = Math.max(0, (totalQuestionCount ?? 0) - approvedCount - rejectedCount);
+    console.log(`[validate-exam] GATE: ${gateStatus} | reasons=${reasonCodes.join(",")} | action=${recommendedAction} | pkg=${packageId.slice(0,8)}`);
 
-    // Idempotent success: already fully validated (0 unresolved)
-    if (unresolvedCount === 0 && approvedCount > 0) {
-      console.log(`[validate-exam] IDEMPOTENT_SUCCESS: no pending + all approved (${approvedCount})`);
-      // FIX: Write ok=true into step meta so pipeline finalization can pick it up
+    // ── PASS: Pool is healthy — mark step done if no pending questions to validate ──
+    if (gateStatus === "PASS" && (metrics.pending_count ?? 0) === 0) {
+      // Write snapshot
+      try { await runSnapshotWritePath(sb, packageId, curriculumId, p.job_id ?? null); } catch (_) {}
+
       await sb.from("package_steps").update({
-        meta: { ok: true, validation_passed: true, approved_count: approvedCount, idempotent: true },
+        meta: { ok: true, validation_passed: true, gate_status: "PASS", approved_count: metrics.coverage_eligible_count ?? 0 },
         updated_at: new Date().toISOString(),
       }).eq("package_id", packageId).eq("step_key", "validate_exam_pool");
+
       return json({
         ok: true,
         batch_complete: true,
         validation_passed: true,
-        idempotent_already_validated: true,
-        qc_counts: qcCounts,
-        message: `✅ Exam QC bereits abgeschlossen (${approvedCount} approved, 0 unresolved).`,
+        gate_status: "PASS",
+        gate_classification: gateClassification,
+        message: `✅ Exam Pool PASS: ${metrics.coverage_eligible_count ?? 0} eligible, LF ${metrics.lf_coverage_pct ?? 0}%, Comp ${metrics.competency_coverage_pct ?? 0}%`,
       });
     }
 
-    // Derive missing LF coverage for targeted re-seed
-    let missingLfIds: string[] = [];
-    try {
-      const { data: lfs } = await sb
-        .from("learning_fields")
-        .select("id")
-        .eq("curriculum_id", curriculumId);
+    // ── WAITING_FOR_MATERIALIZATION: upstream still in motion — don't fail, requeue ──
+    if (gateStatus === "WAITING_FOR_MATERIALIZATION") {
+      try { await runSnapshotWritePath(sb, packageId, curriculumId, p.job_id ?? null); } catch (_) {}
 
-      // Memory-safe: count approved per LF with aggregate query
-      // FIX: tier1_passed questions are coverage-equivalent — they passed structural
-      // validation and have status=approved. Excluding them caused false MISSING_LF_COVERAGE.
-      const { data: approvedLfRows } = await sb
-        .from("exam_questions")
-        .select("learning_field_id")
-        .eq("curriculum_id", curriculumId)
-        .in("qc_status", QC_COVERAGE_ELIGIBLE as unknown as string[])
-        .not("learning_field_id", "is", null)
-        .limit(1000);
-
-      const approvedLf = new Set(
-        (approvedLfRows || []).map((r: any) => r.learning_field_id as string),
-      );
-
-      missingLfIds = (lfs || [])
-        .map((lf: any) => lf.id as string)
-        .filter((id: string) => !approvedLf.has(id));
-    } catch (lfErr) {
-      console.warn(`[validate-exam] LF coverage derivation failed: ${(lfErr as Error)?.message}`);
+      return json({
+        ok: null,
+        batch_complete: true,
+        validation_passed: false,
+        gate_status: "WAITING_FOR_MATERIALIZATION",
+        reason_codes: reasonCodes,
+        transient: true,
+        backoff_seconds: 60,
+        gate_classification: gateClassification,
+        message: `⏳ Pool noch in Bewegung: ${reasonCodes.join(", ")}. Warte auf Materialisierung.`,
+      });
     }
 
-    // ── SYSTEM-WIDE FIX: Prevent infinite re-seed loop ──
-    const MIN_APPROVED_FOR_PASS = 500;
-    const unresolvedRatio = approvedCount > 0 ? failedCount / approvedCount : 1;
-    const poolSufficient = approvedCount >= MIN_APPROVED_FOR_PASS && missingLfIds.length === 0 && unresolvedRatio < 0.05;
+    // ── HARD_FAIL: structural problem, manual review needed ──
+    if (gateStatus === "HARD_FAIL") {
+      try { await runSnapshotWritePath(sb, packageId, curriculumId, p.job_id ?? null); } catch (_) {}
 
-    if (poolSufficient && failedCount > 0) {
-      console.log(`[validate-exam] TERMINAL_CLEANUP: rejecting ${failedCount} failed (approved=${approvedCount}, ratio=${(unresolvedRatio * 100).toFixed(1)}%)`);
-      
-      // Reject tier1_failed/needs_revision
-      if (failedCount > 0) {
-        try {
-          await sb
-            .from("exam_questions")
-            .update({ qc_status: "rejected", status: "rejected" })
-            .eq("curriculum_id", curriculumId)
-            .in("qc_status", ["tier1_failed", "needs_revision"]);
-        } catch (rejectErr) {
-          console.warn(`[validate-exam] REJECT_CLEANUP_FAIL: ${(rejectErr as Error)?.message?.slice(0, 100)}`);
-        }
+      await sb.from("package_steps").update({
+        meta: { ok: false, gate_status: "HARD_FAIL", reason_codes: reasonCodes },
+        last_error: `HARD_FAIL: ${reasonCodes.join(", ")}`,
+        updated_at: new Date().toISOString(),
+      }).eq("package_id", packageId).eq("step_key", "validate_exam_pool");
+
+      return json({
+        ok: false,
+        batch_complete: true,
+        validation_passed: false,
+        gate_status: "HARD_FAIL",
+        reason_codes: reasonCodes,
+        gate_classification: gateClassification,
+        message: `🛑 HARD_FAIL: ${reasonCodes.join(", ")}. Manuelles Review erforderlich.`,
+      });
+    }
+
+    // ── REPAIRABLE: proceed with validation, but if no pending questions → dispatch repair ──
+    if (gateStatus === "REPAIRABLE" && (metrics.pending_count ?? 0) === 0) {
+      try { await runSnapshotWritePath(sb, packageId, curriculumId, p.job_id ?? null); } catch (_) {}
+
+      // Build targeted repair diagnosis
+      const repairDiagnosis: string[] = [];
+      for (const rc of reasonCodes) {
+        if (rc.startsWith("REPAIR_")) repairDiagnosis.push(rc);
       }
 
-      // FIX: Write ok=true into step meta so pipeline finalization can pick it up
-      await sb.from("package_steps").update({
-        meta: { ok: true, validation_passed: true, approved_count: approvedCount, terminal_cleanup: true },
-        updated_at: new Date().toISOString(),
-      }).eq("package_id", packageId).eq("step_key", "validate_exam_pool");
       return json({
-        ok: true,
+        ok: false,
         batch_complete: true,
-        validation_passed: true,
-        terminal_cleanup: true,
-        rejected_count: failedCount,
-        qc_counts: { ...qcCounts, rejected: failedCount },
-        message: `✅ Exam Pool validiert (${approvedCount} approved). ${failedCount} unresolvable Fragen als rejected markiert.`,
+        validation_passed: false,
+        gate_status: "REPAIRABLE",
+        gate_blocked: true,
+        gate_diagnosis: repairDiagnosis,
+        reason_codes: reasonCodes,
+        gate_classification: gateClassification,
+        message: `🔧 REPAIRABLE: ${repairDiagnosis.join(", ")}. Targeted Repair erforderlich.`,
       });
     }
 
-    const issues = [
-      "NO_PENDING_QUESTIONS",
-      `UNRESOLVED_QUALITY_FLAGS:${unresolvedCount}`,
-      ...(missingLfIds.length > 0 ? [`MISSING_LF_COVERAGE:${missingLfIds.length}`] : []),
-    ];
+    // If PASS but has pending questions, or REPAIRABLE with pending → fall through to normal validation
+    console.log(`[validate-exam] Gate ${gateStatus} with ${metrics.pending_count ?? 0} pending — proceeding to T1/T2 validation`);
+  }
 
-    // ═══ P0.1: GATE CLASSIFICATION — Distinguish non-retryable fachliche failures ═══
-    const diagnosisCodes: string[] = [];
-    if (unresolvedCount > 0) diagnosisCodes.push("REPAIR_NEEDED:QC_RECONCILIATION");
-    if (missingLfIds.length > 0) diagnosisCodes.push("REPAIR_NEEDED:LF_COVERAGE");
-    if (unresolvedCount === 0 && missingLfIds.length === 0) diagnosisCodes.push("TERMINAL:POOL_EMPTY");
+  // ── Legacy fallback: Artifact Guard (only if gate classification failed) ──
+  if (!gateClassification) {
+    const { count: totalQuestionCount } = await sb
+      .from("exam_questions")
+      .select("id", { count: "exact", head: true })
+      .eq("curriculum_id", curriculumId);
 
-    console.warn(`[validate-exam] GATE_BLOCKED: approved=${approvedCount}, unresolved=${unresolvedCount}, missingLF=${missingLfIds.length}, diagnosis=${diagnosisCodes.join(",")}`);
-
-    // ═══ SNAPSHOT: Full write-path (insert → classify → finalize → meta) ═══
-    try {
-      await runSnapshotWritePath(sb, packageId, curriculumId, p.job_id ?? null);
-    } catch (snapErr) {
-      console.warn(`[validate-exam] Snapshot write-path failed: ${(snapErr as Error)?.message?.slice(0, 100)}`);
+    if ((totalQuestionCount ?? 0) === 0) {
+      console.log(`[validate-exam] NO_QUESTIONS_EXIST for curriculum ${curriculumId.slice(0,8)} — backoff 120s`);
+      return json({ ok: false, transient: true, backoff_seconds: 120, error: "NO_QUESTIONS_EXIST_YET" });
     }
-
-    return json({
-      ok: false,
-      batch_complete: true,
-      validation_passed: false,
-      gate_blocked: true,
-      gate_diagnosis: diagnosisCodes,
-      reseed_required: diagnosisCodes.includes("TERMINAL:POOL_EMPTY"),
-      no_pending_questions: true,
-      issues,
-      missing_lf_ids: missingLfIds.slice(0, 50),
-      qc_counts: qcCounts,
-      unresolved_count: unresolvedCount,
-      approved_count: approvedCount,
-      message: unresolvedCount > 0
-        ? `⛔ Gate blockiert: ${unresolvedCount} unresolved QC-Fälle + ${missingLfIds.length} fehlende LF. Targeted Repair erforderlich (kein Reseed).`
-        : `❌ Keine pending Fragen und Pool leer. Re-Seed erforderlich.`,
-    });
   }
 
   // ── Cursor from previous partial run ──
