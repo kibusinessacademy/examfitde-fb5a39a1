@@ -248,7 +248,7 @@ export const ALL_SUBJOB_TYPES = new Set(FAN_OUT_CONFIG.flatMap(c => c.subjobType
 // Unified Job Definitions (SSOT for pool + edge function dispatch)
 // ═══════════════════════════════════════════════════════════════
 
-export type WorkerPool = "core" | "content";
+export type WorkerPool = "core" | "content" | "prebuild";
 
 export interface JobDefinition {
   pool: WorkerPool;
