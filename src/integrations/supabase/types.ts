@@ -63104,6 +63104,7 @@ export type Database = {
         Returns: Json
       }
       ops_cancel_pending_non_building_jobs: { Args: never; Returns: number }
+      ops_enforce_wip_limit: { Args: { p_wip_cap?: number }; Returns: Json }
       ops_escalate_qc_backlog: { Args: never; Returns: Json }
       ops_expire_orphan_leases: { Args: never; Returns: number }
       ops_hash_dedupe: {
@@ -63123,6 +63124,8 @@ export type Database = {
         }
         Returns: undefined
       }
+      ops_reap_duplicate_jobs: { Args: never; Returns: Json }
+      ops_reap_failed_orphan_jobs: { Args: never; Returns: Json }
       ops_run_integrity_checks: { Args: never; Returns: Json }
       package_lessons_realness: {
         Args: { p_package_id: string }
