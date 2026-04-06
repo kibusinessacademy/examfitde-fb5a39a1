@@ -21884,6 +21884,7 @@ export type Database = {
           job_type: string
           notes: string | null
           updated_at: string
+          worker_pool: string | null
         }
         Insert: {
           can_run_when_not_building?: boolean
@@ -21892,6 +21893,7 @@ export type Database = {
           job_type: string
           notes?: string | null
           updated_at?: string
+          worker_pool?: string | null
         }
         Update: {
           can_run_when_not_building?: boolean
@@ -21900,6 +21902,7 @@ export type Database = {
           job_type?: string
           notes?: string | null
           updated_at?: string
+          worker_pool?: string | null
         }
         Relationships: []
       }
