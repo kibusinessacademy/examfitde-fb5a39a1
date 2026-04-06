@@ -4,27 +4,55 @@ import { markStepDone } from "../_shared/steps.ts";
 import { enqueueJob } from "../_shared/enqueue.ts";
 import { QC_COVERAGE_ELIGIBLE } from "../_shared/qc-status.ts";
 
-/** Ensure the repair step exists before markStepDone (prevents MISMATCH crash) */
-async function ensureRepairStep(sb: ReturnType<typeof createClient>, packageId: string) {
-  try {
-    await sb.rpc("ensure_package_step", {
-      p_package_id: packageId,
-      p_step_key: "repair_exam_pool_quality",
-    });
-  } catch (e) {
-    // Fallback: direct upsert
-    await sb.from("package_steps").upsert({
+/** Ensure the repair step exists before markStepDone (prevents MISMATCH crash).
+ *  Returns true if the step row exists after this call. */
+async function ensureRepairStep(sb: ReturnType<typeof createClient>, packageId: string): Promise<boolean> {
+  // Attempt 1: RPC
+  const { error: rpcErr } = await sb.rpc("ensure_package_step", {
+    p_package_id: packageId,
+    p_step_key: "repair_exam_pool_quality",
+  });
+
+  if (rpcErr) {
+    console.warn(`[repair-exam-pool] ensure_package_step RPC failed: ${rpcErr.message} — trying direct insert`);
+    // Attempt 2: Direct insert (upsert with ignoreDuplicates doesn't surface trigger errors)
+    const { error: insErr } = await sb.from("package_steps").insert({
       package_id: packageId,
       step_key: "repair_exam_pool_quality",
       status: "running",
       started_at: new Date().toISOString(),
-    }, { onConflict: "package_id,step_key", ignoreDuplicates: true });
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
+
+    if (insErr) {
+      // Could be duplicate (OK) or trigger rejection (bad)
+      const isDuplicate = insErr.code === "23505";
+      if (!isDuplicate) {
+        console.error(`[repair-exam-pool] Direct insert failed: ${insErr.message} (code=${insErr.code})`);
+      }
+    }
   }
+
   // Ensure started_at is set (Ghost Guard)
   await sb.from("package_steps").update({
     started_at: new Date().toISOString(),
     status: "running",
   }).eq("package_id", packageId).eq("step_key", "repair_exam_pool_quality").is("started_at", null);
+
+  // Verify the row actually exists
+  const { data: check } = await sb
+    .from("package_steps")
+    .select("step_key")
+    .eq("package_id", packageId)
+    .eq("step_key", "repair_exam_pool_quality")
+    .maybeSingle();
+
+  if (!check) {
+    console.error(`[repair-exam-pool] ❌ CRITICAL: repair step row does NOT exist after ensure — markStepDone will be skipped`);
+    return false;
+  }
+  return true;
 }
 import {
   isRepairActionEligible,
@@ -283,22 +311,24 @@ async function handlePoolHealthyNoReentry(
   qcReconciled: number,
   gateChange: { check_failed?: boolean; check_failed_reason?: string },
 ) {
-  // Ensure repair step exists before markStepDone (prevents MISMATCH crash)
-  await ensureRepairStep(sb, packageId);
-  // Mark repair step as done via SSOT helper (not raw update)
-  await markStepDone(sb, {
-    packageId,
-    stepKey: "repair_exam_pool_quality",
-    meta: {
-      repair_complete: true,
-      qc_reconciled: qcReconciled,
-      pool_healthy: true,
-      gate_delta_verified: false,
-      reentry_blocked_reason: "pool_healthy_but_no_gate_delta",
-      delta_check_failed: gateChange.check_failed ?? false,
-      delta_check_failed_reason: gateChange.check_failed_reason ?? null,
-    },
-  });
+  const stepExists = await ensureRepairStep(sb, packageId);
+  if (stepExists) {
+    await markStepDone(sb, {
+      packageId,
+      stepKey: "repair_exam_pool_quality",
+      meta: {
+        repair_complete: true,
+        qc_reconciled: qcReconciled,
+        pool_healthy: true,
+        gate_delta_verified: false,
+        reentry_blocked_reason: "pool_healthy_but_no_gate_delta",
+        delta_check_failed: gateChange.check_failed ?? false,
+        delta_check_failed_reason: gateChange.check_failed_reason ?? null,
+      },
+    });
+  } else {
+    console.warn(`[repair-exam-pool] Step row missing — skipping markStepDone (pool healthy, no gate delta)`);
+  }
 
   // Append stuck_reason for diagnostics — do NOT clear blocked_reason
   await sb.from("course_packages").update({
@@ -319,7 +349,11 @@ async function handleGateChanged(
   }).eq("package_id", packageId).eq("step_key", "validate_exam_pool").in("status", ["failed", "queued"]);
 
   const hasOpenLfGaps = (repairResult.missing_lf_coverage as number) > 0;
-  await ensureRepairStep(sb, packageId);
+  const stepExists = await ensureRepairStep(sb, packageId);
+  if (!stepExists) {
+    console.warn(`[repair-exam-pool] Step row missing in handleGateChanged — skipping step update`);
+    return;
+  }
   if (hasOpenLfGaps) {
     await sb.from("package_steps").update({
       status: "running",
@@ -343,26 +377,29 @@ async function handleNoEffect(
   preSnapshot: Record<string, unknown>,
   gateChange: { check_failed?: boolean; check_failed_reason?: string },
 ) {
-  // Ensure repair step exists before updating it
-  await ensureRepairStep(sb, packageId);
-  // FIX: Mark repair step as 'blocked' (not 'done') — no-effect is NOT success
-  await sb.from("package_steps").update({
-    status: "blocked",
-    updated_at: new Date().toISOString(),
-    meta: {
-      repair_complete: false,
-      qc_reconciled: qcReconciled,
-      no_effect_repair: true,
-      no_effect_repair_at: new Date().toISOString(),
-      no_effect_reason: gateChange.check_failed
-        ? "delta_check_unavailable"
-        : "repair_did_not_change_blocking_gate",
-      gate_delta_verified: false,
-      pre_gate_snapshot: preSnapshot,
-      delta_check_failed: gateChange.check_failed ?? false,
-      delta_check_failed_reason: gateChange.check_failed_reason ?? null,
-    },
-  }).eq("package_id", packageId).eq("step_key", "repair_exam_pool_quality");
+  const stepExists = await ensureRepairStep(sb, packageId);
+  if (stepExists) {
+    // FIX: Mark repair step as 'blocked' (not 'done') — no-effect is NOT success
+    await sb.from("package_steps").update({
+      status: "blocked",
+      updated_at: new Date().toISOString(),
+      meta: {
+        repair_complete: false,
+        qc_reconciled: qcReconciled,
+        no_effect_repair: true,
+        no_effect_repair_at: new Date().toISOString(),
+        no_effect_reason: gateChange.check_failed
+          ? "delta_check_unavailable"
+          : "repair_did_not_change_blocking_gate",
+        gate_delta_verified: false,
+        pre_gate_snapshot: preSnapshot,
+        delta_check_failed: gateChange.check_failed ?? false,
+        delta_check_failed_reason: gateChange.check_failed_reason ?? null,
+      },
+    }).eq("package_id", packageId).eq("step_key", "repair_exam_pool_quality");
+  } else {
+    console.warn(`[repair-exam-pool] Step row missing in handleNoEffect — skipping step update`);
+  }
 
   // FIX D: Do NOT clear blocked_reason — preserve the diagnostic trail.
   const existingBlockedReason = preSnapshot.blocked_reason as string | null;
