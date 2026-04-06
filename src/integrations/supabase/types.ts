@@ -1232,6 +1232,13 @@ export type Database = {
             foreignKeyName: "ai_tutor_context_index_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "ops_validate_exam_pool_status"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "ai_tutor_context_index_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "package_economics"
             referencedColumns: ["package_id"]
           },
@@ -8184,6 +8191,13 @@ export type Database = {
             foreignKeyName: "council_sessions_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "ops_validate_exam_pool_status"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "council_sessions_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "package_economics"
             referencedColumns: ["package_id"]
           },
@@ -9309,6 +9323,13 @@ export type Database = {
             foreignKeyName: "course_package_build_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "ops_validate_exam_pool_status"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_build_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "package_economics"
             referencedColumns: ["package_id"]
           },
@@ -9802,6 +9823,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: true
             referencedRelation: "ops_validate_exam_pool_progress"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_locks_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_validate_exam_pool_status"
             referencedColumns: ["package_id"]
           },
           {
@@ -10322,6 +10350,13 @@ export type Database = {
             foreignKeyName: "course_package_outputs_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "ops_validate_exam_pool_status"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_outputs_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "package_economics"
             referencedColumns: ["package_id"]
           },
@@ -10830,6 +10865,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_validate_exam_pool_progress"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_plans_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_validate_exam_pool_status"
             referencedColumns: ["package_id"]
           },
           {
@@ -11356,6 +11398,13 @@ export type Database = {
             columns: ["course_package_id"]
             isOneToOne: true
             referencedRelation: "ops_validate_exam_pool_progress"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_reviews_course_package_id_fkey"
+            columns: ["course_package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_validate_exam_pool_status"
             referencedColumns: ["package_id"]
           },
           {
@@ -12373,6 +12422,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: true
             referencedRelation: "ops_validate_exam_pool_progress"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_regulatory_status_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_validate_exam_pool_status"
             referencedColumns: ["package_id"]
           },
           {
@@ -13532,6 +13588,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_validate_exam_pool_progress"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "curriculum_discovery_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_validate_exam_pool_status"
             referencedColumns: ["package_id"]
           },
           {
@@ -17138,6 +17201,13 @@ export type Database = {
             foreignKeyName: "duplicate_detection_log_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "ops_validate_exam_pool_status"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "duplicate_detection_log_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "package_economics"
             referencedColumns: ["package_id"]
           },
@@ -18364,6 +18434,7 @@ export type Database = {
           created_at: string
           curriculum_id: string | null
           draft_count: number
+          gate_class: string | null
           guard_state: string
           id: string
           job_id: string | null
@@ -18374,6 +18445,7 @@ export type Database = {
           package_id: string
           reason_code: string | null
           rejected_count: number
+          repair_attempts_24h: number | null
           repairable_issue_count: number
           review_count: number
           unresolved_quality_flags: number
@@ -18383,6 +18455,7 @@ export type Database = {
           created_at?: string
           curriculum_id?: string | null
           draft_count?: number
+          gate_class?: string | null
           guard_state?: string
           id?: string
           job_id?: string | null
@@ -18393,6 +18466,7 @@ export type Database = {
           package_id: string
           reason_code?: string | null
           rejected_count?: number
+          repair_attempts_24h?: number | null
           repairable_issue_count?: number
           review_count?: number
           unresolved_quality_flags?: number
@@ -18402,6 +18476,7 @@ export type Database = {
           created_at?: string
           curriculum_id?: string | null
           draft_count?: number
+          gate_class?: string | null
           guard_state?: string
           id?: string
           job_id?: string | null
@@ -18412,6 +18487,7 @@ export type Database = {
           package_id?: string
           reason_code?: string | null
           rejected_count?: number
+          repair_attempts_24h?: number | null
           repairable_issue_count?: number
           review_count?: number
           unresolved_quality_flags?: number
@@ -18639,6 +18715,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_validate_exam_pool_progress"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_validation_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_validate_exam_pool_status"
             referencedColumns: ["package_id"]
           },
           {
@@ -26806,6 +26889,13 @@ export type Database = {
             foreignKeyName: "oral_exam_session_templates_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "ops_validate_exam_pool_status"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "oral_exam_session_templates_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "package_economics"
             referencedColumns: ["package_id"]
           },
@@ -27444,6 +27534,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: true
             referencedRelation: "ops_validate_exam_pool_progress"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "oral_exam_sessionsets_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_validate_exam_pool_status"
             referencedColumns: ["package_id"]
           },
           {
@@ -29245,6 +29342,13 @@ export type Database = {
             foreignKeyName: "package_content_shards_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "ops_validate_exam_pool_status"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_content_shards_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "package_economics"
             referencedColumns: ["package_id"]
           },
@@ -29747,6 +29851,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: true
             referencedRelation: "ops_validate_exam_pool_progress"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_leases_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_validate_exam_pool_status"
             referencedColumns: ["package_id"]
           },
           {
@@ -30458,6 +30569,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "ops_validate_exam_pool_status"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "package_economics"
             referencedColumns: ["package_id"]
           },
@@ -30951,6 +31069,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_validate_exam_pool_progress"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_tags_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_validate_exam_pool_status"
             referencedColumns: ["package_id"]
           },
           {
@@ -31996,6 +32121,13 @@ export type Database = {
             foreignKeyName: "pipeline_lock_active_package_id_fkey"
             columns: ["active_package_id"]
             isOneToOne: false
+            referencedRelation: "ops_validate_exam_pool_status"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "pipeline_lock_active_package_id_fkey"
+            columns: ["active_package_id"]
+            isOneToOne: false
             referencedRelation: "package_economics"
             referencedColumns: ["package_id"]
           },
@@ -32884,6 +33016,13 @@ export type Database = {
             foreignKeyName: "premium_upgrade_runs_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "ops_validate_exam_pool_status"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "premium_upgrade_runs_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "package_economics"
             referencedColumns: ["package_id"]
           },
@@ -33517,6 +33656,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: true
             referencedRelation: "ops_validate_exam_pool_progress"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "priority_scores_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_validate_exam_pool_status"
             referencedColumns: ["package_id"]
           },
           {
@@ -34702,6 +34848,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_validate_exam_pool_progress"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "production_quality_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_validate_exam_pool_status"
             referencedColumns: ["package_id"]
           },
           {
@@ -40586,6 +40739,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_validate_exam_pool_progress"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "standalone_artifact_versions_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_validate_exam_pool_status"
             referencedColumns: ["package_id"]
           },
           {
@@ -46657,6 +46817,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "ops_validate_exam_pool_status"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "package_economics"
             referencedColumns: ["package_id"]
           },
@@ -48472,6 +48639,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "ops_validate_exam_pool_status"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "package_economics"
             referencedColumns: ["package_id"]
           },
@@ -49120,6 +49294,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "ops_validate_exam_pool_status"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "package_economics"
             referencedColumns: ["package_id"]
           },
@@ -49622,6 +49803,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_validate_exam_pool_progress"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_validate_exam_pool_status"
             referencedColumns: ["package_id"]
           },
           {
@@ -50208,6 +50396,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_validate_exam_pool_progress"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_validate_exam_pool_status"
             referencedColumns: ["package_id"]
           },
           {
@@ -50916,6 +51111,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_validate_exam_pool_progress"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_validate_exam_pool_status"
             referencedColumns: ["package_id"]
           },
           {
@@ -51969,6 +52171,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "ops_validate_exam_pool_status"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "package_economics"
             referencedColumns: ["package_id"]
           },
@@ -52757,6 +52966,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "ops_validate_exam_pool_status"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "package_economics"
             referencedColumns: ["package_id"]
           },
@@ -53316,6 +53532,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_validate_exam_pool_progress"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_validate_exam_pool_status"
             referencedColumns: ["package_id"]
           },
           {
@@ -53891,6 +54114,13 @@ export type Database = {
             foreignKeyName: "council_sessions_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "ops_validate_exam_pool_status"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "council_sessions_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "package_economics"
             referencedColumns: ["package_id"]
           },
@@ -54458,6 +54688,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "ops_validate_exam_pool_status"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "package_economics"
             referencedColumns: ["package_id"]
           },
@@ -54816,6 +55053,30 @@ export type Database = {
         }
         Relationships: []
       }
+      ops_validate_exam_pool_status: {
+        Row: {
+          active_gen_jobs: number | null
+          active_repair_jobs: number | null
+          approved_count: number | null
+          course_title: string | null
+          draft_count: number | null
+          failed_count: number | null
+          gate_status: string | null
+          guard_state: string | null
+          last_error: string | null
+          package_id: string | null
+          package_status: string | null
+          pending_count: number | null
+          recommended_action: string | null
+          rejected_count: number | null
+          repair_attempts_24h: number | null
+          review_count: number | null
+          stall_reason_code: string | null
+          step_status: Database["public"]["Enums"]["step_status"] | null
+          total_questions: number | null
+        }
+        Relationships: []
+      }
       package_economics: {
         Row: {
           cost_eur_30d: number | null
@@ -55138,6 +55399,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_validate_exam_pool_progress"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_validate_exam_pool_status"
             referencedColumns: ["package_id"]
           },
           {
@@ -59513,6 +59781,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "ops_validate_exam_pool_status"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "package_economics"
             referencedColumns: ["package_id"]
           },
@@ -60381,6 +60656,13 @@ export type Database = {
             foreignKeyName: "package_content_shards_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "ops_validate_exam_pool_status"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_content_shards_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "package_economics"
             referencedColumns: ["package_id"]
           },
@@ -60873,6 +61155,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_validate_exam_pool_progress"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_validate_exam_pool_status"
             referencedColumns: ["package_id"]
           },
           {
@@ -61442,6 +61731,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_validate_exam_pool_progress"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_content_shards_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_validate_exam_pool_status"
             referencedColumns: ["package_id"]
           },
           {
@@ -62363,6 +62659,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_validate_exam_pool_progress"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "standalone_artifact_versions_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_validate_exam_pool_status"
             referencedColumns: ["package_id"]
           },
           {
@@ -64648,6 +64951,10 @@ export type Database = {
       }
       fn_cancel_zombie_jobs: { Args: never; Returns: number }
       fn_capture_gate_snapshot: {
+        Args: { p_package_id: string }
+        Returns: Json
+      }
+      fn_classify_exam_pool_gate: {
         Args: { p_package_id: string }
         Returns: Json
       }
