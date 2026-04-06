@@ -4,27 +4,55 @@ import { markStepDone } from "../_shared/steps.ts";
 import { enqueueJob } from "../_shared/enqueue.ts";
 import { QC_COVERAGE_ELIGIBLE } from "../_shared/qc-status.ts";
 
-/** Ensure the repair step exists before markStepDone (prevents MISMATCH crash) */
-async function ensureRepairStep(sb: ReturnType<typeof createClient>, packageId: string) {
-  try {
-    await sb.rpc("ensure_package_step", {
-      p_package_id: packageId,
-      p_step_key: "repair_exam_pool_quality",
-    });
-  } catch (e) {
-    // Fallback: direct upsert
-    await sb.from("package_steps").upsert({
+/** Ensure the repair step exists before markStepDone (prevents MISMATCH crash).
+ *  Returns true if the step row exists after this call. */
+async function ensureRepairStep(sb: ReturnType<typeof createClient>, packageId: string): Promise<boolean> {
+  // Attempt 1: RPC
+  const { error: rpcErr } = await sb.rpc("ensure_package_step", {
+    p_package_id: packageId,
+    p_step_key: "repair_exam_pool_quality",
+  });
+
+  if (rpcErr) {
+    console.warn(`[repair-exam-pool] ensure_package_step RPC failed: ${rpcErr.message} — trying direct insert`);
+    // Attempt 2: Direct insert (upsert with ignoreDuplicates doesn't surface trigger errors)
+    const { error: insErr } = await sb.from("package_steps").insert({
       package_id: packageId,
       step_key: "repair_exam_pool_quality",
       status: "running",
       started_at: new Date().toISOString(),
-    }, { onConflict: "package_id,step_key", ignoreDuplicates: true });
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
+
+    if (insErr) {
+      // Could be duplicate (OK) or trigger rejection (bad)
+      const isDuplicate = insErr.code === "23505";
+      if (!isDuplicate) {
+        console.error(`[repair-exam-pool] Direct insert failed: ${insErr.message} (code=${insErr.code})`);
+      }
+    }
   }
+
   // Ensure started_at is set (Ghost Guard)
   await sb.from("package_steps").update({
     started_at: new Date().toISOString(),
     status: "running",
   }).eq("package_id", packageId).eq("step_key", "repair_exam_pool_quality").is("started_at", null);
+
+  // Verify the row actually exists
+  const { data: check } = await sb
+    .from("package_steps")
+    .select("step_key")
+    .eq("package_id", packageId)
+    .eq("step_key", "repair_exam_pool_quality")
+    .maybeSingle();
+
+  if (!check) {
+    console.error(`[repair-exam-pool] ❌ CRITICAL: repair step row does NOT exist after ensure — markStepDone will be skipped`);
+    return false;
+  }
+  return true;
 }
 import {
   isRepairActionEligible,
