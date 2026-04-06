@@ -39,9 +39,10 @@ const SCHEDULE_TIERS: Record<string, { functions: string[]; bodies: Record<strin
     bodies: {},
   },
   daily: {
-    functions: ["curriculum-discovery"],
+    functions: ["curriculum-discovery", "regulatory-monitor"],
     bodies: {
       "curriculum-discovery": JSON.stringify({ action: "evaluate", limit: 50 }),
+      "regulatory-monitor": JSON.stringify({ action: "process", limit: 20 }),
     },
   },
   hourly: {
