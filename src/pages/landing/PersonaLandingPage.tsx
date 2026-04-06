@@ -113,8 +113,7 @@ export default function PersonaLandingPage({ personaType }: PersonaLandingProps)
   const title = certData.title;
   const price = Number(certData.pricing?.one_time_price ?? 39).toFixed(2).replace(".", ",");
   const accessMonths = certData.pricing?.access_months ?? 12;
-  const questions = certData.min_question_target ?? 600;
-  const chamber = certData.chamber_type ?? "IHK";
+  const questions = certData.recommended_question_count ?? 600;
   const hero = config.heroTemplate(title, price);
   const meta = config.metaTemplate(title, price);
   const canonicalUrl = `${SITE_URL}/${config.routePrefix}/${slug}`;
