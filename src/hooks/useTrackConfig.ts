@@ -12,7 +12,7 @@ export type CertificationType =
 
 export type ProductTrack = 'AUSBILDUNG_VOLL' | 'EXAM_FIRST' | 'EXAM_FIRST_PLUS' | 'STUDIUM';
 
-export type AiTutorMode = 'full' | 'limited_exam' | 'off';
+export type AiTutorMode = 'full' | 'limited_exam' | 'exam_only' | 'off';
 
 export interface FeatureFlags {
   has_learning_course: boolean;
