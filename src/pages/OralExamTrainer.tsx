@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -87,8 +87,9 @@ interface SpeechRecognition extends EventTarget {
 export default function OralExamTrainer() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
   const [phase, setPhase] = useState<ExamPhase>('setup');
-  const [selectedCurriculum, setSelectedCurriculum] = useState<string | null>(null);
+  const [selectedCurriculum, setSelectedCurriculum] = useState<string | null>(() => searchParams.get('curriculum'));
   const { t, isAcademic } = useTerminology(selectedCurriculum);
   const [answer, setAnswer] = useState('');
   const [timeRemaining, setTimeRemaining] = useState(180);

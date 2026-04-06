@@ -20,22 +20,22 @@ export function AdminPreviewToolbar({
 
   return (
     <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 flex flex-wrap gap-2">
-      <Button size="sm" variant="outline" onClick={() => go(`/learner/dashboard/${curriculumId}`)}>
+      <Button size="sm" variant="outline" onClick={() => go(`/dashboard`)}>
         Dashboard
       </Button>
-      <Button size="sm" variant="outline" onClick={() => go(`/learner/course/${curriculumId}`)}>
+      <Button size="sm" variant="outline" onClick={() => go(`/courses`)}>
         Kurs
       </Button>
-      <Button size="sm" variant="outline" onClick={() => go(`/learner/exam/${curriculumId}`)}>
+      <Button size="sm" variant="outline" onClick={() => go(`/exam-trainer?curriculum=${curriculumId}`)}>
         Prüfung
       </Button>
-      <Button size="sm" variant="outline" onClick={() => go(`/learner/exam/adaptive/${curriculumId}`)}>
+      <Button size="sm" variant="outline" onClick={() => go(`/exam-trainer?curriculum=${curriculumId}`)}>
         Adaptive
       </Button>
-      <Button size="sm" variant="outline" onClick={() => go(`/learner/tutor/${curriculumId}`)}>
+      <Button size="sm" variant="outline" onClick={() => go(`/oral-exam?curriculum=${curriculumId}`)}>
         Tutor
       </Button>
-      <Button size="sm" variant="outline" onClick={() => go(`/learner/oral-exam/${curriculumId}`)}>
+      <Button size="sm" variant="outline" onClick={() => go(`/oral-exam?curriculum=${curriculumId}`)}>
         Oral
       </Button>
     </div>

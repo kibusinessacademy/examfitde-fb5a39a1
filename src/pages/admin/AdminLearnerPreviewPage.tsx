@@ -238,22 +238,22 @@ export default function AdminLearnerPreviewPage() {
 
               {/* Actions */}
               <div className="grid grid-cols-3 gap-2">
-                <Button variant="outline" size="sm" onClick={() => window.open(buildPreviewUrl(`/learner/course/${course.curriculum_id}`, previewMode), "_blank")}>
+                <Button variant="outline" size="sm" onClick={() => window.open(buildPreviewUrl(`/courses`, previewMode), "_blank")}>
                   <GraduationCap className="mr-1.5 h-3.5 w-3.5" />Kurs
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => window.open(buildPreviewUrl(`/learner/exam/${course.curriculum_id}`, previewMode), "_blank")}>
+                <Button variant="outline" size="sm" onClick={() => window.open(buildPreviewUrl(`/exam-trainer?curriculum=${course.curriculum_id}`, previewMode), "_blank")}>
                   Prüfung
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => window.open(buildPreviewUrl(`/learner/oral-exam/${course.curriculum_id}`, previewMode), "_blank")}>
+                <Button variant="outline" size="sm" onClick={() => window.open(buildPreviewUrl(`/oral-exam?curriculum=${course.curriculum_id}`, previewMode), "_blank")}>
                   Oral
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => window.open(buildPreviewUrl(`/learner/tutor/${course.curriculum_id}`, previewMode), "_blank")}>
+                <Button variant="outline" size="sm" onClick={() => window.open(buildPreviewUrl(`/oral-exam?curriculum=${course.curriculum_id}`, previewMode), "_blank")}>
                   <Brain className="mr-1.5 h-3.5 w-3.5" />Tutor
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => window.open(buildPreviewUrl(`/learner/dashboard/${course.curriculum_id}`, previewMode), "_blank")}>
+                <Button variant="outline" size="sm" onClick={() => window.open(buildPreviewUrl(`/dashboard?curriculum=${course.curriculum_id}`, previewMode), "_blank")}>
                   <LayoutDashboard className="mr-1.5 h-3.5 w-3.5" />Dashboard
                 </Button>
-                <Button size="sm" onClick={() => window.open(buildPreviewUrl(`/learner/exam/adaptive/${course.curriculum_id}`, "adaptive"), "_blank")}>
+                <Button size="sm" onClick={() => window.open(buildPreviewUrl(`/exam-trainer?curriculum=${course.curriculum_id}`, "adaptive"), "_blank")}>
                   <Sparkles className="mr-1.5 h-3.5 w-3.5" />Adaptive
                 </Button>
               </div>

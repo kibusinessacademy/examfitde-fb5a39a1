@@ -118,16 +118,16 @@ export function AdminAutoTestQueue({
             </div>
 
             <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
-              <Button size="sm" variant="outline" onClick={() => open(`/learner/course/${item.curriculum_id}`)}>
+              <Button size="sm" variant="outline" onClick={() => open(`/courses`)}>
                 Kurs
               </Button>
-              <Button size="sm" variant="outline" onClick={() => open(`/learner/exam/${item.curriculum_id}`)}>
+              <Button size="sm" variant="outline" onClick={() => open(`/exam-trainer?curriculum=${item.curriculum_id}`)}>
                 Prüfung
               </Button>
-              <Button size="sm" variant="outline" onClick={() => open(`/learner/tutor/${item.curriculum_id}`)}>
+              <Button size="sm" variant="outline" onClick={() => open(`/oral-exam?curriculum=${item.curriculum_id}`)}>
                 Tutor
               </Button>
-              <Button size="sm" onClick={() => open(`/learner/exam/adaptive/${item.curriculum_id}`)}>
+              <Button size="sm" onClick={() => open(`/exam-trainer?curriculum=${item.curriculum_id}`)}>
                 Adaptive
               </Button>
             </div>

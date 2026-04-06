@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -43,9 +43,10 @@ export default function ExamTrainer() {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
-  // Selection state
-  const [selectedCurriculumId, setSelectedCurriculumId] = useState('');
+  // Selection state — pre-select from query param if provided
+  const [selectedCurriculumId, setSelectedCurriculumId] = useState(() => searchParams.get('curriculum') || '');
   const [selectedBerufName, setSelectedBerufName] = useState('');
 
   // Product-based access check (bridges to legacy flags during transition)
