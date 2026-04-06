@@ -274,6 +274,31 @@ export async function handleEnqueue(
     );
   }
 
+  // ── VARIANT READINESS GATE: block exam_pool if variant inventory not ready ──
+  if (stepKey === "generate_exam_pool") {
+    const { data: variantReady } = await sb.rpc("fn_is_variant_inventory_ready" as any, { p_package_id: packageId });
+    if (variantReady === false) {
+      console.warn(`[runner] ⛔ Variant readiness gate BLOCKED generate_exam_pool for ${shortId} — inventory not ready`);
+      await safeQuery(
+        sb.from("package_steps").update({
+          status: "queued", job_id: null, runner_id: null, started_at: null,
+          last_error: "WAITING_FOR_VARIANT_PREBUILD: variant inventory not yet ready",
+        }).eq("package_id", packageId).eq("step_key", stepKey),
+        "variant_readiness_gate_block",
+      );
+      await safeQuery(sb.from("auto_heal_log").insert({
+        action_type: "variant_readiness_gate_block",
+        trigger_source: "pipeline_runner",
+        target_type: "package",
+        target_id: packageId,
+        result_status: "blocked",
+        result_detail: "Blocked generate_exam_pool: variant inventory not ready",
+      }), "log_variant_gate");
+      await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
+      return { packageId, stepKey, variant_readiness_gate_blocked: true };
+    }
+  }
+
   // ── INTEGRITY GATE: block exam_pool if content not ready ──
   const hasActiveLearningContent = steps.some((s: StepRow) => s.step_key === "generate_learning_content" && s.status !== "skipped");
   if (stepKey === "generate_exam_pool" && pkg.course_id && hasActiveLearningContent) {
