@@ -664,6 +664,29 @@ export async function processPackage(
           return { ok, reason, snapshot: { ok: !!meta?.ok, batch_complete: !!meta?.batch_complete } };
         },
       },
+      // ── Defense-in-depth: self-finalizing steps that also need fallback rules ──
+      {
+        stepKey: "fanout_learning_content",
+        jobType: "package_fanout_learning_content",
+        actionType: "finalize_fanout_learning_content",
+        cancelStatuses: ["pending", "failed"],
+        shouldFinalize: (meta) => {
+          const ok = meta?.ok === true || meta?.finalized_at != null;
+          const reason = meta?.ok ? "meta.ok=true" : meta?.finalized_at ? "meta.finalized_at set" : "not_ready";
+          return { ok, reason, snapshot: { ok: !!meta?.ok, finalized_at: meta?.finalized_at ?? null } };
+        },
+      },
+      {
+        stepKey: "repair_exam_pool_quality",
+        jobType: "package_repair_exam_pool_quality",
+        actionType: "finalize_repair_exam_pool_quality",
+        cancelStatuses: ["pending", "failed"],
+        shouldFinalize: (meta) => {
+          const ok = meta?.ok === true || meta?.repair_complete === true;
+          const reason = meta?.ok ? "meta.ok=true" : meta?.repair_complete ? "meta.repair_complete=true" : "not_ready";
+          return { ok, reason, snapshot: { ok: !!meta?.ok, repair_complete: !!meta?.repair_complete } };
+        },
+      },
     ];
 
     const byKey = new Map<string, StepRow>();
