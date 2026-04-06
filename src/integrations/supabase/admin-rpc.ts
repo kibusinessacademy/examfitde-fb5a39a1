@@ -193,4 +193,19 @@ export const adminRpc = {
         }>;
       };
     }>("admin-control-tower", { action: "recovery_board" }),
+
+  resilienceDashboard: () =>
+    callEdge<{
+      generated_at: string;
+      stale_recovery: Array<{ job_type: string; status: string; recovery_count: number; day: string; cnt: number }>;
+      reaped_non_building: Array<{ job_type: string; day: string; cnt: number }>;
+      fanout_share: Array<{ category: string; status: string; cnt: number }>;
+      totals: {
+        stale_recovered: number;
+        reaped: number;
+        blueprint_variants_pending: number;
+        other_pending: number;
+        blueprint_share_pct: number;
+      };
+    }>("admin-control-tower", { action: "resilience_dashboard" }),
 };

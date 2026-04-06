@@ -95,6 +95,7 @@ const AdminGrowthCockpitPage = lazyRetry(() => import('@/pages/admin/AdminGrowth
 const GrowthDashboardPage = lazyRetry(() => import('@/pages/admin/GrowthDashboardPage'));
 const CourseWorkspace = lazyRetry(() => import('@/pages/admin/CourseWorkspace'));
 const TrackOpsPage = lazyRetry(() => import('@/pages/admin/TrackOpsPage'));
+const ResilienceDashboardPage = lazyRetry(() => import('@/pages/admin/ResilienceDashboardPage'));
 const RegulatoryPage = lazyRetry(() => import('@/pages/admin/v2/RegulatoryPage'));
 
 // ExamFit@work public pages
