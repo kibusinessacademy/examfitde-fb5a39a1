@@ -94,7 +94,7 @@ async function countCoveredQuestions(
     .select("id", { count: "exact", head: true })
     .eq("curriculum_id", curriculumId)
     .eq("learning_field_id", lfId)
-    .in("qc_status", ["approved", "tier1_passed"]);
+    .in("qc_status", QC_COVERAGE_ELIGIBLE as unknown as string[]);
   return count ?? 0;
 }
 
@@ -155,7 +155,7 @@ Deno.serve(async (req) => {
         .from("exam_questions")
         .select("learning_field_id")
         .eq("curriculum_id", curriculumId)
-        .in("qc_status", ["approved", "tier1_passed"])
+        .in("qc_status", QC_COVERAGE_ELIGIBLE as unknown as string[])
         .limit(5000);
 
       const coveredSet = new Set((coveredRows || []).map((x: any) => x.learning_field_id));
