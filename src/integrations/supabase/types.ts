@@ -55055,18 +55055,23 @@ export type Database = {
       }
       ops_validate_exam_pool_status: {
         Row: {
-          active_gen_jobs: number | null
-          active_repair_jobs: number | null
           approved_count: number | null
+          competency_coverage_pct: number | null
           course_title: string | null
+          coverage_eligible_count: number | null
           draft_count: number | null
-          failed_count: number | null
           gate_status: string | null
           guard_state: string | null
+          hard_fail: boolean | null
+          has_active_repair_jobs: boolean | null
+          has_active_upstream_jobs: boolean | null
           last_error: string | null
+          lf_coverage_pct: number | null
+          no_effect_repairs_2h: number | null
           package_id: string | null
           package_status: string | null
           pending_count: number | null
+          reason_codes: Json | null
           recommended_action: string | null
           rejected_count: number | null
           repair_attempts_24h: number | null
