@@ -91,32 +91,47 @@ export function rebalanceQuotas(
   // Start with base quotas
   for (const t of tracks) effective[t] = stats[t].quota;
 
-  // Collect lendable slots from idle tracks
-  let lendable = 0;
-  for (const t of tracks) {
-    if (stats[t].targets <= 0) {
-      lendable += effective[t];
-      effective[t] = 0;
+  // ── CRITICAL FIX: Don't zero out quotas when no queued targets exist ──
+  // If ALL tracks have targets=0 but some have active building packages,
+  // keep base quotas so the runner can still process existing building packages.
+  // Only lend quotas when there ARE hungry tracks to lend to.
+  const anyHungry = tracks.some((t) => stats[t].targets > 0);
+  const anyActive = tracks.some((t) => stats[t].active > 0);
+
+  if (anyHungry) {
+    // Normal rebalancing: lend from idle tracks to hungry ones
+    let lendable = 0;
+    for (const t of tracks) {
+      if (stats[t].targets <= 0 && stats[t].active <= 0) {
+        lendable += effective[t];
+        effective[t] = 0;
+      }
+    }
+
+    const hungry = tracks
+      .filter((t) => stats[t].targets > 0)
+      .sort((a, b) => stats[b].targets - stats[a].targets);
+
+    if (hungry.length > 0 && lendable > 0) {
+      const totalTargets = hungry.reduce((s, t) => s + stats[t].targets, 0);
+      let distributed = 0;
+      for (let i = 0; i < hungry.length; i++) {
+        const t = hungry[i];
+        const share = i === hungry.length - 1
+          ? lendable - distributed
+          : Math.floor((stats[t].targets / totalTargets) * lendable);
+        effective[t] += share;
+        distributed += share;
+      }
+    }
+  } else if (anyActive) {
+    // No queued targets at all, but building packages exist.
+    // Keep quotas at least equal to active count so runner can process them.
+    for (const t of tracks) {
+      effective[t] = Math.max(effective[t], stats[t].active);
     }
   }
-
-  // Distribute lendable proportionally to hungry tracks (by target count)
-  const hungry = tracks
-    .filter((t) => stats[t].targets > 0)
-    .sort((a, b) => stats[b].targets - stats[a].targets);
-
-  if (hungry.length > 0 && lendable > 0) {
-    const totalTargets = hungry.reduce((s, t) => s + stats[t].targets, 0);
-    let distributed = 0;
-    for (let i = 0; i < hungry.length; i++) {
-      const t = hungry[i];
-      const share = i === hungry.length - 1
-        ? lendable - distributed  // last track gets remainder
-        : Math.floor((stats[t].targets / totalTargets) * lendable);
-      effective[t] += share;
-      distributed += share;
-    }
-  }
+  // If neither hungry nor active, quotas stay at base (harmless — nothing to process)
 
   // Enforce total cap
   const total = tracks.reduce((s, t) => s + effective[t], 0);
@@ -131,9 +146,11 @@ export function rebalanceQuotas(
     }
   }
 
-  // Guarantee ≥1 slot for any track with targets (anti-deadlock)
+  // Guarantee ≥1 slot for any track with targets OR active work (anti-deadlock)
   for (const t of tracks) {
-    if (stats[t].targets > 0 && effective[t] === 0) effective[t] = 1;
+    if ((stats[t].targets > 0 || stats[t].active > 0) && effective[t] === 0) {
+      effective[t] = 1;
+    }
   }
 
   return effective as Record<TrackKey, number>;
