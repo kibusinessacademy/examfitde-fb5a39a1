@@ -213,7 +213,31 @@ Deno.serve(async (req) => {
     // ══ 11) Endless Requeue Loop Detection & Mitigation ══
     const requeueLoopResults = await detectAndMitigateRequeueLoops(sb);
 
-    console.log(`[stuck-scan] ${results.length} timeout-checked, ${orphanResults.length} orphan-checked, ${buildingPkgResults.length} building-pkg-checked, ${statusLagResults.length} status-lag-healed, ${staleCount} stale jobs killed (liveness guard), ${zombieResults.length} zombie steps fixed, ${escalationResults.length} escalation loops handled, ${revivedCount} transient-failed revived, ${leaseNoProgressHealed} lease-no-progress healed, ${trueStallsHealed.length} true-stalls healed, ${deadlockHealed.length} deadlocks healed, ${loopGuardFalsePositives.length} loop-guard-false-positives healed, ${integrityReportMissing} integrity-report-missing healed, ${trueStallStepsHealed.length} true-stall-steps healed, ${zombieReaperV2Count} zombie-v2 reaped, ${ancientPendingCount} ancient-pending reaped, ${falseLivenessHealed.length} false-liveness healed, ${examPoolLoopRepaired} exam-pool-loops repaired, ${hotLoopResults.length} hot-loops mitigated, ${staleLockLoopResults.length} stale-lock-loops mitigated, ${requeueLoopResults.length} requeue-loops mitigated${systemFrozen ? ", ⚫ SYSTEM FREEZE DETECTED" : ""}${poolMismatchFixed > 0 ? `, 🔧 ${poolMismatchFixed} pool mismatches fixed` : ""}`);
+    // ══ 12) DAUERMAASSNAHME: Stale-Lock Auto-Recovery ══
+    let staleLockRecovered = 0;
+    try {
+      const { data: recoveryResult } = await safeRpc(sb, "fn_recover_stale_lock_exhausted", {});
+      staleLockRecovered = recoveryResult?.recovered ?? 0;
+      if (staleLockRecovered > 0) {
+        console.warn(`[stuck-scan] 🔄 Auto-recovered ${staleLockRecovered} stale-lock-exhausted jobs`);
+      }
+    } catch (e) {
+      console.warn(`[stuck-scan] stale-lock recovery error: ${(e as Error)?.message?.slice(0, 100)}`);
+    }
+
+    // ══ 13) DAUERMAASSNAHME: Non-Building Job Reaper ══
+    let nonBuildingReaped = 0;
+    try {
+      const { data: reapResult } = await safeRpc(sb, "fn_reap_non_building_pending_jobs", {});
+      nonBuildingReaped = reapResult?.cancelled ?? 0;
+      if (nonBuildingReaped > 0) {
+        console.warn(`[stuck-scan] 🧹 Reaped ${nonBuildingReaped} pending jobs for non-building packages`);
+      }
+    } catch (e) {
+      console.warn(`[stuck-scan] non-building reaper error: ${(e as Error)?.message?.slice(0, 100)}`);
+    }
+
+    console.log(`[stuck-scan] ${results.length} timeout-checked, ${orphanResults.length} orphan-checked, ${buildingPkgResults.length} building-pkg-checked, ${statusLagResults.length} status-lag-healed, ${staleCount} stale jobs killed (liveness guard), ${zombieResults.length} zombie steps fixed, ${escalationResults.length} escalation loops handled, ${revivedCount} transient-failed revived, ${leaseNoProgressHealed} lease-no-progress healed, ${trueStallsHealed.length} true-stalls healed, ${deadlockHealed.length} deadlocks healed, ${loopGuardFalsePositives.length} loop-guard-false-positives healed, ${integrityReportMissing} integrity-report-missing healed, ${trueStallStepsHealed.length} true-stall-steps healed, ${zombieReaperV2Count} zombie-v2 reaped, ${ancientPendingCount} ancient-pending reaped, ${falseLivenessHealed.length} false-liveness healed, ${examPoolLoopRepaired} exam-pool-loops repaired, ${hotLoopResults.length} hot-loops mitigated, ${staleLockLoopResults.length} stale-lock-loops mitigated, ${requeueLoopResults.length} requeue-loops mitigated, ${staleLockRecovered} stale-lock-recovered, ${nonBuildingReaped} non-building-reaped${systemFrozen ? ", ⚫ SYSTEM FREEZE DETECTED" : ""}${poolMismatchFixed > 0 ? `, 🔧 ${poolMismatchFixed} pool mismatches fixed` : ""}`);
 
 
     return json({
@@ -245,6 +269,8 @@ Deno.serve(async (req) => {
       hot_loops_mitigated: hotLoopResults,
       stale_lock_loops_mitigated: staleLockLoopResults,
       requeue_loops_mitigated: requeueLoopResults,
+      stale_lock_auto_recovered: staleLockRecovered,
+      non_building_jobs_reaped: nonBuildingReaped,
     });
   } catch (e: unknown) {
     const msg = (e as Error)?.message || String(e);
