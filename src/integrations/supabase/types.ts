@@ -11773,6 +11773,7 @@ export type Database = {
           track: Database["public"]["Enums"]["product_track"] | null
           track_subtype: string | null
           updated_at: string
+          variant_prebuild_status: string
           version: number
         }
         Insert: {
@@ -11828,6 +11829,7 @@ export type Database = {
           track?: Database["public"]["Enums"]["product_track"] | null
           track_subtype?: string | null
           updated_at?: string
+          variant_prebuild_status?: string
           version?: number
         }
         Update: {
@@ -11883,6 +11885,7 @@ export type Database = {
           track?: Database["public"]["Enums"]["product_track"] | null
           track_subtype?: string | null
           updated_at?: string
+          variant_prebuild_status?: string
           version?: number
         }
         Relationships: [
@@ -67310,6 +67313,7 @@ export type Database = {
           track: Database["public"]["Enums"]["product_track"] | null
           track_subtype: string | null
           updated_at: string
+          variant_prebuild_status: string
           version: number
         }
         SetofOptions: {
@@ -67643,6 +67647,7 @@ export type Database = {
           track: Database["public"]["Enums"]["product_track"] | null
           track_subtype: string | null
           updated_at: string
+          variant_prebuild_status: string
           version: number
         }
         SetofOptions: {
