@@ -276,6 +276,8 @@ export default function KursePage() {
       list = list.filter(p => p.is_stuck);
     } else if (statusFilter === 'publish_drift') {
       list = list.filter(p => p.has_publish_drift);
+    } else if (statusFilter === 'has_failed_jobs') {
+      list = list.filter(p => p.jobs_failed > 0);
     } else if (statusFilter !== 'all') {
       list = list.filter(p => p.status === statusFilter);
     }
