@@ -341,7 +341,7 @@ export default function KursePage() {
             </button>
           )}
           {counts.failed > 0 && (
-            <button onClick={() => setStatusFilter('failed')} className="rounded-lg border border-destructive/30 bg-destructive/5 p-2 text-center hover:bg-destructive/10 transition-colors">
+            <button onClick={() => setStatusFilter('has_failed_jobs')} className="rounded-lg border border-destructive/30 bg-destructive/5 p-2 text-center hover:bg-destructive/10 transition-colors">
               <div className="text-lg font-bold text-destructive">{counts.failed}</div>
               <div className="text-[10px] text-muted-foreground">Failed Jobs</div>
             </button>
