@@ -177,7 +177,7 @@ export default function AGBPage() {
 
             {/* §7 Verfügbarkeit und Gewährleistung */}
             <section>
-              <h2 className="text-xl font-semibold mb-4">§ 7 Verfügbarkeit und Gewährleistung</h2>
+              <h2 className="text-xl font-semibold mb-4">§ 7 Verfügbarkeit, Aktualität und Gewährleistung</h2>
               <p className="text-muted-foreground mb-3">
                 (1) Der Anbieter bemüht sich um eine hohe Verfügbarkeit der Plattform, übernimmt 
                 jedoch keine Garantie für eine unterbrechungsfreie Nutzung. Wartungsarbeiten 
@@ -188,9 +188,40 @@ export default function AGBPage() {
                 Zeitpunkt des Kaufs. Der Anbieter behält sich vor, Inhalte zu aktualisieren 
                 oder zu verbessern, sofern der Nutzungszweck nicht wesentlich eingeschränkt wird.
               </p>
-              <p className="text-muted-foreground">
+              <p className="text-muted-foreground mb-3">
                 (3) Die Lerninhalte dienen der Prüfungsvorbereitung. Der Anbieter garantiert 
                 nicht das Bestehen einer Prüfung.
+              </p>
+              <p className="text-muted-foreground mb-3">
+                (4) Die Inhalte werden mit größter Sorgfalt erstellt und regelmäßig aktualisiert.
+                Aufgrund von Gesetzesänderungen, Prüfungsanpassungen und externen Einflüssen
+                kann jedoch keine Gewähr für die jederzeitige Aktualität, Vollständigkeit oder
+                Richtigkeit übernommen werden. Jeder Kurs zeigt den Stand der letzten
+                inhaltlichen Überprüfung an.
+              </p>
+              <p className="text-muted-foreground mb-3">
+                (5) Die Inhalte ersetzen keine individuelle Beratung durch qualifizierte
+                Fachpersonen (z.&nbsp;B. Steuerberater, Rechtsanwälte oder Finanzberater).
+                Die Nutzung der bereitgestellten Inhalte erfolgt auf eigene Verantwortung
+                des Nutzers.
+              </p>
+              <p className="text-muted-foreground">
+                (6) Teile der Lerninhalte werden mithilfe von KI-Technologie erstellt und
+                durchlaufen ein mehrstufiges Qualitätssicherungsverfahren. Der Anbieter
+                übernimmt die redaktionelle Verantwortung für alle veröffentlichten Inhalte.
+              </p>
+            </section>
+
+            {/* §7a Unabhängigkeit */}
+            <section>
+              <h2 className="text-xl font-semibold mb-4">§ 7a Unabhängigkeit</h2>
+              <p className="text-muted-foreground">
+                ExamFit ist ein unabhängiger Anbieter von Lernmaterialien zur
+                Prüfungsvorbereitung. Es besteht keine Zusammenarbeit, Partnerschaft oder
+                offizielle Verbindung mit der Industrie- und Handelskammer (IHK), der
+                Handwerkskammer (HWK) oder der Bundesanstalt für Finanzdienstleistungsaufsicht
+                (BaFin). Alle Inhalte basieren auf öffentlich zugänglichen Rahmenlehrplänen,
+                Prüfungsordnungen und Gesetzestexten.
               </p>
             </section>
 
