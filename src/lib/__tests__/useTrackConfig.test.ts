@@ -51,11 +51,11 @@ describe("DEFAULT_FLAGS", () => {
     expect(f.ai_tutor_mode).toBe("full");
   });
 
-  it("EXAM_FIRST has no learning/handbook/oral", () => {
+  it("EXAM_FIRST has oral exam + AI tutor, no learning/handbook", () => {
     const f = DEFAULT_FLAGS.EXAM_FIRST;
     expect(f.has_learning_course).toBe(false);
     expect(f.has_handbook).toBe(false);
-    expect(f.has_oral_exam_trainer).toBe(false);
+    expect(f.has_oral_exam_trainer).toBe(true);
     expect(f.has_minichecks).toBe(false);
     expect(f.has_exam_trainer).toBe(true);
     expect(f.ai_tutor_mode).toBe("limited_exam");
@@ -118,7 +118,7 @@ describe("Track interpreter helpers", () => {
   describe("requiresTutorIndex", () => {
     it.each([
       ["AUSBILDUNG_VOLL", true],
-      ["EXAM_FIRST", false],
+      ["EXAM_FIRST", true],
       ["EXAM_FIRST_PLUS", true],
       ["STUDIUM", true],
     ] as const)("%s → %s", (t, expected) => {

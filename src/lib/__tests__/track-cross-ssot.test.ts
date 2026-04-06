@@ -48,8 +48,8 @@ describe("Cross-SSOT Consistency", () => {
       it("hasHandbook ↔ requiresHandbook()", () => {
         expect(cap.hasHandbook).toBe(requiresHandbook(track as ProductTrack));
       });
-      it("!isExamOnly ↔ requiresTutorIndex()", () => {
-        expect(!cap.isExamOnly).toBe(requiresTutorIndex(track as ProductTrack));
+      it("requiresTutorIndex() is always true", () => {
+        expect(requiresTutorIndex(track as ProductTrack)).toBe(true);
       });
 
       // capabilities ↔ step composition
