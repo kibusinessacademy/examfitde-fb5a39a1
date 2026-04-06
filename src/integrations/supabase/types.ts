@@ -12537,15 +12537,21 @@ export type Database = {
         Row: {
           approved_at: string | null
           built_at: string | null
+          canonical_slug: string | null
+          collision_check: Json | null
           created_at: string
           curriculum_id: string | null
           detected_at: string
           evaluated_at: string | null
+          hold_notes: string | null
+          hold_reason: string | null
           id: string
           package_id: string | null
           profession_type: string
           raw_data: Json | null
           rejection_reason: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
           score: number | null
           score_breakdown: Json | null
           source: string
@@ -12558,15 +12564,21 @@ export type Database = {
         Insert: {
           approved_at?: string | null
           built_at?: string | null
+          canonical_slug?: string | null
+          collision_check?: Json | null
           created_at?: string
           curriculum_id?: string | null
           detected_at?: string
           evaluated_at?: string | null
+          hold_notes?: string | null
+          hold_reason?: string | null
           id?: string
           package_id?: string | null
           profession_type?: string
           raw_data?: Json | null
           rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           score?: number | null
           score_breakdown?: Json | null
           source?: string
@@ -12579,15 +12591,21 @@ export type Database = {
         Update: {
           approved_at?: string | null
           built_at?: string | null
+          canonical_slug?: string | null
+          collision_check?: Json | null
           created_at?: string
           curriculum_id?: string | null
           detected_at?: string
           evaluated_at?: string | null
+          hold_notes?: string | null
+          hold_reason?: string | null
           id?: string
           package_id?: string | null
           profession_type?: string
           raw_data?: Json | null
           rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           score?: number | null
           score_breakdown?: Json | null
           source?: string
