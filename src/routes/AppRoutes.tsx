@@ -2,6 +2,21 @@ import { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 
+/** Retry a dynamic import up to 3 times with a short delay (handles Vite HMR restarts). */
+function lazyRetry<T extends { default: React.ComponentType<any> }>(
+  factory: () => Promise<T>,
+  retries = 3,
+): React.LazyExoticComponent<T['default']> {
+  return lazy(() => {
+    const attempt = (remaining: number): Promise<T> =>
+      factory().catch((err) => {
+        if (remaining <= 0) throw err;
+        return new Promise<T>((res) => setTimeout(() => res(attempt(remaining - 1)), 1000));
+      });
+    return attempt(retries);
+  });
+}
+
 // Guards & Layouts
 import MainLayout from '@/components/layout/MainLayout';
 // AdminV4Layout removed — V2 SSOT-only
