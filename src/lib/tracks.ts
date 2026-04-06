@@ -77,7 +77,7 @@ export function isExamFirstPlusTrack(track: unknown): boolean {
   return normalizeTrack(track) === "EXAM_FIRST_PLUS";
 }
 
-/** True only for bare EXAM_FIRST (no handbook, no oral). */
+/** True only for bare EXAM_FIRST (no handbook, minimal track). */
 export function isExamOnlyTrack(track: unknown): boolean {
   return normalizeTrack(track) === "EXAM_FIRST";
 }
@@ -106,10 +106,10 @@ export function hasHandbookTrack(track: unknown): boolean {
   return t !== "EXAM_FIRST"; // All tracks except bare EXAM_FIRST
 }
 
-/** Tracks that include oral exam. */
+/** Tracks that include oral exam by default. */
 export function hasOralExamTrack(track: unknown): boolean {
   const t = normalizeTrack(track);
-  return t === "AUSBILDUNG_VOLL" || t === "EXAM_FIRST_PLUS";
+  return t === "AUSBILDUNG_VOLL" || t === "EXAM_FIRST" || t === "EXAM_FIRST_PLUS";
 }
 
 /** Tracks that include minicheck generation. */

@@ -63,6 +63,7 @@ export type TrackCapabilities = {
   hasLearningCourse: boolean;
   hasMiniChecks: boolean;
   hasHandbook: boolean;
+  canSupportOralExam: boolean;
   hasOralExam: boolean;
   isExamCentric: boolean;
   isExamOnly: boolean;
@@ -75,6 +76,7 @@ export const TRACK_CAPABILITIES: Record<Track, TrackCapabilities> = {
     hasLearningCourse: true,
     hasMiniChecks: true,
     hasHandbook: true,
+    canSupportOralExam: true,
     hasOralExam: true,
     isExamCentric: false,
     isExamOnly: false,
@@ -85,9 +87,10 @@ export const TRACK_CAPABILITIES: Record<Track, TrackCapabilities> = {
     hasLearningCourse: false,
     hasMiniChecks: false,
     hasHandbook: false,
-    hasOralExam: false,
+    canSupportOralExam: true,
+    hasOralExam: true,
     isExamCentric: true,
-    isExamOnly: true,
+    isExamOnly: false,
     eliteHardenEligible: true,
     tutorMode: "exam_only",
   },
@@ -95,6 +98,7 @@ export const TRACK_CAPABILITIES: Record<Track, TrackCapabilities> = {
     hasLearningCourse: false,
     hasMiniChecks: false,
     hasHandbook: true,
+    canSupportOralExam: true,
     hasOralExam: true,
     isExamCentric: true,
     isExamOnly: false,
@@ -105,6 +109,7 @@ export const TRACK_CAPABILITIES: Record<Track, TrackCapabilities> = {
     hasLearningCourse: true,
     hasMiniChecks: true,
     hasHandbook: true,
+    canSupportOralExam: true,
     hasOralExam: false,
     isExamCentric: false,
     isExamOnly: false,

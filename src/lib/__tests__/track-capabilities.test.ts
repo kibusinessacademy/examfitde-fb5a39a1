@@ -31,6 +31,7 @@ describe("Capability snapshots", () => {
       hasLearningCourse: true,
       hasMiniChecks: true,
       hasHandbook: true,
+      canSupportOralExam: true,
       hasOralExam: true,
       isExamCentric: false,
       isExamOnly: false,
@@ -41,9 +42,10 @@ describe("Capability snapshots", () => {
       hasLearningCourse: false,
       hasMiniChecks: false,
       hasHandbook: false,
-      hasOralExam: false,
+      canSupportOralExam: true,
+      hasOralExam: true,
       isExamCentric: true,
-      isExamOnly: true,
+      isExamOnly: false,
       eliteHardenEligible: true,
       tutorMode: "exam_only",
     },
@@ -51,6 +53,7 @@ describe("Capability snapshots", () => {
       hasLearningCourse: false,
       hasMiniChecks: false,
       hasHandbook: true,
+      canSupportOralExam: true,
       hasOralExam: true,
       isExamCentric: true,
       isExamOnly: false,
@@ -61,6 +64,7 @@ describe("Capability snapshots", () => {
       hasLearningCourse: true,
       hasMiniChecks: true,
       hasHandbook: true,
+      canSupportOralExam: true,
       hasOralExam: false,
       isExamCentric: false,
       isExamOnly: false,
@@ -99,8 +103,16 @@ describe("cap convenience accessors", () => {
   });
 
   it("cap.hasOralExam", () => {
+    expect(cap.hasOralExam("AUSBILDUNG_VOLL")).toBe(true);
+    expect(cap.hasOralExam("EXAM_FIRST")).toBe(true);
     expect(cap.hasOralExam("EXAM_FIRST_PLUS")).toBe(true);
     expect(cap.hasOralExam("STUDIUM")).toBe(false);
+  });
+
+  it("cap.canSupportOralExam — all tracks can support", () => {
+    for (const t of TRACKS) {
+      expect(cap.canSupportOralExam(t)).toBe(true);
+    }
   });
 
   it("cap.eliteHardenEligible", () => {
@@ -153,13 +165,13 @@ describe("Step composition per track", () => {
     expect(skip).toContain("elite_harden");
   });
 
-  it("EXAM_FIRST skips learning, minichecks, handbook, oral; has elite", () => {
+  it("EXAM_FIRST has oral exam + elite, skips learning, minichecks, handbook", () => {
     const req = getRequiredSteps("EXAM_FIRST");
     const skip = getSkippedSteps("EXAM_FIRST");
     expect(skip).toContain("scaffold_learning_course");
     expect(skip).toContain("generate_lesson_minichecks");
     expect(skip).toContain("generate_handbook");
-    expect(skip).toContain("generate_oral_exam");
+    expect(req).toContain("generate_oral_exam");
     expect(req).toContain("elite_harden");
     expect(req).toContain("generate_exam_pool");
   });

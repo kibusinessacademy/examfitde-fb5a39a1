@@ -38,21 +38,22 @@ Deno.test("EXAM_FIRST_PLUS capabilities are correct", () => {
   assertEquals(cap.tutorMode, "limited_exam", "tutor mode = limited_exam");
 });
 
-Deno.test("EXAM_FIRST capabilities differ from PLUS", () => {
+Deno.test("EXAM_FIRST capabilities differ from PLUS on handbook only", () => {
   const cap = getTrackCapabilities("EXAM_FIRST");
 
   assertEquals(cap.hasHandbook, false, "EXAM_FIRST has no handbook");
-  assertEquals(cap.hasOralExam, false, "EXAM_FIRST has no oral exam");
-  assertEquals(cap.isExamOnly, true, "EXAM_FIRST is exam-only");
+  assertEquals(cap.hasOralExam, true, "EXAM_FIRST has oral exam");
+  assertEquals(cap.isExamOnly, false, "EXAM_FIRST is not exam-only");
+  assertEquals(cap.canSupportOralExam, true, "EXAM_FIRST can support oral exam");
 });
 
-Deno.test("AUSBILDUNG_VOLL has full learning", () => {
+Deno.test("AUSBILDUNG_VOLL has full learning + oral", () => {
   const cap = getTrackCapabilities("AUSBILDUNG_VOLL");
 
   assertEquals(cap.hasLearningCourse, true);
   assertEquals(cap.hasMiniChecks, true);
   assertEquals(cap.hasHandbook, true);
-  assertEquals(cap.hasOralExam, false);
+  assertEquals(cap.hasOralExam, true);
   assertEquals(cap.isExamCentric, false);
 });
 
@@ -123,23 +124,25 @@ Deno.test("EXAM_FIRST_PLUS required steps do NOT include learning steps", () => 
   }
 });
 
-Deno.test("EXAM_FIRST skips handbook, oral, AND elite_harden=false? No, elite_harden eligible", () => {
+Deno.test("EXAM_FIRST skips handbook but has oral + elite_harden", () => {
   const required = getRequiredSteps("EXAM_FIRST");
   const skipped = getSkippedSteps("EXAM_FIRST");
 
-  // EXAM_FIRST skips handbook and oral
+  // EXAM_FIRST skips handbook only (no learning either)
   assertArrayIncludes(skipped, [
     "generate_handbook",
     "validate_handbook",
-    "generate_oral_exam",
-    "validate_oral_exam",
   ]);
 
-  // But includes elite_harden (eligible)
+  // Has oral exam now
+  assertEquals(required.includes("generate_oral_exam"), true, "EXAM_FIRST has oral exam");
+  assertEquals(required.includes("validate_oral_exam"), true, "EXAM_FIRST has validate oral");
+
+  // And includes elite_harden (eligible)
   assertEquals(required.includes("elite_harden"), true, "EXAM_FIRST has elite_harden");
 });
 
-Deno.test("AUSBILDUNG_VOLL required steps include learning but not oral or elite_harden", () => {
+Deno.test("AUSBILDUNG_VOLL required steps include learning + oral, no elite_harden", () => {
   const required = getRequiredSteps("AUSBILDUNG_VOLL");
   const skipped = getSkippedSteps("AUSBILDUNG_VOLL");
 
@@ -149,11 +152,11 @@ Deno.test("AUSBILDUNG_VOLL required steps include learning but not oral or elite
     "validate_learning_content",
     "generate_lesson_minichecks",
     "generate_handbook",
+    "generate_oral_exam",
+    "validate_oral_exam",
   ]);
 
   assertArrayIncludes(skipped, [
-    "generate_oral_exam",
-    "validate_oral_exam",
     "elite_harden",
   ]);
 });
@@ -194,7 +197,7 @@ Deno.test("Required and skipped steps are disjoint for every track", () => {
   }
 });
 
-Deno.test("EXAM_FIRST_PLUS differs from EXAM_FIRST exactly on handbook/oral/isExamOnly", () => {
+Deno.test("EXAM_FIRST_PLUS differs from EXAM_FIRST on handbook only", () => {
   const ef = getTrackCapabilities("EXAM_FIRST");
   const efp = getTrackCapabilities("EXAM_FIRST_PLUS");
 
@@ -202,13 +205,17 @@ Deno.test("EXAM_FIRST_PLUS differs from EXAM_FIRST exactly on handbook/oral/isEx
   assertEquals(ef.isExamCentric, true);
   assertEquals(efp.isExamCentric, true);
 
-  // Differ on these three
+  // Both have oral exam now
+  assertEquals(ef.hasOralExam, true);
+  assertEquals(efp.hasOralExam, true);
+
+  // Both are not exam-only
+  assertEquals(ef.isExamOnly, false);
+  assertEquals(efp.isExamOnly, false);
+
+  // Differ on handbook
   assertEquals(ef.hasHandbook, false);
   assertEquals(efp.hasHandbook, true);
-  assertEquals(ef.hasOralExam, false);
-  assertEquals(efp.hasOralExam, true);
-  assertEquals(ef.isExamOnly, true);
-  assertEquals(efp.isExamOnly, false);
 });
 
 // ── E. Strict Normalization ──
