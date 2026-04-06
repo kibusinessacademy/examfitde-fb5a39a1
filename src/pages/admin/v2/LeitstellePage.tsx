@@ -230,6 +230,21 @@ export default function LeitstellePage() {
         </div>
       )}
 
+      {/* Throughput & Cost */}
+      <Suspense fallback={<Skeleton className="h-24" />}>
+        <ThroughputCard />
+      </Suspense>
+
+      {/* Batch Actions */}
+      <Suspense fallback={<Skeleton className="h-28" />}>
+        <BatchActionsCard />
+      </Suspense>
+
+      {/* Worker Liveness */}
+      <Suspense fallback={<Skeleton className="h-20" />}>
+        <WorkerLivenessCard />
+      </Suspense>
+
       {/* Status Invariant Violations */}
       <Suspense fallback={<Skeleton className="h-28" />}>
         <BlockedButReadyCard />
