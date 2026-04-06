@@ -639,9 +639,11 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
         const timedOut = transientElapsedMs > TRANSIENT_TIMEOUT_MS;
         const exhausted = transientNext >= TRANSIENT_MAX || timedOut;
 
-        // ── PROVIDER LOOP GUARD ──
+        // ── PROVIDER LOOP GUARD (job-type-scoped) ──
         const sameProviderTransientAttempts = incrementSameProviderTransient(job, jobProvider, jobModel);
-        const providerLoopExhausted = sameProviderTransientAttempts >= 5;
+        // Job-type-specific thresholds: oral_exam gets more runway (8 vs 5)
+        const loopThreshold = job.job_type === "package_generate_oral_exam" ? 8 : 5;
+        const providerLoopExhausted = sameProviderTransientAttempts >= loopThreshold;
 
         const update: Record<string, unknown> = {
           last_error: providerLoopExhausted
