@@ -39036,6 +39036,7 @@ export type Database = {
           meta_description: string | null
           package_id: string | null
           page_type: string
+          persona_type: string
           slug: string
           status: string
           target_audience: string | null
@@ -39051,6 +39052,7 @@ export type Database = {
           meta_description?: string | null
           package_id?: string | null
           page_type: string
+          persona_type?: string
           slug: string
           status?: string
           target_audience?: string | null
@@ -39066,6 +39068,7 @@ export type Database = {
           meta_description?: string | null
           package_id?: string | null
           page_type?: string
+          persona_type?: string
           slug?: string
           status?: string
           target_audience?: string | null

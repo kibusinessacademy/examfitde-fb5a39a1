@@ -76,10 +76,83 @@ async function callLLM(prompt: string) {
   throw new Error("No LLM content returned");
 }
 
-function pageInstructions(pageType: string) {
+// ── Persona-specific prompt instructions ──────────────────────
+
+function personaInstructions(personaType: string, pageType: string): string {
+  const base = pageTypeInstructions(pageType);
+
+  switch (personaType) {
+    case "azubi":
+      return `${base}
+
+PERSONA: AZUBI (Auszubildende)
+TONALITÄT: Motivierend, verständlich, praxisnah
+FOKUS:
+- Abschlussprüfung bestehen als zentrales Ziel
+- Typische Prüfungsfehler und wie man sie vermeidet
+- Konkrete Lernstrategien für Azubis
+- Sicherheit und Selbstvertrauen aufbauen
+- MiniChecks und Lernkurs als Differenzierungsmerkmal erwähnen
+KEYWORDS: abschlussprüfung, ihk prüfung, prüfungsvorbereitung, bestehen
+VERMEIDE: Zu akademische Sprache, abstrakte Theorie`;
+
+    case "sachkunde":
+      return `${base}
+
+PERSONA: SACHKUNDE (§34-Prüfungsteilnehmer)
+TONALITÄT: Direkt, prüfungsorientiert, sachlich
+FOKUS:
+- Schnell und sicher bestehen
+- §-Referenzen und Gesetzesgrundlagen einbauen
+- Typische Fallen und Trickfragen
+- Keine unnötige Theorie – nur Prüfungsrelevantes
+- Zeitdruck und effizientes Lernen betonen
+KEYWORDS: sachkundeprüfung, §34, prüfungsfragen, bestehen
+VERMEIDE: Lange Erklärungen, didaktische Breite`;
+
+    case "fachwirt":
+      return `${base}
+
+PERSONA: FACHWIRT (IHK-Fortbildung)
+TONALITÄT: Strukturiert, professionell, praxisorientiert
+FOKUS:
+- Handlungsorientierte Prüfungsvorbereitung
+- Fallbeispiele und Transferaufgaben
+- Prüfungsstruktur der IHK-Fortbildungsprüfung erklären
+- Karrierevorteil und Aufstiegschancen
+- Prüfungshandbuch als Strukturhilfe erwähnen
+KEYWORDS: fachwirt prüfung, ihk fortbildung, handlungsbereiche, bestehen
+VERMEIDE: Zu einfache Sprache, Azubi-Tonalität`;
+
+    case "studium":
+      return `${base}
+
+PERSONA: STUDIUM (Studierende)
+TONALITÄT: Analytisch, akademisch, transferorientiert
+FOKUS:
+- Klausurvorbereitung und Modulprüfungen
+- Verständnis statt Auswendiglernen
+- Modellvergleiche und empirische Bezüge
+- Transferaufgaben und Anwendung
+- Lernkurs und strukturierte Wissensvermittlung
+KEYWORDS: klausur vorbereitung, modulprüfung, zusammenfassung, verstehen
+VERMEIDE: IHK-/Kammer-Sprache, Berufsausbildungs-Kontext`;
+
+    default:
+      return base;
+  }
+}
+
+function pageTypeInstructions(pageType: string): string {
   switch (pageType) {
     case "landing_azubis":
       return "Schreibe für Azubis. Fokus: Abschlussprüfung bestehen, Sicherheit, typische Prüfungsfehler, konkrete CTA.";
+    case "landing_sachkunde":
+      return "Schreibe für Sachkundeprüfungs-Teilnehmer. Fokus: schnell bestehen, §-Referenzen, typische Fallen.";
+    case "landing_fachwirt":
+      return "Schreibe für Fachwirt-Teilnehmer. Fokus: strukturiert bestehen, Handlungskompetenz, Fallbeispiele.";
+    case "landing_studium":
+      return "Schreibe für Studierende. Fokus: Klausur verstehen, Transferaufgaben, analytische Tiefe.";
     case "landing_betriebe":
       return "Schreibe für Ausbildungsbetriebe. Fokus: Bestehensquote, Transparenz, Ausbildungsqualität, objektive Daten.";
     case "landing_institutionen":
@@ -134,9 +207,12 @@ Deno.serve(async (req) => {
       .order("sort_order", { ascending: true })
       .limit(10);
 
+    const personaType = page.persona_type ?? "azubi";
+
     const prompt = `
 AUFGABE: Erzeuge eine SEO-Seite für ExamFit.
 SEITENTYP: ${page.page_type}
+PERSONA: ${personaType.toUpperCase()}
 ZIELGRUPPE: ${page.target_audience ?? "allgemein"}
 SLUG: ${page.slug}
 CURRICULUM: ${curriculum?.title ?? "Berufsausbildung"}
@@ -150,8 +226,11 @@ REGELN:
 - Klare H1 / Struktur
 - Keine erfundenen Testimonials
 - ExamFit als intelligentes Prüfungstrainings-System
+- SEO Title unter 60 Zeichen
+- Meta Description unter 160 Zeichen
+- Mindestens 5 FAQ-Einträge
 
-${pageInstructions(page.page_type)}
+${personaInstructions(personaType, page.page_type)}
 `;
 
     const result = await callLLM(prompt);
@@ -167,7 +246,7 @@ ${pageInstructions(page.page_type)}
       })
       .eq("id", page.id);
 
-    return jsonResponse({ ok: true, processed: 1, page_id: page.id });
+    return jsonResponse({ ok: true, processed: 1, page_id: page.id, persona: personaType });
   } catch (error) {
     console.error("[generate-seo-page] error:", error);
     return jsonResponse(
