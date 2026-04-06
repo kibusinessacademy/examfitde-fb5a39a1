@@ -28,6 +28,7 @@ const TrapCoverageAuditCard = lazy(() => import('@/components/admin/cards/TrapCo
 const TrapDistributionAuditCard = lazy(() => import('@/components/admin/cards/TrapDistributionAuditCard'));
 const BlueprintMatchAuditCard = lazy(() => import('@/components/admin/cards/BlueprintMatchAuditCard'));
 const BlueprintVariantStatsCard = lazy(() => import('@/components/admin/cards/BlueprintVariantStatsCard'));
+const BlueprintPreflightCard = lazy(() => import('@/components/admin/cards/BlueprintPreflightCard'));
 const BlockedButReadyCard = lazy(() => import('@/components/admin/cards/BlockedButReadyCard'));
 const RecoveryBoardCard = lazy(() => import('@/components/admin/cards/RecoveryBoardCard'));
 const ValidateGuardDiagnosticsCard = lazy(() => import('@/components/admin/cards/ValidateGuardDiagnosticsCard'));
@@ -239,6 +240,11 @@ export default function LeitstellePage() {
       {/* Recovery Board */}
       <Suspense fallback={<Skeleton className="h-28" />}>
         <RecoveryBoardCard />
+      </Suspense>
+
+      {/* Blueprint Pre-Flight Gate */}
+      <Suspense fallback={<Skeleton className="h-32" />}>
+        <BlueprintPreflightCard />
       </Suspense>
 
       {/* Blueprint Variant Stats */}

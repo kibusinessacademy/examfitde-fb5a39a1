@@ -224,16 +224,64 @@ Deno.serve(async (req) => {
         });
       }
 
-      const countPerBlueprint = Math.max(5, Math.floor(count / blueprints.length));
+      // ── PRE-FLIGHT VALIDATION: Only fan-out eligible blueprints ──
+      const { data: preflightResults, error: preflightErr } = await sb.rpc(
+        "fn_validate_blueprint_preflight_batch",
+        { p_blueprint_ids: blueprints.map(b => b.id) }
+      ).maybeSingle();
 
-      // Enqueue individual per-blueprint jobs instead of inline processing
-      const jobRows = blueprints.map((bp) => ({
+      // Fallback: validate per-blueprint if batch RPC not available
+      let eligibleIds: string[] = [];
+      let blockedIds: string[] = [];
+      const preflightDetails: Record<string, unknown> = {};
+
+      if (preflightErr || !preflightResults) {
+        // Per-blueprint validation via individual RPC calls
+        console.log(`[generate-blueprint-variants] Using per-blueprint preflight validation`);
+        for (const bp of blueprints) {
+          const { data: result } = await sb.rpc("fn_validate_blueprint_preflight", { p_blueprint_id: bp.id });
+          if (result && (result as any).eligible) {
+            eligibleIds.push(bp.id);
+          } else {
+            blockedIds.push(bp.id);
+            preflightDetails[bp.id] = result;
+          }
+        }
+      } else {
+        // Batch result
+        eligibleIds = (preflightResults as any).eligible_ids || blueprints.map((b: any) => b.id);
+        blockedIds = (preflightResults as any).blocked_ids || [];
+        console.log(`[generate-blueprint-variants] Batch preflight: ${eligibleIds.length} eligible, ${blockedIds.length} blocked`);
+      }
+
+      if (blockedIds.length > 0) {
+        console.warn(`[generate-blueprint-variants] ⚠️ PRE-FLIGHT BLOCKED ${blockedIds.length}/${blueprints.length} blueprints`);
+      }
+
+      if (eligibleIds.length === 0) {
+        return new Response(JSON.stringify({
+          ok: false,
+          error: "All blueprints failed pre-flight validation",
+          package_id: packageId,
+          total_blueprints: blueprints.length,
+          blocked: blockedIds.length,
+          preflight_details: preflightDetails,
+        }), {
+          status: 422,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const countPerBlueprint = Math.max(5, Math.floor(count / eligibleIds.length));
+
+      // Enqueue individual per-blueprint jobs only for eligible blueprints
+      const jobRows = eligibleIds.map((bpId) => ({
         job_type: "package_generate_blueprint_variants",
         payload: {
           package_id: packageId,
           curriculum_id: pkg.curriculum_id,
           course_id: pkg.course_id,
-          blueprintId: bp.id,
+          blueprintId: bpId,
           count: countPerBlueprint,
           subjectName: resolvedSubject,
           isStudium,
@@ -253,14 +301,17 @@ Deno.serve(async (req) => {
         });
       }
 
-      console.log(`[generate-blueprint-variants] Enqueued ${blueprints.length} per-blueprint jobs for ${packageId}`);
+      console.log(`[generate-blueprint-variants] Enqueued ${eligibleIds.length}/${blueprints.length} eligible per-blueprint jobs for ${packageId} (${blockedIds.length} blocked by pre-flight)`);
 
       return new Response(JSON.stringify({
         ok: true,
         mode: "package_fanout_enqueue",
         package_id: packageId,
-        blueprints_enqueued: blueprints.length,
+        total_blueprints: blueprints.length,
+        blueprints_enqueued: eligibleIds.length,
+        blueprints_blocked: blockedIds.length,
         count_per_blueprint: countPerBlueprint,
+        blocked_details: blockedIds.length > 0 ? preflightDetails : undefined,
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -282,6 +333,21 @@ Deno.serve(async (req) => {
     if (bpErr || !bp) {
       return new Response(JSON.stringify({ error: "Blueprint not found" }), {
         status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ── PRE-FLIGHT VALIDATION for single blueprint ──
+    const { data: preflight } = await sb.rpc("fn_validate_blueprint_preflight", { p_blueprint_id: blueprintId });
+    if (preflight && !(preflight as any).eligible) {
+      console.warn(`[generate-blueprint-variants] ⚠️ Blueprint ${blueprintId} failed pre-flight:`, preflight);
+      return new Response(JSON.stringify({
+        ok: false,
+        error: "Blueprint failed pre-flight validation",
+        blueprint_id: blueprintId,
+        preflight,
+      }), {
+        status: 422,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
