@@ -262,6 +262,7 @@ const AppRoutes = () => {
           <Route path="growth-engine" element={<GrowthDashboardPage />} />
           <Route path="testbereich" element={<AdminTestAreaPage />} />
           <Route path="track-ops" element={<TrackOpsPage />} />
+          <Route path="resilience" element={<ResilienceDashboardPage />} />
           <Route path="content-quality" element={<ContentQualityPage />} />
           <Route path="regulatory" element={<RegulatoryPage />} />
           <Route path="*" element={<AdminDeactivatedPage />} />
