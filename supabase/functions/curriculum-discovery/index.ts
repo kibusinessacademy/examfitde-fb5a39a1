@@ -126,10 +126,23 @@ Deno.serve(async (req) => {
         status: "detected",
       }));
 
-      const { data, error } = await sb
-        .from("curriculum_discovery")
-        .upsert(rows, { onConflict: "lower(title),source", ignoreDuplicates: true })
-        .select("id, title");
+      // Insert one by one to handle unique index on lower(title),source
+      const inserted: Array<{ id: string; title: string }> = [];
+      for (const row of rows) {
+        const { data: d, error: e } = await sb
+          .from("curriculum_discovery")
+          .insert(row)
+          .select("id, title")
+          .maybeSingle();
+        if (e) {
+          if (e.code === "23505") continue; // duplicate, skip
+          console.error("Insert error:", e);
+          continue;
+        }
+        if (d) inserted.push(d);
+      }
+      const data = inserted;
+      const error = null;
 
       if (error) throw error;
 
