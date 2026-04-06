@@ -689,6 +689,10 @@ Deno.serve(async (req) => {
           await sb.from("course_generation_locks").delete().eq("course_id", pkg.course_id);
         }
 
+        // 7) Run SSOT reconciliation to catch any remaining drift
+        const { data: reconResult } = await sb.rpc("fn_reconcile_package_steps_to_ssot", { p_package_id: id });
+        const reconFixed = (reconResult as any)?.steps_fixed ?? 0;
+
         return {
           package_id: id,
           title: pkg.title,
@@ -697,6 +701,7 @@ Deno.serve(async (req) => {
           skipped_steps: stepsToSkip,
           added_steps: stepsToAdd,
           reactivated_steps: stepsToReactivate,
+          reconciled_steps: reconFixed,
         };
       }
 

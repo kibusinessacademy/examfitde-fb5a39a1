@@ -63588,6 +63588,14 @@ export type Database = {
           total_lessons: number
         }[]
       }
+      fn_reconcile_all_active_packages: {
+        Args: { p_dry_run?: boolean }
+        Returns: Json
+      }
+      fn_reconcile_package_steps_to_ssot: {
+        Args: { p_dry_run?: boolean; p_package_id: string }
+        Returns: Json
+      }
       fn_reconcile_stale_integrity_reports: { Args: never; Returns: Json }
       fn_reconcile_stale_qgf_packages: { Args: never; Returns: Json }
       generate_compliance_report: {
