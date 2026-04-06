@@ -276,6 +276,8 @@ export default function KursePage() {
       list = list.filter(p => p.is_stuck);
     } else if (statusFilter === 'publish_drift') {
       list = list.filter(p => p.has_publish_drift);
+    } else if (statusFilter === 'has_failed_jobs') {
+      list = list.filter(p => p.jobs_failed > 0);
     } else if (statusFilter !== 'all') {
       list = list.filter(p => p.status === statusFilter);
     }
@@ -339,7 +341,7 @@ export default function KursePage() {
             </button>
           )}
           {counts.failed > 0 && (
-            <button onClick={() => setStatusFilter('failed')} className="rounded-lg border border-destructive/30 bg-destructive/5 p-2 text-center hover:bg-destructive/10 transition-colors">
+            <button onClick={() => setStatusFilter('has_failed_jobs')} className="rounded-lg border border-destructive/30 bg-destructive/5 p-2 text-center hover:bg-destructive/10 transition-colors">
               <div className="text-lg font-bold text-destructive">{counts.failed}</div>
               <div className="text-[10px] text-muted-foreground">Failed Jobs</div>
             </button>
