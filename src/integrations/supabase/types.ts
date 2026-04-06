@@ -65219,6 +65219,15 @@ export type Database = {
         Args: { p_package_id: string }
         Returns: string
       }
+      fn_upsert_variant_inventory: {
+        Args: {
+          p_blueprint_id: string
+          p_curriculum_id: string
+          p_new_approved?: number
+          p_new_materialized?: number
+        }
+        Returns: undefined
+      }
       fn_validate_blueprint_preflight: {
         Args: { p_blueprint_id: string }
         Returns: Json
