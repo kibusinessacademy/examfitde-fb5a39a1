@@ -398,30 +398,22 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
         return { id: job.id, ok: false, error: errorMsg, terminal: true };
       }
 
-      // ── VALIDATOR RETRY GUARD ──
+      // ── VALIDATOR RETRY GUARD (ATTEMPT-SAFE) ──
       // Validators may return { ok: false, retry: true } for prereq-not-ready.
-      // Treat as transient with the validator's requested backoff.
+      // Use DB-level RPC to return to pending WITHOUT burning attempts.
       const isValidatorRetry = result && typeof result === "object"
         && result.ok === false && result.retry === true && !result.permanent;
 
       if (isValidatorRetry) {
-        const now = new Date().toISOString();
         const backoff = result.backoff_seconds || 300;
         const errorMsg = (result.error || "VALIDATOR_RETRY").slice(0, 2000);
-        await sb.from("job_queue").update({
-          status: "pending",
-          run_after: new Date(Date.now() + backoff * 1000).toISOString(),
-          last_error: errorMsg,
-          updated_at: now,
-          locked_at: null,
-          locked_by: null,
-          meta: {
-            ...(job.meta || {}),
-            validator_retry: true,
-            validator_classification: result.classification,
-          },
-        }).eq("id", job.id);
-        console.warn(`[content-runner] 🔄 ${job.job_type} (${shortId}) VALIDATOR RETRY — backoff ${backoff}s: ${errorMsg.slice(0, 150)}`);
+        // Use attempt-safe RPC — does NOT increment attempts
+        await sb.rpc("fn_return_job_to_pending_no_burn", {
+          p_job_id: job.id,
+          p_backoff_seconds: backoff,
+          p_reason: errorMsg,
+        });
+        console.warn(`[content-runner] 🔄 ${job.job_type} (${shortId}) VALIDATOR RETRY (no-burn) — backoff ${backoff}s: ${errorMsg.slice(0, 150)}`);
         return { id: job.id, ok: false, error: errorMsg, retry: true };
       }
 
