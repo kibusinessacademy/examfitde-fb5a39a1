@@ -282,6 +282,7 @@ Deno.serve(async (req) => {
       requeue_loops_mitigated: requeueLoopResults,
       stale_lock_auto_recovered: staleLockRecovered,
       non_building_jobs_reaped: nonBuildingReaped,
+      placeholder_stalls_healed: placeholderHealed,
     });
   } catch (e: unknown) {
     const msg = (e as Error)?.message || String(e);
