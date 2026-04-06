@@ -42385,6 +42385,36 @@ export type Database = {
         }
         Relationships: []
       }
+      system_heal_log: {
+        Row: {
+          created_at: string
+          details: Json | null
+          heal_type: string
+          id: string
+          job_id: string | null
+          package_id: string | null
+          step_key: string | null
+        }
+        Insert: {
+          created_at?: string
+          details?: Json | null
+          heal_type: string
+          id?: string
+          job_id?: string | null
+          package_id?: string | null
+          step_key?: string | null
+        }
+        Update: {
+          created_at?: string
+          details?: Json | null
+          heal_type?: string
+          id?: string
+          job_id?: string | null
+          package_id?: string | null
+          step_key?: string | null
+        }
+        Relationships: []
+      }
       system_health_assertions: {
         Row: {
           assertion_key: string
@@ -58903,8 +58933,11 @@ export type Database = {
       }
       v_ops_ghost_completions: {
         Row: {
+          has_active_siblings: boolean | null
           job_completed_at: string | null
+          job_id: string | null
           job_status: string | null
+          minutes_since_completion: number | null
           package_id: string | null
           pkg_status: string | null
           priority: number | null
@@ -64315,7 +64348,9 @@ export type Database = {
         Args: { p_post_snapshot: Json; p_pre_snapshot: Json }
         Returns: Json
       }
-      fn_heal_ghost_completions: { Args: never; Returns: Json }
+      fn_heal_ghost_completions:
+        | { Args: never; Returns: Json }
+        | { Args: { p_mode?: string }; Returns: Json }
       fn_is_qc_coverage_eligible: {
         Args: { p_qc_status: string; p_status?: string }
         Returns: boolean

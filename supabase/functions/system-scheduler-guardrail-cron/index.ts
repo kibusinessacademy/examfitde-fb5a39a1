@@ -1,3 +1,5 @@
+import { createClient } from "npm:@supabase/supabase-js@2.45.4";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -30,13 +32,38 @@ Deno.serve(async (req) => {
 
   const url = Deno.env.get("SUPABASE_URL")!;
   const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const sb = createClient(url, key);
 
-  const steps = [];
+  const steps: Record<string, unknown>[] = [];
 
-  // 1. Orphan reaper
+  // ── 1. Orphan step reconciliation (safest — auto-enqueue missing jobs) ──
+  try {
+    const { data, error } = await sb.rpc("fn_reconcile_orphan_steps");
+    steps.push({ step: "orphan_reconcile", ok: !error, data: data ?? error?.message });
+  } catch (e) {
+    steps.push({ step: "orphan_reconcile", ok: false, error: (e as Error).message });
+  }
+
+  // ── 2. Ghost completion detection + safe heal ──
+  try {
+    const { data, error } = await sb.rpc("fn_heal_ghost_completions", { p_mode: "heal_safe" });
+    steps.push({ step: "ghost_heal_safe", ok: !error, data: data ?? error?.message });
+  } catch (e) {
+    steps.push({ step: "ghost_heal_safe", ok: false, error: (e as Error).message });
+  }
+
+  // ── 3. Stale admin hold alerts ──
+  try {
+    const { data, error } = await sb.rpc("fn_alert_stale_admin_holds");
+    steps.push({ step: "stale_hold_alert", ok: !error, data: data ?? error?.message });
+  } catch (e) {
+    steps.push({ step: "stale_hold_alert", ok: false, error: (e as Error).message });
+  }
+
+  // ── 4. Orphan reaper (edge function) ──
   steps.push(await invoke(url, key, "system-orphan-reaper", {}));
 
-  // 2. Cron governance audit
+  // ── 5. Cron governance audit (edge function) ──
   steps.push(await invoke(url, key, "system-cron-governance-audit", {}));
 
   return json(200, {
