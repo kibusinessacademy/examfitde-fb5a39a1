@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { markStepDone } from "../_shared/steps.ts";
 import { enqueueJob } from "../_shared/enqueue.ts";
+import { QC_COVERAGE_ELIGIBLE } from "../_shared/qc-status.ts";
 
 /** Ensure the repair step exists before markStepDone (prevents MISMATCH crash) */
 async function ensureRepairStep(sb: ReturnType<typeof createClient>, packageId: string) {

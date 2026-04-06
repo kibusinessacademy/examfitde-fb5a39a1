@@ -6,6 +6,7 @@
  */
 
 import type { DeficitResult } from "./types.ts";
+import { QC_COVERAGE_ELIGIBLE } from "../qc-status.ts";
 
 /**
  * Compute whether generation is actually needed for a given job type.

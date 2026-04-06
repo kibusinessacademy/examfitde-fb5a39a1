@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
+import { QC_COVERAGE_ELIGIBLE } from "../_shared/qc-status.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
