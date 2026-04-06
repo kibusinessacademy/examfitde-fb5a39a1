@@ -248,7 +248,7 @@ export const ALL_SUBJOB_TYPES = new Set(FAN_OUT_CONFIG.flatMap(c => c.subjobType
 // Unified Job Definitions (SSOT for pool + edge function dispatch)
 // ═══════════════════════════════════════════════════════════════
 
-export type WorkerPool = "core" | "content";
+export type WorkerPool = "core" | "content" | "prebuild";
 
 export interface JobDefinition {
   pool: WorkerPool;
@@ -296,10 +296,12 @@ export const JOB_DEFINITIONS: Record<string, JobDefinition> = {
   package_enqueue_handbook_expand:   { pool: "core", edgeFunction: "package-enqueue-handbook-expand" },
   handbook_expand_section:           { pool: "content", edgeFunction: "expand-handbook-section" },
   package_validate_handbook_depth:   { pool: "core", edgeFunction: "package-validate-handbook-depth" },
-  package_auto_seed_exam_blueprints: { pool: "core", edgeFunction: "package-auto-seed-exam-blueprints" },
-  package_generate_blueprint_variants:  { pool: "content", edgeFunction: "generate-blueprint-variants" },
-  package_validate_blueprint_variants:  { pool: "core", edgeFunction: "validate-blueprint-variants" },
-  package_promote_blueprint_variants:   { pool: "core", edgeFunction: "promote-blueprint-variants" },
+  // ── prebuild / variant materialization (separate pool) ────────
+  package_generate_blueprint_variants:  { pool: "prebuild", edgeFunction: "generate-blueprint-variants" },
+  package_validate_blueprint_variants:  { pool: "prebuild", edgeFunction: "validate-blueprint-variants" },
+  package_promote_blueprint_variants:   { pool: "prebuild", edgeFunction: "promote-blueprint-variants" },
+  ensure_variant_inventory:             { pool: "prebuild", edgeFunction: "ensure-variant-inventory" },
+  validate_variant_inventory:           { pool: "prebuild", edgeFunction: "validate-variant-inventory" },
   package_build_ai_tutor_index:      { pool: "core", edgeFunction: "package-build-ai-tutor-index" },
   package_elite_harden:              { pool: "core", edgeFunction: "package-elite-harden" },
   package_run_integrity_check:       { pool: "core", edgeFunction: "package-run-integrity-check" },

@@ -4280,6 +4280,57 @@ export type Database = {
           },
         ]
       }
+      blueprint_variant_inventory: {
+        Row: {
+          approved_count: number
+          blueprint_id: string
+          coverage_ratio: number | null
+          created_at: string
+          curriculum_id: string
+          fingerprint: string | null
+          id: string
+          last_error: string | null
+          last_job_at: string | null
+          materialized_count: number
+          package_id: string | null
+          status: string
+          target_count: number
+          updated_at: string
+        }
+        Insert: {
+          approved_count?: number
+          blueprint_id: string
+          coverage_ratio?: number | null
+          created_at?: string
+          curriculum_id: string
+          fingerprint?: string | null
+          id?: string
+          last_error?: string | null
+          last_job_at?: string | null
+          materialized_count?: number
+          package_id?: string | null
+          status?: string
+          target_count?: number
+          updated_at?: string
+        }
+        Update: {
+          approved_count?: number
+          blueprint_id?: string
+          coverage_ratio?: number | null
+          created_at?: string
+          curriculum_id?: string
+          fingerprint?: string | null
+          id?: string
+          last_error?: string | null
+          last_job_at?: string | null
+          materialized_count?: number
+          package_id?: string | null
+          status?: string
+          target_count?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       blueprint_variants: {
         Row: {
           blueprint_id: string
@@ -11722,6 +11773,7 @@ export type Database = {
           track: Database["public"]["Enums"]["product_track"] | null
           track_subtype: string | null
           updated_at: string
+          variant_prebuild_status: string
           version: number
         }
         Insert: {
@@ -11777,6 +11829,7 @@ export type Database = {
           track?: Database["public"]["Enums"]["product_track"] | null
           track_subtype?: string | null
           updated_at?: string
+          variant_prebuild_status?: string
           version?: number
         }
         Update: {
@@ -11832,6 +11885,7 @@ export type Database = {
           track?: Database["public"]["Enums"]["product_track"] | null
           track_subtype?: string | null
           updated_at?: string
+          variant_prebuild_status?: string
           version?: number
         }
         Relationships: [
@@ -21833,6 +21887,7 @@ export type Database = {
           job_type: string
           notes: string | null
           updated_at: string
+          worker_pool: string | null
         }
         Insert: {
           can_run_when_not_building?: boolean
@@ -21841,6 +21896,7 @@ export type Database = {
           job_type: string
           notes?: string | null
           updated_at?: string
+          worker_pool?: string | null
         }
         Update: {
           can_run_when_not_building?: boolean
@@ -21849,6 +21905,7 @@ export type Database = {
           job_type?: string
           notes?: string | null
           updated_at?: string
+          worker_pool?: string | null
         }
         Relationships: []
       }
@@ -65098,6 +65155,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      fn_is_variant_inventory_ready: {
+        Args: { p_package_id: string }
+        Returns: boolean
+      }
       fn_minicheck_publish_gate: {
         Args: { p_curriculum_id: string }
         Returns: Json
@@ -65157,6 +65218,19 @@ export type Database = {
           p_backoff_seconds?: number
           p_job_id: string
           p_reason?: string
+        }
+        Returns: undefined
+      }
+      fn_update_package_prebuild_status: {
+        Args: { p_package_id: string }
+        Returns: string
+      }
+      fn_upsert_variant_inventory: {
+        Args: {
+          p_blueprint_id: string
+          p_curriculum_id: string
+          p_new_approved?: number
+          p_new_materialized?: number
         }
         Returns: undefined
       }
@@ -67239,6 +67313,7 @@ export type Database = {
           track: Database["public"]["Enums"]["product_track"] | null
           track_subtype: string | null
           updated_at: string
+          variant_prebuild_status: string
           version: number
         }
         SetofOptions: {
@@ -67572,6 +67647,7 @@ export type Database = {
           track: Database["public"]["Enums"]["product_track"] | null
           track_subtype: string | null
           updated_at: string
+          variant_prebuild_status: string
           version: number
         }
         SetofOptions: {

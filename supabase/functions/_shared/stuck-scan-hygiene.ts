@@ -71,33 +71,42 @@ export async function sweepPoolMismatches(sb: SupabaseClient) {
   let fixed = 0;
   try {
     const { JOB_DEFINITIONS } = await import("./job-map.ts");
-    const contentJobTypes = Object.entries(JOB_DEFINITIONS)
-      .filter(([_, def]: [string, any]) => def.pool === "content")
-      .map(([k]) => k);
 
-    if (contentJobTypes.length > 0) {
+    // Build pool→jobTypes map from SSOT
+    const poolMap: Record<string, string[]> = {};
+    for (const [jobType, def] of Object.entries(JOB_DEFINITIONS)) {
+      const pool = (def as any).pool ?? "core";
+      if (!poolMap[pool]) poolMap[pool] = [];
+      poolMap[pool].push(jobType);
+    }
+
+    // For each pool, find jobs that SHOULD be in that pool but are on a wrong pool
+    for (const [correctPool, jobTypes] of Object.entries(poolMap)) {
+      if (jobTypes.length === 0) continue;
+
       const { data: mismatched } = await sb
         .from("job_queue").select("id, job_type, worker_pool, meta")
-        .eq("status", "pending").eq("worker_pool", "core")
-        .in("job_type", contentJobTypes).limit(200);
+        .eq("status", "pending")
+        .not("worker_pool", "eq", correctPool)
+        .in("job_type", jobTypes).limit(200);
 
       if (mismatched && mismatched.length > 0) {
         for (const row of mismatched) {
-          const mergedMeta = { ...(row.meta as Record<string, unknown> ?? {}), pool_autofixed: true, old_pool: "core", fixed_by: "stuck-scan-sweep" };
+          const mergedMeta = { ...(row.meta as Record<string, unknown> ?? {}), pool_autofixed: true, old_pool: row.worker_pool, fixed_by: "stuck-scan-sweep" };
           await sb.from("job_queue").update({
-            worker_pool: "content", meta: mergedMeta, updated_at: new Date().toISOString(),
+            worker_pool: correctPool, meta: mergedMeta, updated_at: new Date().toISOString(),
           }).eq("id", row.id);
         }
         fixed += mismatched.length;
         const mismatchJobTypes = [...new Set(mismatched.map(r => r.job_type))];
-        console.warn(`[stuck-scan] 🔧 POOL_SWEEP: Fixed ${mismatched.length} job(s) from core→content | types=${mismatchJobTypes.join(",")}`);
+        console.warn(`[stuck-scan] 🔧 POOL_SWEEP: Fixed ${mismatched.length} job(s) → ${correctPool} | types=${mismatchJobTypes.join(",")}`);
 
         try {
           await sb.from("admin_notifications").insert({
-            title: "Pool Mismatch Sweep: jobs auto-fixed",
-            body: `${mismatched.length} job(s) were on wrong pool (core instead of content). Auto-fixed. Job types: ${mismatchJobTypes.join(", ")}`,
+            title: `Pool Mismatch Sweep: ${mismatched.length} jobs auto-fixed`,
+            body: `${mismatched.length} job(s) were on wrong pool → ${correctPool}. Job types: ${mismatchJobTypes.join(", ")}`,
             category: "ops", severity: "warn",
-            metadata: { fixed_count: mismatched.length, job_types: mismatchJobTypes },
+            metadata: { fixed_count: mismatched.length, job_types: mismatchJobTypes, target_pool: correctPool },
           });
         } catch (_e) { /* best-effort */ }
       }
