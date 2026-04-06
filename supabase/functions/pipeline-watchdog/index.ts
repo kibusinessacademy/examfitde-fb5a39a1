@@ -6,6 +6,7 @@ import {
   getLearningContentLiveness,
 } from "../_shared/learning-content-revive.ts";
 import { getNeedsRegenCount } from "../_shared/learning-content-scheduler.ts";
+import { QC_COVERAGE_ELIGIBLE } from "../_shared/qc-status.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
