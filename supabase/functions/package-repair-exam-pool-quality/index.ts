@@ -311,22 +311,24 @@ async function handlePoolHealthyNoReentry(
   qcReconciled: number,
   gateChange: { check_failed?: boolean; check_failed_reason?: string },
 ) {
-  // Ensure repair step exists before markStepDone (prevents MISMATCH crash)
-  await ensureRepairStep(sb, packageId);
-  // Mark repair step as done via SSOT helper (not raw update)
-  await markStepDone(sb, {
-    packageId,
-    stepKey: "repair_exam_pool_quality",
-    meta: {
-      repair_complete: true,
-      qc_reconciled: qcReconciled,
-      pool_healthy: true,
-      gate_delta_verified: false,
-      reentry_blocked_reason: "pool_healthy_but_no_gate_delta",
-      delta_check_failed: gateChange.check_failed ?? false,
-      delta_check_failed_reason: gateChange.check_failed_reason ?? null,
-    },
-  });
+  const stepExists = await ensureRepairStep(sb, packageId);
+  if (stepExists) {
+    await markStepDone(sb, {
+      packageId,
+      stepKey: "repair_exam_pool_quality",
+      meta: {
+        repair_complete: true,
+        qc_reconciled: qcReconciled,
+        pool_healthy: true,
+        gate_delta_verified: false,
+        reentry_blocked_reason: "pool_healthy_but_no_gate_delta",
+        delta_check_failed: gateChange.check_failed ?? false,
+        delta_check_failed_reason: gateChange.check_failed_reason ?? null,
+      },
+    });
+  } else {
+    console.warn(`[repair-exam-pool] Step row missing — skipping markStepDone (pool healthy, no gate delta)`);
+  }
 
   // Append stuck_reason for diagnostics — do NOT clear blocked_reason
   await sb.from("course_packages").update({
