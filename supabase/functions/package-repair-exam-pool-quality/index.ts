@@ -349,7 +349,11 @@ async function handleGateChanged(
   }).eq("package_id", packageId).eq("step_key", "validate_exam_pool").in("status", ["failed", "queued"]);
 
   const hasOpenLfGaps = (repairResult.missing_lf_coverage as number) > 0;
-  await ensureRepairStep(sb, packageId);
+  const stepExists = await ensureRepairStep(sb, packageId);
+  if (!stepExists) {
+    console.warn(`[repair-exam-pool] Step row missing in handleGateChanged — skipping step update`);
+    return;
+  }
   if (hasOpenLfGaps) {
     await sb.from("package_steps").update({
       status: "running",
