@@ -1303,3 +1303,46 @@ async function getRecoveryBoard(sb: SB) {
     },
   };
 }
+
+/** Resilience Dashboard: stale-lock recoveries, reaped jobs, fan-out fairness */
+async function getResilienceDashboard(sb: SB) {
+  const rows = await safeFrom(sb, "v_ops_resilience_dashboard", "section, data");
+
+  const result: Record<string, unknown> = {
+    generated_at: new Date().toISOString(),
+    stale_recovery: [],
+    reaped_non_building: [],
+    fanout_share: [],
+  };
+
+  for (const row of rows) {
+    const section = row.section as string;
+    if (section in result) {
+      result[section] = row.data ?? [];
+    }
+  }
+
+  // Add totals
+  const staleArr = result.stale_recovery as any[];
+  const reapedArr = result.reaped_non_building as any[];
+  const fanoutArr = result.fanout_share as any[];
+
+  result.totals = {
+    stale_recovered: staleArr.reduce((s: number, r: any) => s + (r.cnt || 0), 0),
+    reaped: reapedArr.reduce((s: number, r: any) => s + (r.cnt || 0), 0),
+    blueprint_variants_pending: fanoutArr
+      .filter((r: any) => r.category === 'blueprint_variants' && r.status === 'pending')
+      .reduce((s: number, r: any) => s + (r.cnt || 0), 0),
+    other_pending: fanoutArr
+      .filter((r: any) => r.category === 'other' && r.status === 'pending')
+      .reduce((s: number, r: any) => s + (r.cnt || 0), 0),
+    blueprint_share_pct: (() => {
+      const bv = fanoutArr.filter((r: any) => r.status === 'pending' && r.category === 'blueprint_variants').reduce((s: number, r: any) => s + (r.cnt || 0), 0);
+      const other = fanoutArr.filter((r: any) => r.status === 'pending' && r.category === 'other').reduce((s: number, r: any) => s + (r.cnt || 0), 0);
+      const total = bv + other;
+      return total > 0 ? Math.round((bv / total) * 100) : 0;
+    })(),
+  };
+
+  return result;
+}
