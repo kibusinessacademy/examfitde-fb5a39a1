@@ -690,15 +690,19 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
           update.run_after = new Date(Date.now() + effectiveBackoff * 1000).toISOString();
         }
 
-        // Set provider cooldown if loop exhausted
+        // Set provider cooldown if loop exhausted — JOB-TYPE SCOPED
         if (providerLoopExhausted && jobProvider && jobProvider !== "unknown") {
+          const workloadKey = workloadKeyForJob(job.job_type);
+          // Cooldown duration: oral_exam gets shorter (3min vs 10min) to recover faster
+          const cooldownMs = job.job_type === "package_generate_oral_exam" ? 3 * 60_000 : 10 * 60_000;
           setProviderCooldown({
             provider: jobProvider,
             model: jobModel ?? "unknown",
-            ms: 10 * 60_000,
+            ms: cooldownMs,
             reason: `PROVIDER_LOOP_GUARD: ${sameProviderTransientAttempts}x transient on same route`,
+            jobType: workloadKey,
           });
-          console.warn(`[content-runner] 🔒 PROVIDER_LOOP_GUARD: ${jobProvider}/${jobModel} quarantined for 10min after ${sameProviderTransientAttempts}x transient`);
+          console.warn(`[content-runner] 🔒 PROVIDER_LOOP_GUARD: ${jobProvider}/${jobModel} [${workloadKey}] quarantined for ${Math.round(cooldownMs / 60_000)}min after ${sameProviderTransientAttempts}x transient`);
         }
 
         await sb.from("job_queue").update(update).eq("id", job.id);
