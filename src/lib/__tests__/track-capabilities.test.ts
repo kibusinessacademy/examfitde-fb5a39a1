@@ -31,7 +31,7 @@ describe("Capability snapshots", () => {
       hasLearningCourse: true,
       hasMiniChecks: true,
       hasHandbook: true,
-      hasOralExam: false,
+      hasOralExam: true,
       isExamCentric: false,
       isExamOnly: false,
       eliteHardenEligible: false,
