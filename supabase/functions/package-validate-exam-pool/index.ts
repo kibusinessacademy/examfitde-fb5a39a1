@@ -578,8 +578,8 @@ Deno.serve(async (req) => {
     const unresolvedRatio = approvedCount > 0 ? failedCount / approvedCount : 1;
     const poolSufficient = approvedCount >= MIN_APPROVED_FOR_PASS && missingLfIds.length === 0 && unresolvedRatio < 0.05;
 
-    if (poolSufficient && (failedCount > 0 || tier1PassedCount > 0)) {
-      console.log(`[validate-exam] TERMINAL_CLEANUP: rejecting ${failedCount} failed, promoting ${tier1PassedCount} tier1_passed (approved=${approvedCount}, ratio=${(unresolvedRatio * 100).toFixed(1)}%)`);
+    if (poolSufficient && failedCount > 0) {
+      console.log(`[validate-exam] TERMINAL_CLEANUP: rejecting ${failedCount} failed (approved=${approvedCount}, ratio=${(unresolvedRatio * 100).toFixed(1)}%)`);
       
       // Reject tier1_failed/needs_revision
       if (failedCount > 0) {
