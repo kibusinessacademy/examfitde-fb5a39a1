@@ -89,6 +89,32 @@ export async function detectAndMitigateHotLoops(
 
     if (candidates.length === 0) return results;
 
+    // ── DM2: Track completed_job_count on step meta for no-progress detection ──
+    for (const cand of candidates) {
+      const stepKey = jobTypeToStepKey(cand.job_type);
+      if (!stepKey) continue;
+      try {
+        const { data: stepRow } = await sb
+          .from("package_steps")
+          .select("meta, status")
+          .eq("package_id", cand.package_id)
+          .eq("step_key", stepKey)
+          .maybeSingle();
+        if (!stepRow || stepRow.status === "done" || stepRow.status === "skipped") continue;
+        const meta = (stepRow.meta ?? {}) as Record<string, unknown>;
+        const prevCount = (meta.completed_job_count as number) ?? 0;
+        if (cand.count > prevCount) {
+          await sb
+            .from("package_steps")
+            .update({
+              meta: { ...meta, completed_job_count: cand.count, completed_job_count_at: new Date().toISOString() },
+            })
+            .eq("package_id", cand.package_id)
+            .eq("step_key", stepKey);
+        }
+      } catch (_e) { /* best-effort */ }
+    }
+
     // ── 2) For each candidate, check if there's actual progress ──
     for (const cand of candidates) {
       // Check if we already handled this loop recently (dedupe)
