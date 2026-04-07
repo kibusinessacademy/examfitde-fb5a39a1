@@ -42189,6 +42189,21 @@ export type Database = {
           },
         ]
       }
+      step_dag_edges: {
+        Row: {
+          depends_on: string
+          step_key: string
+        }
+        Insert: {
+          depends_on: string
+          step_key: string
+        }
+        Update: {
+          depends_on?: string
+          step_key?: string
+        }
+        Relationships: []
+      }
       step_metrics: {
         Row: {
           created_at: string
