@@ -182,7 +182,7 @@ Deno.serve(async (req) => {
       const r = await runSyntheticJob("path_a_artifact_present", {
         jobType: "package_generate_exam_pool",
         payload: { curriculum_id: curriculumId },
-        packageId: packageId,
+        package_id: packageId,
       });
       // PASS: completed + artifact_verified=true
       const pass = r.db.status === "completed" && r.db.artifact_verified === true;
@@ -242,7 +242,7 @@ Deno.serve(async (req) => {
     const rD = await runSyntheticJob("path_d_invalid_payload", {
       jobType: "package_generate_exam_pool",
       payload: {}, // Missing curriculum_id
-      packageId: NULL_UUID,
+      package_id: NULL_UUID,
     });
     // PASS: NOT completed + guard or permanent failure visible
     const passD = rD.db.status !== "completed" && (
