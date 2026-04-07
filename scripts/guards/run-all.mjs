@@ -18,6 +18,7 @@ const guards = [
   "no-legacy-entitlement-rpc-guard.mjs",
   "dag-parity-guard.mjs",
   "edge-deploy-drift-guard.mjs",
+  "handler-registry-parity-guard.mjs",
 ];
 
 function run(file) {
