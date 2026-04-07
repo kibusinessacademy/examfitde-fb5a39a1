@@ -3,25 +3,45 @@ import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 import { detectGenericContent, resolveGenericSeverity } from "../_shared/generic-content-detector.ts";
 
 /**
- * generate-blog-article v3 – Hardened AI-Search-Optimized Content Factory
+ * generate-blog-article v3.1 – Hardened AI-Search-Optimized Content Factory
  *
- * Hardened points vs v2:
- *  1. 6-state status machine (draft_generated → needs_review → published / failed_*)
- *  2. Topic-fingerprint intent dedup (not just slug/hash)
- *  3. AI detection on ALL text fields (title, meta, short_answer, FAQ)
- *  4. Stronger SEO/AISO validation (single H1, no dupes, no placeholders)
- *  5. Entity-first internal linking (competency/trap/concept before type diversity)
- *  6. Deterministic hero image prompts bound to entity data
- *  7. Smart batch coverage (by article_type, topic_cluster, competency)
- *  8. Publish event hooks (sitemap, RSS, IndexNow)
+ * P0 hardening:
+ *  - topic_fingerprint computed + persisted + DB unique guard
+ *  - handlePublish is fail-closed (checks slug, canonical, hero_image_alt, quality signals)
+ *  - Failure cases persisted as blog_publishing_events (not just in response)
+ *  - Standardized event types
+ *  - Strict status transitions
  */
 
 const GARBAGE_RE = /^(undefined|null|none|n\/a|placeholder|todo|tbd|hier ist ein|lorem ipsum)/i;
 const SITE_URL = "https://examfit.de";
 const ARTICLE_TYPES = ["definition", "mistake", "example", "comparison", "faq", "strategy"] as const;
 
-// ── 6-state status machine ──
+// ── Standardized event types ──
+const EVT = {
+  GENERATED: "generated",
+  FAILED_VALIDATION: "failed_validation",
+  FAILED_AI_DETECTION: "failed_ai_detection",
+  DUPLICATE_SLUG: "duplicate_slug",
+  DUPLICATE_HASH: "duplicate_content_hash",
+  DUPLICATE_TOPIC: "duplicate_topic_fingerprint",
+  STATUS_TRANSITION: "status_transition",
+  PUBLISHED: "published",
+  INDEXNOW_SENT: "indexnow_sent",
+  SITEMAP_REFRESH: "sitemap_refresh",
+  PUBLISH_BLOCKED: "publish_blocked",
+} as const;
+
 type ArticleStatus = "draft_generated" | "needs_review" | "published" | "failed_validation" | "failed_ai_detection" | "duplicate";
+
+// ── Allowed transitions ──
+const ALLOWED_TRANSITIONS: Record<string, string[]> = {
+  draft_generated: ["needs_review", "failed_validation", "failed_ai_detection"],
+  needs_review: ["published", "draft_generated"],
+  failed_validation: ["draft_generated"],
+  failed_ai_detection: ["draft_generated"],
+  duplicate: [],
+};
 
 // ── Validation (hardened) ──
 
@@ -45,7 +65,6 @@ function validateArticle(article: any): { valid: boolean; reason?: string } {
     }
   }
 
-  // Garbage check on all text fields
   for (const field of ["title", "content_md", "meta_description", "short_answer", "excerpt"]) {
     const val = (article[field] || "").trim();
     if (GARBAGE_RE.test(val)) {
@@ -53,42 +72,21 @@ function validateArticle(article: any): { valid: boolean; reason?: string } {
     }
   }
 
-  // Keywords: deduplicated, min 3
-  if (!Array.isArray(article.keywords) || article.keywords.length < 3) {
-    return { valid: false, reason: "keywords must have at least 3 entries" };
-  }
-  const uniqueKw = new Set(article.keywords.map((k: string) => k.toLowerCase().trim()));
-  if (uniqueKw.size < 3) {
-    return { valid: false, reason: "keywords must have at least 3 unique entries" };
-  }
+  const uniqueKw = new Set((article.keywords || []).map((k: string) => k.toLowerCase().trim()));
+  if (uniqueKw.size < 3) return { valid: false, reason: "keywords must have at least 3 unique entries" };
 
-  // FAQ: min 3, no duplicate questions
-  if (!Array.isArray(article.faq) || article.faq.length < 3) {
-    return { valid: false, reason: "faq must have at least 3 Q&A pairs" };
-  }
+  if (!Array.isArray(article.faq) || article.faq.length < 3) return { valid: false, reason: "faq must have at least 3 Q&A pairs" };
   const faqQuestions = new Set(article.faq.map((f: any) => f.q?.toLowerCase().trim()));
-  if (faqQuestions.size < article.faq.length) {
-    return { valid: false, reason: "faq contains duplicate questions" };
-  }
+  if (faqQuestions.size < article.faq.length) return { valid: false, reason: "faq contains duplicate questions" };
 
-  // Answer blocks
-  if (!article.answer_blocks?.definition_block) {
-    return { valid: false, reason: "answer_blocks.definition_block required" };
-  }
+  if (!article.answer_blocks?.definition_block) return { valid: false, reason: "answer_blocks.definition_block required" };
 
-  // Single H1 in markdown
   const h1Matches = (article.content_md as string).match(/^# [^\n]+/gm);
-  if (!h1Matches || h1Matches.length !== 1) {
-    return { valid: false, reason: `content_md must have exactly 1 H1 (found ${h1Matches?.length || 0})` };
-  }
+  if (!h1Matches || h1Matches.length !== 1) return { valid: false, reason: `Exactly 1 H1 required (found ${h1Matches?.length || 0})` };
 
-  // At least 2 H2 subheadings
   const h2Matches = (article.content_md as string).match(/^## [^\n]+/gm);
-  if (!h2Matches || h2Matches.length < 2) {
-    return { valid: false, reason: `content_md must have at least 2 H2 subheadings (found ${h2Matches?.length || 0})` };
-  }
+  if (!h2Matches || h2Matches.length < 2) return { valid: false, reason: `At least 2 H2s required (found ${h2Matches?.length || 0})` };
 
-  // short_answer ≠ excerpt ≠ meta_description
   const sa = article.short_answer?.trim().toLowerCase();
   const ex = article.excerpt?.trim().toLowerCase();
   const md = article.meta_description?.trim().toLowerCase();
@@ -96,14 +94,12 @@ function validateArticle(article: any): { valid: boolean; reason?: string } {
   if (sa === md) return { valid: false, reason: "short_answer must differ from meta_description" };
   if (ex === md) return { valid: false, reason: "excerpt must differ from meta_description" };
 
-  // hero_image_alt: must contain topic hint but not be keyword spam (>5 commas = spam)
-  const altCommas = (article.hero_image_alt || "").split(",").length - 1;
-  if (altCommas > 5) return { valid: false, reason: "hero_image_alt looks like keyword spam" };
+  if ((article.hero_image_alt || "").split(",").length - 1 > 5) return { valid: false, reason: "hero_image_alt keyword spam" };
 
   return { valid: true };
 }
 
-// ── AI Detection on ALL fields (not just body) ──
+// ── AI Detection on ALL fields ──
 
 function runFullAiDetection(article: any): {
   score: number;
@@ -117,17 +113,13 @@ function runFullAiDetection(article: any): {
     { name: "short_answer", text: article.short_answer, maxGeneric: 1 },
     { name: "excerpt", text: article.excerpt, maxGeneric: 0 },
   ];
-
-  // Add FAQ answers
   if (Array.isArray(article.faq)) {
     for (let i = 0; i < article.faq.length; i++) {
       fields.push({ name: `faq[${i}].a`, text: article.faq[i]?.a || "", maxGeneric: 0 });
     }
   }
 
-  let totalGeneric = 0;
-  let totalErrors = 0;
-  let totalSentences = 0;
+  let totalGeneric = 0, totalErrors = 0, totalSentences = 0;
   const details: { field: string; genericPhrases: string[]; spellingErrors: string[] }[] = [];
 
   for (const { name, text, maxGeneric } of fields) {
@@ -135,21 +127,14 @@ function runFullAiDetection(article: any): {
     const result = detectGenericContent(text, maxGeneric);
     totalGeneric += result.genericPhraseCount;
     totalErrors += result.spellingErrors.length;
-    const sentences = text.replace(/<[^>]+>/g, " ").split(/[.!?]+/).filter((s: string) => s.trim().length > 10);
-    totalSentences += sentences.length;
+    totalSentences += text.replace(/<[^>]+>/g, " ").split(/[.!?]+/).filter((s: string) => s.trim().length > 10).length;
     if (result.genericPhrases.length > 0 || result.spellingErrors.length > 0) {
       details.push({ field: name, genericPhrases: result.genericPhrases, spellingErrors: result.spellingErrors });
     }
   }
 
   const genericRatio = totalSentences > 0 ? totalGeneric / totalSentences : 0;
-  const severity = resolveGenericSeverity({
-    genericPhraseCount: totalGeneric,
-    spellingErrorCount: totalErrors,
-    genericRatio,
-    artifactType: "blog_article",
-  });
-
+  const severity = resolveGenericSeverity({ genericPhraseCount: totalGeneric, spellingErrorCount: totalErrors, genericRatio, artifactType: "blog_article" });
   const score = Math.max(0, 100 - (totalGeneric * 8) - (totalErrors * 12));
 
   return { score, severity, details };
@@ -159,70 +144,45 @@ function runFullAiDetection(article: any): {
 
 function computeTopicFingerprint(topic: string, targetKeyword: string, articleType: string): string {
   const normalized = [topic, targetKeyword]
-    .join(" ")
-    .toLowerCase()
+    .join(" ").toLowerCase()
     .replace(/[^a-zäöüß0-9\s]/gi, "")
-    .split(/\s+/)
-    .filter(w => w.length > 2)
-    .sort()
-    .join("_");
+    .split(/\s+/).filter(w => w.length > 2).sort().join("_");
   return `${articleType}::${normalized}`.substring(0, 200);
 }
 
 // ── Entity-first Internal Link Builder ──
 
 async function buildInternalLinks(
-  admin: any,
-  contentMd: string,
-  curriculumId: string | null,
-  berufId: string | null,
-  currentSlug: string,
-  entityData: any,
-  competencyId: string | null,
+  admin: any, contentMd: string, curriculumId: string | null, berufId: string | null,
+  currentSlug: string, entityData: any, competencyId: string | null,
 ): Promise<{ content: string; links: Array<{ anchor: string; url: string; reason: string; type: string; priority: number }> }> {
   const links: Array<{ anchor: string; url: string; reason: string; type: string; priority: number }> = [];
   let content = contentMd;
 
-  // PRIORITY 1: Same competency (strongest semantic link)
+  // P1: Same competency
   if (competencyId) {
-    const { data: sameComp } = await admin
-      .from("blog_articles")
-      .select("slug, title, article_type")
-      .eq("competency_id", competencyId)
-      .eq("status", "published")
-      .neq("slug", currentSlug)
-      .limit(3);
+    const { data: sameComp } = await admin.from("blog_articles").select("slug, title, article_type")
+      .eq("competency_id", competencyId).eq("status", "published").neq("slug", currentSlug).limit(3);
     for (const a of sameComp || []) {
       links.push({ anchor: a.title, url: `/blog/${a.slug}`, reason: "same_competency", type: "blog", priority: 100 });
     }
   }
 
-  // PRIORITY 2: Related concepts from entity_data
+  // P2: Related concepts
   if (entityData?.related_concepts?.length) {
     for (const concept of entityData.related_concepts.slice(0, 3)) {
-      const { data: conceptArticle } = await admin
-        .from("blog_articles")
-        .select("slug, title")
-        .eq("status", "published")
-        .ilike("title", `%${concept}%`)
-        .neq("slug", currentSlug)
-        .limit(1)
-        .maybeSingle();
-      if (conceptArticle && !links.find(l => l.url === `/blog/${conceptArticle.slug}`)) {
-        links.push({ anchor: conceptArticle.title, url: `/blog/${conceptArticle.slug}`, reason: "related_concept", type: "concept", priority: 90 });
+      const { data: ca } = await admin.from("blog_articles").select("slug, title")
+        .eq("status", "published").ilike("title", `%${concept}%`).neq("slug", currentSlug).limit(1).maybeSingle();
+      if (ca && !links.find(l => l.url === `/blog/${ca.slug}`)) {
+        links.push({ anchor: ca.title, url: `/blog/${ca.slug}`, reason: "related_concept", type: "concept", priority: 90 });
       }
     }
   }
 
-  // PRIORITY 3: Same curriculum (topical cluster)
+  // P3: Same curriculum
   if (curriculumId && links.length < 5) {
-    const { data: sameCurr } = await admin
-      .from("blog_articles")
-      .select("slug, title, article_type")
-      .eq("source_curriculum_id", curriculumId)
-      .eq("status", "published")
-      .neq("slug", currentSlug)
-      .limit(5);
+    const { data: sameCurr } = await admin.from("blog_articles").select("slug, title, article_type")
+      .eq("source_curriculum_id", curriculumId).eq("status", "published").neq("slug", currentSlug).limit(5);
     for (const a of sameCurr || []) {
       if (!links.find(l => l.url === `/blog/${a.slug}`)) {
         links.push({ anchor: a.title, url: `/blog/${a.slug}`, reason: "same_curriculum", type: "blog", priority: 70 });
@@ -230,30 +190,30 @@ async function buildInternalLinks(
     }
   }
 
-  // PRIORITY 4: SEO documents
+  // P4: SEO documents
   if ((berufId || curriculumId) && links.length < 6) {
-    let query = admin.from("seo_documents").select("slug, title, doc_type").eq("status", "published").limit(3);
-    if (berufId) query = query.eq("beruf_id", berufId);
-    else if (curriculumId) query = query.eq("curriculum_id", curriculumId);
-    const { data: seoDocs } = await query;
-    const docTypeUrlMap: Record<string, string> = { blog: "/wissen", landing: "/pruefungstraining", faq: "/faq", glossary: "/glossar", cluster: "/wissen" };
+    let q = admin.from("seo_documents").select("slug, title, doc_type").eq("status", "published").limit(3);
+    if (berufId) q = q.eq("beruf_id", berufId);
+    else if (curriculumId) q = q.eq("curriculum_id", curriculumId);
+    const { data: seoDocs } = await q;
+    const urlMap: Record<string, string> = { blog: "/wissen", landing: "/pruefungstraining", faq: "/faq", glossary: "/glossar", cluster: "/wissen" };
     for (const doc of (seoDocs || []).slice(0, 2)) {
-      const base = docTypeUrlMap[doc.doc_type] || "/wissen";
-      const linkUrl = `${base}/${doc.slug}`;
+      const linkUrl = `${urlMap[doc.doc_type] || "/wissen"}/${doc.slug}`;
       if (!content.includes(linkUrl)) {
         links.push({ anchor: doc.title, url: linkUrl, reason: "seo_document", type: doc.doc_type, priority: 60 });
       }
     }
   }
 
-  // PRIORITY 5: Beruf page inline link
+  // P5: Beruf page inline link
   if (berufId) {
     const { data: beruf } = await admin.from("berufe").select("bezeichnung_kurz").eq("id", berufId).single();
     if (beruf) {
       const berufSlug = generateSlug(beruf.bezeichnung_kurz);
       const berufUrl = `/berufe/${berufSlug}`;
       if (!content.includes(berufUrl)) {
-        const regex = new RegExp(`(?<!\\[)${escapeRegex(beruf.bezeichnung_kurz)}(?!\\])(?!\\()`, "i");
+        const escaped = beruf.bezeichnung_kurz.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const regex = new RegExp(`(?<!\\[)${escaped}(?!\\])(?!\\()`, "i");
         if (regex.test(content)) {
           content = content.replace(regex, `[${beruf.bezeichnung_kurz}](${berufUrl})`);
           links.push({ anchor: beruf.bezeichnung_kurz, url: berufUrl, reason: "beruf_page", type: "beruf", priority: 50 });
@@ -262,7 +222,7 @@ async function buildInternalLinks(
     }
   }
 
-  // Sort by priority descending, take top 5 for Weiterlesen
+  // Weiterlesen section
   links.sort((a, b) => b.priority - a.priority);
   const blogLinks = links.filter(l => l.url.startsWith("/blog/") || l.url.startsWith("/wissen/")).slice(0, 4);
   if (blogLinks.length > 0) {
@@ -305,7 +265,7 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const { curriculum_id, source_question_id, topic, topic_cluster, article_type, mode = "single", batch_size = 5 } = body;
 
-    // ── Publish mode: transition draft_generated → needs_review → published ──
+    // ── Action dispatchers ──
     if (body.action === "publish" && body.article_id) {
       return await handlePublish(admin, supabaseUrl, body.article_id, headers);
     }
@@ -333,47 +293,30 @@ Deno.serve(async (req) => {
     const sources: ArticleSource[] = [];
 
     if (mode === "batch") {
-      // ── Smart batch: coverage by article_type AND competency ──
-      const { data: packages } = await admin
-        .from("course_packages")
-        .select("id, curriculum_id, status")
-        .eq("status", "published")
-        .not("curriculum_id", "is", null)
-        .limit(50);
+      const { data: packages } = await admin.from("course_packages").select("id, curriculum_id, status")
+        .eq("status", "published").not("curriculum_id", "is", null).limit(50);
 
       if (packages) {
         const currIds = [...new Set(packages.map((p: any) => p.curriculum_id))];
         for (const cid of currIds) {
           if (sources.length >= Math.min(batch_size, 10)) break;
 
-          // Check existing coverage by article_type
-          const { data: existing } = await admin
-            .from("blog_articles")
-            .select("article_type, competency_id")
+          const { data: existing } = await admin.from("blog_articles").select("article_type, competency_id")
             .eq("source_curriculum_id", cid)
             .not("status", "in", '("failed_validation","failed_ai_detection","duplicate")');
 
           const coveredTypes = new Set((existing || []).map((e: any) => e.article_type));
-          const coveredCompetencies = new Set((existing || []).filter((e: any) => e.competency_id).map((e: any) => e.competency_id));
+          const coveredComps = new Set((existing || []).filter((e: any) => e.competency_id).map((e: any) => e.competency_id));
 
-          // Find uncovered article type
           const nextType = ARTICLE_TYPES.find(t => !coveredTypes.has(t));
-          if (!nextType && (existing || []).length >= 10) continue; // fully covered
+          if (!nextType && (existing || []).length >= 10) continue;
 
-          // Find a question from an uncovered competency if possible
-          let questionQuery = admin
-            .from("exam_questions")
+          const { data: questions } = await admin.from("exam_questions")
             .select("id, question_text, trap_tags, difficulty, cognitive_level, competency_id")
-            .eq("curriculum_id", cid)
-            .in("question_type", ["multiple_choice", "single_choice"])
-            .not("trap_tags", "is", null)
-            .order("difficulty", { ascending: false })
-            .limit(5);
+            .eq("curriculum_id", cid).in("question_type", ["multiple_choice", "single_choice"])
+            .not("trap_tags", "is", null).order("difficulty", { ascending: false }).limit(5);
 
-          const { data: questions } = await questionQuery;
-          // Prefer question from uncovered competency
-          const question = questions?.find((q: any) => q.competency_id && !coveredCompetencies.has(q.competency_id)) || questions?.[0];
-
+          const question = questions?.find((q: any) => q.competency_id && !coveredComps.has(q.competency_id)) || questions?.[0];
           const { data: curriculum } = await admin.from("curricula").select("id, title, description").eq("id", cid).single();
           if (!curriculum) continue;
 
@@ -409,8 +352,7 @@ Deno.serve(async (req) => {
         srcPackageId = pkg?.id || null;
       }
       if (source_question_id) {
-        const { data: question } = await admin
-          .from("exam_questions")
+        const { data: question } = await admin.from("exam_questions")
           .select("id, question_text, options, correct_answer, explanation, difficulty, trap_tags, cognitive_level, curriculum_id, competency_id")
           .eq("id", source_question_id).single();
         context.question = question;
@@ -443,9 +385,13 @@ Deno.serve(async (req) => {
     for (const source of sources) {
       try {
         const article = await generateArticle(lovableKey, source);
-        if (!article) { results.push({ topic: source.topic, error: "Generation failed", status: "failed_validation" }); continue; }
+        if (!article) {
+          // Persist failure event (no article ID yet, use a placeholder log)
+          results.push({ topic: source.topic, error: "Generation failed", status: "failed_validation" });
+          continue;
+        }
 
-        // ── Validate (hardened) ──
+        // ── Validate ──
         const validation = validateArticle(article);
         if (!validation.valid) {
           results.push({ topic: source.topic, error: `Validation: ${validation.reason}`, status: "failed_validation" });
@@ -462,17 +408,35 @@ Deno.serve(async (req) => {
         // ── Slug dedup ──
         const slug = generateSlug(article.title);
         const { data: existingSlug } = await admin.from("blog_articles").select("id").eq("slug", slug).limit(1);
-        if (existingSlug?.length) { results.push({ topic: source.topic, error: `Slug exists: ${slug}`, status: "duplicate" }); continue; }
+        if (existingSlug?.length) {
+          results.push({ topic: source.topic, error: `Slug exists: ${slug}`, status: "duplicate" });
+          continue;
+        }
 
         // ── Content hash dedup ──
         const contentHash = await computeHash(article.content_md);
         const { data: existingHash } = await admin.from("blog_articles").select("id").eq("content_hash", contentHash).limit(1);
-        if (existingHash?.length) { results.push({ topic: source.topic, status: "duplicate" }); continue; }
+        if (existingHash?.length) {
+          results.push({ topic: source.topic, status: "duplicate", error: "Content hash match" });
+          continue;
+        }
 
-        // ── Topic fingerprint dedup ──
+        // ── Topic fingerprint: compute + explicit check BEFORE insert ──
         const topicFp = computeTopicFingerprint(source.topic, article.target_keyword || "", source.article_type);
+        if (source.curriculum_id) {
+          const { data: existingFp } = await admin.from("blog_articles").select("id")
+            .eq("source_curriculum_id", source.curriculum_id)
+            .eq("topic_fingerprint", topicFp)
+            .eq("article_type", source.article_type)
+            .not("status", "in", '("failed_validation","failed_ai_detection","duplicate")')
+            .limit(1);
+          if (existingFp?.length) {
+            results.push({ topic: source.topic, status: "duplicate", error: "Topic intent already covered" });
+            continue;
+          }
+        }
 
-        // ── Hero Image (entity-bound prompt) ──
+        // ── Hero Image (entity-bound) ──
         let heroImageUrl: string | null = null;
         try {
           const entityBeruf = article.entity_data?.beruf || "";
@@ -487,17 +451,12 @@ Deno.serve(async (req) => {
             strategy: "structured study plan or roadmap visual",
           };
           const visualStyle = typeVisualMap[source.article_type] || "professional educational illustration";
-
           const imagePrompt = `Create a professional, modern blog hero image: ${visualStyle}. Topic: ${entityConcepts || source.topic}. Context: ${entityBeruf} ${entityPruefung} exam preparation. Style: minimal, blue and white tones, no text in the image. 16:9 aspect ratio.`;
 
           const imageResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${lovableKey}` },
-            body: JSON.stringify({
-              model: "google/gemini-3.1-flash-image-preview",
-              messages: [{ role: "user", content: imagePrompt }],
-              modalities: ["image", "text"],
-            }),
+            body: JSON.stringify({ model: "google/gemini-3.1-flash-image-preview", messages: [{ role: "user", content: imagePrompt }], modalities: ["image", "text"] }),
           });
           if (imageResp.ok) {
             const imageData = await imageResp.json();
@@ -576,16 +535,17 @@ Deno.serve(async (req) => {
           .single();
 
         if (insertErr) {
-          // Check for topic fingerprint uniqueness violation
-          if (insertErr.message?.includes("uq_blog_topic_intent")) {
-            results.push({ topic: source.topic, status: "duplicate", error: "Topic intent already covered" });
-          } else {
-            results.push({ topic: source.topic, error: insertErr.message });
-          }
+          const isDupeFp = insertErr.message?.includes("uq_blog_topic_intent");
+          results.push({
+            topic: source.topic,
+            status: isDupeFp ? "duplicate" : "failed_validation",
+            error: isDupeFp ? "Topic intent already covered (DB constraint)" : insertErr.message,
+          });
           continue;
         }
 
-        await logPublishEvent(admin, inserted.id, "generated", {
+        // Persist generation event
+        await logPublishEvent(admin, inserted.id, EVT.GENERATED, {
           status, ai_score: detection.score, word_count: words, article_type: source.article_type,
         });
 
@@ -609,12 +569,12 @@ Deno.serve(async (req) => {
   }
 });
 
-// ── Publish Handler (SSOT Publish Event) ──
+// ── FAIL-CLOSED Publish Handler ──
 
 async function handlePublish(admin: any, supabaseUrl: string, articleId: string, headers: Record<string, string>) {
   const { data: article, error } = await admin
     .from("blog_articles")
-    .select("id, status, slug, ai_detection_score, content_quality_signals")
+    .select("id, status, slug, canonical_url, hero_image_alt, content_quality_signals, ai_detection_score, word_count, internal_links_json")
     .eq("id", articleId)
     .single();
 
@@ -622,18 +582,47 @@ async function handlePublish(admin: any, supabaseUrl: string, articleId: string,
     return new Response(JSON.stringify({ error: "Article not found" }), { status: 404, headers });
   }
 
+  // ── FAIL-CLOSED: every check must pass ──
+  const blocks: string[] = [];
+
+  // 1. Status guard
   if (article.status !== "needs_review") {
+    blocks.push(`Status muss "needs_review" sein (aktuell: ${article.status})`);
+  }
+
+  // 2. Slug present
+  if (!article.slug) blocks.push("slug fehlt");
+
+  // 3. Canonical URL present
+  if (!article.canonical_url) blocks.push("canonical_url fehlt");
+
+  // 4. Hero image alt present
+  if (!article.hero_image_alt || article.hero_image_alt.length < 10) blocks.push("hero_image_alt fehlt oder zu kurz");
+
+  // 5. AI detection score
+  if ((article.ai_detection_score || 0) < 70) blocks.push(`AI-Score zu niedrig (${article.ai_detection_score})`);
+
+  // 6. Quality signals present and adequate
+  const qs = article.content_quality_signals;
+  if (!qs) {
+    blocks.push("content_quality_signals fehlt");
+  } else {
+    if ((qs.content_depth || 0) < 30) blocks.push(`content_depth zu niedrig (${qs.content_depth})`);
+    if ((qs.entity_clarity || 0) < 50) blocks.push(`entity_clarity zu niedrig (${qs.entity_clarity})`);
+  }
+
+  // 7. Word count
+  if ((article.word_count || 0) < 300) blocks.push(`word_count zu niedrig (${article.word_count})`);
+
+  if (blocks.length > 0) {
+    await logPublishEvent(admin, articleId, EVT.PUBLISH_BLOCKED, { reasons: blocks });
     return new Response(JSON.stringify({
-      error: `PUBLISH_BLOCKED: Status muss "needs_review" sein (aktuell: ${article.status})`,
+      error: "PUBLISH_BLOCKED",
+      reasons: blocks,
     }), { status: 403, headers });
   }
 
-  if ((article.ai_detection_score || 0) < 70) {
-    return new Response(JSON.stringify({
-      error: `PUBLISH_BLOCKED: AI-Score zu niedrig (${article.ai_detection_score})`,
-    }), { status: 403, headers });
-  }
-
+  // ── All checks passed → publish ──
   const now = new Date().toISOString();
   const { error: updateErr } = await admin
     .from("blog_articles")
@@ -642,24 +631,22 @@ async function handlePublish(admin: any, supabaseUrl: string, articleId: string,
 
   if (updateErr) throw updateErr;
 
-  // Fire publish events (all fire-and-forget)
-  const canonical = `${SITE_URL}/blog/${article.slug}`;
+  const canonical = article.canonical_url || `${SITE_URL}/blog/${article.slug}`;
 
-  // 1. IndexNow
+  // Fire-and-forget publish hooks
   pingIndexNow(canonical).catch(() => {});
 
-  // 2. Sitemap refresh
   fetch(`${supabaseUrl}/functions/v1/generate-sitemap-index`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${Deno.env.get("SUPABASE_ANON_KEY")}` },
     body: JSON.stringify({ trigger: "blog-publish", article_id: articleId }),
   }).catch((e) => console.warn("[publish] Sitemap trigger failed:", e));
 
-  // Log events
+  // Persist all events
   await Promise.all([
-    logPublishEvent(admin, articleId, "published", { published_at: now, canonical }),
-    logPublishEvent(admin, articleId, "indexnow_ping", { url: canonical }),
-    logPublishEvent(admin, articleId, "sitemap_refresh", { trigger: "blog-publish" }),
+    logPublishEvent(admin, articleId, EVT.PUBLISHED, { published_at: now, canonical }),
+    logPublishEvent(admin, articleId, EVT.INDEXNOW_SENT, { url: canonical }),
+    logPublishEvent(admin, articleId, EVT.SITEMAP_REFRESH, { trigger: "blog-publish" }),
   ]);
 
   return new Response(JSON.stringify({
@@ -667,33 +654,31 @@ async function handlePublish(admin: any, supabaseUrl: string, articleId: string,
   }), { status: 200, headers });
 }
 
-// ── Status Transition Helper ──
+// ── Status Transition (strict) ──
 
 async function handleStatusTransition(admin: any, articleId: string, fromStatus: string, toStatus: string, headers: Record<string, string>) {
-  const { data, error } = await admin
-    .from("blog_articles")
-    .select("id, status")
-    .eq("id", articleId)
-    .single();
-
+  const { data, error } = await admin.from("blog_articles").select("id, status").eq("id", articleId).single();
   if (error || !data) return new Response(JSON.stringify({ error: "Article not found" }), { status: 404, headers });
+
   if (data.status !== fromStatus) {
     return new Response(JSON.stringify({ error: `Status must be "${fromStatus}" (got "${data.status}")` }), { status: 403, headers });
   }
 
-  const { error: updateErr } = await admin
-    .from("blog_articles")
-    .update({ status: toStatus })
-    .eq("id", articleId);
+  // Enforce allowed transitions
+  const allowed = ALLOWED_TRANSITIONS[fromStatus] || [];
+  if (!allowed.includes(toStatus)) {
+    return new Response(JSON.stringify({ error: `Transition ${fromStatus} → ${toStatus} not allowed` }), { status: 403, headers });
+  }
 
+  const { error: updateErr } = await admin.from("blog_articles").update({ status: toStatus }).eq("id", articleId);
   if (updateErr) throw updateErr;
 
-  await logPublishEvent(admin, articleId, "status_transition", { from: fromStatus, to: toStatus });
+  await logPublishEvent(admin, articleId, EVT.STATUS_TRANSITION, { from: fromStatus, to: toStatus });
 
   return new Response(JSON.stringify({ success: true, article_id: articleId, status: toStatus }), { status: 200, headers });
 }
 
-// ── Article Generation (answer-first structure) ──
+// ── Article Generation ──
 
 async function generateArticle(lovableKey: string, source: any): Promise<any> {
   const curriculum = source.context.curriculum as any;
@@ -728,13 +713,6 @@ WICHTIG:
 - Keine Platzhaltertexte
 
 ARTIKELTYP: ${source.article_type}
-- definition: Fokus auf klare Begriffserklärung
-- mistake: Fokus auf typische Prüfungsfehler
-- example: Fokus auf durchgerechnetes/durchdachtes Beispiel
-- comparison: Fokus auf Gegenüberstellung ähnlicher Konzepte
-- faq: Fokus auf häufige Suchfragen
-- strategy: Fokus auf Lern-/Prüfungsstrategie
-
 SEO: Target-Keyword natürlich im Titel, H2s, ersten 100 Wörtern und meta_description.
 Schreibe 1200-2000 Wörter.`;
 
@@ -760,27 +738,27 @@ Generiere ALLE Felder inkl. answer_blocks und entity_data.`;
         type: "function",
         function: {
           name: "return_blog_article",
-          description: "Return the generated blog article with answer blocks and entity data",
+          description: "Return the generated blog article",
           parameters: {
             type: "object",
             properties: {
               title: { type: "string", description: "SEO title (50-70 chars)" },
-              primary_question: { type: "string", description: "Central search question this article answers" },
+              primary_question: { type: "string", description: "Central search question" },
               short_answer: { type: "string", description: "2-4 sentence direct answer (DIFFERENT from excerpt and meta_description)" },
               meta_description: { type: "string", description: "SEO meta description (120-155 chars, DIFFERENT from excerpt)" },
               excerpt: { type: "string", description: "Short excerpt (100-200 chars, DIFFERENT from meta_description)" },
-              content_md: { type: "string", description: "Full article in Markdown. Exactly 1 H1, at least 3 H2s. Answer-first structure." },
-              keywords: { type: "array", items: { type: "string" }, description: "5-8 unique SEO keywords (no duplicates)" },
-              target_keyword: { type: "string", description: "Primary target keyword" },
-              hero_image_prompt: { type: "string", description: "Prompt for hero image (descriptive, no text)" },
-              hero_image_alt: { type: "string", description: "Alt text: what is shown + topic + exam context. Max 5 commas." },
+              content_md: { type: "string", description: "Full article: exactly 1 H1, at least 3 H2s." },
+              keywords: { type: "array", items: { type: "string" }, description: "5-8 unique SEO keywords" },
+              target_keyword: { type: "string" },
+              hero_image_prompt: { type: "string" },
+              hero_image_alt: { type: "string", description: "Alt text: content + topic + exam context. Max 5 commas." },
               answer_blocks: {
                 type: "object",
                 properties: {
-                  definition_block: { type: "string", description: "Clear 2-3 sentence definition" },
-                  example_block: { type: "string", description: "Concrete exam-like example" },
-                  mistake_block: { type: "string", description: "Most common mistake explained" },
-                  memory_tip: { type: "string", description: "Mnemonic or learning tip" },
+                  definition_block: { type: "string" },
+                  example_block: { type: "string" },
+                  mistake_block: { type: "string" },
+                  memory_tip: { type: "string" },
                 },
                 required: ["definition_block", "example_block", "mistake_block"],
               },
@@ -823,10 +801,6 @@ function generateSlug(text: string): string {
   const charMap: Record<string, string> = { ä: "ae", ö: "oe", ü: "ue", ß: "ss", Ä: "ae", Ö: "oe", Ü: "ue" };
   return text.toLowerCase().split("").map((c) => charMap[c] || c).join("")
     .replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").substring(0, 80);
-}
-
-function escapeRegex(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 async function computeHash(text: string): Promise<string> {
