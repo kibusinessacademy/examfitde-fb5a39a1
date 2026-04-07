@@ -46,8 +46,15 @@ export function getRunnerConfig(kind: RunnerKind): RunnerConfig {
 
 export type TrackKey = "AUSBILDUNG_VOLL" | "EXAM_FIRST" | "EXAM_FIRST_PLUS" | "STUDIUM";
 
-/** Hard ceiling across all tracks — must match ops_pipeline_config.wip_limit */
+/** Hard ceiling across all tracks — must match ops_pipeline_config.wip_total_cap */
 export const WIP_TOTAL_CAP = 14;
+
+/** Bonus WIP slots for packages with >50% progress (regardless of priority) */
+export const WIP_BONUS_SLOTS = 4;
+export const WIP_BONUS_PROGRESS_THRESHOLD = 50;
+
+/** Effective cap = WIP_TOTAL_CAP + min(bonus_eligible_count, WIP_BONUS_SLOTS) */
+export const WIP_EFFECTIVE_MAX = WIP_TOTAL_CAP + WIP_BONUS_SLOTS; // hard ceiling = 18
 
 /**
  * WIP quota per track: max packages in "building" status simultaneously.
