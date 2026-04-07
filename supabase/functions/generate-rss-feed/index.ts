@@ -2,8 +2,10 @@ import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 
 /**
- * generate-rss-feed – RSS 2.0 feed for blog articles
- * Also generates dynamic llms.txt content
+ * generate-rss-feed – RSS 2.0 feed for PUBLISHED blog articles only
+ * Also generates dynamic llms.txt content (format=llms)
+ *
+ * Hardened: Only status=published with valid canonical URLs
  */
 
 const SITE_URL = "https://examfit.de";
@@ -26,23 +28,31 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const admin = createClient(supabaseUrl, serviceKey);
 
+    // ONLY published articles with valid slugs and published_at
     const { data: articles } = await admin
       .from("blog_articles")
-      .select("slug, title, meta_description, keywords, published_at, updated_at, word_count, reading_time_min, hero_image_url, hero_image_alt, short_answer, article_type, topic_cluster")
+      .select("slug, title, meta_description, keywords, published_at, updated_at, word_count, reading_time_min, hero_image_url, hero_image_alt, short_answer, article_type, topic_cluster, canonical_url, excerpt")
       .eq("status", "published")
+      .not("published_at", "is", null)
+      .not("slug", "is", null)
       .order("published_at", { ascending: false })
       .limit(100);
 
+    // Filter out any with missing critical fields
+    const validArticles = (articles || []).filter(
+      (a) => a.slug && a.title && a.published_at && a.meta_description
+    );
+
     if (format === "llms") {
-      return generateLlmsTxt(articles || [], corsHeaders);
+      return generateLlmsTxt(validArticles, corsHeaders);
     }
 
     // RSS 2.0
-    const items = (articles || []).map((a) => `    <item>
+    const items = validArticles.map((a) => `    <item>
       <title>${escapeXml(a.title)}</title>
       <link>${SITE_URL}/blog/${a.slug}</link>
       <guid isPermaLink="true">${SITE_URL}/blog/${a.slug}</guid>
-      <description>${escapeXml(a.meta_description || a.short_answer || "")}</description>
+      <description>${escapeXml(a.meta_description || a.excerpt || "")}</description>
       <pubDate>${new Date(a.published_at).toUTCString()}</pubDate>
       <category>${escapeXml(a.topic_cluster || "Prüfungstipps")}</category>
       ${a.hero_image_url ? `<enclosure url="${escapeXml(a.hero_image_url)}" type="image/png" />` : ""}

@@ -3,27 +3,27 @@ import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 import { detectGenericContent, resolveGenericSeverity } from "../_shared/generic-content-detector.ts";
 
 /**
- * generate-blog-article v2 – AI-Search-Optimized Content Factory
+ * generate-blog-article v3 – Hardened AI-Search-Optimized Content Factory
  *
- * Multi-step pipeline:
- * 1. Pick source (exam question / curriculum / trap)
- * 2. Determine article_type (definition, mistake, example, comparison, faq, strategy)
- * 3. Generate outline → then content per section (humanized)
- * 4. Generate answer_blocks (short_answer, definition, example, mistake, faq)
- * 5. Extract entity_data
- * 6. Run AI detection quality gate
- * 7. Generate hero image + alt text
- * 8. Build internal links with semantic reasoning
- * 9. Save as draft with quality signals
- * 10. IndexNow ping
+ * Hardened points vs v2:
+ *  1. 6-state status machine (draft_generated → needs_review → published / failed_*)
+ *  2. Topic-fingerprint intent dedup (not just slug/hash)
+ *  3. AI detection on ALL text fields (title, meta, short_answer, FAQ)
+ *  4. Stronger SEO/AISO validation (single H1, no dupes, no placeholders)
+ *  5. Entity-first internal linking (competency/trap/concept before type diversity)
+ *  6. Deterministic hero image prompts bound to entity data
+ *  7. Smart batch coverage (by article_type, topic_cluster, competency)
+ *  8. Publish event hooks (sitemap, RSS, IndexNow)
  */
 
-const GARBAGE_STRINGS = ["undefined", "null", "none", "n/a", "placeholder", "todo", "tbd"];
+const GARBAGE_RE = /^(undefined|null|none|n\/a|placeholder|todo|tbd|hier ist ein|lorem ipsum)/i;
 const SITE_URL = "https://examfit.de";
-
 const ARTICLE_TYPES = ["definition", "mistake", "example", "comparison", "faq", "strategy"] as const;
 
-// ── Validation ──
+// ── 6-state status machine ──
+type ArticleStatus = "draft_generated" | "needs_review" | "published" | "failed_validation" | "failed_ai_detection" | "duplicate";
+
+// ── Validation (hardened) ──
 
 function validateArticle(article: any): { valid: boolean; reason?: string } {
   if (!article) return { valid: false, reason: "No article returned" };
@@ -45,27 +45,131 @@ function validateArticle(article: any): { valid: boolean; reason?: string } {
     }
   }
 
-  for (const field of ["title", "content_md", "meta_description", "short_answer"]) {
-    const val = (article[field] || "").trim().toLowerCase();
-    if (GARBAGE_STRINGS.includes(val)) {
-      return { valid: false, reason: `'${field}' contains garbage: ${val}` };
+  // Garbage check on all text fields
+  for (const field of ["title", "content_md", "meta_description", "short_answer", "excerpt"]) {
+    const val = (article[field] || "").trim();
+    if (GARBAGE_RE.test(val)) {
+      return { valid: false, reason: `'${field}' contains garbage/placeholder text` };
     }
   }
 
+  // Keywords: deduplicated, min 3
   if (!Array.isArray(article.keywords) || article.keywords.length < 3) {
     return { valid: false, reason: "keywords must have at least 3 entries" };
   }
+  const uniqueKw = new Set(article.keywords.map((k: string) => k.toLowerCase().trim()));
+  if (uniqueKw.size < 3) {
+    return { valid: false, reason: "keywords must have at least 3 unique entries" };
+  }
+
+  // FAQ: min 3, no duplicate questions
   if (!Array.isArray(article.faq) || article.faq.length < 3) {
     return { valid: false, reason: "faq must have at least 3 Q&A pairs" };
   }
+  const faqQuestions = new Set(article.faq.map((f: any) => f.q?.toLowerCase().trim()));
+  if (faqQuestions.size < article.faq.length) {
+    return { valid: false, reason: "faq contains duplicate questions" };
+  }
+
+  // Answer blocks
   if (!article.answer_blocks?.definition_block) {
     return { valid: false, reason: "answer_blocks.definition_block required" };
   }
 
+  // Single H1 in markdown
+  const h1Matches = (article.content_md as string).match(/^# [^\n]+/gm);
+  if (!h1Matches || h1Matches.length !== 1) {
+    return { valid: false, reason: `content_md must have exactly 1 H1 (found ${h1Matches?.length || 0})` };
+  }
+
+  // At least 2 H2 subheadings
+  const h2Matches = (article.content_md as string).match(/^## [^\n]+/gm);
+  if (!h2Matches || h2Matches.length < 2) {
+    return { valid: false, reason: `content_md must have at least 2 H2 subheadings (found ${h2Matches?.length || 0})` };
+  }
+
+  // short_answer ≠ excerpt ≠ meta_description
+  const sa = article.short_answer?.trim().toLowerCase();
+  const ex = article.excerpt?.trim().toLowerCase();
+  const md = article.meta_description?.trim().toLowerCase();
+  if (sa === ex) return { valid: false, reason: "short_answer must differ from excerpt" };
+  if (sa === md) return { valid: false, reason: "short_answer must differ from meta_description" };
+  if (ex === md) return { valid: false, reason: "excerpt must differ from meta_description" };
+
+  // hero_image_alt: must contain topic hint but not be keyword spam (>5 commas = spam)
+  const altCommas = (article.hero_image_alt || "").split(",").length - 1;
+  if (altCommas > 5) return { valid: false, reason: "hero_image_alt looks like keyword spam" };
+
   return { valid: true };
 }
 
-// ── Internal Link Builder (semantic) ──
+// ── AI Detection on ALL fields (not just body) ──
+
+function runFullAiDetection(article: any): {
+  score: number;
+  severity: string;
+  details: { field: string; genericPhrases: string[]; spellingErrors: string[] }[];
+} {
+  const fields = [
+    { name: "content_md", text: article.content_md, maxGeneric: 2 },
+    { name: "title", text: article.title, maxGeneric: 0 },
+    { name: "meta_description", text: article.meta_description, maxGeneric: 0 },
+    { name: "short_answer", text: article.short_answer, maxGeneric: 1 },
+    { name: "excerpt", text: article.excerpt, maxGeneric: 0 },
+  ];
+
+  // Add FAQ answers
+  if (Array.isArray(article.faq)) {
+    for (let i = 0; i < article.faq.length; i++) {
+      fields.push({ name: `faq[${i}].a`, text: article.faq[i]?.a || "", maxGeneric: 0 });
+    }
+  }
+
+  let totalGeneric = 0;
+  let totalErrors = 0;
+  let totalSentences = 0;
+  const details: { field: string; genericPhrases: string[]; spellingErrors: string[] }[] = [];
+
+  for (const { name, text, maxGeneric } of fields) {
+    if (!text) continue;
+    const result = detectGenericContent(text, maxGeneric);
+    totalGeneric += result.genericPhraseCount;
+    totalErrors += result.spellingErrors.length;
+    const sentences = text.replace(/<[^>]+>/g, " ").split(/[.!?]+/).filter((s: string) => s.trim().length > 10);
+    totalSentences += sentences.length;
+    if (result.genericPhrases.length > 0 || result.spellingErrors.length > 0) {
+      details.push({ field: name, genericPhrases: result.genericPhrases, spellingErrors: result.spellingErrors });
+    }
+  }
+
+  const genericRatio = totalSentences > 0 ? totalGeneric / totalSentences : 0;
+  const severity = resolveGenericSeverity({
+    genericPhraseCount: totalGeneric,
+    spellingErrorCount: totalErrors,
+    genericRatio,
+    artifactType: "blog_article",
+  });
+
+  const score = Math.max(0, 100 - (totalGeneric * 8) - (totalErrors * 12));
+
+  return { score, severity, details };
+}
+
+// ── Topic Fingerprint ──
+
+function computeTopicFingerprint(topic: string, targetKeyword: string, articleType: string): string {
+  const normalized = [topic, targetKeyword]
+    .join(" ")
+    .toLowerCase()
+    .replace(/[^a-zäöüß0-9\s]/gi, "")
+    .split(/\s+/)
+    .filter(w => w.length > 2)
+    .sort()
+    .join("_");
+  return `${articleType}::${normalized}`.substring(0, 200);
+}
+
+// ── Entity-first Internal Link Builder ──
 
 async function buildInternalLinks(
   admin: any,
@@ -74,78 +178,75 @@ async function buildInternalLinks(
   berufId: string | null,
   currentSlug: string,
   entityData: any,
-): Promise<{ content: string; links: Array<{ anchor: string; url: string; reason: string; type: string }> }> {
-  const links: Array<{ anchor: string; url: string; reason: string; type: string }> = [];
+  competencyId: string | null,
+): Promise<{ content: string; links: Array<{ anchor: string; url: string; reason: string; type: string; priority: number }> }> {
+  const links: Array<{ anchor: string; url: string; reason: string; type: string; priority: number }> = [];
   let content = contentMd;
 
-  // 1. Related blog articles by entity/topic
-  const { data: relatedArticles } = await admin
-    .from("blog_articles")
-    .select("slug, title, article_type, topic_cluster")
-    .eq("status", "published")
-    .neq("slug", currentSlug)
-    .limit(20);
-
-  if (relatedArticles?.length) {
-    // Prioritize by article_type diversity
-    const typeMap: Record<string, any[]> = {};
-    for (const a of relatedArticles) {
-      const t = a.article_type || "general";
-      if (!typeMap[t]) typeMap[t] = [];
-      typeMap[t].push(a);
+  // PRIORITY 1: Same competency (strongest semantic link)
+  if (competencyId) {
+    const { data: sameComp } = await admin
+      .from("blog_articles")
+      .select("slug, title, article_type")
+      .eq("competency_id", competencyId)
+      .eq("status", "published")
+      .neq("slug", currentSlug)
+      .limit(3);
+    for (const a of sameComp || []) {
+      links.push({ anchor: a.title, url: `/blog/${a.slug}`, reason: "same_competency", type: "blog", priority: 100 });
     }
+  }
 
-    // Link to different types: definition → mistake, mistake → example, etc.
-    const linkTargets: any[] = [];
-    for (const type of ["definition", "mistake", "example", "comparison", "strategy"]) {
-      if (typeMap[type]?.length) {
-        linkTargets.push(typeMap[type][0]);
-        if (linkTargets.length >= 3) break;
-      }
-    }
-    // Fill remaining from any type
-    if (linkTargets.length < 3) {
-      for (const a of relatedArticles) {
-        if (!linkTargets.find(l => l.slug === a.slug)) {
-          linkTargets.push(a);
-          if (linkTargets.length >= 3) break;
-        }
-      }
-    }
-
-    for (const rel of linkTargets) {
-      const linkUrl = `/blog/${rel.slug}`;
-      if (!content.includes(linkUrl)) {
-        links.push({ anchor: rel.title, url: linkUrl, reason: `related_${rel.article_type}`, type: "blog" });
+  // PRIORITY 2: Related concepts from entity_data
+  if (entityData?.related_concepts?.length) {
+    for (const concept of entityData.related_concepts.slice(0, 3)) {
+      const { data: conceptArticle } = await admin
+        .from("blog_articles")
+        .select("slug, title")
+        .eq("status", "published")
+        .ilike("title", `%${concept}%`)
+        .neq("slug", currentSlug)
+        .limit(1)
+        .maybeSingle();
+      if (conceptArticle && !links.find(l => l.url === `/blog/${conceptArticle.slug}`)) {
+        links.push({ anchor: conceptArticle.title, url: `/blog/${conceptArticle.slug}`, reason: "related_concept", type: "concept", priority: 90 });
       }
     }
   }
 
-  // 2. Link to SEO documents
-  if (berufId || curriculumId) {
-    let query = admin.from("seo_documents")
-      .select("slug, title, doc_type")
+  // PRIORITY 3: Same curriculum (topical cluster)
+  if (curriculumId && links.length < 5) {
+    const { data: sameCurr } = await admin
+      .from("blog_articles")
+      .select("slug, title, article_type")
+      .eq("source_curriculum_id", curriculumId)
       .eq("status", "published")
+      .neq("slug", currentSlug)
       .limit(5);
+    for (const a of sameCurr || []) {
+      if (!links.find(l => l.url === `/blog/${a.slug}`)) {
+        links.push({ anchor: a.title, url: `/blog/${a.slug}`, reason: "same_curriculum", type: "blog", priority: 70 });
+      }
+    }
+  }
+
+  // PRIORITY 4: SEO documents
+  if ((berufId || curriculumId) && links.length < 6) {
+    let query = admin.from("seo_documents").select("slug, title, doc_type").eq("status", "published").limit(3);
     if (berufId) query = query.eq("beruf_id", berufId);
     else if (curriculumId) query = query.eq("curriculum_id", curriculumId);
-
     const { data: seoDocs } = await query;
-    const docTypeUrlMap: Record<string, string> = {
-      blog: "/wissen", landing: "/pruefungstraining", faq: "/faq", glossary: "/glossar", cluster: "/wissen",
-    };
-    if (seoDocs) {
-      for (const doc of seoDocs.slice(0, 2)) {
-        const base = docTypeUrlMap[doc.doc_type] || "/wissen";
-        const linkUrl = `${base}/${doc.slug}`;
-        if (!content.includes(linkUrl)) {
-          links.push({ anchor: doc.title, url: linkUrl, reason: "seo_document", type: doc.doc_type });
-        }
+    const docTypeUrlMap: Record<string, string> = { blog: "/wissen", landing: "/pruefungstraining", faq: "/faq", glossary: "/glossar", cluster: "/wissen" };
+    for (const doc of (seoDocs || []).slice(0, 2)) {
+      const base = docTypeUrlMap[doc.doc_type] || "/wissen";
+      const linkUrl = `${base}/${doc.slug}`;
+      if (!content.includes(linkUrl)) {
+        links.push({ anchor: doc.title, url: linkUrl, reason: "seo_document", type: doc.doc_type, priority: 60 });
       }
     }
   }
 
-  // 3. Link to Beruf page
+  // PRIORITY 5: Beruf page inline link
   if (berufId) {
     const { data: beruf } = await admin.from("berufe").select("bezeichnung_kurz").eq("id", berufId).single();
     if (beruf) {
@@ -155,43 +256,36 @@ async function buildInternalLinks(
         const regex = new RegExp(`(?<!\\[)${escapeRegex(beruf.bezeichnung_kurz)}(?!\\])(?!\\()`, "i");
         if (regex.test(content)) {
           content = content.replace(regex, `[${beruf.bezeichnung_kurz}](${berufUrl})`);
-          links.push({ anchor: beruf.bezeichnung_kurz, url: berufUrl, reason: "beruf_page", type: "beruf" });
+          links.push({ anchor: beruf.bezeichnung_kurz, url: berufUrl, reason: "beruf_page", type: "beruf", priority: 50 });
         }
       }
     }
   }
 
-  // 4. Link to related concepts from entity_data
-  if (entityData?.related_concepts?.length) {
-    for (const concept of entityData.related_concepts.slice(0, 2)) {
-      const conceptSlug = generateSlug(concept);
-      const { data: conceptArticle } = await admin
-        .from("blog_articles")
-        .select("slug, title")
-        .eq("status", "published")
-        .ilike("title", `%${concept}%`)
-        .neq("slug", currentSlug)
-        .limit(1)
-        .maybeSingle();
-      if (conceptArticle && !content.includes(`/blog/${conceptArticle.slug}`)) {
-        links.push({ anchor: conceptArticle.title, url: `/blog/${conceptArticle.slug}`, reason: "related_concept", type: "concept" });
-      }
-    }
-  }
-
-  // 5. Weiterlesen section
-  const blogLinks = links.filter(l => l.url.startsWith("/blog/") || l.url.startsWith("/wissen/")).slice(0, 3);
+  // Sort by priority descending, take top 5 for Weiterlesen
+  links.sort((a, b) => b.priority - a.priority);
+  const blogLinks = links.filter(l => l.url.startsWith("/blog/") || l.url.startsWith("/wissen/")).slice(0, 4);
   if (blogLinks.length > 0) {
     content += `\n\n## Weiterlesen\n\n${blogLinks.map(l => `- [${l.anchor}](${l.url})`).join("\n")}`;
   }
 
-  // 6. CTA
+  // CTA
   if (!content.includes("/pruefungstraining")) {
     content += `\n\n---\n\n**Bereit für die Prüfung?** [Starte jetzt dein Prüfungstraining](/pruefungstraining) und bereite dich systematisch vor.`;
-    links.push({ anchor: "Prüfungstraining", url: "/pruefungstraining", reason: "conversion_cta", type: "cta" });
+    links.push({ anchor: "Prüfungstraining", url: "/pruefungstraining", reason: "conversion_cta", type: "cta", priority: 10 });
   }
 
   return { content, links };
+}
+
+// ── Publish Event Logger ──
+
+async function logPublishEvent(admin: any, articleId: string, eventType: string, eventData: Record<string, unknown> = {}) {
+  await admin.from("blog_publishing_events").insert({
+    article_id: articleId,
+    event_type: eventType,
+    event_data: eventData,
+  }).catch((e: any) => console.warn(`[publish-event] ${eventType} log failed:`, e));
 }
 
 // ── Main Handler ──
@@ -210,6 +304,14 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const { curriculum_id, source_question_id, topic, topic_cluster, article_type, mode = "single", batch_size = 5 } = body;
+
+    // ── Publish mode: transition draft_generated → needs_review → published ──
+    if (body.action === "publish" && body.article_id) {
+      return await handlePublish(admin, supabaseUrl, body.article_id, headers);
+    }
+    if (body.action === "review" && body.article_id) {
+      return await handleStatusTransition(admin, body.article_id, "draft_generated", "needs_review", headers);
+    }
 
     if (mode === "single" && !curriculum_id && !source_question_id && !topic) {
       return new Response(JSON.stringify({ error: "curriculum_id, source_question_id, or topic required" }), { status: 400, headers });
@@ -231,6 +333,7 @@ Deno.serve(async (req) => {
     const sources: ArticleSource[] = [];
 
     if (mode === "batch") {
+      // ── Smart batch: coverage by article_type AND competency ──
       const { data: packages } = await admin
         .from("course_packages")
         .select("id, curriculum_id, status")
@@ -240,47 +343,54 @@ Deno.serve(async (req) => {
 
       if (packages) {
         const currIds = [...new Set(packages.map((p: any) => p.curriculum_id))];
-        for (const cid of currIds.slice(0, batch_size)) {
-          const { count } = await admin.from("blog_articles").select("id", { count: "exact", head: true }).eq("source_curriculum_id", cid);
-          if ((count || 0) < 10) {
-            const { data: question } = await admin
-              .from("exam_questions")
-              .select("id, question_text, trap_tags, difficulty, cognitive_level, competency_id")
-              .eq("curriculum_id", cid)
-              .in("question_type", ["multiple_choice", "single_choice"])
-              .not("trap_tags", "is", null)
-              .order("difficulty", { ascending: false })
-              .limit(1)
-              .single();
+        for (const cid of currIds) {
+          if (sources.length >= Math.min(batch_size, 10)) break;
 
-            const { data: curriculum } = await admin.from("curricula").select("id, title, description").eq("id", cid).single();
+          // Check existing coverage by article_type
+          const { data: existing } = await admin
+            .from("blog_articles")
+            .select("article_type, competency_id")
+            .eq("source_curriculum_id", cid)
+            .not("status", "in", '("failed_validation","failed_ai_detection","duplicate")');
 
-            if (curriculum) {
-              // Determine article type based on existing coverage
-              const { data: existingTypes } = await admin
-                .from("blog_articles")
-                .select("article_type")
-                .eq("source_curriculum_id", cid)
-                .eq("status", "published");
-              const coveredTypes = new Set((existingTypes || []).map((e: any) => e.article_type));
-              const nextType = ARTICLE_TYPES.find(t => !coveredTypes.has(t)) || "strategy";
+          const coveredTypes = new Set((existing || []).map((e: any) => e.article_type));
+          const coveredCompetencies = new Set((existing || []).filter((e: any) => e.competency_id).map((e: any) => e.competency_id));
 
-              const pkg = packages.find((p: any) => p.curriculum_id === cid);
-              sources.push({
-                curriculum_id: cid,
-                source_question_id: question?.id || null,
-                source_package_id: pkg?.id || null,
-                beruf_id: null,
-                competency_id: question?.competency_id || null,
-                topic: question
-                  ? `Typischer Prüfungsfehler: ${(question.trap_tags || [])[0] || question.question_text.substring(0, 50)}`
-                  : `Prüfungsvorbereitung ${curriculum.title}`,
-                topic_cluster: topic_cluster || "pruefungstipps",
-                article_type: nextType,
-                context: { curriculum, question },
-              });
-            }
-          }
+          // Find uncovered article type
+          const nextType = ARTICLE_TYPES.find(t => !coveredTypes.has(t));
+          if (!nextType && (existing || []).length >= 10) continue; // fully covered
+
+          // Find a question from an uncovered competency if possible
+          let questionQuery = admin
+            .from("exam_questions")
+            .select("id, question_text, trap_tags, difficulty, cognitive_level, competency_id")
+            .eq("curriculum_id", cid)
+            .in("question_type", ["multiple_choice", "single_choice"])
+            .not("trap_tags", "is", null)
+            .order("difficulty", { ascending: false })
+            .limit(5);
+
+          const { data: questions } = await questionQuery;
+          // Prefer question from uncovered competency
+          const question = questions?.find((q: any) => q.competency_id && !coveredCompetencies.has(q.competency_id)) || questions?.[0];
+
+          const { data: curriculum } = await admin.from("curricula").select("id, title, description").eq("id", cid).single();
+          if (!curriculum) continue;
+
+          const pkg = packages.find((p: any) => p.curriculum_id === cid);
+          sources.push({
+            curriculum_id: cid,
+            source_question_id: question?.id || null,
+            source_package_id: pkg?.id || null,
+            beruf_id: null,
+            competency_id: question?.competency_id || null,
+            topic: question
+              ? `Typischer Prüfungsfehler: ${(question.trap_tags || [])[0] || question.question_text.substring(0, 50)}`
+              : `Prüfungsvorbereitung ${curriculum.title}`,
+            topic_cluster: topic_cluster || "pruefungstipps",
+            article_type: nextType || "strategy",
+            context: { curriculum, question },
+          });
         }
       }
     } else {
@@ -333,48 +443,59 @@ Deno.serve(async (req) => {
     for (const source of sources) {
       try {
         const article = await generateArticle(lovableKey, source);
-        if (!article) { results.push({ topic: source.topic, error: "Generation failed" }); continue; }
+        if (!article) { results.push({ topic: source.topic, error: "Generation failed", status: "failed_validation" }); continue; }
 
-        // ── Validate ──
+        // ── Validate (hardened) ──
         const validation = validateArticle(article);
         if (!validation.valid) {
           results.push({ topic: source.topic, error: `Validation: ${validation.reason}`, status: "failed_validation" });
           continue;
         }
 
-        // ── AI Detection ──
-        const detectionResult = detectGenericContent(article.content_md, 2);
-        const severity = resolveGenericSeverity({
-          genericPhraseCount: detectionResult.genericPhraseCount,
-          spellingErrorCount: detectionResult.spellingErrors.length,
-          genericRatio: detectionResult.genericRatio,
-          artifactType: "blog_article",
-        });
-        const aiDetectionScore = detectionResult.ok ? 100 : Math.max(0, 100 - (detectionResult.genericPhraseCount * 10) - (detectionResult.spellingErrors.length * 15));
-
-        if (severity === "critical" || severity === "error") {
-          results.push({ topic: source.topic, status: "failed_ai_detection", ai_score: aiDetectionScore });
+        // ── AI Detection on ALL fields ──
+        const detection = runFullAiDetection(article);
+        if (detection.severity === "critical" || detection.severity === "error") {
+          results.push({ topic: source.topic, status: "failed_ai_detection", ai_score: detection.score, details: detection.details });
           continue;
         }
 
-        // ── Slug + dedup ──
+        // ── Slug dedup ──
         const slug = generateSlug(article.title);
         const { data: existingSlug } = await admin.from("blog_articles").select("id").eq("slug", slug).limit(1);
         if (existingSlug?.length) { results.push({ topic: source.topic, error: `Slug exists: ${slug}`, status: "duplicate" }); continue; }
 
+        // ── Content hash dedup ──
         const contentHash = await computeHash(article.content_md);
         const { data: existingHash } = await admin.from("blog_articles").select("id").eq("content_hash", contentHash).limit(1);
         if (existingHash?.length) { results.push({ topic: source.topic, status: "duplicate" }); continue; }
 
-        // ── Hero Image ──
+        // ── Topic fingerprint dedup ──
+        const topicFp = computeTopicFingerprint(source.topic, article.target_keyword || "", source.article_type);
+
+        // ── Hero Image (entity-bound prompt) ──
         let heroImageUrl: string | null = null;
         try {
+          const entityBeruf = article.entity_data?.beruf || "";
+          const entityPruefung = article.entity_data?.pruefung || "";
+          const entityConcepts = (article.entity_data?.concepts || []).slice(0, 3).join(", ");
+          const typeVisualMap: Record<string, string> = {
+            definition: "clean diagram or infographic explaining the concept",
+            mistake: "warning or alert visual showing a common error",
+            example: "step-by-step calculation or process illustration",
+            comparison: "side-by-side comparison chart or Venn diagram",
+            faq: "question marks and knowledge bubbles",
+            strategy: "structured study plan or roadmap visual",
+          };
+          const visualStyle = typeVisualMap[source.article_type] || "professional educational illustration";
+
+          const imagePrompt = `Create a professional, modern blog hero image: ${visualStyle}. Topic: ${entityConcepts || source.topic}. Context: ${entityBeruf} ${entityPruefung} exam preparation. Style: minimal, blue and white tones, no text in the image. 16:9 aspect ratio.`;
+
           const imageResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${lovableKey}` },
             body: JSON.stringify({
               model: "google/gemini-3.1-flash-image-preview",
-              messages: [{ role: "user", content: `Create a professional, clean blog hero image for an educational article about: ${article.hero_image_prompt}. Style: modern, minimal, professional. Colors: blue and white tones. No text in the image. 16:9 aspect ratio.` }],
+              messages: [{ role: "user", content: imagePrompt }],
               modalities: ["image", "text"],
             }),
           });
@@ -383,7 +504,7 @@ Deno.serve(async (req) => {
             const imageBase64 = imageData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
             if (imageBase64?.startsWith("data:image/")) {
               const base64Data = imageBase64.split(",")[1];
-              const imageBytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+              const imageBytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
               const { error: uploadErr } = await admin.storage.from("public-assets").upload(`blog-heroes/${slug}.png`, imageBytes, { contentType: "image/png", upsert: true });
               if (!uploadErr) {
                 const { data: urlData } = admin.storage.from("public-assets").getPublicUrl(`blog-heroes/${slug}.png`);
@@ -393,25 +514,25 @@ Deno.serve(async (req) => {
           }
         } catch { /* non-blocking */ }
 
-        // ── Internal Links ──
+        // ── Internal Links (entity-first) ──
         const { content: linkedContent, links: internalLinks } = await buildInternalLinks(
-          admin, article.content_md, source.curriculum_id, source.beruf_id, slug, article.entity_data,
+          admin, article.content_md, source.curriculum_id, source.beruf_id, slug, article.entity_data, source.competency_id,
         );
 
         const words = linkedContent.split(/\s+/).filter(Boolean).length;
         const readingTime = Math.ceil(words / 200);
 
-        // Quality signals
         const qualitySignals = {
           content_depth: Math.min(100, Math.round(words / 20)),
           snippet_readiness: article.short_answer?.length >= 50 ? 100 : 50,
-          entity_clarity: article.entity_data?.concepts?.length >= 2 ? 100 : 50,
+          entity_clarity: (article.entity_data?.concepts?.length || 0) >= 2 ? 100 : 50,
           faq_coverage: Math.min(100, (article.faq?.length || 0) * 20),
-          ai_detection_score: aiDetectionScore,
+          ai_detection_score: detection.score,
           internal_link_count: internalLinks.length,
+          h2_count: (linkedContent.match(/^## /gm) || []).length,
         };
 
-        const status = aiDetectionScore >= 80 && validation.valid ? "draft" : "failed_generation";
+        const status: ArticleStatus = detection.score >= 75 ? "draft_generated" : "failed_ai_detection";
 
         const { data: inserted, error: insertErr } = await admin
           .from("blog_articles")
@@ -420,9 +541,10 @@ Deno.serve(async (req) => {
             title: article.title,
             meta_description: article.meta_description,
             content_md: linkedContent,
-            keywords: article.keywords,
+            keywords: [...new Set(article.keywords.map((k: string) => k.toLowerCase().trim()))],
             target_keyword: article.target_keyword,
             topic_cluster: source.topic_cluster,
+            topic_fingerprint: topicFp,
             article_type: source.article_type,
             primary_question: article.primary_question,
             short_answer: article.short_answer,
@@ -434,9 +556,9 @@ Deno.serve(async (req) => {
             og_image_url: heroImageUrl,
             faq_json: article.faq,
             internal_links_json: internalLinks,
-            internal_link_plan: internalLinks.map(l => ({ ...l, priority: l.type === "cta" ? 10 : 5 })),
-            ai_detection_score: aiDetectionScore,
-            ai_detection_report: { generic_phrases: detectionResult.genericPhrases, spelling_errors: detectionResult.spellingErrors, severity },
+            internal_link_plan: internalLinks.map((l) => ({ ...l })),
+            ai_detection_score: detection.score,
+            ai_detection_report: { severity: detection.severity, details: detection.details },
             content_hash: contentHash,
             canonical_url: `${SITE_URL}/blog/${slug}`,
             word_count: words,
@@ -453,13 +575,23 @@ Deno.serve(async (req) => {
           .select("id, slug")
           .single();
 
-        if (insertErr) { results.push({ topic: source.topic, error: insertErr.message }); continue; }
+        if (insertErr) {
+          // Check for topic fingerprint uniqueness violation
+          if (insertErr.message?.includes("uq_blog_topic_intent")) {
+            results.push({ topic: source.topic, status: "duplicate", error: "Topic intent already covered" });
+          } else {
+            results.push({ topic: source.topic, error: insertErr.message });
+          }
+          continue;
+        }
 
-        pingIndexNow(`${SITE_URL}/blog/${slug}`).catch(() => {});
+        await logPublishEvent(admin, inserted.id, "generated", {
+          status, ai_score: detection.score, word_count: words, article_type: source.article_type,
+        });
 
         results.push({
           topic: source.topic, status: "created", article_id: inserted.id, slug,
-          word_count: words, ai_detection_score: aiDetectionScore,
+          word_count: words, ai_detection_score: detection.score,
           has_hero_image: !!heroImageUrl, internal_links: internalLinks.length,
           article_type: source.article_type, quality_signals: qualitySignals,
         });
@@ -467,7 +599,7 @@ Deno.serve(async (req) => {
         results.push({ topic: source.topic, error: innerErr instanceof Error ? innerErr.message : "Unknown" });
       }
 
-      if (sources.length > 1) await new Promise(r => setTimeout(r, 3000));
+      if (sources.length > 1) await new Promise((r) => setTimeout(r, 3000));
     }
 
     return new Response(JSON.stringify({ success: true, results }), { status: 200, headers });
@@ -476,6 +608,90 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }), { status: 500, headers });
   }
 });
+
+// ── Publish Handler (SSOT Publish Event) ──
+
+async function handlePublish(admin: any, supabaseUrl: string, articleId: string, headers: Record<string, string>) {
+  const { data: article, error } = await admin
+    .from("blog_articles")
+    .select("id, status, slug, ai_detection_score, content_quality_signals")
+    .eq("id", articleId)
+    .single();
+
+  if (error || !article) {
+    return new Response(JSON.stringify({ error: "Article not found" }), { status: 404, headers });
+  }
+
+  if (article.status !== "needs_review") {
+    return new Response(JSON.stringify({
+      error: `PUBLISH_BLOCKED: Status muss "needs_review" sein (aktuell: ${article.status})`,
+    }), { status: 403, headers });
+  }
+
+  if ((article.ai_detection_score || 0) < 70) {
+    return new Response(JSON.stringify({
+      error: `PUBLISH_BLOCKED: AI-Score zu niedrig (${article.ai_detection_score})`,
+    }), { status: 403, headers });
+  }
+
+  const now = new Date().toISOString();
+  const { error: updateErr } = await admin
+    .from("blog_articles")
+    .update({ status: "published", published_at: now })
+    .eq("id", articleId);
+
+  if (updateErr) throw updateErr;
+
+  // Fire publish events (all fire-and-forget)
+  const canonical = `${SITE_URL}/blog/${article.slug}`;
+
+  // 1. IndexNow
+  pingIndexNow(canonical).catch(() => {});
+
+  // 2. Sitemap refresh
+  fetch(`${supabaseUrl}/functions/v1/generate-sitemap-index`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${Deno.env.get("SUPABASE_ANON_KEY")}` },
+    body: JSON.stringify({ trigger: "blog-publish", article_id: articleId }),
+  }).catch((e) => console.warn("[publish] Sitemap trigger failed:", e));
+
+  // Log events
+  await Promise.all([
+    logPublishEvent(admin, articleId, "published", { published_at: now, canonical }),
+    logPublishEvent(admin, articleId, "indexnow_ping", { url: canonical }),
+    logPublishEvent(admin, articleId, "sitemap_refresh", { trigger: "blog-publish" }),
+  ]);
+
+  return new Response(JSON.stringify({
+    success: true, article_id: articleId, slug: article.slug, published_at: now, canonical,
+  }), { status: 200, headers });
+}
+
+// ── Status Transition Helper ──
+
+async function handleStatusTransition(admin: any, articleId: string, fromStatus: string, toStatus: string, headers: Record<string, string>) {
+  const { data, error } = await admin
+    .from("blog_articles")
+    .select("id, status")
+    .eq("id", articleId)
+    .single();
+
+  if (error || !data) return new Response(JSON.stringify({ error: "Article not found" }), { status: 404, headers });
+  if (data.status !== fromStatus) {
+    return new Response(JSON.stringify({ error: `Status must be "${fromStatus}" (got "${data.status}")` }), { status: 403, headers });
+  }
+
+  const { error: updateErr } = await admin
+    .from("blog_articles")
+    .update({ status: toStatus })
+    .eq("id", articleId);
+
+  if (updateErr) throw updateErr;
+
+  await logPublishEvent(admin, articleId, "status_transition", { from: fromStatus, to: toStatus });
+
+  return new Response(JSON.stringify({ success: true, article_id: articleId, status: toStatus }), { status: 200, headers });
+}
 
 // ── Article Generation (answer-first structure) ──
 
@@ -495,15 +711,21 @@ Dein Stil:
 - Der Artikel MUSS maschinenlesbar, zitierfähig und snippet-ready sein
 
 ARTIKELSTRUKTUR (PFLICHT):
-1. H1 mit Suchintention (= primary_question umformuliert)
-2. Kurzantwort (2-4 Sätze, direkt unter H1, als eigenständiger Block)
-3. "Was ist/bedeutet [Thema]?" – klare Definition
-4. "Warum ist das prüfungsrelevant?" – Einordnung
-5. "Beispiel aus der Prüfung" – konkretes Szenario
-6. "Typische Fehler" – Bezug zu trap_tags
-7. "So merkst du es dir" – Lerntipp/Eselsbrücke
-8. "Häufige Fragen" – 3-5 FAQ
-9. CTA
+1. Genau EINE H1 (# Titel) mit Suchintention
+2. Kurzantwort (2-4 Sätze, direkt unter H1, eigenständiger Block – NICHT identisch mit excerpt oder meta_description)
+3. "Was ist/bedeutet [Thema]?" – klare Definition (## Überschrift)
+4. "Warum ist das prüfungsrelevant?" (## Überschrift)
+5. "Beispiel aus der Prüfung" – konkretes Szenario (## Überschrift)
+6. "Typische Fehler" – Bezug zu trap_tags (## Überschrift)
+7. "So merkst du es dir" – Lerntipp/Eselsbrücke (## Überschrift)
+8. "Häufige Fragen" – 3-5 FAQ (## Überschrift)
+9. Mindestens 3 H2-Überschriften
+
+WICHTIG:
+- excerpt, short_answer und meta_description müssen UNTERSCHIEDLICHE Formulierungen sein
+- FAQ-Fragen dürfen sich NICHT wiederholen
+- Keywords deduplizieren
+- Keine Platzhaltertexte
 
 ARTIKELTYP: ${source.article_type}
 - definition: Fokus auf klare Begriffserklärung
@@ -544,14 +766,14 @@ Generiere ALLE Felder inkl. answer_blocks und entity_data.`;
             properties: {
               title: { type: "string", description: "SEO title (50-70 chars)" },
               primary_question: { type: "string", description: "Central search question this article answers" },
-              short_answer: { type: "string", description: "2-4 sentence direct answer to the primary question, snippet-ready" },
-              meta_description: { type: "string", description: "SEO meta description (120-155 chars)" },
-              excerpt: { type: "string", description: "Short excerpt (100-200 chars)" },
-              content_md: { type: "string", description: "Full article in Markdown with answer-first structure" },
-              keywords: { type: "array", items: { type: "string" }, description: "5-8 SEO keywords" },
+              short_answer: { type: "string", description: "2-4 sentence direct answer (DIFFERENT from excerpt and meta_description)" },
+              meta_description: { type: "string", description: "SEO meta description (120-155 chars, DIFFERENT from excerpt)" },
+              excerpt: { type: "string", description: "Short excerpt (100-200 chars, DIFFERENT from meta_description)" },
+              content_md: { type: "string", description: "Full article in Markdown. Exactly 1 H1, at least 3 H2s. Answer-first structure." },
+              keywords: { type: "array", items: { type: "string" }, description: "5-8 unique SEO keywords (no duplicates)" },
               target_keyword: { type: "string", description: "Primary target keyword" },
               hero_image_prompt: { type: "string", description: "Prompt for hero image (descriptive, no text)" },
-              hero_image_alt: { type: "string", description: "Alt text: what is shown + topic + exam context" },
+              hero_image_alt: { type: "string", description: "Alt text: what is shown + topic + exam context. Max 5 commas." },
               answer_blocks: {
                 type: "object",
                 properties: {
@@ -565,19 +787,19 @@ Generiere ALLE Felder inkl. answer_blocks und entity_data.`;
               entity_data: {
                 type: "object",
                 properties: {
-                  beruf: { type: "string", description: "Relevant profession/qualification" },
-                  pruefung: { type: "string", description: "Relevant exam type" },
-                  concepts: { type: "array", items: { type: "string" }, description: "Core concepts covered" },
-                  synonyms: { type: "array", items: { type: "string" }, description: "Alternative terms" },
-                  related_concepts: { type: "array", items: { type: "string" }, description: "Related topics" },
-                  difficulty: { type: "string", description: "easy/medium/hard" },
+                  beruf: { type: "string" },
+                  pruefung: { type: "string" },
+                  concepts: { type: "array", items: { type: "string" } },
+                  synonyms: { type: "array", items: { type: "string" } },
+                  related_concepts: { type: "array", items: { type: "string" } },
+                  difficulty: { type: "string" },
                 },
                 required: ["concepts", "related_concepts"],
               },
               faq: {
                 type: "array",
                 items: { type: "object", properties: { q: { type: "string" }, a: { type: "string" } }, required: ["q", "a"] },
-                description: "3-5 FAQ items",
+                description: "3-5 FAQ items (no duplicate questions)",
               },
             },
             required: ["title", "primary_question", "short_answer", "meta_description", "excerpt", "content_md", "keywords", "target_keyword", "hero_image_prompt", "hero_image_alt", "answer_blocks", "entity_data", "faq"],
@@ -599,7 +821,7 @@ Generiere ALLE Felder inkl. answer_blocks und entity_data.`;
 
 function generateSlug(text: string): string {
   const charMap: Record<string, string> = { ä: "ae", ö: "oe", ü: "ue", ß: "ss", Ä: "ae", Ö: "oe", Ü: "ue" };
-  return text.toLowerCase().split("").map(c => charMap[c] || c).join("")
+  return text.toLowerCase().split("").map((c) => charMap[c] || c).join("")
     .replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").substring(0, 80);
 }
 
@@ -610,7 +832,7 @@ function escapeRegex(str: string): string {
 async function computeHash(text: string): Promise<string> {
   const data = new TextEncoder().encode(text.trim().toLowerCase().replace(/\s+/g, " "));
   const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, "0")).join("");
+  return Array.from(new Uint8Array(hashBuffer)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 async function pingIndexNow(url: string): Promise<void> {

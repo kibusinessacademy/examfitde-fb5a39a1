@@ -3575,6 +3575,7 @@ export type Database = {
           target_keyword: string | null
           title: string
           topic_cluster: string | null
+          topic_fingerprint: string | null
           total_views: number | null
           updated_at: string
           word_count: number | null
@@ -3619,6 +3620,7 @@ export type Database = {
           target_keyword?: string | null
           title: string
           topic_cluster?: string | null
+          topic_fingerprint?: string | null
           total_views?: number | null
           updated_at?: string
           word_count?: number | null
@@ -3663,6 +3665,7 @@ export type Database = {
           target_keyword?: string | null
           title?: string
           topic_cluster?: string | null
+          topic_fingerprint?: string | null
           total_views?: number | null
           updated_at?: string
           word_count?: number | null
@@ -3797,6 +3800,38 @@ export type Database = {
           updated_by?: string | null
         }
         Relationships: []
+      }
+      blog_publishing_events: {
+        Row: {
+          article_id: string
+          event_data: Json | null
+          event_type: string
+          id: string
+          triggered_at: string
+        }
+        Insert: {
+          article_id: string
+          event_data?: Json | null
+          event_type: string
+          id?: string
+          triggered_at?: string
+        }
+        Update: {
+          article_id?: string
+          event_data?: Json | null
+          event_type?: string
+          id?: string
+          triggered_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blog_publishing_events_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "blog_articles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       blueprint_audit_log: {
         Row: {
