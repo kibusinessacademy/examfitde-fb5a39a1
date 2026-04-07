@@ -4,9 +4,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { Breadcrumbs } from '@/components/seo/Breadcrumbs';
 import ReactMarkdown from 'react-markdown';
-import { Clock, ArrowLeft } from 'lucide-react';
+import { Clock, ArrowLeft, Calendar, Tag } from 'lucide-react';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
+import { GrowthBrandFooter } from '@/components/seo/GrowthBrandFooter';
 
 export default function BlogArticlePage() {
   const { slug } = useParams<{ slug: string }>();
@@ -43,18 +44,50 @@ export default function BlogArticlePage() {
     );
   }
 
-  const structuredData = {
+  const faqItems = (article as any).faq_json as Array<{ q: string; a: string }> | null;
+
+  // BlogPosting structured data
+  const blogPostingSchema = {
     '@context': 'https://schema.org',
     '@type': 'BlogPosting',
     headline: article.title,
     description: article.meta_description,
     datePublished: article.published_at,
     dateModified: article.updated_at,
-    author: { '@type': 'Organization', name: 'ExamFit' },
-    publisher: { '@type': 'Organization', name: 'ExamFit' },
+    author: { '@type': 'Organization', name: 'ExamFit', url: 'https://examfit.de' },
+    publisher: {
+      '@type': 'Organization',
+      name: 'ExamFit',
+      url: 'https://examfit.de',
+      logo: { '@type': 'ImageObject', url: 'https://examfit.de/logo.png' },
+    },
     wordCount: article.word_count,
     keywords: (article.keywords || []).join(', '),
+    mainEntityOfPage: { '@type': 'WebPage', '@id': `https://examfit.de/blog/${article.slug}` },
+    ...((article as any).hero_image_url ? {
+      image: {
+        '@type': 'ImageObject',
+        url: (article as any).hero_image_url,
+        ...((article as any).hero_image_alt ? { description: (article as any).hero_image_alt } : {}),
+      },
+    } : {}),
   };
+
+  // FAQPage structured data
+  const faqSchema = faqItems && faqItems.length > 0 ? {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: faqItems.map(item => ({
+      '@type': 'Question',
+      name: item.q,
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: item.a,
+      },
+    })),
+  } : null;
+
+  const structuredData = [blogPostingSchema, ...(faqSchema ? [faqSchema] : [])];
 
   return (
     <>
@@ -62,10 +95,30 @@ export default function BlogArticlePage() {
         title={`${article.title} | ExamFit Blog`}
         description={article.meta_description || ''}
         canonical={`/blog/${article.slug}`}
+        type="article"
+        image={(article as any).og_image_url || (article as any).hero_image_url || '/og-image.png'}
+        imageAlt={(article as any).hero_image_alt || article.title}
+        publishedTime={article.published_at || undefined}
+        modifiedTime={article.updated_at}
+        author="ExamFit"
         structuredData={structuredData}
       />
 
-      <article className="min-h-screen bg-background">
+      <article className="min-h-screen bg-background" data-content-id={article.id}>
+        {/* Hero Image */}
+        {(article as any).hero_image_url && (
+          <div className="w-full max-h-[400px] overflow-hidden bg-muted">
+            <img
+              src={(article as any).hero_image_url}
+              alt={(article as any).hero_image_alt || article.title}
+              className="w-full h-full object-cover"
+              loading="eager"
+              width={1200}
+              height={630}
+            />
+          </div>
+        )}
+
         <div className="max-w-3xl mx-auto px-4 py-12">
           <Breadcrumbs items={[
             { label: 'Blog', href: '/blog' },
@@ -80,9 +133,12 @@ export default function BlogArticlePage() {
             {article.title}
           </h1>
 
-          <div className="flex items-center gap-4 text-sm text-muted-foreground mb-8">
+          <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground mb-8">
             {article.published_at && (
-              <span>{format(new Date(article.published_at), 'd. MMMM yyyy', { locale: de })}</span>
+              <span className="flex items-center gap-1">
+                <Calendar className="h-4 w-4" />
+                {format(new Date(article.published_at), 'd. MMMM yyyy', { locale: de })}
+              </span>
             )}
             {article.reading_time_min && (
               <span className="flex items-center gap-1">
@@ -90,11 +146,35 @@ export default function BlogArticlePage() {
                 {article.reading_time_min} Min. Lesezeit
               </span>
             )}
+            {article.word_count && (
+              <span className="text-xs">{article.word_count} Wörter</span>
+            )}
           </div>
 
-          <div className="prose prose-lg dark:prose-invert max-w-none">
+          {/* Article Content */}
+          <div className="prose prose-lg dark:prose-invert max-w-none prose-headings:scroll-mt-20 prose-a:text-primary prose-img:rounded-lg">
             <ReactMarkdown>{article.content_md}</ReactMarkdown>
           </div>
+
+          {/* FAQ Section */}
+          {faqItems && faqItems.length > 0 && (
+            <section className="mt-12" aria-label="Häufige Fragen">
+              <h2 className="text-2xl font-bold text-foreground mb-6">Häufig gestellte Fragen</h2>
+              <div className="space-y-4">
+                {faqItems.map((item, idx) => (
+                  <details key={idx} className="group border border-border rounded-lg">
+                    <summary className="flex items-center justify-between cursor-pointer p-4 font-medium text-foreground hover:text-primary transition-colors">
+                      {item.q}
+                      <span className="ml-2 text-muted-foreground group-open:rotate-180 transition-transform">▼</span>
+                    </summary>
+                    <div className="px-4 pb-4 text-muted-foreground">
+                      {item.a}
+                    </div>
+                  </details>
+                ))}
+              </div>
+            </section>
+          )}
 
           {/* CTA Block */}
           <div className="mt-12 p-6 rounded-xl bg-primary/5 border border-primary/20 text-center">
@@ -102,10 +182,10 @@ export default function BlogArticlePage() {
               Du lernst nicht mehr. Du trainierst, zu bestehen.
             </p>
             <p className="text-muted-foreground mb-4">
-              Trainiere echte Prüfungsfragen und erkenne deine Schwächen – bevor die Klausur es tut.
+              Trainiere echte Prüfungsfragen und erkenne deine Schwächen – bevor die Prüfung es tut.
             </p>
             <Link
-              to="/pruefungstraining-studium"
+              to="/pruefungstraining"
               className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
             >
               Jetzt Prüfungstraining starten
@@ -116,12 +196,15 @@ export default function BlogArticlePage() {
           {article.keywords && article.keywords.length > 0 && (
             <div className="mt-8 flex flex-wrap gap-2">
               {article.keywords.map((kw: string) => (
-                <span key={kw} className="px-3 py-1 text-xs bg-muted text-muted-foreground rounded-full">
+                <span key={kw} className="inline-flex items-center gap-1 px-3 py-1 text-xs bg-muted text-muted-foreground rounded-full">
+                  <Tag className="h-3 w-3" />
                   {kw}
                 </span>
               ))}
             </div>
           )}
+
+          <GrowthBrandFooter contentId={article.id} />
         </div>
       </article>
     </>

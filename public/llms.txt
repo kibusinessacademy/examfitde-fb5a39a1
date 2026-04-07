@@ -1,0 +1,39 @@
+# ExamFit.de – AI-Readable Site Description
+
+> ExamFit ist ein intelligentes Prüfungstrainings-System für IHK-Abschlussprüfungen, Fachwirt-, Meister- und Sachkundeprüfungen in Deutschland.
+
+## Was ExamFit bietet
+
+- Prüfungssimulationen mit echten Prüfungsformaten
+- Adaptive Lernkurse mit Kompetenz-Tracking
+- KI-gestützter Tutor für individuelle Erklärungen
+- Spaced-Repetition-System für nachhaltiges Lernen
+- Detaillierte Schwächenanalyse und Readiness-Score
+
+## Zielgruppen
+
+- Auszubildende (IHK-Abschlussprüfung Teil 1 + 2)
+- Fachwirte (Wirtschaftsfachwirt, Industriefachwirt, etc.)
+- Meister (Industriemeister Metall/Elektro/Chemie)
+- Sachkundeprüfungen (§34a, AEVO, etc.)
+- Studierende (Klausurtraining)
+- Unternehmen (Mitarbeiterschulung)
+
+## Inhaltsverzeichnis
+
+- Startseite: https://examfit.de/
+- Berufe-Übersicht: https://examfit.de/berufe
+- Prüfungstraining: https://examfit.de/pruefungstraining
+- Lernkurse: https://examfit.de/lernkurse
+- Blog: https://examfit.de/blog
+- Wissen: https://examfit.de/wissen
+- FAQ: https://examfit.de/faq
+
+## Kontakt
+
+- Website: https://examfit.de
+- E-Mail: info@examfit.de
+
+## Lizenz
+
+Alle Inhalte © ExamFit.de. Nutzung der Daten gemäß unserer Nutzungsbedingungen.

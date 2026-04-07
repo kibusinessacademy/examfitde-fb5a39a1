@@ -115,6 +115,7 @@ Deno.serve(async (req) => {
       { path: "/bundle", priority: 0.9, changefreq: "weekly" },
       { path: "/shop", priority: 0.8, changefreq: "weekly" },
       { path: "/wissen", priority: 0.8, changefreq: "daily" },
+      { path: "/blog", priority: 0.8, changefreq: "daily" },
       { path: "/preise", priority: 0.7, changefreq: "monthly" },
       { path: "/unternehmen", priority: 0.6, changefreq: "monthly" },
       // ExamFit@work routes
@@ -325,6 +326,38 @@ Deno.serve(async (req) => {
           lastmod: doc.updated_at?.split("T")[0] || today,
           changefreq: "weekly",
           priority: doc.doc_type === "landing" ? 0.8 : 0.6,
+          images: images.length > 0 ? images : undefined,
+        });
+      });
+    }
+
+    // Published blog articles
+    const { data: blogArticles } = await supabase
+      .from("blog_articles")
+      .select("slug, title, updated_at, hero_image_url, hero_image_alt, published_at")
+      .eq("status", "published")
+      .order("published_at", { ascending: false })
+      .limit(200);
+
+    if (blogArticles) {
+      blogArticles.forEach((article) => {
+        const images: SitemapURL["images"] = [];
+
+        if (article.hero_image_url) {
+          images.push({
+            loc: article.hero_image_url.startsWith("http")
+              ? article.hero_image_url
+              : `${SITE_URL}${article.hero_image_url}`,
+            title: article.title,
+            caption: article.hero_image_alt || undefined,
+          });
+        }
+
+        urls.push({
+          loc: `${SITE_URL}/blog/${article.slug}`,
+          lastmod: article.updated_at?.split("T")[0] || article.published_at?.split("T")[0] || today,
+          changefreq: "weekly",
+          priority: 0.7,
           images: images.length > 0 ? images : undefined,
         });
       });

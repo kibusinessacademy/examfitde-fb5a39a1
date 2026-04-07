@@ -3536,13 +3536,22 @@ export type Database = {
       }
       blog_articles: {
         Row: {
+          ai_detection_report: Json | null
+          ai_detection_score: number | null
+          canonical_url: string | null
+          content_hash: string | null
           content_md: string
           created_at: string
+          faq_json: Json | null
           generated_by_model: string | null
+          hero_image_alt: string | null
+          hero_image_url: string | null
           id: string
+          internal_links_json: Json | null
           is_winner: boolean | null
           keywords: string[] | null
           meta_description: string | null
+          og_image_url: string | null
           performance_score: number | null
           published_at: string | null
           reading_time_min: number | null
@@ -3551,19 +3560,30 @@ export type Database = {
           source_package_id: string | null
           source_question_id: string | null
           status: string
+          target_keyword: string | null
           title: string
+          topic_cluster: string | null
           total_views: number | null
           updated_at: string
           word_count: number | null
         }
         Insert: {
+          ai_detection_report?: Json | null
+          ai_detection_score?: number | null
+          canonical_url?: string | null
+          content_hash?: string | null
           content_md: string
           created_at?: string
+          faq_json?: Json | null
           generated_by_model?: string | null
+          hero_image_alt?: string | null
+          hero_image_url?: string | null
           id?: string
+          internal_links_json?: Json | null
           is_winner?: boolean | null
           keywords?: string[] | null
           meta_description?: string | null
+          og_image_url?: string | null
           performance_score?: number | null
           published_at?: string | null
           reading_time_min?: number | null
@@ -3572,19 +3592,30 @@ export type Database = {
           source_package_id?: string | null
           source_question_id?: string | null
           status?: string
+          target_keyword?: string | null
           title: string
+          topic_cluster?: string | null
           total_views?: number | null
           updated_at?: string
           word_count?: number | null
         }
         Update: {
+          ai_detection_report?: Json | null
+          ai_detection_score?: number | null
+          canonical_url?: string | null
+          content_hash?: string | null
           content_md?: string
           created_at?: string
+          faq_json?: Json | null
           generated_by_model?: string | null
+          hero_image_alt?: string | null
+          hero_image_url?: string | null
           id?: string
+          internal_links_json?: Json | null
           is_winner?: boolean | null
           keywords?: string[] | null
           meta_description?: string | null
+          og_image_url?: string | null
           performance_score?: number | null
           published_at?: string | null
           reading_time_min?: number | null
@@ -3593,7 +3624,9 @@ export type Database = {
           source_package_id?: string | null
           source_question_id?: string | null
           status?: string
+          target_keyword?: string | null
           title?: string
+          topic_cluster?: string | null
           total_views?: number | null
           updated_at?: string
           word_count?: number | null
