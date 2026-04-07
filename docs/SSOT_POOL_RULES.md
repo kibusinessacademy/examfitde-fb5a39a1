@@ -90,9 +90,23 @@ WHERE worker_pool IN ('core', 'content') AND status IN ('pending','processing');
 ## 6 — Non-Negotiable Rules
 
 - **`job_type_policies` is the sole pool authority.** Code may reference pools but MUST NOT override the DB.
-- Pool logic may **NEVER** be duplicated outside the DB trigger.
+- **The DB trigger defines the authoritative pool assignment.** Other layers (Enqueue Guard, CI Contract, Claim Auto-Fix) may **verify, mirror, or enforce** this assignment, but MUST NOT independently define pool routing.
 - Only `default` and `prebuild` are valid pools. Legacy `core`/`content` are auto-corrected.
 - Direct SQL inserts into `job_queue` are **forbidden** — use `enqueueJob()`.
-- Every job type must exist in the pool contract.
+- Every job type in code must exist in `job_type_policies` (DB) and in the pool contract.
+- Every job type in the pool contract must exist in `JOB_DEFINITIONS`.
 - Drift must fail CI.
-- Auto-sync is a safety net, **not a substitute for correctness**.
+- Auto-sync (`meta.pool_autosynced`) is a safety net, **not a substitute for correctness**:
+  - **> 0 auto-syncs in 24h → Warning** (investigate source)
+  - **> 10 auto-syncs in 24h → Incident** (producer is writing wrong pools)
+
+---
+
+## 7 — System Job Types
+
+| Job Type | Pool | Notes |
+|----------|------|-------|
+| `pipeline_tick` | `default` | Scheduler heartbeat. Exempt from `curriculum_id` requirement. |
+| `stuck_scan` | `default` | Nightly sweep. Exempt from `curriculum_id` requirement. |
+
+System jobs are registered in `job_type_policies` with `exempt_from_auto_cancel = true` and `can_run_when_not_building = true`.
