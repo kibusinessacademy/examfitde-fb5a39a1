@@ -40,6 +40,9 @@ const IHKPruefungenPage = lazyRetry(() => import('@/pages/seo/IHKPruefungenPage'
 const PruefungstrainingAzubisPage = lazyRetry(() => import('@/pages/seo/PruefungstrainingAzubisPage'));
 const PruefungstrainingBetriebePage = lazyRetry(() => import('@/pages/seo/PruefungstrainingBetriebePage'));
 const PruefungstrainingInstitutionenPage = lazyRetry(() => import('@/pages/seo/PruefungstrainingInstitutionenPage'));
+const PruefungstrainingAusbildungPage = lazyRetry(() => import('@/pages/seo/PruefungstrainingAusbildungPage'));
+const PruefungstrainingBerufsschulenPage = lazyRetry(() => import('@/pages/seo/PruefungstrainingBerufsschulenPage'));
+const PruefungstrainingWeiterbildungPage = lazyRetry(() => import('@/pages/seo/PruefungstrainingWeiterbildungPage'));
 const BerufePage = lazyRetry(() => import('@/pages/seo/BerufePage'));
 const BerufDetailPage = lazyRetry(() => import('@/pages/seo/BerufDetailPage'));
 const UnternehmenPage = lazyRetry(() => import('@/pages/seo/UnternehmenPage'));
