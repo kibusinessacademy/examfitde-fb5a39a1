@@ -8,31 +8,34 @@
 
 | Pool | Purpose | Characteristics |
 |------|---------|----------------|
-| `core` | Lightweight orchestration & DB-bound jobs | Low latency, non-LLM, control-plane |
-| `content` | LLM-heavy generation jobs | Long-running, budget-controlled |
+| `default` | Standard runner pool — orchestration, validation, and generation | All non-variant jobs |
+| `prebuild` | Variant materialization pool | Blueprint variant generation, validation, promotion |
+
+> ⚠️ **Legacy pools `core` and `content` are DEPRECATED and MUST NOT be used.** The DB trigger `trg_guard_sync_worker_pool` auto-corrects any legacy pool assignments to the DB-SSOT value.
 
 ---
 
-## 2 — Single Source of Truth
+## 2 — Single Source of Truth (SSOT Hierarchy)
 
-The **only** authoritative source of pool assignment is:
+| Priority | Source | Role |
+|----------|--------|------|
+| **1 (Authority)** | `job_type_policies.worker_pool` (DB) | Runtime authority. The trigger enforces this on every INSERT/UPDATE. |
+| **2 (Contract)** | `scripts/job-pool-contract.json` | CI golden snapshot — must mirror DB. |
+| **3 (Code)** | `supabase/functions/_shared/job-map.ts → JOB_DEFINITIONS[jobType].pool` | Code reference — must match contract. |
 
-```
-supabase/functions/_shared/job-map.ts → JOB_DEFINITIONS[jobType].pool
-```
-
-If pool logic is duplicated anywhere else, **it is a bug**.
+If pool logic is duplicated or contradicts the DB, **it is a bug**.
 
 ---
 
-## 3 — Defense-in-Depth (4 Layers)
+## 3 — Defense-in-Depth (5 Layers)
 
 | Layer | Location | Behavior |
 |-------|----------|----------|
+| **DB Trigger Guard** | `trg_guard_sync_worker_pool` on `job_queue` | Auto-corrects pool to DB-SSOT on every INSERT/UPDATE. Logs correction in `meta.pool_autosynced`. |
 | **Enqueue Guard** | `_shared/enqueue.ts` | Throws `SSOT_POOL_GUARD` on mismatch at creation time |
 | **Claim Auto-Fix** | `content-runner`, `job-runner` | Auto-corrects pool + sets `meta.pool_autofixed=true` (merge, never overwrite) |
 | **Nightly Sweep** | `stuck-scan` | Fixes pending-only mismatches, emits alert, returns `pool_mismatch_fixed` counter |
-| **CI Contract Guard** | `scripts/check-pool-contract.ts` | Fails CI if pool drifts from `scripts/job-pool-contract.json` golden snapshot |
+| **CI Contract Guard** | `scripts/check-pool-contract.ts` | Fails CI if pool drifts from contract OR uses legacy pools (`core`/`content`) |
 
 ---
 
@@ -40,52 +43,56 @@ If pool logic is duplicated anywhere else, **it is a bug**.
 
 **Required steps (all mandatory):**
 
-1. Update `JOB_DEFINITIONS` in `_shared/job-map.ts`
-2. Run `deno run -A scripts/update-pool-contract.ts`
-3. Create a backfill migration:
+1. Update `job_type_policies` in the **database** (migration)
+2. Update `JOB_DEFINITIONS` in `_shared/job-map.ts` to match
+3. Run `deno run -A scripts/update-pool-contract.ts` to regenerate the contract
+4. Create a backfill migration:
    ```sql
    UPDATE job_queue SET worker_pool = 'new_pool'
    WHERE job_type = '...' AND status IN ('pending','processing');
    ```
-4. Deploy
-5. Monitor: `pool_autofixed` count, `pool_mismatch_fixed`, content throughput
+5. Deploy
+6. Monitor: `pool_autosynced` count, `pool_mismatch_fixed`, throughput
 
-> ⚠️ **If step 3 is skipped, production may stall.**
+> ⚠️ **If step 1 is skipped, the DB trigger will override your code changes.**
+> ⚠️ **If step 4 is skipped, production may stall until the trigger fires on next UPDATE.**
 
 ---
 
 ## 5 — Operational Health Queries
 
-**Detect mismatches:**
+**Detect mismatches (should always return 0 rows):**
 ```sql
-SELECT job_type, worker_pool, COUNT(*)
-FROM job_queue WHERE status IN ('pending','processing')
-GROUP BY 1,2;
+SELECT jq.job_type, jq.worker_pool AS queue_pool, jtp.worker_pool AS policy_pool, COUNT(*)
+FROM job_queue jq
+JOIN job_type_policies jtp ON jtp.job_type = jq.job_type
+WHERE jq.status IN ('pending','processing')
+  AND COALESCE(jq.worker_pool,'default') != COALESCE(jtp.worker_pool,'default')
+GROUP BY 1,2,3;
 ```
 
-**Detect auto-fixes (24h):**
+**Detect auto-syncs (24h) — should trend toward 0:**
 ```sql
 SELECT job_type,
-  COUNT(*) FILTER (WHERE (meta->>'pool_autofixed')::boolean = true)
+  COUNT(*) FILTER (WHERE (meta->>'pool_autosynced')::boolean = true)
 FROM job_queue WHERE created_at > now() - interval '24 hours'
-GROUP BY 1;
+GROUP BY 1 HAVING COUNT(*) FILTER (WHERE (meta->>'pool_autosynced')::boolean = true) > 0;
 ```
 
-**Content throughput:**
+**Detect legacy pool usage in code (should return 0):**
 ```sql
-SELECT date_trunc('minute', updated_at) AS minute,
-  COUNT(*) FILTER (WHERE status='completed') AS completed
-FROM job_queue WHERE worker_pool='content'
-  AND updated_at > now() - interval '2 hours'
-GROUP BY 1 ORDER BY 1 DESC;
+SELECT job_type, worker_pool FROM job_queue
+WHERE worker_pool IN ('core', 'content') AND status IN ('pending','processing');
 ```
 
 ---
 
 ## 6 — Non-Negotiable Rules
 
-- Pool logic may **NEVER** be duplicated.
+- **`job_type_policies` is the sole pool authority.** Code may reference pools but MUST NOT override the DB.
+- Pool logic may **NEVER** be duplicated outside the DB trigger.
+- Only `default` and `prebuild` are valid pools. Legacy `core`/`content` are auto-corrected.
 - Direct SQL inserts into `job_queue` are **forbidden** — use `enqueueJob()`.
 - Every job type must exist in the pool contract.
 - Drift must fail CI.
-- Auto-fix is a safety net, **not a substitute for correctness**.
+- Auto-sync is a safety net, **not a substitute for correctness**.

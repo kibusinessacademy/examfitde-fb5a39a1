@@ -455,9 +455,9 @@ export const JOB_POOLS: Record<string, WorkerPool> = Object.fromEntries(
   Object.entries(JOB_DEFINITIONS).map(([k, v]) => [k, v.pool])
 );
 
-/** Returns the correct worker pool for a given job type. Defaults to "core". */
+/** Returns the correct worker pool for a given job type. Defaults to "default". */
 export function poolForJobType(jobType: string): WorkerPool {
-  return JOB_DEFINITIONS[jobType]?.pool ?? "core";
+  return JOB_DEFINITIONS[jobType]?.pool ?? "default";
 }
 
 /** Returns the edge function name for a given job type, or null if not dispatched. */
