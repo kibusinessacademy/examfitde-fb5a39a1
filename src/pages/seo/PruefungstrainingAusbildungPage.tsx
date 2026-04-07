@@ -7,27 +7,28 @@ import {
   CheckCircle,
   Target,
   Brain,
-  BarChart3,
+  TrendingUp,
+  ClipboardCheck,
   Search,
-  Award,
-  FileCheck,
-  Layers,
+  BarChart3,
+  Compass,
 } from 'lucide-react';
 
 const FAQS = [
   { question: 'Was ist der Unterschied zwischen ExamFit und einer klassischen Lernplattform?', answer: 'ExamFit ist auf Prüfungstraining ausgerichtet. Statt vor allem Inhalte bereitzustellen, unterstützt das System dabei, prüfungsrelevante Aufgaben zu trainieren, Schwächen sichtbar zu machen und gezielt auf die Prüfung hinzuarbeiten.' },
-  { question: 'Wie prüfungsnah sind die Fragen?', answer: 'Alle Fragen orientieren sich an den offiziellen Prüfungsformaten und -inhalten der jeweiligen Zertifizierung. Der KI-Coach erklärt die Hintergründe zu jeder Antwort.' },
   { question: 'Ist ExamFit für echte Prüfungen oder nur zum Üben gedacht?', answer: 'ExamFit ist für gezielte Prüfungsvorbereitung gedacht. Der Fokus liegt auf prüfungsnahen Trainingsformaten, Simulationen und einer strukturierten Vorbereitung auf reale Leistungsnachweise.' },
+  { question: 'Für wen ist ExamFit geeignet?', answer: 'ExamFit eignet sich für Auszubildende, Studierende, Teilnehmende in Fort- und Weiterbildungen sowie Personen, die sich auf Zertifizierungsprüfungen vorbereiten.' },
   { question: 'Ersetzt ExamFit Unterricht oder Fachliteratur?', answer: 'Nein. ExamFit ergänzt bestehende Lernwege um ein System für gezieltes Prüfungstraining und messbare Vorbereitung.' },
+  { question: 'Warum ist Prüfungstraining wichtiger als nur Inhalte zu lesen?', answer: 'Weil Prüfungsleistung nicht nur aus Wissen besteht, sondern aus Anwendung, Sicherheit, Aufgabenverständnis und Zeitmanagement. Genau darauf ist ExamFit ausgerichtet.' },
 ];
 
-export default function ZertifizierungenLandingPage() {
+export default function PruefungstrainingAusbildungPage() {
   return (
     <>
       <SEOHead
-        title={seoTitle('Prüfungstraining für Zertifizierungen | Gezielt auf Zertifikatsprüfungen vorbereiten')}
-        description="Trainiere gezielt für Zertifikatsprüfungen: mit strukturierter Prüfungsvorbereitung, realistischen Aufgabenformaten und klarer Einschätzung deiner Prüfungsreife."
-        canonical={`${SITE_URL}/zertifizierungen`}
+        title={seoTitle('Prüfungstraining für die Ausbildung | Prüfungsnah, systematisch, messbar')}
+        description="Gezielte Prüfungsvorbereitung für Auszubildende: prüfungsnahe Aufgaben, Simulationen, KI-Feedback und transparente Prüfungsreife statt unsystematischem Lernen."
+        canonical={`${SITE_URL}/pruefungstraining-ausbildung`}
         structuredData={generateFAQSchema(FAQS)}
       />
       <div className="min-h-screen">
@@ -36,23 +37,23 @@ export default function ZertifizierungenLandingPage() {
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-accent/5 blur-[120px] pointer-events-none" />
           <div className="container mx-auto text-center max-w-4xl relative z-10">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-subtle mb-6 animate-fade-in">
-              <Award className="h-4 w-4 text-accent" />
-              <span className="text-sm text-muted-foreground">Zertifizierungsprüfung · Wiederholbar · Prüfungsnah</span>
+              <ClipboardCheck className="h-4 w-4 text-accent" />
+              <span className="text-sm text-muted-foreground">Prüfungstraining · Simulation · Prüfungsreife</span>
             </div>
 
             <h1 className="text-3xl sm:text-5xl md:text-6xl font-display font-bold mb-5 animate-fade-in leading-[1.1]">
-              Bestehe deine Zertifikatsprüfung mit{' '}
-              <span className="text-gradient text-glow">gezieltem Prüfungstraining.</span>
+              Prüfungstraining für deine Ausbildung.{' '}
+              <span className="text-gradient text-glow">Klar. Prüfungsnah. Wirksam.</span>
             </h1>
 
             <p className="text-base sm:text-xl text-muted-foreground mb-8 max-w-2xl mx-auto animate-fade-in" style={{ animationDelay: '0.1s' }}>
-              ExamFit unterstützt dich mit strukturiertem, prüfungsnahem Training für Zertifizierungen – fokussiert auf Leistung, Sicherheit und Wiederholbarkeit.
+              Bereite dich gezielt auf deine Abschlussprüfung vor – mit strukturiertem Training, realistischen Prüfungsformaten und messbarem Fortschritt.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-3 justify-center animate-fade-in" style={{ animationDelay: '0.2s' }}>
               <Link to="/shop">
                 <Button size="lg" className="gradient-primary text-primary-foreground shadow-glow hover:shadow-glow-lg transition-all rounded-xl h-14 px-8 text-lg group">
-                  Zertifizierungs-Prüfungstraining starten
+                  Prüfungstraining starten
                   <ArrowRight className="h-5 w-5 ml-2 group-hover:translate-x-1 transition-transform" />
                 </Button>
               </Link>
@@ -65,19 +66,19 @@ export default function ZertifizierungenLandingPage() {
           </div>
         </section>
 
-        {/* Problem */}
+        {/* Problem / Suchintention */}
         <section className="py-12 sm:py-16 px-3 sm:px-4 bg-muted/30">
           <div className="container mx-auto max-w-3xl text-center">
             <h2 className="text-2xl sm:text-3xl font-display font-bold mb-6">
-              Warum klassische Vorbereitung <span className="text-gradient">oft nicht reicht</span>
+              Warum klassisches Lernen <span className="text-gradient">oft nicht reicht</span>
             </h2>
             <p className="text-muted-foreground leading-relaxed">
-              Bei Zertifizierungen zählt am Ende nicht, wie viel du gelesen hast, sondern ob du die Prüfung bestehst. Darum setzt ExamFit auf Training statt bloßem Content-Konsum.
+              Zwischen Berufsschule, Betrieb und Prüfungsvorbereitung fehlt oft ein System, das zeigt, was wirklich sitzt. Viele Auszubildende lernen viel, aber nicht das Richtige für die Prüfung. ExamFit verschiebt den Fokus von allgemeinem Stofflernen auf konkrete Prüfungsleistung.
             </p>
           </div>
         </section>
 
-        {/* USP */}
+        {/* USP-Blöcke */}
         <section className="py-12 sm:py-16 px-3 sm:px-4">
           <div className="container mx-auto max-w-5xl">
             <h2 className="text-2xl sm:text-3xl font-display font-bold text-center mb-10">
@@ -85,10 +86,10 @@ export default function ZertifizierungenLandingPage() {
             </h2>
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
               {[
-                { icon: Target, title: 'Wiederholbares Training', text: 'Trainiere nicht abstrakt, sondern in Formaten, die dich auf echte Prüfungssituationen vorbereiten.' },
-                { icon: Layers, title: 'Fokus auf typische Prüfungsmuster', text: 'Übe strukturiert und entwickle ein belastbares Gefühl für deine tatsächliche Prüfungsleistung.' },
-                { icon: Search, title: 'Schnelles Erkennen von Wissenslücken', text: 'Erkenne, wo du noch unsicher bist und woran du gezielt arbeiten solltest.' },
-                { icon: FileCheck, title: 'Mehr Sicherheit vor der Prüfung', text: 'Objektive Einschätzung deiner Prüfungsreife – vor dem Test.' },
+                { icon: Target, title: 'Prüfungstraining statt Stoffsammlung', text: 'Trainiere nicht abstrakt, sondern in Formaten, die dich auf echte Prüfungssituationen vorbereiten.' },
+                { icon: BarChart3, title: 'Simulation statt Gefühl', text: 'Übe strukturiert und entwickle ein belastbares Gefühl für deine tatsächliche Prüfungsleistung.' },
+                { icon: Brain, title: 'Feedback statt Rätselraten', text: 'Nicht nur richtig oder falsch, sondern Hinweise, wo Verständnis, Sicherheit oder Anwendung fehlen.' },
+                { icon: Compass, title: 'Kompetenzfokus statt Zufall', text: 'Weniger Aktionismus kurz vor der Prüfung, mehr Klarheit über Prioritäten und Fortschritt.' },
               ].map(({ icon: Icon, title, text }) => (
                 <div key={title} className="glass-card rounded-2xl p-6 text-center hover:border-primary/30 transition-colors">
                   <Icon className="h-10 w-10 text-primary mx-auto mb-4" />
@@ -100,8 +101,29 @@ export default function ZertifizierungenLandingPage() {
           </div>
         </section>
 
-        {/* FAQ */}
+        {/* Für wen */}
         <section className="py-12 sm:py-16 px-3 sm:px-4 bg-muted/30">
+          <div className="container mx-auto max-w-3xl text-center">
+            <h2 className="text-2xl sm:text-3xl font-display font-bold mb-6">
+              Für wen ist diese Seite <span className="text-gradient">gedacht?</span>
+            </h2>
+            <div className="space-y-3 text-left max-w-xl mx-auto">
+              {[
+                'Auszubildende, die ihre Abschlussprüfung sicher bestehen wollen',
+                'Teilnehmer/-innen, die prüfungsnah trainieren statt nur Theorie lesen wollen',
+                'Alle, die vor der Prüfung wissen wollen, wo sie wirklich stehen',
+              ].map(item => (
+                <div key={item} className="flex items-start gap-3 p-3 glass-card rounded-xl">
+                  <CheckCircle className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+                  <span className="text-sm">{item}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* FAQ */}
+        <section className="py-12 sm:py-16 px-3 sm:px-4">
           <div className="container mx-auto max-w-3xl">
             <h2 className="text-2xl sm:text-3xl font-display font-bold text-center mb-10">Häufige Fragen</h2>
             <div className="space-y-4">
@@ -119,13 +141,15 @@ export default function ZertifizierungenLandingPage() {
         </section>
 
         {/* CTA */}
-        <section className="py-12 sm:py-16 px-3 sm:px-4">
+        <section className="py-12 sm:py-16 px-3 sm:px-4 bg-muted/30">
           <div className="container mx-auto max-w-2xl text-center space-y-6">
-            <h2 className="text-2xl sm:text-3xl font-display font-bold">Bereit für deine Zertifizierung?</h2>
-            <p className="text-muted-foreground">Starte jetzt die Vorbereitung auf deine Zertifikatsprüfung.</p>
+            <h2 className="text-2xl sm:text-3xl font-display font-bold">Bereit für dein Prüfungstraining?</h2>
+            <p className="text-muted-foreground">
+              Starte jetzt und trainiere gezielt für deine Abschlussprüfung.
+            </p>
             <Link to="/shop">
               <Button size="lg" className="gradient-primary text-primary-foreground shadow-glow rounded-xl h-14 px-10 text-lg group">
-                Zertifizierungs-Prüfungstraining starten
+                Prüfungstraining starten
                 <ArrowRight className="h-5 w-5 ml-2 group-hover:translate-x-1 transition-transform" />
               </Button>
             </Link>

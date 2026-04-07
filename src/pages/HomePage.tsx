@@ -1,6 +1,5 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { useAuth } from '@/hooks/useAuth';
 import { useEffect } from 'react';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { generateFAQSchema, generateCourseListSchema, SITE_URL, seoTitle } from '@/lib/seo';
@@ -41,17 +40,6 @@ const FAQ_ITEMS = [
 ];
 
 export default function HomePage() {
-  const { user } = useAuth();
-  const navigate = useNavigate();
-
-  // Authenticated users → Dashboard (prevents seeing marketing page)
-  useEffect(() => {
-    if (user) {
-      navigate('/dashboard', { replace: true });
-      return;
-    }
-  }, [user, navigate]);
-
   useEffect(() => {
     trackConversion({ event: 'page_view', source: 'homepage' });
 
@@ -300,10 +288,10 @@ export default function HomePage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
               {[
-                { to: '/pruefungstraining-azubis', icon: GraduationCap, color: 'text-primary', title: 'Für Auszubildende', text: 'IHK-Prüfung simulieren, Schwächen erkennen, sicher bestehen.' },
+                { to: '/pruefungstraining-azubis', icon: GraduationCap, color: 'text-primary', title: 'Für Auszubildende', text: 'Abschlussprüfung gezielt vorbereiten – prüfungsnah, strukturiert, messbar.' },
                 { to: '/pruefungstraining-studium', icon: BookOpen, color: 'text-blue-400', title: 'Für Studierende', text: 'Klausuren gezielt vorbereiten – adaptiv, strukturiert, prüfungsnah.' },
                 { to: '/pruefungstraining-betriebe', icon: Building2, color: 'text-accent', title: 'Für Betriebe', text: 'Prüfungsreife der Azubis mess- und steuerbar machen.' },
-                { to: '/pruefungstraining-institutionen', icon: BookOpen, color: 'text-success', title: 'Für Bildungsträger', text: 'Prüfungskonforme Ergänzung für Berufsschulen und Hochschulen.' },
+                { to: '/pruefungstraining-berufsschulen', icon: BookOpen, color: 'text-success', title: 'Für Bildungsträger', text: 'Prüfungskonforme Ergänzung für Berufsschulen und Hochschulen.' },
               ].map(({ to, icon: Icon, color, title, text }) => (
                 <Link key={to} to={to} className="glass-card rounded-2xl p-6 sm:p-8 group hover:border-primary/30 transition-all duration-300">
                   <Icon className={`h-10 w-10 ${color} mb-4`} />

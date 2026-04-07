@@ -7,27 +7,28 @@ import {
   CheckCircle,
   Target,
   Brain,
-  BarChart3,
+  TrendingUp,
+  Compass,
+  RefreshCw,
   Search,
-  Award,
-  FileCheck,
-  Layers,
+  BarChart3,
 } from 'lucide-react';
 
 const FAQS = [
   { question: 'Was ist der Unterschied zwischen ExamFit und einer klassischen Lernplattform?', answer: 'ExamFit ist auf Prüfungstraining ausgerichtet. Statt vor allem Inhalte bereitzustellen, unterstützt das System dabei, prüfungsrelevante Aufgaben zu trainieren, Schwächen sichtbar zu machen und gezielt auf die Prüfung hinzuarbeiten.' },
-  { question: 'Wie prüfungsnah sind die Fragen?', answer: 'Alle Fragen orientieren sich an den offiziellen Prüfungsformaten und -inhalten der jeweiligen Zertifizierung. Der KI-Coach erklärt die Hintergründe zu jeder Antwort.' },
   { question: 'Ist ExamFit für echte Prüfungen oder nur zum Üben gedacht?', answer: 'ExamFit ist für gezielte Prüfungsvorbereitung gedacht. Der Fokus liegt auf prüfungsnahen Trainingsformaten, Simulationen und einer strukturierten Vorbereitung auf reale Leistungsnachweise.' },
+  { question: 'Für wen ist ExamFit geeignet?', answer: 'ExamFit eignet sich für Auszubildende, Studierende, Teilnehmende in Fort- und Weiterbildungen sowie Personen, die sich auf Zertifizierungsprüfungen vorbereiten.' },
   { question: 'Ersetzt ExamFit Unterricht oder Fachliteratur?', answer: 'Nein. ExamFit ergänzt bestehende Lernwege um ein System für gezieltes Prüfungstraining und messbare Vorbereitung.' },
+  { question: 'Warum ist Prüfungstraining wichtiger als nur Inhalte zu lesen?', answer: 'Weil Prüfungsleistung nicht nur aus Wissen besteht, sondern aus Anwendung, Sicherheit, Aufgabenverständnis und Zeitmanagement. Genau darauf ist ExamFit ausgerichtet.' },
 ];
 
-export default function ZertifizierungenLandingPage() {
+export default function PruefungstrainingWeiterbildungPage() {
   return (
     <>
       <SEOHead
-        title={seoTitle('Prüfungstraining für Zertifizierungen | Gezielt auf Zertifikatsprüfungen vorbereiten')}
-        description="Trainiere gezielt für Zertifikatsprüfungen: mit strukturierter Prüfungsvorbereitung, realistischen Aufgabenformaten und klarer Einschätzung deiner Prüfungsreife."
-        canonical={`${SITE_URL}/zertifizierungen`}
+        title={seoTitle('Prüfungstraining für Weiterbildungen | Strukturierte Vorbereitung mit System')}
+        description="Bereite dich mit strukturiertem Prüfungstraining gezielt auf Prüfungen in der Weiterbildung vor – mit Simulationen, Aufgabenlogik und transparenter Vorbereitung."
+        canonical={`${SITE_URL}/pruefungstraining-weiterbildung`}
         structuredData={generateFAQSchema(FAQS)}
       />
       <div className="min-h-screen">
@@ -35,24 +36,19 @@ export default function ZertifizierungenLandingPage() {
         <section className="py-16 sm:py-24 px-3 sm:px-4 relative overflow-hidden">
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-accent/5 blur-[120px] pointer-events-none" />
           <div className="container mx-auto text-center max-w-4xl relative z-10">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-subtle mb-6 animate-fade-in">
-              <Award className="h-4 w-4 text-accent" />
-              <span className="text-sm text-muted-foreground">Zertifizierungsprüfung · Wiederholbar · Prüfungsnah</span>
-            </div>
-
             <h1 className="text-3xl sm:text-5xl md:text-6xl font-display font-bold mb-5 animate-fade-in leading-[1.1]">
-              Bestehe deine Zertifikatsprüfung mit{' '}
-              <span className="text-gradient text-glow">gezieltem Prüfungstraining.</span>
+              Prüfungstraining für deine Weiterbildung –{' '}
+              <span className="text-gradient text-glow">mit System statt Zufall.</span>
             </h1>
 
             <p className="text-base sm:text-xl text-muted-foreground mb-8 max-w-2xl mx-auto animate-fade-in" style={{ animationDelay: '0.1s' }}>
-              ExamFit unterstützt dich mit strukturiertem, prüfungsnahem Training für Zertifizierungen – fokussiert auf Leistung, Sicherheit und Wiederholbarkeit.
+              Trainiere prüfungsrelevante Inhalte strukturiert, erkenne Schwächen frühzeitig und bereite dich gezielt auf den Leistungsnachweis vor.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-3 justify-center animate-fade-in" style={{ animationDelay: '0.2s' }}>
               <Link to="/shop">
                 <Button size="lg" className="gradient-primary text-primary-foreground shadow-glow hover:shadow-glow-lg transition-all rounded-xl h-14 px-8 text-lg group">
-                  Zertifizierungs-Prüfungstraining starten
+                  Weiterbildungs-Prüfungstraining entdecken
                   <ArrowRight className="h-5 w-5 ml-2 group-hover:translate-x-1 transition-transform" />
                 </Button>
               </Link>
@@ -72,7 +68,7 @@ export default function ZertifizierungenLandingPage() {
               Warum klassische Vorbereitung <span className="text-gradient">oft nicht reicht</span>
             </h2>
             <p className="text-muted-foreground leading-relaxed">
-              Bei Zertifizierungen zählt am Ende nicht, wie viel du gelesen hast, sondern ob du die Prüfung bestehst. Darum setzt ExamFit auf Training statt bloßem Content-Konsum.
+              In vielen Weiterbildungen fehlt ein klarer Übergang zwischen Lernen und tatsächlicher Prüfungsleistung. ExamFit schließt genau diese Lücke – nicht nur Inhalte durcharbeiten, sondern trainieren, anwenden, prüfen, verbessern.
             </p>
           </div>
         </section>
@@ -85,10 +81,10 @@ export default function ZertifizierungenLandingPage() {
             </h2>
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
               {[
-                { icon: Target, title: 'Wiederholbares Training', text: 'Trainiere nicht abstrakt, sondern in Formaten, die dich auf echte Prüfungssituationen vorbereiten.' },
-                { icon: Layers, title: 'Fokus auf typische Prüfungsmuster', text: 'Übe strukturiert und entwickle ein belastbares Gefühl für deine tatsächliche Prüfungsleistung.' },
-                { icon: Search, title: 'Schnelles Erkennen von Wissenslücken', text: 'Erkenne, wo du noch unsicher bist und woran du gezielt arbeiten solltest.' },
-                { icon: FileCheck, title: 'Mehr Sicherheit vor der Prüfung', text: 'Objektive Einschätzung deiner Prüfungsreife – vor dem Test.' },
+                { icon: Target, title: 'Strukturiertes Training', text: 'Trainiere nicht abstrakt, sondern in Formaten, die dich auf echte Prüfungssituationen vorbereiten.' },
+                { icon: BarChart3, title: 'Realistische Simulation', text: 'Übe strukturiert und entwickle ein belastbares Gefühl für deine tatsächliche Prüfungsleistung.' },
+                { icon: Search, title: 'Schwächen früh erkennen', text: 'Erkenne, wo du noch unsicher bist und woran du gezielt arbeiten solltest.' },
+                { icon: TrendingUp, title: 'Sicherer in Leistungsnachweise', text: 'Weniger Aktionismus kurz vor der Prüfung, mehr Klarheit über Prioritäten und Fortschritt.' },
               ].map(({ icon: Icon, title, text }) => (
                 <div key={title} className="glass-card rounded-2xl p-6 text-center hover:border-primary/30 transition-colors">
                   <Icon className="h-10 w-10 text-primary mx-auto mb-4" />
@@ -121,11 +117,13 @@ export default function ZertifizierungenLandingPage() {
         {/* CTA */}
         <section className="py-12 sm:py-16 px-3 sm:px-4">
           <div className="container mx-auto max-w-2xl text-center space-y-6">
-            <h2 className="text-2xl sm:text-3xl font-display font-bold">Bereit für deine Zertifizierung?</h2>
-            <p className="text-muted-foreground">Starte jetzt die Vorbereitung auf deine Zertifikatsprüfung.</p>
+            <h2 className="text-2xl sm:text-3xl font-display font-bold">Bereit für dein Prüfungstraining?</h2>
+            <p className="text-muted-foreground">
+              Starte jetzt und bereite dich gezielt auf deine Weiterbildungsprüfung vor.
+            </p>
             <Link to="/shop">
               <Button size="lg" className="gradient-primary text-primary-foreground shadow-glow rounded-xl h-14 px-10 text-lg group">
-                Zertifizierungs-Prüfungstraining starten
+                Weiterbildungs-Prüfungstraining entdecken
                 <ArrowRight className="h-5 w-5 ml-2 group-hover:translate-x-1 transition-transform" />
               </Button>
             </Link>

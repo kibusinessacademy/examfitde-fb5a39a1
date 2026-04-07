@@ -25,7 +25,7 @@ import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import WorkGonePage from '@/components/work/WorkGonePage';
 
 // Lazy Loaded Pages
-const HomePage = lazyRetry(() => import('@/pages/HomePage'));
+import AuthHomeRoute from '@/components/auth/AuthHomeRoute';
 const CoursesPage = lazyRetry(() => import('@/pages/CoursesPage'));
 const CourseDetailPage = lazyRetry(() => import('@/pages/CourseDetailPage'));
 const LearnerDashboard = lazyRetry(() => import('@/pages/LearnerDashboard'));
@@ -40,6 +40,9 @@ const IHKPruefungenPage = lazyRetry(() => import('@/pages/seo/IHKPruefungenPage'
 const PruefungstrainingAzubisPage = lazyRetry(() => import('@/pages/seo/PruefungstrainingAzubisPage'));
 const PruefungstrainingBetriebePage = lazyRetry(() => import('@/pages/seo/PruefungstrainingBetriebePage'));
 const PruefungstrainingInstitutionenPage = lazyRetry(() => import('@/pages/seo/PruefungstrainingInstitutionenPage'));
+const PruefungstrainingAusbildungPage = lazyRetry(() => import('@/pages/seo/PruefungstrainingAusbildungPage'));
+const PruefungstrainingBerufsschulenPage = lazyRetry(() => import('@/pages/seo/PruefungstrainingBerufsschulenPage'));
+const PruefungstrainingWeiterbildungPage = lazyRetry(() => import('@/pages/seo/PruefungstrainingWeiterbildungPage'));
 const BerufePage = lazyRetry(() => import('@/pages/seo/BerufePage'));
 const BerufDetailPage = lazyRetry(() => import('@/pages/seo/BerufDetailPage'));
 const UnternehmenPage = lazyRetry(() => import('@/pages/seo/UnternehmenPage'));
@@ -179,6 +182,9 @@ const AppRoutes = () => {
           <Route path="/pruefungstraining-azubis" element={<PruefungstrainingAzubisPage />} />
           <Route path="/pruefungstraining-betriebe" element={<PruefungstrainingBetriebePage />} />
           <Route path="/pruefungstraining-institutionen" element={<PruefungstrainingInstitutionenPage />} />
+          <Route path="/pruefungstraining-ausbildung" element={<PruefungstrainingAusbildungPage />} />
+          <Route path="/pruefungstraining-berufsschulen" element={<PruefungstrainingBerufsschulenPage />} />
+          <Route path="/pruefungstraining-weiterbildung" element={<PruefungstrainingWeiterbildungPage />} />
           <Route path="/pruefungstraining-studium" element={<PruefungstrainingStudiumPage />} />
           <Route path="/ihk-pruefungen/:slug" element={<BerufDetailPage />} />
           <Route path="/berufe" element={<BerufePage />} />
@@ -210,7 +216,7 @@ const AppRoutes = () => {
         
         {/* Main Layout Routes */}
         <Route element={<MainLayout />}>
-          <Route path="/" element={<HomePage />} />
+          <Route path="/" element={<AuthHomeRoute />} />
           <Route path="/shop" element={<ShopPage />} />
           <Route path="/courses" element={<CoursesPage />} />
           <Route path="/course/:slug" element={<CourseDetailPage />} />
