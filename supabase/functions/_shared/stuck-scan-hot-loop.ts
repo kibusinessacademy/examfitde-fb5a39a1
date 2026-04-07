@@ -330,7 +330,6 @@ async function checkStepProgress(
 
 /** Reverse lookup: job_type → step_key */
 function jobTypeToStepKey(jobType: string): string | null {
-  // Import would create circular dep, so inline the reverse mapping
   const map: Record<string, string> = {
     package_scaffold_learning_course: "scaffold_learning_course",
     package_generate_glossary: "generate_glossary",
@@ -340,6 +339,9 @@ function jobTypeToStepKey(jobType: string): string | null {
     package_validate_learning_content: "validate_learning_content",
     package_auto_seed_exam_blueprints: "auto_seed_exam_blueprints",
     package_validate_blueprints: "validate_blueprints",
+    package_generate_blueprint_variants: "generate_blueprint_variants",
+    package_validate_blueprint_variants: "validate_blueprint_variants",
+    package_promote_blueprint_variants: "promote_blueprint_variants",
     package_generate_exam_pool: "generate_exam_pool",
     package_validate_exam_pool: "validate_exam_pool",
     package_repair_exam_pool_quality: "repair_exam_pool_quality",
