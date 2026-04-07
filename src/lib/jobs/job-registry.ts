@@ -18,6 +18,7 @@ export const KNOWN_JOB_TYPES = new Set([
   'quality_gate_precheck',
   'publish_product',
   'package_repair_exam_pool_quality',
+  'package_repair_minichecks',
   'repair_learning_content',
   'regenerate_learning_content_cluster',
   'package_generate_blueprint_variants',
