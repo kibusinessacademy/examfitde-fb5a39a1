@@ -1,24 +1,18 @@
 import { ReactNode, useState, useEffect } from 'react';
-import { NavLink, useLocation, Link } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { 
   LayoutDashboard, Package, ListChecks, Menu, X, 
-  LogOut, Sparkles, Megaphone, Shield, GraduationCap, TrendingUp, Eye, ShieldCheck, Scale
+  LogOut, Sparkles
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Badge } from '@/components/ui/badge';
 
+/** SSOT: Exactly 3 operative areas — no exceptions */
 const NAV_ITEMS = [
-  { to: '/admin/command', label: 'Leitstelle', icon: LayoutDashboard, group: 'ops' },
-  { to: '/admin/studio', label: 'Kurse', icon: Package, group: 'ops' },
-  { to: '/admin/queue', label: 'Queue', icon: ListChecks, group: 'ops' },
-  { to: '/admin/content-quality', label: 'Content QA', icon: ShieldCheck, group: 'qa' },
-  { to: '/admin/learner-preview', label: 'QA Preview', icon: GraduationCap, group: 'qa' },
-  { to: '/admin/testbereich', label: 'Testbereich', icon: Eye, group: 'qa' },
-  { to: '/admin/growth', label: 'Growth', icon: TrendingUp, group: 'gtm' },
-  { to: '/admin/marketing', label: 'Marketing', icon: Megaphone, group: 'gtm' },
-  { to: '/admin/compliance', label: 'Compliance', icon: Shield, group: 'qa' },
-  { to: '/admin/regulatory', label: 'Regulatory', icon: Scale, group: 'qa' },
+  { to: '/admin/command', label: 'Leitstelle', icon: LayoutDashboard },
+  { to: '/admin/studio', label: 'Kurse', icon: Package },
+  { to: '/admin/queue', label: 'Queue', icon: ListChecks },
 ] as const;
 
 interface Props {
@@ -144,8 +138,8 @@ export default function AdminV2Shell({ children }: Props) {
 
       {/* ── Mobile Bottom Tab Bar (top 5 items only) ── */}
       <div className="fixed bottom-0 inset-x-0 z-40 border-t border-border bg-card/95 backdrop-blur px-2 py-1.5 lg:hidden safe-bottom">
-        <div className="grid grid-cols-5 gap-1">
-          {NAV_ITEMS.filter(item => ['ops', 'qa'].includes(item.group)).slice(0, 5).map((item) => (
+        <div className="grid grid-cols-3 gap-1">
+          {NAV_ITEMS.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
