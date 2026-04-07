@@ -115,6 +115,7 @@ Deno.serve(async (req) => {
       { path: "/bundle", priority: 0.9, changefreq: "weekly" },
       { path: "/shop", priority: 0.8, changefreq: "weekly" },
       { path: "/wissen", priority: 0.8, changefreq: "daily" },
+      { path: "/blog", priority: 0.8, changefreq: "daily" },
       { path: "/preise", priority: 0.7, changefreq: "monthly" },
       { path: "/unternehmen", priority: 0.6, changefreq: "monthly" },
       // ExamFit@work routes
