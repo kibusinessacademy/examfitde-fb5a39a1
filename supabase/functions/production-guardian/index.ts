@@ -1045,16 +1045,25 @@ Deno.serve(async (req) => {
       const { data: orphanResult, error: orphanErr } = await sb.rpc("fn_reconcile_orphan_steps");
       if (orphanErr) {
         console.error("[Guardian] G7 orphan-step reconciler error:", orphanErr.message);
-      } else if (orphanResult?.reconciled > 0) {
-        console.log(`[Guardian] G7: reconciled ${orphanResult.reconciled} orphan steps across ${orphanResult.details?.length ?? 0} packages`);
-        actions.push(`G7: reconciled ${orphanResult.reconciled} orphan steps`);
-        await sb.from("auto_heal_log").insert({
-          action_type: "orphan_step_reconciliation",
-          trigger_source: "production-guardian",
-          result_status: "healed",
-          result_detail: `Reconciled ${orphanResult.reconciled} orphan steps`,
-          metadata: orphanResult,
-        });
+      } else {
+        const r = orphanResult as any;
+        const telemetry = `checked=${r.checked} reconciled=${r.reconciled} inflight=${r.blocked_inflight} cooldown=${r.blocked_cooldown} fanout=${r.blocked_fanout} young=${r.blocked_too_young} unknown=${r.blocked_unknown_step}`;
+        console.log(`[Guardian] G7: ${telemetry}`);
+        if (r.step_key_distribution && Object.keys(r.step_key_distribution).length > 0) {
+          console.log(`[Guardian] G7 step_keys: ${JSON.stringify(r.step_key_distribution)}`);
+        }
+        if (r.reconciled > 0) {
+          actions.push(`G7: reconciled ${r.reconciled}/${r.checked} orphan steps`);
+          await sb.from("auto_heal_log").insert({
+            action_type: "orphan_step_reconciliation",
+            trigger_source: "production-guardian",
+            result_status: "healed",
+            result_detail: `Reconciled ${r.reconciled}/${r.checked} orphan steps (blocked: inflight=${r.blocked_inflight} cooldown=${r.blocked_cooldown} fanout=${r.blocked_fanout} young=${r.blocked_too_young})`,
+            metadata: orphanResult,
+          });
+        } else if (r.checked > 0) {
+          console.log(`[Guardian] G7: ${r.checked} queued steps checked, all legitimately blocked`);
+        }
       }
     } catch (e) {
       console.error("[Guardian] G7 orphan-step reconciler error:", (e as Error).message);
