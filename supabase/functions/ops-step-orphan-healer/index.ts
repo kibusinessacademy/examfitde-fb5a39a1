@@ -253,23 +253,27 @@ Deno.serve(async (req) => {
 
     // ── 3. Audit log ──
     if (actions.length > 0) {
-      await sb.from("admin_actions").insert({
-        action: "ops_step_orphan_heal",
-        scope: "system",
-        payload: {
-          healed_count: actions.length,
-          actions: actions.map((a) => ({
-            pkg: a.package_id.slice(0, 8),
-            title: a.title,
-            pattern: a.pattern,
-            step: a.step_key,
-            action: a.action,
-            job_type: a.job_type,
-          })),
-          errors: errors.length > 0 ? errors : undefined,
-        },
-        affected_ids: [...new Set(actions.map((a) => a.package_id))],
-      }).catch((e: Error) => console.error("[orphan-healer] Audit log failed:", e.message));
+      try {
+        await sb.from("admin_actions").insert({
+          action: "ops_step_orphan_heal",
+          scope: "system",
+          payload: {
+            healed_count: actions.length,
+            actions: actions.map((a) => ({
+              pkg: a.package_id.slice(0, 8),
+              title: a.title,
+              pattern: a.pattern,
+              step: a.step_key,
+              action: a.action,
+              job_type: a.job_type,
+            })),
+            errors: errors.length > 0 ? errors : undefined,
+          },
+          affected_ids: [...new Set(actions.map((a) => a.package_id))],
+        });
+      } catch (e) {
+        console.error("[orphan-healer] Audit log failed:", (e as Error).message);
+      }
     }
 
     console.log(
