@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { SEOHead } from "@/components/seo/SEOHead";
+import { GrowthBrandHeader } from "@/components/seo/GrowthBrandHeader";
+import { GrowthBrandFooter } from "@/components/seo/GrowthBrandFooter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -96,7 +98,7 @@ export default function BestehensRechnerPage() {
     <>
       <SEOHead
         title="Bestehe ich die IHK-Prüfung? – Kostenloser Bestehens-Rechner | ExamFit"
-        description="Berechne deine Bestehens-Wahrscheinlichkeit für die IHK-Prüfung. Basierend auf deinem Lernstand, Übungszeit und Prüfungsvorbereitung."
+        description="Berechne deinen Bestehens-Index für die IHK-Prüfung. Basierend auf deinem Lernstand, Übungszeit und Prüfungsvorbereitung."
         canonical={`${SITE_URL}/bestehens-rechner`}
         structuredData={[{
           "@context": "https://schema.org",
@@ -111,8 +113,8 @@ export default function BestehensRechnerPage() {
       />
 
       <div className="min-h-screen bg-gradient-to-b from-background to-muted/30">
-        <div className="max-w-2xl mx-auto px-4 py-12">
-          {/* Header */}
+        <div className="max-w-2xl mx-auto px-4 py-8">
+          <GrowthBrandHeader subtitle="Bestehens-Rechner" />
           <div className="text-center mb-8">
             <Badge variant="outline" className="mb-3">
               <Calculator className="h-3 w-3 mr-1" />
@@ -122,7 +124,7 @@ export default function BestehensRechnerPage() {
               Bestehe ich die IHK-Prüfung?
             </h1>
             <p className="text-muted-foreground">
-              Berechne in 30 Sekunden deine Bestehens-Wahrscheinlichkeit
+              Berechne in 30 Sekunden deinen Bestehens-Index
             </p>
           </div>
 
@@ -226,7 +228,7 @@ export default function BestehensRechnerPage() {
                     <Loader2 className="h-5 w-5 animate-spin" />
                   ) : (
                     <>
-                      Bestehens-Wahrscheinlichkeit berechnen
+                      Bestehens-Index berechnen
                       <ArrowRight className="h-5 w-5 ml-2" />
                     </>
                   )}
@@ -238,7 +240,7 @@ export default function BestehensRechnerPage() {
               {/* Big Score */}
               <Card className="overflow-hidden">
                 <CardContent className="p-8 text-center">
-                  <p className="text-sm text-muted-foreground mb-2">Deine Bestehens-Wahrscheinlichkeit</p>
+                  <p className="text-sm text-muted-foreground mb-2">Dein Bestehens-Index</p>
                   <p className={`text-6xl font-display font-bold ${probabilityColor(result.pass_probability)}`}>
                     {result.pass_probability}%
                   </p>
@@ -283,7 +285,7 @@ export default function BestehensRechnerPage() {
                     Deine Chancen verbessern?
                   </h3>
                   <p className="text-sm text-muted-foreground mb-4">
-                    ExamFit trainiert gezielt deine Schwächen und steigert deine Bestehens-Wahrscheinlichkeit.
+                    ExamFit trainiert gezielt deine Schwächen und steigert deinen Bestehens-Index.
                   </p>
                   <div className="flex flex-col sm:flex-row gap-2 justify-center">
                     <Link to="/pruefungsreife-check">
@@ -305,9 +307,10 @@ export default function BestehensRechnerPage() {
             </div>
           ) : null}
 
-          <p className="text-center text-xs text-muted-foreground mt-8">
-            © ExamFit – Intelligentes Prüfungstraining · Die Berechnung basiert auf statistischen Modellen und ersetzt keine individuelle Beratung.
-          </p>
+          <GrowthBrandFooter
+            utmSource="bestehens-rechner"
+            variant="compact"
+          />
         </div>
       </div>
     </>

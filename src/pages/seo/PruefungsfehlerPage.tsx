@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { SEOHead } from "@/components/seo/SEOHead";
+import { GrowthBrandHeader } from "@/components/seo/GrowthBrandHeader";
+import { GrowthBrandFooter } from "@/components/seo/GrowthBrandFooter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -101,8 +103,8 @@ export default function PruefungsfehlerPage() {
       />
 
       <div className="min-h-screen bg-gradient-to-b from-background to-muted/30">
-        <div className="max-w-3xl mx-auto px-4 py-12">
-          {/* Header */}
+        <div className="max-w-3xl mx-auto px-4 py-8">
+          <GrowthBrandHeader subtitle="Prüfungsfehler" />
           <div className="mb-8">
             <div className="flex items-center gap-2 mb-4 flex-wrap">
               <Badge variant="outline" className="text-amber-600 bg-amber-500/10">
@@ -202,9 +204,11 @@ export default function PruefungsfehlerPage() {
             </CardContent>
           </Card>
 
-          <p className="text-center text-xs text-muted-foreground mt-8">
-            © ExamFit – Intelligentes Prüfungstraining
-          </p>
+          <GrowthBrandFooter
+            contentId={page.id}
+            utmSource="pruefungsfehler"
+            variant="full"
+          />
         </div>
       </div>
     </>
