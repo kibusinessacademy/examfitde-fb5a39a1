@@ -23,9 +23,12 @@ const guards = [
   "payload-schema-contract-report.mjs --check",
 ];
 
-function run(file) {
+function run(entry) {
+  const parts = entry.split(" ");
+  const file = parts[0];
+  const args = parts.slice(1);
   const p = path.join(__dirname, file);
-  execFileSync("node", [p], { stdio: "inherit" });
+  execFileSync("node", [p, ...args], { stdio: "inherit" });
 }
 
 try {
