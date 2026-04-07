@@ -193,6 +193,11 @@ const AppRoutes = () => {
           <Route path="/pruefungstraining-fortbildung" element={<FortbildungLandingPage />} />
           <Route path="/pruefungstraining-zertifizierungen" element={<ZertifizierungenLandingPage />} />
           <Route path="/witz/:humorId" element={<WitzPage />} />
+          <Route path="/frage-des-tages" element={<FrageDesTagsPage />} />
+          <Route path="/frage-des-tages/:slug" element={<FrageDesTagsPage />} />
+          <Route path="/pruefungsfehler/:slug" element={<PruefungsfehlerPage />} />
+          <Route path="/bestehens-rechner" element={<BestehensRechnerPage />} />
+          <Route path="/bestehe-ich-die-ihk-pruefung" element={<BestehensRechnerPage />} />
           <Route path="/ihk-pruefungen/:slug" element={<BerufDetailPage />} />
           <Route path="/berufe" element={<BerufePage />} />
           <Route path="/berufe/:slug" element={<BerufDetailPage />} />
