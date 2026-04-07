@@ -1162,20 +1162,43 @@ Deno.serve(async (req) => {
       }
     }
     // ── Pre-execution lease guard ──────────────────────────────────
+    // If a package has an active lease, honour it. If NO lease row exists
+    // at all but the package is in 'building' status, proceed — the lease
+    // subsystem may not have been initialised for this package yet.
     const execPackageId = job.package_id ?? job.payload?.package_id;
     if (execPackageId) {
       const { data: leaseRow } = await sb
         .from("package_leases")
         .select("lease_until")
         .eq("package_id", execPackageId)
-        .gt("lease_until", new Date().toISOString())
         .maybeSingle();
 
-      if (!leaseRow) {
-        console.warn(`[job-runner] Lease expired before execution for job ${job.id} (pkg ${String(execPackageId).slice(0, 8)})`);
-        await requeueWithBackoff(sb, job.id, job.meta, 60_000, "Lease expired pre-execution", tsNow);
-        results.push({ id: job.id, status: "requeued", reason: "lease_expired" });
-        continue;
+      const leaseActive = leaseRow && new Date(leaseRow.lease_until) > new Date();
+      const leaseExists = !!leaseRow;
+
+      if (!leaseActive) {
+        // Check if the package is still in 'building' — if so, allow execution
+        // even without a lease (lease subsystem may not be initialised).
+        const { data: cpRow } = await sb
+          .from("course_packages")
+          .select("status")
+          .eq("id", execPackageId)
+          .maybeSingle();
+
+        const pkgIsBuilding = cpRow?.status === "building";
+
+        if (leaseExists && !pkgIsBuilding) {
+          // Lease existed but expired AND package is not building → block
+          console.warn(`[job-runner] Lease expired before execution for job ${job.id} (pkg ${String(execPackageId).slice(0, 8)})`);
+          await requeueWithBackoff(sb, job.id, job.meta, 60_000, "Lease expired pre-execution", tsNow);
+          results.push({ id: job.id, status: "requeued", reason: "lease_expired" });
+          continue;
+        }
+        // No lease row at all + building → proceed (lease not initialised)
+        // Expired lease + building → proceed (lease renewal may be pending)
+        if (!leaseExists && pkgIsBuilding) {
+          console.log(`[job-runner] No lease for building pkg ${String(execPackageId).slice(0, 8)}, proceeding without lease`);
+        }
       }
     }
 
