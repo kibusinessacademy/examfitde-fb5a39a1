@@ -45,13 +45,20 @@ async function main() {
     }
   }
 
-  // ── 3. Check for new job types not in contract ──
+  // ── 3. Check for new job types not in contract (HARD FAIL) ──
   for (const jobType of Object.keys(jobDefs)) {
     if (!(jobType in contract)) {
-      // Only warn for non-contract types — they still must have valid pools
-      if (!VALID_POOLS.has(jobDefs[jobType].pool)) {
-        errors.push(`INVALID_POOL: "${jobType}" in JOB_DEFINITIONS has pool="${jobDefs[jobType].pool}" — only ${[...VALID_POOLS].join("/")} allowed`);
-      }
+      errors.push(`UNREGISTERED: "${jobType}" exists in JOB_DEFINITIONS but NOT in contract — run: deno run -A scripts/update-pool-contract.ts`);
+    }
+    if (!VALID_POOLS.has(jobDefs[jobType].pool)) {
+      errors.push(`INVALID_POOL: "${jobType}" in JOB_DEFINITIONS has pool="${jobDefs[jobType].pool}" — only ${[...VALID_POOLS].join("/")} allowed`);
+    }
+  }
+
+  // ── 3b. Check for contract entries not in JOB_DEFINITIONS ──
+  for (const jobType of Object.keys(contract)) {
+    if (!(jobType in jobDefs)) {
+      errors.push(`ORPHAN_CONTRACT: "${jobType}" exists in contract but NOT in JOB_DEFINITIONS — remove from contract or add to job-map.ts`);
     }
   }
 

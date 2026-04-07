@@ -32,5 +32,7 @@
   "package_validate_blueprint_variants": "prebuild",
   "package_promote_blueprint_variants": "prebuild",
   "ensure_variant_inventory": "prebuild",
-  "validate_variant_inventory": "prebuild"
+  "validate_variant_inventory": "prebuild",
+  "pipeline_tick": "default",
+  "stuck_scan": "default"
 }
