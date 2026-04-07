@@ -1036,6 +1036,31 @@ Deno.serve(async (req) => {
     }
 
     // ═══════════════════════════════════════════════════════════════
+    // G7. ORPHAN STEP RECONCILER — queued steps without active jobs
+    // Independent of zombie classification. Catches steps that the
+    // zombie view misses (e.g. UNKNOWN or HEALTHY_ACTIVE packages
+    // that still have orphan queued steps without materialized jobs).
+    // ═══════════════════════════════════════════════════════════════
+    try {
+      const { data: orphanResult, error: orphanErr } = await sb.rpc("fn_reconcile_orphan_steps");
+      if (orphanErr) {
+        console.error("[Guardian] G7 orphan-step reconciler error:", orphanErr.message);
+      } else if (orphanResult?.reconciled > 0) {
+        console.log(`[Guardian] G7: reconciled ${orphanResult.reconciled} orphan steps across ${orphanResult.details?.length ?? 0} packages`);
+        actions.push(`G7: reconciled ${orphanResult.reconciled} orphan steps`);
+        await sb.from("auto_heal_log").insert({
+          action_type: "orphan_step_reconciliation",
+          trigger_source: "production-guardian",
+          result_status: "healed",
+          result_detail: `Reconciled ${orphanResult.reconciled} orphan steps`,
+          metadata: orphanResult,
+        });
+      }
+    } catch (e) {
+      console.error("[Guardian] G7 orphan-step reconciler error:", (e as Error).message);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
     // 11. QUEUE STATS SNAPSHOT
     // ═══════════════════════════════════════════════════════════════
     const counts: Record<string, number> = {};
