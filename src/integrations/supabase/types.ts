@@ -66119,6 +66119,10 @@ export type Database = {
             }
             Returns: boolean
           }
+      fn_normalize_curriculum_slug: {
+        Args: { p_title: string }
+        Returns: string
+      }
       fn_package_has_valid_standalone_bundle: {
         Args: { p_package_id: string }
         Returns: boolean
