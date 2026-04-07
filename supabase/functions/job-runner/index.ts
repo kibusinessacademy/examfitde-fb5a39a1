@@ -121,6 +121,67 @@ async function requeueWithBackoff(
   }).eq("id", jobId);
 }
 
+async function boostPendingPrereqJob(
+  sb: ReturnType<typeof createClient>,
+  opts: {
+    packageId: string;
+    prereqJobType: string;
+    prereqStep: string;
+    blockerJobType: string;
+    tsNow: string;
+  },
+) {
+  const { data } = await sb
+    .from("job_queue")
+    .select("id,status,priority,run_after,meta")
+    .eq("job_type", opts.prereqJobType)
+    .eq("package_id", opts.packageId)
+    .in("status", ["pending", "queued", "processing"])
+    .order("created_at", { ascending: true })
+    .limit(5);
+
+  const prereqJobs = (data ?? []) as Array<{
+    id: string;
+    status: string;
+    priority: number | null;
+    run_after: string | null;
+    meta?: Record<string, unknown> | null;
+  }>;
+
+  const processingCount = prereqJobs.filter((row) => row.status === "processing").length;
+  const waitingRows = prereqJobs.filter((row) => row.status === "pending" || row.status === "queued");
+
+  if (processingCount > 0 || waitingRows.length === 0) {
+    return { activeCount: prereqJobs.length, boosted: false };
+  }
+
+  const boostTarget = waitingRows[0];
+  await sb.from("job_queue").update({
+    status: "pending",
+    priority: 0,
+    run_after: null,
+    completed_at: null,
+    error: null,
+    last_error: null,
+    locked_at: null,
+    locked_by: null,
+    updated_at: opts.tsNow,
+    meta: {
+      ...(boostTarget.meta || {}),
+      prereq_priority_boosted_at: opts.tsNow,
+      prereq_priority_boosted_by: opts.blockerJobType,
+      prereq_priority_boosted_for: opts.prereqStep,
+    },
+  }).eq("id", boostTarget.id).neq("status", "processing");
+
+  console.warn(
+    `[job-runner] PREREQ_PRIORITY_BOOST: ${opts.prereqJobType} (${String(boostTarget.id).slice(0, 8)}) → priority 0 ` +
+    `because ${opts.blockerJobType} is blocked by ${opts.prereqStep} (pkg ${opts.packageId.slice(0, 8)})`,
+  );
+
+  return { activeCount: prereqJobs.length, boosted: true };
+}
+
 // ── Adaptive Concurrency Controller ─────────────────────────────────
 
 interface TickMetrics {
@@ -1012,15 +1073,18 @@ Deno.serve(async (req) => {
           const prereqJobType = STEP_TO_JOB_TYPE[prereqStep as keyof typeof STEP_TO_JOB_TYPE] ?? null;
           const staleLikeStatus = prereqStatus === "queued" || prereqStatus === "enqueued";
           let activePrereqJobCount = 0;
+          let boostedPrereqJob = false;
 
           if (prereqJobType) {
-            const { count } = await sb
-              .from("job_queue")
-              .select("id", { count: "exact", head: true })
-              .eq("job_type", prereqJobType)
-              .eq("package_id", job.payload.package_id)
-              .in("status", ["pending", "queued", "processing"]);
-            activePrereqJobCount = count ?? 0;
+            const boostResult = await boostPendingPrereqJob(sb, {
+              packageId: job.payload.package_id as string,
+              prereqJobType,
+              prereqStep,
+              blockerJobType: job.job_type,
+              tsNow,
+            });
+            activePrereqJobCount = boostResult.activeCount;
+            boostedPrereqJob = boostResult.boosted;
           }
 
           if (staleLikeStatus && activePrereqJobCount === 0 && currentStepKey) {
@@ -1039,17 +1103,19 @@ Deno.serve(async (req) => {
             }
           } else {
           // Adaptive backoff: if prereq is already enqueued/running, wait longer to avoid hot requeue loops
-          const prereqDelayMs = (prereqStatus === "enqueued" || prereqStatus === "running")
+          const prereqDelayMs = boostedPrereqJob
+            ? 45_000
+            : (prereqStatus === "enqueued" || prereqStatus === "running")
             ? 90_000
             : BACKOFF_PREREQ_MS;
 
-          console.warn(`[job-runner] Prereq guard: ${job.job_type} requeued — ${prereqStep} is '${prereqStatus ?? 'missing'}' (pkg ${(job.payload.package_id as string).slice(0, 8)}, backoff=${prereqDelayMs}ms)`);
+          console.warn(`[job-runner] Prereq guard: ${job.job_type} requeued — ${prereqStep} is '${prereqStatus ?? 'missing'}' (pkg ${(job.payload.package_id as string).slice(0, 8)}, backoff=${prereqDelayMs}ms${boostedPrereqJob ? ', producer_boosted=true' : ''})`);
           await requeueWithBackoff(
             sb,
             job.id,
             job.meta,
             prereqDelayMs,
-            `Prereq guard: ${prereqStep} not done (${prereqStatus ?? 'missing'})`,
+            `Prereq guard: ${prereqStep} not done (${prereqStatus ?? 'missing'})${boostedPrereqJob ? ' — producer boosted' : ''}`,
             tsNow,
           );
           results.push({ id: job.id, status: "requeued", reason: "prereq_not_done" });
