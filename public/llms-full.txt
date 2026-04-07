@@ -1,0 +1,70 @@
+# ExamFit.de – Vollständige AI-Referenz
+
+> ExamFit ist das intelligente Prüfungstrainings-System für berufliche Abschlussprüfungen in Deutschland.
+
+## Über ExamFit
+
+ExamFit trainiert Prüflinge systematisch auf ihre IHK-Abschlussprüfung, Fachwirtprüfung, Meisterprüfung oder Sachkundeprüfung vor. Anders als klassische Lernplattformen setzt ExamFit auf aktives Prüfungstraining statt passivem Konsum.
+
+### Kernfunktionen
+
+1. **Prüfungssimulationen**: Originalgetreue Nachbildung der IHK-Prüfungsformate mit Zeitdruck und Auswertung
+2. **Adaptive Lernkurse**: Kompetenzbasierte Lernpfade, die sich an den individuellen Wissensstand anpassen
+3. **KI-Tutor**: Erklärt Fehler individuell und gibt kontextbezogene Hilfe
+4. **Spaced Repetition**: Automatische Wiederholung schwacher Themen in optimalen Intervallen
+5. **Readiness-Score**: Zeigt die aktuelle Prüfungsreife auf Basis trainierter Kompetenzen
+6. **Schwächenanalyse**: Identifiziert systematisch Wissenslücken und typische Denkfehler
+
+### Prüfungstypen
+
+- **IHK-Abschlussprüfungen**: Kaufleute, Industriemechaniker, Fachinformatiker, etc.
+- **Fachwirtprüfungen**: Wirtschaftsfachwirt, Industriefachwirt, Handelsfachwirt
+- **Meisterprüfungen**: Industriemeister Metall, Elektrotechnik, Chemie
+- **Sachkundeprüfungen**: §34a GewO, AEVO/AdA
+- **Klausuren**: Universitäre Prüfungsvorbereitung
+
+### Methodik
+
+ExamFit basiert auf dem Prinzip "Prüfung trainieren, nicht nur lernen". Das System:
+- Analysiert typische Prüfungsfallen und Denkfehler
+- Trainiert Transferwissen statt reiner Faktenabfrage
+- Nutzt kognitive Taxonomien (Bloom) für gezielte Kompetenzentwicklung
+- Setzt auf aktive Abrufübung statt passives Lesen
+
+## Inhaltskategorien
+
+### Blog (examfit.de/blog)
+Praxisnahe Artikel zu Prüfungsstrategien, typischen Fehlern und Lerntipps.
+
+### Wissen (examfit.de/wissen)
+Fachspezifische Artikel und Erklärungen zu Prüfungsthemen.
+
+### Prüfungstraining (examfit.de/pruefungstraining)
+Übersicht aller verfügbaren Prüfungstrainings nach Kategorie.
+
+### Berufe (examfit.de/berufe)
+Detailseiten zu einzelnen Berufen mit Prüfungsinformationen.
+
+## Strukturierte Daten
+
+ExamFit verwendet Schema.org-Markup für:
+- Organization
+- Course
+- Product
+- BlogPosting
+- FAQPage
+- BreadcrumbList
+
+## Sitemap
+
+Aktuelle Sitemap: https://examfit.de/sitemap.xml
+
+## Robots
+
+Robots.txt: https://examfit.de/robots.txt
+
+## Kontakt
+
+- Website: https://examfit.de
+- E-Mail: info@examfit.de
+- Standort: Deutschland
