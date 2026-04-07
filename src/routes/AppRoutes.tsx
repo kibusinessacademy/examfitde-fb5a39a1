@@ -84,19 +84,7 @@ const AdminV2Layout = lazyRetry(() => import('@/components/admin/v2/AdminV2Layou
 const LeitstellePage = lazyRetry(() => import('@/pages/admin/v2/LeitstellePage'));
 const KursePage = lazyRetry(() => import('@/pages/admin/v2/KursePage'));
 const QueuePage = lazyRetry(() => import('@/pages/admin/v2/QueuePage'));
-const MarketingPage = lazyRetry(() => import('@/pages/admin/v2/MarketingPage'));
-const CompliancePage = lazyRetry(() => import('@/pages/admin/v2/CompliancePage'));
-const StandaloneLicensesPage = lazyRetry(() => import('@/pages/admin/v2/StandaloneLicensesPage'));
-const ContentQualityPage = lazyRetry(() => import('@/pages/admin/v2/ContentQualityPage'));
-const AdminDeactivatedPage = lazyRetry(() => import('@/components/admin/v2/AdminDeactivatedPage'));
-const AdminLearnerPreviewPage = lazyRetry(() => import('@/pages/admin/AdminLearnerPreviewPage'));
-const AdminTestAreaPage = lazyRetry(() => import('@/pages/admin/AdminTestAreaPage'));
-const AdminGrowthCockpitPage = lazyRetry(() => import('@/pages/admin/AdminGrowthCockpitPage'));
-const GrowthDashboardPage = lazyRetry(() => import('@/pages/admin/GrowthDashboardPage'));
 const CourseWorkspace = lazyRetry(() => import('@/pages/admin/CourseWorkspace'));
-const TrackOpsPage = lazyRetry(() => import('@/pages/admin/TrackOpsPage'));
-const ResilienceDashboardPage = lazyRetry(() => import('@/pages/admin/ResilienceDashboardPage'));
-const RegulatoryPage = lazyRetry(() => import('@/pages/admin/v2/RegulatoryPage'));
 
 // ExamFit@work public pages
 const WorkHomePage = lazyRetry(() => import('@/pages/work/WorkHomePage'));
@@ -254,18 +242,7 @@ const AppRoutes = () => {
           <Route path="studio" element={<KursePage />} />
           <Route path="studio/:packageId" element={<CourseWorkspace />} />
           <Route path="queue" element={<QueuePage />} />
-          <Route path="marketing" element={<MarketingPage />} />
-          <Route path="compliance" element={<CompliancePage />} />
-          <Route path="licenses" element={<StandaloneLicensesPage />} />
-          <Route path="learner-preview" element={<AdminLearnerPreviewPage />} />
-          <Route path="growth" element={<AdminGrowthCockpitPage />} />
-          <Route path="growth-engine" element={<GrowthDashboardPage />} />
-          <Route path="testbereich" element={<AdminTestAreaPage />} />
-          <Route path="track-ops" element={<TrackOpsPage />} />
-          <Route path="resilience" element={<ResilienceDashboardPage />} />
-          <Route path="content-quality" element={<ContentQualityPage />} />
-          <Route path="regulatory" element={<RegulatoryPage />} />
-          <Route path="*" element={<AdminDeactivatedPage />} />
+          <Route path="*" element={<Navigate to="/admin/command" replace />} />
         </Route>
 
         {/* Legacy admin redirects → canonical V2 paths */}
@@ -292,7 +269,7 @@ const AppRoutes = () => {
         <Route path="/admin/quality/*" element={<Navigate to="/admin/command" replace />} />
         <Route path="/admin/packages/risk" element={<Navigate to="/admin/studio" replace />} />
         <Route path="/admin/packages/risk/*" element={<Navigate to="/admin/studio" replace />} />
-        <Route path="/admin-v2/*" element={<Navigate to="/admin/studio" replace />} />
+        <Route path="/admin-v2/*" element={<Navigate to="/admin/command" replace />} />
         <Route path="/admin/berufski" element={<Navigate to="/admin/studio" replace />} />
         <Route path="/admin/berufski/*" element={<Navigate to="/admin/studio" replace />} />
         {/* 404 */}
