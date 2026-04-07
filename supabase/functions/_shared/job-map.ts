@@ -248,7 +248,13 @@ export const ALL_SUBJOB_TYPES = new Set(FAN_OUT_CONFIG.flatMap(c => c.subjobType
 // Unified Job Definitions (SSOT for pool + edge function dispatch)
 // ═══════════════════════════════════════════════════════════════
 
-export type WorkerPool = "core" | "content" | "prebuild";
+/**
+ * Worker pools — aligned with job_type_policies (DB-SSOT).
+ * "default" = standard runner pool (orchestration + generation)
+ * "prebuild" = variant materialization pool
+ * Legacy aliases "core"/"content" are NO LONGER USED.
+ */
+export type WorkerPool = "default" | "prebuild";
 
 export interface JobDefinition {
   pool: WorkerPool;
