@@ -48,6 +48,21 @@ export async function processPackage(
   // ── Executability guard (self-heal status drift) ──
   // HARDENED: Allow council_review for council-related processing
   const PROCESS_ALLOWED_STATUSES = new Set(["building", "council_review"]);
+  if (!pkg.published_at && pkg.status === "queued") {
+    const { error: queuedHealErr } = await safeRpc(sb, "safe_transition_package_status", {
+      p_package_id: packageId,
+      p_new_status: "building",
+      p_extra: { stuck_reason: null, blocked_reason: null },
+    });
+
+    if (queuedHealErr) {
+      console.warn(`[runner] QUEUED→BUILDING heal failed for ${shortId}: ${(queuedHealErr as Error).message}`);
+    } else {
+      console.warn(`[runner] 🩹 QUEUED→BUILDING heal for ${shortId} before orchestration/finalization`);
+      pkg.status = "building";
+    }
+  }
+
   if (pkg.published_at || !PROCESS_ALLOWED_STATUSES.has(pkg.status)) {
     const normalizedStatus = pkg.published_at ? "published" : pkg.status;
 
