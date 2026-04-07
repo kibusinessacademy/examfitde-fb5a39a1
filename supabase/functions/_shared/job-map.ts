@@ -289,6 +289,7 @@ export const JOB_DEFINITIONS: Record<string, JobDefinition> = {
   pipeline_tick:                     { pool: "default" },
   stuck_scan:                        { pool: "default" },
   package_scaffold_learning_course:  { pool: "default", edgeFunction: "package-scaffold-learning-course" },
+  package_auto_seed_exam_blueprints: { pool: "default", edgeFunction: "package-auto-seed-exam-blueprints" },
   package_validate_blueprints:       { pool: "default", edgeFunction: "package-validate-blueprints" },
   package_validate_exam_pool:        { pool: "default", edgeFunction: "package-validate-exam-pool" },
   package_repair_exam_pool_quality:  { pool: "default", edgeFunction: "package-repair-exam-pool-quality" },
