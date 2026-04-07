@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, lazy, Suspense } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAdminQueueSSOT, useAdminQueueCounts, AdminQueueJob } from '@/hooks/useAdminQueueSSOT';
 import { runAdminOpsAction } from '@/integrations/supabase/admin-ops-actions';
