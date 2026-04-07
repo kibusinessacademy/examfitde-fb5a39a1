@@ -1,13 +1,17 @@
+import React from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { useGrowthSeoTower, type DiagnosedIssue, type HealthBarItem } from '@/components/admin/hooks/useGrowthSeoTower';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
   Search, FileText, Globe, TrendingUp, AlertTriangle, CheckCircle,
   XCircle, ArrowRight, Link2, Package, Zap, UserX, Bell,
-  BarChart3, Shield, Eye, BookOpen,
+  BarChart3, Shield, Eye, BookOpen, Loader2,
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
