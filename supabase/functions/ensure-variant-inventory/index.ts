@@ -141,7 +141,7 @@ Deno.serve(async (req) => {
         worker_pool: "prebuild",
         payload: {
           package_id: packageId,
-          blueprintId: gap.blueprint_id,
+          blueprint_id: gap.blueprint_id,
           count: Math.min(remaining, 20),
         },
         max_attempts: 3,

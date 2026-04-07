@@ -19,6 +19,7 @@ const guards = [
   "dag-parity-guard.mjs",
   "edge-deploy-drift-guard.mjs",
   "handler-registry-parity-guard.mjs",
+  "payload-key-contract-guard.mjs",
 ];
 
 function run(file) {

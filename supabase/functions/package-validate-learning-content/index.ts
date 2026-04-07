@@ -645,7 +645,7 @@ Deno.serve(async (req) => {
         severity: classification.gateClass === "hard_fail" ? "error" : "warning",
         message: `Lesson QC: gate=${classification.gateClass} for pkg ${packageId.slice(0, 8)}: t1=${t1PassPct.toFixed(0)}%, repair=${classification.repairAction}`,
         payload: {
-          packageId,
+          package_id: packageId,
           gate_class: classification.gateClass,
           reason_code: classification.reasonCode,
           tier1_pass_rate: t1PassRate,
