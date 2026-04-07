@@ -338,6 +338,46 @@ function GrowthIntelPanel({ growth }: { growth: any }) {
   );
 }
 
+/* ── Growth Content Engine Panel ── */
+function GrowthEnginePanel() {
+  const { data, isLoading } = useQuery({
+    queryKey: ['growth-engine-overview'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('fn_growth_engine_overview' as any);
+      if (error) throw error;
+      return data as any;
+    },
+    refetchInterval: 30000,
+  });
+  if (isLoading || !data) return <Skeleton className="h-40" />;
+  const dq = data.daily_questions || {};
+  const tc = data.trap_content || {};
+  const cq = data.content_queue || {};
+  const calc = data.calculator || {};
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <Card><CardContent className="py-3 px-4"><p className="text-[10px] uppercase tracking-wider text-muted-foreground">Frage d. Tages</p><p className="text-2xl font-bold">{dq.published || 0}</p><p className="text-[10px] text-muted-foreground">{dq.draft || 0} Entwürfe · {dq.curricula_covered || 0} Berufe</p></CardContent></Card>
+        <Card><CardContent className="py-3 px-4"><p className="text-[10px] uppercase tracking-wider text-muted-foreground">Fehler-Seiten</p><p className="text-2xl font-bold">{tc.published || 0}</p><p className="text-[10px] text-muted-foreground">{tc.trap_types_covered || 0} Fallentypen</p></CardContent></Card>
+        <Card><CardContent className="py-3 px-4"><p className="text-[10px] uppercase tracking-wider text-muted-foreground">Content Queue</p><p className="text-2xl font-bold">{cq.pending || 0}</p><p className="text-[10px] text-muted-foreground">{cq.posted || 0} gepostet · {cq.failed || 0} fehlgeschlagen</p></CardContent></Card>
+        <Card><CardContent className="py-3 px-4"><p className="text-[10px] uppercase tracking-wider text-muted-foreground">Bestehens-Rechner</p><p className="text-2xl font-bold">{calc.total_sessions || 0}</p><p className="text-[10px] text-muted-foreground">{calc.with_email || 0} Leads · Ø {calc.avg_probability || 0}%</p></CardContent></Card>
+      </div>
+      <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Content-Rohstoff (SSOT)</CardTitle></CardHeader><CardContent><div className="grid grid-cols-2 gap-3"><div className="bg-muted/50 rounded-lg p-3 text-center"><p className="text-lg font-bold">{data.available_questions || 0}</p><p className="text-[10px] text-muted-foreground">Fragen mit Trap-Tags</p></div><div className="bg-muted/50 rounded-lg p-3 text-center"><p className="text-lg font-bold">{data.available_trap_types || 0}</p><p className="text-[10px] text-muted-foreground">Unique Trap-Types</p></div></div></CardContent></Card>
+      <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Quick Actions</CardTitle></CardHeader><CardContent className="flex flex-wrap gap-2"><GrowthTriggerBtn label="Frage des Tages generieren" fn="generate-daily-question" body={{ mode: 'batch' }} /><GrowthTriggerBtn label="Trap-Content generieren" fn="generate-trap-content" body={{}} /></CardContent></Card>
+    </div>
+  );
+}
+
+function GrowthTriggerBtn({ label, fn, body }: { label: string; fn: string; body: any }) {
+  const [loading, setLoading] = React.useState(false);
+  const [result, setResult] = React.useState<string | null>(null);
+  const trigger = async () => {
+    setLoading(true); setResult(null);
+    try { const { data, error } = await supabase.functions.invoke(fn, { body }); if (error) throw error; setResult(JSON.stringify(data, null, 2).slice(0, 200)); } catch (e: any) { setResult(`Fehler: ${e.message}`); } finally { setLoading(false); }
+  };
+  return (<div><Button variant="outline" size="sm" onClick={trigger} disabled={loading} className="text-xs">{loading ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Zap className="h-3 w-3 mr-1" />}{label}</Button>{result && <p className="text-[10px] text-muted-foreground mt-1 max-w-xs truncate">{result}</p>}</div>);
+}
+
 /* ── Main Dashboard ── */
 export default function GrowthSeoCommandCenter() {
   const { data, isLoading, error } = useGrowthSeoTower();
