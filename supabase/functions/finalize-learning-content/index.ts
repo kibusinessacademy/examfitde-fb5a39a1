@@ -666,7 +666,7 @@ Deno.serve(async (req) => {
       return;
     }
 
-    const mergedMeta = { ...((existing?.meta as Record<string, unknown>) ?? {}), ...metaPatch };
+    const mergedMeta = { ...((existing?.meta as Record<string, unknown>) ?? {}), ...metaPatch, postcondition_verified: true };
 
     // 3. Update to done
     const { error } = await sb
