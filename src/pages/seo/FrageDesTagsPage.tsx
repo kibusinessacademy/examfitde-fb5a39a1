@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { SEOHead } from "@/components/seo/SEOHead";
+import { GrowthBrandHeader } from "@/components/seo/GrowthBrandHeader";
+import { GrowthBrandFooter } from "@/components/seo/GrowthBrandFooter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -156,7 +158,8 @@ export default function FrageDesTagsPage() {
       />
 
       <div className="min-h-screen bg-gradient-to-b from-background to-muted/30">
-        <div className="max-w-2xl mx-auto px-4 py-12">
+        <div className="max-w-2xl mx-auto px-4 py-8">
+          <GrowthBrandHeader subtitle="Frage des Tages" />
           {/* Header */}
           <div className="text-center mb-8">
             <Badge variant="outline" className="mb-3">
@@ -310,9 +313,11 @@ export default function FrageDesTagsPage() {
             </CardContent>
           </Card>
 
-          <p className="text-center text-xs text-muted-foreground mt-8">
-            © ExamFit – Intelligentes Prüfungstraining · Täglich neue Fragen
-          </p>
+          <GrowthBrandFooter
+            contentId={data.id}
+            utmSource="frage-des-tages"
+            variant="compact"
+          />
         </div>
       </div>
     </>
