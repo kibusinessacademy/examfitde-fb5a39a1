@@ -245,33 +245,7 @@ const AppRoutes = () => {
           <Route path="*" element={<Navigate to="/admin/command" replace />} />
         </Route>
 
-        {/* Legacy admin redirects → canonical V2 paths */}
-        <Route path="/admin/dashboard" element={<Navigate to="/admin/studio" replace />} />
-        <Route path="/admin/home" element={<Navigate to="/admin/studio" replace />} />
-        <Route path="/admin/control-tower" element={<Navigate to="/admin/command" replace />} />
-        <Route path="/admin/leitstelle" element={<Navigate to="/admin/command" replace />} />
-        <Route path="/admin/courses" element={<Navigate to="/admin/studio" replace />} />
-        <Route path="/admin/course-studio" element={<Navigate to="/admin/studio" replace />} />
-        <Route path="/admin/course/:packageId" element={<Navigate to="/admin/studio" replace />} />
-        <Route path="/admin/jobs" element={<Navigate to="/admin/queue" replace />} />
-        <Route path="/admin/jobs/*" element={<Navigate to="/admin/queue" replace />} />
-        <Route path="/admin/ops/queue" element={<Navigate to="/admin/queue" replace />} />
-        <Route path="/admin/ops/queue/*" element={<Navigate to="/admin/queue" replace />} />
-        <Route path="/admin/system/*" element={<Navigate to="/admin/command" replace />} />
-        <Route path="/admin/finance/*" element={<Navigate to="/admin/command" replace />} />
-        <Route path="/admin/council/*" element={<Navigate to="/admin/command" replace />} />
-        <Route path="/admin/business/*" element={<Navigate to="/admin/command" replace />} />
-        <Route path="/admin/revenue" element={<Navigate to="/admin/command" replace />} />
-        <Route path="/admin/revenue/*" element={<Navigate to="/admin/command" replace />} />
-        <Route path="/admin/content/*" element={<Navigate to="/admin/command" replace />} />
-        <Route path="/admin/crm/*" element={<Navigate to="/admin/command" replace />} />
-        <Route path="/admin/support/*" element={<Navigate to="/admin/command" replace />} />
-        <Route path="/admin/quality/*" element={<Navigate to="/admin/command" replace />} />
-        <Route path="/admin/packages/risk" element={<Navigate to="/admin/studio" replace />} />
-        <Route path="/admin/packages/risk/*" element={<Navigate to="/admin/studio" replace />} />
-        <Route path="/admin-v2/*" element={<Navigate to="/admin/command" replace />} />
-        <Route path="/admin/berufski" element={<Navigate to="/admin/studio" replace />} />
-        <Route path="/admin/berufski/*" element={<Navigate to="/admin/studio" replace />} />
+        {/* All unknown paths → 404 (admin wildcard already catches /admin/*) */}
         {/* 404 */}
         <Route path="*" element={<NotFound />} />
       </Routes>

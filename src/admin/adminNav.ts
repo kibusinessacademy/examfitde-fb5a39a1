@@ -1,4 +1,4 @@
-import { LayoutDashboard, BookOpen, ListChecks, GraduationCap, TrendingUp, Megaphone, Shield, Key, Scale } from 'lucide-react';
+import { LayoutDashboard, BookOpen, ListChecks } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 export interface AdminNavItem {
@@ -10,7 +10,7 @@ export interface AdminNavItem {
   children?: { path: string; label: string }[];
 }
 
-/** SSOT: V2-only active nav items */
+/** SSOT: V2-only — exactly 3 operative areas */
 export const adminNavModules: AdminNavItem[] = [
   { path: '/admin/command', label: 'Leitstelle', icon: LayoutDashboard, group: 'navigation' },
   {
@@ -20,12 +20,6 @@ export const adminNavModules: AdminNavItem[] = [
     ],
   },
   { path: '/admin/queue', label: 'Queue', icon: ListChecks, group: 'navigation' },
-  { path: '/admin/learner-preview', label: 'QA Preview', icon: GraduationCap, group: 'navigation' },
-  { path: '/admin/growth', label: 'Growth', icon: TrendingUp, group: 'navigation' },
-  { path: '/admin/marketing', label: 'Marketing', icon: Megaphone, group: 'navigation' },
-  { path: '/admin/compliance', label: 'Compliance', icon: Shield, group: 'navigation' },
-  { path: '/admin/regulatory', label: 'Regulatory', icon: Scale, group: 'navigation' },
-  { path: '/admin/licenses', label: 'Lizenzen', icon: Key, group: 'navigation' },
 ];
 
 export const adminQuickActions: AdminNavItem[] = [];
