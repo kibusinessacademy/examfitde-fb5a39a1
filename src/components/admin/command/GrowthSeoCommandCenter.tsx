@@ -433,6 +433,9 @@ export default function GrowthSeoCommandCenter() {
           <TabsTrigger value="growth" className="flex items-center gap-1.5 text-xs py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-lg">
             <TrendingUp className="h-3.5 w-3.5" /> Growth Intel
           </TabsTrigger>
+          <TabsTrigger value="engine" className="flex items-center gap-1.5 text-xs py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-lg">
+            <Zap className="h-3.5 w-3.5" /> Content Engine
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="issues" className="mt-4 space-y-2">
