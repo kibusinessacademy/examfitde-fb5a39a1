@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Smile, ThumbsUp, ThumbsDown, RefreshCw, EyeOff } from "lucide-react";
+import { HumorShareButtons } from "./HumorShareButtons";
 import { cn } from "@/lib/utils";
 import { useTerminology } from "@/hooks/useProgramType";
 
@@ -174,7 +175,7 @@ export function DailyHumorCard({ certificationId, curriculumId }: DailyHumorCard
             <p className="text-sm leading-relaxed">{displayText}</p>
 
             {data?.humor && (
-              <div className="flex items-center gap-2 mt-3">
+              <div className="flex items-center gap-2 mt-3 flex-wrap">
                 <Button
                   variant="ghost"
                   size="sm"
@@ -195,6 +196,9 @@ export function DailyHumorCard({ certificationId, curriculumId }: DailyHumorCard
                   <ThumbsDown className="h-3.5 w-3.5 mr-1" />
                   <span className="text-xs">Naja</span>
                 </Button>
+                <div className="ml-auto">
+                  <HumorShareButtons humorId={data.humor.id} humorText={data.humor.text} />
+                </div>
               </div>
             )}
 
