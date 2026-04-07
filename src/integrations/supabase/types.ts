@@ -66009,6 +66009,18 @@ export type Database = {
         Returns: Json
       }
       fn_derive_exam_part: { Args: { p_blueprint_id: string }; Returns: string }
+      fn_effective_wip_state: {
+        Args: never
+        Returns: {
+          base_building: number
+          base_cap: number
+          bonus_eligible: number
+          bonus_slots: number
+          bonus_threshold: number
+          effective_cap: number
+          total_building: number
+        }[]
+      }
       fn_exam_question_tier1_eligibility: {
         Args: {
           p_blueprint_id: string
