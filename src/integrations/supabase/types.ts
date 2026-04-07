@@ -66114,6 +66114,15 @@ export type Database = {
         }[]
       }
       fn_reap_non_building_pending_jobs: { Args: never; Returns: Json }
+      fn_rebalance_wip_priority: {
+        Args: { p_max_demotions?: number }
+        Returns: {
+          demoted_package_id: string
+          demoted_priority: number
+          demoted_title: string
+          freed_for_priority: number
+        }[]
+      }
       fn_reconcile_all_active_packages: {
         Args: { p_dry_run?: boolean }
         Returns: Json
