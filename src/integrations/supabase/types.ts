@@ -64706,23 +64706,14 @@ export type Database = {
         Args: { p_lease_seconds?: number; p_runner_id: string }
         Returns: string
       }
-      acquire_next_package_lease_v2:
-        | {
-            Args: {
-              p_lease_seconds?: number
-              p_runner_id: string
-              p_track?: string
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              p_lease_seconds?: number
-              p_runner_id: string
-              p_track?: string
-            }
-            Returns: string
-          }
+      acquire_next_package_lease_v2: {
+        Args: {
+          p_lease_seconds?: number
+          p_runner_id: string
+          p_track?: string
+        }
+        Returns: string
+      }
       admin_approve_growth_action: {
         Args: { p_action_id: string }
         Returns: undefined
