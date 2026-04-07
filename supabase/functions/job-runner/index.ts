@@ -318,20 +318,16 @@ Deno.serve(async (req) => {
   // ── 0. Adaptive Concurrency ──────────────────────────────────────
   const adaptiveConcurrency = await getAdaptiveConcurrency(sb).catch(() => BASE_CONCURRENCY);
 
-  // ── 1. Claim jobs with proper locking (worker_id + lock timeout) ──
-  // v5.3: Increased lock timeout from 10→20min to prevent STALE_LOCK kills
-  // on long-running AI jobs (exam-pool with 58+ questions, glossary gen).
-  // v6: Use versioned RPC to prevent signature-cache drift
+  // ── 1. Claim jobs via canonical RPC contract ──
   let { data: jobs, error: claimErr } = await sb.rpc("claim_pending_jobs_v4" as any, {
     p_limit: adaptiveConcurrency,
     p_worker_id: WORKER_ID,
-    p_lock_timeout_minutes: 20,
     p_worker_pool: "default",
   });
   jobs = (jobs ?? []) as any[];
 
   if (claimErr) {
-    console.error("[job-runner] claim_pending_jobs_v2 error:", claimErr.message);
+    console.error("[job-runner] claim_pending_jobs_v4 error:", claimErr.message);
     return json({ ok: false, error: claimErr.message }, 500);
   }
 

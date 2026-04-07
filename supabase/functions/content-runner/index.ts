@@ -886,7 +886,6 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
   let { data: jobs, error: claimErr } = await sb.rpc("claim_pending_jobs_v4" as any, {
     p_limit: claimCount,
     p_worker_id: WORKER_ID,
-    p_lock_timeout_minutes: CONTENT_LOCK_TIMEOUT_MINUTES,
     p_worker_pool: "content",
   });
   jobs = ((jobs ?? []) as any[]).slice(0, claimCount);
@@ -897,7 +896,6 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
   const { data: prebuildJobs, error: prebuildErr } = await sb.rpc("claim_pending_jobs_v4" as any, {
     p_limit: prebuildSlots,
     p_worker_id: WORKER_ID,
-    p_lock_timeout_minutes: CONTENT_LOCK_TIMEOUT_MINUTES,
     p_worker_pool: "prebuild",
   });
   if (!prebuildErr && prebuildJobs && prebuildJobs.length > 0) {
