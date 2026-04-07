@@ -249,7 +249,7 @@ const AppRoutes = () => {
 
         {/* ====== ADMIN V2 (SSOT-only) ====== */}
         <Route path="/admin" element={<AdminV2Layout />}>
-          <Route index element={<Navigate to="studio" replace />} />
+          <Route index element={<Navigate to="command" replace />} />
           <Route path="command" element={<LeitstellePage />} />
           <Route path="studio" element={<KursePage />} />
           <Route path="studio/:packageId" element={<CourseWorkspace />} />
