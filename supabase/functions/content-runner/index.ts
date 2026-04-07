@@ -832,7 +832,7 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
     const { data: staleRows } = await sb
       .from("job_queue")
       .select("id, attempts, max_attempts")
-      .eq("worker_pool", "content")
+      .eq("worker_pool", "default")
       .eq("status", "processing")
       .not("locked_by", "is", null)
       .lt("locked_at", staleBefore)
@@ -886,7 +886,7 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
   let { data: jobs, error: claimErr } = await sb.rpc("claim_pending_jobs_v4" as any, {
     p_limit: claimCount,
     p_worker_id: WORKER_ID,
-    p_worker_pool: "content",
+    p_worker_pool: "default",
   });
   jobs = ((jobs ?? []) as any[]).slice(0, claimCount);
 

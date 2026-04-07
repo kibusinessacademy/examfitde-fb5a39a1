@@ -80,6 +80,10 @@ jobs:
         run: |
           node scripts/guards/no-direct-llm-fetch-guard.mjs
 
+      - name: Handler-Registry Parity Guard
+        run: |
+          node scripts/guards/handler-registry-parity-guard.mjs
+
       - name: Success summary
         run: |
-          echo "✅ Edge CI passed: deno check + deno lint + edge guards + SSOT guards + model guards + LLM fetch guards"
+          echo "✅ Edge CI passed: deno check + deno lint + edge guards + SSOT guards + model guards + LLM fetch guards + handler parity"

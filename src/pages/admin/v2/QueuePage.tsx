@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, lazy, Suspense } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAdminQueueSSOT, useAdminQueueCounts, AdminQueueJob } from '@/hooks/useAdminQueueSSOT';
 import { runAdminOpsAction } from '@/integrations/supabase/admin-ops-actions';
@@ -274,8 +274,11 @@ export default function QueuePage() {
 
   const c = counts ?? { pending: 0, processing: 0, failed: 0, completed_1h: 0, cancelled: 0, total: 0 };
 
+  const StuckJobTypeAlert = lazy(() => import('@/components/admin/queue/StuckJobTypeAlert'));
+
   return (
     <div className="space-y-4">
+      <Suspense fallback={null}><StuckJobTypeAlert /></Suspense>
       <div>
         <h1 className="text-xl font-bold text-foreground">Queue</h1>
         <p className="text-xs text-muted-foreground mt-0.5">Operations Queue · Echtdaten (Server-Counts)</p>
