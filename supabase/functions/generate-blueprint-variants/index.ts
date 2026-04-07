@@ -215,11 +215,14 @@ Deno.serve(async (req) => {
         .eq("status", "approved");
 
       if (bpListErr || !blueprints || blueprints.length === 0) {
+        // DM3: Return 409 PREREQ_NOT_DONE so the runner defers instead of marking completed
         return new Response(JSON.stringify({
-          error: "No approved blueprints found for package",
+          error: "PREREQ_NOT_DONE",
+          message: "No approved blueprints found — validate_blueprints prerequisite likely incomplete",
           package_id: packageId,
+          retry: true,
         }), {
-          status: 404,
+          status: 409,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
@@ -259,15 +262,17 @@ Deno.serve(async (req) => {
       }
 
       if (eligibleIds.length === 0) {
+        // DM3: Return 409 PREREQ_NOT_DONE — all blueprints failed pre-flight
         return new Response(JSON.stringify({
-          ok: false,
-          error: "All blueprints failed pre-flight validation",
+          error: "PREREQ_NOT_DONE",
+          message: "All blueprints failed pre-flight validation — prerequisite steps likely incomplete",
           package_id: packageId,
+          retry: true,
           total_blueprints: blueprints.length,
           blocked: blockedIds.length,
           preflight_details: preflightDetails,
         }), {
-          status: 422,
+          status: 409,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
