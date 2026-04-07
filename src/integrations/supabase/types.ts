@@ -21756,6 +21756,8 @@ export type Database = {
           review_after: string | null
           safety_flags: string[]
           safety_score: number
+          share_count: number
+          share_image_url: string | null
           shown_count: number
           source_prompt_hash: string | null
           status: Database["public"]["Enums"]["humor_status"]
@@ -21782,6 +21784,8 @@ export type Database = {
           review_after?: string | null
           safety_flags?: string[]
           safety_score?: number
+          share_count?: number
+          share_image_url?: string | null
           shown_count?: number
           source_prompt_hash?: string | null
           status?: Database["public"]["Enums"]["humor_status"]
@@ -21808,6 +21812,8 @@ export type Database = {
           review_after?: string | null
           safety_flags?: string[]
           safety_score?: number
+          share_count?: number
+          share_image_url?: string | null
           shown_count?: number
           source_prompt_hash?: string | null
           status?: Database["public"]["Enums"]["humor_status"]
@@ -21819,6 +21825,38 @@ export type Database = {
           valid_to?: string | null
         }
         Relationships: []
+      }
+      humor_shares: {
+        Row: {
+          humor_id: string
+          id: string
+          platform: string
+          shared_at: string
+          user_id: string | null
+        }
+        Insert: {
+          humor_id: string
+          id?: string
+          platform: string
+          shared_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          humor_id?: string
+          id?: string
+          platform?: string
+          shared_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "humor_shares_humor_id_fkey"
+            columns: ["humor_id"]
+            isOneToOne: false
+            referencedRelation: "humor_items"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       idempotency_keys: {
         Row: {

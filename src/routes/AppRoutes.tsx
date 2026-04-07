@@ -39,7 +39,7 @@ const InstallPage = lazyRetry(() => import('@/pages/InstallPage'));
 const IHKPruefungenPage = lazyRetry(() => import('@/pages/seo/IHKPruefungenPage'));
 const PruefungstrainingAzubisPage = lazyRetry(() => import('@/pages/seo/PruefungstrainingAzubisPage'));
 const PruefungstrainingBetriebePage = lazyRetry(() => import('@/pages/seo/PruefungstrainingBetriebePage'));
-const PruefungstrainingInstitutionenPage = lazyRetry(() => import('@/pages/seo/PruefungstrainingInstitutionenPage'));
+// PruefungstrainingInstitutionenPage → redirected to Berufsschulen
 const PruefungstrainingAusbildungPage = lazyRetry(() => import('@/pages/seo/PruefungstrainingAusbildungPage'));
 const PruefungstrainingBerufsschulenPage = lazyRetry(() => import('@/pages/seo/PruefungstrainingBerufsschulenPage'));
 const PruefungstrainingWeiterbildungPage = lazyRetry(() => import('@/pages/seo/PruefungstrainingWeiterbildungPage'));
@@ -54,6 +54,7 @@ const LernkursDetailPage = lazyRetry(() => import('@/pages/seo/ProductDetailPage
 const PruefungstrainerDetailPage = lazyRetry(() => import('@/pages/seo/ProductDetailPage').then(m => ({ default: m.PruefungstrainerDetailPage })));
 const BundleDetailPage = lazyRetry(() => import('@/pages/seo/ProductDetailPage').then(m => ({ default: m.BundleDetailPage })));
 const WissenPage = lazyRetry(() => import('@/pages/seo/WissenPage'));
+const WitzPage = lazyRetry(() => import('@/pages/seo/WitzPage'));
 const WissenArticlePage = lazyRetry(() => import('@/pages/seo/WissenArticlePage'));
 const WissenAllePage = lazyRetry(() => import('@/pages/seo/WissenAllePage'));
 const SearchPage = lazyRetry(() => import('@/pages/seo/SearchPage'));
@@ -181,11 +182,14 @@ const AppRoutes = () => {
           <Route path="/ihk-pruefungen" element={<IHKPruefungenPage />} />
           <Route path="/pruefungstraining-azubis" element={<PruefungstrainingAzubisPage />} />
           <Route path="/pruefungstraining-betriebe" element={<PruefungstrainingBetriebePage />} />
-          <Route path="/pruefungstraining-institutionen" element={<PruefungstrainingInstitutionenPage />} />
+          <Route path="/pruefungstraining-institutionen" element={<Navigate to="/pruefungstraining-berufsschulen" replace />} />
           <Route path="/pruefungstraining-ausbildung" element={<PruefungstrainingAusbildungPage />} />
           <Route path="/pruefungstraining-berufsschulen" element={<PruefungstrainingBerufsschulenPage />} />
           <Route path="/pruefungstraining-weiterbildung" element={<PruefungstrainingWeiterbildungPage />} />
           <Route path="/pruefungstraining-studium" element={<PruefungstrainingStudiumPage />} />
+          <Route path="/pruefungstraining-fortbildung" element={<FortbildungLandingPage />} />
+          <Route path="/pruefungstraining-zertifizierungen" element={<ZertifizierungenLandingPage />} />
+          <Route path="/witz/:humorId" element={<WitzPage />} />
           <Route path="/ihk-pruefungen/:slug" element={<BerufDetailPage />} />
           <Route path="/berufe" element={<BerufePage />} />
           <Route path="/berufe/:slug" element={<BerufDetailPage />} />
