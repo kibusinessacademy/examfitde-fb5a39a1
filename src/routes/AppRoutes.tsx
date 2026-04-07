@@ -55,6 +55,9 @@ const PruefungstrainerDetailPage = lazyRetry(() => import('@/pages/seo/ProductDe
 const BundleDetailPage = lazyRetry(() => import('@/pages/seo/ProductDetailPage').then(m => ({ default: m.BundleDetailPage })));
 const WissenPage = lazyRetry(() => import('@/pages/seo/WissenPage'));
 const WitzPage = lazyRetry(() => import('@/pages/seo/WitzPage'));
+const FrageDesTagsPage = lazyRetry(() => import('@/pages/seo/FrageDesTagsPage'));
+const PruefungsfehlerPage = lazyRetry(() => import('@/pages/seo/PruefungsfehlerPage'));
+const BestehensRechnerPage = lazyRetry(() => import('@/pages/seo/BestehensRechnerPage'));
 const WissenArticlePage = lazyRetry(() => import('@/pages/seo/WissenArticlePage'));
 const WissenAllePage = lazyRetry(() => import('@/pages/seo/WissenAllePage'));
 const SearchPage = lazyRetry(() => import('@/pages/seo/SearchPage'));
