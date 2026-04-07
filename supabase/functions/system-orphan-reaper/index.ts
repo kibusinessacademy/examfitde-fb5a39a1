@@ -135,8 +135,11 @@ Deno.serve(async (req) => {
     }
   }
 
-  // 5. WIP Enforcement: demote excess building packages
-  // DM3: Read WIP cap from config (SSOT) instead of hardcoding
+  // 5. WIP telemetry only.
+  // Active WIP enforcement is handled by the dedicated scheduler / DB guardrail layer.
+  // Re-running a legacy demotion here causes packages to fall from building → queued,
+  // while orphan reconciliation only rematerializes jobs for building/council_review.
+  // That creates durable queued/open/no-job stalls.
   let WIP_CAP = 14;
   try {
     const { data: wipCfg } = await sb
@@ -146,82 +149,13 @@ Deno.serve(async (req) => {
       .maybeSingle();
     if (wipCfg?.value) WIP_CAP = Number(wipCfg.value) || 14;
   } catch { /* fallback to 14 */ }
+
   const { data: buildingPkgs } = await sb
     .from("course_packages")
-    .select("id, priority, build_progress, updated_at")
-    .eq("status", "building")
-    .order("priority", { ascending: false })   // highest number (lowest prio) first
-    .order("build_progress", { ascending: true })
-    .order("updated_at", { ascending: true });
+    .select("id")
+    .eq("status", "building");
 
   const buildingCount = buildingPkgs?.length || 0;
-  const excess = buildingCount - WIP_CAP;
-
-  if (excess > 0 && buildingPkgs) {
-    const toDemote = buildingPkgs.slice(0, excess);
-
-    for (const pkg of toDemote) {
-      // Demote to queued
-      await sb.from("course_packages").update({
-        status: "queued",
-        updated_at: new Date().toISOString(),
-      }).eq("id", pkg.id);
-
-      // Cancel associated pending/failed jobs
-      const { data: jobsToClear } = await sb
-        .from("job_queue")
-        .select("id")
-        .eq("package_id", pkg.id)
-        .in("status", ["pending", "failed"])
-        .limit(100);
-
-      for (const job of jobsToClear || []) {
-        await sb.from("job_queue").update({
-          status: "cancelled",
-          last_error: "WIP_ENFORCEMENT: demoted to queued",
-          updated_at: new Date().toISOString(),
-        }).eq("id", job.id);
-      }
-
-      // Release leases
-      const { data: leases } = await sb
-        .from("system_execution_leases")
-        .select("id")
-        .eq("status", "active")
-        .ilike("lease_key", `%${pkg.id}%`)
-        .limit(10);
-
-      for (const lease of leases || []) {
-        await sb.from("system_execution_leases").update({
-          status: "released",
-          released_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        }).eq("id", lease.id);
-      }
-
-      // Audit
-      await sb.from("admin_actions").insert({
-        action: "wip_enforcement_demote",
-        scope: "system",
-        affected_ids: [pkg.id],
-        payload: {
-          priority: pkg.priority,
-          build_progress: pkg.build_progress,
-          wip_cap: WIP_CAP,
-          building_count: buildingCount,
-        },
-        after_state: { new_status: "queued" },
-      });
-
-      await logOrphan(sb, "wip_enforcement", pkg.id, "warn",
-        `Demoted package (prio=${pkg.priority}, progress=${pkg.build_progress}%) back to queued`, {
-          wip_cap: WIP_CAP,
-          building_count: buildingCount,
-        });
-
-      wipDemoted++;
-    }
-  }
 
   return json(200, {
     ok: true,
