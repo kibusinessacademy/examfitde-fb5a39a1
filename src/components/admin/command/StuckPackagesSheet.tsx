@@ -210,17 +210,17 @@ export function StuckPackagesSheet({ open, onOpenChange }: {
     queryFn: async () => {
       const sb = supabase as any;
 
-      // Fetch packages with stuck_reason
+      // SSOT: use same view as Leitstelle KPI for is_stuck
       const { data: pkgs, error } = await sb
-        .from('course_packages')
-        .select('id, title, status, stuck_reason, build_progress')
-        .not('stuck_reason', 'is', null)
-        .neq('stuck_reason', '');
+        .from('v_admin_packages_ssot')
+        .select('package_id, canonical_title, raw_title, status, stuck_reason, build_progress, steps_done, steps_functional, last_progress_at, updated_at, last_job_error')
+        .eq('is_stuck', true)
+        .order('last_progress_at', { ascending: true, nullsFirst: true });
 
       if (error) throw error;
       if (!pkgs || pkgs.length === 0) return [];
 
-      const ids = pkgs.map((p: any) => p.id);
+      const ids = pkgs.map((p: any) => p.package_id);
 
       // Fetch all non-done steps for these packages
       const { data: steps } = await sb
@@ -236,32 +236,8 @@ export function StuckPackagesSheet({ open, onOpenChange }: {
         stepMap.get(s.package_id)!.push(s);
       }
 
-      // Fetch done step counts
-      const { data: doneSteps } = await sb
-        .from('package_steps')
-        .select('package_id, step_key')
-        .in('package_id', ids)
-        .eq('status', 'done');
-
-      const doneMap = new Map<string, number>();
-      for (const s of doneSteps || []) {
-        doneMap.set(s.package_id, (doneMap.get(s.package_id) || 0) + 1);
-      }
-
-      // Total steps per package
-      const { data: allSteps } = await sb
-        .from('package_steps')
-        .select('package_id, step_key')
-        .in('package_id', ids)
-        .not('status', 'eq', 'skipped');
-
-      const totalMap = new Map<string, number>();
-      for (const s of allSteps || []) {
-        totalMap.set(s.package_id, (totalMap.get(s.package_id) || 0) + 1);
-      }
-
       return pkgs.map((p: any) => {
-        const pSteps = stepMap.get(p.id) || [];
+        const pSteps = stepMap.get(p.package_id) || [];
         const stalledSteps = pSteps
           .map((s: any) => ({
             step_key: s.step_key,
@@ -273,13 +249,13 @@ export function StuckPackagesSheet({ open, onOpenChange }: {
           .sort((a: any, b: any) => b.age_min - a.age_min);
 
         return {
-          id: p.id,
-          title: p.title || 'Unbenannt',
+          id: p.package_id,
+          title: p.canonical_title || p.raw_title || 'Unbenannt',
           status: p.status,
-          stuck_reason: p.stuck_reason,
+          stuck_reason: p.stuck_reason || 'Keine aktiven Jobs seit >30 Min.',
           build_progress: p.build_progress || 0,
-          steps_done: doneMap.get(p.id) || 0,
-          steps_total: totalMap.get(p.id) || 0,
+          steps_done: p.steps_done || 0,
+          steps_total: p.steps_functional || 0,
           current_step: stalledSteps[0]?.step_key || null,
           stalled_steps: stalledSteps,
         } as StuckPackage;
