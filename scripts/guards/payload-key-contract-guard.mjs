@@ -2,12 +2,12 @@
 /**
  * payload-key-contract-guard.mjs
  *
- * Enforces snake_case-only payload keys in edge functions.
- * Detects camelCase keys in job payloads that could cause
- * silent guard/filter mismatches (e.g. blueprintId vs blueprint_id).
+ * Enforces snake_case-only KEYS in job payload objects within edge functions.
+ * Detects camelCase KEYS (not values) that could cause silent guard/filter mismatches.
  *
- * Scans: supabase/functions/**\/*.ts
- * Fails on: camelCase keys in payload objects destined for job_queue inserts
+ * Ref: Incident April 2026 — blueprintId vs blueprint_id caused undetected re-entry loop.
+ *
+ * Scans: supabase/functions/**/*.ts
  */
 
 import fs from "node:fs";
@@ -15,8 +15,8 @@ import path from "node:path";
 
 const FUNCTIONS_DIR = path.resolve("supabase/functions");
 
-// Known camelCase payload keys that MUST be snake_case
-const BANNED_PAYLOAD_KEYS = [
+// camelCase keys that MUST be snake_case when used as payload object keys
+const BANNED_KEYS = [
   "blueprintId",
   "packageId",
   "courseId",
@@ -27,12 +27,14 @@ const BANNED_PAYLOAD_KEYS = [
   "competencyId",
 ];
 
-// Patterns that indicate payload construction for job_queue
-const PAYLOAD_CONTEXT_PATTERNS = [
-  /payload\s*:\s*\{/,
-  /payload\s*=\s*\{/,
-  /\.insert\(\s*\{[^}]*payload/,
-];
+// Build regex: match `key:` or `key,` at start of a property (the KEY position in an object literal)
+// Must NOT match `some_snake: camelVar` — only `camelKey: value`
+const KEY_REGEXES = BANNED_KEYS.map(k => ({
+  key: k,
+  // Matches: `  camelKey:` or `  camelKey,` (shorthand property in object literal)
+  pattern: new RegExp(`^\\s*${k}\\s*[:],?`, "m"),
+  suggestion: k.replace(/([A-Z])/g, "_$1").toLowerCase(),
+}));
 
 function scanFile(filePath) {
   const content = fs.readFileSync(filePath, "utf8");
@@ -41,63 +43,50 @@ function scanFile(filePath) {
 
   let inPayloadBlock = false;
   let braceDepth = 0;
-  let payloadStartLine = 0;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const lineNum = i + 1;
+    const trimmed = line.trim();
+
+    // Skip comments
+    if (trimmed.startsWith("//") || trimmed.startsWith("*") || trimmed.startsWith("/*")) continue;
 
     // Detect payload block start
-    if (!inPayloadBlock) {
-      for (const pat of PAYLOAD_CONTEXT_PATTERNS) {
-        if (pat.test(line)) {
-          inPayloadBlock = true;
-          braceDepth = 0;
-          payloadStartLine = lineNum;
-          // Count opening braces from the payload key onward
-          const payloadMatch = line.match(/payload\s*[:=]\s*\{/);
-          if (payloadMatch) {
-            const afterPayload = line.slice(line.indexOf(payloadMatch[0]));
-            braceDepth += (afterPayload.match(/\{/g) || []).length;
-            braceDepth -= (afterPayload.match(/\}/g) || []).length;
-          }
-          break;
-        }
-      }
+    if (!inPayloadBlock && /payload\s*[:=]\s*\{/.test(line)) {
+      inPayloadBlock = true;
+      braceDepth = 1;
+      continue;
     }
 
     if (inPayloadBlock) {
-      // Track brace depth (skip the line that started the block)
-      if (lineNum !== payloadStartLine) {
-        braceDepth += (line.match(/\{/g) || []).length;
-        braceDepth -= (line.match(/\}/g) || []).length;
+      braceDepth += (line.match(/\{/g) || []).length;
+      braceDepth -= (line.match(/\}/g) || []).length;
+
+      if (braceDepth <= 0) {
+        inPayloadBlock = false;
+        continue;
       }
 
-      // Check for banned camelCase keys
-      for (const key of BANNED_PAYLOAD_KEYS) {
-        // Match key as an object property (e.g. `blueprintId:` or `blueprintId,`)
-        const keyPattern = new RegExp(`\\b${key}\\s*[:=,]`);
-        if (keyPattern.test(line)) {
-          // Exclude comments
-          const trimmed = line.trim();
-          if (trimmed.startsWith("//") || trimmed.startsWith("*")) continue;
+      // Check if this line has a camelCase KEY (not value)
+      // Pattern: the line starts with optional whitespace, then the key, then `:` or `,`
+      for (const { key, suggestion } of KEY_REGEXES) {
+        // Match: `  blueprintId:` or `  blueprintId,` (shorthand)
+        const keyAsPropertyName = new RegExp(`^\\s*${key}\\s*[,:}]`);
+        const keyAsPropertyKey = new RegExp(`^\\s*${key}\\s*:`);
+        
+        if (keyAsPropertyKey.test(trimmed) || (keyAsPropertyName.test(trimmed) && !trimmed.includes(":"))) {
+          // Exclude normalization lines (reading from payload)
+          if (line.includes("??") || line.includes("||")) continue;
           
-          // Exclude lines that are reading/normalizing (e.g. p.blueprintId ?? p.blueprint_id)
-          if (line.includes("??") && line.includes("blueprint_id")) continue;
-          if (line.includes("?.") || line.includes("as any)?.")) continue;
-
           violations.push({
             file: filePath,
             line: lineNum,
             key,
             text: trimmed,
-            suggestion: key.replace(/([A-Z])/g, "_$1").toLowerCase(),
+            suggestion,
           });
         }
-      }
-
-      if (braceDepth <= 0) {
-        inPayloadBlock = false;
       }
     }
   }
@@ -127,13 +116,13 @@ for (const f of files) {
 }
 
 if (allViolations.length > 0) {
-  console.error(`\n❌ payload-key-contract-guard: ${allViolations.length} camelCase payload key(s) found\n`);
-  console.error("Job payloads MUST use snake_case keys to prevent silent filter mismatches.\n");
+  console.error(`\n❌ payload-key-contract-guard: ${allViolations.length} camelCase payload KEY(s) found\n`);
+  console.error("Job payload keys MUST use snake_case to prevent silent filter mismatches.");
   console.error("Ref: Incident April 2026 — blueprintId vs blueprint_id caused undetected re-entry loop.\n");
 
   for (const v of allViolations) {
     const rel = path.relative(process.cwd(), v.file);
-    console.error(`  ${rel}:${v.line}  "${v.key}" → use "${v.suggestion}" instead`);
+    console.error(`  ${rel}:${v.line}  "${v.key}" → use "${v.suggestion}"`);
     console.error(`    ${v.text}\n`);
   }
 
