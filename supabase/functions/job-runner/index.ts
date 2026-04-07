@@ -265,7 +265,7 @@ Deno.serve(async (req) => {
     p_limit: adaptiveConcurrency,
     p_worker_id: WORKER_ID,
     p_lock_timeout_minutes: 20,
-    p_worker_pool: "core",
+    p_worker_pool: "default",
   });
   jobs = (jobs ?? []) as any[];
 
