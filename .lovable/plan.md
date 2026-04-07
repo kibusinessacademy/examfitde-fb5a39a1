@@ -1,100 +1,53 @@
 
-# Witz des Tages – Umsetzungsplan
+# Growth Engine — Vollausbau-Plan
 
-## Status Quo
-- `humor_items`-Tabelle existiert, enthält aber nur ~4 Einträge für eine einzige Zertifizierung
-- Edge Function `get-daily-humor` wählt täglich einen Witz aus dem Pool
-- `DailyHumorCard` zeigt den Witz im Learner Dashboard
-- **Problem**: Kein Pipeline-basierter Generierungsprozess, kein Social Sharing
+## Phase 1: Datenbank-Fundament (Migration)
 
----
+### Neue Tabellen
+1. **`daily_question_picks`** — Tägliche Frage-Auswahl pro Curriculum
+   - `day`, `curriculum_id`, `exam_question_id`, `blueprint_id`, `trap_type`, `slug`, `social_caption`, `explanation_md`, `status`
+2. **`trap_content_pages`** — Automatisierte Fehler-Content-Seiten
+   - `curriculum_id`, `competency_id`, `trap_type`, `slug`, `title`, `hook`, `content_md`, `social_caption`, `status`
+3. **`growth_content_queue`** — Unified Content-Queue für alle Kanäle
+   - `channel` (question_of_day | trap_content | video_script | carousel | blog), `source_type`, `source_id`, `platform`, `status`, `scheduled_at`, `content_json`, `posted_at`
 
-## Phase 1: Pipeline-basierte Humor-Generierung
+### Neue RPC-Funktionen
+- `fn_pick_daily_question(p_curriculum_id)` — Deterministisch beste Frage wählen (hohe Trap-Coverage, nicht kürzlich gezeigt)
+- `fn_get_readiness_score(p_user_id, p_curriculum_id)` — Bestehens-Wahrscheinlichkeit berechnen
 
-### 1.1 Neuer Pipeline-Step: `generate_humor`
-- Neuer Step in der Content-Pipeline pro Paket/Zertifizierung
-- Generiert **20–30 berufsspezifische Witze/Sprüche** pro Kurs
-- LLM-Prompt nutzt Persona-Profil (AZUBI, SACHKUNDE, FACHWIRT, STUDIUM) für Tonalität
-- Input: Curriculum-Kontext, Fachbegriffe, typische Prüfungssituationen
-- Output: humor_items mit `certification_id`, `competence_id`, `humor_type`, `tone`
+### Cron-Job
+- `cron_daily_growth_content` — Täglich 06:00 → pick question + generate content
 
-### 1.2 Validierung & Safety
-- AI-Validierung auf Safety-Score (kein Rassismus, Sexismus, politische Witze)
-- `safety_score >= 0.8` als Gate
-- Ton-Kategorien: `casual` (Azubis), `business` (Fachwirt/Sachkunde), `academic` (Studium)
-- Quality-Gate analog zu anderen Pipeline-Artefakten
+## Phase 2: Edge Functions
 
-### 1.3 Rotation & Freshness
-- `valid_from` / `valid_to` für saisonale Witze (Prüfungsphase-Humor)
-- `shown_count` + `last_shown_at` für faire Rotation (existiert bereits)
-- Mindestpool: 20 Witze pro Zertifizierung bevor Feature aktiv wird
+1. **`generate-daily-question`** — Wählt Frage, generiert Erklärung + Social Captions via LLM
+2. **`generate-trap-content`** — Generiert Fehler-Content aus trap_type SSOT
+3. **`calculate-pass-probability`** — Bestehens-Rechner Logik (mastery + sessions → Score)
 
----
+## Phase 3: Public SEO-Seiten (Frontend)
 
-## Phase 2: Social-Media-Sharing
+1. **`/frage-des-tages`** — Aktuelle Frage mit Antworten, Lösung, Trap-Erklärung, Social Sharing
+2. **`/frage-des-tages/[slug]`** — Archiv-Seite mit OG-Tags, JSON-LD
+3. **`/pruefungsfehler/[beruf]/[kompetenz]`** — Trap-Content-Seiten
+4. **`/bestehen-ich-die-ihk-pruefung`** — Interaktiver Bestehens-Rechner (öffentlich, Lead-Capture)
 
-### 2.1 Share-Card-Generierung
-- Generierte **OG-Image-Karte** pro Witz (1080×1080 für Instagram, 1200×630 für LinkedIn/FB)
-- Design: ExamFit-Branding (Logo, Farben, Gradient-Background)
-- Text: Witz-Text + Berufsbezug + ExamFit-Logo + URL
-- Edge Function `generate-humor-share-card` erstellt das Bild on-demand
-- Caching in Storage-Bucket `humor-share-cards`
+## Phase 4: Admin UI Erweiterung
 
-### 2.2 Share-Endpunkt & Landing
-- Öffentliche URL: `/witz/{humorId}` (SEO-fähig, kein Auth nötig)
-- Zeigt: Witz + CTA zum Prüfungstraining + OG-Tags für Social Preview
-- JSON-LD: `CreativeWork` mit `educationalLevel`
-- Canonical URL für jeden Witz
+GrowthSeoCommandCenter erweitern um:
+- **Content Pipeline Tab** — Queue-Übersicht aller Kanäle, Status, Scheduling
+- **Frage des Tages Tab** — Aktuelle/geplante Picks, Override-Möglichkeit
+- **Trap Content Tab** — Coverage-Matrix (welche trap_types abgedeckt, Lücken)
+- **Distribution Tab** — Posting-Status pro Kanal, Engagement-Metriken (später)
 
-### 2.3 Share-Buttons in DailyHumorCard
-Plattformen mit nativen Share-Links:
-- **Instagram**: Deep-Link zur Story (mit Share-Card als Bild)
-- **TikTok**: Text-Copy + Link (kein direkter Share-API)
-- **LinkedIn**: `https://www.linkedin.com/sharing/share-offsite/?url=...`
-- **Facebook**: `https://www.facebook.com/sharer/sharer.php?u=...`
-- **X/Twitter**: `https://twitter.com/intent/tweet?text=...&url=...`
-- **Pinterest**: `https://pinterest.com/pin/create/button/?url=...&media=...&description=...`
-- **WhatsApp**: `https://wa.me/?text=...`
-- **Native Web Share API** als Fallback (mobile)
+## Phase 5: Social Distribution (Vorbereitung)
 
-### 2.4 Branding & UTM
-- Jeder Share-Link enthält: `?utm_source={platform}&utm_medium=social&utm_campaign=witz-des-tages`
-- Share-Text-Template: `😂 {Witz} – Mehr Prüfungshumor auf ExamFit: {URL}`
-- OG-Tags: `og:title`, `og:description`, `og:image`, `og:url`
-- Twitter Card: `summary_large_image`
-
----
-
-## Phase 3: Tracking & Optimierung
-
-### 3.1 Share-Tracking
-- Event `humor_shared` mit `{humor_id, platform, certification_id}`
-- Aggregation in Dashboard: meistgeteilte Witze, beste Plattformen
-- Feedback-Loop: hochbewertete + vielgeteilte Witze → mehr ähnliche generieren
-
-### 3.2 Viralitäts-Metriken
-- Klicks auf `/witz/{id}` tracken (UTM-basiert)
-- Conversion: Witz-Besucher → Prüfungsreife-Check → Kauf
-- A/B: Verschiedene Witz-Typen pro Persona testen
-
----
-
-## Datenbank-Änderungen
-- `humor_items`: Spalte `share_image_url` (text, nullable) hinzufügen
-- `humor_items`: Spalte `share_count` (int, default 0) hinzufügen
-- Neue Tabelle `humor_shares` (humor_id, user_id, platform, shared_at)
-- Storage-Bucket `humor-share-cards` (public read)
-
-## Neue Dateien
-- `src/components/dashboard/HumorShareButtons.tsx` – Share-Button-Leiste
-- `src/pages/seo/WitzPage.tsx` – Öffentliche Witz-Landingpage
-- `supabase/functions/generate-humor-share-card/index.ts` – OG-Image-Generierung
-- Pipeline-Integration in bestehenden Content-Build-Prozess
+- Content-Templates für LinkedIn, Instagram, TikTok (JSON-Struktur)
+- Posting-Queue mit `scheduled_at` für spätere API-Anbindung
+- Webhook-Endpoints für n8n/Make.com Fallback
 
 ## Reihenfolge
-1. DB-Migration (Spalten + Tabelle)
-2. Pipeline-Step für Humor-Generierung (Batch pro Kurs)
-3. Share-Card-Generierung (Edge Function)
-4. Share-Buttons in DailyHumorCard
-5. Öffentliche Witz-Seite mit OG-Tags
-6. Tracking-Integration
+1. Migration (Tabellen + RPCs) → User Approval
+2. Edge Functions parallel bauen
+3. Public Pages parallel bauen  
+4. Admin UI erweitern
+5. Cron-Job aktivieren

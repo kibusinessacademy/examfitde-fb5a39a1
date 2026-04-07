@@ -15848,6 +15848,111 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_question_picks: {
+        Row: {
+          blueprint_id: string | null
+          created_at: string
+          curriculum_id: string
+          day: string
+          exam_question_id: string | null
+          explanation_md: string | null
+          hook: string | null
+          id: string
+          slug: string
+          social_captions: Json | null
+          status: string
+          trap_type: string | null
+          updated_at: string
+        }
+        Insert: {
+          blueprint_id?: string | null
+          created_at?: string
+          curriculum_id: string
+          day: string
+          exam_question_id?: string | null
+          explanation_md?: string | null
+          hook?: string | null
+          id?: string
+          slug: string
+          social_captions?: Json | null
+          status?: string
+          trap_type?: string | null
+          updated_at?: string
+        }
+        Update: {
+          blueprint_id?: string | null
+          created_at?: string
+          curriculum_id?: string
+          day?: string
+          exam_question_id?: string | null
+          explanation_md?: string | null
+          hook?: string | null
+          id?: string
+          slug?: string
+          social_captions?: Json | null
+          status?: string
+          trap_type?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_question_picks_exam_question_id_fkey"
+            columns: ["exam_question_id"]
+            isOneToOne: false
+            referencedRelation: "exam_questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_question_picks_exam_question_id_fkey"
+            columns: ["exam_question_id"]
+            isOneToOne: false
+            referencedRelation: "exam_questions_elite_v"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_question_picks_exam_question_id_fkey"
+            columns: ["exam_question_id"]
+            isOneToOne: false
+            referencedRelation: "exam_questions_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_question_picks_exam_question_id_fkey"
+            columns: ["exam_question_id"]
+            isOneToOne: false
+            referencedRelation: "stale_elite_annotations_v"
+            referencedColumns: ["question_id"]
+          },
+          {
+            foreignKeyName: "daily_question_picks_exam_question_id_fkey"
+            columns: ["exam_question_id"]
+            isOneToOne: false
+            referencedRelation: "v_exam_questions_approved"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_question_picks_exam_question_id_fkey"
+            columns: ["exam_question_id"]
+            isOneToOne: false
+            referencedRelation: "v_exam_questions_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_question_picks_exam_question_id_fkey"
+            columns: ["exam_question_id"]
+            isOneToOne: false
+            referencedRelation: "v_exam_questions_sanitized"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_question_picks_exam_question_id_fkey"
+            columns: ["exam_question_id"]
+            isOneToOne: false
+            referencedRelation: "v_exam_relevant_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       datev_export_config: {
         Row: {
           created_at: string
@@ -21267,6 +21372,57 @@ export type Database = {
           payload?: Json | null
           platform?: string
           result?: Json | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      growth_content_queue: {
+        Row: {
+          channel: string
+          content_json: Json | null
+          created_at: string
+          engagement_json: Json | null
+          error_message: string | null
+          id: string
+          platform: string
+          post_url: string | null
+          posted_at: string | null
+          scheduled_at: string | null
+          source_id: string | null
+          source_type: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          channel: string
+          content_json?: Json | null
+          created_at?: string
+          engagement_json?: Json | null
+          error_message?: string | null
+          id?: string
+          platform?: string
+          post_url?: string | null
+          posted_at?: string | null
+          scheduled_at?: string | null
+          source_id?: string | null
+          source_type?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          channel?: string
+          content_json?: Json | null
+          created_at?: string
+          engagement_json?: Json | null
+          error_message?: string | null
+          id?: string
+          platform?: string
+          post_url?: string | null
+          posted_at?: string | null
+          scheduled_at?: string | null
+          source_id?: string | null
+          source_type?: string | null
           status?: string
           updated_at?: string
         }
@@ -31812,6 +31968,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      pass_calculator_sessions: {
+        Row: {
+          created_at: string
+          curriculum_id: string | null
+          email: string | null
+          id: string
+          inputs_json: Json
+          pass_probability: number | null
+          recommendation: string | null
+          result_json: Json | null
+          source: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          curriculum_id?: string | null
+          email?: string | null
+          id?: string
+          inputs_json?: Json
+          pass_probability?: number | null
+          recommendation?: string | null
+          result_json?: Json | null
+          source?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          curriculum_id?: string | null
+          email?: string | null
+          id?: string
+          inputs_json?: Json
+          pass_probability?: number | null
+          recommendation?: string | null
+          result_json?: Json | null
+          source?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
       }
       patch_proposals: {
         Row: {
@@ -44108,6 +44303,57 @@ export type Database = {
           product_slug?: string | null
           session_id?: string | null
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      trap_content_pages: {
+        Row: {
+          competency_id: string | null
+          content_md: string | null
+          created_at: string
+          curriculum_id: string
+          examples_json: Json | null
+          hook: string | null
+          id: string
+          seo_meta: Json | null
+          slug: string
+          social_captions: Json | null
+          status: string
+          title: string
+          trap_type: string
+          updated_at: string
+        }
+        Insert: {
+          competency_id?: string | null
+          content_md?: string | null
+          created_at?: string
+          curriculum_id: string
+          examples_json?: Json | null
+          hook?: string | null
+          id?: string
+          seo_meta?: Json | null
+          slug: string
+          social_captions?: Json | null
+          status?: string
+          title: string
+          trap_type: string
+          updated_at?: string
+        }
+        Update: {
+          competency_id?: string | null
+          content_md?: string | null
+          created_at?: string
+          curriculum_id?: string
+          examples_json?: Json | null
+          hook?: string | null
+          id?: string
+          seo_meta?: Json | null
+          slug?: string
+          social_captions?: Json | null
+          status?: string
+          title?: string
+          trap_type?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -65992,6 +66238,14 @@ export type Database = {
           package_id: string
         }[]
       }
+      fn_calculate_pass_probability: {
+        Args: {
+          p_curriculum_id?: string
+          p_self_assessment?: Json
+          p_user_id?: string
+        }
+        Returns: Json
+      }
       fn_cancel_zombie_jobs: { Args: never; Returns: number }
       fn_capture_gate_snapshot: {
         Args: { p_package_id: string }
@@ -66045,6 +66299,7 @@ export type Database = {
         }
         Returns: Json
       }
+      fn_growth_engine_overview: { Args: never; Returns: Json }
       fn_guard_no_rpc_overloads: {
         Args: never
         Returns: {
@@ -66137,6 +66392,10 @@ export type Database = {
           no_active_content_jobs: boolean
           total_lessons: number
         }[]
+      }
+      fn_pick_daily_question: {
+        Args: { p_curriculum_id: string }
+        Returns: Json
       }
       fn_reap_non_building_pending_jobs: { Args: never; Returns: Json }
       fn_rebalance_wip_priority: {
