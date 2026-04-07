@@ -1381,8 +1381,51 @@ Deno.serve(async (req) => {
             // ── PREREQ_BURN_GUARD: track consecutive prereq retries ──
             const prereqRetries = Number((job.meta as any)?.prereq_retries ?? 0) + 1;
             const MAX_PREREQ_RETRIES = 8;
-            
-            if (prereqRetries >= MAX_PREREQ_RETRIES) {
+
+            // ── Auto-heal: check if prereq has become done since last attempt ──
+            let prereqNowDone = false;
+            if (prereqRetries >= 3 && job.payload?.package_id) {
+              const stepKey = Object.entries(STEP_TO_JOB_TYPE).find(([, jt]) => jt === job.job_type)?.[0];
+              const prereqSteps = PIPELINE_PREREQS[job.job_type];
+              if (stepKey && prereqSteps) {
+                const { data: freshSteps } = await sb
+                  .from("package_steps")
+                  .select("step_key, status")
+                  .eq("package_id", job.payload.package_id)
+                  .in("step_key", prereqSteps);
+                const prereqStep = prereqSteps.find((p: string) => freshSteps?.some((s: any) => s.step_key === p));
+                if (prereqStep) {
+                  const freshStatus = freshSteps?.find((s: any) => s.step_key === prereqStep)?.status;
+                  if (freshStatus === "done" || freshStatus === "skipped") {
+                    prereqNowDone = true;
+                    console.log(`[job-runner] PREREQ_AUTO_HEAL: ${job.job_type} prereq ${prereqStep} is now '${freshStatus}' — resetting retry counter (was ${prereqRetries})`);
+                  }
+                }
+              }
+            }
+
+            if (prereqNowDone) {
+              // Prereq resolved — requeue immediately with reset counter
+              finalState = {
+                status: "pending",
+                patch: {
+                  run_after: null,
+                  error: null,
+                  meta: { ...(job.meta || {}), last_retry: tsNow, prereq_retries: 0, prereq_auto_healed_at: tsNow },
+                },
+              };
+            } else if (prereqRetries >= MAX_PREREQ_RETRIES) {
+              // ── Also heal the step if it was failed due to burn guard ──
+              if (job.payload?.package_id) {
+                const stepKey = Object.entries(STEP_TO_JOB_TYPE).find(([, jt]) => jt === job.job_type)?.[0];
+                if (stepKey) {
+                  await sb.from("package_steps").update({
+                    status: "failed",
+                    last_error: `PREREQ_BURN_GUARD: ${prereqRetries} retries exhausted`,
+                    finished_at: tsNow,
+                  }).eq("package_id", job.payload.package_id).eq("step_key", stepKey);
+                }
+              }
               console.error(`[job-runner] ${fnName} PREREQ_BURN_GUARD: ${prereqRetries} consecutive 409 prereq retries → blocked (pkg ${(job.payload?.package_id as string || '?').slice(0, 8)})`);
               finalState = {
                 status: "failed",
