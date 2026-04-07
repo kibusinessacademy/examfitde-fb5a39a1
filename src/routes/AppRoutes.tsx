@@ -25,7 +25,7 @@ import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import WorkGonePage from '@/components/work/WorkGonePage';
 
 // Lazy Loaded Pages
-const HomePage = lazyRetry(() => import('@/pages/HomePage'));
+import AuthHomeRoute from '@/components/auth/AuthHomeRoute';
 const CoursesPage = lazyRetry(() => import('@/pages/CoursesPage'));
 const CourseDetailPage = lazyRetry(() => import('@/pages/CourseDetailPage'));
 const LearnerDashboard = lazyRetry(() => import('@/pages/LearnerDashboard'));
