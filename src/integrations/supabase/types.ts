@@ -15858,6 +15858,7 @@ export type Database = {
           explanation_md: string | null
           hook: string | null
           id: string
+          skip_reason: string | null
           slug: string
           social_captions: Json | null
           status: string
@@ -15873,6 +15874,7 @@ export type Database = {
           explanation_md?: string | null
           hook?: string | null
           id?: string
+          skip_reason?: string | null
           slug: string
           social_captions?: Json | null
           status?: string
@@ -15888,6 +15890,7 @@ export type Database = {
           explanation_md?: string | null
           hook?: string | null
           id?: string
+          skip_reason?: string | null
           slug?: string
           social_captions?: Json | null
           status?: string

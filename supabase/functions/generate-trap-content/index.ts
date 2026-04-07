@@ -1,13 +1,28 @@
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 
-// Content quality validation for trap pages
+const GARBAGE_STRINGS = ["undefined", "null", "none", "n/a", "keine", "placeholder", "todo", "tbd"];
+
 function validateTrapContent(content: any): { valid: boolean; reason?: string } {
   if (!content) return { valid: false, reason: "No content returned" };
   if (!content.title || content.title.length < 10) return { valid: false, reason: "Title too short" };
   if (!content.content_md || content.content_md.length < 200) return { valid: false, reason: "Content too short (min 200 chars)" };
   if (!content.hook || content.hook.length < 15) return { valid: false, reason: "Hook too short" };
   if (!content.meta_description || content.meta_description.length < 30) return { valid: false, reason: "Meta description too short" };
+
+  // Garbage string detection
+  for (const field of ["title", "hook", "content_md", "meta_description"]) {
+    const val = (content[field] || "").trim().toLowerCase();
+    if (GARBAGE_STRINGS.includes(val)) {
+      return { valid: false, reason: `Field '${field}' contains garbage value` };
+    }
+  }
+
+  // Title must not be identical to hook
+  if (content.title.trim() === content.hook.trim()) {
+    return { valid: false, reason: "Title identical to hook" };
+  }
+
   return { valid: true };
 }
 
@@ -41,12 +56,12 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Curriculum not found" }), { status: 400, headers });
     }
 
-    // Direct query for unique trap_tags from approved questions
+    // Direct query for unique trap_tags from approved MC/SC questions
     let trapTypes: { trap_type: string; count: number; competency_id: string | null }[] = [];
 
     const { data: rawTraps } = await sb
       .from("exam_questions")
-      .select("trap_tags, competency_id")
+      .select("trap_tags, competency_id, question_type")
       .eq("curriculum_id", curriculum_id)
       .eq("status", "approved")
       .not("trap_tags", "is", null);
@@ -54,8 +69,11 @@ Deno.serve(async (req) => {
     if (rawTraps) {
       const trapMap = new Map<string, { count: number; competency_id: string | null }>();
       for (const q of rawTraps) {
-        for (const tag of (q.trap_tags || [])) {
-          const existing = trapMap.get(tag) || { count: 0, competency_id: q.competency_id };
+        // Only count MC/SC questions
+        const qType = (q as any).question_type || "multiple_choice";
+        if (!["multiple_choice", "single_choice"].includes(qType)) continue;
+        for (const tag of ((q as any).trap_tags || [])) {
+          const existing = trapMap.get(tag) || { count: 0, competency_id: (q as any).competency_id };
           existing.count++;
           trapMap.set(tag, existing);
         }
@@ -66,7 +84,7 @@ Deno.serve(async (req) => {
         .sort((a, b) => b.count - a.count);
     }
 
-    // Filter out already-created trap pages
+    // Filter out already-created trap pages (unique constraint protects too)
     const { data: existingPages } = await sb
       .from("trap_content_pages")
       .select("trap_type")
@@ -83,21 +101,26 @@ Deno.serve(async (req) => {
 
     for (const trap of newTraps) {
       try {
-        // Get example questions for this trap (only MC types)
+        // Get MC-only example questions
         const { data: examples } = await sb
           .from("exam_questions")
           .select("question_text, options, correct_answer, explanation, difficulty, question_type")
           .eq("curriculum_id", curriculum_id)
           .eq("status", "approved")
           .contains("trap_tags", [trap.trap_type])
-          .limit(3);
+          .limit(5);
 
-        // Filter to MC-only examples
         const mcExamples = (examples || []).filter(
           (e: any) => !e.question_type || ["multiple_choice", "single_choice"].includes(e.question_type)
-        );
+        ).slice(0, 3);
 
-        const slug = `${curriculum.slug}-${trap.trap_type.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+/g, '-').slice(0, 50)}`;
+        // Block if no MC examples available
+        if (mcExamples.length === 0) {
+          results.push({ trap_type: trap.trap_type, status: "skipped", reason: "No MC/SC examples available" });
+          continue;
+        }
+
+        const slug = `${curriculum.slug}-${trap.trap_type.toLowerCase().replace(/[^a-z0-9äöüß]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '').slice(0, 50)}`;
 
         const prompt = `
 Du bist SEO-Content-Redakteur für ExamFit, ein Prüfungstrainings-System.
@@ -123,7 +146,7 @@ Erstelle:
 5. social_linkedin: LinkedIn-Post (max 300 Zeichen)
 6. social_instagram: Instagram-Caption (max 200 Zeichen)
 
-WICHTIG: Referenziere die Beispielfragen korrekt. Vermeide faktische Fehler.
+WICHTIG: Referenziere die Beispielfragen korrekt. Vermeide faktische Fehler. Verwende KEINE Platzhalter.
 `;
 
         const llmResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -191,8 +214,8 @@ WICHTIG: Referenziere die Beispielfragen korrekt. Vermeide faktische Fehler.
         const validation = validateTrapContent(content);
         const publishStatus = validation.valid ? "published" : "draft";
 
-        // Insert page
-        const { data: page, error: insertError } = await sb.from("trap_content_pages").insert({
+        // Insert page (unique constraint on curriculum_id, trap_type prevents duplicates)
+        const { data: page, error: insertError } = await sb.from("trap_content_pages").upsert({
           curriculum_id,
           competency_id: trap.competency_id,
           trap_type: trap.trap_type,
@@ -209,7 +232,7 @@ WICHTIG: Referenziere die Beispielfragen korrekt. Vermeide faktische Fehler.
             meta_description: content?.meta_description || "",
           },
           status: publishStatus,
-        }).select("id").single();
+        }, { onConflict: "curriculum_id,trap_type" }).select("id").single();
 
         if (insertError) {
           results.push({ trap_type: trap.trap_type, error: insertError.message });

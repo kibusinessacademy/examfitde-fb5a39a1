@@ -1,14 +1,38 @@
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 
-// Content quality validation
-function validateContent(content: any): { valid: boolean; reason?: string } {
+const GARBAGE_STRINGS = ["undefined", "null", "none", "n/a", "keine", "placeholder", "todo", "tbd"];
+
+function validateContent(content: any, correctAnswer: string): { valid: boolean; reason?: string } {
   if (!content) return { valid: false, reason: "No content returned" };
+
+  // Check required fields exist and meet minimum lengths
   if (!content.hook || content.hook.length < 20) return { valid: false, reason: "Hook too short or missing" };
   if (!content.explanation_md || content.explanation_md.length < 100) return { valid: false, reason: "Explanation too short" };
   if (!content.social_linkedin || content.social_linkedin.length < 30) return { valid: false, reason: "LinkedIn caption missing/short" };
   if (!content.social_instagram || content.social_instagram.length < 20) return { valid: false, reason: "Instagram caption missing/short" };
   if (!content.social_tiktok || content.social_tiktok.length < 10) return { valid: false, reason: "TikTok hook missing/short" };
+
+  // Hook must not be identical to any caption
+  if (content.hook === content.social_linkedin || content.hook === content.social_instagram) {
+    return { valid: false, reason: "Hook identical to social caption" };
+  }
+
+  // Explanation must reference the correct answer
+  const explanationLower = content.explanation_md.toLowerCase();
+  const answerLower = (correctAnswer || "").toLowerCase();
+  if (answerLower && !explanationLower.includes(answerLower)) {
+    return { valid: false, reason: "Explanation does not reference correct answer" };
+  }
+
+  // Garbage string detection
+  for (const field of ["hook", "explanation_md", "social_linkedin", "social_instagram", "social_tiktok"]) {
+    const val = (content[field] || "").trim().toLowerCase();
+    if (GARBAGE_STRINGS.includes(val)) {
+      return { valid: false, reason: `Field '${field}' contains garbage value: ${val}` };
+    }
+  }
+
   return { valid: true };
 }
 
@@ -31,11 +55,11 @@ Deno.serve(async (req) => {
     let curriculumIds: string[] = [];
 
     if (mode === "batch") {
-      // FIX: use `status` not `build_status` (which doesn't exist)
+      // Only published packages for growth content
       const { data: packages } = await sb
         .from("course_packages")
         .select("curriculum_id")
-        .in("status", ["published", "building"])
+        .eq("status", "published")
         .not("curriculum_id", "is", null);
       curriculumIds = [...new Set((packages || []).map((p: any) => p.curriculum_id))];
     } else if (curriculum_id) {
@@ -48,7 +72,7 @@ Deno.serve(async (req) => {
 
     for (const cid of curriculumIds) {
       try {
-        // 1. Pick question via RPC (returns draft status)
+        // 1. Pick question via RPC (MC/SC filter is now in SQL, returns draft)
         const { data: pickResult, error: pickError } = await sb.rpc("fn_pick_daily_question", {
           p_curriculum_id: cid,
         });
@@ -85,18 +109,16 @@ Deno.serve(async (req) => {
           .single();
 
         if (!question || !curriculum) {
-          results.push({ curriculum_id: cid, error: "question or curriculum not found" });
+          // Mark pick as failed
+          await sb.from("daily_question_picks").update({
+            status: "failed_generation",
+            skip_reason: "question or curriculum not found",
+          }).eq("id", pickId);
+          results.push({ curriculum_id: cid, error: "question or curriculum not found", pick_id: pickId });
           continue;
         }
 
-        // 3. Type guard: only process MC questions for social content
-        const qType = question.question_type || "multiple_choice";
-        if (!["multiple_choice", "single_choice"].includes(qType)) {
-          results.push({ curriculum_id: cid, error: `Unsupported question type: ${qType}`, pick_id: pickId });
-          continue;
-        }
-
-        // 4. Generate hook + explanation + social captions via LLM
+        // 3. Generate hook + explanation + social captions via LLM
         const prompt = `
 Du bist der Content-Redakteur für ExamFit, ein Prüfungstrainings-System.
 Erstelle für die "Frage des Tages" folgende Inhalte:
@@ -105,21 +127,23 @@ BERUF: ${curriculum.title}
 FRAGE: ${question.question_text}
 OPTIONEN: ${JSON.stringify(question.options)}
 RICHTIGE ANTWORT: ${question.correct_answer}
-ERKLÄRUNG: ${question.explanation || "Keine Erklärung vorhanden"}
+ERKLÄRUNG: ${question.explanation || "Keine vorhanden"}
 SCHWIERIGKEIT: ${question.difficulty}
 TYPISCHE FALLE: ${(question.trap_tags || []).join(", ")}
 
 Erstelle:
 1. hook: Ein 1-Satz-Teaser der neugierig macht (max 120 Zeichen)
 2. explanation_md: Ausführliche Erklärung (Markdown, 200-400 Wörter) mit:
-   - Warum die richtige Antwort richtig ist
+   - Warum die richtige Antwort "${question.correct_answer}" richtig ist
    - Warum die Fallen-Antworten verlockend aber falsch sind
    - Praxisbezug
 3. social_linkedin: LinkedIn-Post (max 300 Zeichen, professionell)
 4. social_instagram: Instagram-Caption (max 200 Zeichen, mit Emojis)
 5. social_tiktok: TikTok-Hook (max 100 Zeichen, provokant)
 
-WICHTIG: Die Erklärung MUSS die richtige Antwort "${question.correct_answer}" korrekt referenzieren.
+WICHTIG: Die Erklärung MUSS die richtige Antwort "${question.correct_answer}" korrekt referenzieren und erklären.
+Der Hook darf NICHT identisch mit einer Social-Caption sein.
+Verwende KEINE Platzhalter.
 `;
 
         const llmResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -159,7 +183,11 @@ WICHTIG: Die Erklärung MUSS die richtige Antwort "${question.correct_answer}" k
 
         if (!llmResp.ok) {
           const errText = await llmResp.text();
-          results.push({ curriculum_id: cid, error: `LLM error: ${llmResp.status} ${errText}` });
+          await sb.from("daily_question_picks").update({
+            status: "failed_generation",
+            skip_reason: `LLM error: ${llmResp.status}`,
+          }).eq("id", pickId);
+          results.push({ curriculum_id: cid, error: `LLM error: ${llmResp.status} ${errText}`, pick_id: pickId });
           continue;
         }
 
@@ -170,7 +198,11 @@ WICHTIG: Die Erklärung MUSS die richtige Antwort "${question.correct_answer}" k
           try {
             content = JSON.parse(toolCall.function.arguments);
           } catch {
-            results.push({ curriculum_id: cid, error: "Failed to parse LLM tool call arguments" });
+            await sb.from("daily_question_picks").update({
+              status: "failed_generation",
+              skip_reason: "Failed to parse LLM tool call arguments",
+            }).eq("id", pickId);
+            results.push({ curriculum_id: cid, error: "Failed to parse LLM tool call arguments", pick_id: pickId });
             continue;
           }
         } else {
@@ -178,16 +210,20 @@ WICHTIG: Die Erklärung MUSS die richtige Antwort "${question.correct_answer}" k
           try {
             content = raw ? JSON.parse(raw) : null;
           } catch {
-            results.push({ curriculum_id: cid, error: "Failed to parse LLM raw response" });
+            await sb.from("daily_question_picks").update({
+              status: "failed_generation",
+              skip_reason: "Failed to parse LLM raw response",
+            }).eq("id", pickId);
+            results.push({ curriculum_id: cid, error: "Failed to parse LLM raw response", pick_id: pickId });
             continue;
           }
         }
 
-        // 5. Quality Gate: validate before publishing
-        const validation = validateContent(content);
+        // 4. Quality Gate
+        const validation = validateContent(content, question.correct_answer);
         const publishStatus = validation.valid ? "published" : "draft";
 
-        // 6. Update pick with generated content
+        // 5. Update pick with generated content
         await sb.from("daily_question_picks").update({
           hook: content?.hook || "",
           explanation_md: content?.explanation_md || "",
@@ -197,13 +233,14 @@ WICHTIG: Die Erklärung MUSS die richtige Antwort "${question.correct_answer}" k
             tiktok: content?.social_tiktok || "",
           },
           status: publishStatus,
+          skip_reason: validation.valid ? null : validation.reason,
         }).eq("id", pickId);
 
-        // 7. Only enqueue to growth_content_queue if quality passed
+        // 6. Only enqueue if quality passed (idempotent via unique constraint)
         if (validation.valid) {
           const platforms = ["linkedin", "instagram", "tiktok"];
           for (const platform of platforms) {
-            await sb.from("growth_content_queue").insert({
+            await sb.from("growth_content_queue").upsert({
               channel: "question_of_day",
               source_type: "daily_question_pick",
               source_id: pickId,
@@ -216,8 +253,9 @@ WICHTIG: Die Erklärung MUSS die richtige Antwort "${question.correct_answer}" k
                 question: question.question_text,
                 curriculum: curriculum.title,
                 slug: pickResult.slug,
+                content_fingerprint: pickId,
               },
-            });
+            }, { onConflict: "source_type,source_id,platform,channel" });
           }
         }
 
