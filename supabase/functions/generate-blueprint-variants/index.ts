@@ -279,8 +279,37 @@ Deno.serve(async (req) => {
 
       const countPerBlueprint = Math.max(5, Math.floor(count / eligibleIds.length));
 
-      // Enqueue individual per-blueprint jobs only for eligible blueprints
-      const jobRows = eligibleIds.map((bpId) => ({
+      // ── DUPLICATE GUARD: skip blueprints that already have pending/processing jobs ──
+      const { data: existingJobs } = await sb
+        .from("job_queue")
+        .select("payload")
+        .eq("job_type", "package_generate_blueprint_variants")
+        .eq("package_id", packageId)
+        .in("status", ["pending", "processing"]);
+
+      const alreadyEnqueued = new Set<string>();
+      for (const j of existingJobs ?? []) {
+        const bpId = (j.payload as any)?.blueprintId ?? (j.payload as any)?.blueprint_id;
+        if (bpId) alreadyEnqueued.add(bpId);
+      }
+
+      const newEligible = eligibleIds.filter(id => !alreadyEnqueued.has(id));
+      console.log(`[generate-blueprint-variants] Duplicate guard: ${eligibleIds.length} eligible, ${alreadyEnqueued.size} already enqueued, ${newEligible.length} new`);
+
+      if (newEligible.length === 0) {
+        return new Response(JSON.stringify({
+          ok: true,
+          message: "All eligible blueprints already have pending jobs",
+          package_id: packageId,
+          already_enqueued: alreadyEnqueued.size,
+          skipped: eligibleIds.length,
+        }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Enqueue individual per-blueprint jobs only for NEW eligible blueprints
+      const jobRows = newEligible.map((bpId) => ({
         job_type: "package_generate_blueprint_variants",
         payload: {
           package_id: packageId,
@@ -458,14 +487,25 @@ Deno.serve(async (req) => {
       // ── Update blueprint_variant_inventory ──
       try {
         const reviewReadyCount = rows.filter(r => r.status === "review" || r.status === "approved" || r.status === "promoted").length;
-        await sb.rpc("fn_upsert_variant_inventory" as any, {
+        const pkgId = p.package_id ?? p.packageId ?? null;
+        // Use the 8-param overload to ensure package_id context is preserved
+        const { error: invErr } = await sb.rpc("fn_upsert_variant_inventory" as any, {
           p_blueprint_id: blueprintId,
           p_curriculum_id: blueprint.curriculum_id,
+          p_package_id: pkgId,
+          p_target_count: 6,
           p_new_materialized: rows.length,
           p_new_approved: reviewReadyCount,
+          p_last_error: null,
+          p_fingerprint: null,
         });
+        if (invErr) {
+          console.error(`[generate-blueprint-variants] Inventory RPC error for ${blueprintId}:`, invErr);
+        } else {
+          console.log(`[generate-blueprint-variants] Inventory updated: blueprint=${blueprintId}, +${rows.length} materialized, +${reviewReadyCount} approved`);
+        }
       } catch (invErr) {
-        console.warn("[generate-blueprint-variants] Inventory update failed (non-fatal):", invErr);
+        console.error("[generate-blueprint-variants] Inventory update exception:", invErr);
       }
     }
 

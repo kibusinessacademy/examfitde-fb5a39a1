@@ -114,17 +114,23 @@ Deno.serve(async (req) => {
     const toEnqueue = gaps.slice(0, MAX_ENQUEUE);
     let enqueued = 0;
 
-    for (const gap of toEnqueue) {
-      // Check if there's already a pending/processing job for this blueprint
-      const { data: existing } = await sb
-        .from("job_queue")
-        .select("id")
-        .eq("job_type", "package_generate_blueprint_variants")
-        .in("status", ["pending", "processing"])
-        .eq("payload->>blueprint_id", gap.blueprint_id)
-        .limit(1);
+    // Build set of blueprint IDs that already have pending/processing jobs
+    // NOTE: payload uses BOTH camelCase (blueprintId) and snake_case (blueprint_id) depending on source
+    const { data: existingJobs } = await sb
+      .from("job_queue")
+      .select("payload")
+      .eq("job_type", "package_generate_blueprint_variants")
+      .eq("package_id", packageId)
+      .in("status", ["pending", "processing"]);
 
-      if (existing && existing.length > 0) continue;
+    const alreadyEnqueued = new Set<string>();
+    for (const j of existingJobs ?? []) {
+      const bpId = (j.payload as any)?.blueprintId ?? (j.payload as any)?.blueprint_id;
+      if (bpId) alreadyEnqueued.add(bpId);
+    }
+
+    for (const gap of toEnqueue) {
+      if (alreadyEnqueued.has(gap.blueprint_id)) continue;
 
       const remaining = gap.target_count - gap.materialized_count;
       if (remaining <= 0) continue;
@@ -135,7 +141,7 @@ Deno.serve(async (req) => {
         worker_pool: "prebuild",
         payload: {
           package_id: packageId,
-          blueprint_id: gap.blueprint_id,
+          blueprintId: gap.blueprint_id,
           count: Math.min(remaining, 20),
         },
         max_attempts: 3,
