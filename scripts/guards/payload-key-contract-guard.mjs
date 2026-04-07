@@ -7,7 +7,7 @@
  *
  * Ref: Incident April 2026 — blueprintId vs blueprint_id caused undetected re-entry loop.
  *
- * Scans: supabase/functions/**/*.ts
+ * Scans: supabase/functions/
  */
 
 import fs from "node:fs";
