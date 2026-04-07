@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { useEffect } from 'react';
@@ -42,6 +42,15 @@ const FAQ_ITEMS = [
 
 export default function HomePage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
+
+  // Authenticated users → Dashboard (prevents seeing marketing page)
+  useEffect(() => {
+    if (user) {
+      navigate('/dashboard', { replace: true });
+      return;
+    }
+  }, [user, navigate]);
 
   useEffect(() => {
     trackConversion({ event: 'page_view', source: 'homepage' });

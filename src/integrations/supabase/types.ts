@@ -11912,7 +11912,9 @@ export type Database = {
           quality_report: Json | null
           queue_position: number | null
           ready_since: string | null
+          resolution_owner: string | null
           retry_count: number | null
+          review_due_at: string | null
           started_at: string | null
           status: string
           step_status_json: Json | null
@@ -11971,7 +11973,9 @@ export type Database = {
           quality_report?: Json | null
           queue_position?: number | null
           ready_since?: string | null
+          resolution_owner?: string | null
           retry_count?: number | null
+          review_due_at?: string | null
           started_at?: string | null
           status?: string
           step_status_json?: Json | null
@@ -12030,7 +12034,9 @@ export type Database = {
           quality_report?: Json | null
           queue_position?: number | null
           ready_since?: string | null
+          resolution_owner?: string | null
           retry_count?: number | null
+          review_due_at?: string | null
           started_at?: string | null
           status?: string
           step_status_json?: Json | null
@@ -48727,12 +48733,14 @@ export type Database = {
           block_class: string | null
           blocked_at: string | null
           blocked_by: string | null
-          blocked_reason: string | null
           build_progress: number | null
           course_title: string | null
           open_jobs: number | null
           package_id: string | null
+          resolution_owner: string | null
+          review_due_at: string | null
           status: string | null
+          unblock_hint: string | null
         }
         Relationships: []
       }
@@ -68207,7 +68215,9 @@ export type Database = {
           quality_report: Json | null
           queue_position: number | null
           ready_since: string | null
+          resolution_owner: string | null
           retry_count: number | null
+          review_due_at: string | null
           started_at: string | null
           status: string
           step_status_json: Json | null
@@ -68544,7 +68554,9 @@ export type Database = {
           quality_report: Json | null
           queue_position: number | null
           ready_since: string | null
+          resolution_owner: string | null
           retry_count: number | null
+          review_due_at: string | null
           started_at: string | null
           status: string
           step_status_json: Json | null
