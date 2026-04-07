@@ -716,42 +716,51 @@ export async function processPackage(
       if (!step) continue;
       if (!["queued", "running", "enqueued"].includes(step.status)) continue;
 
-      // ── DEADLOCK PREVENTION GUARD (v2): Don't require started_at if completed jobs exist ──
-      // The status-lag-healer can reset started_at to null, causing permanent deadlocks.
-      // If there are completed jobs for this step, finalization should still be attempted.
+      const { data: latestCompletedJob } = await sb
+        .from("job_queue")
+        .select("id, result, completed_at")
+        .eq("package_id", packageId)
+        .eq("job_type", rule.jobType)
+        .eq("status", "completed")
+        .order("completed_at", { ascending: false })
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      // ── DEADLOCK PREVENTION GUARD (v3): a completed job is enough to re-open finalization ──
+      // Some recovery paths null out step.job_id / started_at before the package runner polls the
+      // completion. In that case the latest completed job becomes the SSOT for finalization.
       const DISPATCHER_DRIVEN_STEPS = new Set(["generate_learning_content"]);
       if (!step.started_at && !DISPATCHER_DRIVEN_STEPS.has(rule.stepKey)) {
-        // Check if completed jobs exist — if so, the step DID start even though started_at is null
-        const { data: completedCnt } = await safeRpc(sb, "count_active_jobs", {
-          p_package_id: packageId,
-          p_job_type: rule.jobType,
-        });
-        // count_active_jobs returns active (pending/processing) count.
-        // We need to check for completed jobs separately.
-        const { count: completedJobCount } = await sb
-          .from("job_queue")
-          .select("id", { count: "exact", head: true })
-          .eq("package_id", packageId)
-          .eq("job_type", rule.jobType)
-          .eq("status", "completed");
-
-        if ((completedJobCount ?? 0) === 0) {
+        if (!latestCompletedJob?.id) {
           continue; // Truly never started — skip finalization
         }
 
-        // Auto-heal: set started_at to prevent future deadlocks
-        console.warn(`[runner] 🩹 DEADLOCK GUARD: ${shortId}/${rule.stepKey} has ${completedJobCount} completed jobs but started_at=null — healing`);
+        const healedStartedAt = latestCompletedJob.completed_at ?? new Date().toISOString();
+        console.warn(`[runner] 🩹 DEADLOCK GUARD: ${shortId}/${rule.stepKey} has completed job ${String(latestCompletedJob.id).slice(0, 8)} but started_at=null — healing`);
         await safeQuery(
           sb.from("package_steps").update({
-            started_at: new Date().toISOString(),
+            started_at: healedStartedAt,
           }).eq("package_id", packageId).eq("step_key", rule.stepKey),
           "deadlock_guard_heal_started_at",
         );
-        step.started_at = new Date().toISOString();
+        step.started_at = healedStartedAt;
       }
 
-      const meta = (step.meta ?? {}) as any;
-      const cond = rule.shouldFinalize(meta);
+      const stepMeta = (step.meta ?? {}) as Record<string, unknown>;
+      const completedResult = latestCompletedJob?.result && typeof latestCompletedJob.result === "object" && !Array.isArray(latestCompletedJob.result)
+        ? latestCompletedJob.result as Record<string, unknown>
+        : {};
+      const finalizationMeta = {
+        ...stepMeta,
+        ...completedResult,
+        ...(latestCompletedJob?.id ? {
+          completion_job_id: latestCompletedJob.id,
+          completion_job_completed_at: latestCompletedJob.completed_at,
+        } : {}),
+      };
+
+      const cond = rule.shouldFinalize(finalizationMeta);
       if (!cond.ok) continue;
 
       const { data: activeCnt, error: activeErr } = await safeRpc(sb, "count_active_jobs", {
@@ -774,7 +783,13 @@ export async function processPackage(
         await markStepDone(sb, {
           packageId,
           stepKey: rule.stepKey,
-          meta: { finalized_by: "pipeline-runner", reason: cond.reason, snapshot: cond.snapshot },
+          meta: {
+            ...finalizationMeta,
+            finalized_by: "pipeline-runner",
+            finalization_reason: cond.reason,
+            finalization_snapshot: cond.snapshot,
+            finalization_source: latestCompletedJob?.id ? "latest_completed_job" : "step_meta",
+          },
         });
         await safeQuery(
           sb.from("package_steps").update({ last_error: null }).eq("package_id", packageId).eq("step_key", rule.stepKey),
