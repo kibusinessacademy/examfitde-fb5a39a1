@@ -1,6 +1,16 @@
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 
+// Content quality validation for trap pages
+function validateTrapContent(content: any): { valid: boolean; reason?: string } {
+  if (!content) return { valid: false, reason: "No content returned" };
+  if (!content.title || content.title.length < 10) return { valid: false, reason: "Title too short" };
+  if (!content.content_md || content.content_md.length < 200) return { valid: false, reason: "Content too short (min 200 chars)" };
+  if (!content.hook || content.hook.length < 15) return { valid: false, reason: "Hook too short" };
+  if (!content.meta_description || content.meta_description.length < 30) return { valid: false, reason: "Meta description too short" };
+  return { valid: true };
+}
+
 Deno.serve(async (req) => {
   const corsResponse = handleCorsPreflightRequest(req);
   if (corsResponse) return corsResponse;
@@ -31,12 +41,7 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Curriculum not found" }), { status: 400, headers });
     }
 
-    // Find trap types with enough questions that don't have pages yet
-    const { data: trapData } = await sb.rpc("get_trap_coverage_for_curriculum" as any, {
-      p_curriculum_id: curriculum_id,
-    }).catch(() => ({ data: null }));
-
-    // Fallback: direct query for unique trap_tags
+    // Direct query for unique trap_tags from approved questions
     let trapTypes: { trap_type: string; count: number; competency_id: string | null }[] = [];
 
     const { data: rawTraps } = await sb
@@ -77,18 +82,24 @@ Deno.serve(async (req) => {
     const results: any[] = [];
 
     for (const trap of newTraps) {
-      // Get example questions for this trap
-      const { data: examples } = await sb
-        .from("exam_questions")
-        .select("question_text, options, correct_answer, explanation, difficulty")
-        .eq("curriculum_id", curriculum_id)
-        .eq("status", "approved")
-        .contains("trap_tags", [trap.trap_type])
-        .limit(3);
+      try {
+        // Get example questions for this trap (only MC types)
+        const { data: examples } = await sb
+          .from("exam_questions")
+          .select("question_text, options, correct_answer, explanation, difficulty, question_type")
+          .eq("curriculum_id", curriculum_id)
+          .eq("status", "approved")
+          .contains("trap_tags", [trap.trap_type])
+          .limit(3);
 
-      const slug = `${curriculum.slug}-${trap.trap_type.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+/g, '-').slice(0, 50)}`;
+        // Filter to MC-only examples
+        const mcExamples = (examples || []).filter(
+          (e: any) => !e.question_type || ["multiple_choice", "single_choice"].includes(e.question_type)
+        );
 
-      const prompt = `
+        const slug = `${curriculum.slug}-${trap.trap_type.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+/g, '-').slice(0, 50)}`;
+
+        const prompt = `
 Du bist SEO-Content-Redakteur für ExamFit, ein Prüfungstrainings-System.
 Erstelle eine Seite über einen typischen Prüfungsfehler.
 
@@ -97,7 +108,7 @@ FEHLERTYP: ${trap.trap_type}
 HÄUFIGKEIT: ${trap.count} Fragen mit diesem Fehlertyp
 
 BEISPIELFRAGEN:
-${(examples || []).map((e, i) => `${i + 1}. ${e.question_text}\n   Richtig: ${e.correct_answer}\n   Erklärung: ${e.explanation || '-'}`).join('\n\n')}
+${mcExamples.map((e: any, i: number) => `${i + 1}. ${e.question_text}\n   Richtig: ${e.correct_answer}\n   Erklärung: ${e.explanation || '-'}`).join('\n\n')}
 
 Erstelle:
 1. title: SEO-optimierter Titel (max 60 Zeichen), z.B. "Häufiger IHK-Fehler: ${trap.trap_type}"
@@ -111,88 +122,108 @@ Erstelle:
 4. meta_description: SEO Meta-Description (max 155 Zeichen)
 5. social_linkedin: LinkedIn-Post (max 300 Zeichen)
 6. social_instagram: Instagram-Caption (max 200 Zeichen)
+
+WICHTIG: Referenziere die Beispielfragen korrekt. Vermeide faktische Fehler.
 `;
 
-      const llmResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${lovableKey}`,
-        },
-        body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
-          temperature: 0.7,
-          messages: [
-            { role: "system", content: "Du erzeugst streng strukturierten SEO-Content. Gib NUR valides JSON zurück." },
-            { role: "user", content: prompt },
-          ],
-          tools: [{
-            type: "function",
-            function: {
-              name: "return_trap_content",
-              description: "Return the generated trap content page",
-              parameters: {
-                type: "object",
-                properties: {
-                  title: { type: "string" },
-                  hook: { type: "string" },
-                  content_md: { type: "string" },
-                  meta_description: { type: "string" },
-                  social_linkedin: { type: "string" },
-                  social_instagram: { type: "string" },
+        const llmResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${lovableKey}`,
+          },
+          body: JSON.stringify({
+            model: "google/gemini-2.5-flash",
+            temperature: 0.7,
+            messages: [
+              { role: "system", content: "Du erzeugst streng strukturierten SEO-Content. Gib NUR valides JSON zurück." },
+              { role: "user", content: prompt },
+            ],
+            tools: [{
+              type: "function",
+              function: {
+                name: "return_trap_content",
+                description: "Return the generated trap content page",
+                parameters: {
+                  type: "object",
+                  properties: {
+                    title: { type: "string" },
+                    hook: { type: "string" },
+                    content_md: { type: "string" },
+                    meta_description: { type: "string" },
+                    social_linkedin: { type: "string" },
+                    social_instagram: { type: "string" },
+                  },
+                  required: ["title", "hook", "content_md", "meta_description"],
                 },
-                required: ["title", "hook", "content_md", "meta_description"],
               },
-            },
-          }],
-          tool_choice: { type: "function", function: { name: "return_trap_content" } },
-        }),
-      });
+            }],
+            tool_choice: { type: "function", function: { name: "return_trap_content" } },
+          }),
+        });
 
-      if (!llmResp.ok) {
-        results.push({ trap_type: trap.trap_type, error: `LLM error: ${llmResp.status}` });
-        continue;
-      }
+        if (!llmResp.ok) {
+          results.push({ trap_type: trap.trap_type, error: `LLM error: ${llmResp.status}` });
+          continue;
+        }
 
-      const llmData = await llmResp.json();
-      const toolCall = llmData.choices?.[0]?.message?.tool_calls?.[0];
-      let content: any;
-      if (toolCall?.function?.arguments) {
-        content = JSON.parse(toolCall.function.arguments);
-      } else {
-        const raw = llmData.choices?.[0]?.message?.content;
-        content = raw ? JSON.parse(raw) : null;
-      }
+        const llmData = await llmResp.json();
+        const toolCall = llmData.choices?.[0]?.message?.tool_calls?.[0];
+        let content: any;
+        if (toolCall?.function?.arguments) {
+          try {
+            content = JSON.parse(toolCall.function.arguments);
+          } catch {
+            results.push({ trap_type: trap.trap_type, error: "Failed to parse LLM arguments" });
+            continue;
+          }
+        } else {
+          const raw = llmData.choices?.[0]?.message?.content;
+          try {
+            content = raw ? JSON.parse(raw) : null;
+          } catch {
+            results.push({ trap_type: trap.trap_type, error: "Failed to parse LLM response" });
+            continue;
+          }
+        }
 
-      if (!content) {
-        results.push({ trap_type: trap.trap_type, error: "No LLM content" });
-        continue;
-      }
+        // Quality Gate
+        const validation = validateTrapContent(content);
+        const publishStatus = validation.valid ? "published" : "draft";
 
-      // Insert page
-      const { data: page, error: insertError } = await sb.from("trap_content_pages").insert({
-        curriculum_id,
-        competency_id: trap.competency_id,
-        trap_type: trap.trap_type,
-        slug,
-        title: content.title,
-        hook: content.hook,
-        content_md: content.content_md,
-        examples_json: examples || [],
-        social_captions: {
-          linkedin: content.social_linkedin || "",
-          instagram: content.social_instagram || "",
-        },
-        seo_meta: {
-          meta_description: content.meta_description,
-        },
-        status: "published",
-      }).select("id").single();
+        // Insert page
+        const { data: page, error: insertError } = await sb.from("trap_content_pages").insert({
+          curriculum_id,
+          competency_id: trap.competency_id,
+          trap_type: trap.trap_type,
+          slug,
+          title: content?.title || `Prüfungsfehler: ${trap.trap_type}`,
+          hook: content?.hook || "",
+          content_md: content?.content_md || "",
+          examples_json: mcExamples,
+          social_captions: {
+            linkedin: content?.social_linkedin || "",
+            instagram: content?.social_instagram || "",
+          },
+          seo_meta: {
+            meta_description: content?.meta_description || "",
+          },
+          status: publishStatus,
+        }).select("id").single();
 
-      if (insertError) {
-        results.push({ trap_type: trap.trap_type, error: insertError.message });
-      } else {
-        results.push({ trap_type: trap.trap_type, status: "created", page_id: page?.id, slug });
+        if (insertError) {
+          results.push({ trap_type: trap.trap_type, error: insertError.message });
+        } else {
+          results.push({
+            trap_type: trap.trap_type,
+            status: publishStatus === "published" ? "created" : "draft_quality_gate",
+            quality_issue: validation.valid ? null : validation.reason,
+            page_id: page?.id,
+            slug,
+          });
+        }
+      } catch (innerError) {
+        results.push({ trap_type: trap.trap_type, error: innerError instanceof Error ? innerError.message : "Unknown error" });
       }
 
       await new Promise(r => setTimeout(r, 2000));
