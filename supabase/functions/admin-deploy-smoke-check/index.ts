@@ -179,7 +179,42 @@ Deno.serve(async (req) => {
       checks.push({ dimension: "claim_health", data: queueHealth, ok: true });
     }
 
-    // ═══ CHECK 4: Pool Alignment ═══
+    // ═══ CHECK 4: No-Claim-Despite-Backlog ═══
+    // Detects operational dead-stops: pending jobs exist, runner is alive, but nothing processes.
+    {
+      const since15m = new Date(Date.now() - 15 * 60_000).toISOString();
+      const since30m = new Date(Date.now() - 30 * 60_000).toISOString();
+
+      const [pendingRes, processingRes, completedRes] = await Promise.all([
+        sb.from("job_queue").select("id", { count: "exact", head: true }).eq("status", "pending").lte("run_after", new Date().toISOString()),
+        sb.from("job_queue").select("id", { count: "exact", head: true }).eq("status", "processing"),
+        sb.from("job_queue").select("id", { count: "exact", head: true }).eq("status", "completed").gte("updated_at", since15m),
+      ]);
+
+      const pendingReady = pendingRes.count ?? 0;
+      const processing = processingRes.count ?? 0;
+      const completed15m = completedRes.count ?? 0;
+
+      const isDeadStop = pendingReady > 5 && processing === 0 && completed15m === 0;
+      checks.push({
+        dimension: "no_claim_despite_backlog",
+        pending_ready: pendingReady,
+        processing,
+        completed_15m: completed15m,
+        ok: !isDeadStop,
+      });
+      if (isDeadStop) {
+        failures.push({
+          type: "no_claim_despite_backlog",
+          pending_ready: pendingReady,
+          processing,
+          completed_15m: completed15m,
+          message: "Runner appears alive but nothing is being claimed or completed despite claimable backlog.",
+        });
+      }
+    }
+
+    // ═══ CHECK 5: Pool Alignment ═══
     if (!polErr && dbPolicies) {
       const dbPoolMap: Record<string, string> = {};
       // re-fetch with pool

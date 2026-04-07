@@ -1130,6 +1130,31 @@ Deno.serve(async (req) => {
   const startedAt = Date.now();
   const deadline = startedAt + LOOP_MAX_MS;
 
+  // ═══ BOOT GUARD: Pool-SSOT Alignment ═══════════════════════
+  // Hard-fail if the pools this runner claims don't exist in DB SSOT.
+  // Prevents the silent "Claimed 0" standstill that went undetected for weeks.
+  const RUNNER_CLAIM_POOLS = ["default", "prebuild"];
+  try {
+    const { data: dbPools, error: poolErr } = await sb
+      .from("job_type_policies")
+      .select("worker_pool")
+      .limit(500);
+
+    if (!poolErr && dbPools) {
+      const knownPools = new Set((dbPools as any[]).map((r: any) => r.worker_pool));
+      const orphanPools = RUNNER_CLAIM_POOLS.filter(p => !knownPools.has(p));
+      if (orphanPools.length > 0) {
+        const msg = `BOOT_GUARD_POOL_MISMATCH: Runner claims pools [${orphanPools.join(", ")}] but DB SSOT only has [${[...knownPools].join(", ")}]. Aborting to prevent silent standstill.`;
+        console.error(`[content-runner] 🔴 ${msg}`);
+        return json({ ok: false, error: "BOOT_GUARD_POOL_MISMATCH", orphan_pools: orphanPools, db_pools: [...knownPools], message: msg }, 500);
+      }
+      console.log(`[content-runner] ✅ Boot pool guard passed: claiming [${RUNNER_CLAIM_POOLS.join(", ")}], DB has [${[...knownPools].join(", ")}]`);
+    }
+  } catch (e) {
+    // Non-fatal: log but continue (don't block runner on transient DB errors)
+    console.warn(`[content-runner] ⚠️ Boot pool guard skipped (DB error): ${(e as Error).message}`);
+  }
+
   let passes = 0;
   let emptyPolls = 0;
   let totalClaimed = 0;
