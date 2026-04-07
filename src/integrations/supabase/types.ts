@@ -3538,27 +3538,39 @@ export type Database = {
         Row: {
           ai_detection_report: Json | null
           ai_detection_score: number | null
+          answer_blocks: Json | null
+          article_type: string | null
+          beruf_id: string | null
           canonical_url: string | null
+          competency_id: string | null
           content_hash: string | null
           content_md: string
+          content_quality_signals: Json | null
           created_at: string
+          entity_data: Json | null
           faq_json: Json | null
           generated_by_model: string | null
           hero_image_alt: string | null
           hero_image_url: string | null
           id: string
+          internal_link_plan: Json | null
           internal_links_json: Json | null
           is_winner: boolean | null
           keywords: string[] | null
+          last_refreshed_at: string | null
           meta_description: string | null
           og_image_url: string | null
           performance_score: number | null
+          primary_question: string | null
           published_at: string | null
           reading_time_min: number | null
+          refresh_priority: number | null
+          short_answer: string | null
           slug: string
           source_curriculum_id: string | null
           source_package_id: string | null
           source_question_id: string | null
+          speakable_selectors: string[] | null
           status: string
           target_keyword: string | null
           title: string
@@ -3570,27 +3582,39 @@ export type Database = {
         Insert: {
           ai_detection_report?: Json | null
           ai_detection_score?: number | null
+          answer_blocks?: Json | null
+          article_type?: string | null
+          beruf_id?: string | null
           canonical_url?: string | null
+          competency_id?: string | null
           content_hash?: string | null
           content_md: string
+          content_quality_signals?: Json | null
           created_at?: string
+          entity_data?: Json | null
           faq_json?: Json | null
           generated_by_model?: string | null
           hero_image_alt?: string | null
           hero_image_url?: string | null
           id?: string
+          internal_link_plan?: Json | null
           internal_links_json?: Json | null
           is_winner?: boolean | null
           keywords?: string[] | null
+          last_refreshed_at?: string | null
           meta_description?: string | null
           og_image_url?: string | null
           performance_score?: number | null
+          primary_question?: string | null
           published_at?: string | null
           reading_time_min?: number | null
+          refresh_priority?: number | null
+          short_answer?: string | null
           slug: string
           source_curriculum_id?: string | null
           source_package_id?: string | null
           source_question_id?: string | null
+          speakable_selectors?: string[] | null
           status?: string
           target_keyword?: string | null
           title: string
@@ -3602,27 +3626,39 @@ export type Database = {
         Update: {
           ai_detection_report?: Json | null
           ai_detection_score?: number | null
+          answer_blocks?: Json | null
+          article_type?: string | null
+          beruf_id?: string | null
           canonical_url?: string | null
+          competency_id?: string | null
           content_hash?: string | null
           content_md?: string
+          content_quality_signals?: Json | null
           created_at?: string
+          entity_data?: Json | null
           faq_json?: Json | null
           generated_by_model?: string | null
           hero_image_alt?: string | null
           hero_image_url?: string | null
           id?: string
+          internal_link_plan?: Json | null
           internal_links_json?: Json | null
           is_winner?: boolean | null
           keywords?: string[] | null
+          last_refreshed_at?: string | null
           meta_description?: string | null
           og_image_url?: string | null
           performance_score?: number | null
+          primary_question?: string | null
           published_at?: string | null
           reading_time_min?: number | null
+          refresh_priority?: number | null
+          short_answer?: string | null
           slug?: string
           source_curriculum_id?: string | null
           source_package_id?: string | null
           source_question_id?: string | null
+          speakable_selectors?: string[] | null
           status?: string
           target_keyword?: string | null
           title?: string
