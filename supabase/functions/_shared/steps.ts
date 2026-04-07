@@ -52,6 +52,8 @@ export async function markStepDone(sb: SB, args: {
     ...(args.meta ?? {}),
     // Historize errors, clear transient fields
     ...(previousErrors.length > 0 ? { previous_errors: previousErrors } : {}),
+    // Post-condition passed → set flag for DB trigger guard
+    postcondition_verified: true,
     // Explicitly remove stale failure signals
     last_error_class: undefined,
     failed_at: undefined,
