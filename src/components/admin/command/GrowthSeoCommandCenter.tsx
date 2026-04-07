@@ -463,6 +463,10 @@ export default function GrowthSeoCommandCenter() {
         <TabsContent value="growth" className="mt-4">
           <GrowthIntelPanel growth={growth} />
         </TabsContent>
+
+        <TabsContent value="engine" className="mt-4">
+          <GrowthEnginePanel />
+        </TabsContent>
       </Tabs>
 
       {/* Content Pipeline Overview */}
