@@ -90,11 +90,11 @@ Deno.serve(async (req) => {
         )
       );
 
-      // Generate blueprint rows
+      // Generate blueprint rows using only valid competencies
       const allRows = generateBlueprintRows({
         validationProfile: cert.validation_profile,
         curriculumId: curriculum.id,
-        competencies: comps,
+        competencies: validComps,
       });
 
       // Filter out already existing ones
