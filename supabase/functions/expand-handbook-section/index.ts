@@ -189,13 +189,11 @@ Deno.serve(async (req) => {
         .maybeSingle();
       if (curr?.profession_name) professionName = curr.profession_name as string;
 
-      // P6-prep: Resolve persona from package
-      const { data: pkg } = await sb
-        .from("course_packages")
-        .select("track, persona_profile")
-        .eq("curriculum_id", curriculumId)
-        .limit(1)
-        .maybeSingle();
+      // P6-prep: Resolve persona from package — prefer package_id (deterministic)
+      const pkgQuery = packageId
+        ? sb.from("course_packages").select("track, persona_profile").eq("id", packageId).maybeSingle()
+        : sb.from("course_packages").select("track, persona_profile").eq("curriculum_id", curriculumId).order("updated_at", { ascending: false }).limit(1).maybeSingle();
+      const { data: pkg } = await pkgQuery;
       if (pkg) {
         persona = resolvePersonaProfile(pkg);
       }
@@ -216,14 +214,20 @@ Deno.serve(async (req) => {
 
   let contextBlock = "";
   if (examQuestions.length > 0) {
-    contextBlock += `\n\nECHTE PRÜFUNGSFRAGEN zu diesem Thema (nutze als Orientierung für Tiefe und Schwierigkeit):\n${examQuestions.map((q, i) => `${i + 1}. ${q}`).join("\n")}`;
+    contextBlock += `\n\n## Echte Prüfungsfragen zu diesem Thema (Orientierung für Tiefe und Schwierigkeit)
+${examQuestions.map((q, i) => `${i + 1}. ${q}`).join("\n")}
+
+PFLICHT: Vertiefe den Abschnitt so, dass die obigen Prüfungsfragen mit dem Handbuch-Wissen beantwortbar sind.`;
   }
   if (competencies.length > 0) {
     const compLines = competencies.map(c => {
       const misc = c.misconception ? ` → Fehlvorstellung: "${c.misconception}"` : "";
       return `- ${c.name} [${c.bloom}]${misc}`;
     }).join("\n");
-    contextBlock += `\n\nKOMPETENZEN die abgedeckt werden MÜSSEN:\n${compLines}`;
+    contextBlock += `\n\n## Kompetenzen und typische Fehlvorstellungen
+${compLines}
+
+PFLICHT: Behandle die genannten Fehlvorstellungen EXPLIZIT im Text. Erkläre, warum sie falsch sind.`;
   }
 
   const expandChain = getModelChain("handbook");
@@ -311,7 +315,7 @@ ${basisContent}`,
     // Guardrail B: Verify against didactic requirements
     const verification = verifyContentQuality(expanded, persona);
 
-    // 5) Write expanded_content — basis_content stays untouched
+    // 5) Write expanded_content + persist verification — basis_content stays untouched
     const { error: updateErr } = await sb.from("handbook_sections").update({
       expanded_content: expanded,
       content_markdown: expanded,
@@ -323,6 +327,11 @@ ${basisContent}`,
       quality_score: score,
       depth_markers: markers,
       expand_last_error: null,
+      // Guardrail B: persist verification for audits
+      verification_score: verification.score,
+      verification_missing: verification.missing,
+      verification_markers: verification.markers,
+      verification_version: verification.version,
     }).eq("id", sectionId);
 
     if (updateErr) throw updateErr;
