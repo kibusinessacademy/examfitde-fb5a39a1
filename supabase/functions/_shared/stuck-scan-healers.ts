@@ -2,6 +2,7 @@
  * stuck-scan: Orphan processing, enqueued-drift, and status-lag self-heal.
  */
 import { STEP_TO_JOB_TYPE } from "./job-map.ts";
+import { markStepDone } from "./steps.ts";
 import type { SupabaseClient } from "./stuck-scan-helpers.ts";
 
 const ORPHAN_MIN_AGE_MS = 10 * 60 * 1000;
@@ -204,33 +205,57 @@ export async function healBatchCompleteStuck(sb: SupabaseClient) {
       if ((activeCnt ?? 0) > 0) continue;
     }
 
-    await sb.from("package_steps").update({
-      status: "done",
-      finished_at: new Date().toISOString(),
-      meta: {
-        ...meta,
-        postcondition_verified: true,
-        batch_complete_heal: true,
-        batch_complete_healed_at: new Date().toISOString(),
-      },
-    }).eq("package_id", ps.package_id).eq("step_key", ps.step_key);
+    // ── SSOT POSTCONDITION GATE ──
+    // Instead of blindly setting done + postcondition_verified,
+    // delegate to the SSOT markStepDone which runs assertStepPostConditions.
+    // If postconditions fail → the step is NOT real content → skip the heal.
+    const ageMin = Math.round(ageMs / 60000);
+    try {
+      await markStepDone(sb, {
+        packageId: ps.package_id,
+        stepKey: ps.step_key,
+        meta: {
+          ...meta,
+          batch_complete_heal: true,
+          batch_complete_healed_at: new Date().toISOString(),
+        },
+      });
 
-    await sb.from("auto_heal_log").insert({
-      action_type: "batch_complete_stuck_heal",
-      trigger_source: "stuck-scan",
-      target_type: "package_step",
-      target_id: ps.package_id,
-      result_status: "applied",
-      result_detail: `Step ${ps.step_key} was queued with batch_complete=true for ${Math.round(ageMs / 60000)}min — set to done`,
-      metadata: { step_key: ps.step_key, age_min: Math.round(ageMs / 60000) },
-    });
+      await sb.from("auto_heal_log").insert({
+        action_type: "batch_complete_stuck_heal",
+        trigger_source: "stuck-scan",
+        target_type: "package_step",
+        target_id: ps.package_id,
+        result_status: "applied",
+        result_detail: `Step ${ps.step_key} was queued with batch_complete=true for ${ageMin}min — postconditions PASSED → done`,
+        metadata: { step_key: ps.step_key, age_min: ageMin },
+      });
 
-    results.push({ package_id: ps.package_id, step_key: ps.step_key, action: "batch-complete-heal: queued→done" });
-    console.warn(`[stuck-scan] 🔄 Batch-complete-heal: ${ps.step_key} for ${ps.package_id.slice(0, 8)} — queued with batch_complete=true → done`);
+      results.push({ package_id: ps.package_id, step_key: ps.step_key, action: "batch-complete-heal: queued→done (postcondition-verified)" });
+      console.warn(`[stuck-scan] 🔄 Batch-complete-heal: ${ps.step_key} for ${ps.package_id.slice(0, 8)} — postconditions PASSED → done`);
+    } catch (pcErr: unknown) {
+      // Postconditions failed — content is hollow. Do NOT promote to done.
+      // Log the rejection and leave step in queued for the pipeline to fix.
+      const errMsg = pcErr instanceof Error ? pcErr.message : String(pcErr);
+      const errMeta = (pcErr as any)?.__meta ?? {};
+      console.warn(`[stuck-scan] 🚫 Batch-complete-heal BLOCKED for ${ps.step_key}/${ps.package_id.slice(0, 8)}: postcondition failed — ${errMsg}`);
+
+      await sb.from("auto_heal_log").insert({
+        action_type: "batch_complete_stuck_heal",
+        trigger_source: "stuck-scan",
+        target_type: "package_step",
+        target_id: ps.package_id,
+        result_status: "skipped",
+        result_detail: `Step ${ps.step_key} has batch_complete=true but postconditions FAILED: ${errMsg.slice(0, 300)}`,
+        metadata: { step_key: ps.step_key, age_min: ageMin, postcondition_error: errMsg.slice(0, 200), ...errMeta },
+      });
+
+      results.push({ package_id: ps.package_id, step_key: ps.step_key, action: `batch-complete-heal: BLOCKED (${errMeta.verdict ?? 'postcondition_failed'})` });
+    }
   }
 
   if (results.length > 0) {
-    console.log(`[stuck-scan] 🔄 Batch-complete healed ${results.length} step(s)`);
+    console.log(`[stuck-scan] 🔄 Batch-complete healer processed ${results.length} step(s)`);
   }
 
   return results;

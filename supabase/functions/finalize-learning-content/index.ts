@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { assertSchemaReady } from "../_shared/schema-gate.ts";
 import { enqueueJob } from "../_shared/enqueue.ts";
+import { markStepDone } from "../_shared/steps.ts";
 
 /**
  * finalize-learning-content — Hard barrier before downstream.
@@ -632,83 +633,41 @@ Deno.serve(async (req) => {
 
   const now = new Date().toISOString();
 
-  // ── Helper: mark step done safely ──
-  // The guard_ghost_step_finalization trigger blocks status→done when started_at IS NULL.
-  // We MUST set started_at before setting status to done, and we MUST check for errors.
+  // ── Helper: mark step done via SSOT markStepDone (runs postconditions) ──
+  // For generate_learning_content this validates lesson realness via RPC.
+  // For other steps (fanout, finalize) there are no postconditions, so it passes through.
   async function markStepDoneSafe(stepKey: string, metaPatch: Record<string, unknown>) {
     console.log(`[finalize] markStepDoneSafe START: ${stepKey} for ${packageId.slice(0, 8)}`);
 
-    // 1. Ensure started_at is set (required by ghost finalization guard)
-    const { error: startErr } = await sb
-      .from("package_steps")
-      .update({ started_at: now, updated_at: now })
-      .eq("package_id", packageId)
-      .eq("step_key", stepKey)
-      .is("started_at", null);
-
-    if (startErr) {
-      console.error(`[finalize] ❌ started_at backfill failed for ${stepKey}: ${startErr.message}`);
-    }
-
-    // 2. Read current meta (preserve protected keys via merge)
+    // Skip if already done
     const { data: existing } = await sb
       .from("package_steps")
-      .select("meta, status, started_at")
+      .select("status")
       .eq("package_id", packageId)
       .eq("step_key", stepKey)
       .maybeSingle();
 
-    console.log(`[finalize] Pre-update state for ${stepKey}: status=${existing?.status}, started_at=${existing?.started_at}`);
-
-    // Skip if already done
     if (existing?.status === "done") {
       console.log(`[finalize] ✅ Step ${stepKey} already done — skipping`);
       return;
     }
 
-    const mergedMeta = { ...((existing?.meta as Record<string, unknown>) ?? {}), ...metaPatch, postcondition_verified: true };
+    // Use SSOT markStepDone which runs assertStepPostConditions
+    await markStepDone(sb, {
+      packageId,
+      stepKey,
+      meta: metaPatch,
+      finishedAt: now,
+      expectedLessons: totalLessons > 0 ? totalLessons : null,
+    });
 
-    // 3. Update to done
-    const { error } = await sb
-      .from("package_steps")
-      .update({
-        status: "done",
-        finished_at: now,
-        updated_at: now,
-        last_error: null,
-        meta: mergedMeta,
-      })
-      .eq("package_id", packageId)
-      .eq("step_key", stepKey);
-
-    if (error) {
-      console.error(`[finalize] ❌ Failed to mark ${stepKey} as done: ${error.message}`);
-      // Don't silently continue — throw so the caller knows
-      throw new Error(`markStepDoneSafe: ${stepKey} update failed: ${error.message}`);
-    }
-
-    // 4. Read-after-write verification
-    const { data: verify, error: verifyErr } = await sb
-      .from("package_steps")
-      .select("status, finished_at")
-      .eq("package_id", packageId)
-      .eq("step_key", stepKey)
-      .maybeSingle();
-
-    if (verifyErr || !verify || verify.status !== "done") {
-      const msg = `markStepDoneSafe VERIFY MISMATCH for ${stepKey}: ` +
-        `expected=done, got=${verify?.status ?? "null"}, err=${verifyErr?.message ?? "none"}`;
-      console.error(`[finalize] ❌ ${msg}`);
-      throw new Error(msg);
-    }
-
-    console.log(`[finalize] ✅ Step ${stepKey} → done (verified) for ${packageId.slice(0, 8)}`);
+    console.log(`[finalize] ✅ Step ${stepKey} → done (postcondition-verified) for ${packageId.slice(0, 8)}`);
   }
 
   // Mark fanout_learning_content as done
   await markStepDoneSafe("fanout_learning_content", { finalized_at: now });
 
-  // Mark generate_learning_content as done
+  // Mark generate_learning_content as done — postconditions validate lesson realness
   await markStepDoneSafe("generate_learning_content", {
     fanout_id: fanoutId,
     total_shards: totalShards,
