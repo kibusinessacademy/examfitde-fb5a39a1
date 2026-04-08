@@ -216,7 +216,7 @@ export function buildExamQuestionRow(input: {
     certification_id: input.certificationId,
     curriculum_id: bp.curriculum_id,
     competency_id: bp.competency_id,
-    learning_field_id: bp.learning_field_id ?? null,
+    learning_field_id: bp.learning_field_id,
     blueprint_id: bp.id,
     status: "draft",
     review_state: "pending",
@@ -232,7 +232,7 @@ export function buildExamQuestionRow(input: {
     difficulty,
     ai_generated: true,
     qc_status: isPromotable ? "tier1_passed" : "needs_review",
-    exam_part: examPart ?? "", // Empty string — trigger will derive or mark needs_review
+    exam_part: examPart ?? "teil_1", // Default to teil_1 — DB trigger also enforces
     distractor_meta: {
       source_blueprint_id: bp.id,
       source_knowledge_type: bp.knowledge_type,
@@ -241,7 +241,7 @@ export function buildExamQuestionRow(input: {
       expected_trap_type: trapType,
     },
     meta: {
-      generator_version: "2026-04-05-exam-pool-v3",
+      generator_version: "2026-04-08-exam-pool-v4",
       source: "blueprint_derived",
       didactic_intent: bp.didactic_intent,
       decision_structure: bp.decision_structure,
