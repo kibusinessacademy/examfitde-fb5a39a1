@@ -49564,6 +49564,8 @@ export type Database = {
           batch_complete: boolean | null
           completion_ratio: string | null
           drift_minutes: number | null
+          has_completion_signal: boolean | null
+          meta_ok: boolean | null
           needs_regen: number | null
           package_id: string | null
           package_title: string | null

@@ -21,6 +21,7 @@ const guards = [
   "handler-registry-parity-guard.mjs",
   "payload-key-contract-guard.mjs",
   "payload-schema-contract-report.mjs --check",
+  "no-direct-done-write-guard.mjs",
 ];
 
 function run(entry) {
