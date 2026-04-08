@@ -22156,6 +22156,10 @@ export type Database = {
           section_key: string
           sort_order: number
           title: string
+          verification_markers: Json | null
+          verification_missing: string[] | null
+          verification_score: number | null
+          verification_version: number | null
         }
         Insert: {
           basis_content?: string | null
@@ -22181,6 +22185,10 @@ export type Database = {
           section_key: string
           sort_order?: number
           title: string
+          verification_markers?: Json | null
+          verification_missing?: string[] | null
+          verification_score?: number | null
+          verification_version?: number | null
         }
         Update: {
           basis_content?: string | null
@@ -22206,6 +22214,10 @@ export type Database = {
           section_key?: string
           sort_order?: number
           title?: string
+          verification_markers?: Json | null
+          verification_missing?: string[] | null
+          verification_score?: number | null
+          verification_version?: number | null
         }
         Relationships: [
           {
