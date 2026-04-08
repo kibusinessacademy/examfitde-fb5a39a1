@@ -138,7 +138,9 @@ Deno.serve(async (req) => {
 
     let totalAcquired = 0;
 
-    // ── Phase 1: Acquire per-track with quota limits ──
+    // ── Phase 1: Acquire ALL packages first, then process in parallel ──
+    const acquired: Array<{ packageId: string; runnerId: string; track: string }> = [];
+
     for (const track of TRACK_ACQUISITION_ORDER) {
       const slotsForTrack = trackSlots[track];
       if (slotsForTrack <= 0 || totalAcquired >= maxSlots) continue;
@@ -175,10 +177,8 @@ Deno.serve(async (req) => {
         }
         processedPackageIds.add(packageId);
         totalAcquired++;
-
-        console.log(`[runner] Acquired ${track} slot ${i + 1}/${claimCount}: package ${packageId.slice(0, 8)}`);
-        const result = await processPackage(sb, packageId, runnerId, stepClassCtx);
-        results.push({ slot: totalAcquired, track, ...result });
+        acquired.push({ packageId, runnerId, track });
+        console.log(`[runner] Acquired ${track} slot ${acquired.length}/${claimCount}: package ${packageId.slice(0, 8)}`);
       }
     }
 
@@ -202,10 +202,28 @@ Deno.serve(async (req) => {
         }
         processedPackageIds.add(packageId);
         totalAcquired++;
-
+        acquired.push({ packageId, runnerId, track: "borrow" });
         console.log(`[runner] Borrow slot: package ${packageId.slice(0, 8)}`);
-        const result = await processPackage(sb, packageId, runnerId, stepClassCtx);
-        results.push({ slot: totalAcquired, track: "borrow", ...result });
+      }
+    }
+
+    // ── Phase 3: Process ALL acquired packages in parallel (max 4 concurrent) ──
+    const PARALLEL_BATCH_SIZE = 4;
+    for (let batchStart = 0; batchStart < acquired.length; batchStart += PARALLEL_BATCH_SIZE) {
+      const batch = acquired.slice(batchStart, batchStart + PARALLEL_BATCH_SIZE);
+      const batchResults = await Promise.allSettled(
+        batch.map(async ({ packageId, runnerId, track }, idx) => {
+          const result = await processPackage(sb, packageId, runnerId, stepClassCtx);
+          return { slot: batchStart + idx + 1, track, ...result };
+        }),
+      );
+
+      for (const r of batchResults) {
+        if (r.status === "fulfilled") {
+          results.push(r.value);
+        } else {
+          results.push({ error: r.reason?.message ?? "parallel_process_error" });
+        }
       }
     }
 
