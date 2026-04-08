@@ -75,6 +75,25 @@ Deno.serve(async (req) => {
           continue;
         }
 
+        // Filter out blueprints with missing mandatory fields
+        const validBlueprints = allBlueprints.filter(bp => {
+          if (!bp.competency_id || !bp.learning_field_id || !bp.curriculum_id) {
+            console.warn(`[generate-exam-pool] Skipping blueprint ${bp.id}: missing competency_id=${bp.competency_id}, learning_field_id=${bp.learning_field_id}`);
+            return false;
+          }
+          return true;
+        });
+
+        const skippedInvalid = allBlueprints.length - validBlueprints.length;
+        if (skippedInvalid > 0) {
+          console.warn(`[generate-exam-pool] ${cert.slug}: skipped ${skippedInvalid} blueprints with missing FK fields`);
+        }
+
+        if (validBlueprints.length === 0) {
+          results.push({ slug: cert.slug, ok: false, error: "No valid blueprints (all missing mandatory fields)" });
+          continue;
+        }
+
         // Dedup: check existing questions by blueprint_id
         const bpIds = allBlueprints.map((bp) => bp.id);
         const existingSet = new Set<string>();
