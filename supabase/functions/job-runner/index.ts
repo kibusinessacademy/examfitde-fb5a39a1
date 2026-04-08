@@ -371,6 +371,7 @@ Deno.serve(async (req) => {
   const PIPELINE_PREREQS: Record<string, string[]> = {
     // ── Early chain (safety net — pipeline-process is primary gate) ──
     package_generate_glossary: ["scaffold_learning_course"],
+    package_fanout_learning_content: ["scaffold_learning_course"],
     package_generate_learning_content: ["fanout_learning_content"],
     package_finalize_learning_content: ["generate_learning_content"],
     package_validate_learning_content: ["finalize_learning_content"],
@@ -383,6 +384,7 @@ Deno.serve(async (req) => {
     // ── Exam branch ──
     package_generate_exam_pool: ["promote_blueprint_variants"],
     package_validate_exam_pool: ["generate_exam_pool"],
+    package_repair_exam_pool_quality: ["generate_exam_pool"],
     // ── Tutor branch (from validate_exam_pool) ──
     package_build_ai_tutor_index: ["validate_exam_pool"],
     package_validate_tutor_index: ["build_ai_tutor_index"],
@@ -398,6 +400,7 @@ Deno.serve(async (req) => {
     package_generate_handbook: ["validate_learning_content"],
     package_validate_handbook: ["generate_handbook"],
     package_enqueue_handbook_expand: ["validate_handbook"],
+    handbook_expand_section: ["enqueue_handbook_expand"],
     package_validate_handbook_depth: ["expand_handbook"],
     // ── Convergence: integrity check requires ALL 5 terminal branches ──
     package_run_integrity_check: ["elite_harden", "validate_lesson_minichecks", "validate_handbook_depth", "validate_oral_exam", "validate_tutor_index"],
