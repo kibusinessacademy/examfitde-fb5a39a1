@@ -67310,6 +67310,7 @@ export type Database = {
         Returns: undefined
       }
       fn_share_fi_core_questions: { Args: never; Returns: Json }
+      fn_share_fi_handbook_chapters: { Args: never; Returns: number }
       fn_update_package_prebuild_status: {
         Args: { p_package_id: string }
         Returns: string
