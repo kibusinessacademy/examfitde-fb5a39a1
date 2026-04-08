@@ -20,4 +20,12 @@ Inline-KI-Feedback nach falschen Antworten im Shuttle Mode:
 - **UI**: "Fehler erklären lassen" Button (Lightbulb-Icon) erscheint nur bei falschen Antworten, KI-Erklärung wird in separater Karte (Amber-Akzent) angezeigt
 - **Hook**: `explainMistake(questionId, selectedAnswer)` in `useShuttleMode`
 
-Geplante Erweiterungen umfassen eine 'Prüfungs-Heatmap' (Phase 4), den 'Crash Mode' (Phase 5, 7-Tage-Plan), einen 'XP & Mastery Layer' (Phase 6) sowie ein 'Prüfungsprotokoll' (Phase 7). Alle Module agieren strikt SSOT-konform auf Basis bestehender Datenquellen.
+## Phase 4: Prüfungs-Heatmap (implementiert)
+Visuelle Reife-Übersicht pro Lernfeld basierend auf Shuttle-Events:
+- **Hook**: `useExamHeatmap(curriculumId)` aggregiert `shuttle_events` (question_answered) pro Lernfeld über Kompetenz→Lernfeld Mapping
+- **Heat-Level**: 5-stufig (0=keine Daten, 1=schwach <40%, 2=aufbau <60%, 3=gut <80%, 4=stark ≥80%)
+- **UI**: `/heatmap?curriculum=<id>` mit 2-spaltigem Grid, Tooltip-Details, Legende, Gesamtquote
+- **Dashboard-Integration**: Quick-Launch Card (emerald-Akzent) im LearnerDashboard
+- **Keine neue DB-Tabelle**: Rein clientseitige Aggregation über bestehende SSOT-Daten
+
+Geplante Erweiterungen umfassen den 'Crash Mode' (Phase 5, 7-Tage-Plan), einen 'XP & Mastery Layer' (Phase 6) sowie ein 'Prüfungsprotokoll' (Phase 7). Alle Module agieren strikt SSOT-konform auf Basis bestehender Datenquellen.
