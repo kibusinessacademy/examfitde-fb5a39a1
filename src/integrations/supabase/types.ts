@@ -16071,6 +16071,48 @@ export type Database = {
           },
         ]
       }
+      daily_challenges: {
+        Row: {
+          answers: Json
+          challenge_date: string
+          completed: boolean
+          completed_at: string | null
+          correct_count: number
+          created_at: string
+          curriculum_id: string
+          id: string
+          question_ids: string[]
+          total_questions: number
+          user_id: string
+        }
+        Insert: {
+          answers?: Json
+          challenge_date?: string
+          completed?: boolean
+          completed_at?: string | null
+          correct_count?: number
+          created_at?: string
+          curriculum_id: string
+          id?: string
+          question_ids?: string[]
+          total_questions?: number
+          user_id: string
+        }
+        Update: {
+          answers?: Json
+          challenge_date?: string
+          completed?: boolean
+          completed_at?: string | null
+          correct_count?: number
+          created_at?: string
+          curriculum_id?: string
+          id?: string
+          question_ids?: string[]
+          total_questions?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       daily_ops_reports: {
         Row: {
           generated_at: string
@@ -46037,6 +46079,42 @@ export type Database = {
           },
         ]
       }
+      user_streaks: {
+        Row: {
+          created_at: string
+          current_streak: number
+          curriculum_id: string
+          id: string
+          last_completed_date: string | null
+          longest_streak: number
+          total_challenges_completed: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          current_streak?: number
+          curriculum_id: string
+          id?: string
+          last_completed_date?: string | null
+          longest_streak?: number
+          total_challenges_completed?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          current_streak?: number
+          curriculum_id?: string
+          id?: string
+          last_completed_date?: string | null
+          longest_streak?: number
+          total_challenges_completed?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_tickets: {
         Row: {
           admin_notes: string | null
@@ -68484,6 +68562,10 @@ export type Database = {
           curriculum_id: string
         }[]
       }
+      get_daily_challenge: {
+        Args: { p_curriculum_id: string; p_user_id: string }
+        Returns: Json
+      }
       get_dashboard_summary: { Args: { p_user_id: string }; Returns: Json }
       get_datev_prep_lines: {
         Args: { p_config_name?: string; p_currency?: string; p_month: string }
@@ -70300,6 +70382,15 @@ export type Database = {
       step_start: {
         Args: { p_package_id: string; p_runner_id?: string; p_step_key: string }
         Returns: undefined
+      }
+      submit_daily_challenge_answer: {
+        Args: {
+          p_challenge_id: string
+          p_question_id: string
+          p_selected_index: number
+          p_user_id: string
+        }
+        Returns: Json
       }
       submit_exam_answer: {
         Args: {
