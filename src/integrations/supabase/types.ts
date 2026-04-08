@@ -67016,6 +67016,9 @@ export type Database = {
       finish_exam_session: { Args: { p_session_id: string }; Returns: Json }
       fix_zombie_packages: { Args: never; Returns: Json }
       fn_alert_stale_admin_holds: { Args: never; Returns: number }
+      fn_auto_heal_hard_fail_repair_exhausted: { Args: never; Returns: Json }
+      fn_auto_heal_materialization_guard: { Args: never; Returns: Json }
+      fn_auto_heal_stale_lock_exhausted: { Args: never; Returns: Json }
       fn_auto_unblock_ready_packages: {
         Args: never
         Returns: {
@@ -67100,6 +67103,7 @@ export type Database = {
         | { Args: never; Returns: Json }
         | { Args: { p_mode?: string }; Returns: Json }
       fn_heal_track_step_drift: { Args: never; Returns: Json }
+      fn_heal_upstream_hotspots: { Args: never; Returns: Json }
       fn_is_qc_coverage_eligible: {
         Args: { p_qc_status: string; p_status?: string }
         Returns: boolean
