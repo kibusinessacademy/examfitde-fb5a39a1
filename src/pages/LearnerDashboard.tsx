@@ -114,6 +114,29 @@ export default function LearnerDashboard() {
           </div>
         )}
 
+        {/* ━━━ Daily Challenge Quick Launch ━━━ */}
+        {activeCurriculumId && (
+          <div className="mb-4">
+            <button
+              onClick={() => navigate(`/daily-challenge?curriculum=${activeCurriculumId}`)}
+              className="w-full group"
+            >
+              <Card className="glass-card border-orange-500/20 hover:border-orange-500/40 transition-all hover:shadow-md">
+                <CardContent className="p-3 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-orange-500/10 flex items-center justify-center flex-shrink-0">
+                    <Flame className="h-5 w-5 text-orange-500" />
+                  </div>
+                  <div className="flex-1 text-left">
+                    <div className="text-sm font-semibold text-foreground">Daily Challenge</div>
+                    <div className="text-xs text-muted-foreground">5 Fragen pro Tag – baue deinen Streak auf</div>
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-orange-500 transition-colors" />
+                </CardContent>
+              </Card>
+            </button>
+          </div>
+        )}
+
         {/* ━━━ Witz des Tages ━━━ */}
         {activeCurriculumId && (
           <div className="mb-6">
