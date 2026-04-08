@@ -93,10 +93,10 @@ function extractPipelineGraphKeys(source) {
 /** Extract PREREQS keys from job-runner (uses package_ prefix) */
 function extractPrereqKeys(source) {
   const keys = new Set();
-  // PREREQS maps package_xxx job types → array of step_key prereqs
-  const re = /(?:const|let)\s+PREREQS\s*[^=]*=\s*\{/m;
+  // Try both PIPELINE_PREREQS (current) and PREREQS (legacy)
+  const re = /(?:const|let)\s+(?:PIPELINE_)?PREREQS\s*[^=]*=\s*\{/m;
   const match = re.exec(source);
-  if (!match) throw new Error("Could not find PREREQS in job-runner");
+  if (!match) throw new Error("Could not find PREREQS/PIPELINE_PREREQS in job-runner");
 
   const start = match.index + match[0].length - 1;
   let depth = 0, end = -1;
