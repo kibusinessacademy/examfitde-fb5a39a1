@@ -381,8 +381,8 @@ Deno.serve(async (req) => {
     // ── Tutor branch (from validate_exam_pool) ──
     package_build_ai_tutor_index: ["validate_exam_pool"],
     package_validate_tutor_index: ["build_ai_tutor_index"],
-    // ── Oral exam branch (from validate_exam_pool) ──
-    package_generate_oral_exam: ["validate_exam_pool"],
+    // ── Oral exam branch (from validate_tutor_index — needs tutor_index artifact) ──
+    package_generate_oral_exam: ["validate_tutor_index"],
     package_validate_oral_exam: ["generate_oral_exam"],
     // ── MiniChecks branch (from validate_learning_content) ──
     package_generate_lesson_minichecks: ["validate_learning_content"],

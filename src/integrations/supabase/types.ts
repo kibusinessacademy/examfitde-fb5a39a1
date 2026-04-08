@@ -22728,6 +22728,7 @@ export type Database = {
           notes: string | null
           updated_at: string
           worker_pool: string | null
+          zombie_timeout_minutes: number | null
         }
         Insert: {
           can_run_when_not_building?: boolean
@@ -22737,6 +22738,7 @@ export type Database = {
           notes?: string | null
           updated_at?: string
           worker_pool?: string | null
+          zombie_timeout_minutes?: number | null
         }
         Update: {
           can_run_when_not_building?: boolean
@@ -22746,6 +22748,7 @@ export type Database = {
           notes?: string | null
           updated_at?: string
           worker_pool?: string | null
+          zombie_timeout_minutes?: number | null
         }
         Relationships: []
       }
