@@ -11,4 +11,13 @@ Die Daily Challenge bietet 3-5 deterministische Fragen pro Tag mit Streak-Tracki
 - **UI**: `/daily-challenge?curriculum=<id>` mit Fortschrittsbalken, Streak-Anzeige (Flame-Icon), Frage-/Feedback-Karten, Ergebnis-Screen mit Streak-Stats
 - **Dashboard-Integration**: Quick-Launch Card im LearnerDashboard
 
-Geplante Erweiterungen umfassen 'Explain My Mistake' (Phase 3, Inline-KI-Feedback), eine 'Prüfungs-Heatmap' (Phase 4), den 'Crash Mode' (Phase 5, 7-Tage-Plan), einen 'XP & Mastery Layer' (Phase 6) sowie ein 'Prüfungsprotokoll' (Phase 7). Alle Module agieren strikt SSOT-konform auf Basis bestehender Datenquellen.
+## Phase 3: Explain My Mistake (implementiert)
+Inline-KI-Feedback nach falschen Antworten im Shuttle Mode:
+- **Action**: `explain` im `shuttle-engine` Edge Function
+- **AI-Modell**: google/gemini-2.5-flash via Lovable AI Gateway
+- **Prompt-Logik**: Kontextbezogen mit Frage, gewählter (falscher) und richtiger Antwort, Trap-Tags und Basis-Erklärung
+- **Fallback**: Bei AI-Fehler wird die statische Erklärung aus der DB verwendet
+- **UI**: "Fehler erklären lassen" Button (Lightbulb-Icon) erscheint nur bei falschen Antworten, KI-Erklärung wird in separater Karte (Amber-Akzent) angezeigt
+- **Hook**: `explainMistake(questionId, selectedAnswer)` in `useShuttleMode`
+
+Geplante Erweiterungen umfassen eine 'Prüfungs-Heatmap' (Phase 4), den 'Crash Mode' (Phase 5, 7-Tage-Plan), einen 'XP & Mastery Layer' (Phase 6) sowie ein 'Prüfungsprotokoll' (Phase 7). Alle Module agieren strikt SSOT-konform auf Basis bestehender Datenquellen.
