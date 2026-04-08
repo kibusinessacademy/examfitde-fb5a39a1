@@ -149,7 +149,7 @@ async function dispatchJob(job: any, supabaseUrl: string, serviceKey: string): P
         try {
           const body409 = JSON.parse(text);
           if (body409?.retry === true) {
-            return { ok: true, result: { ...body409, ok: false, retry: true, backoff_seconds: 300 } };
+            return { ok: true, result: { ...body409, ok: false, retry: true, backoff_seconds: 120 } };
           }
         } catch { /* not JSON, fall through to normal error */ }
       }
