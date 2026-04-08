@@ -1,11 +1,10 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useShuttleMode, ShuttleQuestion, ShuttleFeedback, ShuttleStats } from '@/hooks/useShuttleMode';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { ArrowLeft, Zap, CheckCircle2, XCircle, ArrowRight, Trophy, Loader2 } from 'lucide-react';
+import { ArrowLeft, Zap, CheckCircle2, XCircle, ArrowRight, Trophy, Loader2, Lightbulb } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useState } from 'react';
 
 // ── Question Card ──
 function QuestionCard({
@@ -77,10 +76,12 @@ function FeedbackCard({
   feedback,
   question,
   onNext,
+  onExplain,
 }: {
   feedback: ShuttleFeedback;
   question: ShuttleQuestion;
   onNext: () => void;
+  onExplain?: () => void;
 }) {
   return (
     <div className="flex flex-col gap-4 w-full max-w-lg mx-auto px-4">
@@ -124,6 +125,38 @@ function FeedbackCard({
               ⚠ {tag}
             </span>
           ))}
+        </div>
+      )}
+
+      {/* Phase 3: Explain My Mistake — AI-powered inline feedback */}
+      {!feedback.is_correct && !feedback.ai_explanation && onExplain && (
+        <Button
+          onClick={onExplain}
+          variant="outline"
+          className="w-full border-amber-200 text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-400 dark:hover:bg-amber-900/20"
+          disabled={feedback.ai_explanation_loading}
+        >
+          {feedback.ai_explanation_loading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              KI erklärt...
+            </>
+          ) : (
+            <>
+              <Lightbulb className="mr-2 h-4 w-4" />
+              Fehler erklären lassen
+            </>
+          )}
+        </Button>
+      )}
+
+      {feedback.ai_explanation && (
+        <div className="bg-amber-50 dark:bg-amber-900/10 rounded-xl p-4 border border-amber-200 dark:border-amber-800">
+          <div className="flex items-center gap-2 mb-2">
+            <Lightbulb className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wider">KI-Erklärung</p>
+          </div>
+          <p className="text-sm text-foreground leading-relaxed whitespace-pre-line">{feedback.ai_explanation}</p>
         </div>
       )}
 
@@ -176,6 +209,7 @@ export default function ShuttleModePage() {
   const [searchParams] = useSearchParams();
   const curriculumId = searchParams.get('curriculum') || undefined;
   const navigate = useNavigate();
+  const [lastSelectedAnswer, setLastSelectedAnswer] = useState<number | null>(null);
 
   const {
     phase,
@@ -186,6 +220,7 @@ export default function ShuttleModePage() {
     submitAnswer,
     nextQuestion,
     endSession,
+    explainMistake,
     reset,
   } = useShuttleMode(curriculumId);
 
@@ -196,13 +231,24 @@ export default function ShuttleModePage() {
     }
   }, [curriculumId, phase, startSession]);
 
+  const handleSubmit = (idx: number) => {
+    setLastSelectedAnswer(idx);
+    submitAnswer(idx);
+  };
+
+  const handleExplain = () => {
+    if (currentQuestion && lastSelectedAnswer !== null) {
+      explainMistake(currentQuestion.id, lastSelectedAnswer);
+    }
+  };
+
   const handleExit = () => {
     navigate('/dashboard');
   };
 
   const handleRestart = () => {
     reset();
-    // Will auto-start via useEffect
+    setLastSelectedAnswer(null);
   };
 
   return (
@@ -240,7 +286,7 @@ export default function ShuttleModePage() {
         {phase === 'question' && currentQuestion && (
           <QuestionCard
             question={currentQuestion}
-            onSubmit={submitAnswer}
+            onSubmit={handleSubmit}
             disabled={false}
           />
         )}
@@ -250,6 +296,7 @@ export default function ShuttleModePage() {
             feedback={feedback}
             question={currentQuestion}
             onNext={nextQuestion}
+            onExplain={handleExplain}
           />
         )}
 
