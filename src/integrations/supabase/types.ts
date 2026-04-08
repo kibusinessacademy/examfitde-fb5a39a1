@@ -2857,6 +2857,13 @@ export type Database = {
             referencedColumns: ["curriculum_id"]
           },
           {
+            foreignKeyName: "azav_massnahmen_zulassungen_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
             foreignKeyName: "azav_massnahmen_zulassungen_fachbereich_id_fkey"
             columns: ["fachbereich_id"]
             isOneToOne: false
@@ -4227,6 +4234,13 @@ export type Database = {
             referencedRelation: "v_ops_qc_promotion_funnel"
             referencedColumns: ["curriculum_id"]
           },
+          {
+            foreignKeyName: "blueprint_quality_constraints_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
         ]
       }
       blueprint_targets: {
@@ -4327,6 +4341,13 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "blueprint_targets_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
             referencedColumns: ["curriculum_id"]
           },
         ]
@@ -4817,6 +4838,13 @@ export type Database = {
             referencedColumns: ["curriculum_id"]
           },
           {
+            foreignKeyName: "campaign_asset_queue_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
             foreignKeyName: "campaign_asset_queue_launch_plan_id_fkey"
             columns: ["launch_plan_id"]
             isOneToOne: false
@@ -4938,6 +4966,13 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "campaign_assets_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
             referencedColumns: ["curriculum_id"]
           },
           {
@@ -5111,6 +5146,13 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "campaign_launch_plans_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
             referencedColumns: ["curriculum_id"]
           },
           {
@@ -9045,6 +9087,13 @@ export type Database = {
             referencedRelation: "v_ops_qc_promotion_funnel"
             referencedColumns: ["curriculum_id"]
           },
+          {
+            foreignKeyName: "course_evidence_packs_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
         ]
       }
       course_generation_locks: {
@@ -12240,6 +12289,13 @@ export type Database = {
             referencedColumns: ["curriculum_id"]
           },
           {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
             foreignKeyName: "course_packages_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
@@ -13368,6 +13424,13 @@ export type Database = {
             referencedRelation: "v_ops_qc_promotion_funnel"
             referencedColumns: ["curriculum_id"]
           },
+          {
+            foreignKeyName: "courses_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
         ]
       }
       coverage_snapshots: {
@@ -13705,6 +13768,13 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "curriculum_discovery_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
             referencedColumns: ["curriculum_id"]
           },
           {
@@ -14329,6 +14399,13 @@ export type Database = {
             referencedColumns: ["curriculum_id"]
           },
           {
+            foreignKeyName: "curriculum_gtm_scores_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
             foreignKeyName: "curriculum_gtm_scores_qualification_catalog_id_fkey"
             columns: ["qualification_catalog_id"]
             isOneToOne: false
@@ -14715,6 +14792,13 @@ export type Database = {
             referencedColumns: ["curriculum_id"]
           },
           {
+            foreignKeyName: "curriculum_intake_promotion_log_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
             foreignKeyName: "curriculum_intake_promotion_log_parsed_id_fkey"
             columns: ["parsed_id"]
             isOneToOne: false
@@ -14823,6 +14907,13 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "curriculum_intelligence_scores_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
             referencedColumns: ["curriculum_id"]
           },
           {
@@ -14940,6 +15031,13 @@ export type Database = {
             referencedColumns: ["curriculum_id"]
           },
           {
+            foreignKeyName: "curriculum_launch_recommendations_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
             foreignKeyName: "curriculum_launch_recommendations_qualification_catalog_id_fkey"
             columns: ["qualification_catalog_id"]
             isOneToOne: false
@@ -15036,6 +15134,13 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "curriculum_market_signals_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
             referencedColumns: ["curriculum_id"]
           },
           {
@@ -15148,6 +15253,13 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "curriculum_priority_recommendations_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
             referencedColumns: ["curriculum_id"]
           },
         ]
@@ -15300,6 +15412,13 @@ export type Database = {
             referencedColumns: ["curriculum_id"]
           },
           {
+            foreignKeyName: "curriculum_products_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
             foreignKeyName: "curriculum_products_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
@@ -15442,6 +15561,13 @@ export type Database = {
             referencedColumns: ["curriculum_id"]
           },
           {
+            foreignKeyName: "curriculum_revenue_signals_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
             foreignKeyName: "curriculum_revenue_signals_qualification_catalog_id_fkey"
             columns: ["qualification_catalog_id"]
             isOneToOne: false
@@ -15541,6 +15667,13 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "curriculum_scaling_signals_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
             referencedColumns: ["curriculum_id"]
           },
           {
@@ -15917,6 +16050,13 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "curriculum_unit_economics_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
             referencedColumns: ["curriculum_id"]
           },
           {
@@ -16419,6 +16559,13 @@ export type Database = {
             referencedRelation: "v_ops_qc_promotion_funnel"
             referencedColumns: ["curriculum_id"]
           },
+          {
+            foreignKeyName: "disallowed_keywords_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
         ]
       }
       distribution_channel_configs: {
@@ -16885,6 +17032,13 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "distribution_targets_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
             referencedColumns: ["curriculum_id"]
           },
           {
@@ -18368,6 +18522,13 @@ export type Database = {
             referencedColumns: ["curriculum_id"]
           },
           {
+            foreignKeyName: "entitlements_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
             foreignKeyName: "entitlements_learner_identity_id_fkey"
             columns: ["learner_identity_id"]
             isOneToOne: false
@@ -18678,6 +18839,13 @@ export type Database = {
             referencedRelation: "v_ops_qc_promotion_funnel"
             referencedColumns: ["curriculum_id"]
           },
+          {
+            foreignKeyName: "exam_attempts_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
         ]
       }
       exam_blueprints: {
@@ -18782,6 +18950,13 @@ export type Database = {
             referencedRelation: "v_ops_qc_promotion_funnel"
             referencedColumns: ["curriculum_id"]
           },
+          {
+            foreignKeyName: "exam_blueprints_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
         ]
       }
       exam_part_mappings: {
@@ -18863,6 +19038,13 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "exam_part_mappings_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
             referencedColumns: ["curriculum_id"]
           },
           {
@@ -19788,6 +19970,13 @@ export type Database = {
             referencedColumns: ["curriculum_id"]
           },
           {
+            foreignKeyName: "exam_question_variants_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
             foreignKeyName: "exam_question_variants_learning_field_id_fkey"
             columns: ["learning_field_id"]
             isOneToOne: false
@@ -20054,6 +20243,13 @@ export type Database = {
             referencedColumns: ["curriculum_id"]
           },
           {
+            foreignKeyName: "exam_questions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
             foreignKeyName: "exam_questions_learning_field_id_fkey"
             columns: ["learning_field_id"]
             isOneToOne: false
@@ -20168,6 +20364,13 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "exam_readiness_snapshots_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
             referencedColumns: ["curriculum_id"]
           },
         ]
@@ -20424,6 +20627,13 @@ export type Database = {
             referencedRelation: "v_ops_qc_promotion_funnel"
             referencedColumns: ["curriculum_id"]
           },
+          {
+            foreignKeyName: "exam_sessions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
         ]
       }
       executive_budget_caps: {
@@ -20658,6 +20868,13 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "executive_portfolio_decisions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
             referencedColumns: ["curriculum_id"]
           },
           {
@@ -21656,6 +21873,13 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "handbook_chapters_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
             referencedColumns: ["curriculum_id"]
           },
         ]
@@ -22854,6 +23078,13 @@ export type Database = {
             referencedRelation: "v_ops_qc_promotion_funnel"
             referencedColumns: ["curriculum_id"]
           },
+          {
+            foreignKeyName: "learner_diagnostics_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
         ]
       }
       learner_gates: {
@@ -22935,6 +23166,13 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "learner_gates_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
             referencedColumns: ["curriculum_id"]
           },
         ]
@@ -23308,6 +23546,13 @@ export type Database = {
             referencedColumns: ["curriculum_id"]
           },
           {
+            foreignKeyName: "learning_events_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
             foreignKeyName: "learning_events_lesson_id_fkey"
             columns: ["lesson_id"]
             isOneToOne: false
@@ -23474,6 +23719,13 @@ export type Database = {
             referencedColumns: ["curriculum_id"]
           },
           {
+            foreignKeyName: "learning_field_songs_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
             foreignKeyName: "learning_field_songs_learning_field_id_fkey"
             columns: ["learning_field_id"]
             isOneToOne: false
@@ -23594,6 +23846,13 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "learning_fields_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
             referencedColumns: ["curriculum_id"]
           },
         ]
@@ -24342,6 +24601,13 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "license_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
             referencedColumns: ["curriculum_id"]
           },
           {
@@ -26818,6 +27084,13 @@ export type Database = {
             referencedColumns: ["curriculum_id"]
           },
           {
+            foreignKeyName: "optimization_actions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
             foreignKeyName: "optimization_actions_launch_plan_id_fkey"
             columns: ["launch_plan_id"]
             isOneToOne: false
@@ -26928,6 +27201,13 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "optimization_observations_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
             referencedColumns: ["curriculum_id"]
           },
           {
@@ -27910,6 +28190,13 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "oral_exam_sessions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
             referencedColumns: ["curriculum_id"]
           },
         ]
@@ -37540,6 +37827,13 @@ export type Database = {
             referencedColumns: ["curriculum_id"]
           },
           {
+            foreignKeyName: "qualification_curriculum_map_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
             foreignKeyName: "qualification_curriculum_map_draft_id_fkey"
             columns: ["draft_id"]
             isOneToOne: true
@@ -37789,6 +38083,13 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "qualification_question_seed_runs_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
             referencedColumns: ["curriculum_id"]
           },
           {
@@ -38564,6 +38865,13 @@ export type Database = {
             referencedColumns: ["curriculum_id"]
           },
           {
+            foreignKeyName: "question_blueprints_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
             foreignKeyName: "question_blueprints_learning_field_id_fkey"
             columns: ["learning_field_id"]
             isOneToOne: false
@@ -39012,6 +39320,13 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "readiness_scores_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
             referencedColumns: ["curriculum_id"]
           },
         ]
@@ -40379,6 +40694,13 @@ export type Database = {
             referencedRelation: "v_ops_qc_promotion_funnel"
             referencedColumns: ["curriculum_id"]
           },
+          {
+            foreignKeyName: "seo_documents_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
         ]
       }
       seo_generation_jobs: {
@@ -41023,6 +41345,13 @@ export type Database = {
             referencedColumns: ["curriculum_id"]
           },
           {
+            foreignKeyName: "spaced_repetition_cards_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
             foreignKeyName: "spaced_repetition_cards_question_id_fkey"
             columns: ["question_id"]
             isOneToOne: false
@@ -41226,6 +41555,13 @@ export type Database = {
             referencedRelation: "v_ops_qc_promotion_funnel"
             referencedColumns: ["curriculum_id"]
           },
+          {
+            foreignKeyName: "spaced_repetition_sessions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
         ]
       }
       standalone_artifact_versions: {
@@ -41368,6 +41704,13 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "standalone_artifact_versions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
             referencedColumns: ["curriculum_id"]
           },
           {
@@ -44931,6 +45274,13 @@ export type Database = {
             referencedColumns: ["curriculum_id"]
           },
           {
+            foreignKeyName: "user_competency_stats_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
             foreignKeyName: "user_competency_stats_learning_field_id_fkey"
             columns: ["learning_field_id"]
             isOneToOne: false
@@ -45127,6 +45477,13 @@ export type Database = {
             referencedRelation: "v_ops_qc_promotion_funnel"
             referencedColumns: ["curriculum_id"]
           },
+          {
+            foreignKeyName: "user_learning_streaks_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
         ]
       }
       user_minicheck_skill_events: {
@@ -45272,6 +45629,13 @@ export type Database = {
             referencedRelation: "v_ops_qc_promotion_funnel"
             referencedColumns: ["curriculum_id"]
           },
+          {
+            foreignKeyName: "user_recommendations_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
         ]
       }
       user_remediation_queue: {
@@ -45363,6 +45727,13 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "user_remediation_queue_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
             referencedColumns: ["curriculum_id"]
           },
           {
@@ -45931,6 +46302,13 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "weakness_assignments_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
             referencedColumns: ["curriculum_id"]
           },
           {
@@ -47156,6 +47534,13 @@ export type Database = {
             referencedRelation: "v_ops_qc_promotion_funnel"
             referencedColumns: ["curriculum_id"]
           },
+          {
+            foreignKeyName: "exam_questions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
         ]
       }
       admin_elite_matrix_v: {
@@ -48116,6 +48501,13 @@ export type Database = {
             referencedColumns: ["curriculum_id"]
           },
           {
+            foreignKeyName: "exam_questions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
             foreignKeyName: "exam_questions_learning_field_id_fkey"
             columns: ["learning_field_id"]
             isOneToOne: false
@@ -48187,6 +48579,13 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "exam_questions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
             referencedColumns: ["curriculum_id"]
           },
         ]
@@ -48309,6 +48708,13 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "curriculum_products_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
             referencedColumns: ["curriculum_id"]
           },
           {
@@ -48604,6 +49010,13 @@ export type Database = {
             referencedColumns: ["curriculum_id"]
           },
           {
+            foreignKeyName: "exam_questions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
             foreignKeyName: "exam_questions_learning_field_id_fkey"
             columns: ["learning_field_id"]
             isOneToOne: false
@@ -48704,6 +49117,13 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "exam_questions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
             referencedColumns: ["curriculum_id"]
           },
           {
@@ -49282,6 +49702,13 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "blueprint_targets_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
             referencedColumns: ["curriculum_id"]
           },
         ]
@@ -51227,6 +51654,13 @@ export type Database = {
             referencedColumns: ["curriculum_id"]
           },
           {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
@@ -52573,6 +53007,13 @@ export type Database = {
             referencedRelation: "v_ops_qc_promotion_funnel"
             referencedColumns: ["curriculum_id"]
           },
+          {
+            foreignKeyName: "exam_questions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
         ]
       }
       ops_package_baseline_v1: {
@@ -52668,6 +53109,13 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
             referencedColumns: ["curriculum_id"]
           },
         ]
@@ -52768,6 +53216,13 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
             referencedColumns: ["curriculum_id"]
           },
         ]
@@ -52893,6 +53348,13 @@ export type Database = {
             referencedRelation: "v_ops_qc_promotion_funnel"
             referencedColumns: ["curriculum_id"]
           },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
         ]
       }
       ops_package_qc_matrix: {
@@ -53006,6 +53468,13 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
             referencedColumns: ["curriculum_id"]
           },
         ]
@@ -53639,6 +54108,13 @@ export type Database = {
             referencedRelation: "v_ops_qc_promotion_funnel"
             referencedColumns: ["curriculum_id"]
           },
+          {
+            foreignKeyName: "question_blueprints_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
         ]
       }
       ops_phantom_step_drift: {
@@ -53726,6 +54202,13 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
             referencedColumns: ["curriculum_id"]
           },
           {
@@ -53851,6 +54334,13 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
             referencedColumns: ["curriculum_id"]
           },
           {
@@ -57000,6 +57490,13 @@ export type Database = {
             referencedRelation: "v_ops_qc_promotion_funnel"
             referencedColumns: ["curriculum_id"]
           },
+          {
+            foreignKeyName: "exam_questions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
         ]
       }
       step_performance_stats: {
@@ -57084,6 +57581,13 @@ export type Database = {
             referencedRelation: "v_ops_qc_promotion_funnel"
             referencedColumns: ["curriculum_id"]
           },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
         ]
       }
       v_admin_auto_test_queue_v2: {
@@ -57156,6 +57660,13 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
             referencedColumns: ["curriculum_id"]
           },
         ]
@@ -57338,6 +57849,13 @@ export type Database = {
             referencedRelation: "v_ops_qc_promotion_funnel"
             referencedColumns: ["curriculum_id"]
           },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
         ]
       }
       v_admin_course_test_priority: {
@@ -57404,6 +57922,13 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
             referencedColumns: ["curriculum_id"]
           },
         ]
@@ -57549,6 +58074,13 @@ export type Database = {
             referencedRelation: "v_ops_qc_promotion_funnel"
             referencedColumns: ["curriculum_id"]
           },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
         ]
       }
       v_admin_growth_overview: {
@@ -57655,6 +58187,13 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
             referencedColumns: ["curriculum_id"]
           },
         ]
@@ -57789,6 +58328,13 @@ export type Database = {
             referencedRelation: "v_ops_qc_promotion_funnel"
             referencedColumns: ["curriculum_id"]
           },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
         ]
       }
       v_admin_published_course_preview: {
@@ -57853,6 +58399,13 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
             referencedColumns: ["curriculum_id"]
           },
         ]
@@ -58137,6 +58690,13 @@ export type Database = {
             referencedRelation: "v_ops_qc_promotion_funnel"
             referencedColumns: ["curriculum_id"]
           },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
         ]
       }
       v_admin_track_control: {
@@ -58265,6 +58825,13 @@ export type Database = {
             referencedRelation: "v_ops_qc_promotion_funnel"
             referencedColumns: ["curriculum_id"]
           },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
         ]
       }
       v_admin_upgrade_candidates: {
@@ -58365,6 +58932,13 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
             referencedColumns: ["curriculum_id"]
           },
         ]
@@ -58470,6 +59044,13 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
             referencedColumns: ["curriculum_id"]
           },
         ]
@@ -58761,6 +59342,13 @@ export type Database = {
             referencedColumns: ["curriculum_id"]
           },
           {
+            foreignKeyName: "question_blueprints_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
             foreignKeyName: "question_blueprints_learning_field_id_fkey"
             columns: ["learning_field_id"]
             isOneToOne: false
@@ -58826,6 +59414,13 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "question_blueprints_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
             referencedColumns: ["curriculum_id"]
           },
         ]
@@ -58908,6 +59503,13 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "question_blueprints_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
             referencedColumns: ["curriculum_id"]
           },
           {
@@ -59180,6 +59782,13 @@ export type Database = {
             referencedRelation: "v_ops_qc_promotion_funnel"
             referencedColumns: ["curriculum_id"]
           },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
         ]
       }
       v_drift_analytics: {
@@ -59301,6 +59910,13 @@ export type Database = {
             referencedColumns: ["curriculum_id"]
           },
           {
+            foreignKeyName: "exam_questions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
             foreignKeyName: "exam_questions_learning_field_id_fkey"
             columns: ["learning_field_id"]
             isOneToOne: false
@@ -59379,6 +59995,13 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "exam_questions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
             referencedColumns: ["curriculum_id"]
           },
         ]
@@ -59527,6 +60150,13 @@ export type Database = {
             referencedColumns: ["curriculum_id"]
           },
           {
+            foreignKeyName: "exam_questions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
             foreignKeyName: "exam_questions_learning_field_id_fkey"
             columns: ["learning_field_id"]
             isOneToOne: false
@@ -59655,6 +60285,13 @@ export type Database = {
             referencedColumns: ["curriculum_id"]
           },
           {
+            foreignKeyName: "exam_questions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
             foreignKeyName: "exam_questions_learning_field_id_fkey"
             columns: ["learning_field_id"]
             isOneToOne: false
@@ -59758,6 +60395,13 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "exam_questions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
             referencedColumns: ["curriculum_id"]
           },
           {
@@ -59997,6 +60641,13 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "exam_questions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
             referencedColumns: ["curriculum_id"]
           },
           {
@@ -60260,6 +60911,13 @@ export type Database = {
             referencedColumns: ["curriculum_id"]
           },
           {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
             foreignKeyName: "course_packages_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
@@ -60379,6 +61037,13 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "exam_blueprints_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
             referencedColumns: ["curriculum_id"]
           },
         ]
@@ -60564,6 +61229,13 @@ export type Database = {
             columns: ["derived_curriculum_id"]
             isOneToOne: false
             referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "learning_fields_curriculum_id_fkey"
+            columns: ["derived_curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
             referencedColumns: ["curriculum_id"]
           },
         ]
@@ -61575,6 +62247,18 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      v_orphan_blueprint_audit: {
+        Row: {
+          approved_questions: number | null
+          curriculum_id: string | null
+          orphan_blueprints: number | null
+          orphan_questions: number | null
+          slug: string | null
+          total_blueprints: number | null
+          total_questions: number | null
+        }
+        Relationships: []
       }
       v_package_build_priority: {
         Row: {
@@ -64373,6 +65057,13 @@ export type Database = {
             referencedRelation: "v_ops_qc_promotion_funnel"
             referencedColumns: ["curriculum_id"]
           },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
         ]
       }
       v_user_active_recommendations: {
@@ -64465,6 +65156,13 @@ export type Database = {
             referencedRelation: "v_ops_qc_promotion_funnel"
             referencedColumns: ["curriculum_id"]
           },
+          {
+            foreignKeyName: "user_recommendations_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
         ]
       }
       v_user_current_readiness: {
@@ -64533,6 +65231,13 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "exam_readiness_snapshots_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
             referencedColumns: ["curriculum_id"]
           },
         ]
@@ -64610,6 +65315,13 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "exam_readiness_snapshots_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
             referencedColumns: ["curriculum_id"]
           },
         ]
