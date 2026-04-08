@@ -67229,6 +67229,7 @@ export type Database = {
         Args: { p_package_id: string }
         Returns: boolean
       }
+      fn_materialize_ready_step_jobs: { Args: never; Returns: number }
       fn_minicheck_publish_gate: {
         Args: { p_curriculum_id: string }
         Returns: Json
