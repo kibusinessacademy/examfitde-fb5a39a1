@@ -7,86 +7,187 @@
  *
  * Every prompt and validator MUST reference these constants instead of
  * hardcoding quality expectations inline.
+ *
+ * v2: Hardened — typed marker keys, hard/soft split, structural checks,
+ *     fixed technical_terms regex, DB-persistable verification result.
  */
 
 import type { PersonaProfile } from "./persona-profiles.ts";
 
-// ── Output Verification Markers (Guardrail B) ─────────────────────────────
-// Regex patterns to verify that generated content actually contains
-// the required didactic elements. Used post-generation to score/reject.
+// ── Typed Marker Keys ─────────────────────────────────────────────────────
+export type VerificationMarkerKey =
+  | "praxis_example"
+  | "exam_trap"
+  | "decision_logic"
+  | "transfer"
+  | "technical_terms"
+  | "mnemonic"
+  | "calculation"
+  | "exam_relevance"
+  | "misconception"
+  | "sample_task";
 
-export interface ContentVerificationResult {
-  passed: boolean;
-  score: number;        // 0-100
-  markers: Record<string, boolean>;
-  missing: string[];
+// ── Output Verification Markers (Guardrail B) ─────────────────────────────
+export const VERIFICATION_MARKERS: Record<VerificationMarkerKey, { pattern: RegExp; label: string }> = {
+  praxis_example:  { pattern: /beispiel|praxisbeispiel|fallbeispiel|berechnungsbeispiel|rechenbeispiel|z\.?\s?B\./i, label: "Praxisbeispiel" },
+  exam_trap:       { pattern: /prüfungsfalle|prüfungsfallen|typischer?\s+fehler|häufiger?\s+fehler|achtung.*prüfung/i, label: "Prüfungsfalle" },
+  decision_logic:  { pattern: /unterschied|abgrenzung|vergleich|gegenüberstellung|im\s+gegensatz|dagegen|hingegen/i, label: "Entscheidungslogik" },
+  transfer:        { pattern: /transfer|praxisbezug|anwendung.*praxis|betriebliche.*praxis|in\s+der\s+praxis/i, label: "Transferbezug" },
+  technical_terms: { pattern: /\b[A-ZÄÖÜ][a-zäöüß]+(?:[-\s][A-ZÄÖÜa-zäöüß]+){0,2}\b|\*\*[^*]{3,40}\*\*/i, label: "Fachbegriffe markiert" },
+  mnemonic:        { pattern: /merke|merkregel|eselsbrücke|checkliste|faustformel|merksatz/i, label: "Merkhilfe" },
+  calculation:     { pattern: /berechnung|formel|rechnung|ergebnis\s*[:=]|€|%.*=|=.*€/i, label: "Berechnung/Formel" },
+  exam_relevance:  { pattern: /prüfungsrelevant|prüfungswissen|ihk.*prüfung|klausur|prüfungstipp/i, label: "Prüfungsrelevanz" },
+  misconception:   { pattern: /fehlvorstellung|irrtum|verwechsl|falsche\s+annahme|denkfehler/i, label: "Fehlvorstellung" },
+  sample_task:     { pattern: /musteraufgabe|musterlösung|lösungsweg|aufgabe.*lösung|übungsaufgabe/i, label: "Musteraufgabe" },
+};
+
+// ── Hard / Soft Marker Split per Persona ──────────────────────────────────
+// Hard markers: MUST be present → content fails without them.
+// Soft markers: SHOULD be present → lower score but not a hard fail.
+export const HARD_MARKERS_BY_PERSONA: Record<PersonaProfile, VerificationMarkerKey[]> = {
+  AZUBI_HIGH_ROI: ["praxis_example", "exam_trap", "technical_terms"],
+  AZUBI_LOW_ROI:  ["exam_trap"],
+  SACHKUNDE:      ["decision_logic", "technical_terms"],
+  FACHWIRT:       ["praxis_example", "exam_trap", "decision_logic"],
+  STUDIUM:        ["decision_logic", "technical_terms", "misconception"],
+};
+
+export const SOFT_MARKERS_BY_PERSONA: Record<PersonaProfile, VerificationMarkerKey[]> = {
+  AZUBI_HIGH_ROI: ["transfer", "mnemonic", "calculation", "misconception"],
+  AZUBI_LOW_ROI:  ["technical_terms", "mnemonic"],
+  SACHKUNDE:      ["exam_relevance", "misconception"],
+  FACHWIRT:       ["transfer", "mnemonic", "sample_task"],
+  STUDIUM:        ["praxis_example", "transfer", "sample_task", "calculation"],
+};
+
+// Legacy compat: combined list
+export const MIN_MARKERS_BY_PERSONA: Record<PersonaProfile, VerificationMarkerKey[]> = {
+  AZUBI_HIGH_ROI: [...HARD_MARKERS_BY_PERSONA.AZUBI_HIGH_ROI, ...SOFT_MARKERS_BY_PERSONA.AZUBI_HIGH_ROI],
+  AZUBI_LOW_ROI:  [...HARD_MARKERS_BY_PERSONA.AZUBI_LOW_ROI, ...SOFT_MARKERS_BY_PERSONA.AZUBI_LOW_ROI],
+  SACHKUNDE:      [...HARD_MARKERS_BY_PERSONA.SACHKUNDE, ...SOFT_MARKERS_BY_PERSONA.SACHKUNDE],
+  FACHWIRT:       [...HARD_MARKERS_BY_PERSONA.FACHWIRT, ...SOFT_MARKERS_BY_PERSONA.FACHWIRT],
+  STUDIUM:        [...HARD_MARKERS_BY_PERSONA.STUDIUM, ...SOFT_MARKERS_BY_PERSONA.STUDIUM],
+};
+
+// ── Structural Minimums per Persona ───────────────────────────────────────
+export interface StructuralMinimums {
+  minWords: number;
+  minHeadings: number;       // ## or ### headings
+  minListItems: number;      // - or * or 1. items
+  minParagraphs: number;     // non-empty paragraphs
+  requireCalculation: boolean; // at least one numeric example
 }
 
-export const VERIFICATION_MARKERS = {
-  praxis_example:     { pattern: /beispiel|praxisbeispiel|fallbeispiel|berechnungsbeispiel|rechenbeispiel|z\.?\s?B\./i, label: "Praxisbeispiel" },
-  exam_trap:          { pattern: /prüfungsfalle|prüfungsfallen|typischer?\s+fehler|häufiger?\s+fehler|achtung.*prüfung/i, label: "Prüfungsfalle" },
-  decision_logic:     { pattern: /unterschied|abgrenzung|vergleich|gegenüberstellung|im\s+gegensatz|dagegen|hingegen/i, label: "Entscheidungslogik" },
-  transfer:           { pattern: /transfer|praxisbezug|anwendung.*praxis|betriebliche.*praxis|in\s+der\s+praxis/i, label: "Transferbezug" },
-  technical_terms:    { pattern: /<strong>|<b>|\*\*[A-ZÄÖÜ]/i, label: "Fachbegriffe markiert" },
-  mnemonic:           { pattern: /merke|merkregel|eselsbrücke|checkliste|faustformel|merksatz/i, label: "Merkhilfe" },
-  calculation:        { pattern: /berechnung|formel|rechnung|ergebnis\s*[:=]|€|%.*=|=.*€/i, label: "Berechnung/Formel" },
-  exam_relevance:     { pattern: /prüfungsrelevant|prüfungswissen|ihk.*prüfung|klausur|prüfungstipp/i, label: "Prüfungsrelevanz" },
-  misconception:      { pattern: /fehlvorstellung|irrtum|verwechsl|falsche\s+annahme|denkfehler/i, label: "Fehlvorstellung" },
-  sample_task:        { pattern: /musteraufgabe|musterlösung|lösungsweg|aufgabe.*lösung|übungsaufgabe/i, label: "Musteraufgabe" },
-} as const;
-
-// Minimum required markers per persona for "elite" quality
-export const MIN_MARKERS_BY_PERSONA: Record<PersonaProfile, string[]> = {
-  AZUBI_HIGH_ROI: ["praxis_example", "exam_trap", "transfer", "technical_terms", "mnemonic"],
-  AZUBI_LOW_ROI:  ["exam_trap", "technical_terms"],
-  SACHKUNDE:      ["decision_logic", "exam_relevance", "technical_terms"],
-  FACHWIRT:       ["praxis_example", "exam_trap", "decision_logic", "transfer"],
-  STUDIUM:        ["praxis_example", "decision_logic", "transfer", "technical_terms", "misconception"],
+export const STRUCTURAL_MINIMUMS: Record<PersonaProfile, StructuralMinimums> = {
+  AZUBI_HIGH_ROI: { minWords: 1500, minHeadings: 5, minListItems: 8, minParagraphs: 10, requireCalculation: true },
+  AZUBI_LOW_ROI:  { minWords: 500,  minHeadings: 3, minListItems: 3, minParagraphs: 5,  requireCalculation: false },
+  SACHKUNDE:      { minWords: 700,  minHeadings: 3, minListItems: 5, minParagraphs: 6,  requireCalculation: false },
+  FACHWIRT:       { minWords: 1200, minHeadings: 4, minListItems: 6, minParagraphs: 8,  requireCalculation: true },
+  STUDIUM:        { minWords: 1500, minHeadings: 5, minListItems: 6, minParagraphs: 10, requireCalculation: false },
 };
+
+// ── Content Verification Result (DB-persistable) ──────────────────────────
+export interface ContentVerificationResult {
+  passed: boolean;
+  hardPassed: boolean;         // all hard markers present
+  score: number;               // 0-100 composite
+  markers: Record<VerificationMarkerKey, boolean>;
+  missing: string[];           // human-readable labels
+  missingHard: string[];       // hard-only missing labels
+  missingSoft: string[];       // soft-only missing labels
+  wordCount: number;
+  headingCount: number;
+  listCount: number;
+  paragraphCount: number;
+  structuralPassed: boolean;
+  version: number;             // schema version for DB tracking
+}
 
 /**
  * Verify generated content against didactic requirements.
- * Returns a structured result with score and missing markers.
+ * Two-layer check: (A) marker presence, (B) structural depth.
  */
 export function verifyContentQuality(
   content: string,
   persona: PersonaProfile,
 ): ContentVerificationResult {
-  const required = MIN_MARKERS_BY_PERSONA[persona];
-  const markers: Record<string, boolean> = {};
-  const missing: string[] = [];
+  const hardRequired = HARD_MARKERS_BY_PERSONA[persona];
+  const softRequired = SOFT_MARKERS_BY_PERSONA[persona];
+  const structural = STRUCTURAL_MINIMUMS[persona];
 
+  // Layer A: Marker presence
+  const markers = {} as Record<VerificationMarkerKey, boolean>;
   for (const [key, def] of Object.entries(VERIFICATION_MARKERS)) {
-    markers[key] = def.pattern.test(content);
+    markers[key as VerificationMarkerKey] = def.pattern.test(content);
   }
 
-  for (const req of required) {
-    if (!markers[req]) {
-      const def = VERIFICATION_MARKERS[req as keyof typeof VERIFICATION_MARKERS];
-      missing.push(def?.label || req);
-    }
+  const missingHard: string[] = [];
+  const missingSoft: string[] = [];
+  for (const key of hardRequired) {
+    if (!markers[key]) missingHard.push(VERIFICATION_MARKERS[key].label);
+  }
+  for (const key of softRequired) {
+    if (!markers[key]) missingSoft.push(VERIFICATION_MARKERS[key].label);
   }
 
-  const requiredCount = required.length;
-  const foundCount = required.filter(r => markers[r]).length;
-  const score = requiredCount > 0 ? Math.round((foundCount / requiredCount) * 100) : 100;
+  // Layer B: Structural checks
+  const words = content.split(/\s+/).filter(w => w.length > 0);
+  const wordCount = words.length;
+  const headingCount = (content.match(/^#{2,4}\s+.+$/gm) || []).length;
+  const listCount = (content.match(/^[\s]*[-*]\s+.+$|^[\s]*\d+\.\s+.+$/gm) || []).length;
+  const paragraphs = content.split(/\n\s*\n/).filter(p => p.trim().length > 30);
+  const paragraphCount = paragraphs.length;
+
+  const structuralPassed =
+    wordCount >= structural.minWords &&
+    headingCount >= structural.minHeadings &&
+    listCount >= structural.minListItems &&
+    paragraphCount >= structural.minParagraphs &&
+    (!structural.requireCalculation || markers.calculation);
+
+  // Composite score
+  const allRequired = [...hardRequired, ...softRequired];
+  const foundCount = allRequired.filter(k => markers[k]).length;
+  const markerScore = allRequired.length > 0
+    ? (foundCount / allRequired.length) * 60  // markers = 60% weight
+    : 60;
+
+  const structScore =
+    (Math.min(wordCount / structural.minWords, 1) * 10) +
+    (Math.min(headingCount / Math.max(structural.minHeadings, 1), 1) * 10) +
+    (Math.min(listCount / Math.max(structural.minListItems, 1), 1) * 10) +
+    (Math.min(paragraphCount / Math.max(structural.minParagraphs, 1), 1) * 10);
+
+  const score = Math.round(Math.min(100, markerScore + structScore));
+  const hardPassed = missingHard.length === 0;
+  const passed = hardPassed && structuralPassed && score >= 50;
 
   return {
-    passed: missing.length === 0,
+    passed,
+    hardPassed,
     score,
     markers,
-    missing,
+    missing: [...missingHard, ...missingSoft],
+    missingHard,
+    missingSoft,
+    wordCount,
+    headingCount,
+    listCount,
+    paragraphCount,
+    structuralPassed,
+    version: 2,
   };
 }
 
 // ── Handbook Prompt Requirements (per persona) ────────────────────────────
-// Used by buildElitePrompt (P1) and expand-handbook-section (P3).
 
 export interface HandbookPromptRequirements {
-  mandatoryBlocks: string[];   // Structural sections the handbook MUST contain
-  promptSuffix: string;        // Appended to the LLM prompt
+  mandatoryBlocks: string[];
+  hardMarkers: VerificationMarkerKey[];
+  softMarkers: VerificationMarkerKey[];
+  promptSuffix: string;
   minWordTarget: number;
-  expandDepthInstructions: string; // Extra instructions for the expand step
+  expandDepthInstructions: string;
 }
 
 export const HANDBOOK_REQUIREMENTS: Record<PersonaProfile, HandbookPromptRequirements> = {
@@ -101,6 +202,8 @@ export const HANDBOOK_REQUIREMENTS: Record<PersonaProfile, HandbookPromptRequire
       "Merkschemata (Eselsbrücken, Checklisten, Faustregeln)",
       "Zusammenfassung (5–8 prüfungsrelevante Kernfakten)",
     ],
+    hardMarkers: ["praxis_example", "exam_trap", "technical_terms"],
+    softMarkers: ["transfer", "mnemonic", "calculation", "misconception"],
     promptSuffix: `VERBOTEN: Generische Floskeln ohne konkretes Beispiel. Keine "In der Praxis ist es wichtig"-Sätze.
 PFLICHT: Jedes Praxisbeispiel MUSS Zahlen, Rollen und eine konkrete Situation enthalten.
 PFLICHT: Jede Prüfungsfalle MUSS erklären, WARUM der Fehler passiert und WIE man ihn vermeidet.
@@ -122,6 +225,8 @@ PFLICHT: Verwandte Begriffe MÜSSEN explizit voneinander abgegrenzt werden.`,
       "Merkschemata",
       "Zusammenfassung",
     ],
+    hardMarkers: ["exam_trap"],
+    softMarkers: ["technical_terms", "mnemonic"],
     promptSuffix: `NUR prüfungsrelevantes Wissen. Keine ausführlichen Erklärungen. Kompakt und merkbar.`,
     minWordTarget: 800,
     expandDepthInstructions: `KOMPAKT-VERTIEFUNG:
@@ -137,6 +242,8 @@ PFLICHT: Verwandte Begriffe MÜSSEN explizit voneinander abgegrenzt werden.`,
       "Prüfungsfallen",
       "Zusammenfassung",
     ],
+    hardMarkers: ["decision_logic", "technical_terms"],
+    softMarkers: ["exam_relevance", "misconception"],
     promptSuffix: `PFLICHT: §-Referenzen bei jeder Regelaussage. Keine Praxisgeschichten. Nur Regelwissen und Entscheidungslogik.`,
     minWordTarget: 1000,
     expandDepthInstructions: `SACHKUNDE-VERTIEFUNG:
@@ -154,6 +261,8 @@ PFLICHT: Verwandte Begriffe MÜSSEN explizit voneinander abgegrenzt werden.`,
       "Merkschemata",
       "Zusammenfassung",
     ],
+    hardMarkers: ["praxis_example", "exam_trap", "decision_logic"],
+    softMarkers: ["transfer", "mnemonic", "sample_task"],
     promptSuffix: `PFLICHT: Handlungskompetenz-Fokus. Jedes Beispiel MUSS eine Entscheidung + Begründung enthalten.
 PFLICHT: Maßnahmen ableiten und bewerten. Nicht nur beschreiben.`,
     minWordTarget: 1800,
@@ -173,6 +282,8 @@ PFLICHT: Maßnahmen ableiten und bewerten. Nicht nur beschreiben.`,
       "Klausur-/Prüfungshinweise",
       "Zusammenfassung",
     ],
+    hardMarkers: ["decision_logic", "technical_terms", "misconception"],
+    softMarkers: ["praxis_example", "transfer", "sample_task", "calculation"],
     promptSuffix: `PFLICHT: Quellenverweise bei Modellen/Theorien. Keine Reproduktion — Transfer und Analyse.
 PFLICHT: Mind. 1 Modellvergleich mit Gegenüberstellung.
 PFLICHT: Typische Denkfehler mit wissenschaftlicher Korrektur.`,
@@ -187,18 +298,13 @@ PFLICHT: Typische Denkfehler mit wissenschaftlicher Korrektur.`,
 };
 
 // ── Explanation Quality Patterns (for P2: hasQualityExplanation) ───────────
-// Broadened patterns to reduce false negatives while keeping quality bar.
 
 export const WRONG_ANSWER_PATTERNS = [
-  // German patterns for "why this is wrong"
   /\b(falsch|nicht\s+korrekt|inkorrekt|irrtümlich|fehler|verwechsl)\b/i,
   /\b(trifft\s+nicht\s+zu|fehlerhaft|unzutreffend|stimmt\s+nicht)\b/i,
   /\b(ist\s+nicht\s+richtig|wäre\s+falsch|nicht\s+zutreffend)\b/i,
-  // Option reference patterns (A/B/C/D or "Option X")
   /\b(option\s+[a-d]|antwort\s+[a-d]|aussage\s+[a-d])\b/i,
-  // Negative reasoning
   /\b(dagegen|hingegen|im\s+gegensatz|jedoch\s+nicht|allerdings\s+nicht)\b/i,
-  // "weil ... nicht" patterns
   /\bweil\b.*\bnicht\b/i,
   /\bda\b.*\b(falsch|nicht|kein)\b/i,
 ];

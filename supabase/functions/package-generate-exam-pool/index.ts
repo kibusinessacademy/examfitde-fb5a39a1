@@ -254,45 +254,60 @@ function passesStyleGate(q: { question_text: string; explanation?: string }): bo
   return true;
 }
 
-// ─── Explanation Quality Check (P2-hardened: broadened patterns, fewer false negatives) ─
+// ─── Explanation Quality Check (P2-hardened v2: 3-layer check with option coverage) ─
 
-function hasQualityExplanation(q: { explanation?: string; options: string[] }): boolean {
-  if (!q.explanation || q.explanation.length < 80) return false;
+/** Check if explanation references specific answer options (A/B/C/D or content) */
+function hasOptionReferences(text: string, options: string[]): boolean {
+  // Direct letter references
+  if (/\b[A-D]\)|\b(Option|Antwort|Aussage)\s+[A-Da-d]\b/i.test(text)) return true;
+  // Content references: explanation mentions at least 2 option texts
+  const referenced = options.filter(o => o.length > 8 && text.includes(o.slice(0, 25)));
+  return referenced.length >= 2;
+}
 
-  const expl = q.explanation;
-
-  // P2: Broadened wrong-answer detection — count matches across multiple pattern families
+/** Check if explanation addresses why wrong answers are wrong */
+function hasWrongAnswerReasoning(text: string): boolean {
   const WRONG_PATTERNS = [
     /\b(falsch|nicht\s+korrekt|inkorrekt|irrtümlich|fehler|verwechsl)\b/gi,
     /\b(trifft\s+nicht\s+zu|fehlerhaft|unzutreffend|stimmt\s+nicht)\b/gi,
     /\b(ist\s+nicht\s+richtig|wäre\s+falsch|nicht\s+zutreffend)\b/gi,
-    /\b(option\s+[a-d]|antwort\s+[a-d]|aussage\s+[a-d])\b/gi,
     /\b(dagegen|hingegen|im\s+gegensatz|jedoch\s+nicht|allerdings\s+nicht)\b/gi,
     /\bweil\b.*\bnicht\b/gi,
     /\bda\b.*\b(falsch|nicht|kein)\b/gi,
   ];
-  let wrongReferences = 0;
+  let count = 0;
   for (const pat of WRONG_PATTERNS) {
-    wrongReferences += (expl.match(pat) || []).length;
+    count += (text.match(pat) || []).length;
   }
+  return count >= 1;
+}
 
-  // P2: Broadened tip detection — more synonyms
+/** Check if explanation provides corrective guidance (tip/mnemonic/correct answer reasoning) */
+function hasCorrectiveGuidance(text: string): boolean {
   const TIP_PATTERNS = [
     /\b(tipp|merke|merksatz|prüfungstipp|achtung|wichtig|beachte)\b/i,
     /\b(eselsbrücke|faustformel|merkregel|gedächtnisstütze)\b/i,
     /\b(richtig\s+ist|korrekt\s+ist|die\s+richtige\s+antwort)\b/i,
     /\b(zusammengefasst|fazit|kern(aussage|punkt))\b/i,
+    /\b(begründung|erklärung|grund\s+dafür|weil\s+.{10,}richtig)\b/i,
   ];
-  const hasTip = TIP_PATTERNS.some(p => p.test(expl));
+  return TIP_PATTERNS.some(p => p.test(text));
+}
 
-  // P2: Also accept if explanation references specific options by content
-  const referencesOptions = q.options.filter(o => o.length > 5).some(opt =>
-    expl.includes(opt.slice(0, 30))
-  );
+function hasQualityExplanation(q: { explanation?: string; options: string[] }): boolean {
+  if (!q.explanation || q.explanation.length < 80) return false;
 
-  // Pass if: (≥2 wrong refs AND tip) OR (≥1 wrong ref AND tip AND option ref)
-  if (wrongReferences >= 2 && hasTip) return true;
-  if (wrongReferences >= 1 && hasTip && referencesOptions) return true;
+  const expl = q.explanation;
+  const wrongReasoning = hasWrongAnswerReasoning(expl);
+  const correctiveGuidance = hasCorrectiveGuidance(expl);
+  const optionRefs = hasOptionReferences(expl, q.options);
+
+  // Pass if: wrong reasoning + corrective guidance (standard path)
+  if (wrongReasoning && correctiveGuidance) return true;
+  // Pass if: option references + either wrong reasoning or guidance
+  if (optionRefs && (wrongReasoning || correctiveGuidance)) return true;
+  // Pass if: long explanation (200+ chars) with wrong reasoning (lenient for detailed explanations)
+  if (expl.length >= 200 && wrongReasoning) return true;
   return false;
 }
 
