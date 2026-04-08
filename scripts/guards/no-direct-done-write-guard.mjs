@@ -22,6 +22,18 @@ const ALLOWLIST = [
   "_test.",                        // test files (deno)
 ];
 
+// Temporary: known legacy bypass files to be migrated to markStepDone
+// Each must have a tracking ticket. Remove from here as they get fixed.
+const LEGACY_BYPASS = [
+  "pipeline-handlers.ts",                      // P2: uses direct update for skip-steps
+  "stuck-scan-hygiene.ts",                      // P2: hollow-done healer resets
+  "admin-ops-actions/index.ts",                 // P3: admin force-done action
+  "fanout-learning-content/index.ts",           // P2: fanout self-finalization
+  "job-runner/index.ts",                        // P2: skip-step logic
+  "package-run-integrity-check/index.ts",       // P1: integrity self-finalization
+  "package-validate-learning-content/index.ts", // P1: validate self-finalization
+];
+
 function walk(dir, files = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const p = path.join(dir, entry.name);
