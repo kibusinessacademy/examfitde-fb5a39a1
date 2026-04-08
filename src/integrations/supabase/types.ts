@@ -40955,6 +40955,74 @@ export type Database = {
         }
         Relationships: []
       }
+      shuttle_events: {
+        Row: {
+          created_at: string
+          id: string
+          is_correct: boolean
+          question_id: string
+          response_time_ms: number | null
+          session_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_correct: boolean
+          question_id: string
+          response_time_ms?: number | null
+          session_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_correct?: boolean
+          question_id?: string
+          response_time_ms?: number | null
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shuttle_events_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "shuttle_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shuttle_sessions: {
+        Row: {
+          correct_count: number
+          curriculum_id: string
+          ended_at: string | null
+          id: string
+          questions_answered: number
+          started_at: string
+          user_id: string
+          xp_earned: number
+        }
+        Insert: {
+          correct_count?: number
+          curriculum_id: string
+          ended_at?: string | null
+          id?: string
+          questions_answered?: number
+          started_at?: string
+          user_id: string
+          xp_earned?: number
+        }
+        Update: {
+          correct_count?: number
+          curriculum_id?: string
+          ended_at?: string | null
+          id?: string
+          questions_answered?: number
+          started_at?: string
+          user_id?: string
+          xp_earned?: number
+        }
+        Relationships: []
+      }
       skill_nodes: {
         Row: {
           created_at: string
@@ -68797,6 +68865,25 @@ export type Database = {
       get_security_spike_score: { Args: { p_minutes?: number }; Returns: Json }
       get_shard_progress: { Args: { p_fanout_id: string }; Returns: Json }
       get_ship_level: { Args: { p_authority_index: number }; Returns: string }
+      get_shuttle_next_question: {
+        Args: {
+          p_curriculum_id: string
+          p_session_id?: string
+          p_user_id: string
+        }
+        Returns: {
+          answers: Json
+          blueprint_id: string
+          competency_id: string
+          difficulty: string
+          distractor_meta: Json
+          explanation: string
+          question_id: string
+          question_text: string
+          question_type: string
+          trap_type: string
+        }[]
+      }
       get_step_prerequisite: { Args: { p_step_key: string }; Returns: string }
       get_track_pipeline_steps: {
         Args: { p_package_id: string }
