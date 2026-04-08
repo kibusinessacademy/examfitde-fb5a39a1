@@ -7,7 +7,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { safeRpc } from "../_shared/stuck-scan-helpers.ts";
 import { detectAndFixZombieSteps } from "../_shared/stuck-scan-zombies.ts";
-import { healOrphanProcessing, healEnqueuedDrift, healStatusLag } from "../_shared/stuck-scan-healers.ts";
+import { healOrphanProcessing, healEnqueuedDrift, healStatusLag, healBatchCompleteStuck } from "../_shared/stuck-scan-healers.ts";
 import { detectEscalationLoops, detectSystemFreeze } from "../_shared/stuck-scan-escalation.ts";
 import { checkStuckPackages, checkBuildingOrphans } from "../_shared/stuck-scan-packages.ts";
 import { runHygiene, healLeaseNoProgress, sweepPoolMismatches, reviveTransientFailed, healTrueStalls, healLearningContentDeadlocks, healLoopGuardFalsePositives, healIntegrityReportMissing, healTrueStallSteps, reapZombieProcessingJobsV2, reapAncientPendingJobs, healFalseLivenessPackages, healValidateExamPoolLoop, healPlaceholderStalls } from "../_shared/stuck-scan-hygiene.ts";
@@ -156,6 +156,9 @@ Deno.serve(async (req) => {
     // ══ 1b4) Status lag ══
     const statusLagResults = await healStatusLag(sb);
 
+    // ══ 1b5) Batch-complete stuck ══
+    const batchCompleteResults = await healBatchCompleteStuck(sb);
+
     // ══ 1c) Escalation loops ══
     const escalationResults = await detectEscalationLoops(sb);
 
@@ -266,6 +269,7 @@ Deno.serve(async (req) => {
       pool_mismatch_fixed: poolMismatchFixed,
       status_lag_healed: statusLagResults,
       enqueued_drift_healed: enqueuedDriftResults,
+      batch_complete_healed: batchCompleteResults,
       transient_revived: revivedCount,
       lease_no_progress_healed: leaseNoProgressHealed,
       true_stalls_healed: trueStallsHealed,
