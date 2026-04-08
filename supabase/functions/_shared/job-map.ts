@@ -443,7 +443,7 @@ export const JOB_DEFINITIONS: Record<string, JobDefinition> = {
 
   // ── seeding / orchestration ─────────────────────────────────
   seo_certification_generate:        { pool: "default", edgeFunction: "seo-certification-generate" },
-  batch_curriculum_pipeline:         { pool: "default", edgeFunction: "batch-curriculum-pipeline" },
+  // batch_curriculum_pipeline: REMOVED — legacy pipeline deactivated 2026-04-08
 
   // ── store / billing ─────────────────────────────────────────
   expire_store_subscriptions:        { pool: "default" },
