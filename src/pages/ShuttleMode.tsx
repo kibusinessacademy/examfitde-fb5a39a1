@@ -209,6 +209,7 @@ export default function ShuttleModePage() {
   const [searchParams] = useSearchParams();
   const curriculumId = searchParams.get('curriculum') || undefined;
   const navigate = useNavigate();
+  const [lastSelectedAnswer, setLastSelectedAnswer] = useState<number | null>(null);
 
   const {
     phase,
@@ -219,6 +220,7 @@ export default function ShuttleModePage() {
     submitAnswer,
     nextQuestion,
     endSession,
+    explainMistake,
     reset,
   } = useShuttleMode(curriculumId);
 
@@ -229,13 +231,24 @@ export default function ShuttleModePage() {
     }
   }, [curriculumId, phase, startSession]);
 
+  const handleSubmit = (idx: number) => {
+    setLastSelectedAnswer(idx);
+    submitAnswer(idx);
+  };
+
+  const handleExplain = () => {
+    if (currentQuestion && lastSelectedAnswer !== null) {
+      explainMistake(currentQuestion.id, lastSelectedAnswer);
+    }
+  };
+
   const handleExit = () => {
     navigate('/dashboard');
   };
 
   const handleRestart = () => {
     reset();
-    // Will auto-start via useEffect
+    setLastSelectedAnswer(null);
   };
 
   return (
@@ -273,7 +286,7 @@ export default function ShuttleModePage() {
         {phase === 'question' && currentQuestion && (
           <QuestionCard
             question={currentQuestion}
-            onSubmit={submitAnswer}
+            onSubmit={handleSubmit}
             disabled={false}
           />
         )}
@@ -283,6 +296,7 @@ export default function ShuttleModePage() {
             feedback={feedback}
             question={currentQuestion}
             onNext={nextQuestion}
+            onExplain={handleExplain}
           />
         )}
 
