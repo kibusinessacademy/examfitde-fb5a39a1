@@ -269,6 +269,7 @@ Deno.serve(async (req) => {
       pool_mismatch_fixed: poolMismatchFixed,
       status_lag_healed: statusLagResults,
       enqueued_drift_healed: enqueuedDriftResults,
+      batch_complete_healed: batchCompleteResults,
       transient_revived: revivedCount,
       lease_no_progress_healed: leaseNoProgressHealed,
       true_stalls_healed: trueStallsHealed,
