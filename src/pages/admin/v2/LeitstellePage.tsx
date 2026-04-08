@@ -24,11 +24,6 @@ const CrmPanel = lazy(() => import('@/components/admin/command/CrmPanel'));
 const SupportPanel = lazy(() => import('@/components/admin/command/SupportPanel'));
 
 const ExamPoolAuditCard = lazy(() => import('@/components/admin/cards/ExamPoolAuditCard'));
-const TrapCoverageAuditCard = lazy(() => import('@/components/admin/cards/TrapCoverageAuditCard'));
-const TrapDistributionAuditCard = lazy(() => import('@/components/admin/cards/TrapDistributionAuditCard'));
-const BlueprintMatchAuditCard = lazy(() => import('@/components/admin/cards/BlueprintMatchAuditCard'));
-const BlueprintVariantStatsCard = lazy(() => import('@/components/admin/cards/BlueprintVariantStatsCard'));
-const BlueprintPreflightCard = lazy(() => import('@/components/admin/cards/BlueprintPreflightCard'));
 const BlockedButReadyCard = lazy(() => import('@/components/admin/cards/BlockedButReadyCard'));
 const RecoveryBoardCard = lazy(() => import('@/components/admin/cards/RecoveryBoardCard'));
 const ValidateGuardDiagnosticsCard = lazy(() => import('@/components/admin/cards/ValidateGuardDiagnosticsCard'));
