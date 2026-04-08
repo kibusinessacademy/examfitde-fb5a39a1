@@ -171,29 +171,42 @@ export async function healStatusLag(sb: SupabaseClient) {
   return statusLagResults;
 }
 
-const BATCH_COMPLETE_MIN_AGE_MS = 15 * 60 * 1000;
+const META_COMPLETE_MIN_AGE_MS = 15 * 60 * 1000;
 
 /**
- * Detect steps that are "queued" but their meta indicates batch_complete=true
- * and no active jobs remain. Transition them to "done".
+ * Detect steps that are "queued"/"running"/"enqueued" but their meta indicates
+ * completion (batch_complete=true OR ok=true) and no active jobs remain.
+ * Transition them to "done" via markStepDone (SSOT postcondition gate).
+ *
+ * This is the systemic fix for "finalization bridge gap": the pipeline-process
+ * finalization bridge only runs when a job for the package is being processed.
+ * If all jobs are DAG-blocked or completed, the bridge never fires.
  */
 export async function healBatchCompleteStuck(sb: SupabaseClient) {
   const results: Array<{ package_id: string; step_key: string; action: string }> = [];
 
+  // Fetch steps that are NOT terminal but have completion signals in meta
   const { data: stuckSteps } = await sb
     .from("package_steps")
     .select("package_id, step_key, status, updated_at, meta, attempts")
-    .eq("status", "queued")
+    .in("status", ["queued", "running", "enqueued"])
     .limit(500);
 
   for (const ps of stuckSteps || []) {
     const meta = (ps.meta ?? {}) as Record<string, unknown>;
-    if (!meta.batch_complete) continue;
+
+    // ── Completion signal check: batch_complete OR ok ──
+    const hasBatchComplete = meta.batch_complete === true;
+    const hasMetaOk = meta.ok === true;
+    if (!hasBatchComplete && !hasMetaOk) continue;
+
+    // Skip if still flagged for regeneration
     if (meta.needs_regen && Number(meta.needs_regen) > 0) continue;
 
     const ageMs = Date.now() - new Date(ps.updated_at).getTime();
-    if (ageMs < BATCH_COMPLETE_MIN_AGE_MS) continue;
+    if (ageMs < META_COMPLETE_MIN_AGE_MS) continue;
 
+    // Check no active jobs for this step
     const jobType = STEP_TO_JOB_TYPE[ps.step_key] ?? null;
     if (jobType) {
       const { count: activeCnt } = await sb
@@ -206,18 +219,17 @@ export async function healBatchCompleteStuck(sb: SupabaseClient) {
     }
 
     // ── SSOT POSTCONDITION GATE ──
-    // Instead of blindly setting done + postcondition_verified,
-    // delegate to the SSOT markStepDone which runs assertStepPostConditions.
-    // If postconditions fail → the step is NOT real content → skip the heal.
     const ageMin = Math.round(ageMs / 60000);
+    const signal = hasBatchComplete ? "batch_complete" : "meta.ok";
     try {
       await markStepDone(sb, {
         packageId: ps.package_id,
         stepKey: ps.step_key,
         meta: {
           ...meta,
-          batch_complete_heal: true,
-          batch_complete_healed_at: new Date().toISOString(),
+          meta_complete_heal: true,
+          meta_complete_signal: signal,
+          meta_complete_healed_at: new Date().toISOString(),
         },
       });
 
@@ -227,18 +239,33 @@ export async function healBatchCompleteStuck(sb: SupabaseClient) {
         target_type: "package_step",
         target_id: ps.package_id,
         result_status: "applied",
-        result_detail: `Step ${ps.step_key} was queued with batch_complete=true for ${ageMin}min — postconditions PASSED → done`,
-        metadata: { step_key: ps.step_key, age_min: ageMin },
+        result_detail: `Step ${ps.step_key} was ${ps.status} with ${signal}=true for ${ageMin}min — postconditions PASSED → done`,
+        metadata: { step_key: ps.step_key, age_min: ageMin, signal },
       });
 
-      results.push({ package_id: ps.package_id, step_key: ps.step_key, action: "batch-complete-heal: queued→done (postcondition-verified)" });
-      console.warn(`[stuck-scan] 🔄 Batch-complete-heal: ${ps.step_key} for ${ps.package_id.slice(0, 8)} — postconditions PASSED → done`);
+      results.push({ package_id: ps.package_id, step_key: ps.step_key, action: `meta-complete-heal: ${ps.status}→done (${signal}, postcondition-verified)` });
+      console.warn(`[stuck-scan] 🔄 Meta-complete-heal: ${ps.step_key} for ${ps.package_id.slice(0, 8)} — ${signal}=true, postconditions PASSED → done`);
     } catch (pcErr: unknown) {
       // Postconditions failed — content is hollow. Do NOT promote to done.
-      // Log the rejection and leave step in queued for the pipeline to fix.
       const errMsg = pcErr instanceof Error ? pcErr.message : String(pcErr);
       const errMeta = (pcErr as any)?.__meta ?? {};
-      console.warn(`[stuck-scan] 🚫 Batch-complete-heal BLOCKED for ${ps.step_key}/${ps.package_id.slice(0, 8)}: postcondition failed — ${errMsg}`);
+      console.warn(`[stuck-scan] 🚫 Meta-complete-heal BLOCKED for ${ps.step_key}/${ps.package_id.slice(0, 8)}: postcondition failed — ${errMsg}`);
+
+      // ── Stale meta cleanup: if postcondition says hollow, clear the false completion signals ──
+      // This prevents the healer from re-evaluating the same step every cycle
+      const verdict = errMeta.verdict ?? "UNKNOWN";
+      const cleanedMeta = { ...meta };
+      delete (cleanedMeta as any).batch_complete;
+      delete (cleanedMeta as any).ok;
+
+      await sb.from("package_steps").update({
+        meta: {
+          ...cleanedMeta,
+          stale_completion_cleared: true,
+          stale_completion_verdict: verdict,
+          stale_completion_cleared_at: new Date().toISOString(),
+        },
+      }).eq("package_id", ps.package_id).eq("step_key", ps.step_key);
 
       await sb.from("auto_heal_log").insert({
         action_type: "batch_complete_stuck_heal",
@@ -246,16 +273,16 @@ export async function healBatchCompleteStuck(sb: SupabaseClient) {
         target_type: "package_step",
         target_id: ps.package_id,
         result_status: "skipped",
-        result_detail: `Step ${ps.step_key} has batch_complete=true but postconditions FAILED: ${errMsg.slice(0, 300)}`,
-        metadata: { step_key: ps.step_key, age_min: ageMin, postcondition_error: errMsg.slice(0, 200), ...errMeta },
+        result_detail: `Step ${ps.step_key} has ${signal}=true but postconditions FAILED (${verdict}): ${errMsg.slice(0, 300)} — stale signals cleared`,
+        metadata: { step_key: ps.step_key, age_min: ageMin, signal, postcondition_error: errMsg.slice(0, 200), ...errMeta },
       });
 
-      results.push({ package_id: ps.package_id, step_key: ps.step_key, action: `batch-complete-heal: BLOCKED (${errMeta.verdict ?? 'postcondition_failed'})` });
+      results.push({ package_id: ps.package_id, step_key: ps.step_key, action: `meta-complete-heal: BLOCKED+CLEARED (${verdict})` });
     }
   }
 
   if (results.length > 0) {
-    console.log(`[stuck-scan] 🔄 Batch-complete healer processed ${results.length} step(s)`);
+    console.log(`[stuck-scan] 🔄 Meta-complete healer processed ${results.length} step(s)`);
   }
 
   return results;
