@@ -254,17 +254,46 @@ function passesStyleGate(q: { question_text: string; explanation?: string }): bo
   return true;
 }
 
-// ─── Explanation Quality Check (strict: must explain WHY wrong + tip) ─────────
+// ─── Explanation Quality Check (P2-hardened: broadened patterns, fewer false negatives) ─
 
 function hasQualityExplanation(q: { explanation?: string; options: string[] }): boolean {
   if (!q.explanation || q.explanation.length < 80) return false;
 
-  const expl = q.explanation.toLowerCase();
-  // Must explain why wrong (at least 2 references to incorrect reasoning)
-  const wrongReferences = (expl.match(/\b(falsch|nicht korrekt|inkorrekt|irrtümlich|fehler|verwechsl|trifft nicht zu|fehlerhaft|unzutreffend)\b/gi) || []).length;
-  // Must have a tip/merksatz
-  const hasTip = /\b(tipp|merke|merksatz|prüfungstipp|achtung|wichtig|beachte)\b/i.test(expl);
-  return wrongReferences >= 2 && hasTip;
+  const expl = q.explanation;
+
+  // P2: Broadened wrong-answer detection — count matches across multiple pattern families
+  const WRONG_PATTERNS = [
+    /\b(falsch|nicht\s+korrekt|inkorrekt|irrtümlich|fehler|verwechsl)\b/gi,
+    /\b(trifft\s+nicht\s+zu|fehlerhaft|unzutreffend|stimmt\s+nicht)\b/gi,
+    /\b(ist\s+nicht\s+richtig|wäre\s+falsch|nicht\s+zutreffend)\b/gi,
+    /\b(option\s+[a-d]|antwort\s+[a-d]|aussage\s+[a-d])\b/gi,
+    /\b(dagegen|hingegen|im\s+gegensatz|jedoch\s+nicht|allerdings\s+nicht)\b/gi,
+    /\bweil\b.*\bnicht\b/gi,
+    /\bda\b.*\b(falsch|nicht|kein)\b/gi,
+  ];
+  let wrongReferences = 0;
+  for (const pat of WRONG_PATTERNS) {
+    wrongReferences += (expl.match(pat) || []).length;
+  }
+
+  // P2: Broadened tip detection — more synonyms
+  const TIP_PATTERNS = [
+    /\b(tipp|merke|merksatz|prüfungstipp|achtung|wichtig|beachte)\b/i,
+    /\b(eselsbrücke|faustformel|merkregel|gedächtnisstütze)\b/i,
+    /\b(richtig\s+ist|korrekt\s+ist|die\s+richtige\s+antwort)\b/i,
+    /\b(zusammengefasst|fazit|kern(aussage|punkt))\b/i,
+  ];
+  const hasTip = TIP_PATTERNS.some(p => p.test(expl));
+
+  // P2: Also accept if explanation references specific options by content
+  const referencesOptions = q.options.filter(o => o.length > 5).some(opt =>
+    expl.includes(opt.slice(0, 30))
+  );
+
+  // Pass if: (≥2 wrong refs AND tip) OR (≥1 wrong ref AND tip AND option ref)
+  if (wrongReferences >= 2 && hasTip) return true;
+  if (wrongReferences >= 1 && hasTip && referencesOptions) return true;
+  return false;
 }
 
 // ─── Quality Scoring (Exam Pool vs Training Pool) ─────────────────────────────

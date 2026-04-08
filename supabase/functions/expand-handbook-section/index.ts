@@ -3,15 +3,19 @@ import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { callAIWithFailover, logLLMCostEvent } from "../_shared/ai-client.ts";
 import { shouldSoftStop, getTimeBudget } from "../_shared/time-budget.ts";
 import { getModelChain } from "../_shared/model-routing.ts";
+import { resolvePersonaProfile, PERSONA_CONFIGS } from "../_shared/persona-profiles.ts";
+import { HANDBOOK_REQUIREMENTS, verifyContentQuality } from "../_shared/didactic-requirements.ts";
 
 /**
  * expand-handbook-section — Depth expansion for a single handbook section.
+ *
+ * v2: P3-hardened — injects exam questions + competency context for real depth.
+ *     Uses persona-aware prompts and post-generation verification (Guardrail B).
  *
  * Phase B of the Handbook architecture:
  * - Reads existing basis_content
  * - Enriches with examples, exam relevance, transfer, misconceptions
  * - Writes to expanded_content (basis_content is NEVER modified)
- * - Uses heavy models (Pro/GPT-5) — own 55s edge window
  *
  * SSOT Rules:
  * - NEVER creates new sections (only generate_handbook does that)
@@ -33,8 +37,10 @@ function json(body: unknown, status = 200) {
 }
 
 const MIN_BASIS_CHARS = 800;
-const MIN_EXPANDED_IMPROVEMENT = 1.2; // expanded must be ≥120% of basis
+const MIN_EXPANDED_IMPROVEMENT = 1.2;
 const MAX_EXPAND_ATTEMPTS = 6;
+const MAX_CONTEXT_QUESTIONS = 5;
+const MAX_CONTEXT_COMPETENCIES = 8;
 
 // Depth markers to check for quality scoring
 const DEPTH_MARKERS = [
@@ -59,6 +65,55 @@ function scoreDepthMarkers(content: string): { score: number; markers: Record<st
   return { score: Math.round((found / DEPTH_MARKERS.length) * 100), markers };
 }
 
+/**
+ * P3: Load real exam questions for this section's learning field.
+ * Provides concrete examples of what the exam actually asks.
+ */
+async function loadSectionExamContext(
+  sb: any,
+  curriculumId: string,
+  learningFieldId: string | null,
+): Promise<string[]> {
+  if (!learningFieldId) return [];
+  try {
+    const { data } = await sb
+      .from("exam_questions")
+      .select("question_text, difficulty")
+      .eq("curriculum_id", curriculumId)
+      .eq("learning_field_id", learningFieldId)
+      .in("status", ["approved", "tier1_passed"])
+      .order("elite_score", { ascending: false })
+      .limit(MAX_CONTEXT_QUESTIONS);
+    return (data || []).map((q: any) =>
+      `[${(q.difficulty || "mittel").toUpperCase()}] ${(q.question_text || "").slice(0, 200)}`
+    ).filter(Boolean);
+  } catch { return []; }
+}
+
+/**
+ * P3: Load competencies for this section's learning field.
+ * Provides bloom levels and misconceptions for targeted depth.
+ */
+async function loadSectionCompetencies(
+  sb: any,
+  learningFieldId: string | null,
+): Promise<Array<{ name: string; bloom: string; misconception: string }>> {
+  if (!learningFieldId) return [];
+  try {
+    const { data } = await sb
+      .from("competencies")
+      .select("competency_name, bloom_level, typical_misconceptions")
+      .eq("learning_field_id", learningFieldId)
+      .limit(MAX_CONTEXT_COMPETENCIES);
+    return (data || []).map((c: any) => ({
+      name: c.competency_name || "",
+      bloom: c.bloom_level || "understand",
+      misconception: Array.isArray(c.typical_misconceptions) && c.typical_misconceptions.length > 0
+        ? c.typical_misconceptions[0] : "",
+    }));
+  } catch { return []; }
+}
+
 Deno.serve(async (req) => {
   const startMs = Date.now();
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -75,9 +130,7 @@ Deno.serve(async (req) => {
     return json({ error: "package_id required" }, 400);
   }
 
-  // ── FAN-OUT GUARD: Called without section_id by pipeline-runner for the
-  // expand_handbook step. Return fan_out_skipped so the pipeline completion
-  // guard checks subjob status instead of treating this as a real expansion.
+  // Fan-out guard
   if (!sectionId) {
     console.log(`[expand-handbook-section] Fan-out guard call (no section_id) for package ${packageId.slice(0, 8)}`);
     return json({ ok: true, fan_out_skipped: true, batch_complete: true });
@@ -94,17 +147,14 @@ Deno.serve(async (req) => {
     return json({ error: `Section not found: ${secErr?.message || sectionId}` }, 404);
   }
 
-  // Guard: only expand sections with valid basis
   const basisContent = section.basis_content as string;
   if (!basisContent || basisContent.length < MIN_BASIS_CHARS) {
-    // Mark as not_ready and skip
     await sb.from("handbook_sections").update({
       expand_status: "not_ready",
     }).eq("id", sectionId);
     return json({ ok: true, skipped: true, reason: "basis_content too short" });
   }
 
-  // Guard: max attempts
   const attempts = (section.expand_attempts as number) || 0;
   if (attempts >= MAX_EXPAND_ATTEMPTS) {
     await sb.from("handbook_sections").update({
@@ -120,32 +170,65 @@ Deno.serve(async (req) => {
     expand_attempts: attempts + 1,
   }).eq("id", sectionId);
 
-  // 2) Resolve profession name for prompt context
+  // 2) Resolve profession name, persona, and curriculum context
   let professionName = "Ausbildungsberuf";
+  let curriculumId = "";
+  let persona = resolvePersonaProfile({});
   try {
-    // Get curriculum_id from chapter → handbook_chapters
     const { data: chapter } = await sb
       .from("handbook_chapters")
       .select("curriculum_id")
       .eq("id", section.chapter_id)
       .maybeSingle();
     if (chapter?.curriculum_id) {
+      curriculumId = chapter.curriculum_id;
       const { data: curr } = await sb
         .from("curricula")
         .select("profession_name")
-        .eq("id", chapter.curriculum_id)
+        .eq("id", curriculumId)
         .maybeSingle();
       if (curr?.profession_name) professionName = curr.profession_name as string;
+
+      // P6-prep: Resolve persona from package
+      const { data: pkg } = await sb
+        .from("course_packages")
+        .select("track, persona_profile")
+        .eq("curriculum_id", curriculumId)
+        .limit(1)
+        .maybeSingle();
+      if (pkg) {
+        persona = resolvePersonaProfile(pkg);
+      }
     }
   } catch { /* fallback */ }
 
-  // 3) Call heavy model for expansion
+  // 3) P3: Load real exam + competency context (parallel)
+  const learningFieldId = section.learning_field_id as string | null;
+  const [examQuestions, competencies] = await Promise.all([
+    loadSectionExamContext(sb, curriculumId, learningFieldId),
+    loadSectionCompetencies(sb, learningFieldId),
+  ]);
+
+  // 4) Build persona-aware expansion prompt
+  const personaConfig = PERSONA_CONFIGS[persona];
+  const reqs = HANDBOOK_REQUIREMENTS[persona];
+  const sectionTitle = (section.title as string) || (section.section_key as string) || "Abschnitt";
+
+  let contextBlock = "";
+  if (examQuestions.length > 0) {
+    contextBlock += `\n\nECHTE PRÜFUNGSFRAGEN zu diesem Thema (nutze als Orientierung für Tiefe und Schwierigkeit):\n${examQuestions.map((q, i) => `${i + 1}. ${q}`).join("\n")}`;
+  }
+  if (competencies.length > 0) {
+    const compLines = competencies.map(c => {
+      const misc = c.misconception ? ` → Fehlvorstellung: "${c.misconception}"` : "";
+      return `- ${c.name} [${c.bloom}]${misc}`;
+    }).join("\n");
+    contextBlock += `\n\nKOMPETENZEN die abgedeckt werden MÜSSEN:\n${compLines}`;
+  }
+
   const expandChain = getModelChain("handbook");
-  // Prefer heavy models (Pro/GPT-5), exclude Flash for depth
   const heavyModels = expandChain.filter(c => !c.model.includes("flash"));
   const chain = heavyModels.length > 0 ? heavyModels : expandChain;
-
-  const sectionTitle = (section.title as string) || (section.section_key as string) || "Abschnitt";
 
   try {
     if (shouldSoftStop(startMs, "handbook")) {
@@ -166,11 +249,25 @@ Deno.serve(async (req) => {
       messages: [
         {
           role: "system",
-          content: `Du bist ein IHK-Prüfungscoach und Fachbuchautor für "${professionName}". Du vertiefst bestehende Handbuch-Abschnitte auf Elite-Niveau. Antworte NUR mit dem vollständigen, erweiterten Markdown-Text. Keine Meta-Kommentare, keine Erklärungen.`,
+          content: `Du bist ${personaConfig.role} für "${professionName}". Du vertiefst bestehende Handbuch-Abschnitte auf Elite-Niveau. Antworte NUR mit dem vollständigen, erweiterten Markdown-Text. Keine Meta-Kommentare, keine Erklärungen.`,
         },
         {
           role: "user",
-          content: `Erweitere den folgenden Handbuch-Abschnitt "${sectionTitle}" auf Elite-Prüfungsniveau.\n\nPFLICHT-ERWEITERUNGEN:\n1. Mindestens 3 durchgerechnete Praxisbeispiele mit vollständigem Lösungsweg\n2. Mindestens 5 konkrete Prüfungsfallen mit Erklärung, warum Prüflinge sie falsch beantworten\n3. Mindestens 2 Musteraufgaben im IHK-Stil mit detailliertem Lösungsweg\n4. "So denkt der Prüfer"-Hinweise für jeden Themenschwerpunkt\n5. Typische Fehlvorstellungen und warum sie falsch sind\n6. Transferbeispiele: Wie wendet man das Wissen in der betrieblichen Praxis an?\n7. Merkschemata, Eselsbrücken oder Checklisten zur Prüfungsvorbereitung\n8. Differenzierung: Verwandte Begriffe klar voneinander abgrenzen\n\nREGELN:\n- Den bestehenden Inhalt NICHT kürzen oder zusammenfassen\n- Alle bestehenden Informationen BEHALTEN und ERGÄNZEN\n- Strukturierte Markdown-Formatierung verwenden\n- Mindestens 50% mehr Inhalt als der Originaltext\n\nBESTEHENDER TEXT:\n\n${basisContent}`,
+          content: `Erweitere den folgenden Handbuch-Abschnitt "${sectionTitle}" auf Elite-${personaConfig.examLabel}-Niveau.
+${contextBlock}
+
+${reqs.expandDepthInstructions}
+
+REGELN:
+- Den bestehenden Inhalt NICHT kürzen oder zusammenfassen
+- Alle bestehenden Informationen BEHALTEN und ERGÄNZEN
+- Strukturierte Markdown-Formatierung verwenden
+- Mindestens 50% mehr Inhalt als der Originaltext
+${reqs.promptSuffix}
+
+BESTEHENDER TEXT:
+
+${basisContent}`,
         },
       ],
       max_tokens: 12288,
@@ -195,7 +292,6 @@ Deno.serve(async (req) => {
 
     // Validate expansion quality
     if (expanded.length < basisContent.length * MIN_EXPANDED_IMPROVEMENT) {
-      // Expansion didn't add enough — keep basis, mark as failed_soft
       await sb.from("handbook_sections").update({
         expand_status: "failed_soft",
         expand_last_error: `Expansion too short: ${expanded.length} vs basis ${basisContent.length}`,
@@ -204,21 +300,21 @@ Deno.serve(async (req) => {
       }).eq("id", sectionId);
 
       return json({
-        ok: true,
-        expanded: false,
-        reason: "expansion_insufficient",
-        basis_chars: basisContent.length,
-        expanded_chars: expanded.length,
+        ok: true, expanded: false, reason: "expansion_insufficient",
+        basis_chars: basisContent.length, expanded_chars: expanded.length,
       });
     }
 
     // Score depth markers
     const { score, markers } = scoreDepthMarkers(expanded);
 
-    // 4) Write expanded_content — basis_content stays untouched
+    // Guardrail B: Verify against didactic requirements
+    const verification = verifyContentQuality(expanded, persona);
+
+    // 5) Write expanded_content — basis_content stays untouched
     const { error: updateErr } = await sb.from("handbook_sections").update({
       expanded_content: expanded,
-      content_markdown: expanded, // materialized output = best available
+      content_markdown: expanded,
       content_tier: "expanded",
       expand_status: "done",
       expanded_at: new Date().toISOString(),
@@ -231,19 +327,18 @@ Deno.serve(async (req) => {
 
     if (updateErr) throw updateErr;
 
-    console.log(`[expand-handbook-section] ${sectionTitle}: ${basisContent.length} → ${expanded.length} chars, depth_score=${score}%, provider=${result.provider}`);
+    console.log(`[expand-handbook-section] ${sectionTitle}: ${basisContent.length} → ${expanded.length} chars, depth=${score}%, verification=${verification.score}% (missing: ${verification.missing.join(", ") || "none"}), persona=${persona}, context: ${examQuestions.length}q/${competencies.length}c`);
 
     return json({
-      ok: true,
-      expanded: true,
-      section_id: sectionId,
-      basis_chars: basisContent.length,
-      expanded_chars: expanded.length,
+      ok: true, expanded: true, section_id: sectionId,
+      basis_chars: basisContent.length, expanded_chars: expanded.length,
       improvement_pct: Math.round((expanded.length / basisContent.length - 1) * 100),
-      depth_score: score,
-      depth_markers: markers,
-      provider: result.provider,
-      model: result.model,
+      depth_score: score, depth_markers: markers,
+      verification_score: verification.score,
+      verification_missing: verification.missing,
+      persona, provider: result.provider, model: result.model,
+      context_questions: examQuestions.length,
+      context_competencies: competencies.length,
     });
 
   } catch (err) {
@@ -255,16 +350,9 @@ Deno.serve(async (req) => {
       expand_last_error: msg.slice(0, 500),
     }).eq("id", sectionId);
 
-    // CRITICAL: Return 200 so the JOB completes successfully in job_queue.
-    // The section is marked failed_soft and can be retried via enqueue_handbook_expand.
-    // Returning 500 would mark the job as "failed" in job_queue, which blocks
-    // the fan-out completion guard and prevents expand_handbook from ever finishing.
     return json({
-      ok: true,
-      expanded: false,
-      soft_fail: true,
-      error: msg.slice(0, 300),
-      section_id: sectionId,
+      ok: true, expanded: false, soft_fail: true,
+      error: msg.slice(0, 300), section_id: sectionId,
     });
   }
 });

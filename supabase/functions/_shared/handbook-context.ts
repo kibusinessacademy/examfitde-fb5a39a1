@@ -1,8 +1,12 @@
 /**
  * handbook-context.ts — Context loaders & prompt builder for handbook generation
- * v15: Lean basis pass — reduced context injection, compact prompt.
- * Depth (examples, transfer, muster tasks) handled by expand_handbook step.
+ * v16: P1-hardened — persona-aware prompts with mandatory didactic blocks,
+ *      praxis examples, exam traps, decision logic, transfer requirements.
+ *      References didactic-requirements.ts as SSOT (Guardrail A).
  */
+
+import { HANDBOOK_REQUIREMENTS, type HandbookPromptRequirements } from "./didactic-requirements.ts";
+import { resolvePersonaProfile, type PersonaProfile, PERSONA_CONFIGS } from "./persona-profiles.ts";
 
 type SB = any;
 
@@ -12,11 +16,8 @@ export interface CompetencyContext {
   misconceptions: string[];
 }
 
-// v15: Cap at 10 competencies (from 30) — reduce prompt size
 const MAX_COMPETENCIES = 10;
-// v15: Cap at 8 subtopics (from 50) — only core topics
 const MAX_SUBTOPICS = 8;
-// v15: Cap at 2 sample questions (from 5)
 const MAX_SAMPLE_QUESTIONS = 2;
 
 export async function loadFieldCompetencies(
@@ -60,7 +61,7 @@ export async function loadFieldTopicDepth(
         .select("id, topic_name")
         .eq("certification_id", curriculumId)
         .is("parent_topic_id", null)
-        .limit(20);  // v15: reduced from 50
+        .limit(20);
       if (!allParents?.length) return [];
       parentIds = allParents.map((p: any) => p.id);
     }
@@ -69,7 +70,7 @@ export async function loadFieldTopicDepth(
       .from("curriculum_topics")
       .select("topic_name")
       .in("parent_topic_id", parentIds)
-      .limit(MAX_SUBTOPICS);  // v15: capped at 8
+      .limit(MAX_SUBTOPICS);
 
     return subtopics?.map((s: any) => s.topic_name) || [];
   } catch { return []; }
@@ -87,14 +88,14 @@ export async function loadExamQuestionSample(
       .eq("curriculum_id", curriculumId)
       .eq("learning_field_id", fieldId)
       .in("status", ["approved"])
-      .limit(MAX_SAMPLE_QUESTIONS);  // v15: reduced from 5
+      .limit(MAX_SAMPLE_QUESTIONS);
     return (data || []).map((q: any) => (q.question_text || "").slice(0, 150)).filter(Boolean);
   } catch { return []; }
 }
 
 /**
- * v15: Lean basis prompt — focuses on solid structure and core content.
- * Elite depth (examples, transfer, Musteraufgaben) is added by expand_handbook.
+ * v16: P1-hardened — persona-aware prompt with mandatory didactic structure.
+ * Falls back to AZUBI_HIGH_ROI if no persona provided.
  */
 export function buildElitePrompt(
   professionName: string,
@@ -105,10 +106,14 @@ export function buildElitePrompt(
   competencies: CompetencyContext[],
   sampleQuestions: string[],
   wordTarget: number,
+  persona?: PersonaProfile,
 ): string {
+  const activePersona = persona || "AZUBI_HIGH_ROI";
+  const reqs = HANDBOOK_REQUIREMENTS[activePersona];
+  const config = PERSONA_CONFIGS[activePersona];
   const parts: string[] = [];
 
-  parts.push(`Erstelle einen Handbuch-Abschnitt für "${fieldCode}: ${fieldTitle}" (${professionName}).`);
+  parts.push(`Du bist ${config.role} für ${professionName}. Erstelle einen Handbuch-Abschnitt für "${fieldCode}: ${fieldTitle}".`);
 
   if (fieldDescription) {
     parts.push(`Beschreibung: ${fieldDescription.slice(0, 300)}`);
@@ -119,23 +124,26 @@ export function buildElitePrompt(
   }
 
   if (competencies.length > 0) {
-    const compList = competencies.map(c => `${c.name} [${c.bloom}]`).join(", ");
-    parts.push(`Kompetenzen: ${compList}`);
+    const compList = competencies.map(c => {
+      const misc = c.misconceptions.length > 0 ? ` (Fehlvorstellung: ${c.misconceptions[0]})` : "";
+      return `${c.name} [${c.bloom}]${misc}`;
+    }).join("\n- ");
+    parts.push(`Kompetenzen:\n- ${compList}`);
   }
 
   if (sampleQuestions.length > 0) {
-    parts.push(`Prüfungsfragen-Beispiele:\n${sampleQuestions.map((q, i) => `${i + 1}. ${q}`).join("\n")}`);
+    parts.push(`Prüfungsfragen-Beispiele (Orientierung für Schwierigkeitsniveau):\n${sampleQuestions.map((q, i) => `${i + 1}. ${q}`).join("\n")}`);
   }
 
-  parts.push(`
-## Pflichtstruktur (Markdown):
-1. **Fachliche Grundlagen** — Kernthemen systematisch erklären, Definitionen, Zusammenhänge
-2. **Formeln & Berechnungen** — falls relevant, mit je einem Beispiel
-3. **Prüfungsfallen** — mind. 3 typische Fehler mit Erklärung
-4. **Merkschemata** — Eselsbrücken, Checklisten
-5. **Zusammenfassung** — 5–8 wichtigste Fakten
+  // Mandatory structure from SSOT
+  const structureBlock = reqs.mandatoryBlocks.map((b, i) => `${i + 1}. **${b}**`).join("\n");
 
-Umfang: ca. ${wordTarget} Wörter. Nur Markdown, keine Meta-Kommentare.`);
+  parts.push(`## Pflichtstruktur (Markdown):\n${structureBlock}`);
+
+  // Persona-specific quality requirements
+  parts.push(reqs.promptSuffix);
+
+  parts.push(`Umfang: ca. ${Math.max(wordTarget, reqs.minWordTarget)} Wörter. Nur Markdown, keine Meta-Kommentare.`);
 
   return parts.join("\n\n");
 }
