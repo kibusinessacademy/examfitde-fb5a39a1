@@ -113,6 +113,7 @@ const VARKLerntypTest = lazyRetry(() => import('@/pages/VARKLerntypTest'));
 const DiagnosticTest = lazyRetry(() => import('@/pages/DiagnosticTest'));
 const DrillSession = lazyRetry(() => import('@/pages/DrillSession'));
 const ShuttleModePage = lazyRetry(() => import('@/pages/ShuttleMode'));
+const DailyChallengePage = lazyRetry(() => import('@/pages/DailyChallenge'));
 
 // Shop Pages
 const ShopPage = lazyRetry(() => import('@/pages/ShopPage'));
@@ -247,6 +248,7 @@ const AppRoutes = () => {
             <Route path="/spaced-repetition" element={<SpacedRepetitionSession />} />
             <Route path="/drill" element={<DrillSession />} />
             <Route path="/shuttle" element={<ShuttleModePage />} />
+            <Route path="/daily-challenge" element={<DailyChallengePage />} />
             <Route path="/exam-anxiety" element={<ExamAnxietyManager />} />
             <Route path="/vark-test" element={<VARKLerntypTest />} />
             <Route path="/diagnostic/:curriculumId" element={<DiagnosticTest />} />
