@@ -84,6 +84,10 @@ jobs:
         run: |
           node scripts/guards/handler-registry-parity-guard.mjs
 
+      - name: No-Direct-Done-Write Guard
+        run: |
+          node scripts/guards/no-direct-done-write-guard.mjs
+
       - name: Success summary
         run: |
           echo "✅ Edge CI passed: deno check + deno lint + edge guards + SSOT guards + model guards + LLM fetch guards + handler parity"
