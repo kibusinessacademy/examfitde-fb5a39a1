@@ -68090,6 +68090,7 @@ export type Database = {
       fn_reconcile_stale_integrity_reports: { Args: never; Returns: Json }
       fn_reconcile_stale_qgf_packages: { Args: never; Returns: Json }
       fn_recover_stale_lock_exhausted: { Args: never; Returns: Json }
+      fn_reset_zombie_processing_jobs: { Args: never; Returns: number }
       fn_return_job_to_pending_no_burn: {
         Args: { p_backoff_seconds: number; p_job_id: string; p_reason: string }
         Returns: undefined
