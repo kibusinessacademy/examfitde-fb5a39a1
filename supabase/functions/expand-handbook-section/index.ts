@@ -102,11 +102,11 @@ async function loadSectionCompetencies(
   try {
     const { data } = await sb
       .from("competencies")
-      .select("competency_name, bloom_level, typical_misconceptions")
+      .select("title, bloom_level, typical_misconceptions")
       .eq("learning_field_id", learningFieldId)
       .limit(MAX_CONTEXT_COMPETENCIES);
     return (data || []).map((c: any) => ({
-      name: c.competency_name || "",
+      name: c.title || "",
       bloom: c.bloom_level || "understand",
       misconception: Array.isArray(c.typical_misconceptions) && c.typical_misconceptions.length > 0
         ? c.typical_misconceptions[0] : "",

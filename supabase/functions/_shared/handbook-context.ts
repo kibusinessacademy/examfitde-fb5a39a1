@@ -27,11 +27,11 @@ export async function loadFieldCompetencies(
   try {
     const { data } = await sb
       .from("competencies")
-      .select("competency_name, bloom_level, typical_misconceptions")
+      .select("title, bloom_level, typical_misconceptions")
       .eq("learning_field_id", fieldId)
       .limit(MAX_COMPETENCIES);
     return (data || []).map((c: any) => ({
-      name: c.competency_name || "",
+      name: c.title || "",
       bloom: c.bloom_level || "understand",
       misconceptions: Array.isArray(c.typical_misconceptions) ? c.typical_misconceptions.slice(0, 1) : [],
     }));
