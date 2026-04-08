@@ -40957,28 +40957,49 @@ export type Database = {
       }
       shuttle_events: {
         Row: {
-          created_at: string
+          blueprint_id: string | null
+          competency_id: string | null
+          curriculum_id: string
+          event_type: string
           id: string
-          is_correct: boolean
+          is_correct: boolean | null
+          occurred_at: string
+          payload: Json | null
           question_id: string
-          response_time_ms: number | null
+          response_ms: number | null
+          selected_option_ids: Json | null
           session_id: string
+          user_id: string
         }
         Insert: {
-          created_at?: string
+          blueprint_id?: string | null
+          competency_id?: string | null
+          curriculum_id: string
+          event_type: string
           id?: string
-          is_correct: boolean
+          is_correct?: boolean | null
+          occurred_at?: string
+          payload?: Json | null
           question_id: string
-          response_time_ms?: number | null
+          response_ms?: number | null
+          selected_option_ids?: Json | null
           session_id: string
+          user_id: string
         }
         Update: {
-          created_at?: string
+          blueprint_id?: string | null
+          competency_id?: string | null
+          curriculum_id?: string
+          event_type?: string
           id?: string
-          is_correct?: boolean
+          is_correct?: boolean | null
+          occurred_at?: string
+          payload?: Json | null
           question_id?: string
-          response_time_ms?: number | null
+          response_ms?: number | null
+          selected_option_ids?: Json | null
           session_id?: string
+          user_id?: string
         }
         Relationships: [
           {
@@ -40990,36 +41011,117 @@ export type Database = {
           },
         ]
       }
+      shuttle_question_state: {
+        Row: {
+          cooldown_until: string | null
+          curriculum_id: string
+          last_correct_at: string | null
+          last_seen_at: string | null
+          question_id: string
+          streak: number
+          times_correct: number
+          times_incorrect: number
+          times_seen: number
+          user_id: string
+        }
+        Insert: {
+          cooldown_until?: string | null
+          curriculum_id: string
+          last_correct_at?: string | null
+          last_seen_at?: string | null
+          question_id: string
+          streak?: number
+          times_correct?: number
+          times_incorrect?: number
+          times_seen?: number
+          user_id: string
+        }
+        Update: {
+          cooldown_until?: string | null
+          curriculum_id?: string
+          last_correct_at?: string | null
+          last_seen_at?: string | null
+          question_id?: string
+          streak?: number
+          times_correct?: number
+          times_incorrect?: number
+          times_seen?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       shuttle_sessions: {
         Row: {
           correct_count: number
+          created_at: string
           curriculum_id: string
           ended_at: string | null
           id: string
           questions_answered: number
           started_at: string
+          status: string
           user_id: string
-          xp_earned: number
         }
         Insert: {
           correct_count?: number
+          created_at?: string
           curriculum_id: string
           ended_at?: string | null
           id?: string
           questions_answered?: number
           started_at?: string
+          status?: string
           user_id: string
-          xp_earned?: number
         }
         Update: {
           correct_count?: number
+          created_at?: string
           curriculum_id?: string
           ended_at?: string | null
           id?: string
           questions_answered?: number
           started_at?: string
+          status?: string
           user_id?: string
-          xp_earned?: number
+        }
+        Relationships: []
+      }
+      shuttle_user_stats: {
+        Row: {
+          best_streak: number
+          current_streak: number
+          curriculum_id: string
+          last_session_at: string | null
+          total_correct: number
+          total_questions: number
+          total_sessions: number
+          total_time_ms: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          best_streak?: number
+          current_streak?: number
+          curriculum_id: string
+          last_session_at?: string | null
+          total_correct?: number
+          total_questions?: number
+          total_sessions?: number
+          total_time_ms?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          best_streak?: number
+          current_streak?: number
+          curriculum_id?: string
+          last_session_at?: string | null
+          total_correct?: number
+          total_questions?: number
+          total_sessions?: number
+          total_time_ms?: number
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -67669,6 +67771,10 @@ export type Database = {
         Args: { p_package_id: string }
         Returns: Json
       }
+      fn_complete_shuttle_session: {
+        Args: { p_reason?: string; p_session_id: string; p_user_id: string }
+        Returns: Json
+      }
       fn_compute_exam_pool_hash: {
         Args: { p_curriculum_id: string }
         Returns: string
@@ -67903,8 +68009,36 @@ export type Database = {
         Args: { p_backoff_seconds: number; p_job_id: string; p_reason: string }
         Returns: undefined
       }
+      fn_select_next_shuttle_question: {
+        Args: {
+          p_curriculum_id: string
+          p_session_id: string
+          p_user_id: string
+        }
+        Returns: {
+          blueprint_id: string
+          competency_id: string
+          difficulty: string
+          options: Json
+          question_id: string
+          question_text: string
+          question_type: string
+          trap_tags: string[]
+          trap_type: string
+        }[]
+      }
       fn_share_fi_core_questions: { Args: never; Returns: Json }
       fn_share_fi_handbook_chapters: { Args: never; Returns: number }
+      fn_submit_shuttle_answer: {
+        Args: {
+          p_question_id: string
+          p_response_ms?: number
+          p_selected_option_ids: Json
+          p_session_id: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
       fn_update_package_prebuild_status: {
         Args: { p_package_id: string }
         Returns: string
@@ -68865,25 +68999,6 @@ export type Database = {
       get_security_spike_score: { Args: { p_minutes?: number }; Returns: Json }
       get_shard_progress: { Args: { p_fanout_id: string }; Returns: Json }
       get_ship_level: { Args: { p_authority_index: number }; Returns: string }
-      get_shuttle_next_question: {
-        Args: {
-          p_curriculum_id: string
-          p_session_id?: string
-          p_user_id: string
-        }
-        Returns: {
-          blueprint_id: string
-          competency_id: string
-          difficulty: string
-          distractor_meta: Json
-          explanation: string
-          options: Json
-          question_id: string
-          question_text: string
-          question_type: string
-          trap_type: string
-        }[]
-      }
       get_step_prerequisite: { Args: { p_step_key: string }; Returns: string }
       get_track_pipeline_steps: {
         Args: { p_package_id: string }
