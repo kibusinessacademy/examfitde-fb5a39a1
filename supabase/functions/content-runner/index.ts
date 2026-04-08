@@ -114,7 +114,9 @@ async function dispatchJob(job: any, supabaseUrl: string, serviceKey: string): P
     // Normalize camelCase→snake_case payload keys (safety net for orphan_reconciler compat)
     const rawPayload = job.payload ?? {};
     const normalizedPayload = { ...rawPayload };
-    if (rawPayload.packageId && !rawPayload.package_id) normalizedPayload.package_id = rawPayload.packageId;
+    // Inject top-level job columns into payload if missing (materialization gap fix)
+    if (job.package_id && !normalizedPayload.package_id) normalizedPayload.package_id = job.package_id;
+    if (rawPayload.packageId && !normalizedPayload.package_id) normalizedPayload.package_id = rawPayload.packageId;
     if (rawPayload.courseId && !rawPayload.course_id) normalizedPayload.course_id = rawPayload.courseId;
     if (rawPayload.curriculumId && !rawPayload.curriculum_id) normalizedPayload.curriculum_id = rawPayload.curriculumId;
 
