@@ -156,6 +156,64 @@ function extractTriggerDagKeys() {
 
 function diff(a, b) { return [...a].filter(x => !b.has(x)).sort(); }
 
+/** Extract PIPELINE_PREREQS as Map<job_type, Set<step_key>> with actual dependency values */
+function extractPrereqMap(source) {
+  const re = /(?:const|let)\s+PIPELINE_PREREQS\s*[^=]*=\s*\{/m;
+  const match = re.exec(source);
+  if (!match) throw new Error("Could not find PIPELINE_PREREQS in job-runner");
+
+  const start = match.index + match[0].length - 1;
+  let depth = 0, end = -1;
+  for (let i = start; i < source.length; i++) {
+    if (source[i] === "{") depth++;
+    if (source[i] === "}") { depth--; if (depth === 0) { end = i + 1; break; } }
+  }
+  if (end === -1) throw new Error("Unclosed PIPELINE_PREREQS block");
+  const block = source.slice(start, end);
+
+  const result = new Map();
+  // Match: job_type: ["step1", "step2"]
+  for (const m of block.matchAll(/["']?(package_[a-z_]+|handbook_[a-z_]+)["']?\s*:\s*\[([^\]]*)\]/gm)) {
+    const jobType = m[1];
+    const deps = new Set();
+    for (const v of m[2].matchAll(/["']([a-z_]+)["']/g)) {
+      deps.add(v[1]);
+    }
+    result.set(jobType, deps);
+  }
+  return result;
+}
+
+/** Extract PIPELINE_GRAPH dependsOn as Map<step_key, Set<step_key>> */
+function extractGraphDependsOn(source) {
+  const graphMatch = /export\s+const\s+PIPELINE_GRAPH\s*[^=]*=\s*\[/m.exec(source);
+  if (!graphMatch) throw new Error("Could not find PIPELINE_GRAPH");
+
+  const start = graphMatch.index + graphMatch[0].length - 1;
+  let depth = 0, end = -1;
+  for (let i = start; i < source.length; i++) {
+    if (source[i] === "[") depth++;
+    if (source[i] === "]") { depth--; if (depth === 0) { end = i + 1; break; } }
+  }
+  if (end === -1) throw new Error("Unclosed PIPELINE_GRAPH array");
+  const block = source.slice(start, end);
+
+  const result = new Map();
+  // Parse each node object: { key: "...", dependsOn: ["..."] }
+  for (const m of block.matchAll(/\{\s*key:\s*["']([a-z_]+)["'][^}]*\}/gs)) {
+    const key = m[1];
+    const deps = new Set();
+    const depMatch = m[0].match(/dependsOn:\s*\[([^\]]*)\]/);
+    if (depMatch) {
+      for (const v of depMatch[1].matchAll(/["']([a-z_]+)["']/g)) {
+        deps.add(v[1]);
+      }
+    }
+    result.set(key, deps);
+  }
+  return result;
+}
+
 function printGroup(title, arr) {
   if (!arr.length) return;
   console.error(`\n${title}`);
