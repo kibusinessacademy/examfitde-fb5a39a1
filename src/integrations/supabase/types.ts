@@ -21317,6 +21317,30 @@ export type Database = {
         }
         Relationships: []
       }
+      fi_core_lf_equivalence: {
+        Row: {
+          created_at: string
+          curriculum_id: string
+          id: string
+          learning_field_id: string
+          lf_code: string
+        }
+        Insert: {
+          created_at?: string
+          curriculum_id: string
+          id?: string
+          learning_field_id: string
+          lf_code: string
+        }
+        Update: {
+          created_at?: string
+          curriculum_id?: string
+          id?: string
+          learning_field_id?: string
+          lf_code?: string
+        }
+        Relationships: []
+      }
       finance_exports: {
         Row: {
           created_at: string
@@ -67016,6 +67040,7 @@ export type Database = {
       finish_exam_session: { Args: { p_session_id: string }; Returns: Json }
       fix_zombie_packages: { Args: never; Returns: Json }
       fn_alert_stale_admin_holds: { Args: never; Returns: number }
+      fn_approve_fi_shared_questions: { Args: never; Returns: Json }
       fn_auto_heal_hard_fail_repair_exhausted: { Args: never; Returns: Json }
       fn_auto_heal_materialization_guard: { Args: never; Returns: Json }
       fn_auto_heal_stale_lock_exhausted: { Args: never; Returns: Json }
@@ -67086,6 +67111,72 @@ export type Database = {
           p_question_text: string
         }
         Returns: Json
+      }
+      fn_get_fi_equivalent_questions: {
+        Args: { p_learning_field_id: string }
+        Returns: {
+          ai_generated: boolean | null
+          approved_version_id: string | null
+          bloom_level_validated: string | null
+          blueprint_id: string | null
+          canonical_hash: string | null
+          certification_id: string | null
+          cognitive_level: string | null
+          competency_id: string | null
+          complexity_score: number | null
+          conflict_type: string | null
+          correct_answer: number
+          created_at: string
+          curriculum_id: string
+          difficulty: Database["public"]["Enums"]["question_difficulty"] | null
+          discrimination_tier: string | null
+          distractor_meta: Json | null
+          distractor_types: string[] | null
+          dynamic_scenario: boolean | null
+          elite_level: Database["public"]["Enums"]["elite_level"] | null
+          elite_score: number | null
+          elite_score_breakdown: Json | null
+          exam_part: string | null
+          exam_weight: number | null
+          expected_answer_points: Json | null
+          explanation: string | null
+          global_canonical_hash: string | null
+          id: string
+          is_trap: boolean
+          item_calibrated_at: string | null
+          item_difficulty: number | null
+          item_discrimination: number | null
+          item_guessing: number | null
+          item_usage_count: number | null
+          learning_field_id: string | null
+          meta: Json | null
+          multi_variable: boolean | null
+          normalized_hash: string | null
+          options: Json
+          qc_status: string | null
+          question_fingerprint: string | null
+          question_text: string
+          question_type: string
+          review_state: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          rubric: Json | null
+          scenario_type: string | null
+          status: Database["public"]["Enums"]["question_status"] | null
+          time_estimate_seconds: number | null
+          transfer_variant: boolean | null
+          trap_tags: string[] | null
+          trap_type: string | null
+          typical_errors: Json | null
+          variant_group: string | null
+          variant_label: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "exam_questions"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       fn_growth_engine_overview: { Args: never; Returns: Json }
       fn_guard_no_rpc_overloads: {
@@ -67187,6 +67278,7 @@ export type Database = {
         Args: { p_curriculum_id: string }
         Returns: Json
       }
+      fn_populate_fi_lf_equivalence: { Args: never; Returns: Json }
       fn_reap_non_building_pending_jobs: { Args: never; Returns: Json }
       fn_rebalance_wip_priority: {
         Args: { p_max_demotions?: number }
@@ -67217,6 +67309,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      fn_share_fi_core_questions: { Args: never; Returns: Json }
       fn_update_package_prebuild_status: {
         Args: { p_package_id: string }
         Returns: string
