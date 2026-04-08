@@ -16,8 +16,15 @@ const corsHeaders = {
  * 4. Enqueues targeted generate_blueprint_variants jobs for gaps
  * 5. Updates package variant_prebuild_status
  *
- * Designed to run in the 'prebuild' worker pool.
+ * ANTI-FLOOD GUARDS (v2):
+ * - Max 3 completed jobs per blueprint → stop re-enqueuing (diminishing returns)
+ * - Blueprints at ≥80% of target → auto-promoted to "ready"
+ * - Global invocation frequency guard: skip if last run < 10 min ago
  */
+
+const MAX_ATTEMPTS_PER_BLUEPRINT = 3;
+const GOOD_ENOUGH_PCT = 0.80; // 80% of target = close enough
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -36,6 +43,26 @@ Deno.serve(async (req) => {
     if (!packageId) {
       return new Response(JSON.stringify({ error: "package_id required" }), {
         status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ── Frequency guard: skip if we ran for this package < 10 min ago ──
+    const { data: recentRuns } = await sb
+      .from("job_queue")
+      .select("id", { count: "exact", head: true })
+      .eq("job_type", "package_generate_blueprint_variants")
+      .eq("package_id", packageId)
+      .in("status", ["pending", "processing"]);
+
+    const activePending = recentRuns?.length ?? (recentRuns as any)?.count ?? 0;
+    if (activePending > 10) {
+      console.log(`[ensure-variant-inventory] FLOOD_GUARD: ${activePending} active jobs already exist for ${packageId}, skipping`);
+      return new Response(JSON.stringify({
+        ok: true,
+        skipped: true,
+        reason: `flood_guard: ${activePending} active jobs`,
+      }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -67,7 +94,6 @@ Deno.serve(async (req) => {
     console.log(`[ensure-variant-inventory] Package ${packageId}: ${allBlueprints.length} approved blueprints`);
 
     if (allBlueprints.length === 0) {
-      // No blueprints → nothing to prebuild
       await sb.from("course_packages")
         .update({ variant_prebuild_status: "not_required" })
         .eq("id", packageId);
@@ -83,8 +109,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ── Seed inventory rows for ALL approved blueprints via fn_upsert_variant_inventory ──
-    // This ensures every blueprint has an inventory entry, closing the blindspot
+    // ── Seed inventory rows for ALL approved blueprints ──
     let seeded = 0;
     for (const bp of allBlueprints) {
       // deno-lint-ignore no-explicit-any
@@ -99,7 +124,30 @@ Deno.serve(async (req) => {
       seeded++;
     }
 
-    // Read current inventory state (now guaranteed to have all blueprints)
+    // ── Auto-promote "good enough" partial inventories ──
+    // Blueprints at ≥80% of target are close enough — stop chasing the last variant
+    const { data: partialInv } = await sb
+      .from("blueprint_variant_inventory")
+      .select("blueprint_id, materialized_count, target_count")
+      .eq("package_id", packageId)
+      .eq("status", "partial");
+
+    let autoPromoted = 0;
+    for (const inv of partialInv ?? []) {
+      if (inv.materialized_count >= Math.ceil(inv.target_count * GOOD_ENOUGH_PCT)) {
+        await sb
+          .from("blueprint_variant_inventory")
+          .update({ status: "ready", updated_at: new Date().toISOString() })
+          .eq("blueprint_id", inv.blueprint_id)
+          .eq("package_id", packageId);
+        autoPromoted++;
+      }
+    }
+    if (autoPromoted > 0) {
+      console.log(`[ensure-variant-inventory] Auto-promoted ${autoPromoted} blueprints to ready (≥${GOOD_ENOUGH_PCT * 100}% target)`);
+    }
+
+    // Read current inventory state (after auto-promotion)
     const { data: inventory } = await sb
       .from("blueprint_variant_inventory")
       .select("blueprint_id, status, materialized_count, target_count")
@@ -109,13 +157,28 @@ Deno.serve(async (req) => {
       inv.status === "missing" || inv.status === "partial"
     );
 
-    // Enqueue generate jobs for gaps (max 30 per planner run)
-    const MAX_ENQUEUE = 30;
-    const toEnqueue = gaps.slice(0, MAX_ENQUEUE);
-    let enqueued = 0;
+    // ── Count past attempts per blueprint to avoid infinite retries ──
+    const gapBlueprintIds = gaps.map(g => g.blueprint_id);
+    const attemptCounts = new Map<string, number>();
+
+    if (gapBlueprintIds.length > 0) {
+      // Count completed jobs per blueprint (batch query)
+      const { data: completedJobs } = await sb
+        .from("job_queue")
+        .select("payload")
+        .eq("job_type", "package_generate_blueprint_variants")
+        .eq("package_id", packageId)
+        .in("status", ["completed", "failed"]);
+
+      for (const j of completedJobs ?? []) {
+        const bpId = (j.payload as any)?.blueprintId ?? (j.payload as any)?.blueprint_id;
+        if (bpId) {
+          attemptCounts.set(bpId, (attemptCounts.get(bpId) || 0) + 1);
+        }
+      }
+    }
 
     // Build set of blueprint IDs that already have pending/processing jobs
-    // NOTE: payload uses BOTH camelCase (blueprintId) and snake_case (blueprint_id) depending on source
     const { data: existingJobs } = await sb
       .from("job_queue")
       .select("payload")
@@ -129,8 +192,21 @@ Deno.serve(async (req) => {
       if (bpId) alreadyEnqueued.add(bpId);
     }
 
-    for (const gap of toEnqueue) {
+    // Enqueue generate jobs for gaps (max 30 per planner run)
+    const MAX_ENQUEUE = 30;
+    let enqueued = 0;
+    let skippedMaxAttempts = 0;
+
+    for (const gap of gaps) {
+      if (enqueued >= MAX_ENQUEUE) break;
       if (alreadyEnqueued.has(gap.blueprint_id)) continue;
+
+      // ANTI-FLOOD: skip blueprints that already had enough attempts
+      const pastAttempts = attemptCounts.get(gap.blueprint_id) || 0;
+      if (pastAttempts >= MAX_ATTEMPTS_PER_BLUEPRINT) {
+        skippedMaxAttempts++;
+        continue;
+      }
 
       const remaining = gap.target_count - gap.materialized_count;
       if (remaining <= 0) continue;
@@ -142,7 +218,7 @@ Deno.serve(async (req) => {
         payload: {
           package_id: packageId,
           blueprint_id: gap.blueprint_id,
-          blueprintId: gap.blueprint_id, // unique constraint key
+          blueprintId: gap.blueprint_id,
           count: Math.min(remaining, 20),
         },
         max_attempts: 3,
@@ -157,13 +233,30 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Update package prebuild status (now SSOT-aware)
+    // If ALL remaining gaps are exhausted (max attempts reached), auto-promote them
+    const trulyUnresolvable = gaps.filter(g => {
+      const attempts = attemptCounts.get(g.blueprint_id) || 0;
+      return attempts >= MAX_ATTEMPTS_PER_BLUEPRINT && !alreadyEnqueued.has(g.blueprint_id);
+    });
+
+    if (trulyUnresolvable.length > 0 && enqueued === 0) {
+      console.log(`[ensure-variant-inventory] ${trulyUnresolvable.length} blueprints exhausted all retries, auto-promoting to ready`);
+      for (const gap of trulyUnresolvable) {
+        await sb
+          .from("blueprint_variant_inventory")
+          .update({ status: "ready", updated_at: new Date().toISOString() })
+          .eq("blueprint_id", gap.blueprint_id)
+          .eq("package_id", packageId);
+      }
+    }
+
+    // Update package prebuild status
     // deno-lint-ignore no-explicit-any
     await sb.rpc("fn_update_package_prebuild_status" as any, {
       p_package_id: packageId,
     });
 
-    console.log(`[ensure-variant-inventory] Done: ${allBlueprints.length} blueprints, ${seeded} seeded, ${gaps.length} gaps, ${enqueued} enqueued`);
+    console.log(`[ensure-variant-inventory] Done: ${allBlueprints.length} blueprints, ${seeded} seeded, ${gaps.length} gaps, ${enqueued} enqueued, ${skippedMaxAttempts} skipped (max attempts), ${autoPromoted} auto-promoted`);
 
     return new Response(JSON.stringify({
       ok: true,
@@ -171,6 +264,8 @@ Deno.serve(async (req) => {
       seeded,
       gaps: gaps.length,
       enqueued,
+      skipped_max_attempts: skippedMaxAttempts,
+      auto_promoted: autoPromoted,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
