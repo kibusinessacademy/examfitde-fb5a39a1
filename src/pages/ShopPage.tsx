@@ -1,21 +1,35 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { PRICING } from '@/config/pricing';
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { ProductCards } from '@/components/shop/ProductCards';
+import { useCheckout, useShopProducts, useCalculatePrice } from '@/hooks/useShop';
+import { useCurriculumProductStats } from '@/hooks/useCurriculumProductStats';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Shield, Clock, CreditCard, CheckCircle, Star } from 'lucide-react';
-import PageExplainer from '@/components/admin/PageExplainer';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { SITE_URL, seoTitle } from '@/lib/seo';
+import { toast } from 'sonner';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+
+// Sections
+import { ProductHero } from '@/components/shop/ProductHero';
+import { ProductPainSection } from '@/components/shop/ProductPainSection';
+import { ProductUSPBanner, ProductModulesSection } from '@/components/shop/ProductModulesSection';
+import { ProductHowItWorks } from '@/components/shop/ProductHowItWorks';
+import { ProductTrustSection } from '@/components/shop/ProductTrustSection';
+import { ProductB2BSection } from '@/components/shop/ProductB2BSection';
+import { StickyPurchaseBar } from '@/components/shop/StickyPurchaseBar';
+import { formatEur } from '@/lib/timezone';
 
 export default function ShopPage() {
   const { user } = useAuth();
-  const [selectedCurriculumId, setSelectedCurriculumId] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const [selectedCurriculumId, setSelectedCurriculumId] = useState<string | null>(
+    searchParams.get('curriculum') || null
+  );
+  const [showSticky, setShowSticky] = useState(false);
+  const heroRef = useRef<HTMLDivElement>(null);
 
   const { data: curricula, isLoading: curriculaLoading } = useQuery({
     queryKey: ['frozen-curricula'],
@@ -30,71 +44,67 @@ export default function ShopPage() {
     },
   });
 
-  if (curricula?.length && !selectedCurriculumId) {
-    setSelectedCurriculumId(curricula[0].id);
-  }
+  // Auto-select first curriculum
+  useEffect(() => {
+    if (curricula?.length && !selectedCurriculumId) {
+      setSelectedCurriculumId(curricula[0].id);
+    }
+  }, [curricula, selectedCurriculumId]);
+
+  const { data: stats } = useCurriculumProductStats(selectedCurriculumId);
+  const { data: products } = useShopProducts();
+  const mainProduct = products?.find(p => p.product_key === 'bundle') || products?.[0];
+  const { data: priceData } = useCalculatePrice(mainProduct?.id, 1);
+  const { initiateCheckout, isLoading: checkoutLoading } = useCheckout();
+
+  // Show sticky bar after hero scrolls out
+  useEffect(() => {
+    const el = heroRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => setShowSticky(!entry.isIntersecting),
+      { threshold: 0 }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
+  const priceDisplay = priceData ? formatEur(priceData.total_price_cents) : PRICING.defaultPrice;
+
+  const cleanTitle = (stats?.title || '')
+    .replace(/^Rahmenlehrplan\s+/i, '')
+    .replace(/^Modulhandbuch\s+/i, '');
+
+  const handleBuy = async () => {
+    if (!user) {
+      toast.error('Bitte melde dich an');
+      navigate('/auth');
+      return;
+    }
+    if (!mainProduct) return;
+    try {
+      await initiateCheckout(mainProduct.product_key, selectedCurriculumId!, 1);
+    } catch {
+      toast.error('Checkout fehlgeschlagen');
+    }
+  };
 
   return (
     <>
       <SEOHead
-        title={seoTitle("IHK Prüfungstraining kaufen: Prüfungsfragen üben & bestehen")}
-        description={`IHK Prüfungstraining online kaufen: Prüfungssimulation, Prüfungsfragen mit Lösungen, KI-Coach & mündliche Prüfung. ${PRICING.defaultPrice} einmalig, ${PRICING.defaultAccess} Zugang, ${PRICING.noSubscription}.`}
+        title={seoTitle(
+          stats
+            ? `${cleanTitle} Prüfung bestehen – Prüfungstraining`
+            : 'IHK Prüfungstraining kaufen: Prüfungsfragen üben & bestehen'
+        )}
+        description={`${cleanTitle || 'IHK'} Prüfungstraining: Prüfungssimulation, echte Prüfungsfragen, KI-Coach & mündliche Prüfung. ${priceDisplay} einmalig, ${PRICING.defaultAccess} Zugang.`}
         canonical={`${SITE_URL}/shop`}
       />
 
-      <div className="container py-6 sm:py-8 md:py-12 px-3 sm:px-4">
-        {/* Header */}
-        <div className="text-center mb-12">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-subtle mb-6">
-            <Star className="h-4 w-4 text-warning fill-warning" />
-            <span className="text-sm text-muted-foreground">98% Bestehensquote</span>
-          </div>
-          <h1 className="text-2xl sm:text-3xl md:text-5xl font-display font-bold mb-3 md:mb-4">
-            IHK Prüfungstraining: <span className="text-gradient">Prüfungsfragen üben & bestehen</span>
-          </h1>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Abschlussprüfung Vorbereitung online – Prüfungssimulation, adaptive Schwächenanalyse & KI-Prüfungscoach. 
-            Einmalzahlung {PRICING.defaultPrice}, {PRICING.defaultAccess} Zugang, {PRICING.noSubscription}.
-          </p>
-        </div>
-
-        <PageExplainer
-          title="Wie funktioniert der Shop?"
-          description="Wähle deinen Ausbildungsberuf und kaufe das Prüfungstraining als Einmalzahlung. Du erhältst sofort 12 Monate Zugang zu allen Modulen: Lernkurs, Prüfungstrainer, mündliche Prüfung, KI-Tutor und Handbuch."
-          actions={[
-            'Beruf auswählen → Passende Produktpakete werden angezeigt',
-            '"Jetzt kaufen" → Sichere Zahlung über Stripe, sofortiger Zugang',
-            'Ab 5 Lizenzen gibt es automatisch Mengenrabatt',
-          ]}
-          tips={[
-            'Einmalzahlung – kein Abo, keine versteckten Kosten',
-            'Alle Module sind im Bundle enthalten',
-            'Nach dem Kauf wirst du automatisch eingeloggt und kannst sofort lernen',
-          ]}
-        />
-
-        {/* Trust Badges */}
-        <div className="flex flex-wrap justify-center gap-3 sm:gap-6 mb-8 md:mb-12">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Shield className="w-4 h-4 text-primary" />
-            <span>Sichere Zahlung via Stripe</span>
-          </div>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Clock className="w-4 h-4 text-primary" />
-            <span>Sofortiger Zugang nach Kauf</span>
-          </div>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <CreditCard className="w-4 h-4 text-primary" />
-            <span>Einmalzahlung, kein Abo</span>
-          </div>
-        </div>
-
-        {/* Curriculum Selector */}
+      <div className="min-h-screen pb-24">
+        {/* Curriculum Selector (if multiple) */}
         {curricula && curricula.length > 1 && (
-          <div className="max-w-md mx-auto mb-12">
-            <label className="block text-sm font-medium mb-2">
-              Wähle deinen Ausbildungsberuf
-            </label>
+          <div className="max-w-md mx-auto px-4 pt-6">
             <Select
               value={selectedCurriculumId || ''}
               onValueChange={setSelectedCurriculumId}
@@ -105,7 +115,7 @@ export default function ShopPage() {
               <SelectContent>
                 {curricula.map(c => (
                   <SelectItem key={c.id} value={c.id}>
-                    {c.title}
+                    {c.title.replace(/^Rahmenlehrplan\s+/i, '').replace(/^Modulhandbuch\s+/i, '')}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -113,57 +123,66 @@ export default function ShopPage() {
           </div>
         )}
 
-        {/* Products */}
-        {selectedCurriculumId ? (
-          <ProductCards curriculumId={selectedCurriculumId} />
-        ) : curriculaLoading ? (
-          <div className="text-center py-12 text-muted-foreground">
-            Lade Produkte...
-          </div>
-        ) : (
-          <div className="text-center py-12 text-muted-foreground">
-            Keine Curricula verfügbar.
-          </div>
-        )}
+        {/* HERO */}
+        <div ref={heroRef}>
+          <ProductHero
+            title={stats?.title || 'Deine Prüfung'}
+            chamberType={stats?.chamber_type || 'IHK'}
+            catalogType={stats?.catalog_type || 'Ausbildung'}
+            onBuyClick={handleBuy}
+            isCheckoutLoading={checkoutLoading}
+            priceDisplay={priceDisplay}
+          />
+        </div>
 
-        {/* Guarantee */}
-        <div className="mt-10 sm:mt-16 glass-card rounded-2xl p-4 sm:p-8 max-w-3xl mx-auto text-center">
-          <CheckCircle className="h-12 w-12 text-success mx-auto mb-4" />
-          <h2 className="text-2xl font-display font-bold mb-4">
-            Deine Vorteile auf einen Blick
+        {/* PAIN */}
+        <ProductPainSection cleanTitle={cleanTitle || 'Azubis'} />
+
+        {/* USP */}
+        <ProductUSPBanner />
+
+        {/* MODULES */}
+        {stats && <ProductModulesSection stats={stats} />}
+
+        {/* HOW IT WORKS */}
+        <ProductHowItWorks />
+
+        {/* TRUST */}
+        <ProductTrustSection
+          chamberType={stats?.chamber_type || 'IHK'}
+          cleanTitle={cleanTitle || 'deinen Beruf'}
+        />
+
+        {/* B2B */}
+        <ProductB2BSection />
+
+        {/* Final CTA */}
+        <section className="py-12 md:py-16 text-center px-4">
+          <h2 className="text-2xl md:text-3xl font-display font-bold mb-4">
+            Bereit für die Prüfung?
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 text-left">
-            <div>
-              <h3 className="font-semibold mb-2">Basierend auf Rahmenlehrplänen</h3>
-              <p className="text-sm text-muted-foreground">
-                Alle Inhalte orientieren sich an offiziellen Prüfungsordnungen.
-              </p>
-            </div>
-            <div>
-              <h3 className="font-semibold mb-2">Adaptive Lernalgorithmen</h3>
-              <p className="text-sm text-muted-foreground">
-                Das System erkennt deine Schwächen und trainiert gezielt.
-              </p>
-            </div>
-            <div>
-              <h3 className="font-semibold mb-2">Mündliche Prüfung</h3>
-              <p className="text-sm text-muted-foreground">
-                Simuliere das Prüfungsgespräch mit KI-Feedback.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* B2B Info */}
-        <div className="mt-16 text-center">
-          <Badge variant="outline" className="mb-4">Für Unternehmen & Schulen</Badge>
-          <h2 className="text-2xl font-bold mb-2">Mehrere Azubis ausbilden?</h2>
-          <p className="text-muted-foreground max-w-xl mx-auto">
-            Wähle einfach die gewünschte Menge im Checkout. 
-            Ab 5 Lizenzen erhältst du automatisch Mengenrabatt. 
-            Keine Anfrage nötig – einfach kaufen!
+          <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+            Starte jetzt mit deinem persönlichen Prüfungstraining.
+            Du weißt sofort, ob du bestehst – oder wo du noch üben musst.
           </p>
-        </div>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <button
+              onClick={handleBuy}
+              disabled={checkoutLoading}
+              className="inline-flex items-center justify-center gradient-primary text-primary-foreground shadow-glow rounded-xl h-14 px-8 text-lg font-semibold"
+            >
+              {checkoutLoading ? 'Wird geladen...' : `Jetzt starten – ${priceDisplay}`}
+            </button>
+          </div>
+        </section>
+
+        {/* Sticky Bar */}
+        <StickyPurchaseBar
+          priceDisplay={priceDisplay}
+          onBuyClick={handleBuy}
+          isLoading={checkoutLoading}
+          visible={showSticky}
+        />
       </div>
     </>
   );
