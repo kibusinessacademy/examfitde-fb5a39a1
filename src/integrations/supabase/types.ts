@@ -12046,6 +12046,7 @@ export type Database = {
           exam_pool_state_hash: string | null
           exam_structure: string | null
           feature_flags: Json | null
+          gate_class: string | null
           id: string
           integrity_passed: boolean
           integrity_profile: string | null
@@ -12107,6 +12108,7 @@ export type Database = {
           exam_pool_state_hash?: string | null
           exam_structure?: string | null
           feature_flags?: Json | null
+          gate_class?: string | null
           id?: string
           integrity_passed?: boolean
           integrity_profile?: string | null
@@ -12168,6 +12170,7 @@ export type Database = {
           exam_pool_state_hash?: string | null
           exam_structure?: string | null
           feature_flags?: Json | null
+          gate_class?: string | null
           id?: string
           integrity_passed?: boolean
           integrity_profile?: string | null
@@ -67767,6 +67770,10 @@ export type Database = {
         Args: { p_package_id: string }
         Returns: Json
       }
+      fn_classify_gate_failure: {
+        Args: { p_hard_fail_reasons: string[]; p_progress_percent?: number }
+        Returns: Json
+      }
       fn_classify_validate_guard: {
         Args: { p_package_id: string }
         Returns: Json
@@ -70143,6 +70150,7 @@ export type Database = {
           exam_pool_state_hash: string | null
           exam_structure: string | null
           feature_flags: Json | null
+          gate_class: string | null
           id: string
           integrity_passed: boolean
           integrity_profile: string | null
@@ -70482,6 +70490,7 @@ export type Database = {
           exam_pool_state_hash: string | null
           exam_structure: string | null
           feature_flags: Json | null
+          gate_class: string | null
           id: string
           integrity_passed: boolean
           integrity_profile: string | null
