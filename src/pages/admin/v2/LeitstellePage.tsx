@@ -255,34 +255,9 @@ export default function LeitstellePage() {
         <RecoveryBoardCard />
       </Suspense>
 
-      {/* Blueprint Pre-Flight Gate */}
-      <Suspense fallback={<Skeleton className="h-32" />}>
-        <BlueprintPreflightCard />
-      </Suspense>
-
-      {/* Blueprint Variant Stats */}
-      <Suspense fallback={<Skeleton className="h-32" />}>
-        <BlueprintVariantStatsCard />
-      </Suspense>
-
-      {/* Exam Pool Lifecycle Audit */}
+      {/* Exam Pool Audit */}
       <Suspense fallback={<Skeleton className="h-32" />}>
         <ExamPoolAuditCard />
-      </Suspense>
-
-      {/* Trap Coverage Audit */}
-      <Suspense fallback={<Skeleton className="h-24" />}>
-        <TrapCoverageAuditCard />
-      </Suspense>
-
-      {/* Trap Distribution Quality Audit */}
-      <Suspense fallback={<Skeleton className="h-32" />}>
-        <TrapDistributionAuditCard />
-      </Suspense>
-
-      {/* Blueprint Trap-Type Match Audit */}
-      <Suspense fallback={<Skeleton className="h-32" />}>
-        <BlueprintMatchAuditCard />
       </Suspense>
 
       {/* Critical Packages */}
