@@ -40965,9 +40965,9 @@ export type Database = {
           is_correct: boolean | null
           occurred_at: string
           payload: Json | null
-          question_id: string
+          question_id: string | null
           response_ms: number | null
-          selected_option_ids: Json | null
+          selected_option_indexes: Json | null
           session_id: string
           user_id: string
         }
@@ -40980,9 +40980,9 @@ export type Database = {
           is_correct?: boolean | null
           occurred_at?: string
           payload?: Json | null
-          question_id: string
+          question_id?: string | null
           response_ms?: number | null
-          selected_option_ids?: Json | null
+          selected_option_indexes?: Json | null
           session_id: string
           user_id: string
         }
@@ -40995,9 +40995,9 @@ export type Database = {
           is_correct?: boolean | null
           occurred_at?: string
           payload?: Json | null
-          question_id?: string
+          question_id?: string | null
           response_ms?: number | null
-          selected_option_ids?: Json | null
+          selected_option_indexes?: Json | null
           session_id?: string
           user_id?: string
         }
@@ -68029,11 +68029,15 @@ export type Database = {
       }
       fn_share_fi_core_questions: { Args: never; Returns: Json }
       fn_share_fi_handbook_chapters: { Args: never; Returns: number }
+      fn_start_shuttle_session: {
+        Args: { p_curriculum_id: string; p_user_id: string }
+        Returns: Json
+      }
       fn_submit_shuttle_answer: {
         Args: {
           p_question_id: string
           p_response_ms?: number
-          p_selected_option_ids: Json
+          p_selected_option_indexes: Json
           p_session_id: string
           p_user_id: string
         }
