@@ -371,13 +371,20 @@ Deno.serve(async (req) => {
   const PIPELINE_PREREQS: Record<string, string[]> = {
     // ── Early chain (safety net — pipeline-process is primary gate) ──
     package_generate_glossary: ["scaffold_learning_course"],
-    package_generate_learning_content: ["scaffold_learning_course"],
-    package_validate_learning_content: ["generate_learning_content"],
+    package_fanout_learning_content: ["scaffold_learning_course"],
+    package_generate_learning_content: ["fanout_learning_content"],
+    package_finalize_learning_content: ["generate_learning_content"],
+    package_validate_learning_content: ["finalize_learning_content"],
     package_auto_seed_exam_blueprints: ["validate_learning_content"],
     package_validate_blueprints: ["auto_seed_exam_blueprints"],
+    // ── Blueprint variants branch ──
+    package_generate_blueprint_variants: ["validate_blueprints"],
+    package_validate_blueprint_variants: ["generate_blueprint_variants"],
+    package_promote_blueprint_variants: ["validate_blueprint_variants"],
     // ── Exam branch ──
-    package_generate_exam_pool: ["validate_blueprints"],
+    package_generate_exam_pool: ["promote_blueprint_variants"],
     package_validate_exam_pool: ["generate_exam_pool"],
+    package_repair_exam_pool_quality: ["generate_exam_pool"],
     // ── Tutor branch (from validate_exam_pool) ──
     package_build_ai_tutor_index: ["validate_exam_pool"],
     package_validate_tutor_index: ["build_ai_tutor_index"],
@@ -393,6 +400,7 @@ Deno.serve(async (req) => {
     package_generate_handbook: ["validate_learning_content"],
     package_validate_handbook: ["generate_handbook"],
     package_enqueue_handbook_expand: ["validate_handbook"],
+    handbook_expand_section: ["enqueue_handbook_expand"],
     package_validate_handbook_depth: ["expand_handbook"],
     // ── Convergence: integrity check requires ALL 5 terminal branches ──
     package_run_integrity_check: ["elite_harden", "validate_lesson_minichecks", "validate_handbook_depth", "validate_oral_exam", "validate_tutor_index"],
@@ -1131,6 +1139,14 @@ Deno.serve(async (req) => {
             const blockCount = (job.meta?.artifact_block_count ?? 0) as number;
             const missing = artifactCheck.missingArtifact ?? "unknown";
             const producerStep = artifactCheck.producerStep ?? null;
+
+            // ── SSOT CONTRACT VIOLATION DETECTION ──
+            // If PIPELINE_PREREQS passed (no requeue above) but artifact-resolver blocks,
+            // it means the two definitions disagree — log as structural drift.
+            const prereqPassed = prereqCandidates ? true : false; // we got here = prereq guard passed
+            if (prereqPassed && blockCount === 0) {
+              console.error(`[job-runner] ⚠️ SSOT_CONTRACT_VIOLATION: ${job.job_type} passed PIPELINE_PREREQS but artifact-resolver blocks on "${missing}" (producer: ${producerStep}). PIPELINE_PREREQS and PIPELINE_GRAPH.requires are out of sync! (pkg ${(job.payload.package_id as string).slice(0, 8)})`);
+            }
 
             // Phase 3: Progressive backoff — only enter blocked-mode at retry >= 3
             const backoffMs =

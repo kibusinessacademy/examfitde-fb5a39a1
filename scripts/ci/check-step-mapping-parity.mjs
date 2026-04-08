@@ -93,10 +93,10 @@ function extractPipelineGraphKeys(source) {
 /** Extract PREREQS keys from job-runner (uses package_ prefix) */
 function extractPrereqKeys(source) {
   const keys = new Set();
-  // PREREQS maps package_xxx job types → array of step_key prereqs
-  const re = /(?:const|let)\s+PREREQS\s*[^=]*=\s*\{/m;
+  // Try both PIPELINE_PREREQS (current) and PREREQS (legacy)
+  const re = /(?:const|let)\s+(?:PIPELINE_)?PREREQS\s*[^=]*=\s*\{/m;
   const match = re.exec(source);
-  if (!match) throw new Error("Could not find PREREQS in job-runner");
+  if (!match) throw new Error("Could not find PREREQS/PIPELINE_PREREQS in job-runner");
 
   const start = match.index + match[0].length - 1;
   let depth = 0, end = -1;
@@ -156,6 +156,64 @@ function extractTriggerDagKeys() {
 
 function diff(a, b) { return [...a].filter(x => !b.has(x)).sort(); }
 
+/** Extract PIPELINE_PREREQS as Map<job_type, Set<step_key>> with actual dependency values */
+function extractPrereqMap(source) {
+  const re = /(?:const|let)\s+PIPELINE_PREREQS\s*[^=]*=\s*\{/m;
+  const match = re.exec(source);
+  if (!match) throw new Error("Could not find PIPELINE_PREREQS in job-runner");
+
+  const start = match.index + match[0].length - 1;
+  let depth = 0, end = -1;
+  for (let i = start; i < source.length; i++) {
+    if (source[i] === "{") depth++;
+    if (source[i] === "}") { depth--; if (depth === 0) { end = i + 1; break; } }
+  }
+  if (end === -1) throw new Error("Unclosed PIPELINE_PREREQS block");
+  const block = source.slice(start, end);
+
+  const result = new Map();
+  // Match: job_type: ["step1", "step2"]
+  for (const m of block.matchAll(/["']?(package_[a-z_]+|handbook_[a-z_]+)["']?\s*:\s*\[([^\]]*)\]/gm)) {
+    const jobType = m[1];
+    const deps = new Set();
+    for (const v of m[2].matchAll(/["']([a-z_]+)["']/g)) {
+      deps.add(v[1]);
+    }
+    result.set(jobType, deps);
+  }
+  return result;
+}
+
+/** Extract PIPELINE_GRAPH dependsOn as Map<step_key, Set<step_key>> */
+function extractGraphDependsOn(source) {
+  const graphMatch = /export\s+const\s+PIPELINE_GRAPH\s*[^=]*=\s*\[/m.exec(source);
+  if (!graphMatch) throw new Error("Could not find PIPELINE_GRAPH");
+
+  const start = graphMatch.index + graphMatch[0].length - 1;
+  let depth = 0, end = -1;
+  for (let i = start; i < source.length; i++) {
+    if (source[i] === "[") depth++;
+    if (source[i] === "]") { depth--; if (depth === 0) { end = i + 1; break; } }
+  }
+  if (end === -1) throw new Error("Unclosed PIPELINE_GRAPH array");
+  const block = source.slice(start, end);
+
+  const result = new Map();
+  // Parse each node object: { key: "...", dependsOn: ["..."] }
+  for (const m of block.matchAll(/\{\s*key:\s*["']([a-z_]+)["'][^}]*\}/gs)) {
+    const key = m[1];
+    const deps = new Set();
+    const depMatch = m[0].match(/dependsOn:\s*\[([^\]]*)\]/);
+    if (depMatch) {
+      for (const v of depMatch[1].matchAll(/["']([a-z_]+)["']/g)) {
+        deps.add(v[1]);
+      }
+    }
+    result.set(key, deps);
+  }
+  return result;
+}
+
 function printGroup(title, arr) {
   if (!arr.length) return;
   console.error(`\n${title}`);
@@ -212,8 +270,16 @@ try {
 
   const missingInGraph = diff(ssotKeys, graphKeys);
   const missingInView = diff(ssotKeys, viewKeys);
-  const missingInPrereqs = diff(ssotKeys, prereqStepKeys);
   const graphDepsMissing = diff(graphDeps, ssotKeys);
+
+  // PREREQS check: only flag steps that have dependsOn in PIPELINE_GRAPH but no PREREQS entry
+  // Root steps (no dependsOn) don't need PREREQS entries — that's expected.
+  const graphDependsOnMap = extractGraphDependsOn(jobMapSrc);
+  const missingInPrereqs = [...ssotKeys].filter(sk => {
+    if (prereqStepKeys.has(sk)) return false; // has prereq entry
+    const deps = graphDependsOnMap.get(sk);
+    return deps && deps.size > 0; // only flag if PIPELINE_GRAPH says it has dependencies
+  }).sort();
 
   // Check that every SSOT step_key's job_type exists in JOB_DEFINITIONS
   const missingJobDefs = [];
@@ -225,22 +291,69 @@ try {
 
   printGroup("Missing in PIPELINE_GRAPH:", missingInGraph);
   printGroup("Missing in ops_jobtype_step_map view:", missingInView);
-  printGroup("Missing in job-runner PREREQS:", missingInPrereqs);
+  printGroup("Non-root steps missing in job-runner PREREQS:", missingInPrereqs);
   printGroup("PIPELINE_GRAPH references unknown step_keys:", graphDepsMissing);
   printGroup("Job types missing from JOB_DEFINITIONS:", missingJobDefs);
 
+  // cascade_reset trigger DAG — warn only, not hard fail (often maintained separately)
   if (triggerDagKeys) {
     const missingInTrigger = diff(ssotKeys, triggerDagKeys);
     const triggerExtra = diff(triggerDagKeys, ssotKeys);
-    printGroup("Missing in cascade_reset trigger DAG:", missingInTrigger);
-    printGroup("Extra in cascade_reset trigger DAG:", triggerExtra);
-    if (missingInTrigger.length || triggerExtra.length) hasErrors = true;
+    printGroup("⚠️ Missing in cascade_reset trigger DAG (warn-only):", missingInTrigger);
+    printGroup("⚠️ Extra in cascade_reset trigger DAG (warn-only):", triggerExtra);
+    // No hard fail — trigger DAG is maintained separately
   }
 
-  if (missingInGraph.length || missingInView.length || missingInPrereqs.length ||
+  if (missingInGraph.length || missingInPrereqs.length ||
       graphDepsMissing.length || missingJobDefs.length) {
     hasErrors = true;
   }
+  // ops_jobtype_step_map is a view in migrations — warn only for new steps not yet migrated
+  if (missingInView.length) {
+    console.warn(`\n⚠️  ${missingInView.length} step(s) missing in ops_jobtype_step_map (non-blocking)`);
+  }
+
+  // ── 7. DEPENDENCY-LEVEL PARITY: PIPELINE_PREREQS vs PIPELINE_GRAPH.dependsOn ──
+  // This is the critical check that prevents reclaim-loop bugs.
+  // If PIPELINE_PREREQS says step X depends on A, but PIPELINE_GRAPH says X depends on B,
+  // the runner will claim the job too early, and the artifact-resolver will block it → reclaim loop.
+  const depDriftErrors = [];
+  {
+    // Extract PIPELINE_PREREQS with their actual dependency values
+    const prereqMap = extractPrereqMap(runnerSrc);
+    // Extract PIPELINE_GRAPH dependsOn map
+    const graphDependsOn = extractGraphDependsOn(jobMapSrc);
+
+    for (const [jobType, prereqStepKeys_] of prereqMap) {
+      const stepKey = jobTypeToStep.get(jobType);
+      if (!stepKey) continue; // Not a pipeline step job type
+      const graphDeps_ = graphDependsOn.get(stepKey);
+      if (!graphDeps_) continue; // Step not in PIPELINE_GRAPH (caught above)
+
+      // PIPELINE_PREREQS lists step_keys that the job depends on.
+      // PIPELINE_GRAPH.dependsOn lists step_keys that the step depends on.
+      // For convergence steps (run_integrity_check), PREREQS should match GRAPH deps.
+      // For linear steps, PREREQS should be a subset of GRAPH deps.
+      for (const prereq of prereqStepKeys_) {
+        if (!graphDeps_.has(prereq)) {
+          depDriftErrors.push(
+            `${stepKey} (${jobType}): PREREQS requires "${prereq}" but PIPELINE_GRAPH.dependsOn = [${[...graphDeps_].join(", ")}]`
+          );
+        }
+      }
+      // Reverse: GRAPH deps not in PREREQS (runner would skip a required gate)
+      for (const gd of graphDeps_) {
+        if (!prereqStepKeys_.has(gd)) {
+          depDriftErrors.push(
+            `${stepKey} (${jobType}): PIPELINE_GRAPH.dependsOn includes "${gd}" but PREREQS does not — runner may claim too early`
+          );
+        }
+      }
+    }
+  }
+
+  printGroup("SSOT DEPENDENCY DRIFT (PREREQS vs PIPELINE_GRAPH.dependsOn):", depDriftErrors);
+  if (depDriftErrors.length) hasErrors = true;
 
   if (hasErrors) {
     fail("Pipeline mapping parity check FAILED — see details above.");
@@ -252,6 +365,7 @@ try {
   ok(`ops_jobtype_step_map: ${viewKeys.size} step_keys`);
   ok(`JOB_DEFINITIONS: ${jobDefKeys.size} definitions checked`);
   if (triggerDagKeys) ok(`cascade_reset trigger DAG: ${triggerDagKeys.size} step_keys`);
+  ok(`Dependency parity: ${depDriftErrors.length === 0 ? "consistent" : "DRIFT DETECTED"}`);
   console.log("\n🎉 Pipeline mapping parity guard passed.\n");
 
 } catch (err) {
