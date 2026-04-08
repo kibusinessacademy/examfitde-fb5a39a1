@@ -405,7 +405,7 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
         && result.ok === false && result.retry === true && !result.permanent;
 
       if (isValidatorRetry) {
-        const backoff = result.backoff_seconds || 300;
+        const backoff = result.backoff_seconds || 120;
         const errorMsg = (result.error || "VALIDATOR_RETRY").slice(0, 2000);
         // Use attempt-safe RPC — does NOT increment attempts
         await sb.rpc("fn_return_job_to_pending_no_burn", {
