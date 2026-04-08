@@ -119,9 +119,10 @@ Deno.serve(async (req) => {
       customBodies = tier.bodies;
     }
 
+    // ── Parallel invocation for minute-tier (independent runners) ──
     const results: Record<string, unknown>[] = [];
 
-    for (const fn of targetFns) {
+    const invokeOne = async (fn: string) => {
       try {
         const fnBody = customBodies[fn] || "{}";
         const res = await fetch(`${SUPABASE_URL}/functions/v1/${fn}`, {
@@ -138,9 +139,22 @@ Deno.serve(async (req) => {
         const text = await res.text().catch(() => "");
         let parsed: unknown;
         try { parsed = JSON.parse(text); } catch { parsed = text; }
-        results.push({ function: fn, status: res.status, result: parsed });
+        return { function: fn, status: res.status, result: parsed };
       } catch (e: unknown) {
-        results.push({ function: fn, error: (e as Error)?.message || String(e) });
+        return { function: fn, error: (e as Error)?.message || String(e) };
+      }
+    };
+
+    // Minute-tier runners are independent — fire them all in parallel
+    if (schedule === "minute" && targetFns.length > 1) {
+      const settled = await Promise.allSettled(targetFns.map(invokeOne));
+      for (const r of settled) {
+        results.push(r.status === "fulfilled" ? r.value : { error: r.reason?.message });
+      }
+    } else {
+      // Other tiers: sequential (may have dependencies)
+      for (const fn of targetFns) {
+        results.push(await invokeOne(fn));
       }
     }
 
