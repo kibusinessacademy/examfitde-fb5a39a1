@@ -350,14 +350,15 @@ Deno.serve(async (req) => {
         }
       }
 
-      console.log(`[generate-blueprint-variants] Enqueued ${eligibleIds.length}/${blueprints.length} eligible per-blueprint jobs for ${packageId} (${blockedIds.length} blocked by pre-flight)`);
+      console.log(`[generate-blueprint-variants] Enqueued ${enqueueCount}/${newEligible.length} jobs for ${packageId} (${enqueueSkipped} duplicates skipped, ${blockedIds.length} blocked by pre-flight)`);
 
       return new Response(JSON.stringify({
         ok: true,
         mode: "package_fanout_enqueue",
         package_id: packageId,
         total_blueprints: blueprints.length,
-        blueprints_enqueued: eligibleIds.length,
+        blueprints_enqueued: enqueueCount,
+        duplicates_skipped: enqueueSkipped,
         blueprints_blocked: blockedIds.length,
         count_per_blueprint: countPerBlueprint,
         blocked_details: blockedIds.length > 0 ? preflightDetails : undefined,
