@@ -71,6 +71,12 @@ Deno.serve(async (req) => {
       if (compErr) throw new Error(`Competencies error: ${compErr.message}`);
       if (!comps?.length) throw new Error(`No competencies for ${cert.slug}`);
 
+      // Validate: filter out competencies missing mandatory fields
+      const validComps = comps.filter((c: any) => c.id && c.learning_field_id);
+      if (validComps.length < comps.length) {
+        console.warn(`[blueprint-fanout] ${cert.slug}: ${comps.length - validComps.length} competencies missing learning_field_id — skipped`);
+      }
+
       // Check existing blueprints for this curriculum to avoid duplicates
       const { data: existing } = await sb
         .from("question_blueprints")
