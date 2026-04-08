@@ -1,6 +1,8 @@
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { getCorsHeaders, handleCorsPreflightRequest, json } from "../_shared/cors.ts";
 
+const LOVABLE_API_URL = "https://api.lovable.dev/v1/chat/completions";
+
 /**
  * Shuttle Engine — Continuous question stream without friction.
  * 
@@ -229,6 +231,86 @@ Deno.serve(async (req) => {
             : 0,
         },
       }, origin);
+    }
+
+    // ── EXPLAIN ── (Phase 3: Explain My Mistake)
+    if (action === "explain") {
+      if (!question_id) return json(400, { error: "Missing question_id" }, origin);
+
+      const selectedIdx = body.selected_answer;
+      if (selectedIdx === undefined) return json(400, { error: "Missing selected_answer" }, origin);
+
+      // Fetch question details
+      const { data: question, error: qErr } = await serviceClient
+        .from("exam_questions")
+        .select("id, question_text, correct_answer, explanation, trap_tags, distractor_meta, options, competency_id")
+        .eq("id", question_id)
+        .single();
+
+      if (qErr || !question) return json(404, { error: "Question not found" }, origin);
+
+      // Build context for AI
+      const opts = question.options as any[];
+      const selectedText = opts?.[selectedIdx] || `Option ${selectedIdx}`;
+      const correctText = opts?.[question.correct_answer] || `Option ${question.correct_answer}`;
+      const trapInfo = question.trap_tags?.length
+        ? `Fallen-Typen: ${(question.trap_tags as string[]).join(", ")}`
+        : "";
+
+      const prompt = `Du bist ein freundlicher, präziser Prüfungscoach für IHK-Prüfungen.
+
+Ein Lerner hat die folgende Frage FALSCH beantwortet. Erkläre kurz und verständlich:
+1. WARUM die gewählte Antwort falsch ist (max 2 Sätze)
+2. WARUM die richtige Antwort korrekt ist (max 2 Sätze)  
+3. Ein konkreter Lerntipp, wie man sich den Unterschied merken kann (1 Satz)
+
+Frage: ${question.question_text}
+
+Gewählte Antwort (FALSCH): ${selectedText}
+Richtige Antwort: ${correctText}
+${trapInfo}
+${question.explanation ? `Basis-Erklärung: ${question.explanation}` : ""}
+
+Antworte auf Deutsch, kompakt (max 150 Wörter), motivierend. Nutze ggf. Emojis sparsam.`;
+
+      try {
+        const apiKey = Deno.env.get("LOVABLE_API_KEY");
+        if (!apiKey) throw new Error("LOVABLE_API_KEY not configured");
+
+        const aiResp = await fetch(LOVABLE_API_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            model: "google/gemini-2.5-flash",
+            messages: [{ role: "user", content: prompt }],
+            max_tokens: 400,
+            temperature: 0.7,
+          }),
+        });
+
+        if (!aiResp.ok) {
+          const errText = await aiResp.text();
+          console.error("[shuttle] AI error:", errText);
+          throw new Error(`AI request failed: ${aiResp.status}`);
+        }
+
+        const aiData = await aiResp.json();
+        const explanation = aiData.choices?.[0]?.message?.content || "Keine Erklärung verfügbar.";
+
+        return json(200, { explanation, trap_tags: question.trap_tags || [] }, origin);
+
+      } catch (aiErr) {
+        console.error("[shuttle] explain error:", aiErr);
+        // Fallback to static explanation
+        return json(200, {
+          explanation: question.explanation || "Leider ist keine detaillierte Erklärung verfügbar.",
+          trap_tags: question.trap_tags || [],
+          fallback: true,
+        }, origin);
+      }
     }
 
     return json(400, { error: `Unknown action: ${action}` }, origin);

@@ -20,6 +20,8 @@ export interface ShuttleFeedback {
   trap_tags?: string[];
   distractor_meta?: Record<string, unknown>;
   correct_option_text?: string;
+  ai_explanation?: string;
+  ai_explanation_loading?: boolean;
 }
 
 export interface ShuttleStats {
@@ -142,6 +144,28 @@ export function useShuttleMode(curriculumId?: string) {
     }
   }, [sessionId, invoke]);
 
+  const explainMistake = useCallback(async (questionId: string, selectedAnswer: number) => {
+    if (!questionId) return;
+    setFeedback(prev => prev ? { ...prev, ai_explanation_loading: true } : prev);
+    try {
+      const data = await invoke({
+        action: 'explain',
+        question_id: questionId,
+        selected_answer: selectedAnswer,
+        curriculum_id: curriculumId,
+      });
+      setFeedback(prev => prev ? {
+        ...prev,
+        ai_explanation: data.explanation,
+        ai_explanation_loading: false,
+      } : prev);
+    } catch (err) {
+      console.error('[shuttle] explain error:', err);
+      setFeedback(prev => prev ? { ...prev, ai_explanation_loading: false } : prev);
+      toast.error('Erklärung konnte nicht geladen werden');
+    }
+  }, [curriculumId, invoke]);
+
   const reset = useCallback(() => {
     setPhase('idle');
     setSessionId(null);
@@ -160,6 +184,7 @@ export function useShuttleMode(curriculumId?: string) {
     submitAnswer,
     nextQuestion,
     endSession,
+    explainMistake,
     reset,
   };
 }
