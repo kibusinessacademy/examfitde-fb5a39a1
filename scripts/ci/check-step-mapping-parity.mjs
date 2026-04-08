@@ -242,6 +242,48 @@ try {
     hasErrors = true;
   }
 
+  // ── 7. DEPENDENCY-LEVEL PARITY: PIPELINE_PREREQS vs PIPELINE_GRAPH.dependsOn ──
+  // This is the critical check that prevents reclaim-loop bugs.
+  // If PIPELINE_PREREQS says step X depends on A, but PIPELINE_GRAPH says X depends on B,
+  // the runner will claim the job too early, and the artifact-resolver will block it → reclaim loop.
+  const depDriftErrors = [];
+  {
+    // Extract PIPELINE_PREREQS with their actual dependency values
+    const prereqMap = extractPrereqMap(runnerSrc);
+    // Extract PIPELINE_GRAPH dependsOn map
+    const graphDependsOn = extractGraphDependsOn(jobMapSrc);
+
+    for (const [jobType, prereqStepKeys_] of prereqMap) {
+      const stepKey = jobTypeToStep.get(jobType);
+      if (!stepKey) continue; // Not a pipeline step job type
+      const graphDeps_ = graphDependsOn.get(stepKey);
+      if (!graphDeps_) continue; // Step not in PIPELINE_GRAPH (caught above)
+
+      // PIPELINE_PREREQS lists step_keys that the job depends on.
+      // PIPELINE_GRAPH.dependsOn lists step_keys that the step depends on.
+      // For convergence steps (run_integrity_check), PREREQS should match GRAPH deps.
+      // For linear steps, PREREQS should be a subset of GRAPH deps.
+      for (const prereq of prereqStepKeys_) {
+        if (!graphDeps_.has(prereq)) {
+          depDriftErrors.push(
+            `${stepKey} (${jobType}): PREREQS requires "${prereq}" but PIPELINE_GRAPH.dependsOn = [${[...graphDeps_].join(", ")}]`
+          );
+        }
+      }
+      // Reverse: GRAPH deps not in PREREQS (runner would skip a required gate)
+      for (const gd of graphDeps_) {
+        if (!prereqStepKeys_.has(gd)) {
+          depDriftErrors.push(
+            `${stepKey} (${jobType}): PIPELINE_GRAPH.dependsOn includes "${gd}" but PREREQS does not — runner may claim too early`
+          );
+        }
+      }
+    }
+  }
+
+  printGroup("SSOT DEPENDENCY DRIFT (PREREQS vs PIPELINE_GRAPH.dependsOn):", depDriftErrors);
+  if (depDriftErrors.length) hasErrors = true;
+
   if (hasErrors) {
     fail("Pipeline mapping parity check FAILED — see details above.");
   }
@@ -252,6 +294,7 @@ try {
   ok(`ops_jobtype_step_map: ${viewKeys.size} step_keys`);
   ok(`JOB_DEFINITIONS: ${jobDefKeys.size} definitions checked`);
   if (triggerDagKeys) ok(`cascade_reset trigger DAG: ${triggerDagKeys.size} step_keys`);
+  ok(`Dependency parity: ${depDriftErrors.length === 0 ? "consistent" : "DRIFT DETECTED"}`);
   console.log("\n🎉 Pipeline mapping parity guard passed.\n");
 
 } catch (err) {
