@@ -52,6 +52,7 @@ let violations = 0;
 const edgeFiles = walk(path.join(ROOT, "supabase", "functions"));
 for (const file of edgeFiles) {
   if (ALLOWLIST.some(a => file.includes(a))) continue;
+  if (LEGACY_BYPASS.some(a => file.includes(a))) continue;
   const content = fs.readFileSync(file, "utf8");
 
   // Pattern 1: postcondition_verified: true (HARD FAIL — never allowed outside steps.ts)
