@@ -156,6 +156,9 @@ Deno.serve(async (req) => {
     // ══ 1b4) Status lag ══
     const statusLagResults = await healStatusLag(sb);
 
+    // ══ 1b5) Batch-complete stuck ══
+    const batchCompleteResults = await healBatchCompleteStuck(sb);
+
     // ══ 1c) Escalation loops ══
     const escalationResults = await detectEscalationLoops(sb);
 
