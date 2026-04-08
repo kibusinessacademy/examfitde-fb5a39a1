@@ -135,19 +135,26 @@ Deno.serve(async (req) => {
       const remaining = gap.target_count - gap.materialized_count;
       if (remaining <= 0) continue;
 
-      await sb.from("job_queue").insert({
+      const { error: insertErr } = await sb.from("job_queue").insert({
         job_type: "package_generate_blueprint_variants",
         package_id: packageId,
         worker_pool: "prebuild",
         payload: {
           package_id: packageId,
           blueprint_id: gap.blueprint_id,
+          blueprintId: gap.blueprint_id, // unique constraint key
           count: Math.min(remaining, 20),
         },
         max_attempts: 3,
         status: "pending",
       });
-      enqueued++;
+      if (insertErr?.message?.includes("duplicate key")) {
+        console.warn(`[ensure-variant-inventory] Skipped duplicate for blueprint ${gap.blueprint_id}`);
+      } else if (insertErr) {
+        console.error(`[ensure-variant-inventory] Insert error:`, insertErr.message);
+      } else {
+        enqueued++;
+      }
     }
 
     // Update package prebuild status (now SSOT-aware)
