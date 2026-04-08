@@ -94,8 +94,8 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // Dedup: check existing questions by blueprint_id
-        const bpIds = allBlueprints.map((bp) => bp.id);
+        // Dedup against valid blueprints only
+        const bpIds = validBlueprints.map((bp) => bp.id);
         const existingSet = new Set<string>();
         for (let i = 0; i < bpIds.length; i += 500) {
           const chunk = bpIds.slice(i, i + 500);
@@ -109,7 +109,7 @@ Deno.serve(async (req) => {
           }
         }
 
-        const pendingRows = allBlueprints
+        const pendingRows = validBlueprints
           .filter((bp) => !existingSet.has(bp.id))
           .map((bp) => buildExamQuestionRow({ certificationId: cert.id, blueprint: bp }));
 
