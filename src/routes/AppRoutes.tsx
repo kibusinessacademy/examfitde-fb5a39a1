@@ -246,6 +246,7 @@ const AppRoutes = () => {
             <Route path="/lesson/:lessonId" element={<LessonPlayer />} />
             <Route path="/spaced-repetition" element={<SpacedRepetitionSession />} />
             <Route path="/drill" element={<DrillSession />} />
+            <Route path="/shuttle" element={<ShuttleModePage />} />
             <Route path="/exam-anxiety" element={<ExamAnxietyManager />} />
             <Route path="/vark-test" element={<VARKLerntypTest />} />
             <Route path="/diagnostic/:curriculumId" element={<DiagnosticTest />} />
