@@ -309,13 +309,16 @@ Deno.serve(async (req) => {
       }
 
       // Enqueue individual per-blueprint jobs only for NEW eligible blueprints
+      // NOTE: unique constraint uq_job_queue_active_package_job uses payload->>'blueprintId'
       const jobRows = newEligible.map((bpId) => ({
         job_type: "package_generate_blueprint_variants",
+        package_id: packageId,
         payload: {
           package_id: packageId,
           curriculum_id: pkg.curriculum_id,
           course_id: pkg.course_id,
           blueprint_id: bpId,
+          blueprintId: bpId, // unique constraint key
           count: countPerBlueprint,
           subject_name: resolvedSubject,
           is_studium: isStudium,
@@ -325,14 +328,26 @@ Deno.serve(async (req) => {
         updated_at: new Date().toISOString(),
       }));
 
-      const { error: enqueueErr } = await sb.from("job_queue").insert(jobRows);
-
-      if (enqueueErr) {
-        console.error(`[generate-blueprint-variants] Enqueue error:`, enqueueErr);
-        return new Response(JSON.stringify({ error: "Failed to enqueue blueprint jobs", detail: enqueueErr.message }), {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+      // Insert one-by-one with conflict guard to handle race conditions
+      let enqueueCount = 0;
+      let enqueueSkipped = 0;
+      for (const row of jobRows) {
+        const { error: enqueueErr } = await sb.from("job_queue").insert(row);
+        if (enqueueErr) {
+          if (enqueueErr.message?.includes("uq_job_queue_active_package_job") ||
+              enqueueErr.message?.includes("duplicate key")) {
+            enqueueSkipped++;
+            console.warn(`[generate-blueprint-variants] Skipped duplicate job for blueprint ${(row.payload as any).blueprint_id}`);
+          } else {
+            console.error(`[generate-blueprint-variants] Enqueue error:`, enqueueErr);
+            return new Response(JSON.stringify({ error: "Failed to enqueue blueprint jobs", detail: enqueueErr.message }), {
+              status: 500,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+        } else {
+          enqueueCount++;
+        }
       }
 
       console.log(`[generate-blueprint-variants] Enqueued ${eligibleIds.length}/${blueprints.length} eligible per-blueprint jobs for ${packageId} (${blockedIds.length} blocked by pre-flight)`);
