@@ -1,8 +1,14 @@
+/**
+ * MANDATORY FIELDS CONTRACT:
+ * Every BlueprintQuestionSource MUST have all FK fields populated.
+ * The DB trigger fn_exam_question_auto_fill provides a safety net,
+ * but the application layer should always provide complete data.
+ */
 export type BlueprintQuestionSource = {
   id: string;
   curriculum_id: string;
-  competency_id: string | null;
-  learning_field_id?: string | null;
+  competency_id: string;        // MANDATORY — must never be null
+  learning_field_id: string;     // MANDATORY — must never be null
   name: string;
   canonical_statement: string;
   knowledge_type: string;
@@ -16,11 +22,11 @@ export type BlueprintQuestionSource = {
 };
 
 export type ExamQuestionRow = {
-  certification_id: string;
-  curriculum_id: string;
-  competency_id: string | null;
-  learning_field_id: string | null;
-  blueprint_id: string;
+  certification_id: string;       // MANDATORY — derived from cert lookup
+  curriculum_id: string;          // MANDATORY — from blueprint
+  competency_id: string;          // MANDATORY — from blueprint
+  learning_field_id: string;      // MANDATORY — from blueprint/competency
+  blueprint_id: string;           // MANDATORY — source blueprint
   status: "draft" | "approved";
   review_state: "pending";
   question_type: string;
