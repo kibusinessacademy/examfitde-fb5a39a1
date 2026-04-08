@@ -149,7 +149,7 @@ async function dispatchJob(job: any, supabaseUrl: string, serviceKey: string): P
         try {
           const body409 = JSON.parse(text);
           if (body409?.retry === true) {
-            return { ok: true, result: { ...body409, ok: false, retry: true, backoff_seconds: 300 } };
+            return { ok: true, result: { ...body409, ok: false, retry: true, backoff_seconds: 120 } };
           }
         } catch { /* not JSON, fall through to normal error */ }
       }
@@ -405,7 +405,7 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
         && result.ok === false && result.retry === true && !result.permanent;
 
       if (isValidatorRetry) {
-        const backoff = result.backoff_seconds || 300;
+        const backoff = result.backoff_seconds || 120;
         const errorMsg = (result.error || "VALIDATOR_RETRY").slice(0, 2000);
         // Use attempt-safe RPC — does NOT increment attempts
         await sb.rpc("fn_return_job_to_pending_no_burn", {
