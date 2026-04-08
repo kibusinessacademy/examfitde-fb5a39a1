@@ -68872,12 +68872,12 @@ export type Database = {
           p_user_id: string
         }
         Returns: {
-          answers: Json
           blueprint_id: string
           competency_id: string
           difficulty: string
           distractor_meta: Json
           explanation: string
+          options: Json
           question_id: string
           question_text: string
           question_type: string
