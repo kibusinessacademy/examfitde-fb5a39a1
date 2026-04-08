@@ -169,3 +169,69 @@ export async function healStatusLag(sb: SupabaseClient) {
 
   return statusLagResults;
 }
+
+const BATCH_COMPLETE_MIN_AGE_MS = 15 * 60 * 1000;
+
+/**
+ * Detect steps that are "queued" but their meta indicates batch_complete=true
+ * and no active jobs remain. Transition them to "done".
+ */
+export async function healBatchCompleteStuck(sb: SupabaseClient) {
+  const results: Array<{ package_id: string; step_key: string; action: string }> = [];
+
+  const { data: stuckSteps } = await sb
+    .from("package_steps")
+    .select("package_id, step_key, status, updated_at, meta, attempts")
+    .eq("status", "queued")
+    .limit(500);
+
+  for (const ps of stuckSteps || []) {
+    const meta = (ps.meta ?? {}) as Record<string, unknown>;
+    if (!meta.batch_complete) continue;
+    if (meta.needs_regen && Number(meta.needs_regen) > 0) continue;
+
+    const ageMs = Date.now() - new Date(ps.updated_at).getTime();
+    if (ageMs < BATCH_COMPLETE_MIN_AGE_MS) continue;
+
+    const jobType = STEP_TO_JOB_TYPE[ps.step_key] ?? null;
+    if (jobType) {
+      const { count: activeCnt } = await sb
+        .from("job_queue")
+        .select("id", { count: "exact", head: true })
+        .eq("package_id", ps.package_id)
+        .eq("job_type", jobType)
+        .in("status", ["pending", "queued", "processing"]);
+      if ((activeCnt ?? 0) > 0) continue;
+    }
+
+    await sb.from("package_steps").update({
+      status: "done",
+      finished_at: new Date().toISOString(),
+      meta: {
+        ...meta,
+        postcondition_verified: true,
+        batch_complete_heal: true,
+        batch_complete_healed_at: new Date().toISOString(),
+      },
+    }).eq("package_id", ps.package_id).eq("step_key", ps.step_key);
+
+    await sb.from("auto_heal_log").insert({
+      action_type: "batch_complete_stuck_heal",
+      trigger_source: "stuck-scan",
+      target_type: "package_step",
+      target_id: ps.package_id,
+      result_status: "applied",
+      result_detail: `Step ${ps.step_key} was queued with batch_complete=true for ${Math.round(ageMs / 60000)}min — set to done`,
+      metadata: { step_key: ps.step_key, age_min: Math.round(ageMs / 60000) },
+    });
+
+    results.push({ package_id: ps.package_id, step_key: ps.step_key, action: "batch-complete-heal: queued→done" });
+    console.warn(`[stuck-scan] 🔄 Batch-complete-heal: ${ps.step_key} for ${ps.package_id.slice(0, 8)} — queued with batch_complete=true → done`);
+  }
+
+  if (results.length > 0) {
+    console.log(`[stuck-scan] 🔄 Batch-complete healed ${results.length} step(s)`);
+  }
+
+  return results;
+}
