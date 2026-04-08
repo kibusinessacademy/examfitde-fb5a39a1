@@ -292,15 +292,29 @@ export async function processPackage(
     const byKey = new Map<string, StepRow>();
     for (const s of (steps ?? []) as StepRow[]) byKey.set(s.step_key, s);
 
-    // Self-heal: clear stale "Sequence guard" last_errors
+    // Self-heal: clear stale "Sequence guard" AND "CAUSALITY_BLOCKED" last_errors
+    // when the referenced predecessor is now done/skipped.
     for (const s of (steps ?? []) as StepRow[]) {
-      if (!s.last_error || !s.last_error.includes("Sequence guard: predecessor")) continue;
-      const match = s.last_error.match(/predecessor (.+) not done/);
-      if (!match) continue;
-      const predKey = match[1];
+      if (!s.last_error) continue;
+
+      let predKey: string | null = null;
+
+      // Pattern 1: "Sequence guard: predecessor <step> not done"
+      if (s.last_error.includes("Sequence guard: predecessor")) {
+        const match = s.last_error.match(/predecessor (.+) not done/);
+        if (match) predKey = match[1];
+      }
+      // Pattern 2: "CAUSALITY_BLOCKED: dep <step> not done"
+      else if (s.last_error.includes("CAUSALITY_BLOCKED")) {
+        const match = s.last_error.match(/dep (.+) not done/);
+        if (match) predKey = match[1];
+      }
+
+      if (!predKey) continue;
+
       const pred = byKey.get(predKey);
       if (pred && (pred.status === "done" || pred.status === "skipped")) {
-        console.log(`[runner] 🩹 Stale guard heal: clearing last_error + stale meta on ${s.step_key}`);
+        console.log(`[runner] 🩹 Stale guard heal: clearing last_error on ${s.step_key} (was blocked by ${predKey}, now ${pred.status})`);
         const cleanedMeta = { ...(s.meta as Record<string, unknown> ?? {}) };
         for (const k of ["reason", "blocked_reason", "next_run_at", "sequence_guard"]) {
           delete cleanedMeta[k];
@@ -311,7 +325,7 @@ export async function processPackage(
             meta: cleanedMeta,
             updated_at: new Date().toISOString(),
           }).eq("package_id", packageId).eq("step_key", s.step_key),
-          "stale_sequence_guard_heal",
+          "stale_guard_heal",
         );
         s.last_error = null;
         (s as any).meta = cleanedMeta;
