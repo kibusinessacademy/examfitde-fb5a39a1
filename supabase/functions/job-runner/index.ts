@@ -1132,6 +1132,14 @@ Deno.serve(async (req) => {
             const missing = artifactCheck.missingArtifact ?? "unknown";
             const producerStep = artifactCheck.producerStep ?? null;
 
+            // ── SSOT CONTRACT VIOLATION DETECTION ──
+            // If PIPELINE_PREREQS passed (no requeue above) but artifact-resolver blocks,
+            // it means the two definitions disagree — log as structural drift.
+            const prereqPassed = prereqCandidates ? true : false; // we got here = prereq guard passed
+            if (prereqPassed && blockCount === 0) {
+              console.error(`[job-runner] ⚠️ SSOT_CONTRACT_VIOLATION: ${job.job_type} passed PIPELINE_PREREQS but artifact-resolver blocks on "${missing}" (producer: ${producerStep}). PIPELINE_PREREQS and PIPELINE_GRAPH.requires are out of sync! (pkg ${(job.payload.package_id as string).slice(0, 8)})`);
+            }
+
             // Phase 3: Progressive backoff — only enter blocked-mode at retry >= 3
             const backoffMs =
               blockCount < 1 ? 20_000 :
