@@ -1065,8 +1065,15 @@ Deno.serve(async (req) => {
 
       const stepMap = new Map((allSteps || []).map((s: any) => [s.step_key, { status: s.status, exception_approved: s.exception_approved }]));
 
-      // Find the first prereq that actually exists as a step in this package
-      const prereqStep = prereqCandidates.find(p => stepMap.has(p));
+      // ── Convergence check: ALL prereqs that exist in this package must be terminal ──
+      // For convergence steps (run_integrity_check), ALL listed prereqs must be done/skipped.
+      // For linear steps (single prereq), this naturally checks just the one.
+      const existingPrereqs = prereqCandidates.filter(p => stepMap.has(p));
+      const unfulfilledPrereq = existingPrereqs.find(p => {
+        const info = stepMap.get(p);
+        return info?.status !== "done" && info?.status !== "skipped" && !info?.exception_approved;
+      });
+      const prereqStep = unfulfilledPrereq; // first unfulfilled prereq (null if all fulfilled)
 
       if (prereqStep) {
         const prereqInfo = stepMap.get(prereqStep);
