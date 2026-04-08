@@ -302,12 +302,12 @@ function hasQualityExplanation(q: { explanation?: string; options: string[] }): 
   const correctiveGuidance = hasCorrectiveGuidance(expl);
   const optionRefs = hasOptionReferences(expl, q.options);
 
-  // Pass if: wrong reasoning + corrective guidance (standard path)
+  // Standard path: explains why wrong + gives corrective guidance
   if (wrongReasoning && correctiveGuidance) return true;
-  // Pass if: option references + either wrong reasoning or guidance
-  if (optionRefs && (wrongReasoning || correctiveGuidance)) return true;
-  // Pass if: long explanation (200+ chars) with wrong reasoning (lenient for detailed explanations)
-  if (expl.length >= 200 && wrongReasoning) return true;
+  // Option-aware: references specific options + wrong reasoning + minimum length
+  if (optionRefs && wrongReasoning && expl.length >= 120) return true;
+  // Option-aware: references specific options + corrective guidance + minimum length
+  if (optionRefs && correctiveGuidance && expl.length >= 160) return true;
   return false;
 }
 
