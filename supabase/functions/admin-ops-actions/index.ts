@@ -307,26 +307,48 @@ Deno.serve(async (req) => {
         }).ok;
         const forceBuildingForManualDispatch = !canRunInCurrentState;
 
-        // Step 1b: Transition to building — use recover_and_reenter for blocked/quality_gate_failed
+        // Step 1b: Transition to building — admin manual repair uses resilient fallback
         if (pkg.status !== "building" && (!canRunInCurrentState || forceBuildingForManualDispatch)) {
+          let transitionOk = false;
+
           if (pkg.status === "blocked" || pkg.status === "quality_gate_failed") {
-            // recover_and_reenter handles guard triggers, resets failed steps, transitions atomically
-            const { data: recoverData, error: recoverErr } = await sb.rpc("recover_and_reenter_package", {
-              p_package_id: pid,
-              p_reason: `Admin repair: ${action}`,
-              p_trigger_source: "admin_ops",
-            });
-            if (recoverErr) throw new Error(`Recovery failed: ${recoverErr.message}`);
-            const rd = recoverData as any;
-            if (rd && !rd.ok) throw new Error(`Recovery rejected: ${rd.reason || rd.error || "unknown"}`);
-            console.log(`[admin-ops] recover_and_reenter for ${pid}: status=${rd?.final_status}, reset_steps=${rd?.reset_steps}`);
+            // Try recover_and_reenter first — if it fails (taxonomy, ACTIVE_JOBS_EXIST), fall back to direct update
+            try {
+              const { data: recoverData, error: recoverErr } = await sb.rpc("recover_and_reenter_package", {
+                p_package_id: pid,
+                p_reason: `Admin repair: ${action}`,
+                p_trigger_source: "admin_ops",
+              });
+              if (recoverErr) throw recoverErr;
+              const rd = recoverData as any;
+              if (rd && !rd.ok) throw new Error(rd.reason || rd.error || "unknown");
+              console.log(`[admin-ops] recover_and_reenter for ${pid}: status=${rd?.final_status}, reset_steps=${rd?.reset_steps}`);
+              transitionOk = true;
+            } catch (recoverFallbackErr: any) {
+              console.warn(`[admin-ops] recover_and_reenter failed for ${pid}: ${recoverFallbackErr.message} — using direct admin override`);
+              // Admin override: directly set to building, clear blocked_reason
+              const { error: directErr } = await sb
+                .from("course_packages")
+                .update({ status: "building", blocked_reason: null, stuck_reason: null, updated_at: new Date().toISOString() })
+                .eq("id", pid);
+              if (directErr) throw new Error(`Direct admin override failed: ${directErr.message}`);
+              transitionOk = true;
+            }
           } else {
             const { error: transErr } = await sb.rpc("safe_transition_package_status", {
               p_package_id: pid,
               p_new_status: "building",
               p_extra: { stuck_reason: null },
             });
-            if (transErr) throw new Error(`Status transition failed: ${transErr.message}`);
+            if (transErr) {
+              console.warn(`[admin-ops] safe_transition failed for ${pid}: ${transErr.message} — using direct override`);
+              const { error: directErr } = await sb
+                .from("course_packages")
+                .update({ status: "building", blocked_reason: null, stuck_reason: null, updated_at: new Date().toISOString() })
+                .eq("id", pid);
+              if (directErr) throw new Error(`Direct admin override failed: ${directErr.message}`);
+            }
+            transitionOk = true;
           }
 
           // Verify the transition actually succeeded
