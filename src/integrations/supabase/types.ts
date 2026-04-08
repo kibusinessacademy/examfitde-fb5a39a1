@@ -67303,11 +67303,7 @@ export type Database = {
       fn_reconcile_stale_qgf_packages: { Args: never; Returns: Json }
       fn_recover_stale_lock_exhausted: { Args: never; Returns: Json }
       fn_return_job_to_pending_no_burn: {
-        Args: {
-          p_backoff_seconds?: number
-          p_job_id: string
-          p_reason?: string
-        }
+        Args: { p_backoff_seconds: number; p_job_id: string; p_reason: string }
         Returns: undefined
       }
       fn_share_fi_core_questions: { Args: never; Returns: Json }
