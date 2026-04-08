@@ -67040,6 +67040,7 @@ export type Database = {
       finish_exam_session: { Args: { p_session_id: string }; Returns: Json }
       fix_zombie_packages: { Args: never; Returns: Json }
       fn_alert_stale_admin_holds: { Args: never; Returns: number }
+      fn_approve_fi_shared_questions: { Args: never; Returns: Json }
       fn_auto_heal_hard_fail_repair_exhausted: { Args: never; Returns: Json }
       fn_auto_heal_materialization_guard: { Args: never; Returns: Json }
       fn_auto_heal_stale_lock_exhausted: { Args: never; Returns: Json }
