@@ -58,19 +58,19 @@ async function main() {
     console.log(`✅ Check 1: All ${published.length} published packages have approved questions`);
   }
 
-  // 2) Approved questions missing SSOT bindings
-  const missingBindings = await query(
-    "exam_questions",
-    `select=id,package_id&status=eq.approved&or=(competency_id.is.null,learning_field_id.is.null)&limit=10`
+  // 2) Approved questions missing SSOT bindings (using v_data_integrity_audit)
+  const integrityDrift = await query(
+    "v_data_integrity_audit",
+    `select=slug,total_questions,null_certification,null_curriculum,null_competency,null_learning_field,integrity_status&integrity_status=eq.DRIFT_DETECTED`
   );
-  if (missingBindings && missingBindings.length > 0) {
-    console.error(`❌ FAIL: ${missingBindings.length}+ approved questions missing SSOT bindings (competency/LF)`);
-    for (const q of missingBindings.slice(0, 5)) {
-      console.error(`   → question ${q.id} (package ${q.package_id})`);
+  if (integrityDrift && integrityDrift.length > 0) {
+    console.error(`❌ FAIL: ${integrityDrift.length} certifications with data integrity drift`);
+    for (const d of integrityDrift.slice(0, 5)) {
+      console.error(`   → ${d.slug}: null_cert=${d.null_certification}, null_comp=${d.null_competency}, null_lf=${d.null_learning_field}`);
     }
     fail = true;
   } else {
-    console.log("✅ Check 2: All approved questions have SSOT bindings");
+    console.log("✅ Check 2: All exam questions have complete SSOT bindings");
   }
 
   // 3) Approved questions missing didactic metadata

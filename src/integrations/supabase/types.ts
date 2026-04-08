@@ -59791,6 +59791,23 @@ export type Database = {
           },
         ]
       }
+      v_data_integrity_audit: {
+        Row: {
+          approved: number | null
+          integrity_status: string | null
+          null_blueprint: number | null
+          null_certification: number | null
+          null_cognitive_level: number | null
+          null_competency: number | null
+          null_curriculum: number | null
+          null_difficulty: number | null
+          null_exam_part: number | null
+          null_learning_field: number | null
+          slug: string | null
+          total_questions: number | null
+        }
+        Relationships: []
+      }
       v_drift_analytics: {
         Row: {
           drift_type: string | null
