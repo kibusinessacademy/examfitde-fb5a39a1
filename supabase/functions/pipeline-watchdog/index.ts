@@ -680,11 +680,14 @@ Deno.serve(async (req) => {
       }
 
       // Reset package to building + increment retry_count for circuit breaker tracking
+      // Store heal fingerprint to prevent re-healing with identical failures
+      const updatedReport = { ...(report || {}), v3: { ...(report?.v3 || {}), last_heal_fingerprint: failFingerprint } };
       await sb
         .from("course_packages")
         .update({
           status: "building",
           retry_count: currentRetryCount + 1,
+          integrity_report: updatedReport,
           last_error: `Watchdog QG-heal: ${healReason} — ${hardFails.length} blocker(s), ${stepsResetCount} steps reset → retry (cycle ${currentRetryCount + 1}/${QG_MAX_HEAL_CYCLES})`,
         })
         .eq("id", pkg.id);
