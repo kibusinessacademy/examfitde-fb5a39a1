@@ -28,12 +28,12 @@ export type VerificationMarkerKey =
   | "sample_task";
 
 // ── Output Verification Markers (Guardrail B) ─────────────────────────────
-export const VERIFICATION_MARKERS: Record<VerificationMarkerKey, { pattern: RegExp; label: string }> = {
+export const VERIFICATION_MARKERS: Record<VerificationMarkerKey, { pattern: RegExp; label: string; minCount?: number }> = {
   praxis_example:  { pattern: /beispiel|praxisbeispiel|fallbeispiel|berechnungsbeispiel|rechenbeispiel|z\.?\s?B\./i, label: "Praxisbeispiel" },
   exam_trap:       { pattern: /prüfungsfalle|prüfungsfallen|typischer?\s+fehler|häufiger?\s+fehler|achtung.*prüfung/i, label: "Prüfungsfalle" },
   decision_logic:  { pattern: /unterschied|abgrenzung|vergleich|gegenüberstellung|im\s+gegensatz|dagegen|hingegen/i, label: "Entscheidungslogik" },
   transfer:        { pattern: /transfer|praxisbezug|anwendung.*praxis|betriebliche.*praxis|in\s+der\s+praxis/i, label: "Transferbezug" },
-  technical_terms: { pattern: /\b[A-ZÄÖÜ][a-zäöüß]+(?:[-\s][A-ZÄÖÜa-zäöüß]+){0,2}\b|\*\*[^*]{3,40}\*\*/i, label: "Fachbegriffe markiert" },
+  technical_terms: { pattern: /\*\*[^*]{3,40}\*\*/g, label: "Fachbegriffe markiert", minCount: 3 },
   mnemonic:        { pattern: /merke|merkregel|eselsbrücke|checkliste|faustformel|merksatz/i, label: "Merkhilfe" },
   calculation:     { pattern: /berechnung|formel|rechnung|ergebnis\s*[:=]|€|%.*=|=.*€/i, label: "Berechnung/Formel" },
   exam_relevance:  { pattern: /prüfungsrelevant|prüfungswissen|ihk.*prüfung|klausur|prüfungstipp/i, label: "Prüfungsrelevanz" },
@@ -75,15 +75,16 @@ export interface StructuralMinimums {
   minHeadings: number;       // ## or ### headings
   minListItems: number;      // - or * or 1. items
   minParagraphs: number;     // non-empty paragraphs
-  requireCalculation: boolean; // at least one numeric example
+  // requireCalculation removed — must be topic/field-driven, not persona-global.
+  // Use `markers.calculation` check only when learning_field signals numeric content.
 }
 
 export const STRUCTURAL_MINIMUMS: Record<PersonaProfile, StructuralMinimums> = {
-  AZUBI_HIGH_ROI: { minWords: 1500, minHeadings: 5, minListItems: 8, minParagraphs: 10, requireCalculation: true },
-  AZUBI_LOW_ROI:  { minWords: 500,  minHeadings: 3, minListItems: 3, minParagraphs: 5,  requireCalculation: false },
-  SACHKUNDE:      { minWords: 700,  minHeadings: 3, minListItems: 5, minParagraphs: 6,  requireCalculation: false },
-  FACHWIRT:       { minWords: 1200, minHeadings: 4, minListItems: 6, minParagraphs: 8,  requireCalculation: true },
-  STUDIUM:        { minWords: 1500, minHeadings: 5, minListItems: 6, minParagraphs: 10, requireCalculation: false },
+  AZUBI_HIGH_ROI: { minWords: 1500, minHeadings: 5, minListItems: 8, minParagraphs: 10 },
+  AZUBI_LOW_ROI:  { minWords: 500,  minHeadings: 3, minListItems: 3, minParagraphs: 5 },
+  SACHKUNDE:      { minWords: 700,  minHeadings: 3, minListItems: 5, minParagraphs: 6 },
+  FACHWIRT:       { minWords: 1200, minHeadings: 4, minListItems: 6, minParagraphs: 8 },
+  STUDIUM:        { minWords: 1500, minHeadings: 5, minListItems: 6, minParagraphs: 10 },
 };
 
 // ── Content Verification Result (DB-persistable) ──────────────────────────
@@ -115,10 +116,17 @@ export function verifyContentQuality(
   const softRequired = SOFT_MARKERS_BY_PERSONA[persona];
   const structural = STRUCTURAL_MINIMUMS[persona];
 
-  // Layer A: Marker presence
+  // Layer A: Marker presence (count-aware for markers with minCount)
   const markers = {} as Record<VerificationMarkerKey, boolean>;
   for (const [key, def] of Object.entries(VERIFICATION_MARKERS)) {
-    markers[key as VerificationMarkerKey] = def.pattern.test(content);
+    const k = key as VerificationMarkerKey;
+    if (def.minCount && def.minCount > 1) {
+      // Count-based check (e.g. technical_terms needs ≥3 bold terms)
+      const matches = content.match(def.pattern);
+      markers[k] = (matches?.length ?? 0) >= def.minCount;
+    } else {
+      markers[k] = def.pattern.test(content);
+    }
   }
 
   const missingHard: string[] = [];
@@ -130,7 +138,7 @@ export function verifyContentQuality(
     if (!markers[key]) missingSoft.push(VERIFICATION_MARKERS[key].label);
   }
 
-  // Layer B: Structural checks
+  // Layer B: Structural checks (no requireCalculation — topic-driven, not persona-global)
   const words = content.split(/\s+/).filter(w => w.length > 0);
   const wordCount = words.length;
   const headingCount = (content.match(/^#{2,4}\s+.+$/gm) || []).length;
@@ -142,14 +150,13 @@ export function verifyContentQuality(
     wordCount >= structural.minWords &&
     headingCount >= structural.minHeadings &&
     listCount >= structural.minListItems &&
-    paragraphCount >= structural.minParagraphs &&
-    (!structural.requireCalculation || markers.calculation);
+    paragraphCount >= structural.minParagraphs;
 
-  // Composite score
+  // Composite score: markers = 60%, structural = 40%
   const allRequired = [...hardRequired, ...softRequired];
   const foundCount = allRequired.filter(k => markers[k]).length;
   const markerScore = allRequired.length > 0
-    ? (foundCount / allRequired.length) * 60  // markers = 60% weight
+    ? (foundCount / allRequired.length) * 60
     : 60;
 
   const structScore =
@@ -160,7 +167,8 @@ export function verifyContentQuality(
 
   const score = Math.round(Math.min(100, markerScore + structScore));
   const hardPassed = missingHard.length === 0;
-  const passed = hardPassed && structuralPassed && score >= 50;
+  // passed = hard gates + structural gates; score is for ranking/audit only
+  const passed = hardPassed && structuralPassed;
 
   return {
     passed,
@@ -175,7 +183,7 @@ export function verifyContentQuality(
     listCount,
     paragraphCount,
     structuralPassed,
-    version: 2,
+    version: 3,
   };
 }
 
