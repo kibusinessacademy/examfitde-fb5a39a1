@@ -440,7 +440,7 @@ async function executeHealAction(
         const certId = action.params.certification_id as string;
         const mode = (action.params.mode as string) || "safe";
         await enqueueJob(sb, {
-          job_type: "batch_curriculum_pipeline",
+          job_type: "generate_curriculum_content",
           max_attempts: 3,
           payload: { curriculum_id: certId, mode },
         });
