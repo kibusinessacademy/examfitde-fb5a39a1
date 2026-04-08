@@ -1,20 +1,16 @@
 /**
- * ops-step-orphan-healer
+ * ops-step-orphan-healer  (v2)
  *
  * Cron-driven (every 5 min) self-healing function that detects and fixes
- * three classes of pipeline stalls:
+ * seven classes of pipeline stalls:
  *
- * 1. ORPHANED STEPS: step_key queued/failed with all prereqs met,
- *    but no pending/processing job exists → enqueue missing job
- *
- * 2. BLOCKED-WITHOUT-UPSTREAM: step blocked, but no active upstream
- *    job or queued step can unblock it → skip step
- *
- * 3. AUTO_CANCEL GAPS: building package with queued steps but ZERO
- *    pending/processing jobs at all → bulk-enqueue first runnable
- *
- * Safe: all enqueues go through SSOT enqueueJob (dedupe, pool, guards).
- * Idempotent: re-running is harmless due to existing-job checks.
+ * 1. ORPHANED STEPS: step queued/failed with prereqs met, no active job → enqueue
+ * 2. BLOCKED-WITHOUT-UPSTREAM: step blocked, no active upstream → skip
+ * 3. ZERO-JOB GAPS: building package, queued steps, 0 jobs → enqueue first runnable
+ * 4. EXHAUSTED-RETRY JOBS: failed jobs at max_attempts → cancel job, reset step → re-enqueue
+ * 5. QG-FAILED AUTO-RETRY: package quality_gate_failed, 0 active jobs → set building, reset failed step
+ * 6. STALE PROCESSING: job processing > 15min → fail job, reset step to queued
+ * 7. HOLLOW DONE: step done but postcondition_verified != true → reset to queued
  */
 
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
@@ -31,14 +27,34 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+type HealPattern =
+  | "orphaned_step"
+  | "blocked_no_upstream"
+  | "zero_jobs_gap"
+  | "exhausted_retry"
+  | "qg_failed_auto_retry"
+  | "stale_processing"
+  | "hollow_done";
+
 interface HealAction {
   package_id: string;
   title: string;
-  pattern: "orphaned_step" | "blocked_no_upstream" | "zero_jobs_gap";
+  pattern: HealPattern;
   step_key: string;
-  action: "enqueue" | "skip";
+  action: string;
   job_type?: string;
 }
+
+// Steps that MUST have postcondition_verified before being considered truly done
+const HOLLOW_GUARD_STEPS = new Set([
+  "generate_learning_content",
+  "finalize_learning_content",
+  "generate_exam_pool",
+  "generate_lesson_minichecks",
+  "generate_handbook",
+  "generate_oral_exam",
+  "run_integrity_check",
+]);
 
 // ── DAG helpers ──
 
@@ -47,10 +63,7 @@ function getPrereqs(stepKey: string): string[] {
   return node?.dependsOn ?? [];
 }
 
-function prereqsMet(
-  stepKey: string,
-  stepMap: Map<string, string>,
-): boolean {
+function prereqsMet(stepKey: string, stepMap: Map<string, string>): boolean {
   return getPrereqs(stepKey).every((dep) => {
     const s = stepMap.get(dep);
     return s === "done" || s === "skipped";
@@ -71,24 +84,201 @@ Deno.serve(async (req) => {
   const errors: string[] = [];
 
   try {
-    // ── 1. Load all building packages ──
+    // ════════════════════════════════════════════════
+    // PATTERN 4: EXHAUSTED-RETRY JOBS (global, not per-package)
+    // ════════════════════════════════════════════════
+    try {
+      const { data: exhausted } = await sb
+        .from("job_queue")
+        .select("id, job_type, package_id, attempts, max_attempts")
+        .eq("status", "failed")
+        .not("package_id", "is", null)
+        .limit(50);
+
+      if (exhausted?.length) {
+        const atMax = exhausted.filter((j: any) => j.attempts >= (j.max_attempts || 5));
+        for (const job of atMax) {
+          try {
+            // Cancel the exhausted job
+            await sb
+              .from("job_queue")
+              .update({ status: "cancelled", completed_at: new Date().toISOString() })
+              .eq("id", job.id)
+              .eq("status", "failed");
+
+            // Find and reset the corresponding step
+            const stepKey = Object.entries(STEP_TO_JOB_TYPE).find(
+              ([, jt]) => jt === job.job_type,
+            )?.[0];
+
+            if (stepKey) {
+              await sb
+                .from("package_steps")
+                .update({ status: "queued", updated_at: new Date().toISOString() })
+                .eq("package_id", job.package_id)
+                .eq("step_key", stepKey)
+                .in("status", ["failed", "running"]);
+
+              actions.push({
+                package_id: job.package_id,
+                title: "",
+                pattern: "exhausted_retry",
+                step_key: stepKey,
+                action: "cancel_and_reset",
+                job_type: job.job_type,
+              });
+            }
+          } catch (e) {
+            errors.push(`Exhausted ${job.id.slice(0, 8)}: ${(e as Error).message}`);
+          }
+        }
+      }
+    } catch (e) {
+      errors.push(`Exhausted-scan: ${(e as Error).message}`);
+    }
+
+    // ════════════════════════════════════════════════
+    // PATTERN 5: QG-FAILED AUTO-RETRY
+    // ════════════════════════════════════════════════
+    try {
+      const { data: qgFailed } = await sb
+        .from("course_packages")
+        .select("id, title, curriculum_id")
+        .eq("status", "quality_gate_failed");
+
+      if (qgFailed?.length) {
+        for (const pkg of qgFailed) {
+          // Check no active jobs exist
+          const { data: active } = await sb
+            .from("job_queue")
+            .select("id")
+            .eq("package_id", pkg.id)
+            .in("status", ["pending", "processing"])
+            .limit(1);
+
+          if (active && active.length > 0) continue;
+
+          // Find the failed step that caused QG failure
+          const { data: failedSteps } = await sb
+            .from("package_steps")
+            .select("step_key, status")
+            .eq("package_id", pkg.id)
+            .eq("status", "failed");
+
+          // Reset package to building
+          await sb
+            .from("course_packages")
+            .update({ status: "building", blocked_reason: null })
+            .eq("id", pkg.id);
+
+          // Reset each failed step to queued
+          if (failedSteps?.length) {
+            for (const step of failedSteps) {
+              await sb
+                .from("package_steps")
+                .update({ status: "queued", updated_at: new Date().toISOString() })
+                .eq("package_id", pkg.id)
+                .eq("step_key", step.step_key)
+                .eq("status", "failed");
+
+              actions.push({
+                package_id: pkg.id,
+                title: pkg.title ?? "",
+                pattern: "qg_failed_auto_retry",
+                step_key: step.step_key,
+                action: "reset_to_building",
+              });
+            }
+          } else {
+            actions.push({
+              package_id: pkg.id,
+              title: pkg.title ?? "",
+              pattern: "qg_failed_auto_retry",
+              step_key: "package_status",
+              action: "reset_to_building",
+            });
+          }
+        }
+      }
+    } catch (e) {
+      errors.push(`QG-failed scan: ${(e as Error).message}`);
+    }
+
+    // ════════════════════════════════════════════════
+    // PATTERN 6: STALE PROCESSING JOBS (> 15 min)
+    // ════════════════════════════════════════════════
+    try {
+      const fifteenMinAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+      const { data: stale } = await sb
+        .from("job_queue")
+        .select("id, job_type, package_id, started_at")
+        .eq("status", "processing")
+        .lt("started_at", fifteenMinAgo)
+        .not("package_id", "is", null)
+        .limit(30);
+
+      if (stale?.length) {
+        for (const job of stale) {
+          try {
+            await sb
+              .from("job_queue")
+              .update({
+                status: "failed",
+                completed_at: new Date().toISOString(),
+                error: `Stale processing > 15 min (started ${job.started_at})`,
+              })
+              .eq("id", job.id)
+              .eq("status", "processing");
+
+            const stepKey = Object.entries(STEP_TO_JOB_TYPE).find(
+              ([, jt]) => jt === job.job_type,
+            )?.[0];
+
+            if (stepKey) {
+              await sb
+                .from("package_steps")
+                .update({ status: "queued", updated_at: new Date().toISOString() })
+                .eq("package_id", job.package_id)
+                .eq("step_key", stepKey)
+                .eq("status", "running");
+
+              actions.push({
+                package_id: job.package_id,
+                title: "",
+                pattern: "stale_processing",
+                step_key: stepKey,
+                action: "fail_and_reset",
+                job_type: job.job_type,
+              });
+            }
+          } catch (e) {
+            errors.push(`Stale ${job.id.slice(0, 8)}: ${(e as Error).message}`);
+          }
+        }
+      }
+    } catch (e) {
+      errors.push(`Stale-scan: ${(e as Error).message}`);
+    }
+
+    // ════════════════════════════════════════════════
+    // LOAD BUILDING PACKAGES (for patterns 1, 2, 3, 7)
+    // ════════════════════════════════════════════════
     const { data: buildingPkgs, error: pkgErr } = await sb
       .from("course_packages")
       .select("id, title, curriculum_id, status")
       .eq("status", "building");
 
     if (pkgErr) throw pkgErr;
-    if (!buildingPkgs?.length) {
+    if (!buildingPkgs?.length && actions.length === 0) {
       return respond({ ok: true, healed: 0, actions: [], message: "No building packages" });
     }
 
-    // ── 2. For each package: load steps + active jobs ──
-    for (const pkg of buildingPkgs) {
+    for (const pkg of buildingPkgs ?? []) {
       try {
         const [stepsRes, jobsRes] = await Promise.all([
           sb
             .from("package_steps")
-            .select("step_key, status")
+            .select("step_key, status, meta")
             .eq("package_id", pkg.id),
           sb
             .from("job_queue")
@@ -100,26 +290,57 @@ Deno.serve(async (req) => {
         if (stepsRes.error || !stepsRes.data?.length) continue;
         if (jobsRes.error) continue;
 
-        const steps = stepsRes.data as Array<{ step_key: string; status: string }>;
+        const steps = stepsRes.data as Array<{ step_key: string; status: string; meta: any }>;
         const activeJobs = jobsRes.data as Array<{ job_type: string; status: string }>;
 
         const stepMap = new Map(steps.map((s) => [s.step_key, s.status]));
         const activeJobTypes = new Set(activeJobs.map((j) => j.job_type));
 
-        // ── Pattern A: Orphaned steps (queued/failed + prereqs met + no active job) ──
+        // ── Pattern 7: HOLLOW DONE ──
+        for (const step of steps) {
+          if (step.status !== "done") continue;
+          if (!HOLLOW_GUARD_STEPS.has(step.step_key)) continue;
+
+          const verified = step.meta?.postcondition_verified === true;
+          if (verified) continue;
+
+          // Step is done but not verified → reset to queued
+          try {
+            await sb
+              .from("package_steps")
+              .update({
+                status: "queued",
+                updated_at: new Date().toISOString(),
+                meta: { ...(step.meta || {}), hollow_reset_by: "ops-step-orphan-healer", hollow_reset_at: new Date().toISOString() },
+              })
+              .eq("package_id", pkg.id)
+              .eq("step_key", step.step_key)
+              .eq("status", "done");
+
+            // Update stepMap for downstream patterns
+            stepMap.set(step.step_key, "queued");
+
+            actions.push({
+              package_id: pkg.id,
+              title: pkg.title ?? "",
+              pattern: "hollow_done",
+              step_key: step.step_key,
+              action: "reset_to_queued",
+            });
+          } catch (e) {
+            errors.push(`Hollow ${step.step_key} for ${pkg.id.slice(0, 8)}: ${(e as Error).message}`);
+          }
+        }
+
+        // ── Pattern A: Orphaned steps ──
         for (const step of steps) {
           if (step.status !== "queued" && step.status !== "failed") continue;
 
           const jobType = STEP_TO_JOB_TYPE[step.step_key as PipelineStepKey];
           if (!jobType) continue;
-
-          // Prereqs must be met
           if (!prereqsMet(step.step_key, stepMap)) continue;
-
-          // No active job for this step?
           if (activeJobTypes.has(jobType)) continue;
 
-          // HEAL: enqueue missing job
           try {
             await enqueueJob(sb, {
               job_type: jobType,
@@ -141,39 +362,32 @@ Deno.serve(async (req) => {
               job_type: jobType,
             });
           } catch (e) {
-            // enqueueJob may throw for valid reasons (already_published, etc.)
             errors.push(`Enqueue ${jobType} for ${pkg.id.slice(0, 8)}: ${(e as Error).message}`);
           }
         }
 
-        // ── Pattern B: Blocked steps without any active upstream ──
+        // ── Pattern B: Blocked without upstream ──
         for (const step of steps) {
           if (step.status !== "blocked") continue;
 
           const prereqs = getPrereqs(step.step_key);
-          // If all prereqs are terminal → step should not be blocked
           const allPrereqsTerminal = prereqs.every((dep) => {
             const s = stepMap.get(dep);
             return s === "done" || s === "skipped";
           });
 
           if (!allPrereqsTerminal) {
-            // Check if any prereq has active jobs
             const hasActiveUpstream = prereqs.some((dep) => {
               const depJobType = STEP_TO_JOB_TYPE[dep as PipelineStepKey];
               return depJobType && activeJobTypes.has(depJobType);
             });
-
-            // Check if any prereq is in a workable state
             const hasWorkableUpstream = prereqs.some((dep) => {
               const s = stepMap.get(dep);
               return s === "queued" || s === "running" || s === "failed";
             });
-
             if (hasActiveUpstream || hasWorkableUpstream) continue;
           }
 
-          // All prereqs are terminal OR no upstream can unblock → skip this step
           try {
             await sb
               .from("package_steps")
@@ -202,7 +416,6 @@ Deno.serve(async (req) => {
         if (activeJobs.length === 0) {
           const queuedSteps = steps.filter((s) => s.status === "queued" || s.status === "failed");
           if (queuedSteps.length > 0) {
-            // Find first runnable step via DAG
             for (const node of PIPELINE_GRAPH) {
               const currentStatus = stepMap.get(node.key);
               if (!currentStatus || currentStatus === "done" || currentStatus === "skipped" || currentStatus === "running") continue;
@@ -212,7 +425,6 @@ Deno.serve(async (req) => {
               const jobType = STEP_TO_JOB_TYPE[node.key as PipelineStepKey];
               if (!jobType) continue;
 
-              // Already handled by Pattern A? Check actions
               const alreadyHealed = actions.some(
                 (a) => a.package_id === pkg.id && a.step_key === node.key,
               );
@@ -241,8 +453,7 @@ Deno.serve(async (req) => {
               } catch (e) {
                 errors.push(`Zero-gap enqueue ${jobType} for ${pkg.id.slice(0, 8)}: ${(e as Error).message}`);
               }
-
-              break; // Only enqueue the first runnable step to avoid flooding
+              break;
             }
           }
         }
@@ -251,13 +462,14 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ── 3. Audit log ──
+    // ── Audit log ──
     if (actions.length > 0) {
       try {
         await sb.from("admin_actions").insert({
           action: "ops_step_orphan_heal",
           scope: "system",
           payload: {
+            version: "v2",
             healed_count: actions.length,
             actions: actions.map((a) => ({
               pkg: a.package_id.slice(0, 8),
@@ -277,12 +489,12 @@ Deno.serve(async (req) => {
     }
 
     console.log(
-      `[ops-step-orphan-healer] ✅ Scanned ${buildingPkgs.length} packages, healed ${actions.length} steps, ${errors.length} errors`,
+      `[ops-step-orphan-healer] ✅ Scanned ${(buildingPkgs ?? []).length} building + QG-failed packages, healed ${actions.length} items, ${errors.length} errors`,
     );
 
     return respond({
       ok: true,
-      packages_scanned: buildingPkgs.length,
+      packages_scanned: (buildingPkgs ?? []).length,
       healed: actions.length,
       actions,
       errors: errors.length > 0 ? errors : undefined,
