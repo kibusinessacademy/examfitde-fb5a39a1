@@ -1372,18 +1372,53 @@ Deno.serve(async (req) => {
               });
             } catch (_) { /* non-critical */ }
           } else {
-            // Pre-publish: failing gate is authoritative
-            updatePayload.status = "quality_gate_failed";
-            try {
-              await sb.from("admin_notifications").insert({
-                title: "🛑 COURSE_READY Gate: Release blocked",
-                body: `${gate.hardFails.length} blocker(s): ${gate.hardFails.slice(0, 3).join("; ")}`,
-                category: "quality",
-                severity: "error",
-                entity_type: "course_package",
-                entity_id: packageId,
-              });
-            } catch (_) { /* non-critical */ }
+            // ── GATE FAILURE CLASSIFICATION (SSOT) ──
+            // Classify hard fails as terminal vs recoverable using DB function
+            const TERMINAL_PATTERNS = [
+              "SSOT_VIOLATION", "CURRICULUM_MISSING", "INTEGRITY_HARD_FAIL",
+              "PUBLISH_POSTCONDITION_FAILED", "DATA_CORRUPTION", "ILLEGAL_STATE",
+              "IMMUTABLE_PACKAGE", "STRUCTURAL_FAILURE",
+            ];
+            const hasTerminalFail = gate.hardFails.some((f: string) =>
+              TERMINAL_PATTERNS.some((p) => f.toUpperCase().includes(p))
+            );
+
+            const buildProgress = Number(
+              (await sb.from("course_packages").select("build_progress").eq("id", packageId).maybeSingle())
+                ?.data?.build_progress ?? 0
+            );
+
+            if (hasTerminalFail) {
+              // Terminal: package truly cannot proceed
+              updatePayload.status = "quality_gate_failed";
+              (updatePayload as any).gate_class = "terminal";
+              console.log(`[integrity-check] pkg=${packageId.slice(0, 8)} TERMINAL gate failure — setting quality_gate_failed`);
+              try {
+                await sb.from("admin_notifications").insert({
+                  title: "🛑 TERMINAL Gate Failure: Release blocked",
+                  body: `Terminal blocker(s): ${gate.hardFails.filter((f: string) => TERMINAL_PATTERNS.some(p => f.toUpperCase().includes(p))).slice(0, 3).join("; ")}`,
+                  category: "quality",
+                  severity: "error",
+                  entity_type: "course_package",
+                  entity_id: packageId,
+                });
+              } catch (_) { /* non-critical */ }
+            } else {
+              // Recoverable: stay in building, flag for upstream healing
+              updatePayload.status = "building";
+              (updatePayload as any).gate_class = "recoverable";
+              console.log(`[integrity-check] pkg=${packageId.slice(0, 8)} RECOVERABLE gate failure (progress=${buildProgress}%) — staying in building, ${gate.hardFails.length} issue(s) logged`);
+              try {
+                await sb.from("admin_notifications").insert({
+                  title: "⚠️ Integrity: recoverable issues — staying in building",
+                  body: `Progress ${buildProgress}%. ${gate.hardFails.length} recoverable issue(s): ${gate.hardFails.slice(0, 3).join("; ")}. Package stays in building for upstream healing.`,
+                  category: "quality",
+                  severity: "warning",
+                  entity_type: "course_package",
+                  entity_id: packageId,
+                });
+              } catch (_) { /* non-critical */ }
+            }
           }
         }
       }
