@@ -1372,31 +1372,40 @@ Deno.serve(async (req) => {
               });
             } catch (_) { /* non-critical */ }
           } else {
-            // ── GATE FAILURE CLASSIFICATION (SSOT) ──
-            // Classify hard fails as terminal vs recoverable using DB function
-            const TERMINAL_PATTERNS = [
-              "SSOT_VIOLATION", "CURRICULUM_MISSING", "INTEGRITY_HARD_FAIL",
-              "PUBLISH_POSTCONDITION_FAILED", "DATA_CORRUPTION", "ILLEGAL_STATE",
-              "IMMUTABLE_PACKAGE", "STRUCTURAL_FAILURE",
-            ];
-            const hasTerminalFail = gate.hardFails.some((f: string) =>
-              TERMINAL_PATTERNS.some((p) => f.toUpperCase().includes(p))
-            );
-
+            // ── GATE FAILURE CLASSIFICATION (SSOT via DB function) ──
+            // Single source of truth: fn_classify_gate_failure in DB decides terminal vs recoverable.
+            // NO duplicate pattern matching in TypeScript — prevents TS↔DB drift.
             const buildProgress = Number(
               (await sb.from("course_packages").select("build_progress").eq("id", packageId).maybeSingle())
                 ?.data?.build_progress ?? 0
             );
 
-            if (hasTerminalFail) {
-              // Terminal: package truly cannot proceed
-              updatePayload.status = "quality_gate_failed";
-              (updatePayload as any).gate_class = "terminal";
-              console.log(`[integrity-check] pkg=${packageId.slice(0, 8)} TERMINAL gate failure — setting quality_gate_failed`);
+            let gateClass: "terminal" | "recoverable" = "recoverable";
+            let recommendedStatus: string = "building";
+            try {
+              const { data: classResult, error: classErr } = await sb.rpc("fn_classify_gate_failure", {
+                p_hard_fail_reasons: gate.hardFails,
+                p_progress_percent: buildProgress,
+              });
+              if (!classErr && classResult) {
+                gateClass = classResult.gate_class ?? "recoverable";
+                recommendedStatus = classResult.recommended_status ?? "building";
+              } else {
+                console.warn(`[integrity-check] fn_classify_gate_failure error: ${classErr?.message ?? "no result"} — defaulting to recoverable`);
+              }
+            } catch (rpcErr) {
+              console.warn(`[integrity-check] fn_classify_gate_failure RPC failed: ${(rpcErr as Error).message} — defaulting to recoverable`);
+            }
+
+            updatePayload.status = recommendedStatus;
+            (updatePayload as any).gate_class = gateClass;
+
+            if (gateClass === "terminal") {
+              console.log(`[integrity-check] pkg=${packageId.slice(0, 8)} TERMINAL gate failure — setting ${recommendedStatus}`);
               try {
                 await sb.from("admin_notifications").insert({
                   title: "🛑 TERMINAL Gate Failure: Release blocked",
-                  body: `Terminal blocker(s): ${gate.hardFails.filter((f: string) => TERMINAL_PATTERNS.some(p => f.toUpperCase().includes(p))).slice(0, 3).join("; ")}`,
+                  body: `Terminal blocker(s): ${gate.hardFails.slice(0, 3).join("; ")}`,
                   category: "quality",
                   severity: "error",
                   entity_type: "course_package",
@@ -1404,9 +1413,6 @@ Deno.serve(async (req) => {
                 });
               } catch (_) { /* non-critical */ }
             } else {
-              // Recoverable: stay in building, flag for upstream healing
-              updatePayload.status = "building";
-              (updatePayload as any).gate_class = "recoverable";
               console.log(`[integrity-check] pkg=${packageId.slice(0, 8)} RECOVERABLE gate failure (progress=${buildProgress}%) — staying in building, ${gate.hardFails.length} issue(s) logged`);
               try {
                 await sb.from("admin_notifications").insert({
