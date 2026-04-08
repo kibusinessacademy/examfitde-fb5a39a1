@@ -371,12 +371,17 @@ Deno.serve(async (req) => {
   const PIPELINE_PREREQS: Record<string, string[]> = {
     // ── Early chain (safety net — pipeline-process is primary gate) ──
     package_generate_glossary: ["scaffold_learning_course"],
-    package_generate_learning_content: ["scaffold_learning_course"],
-    package_validate_learning_content: ["generate_learning_content"],
+    package_generate_learning_content: ["fanout_learning_content"],
+    package_finalize_learning_content: ["generate_learning_content"],
+    package_validate_learning_content: ["finalize_learning_content"],
     package_auto_seed_exam_blueprints: ["validate_learning_content"],
     package_validate_blueprints: ["auto_seed_exam_blueprints"],
+    // ── Blueprint variants branch ──
+    package_generate_blueprint_variants: ["validate_blueprints"],
+    package_validate_blueprint_variants: ["generate_blueprint_variants"],
+    package_promote_blueprint_variants: ["validate_blueprint_variants"],
     // ── Exam branch ──
-    package_generate_exam_pool: ["validate_blueprints"],
+    package_generate_exam_pool: ["promote_blueprint_variants"],
     package_validate_exam_pool: ["generate_exam_pool"],
     // ── Tutor branch (from validate_exam_pool) ──
     package_build_ai_tutor_index: ["validate_exam_pool"],
