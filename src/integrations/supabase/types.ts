@@ -66370,6 +66370,7 @@ export type Database = {
       fn_heal_ghost_completions:
         | { Args: never; Returns: Json }
         | { Args: { p_mode?: string }; Returns: Json }
+      fn_heal_track_step_drift: { Args: never; Returns: Json }
       fn_is_qc_coverage_eligible: {
         Args: { p_qc_status: string; p_status?: string }
         Returns: boolean
