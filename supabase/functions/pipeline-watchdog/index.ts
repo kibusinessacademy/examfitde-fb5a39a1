@@ -587,6 +587,15 @@ Deno.serve(async (req) => {
       const report = pkg.integrity_report as any;
       const hardFails: string[] = report?.v3?.hard_fail_reasons || [];
 
+      // ── Fingerprint-based dedup: don't re-heal if same failures persist ──
+      const failFingerprint = hardFails.slice().sort().join("|");
+      const lastHealFingerprint = report?.v3?.last_heal_fingerprint || "";
+      if (failFingerprint && failFingerprint === lastHealFingerprint) {
+        qgSkippedCount++;
+        console.log(`[watchdog] QG-heal SKIP: same failures persist for pkg=${(pkg.id as string).slice(0, 8)}: ${failFingerprint.slice(0, 80)}`);
+        continue;
+      }
+
       if (hardFails.length === 0) {
         // No structured failures — try generic re-run of integrity + council
         console.log(`[watchdog] QG-heal: no hard_fail_reasons for pkg=${(pkg.id as string).slice(0, 8)}, doing generic retry`);
@@ -671,11 +680,14 @@ Deno.serve(async (req) => {
       }
 
       // Reset package to building + increment retry_count for circuit breaker tracking
+      // Store heal fingerprint to prevent re-healing with identical failures
+      const updatedReport = { ...(report || {}), v3: { ...(report?.v3 || {}), last_heal_fingerprint: failFingerprint } };
       await sb
         .from("course_packages")
         .update({
           status: "building",
           retry_count: currentRetryCount + 1,
+          integrity_report: updatedReport,
           last_error: `Watchdog QG-heal: ${healReason} — ${hardFails.length} blocker(s), ${stepsResetCount} steps reset → retry (cycle ${currentRetryCount + 1}/${QG_MAX_HEAL_CYCLES})`,
         })
         .eq("id", pkg.id);

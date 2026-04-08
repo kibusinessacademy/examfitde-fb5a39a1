@@ -1305,18 +1305,86 @@ Deno.serve(async (req) => {
             });
           } catch (_) { /* non-critical */ }
         } else {
-          // Pre-publish: failing gate is authoritative
-          updatePayload.status = "quality_gate_failed";
-          try {
-            await sb.from("admin_notifications").insert({
-              title: "🛑 COURSE_READY Gate: Release blocked",
-              body: `${gate.hardFails.length} blocker(s): ${gate.hardFails.slice(0, 3).join("; ")}`,
-              category: "quality",
-              severity: "error",
-              entity_type: "course_package",
-              entity_id: packageId,
-            });
-          } catch (_) { /* non-critical */ }
+          // ── UPSTREAM-AWARE GUARD ──
+          // Before setting quality_gate_failed, check if upstream steps that could
+          // resolve the hard fails are still queued/running. If so, stay in building
+          // to avoid cancelling the very jobs that would fix the problem.
+          const failReasonStr = gate.hardFails.join(" ");
+          const remedialStepKeys: string[] = [];
+          if (failReasonStr.includes("ORAL_EXAM") || failReasonStr.includes("BLUEPRINTS") || failReasonStr.includes("SESSIONSETS")) {
+            remedialStepKeys.push("generate_oral_exam", "validate_oral_exam");
+          }
+          if (failReasonStr.includes("LESSON_QUALITY") || failReasonStr.includes("placeholder")) {
+            remedialStepKeys.push("generate_learning_content");
+          }
+          if (failReasonStr.includes("EXAM_POOL") || failReasonStr.includes("TOO_FEW") || failReasonStr.includes("HARDISH_TOO_LOW") || failReasonStr.includes("BLOOM_")) {
+            remedialStepKeys.push("generate_exam_pool", "validate_exam_pool");
+          }
+          if (failReasonStr.includes("MINICHECK")) {
+            remedialStepKeys.push("generate_lesson_minichecks");
+          }
+
+          let hasActiveRemediation = false;
+          if (remedialStepKeys.length > 0) {
+            const { data: pendingRemedials } = await sb
+              .from("package_steps")
+              .select("step_key, status")
+              .eq("package_id", packageId)
+              .in("step_key", remedialStepKeys)
+              .in("status", ["queued", "running", "processing"]);
+            
+            if (pendingRemedials && pendingRemedials.length > 0) {
+              hasActiveRemediation = true;
+              const pendingKeys = pendingRemedials.map((s: any) => `${s.step_key}(${s.status})`).join(", ");
+              console.log(`[integrity-check] pkg=${packageId.slice(0, 8)} UPSTREAM_PENDING: ${pendingKeys} — staying in building, NOT setting quality_gate_failed`);
+            }
+
+            // Also check for active remediation jobs in the queue
+            if (!hasActiveRemediation) {
+              const remedialJobTypes = remedialStepKeys.map(k => `package_${k}`);
+              // Also check bloom/lf gap fill jobs
+              remedialJobTypes.push("pool_fill_bloom_gaps", "pool_fill_lf_gaps");
+              const { data: activeJobs } = await sb
+                .from("job_queue")
+                .select("job_type, status")
+                .eq("package_id", packageId)
+                .in("job_type", remedialJobTypes)
+                .in("status", ["pending", "processing"]);
+              
+              if (activeJobs && activeJobs.length > 0) {
+                hasActiveRemediation = true;
+                console.log(`[integrity-check] pkg=${packageId.slice(0, 8)} REMEDIATION_JOBS_ACTIVE: ${activeJobs.length} jobs — staying in building`);
+              }
+            }
+          }
+
+          if (hasActiveRemediation) {
+            // Stay in building — upstream work will re-trigger integrity
+            updatePayload.status = "building";
+            try {
+              await sb.from("admin_notifications").insert({
+                title: "ℹ️ Integrity: upstream remediation active — staying in building",
+                body: `${gate.hardFails.length} blocker(s): ${gate.hardFails.slice(0, 3).join("; ")}. Remedial steps/jobs still active.`,
+                category: "quality",
+                severity: "info",
+                entity_type: "course_package",
+                entity_id: packageId,
+              });
+            } catch (_) { /* non-critical */ }
+          } else {
+            // Pre-publish: failing gate is authoritative
+            updatePayload.status = "quality_gate_failed";
+            try {
+              await sb.from("admin_notifications").insert({
+                title: "🛑 COURSE_READY Gate: Release blocked",
+                body: `${gate.hardFails.length} blocker(s): ${gate.hardFails.slice(0, 3).join("; ")}`,
+                category: "quality",
+                severity: "error",
+                entity_type: "course_package",
+                entity_id: packageId,
+              });
+            } catch (_) { /* non-critical */ }
+          }
         }
       }
     } else if (policyViolation) {
