@@ -45,13 +45,13 @@ Deno.serve(async (req) => {
       my_role: m.role,
     })).filter((o: any) => o.id);
 
-    // Determine selected org
-    const orgId = orgIdParam && memberships.some((m: any) => m.organization_id === orgIdParam)
+    // Determine selected org (SSOT: org_memberships uses org_id)
+    const orgId = orgIdParam && memberships.some((m: any) => m.org_id === orgIdParam)
       ? orgIdParam
-      : memberships[0].organization_id;
+      : memberships[0].org_id;
 
-    const myRole = memberships.find((m: any) => m.organization_id === orgId)?.role ?? null;
-    const org = memberships.find((m: any) => m.organization_id === orgId)?.organizations ?? null;
+    const myRole = memberships.find((m: any) => m.org_id === orgId)?.role ?? null;
+    const org = memberships.find((m: any) => m.org_id === orgId)?.organizations ?? null;
 
     // Parallel loads for selected org
     const [entitiesRes, membersRes, learnersRes, seatsRes, privacyRes] = await Promise.all([
@@ -61,9 +61,10 @@ Deno.serve(async (req) => {
         .eq("organization_id", orgId)
         .order("entity_code"),
       supabase
-        .from("organization_members")
-        .select("id, user_id, role, created_at")
-        .eq("organization_id", orgId),
+        .from("org_memberships")
+        .select("id, user_id, role, status, created_at")
+        .eq("org_id", orgId)
+        .eq("status", "active"),
       supabase
         .from("organization_learners")
         .select("id, learner_user_id, entity_id, joined_at, left_at")
