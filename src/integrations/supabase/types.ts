@@ -931,6 +931,51 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_interaction_logs: {
+        Row: {
+          competency_id: string | null
+          created_at: string
+          curriculum_id: string | null
+          id: string
+          lesson_id: string | null
+          model_used: string | null
+          prompt_hash: string | null
+          response_hash: string | null
+          session_id: string | null
+          source_type: string
+          tokens_used: number | null
+          user_id: string
+        }
+        Insert: {
+          competency_id?: string | null
+          created_at?: string
+          curriculum_id?: string | null
+          id?: string
+          lesson_id?: string | null
+          model_used?: string | null
+          prompt_hash?: string | null
+          response_hash?: string | null
+          session_id?: string | null
+          source_type?: string
+          tokens_used?: number | null
+          user_id: string
+        }
+        Update: {
+          competency_id?: string | null
+          created_at?: string
+          curriculum_id?: string | null
+          id?: string
+          lesson_id?: string | null
+          model_used?: string | null
+          prompt_hash?: string | null
+          response_hash?: string | null
+          session_id?: string | null
+          source_type?: string
+          tokens_used?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       ai_quality_gates: {
         Row: {
           actual_score: number | null
@@ -6405,6 +6450,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      compliance_documents: {
+        Row: {
+          content_md: string
+          created_at: string
+          doc_type: string
+          generated_by: string | null
+          id: string
+          pdf_path: string | null
+          title: string
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          content_md?: string
+          created_at?: string
+          doc_type?: string
+          generated_by?: string | null
+          id?: string
+          pdf_path?: string | null
+          title: string
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          content_md?: string
+          created_at?: string
+          doc_type?: string
+          generated_by?: string | null
+          id?: string
+          pdf_path?: string | null
+          title?: string
+          updated_at?: string
+          version?: number
+        }
+        Relationships: []
       }
       compliance_findings: {
         Row: {
@@ -16310,6 +16391,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      data_export_requests: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          id: string
+          request_type: string
+          requested_by: string | null
+          result_json: Json | null
+          status: string
+          target_user_id: string
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          request_type?: string
+          requested_by?: string | null
+          result_json?: Json | null
+          status?: string
+          target_user_id: string
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          request_type?: string
+          requested_by?: string | null
+          result_json?: Json | null
+          status?: string
+          target_user_id?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       datev_export_config: {
         Row: {
@@ -68276,6 +68393,11 @@ export type Database = {
         Returns: Json
       }
       fn_execute_bulk_import: { Args: { p_job_id: string }; Returns: Json }
+      fn_export_user_data: { Args: { p_target_user_id: string }; Returns: Json }
+      fn_generate_compliance_document: {
+        Args: { p_content_md: string; p_doc_type: string; p_title: string }
+        Returns: string
+      }
       fn_get_fi_equivalent_questions: {
         Args: { p_learning_field_id: string }
         Returns: {
@@ -68479,6 +68601,10 @@ export type Database = {
       fn_reconcile_stale_integrity_reports: { Args: never; Returns: Json }
       fn_reconcile_stale_qgf_packages: { Args: never; Returns: Json }
       fn_recover_stale_lock_exhausted: { Args: never; Returns: Json }
+      fn_request_data_deletion: {
+        Args: { p_target_user_id: string }
+        Returns: Json
+      }
       fn_reset_zombie_processing_jobs: { Args: never; Returns: number }
       fn_return_job_to_pending_no_burn: {
         Args: { p_backoff_seconds: number; p_job_id: string; p_reason: string }
