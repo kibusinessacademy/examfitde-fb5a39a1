@@ -308,7 +308,17 @@ export function useExamSimulation(sessionId?: string) {
 
     setLastAnswer(result);
     setShowResult(true);
-  }, [sessionId, currentQuestion, submitAnswer]);
+
+    // Fire-and-forget: emit share event for hard questions answered correctly
+    if (result.is_correct && currentQuestion.difficulty === 'hard' && session) {
+      supabase.rpc('fn_emit_share_event_for_hard_question', {
+        p_user_id: session.user_id,
+        p_exam_question_id: currentQuestion.question_id,
+        p_curriculum_id: session.curriculum_id,
+        p_exam_session_id: sessionId,
+      }).then(() => {});
+    }
+  }, [sessionId, currentQuestion, submitAnswer, session]);
 
   
   const handleNext = useCallback(() => {
