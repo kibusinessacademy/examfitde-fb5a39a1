@@ -33217,6 +33217,59 @@ export type Database = {
           },
         ]
       }
+      partner_content_jobs: {
+        Row: {
+          blueprint_id: string | null
+          competency_id: string | null
+          content_type: string
+          created_at: string
+          hook: string | null
+          id: string
+          output: Json | null
+          partner_id: string
+          platform: string
+          question_id: string | null
+          status: string
+          usage: Json | null
+        }
+        Insert: {
+          blueprint_id?: string | null
+          competency_id?: string | null
+          content_type: string
+          created_at?: string
+          hook?: string | null
+          id?: string
+          output?: Json | null
+          partner_id: string
+          platform: string
+          question_id?: string | null
+          status?: string
+          usage?: Json | null
+        }
+        Update: {
+          blueprint_id?: string | null
+          competency_id?: string | null
+          content_type?: string
+          created_at?: string
+          hook?: string | null
+          id?: string
+          output?: Json | null
+          partner_id?: string
+          platform?: string
+          question_id?: string | null
+          status?: string
+          usage?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_content_jobs_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "partner_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       partner_leads: {
         Row: {
           contact_email: string | null
@@ -69900,6 +69953,32 @@ export type Database = {
         }
         Returns: string
       }
+      create_partner_commission: {
+        Args: {
+          p_attribution_id: string
+          p_buyer_user_id?: string
+          p_gross_amount_eur: number
+          p_metadata?: Json
+          p_net_amount_eur?: number
+          p_order_ref: string
+          p_org_id?: string
+          p_product_id?: string
+          p_source_type?: string
+        }
+        Returns: Json
+      }
+      create_partner_lead: {
+        Args: {
+          p_contact_email?: string
+          p_contact_name?: string
+          p_lead_type?: string
+          p_metadata?: Json
+          p_org_name?: string
+          p_partner_id: string
+          p_source?: string
+        }
+        Returns: Json
+      }
       create_patch_plan_from_finding: {
         Args: {
           p_council_version_id: string
@@ -72572,6 +72651,19 @@ export type Database = {
       resolve_next_step: { Args: { p_package_id: string }; Returns: Json }
       resolve_org_intervention: {
         Args: { p_action?: string; p_intervention_id: string; p_note?: string }
+        Returns: Json
+      }
+      resolve_partner_attribution: {
+        Args: {
+          p_attribution_type?: string
+          p_event_context?: string
+          p_org_id?: string
+          p_ref_code?: string
+          p_session_id?: string
+          p_tracking_link_id?: string
+          p_user_id?: string
+          p_visitor_id?: string
+        }
         Returns: Json
       }
       resolve_pricing_plans: {

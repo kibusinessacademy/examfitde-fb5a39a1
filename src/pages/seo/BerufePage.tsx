@@ -116,7 +116,7 @@ export default function BerufePage() {
         <section className="relative py-12 sm:py-16 overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-accent/10 via-transparent to-primary/10" />
           <div className="container relative z-10">
-            <Breadcrumbs items={[{ label: 'Berufe & Kurse' }]} className="mb-6" />
+            <Breadcrumbs items={[{ label: 'Alle Kurse & Bildungswege' }]} className="mb-6" />
 
             <div className="max-w-3xl">
               <h1 className="text-3xl sm:text-4xl md:text-5xl font-display font-bold mb-4">
@@ -291,13 +291,13 @@ export default function BerufePage() {
           <div className="container text-center">
             <Award className="h-12 w-12 text-primary mx-auto mb-4" />
             <h2 className="text-2xl md:text-3xl font-display font-bold mb-4">
-              Dein Beruf ist nicht dabei?
+              Dein Bildungsweg ist nicht dabei?
             </h2>
             <p className="text-muted-foreground mb-6 max-w-lg mx-auto">
-              Wir erweitern ständig unser Angebot. Kontaktiere uns und wir priorisieren deinen Beruf.
+              Wir erweitern ständig unser Angebot. Kontaktiere uns und wir priorisieren deinen Kurs.
             </p>
             <Button variant="outline" asChild>
-              <a href="mailto:kontakt@examfit.de">Beruf vorschlagen</a>
+              <a href="mailto:kontakt@examfit.de">Kurs vorschlagen</a>
             </Button>
           </div>
         </section>

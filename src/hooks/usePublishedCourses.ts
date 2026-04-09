@@ -16,7 +16,7 @@ export interface PublishedCourseItem {
   kammer?: string;
   duration?: number;
   dqrLevel?: number;
-  popularity: number; // for sorting "beliebteste"
+  popularity: number;
 }
 
 function trackToCategory(track: string): { category: CourseCategory; label: string } {
@@ -40,7 +40,8 @@ function trackToCategory(track: string): { category: CourseCategory; label: stri
 
 /**
  * Fetches ONLY published courses with their metadata.
- * Joins berufe table for Ausbildung courses and uses curricula for the rest.
+ * Uses canonical_title from v_course_display_ssot as slug source.
+ * Popularity derived from real enrollment data.
  */
 export function usePublishedCourses() {
   return useQuery({
@@ -68,17 +69,17 @@ export function usePublishedCourses() {
       if (pkgErr) throw pkgErr;
       if (!packages?.length) return [];
 
-      // Get beruf info for packages that have beruf_id via display SSOT
+      // Get canonical titles + beruf info from display SSOT
       const packageIds = packages.map(p => p.id);
       const { data: ssotData } = await (supabase as any)
         .from('v_course_display_ssot')
-        .select('package_id, beruf_id, beruf_display_name, canonical_title')
+        .select('package_id, beruf_id, beruf_display_name, canonical_title, canonical_title_norm')
         .in('package_id', packageIds);
 
       const ssotMap = new Map<string, any>();
       ssotData?.forEach((s: any) => ssotMap.set(s.package_id, s));
 
-      // Get beruf details for those with beruf_id
+      // Get beruf details
       const berufIds = ssotData
         ?.map((s: any) => s.beruf_id)
         .filter(Boolean) as string[] || [];
@@ -92,17 +93,35 @@ export function usePublishedCourses() {
         berufe?.forEach(b => berufMap.set(b.id, b));
       }
 
-      // Get popularity proxy: count of user_progress or entitlements per curriculum
-      // Simple approach: use published_at as reverse proxy (older = more popular)
-      const results: PublishedCourseItem[] = packages.map((pkg, idx) => {
+      // Get real popularity: enrollment counts per curriculum
+      const curriculumIds = packages.map(p => (p.curricula as any).id);
+      const { data: enrollments } = await (supabase as any)
+        .from('course_enrollments')
+        .select('course_id, courses!inner(curriculum_id)')
+        .in('courses.curriculum_id', curriculumIds);
+
+      // Count enrollments per curriculum
+      const enrollmentCounts = new Map<string, number>();
+      (enrollments || []).forEach((e: any) => {
+        const cid = e.courses?.curriculum_id;
+        if (cid) enrollmentCounts.set(cid, (enrollmentCounts.get(cid) || 0) + 1);
+      });
+
+      const results: PublishedCourseItem[] = packages.map((pkg) => {
         const curriculum = pkg.curricula as any;
         const ssot = ssotMap.get(pkg.id);
         const beruf = ssot?.beruf_id ? berufMap.get(ssot.beruf_id) : null;
         const { category, label } = trackToCategory(curriculum.track || '');
 
+        // Use canonical_title from SSOT as the display + slug source
         const displayTitle = ssot?.canonical_title || pkg.title || curriculum.title;
+        
+        // Use canonical_title_norm if available, else generate from canonical_title
+        const slug = ssot?.canonical_title_norm 
+          ? ssot.canonical_title_norm.toLowerCase().replace(/[^a-z0-9äöüß\s-]/g, '').replace(/\s+/g, '-').substring(0, 80)
+          : generateSlug(displayTitle);
 
-        // Kammer info for Ausbildung
+        // Kammer info
         let kammer: string | undefined;
         if (beruf?.zustaendigkeit) {
           const kammerMap: Record<string, string> = {
@@ -111,10 +130,17 @@ export function usePublishedCourses() {
           kammer = kammerMap[beruf.zustaendigkeit] || beruf.zustaendigkeit;
         }
 
+        // Real popularity from enrollments, with published_at as tiebreaker
+        const enrollCount = enrollmentCounts.get(curriculum.id) || 0;
+        const publishedDays = pkg.published_at 
+          ? Math.floor((Date.now() - new Date(pkg.published_at).getTime()) / 86400000)
+          : 0;
+        const popularity = enrollCount * 100 + Math.min(publishedDays, 365);
+
         return {
           id: curriculum.id,
           packageId: pkg.id,
-          slug: generateSlug(displayTitle),
+          slug,
           title: displayTitle,
           description: beruf?.taetigkeitsprofil || curriculum.description || null,
           category,
@@ -123,7 +149,7 @@ export function usePublishedCourses() {
           kammer,
           duration: beruf?.ausbildungsdauer_monate,
           dqrLevel: beruf?.dqr_niveau,
-          popularity: packages.length - idx, // simple ordering
+          popularity,
         };
       });
 
