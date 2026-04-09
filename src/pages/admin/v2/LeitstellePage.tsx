@@ -335,6 +335,17 @@ export default function LeitstellePage() {
             <div className="text-[11px] text-muted-foreground">Tickets & Alerts</div>
           </div>
         </div>
+        <div
+          className="rounded-xl border border-border bg-card p-4 hover:bg-muted/50 transition-colors flex items-center gap-3 cursor-pointer"
+          onClick={() => setIntegrationsOpen(true)}
+          role="button"
+        >
+          <Globe className="h-5 w-5 text-primary" />
+          <div>
+            <div className="text-sm font-semibold">Integrationen</div>
+            <div className="text-[11px] text-muted-foreground">SSO, LTI, CSV, API</div>
+          </div>
+        </div>
       </div>
 
       <BlockedPackagesSheet open={blockedSheetOpen} onOpenChange={setBlockedSheetOpen} />
@@ -350,6 +361,7 @@ export default function LeitstellePage() {
         <FinancePanel open={financeOpen} onOpenChange={setFinanceOpen} />
         <CrmPanel open={crmOpen} onOpenChange={setCrmOpen} />
         <SupportPanel open={supportOpen} onOpenChange={setSupportOpen} />
+        <IntegrationsPanel open={integrationsOpen} onOpenChange={setIntegrationsOpen} />
       </Suspense>
     </div>
   );
