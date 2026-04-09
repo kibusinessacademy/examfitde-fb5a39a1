@@ -90,6 +90,7 @@ const ImpressumPage = lazyRetry(() => import('@/pages/seo/ImpressumPage'));
 // Admin V2 SSOT Pages
 const AdminV2Layout = lazyRetry(() => import('@/components/admin/v2/AdminV2Layout'));
 const LeitstellePage = lazyRetry(() => import('@/pages/admin/v2/LeitstellePage'));
+const OrgEnterprisePage = lazyRetry(() => import('@/pages/org/OrgEnterprisePage'));
 const KursePage = lazyRetry(() => import('@/pages/admin/v2/KursePage'));
 const QueuePage = lazyRetry(() => import('@/pages/admin/v2/QueuePage'));
 const GrowthPage = lazyRetry(() => import('@/pages/admin/v2/GrowthPage'));
