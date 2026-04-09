@@ -41112,37 +41112,58 @@ export type Database = {
       }
       shuttle_sessions: {
         Row: {
+          average_response_ms: number | null
+          best_streak: number
           correct_count: number
           created_at: string
+          current_streak: number
           curriculum_id: string
           ended_at: string | null
           id: string
+          metadata: Json
+          mode: string
           questions_answered: number
           started_at: string
+          started_from: string | null
           status: string
           user_id: string
+          xp_earned: number
         }
         Insert: {
+          average_response_ms?: number | null
+          best_streak?: number
           correct_count?: number
           created_at?: string
+          current_streak?: number
           curriculum_id: string
           ended_at?: string | null
           id?: string
+          metadata?: Json
+          mode?: string
           questions_answered?: number
           started_at?: string
+          started_from?: string | null
           status?: string
           user_id: string
+          xp_earned?: number
         }
         Update: {
+          average_response_ms?: number | null
+          best_streak?: number
           correct_count?: number
           created_at?: string
+          current_streak?: number
           curriculum_id?: string
           ended_at?: string | null
           id?: string
+          metadata?: Json
+          mode?: string
           questions_answered?: number
           started_at?: string
+          started_from?: string | null
           status?: string
           user_id?: string
+          xp_earned?: number
         }
         Relationships: []
       }
@@ -67981,6 +68002,19 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      fn_get_or_create_shuttle_session: {
+        Args: {
+          p_curriculum_id: string
+          p_mode?: string
+          p_started_from?: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
+      fn_get_shuttle_dashboard_summary: {
+        Args: { p_curriculum_id: string; p_user_id: string }
+        Returns: Json
+      }
       fn_growth_engine_overview: { Args: never; Returns: Json }
       fn_guard_no_rpc_overloads: {
         Args: never
@@ -68110,24 +68144,44 @@ export type Database = {
         Args: { p_backoff_seconds: number; p_job_id: string; p_reason: string }
         Returns: undefined
       }
-      fn_select_next_shuttle_question: {
-        Args: {
-          p_curriculum_id: string
-          p_session_id: string
-          p_user_id: string
-        }
-        Returns: {
-          blueprint_id: string
-          competency_id: string
-          difficulty: string
-          options: Json
-          question_id: string
-          question_text: string
-          question_type: string
-          trap_tags: string[]
-          trap_type: string
-        }[]
-      }
+      fn_select_next_shuttle_question:
+        | {
+            Args: {
+              p_curriculum_id: string
+              p_session_id: string
+              p_user_id: string
+            }
+            Returns: {
+              blueprint_id: string
+              competency_id: string
+              difficulty: string
+              options: Json
+              question_id: string
+              question_text: string
+              question_type: string
+              trap_tags: string[]
+              trap_type: string
+            }[]
+          }
+        | {
+            Args: {
+              p_curriculum_id: string
+              p_mode?: string
+              p_session_id: string
+              p_user_id: string
+            }
+            Returns: {
+              blueprint_id: string
+              competency_id: string
+              difficulty: string
+              options: Json
+              question_id: string
+              question_text: string
+              question_type: string
+              trap_tags: string[]
+              trap_type: string
+            }[]
+          }
       fn_share_fi_core_questions: { Args: never; Returns: Json }
       fn_share_fi_handbook_chapters: { Args: never; Returns: number }
       fn_start_shuttle_session: {

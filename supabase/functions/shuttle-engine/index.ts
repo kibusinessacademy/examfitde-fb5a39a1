@@ -4,14 +4,16 @@ import { getCorsHeaders, handleCorsPreflightRequest, json } from "../_shared/cor
 const LOVABLE_API_URL = "https://api.lovable.dev/v1/chat/completions";
 
 /**
- * Shuttle Engine — Continuous question stream without friction.
+ * Shuttle Engine — Production-ready continuous question stream.
  * 
  * POST /shuttle-engine
  * Actions:
- *   - start:  Create a new shuttle session
- *   - next:   Get next weighted question
- *   - submit: Submit answer, get feedback
- *   - end:    End session
+ *   - start:     Create or resume session (with mode support)
+ *   - next:      Get next weighted question (mode-aware)
+ *   - submit:    Submit answer, get feedback + XP + streak
+ *   - end:       End session with summary
+ *   - explain:   AI-powered mistake explanation
+ *   - dashboard: Get shuttle dashboard summary
  */
 
 Deno.serve(async (req) => {
@@ -33,7 +35,7 @@ Deno.serve(async (req) => {
     if (authError || !user) return json(401, { error: "Unauthorized" }, origin);
 
     const body = await req.json();
-    const { action, curriculum_id, session_id, question_id, selected_answer } = body;
+    const { action } = body;
 
     if (!action) return json(400, { error: "Missing action" }, origin);
 
@@ -42,40 +44,47 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // ── START ──
+    // ── START (with mode + resume) ──
     if (action === "start") {
+      const { curriculum_id, mode = "adaptive", started_from } = body;
       if (!curriculum_id) return json(400, { error: "Missing curriculum_id" }, origin);
 
-      const { data: session, error } = await serviceClient
-        .from("shuttle_sessions")
-        .insert({
-          user_id: user.id,
-          curriculum_id,
-        })
-        .select("id, started_at")
-        .single();
+      const validModes = ["adaptive", "random", "weakness", "speed", "exam_lite"];
+      const effectiveMode = validModes.includes(mode) ? mode : "adaptive";
+
+      // Use get-or-create RPC
+      const { data: session, error } = await serviceClient.rpc("fn_get_or_create_shuttle_session", {
+        p_user_id: user.id,
+        p_curriculum_id: curriculum_id,
+        p_mode: effectiveMode,
+        p_started_from: started_from || null,
+      });
 
       if (error) throw error;
 
-      // Record learning event
-      await serviceClient.from("learning_events").insert({
-        user_id: user.id,
-        event_type: "shuttle_started",
-        curriculum_id,
-        payload: { session_id: session.id },
-      });
+      // Record learning event only for new sessions
+      if (!session.resumed) {
+        await serviceClient.from("learning_events").insert({
+          user_id: user.id,
+          event_type: "shuttle_started",
+          curriculum_id,
+          payload: { session_id: session.id, mode: effectiveMode },
+        }).catch(() => {});
+      }
 
       return json(200, { session }, origin);
     }
 
-    // ── NEXT ──
+    // ── NEXT (mode-aware) ──
     if (action === "next") {
+      const { curriculum_id, session_id, mode } = body;
       if (!curriculum_id) return json(400, { error: "Missing curriculum_id" }, origin);
 
-      const { data, error } = await serviceClient.rpc("get_shuttle_next_question", {
+      const { data, error } = await serviceClient.rpc("fn_select_next_shuttle_question", {
         p_user_id: user.id,
         p_curriculum_id: curriculum_id,
         p_session_id: session_id || null,
+        p_mode: mode || "adaptive",
       });
 
       if (error) throw error;
@@ -85,7 +94,6 @@ Deno.serve(async (req) => {
       }
 
       const q = data[0];
-      // Strip correct_answer from response — client should not know it
       return json(200, {
         question: {
           id: q.question_id,
@@ -99,114 +107,71 @@ Deno.serve(async (req) => {
       }, origin);
     }
 
-    // ── SUBMIT ──
+    // ── SUBMIT (with XP + streak from RPC) ──
     if (action === "submit") {
+      const { session_id, question_id, selected_answer, response_time_ms, curriculum_id } = body;
       if (!session_id || !question_id || selected_answer === undefined) {
         return json(400, { error: "Missing session_id, question_id, or selected_answer" }, origin);
       }
 
-      // Fetch the question to validate answer
-      const { data: question, error: qErr } = await serviceClient
-        .from("exam_questions")
-        .select("id, correct_answer, explanation, trap_tags, distractor_meta, competency_id, blueprint_id, options")
-        .eq("id", question_id)
-        .single();
-
-      if (qErr || !question) return json(404, { error: "Question not found" }, origin);
-
-      const isCorrect = question.correct_answer === selected_answer;
-
-      // Insert shuttle event
-      const { error: evErr } = await serviceClient.from("shuttle_events").insert({
-        session_id,
-        question_id,
-        is_correct: isCorrect,
-        response_time_ms: body.response_time_ms || null,
-      });
-      if (evErr) throw evErr;
-
-      // Update session counters
-      await serviceClient.rpc("increment_shuttle_counters" as any, {
+      // Use the RPC which handles everything transactionally
+      const { data: result, error } = await serviceClient.rpc("fn_submit_shuttle_answer", {
+        p_user_id: user.id,
         p_session_id: session_id,
-        p_is_correct: isCorrect,
-      }).catch(() => {
-        // Fallback: manual update if RPC doesn't exist yet
-        return serviceClient
-          .from("shuttle_sessions")
-          .update({
-            questions_answered: undefined, // will be handled below
-          })
-          .eq("id", session_id);
+        p_question_id: question_id,
+        p_selected_option_indexes: JSON.stringify([selected_answer]),
+        p_response_ms: response_time_ms || null,
       });
 
-      // Manual counter increment as fallback
-      const { data: sess } = await serviceClient
-        .from("shuttle_sessions")
-        .select("questions_answered, correct_count, curriculum_id")
-        .eq("id", session_id)
-        .single();
+      if (error) throw error;
 
-      if (sess) {
-        await serviceClient
-          .from("shuttle_sessions")
-          .update({
-            questions_answered: (sess.questions_answered || 0) + 1,
-            correct_count: (sess.correct_count || 0) + (isCorrect ? 1 : 0),
-          })
-          .eq("id", session_id);
+      // Check for duplicate
+      if (result?.duplicate) {
+        return json(409, { error: "Already answered", duplicate: true }, origin);
       }
 
       // Record learning event
       await serviceClient.from("learning_events").insert({
         user_id: user.id,
         event_type: "question_answered",
-        curriculum_id: sess?.curriculum_id || null,
-        competency_id: question.competency_id || null,
-        score: isCorrect ? 1 : 0,
+        curriculum_id: curriculum_id || null,
+        competency_id: null,
+        score: result.is_correct ? 1 : 0,
         payload: {
           source: "shuttle",
           session_id,
           question_id,
-          is_correct: isCorrect,
+          is_correct: result.is_correct,
+          xp_awarded: result.xp_awarded,
+          streak: result.streak,
         },
-      });
+      }).catch(() => {});
 
-      // Build feedback response
-      const feedback: Record<string, unknown> = {
-        is_correct: isCorrect,
-        correct_answer: question.correct_answer,
-        explanation: question.explanation,
-      };
-
-      if (!isCorrect) {
-        feedback.trap_tags = question.trap_tags;
-        feedback.distractor_meta = question.distractor_meta;
-        // Include the correct option text for clarity
-        if (question.options && Array.isArray(question.options)) {
-          feedback.correct_option_text = (question.options as any[])[question.correct_answer];
-        }
-      }
-
-      return json(200, { feedback }, origin);
+      return json(200, { feedback: result }, origin);
     }
 
     // ── END ──
     if (action === "end") {
+      const { session_id } = body;
       if (!session_id) return json(400, { error: "Missing session_id" }, origin);
 
       const { data: sess } = await serviceClient
         .from("shuttle_sessions")
-        .select("questions_answered, correct_count, curriculum_id")
+        .select("questions_answered, correct_count, curriculum_id, current_streak, best_streak, xp_earned, mode")
         .eq("id", session_id)
         .single();
 
       await serviceClient
         .from("shuttle_sessions")
-        .update({ ended_at: new Date().toISOString() })
+        .update({ ended_at: new Date().toISOString(), status: "completed" })
         .eq("id", session_id);
 
-      // Record completion event
+      // Update total_sessions in user stats
       if (sess) {
+        await serviceClient.rpc("fn_complete_shuttle_session", {
+          p_session_id: session_id,
+        }).catch(() => {});
+
         await serviceClient.from("learning_events").insert({
           user_id: user.id,
           event_type: "shuttle_completed",
@@ -216,10 +181,12 @@ Deno.serve(async (req) => {
             questions_answered: sess.questions_answered,
             correct_count: sess.correct_count,
             accuracy: sess.questions_answered > 0
-              ? Math.round((sess.correct_count / sess.questions_answered) * 100)
-              : 0,
+              ? Math.round((sess.correct_count / sess.questions_answered) * 100) : 0,
+            best_streak: sess.best_streak,
+            xp_earned: sess.xp_earned,
+            mode: sess.mode,
           },
-        });
+        }).catch(() => {});
       }
 
       return json(200, {
@@ -227,20 +194,34 @@ Deno.serve(async (req) => {
           questions_answered: sess?.questions_answered || 0,
           correct_count: sess?.correct_count || 0,
           accuracy: sess?.questions_answered
-            ? Math.round(((sess?.correct_count || 0) / sess.questions_answered) * 100)
-            : 0,
+            ? Math.round(((sess?.correct_count || 0) / sess.questions_answered) * 100) : 0,
+          best_streak: sess?.best_streak || 0,
+          xp_earned: sess?.xp_earned || 0,
+          mode: sess?.mode || "adaptive",
         },
       }, origin);
     }
 
-    // ── EXPLAIN ── (Phase 3: Explain My Mistake)
+    // ── DASHBOARD ──
+    if (action === "dashboard") {
+      const { curriculum_id } = body;
+      if (!curriculum_id) return json(400, { error: "Missing curriculum_id" }, origin);
+
+      const { data, error } = await serviceClient.rpc("fn_get_shuttle_dashboard_summary", {
+        p_user_id: user.id,
+        p_curriculum_id: curriculum_id,
+      });
+
+      if (error) throw error;
+      return json(200, { summary: data }, origin);
+    }
+
+    // ── EXPLAIN (AI-powered mistake explanation) ──
     if (action === "explain") {
+      const { question_id, selected_answer } = body;
       if (!question_id) return json(400, { error: "Missing question_id" }, origin);
+      if (selected_answer === undefined) return json(400, { error: "Missing selected_answer" }, origin);
 
-      const selectedIdx = body.selected_answer;
-      if (selectedIdx === undefined) return json(400, { error: "Missing selected_answer" }, origin);
-
-      // Fetch question details
       const { data: question, error: qErr } = await serviceClient
         .from("exam_questions")
         .select("id, question_text, correct_answer, explanation, trap_tags, distractor_meta, options, competency_id")
@@ -249,13 +230,11 @@ Deno.serve(async (req) => {
 
       if (qErr || !question) return json(404, { error: "Question not found" }, origin);
 
-      // Build context for AI
       const opts = question.options as any[];
-      const selectedText = opts?.[selectedIdx] || `Option ${selectedIdx}`;
+      const selectedText = opts?.[selected_answer] || `Option ${selected_answer}`;
       const correctText = opts?.[question.correct_answer] || `Option ${question.correct_answer}`;
       const trapInfo = question.trap_tags?.length
-        ? `Fallen-Typen: ${(question.trap_tags as string[]).join(", ")}`
-        : "";
+        ? `Fallen-Typen: ${(question.trap_tags as string[]).join(", ")}` : "";
 
       const prompt = `Du bist ein freundlicher, präziser Prüfungscoach für IHK-Prüfungen.
 
@@ -299,12 +278,10 @@ Antworte auf Deutsch, kompakt (max 150 Wörter), motivierend. Nutze ggf. Emojis 
 
         const aiData = await aiResp.json();
         const explanation = aiData.choices?.[0]?.message?.content || "Keine Erklärung verfügbar.";
-
         return json(200, { explanation, trap_tags: question.trap_tags || [] }, origin);
 
       } catch (aiErr) {
         console.error("[shuttle] explain error:", aiErr);
-        // Fallback to static explanation
         return json(200, {
           explanation: question.explanation || "Leider ist keine detaillierte Erklärung verfügbar.",
           trap_tags: question.trap_tags || [],
