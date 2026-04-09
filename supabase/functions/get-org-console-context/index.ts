@@ -27,10 +27,12 @@ Deno.serve(async (req) => {
     const orgIdParam = url.searchParams.get("organization_id");
 
     // Get user's memberships WITH org details in one query (no N+1)
+    // SSOT: use org_memberships as the single source of truth
     const { data: memberships, error: mErr } = await supabase
-      .from("organization_members")
-      .select("organization_id, role, organizations:organization_id(id, name, org_type, fiscal_year_start_month, default_report_scope)")
-      .eq("user_id", userId);
+      .from("org_memberships")
+      .select("org_id, role, status, organizations:org_id(id, name, org_type, fiscal_year_start_month, default_report_scope)")
+      .eq("user_id", userId)
+      .eq("status", "active");
 
     if (mErr) return json(500, { error: "memberships_failed", details: mErr.message }, origin);
     if (!memberships || memberships.length === 0) return json(200, { orgs: [], selected: null }, origin);

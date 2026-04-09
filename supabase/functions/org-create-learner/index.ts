@@ -40,12 +40,13 @@ Deno.serve(async (req) => {
     const learner_user_id = isUuid(body.learner_user_id) ? body.learner_user_id : null;
     if (!organization_id || !learner_user_id) return json(400, { error: "Missing organization_id / learner_user_id" }, origin);
 
-    // Verify OWNER or MANAGER role
+    // Verify OWNER or MANAGER role (SSOT: org_memberships)
     const { data: membership } = await supabase
-      .from("organization_members")
+      .from("org_memberships")
       .select("role")
       .eq("user_id", userId)
-      .eq("organization_id", organization_id)
+      .eq("org_id", organization_id)
+      .eq("status", "active")
       .maybeSingle();
 
     if (!membership || !["OWNER", "MANAGER"].includes(membership.role)) {
