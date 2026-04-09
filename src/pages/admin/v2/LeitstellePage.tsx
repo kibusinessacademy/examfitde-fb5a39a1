@@ -403,6 +403,8 @@ export default function LeitstellePage() {
         <IntegrationsPanel open={integrationsOpen} onOpenChange={setIntegrationsOpen} />
         <CompliancePanel open={complianceOpen} onOpenChange={setComplianceOpen} />
       </Suspense>
+      </TabsContent>
+      </Tabs>
     </div>
   );
 }
