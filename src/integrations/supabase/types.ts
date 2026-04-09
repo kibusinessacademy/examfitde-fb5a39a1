@@ -40776,6 +40776,158 @@ export type Database = {
           },
         ]
       }
+      seo_content_audits: {
+        Row: {
+          audited_at: string | null
+          cannibalization_risk: Json | null
+          completeness_score: number | null
+          content_id: string
+          content_title: string | null
+          content_type: string
+          content_url: string | null
+          conversion_score: number | null
+          created_at: string | null
+          id: string
+          intent_match_score: number | null
+          interlink_score: number | null
+          issues: Json | null
+          overall_score: number | null
+          recommendations: Json | null
+          refresh_risk_score: number | null
+          schema_recommendation: string | null
+          seo_score: number | null
+        }
+        Insert: {
+          audited_at?: string | null
+          cannibalization_risk?: Json | null
+          completeness_score?: number | null
+          content_id: string
+          content_title?: string | null
+          content_type: string
+          content_url?: string | null
+          conversion_score?: number | null
+          created_at?: string | null
+          id?: string
+          intent_match_score?: number | null
+          interlink_score?: number | null
+          issues?: Json | null
+          overall_score?: number | null
+          recommendations?: Json | null
+          refresh_risk_score?: number | null
+          schema_recommendation?: string | null
+          seo_score?: number | null
+        }
+        Update: {
+          audited_at?: string | null
+          cannibalization_risk?: Json | null
+          completeness_score?: number | null
+          content_id?: string
+          content_title?: string | null
+          content_type?: string
+          content_url?: string | null
+          conversion_score?: number | null
+          created_at?: string | null
+          id?: string
+          intent_match_score?: number | null
+          interlink_score?: number | null
+          issues?: Json | null
+          overall_score?: number | null
+          recommendations?: Json | null
+          refresh_risk_score?: number | null
+          schema_recommendation?: string | null
+          seo_score?: number | null
+        }
+        Relationships: []
+      }
+      seo_content_briefs: {
+        Row: {
+          assigned_to: string | null
+          content_type: string
+          created_at: string | null
+          cta_text: string | null
+          cta_type: string | null
+          entities: string[] | null
+          faq_suggestions: Json | null
+          funnel_stage: string | null
+          generated_brief_md: string | null
+          id: string
+          internal_link_targets: Json | null
+          json_ld_recommendation: string | null
+          keyword_id: string | null
+          persona: string | null
+          primary_angle: string | null
+          recommended_headings: Json | null
+          relevant_features: string[] | null
+          search_intent: string | null
+          secondary_keywords: string[] | null
+          status: string | null
+          target_publish_date: string | null
+          target_word_count: number | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          assigned_to?: string | null
+          content_type: string
+          created_at?: string | null
+          cta_text?: string | null
+          cta_type?: string | null
+          entities?: string[] | null
+          faq_suggestions?: Json | null
+          funnel_stage?: string | null
+          generated_brief_md?: string | null
+          id?: string
+          internal_link_targets?: Json | null
+          json_ld_recommendation?: string | null
+          keyword_id?: string | null
+          persona?: string | null
+          primary_angle?: string | null
+          recommended_headings?: Json | null
+          relevant_features?: string[] | null
+          search_intent?: string | null
+          secondary_keywords?: string[] | null
+          status?: string | null
+          target_publish_date?: string | null
+          target_word_count?: number | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          assigned_to?: string | null
+          content_type?: string
+          created_at?: string | null
+          cta_text?: string | null
+          cta_type?: string | null
+          entities?: string[] | null
+          faq_suggestions?: Json | null
+          funnel_stage?: string | null
+          generated_brief_md?: string | null
+          id?: string
+          internal_link_targets?: Json | null
+          json_ld_recommendation?: string | null
+          keyword_id?: string | null
+          persona?: string | null
+          primary_angle?: string | null
+          recommended_headings?: Json | null
+          relevant_features?: string[] | null
+          search_intent?: string | null
+          secondary_keywords?: string[] | null
+          status?: string | null
+          target_publish_date?: string | null
+          target_word_count?: number | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "seo_content_briefs_keyword_id_fkey"
+            columns: ["keyword_id"]
+            isOneToOne: false
+            referencedRelation: "seo_keywords"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       seo_content_pages: {
         Row: {
           content_md: string | null
@@ -40824,6 +40976,60 @@ export type Database = {
           target_audience?: string | null
           title?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      seo_discovery_state: {
+        Row: {
+          canonical_url: string
+          created_at: string | null
+          discovery_health_score: number | null
+          drift_issues: Json | null
+          id: string
+          in_feed: boolean | null
+          in_sitemap: boolean | null
+          is_indexable: boolean | null
+          last_discovery_hash: string | null
+          last_feed_refresh_at: string | null
+          last_sitemap_refresh_at: string | null
+          last_submitted_via_indexnow_at: string | null
+          source_id: string
+          source_type: string
+          updated_at: string | null
+        }
+        Insert: {
+          canonical_url: string
+          created_at?: string | null
+          discovery_health_score?: number | null
+          drift_issues?: Json | null
+          id?: string
+          in_feed?: boolean | null
+          in_sitemap?: boolean | null
+          is_indexable?: boolean | null
+          last_discovery_hash?: string | null
+          last_feed_refresh_at?: string | null
+          last_sitemap_refresh_at?: string | null
+          last_submitted_via_indexnow_at?: string | null
+          source_id: string
+          source_type: string
+          updated_at?: string | null
+        }
+        Update: {
+          canonical_url?: string
+          created_at?: string | null
+          discovery_health_score?: number | null
+          drift_issues?: Json | null
+          id?: string
+          in_feed?: boolean | null
+          in_sitemap?: boolean | null
+          is_indexable?: boolean | null
+          last_discovery_hash?: string | null
+          last_feed_refresh_at?: string | null
+          last_sitemap_refresh_at?: string | null
+          last_submitted_via_indexnow_at?: string | null
+          source_id?: string
+          source_type?: string
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -41087,6 +41293,186 @@ export type Database = {
           },
         ]
       }
+      seo_internal_link_suggestions: {
+        Row: {
+          anchor_text: string | null
+          created_at: string | null
+          id: string
+          link_type: string | null
+          priority: number | null
+          reason: string | null
+          relevance_score: number | null
+          source_title: string | null
+          source_url: string
+          status: string | null
+          target_title: string | null
+          target_url: string
+          updated_at: string | null
+        }
+        Insert: {
+          anchor_text?: string | null
+          created_at?: string | null
+          id?: string
+          link_type?: string | null
+          priority?: number | null
+          reason?: string | null
+          relevance_score?: number | null
+          source_title?: string | null
+          source_url: string
+          status?: string | null
+          target_title?: string | null
+          target_url: string
+          updated_at?: string | null
+        }
+        Update: {
+          anchor_text?: string | null
+          created_at?: string | null
+          id?: string
+          link_type?: string | null
+          priority?: number | null
+          reason?: string | null
+          relevance_score?: number | null
+          source_title?: string | null
+          source_url?: string
+          status?: string | null
+          target_title?: string | null
+          target_url?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      seo_keyword_clusters: {
+        Row: {
+          business_priority: number | null
+          cluster_name: string
+          created_at: string | null
+          id: string
+          notes: string | null
+          parent_topic: string | null
+          persona: string | null
+          pillar_page_url: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          business_priority?: number | null
+          cluster_name: string
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          parent_topic?: string | null
+          persona?: string | null
+          pillar_page_url?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          business_priority?: number | null
+          cluster_name?: string
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          parent_topic?: string | null
+          persona?: string | null
+          pillar_page_url?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      seo_keywords: {
+        Row: {
+          business_value: number | null
+          cluster_id: string | null
+          content_gap_score: number | null
+          conversion_value: number | null
+          created_at: string | null
+          curriculum_fit: number | null
+          difficulty: number | null
+          entity_terms: string[] | null
+          funnel_stage: string | null
+          id: string
+          intent_type: string | null
+          keyword: string
+          notes: string | null
+          opportunity_score: number | null
+          parent_keyword_id: string | null
+          persona: string | null
+          search_volume: number | null
+          seasonality: string | null
+          secondary_keywords: string[] | null
+          status: string | null
+          target_page_type: string | null
+          target_url: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          business_value?: number | null
+          cluster_id?: string | null
+          content_gap_score?: number | null
+          conversion_value?: number | null
+          created_at?: string | null
+          curriculum_fit?: number | null
+          difficulty?: number | null
+          entity_terms?: string[] | null
+          funnel_stage?: string | null
+          id?: string
+          intent_type?: string | null
+          keyword: string
+          notes?: string | null
+          opportunity_score?: number | null
+          parent_keyword_id?: string | null
+          persona?: string | null
+          search_volume?: number | null
+          seasonality?: string | null
+          secondary_keywords?: string[] | null
+          status?: string | null
+          target_page_type?: string | null
+          target_url?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          business_value?: number | null
+          cluster_id?: string | null
+          content_gap_score?: number | null
+          conversion_value?: number | null
+          created_at?: string | null
+          curriculum_fit?: number | null
+          difficulty?: number | null
+          entity_terms?: string[] | null
+          funnel_stage?: string | null
+          id?: string
+          intent_type?: string | null
+          keyword?: string
+          notes?: string | null
+          opportunity_score?: number | null
+          parent_keyword_id?: string | null
+          persona?: string | null
+          search_volume?: number | null
+          seasonality?: string | null
+          secondary_keywords?: string[] | null
+          status?: string | null
+          target_page_type?: string | null
+          target_url?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "seo_keywords_cluster_id_fkey"
+            columns: ["cluster_id"]
+            isOneToOne: false
+            referencedRelation: "seo_keyword_clusters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "seo_keywords_parent_keyword_id_fkey"
+            columns: ["parent_keyword_id"]
+            isOneToOne: false
+            referencedRelation: "seo_keywords"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       seo_redirects: {
         Row: {
           created_at: string
@@ -41120,6 +41506,51 @@ export type Database = {
           status_code?: number
           to_path?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      seo_refresh_queue: {
+        Row: {
+          completed_at: string | null
+          content_id: string
+          content_title: string | null
+          content_type: string
+          content_url: string | null
+          created_at: string | null
+          id: string
+          priority: number | null
+          reason: string
+          status: string | null
+          suggested_actions: Json | null
+          updated_at: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          content_id: string
+          content_title?: string | null
+          content_type: string
+          content_url?: string | null
+          created_at?: string | null
+          id?: string
+          priority?: number | null
+          reason: string
+          status?: string | null
+          suggested_actions?: Json | null
+          updated_at?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          content_id?: string
+          content_title?: string | null
+          content_type?: string
+          content_url?: string | null
+          created_at?: string | null
+          id?: string
+          priority?: number | null
+          reason?: string
+          status?: string | null
+          suggested_actions?: Json | null
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -41165,6 +41596,60 @@ export type Database = {
           robots_directives?: string | null
           structured_data?: Json | null
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      seo_submission_logs: {
+        Row: {
+          action: string
+          created_at: string | null
+          error_message: string | null
+          http_status: number | null
+          id: string
+          provider: string
+          request_payload: Json | null
+          response_payload: Json | null
+          retry_count: number | null
+          source_id: string | null
+          source_type: string
+          status: string | null
+          submitted_at: string | null
+          updated_at: string | null
+          url: string
+        }
+        Insert: {
+          action: string
+          created_at?: string | null
+          error_message?: string | null
+          http_status?: number | null
+          id?: string
+          provider: string
+          request_payload?: Json | null
+          response_payload?: Json | null
+          retry_count?: number | null
+          source_id?: string | null
+          source_type: string
+          status?: string | null
+          submitted_at?: string | null
+          updated_at?: string | null
+          url: string
+        }
+        Update: {
+          action?: string
+          created_at?: string | null
+          error_message?: string | null
+          http_status?: number | null
+          id?: string
+          provider?: string
+          request_payload?: Json | null
+          response_payload?: Json | null
+          retry_count?: number | null
+          source_id?: string | null
+          source_type?: string
+          status?: string | null
+          submitted_at?: string | null
+          updated_at?: string | null
+          url?: string
         }
         Relationships: []
       }
