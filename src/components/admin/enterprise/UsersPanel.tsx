@@ -67,7 +67,7 @@ export default function UsersPanel() {
 
       {isLoading ? (
         <div className="space-y-2">{[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-12" />)}</div>
-      ) : !users?.length ? (
+      ) : !users?.users?.length ? (
         <EmptyState
           icon={<Users className="h-6 w-6 text-muted-foreground" />}
           title="Noch keine Nutzer gefunden"
@@ -89,7 +89,7 @@ export default function UsersPanel() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {users.map(user => (
+              {users.users.map(user => (
                 <TableRow
                   key={user.user_id}
                   className="cursor-pointer"

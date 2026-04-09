@@ -78,7 +78,7 @@ export default function LicensesPanel() {
                   <TableCell className="py-2"><SeatUsageBar used={lic.seats_used} total={lic.seats_total} /></TableCell>
                   <TableCell className="py-2 text-xs text-muted-foreground hidden md:table-cell">{formatDate(lic.starts_at)} – {formatDate(lic.ends_at)}</TableCell>
                   <TableCell className="py-2 hidden md:table-cell"><StatusBadge status={lic.status} /></TableCell>
-                  <TableCell className="py-2 hidden lg:table-cell">{lic.source_type ? <SourceBadge source={lic.source_type} /> : '–'}</TableCell>
+                  <TableCell className="py-2 hidden lg:table-cell">{lic.contract_ref ? <SourceBadge source={lic.contract_ref} /> : '–'}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -100,7 +100,7 @@ export default function LicensesPanel() {
                   <div className="flex justify-between"><span className="text-muted-foreground">Produkt</span><span>{selected.product_title || '–'}</span></div>
                   <div className="flex justify-between"><span className="text-muted-foreground">Lizenz-ID</span><span className="font-mono text-[10px]">{selected.license_id.slice(0, 8)}</span></div>
                   <div className="flex justify-between"><span className="text-muted-foreground">Status</span><StatusBadge status={selected.status} /></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Quelle</span><span>{selected.source_type || '–'}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Quelle</span><span>{selected.contract_ref || '–'}</span></div>
                   <div className="flex justify-between"><span className="text-muted-foreground">Laufzeit</span><span>{formatDate(selected.starts_at)} – {formatDate(selected.ends_at)}</span></div>
                 </CardContent>
               </Card>
@@ -124,11 +124,11 @@ export default function LicensesPanel() {
                   <SeatUsageBar used={selected.seats_used} total={selected.seats_total} />
                 </CardContent>
               </Card>
-              {selected.source_ref && (
+              {selected.contract_ref && (
                 <Card>
                   <CardHeader className="pb-2"><CardTitle className="text-sm">Referenz</CardTitle></CardHeader>
                   <CardContent>
-                    <p className="text-xs font-mono text-muted-foreground break-all">{selected.source_ref}</p>
+                    <p className="text-xs font-mono text-muted-foreground break-all">{selected.contract_ref}</p>
                   </CardContent>
                 </Card>
               )}
