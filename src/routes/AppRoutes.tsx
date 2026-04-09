@@ -153,6 +153,7 @@ const AppRoutes = () => {
 
         {/* ExamFit@work Public Routes */}
         <Route path="/work" element={<WorkHomePage />} />
+        <Route path="/partner" element={<PartnerDashboardPage />} />
         <Route path="/work/success" element={<WorkSuccessPage />} />
         <Route path="/work/buy/:productId" element={<WorkBuyPage />} />
         <Route path="/work/bundles/:bundleId" element={<WorkBundleBuyPage />} />
