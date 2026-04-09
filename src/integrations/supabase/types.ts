@@ -30177,45 +30177,6 @@ export type Database = {
           },
         ]
       }
-      organization_members: {
-        Row: {
-          created_at: string
-          id: string
-          organization_id: string
-          role: Database["public"]["Enums"]["org_member_role"]
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          organization_id: string
-          role: Database["public"]["Enums"]["org_member_role"]
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          organization_id?: string
-          role?: Database["public"]["Enums"]["org_member_role"]
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "organization_members_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "organization_members_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "v_org_license_overview"
-            referencedColumns: ["org_id"]
-          },
-        ]
-      }
       organization_seats: {
         Row: {
           auto_renew: boolean
@@ -64904,54 +64865,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "products"
             referencedColumns: ["id"]
-          },
-        ]
-      }
-      v_org_members_bridge: {
-        Row: {
-          created_at: string | null
-          external_id: string | null
-          id: string | null
-          organization_id: string | null
-          role: string | null
-          source_type: string | null
-          status: string | null
-          user_id: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          external_id?: string | null
-          id?: string | null
-          organization_id?: string | null
-          role?: string | null
-          source_type?: string | null
-          status?: string | null
-          user_id?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          external_id?: string | null
-          id?: string | null
-          organization_id?: string | null
-          role?: string | null
-          source_type?: string | null
-          status?: string | null
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "org_memberships_org_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "org_memberships_org_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "v_org_license_overview"
-            referencedColumns: ["org_id"]
           },
         ]
       }
