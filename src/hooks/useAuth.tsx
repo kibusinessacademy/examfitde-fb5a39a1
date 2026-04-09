@@ -1,6 +1,7 @@
 import { useState, useEffect, createContext, useContext, ReactNode, useRef, useCallback } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { linkPartnerAttributionToUser } from '@/lib/tracking/partnerAttribution';
 
 type AppRole = 'admin' | 'teacher' | 'learner';
 
@@ -87,6 +88,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setSession(nextSession);
       setUser(nextUser);
+
+      // Link partner attribution to authenticated user
+      if (nextUser?.id) {
+        linkPartnerAttributionToUser(nextUser.id).catch(() => {});
+      }
 
       const loaded = await loadRoles(nextUser?.id ?? null);
       if (!isMounted) return;

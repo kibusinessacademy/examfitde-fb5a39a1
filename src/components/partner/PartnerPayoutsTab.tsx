@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { usePartnerPayouts, usePartnerDashboardSummary, useRequestPartnerPayout } from '@/hooks/usePartnerSystem';
+import { usePartnerPayouts, usePartnerAvailableBalance, useRequestPartnerPayout } from '@/hooks/usePartnerSystem';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Wallet } from 'lucide-react';
 import { toast } from 'sonner';
@@ -20,10 +20,9 @@ const statusConfig: Record<string, { label: string; variant: 'default' | 'second
 
 export function PartnerPayoutsTab({ partnerId }: Props) {
   const { data: payouts, isLoading } = usePartnerPayouts(partnerId);
-  const { data: summary } = usePartnerDashboardSummary(partnerId);
+  const { data: availableAmount = 0 } = usePartnerAvailableBalance(partnerId);
   const requestPayout = useRequestPartnerPayout();
 
-  const availableAmount = summary?.approved_commissions_eur || 0;
   const canRequest = availableAmount >= MIN_PAYOUT;
 
   const handleRequestPayout = async () => {

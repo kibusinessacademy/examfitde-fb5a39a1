@@ -32928,54 +32928,86 @@ export type Database = {
         Row: {
           attribution_status: string
           attribution_type: string
+          click_event_id: string | null
+          consumed_at: string | null
+          cookie_expires_at: string | null
           created_at: string
+          expired_at: string | null
           first_touch_at: string
           id: string
           last_touch_at: string
           metadata_json: Json | null
           org_id: string | null
           partner_id: string
+          replaced_by_id: string | null
           source_campaign: string | null
           source_tracking_link_id: string | null
+          touch_model: string
           updated_at: string
           user_id: string | null
         }
         Insert: {
           attribution_status?: string
           attribution_type: string
+          click_event_id?: string | null
+          consumed_at?: string | null
+          cookie_expires_at?: string | null
           created_at?: string
+          expired_at?: string | null
           first_touch_at?: string
           id?: string
           last_touch_at?: string
           metadata_json?: Json | null
           org_id?: string | null
           partner_id: string
+          replaced_by_id?: string | null
           source_campaign?: string | null
           source_tracking_link_id?: string | null
+          touch_model?: string
           updated_at?: string
           user_id?: string | null
         }
         Update: {
           attribution_status?: string
           attribution_type?: string
+          click_event_id?: string | null
+          consumed_at?: string | null
+          cookie_expires_at?: string | null
           created_at?: string
+          expired_at?: string | null
           first_touch_at?: string
           id?: string
           last_touch_at?: string
           metadata_json?: Json | null
           org_id?: string | null
           partner_id?: string
+          replaced_by_id?: string | null
           source_campaign?: string | null
           source_tracking_link_id?: string | null
+          touch_model?: string
           updated_at?: string
           user_id?: string | null
         }
         Relationships: [
           {
+            foreignKeyName: "partner_attributions_click_event_id_fkey"
+            columns: ["click_event_id"]
+            isOneToOne: false
+            referencedRelation: "partner_click_events"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "partner_attributions_partner_id_fkey"
             columns: ["partner_id"]
             isOneToOne: false
             referencedRelation: "partner_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_attributions_replaced_by_id_fkey"
+            columns: ["replaced_by_id"]
+            isOneToOne: false
+            referencedRelation: "partner_attributions"
             referencedColumns: ["id"]
           },
           {
@@ -33156,6 +33188,7 @@ export type Database = {
           paid_at: string | null
           partner_id: string
           product_id: string | null
+          source_ref: string | null
           updated_at: string
         }
         Insert: {
@@ -33177,6 +33210,7 @@ export type Database = {
           paid_at?: string | null
           partner_id: string
           product_id?: string | null
+          source_ref?: string | null
           updated_at?: string
         }
         Update: {
@@ -33198,6 +33232,7 @@ export type Database = {
           paid_at?: string | null
           partner_id?: string
           product_id?: string | null
+          source_ref?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -33324,6 +33359,7 @@ export type Database = {
         Row: {
           approved_amount_eur: number | null
           approved_at: string | null
+          commission_snapshot_ids: string[] | null
           created_at: string
           id: string
           notes: string | null
@@ -33338,6 +33374,7 @@ export type Database = {
         Insert: {
           approved_amount_eur?: number | null
           approved_at?: string | null
+          commission_snapshot_ids?: string[] | null
           created_at?: string
           id?: string
           notes?: string | null
@@ -33352,6 +33389,7 @@ export type Database = {
         Update: {
           approved_amount_eur?: number | null
           approved_at?: string | null
+          commission_snapshot_ids?: string[] | null
           created_at?: string
           id?: string
           notes?: string | null
@@ -70326,6 +70364,21 @@ export type Database = {
         Args: { p_curriculum_id: string }
         Returns: Json
       }
+      fn_create_partner_commission: {
+        Args: {
+          _attribution_id?: string
+          _buyer_user_id?: string
+          _commission_reason?: string
+          _gross_amount_eur?: number
+          _net_amount_eur?: number
+          _order_ref?: string
+          _org_id?: string
+          _partner_id: string
+          _product_id?: string
+          _source_ref: string
+        }
+        Returns: string
+      }
       fn_derive_exam_part: { Args: { p_blueprint_id: string }; Returns: string }
       fn_dry_run_bulk_import: { Args: { p_job_id: string }; Returns: Json }
       fn_effective_wip_state: {
@@ -70409,6 +70462,7 @@ export type Database = {
         Returns: Json
       }
       fn_execute_bulk_import: { Args: { p_job_id: string }; Returns: Json }
+      fn_expire_stale_attributions: { Args: never; Returns: number }
       fn_export_user_data: { Args: { p_target_user_id: string }; Returns: Json }
       fn_generate_compliance_document: {
         Args: { p_content_md: string; p_doc_type: string; p_title: string }
@@ -70489,6 +70543,10 @@ export type Database = {
         }
         Returns: Json
       }
+      fn_get_partner_available_balance: {
+        Args: { _partner_id: string }
+        Returns: number
+      }
       fn_get_shuttle_dashboard_summary: {
         Args: { p_curriculum_id: string; p_user_id: string }
         Returns: Json
@@ -70552,6 +70610,10 @@ export type Database = {
       fn_is_variant_inventory_ready: {
         Args: { p_package_id: string }
         Returns: boolean
+      }
+      fn_link_visitor_attribution: {
+        Args: { _user_id: string; _visitor_id: string }
+        Returns: number
       }
       fn_materialize_ready_step_jobs: { Args: never; Returns: number }
       fn_minicheck_publish_gate: {
@@ -70639,11 +70701,40 @@ export type Database = {
         Args: { p_target_user_id: string }
         Returns: Json
       }
+      fn_request_partner_payout_safe: {
+        Args: {
+          _min_payout?: number
+          _partner_id: string
+          _requested_amount: number
+        }
+        Returns: string
+      }
       fn_require_org_access: {
         Args: { p_org_id: string; p_roles?: string[] }
         Returns: undefined
       }
       fn_reset_zombie_processing_jobs: { Args: never; Returns: number }
+      fn_resolve_partner_attribution: {
+        Args: {
+          _consume?: boolean
+          _org_id?: string
+          _user_id?: string
+          _visitor_id?: string
+        }
+        Returns: {
+          attribution_id: string
+          attribution_type: string
+          commission_mode: string
+          commission_rate: number
+          commission_rule_id: string
+          cookie_days: number
+          fixed_amount_eur: number
+          partner_id: string
+          partner_type: string
+          source_campaign: string
+          source_tracking_link_id: string
+        }[]
+      }
       fn_return_job_to_pending_no_burn: {
         Args: { p_backoff_seconds: number; p_job_id: string; p_reason: string }
         Returns: undefined

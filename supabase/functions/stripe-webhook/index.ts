@@ -322,6 +322,54 @@ Deno.serve(async (req) => {
             }).then(() => {});
             } // end B2B else
           }
+
+          // ── PARTNER COMMISSION: resolve attribution & create commission ──
+          try {
+            const amountTotalCents = session.amount_total || 0;
+            const grossEur = amountTotalCents / 100;
+            const netEur = grossEur; // TODO: subtract VAT if needed
+
+            // Try to resolve partner attribution for this buyer
+            const { data: attrRows } = await adminClient.rpc('fn_resolve_partner_attribution', {
+              _user_id: userId,
+              _visitor_id: null,
+              _org_id: (flow === 'pricing_plan' && meta.audience_type === 'b2b') ? null : null,
+              _consume: false, // We consume inside fn_create_partner_commission
+            });
+
+            if (attrRows && attrRows.length > 0) {
+              const attr = attrRows[0];
+              logStep("Partner attribution resolved", {
+                attribution_id: attr.attribution_id,
+                partner_id: attr.partner_id,
+                partner_type: attr.partner_type,
+                commission_mode: attr.commission_mode,
+                commission_rate: attr.commission_rate,
+              });
+
+              const sourceRef = `checkout:${session.id}`;
+              const { data: commissionId } = await adminClient.rpc('fn_create_partner_commission', {
+                _source_ref: sourceRef,
+                _partner_id: attr.partner_id,
+                _attribution_id: attr.attribution_id,
+                _product_id: productId,
+                _order_ref: session.id,
+                _buyer_user_id: userId,
+                _org_id: null,
+                _gross_amount_eur: grossEur,
+                _net_amount_eur: netEur,
+                _commission_reason: `${flow} checkout`,
+              });
+
+              logStep("Partner commission created", { commissionId, sourceRef });
+            } else {
+              logStep("No partner attribution found for buyer", { userId });
+            }
+          } catch (partnerErr) {
+            // Non-blocking: commission failure must not break fulfillment
+            logStep("WARN: Partner commission creation failed (non-blocking)", { error: String(partnerErr) });
+          }
+
         } catch (newFlowErr) {
           logStep("ERROR: create-payment fulfillment failed", { error: String(newFlowErr) });
         }

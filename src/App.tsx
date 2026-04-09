@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { detectAndTrackPartnerReferral } from "@/lib/tracking/partnerAttribution";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -79,6 +80,11 @@ function AppChrome() {
   const showNativeTabBar = isNative && !isAdminRoute;
 
   usePointerLockRecovery();
+
+  // Detect partner referral params on landing
+  useEffect(() => {
+    detectAndTrackPartnerReferral();
+  }, []);
 
   return (
     <>

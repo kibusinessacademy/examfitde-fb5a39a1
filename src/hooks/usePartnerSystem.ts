@@ -48,6 +48,23 @@ export function usePartnerDashboardSummary(partnerId: string | undefined) {
   });
 }
 
+// ── Available Balance (hardened) ──
+
+export function usePartnerAvailableBalance(partnerId: string | undefined) {
+  return useQuery({
+    queryKey: ['partner-available-balance', partnerId],
+    queryFn: async () => {
+      if (!partnerId) return 0;
+      const { data, error } = await (supabase as any).rpc('fn_get_partner_available_balance', {
+        _partner_id: partnerId,
+      });
+      if (error) throw error;
+      return (data as number) || 0;
+    },
+    enabled: !!partnerId,
+  });
+}
+
 // ── Tracking Links ──
 
 export function usePartnerTrackingLinks(partnerId: string | undefined) {
@@ -127,11 +144,12 @@ export function useRequestPartnerPayout() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ partner_id, amount }: { partner_id: string; amount: number }) => {
-      const { data, error } = await (supabase as any)
-        .from('partner_payout_requests')
-        .insert({ partner_id, requested_amount_eur: amount })
-        .select()
-        .single();
+      // Use hardened DB function that validates balance, dedup, and minimum
+      const { data, error } = await (supabase as any).rpc('fn_request_partner_payout_safe', {
+        _partner_id: partner_id,
+        _requested_amount: amount,
+        _min_payout: 50,
+      });
       if (error) throw error;
       return data;
     },
