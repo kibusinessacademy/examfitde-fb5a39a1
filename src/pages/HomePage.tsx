@@ -13,6 +13,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
+import { PopularCoursesSection } from '@/components/marketing/PopularCoursesSection';
 import {
   ArrowRight,
   CheckCircle,
@@ -213,7 +214,10 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* ─── 5. Product Proof ─── */}
+        {/* ─── 5. Beliebte Kurse ─── */}
+        <PopularCoursesSection />
+
+        {/* ─── 6. Product Proof ─── */}
         <Testimonials />
 
         {/* ─── 6. Pricing ─── */}

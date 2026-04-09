@@ -30263,6 +30263,7 @@ export type Database = {
           metadata_json: Json
           name: string
           org_type: string
+          referred_by_partner_id: string | null
           slug: string | null
           updated_at: string
         }
@@ -30278,6 +30279,7 @@ export type Database = {
           metadata_json?: Json
           name: string
           org_type?: string
+          referred_by_partner_id?: string | null
           slug?: string | null
           updated_at?: string
         }
@@ -30293,10 +30295,19 @@ export type Database = {
           metadata_json?: Json
           name?: string
           org_type?: string
+          referred_by_partner_id?: string | null
           slug?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "organizations_referred_by_partner_id_fkey"
+            columns: ["referred_by_partner_id"]
+            isOneToOne: false
+            referencedRelation: "partner_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       outcome_tracking: {
         Row: {
@@ -32819,6 +32830,539 @@ export type Database = {
             columns: ["tag_id"]
             isOneToOne: false
             referencedRelation: "product_tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partner_accounts: {
+        Row: {
+          company_name: string | null
+          contact_name: string | null
+          created_at: string
+          email: string | null
+          id: string
+          notes: string | null
+          partner_type: string
+          payout_details_json: Json | null
+          payout_method: string | null
+          referral_code: string
+          status: string
+          tax_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          company_name?: string | null
+          contact_name?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          notes?: string | null
+          partner_type: string
+          payout_details_json?: Json | null
+          payout_method?: string | null
+          referral_code: string
+          status?: string
+          tax_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          company_name?: string | null
+          contact_name?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          notes?: string | null
+          partner_type?: string
+          payout_details_json?: Json | null
+          payout_method?: string | null
+          referral_code?: string
+          status?: string
+          tax_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      partner_assets: {
+        Row: {
+          asset_type: string
+          audience: string
+          content_json: Json | null
+          created_at: string
+          description: string | null
+          file_url: string | null
+          id: string
+          is_active: boolean
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          asset_type: string
+          audience?: string
+          content_json?: Json | null
+          created_at?: string
+          description?: string | null
+          file_url?: string | null
+          id?: string
+          is_active?: boolean
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          asset_type?: string
+          audience?: string
+          content_json?: Json | null
+          created_at?: string
+          description?: string | null
+          file_url?: string | null
+          id?: string
+          is_active?: boolean
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      partner_attributions: {
+        Row: {
+          attribution_status: string
+          attribution_type: string
+          created_at: string
+          first_touch_at: string
+          id: string
+          last_touch_at: string
+          metadata_json: Json | null
+          org_id: string | null
+          partner_id: string
+          source_campaign: string | null
+          source_tracking_link_id: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          attribution_status?: string
+          attribution_type: string
+          created_at?: string
+          first_touch_at?: string
+          id?: string
+          last_touch_at?: string
+          metadata_json?: Json | null
+          org_id?: string | null
+          partner_id: string
+          source_campaign?: string | null
+          source_tracking_link_id?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          attribution_status?: string
+          attribution_type?: string
+          created_at?: string
+          first_touch_at?: string
+          id?: string
+          last_touch_at?: string
+          metadata_json?: Json | null
+          org_id?: string | null
+          partner_id?: string
+          source_campaign?: string | null
+          source_tracking_link_id?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_attributions_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "partner_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_attributions_source_tracking_link_id_fkey"
+            columns: ["source_tracking_link_id"]
+            isOneToOne: false
+            referencedRelation: "partner_tracking_links"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partner_audit_events: {
+        Row: {
+          actor_user_id: string | null
+          created_at: string
+          entity_id: string | null
+          entity_type: string | null
+          event_type: string
+          id: string
+          metadata_json: Json | null
+          partner_id: string | null
+        }
+        Insert: {
+          actor_user_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          event_type: string
+          id?: string
+          metadata_json?: Json | null
+          partner_id?: string | null
+        }
+        Update: {
+          actor_user_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          event_type?: string
+          id?: string
+          metadata_json?: Json | null
+          partner_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_audit_events_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "partner_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partner_click_events: {
+        Row: {
+          created_at: string
+          id: string
+          ip_hash: string | null
+          landing_path: string | null
+          partner_id: string
+          ref_code: string | null
+          session_id: string | null
+          tracking_link_id: string | null
+          user_agent: string | null
+          utm_campaign: string | null
+          utm_medium: string | null
+          utm_source: string | null
+          visitor_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          ip_hash?: string | null
+          landing_path?: string | null
+          partner_id: string
+          ref_code?: string | null
+          session_id?: string | null
+          tracking_link_id?: string | null
+          user_agent?: string | null
+          utm_campaign?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          visitor_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          ip_hash?: string | null
+          landing_path?: string | null
+          partner_id?: string
+          ref_code?: string | null
+          session_id?: string | null
+          tracking_link_id?: string | null
+          user_agent?: string | null
+          utm_campaign?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          visitor_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_click_events_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "partner_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_click_events_tracking_link_id_fkey"
+            columns: ["tracking_link_id"]
+            isOneToOne: false
+            referencedRelation: "partner_tracking_links"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partner_commission_rules: {
+        Row: {
+          commission_mode: string
+          commission_rate: number
+          cookie_days: number
+          created_at: string
+          fixed_amount_eur: number | null
+          id: string
+          organization_only: boolean
+          partner_type: string
+          priority: number
+          product_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          commission_mode: string
+          commission_rate?: number
+          cookie_days?: number
+          created_at?: string
+          fixed_amount_eur?: number | null
+          id?: string
+          organization_only?: boolean
+          partner_type: string
+          priority?: number
+          product_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          commission_mode?: string
+          commission_rate?: number
+          cookie_days?: number
+          created_at?: string
+          fixed_amount_eur?: number | null
+          id?: string
+          organization_only?: boolean
+          partner_type?: string
+          priority?: number
+          product_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      partner_commissions: {
+        Row: {
+          approved_at: string | null
+          attribution_id: string | null
+          buyer_user_id: string | null
+          commission_amount_eur: number
+          commission_mode: string | null
+          commission_rate: number | null
+          commission_reason: string | null
+          commission_status: string
+          created_at: string
+          gross_amount_eur: number
+          id: string
+          metadata_json: Json | null
+          net_amount_eur: number
+          order_ref: string | null
+          org_id: string | null
+          paid_at: string | null
+          partner_id: string
+          product_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          attribution_id?: string | null
+          buyer_user_id?: string | null
+          commission_amount_eur?: number
+          commission_mode?: string | null
+          commission_rate?: number | null
+          commission_reason?: string | null
+          commission_status?: string
+          created_at?: string
+          gross_amount_eur?: number
+          id?: string
+          metadata_json?: Json | null
+          net_amount_eur?: number
+          order_ref?: string | null
+          org_id?: string | null
+          paid_at?: string | null
+          partner_id: string
+          product_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          attribution_id?: string | null
+          buyer_user_id?: string | null
+          commission_amount_eur?: number
+          commission_mode?: string | null
+          commission_rate?: number | null
+          commission_reason?: string | null
+          commission_status?: string
+          created_at?: string
+          gross_amount_eur?: number
+          id?: string
+          metadata_json?: Json | null
+          net_amount_eur?: number
+          order_ref?: string | null
+          org_id?: string | null
+          paid_at?: string | null
+          partner_id?: string
+          product_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_commissions_attribution_id_fkey"
+            columns: ["attribution_id"]
+            isOneToOne: false
+            referencedRelation: "partner_attributions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_commissions_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "partner_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partner_leads: {
+        Row: {
+          contact_email: string | null
+          contact_name: string | null
+          created_at: string
+          id: string
+          lead_status: string
+          lead_type: string
+          metadata_json: Json | null
+          org_name: string | null
+          partner_id: string
+          source: string | null
+          updated_at: string
+        }
+        Insert: {
+          contact_email?: string | null
+          contact_name?: string | null
+          created_at?: string
+          id?: string
+          lead_status?: string
+          lead_type: string
+          metadata_json?: Json | null
+          org_name?: string | null
+          partner_id: string
+          source?: string | null
+          updated_at?: string
+        }
+        Update: {
+          contact_email?: string | null
+          contact_name?: string | null
+          created_at?: string
+          id?: string
+          lead_status?: string
+          lead_type?: string
+          metadata_json?: Json | null
+          org_name?: string | null
+          partner_id?: string
+          source?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_leads_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "partner_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partner_payout_requests: {
+        Row: {
+          approved_amount_eur: number | null
+          approved_at: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          paid_at: string | null
+          partner_id: string
+          payout_reference: string | null
+          payout_status: string
+          requested_amount_eur: number
+          requested_at: string
+          updated_at: string
+        }
+        Insert: {
+          approved_amount_eur?: number | null
+          approved_at?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          paid_at?: string | null
+          partner_id: string
+          payout_reference?: string | null
+          payout_status?: string
+          requested_amount_eur: number
+          requested_at?: string
+          updated_at?: string
+        }
+        Update: {
+          approved_amount_eur?: number | null
+          approved_at?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          paid_at?: string | null
+          partner_id?: string
+          payout_reference?: string | null
+          payout_status?: string
+          requested_amount_eur?: number
+          requested_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_payout_requests_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "partner_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partner_tracking_links: {
+        Row: {
+          campaign_name: string | null
+          channel: string | null
+          content_key: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          partner_id: string
+          slug: string
+          target_path: string
+          updated_at: string
+        }
+        Insert: {
+          campaign_name?: string | null
+          channel?: string | null
+          content_key?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          partner_id: string
+          slug: string
+          target_path?: string
+          updated_at?: string
+        }
+        Update: {
+          campaign_name?: string | null
+          channel?: string | null
+          content_key?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          partner_id?: string
+          slug?: string
+          target_path?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_tracking_links_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "partner_accounts"
             referencedColumns: ["id"]
           },
         ]
@@ -68272,6 +68816,18 @@ export type Database = {
         Args: { p_curriculum_id: string; p_user_id: string }
         Returns: Json
       }
+      calculate_partner_commission: {
+        Args: {
+          p_amount?: number
+          p_attribution_id: string
+          p_buyer_user_id?: string
+          p_order_ref?: string
+          p_org_id?: string
+          p_partner_id: string
+          p_product_id?: string
+        }
+        Returns: string
+      }
       calculate_product_price: {
         Args: { p_product_id: string; p_quantity: number }
         Returns: {
@@ -70887,6 +71443,10 @@ export type Database = {
           curriculum_id: string
           total: number
         }[]
+      }
+      get_partner_dashboard_summary: {
+        Args: { p_partner_id: string }
+        Returns: Json
       }
       get_phase1_candidates: {
         Args: { p_curriculum_id?: string; p_field?: string; p_limit?: number }
