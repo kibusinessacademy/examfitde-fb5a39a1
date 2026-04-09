@@ -46,6 +46,7 @@ const PruefungstrainingWeiterbildungPage = lazyRetry(() => import('@/pages/seo/P
 const BerufePage = lazyRetry(() => import('@/pages/seo/BerufePage'));
 const BerufDetailPage = lazyRetry(() => import('@/pages/seo/BerufDetailPage'));
 const UnternehmenPage = lazyRetry(() => import('@/pages/seo/UnternehmenPage'));
+const PartnerDashboardPage = lazyRetry(() => import('@/pages/partner/PartnerDashboardPage'));
 const PreisePage = lazyRetry(() => import('@/pages/seo/PreisePage'));
 const LernkurseListPage = lazyRetry(() => import('@/pages/seo/ProductListPage').then(m => ({ default: m.LernkurseListPage })));
 const PruefungstrainerListPage = lazyRetry(() => import('@/pages/seo/ProductListPage').then(m => ({ default: m.PruefungstrainerListPage })));
