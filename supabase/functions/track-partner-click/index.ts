@@ -4,6 +4,8 @@ import { getCorsHeaders } from "../_shared/cors.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+const DEDUP_WINDOW_MINUTES = 30;
+
 Deno.serve(async (req) => {
   const origin = req.headers.get("origin");
   const corsHeaders = getCorsHeaders(origin);
@@ -71,7 +73,23 @@ Deno.serve(async (req) => {
     const ipHash = ip ? await hashString(ip) : null;
     const userAgent = req.headers.get("user-agent")?.substring(0, 512) || null;
 
-    // Store click event
+    // ── Dedup check ──
+    // Only count 1 click per partner + visitor + landing_path per 30 min window
+    let isDuplicate = false;
+    if (visitor_id) {
+      const cutoff = new Date(Date.now() - DEDUP_WINDOW_MINUTES * 60 * 1000).toISOString();
+      const { data: recent } = await admin
+        .from("partner_click_events")
+        .select("id")
+        .eq("partner_id", partnerId)
+        .eq("visitor_id", visitor_id)
+        .gte("created_at", cutoff)
+        .limit(1);
+      
+      isDuplicate = (recent?.length ?? 0) > 0;
+    }
+
+    // Always store click event (for raw data), but flag duplicates
     await admin.from("partner_click_events").insert({
       partner_id: partnerId,
       tracking_link_id: trackingLinkId,
@@ -86,11 +104,48 @@ Deno.serve(async (req) => {
       user_agent: userAgent,
     });
 
+    // ── Get cookie window for attribution hint ──
+    const { data: partnerAccount } = await admin
+      .from("partner_accounts")
+      .select("partner_type")
+      .eq("id", partnerId)
+      .single();
+
+    let cookieDays = 30;
+    if (partnerAccount) {
+      const { data: rules } = await admin
+        .from("partner_commission_rules")
+        .select("cookie_days")
+        .eq("partner_type", partnerAccount.partner_type)
+        .eq("status", "active")
+        .order("priority", { ascending: true })
+        .limit(1);
+      if (rules?.length) cookieDays = rules[0].cookie_days;
+    }
+
+    // Audit log (non-duplicate clicks only)
+    if (!isDuplicate) {
+      await admin.from("partner_audit_events").insert({
+        partner_id: partnerId,
+        event_type: "tracking_click",
+        entity_type: "partner_click_events",
+        metadata_json: {
+          ref_code: resolvedRefCode,
+          landing_path: landing_path || "/",
+          utm_source, utm_medium, utm_campaign,
+          tracking_link_id: trackingLinkId,
+        },
+      });
+    }
+
     return new Response(
       JSON.stringify({
         ok: true,
         partner_id: partnerId,
+        tracking_link_id: trackingLinkId,
         ref_code: resolvedRefCode,
+        attribution_window_days: cookieDays,
+        is_duplicate: isDuplicate,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
