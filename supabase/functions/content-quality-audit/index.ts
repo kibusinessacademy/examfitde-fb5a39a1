@@ -284,7 +284,7 @@ function resultToFinding(
     spelling_errors: spellingFlags.map(f => f.message),
     detector_version: "v3-track-aware-hardened",
     auto_reheal_eligible: (severity === "critical" || severity === "error")
-      && ["lesson", "handbook_chapter", "tutor_snippet"].includes(artifactType),
+      && ["lesson", "handbook_section", "tutor_snippet"].includes(artifactType),
   };
 }
 
