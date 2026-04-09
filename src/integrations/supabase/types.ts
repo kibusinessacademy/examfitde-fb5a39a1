@@ -70494,6 +70494,7 @@ export type Database = {
         Returns: Json
       }
       fn_growth_engine_overview: { Args: never; Returns: Json }
+      fn_guard_ghost_finalization: { Args: never; Returns: Json }
       fn_guard_no_rpc_overloads: {
         Args: never
         Returns: {
