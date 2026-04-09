@@ -149,6 +149,7 @@ Deno.serve(async (req) => {
               source_campaign: utm_campaign || null,
               cookie_expires_at: cookieExpiresAt,
               click_event_id: clickRow?.id || null,
+              visitor_id,
               metadata_json: { visitor_id, session_id, ref_code: resolvedRefCode },
             }).select("id").single();
 
@@ -170,6 +171,7 @@ Deno.serve(async (req) => {
             source_campaign: utm_campaign || null,
             cookie_expires_at: cookieExpiresAt,
             click_event_id: clickRow?.id || null,
+            visitor_id,
             metadata_json: { visitor_id, session_id, ref_code: resolvedRefCode },
           });
         }
