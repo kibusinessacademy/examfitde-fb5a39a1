@@ -31,6 +31,9 @@ const UsersPanel = lazy(() => import('@/components/admin/enterprise/UsersPanel')
 const LicensesPanel = lazy(() => import('@/components/admin/enterprise/LicensesPanel'));
 const AssignmentsPanel = lazy(() => import('@/components/admin/enterprise/AssignmentsPanel'));
 const OrganizationsPanel = lazy(() => import('@/components/admin/enterprise/OrganizationsPanel'));
+const ApiKeysPanel = lazy(() => import('@/components/admin/enterprise/ApiKeysPanel'));
+const AuditPanel = lazy(() => import('@/components/admin/enterprise/AuditPanel'));
+const SystemPanel = lazy(() => import('@/components/admin/enterprise/SystemPanel'));
 
 const ExamPoolAuditCard = lazy(() => import('@/components/admin/cards/ExamPoolAuditCard'));
 const BlockedButReadyCard = lazy(() => import('@/components/admin/cards/BlockedButReadyCard'));
