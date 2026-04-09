@@ -29320,6 +29320,42 @@ export type Database = {
           },
         ]
       }
+      org_audit_events: {
+        Row: {
+          actor_user_id: string | null
+          created_at: string
+          description: string | null
+          entity_id: string | null
+          entity_type: string | null
+          event_type: string
+          id: string
+          metadata: Json | null
+          org_id: string
+        }
+        Insert: {
+          actor_user_id?: string | null
+          created_at?: string
+          description?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          event_type: string
+          id?: string
+          metadata?: Json | null
+          org_id: string
+        }
+        Update: {
+          actor_user_id?: string | null
+          created_at?: string
+          description?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          event_type?: string
+          id?: string
+          metadata?: Json | null
+          org_id?: string
+        }
+        Relationships: []
+      }
       org_entity_accounting_defaults: {
         Row: {
           created_at: string
@@ -69879,6 +69915,10 @@ export type Database = {
       fn_request_data_deletion: {
         Args: { p_target_user_id: string }
         Returns: Json
+      }
+      fn_require_org_access: {
+        Args: { p_org_id: string; p_roles?: string[] }
+        Returns: undefined
       }
       fn_reset_zombie_processing_jobs: { Args: never; Returns: number }
       fn_return_job_to_pending_no_burn: {
