@@ -116,7 +116,7 @@ Deno.serve(async (req) => {
           .select("id, partner_id")
           .eq("attribution_status", "active")
           .eq("attribution_type", "b2c_referral")
-          .filter("metadata_json->>visitor_id", "eq", visitor_id)
+          .eq("visitor_id", visitor_id)
           .limit(1);
 
         if (existingAttr && existingAttr.length > 0) {
