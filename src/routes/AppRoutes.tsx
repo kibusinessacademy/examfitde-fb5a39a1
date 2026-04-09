@@ -76,6 +76,7 @@ const DynamicProductLandingPage = lazyRetry(() => import('@/pages/landing/Dynami
 const PersonaLandingPage = lazyRetry(() => import('@/pages/landing/PersonaLandingPage'));
 const PersonaLandingHubPage = lazyRetry(() => import('@/pages/landing/PersonaLandingHubPage'));
 import ProgrammaticSEODispatcher from '@/pages/seo/ProgrammaticSEODispatcher';
+const EnterpriseDemoPage = lazyRetry(() => import('@/pages/seo/EnterpriseDemoPage'));
 const PruefungsreifeCheck = lazyRetry(() => import('@/components/marketing/PruefungsreifeCheck'));
 const BlogIndexPage = lazyRetry(() => import('@/pages/seo/BlogIndexPage'));
 const BlogArticlePage = lazyRetry(() => import('@/pages/seo/BlogArticlePage'));
