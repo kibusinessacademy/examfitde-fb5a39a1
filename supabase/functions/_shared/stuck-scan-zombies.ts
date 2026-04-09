@@ -33,14 +33,42 @@ export async function detectAndFixZombieSteps(sb: SupabaseClient) {
 
     const jobType = STEP_TO_JOB_TYPE[zs.step_key] ?? null;
     if (jobType) {
-      const { data: activeJobCnt } = await safeRpc(sb, "count_active_jobs_for_package", {
-        p_package_id: zs.package_id,
-        p_job_type: jobType,
-        p_statuses: ["pending", "processing"],
+      // Check for genuinely active jobs — exclude STALE_LOCK loops (attempts >= 5)
+      // which will never complete and would otherwise block finalization forever
+      const { data: activeJobs } = await sb
+        .from("job_queue")
+        .select("id, status, attempts, last_error")
+        .eq("package_id", zs.package_id)
+        .eq("job_type", jobType)
+        .in("status", ["pending", "processing"]);
+
+      const genuinelyActive = (activeJobs ?? []).filter((j: any) => {
+        const isStaleLoop = (j.attempts ?? 0) >= 5 &&
+          typeof j.last_error === "string" &&
+          j.last_error.includes("STALE_LOCK_RECOVERY");
+        return !isStaleLoop;
       });
-      if ((activeJobCnt ?? 0) > 0) {
-        console.log(`[stuck-scan] Zombie candidate ${zs.step_key} for ${zs.package_id.slice(0, 8)} skipped: ${activeJobCnt} active jobs remain`);
+
+      if (genuinelyActive.length > 0) {
+        console.log(`[stuck-scan] Zombie candidate ${zs.step_key} for ${zs.package_id.slice(0, 8)} skipped: ${genuinelyActive.length} genuinely active jobs remain`);
         continue;
+      }
+
+      // Cancel STALE_LOCK loop jobs that are blocking finalization
+      const staleLoopJobs = (activeJobs ?? []).filter((j: any) =>
+        (j.attempts ?? 0) >= 5 &&
+        typeof j.last_error === "string" &&
+        j.last_error.includes("STALE_LOCK_RECOVERY")
+      );
+      if (staleLoopJobs.length > 0) {
+        console.log(`[stuck-scan] 🔓 Cancelling ${staleLoopJobs.length} STALE_LOCK loop job(s) for ${zs.step_key} (${zs.package_id.slice(0, 8)})`);
+        for (const slj of staleLoopJobs) {
+          await sb.from("job_queue").update({
+            status: "cancelled",
+            completed_at: new Date().toISOString(),
+            last_error: `STALE_LOCK_LOOP_AUTO_CANCEL: ${slj.attempts} attempts — zombie finalization proceeding`,
+          }).eq("id", slj.id);
+        }
       }
     }
 
