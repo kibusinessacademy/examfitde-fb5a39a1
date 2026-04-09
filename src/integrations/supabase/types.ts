@@ -29919,6 +29919,7 @@ export type Database = {
           joined_at: string | null
           org_id: string
           role: string
+          source_type: string | null
           status: string
           updated_at: string
           user_id: string
@@ -29932,6 +29933,7 @@ export type Database = {
           joined_at?: string | null
           org_id: string
           role?: string
+          source_type?: string | null
           status?: string
           updated_at?: string
           user_id: string
@@ -29945,6 +29947,7 @@ export type Database = {
           joined_at?: string | null
           org_id?: string
           role?: string
+          source_type?: string | null
           status?: string
           updated_at?: string
           user_id?: string
@@ -64901,6 +64904,54 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "products"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_org_members_bridge: {
+        Row: {
+          created_at: string | null
+          external_id: string | null
+          id: string | null
+          organization_id: string | null
+          role: string | null
+          source_type: string | null
+          status: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          external_id?: string | null
+          id?: string | null
+          organization_id?: string | null
+          role?: string | null
+          source_type?: string | null
+          status?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          external_id?: string | null
+          id?: string | null
+          organization_id?: string | null
+          role?: string | null
+          source_type?: string | null
+          status?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_memberships_org_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "org_memberships_org_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_org_license_overview"
+            referencedColumns: ["org_id"]
           },
         ]
       }
