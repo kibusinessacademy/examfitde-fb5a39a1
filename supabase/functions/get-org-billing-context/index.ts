@@ -38,12 +38,13 @@ Deno.serve(async (req) => {
     const entityId = url.searchParams.get("entity_id");
     const billingAccountId = url.searchParams.get("billing_account_id");
 
-    // 1) Membership check
+    // 1) Membership check (SSOT: org_memberships)
     const { data: mem } = await supabase
-      .from("organization_members")
+      .from("org_memberships")
       .select("role")
-      .eq("organization_id", orgId)
+      .eq("org_id", orgId)
       .eq("user_id", userId)
+      .eq("status", "active")
       .maybeSingle();
 
     if (!mem?.role) return json(403, { error: "Not a member of organization" }, origin);

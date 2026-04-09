@@ -40,12 +40,13 @@ Deno.serve(async (req) => {
     if (!organization_id) return json(400, { error: "Missing/invalid organization_id" }, origin);
     if (!entity_code || !legal_name || !display_name) return json(400, { error: "Invalid entity_code/legal_name/display_name" }, origin);
 
-    // Role gate: OWNER or MANAGER
+    // Role gate: OWNER or MANAGER (SSOT: org_memberships)
     const { data: mem } = await supabase
-      .from("organization_members")
+      .from("org_memberships")
       .select("role")
-      .eq("organization_id", organization_id)
+      .eq("org_id", organization_id)
       .eq("user_id", userId)
+      .eq("status", "active")
       .maybeSingle();
 
     if (!mem) return json(403, { error: "not_org_member" }, origin);

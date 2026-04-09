@@ -167,27 +167,32 @@ Deno.serve(async (req) => {
       try {
         const r = v.row;
 
-        // Find or create user by email
-        const { data: existingUsers } = await sb
+        // Find user by email — check profiles first, then auth.users
+        let userId: string | null = null;
+        let isNew = false;
+
+        const { data: existingProfile } = await sb
           .from("profiles")
-          .select("id, full_name")
+          .select("id")
           .eq("email", r.email)
-          .limit(1);
+          .maybeSingle();
 
-        let userId: string;
-
-        if (existingUsers && existingUsers.length > 0) {
-          userId = existingUsers[0].id;
+        if (existingProfile) {
+          userId = existingProfile.id;
           updated++;
         } else {
-          // Check auth.users by email
-          const { data: authList } = await sb.auth.admin.listUsers({ perPage: 1 });
-          const existingAuth = authList?.users?.find(u => u.email === r.email);
+          // Try auth admin lookup by email
+          const { data: authUser } = await sb.auth.admin.getUserById
+            ? await (async () => {
+                // Use listUsers with email filter
+                const { data: list } = await sb.auth.admin.listUsers({ page: 1, perPage: 1 });
+                // Search by email in the returned list won't work at scale
+                // Instead, try creating the user directly - if they exist, we'll get an error
+                return { data: null };
+              })()
+            : { data: null };
 
-          if (existingAuth) {
-            userId = existingAuth.id;
-            updated++;
-          } else {
+          if (!userId) {
             // Create user with random password
             const tempPass = crypto.randomUUID();
             const { data: newUser, error: createErr } = await sb.auth.admin.createUser({
@@ -196,13 +201,47 @@ Deno.serve(async (req) => {
               email_confirm: true,
               user_metadata: { full_name: r.display_name || r.email.split("@")[0] },
             });
-            if (createErr || !newUser.user) {
-              failedRows.push({ row: v.idx, email: r.email, error: createErr?.message || "User creation failed" });
-              continue;
+
+            if (createErr) {
+              // If user already exists (duplicate email), try to find them
+              if (createErr.message?.includes("already") || createErr.message?.includes("duplicate")) {
+                // Lookup via auth - the user exists but has no profile yet
+                const { data: { users } } = await sb.auth.admin.listUsers({ page: 1, perPage: 1000 });
+                const found = users?.find((u: any) => u.email === r.email);
+                if (found) {
+                  userId = found.id;
+                  updated++;
+                  // Ensure profile exists with email
+                  await sb.from("profiles").upsert({
+                    id: found.id,
+                    email: r.email,
+                    full_name: r.display_name || r.email.split("@")[0],
+                  }, { onConflict: "id" });
+                } else {
+                  failedRows.push({ row: v.idx, email: r.email, error: createErr.message });
+                  continue;
+                }
+              } else {
+                failedRows.push({ row: v.idx, email: r.email, error: createErr.message });
+                continue;
+              }
+            } else if (newUser?.user) {
+              userId = newUser.user.id;
+              isNew = true;
+              created++;
+              // Ensure profile has email
+              await sb.from("profiles").upsert({
+                id: userId,
+                email: r.email,
+                full_name: r.display_name || r.email.split("@")[0],
+              }, { onConflict: "id" });
             }
-            userId = newUser.user.id;
-            created++;
           }
+        }
+
+        if (!userId) {
+          failedRows.push({ row: v.idx, email: r.email, error: "Could not resolve user" });
+          continue;
         }
 
         // Upsert org_membership
