@@ -975,7 +975,129 @@ Deno.serve(async (req) => {
         });
       }
 
-      // ── G4b: AUTO-RECONCILE HARD_STALLED — materialize missing jobs ──
+      // ── G4b: AUTO-TERMINATE POISONED_LOOP (3-Strike Policy) ──
+      const poisonedLoops = (zombies ?? []).filter((z: any) => z.zombie_class === "POISONED_LOOP");
+      for (const z of poisonedLoops) {
+        try {
+          // Count recent detections in last 30 min
+          const thirtyMinAgo = new Date(Date.now() - 30 * 60_000).toISOString();
+          const { data: recentDetections } = await sb.from("auto_heal_log")
+            .select("id")
+            .eq("action_type", "zombie_detected_poisoned_loop")
+            .eq("target_id", z.package_id)
+            .gte("created_at", thirtyMinAgo);
+
+          const detectionCount = recentDetections?.length ?? 0;
+          console.log(`[Guardian] G4b-PL: ${z.title} — ${detectionCount} detections in 30min`);
+
+          if (detectionCount >= 3) {
+            // STRIKE 3: Auto-terminate all pending/processing jobs for this package
+            const { data: killedJobs, error: killErr } = await sb
+              .from("job_queue")
+              .update({
+                status: "failed",
+                last_error: "POISONED_LOOP_AUTO_TERMINATED: Guardian 3-strike policy after repeated stalls without progress",
+                completed_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              })
+              .eq("package_id", z.package_id)
+              .in("status", ["pending", "processing"])
+              .select("id");
+
+            const killedCount = killedJobs?.length ?? 0;
+
+            // Mark package as stuck
+            await sb.from("course_packages")
+              .update({
+                stuck_reason: "POISONED_LOOP_TERMINATED",
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", z.package_id);
+
+            // Critical notification
+            await sb.from("admin_notifications").insert({
+              title: `☠️ POISONED_LOOP Auto-Terminated: ${z.title}`,
+              body: `Package "${z.title}" was auto-terminated after ${detectionCount} POISONED_LOOP detections in 30min. ${killedCount} jobs killed. Manual review required.`,
+              category: "pipeline",
+              severity: "critical",
+              entity_type: "zombie_guard",
+              entity_id: z.package_id,
+              metadata: { zombie_class: z.zombie_class, detections: detectionCount, killed_jobs: killedCount, total_retry_attempts: z.total_retry_attempts },
+            });
+
+            // Audit log
+            await sb.from("auto_heal_log").insert({
+              action_type: "poisoned_loop_auto_terminated",
+              target_type: "course_package",
+              target_id: z.package_id,
+              trigger_source: "production-guardian",
+              result_status: "healed",
+              result_detail: `POISONED_LOOP_TERMINATED: ${killedCount} jobs killed after ${detectionCount} detections. retries=${z.total_retry_attempts}`,
+              metadata: { ...z, detections: detectionCount, killed_jobs: killedCount },
+            });
+
+            actions.push(`G4b-PL: terminated ${killedCount} poisoned jobs for ${z.title || z.package_id.slice(0, 8)}`);
+            console.log(`[Guardian] G4b-PL: ☠️ AUTO-TERMINATED ${killedCount} jobs for ${z.title}`);
+          }
+        } catch (plErr) {
+          console.error(`[Guardian] G4b-PL error ${z.package_id}: ${(plErr as Error).message}`);
+        }
+      }
+
+      // ── G4c: AUTO-BLOCK SHADOW_STALLED > 6h ──
+      const shadowStalled = (zombies ?? []).filter((z: any) => z.zombie_class === "SHADOW_ZOMBIE");
+      for (const z of shadowStalled) {
+        try {
+          const stalledMinutes = z.minutes_since_real_progress ?? 0;
+          if (stalledMinutes >= 360) {
+            // 6h without progress → auto-block
+            await sb.from("course_packages")
+              .update({
+                status: "blocked",
+                blocked_reason: "auto_stall_block",
+                stuck_reason: `SHADOW_STALLED_${Math.round(stalledMinutes)}min`,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", z.package_id)
+              .eq("status", "building");
+
+            // Kill active jobs
+            await sb.from("job_queue")
+              .update({
+                status: "cancelled",
+                last_error: "SHADOW_STALL_AUTO_BLOCKED: No progress for >6h",
+                completed_at: new Date().toISOString(),
+              })
+              .eq("package_id", z.package_id)
+              .in("status", ["pending", "processing"]);
+
+            await sb.from("admin_notifications").insert({
+              title: `⏸️ Shadow-Stall Auto-Block: ${z.title}`,
+              body: `Package "${z.title}" auto-blocked after ${Math.round(stalledMinutes)}min without progress. ${z.active_jobs} jobs cancelled.`,
+              category: "pipeline",
+              severity: "warning",
+              entity_type: "zombie_guard",
+              entity_id: z.package_id,
+            });
+
+            await sb.from("auto_heal_log").insert({
+              action_type: "shadow_stall_auto_blocked",
+              target_type: "course_package",
+              target_id: z.package_id,
+              trigger_source: "production-guardian",
+              result_status: "healed",
+              result_detail: `AUTO_BLOCKED: ${Math.round(stalledMinutes)}min stall, ${z.active_jobs} jobs cancelled`,
+              metadata: z,
+            });
+
+            actions.push(`G4c: auto-blocked ${z.title || z.package_id.slice(0, 8)} after ${Math.round(stalledMinutes)}min stall`);
+          }
+        } catch (ssErr) {
+          console.error(`[Guardian] G4c shadow-stall error ${z.package_id}: ${(ssErr as Error).message}`);
+        }
+      }
+
+      // ── G4d: AUTO-RECONCILE HARD_STALLED — materialize missing jobs ──
       const hardStalled = (zombies ?? []).filter((z: any) => z.zombie_class === "HARD_STALLED");
       for (const z of hardStalled) {
         try {
@@ -983,10 +1105,10 @@ Deno.serve(async (req) => {
             p_package_id: z.package_id,
           });
           if (recErr) {
-            console.error(`[Guardian] G4b reconcile failed for ${z.package_id}: ${recErr.message}`);
+            console.error(`[Guardian] G4d reconcile failed for ${z.package_id}: ${recErr.message}`);
           } else if (reconciled?.reconciled_jobs > 0) {
-            console.log(`[Guardian] G4b: reconciled ${reconciled.reconciled_jobs} jobs for ${z.title || z.package_id}`);
-            actions.push(`G4b: reconciled ${reconciled.reconciled_jobs} jobs for ${z.title || z.package_id.slice(0, 8)}`);
+            console.log(`[Guardian] G4d: reconciled ${reconciled.reconciled_jobs} jobs for ${z.title || z.package_id}`);
+            actions.push(`G4d: reconciled ${reconciled.reconciled_jobs} jobs for ${z.title || z.package_id.slice(0, 8)}`);
             await sb.from("auto_heal_log").insert({
               action_type: "step_to_job_reconciliation",
               target_type: "course_package",
@@ -998,7 +1120,7 @@ Deno.serve(async (req) => {
             });
           }
         } catch (recE) {
-          console.error(`[Guardian] G4b reconcile error ${z.package_id}: ${(recE as Error).message}`);
+          console.error(`[Guardian] G4d reconcile error ${z.package_id}: ${(recE as Error).message}`);
         }
       }
     } catch (e) {
