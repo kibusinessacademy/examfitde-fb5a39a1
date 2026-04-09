@@ -116,7 +116,7 @@ Deno.serve(async (req) => {
           .select("id, partner_id")
           .eq("attribution_status", "active")
           .eq("attribution_type", "b2c_referral")
-          .filter("metadata_json->>visitor_id", "eq", visitor_id)
+          .eq("visitor_id", visitor_id)
           .limit(1);
 
         if (existingAttr && existingAttr.length > 0) {
@@ -149,6 +149,7 @@ Deno.serve(async (req) => {
               source_campaign: utm_campaign || null,
               cookie_expires_at: cookieExpiresAt,
               click_event_id: clickRow?.id || null,
+              visitor_id,
               metadata_json: { visitor_id, session_id, ref_code: resolvedRefCode },
             }).select("id").single();
 
@@ -170,6 +171,7 @@ Deno.serve(async (req) => {
             source_campaign: utm_campaign || null,
             cookie_expires_at: cookieExpiresAt,
             click_event_id: clickRow?.id || null,
+            visitor_id,
             metadata_json: { visitor_id, session_id, ref_code: resolvedRefCode },
           });
         }
