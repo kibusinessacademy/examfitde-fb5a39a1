@@ -1,11 +1,13 @@
 import React from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
-import { CheckCircle, AlertTriangle, TrendingUp, Search, Link2, Target, RefreshCw, FileText } from 'lucide-react';
+import { CheckCircle, AlertTriangle, TrendingUp, Search, Link2, Target, RefreshCw, FileText, Zap } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
 
 interface ContentAudit {
   id: string;
@@ -31,14 +33,44 @@ const scoreColor = (s: number) => s >= 80 ? 'text-emerald-500' : s >= 50 ? 'text
 const scoreBg = (s: number) => s >= 80 ? 'bg-emerald-500' : s >= 50 ? 'bg-amber-500' : 'bg-red-500';
 
 export default function SEOAuditManager() {
+  const qc = useQueryClient();
   const { data: audits = [], isLoading } = useQuery({
     queryKey: ['seo-content-audits'],
     queryFn: async () => {
       const { data, error } = await supabase.from('seo_content_audits' as any)
-        .select('*').order('overall_score', { ascending: true });
+        .select('*').order('audited_at', { ascending: false });
       if (error) throw error;
       return (data || []) as unknown as ContentAudit[];
     },
+  });
+
+  const runAuditMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke('seo-discovery-engine', {
+        body: { action: 'keyword_opportunity_score' },
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ['seo-content-audits'] });
+      toast.success(`Opportunity Scores: ${data?.updated || 0} Keywords aktualisiert`);
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const cannibalizationMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke('seo-discovery-engine', {
+        body: { action: 'cannibalization_detect' },
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      toast.success(`Kannibalisierung: ${data?.issues_found || 0} Issues gefunden`);
+    },
+    onError: (e: any) => toast.error(e.message),
   });
 
   const avgScore = audits.length > 0 ? Math.round(audits.reduce((s, a) => s + a.overall_score, 0) / audits.length) : 0;
@@ -49,6 +81,21 @@ export default function SEOAuditManager() {
 
   return (
     <div className="space-y-4">
+      <div className="flex flex-wrap gap-2 mb-2">
+        <Button size="sm" className="h-8 text-xs gap-1"
+          onClick={() => runAuditMutation.mutate()}
+          disabled={runAuditMutation.isPending}>
+          <Zap className="h-3 w-3" />
+          {runAuditMutation.isPending ? 'Berechne...' : 'Opportunity Scores'}
+        </Button>
+        <Button size="sm" variant="outline" className="h-8 text-xs gap-1"
+          onClick={() => cannibalizationMutation.mutate()}
+          disabled={cannibalizationMutation.isPending}>
+          <AlertTriangle className="h-3 w-3" />
+          {cannibalizationMutation.isPending ? 'Prüfe...' : 'Kannibalisierung prüfen'}
+        </Button>
+      </div>
+
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card><CardContent className="pt-4 pb-3 text-center">
           <div className={`text-2xl font-bold ${scoreColor(avgScore)}`}>{avgScore}%</div>

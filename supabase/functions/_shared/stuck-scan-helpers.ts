@@ -241,18 +241,3 @@ export async function safeRpc(
     return { data: null, error: e };
   }
 }
-  sb: SupabaseClient,
-  fn: string,
-  params: Record<string, unknown>,
-) {
-  try {
-    const result = await sb.rpc(fn, params);
-    if (result.error) {
-      console.warn(`[stuck-scan] RPC ${fn} returned error:`, result.error.message);
-    }
-    return result;
-  } catch (e) {
-    console.error(`[stuck-scan] RPC ${fn} threw:`, (e as Error).message);
-    return { data: null, error: e };
-  }
-}

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -77,9 +77,47 @@ const statusIcon: Record<string, React.ReactNode> = {
 };
 
 export default function SEODiscoveryManager() {
+  const qc = useQueryClient();
   const [logFilter, setLogFilter] = useState('all');
   const { data: logs = [], isLoading: logsLoading } = useSubmissionLogs(logFilter);
   const { data: states = [], isLoading: statesLoading } = useDiscoveryState();
+
+  const indexNowMutation = useMutation({
+    mutationFn: async (action: string) => {
+      const { data, error } = await supabase.functions.invoke('seo-submit-indexnow', { body: { action } });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ['seo-submission-logs'] });
+      qc.invalidateQueries({ queryKey: ['seo-discovery-state'] });
+      toast.success(`IndexNow: ${data?.submitted || 0} URLs submitted`);
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const refreshStateMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke('seo-discovery-engine', { body: { action: 'refresh_discovery_state' } });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ['seo-discovery-state'] });
+      toast.success(`${data?.synced || 0} Einträge synchronisiert`);
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const gapMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke('seo-discovery-engine', { body: { action: 'content_gap_analysis' } });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => { toast.success(`${data?.gaps_found || 0} Content Gaps gefunden`); },
+    onError: (e: any) => toast.error(e.message),
+  });
 
   const healthScore = states.length > 0
     ? Math.round(states.reduce((s, d) => s + d.discovery_health_score, 0) / states.length)
@@ -116,7 +154,28 @@ export default function SEODiscoveryManager() {
         </TabsList>
 
         <TabsContent value="logs" className="mt-3 space-y-3">
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" className="h-8 text-xs gap-1"
+              onClick={() => indexNowMutation.mutate('submit_new')}
+              disabled={indexNowMutation.isPending}>
+              <Send className="h-3 w-3" />
+              {indexNowMutation.isPending ? 'Submitting...' : 'IndexNow: Neue URLs'}
+            </Button>
+            <Button size="sm" variant="outline" className="h-8 text-xs gap-1"
+              onClick={() => indexNowMutation.mutate('retry_failed')}
+              disabled={indexNowMutation.isPending}>
+              <RefreshCw className="h-3 w-3" /> Retry Failed
+            </Button>
+            <Button size="sm" variant="outline" className="h-8 text-xs gap-1"
+              onClick={() => refreshStateMutation.mutate()}
+              disabled={refreshStateMutation.isPending}>
+              <Globe className="h-3 w-3" /> State Refresh
+            </Button>
+            <Button size="sm" variant="outline" className="h-8 text-xs gap-1"
+              onClick={() => gapMutation.mutate()}
+              disabled={gapMutation.isPending}>
+              <Zap className="h-3 w-3" /> Content Gap Scan
+            </Button>
             <Select value={logFilter} onValueChange={setLogFilter}>
               <SelectTrigger className="w-[120px] h-8 text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
