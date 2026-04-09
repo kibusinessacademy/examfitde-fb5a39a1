@@ -20,12 +20,13 @@ export default function UsersPanel() {
 
   const kpis = useMemo(() => {
     if (!users) return null;
+    const list = users.users;
     return {
-      total: users.length,
-      active: users.filter(u => u.status === 'active').length,
-      withSeat: users.filter(u => u.seat_count > 0).length,
-      noSeat: users.filter(u => u.seat_count === 0).length,
-      noLogin: users.filter(u => !u.last_sign_in_at).length,
+      total: users.total || list.length,
+      active: list.filter(u => u.status === 'active').length,
+      withSeat: list.filter(u => u.seat_count > 0).length,
+      noSeat: list.filter(u => u.seat_count === 0).length,
+      noLogin: list.filter(u => !u.last_sign_in_at).length,
     };
   }, [users]);
 
@@ -66,7 +67,7 @@ export default function UsersPanel() {
 
       {isLoading ? (
         <div className="space-y-2">{[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-12" />)}</div>
-      ) : !users?.length ? (
+      ) : !users?.users?.length ? (
         <EmptyState
           icon={<Users className="h-6 w-6 text-muted-foreground" />}
           title="Noch keine Nutzer gefunden"
@@ -88,7 +89,7 @@ export default function UsersPanel() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {users.map(user => (
+              {users.users.map(user => (
                 <TableRow
                   key={user.user_id}
                   className="cursor-pointer"

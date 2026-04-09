@@ -22,12 +22,12 @@ export interface AdminUserDetail {
   display_name: string | null;
   created_at: string;
   last_sign_in_at: string | null;
-  memberships: { org_id: string; org_name: string; role: string; created_at: string }[];
+  memberships: { org_id: string; org_name: string; role: string; status: string; created_at: string }[];
   seats: { seat_id: string; license_id: string; product_title: string; claimed_at: string; released_at: string | null }[];
   entitlements: { id: string; product_id: string; product_title: string | null; valid_from: string; valid_until: string | null }[];
 }
 
-export function useAdminUsers(filters?: { orgId?: string; role?: string; status?: string; search?: string }) {
+export function useAdminUsers(filters?: { orgId?: string; role?: string; status?: string; search?: string; page?: number; perPage?: number }) {
   return useQuery({
     queryKey: ['admin-users', filters],
     queryFn: async () => {
@@ -39,6 +39,8 @@ export function useAdminUsers(filters?: { orgId?: string; role?: string; status?
       if (filters?.role) url.searchParams.set('role', filters.role);
       if (filters?.status) url.searchParams.set('status', filters.status);
       if (filters?.search) url.searchParams.set('search', filters.search);
+      if (filters?.page) url.searchParams.set('page', String(filters.page));
+      if (filters?.perPage) url.searchParams.set('per_page', String(filters.perPage));
 
       const res = await fetch(url.toString(), {
         headers: {
@@ -48,7 +50,12 @@ export function useAdminUsers(filters?: { orgId?: string; role?: string; status?
       });
       if (!res.ok) throw new Error(`Failed: ${res.status}`);
       const json = await res.json();
-      return (json.users ?? []) as AdminUser[];
+      return {
+        users: (json.users ?? []) as AdminUser[],
+        page: json.page ?? 1,
+        perPage: json.per_page ?? 50,
+        total: json.total ?? 0,
+      };
     },
     staleTime: 30_000,
   });
