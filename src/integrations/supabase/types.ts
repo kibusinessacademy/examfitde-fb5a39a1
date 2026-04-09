@@ -29912,6 +29912,7 @@ export type Database = {
       org_memberships: {
         Row: {
           created_at: string
+          external_id: string | null
           id: string
           invited_at: string | null
           invited_by: string | null
@@ -29924,6 +29925,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          external_id?: string | null
           id?: string
           invited_at?: string | null
           invited_by?: string | null
@@ -29936,6 +29938,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          external_id?: string | null
           id?: string
           invited_at?: string | null
           invited_by?: string | null
@@ -37098,6 +37101,7 @@ export type Database = {
           avatar_url: string | null
           company_id: string | null
           created_at: string
+          email: string | null
           full_name: string | null
           id: string
           login_username: string | null
@@ -37110,6 +37114,7 @@ export type Database = {
           avatar_url?: string | null
           company_id?: string | null
           created_at?: string
+          email?: string | null
           full_name?: string | null
           id?: string
           login_username?: string | null
@@ -37122,6 +37127,7 @@ export type Database = {
           avatar_url?: string | null
           company_id?: string | null
           created_at?: string
+          email?: string | null
           full_name?: string | null
           id?: string
           login_username?: string | null
@@ -70794,6 +70800,26 @@ export type Database = {
           packages_failed_24h: number
           packages_queued: number
         }[]
+      }
+      get_org_audit_events: {
+        Args: { p_limit?: number; p_org_id: string }
+        Returns: {
+          actor_user_id: string | null
+          created_at: string
+          description: string | null
+          entity_id: string | null
+          entity_type: string | null
+          event_type: string
+          id: string
+          metadata: Json | null
+          org_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "org_audit_events"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       get_org_competency_dashboard: {
         Args: { p_organization_id: string }
