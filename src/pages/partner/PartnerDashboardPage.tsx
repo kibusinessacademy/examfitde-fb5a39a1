@@ -27,7 +27,9 @@ export default function PartnerDashboardPage() {
 
   if (!user) return <Navigate to="/auth" replace />;
 
-  if (!partnerAccount) {
+  const partner = partnerAccount as any;
+
+  if (!partner) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center max-w-md p-8">
