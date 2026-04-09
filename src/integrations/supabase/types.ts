@@ -72751,7 +72751,12 @@ export type Database = {
         | "APPROVED"
         | "DENIED"
         | "EXPIRED"
-      org_member_role: "OWNER" | "BILLING" | "MANAGER" | "REPORT_VIEWER"
+      org_member_role:
+        | "OWNER"
+        | "BILLING"
+        | "MANAGER"
+        | "REPORT_VIEWER"
+        | "IT_ADMIN"
       pipeline_mode: "factory" | "production"
       product_track:
         | "AUSBILDUNG_VOLL"
@@ -73114,7 +73119,13 @@ export const Constants = {
         "mini_check",
       ],
       org_access_status: ["NONE", "REQUESTED", "APPROVED", "DENIED", "EXPIRED"],
-      org_member_role: ["OWNER", "BILLING", "MANAGER", "REPORT_VIEWER"],
+      org_member_role: [
+        "OWNER",
+        "BILLING",
+        "MANAGER",
+        "REPORT_VIEWER",
+        "IT_ADMIN",
+      ],
       pipeline_mode: ["factory", "production"],
       product_track: [
         "AUSBILDUNG_VOLL",
