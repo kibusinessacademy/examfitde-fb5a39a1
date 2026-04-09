@@ -4666,6 +4666,72 @@ export type Database = {
           },
         ]
       }
+      bulk_import_jobs: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          created_count: number
+          dry_run_result: Json | null
+          error_count: number
+          execution_result: Json | null
+          failed_count: number
+          file_name: string | null
+          file_type: string
+          id: string
+          raw_data: Json
+          status: string
+          total_rows: number
+          updated_at: string
+          updated_count: number
+          user_id: string
+          valid_count: number
+          validation_result: Json | null
+          warning_count: number
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          created_count?: number
+          dry_run_result?: Json | null
+          error_count?: number
+          execution_result?: Json | null
+          failed_count?: number
+          file_name?: string | null
+          file_type?: string
+          id?: string
+          raw_data?: Json
+          status?: string
+          total_rows?: number
+          updated_at?: string
+          updated_count?: number
+          user_id: string
+          valid_count?: number
+          validation_result?: Json | null
+          warning_count?: number
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          created_count?: number
+          dry_run_result?: Json | null
+          error_count?: number
+          execution_result?: Json | null
+          failed_count?: number
+          file_name?: string | null
+          file_type?: string
+          id?: string
+          raw_data?: Json
+          status?: string
+          total_rows?: number
+          updated_at?: string
+          updated_count?: number
+          user_id?: string
+          valid_count?: number
+          validation_result?: Json | null
+          warning_count?: number
+        }
+        Relationships: []
+      }
       business_kpi_snapshots: {
         Row: {
           active_campaigns: number
@@ -40237,6 +40303,57 @@ export type Database = {
         }
         Relationships: []
       }
+      scim_tokens: {
+        Row: {
+          created_at: string
+          created_by: string
+          expires_at: string | null
+          id: string
+          is_active: boolean
+          label: string
+          last_used_at: string | null
+          org_id: string | null
+          token_hash: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          label?: string
+          last_used_at?: string | null
+          org_id?: string | null
+          token_hash: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          label?: string
+          last_used_at?: string | null
+          org_id?: string | null
+          token_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scim_tokens_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scim_tokens_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "v_org_license_overview"
+            referencedColumns: ["org_id"]
+          },
+        ]
+      }
       seat_device_log: {
         Row: {
           created_at: string
@@ -68077,6 +68194,7 @@ export type Database = {
         Returns: Json
       }
       fn_derive_exam_part: { Args: { p_blueprint_id: string }; Returns: string }
+      fn_dry_run_bulk_import: { Args: { p_job_id: string }; Returns: Json }
       fn_effective_wip_state: {
         Args: never
         Returns: {
@@ -68157,6 +68275,7 @@ export type Database = {
         }
         Returns: Json
       }
+      fn_execute_bulk_import: { Args: { p_job_id: string }; Returns: Json }
       fn_get_fi_equivalent_questions: {
         Args: { p_learning_field_id: string }
         Returns: {
@@ -68472,6 +68591,7 @@ export type Database = {
         Args: { p_blueprint_id: string }
         Returns: Json
       }
+      fn_validate_bulk_import: { Args: { p_job_id: string }; Returns: Json }
       generate_compliance_report: {
         Args: { p_report_type: string }
         Returns: string

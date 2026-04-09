@@ -8,7 +8,7 @@ import { BuildPackageCard, type BuildPackageCardBadge } from '@/components/admin
 import {
   Activity, AlertTriangle, CheckCircle2, XCircle, Clock,
   Package, Zap, Shield, Cpu, ListChecks, TrendingDown,
-  DollarSign, Users, HeadphonesIcon
+  DollarSign, Users, HeadphonesIcon, Globe
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { BlockedPackagesSheet } from '@/components/admin/command/BlockedPackagesSheet';
@@ -22,6 +22,7 @@ import { FailedJobsSheet } from '@/components/admin/command/FailedJobsSheet';
 const FinancePanel = lazy(() => import('@/components/admin/command/FinancePanel'));
 const CrmPanel = lazy(() => import('@/components/admin/command/CrmPanel'));
 const SupportPanel = lazy(() => import('@/components/admin/command/SupportPanel'));
+const IntegrationsPanel = lazy(() => import('@/components/admin/command/IntegrationsPanel'));
 
 const ExamPoolAuditCard = lazy(() => import('@/components/admin/cards/ExamPoolAuditCard'));
 const BlockedButReadyCard = lazy(() => import('@/components/admin/cards/BlockedButReadyCard'));
@@ -91,6 +92,7 @@ export default function LeitstellePage() {
   const [financeOpen, setFinanceOpen] = useState(false);
   const [crmOpen, setCrmOpen] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
+  const [integrationsOpen, setIntegrationsOpen] = useState(false);
 
   const kpis = useMemo(() => {
     if (!packages || !jobs) return null;
@@ -333,6 +335,17 @@ export default function LeitstellePage() {
             <div className="text-[11px] text-muted-foreground">Tickets & Alerts</div>
           </div>
         </div>
+        <div
+          className="rounded-xl border border-border bg-card p-4 hover:bg-muted/50 transition-colors flex items-center gap-3 cursor-pointer"
+          onClick={() => setIntegrationsOpen(true)}
+          role="button"
+        >
+          <Globe className="h-5 w-5 text-primary" />
+          <div>
+            <div className="text-sm font-semibold">Integrationen</div>
+            <div className="text-[11px] text-muted-foreground">SSO, LTI, CSV, API</div>
+          </div>
+        </div>
       </div>
 
       <BlockedPackagesSheet open={blockedSheetOpen} onOpenChange={setBlockedSheetOpen} />
@@ -348,6 +361,7 @@ export default function LeitstellePage() {
         <FinancePanel open={financeOpen} onOpenChange={setFinanceOpen} />
         <CrmPanel open={crmOpen} onOpenChange={setCrmOpen} />
         <SupportPanel open={supportOpen} onOpenChange={setSupportOpen} />
+        <IntegrationsPanel open={integrationsOpen} onOpenChange={setIntegrationsOpen} />
       </Suspense>
     </div>
   );
