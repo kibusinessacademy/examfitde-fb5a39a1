@@ -90,7 +90,7 @@ Deno.serve(async (req) => {
     }
 
     // Always store click event (for raw data), but flag duplicates
-    await admin.from("partner_click_events").insert({
+    const { data: clickRow } = await admin.from("partner_click_events").insert({
       partner_id: partnerId,
       tracking_link_id: trackingLinkId,
       ref_code: resolvedRefCode,
@@ -102,7 +102,81 @@ Deno.serve(async (req) => {
       visitor_id: visitor_id || null,
       ip_hash: ipHash,
       user_agent: userAgent,
-    });
+    }).select("id").single();
+
+    // ── Create or update attribution record ──
+    // Upsert: last-touch wins — update existing active attribution or create new
+    if (!isDuplicate && visitor_id) {
+      try {
+        const cookieExpiresAt = new Date(Date.now() + cookieDays * 24 * 60 * 60 * 1000).toISOString();
+
+        // Check for existing active attribution for this visitor (via metadata)
+        const { data: existingAttr } = await admin
+          .from("partner_attributions")
+          .select("id, partner_id")
+          .eq("attribution_status", "active")
+          .eq("attribution_type", "b2c_referral")
+          .filter("metadata_json->>visitor_id", "eq", visitor_id)
+          .limit(1);
+
+        if (existingAttr && existingAttr.length > 0) {
+          const existing = existingAttr[0];
+          if (existing.partner_id === partnerId) {
+            // Same partner: update last_touch
+            await admin.from("partner_attributions").update({
+              last_touch_at: new Date().toISOString(),
+              source_tracking_link_id: trackingLinkId,
+              source_campaign: utm_campaign || null,
+              cookie_expires_at: cookieExpiresAt,
+              click_event_id: clickRow?.id || null,
+              updated_at: new Date().toISOString(),
+            }).eq("id", existing.id);
+          } else {
+            // Different partner: replace old attribution
+            await admin.from("partner_attributions").update({
+              attribution_status: "replaced",
+              replaced_by_id: null, // will be set after insert
+              updated_at: new Date().toISOString(),
+            }).eq("id", existing.id);
+
+            const { data: newAttr } = await admin.from("partner_attributions").insert({
+              partner_id: partnerId,
+              attribution_type: "b2c_referral",
+              touch_model: "last_touch",
+              first_touch_at: new Date().toISOString(),
+              last_touch_at: new Date().toISOString(),
+              source_tracking_link_id: trackingLinkId,
+              source_campaign: utm_campaign || null,
+              cookie_expires_at: cookieExpiresAt,
+              click_event_id: clickRow?.id || null,
+              metadata_json: { visitor_id, session_id, ref_code: resolvedRefCode },
+            }).select("id").single();
+
+            if (newAttr) {
+              await admin.from("partner_attributions").update({
+                replaced_by_id: newAttr.id,
+              }).eq("id", existing.id);
+            }
+          }
+        } else {
+          // No existing attribution: create new
+          await admin.from("partner_attributions").insert({
+            partner_id: partnerId,
+            attribution_type: "b2c_referral",
+            touch_model: "last_touch",
+            first_touch_at: new Date().toISOString(),
+            last_touch_at: new Date().toISOString(),
+            source_tracking_link_id: trackingLinkId,
+            source_campaign: utm_campaign || null,
+            cookie_expires_at: cookieExpiresAt,
+            click_event_id: clickRow?.id || null,
+            metadata_json: { visitor_id, session_id, ref_code: resolvedRefCode },
+          });
+        }
+      } catch (attrErr) {
+        console.error("[track-partner-click] Attribution upsert error:", attrErr);
+      }
+    }
 
     // ── Get cookie window for attribution hint ──
     const { data: partnerAccount } = await admin
