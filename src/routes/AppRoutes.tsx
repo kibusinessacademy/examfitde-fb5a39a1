@@ -91,6 +91,8 @@ const AdminV2Layout = lazyRetry(() => import('@/components/admin/v2/AdminV2Layou
 const LeitstellePage = lazyRetry(() => import('@/pages/admin/v2/LeitstellePage'));
 const KursePage = lazyRetry(() => import('@/pages/admin/v2/KursePage'));
 const QueuePage = lazyRetry(() => import('@/pages/admin/v2/QueuePage'));
+const GrowthPage = lazyRetry(() => import('@/pages/admin/v2/GrowthPage'));
+const TestAreaPage = lazyRetry(() => import('@/pages/admin/v2/TestAreaPage'));
 const CourseWorkspace = lazyRetry(() => import('@/pages/admin/CourseWorkspace'));
 
 // ExamFit@work public pages
@@ -266,6 +268,8 @@ const AppRoutes = () => {
           <Route path="studio" element={<KursePage />} />
           <Route path="studio/:packageId" element={<CourseWorkspace />} />
           <Route path="queue" element={<QueuePage />} />
+          <Route path="growth" element={<GrowthPage />} />
+          <Route path="test" element={<TestAreaPage />} />
           <Route path="*" element={<Navigate to="/admin/command" replace />} />
         </Route>
 
