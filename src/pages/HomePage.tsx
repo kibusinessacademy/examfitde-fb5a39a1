@@ -214,7 +214,10 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* ─── 5. Product Proof ─── */}
+        {/* ─── 5. Beliebte Kurse ─── */}
+        <PopularCoursesSection />
+
+        {/* ─── 6. Product Proof ─── */}
         <Testimonials />
 
         {/* ─── 6. Pricing ─── */}
