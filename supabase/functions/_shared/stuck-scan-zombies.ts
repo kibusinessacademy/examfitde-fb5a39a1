@@ -1,17 +1,38 @@
 /**
  * stuck-scan: Zombie step detection + hollow completion guards.
+ *
+ * Uses SSOT `filterGenuinelyActiveJobs` from stuck-scan-helpers.ts
+ * to determine whether "active" jobs are truly active or just
+ * terminal retry loops that should not block finalization.
  */
 import { STEP_TO_JOB_TYPE } from "./job-map.ts";
 import { markStepDone } from "./steps.ts";
-import { safeRpc, type SupabaseClient } from "./stuck-scan-helpers.ts";
+import { safeRpc, filterGenuinelyActiveJobs, type SupabaseClient } from "./stuck-scan-helpers.ts";
 
 const ZOMBIE_MIN_AGE_MS = 5 * 60 * 1000;
 
+/**
+ * All steps that can be auto-finalized when postcondition signals
+ * (batch_complete / meta.ok) are present but the step is stuck.
+ *
+ * IMPORTANT: This must cover every step that can stall due to
+ * job-liveness mismatches. Missing entries = finalization deadlocks.
+ */
 const ZOMBIFIABLE_STEPS = new Set([
+  // Validation steps
   "validate_learning_content", "validate_exam_pool", "validate_blueprints",
   "validate_oral_exam", "validate_handbook", "validate_lesson_minichecks",
-  "validate_tutor_index", "run_integrity_check", "quality_council",
-  "auto_publish",
+  "validate_tutor_index", "validate_handbook_depth", "validate_blueprint_variants",
+  // Generation steps that emit batch_complete
+  "generate_oral_exam", "generate_exam_pool", "generate_learning_content",
+  "generate_lesson_minichecks", "generate_handbook",
+  // Build/transform steps
+  "build_ai_tutor_index", "elite_harden", "expand_handbook",
+  "enqueue_handbook_expand",
+  // Finalization steps
+  "run_integrity_check", "quality_council", "auto_publish",
+  // Variant steps
+  "generate_blueprint_variants", "promote_blueprint_variants",
 ]);
 
 export async function detectAndFixZombieSteps(sb: SupabaseClient) {
@@ -33,8 +54,6 @@ export async function detectAndFixZombieSteps(sb: SupabaseClient) {
 
     const jobType = STEP_TO_JOB_TYPE[zs.step_key] ?? null;
     if (jobType) {
-      // Check for genuinely active jobs — exclude STALE_LOCK loops (attempts >= 5)
-      // which will never complete and would otherwise block finalization forever
       const { data: activeJobs } = await sb
         .from("job_queue")
         .select("id, status, attempts, last_error")
@@ -42,32 +61,23 @@ export async function detectAndFixZombieSteps(sb: SupabaseClient) {
         .eq("job_type", jobType)
         .in("status", ["pending", "processing"]);
 
-      const genuinelyActive = (activeJobs ?? []).filter((j: any) => {
-        const isStaleLoop = (j.attempts ?? 0) >= 5 &&
-          typeof j.last_error === "string" &&
-          j.last_error.includes("STALE_LOCK_RECOVERY");
-        return !isStaleLoop;
-      });
+      // ── SSOT: Use centralized terminal-loop detection ──
+      const { active: genuinelyActive, terminal: terminalJobs } = filterGenuinelyActiveJobs(activeJobs ?? []);
 
       if (genuinelyActive.length > 0) {
         console.log(`[stuck-scan] Zombie candidate ${zs.step_key} for ${zs.package_id.slice(0, 8)} skipped: ${genuinelyActive.length} genuinely active jobs remain`);
         continue;
       }
 
-      // Cancel STALE_LOCK loop jobs that are blocking finalization
-      const staleLoopJobs = (activeJobs ?? []).filter((j: any) =>
-        (j.attempts ?? 0) >= 5 &&
-        typeof j.last_error === "string" &&
-        j.last_error.includes("STALE_LOCK_RECOVERY")
-      );
-      if (staleLoopJobs.length > 0) {
-        console.log(`[stuck-scan] 🔓 Cancelling ${staleLoopJobs.length} STALE_LOCK loop job(s) for ${zs.step_key} (${zs.package_id.slice(0, 8)})`);
-        for (const slj of staleLoopJobs) {
+      // Cancel all terminal-loop jobs blocking finalization
+      if (terminalJobs.length > 0) {
+        console.log(`[stuck-scan] 🔓 Cancelling ${terminalJobs.length} terminal-loop job(s) for ${zs.step_key} (${zs.package_id.slice(0, 8)})`);
+        for (const tj of terminalJobs) {
           await sb.from("job_queue").update({
             status: "cancelled",
             completed_at: new Date().toISOString(),
-            last_error: `STALE_LOCK_LOOP_AUTO_CANCEL: ${slj.attempts} attempts — zombie finalization proceeding`,
-          }).eq("id", slj.id);
+            last_error: `TERMINAL_LOOP_AUTO_CANCEL: ${(tj as any).attempts} attempts, pattern: ${String((tj as any).last_error).slice(0, 80)} — zombie finalization proceeding`,
+          }).eq("id", (tj as any).id);
         }
       }
     }
