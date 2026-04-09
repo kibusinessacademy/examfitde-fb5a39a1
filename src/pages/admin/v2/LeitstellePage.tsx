@@ -4,11 +4,12 @@ import { useAdminQueueSSOT } from '@/hooks/useAdminQueueSSOT';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Link } from 'react-router-dom';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BuildPackageCard, type BuildPackageCardBadge } from '@/components/admin/command/BuildPackageCard';
 import {
   Activity, AlertTriangle, CheckCircle2, XCircle, Clock,
   Package, Zap, Shield, Cpu, ListChecks, TrendingDown,
-  DollarSign, Users, HeadphonesIcon, Globe
+  DollarSign, Users, HeadphonesIcon, Globe, CreditCard, Ticket, Building2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { BlockedPackagesSheet } from '@/components/admin/command/BlockedPackagesSheet';
@@ -24,6 +25,12 @@ const CrmPanel = lazy(() => import('@/components/admin/command/CrmPanel'));
 const SupportPanel = lazy(() => import('@/components/admin/command/SupportPanel'));
 const IntegrationsPanel = lazy(() => import('@/components/admin/command/IntegrationsPanel'));
 const CompliancePanel = lazy(() => import('@/components/admin/command/CompliancePanel'));
+
+// Enterprise panels
+const UsersPanel = lazy(() => import('@/components/admin/enterprise/UsersPanel'));
+const LicensesPanel = lazy(() => import('@/components/admin/enterprise/LicensesPanel'));
+const AssignmentsPanel = lazy(() => import('@/components/admin/enterprise/AssignmentsPanel'));
+const OrganizationsPanel = lazy(() => import('@/components/admin/enterprise/OrganizationsPanel'));
 
 const ExamPoolAuditCard = lazy(() => import('@/components/admin/cards/ExamPoolAuditCard'));
 const BlockedButReadyCard = lazy(() => import('@/components/admin/cards/BlockedButReadyCard'));
@@ -158,6 +165,25 @@ export default function LeitstellePage() {
           </Badge>
         )}
       </div>
+
+      {/* Enterprise Command Tabs */}
+      <Tabs defaultValue="overview" className="w-full">
+        <TabsList className="w-full flex overflow-x-auto">
+          <TabsTrigger value="overview" className="text-xs flex-1 min-w-0">Übersicht</TabsTrigger>
+          <TabsTrigger value="users" className="text-xs flex-1 min-w-0 gap-1"><Users className="h-3 w-3 hidden sm:block" />Users</TabsTrigger>
+          <TabsTrigger value="licenses" className="text-xs flex-1 min-w-0 gap-1"><CreditCard className="h-3 w-3 hidden sm:block" />Lizenzen</TabsTrigger>
+          <TabsTrigger value="assignments" className="text-xs flex-1 min-w-0 gap-1"><Ticket className="h-3 w-3 hidden sm:block" />Seats</TabsTrigger>
+          <TabsTrigger value="orgs" className="text-xs flex-1 min-w-0 gap-1"><Building2 className="h-3 w-3 hidden sm:block" />Orgs</TabsTrigger>
+        </TabsList>
+
+        {/* Enterprise Tabs */}
+        <TabsContent value="users"><Suspense fallback={<Skeleton className="h-64" />}><UsersPanel /></Suspense></TabsContent>
+        <TabsContent value="licenses"><Suspense fallback={<Skeleton className="h-64" />}><LicensesPanel /></Suspense></TabsContent>
+        <TabsContent value="assignments"><Suspense fallback={<Skeleton className="h-64" />}><AssignmentsPanel /></Suspense></TabsContent>
+        <TabsContent value="orgs"><Suspense fallback={<Skeleton className="h-64" />}><OrganizationsPanel /></Suspense></TabsContent>
+
+        {/* Original Overview Content */}
+        <TabsContent value="overview" className="space-y-6">
 
       {/* KPI Grid */}
       {kpis && (
@@ -377,6 +403,8 @@ export default function LeitstellePage() {
         <IntegrationsPanel open={integrationsOpen} onOpenChange={setIntegrationsOpen} />
         <CompliancePanel open={complianceOpen} onOpenChange={setComplianceOpen} />
       </Suspense>
+      </TabsContent>
+      </Tabs>
     </div>
   );
 }
