@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -108,6 +108,8 @@ export default function ExamResultsPage() {
   const [feedbackLoading, setFeedbackLoading] = useState(false);
   const [remediationLoading, setRemediationLoading] = useState(false);
 
+  const shareEmitted = useRef(false);
+
   useEffect(() => {
     async function fetchResults() {
       if (!sessionId || !user) return;
@@ -122,6 +124,16 @@ export default function ExamResultsPage() {
         setSession((data?.session || null) as ExamSessionData | null);
         setQuestions((data?.questions || []) as QuestionDetail[]);
         setDiagnostic((data?.diagnostic || null) as DiagnosticData | null);
+
+        // Emit share events once after loading final results
+        if (!shareEmitted.current && data?.session?.finished_at) {
+          shareEmitted.current = true;
+          supabase.rpc('fn_emit_share_event_for_exam_session', {
+            p_exam_session_id: sessionId,
+          }).then(() => {
+            // Invalidate share events query so the orchestrator picks them up
+          });
+        }
       } catch (e) {
         setSession(null);
         setQuestions([]);
