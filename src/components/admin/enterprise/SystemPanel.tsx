@@ -33,7 +33,7 @@ export default function SystemPanel() {
     const processing = jobs.filter(j => ['processing', 'running', 'batch_pending'].includes(j.job_status));
     const failed = jobs.filter(j => j.job_status === 'failed');
     const zombies = jobs.filter(j => j.health_signal === 'zombie');
-    const stale = jobs.filter(j => j.health_signal === 'stale');
+    const stale = jobs.filter(j => j.health_signal === 'aging');
 
     // Job type distribution
     const byType = new Map<string, number>();
