@@ -4,6 +4,7 @@ import { checkExamPartMappingDrift } from "../_shared/exam-part-mappings.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { enqueueJob } from "../_shared/enqueue.ts";
 import { QC_COVERAGE_ELIGIBLE } from "../_shared/qc-status.ts";
+import { shouldSoftStop } from "../_shared/time-budget.ts";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
