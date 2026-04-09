@@ -40982,35 +40982,187 @@ export type Database = {
         }
         Relationships: []
       }
-      share_events: {
+      share_actions: {
         Row: {
+          action_type: string
+          channel: string
           created_at: string
-          entity_id: string | null
-          entity_type: string | null
           id: string
-          metadata: Json | null
-          share_channel: string | null
-          share_type: string
+          meta: Json
+          platform: string | null
+          recipient_email: string | null
+          share_event_id: string
           user_id: string
         }
         Insert: {
+          action_type: string
+          channel: string
           created_at?: string
-          entity_id?: string | null
-          entity_type?: string | null
           id?: string
-          metadata?: Json | null
-          share_channel?: string | null
-          share_type: string
+          meta?: Json
+          platform?: string | null
+          recipient_email?: string | null
+          share_event_id: string
           user_id: string
         }
         Update: {
+          action_type?: string
+          channel?: string
           created_at?: string
-          entity_id?: string | null
-          entity_type?: string | null
           id?: string
-          metadata?: Json | null
-          share_channel?: string | null
-          share_type?: string
+          meta?: Json
+          platform?: string | null
+          recipient_email?: string | null
+          share_event_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "share_actions_share_event_id_fkey"
+            columns: ["share_event_id"]
+            isOneToOne: false
+            referencedRelation: "share_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      share_email_recipients: {
+        Row: {
+          created_at: string
+          display_name: string | null
+          email: string
+          id: string
+          is_primary: boolean
+          role_label: string | null
+          user_id: string
+          verified_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string | null
+          email: string
+          id?: string
+          is_primary?: boolean
+          role_label?: string | null
+          user_id: string
+          verified_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          display_name?: string | null
+          email?: string
+          id?: string
+          is_primary?: boolean
+          role_label?: string | null
+          user_id?: string
+          verified_at?: string | null
+        }
+        Relationships: []
+      }
+      share_events: {
+        Row: {
+          competency_id: string | null
+          consumed_at: string | null
+          created_at: string
+          curriculum_id: string | null
+          delta_percent: number | null
+          difficulty_level: string | null
+          event_status: string
+          event_type: string
+          exam_question_id: string | null
+          exam_session_id: string | null
+          id: string
+          mastery_after: string | null
+          mastery_before: string | null
+          rarity_percent: number | null
+          score_percent: number | null
+          share_payload: Json
+          source_id: string | null
+          source_table: string | null
+          streak_days: number | null
+          subtitle: string | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          competency_id?: string | null
+          consumed_at?: string | null
+          created_at?: string
+          curriculum_id?: string | null
+          delta_percent?: number | null
+          difficulty_level?: string | null
+          event_status?: string
+          event_type: string
+          exam_question_id?: string | null
+          exam_session_id?: string | null
+          id?: string
+          mastery_after?: string | null
+          mastery_before?: string | null
+          rarity_percent?: number | null
+          score_percent?: number | null
+          share_payload?: Json
+          source_id?: string | null
+          source_table?: string | null
+          streak_days?: number | null
+          subtitle?: string | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          competency_id?: string | null
+          consumed_at?: string | null
+          created_at?: string
+          curriculum_id?: string | null
+          delta_percent?: number | null
+          difficulty_level?: string | null
+          event_status?: string
+          event_type?: string
+          exam_question_id?: string | null
+          exam_session_id?: string | null
+          id?: string
+          mastery_after?: string | null
+          mastery_before?: string | null
+          rarity_percent?: number | null
+          score_percent?: number | null
+          share_payload?: Json
+          source_id?: string | null
+          source_table?: string | null
+          streak_days?: number | null
+          subtitle?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      share_preferences: {
+        Row: {
+          allow_email_share: boolean
+          allow_social_share: boolean
+          auto_prompt_on_success: boolean
+          created_at: string
+          preferred_manager_email: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          allow_email_share?: boolean
+          allow_social_share?: boolean
+          auto_prompt_on_success?: boolean
+          created_at?: string
+          preferred_manager_email?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          allow_email_share?: boolean
+          allow_social_share?: boolean
+          auto_prompt_on_success?: boolean
+          created_at?: string
+          preferred_manager_email?: string | null
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
@@ -67936,6 +68088,59 @@ export type Database = {
           effective_cap: number
           total_building: number
         }[]
+      }
+      fn_emit_share_event_for_exam_session: {
+        Args: { p_exam_session_id: string }
+        Returns: {
+          competency_id: string | null
+          consumed_at: string | null
+          created_at: string
+          curriculum_id: string | null
+          delta_percent: number | null
+          difficulty_level: string | null
+          event_status: string
+          event_type: string
+          exam_question_id: string | null
+          exam_session_id: string | null
+          id: string
+          mastery_after: string | null
+          mastery_before: string | null
+          rarity_percent: number | null
+          score_percent: number | null
+          share_payload: Json
+          source_id: string | null
+          source_table: string | null
+          streak_days: number | null
+          subtitle: string | null
+          title: string
+          updated_at: string
+          user_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "share_events"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      fn_emit_share_event_for_hard_question: {
+        Args: {
+          p_curriculum_id: string
+          p_exam_question_id: string
+          p_exam_session_id: string
+          p_user_id: string
+        }
+        Returns: string
+      }
+      fn_emit_share_event_for_mastery_upgrade: {
+        Args: {
+          p_after: string
+          p_before: string
+          p_competency_id: string
+          p_curriculum_id: string
+          p_user_id: string
+        }
+        Returns: string
       }
       fn_exam_question_tier1_eligibility: {
         Args: {
