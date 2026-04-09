@@ -46,12 +46,13 @@ Deno.serve(async (req) => {
     const invoice_id = isUuid(body.invoice_id) ? body.invoice_id : null;
     if (!organization_id || !invoice_id) return json(400, { error: "Missing organization_id / invoice_id" }, origin);
 
-    // Verify OWNER or BILLING role
+    // Verify OWNER or BILLING role (SSOT: org_memberships)
     const { data: membership } = await supabase
-      .from("organization_members")
+      .from("org_memberships")
       .select("role")
       .eq("user_id", userId)
-      .eq("organization_id", organization_id)
+      .eq("org_id", organization_id)
+      .eq("status", "active")
       .maybeSingle();
 
     if (!membership || !["OWNER", "BILLING"].includes(membership.role)) {

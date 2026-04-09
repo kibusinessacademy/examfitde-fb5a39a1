@@ -39,12 +39,13 @@ Deno.serve(async (req) => {
     const orgId = url.searchParams.get("organization_id");
     if (!isUuid(orgId)) return json(400, { error: "Missing/invalid organization_id" }, origin);
 
-    // 1) Membership check
+    // 1) Membership check (SSOT: org_memberships)
     const { data: mem, error: memErr } = await supabase
-      .from("organization_members")
+      .from("org_memberships")
       .select("role")
-      .eq("organization_id", orgId)
+      .eq("org_id", orgId)
       .eq("user_id", userId)
+      .eq("status", "active")
       .maybeSingle();
 
     if (memErr) return json(500, { error: "membership_failed", details: memErr.message }, origin);

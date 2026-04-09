@@ -13,7 +13,10 @@ export type BudgetKey =
   | "handbook"
   | "glossary"
   | "oral_exam"
-  | "lesson_minichecks";
+  | "lesson_minichecks"
+  | "integrity_check"
+  | "quality_council"
+  | "bulk_import";
 
 export interface TimeBudget {
   /** Total allowed runtime budget for an invocation */
@@ -36,6 +39,9 @@ const DEFAULTS: Record<BudgetKey, TimeBudget> = {
   glossary:           { ms: 45_000, softStopMs: 35_000 },
   oral_exam:          { ms: 45_000, softStopMs: 35_000 },
   lesson_minichecks:  { ms: 50_000, softStopMs: 38_000 },  // v3: raised — 3 targets × ~12s = ~36s, needs headroom
+  integrity_check:    { ms: 50_000, softStopMs: 40_000 },  // v1: paginated fetch, soft-stop before DB writes
+  quality_council:    { ms: 45_000, softStopMs: 35_000 },  // v1: read-only gate, fast
+  bulk_import:        { ms: 50_000, softStopMs: 40_000 },  // v1: per-row processing, chunked
 };
 
 export function getTimeBudget(key: BudgetKey): TimeBudget {

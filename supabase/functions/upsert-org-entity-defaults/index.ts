@@ -38,11 +38,13 @@ Deno.serve(async (req) => {
 
     if (!ent) return json(404, { error: "entity_not_found" }, origin);
 
+    // SSOT: org_memberships
     const { data: mem } = await supabase
-      .from("organization_members")
+      .from("org_memberships")
       .select("role")
-      .eq("organization_id", ent.organization_id)
+      .eq("org_id", ent.organization_id)
       .eq("user_id", userId)
+      .eq("status", "active")
       .maybeSingle();
 
     if (!mem) return json(403, { error: "not_org_member" }, origin);
