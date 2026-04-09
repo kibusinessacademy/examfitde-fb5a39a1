@@ -190,7 +190,7 @@ Deno.serve(async (req) => {
     // has_minichecks → run/skip
     const hasMiniChecks = featureFlags.has_minichecks ?? false;
     if (!hasMiniChecks) {
-      return json({ ok: true, skipped: true, reason: "MINICHECKS_DISABLED" });
+      return json({ ok: false, skipped: true, reason: "MINICHECKS_DISABLED" });
     }
 
     // has_learning_course → lesson vs drill mode

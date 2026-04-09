@@ -2147,7 +2147,20 @@ Deno.serve(async (req) => {
       }
       // ── 5. Completed ───────────────────────────────────────────────
       else {
+        // ── SKIP GUARD (defensive): catch ok:true + skipped:true that wasn't caught in 4b ──
+        if (parsed && parsed.skipped === true) {
+          console.log(`[job-runner] ${fnName} SKIPPED (ok:true path): ${parsed.reason || "no reason"}`);
+          finalState = {
+            status: "completed",
+            patch: {
+              result: typeof parsed === "object" ? parsed : { raw: parsed },
+              completed_at: tsNow,
+              meta: { ...(job.meta || {}), skipped: true, skip_reason: parsed.reason || parsed.error },
+            },
+          };
+        }
         // ── Auto-heal trigger: if content generation completed with poison pills, enqueue heal job ──
+        else
         if (job.job_type === "package_generate_learning_content" && parsed?.poison_pills_skipped > 0) {
           const poisonIds = Object.keys(parsed._poison_pills || {});
           if (poisonIds.length > 0) {
