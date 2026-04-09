@@ -20,12 +20,13 @@ export default function UsersPanel() {
 
   const kpis = useMemo(() => {
     if (!users) return null;
+    const list = users.users;
     return {
-      total: users.length,
-      active: users.filter(u => u.status === 'active').length,
-      withSeat: users.filter(u => u.seat_count > 0).length,
-      noSeat: users.filter(u => u.seat_count === 0).length,
-      noLogin: users.filter(u => !u.last_sign_in_at).length,
+      total: users.total || list.length,
+      active: list.filter(u => u.status === 'active').length,
+      withSeat: list.filter(u => u.seat_count > 0).length,
+      noSeat: list.filter(u => u.seat_count === 0).length,
+      noLogin: list.filter(u => !u.last_sign_in_at).length,
     };
   }, [users]);
 
