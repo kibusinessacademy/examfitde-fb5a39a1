@@ -4,6 +4,7 @@ import { checkExamPartMappingDrift } from "../_shared/exam-part-mappings.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { enqueueJob } from "../_shared/enqueue.ts";
 import { QC_COVERAGE_ELIGIBLE } from "../_shared/qc-status.ts";
+import { shouldSoftStop } from "../_shared/time-budget.ts";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -1017,6 +1018,7 @@ function serializeErr(e: any): { name: string; message: string; stack: string; c
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "Use POST" }, 405);
+  const START_MS = Date.now();
 
   const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   const body = await req.json().catch(() => ({}));
@@ -1138,6 +1140,18 @@ Deno.serve(async (req) => {
 
     // Get curriculum_id from course
     const currId = currIdForBacklog;
+
+    // ── Time-budget soft-stop: abort before heavy computation if budget exhausted ──
+    if (shouldSoftStop(START_MS, "integrity_check")) {
+      console.warn(`[integrity-check] SOFTSTOP: budget exhausted before runCourseReadyGate (elapsed=${Date.now() - START_MS}ms)`);
+      return json({
+        ok: false,
+        retry: true,
+        transient: true,
+        backoff_seconds: 30,
+        error: "SOFTSTOP: time budget exhausted before main analysis",
+      }, 200);
+    }
 
     // ── Run COURSE_READY gate ──
     const gate = await runCourseReadyGate(sb, courseId, currId, packageId);
