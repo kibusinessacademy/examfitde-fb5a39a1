@@ -9,7 +9,7 @@ import { BuildPackageCard, type BuildPackageCardBadge } from '@/components/admin
 import {
   Activity, AlertTriangle, CheckCircle2, XCircle, Clock,
   Package, Zap, Shield, Cpu, ListChecks, TrendingDown,
-  DollarSign, Users, HeadphonesIcon, Globe, CreditCard, Ticket, Building2
+  DollarSign, Users, HeadphonesIcon, Globe, CreditCard, Ticket, Building2, Key, FileText, Server
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { BlockedPackagesSheet } from '@/components/admin/command/BlockedPackagesSheet';
