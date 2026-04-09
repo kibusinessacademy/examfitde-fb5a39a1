@@ -40500,6 +40500,45 @@ export type Database = {
         }
         Relationships: []
       }
+      scim_mappings: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          mapping_type: string
+          org_id: string
+          priority: number | null
+          source_field: string
+          target_field: string
+          transform_rules: Json | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          mapping_type: string
+          org_id: string
+          priority?: number | null
+          source_field: string
+          target_field: string
+          transform_rules?: Json | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          mapping_type?: string
+          org_id?: string
+          priority?: number | null
+          source_field?: string
+          target_field?: string
+          transform_rules?: Json | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       scim_tokens: {
         Row: {
           created_at: string
@@ -42799,6 +42838,113 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_orphan_blueprint_audit"
             referencedColumns: ["curriculum_id"]
+          },
+        ]
+      }
+      sso_connections: {
+        Row: {
+          auto_assign_seat: boolean | null
+          auto_provision: boolean | null
+          config: Json
+          created_at: string | null
+          created_by: string | null
+          default_role: string | null
+          domain: string | null
+          id: string
+          last_test_at: string | null
+          last_test_result: Json | null
+          org_id: string
+          provider: string
+          role_mapping: Json | null
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          auto_assign_seat?: boolean | null
+          auto_provision?: boolean | null
+          config?: Json
+          created_at?: string | null
+          created_by?: string | null
+          default_role?: string | null
+          domain?: string | null
+          id?: string
+          last_test_at?: string | null
+          last_test_result?: Json | null
+          org_id: string
+          provider: string
+          role_mapping?: Json | null
+          status?: string
+          updated_at?: string | null
+        }
+        Update: {
+          auto_assign_seat?: boolean | null
+          auto_provision?: boolean | null
+          config?: Json
+          created_at?: string | null
+          created_by?: string | null
+          default_role?: string | null
+          domain?: string | null
+          id?: string
+          last_test_at?: string | null
+          last_test_result?: Json | null
+          org_id?: string
+          provider?: string
+          role_mapping?: Json | null
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      sso_login_events: {
+        Row: {
+          created_at: string | null
+          email: string | null
+          error_message: string | null
+          id: string
+          mapped_role: string | null
+          org_id: string | null
+          provider: string | null
+          raw_claims: Json | null
+          sso_connection_id: string | null
+          success: boolean | null
+          was_provisioned: boolean | null
+          was_seat_assigned: boolean | null
+        }
+        Insert: {
+          created_at?: string | null
+          email?: string | null
+          error_message?: string | null
+          id?: string
+          mapped_role?: string | null
+          org_id?: string | null
+          provider?: string | null
+          raw_claims?: Json | null
+          sso_connection_id?: string | null
+          success?: boolean | null
+          was_provisioned?: boolean | null
+          was_seat_assigned?: boolean | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string | null
+          error_message?: string | null
+          id?: string
+          mapped_role?: string | null
+          org_id?: string | null
+          provider?: string | null
+          raw_claims?: Json | null
+          sso_connection_id?: string | null
+          success?: boolean | null
+          was_provisioned?: boolean | null
+          was_seat_assigned?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sso_login_events_sso_connection_id_fkey"
+            columns: ["sso_connection_id"]
+            isOneToOne: false
+            referencedRelation: "sso_connections"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -69356,6 +69502,22 @@ export type Database = {
       }
       fn_alert_stale_admin_holds: { Args: never; Returns: number }
       fn_approve_fi_shared_questions: { Args: never; Returns: Json }
+      fn_auto_cancel_terminal_loop_jobs: {
+        Args: never
+        Returns: {
+          job_id: string
+          job_type: string
+          reason: string
+        }[]
+      }
+      fn_auto_finalize_ready_steps: {
+        Args: never
+        Returns: {
+          package_id: string
+          reason: string
+          step_key: string
+        }[]
+      }
       fn_auto_heal_hard_fail_repair_exhausted: { Args: never; Returns: Json }
       fn_auto_heal_materialization_guard: { Args: never; Returns: Json }
       fn_auto_heal_stale_lock_exhausted: { Args: never; Returns: Json }
