@@ -1141,6 +1141,18 @@ Deno.serve(async (req) => {
     // Get curriculum_id from course
     const currId = currIdForBacklog;
 
+    // ── Time-budget soft-stop: abort before heavy computation if budget exhausted ──
+    if (shouldSoftStop(START_MS, "integrity_check")) {
+      console.warn(`[integrity-check] SOFTSTOP: budget exhausted before runCourseReadyGate (elapsed=${Date.now() - START_MS}ms)`);
+      return json({
+        ok: false,
+        retry: true,
+        transient: true,
+        backoff_seconds: 30,
+        error: "SOFTSTOP: time budget exhausted before main analysis",
+      }, 200);
+    }
+
     // ── Run COURSE_READY gate ──
     const gate = await runCourseReadyGate(sb, courseId, currId, packageId);
 
