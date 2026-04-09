@@ -14,8 +14,7 @@ export interface AdminLicense {
   starts_at: string;
   ends_at: string | null;
   status: string;
-  source_type: string | null;
-  source_ref: string | null;
+  contract_ref: string | null;
 }
 
 export interface AdminSeatAssignment {
@@ -40,6 +39,7 @@ export interface AdminOrganization {
   total_seats: number;
   used_seats: number;
   created_at: string;
+  is_active: boolean;
 }
 
 export function useAdminLicenses() {
