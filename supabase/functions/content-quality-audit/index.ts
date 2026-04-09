@@ -95,34 +95,53 @@ Deno.serve(async (req) => {
       const track = normalizeTrack(pkg.track);
       const findings: FindingInsert[] = [];
 
-      // ── Scan handbook chapters (paginated) ──
+      // ── Scan handbook sections (content lives here, not in chapters) ──
       if (pkg.curriculum_id) {
-        let from = 0;
-        while (true) {
-          const { data: chapters } = await sb
-            .from("handbook_chapters")
-            .select("id, title, content")
-            .eq("curriculum_id", pkg.curriculum_id)
-            .order("id", { ascending: true })
-            .range(from, from + 499);
+        // Get chapter IDs for this curriculum
+        const { data: chapterIds } = await sb
+          .from("handbook_chapters")
+          .select("id")
+          .eq("curriculum_id", pkg.curriculum_id);
 
-          if (!chapters || chapters.length === 0) break;
-          for (const ch of chapters) {
-            artifactCount++;
-            const result = runContentAudit({
-              track,
-              artifact_type: "handbook_chapter",
-              artifact_id: ch.id,
-              curriculum_id: pkg.curriculum_id,
-              title: ch.title,
-              content: ch.content,
-            });
-            if (result.audit_status !== "approved") {
-              findings.push(resultToFinding(runId, pkg, "handbook_chapter", ch.id, ch.title, ch.content, result));
+        const chIds = (chapterIds ?? []).map((c: any) => c.id);
+
+        if (chIds.length > 0) {
+          let from = 0;
+          while (true) {
+            const { data: sections } = await sb
+              .from("handbook_sections")
+              .select("id, title, content_markdown, expanded_content, basis_content, chapter_id, competency_id, learning_field_id, content_tier, verification_score, verification_missing")
+              .in("chapter_id", chIds)
+              .order("id", { ascending: true })
+              .range(from, from + 499);
+
+            if (!sections || sections.length === 0) break;
+            for (const sec of sections) {
+              artifactCount++;
+              // Use best available content: expanded > basis > content_markdown
+              const content = sec.expanded_content || sec.basis_content || sec.content_markdown || "";
+              const result = runContentAudit({
+                track,
+                artifact_type: "handbook_section",
+                artifact_id: sec.id,
+                curriculum_id: pkg.curriculum_id,
+                competency_id: sec.competency_id,
+                learning_field_id: sec.learning_field_id,
+                title: sec.title,
+                content,
+                meta: {
+                  content_tier: sec.content_tier,
+                  verification_score: sec.verification_score,
+                  verification_missing: sec.verification_missing,
+                },
+              });
+              if (result.audit_status !== "approved") {
+                findings.push(resultToFinding(runId, pkg, "handbook_section", sec.id, sec.title, content, result));
+              }
             }
+            if (sections.length < 500) break;
+            from += 500;
           }
-          if (chapters.length < 500) break;
-          from += 500;
         }
       }
 
@@ -265,7 +284,7 @@ function resultToFinding(
     spelling_errors: spellingFlags.map(f => f.message),
     detector_version: "v3-track-aware-hardened",
     auto_reheal_eligible: (severity === "critical" || severity === "error")
-      && ["lesson", "handbook_chapter", "tutor_snippet"].includes(artifactType),
+      && ["lesson", "handbook_section", "tutor_snippet"].includes(artifactType),
   };
 }
 
@@ -293,7 +312,7 @@ async function upsertPackageSummary(sb: any, runId: string, packageId: string) {
     error_count: errorC,
     warning_count: warning,
     info_count: 0,
-    handbook_critical_count: open.filter((x: any) => x.severity === "critical" && x.artifact_type === "handbook_chapter").length,
+    handbook_critical_count: open.filter((x: any) => x.severity === "critical" && (x.artifact_type === "handbook_section" || x.artifact_type === "handbook_chapter")).length,
     lesson_critical_count: open.filter((x: any) => x.severity === "critical" && x.artifact_type === "lesson").length,
     overall_severity: overallSeverity,
     reheal_recommended: critical > 0 || errorC >= 3,
