@@ -34,12 +34,13 @@ Deno.serve(async (req) => {
       return json(400, { error: "Missing organization_id or invoice_id" }, origin);
     }
 
-    // Role gate: must be OWNER/BILLING
+    // Role gate: must be OWNER/BILLING (SSOT: org_memberships)
     const { data: mem } = await supabase
-      .from("organization_members")
+      .from("org_memberships")
       .select("role")
-      .eq("organization_id", organization_id)
+      .eq("org_id", organization_id)
       .eq("user_id", userId)
+      .eq("status", "active")
       .maybeSingle();
 
     const role = mem?.role ?? null;

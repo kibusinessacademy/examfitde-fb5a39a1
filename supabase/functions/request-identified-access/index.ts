@@ -28,12 +28,13 @@ Deno.serve(async (req) => {
     const orgId = isUuid(body.organization_id) ? body.organization_id : null;
     if (!orgId) return json(400, { error: "Missing/invalid organization_id" }, origin);
 
-    // Only OWNER/MANAGER can request identified access
+    // Only OWNER/MANAGER can request identified access (SSOT: org_memberships)
     const { data: mem } = await supabase
-      .from("organization_members")
+      .from("org_memberships")
       .select("role")
-      .eq("organization_id", orgId)
+      .eq("org_id", orgId)
       .eq("user_id", userId)
+      .eq("status", "active")
       .maybeSingle();
 
     const role = mem?.role ?? null;
