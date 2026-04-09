@@ -164,6 +164,9 @@ const AppRoutes = () => {
         {/* Enterprise Demo Landing */}
         <Route path="/enterprise-demo" element={<EnterpriseDemoPage />} />
 
+        {/* Enterprise Customer Console (IT-Leiter) */}
+        <Route path="/org/enterprise" element={<OrgEnterprisePage />} />
+
         {/* SEO Routes */}
         <Route element={<SEOLayout />}>
           <Route path="/pruefungstraining" element={<PruefungstrainingHub />} />
