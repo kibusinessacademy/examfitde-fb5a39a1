@@ -312,7 +312,7 @@ async function upsertPackageSummary(sb: any, runId: string, packageId: string) {
     error_count: errorC,
     warning_count: warning,
     info_count: 0,
-    handbook_critical_count: open.filter((x: any) => x.severity === "critical" && x.artifact_type === "handbook_chapter").length,
+    handbook_critical_count: open.filter((x: any) => x.severity === "critical" && (x.artifact_type === "handbook_section" || x.artifact_type === "handbook_chapter")).length,
     lesson_critical_count: open.filter((x: any) => x.severity === "critical" && x.artifact_type === "lesson").length,
     overall_severity: overallSeverity,
     reheal_recommended: critical > 0 || errorC >= 3,
