@@ -81,6 +81,21 @@ export default function SEOAuditManager() {
 
   return (
     <div className="space-y-4">
+      <div className="flex flex-wrap gap-2 mb-2">
+        <Button size="sm" className="h-8 text-xs gap-1"
+          onClick={() => runAuditMutation.mutate()}
+          disabled={runAuditMutation.isPending}>
+          <Zap className="h-3 w-3" />
+          {runAuditMutation.isPending ? 'Berechne...' : 'Opportunity Scores'}
+        </Button>
+        <Button size="sm" variant="outline" className="h-8 text-xs gap-1"
+          onClick={() => cannibalizationMutation.mutate()}
+          disabled={cannibalizationMutation.isPending}>
+          <AlertTriangle className="h-3 w-3" />
+          {cannibalizationMutation.isPending ? 'Prüfe...' : 'Kannibalisierung prüfen'}
+        </Button>
+      </div>
+    <div className="space-y-4">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card><CardContent className="pt-4 pb-3 text-center">
           <div className={`text-2xl font-bold ${scoreColor(avgScore)}`}>{avgScore}%</div>
