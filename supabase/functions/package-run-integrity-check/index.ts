@@ -1018,6 +1018,7 @@ function serializeErr(e: any): { name: string; message: string; stack: string; c
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "Use POST" }, 405);
+  const START_MS = Date.now();
 
   const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   const body = await req.json().catch(() => ({}));
