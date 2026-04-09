@@ -160,6 +160,9 @@ const AppRoutes = () => {
         <Route path="/berufski/*" element={<WorkGonePage />} />
         <Route path="/berufski" element={<WorkGonePage />} />
 
+        {/* Enterprise Demo Landing */}
+        <Route path="/enterprise-demo" element={<EnterpriseDemoPage />} />
+
         {/* SEO Routes */}
         <Route element={<SEOLayout />}>
           <Route path="/pruefungstraining" element={<PruefungstrainingHub />} />
