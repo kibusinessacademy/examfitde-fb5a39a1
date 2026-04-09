@@ -69944,6 +69944,7 @@ export type Database = {
             }
             Returns: boolean
           }
+      fn_nightly_auto_heal: { Args: never; Returns: Json }
       fn_normalize_curriculum_slug: {
         Args: { p_title: string }
         Returns: string
