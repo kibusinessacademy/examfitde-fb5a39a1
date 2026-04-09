@@ -13,6 +13,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
+import { PopularCoursesSection } from '@/components/marketing/PopularCoursesSection';
 import {
   ArrowRight,
   CheckCircle,
