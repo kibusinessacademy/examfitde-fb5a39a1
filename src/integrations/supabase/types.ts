@@ -41019,6 +41019,7 @@ export type Database = {
         Row: {
           blueprint_id: string | null
           competency_id: string | null
+          created_at: string
           curriculum_id: string
           event_type: string
           id: string
@@ -41034,6 +41035,7 @@ export type Database = {
         Insert: {
           blueprint_id?: string | null
           competency_id?: string | null
+          created_at?: string
           curriculum_id: string
           event_type: string
           id?: string
@@ -41049,6 +41051,7 @@ export type Database = {
         Update: {
           blueprint_id?: string | null
           competency_id?: string | null
+          created_at?: string
           curriculum_id?: string
           event_type?: string
           id?: string
@@ -41075,6 +41078,7 @@ export type Database = {
         Row: {
           cooldown_until: string | null
           curriculum_id: string
+          id: string
           last_correct_at: string | null
           last_seen_at: string | null
           question_id: string
@@ -41082,11 +41086,13 @@ export type Database = {
           times_correct: number
           times_incorrect: number
           times_seen: number
+          updated_at: string
           user_id: string
         }
         Insert: {
           cooldown_until?: string | null
           curriculum_id: string
+          id?: string
           last_correct_at?: string | null
           last_seen_at?: string | null
           question_id: string
@@ -41094,11 +41100,13 @@ export type Database = {
           times_correct?: number
           times_incorrect?: number
           times_seen?: number
+          updated_at?: string
           user_id: string
         }
         Update: {
           cooldown_until?: string | null
           curriculum_id?: string
+          id?: string
           last_correct_at?: string | null
           last_seen_at?: string | null
           question_id?: string
@@ -41106,6 +41114,7 @@ export type Database = {
           times_correct?: number
           times_incorrect?: number
           times_seen?: number
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
@@ -41126,6 +41135,7 @@ export type Database = {
           started_at: string
           started_from: string | null
           status: string
+          updated_at: string
           user_id: string
           xp_earned: number
         }
@@ -41144,6 +41154,7 @@ export type Database = {
           started_at?: string
           started_from?: string | null
           status?: string
+          updated_at?: string
           user_id: string
           xp_earned?: number
         }
@@ -41162,6 +41173,7 @@ export type Database = {
           started_at?: string
           started_from?: string | null
           status?: string
+          updated_at?: string
           user_id?: string
           xp_earned?: number
         }
@@ -67855,6 +67867,10 @@ export type Database = {
       }
       finish_exam_session: { Args: { p_session_id: string }; Returns: Json }
       fix_zombie_packages: { Args: never; Returns: Json }
+      fn_admin_boost_job: {
+        Args: { p_admin_user_id?: string; p_job_id: string; p_reason?: string }
+        Returns: Json
+      }
       fn_alert_stale_admin_holds: { Args: never; Returns: number }
       fn_approve_fi_shared_questions: { Args: never; Returns: Json }
       fn_auto_heal_hard_fail_repair_exhausted: { Args: never; Returns: Json }
