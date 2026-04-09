@@ -298,6 +298,7 @@ Deno.serve(async (req) => {
       stale_lock_auto_recovered: staleLockRecovered,
       non_building_jobs_reaped: nonBuildingReaped,
       placeholder_stalls_healed: placeholderHealed,
+      step_sync_gaps_healed: stepSyncGapHealed,
     });
   } catch (e: unknown) {
     const msg = (e as Error)?.message || String(e);
