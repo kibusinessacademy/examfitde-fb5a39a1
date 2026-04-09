@@ -166,6 +166,25 @@ export default function LeitstellePage() {
         )}
       </div>
 
+      {/* Enterprise Command Tabs */}
+      <Tabs defaultValue="overview" className="w-full">
+        <TabsList className="w-full flex overflow-x-auto">
+          <TabsTrigger value="overview" className="text-xs flex-1 min-w-0">Übersicht</TabsTrigger>
+          <TabsTrigger value="users" className="text-xs flex-1 min-w-0 gap-1"><Users className="h-3 w-3 hidden sm:block" />Users</TabsTrigger>
+          <TabsTrigger value="licenses" className="text-xs flex-1 min-w-0 gap-1"><CreditCard className="h-3 w-3 hidden sm:block" />Lizenzen</TabsTrigger>
+          <TabsTrigger value="assignments" className="text-xs flex-1 min-w-0 gap-1"><Ticket className="h-3 w-3 hidden sm:block" />Seats</TabsTrigger>
+          <TabsTrigger value="orgs" className="text-xs flex-1 min-w-0 gap-1"><Building2 className="h-3 w-3 hidden sm:block" />Orgs</TabsTrigger>
+        </TabsList>
+
+        {/* Enterprise Tabs */}
+        <TabsContent value="users"><Suspense fallback={<Skeleton className="h-64" />}><UsersPanel /></Suspense></TabsContent>
+        <TabsContent value="licenses"><Suspense fallback={<Skeleton className="h-64" />}><LicensesPanel /></Suspense></TabsContent>
+        <TabsContent value="assignments"><Suspense fallback={<Skeleton className="h-64" />}><AssignmentsPanel /></Suspense></TabsContent>
+        <TabsContent value="orgs"><Suspense fallback={<Skeleton className="h-64" />}><OrganizationsPanel /></Suspense></TabsContent>
+
+        {/* Original Overview Content */}
+        <TabsContent value="overview" className="space-y-6">
+
       {/* KPI Grid */}
       {kpis && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
