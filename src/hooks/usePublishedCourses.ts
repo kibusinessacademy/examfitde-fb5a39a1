@@ -95,14 +95,14 @@ export function usePublishedCourses() {
 
       // Get real popularity: enrollment counts per curriculum
       const curriculumIds = packages.map(p => (p.curricula as any).id);
-      const { data: enrollments } = await supabase
+      const { data: enrollments } = await (supabase as any)
         .from('course_enrollments')
         .select('course_id, courses!inner(curriculum_id)')
-        .in('courses.curriculum_id' as any, curriculumIds);
+        .in('courses.curriculum_id', curriculumIds);
 
       // Count enrollments per curriculum
       const enrollmentCounts = new Map<string, number>();
-      enrollments?.forEach((e: any) => {
+      (enrollments || []).forEach((e: any) => {
         const cid = e.courses?.curriculum_id;
         if (cid) enrollmentCounts.set(cid, (enrollmentCounts.get(cid) || 0) + 1);
       });
