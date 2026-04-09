@@ -1,15 +1,15 @@
 /**
  * stuck-scan: Zombie step detection + hollow completion guards.
  *
- * Uses SSOT `filterGenuinelyActiveJobs` from stuck-scan-helpers.ts
- * to determine whether "active" jobs are truly active or just
- * terminal retry loops that should not block finalization.
+ * Uses SSOT `isStepFinalizable` + `cancelTerminalLoopJobs` from
+ * stuck-scan-helpers.ts to determine finalizability.
+ *
+ * IMPORTANT: This file MUST NOT contain inline job-liveness checks.
+ * All "is this job genuinely active?" logic lives in stuck-scan-helpers.ts.
  */
 import { STEP_TO_JOB_TYPE } from "./job-map.ts";
 import { markStepDone } from "./steps.ts";
-import { safeRpc, filterGenuinelyActiveJobs, type SupabaseClient } from "./stuck-scan-helpers.ts";
-
-const ZOMBIE_MIN_AGE_MS = 5 * 60 * 1000;
+import { safeRpc, isStepFinalizable, cancelTerminalLoopJobs, type SupabaseClient } from "./stuck-scan-helpers.ts";
 
 /**
  * All steps that can be auto-finalized when postcondition signals
@@ -38,7 +38,7 @@ const ZOMBIFIABLE_STEPS = new Set([
 export async function detectAndFixZombieSteps(sb: SupabaseClient) {
   const { data: zombieSteps } = await sb
     .from("package_steps")
-    .select("package_id, step_key, meta, attempts, started_at, status")
+    .select("package_id, step_key, meta, attempts, started_at, updated_at, status")
     .in("status", ["running", "enqueued", "queued"]);
 
   const zombieResults: Array<{ package_id: string; step_key: string; action: string }> = [];
@@ -47,39 +47,29 @@ export async function detectAndFixZombieSteps(sb: SupabaseClient) {
     if (!ZOMBIFIABLE_STEPS.has(zs.step_key)) continue;
 
     const meta = (zs.meta ?? {}) as Record<string, unknown>;
-    if (meta.ok !== true && meta.batch_complete !== true) continue;
-
-    const age = zs.started_at ? Date.now() - new Date(zs.started_at).getTime() : Infinity;
-    if (age <= ZOMBIE_MIN_AGE_MS) continue;
-
     const jobType = STEP_TO_JOB_TYPE[zs.step_key] ?? null;
-    if (jobType) {
-      const { data: activeJobs } = await sb
-        .from("job_queue")
-        .select("id, status, attempts, last_error")
-        .eq("package_id", zs.package_id)
-        .eq("job_type", jobType)
-        .in("status", ["pending", "processing"]);
 
-      // ── SSOT: Use centralized terminal-loop detection ──
-      const { active: genuinelyActive, terminal: terminalJobs } = filterGenuinelyActiveJobs(activeJobs ?? []);
+    // ── SSOT: Use centralized finalizability check ──
+    const result = await isStepFinalizable(sb, {
+      package_id: zs.package_id,
+      step_key: zs.step_key,
+      status: zs.status,
+      meta,
+      started_at: zs.started_at,
+      updated_at: zs.updated_at,
+    }, jobType);
 
-      if (genuinelyActive.length > 0) {
-        console.log(`[stuck-scan] Zombie candidate ${zs.step_key} for ${zs.package_id.slice(0, 8)} skipped: ${genuinelyActive.length} genuinely active jobs remain`);
-        continue;
+    if (!result.finalizable) {
+      if (result.genuinelyActiveJobs > 0) {
+        console.log(`[stuck-scan] Zombie candidate ${zs.step_key} for ${zs.package_id.slice(0, 8)} skipped: ${result.reason}`);
       }
+      continue;
+    }
 
-      // Cancel all terminal-loop jobs blocking finalization
-      if (terminalJobs.length > 0) {
-        console.log(`[stuck-scan] 🔓 Cancelling ${terminalJobs.length} terminal-loop job(s) for ${zs.step_key} (${zs.package_id.slice(0, 8)})`);
-        for (const tj of terminalJobs) {
-          await sb.from("job_queue").update({
-            status: "cancelled",
-            completed_at: new Date().toISOString(),
-            last_error: `TERMINAL_LOOP_AUTO_CANCEL: ${(tj as any).attempts} attempts, pattern: ${String((tj as any).last_error).slice(0, 80)} — zombie finalization proceeding`,
-          }).eq("id", (tj as any).id);
-        }
-      }
+    // Cancel terminal-loop jobs blocking finalization
+    if (result.terminalJobs > 0 && jobType) {
+      const cancelled = await cancelTerminalLoopJobs(sb, zs.package_id, jobType);
+      console.log(`[stuck-scan] 🔓 Cancelled ${cancelled} terminal-loop job(s) for ${zs.step_key} (${zs.package_id.slice(0, 8)})`);
     }
 
     // ── HOLLOW COMPLETION GUARD: generate_learning_content ──
@@ -178,6 +168,7 @@ export async function detectAndFixZombieSteps(sb: SupabaseClient) {
     }
 
     // Finalize step via SSOT markStepDone
+    const age = zs.started_at ? Date.now() - new Date(zs.started_at).getTime() : Infinity;
     try {
       await markStepDone(sb, {
         packageId: zs.package_id, stepKey: zs.step_key,
@@ -197,13 +188,14 @@ export async function detectAndFixZombieSteps(sb: SupabaseClient) {
     }
 
     // Cancel jobs scoped to this step
+    const jobTypeForCleanup = jobType;
     await safeRpc(sb, "cancel_jobs_for_package", {
-      p_package_id: zs.package_id, p_job_type: jobType,
+      p_package_id: zs.package_id, p_job_type: jobTypeForCleanup,
       p_statuses: ["pending", "failed"],
       p_reason: `stuck-scan zombie finalize: cleanup for step ${zs.step_key}`,
     });
     await safeRpc(sb, "cancel_stale_processing_jobs_for_package", {
-      p_package_id: zs.package_id, p_job_type: jobType,
+      p_package_id: zs.package_id, p_job_type: jobTypeForCleanup,
       p_stale_minutes: 15,
       p_reason: `stuck-scan zombie finalize: cleanup stale processing for step ${zs.step_key}`,
     });
