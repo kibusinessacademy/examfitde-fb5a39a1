@@ -1,31 +1,28 @@
 # Memory: architektur/didaktik/examfit-engagement-layer-and-shuttle-mode-v2
 Updated: now
 
-Der 'Engagement & Value Layer' transformiert ExamFit in ein hürdenfreies Prüfungstrainings-System. Kernstück ist der Shuttle Mode (Phase 1): Ein hocheffizienter Fragen-Stream mit gewichteter Selektion (Schwächen > Blueprint-Relevanz > Kompetenz-Varianz > Cooldown > Random Tiebreaker) und Anti-Loop-Schutz (Ausschluss der letzten 10 Fragen und der letzten 3 Kompetenzen der Session). Die Architektur nutzt transaktionale RPCs ('fn_select_next_shuttle_question', 'fn_submit_shuttle_answer') zur serverseitigen Validierung und Persistenz von Events, Stats und Mastery-Fortschritten. Das System ist gegen Double-Submits geschützt (Partial Index auf 'question_answered' Events) und nutzt ein flexibles Antwortmodell ('selected_option_indexes' als JSONB).
+Der 'Engagement & Value Layer' transformiert ExamFit in ein hürdenfreies Prüfungstrainings-System. Kernstück ist der Shuttle Mode (Phase 1): Ein hocheffizienter Fragen-Stream mit gewichteter Selektion und 5 Trainingsmodi (adaptive, random, weakness, speed, exam_lite).
+
+## Shuttle Mode (Phase 1) — Production-Ready
+- **DB-Schema**: `shuttle_sessions` (erweitert um mode, current_streak, best_streak, xp_earned, average_response_ms, started_from, metadata), `shuttle_events`, `shuttle_question_state`, `shuttle_user_stats`
+- **RPCs**: `fn_select_next_shuttle_question` (5 Modi mit mode-spezifischer Gewichtung), `fn_submit_shuttle_answer` (XP-Vergabe: 2 richtig/1 falsch + Streak-Bonus, leichte Mastery-Beeinflussung), `fn_get_or_create_shuttle_session` (Resume aktiver Sessions), `fn_get_shuttle_dashboard_summary` (Tagesstats, Streak, schwächste Kompetenz, Modus-Empfehlung), `fn_complete_shuttle_session`
+- **Edge Function**: `shuttle-engine` mit Actions: `start`, `next`, `submit`, `end`, `explain`, `dashboard`
+- **UI-Komponenten**: Modulare Struktur mit `ShuttleEntryCard`, `ShuttleModeTabs`, `ShuttleQuestionCard`, `ShuttleFeedbackCard`, `ShuttleSessionSummary`, `ShuttleHeader`
+- **XP-System**: 2 XP richtig, 1 XP falsch, +3 Streak-Bonus alle 5er-Serie
+- **Mastery-Integration**: Leichte Score-Beeinflussung (+0.5/-0.3) auf `user_competency_progress`
+- **NBA-Integration**: `DAILY_CHALLENGE` und `SHUTTLE_TRAINING` Aktionen in `get_next_best_action` eingefügt
 
 ## Phase 2: Daily Challenge (implementiert)
 Die Daily Challenge bietet 3-5 deterministische Fragen pro Tag mit Streak-Tracking:
 - **DB-Tabellen**: `daily_challenges` (pro User/Curriculum/Tag, question_ids, answers als JSONB, completion-Status), `user_streaks` (current/longest streak, last_completed_date, total_challenges_completed)
-- **RPCs**: `get_daily_challenge` (erstellt oder lädt heutige Challenge mit gewichteter Fragenauswahl: Schwächen > Kompetenz-Varianz > Zufall, Anti-Wiederholung gegen gestrige Fragen), `submit_daily_challenge_answer` (validiert serverseitig, aktualisiert Streak bei Completion)
+- **RPCs**: `get_daily_challenge`, `submit_daily_challenge_answer`
 - **Edge Function**: `daily-challenge` mit `get` und `submit` Actions
-- **UI**: `/daily-challenge?curriculum=<id>` mit Fortschrittsbalken, Streak-Anzeige (Flame-Icon), Frage-/Feedback-Karten, Ergebnis-Screen mit Streak-Stats
 - **Dashboard-Integration**: Quick-Launch Card im LearnerDashboard
 
 ## Phase 3: Explain My Mistake (implementiert)
-Inline-KI-Feedback nach falschen Antworten im Shuttle Mode:
-- **Action**: `explain` im `shuttle-engine` Edge Function
-- **AI-Modell**: google/gemini-2.5-flash via Lovable AI Gateway
-- **Prompt-Logik**: Kontextbezogen mit Frage, gewählter (falscher) und richtiger Antwort, Trap-Tags und Basis-Erklärung
-- **Fallback**: Bei AI-Fehler wird die statische Erklärung aus der DB verwendet
-- **UI**: "Fehler erklären lassen" Button (Lightbulb-Icon) erscheint nur bei falschen Antworten, KI-Erklärung wird in separater Karte (Amber-Akzent) angezeigt
-- **Hook**: `explainMistake(questionId, selectedAnswer)` in `useShuttleMode`
+Inline-KI-Feedback nach falschen Antworten im Shuttle Mode via google/gemini-2.5-flash.
 
 ## Phase 4: Prüfungs-Heatmap (implementiert)
-Visuelle Reife-Übersicht pro Lernfeld basierend auf Shuttle-Events:
-- **Hook**: `useExamHeatmap(curriculumId)` aggregiert `shuttle_events` (question_answered) pro Lernfeld über Kompetenz→Lernfeld Mapping
-- **Heat-Level**: 5-stufig (0=keine Daten, 1=schwach <40%, 2=aufbau <60%, 3=gut <80%, 4=stark ≥80%)
-- **UI**: `/heatmap?curriculum=<id>` mit 2-spaltigem Grid, Tooltip-Details, Legende, Gesamtquote
-- **Dashboard-Integration**: Quick-Launch Card (emerald-Akzent) im LearnerDashboard
-- **Keine neue DB-Tabelle**: Rein clientseitige Aggregation über bestehende SSOT-Daten
+Visuelle Reife-Übersicht pro Lernfeld basierend auf Shuttle-Events.
 
-Geplante Erweiterungen umfassen den 'Crash Mode' (Phase 5, 7-Tage-Plan), einen 'XP & Mastery Layer' (Phase 6) sowie ein 'Prüfungsprotokoll' (Phase 7). Alle Module agieren strikt SSOT-konform auf Basis bestehender Datenquellen.
+Geplante Erweiterungen: Crash Mode (Phase 5), XP & Mastery Layer (Phase 6), Prüfungsprotokoll (Phase 7).
