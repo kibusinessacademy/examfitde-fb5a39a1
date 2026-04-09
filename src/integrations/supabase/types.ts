@@ -29397,6 +29397,116 @@ export type Database = {
           },
         ]
       }
+      org_import_job_rows: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          id: string
+          job_id: string
+          learner_identity_id: string | null
+          normalized_payload: Json | null
+          raw_payload: Json
+          row_number: number
+          status: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          job_id: string
+          learner_identity_id?: string | null
+          normalized_payload?: Json | null
+          raw_payload?: Json
+          row_number: number
+          status?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          job_id?: string
+          learner_identity_id?: string | null
+          normalized_payload?: Json | null
+          raw_payload?: Json
+          row_number?: number
+          status?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_import_job_rows_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "org_import_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      org_import_jobs: {
+        Row: {
+          assigned_seats: number
+          completed_at: string | null
+          created_at: string
+          created_count: number
+          dry_run: boolean
+          error_rows: Json
+          failed_rows: number
+          file_name: string | null
+          id: string
+          org_id: string
+          processed_rows: number
+          result_summary: Json | null
+          skipped_count: number
+          status: string
+          success_rows: number
+          total_rows: number
+          updated_count: number
+          uploaded_by: string
+        }
+        Insert: {
+          assigned_seats?: number
+          completed_at?: string | null
+          created_at?: string
+          created_count?: number
+          dry_run?: boolean
+          error_rows?: Json
+          failed_rows?: number
+          file_name?: string | null
+          id?: string
+          org_id: string
+          processed_rows?: number
+          result_summary?: Json | null
+          skipped_count?: number
+          status?: string
+          success_rows?: number
+          total_rows?: number
+          updated_count?: number
+          uploaded_by: string
+        }
+        Update: {
+          assigned_seats?: number
+          completed_at?: string | null
+          created_at?: string
+          created_count?: number
+          dry_run?: boolean
+          error_rows?: Json
+          failed_rows?: number
+          file_name?: string | null
+          id?: string
+          org_id?: string
+          processed_rows?: number
+          result_summary?: Json | null
+          skipped_count?: number
+          status?: string
+          success_rows?: number
+          total_rows?: number
+          updated_count?: number
+          uploaded_by?: string
+        }
+        Relationships: []
+      }
       org_intervention_events: {
         Row: {
           actor_user_id: string | null
@@ -42887,8 +42997,10 @@ export type Database = {
           default_role: string | null
           domain: string | null
           id: string
+          last_error: string | null
           last_test_at: string | null
           last_test_result: Json | null
+          last_test_status: string | null
           org_id: string
           provider: string
           role_mapping: Json | null
@@ -42904,8 +43016,10 @@ export type Database = {
           default_role?: string | null
           domain?: string | null
           id?: string
+          last_error?: string | null
           last_test_at?: string | null
           last_test_result?: Json | null
+          last_test_status?: string | null
           org_id: string
           provider: string
           role_mapping?: Json | null
@@ -42921,8 +43035,10 @@ export type Database = {
           default_role?: string | null
           domain?: string | null
           id?: string
+          last_error?: string | null
           last_test_at?: string | null
           last_test_result?: Json | null
+          last_test_status?: string | null
           org_id?: string
           provider?: string
           role_mapping?: Json | null
