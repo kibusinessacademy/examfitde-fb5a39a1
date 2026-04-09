@@ -9,7 +9,7 @@ import { BuildPackageCard, type BuildPackageCardBadge } from '@/components/admin
 import {
   Activity, AlertTriangle, CheckCircle2, XCircle, Clock,
   Package, Zap, Shield, Cpu, ListChecks, TrendingDown,
-  DollarSign, Users, HeadphonesIcon, Globe, CreditCard, Ticket, Building2, Key, FileText, Server
+  DollarSign, Users, HeadphonesIcon, Globe, CreditCard, Ticket, Building2, Key, FileText, Server, Target, Link2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { BlockedPackagesSheet } from '@/components/admin/command/BlockedPackagesSheet';
@@ -34,6 +34,8 @@ const OrganizationsPanel = lazy(() => import('@/components/admin/enterprise/Orga
 const ApiKeysPanel = lazy(() => import('@/components/admin/enterprise/ApiKeysPanel'));
 const AuditPanel = lazy(() => import('@/components/admin/enterprise/AuditPanel'));
 const SystemPanel = lazy(() => import('@/components/admin/enterprise/SystemPanel'));
+const IntegrationHub = lazy(() => import('@/components/admin/enterprise/IntegrationHub'));
+const SalesDemoPanel = lazy(() => import('@/components/admin/enterprise/SalesDemoPanel'));
 
 const ExamPoolAuditCard = lazy(() => import('@/components/admin/cards/ExamPoolAuditCard'));
 const BlockedButReadyCard = lazy(() => import('@/components/admin/cards/BlockedButReadyCard'));
@@ -177,9 +179,11 @@ export default function LeitstellePage() {
           <TabsTrigger value="licenses" className="text-xs flex-1 min-w-0 gap-1"><CreditCard className="h-3 w-3 hidden sm:block" />Lizenzen</TabsTrigger>
           <TabsTrigger value="assignments" className="text-xs flex-1 min-w-0 gap-1"><Ticket className="h-3 w-3 hidden sm:block" />Seats</TabsTrigger>
           <TabsTrigger value="orgs" className="text-xs flex-1 min-w-0 gap-1"><Building2 className="h-3 w-3 hidden sm:block" />Orgs</TabsTrigger>
+          <TabsTrigger value="integrations" className="text-xs flex-1 min-w-0 gap-1"><Link2 className="h-3 w-3 hidden sm:block" />SSO/SCIM</TabsTrigger>
           <TabsTrigger value="apikeys" className="text-xs flex-1 min-w-0 gap-1"><Key className="h-3 w-3 hidden sm:block" />API Keys</TabsTrigger>
           <TabsTrigger value="audit" className="text-xs flex-1 min-w-0 gap-1"><FileText className="h-3 w-3 hidden sm:block" />Audit</TabsTrigger>
           <TabsTrigger value="system" className="text-xs flex-1 min-w-0 gap-1"><Server className="h-3 w-3 hidden sm:block" />System</TabsTrigger>
+          <TabsTrigger value="demo" className="text-xs flex-1 min-w-0 gap-1"><Target className="h-3 w-3 hidden sm:block" />Demo</TabsTrigger>
         </TabsList>
 
         {/* Enterprise Tabs */}
@@ -187,9 +191,11 @@ export default function LeitstellePage() {
         <TabsContent value="licenses"><Suspense fallback={<Skeleton className="h-64" />}><LicensesPanel /></Suspense></TabsContent>
         <TabsContent value="assignments"><Suspense fallback={<Skeleton className="h-64" />}><AssignmentsPanel /></Suspense></TabsContent>
         <TabsContent value="orgs"><Suspense fallback={<Skeleton className="h-64" />}><OrganizationsPanel /></Suspense></TabsContent>
+        <TabsContent value="integrations"><Suspense fallback={<Skeleton className="h-64" />}><IntegrationHub /></Suspense></TabsContent>
         <TabsContent value="apikeys"><Suspense fallback={<Skeleton className="h-64" />}><ApiKeysPanel /></Suspense></TabsContent>
         <TabsContent value="audit"><Suspense fallback={<Skeleton className="h-64" />}><AuditPanel /></Suspense></TabsContent>
         <TabsContent value="system"><Suspense fallback={<Skeleton className="h-64" />}><SystemPanel /></Suspense></TabsContent>
+        <TabsContent value="demo"><Suspense fallback={<Skeleton className="h-64" />}><SalesDemoPanel /></Suspense></TabsContent>
 
         {/* Original Overview Content */}
         <TabsContent value="overview" className="space-y-6">

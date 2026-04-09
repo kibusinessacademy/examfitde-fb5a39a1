@@ -76,6 +76,7 @@ const DynamicProductLandingPage = lazyRetry(() => import('@/pages/landing/Dynami
 const PersonaLandingPage = lazyRetry(() => import('@/pages/landing/PersonaLandingPage'));
 const PersonaLandingHubPage = lazyRetry(() => import('@/pages/landing/PersonaLandingHubPage'));
 import ProgrammaticSEODispatcher from '@/pages/seo/ProgrammaticSEODispatcher';
+const EnterpriseDemoPage = lazyRetry(() => import('@/pages/seo/EnterpriseDemoPage'));
 const PruefungsreifeCheck = lazyRetry(() => import('@/components/marketing/PruefungsreifeCheck'));
 const BlogIndexPage = lazyRetry(() => import('@/pages/seo/BlogIndexPage'));
 const BlogArticlePage = lazyRetry(() => import('@/pages/seo/BlogArticlePage'));
@@ -158,6 +159,9 @@ const AppRoutes = () => {
         {/* Legacy /berufski/* → 410 Gone */}
         <Route path="/berufski/*" element={<WorkGonePage />} />
         <Route path="/berufski" element={<WorkGonePage />} />
+
+        {/* Enterprise Demo Landing */}
+        <Route path="/enterprise-demo" element={<EnterpriseDemoPage />} />
 
         {/* SEO Routes */}
         <Route element={<SEOLayout />}>
