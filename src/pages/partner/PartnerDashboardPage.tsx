@@ -11,6 +11,7 @@ import { PartnerPayoutsTab } from '@/components/partner/PartnerPayoutsTab';
 import { PartnerLeadsTab } from '@/components/partner/PartnerLeadsTab';
 import { PartnerAssetsTab } from '@/components/partner/PartnerAssetsTab';
 import { PartnerSettingsTab } from '@/components/partner/PartnerSettingsTab';
+import { PartnerContentTab } from '@/components/partner/PartnerContentTab';
 
 export default function PartnerDashboardPage() {
   const { user, loading: authLoading } = useAuth();
@@ -75,14 +76,15 @@ export default function PartnerDashboardPage() {
 
       <div className="container py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-4 sm:grid-cols-7 mb-6">
-            <TabsTrigger value="overview">Übersicht</TabsTrigger>
-            <TabsTrigger value="links">Links</TabsTrigger>
-            <TabsTrigger value="commissions">Provisionen</TabsTrigger>
-            <TabsTrigger value="payouts">Payouts</TabsTrigger>
-            {isAgency && <TabsTrigger value="leads">Leads</TabsTrigger>}
-            <TabsTrigger value="assets">Werbemittel</TabsTrigger>
-            <TabsTrigger value="settings">Einstellungen</TabsTrigger>
+          <TabsList className="w-full flex flex-wrap gap-1 h-auto p-1 mb-6">
+            <TabsTrigger value="overview" className="text-xs sm:text-sm">Übersicht</TabsTrigger>
+            <TabsTrigger value="links" className="text-xs sm:text-sm">Links</TabsTrigger>
+            <TabsTrigger value="commissions" className="text-xs sm:text-sm">Provisionen</TabsTrigger>
+            <TabsTrigger value="payouts" className="text-xs sm:text-sm">Payouts</TabsTrigger>
+            {isAgency && <TabsTrigger value="leads" className="text-xs sm:text-sm">Leads</TabsTrigger>}
+            <TabsTrigger value="content" className="text-xs sm:text-sm">Content Engine</TabsTrigger>
+            <TabsTrigger value="assets" className="text-xs sm:text-sm">Werbemittel</TabsTrigger>
+            <TabsTrigger value="settings" className="text-xs sm:text-sm">Einstellungen</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview">
@@ -102,6 +104,9 @@ export default function PartnerDashboardPage() {
               <PartnerLeadsTab partnerId={partner.id} />
             </TabsContent>
           )}
+          <TabsContent value="content">
+            <PartnerContentTab partnerId={partner.id} />
+          </TabsContent>
           <TabsContent value="assets">
             <PartnerAssetsTab partnerType={partner.partner_type} />
           </TabsContent>
