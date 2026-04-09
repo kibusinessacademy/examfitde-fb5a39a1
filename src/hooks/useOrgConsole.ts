@@ -38,6 +38,7 @@ export function useOrgConsoleContext(orgId?: string) {
   });
 }
 
+/** Org audit events via server-side RPC (no direct table read) */
 export function useOrgAuditEvents(orgId?: string) {
   const { user } = useAuth();
 
@@ -45,12 +46,10 @@ export function useOrgAuditEvents(orgId?: string) {
     queryKey: ['org-audit-events', orgId, user?.id],
     queryFn: async () => {
       if (!orgId) return [];
-      const { data, error } = await supabase
-        .from('org_audit_events')
-        .select('*')
-        .eq('org_id', orgId)
-        .order('created_at', { ascending: false })
-        .limit(100);
+      const { data, error } = await supabase.rpc('get_org_audit_events', {
+        p_org_id: orgId,
+        p_limit: 100,
+      });
       if (error) throw error;
       return data || [];
     },

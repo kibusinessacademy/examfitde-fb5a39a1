@@ -25,36 +25,23 @@ async function authenticateScimToken(sb: ReturnType<typeof createClient>, authHe
   if (!authHeader?.startsWith("Bearer ")) return null;
   const token = authHeader.replace("Bearer ", "");
 
-  // Find active token by checking hash
-  const { data: tokens } = await sb
+  // Hash the token first, then look up directly (O(1) instead of iterating all tokens)
+  const encoder = new TextEncoder();
+  const data = encoder.encode(token);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashHex = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, "0")).join("");
+
+  const { data: match } = await sb
     .from("scim_tokens")
     .select("id, org_id")
-    .eq("is_active", true);
+    .eq("token_hash", hashHex)
+    .eq("is_active", true)
+    .maybeSingle();
 
-  if (!tokens) return null;
-
-  // For simplicity, we store token_hash as the raw hash for comparison
-  // In production, use bcrypt comparison
-  for (const t of tokens) {
-    // Simple token check - compare SHA-256 hash
-    const encoder = new TextEncoder();
-    const data = encoder.encode(token);
-    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-    const hashHex = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, "0")).join("");
-
-    const { data: match } = await sb
-      .from("scim_tokens")
-      .select("id, org_id")
-      .eq("id", t.id)
-      .eq("token_hash", hashHex)
-      .eq("is_active", true)
-      .maybeSingle();
-
-    if (match) {
-      // Update last_used_at
-      await sb.from("scim_tokens").update({ last_used_at: new Date().toISOString() }).eq("id", match.id);
-      return { org_id: match.org_id, token_id: match.id };
-    }
+  if (match) {
+    // Update last_used_at
+    await sb.from("scim_tokens").update({ last_used_at: new Date().toISOString() }).eq("id", match.id);
+    return { org_id: match.org_id, token_id: match.id };
   }
   return null;
 }
