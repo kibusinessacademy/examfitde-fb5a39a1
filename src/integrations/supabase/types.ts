@@ -2101,6 +2101,86 @@ export type Database = {
         }
         Relationships: []
       }
+      api_key_events: {
+        Row: {
+          actor_id: string | null
+          api_key_id: string | null
+          created_at: string
+          event_type: string
+          id: string
+          metadata: Json | null
+        }
+        Insert: {
+          actor_id?: string | null
+          api_key_id?: string | null
+          created_at?: string
+          event_type: string
+          id?: string
+          metadata?: Json | null
+        }
+        Update: {
+          actor_id?: string | null
+          api_key_id?: string | null
+          created_at?: string
+          event_type?: string
+          id?: string
+          metadata?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_key_events_api_key_id_fkey"
+            columns: ["api_key_id"]
+            isOneToOne: false
+            referencedRelation: "api_keys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      api_keys: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          expires_at: string | null
+          id: string
+          key_hash: string
+          key_prefix: string
+          last_used_at: string | null
+          name: string
+          org_id: string
+          scopes: string[]
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          key_hash: string
+          key_prefix: string
+          last_used_at?: string | null
+          name: string
+          org_id: string
+          scopes?: string[]
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          key_hash?: string
+          key_prefix?: string
+          last_used_at?: string | null
+          name?: string
+          org_id?: string
+          scopes?: string[]
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       api_rate_limits: {
         Row: {
           action_key: string
