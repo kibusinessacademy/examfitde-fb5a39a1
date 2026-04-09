@@ -250,8 +250,19 @@ Deno.serve(async (req) => {
     } catch (e) {
       console.warn(`[stuck-scan] placeholder reconciliation error: ${(e as Error)?.message?.slice(0, 100)}`);
     }
+    // ══ 15) DAUERMAASSNAHME: Step-Sync-Gap Healer ══
+    let stepSyncGapHealed = 0;
+    try {
+      const { data: syncResult } = await safeRpc(sb, "fn_sync_steps_from_completed_jobs", {});
+      stepSyncGapHealed = syncResult?.synced ?? 0;
+      if (stepSyncGapHealed > 0) {
+        console.warn(`[stuck-scan] 🔗 Step-Sync-Gap healer: ${stepSyncGapHealed} steps synced from completed jobs`);
+      }
+    } catch (e) {
+      console.warn(`[stuck-scan] step-sync-gap healer error: ${(e as Error)?.message?.slice(0, 100)}`);
+    }
 
-    console.log(`[stuck-scan] ${results.length} timeout-checked, ${orphanResults.length} orphan-checked, ${buildingPkgResults.length} building-pkg-checked, ${statusLagResults.length} status-lag-healed, ${staleCount} stale jobs killed (liveness guard), ${zombieResults.length} zombie steps fixed, ${escalationResults.length} escalation loops handled, ${revivedCount} transient-failed revived, ${leaseNoProgressHealed} lease-no-progress healed, ${trueStallsHealed.length} true-stalls healed, ${deadlockHealed.length} deadlocks healed, ${loopGuardFalsePositives.length} loop-guard-false-positives healed, ${integrityReportMissing} integrity-report-missing healed, ${trueStallStepsHealed.length} true-stall-steps healed, ${zombieReaperV2Count} zombie-v2 reaped, ${ancientPendingCount} ancient-pending reaped, ${falseLivenessHealed.length} false-liveness healed, ${examPoolLoopRepaired} exam-pool-loops repaired, ${hotLoopResults.length} hot-loops mitigated, ${staleLockLoopResults.length} stale-lock-loops mitigated, ${requeueLoopResults.length} requeue-loops mitigated, ${staleLockRecovered} stale-lock-recovered, ${nonBuildingReaped} non-building-reaped${systemFrozen ? ", ⚫ SYSTEM FREEZE DETECTED" : ""}${poolMismatchFixed > 0 ? `, 🔧 ${poolMismatchFixed} pool mismatches fixed` : ""}`);
+    console.log(`[stuck-scan] ${results.length} timeout-checked, ${orphanResults.length} orphan-checked, ${buildingPkgResults.length} building-pkg-checked, ${statusLagResults.length} status-lag-healed, ${staleCount} stale jobs killed (liveness guard), ${zombieResults.length} zombie steps fixed, ${escalationResults.length} escalation loops handled, ${revivedCount} transient-failed revived, ${leaseNoProgressHealed} lease-no-progress healed, ${trueStallsHealed.length} true-stalls healed, ${deadlockHealed.length} deadlocks healed, ${loopGuardFalsePositives.length} loop-guard-false-positives healed, ${integrityReportMissing} integrity-report-missing healed, ${trueStallStepsHealed.length} true-stall-steps healed, ${zombieReaperV2Count} zombie-v2 reaped, ${ancientPendingCount} ancient-pending reaped, ${falseLivenessHealed.length} false-liveness healed, ${examPoolLoopRepaired} exam-pool-loops repaired, ${hotLoopResults.length} hot-loops mitigated, ${staleLockLoopResults.length} stale-lock-loops mitigated, ${requeueLoopResults.length} requeue-loops mitigated, ${staleLockRecovered} stale-lock-recovered, ${nonBuildingReaped} non-building-reaped, ${stepSyncGapHealed} step-sync-gaps-healed${systemFrozen ? ", ⚫ SYSTEM FREEZE DETECTED" : ""}${poolMismatchFixed > 0 ? `, 🔧 ${poolMismatchFixed} pool mismatches fixed` : ""}`);
 
 
     return json({
@@ -287,6 +298,7 @@ Deno.serve(async (req) => {
       stale_lock_auto_recovered: staleLockRecovered,
       non_building_jobs_reaped: nonBuildingReaped,
       placeholder_stalls_healed: placeholderHealed,
+      step_sync_gaps_healed: stepSyncGapHealed,
     });
   } catch (e: unknown) {
     const msg = (e as Error)?.message || String(e);
