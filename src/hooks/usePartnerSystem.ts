@@ -127,11 +127,12 @@ export function useRequestPartnerPayout() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ partner_id, amount }: { partner_id: string; amount: number }) => {
-      const { data, error } = await (supabase as any)
-        .from('partner_payout_requests')
-        .insert({ partner_id, requested_amount_eur: amount })
-        .select()
-        .single();
+      // Use hardened DB function that validates balance, dedup, and minimum
+      const { data, error } = await (supabase as any).rpc('fn_request_partner_payout_safe', {
+        _partner_id: partner_id,
+        _requested_amount: amount,
+        _min_payout: 50,
+      });
       if (error) throw error;
       return data;
     },
