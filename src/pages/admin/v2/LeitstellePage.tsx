@@ -4,11 +4,12 @@ import { useAdminQueueSSOT } from '@/hooks/useAdminQueueSSOT';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Link } from 'react-router-dom';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BuildPackageCard, type BuildPackageCardBadge } from '@/components/admin/command/BuildPackageCard';
 import {
   Activity, AlertTriangle, CheckCircle2, XCircle, Clock,
   Package, Zap, Shield, Cpu, ListChecks, TrendingDown,
-  DollarSign, Users, HeadphonesIcon, Globe
+  DollarSign, Users, HeadphonesIcon, Globe, CreditCard, Ticket, Building2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { BlockedPackagesSheet } from '@/components/admin/command/BlockedPackagesSheet';
@@ -24,6 +25,12 @@ const CrmPanel = lazy(() => import('@/components/admin/command/CrmPanel'));
 const SupportPanel = lazy(() => import('@/components/admin/command/SupportPanel'));
 const IntegrationsPanel = lazy(() => import('@/components/admin/command/IntegrationsPanel'));
 const CompliancePanel = lazy(() => import('@/components/admin/command/CompliancePanel'));
+
+// Enterprise panels
+const UsersPanel = lazy(() => import('@/components/admin/enterprise/UsersPanel'));
+const LicensesPanel = lazy(() => import('@/components/admin/enterprise/LicensesPanel'));
+const AssignmentsPanel = lazy(() => import('@/components/admin/enterprise/AssignmentsPanel'));
+const OrganizationsPanel = lazy(() => import('@/components/admin/enterprise/OrganizationsPanel'));
 
 const ExamPoolAuditCard = lazy(() => import('@/components/admin/cards/ExamPoolAuditCard'));
 const BlockedButReadyCard = lazy(() => import('@/components/admin/cards/BlockedButReadyCard'));
