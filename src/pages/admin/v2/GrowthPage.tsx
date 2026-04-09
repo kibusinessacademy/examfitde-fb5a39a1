@@ -1,6 +1,6 @@
-import { lazy, Suspense, useState } from 'react';
+import { lazy, Suspense } from 'react';
 import { Link } from 'react-router-dom';
-import { Loader2, Globe, ArrowLeft, Megaphone, TrendingUp, FileText, Image, Link2, Settings, Euro, Share2, BarChart3 } from 'lucide-react';
+import { Loader2, Globe, ArrowLeft, BarChart3, FileText, Image, Link2, Settings, Euro, Share2, Search, Target, RefreshCw, Radar, Zap } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
@@ -12,6 +12,12 @@ const ContentAssetManager = lazy(() => import('@/components/admin/growth/Content
 const SocialMediaManager = lazy(() => import('@/components/admin/growth/SocialMediaManager'));
 const SEOSettingsManager = lazy(() => import('@/components/admin/growth/SEOSettingsManager'));
 const PricingManager = lazy(() => import('@/components/admin/growth/PricingManager'));
+const KeywordStrategyManager = lazy(() => import('@/components/admin/growth/KeywordStrategyManager'));
+const ContentBriefManager = lazy(() => import('@/components/admin/growth/ContentBriefManager'));
+const InternalLinkManager = lazy(() => import('@/components/admin/growth/InternalLinkManager'));
+const RefreshQueueManager = lazy(() => import('@/components/admin/growth/RefreshQueueManager'));
+const SEOAuditManager = lazy(() => import('@/components/admin/growth/SEOAuditManager'));
+const SEODiscoveryManager = lazy(() => import('@/components/admin/growth/SEODiscoveryManager'));
 
 const Loading = () => (
   <Card><CardContent className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></CardContent></Card>
@@ -29,7 +35,7 @@ export default function GrowthPage() {
           Growth · SEO · Marketing
         </h1>
         <p className="text-xs text-muted-foreground mt-0.5">
-          Umfassende Plattform für Content, SEO, Social Media, Pricing und Vertrieb
+          Content Operating System – Keywords, Briefs, Audits, Discovery, Conversion
         </p>
       </div>
 
@@ -38,11 +44,29 @@ export default function GrowthPage() {
           <TabsTrigger value="dashboard" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg">
             <BarChart3 className="h-3 w-3" /> Dashboard
           </TabsTrigger>
+          <TabsTrigger value="keywords" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg">
+            <Search className="h-3 w-3" /> Keywords
+          </TabsTrigger>
+          <TabsTrigger value="briefs" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg">
+            <Target className="h-3 w-3" /> Briefs
+          </TabsTrigger>
           <TabsTrigger value="blog" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg">
             <FileText className="h-3 w-3" /> Blog
           </TabsTrigger>
           <TabsTrigger value="pages" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg">
             <Globe className="h-3 w-3" /> Seiten
+          </TabsTrigger>
+          <TabsTrigger value="links" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg">
+            <Link2 className="h-3 w-3" /> Links
+          </TabsTrigger>
+          <TabsTrigger value="audit" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg">
+            <Zap className="h-3 w-3" /> Audit
+          </TabsTrigger>
+          <TabsTrigger value="refresh" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg">
+            <RefreshCw className="h-3 w-3" /> Refresh
+          </TabsTrigger>
+          <TabsTrigger value="discovery" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg">
+            <Radar className="h-3 w-3" /> Discovery
           </TabsTrigger>
           <TabsTrigger value="seo" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg">
             <Settings className="h-3 w-3" /> SEO
@@ -61,30 +85,20 @@ export default function GrowthPage() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="dashboard" className="mt-4">
-          <Suspense fallback={<Loading />}><GrowthSeoCommandCenter /></Suspense>
-        </TabsContent>
-        <TabsContent value="blog" className="mt-4">
-          <Suspense fallback={<Loading />}><BlogPostEditor /></Suspense>
-        </TabsContent>
-        <TabsContent value="pages" className="mt-4">
-          <Suspense fallback={<Loading />}><ContentPageEditor /></Suspense>
-        </TabsContent>
-        <TabsContent value="seo" className="mt-4">
-          <Suspense fallback={<Loading />}><SEOSettingsManager /></Suspense>
-        </TabsContent>
-        <TabsContent value="redirects" className="mt-4">
-          <Suspense fallback={<Loading />}><SEORedirectManager /></Suspense>
-        </TabsContent>
-        <TabsContent value="assets" className="mt-4">
-          <Suspense fallback={<Loading />}><ContentAssetManager /></Suspense>
-        </TabsContent>
-        <TabsContent value="social" className="mt-4">
-          <Suspense fallback={<Loading />}><SocialMediaManager /></Suspense>
-        </TabsContent>
-        <TabsContent value="pricing" className="mt-4">
-          <Suspense fallback={<Loading />}><PricingManager /></Suspense>
-        </TabsContent>
+        <TabsContent value="dashboard" className="mt-4"><Suspense fallback={<Loading />}><GrowthSeoCommandCenter /></Suspense></TabsContent>
+        <TabsContent value="keywords" className="mt-4"><Suspense fallback={<Loading />}><KeywordStrategyManager /></Suspense></TabsContent>
+        <TabsContent value="briefs" className="mt-4"><Suspense fallback={<Loading />}><ContentBriefManager /></Suspense></TabsContent>
+        <TabsContent value="blog" className="mt-4"><Suspense fallback={<Loading />}><BlogPostEditor /></Suspense></TabsContent>
+        <TabsContent value="pages" className="mt-4"><Suspense fallback={<Loading />}><ContentPageEditor /></Suspense></TabsContent>
+        <TabsContent value="links" className="mt-4"><Suspense fallback={<Loading />}><InternalLinkManager /></Suspense></TabsContent>
+        <TabsContent value="audit" className="mt-4"><Suspense fallback={<Loading />}><SEOAuditManager /></Suspense></TabsContent>
+        <TabsContent value="refresh" className="mt-4"><Suspense fallback={<Loading />}><RefreshQueueManager /></Suspense></TabsContent>
+        <TabsContent value="discovery" className="mt-4"><Suspense fallback={<Loading />}><SEODiscoveryManager /></Suspense></TabsContent>
+        <TabsContent value="seo" className="mt-4"><Suspense fallback={<Loading />}><SEOSettingsManager /></Suspense></TabsContent>
+        <TabsContent value="redirects" className="mt-4"><Suspense fallback={<Loading />}><SEORedirectManager /></Suspense></TabsContent>
+        <TabsContent value="assets" className="mt-4"><Suspense fallback={<Loading />}><ContentAssetManager /></Suspense></TabsContent>
+        <TabsContent value="social" className="mt-4"><Suspense fallback={<Loading />}><SocialMediaManager /></Suspense></TabsContent>
+        <TabsContent value="pricing" className="mt-4"><Suspense fallback={<Loading />}><PricingManager /></Suspense></TabsContent>
       </Tabs>
     </div>
   );
