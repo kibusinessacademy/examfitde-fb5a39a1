@@ -43,12 +43,11 @@ export default function PartnerDashboardPage() {
     );
   }
 
-  const isAgency = partnerAccount.partner_type === 'agency';
-  const isPending = partnerAccount.status === 'pending';
+  const isAgency = partner.partner_type === 'agency';
+  const isPending = partner.status === 'pending';
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <header className="border-b bg-background/95 backdrop-blur-sm sticky top-0 z-30">
         <div className="container flex items-center justify-between h-16">
           <div className="flex items-center gap-3">
@@ -56,20 +55,20 @@ export default function PartnerDashboardPage() {
             <span className="text-sm text-muted-foreground">Partner</span>
           </div>
           <div className="flex items-center gap-2 text-sm">
-            <span className="text-muted-foreground">{partnerAccount.contact_name || partnerAccount.email}</span>
+            <span className="text-muted-foreground">{partner.contact_name || partner.email}</span>
             <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-              partnerAccount.status === 'active' ? 'bg-emerald-500/10 text-emerald-500' :
-              partnerAccount.status === 'pending' ? 'bg-orange-500/10 text-orange-500' :
+              partner.status === 'active' ? 'bg-accent/10 text-accent' :
+              partner.status === 'pending' ? 'bg-warning/10 text-warning' :
               'bg-destructive/10 text-destructive'
             }`}>
-              {partnerAccount.status === 'active' ? 'Aktiv' : partnerAccount.status === 'pending' ? 'Ausstehend' : partnerAccount.status}
+              {partner.status === 'active' ? 'Aktiv' : partner.status === 'pending' ? 'Ausstehend' : partner.status}
             </span>
           </div>
         </div>
       </header>
 
       {isPending && (
-        <div className="bg-orange-500/10 border-b border-orange-500/20 py-3 text-center text-sm text-orange-600">
+        <div className="bg-warning/10 border-b border-warning/20 py-3 text-center text-sm text-warning">
           Dein Partner-Konto wird derzeit geprüft. Einige Funktionen sind noch eingeschränkt.
         </div>
       )}
@@ -87,27 +86,27 @@ export default function PartnerDashboardPage() {
           </TabsList>
 
           <TabsContent value="overview">
-            <PartnerOverviewTab partnerId={partnerAccount.id} partnerType={partnerAccount.partner_type} />
+            <PartnerOverviewTab partnerId={partner.id} partnerType={partner.partner_type} />
           </TabsContent>
           <TabsContent value="links">
-            <PartnerTrackingLinksTab partnerId={partnerAccount.id} referralCode={partnerAccount.referral_code} />
+            <PartnerTrackingLinksTab partnerId={partner.id} referralCode={partner.referral_code} />
           </TabsContent>
           <TabsContent value="commissions">
-            <PartnerCommissionsTab partnerId={partnerAccount.id} />
+            <PartnerCommissionsTab partnerId={partner.id} />
           </TabsContent>
           <TabsContent value="payouts">
-            <PartnerPayoutsTab partnerId={partnerAccount.id} />
+            <PartnerPayoutsTab partnerId={partner.id} />
           </TabsContent>
           {isAgency && (
             <TabsContent value="leads">
-              <PartnerLeadsTab partnerId={partnerAccount.id} />
+              <PartnerLeadsTab partnerId={partner.id} />
             </TabsContent>
           )}
           <TabsContent value="assets">
-            <PartnerAssetsTab partnerType={partnerAccount.partner_type} />
+            <PartnerAssetsTab partnerType={partner.partner_type} />
           </TabsContent>
           <TabsContent value="settings">
-            <PartnerSettingsTab partner={partnerAccount} />
+            <PartnerSettingsTab partner={partner} />
           </TabsContent>
         </Tabs>
       </div>
