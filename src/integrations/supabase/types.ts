@@ -68144,6 +68144,7 @@ export type Database = {
         }
         Returns: Json
       }
+      fn_sync_steps_from_completed_jobs: { Args: never; Returns: Json }
       fn_update_package_prebuild_status: {
         Args: { p_package_id: string }
         Returns: string
