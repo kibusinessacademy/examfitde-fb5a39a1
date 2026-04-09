@@ -8,7 +8,7 @@ import { BuildPackageCard, type BuildPackageCardBadge } from '@/components/admin
 import {
   Activity, AlertTriangle, CheckCircle2, XCircle, Clock,
   Package, Zap, Shield, Cpu, ListChecks, TrendingDown,
-  DollarSign, Users, HeadphonesIcon
+  DollarSign, Users, HeadphonesIcon, Globe
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { BlockedPackagesSheet } from '@/components/admin/command/BlockedPackagesSheet';
@@ -22,6 +22,7 @@ import { FailedJobsSheet } from '@/components/admin/command/FailedJobsSheet';
 const FinancePanel = lazy(() => import('@/components/admin/command/FinancePanel'));
 const CrmPanel = lazy(() => import('@/components/admin/command/CrmPanel'));
 const SupportPanel = lazy(() => import('@/components/admin/command/SupportPanel'));
+const IntegrationsPanel = lazy(() => import('@/components/admin/command/IntegrationsPanel'));
 
 const ExamPoolAuditCard = lazy(() => import('@/components/admin/cards/ExamPoolAuditCard'));
 const BlockedButReadyCard = lazy(() => import('@/components/admin/cards/BlockedButReadyCard'));
