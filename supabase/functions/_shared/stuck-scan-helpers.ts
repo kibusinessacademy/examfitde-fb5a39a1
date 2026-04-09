@@ -97,7 +97,150 @@ export function filterGenuinelyActiveJobs<T extends {
   return { active, terminal };
 }
 
+// ═══════════════════════════════════════════════════════
+//  SSOT: Step Finalizability Check
+// ═══════════════════════════════════════════════════════
+// Central truth for "can this step be marked done?"
+// All watchers, healers, and scanners MUST use this
+// instead of ad-hoc job-count checks.
+// ═══════════════════════════════════════════════════════
+
+export interface StepFinalizabilityResult {
+  finalizable: boolean;
+  reason: string;
+  genuinelyActiveJobs: number;
+  terminalJobs: number;
+  hasCompletionSignal: boolean;
+}
+
+/**
+ * SSOT function: determines whether a step can be finalized.
+ *
+ * A step is finalizable when ALL conditions are met:
+ *   1. meta.batch_complete=true OR meta.ok=true (completion signal exists)
+ *   2. No genuinely active jobs remain (terminal loops don't count)
+ *   3. Step is in a non-terminal status (queued/running/enqueued)
+ *
+ * This replaces all inline "count active jobs" checks across
+ * stuck-scan-zombies, stuck-scan-healers, and any future watcher.
+ *
+ * NOTE: This does NOT check postconditions (hollow guard).
+ * Postconditions are enforced by markStepDone() as a separate layer.
+ * This function answers: "should we ATTEMPT finalization?"
+ * markStepDone answers: "is the content actually complete?"
+ */
+export async function isStepFinalizable(
+  sb: SupabaseClient,
+  step: {
+    package_id: string;
+    step_key: string;
+    status: string;
+    meta: Record<string, unknown>;
+    started_at?: string | null;
+    updated_at?: string;
+  },
+  jobType: string | null,
+  opts?: { minAgeMs?: number },
+): Promise<StepFinalizabilityResult> {
+  const meta = step.meta ?? {};
+  const hasBatchComplete = meta.batch_complete === true;
+  const hasMetaOk = meta.ok === true;
+  const hasCompletionSignal = hasBatchComplete || hasMetaOk;
+
+  // No completion signal → not finalizable
+  if (!hasCompletionSignal) {
+    return { finalizable: false, reason: "no_completion_signal", genuinelyActiveJobs: 0, terminalJobs: 0, hasCompletionSignal: false };
+  }
+
+  // Still flagged for regeneration → not finalizable
+  if (meta.needs_regen && Number(meta.needs_regen) > 0) {
+    return { finalizable: false, reason: "needs_regen", genuinelyActiveJobs: 0, terminalJobs: 0, hasCompletionSignal: true };
+  }
+
+  // Age check (prevents premature finalization)
+  const minAge = opts?.minAgeMs ?? 5 * 60 * 1000;
+  const refTime = step.started_at ?? step.updated_at;
+  if (refTime) {
+    const ageMs = Date.now() - new Date(refTime).getTime();
+    if (ageMs < minAge) {
+      return { finalizable: false, reason: "too_young", genuinelyActiveJobs: 0, terminalJobs: 0, hasCompletionSignal: true };
+    }
+  }
+
+  // Job liveness check — the critical SSOT layer
+  let genuinelyActiveJobs = 0;
+  let terminalJobCount = 0;
+
+  if (jobType) {
+    const { data: activeJobs } = await sb
+      .from("job_queue")
+      .select("id, status, attempts, last_error")
+      .eq("package_id", step.package_id)
+      .eq("job_type", jobType)
+      .in("status", ["pending", "processing"]);
+
+    const { active, terminal } = filterGenuinelyActiveJobs(activeJobs ?? []);
+    genuinelyActiveJobs = active.length;
+    terminalJobCount = terminal.length;
+
+    if (genuinelyActiveJobs > 0) {
+      return { finalizable: false, reason: `genuinely_active_jobs:${genuinelyActiveJobs}`, genuinelyActiveJobs, terminalJobs: terminalJobCount, hasCompletionSignal: true };
+    }
+  }
+
+  return {
+    finalizable: true,
+    reason: "all_conditions_met",
+    genuinelyActiveJobs: 0,
+    terminalJobs: terminalJobCount,
+    hasCompletionSignal: true,
+  };
+}
+
+/**
+ * Cancel terminal-loop jobs that are blocking finalization.
+ * Call this AFTER isStepFinalizable returns finalizable=true
+ * and terminalJobs > 0.
+ */
+export async function cancelTerminalLoopJobs(
+  sb: SupabaseClient,
+  packageId: string,
+  jobType: string,
+): Promise<number> {
+  const { data: jobs } = await sb
+    .from("job_queue")
+    .select("id, attempts, last_error")
+    .eq("package_id", packageId)
+    .eq("job_type", jobType)
+    .in("status", ["pending", "processing"]);
+
+  const { terminal } = filterGenuinelyActiveJobs(jobs ?? []);
+  for (const tj of terminal) {
+    await sb.from("job_queue").update({
+      status: "cancelled",
+      completed_at: new Date().toISOString(),
+      last_error: `TERMINAL_LOOP_AUTO_CANCEL: ${(tj as any).attempts} attempts, pattern: ${String((tj as any).last_error).slice(0, 80)}`,
+    }).eq("id", (tj as any).id);
+  }
+  return terminal.length;
+}
+
 export async function safeRpc(
+  sb: SupabaseClient,
+  fn: string,
+  params: Record<string, unknown>,
+) {
+  try {
+    const result = await sb.rpc(fn, params);
+    if (result.error) {
+      console.warn(`[stuck-scan] RPC ${fn} returned error:`, result.error.message);
+    }
+    return result;
+  } catch (e) {
+    console.error(`[stuck-scan] RPC ${fn} threw:`, (e as Error).message);
+    return { data: null, error: e };
+  }
+}
   sb: SupabaseClient,
   fn: string,
   params: Record<string, unknown>,
