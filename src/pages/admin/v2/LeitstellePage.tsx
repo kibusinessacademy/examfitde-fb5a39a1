@@ -23,6 +23,7 @@ const FinancePanel = lazy(() => import('@/components/admin/command/FinancePanel'
 const CrmPanel = lazy(() => import('@/components/admin/command/CrmPanel'));
 const SupportPanel = lazy(() => import('@/components/admin/command/SupportPanel'));
 const IntegrationsPanel = lazy(() => import('@/components/admin/command/IntegrationsPanel'));
+const CompliancePanel = lazy(() => import('@/components/admin/command/CompliancePanel'));
 
 const ExamPoolAuditCard = lazy(() => import('@/components/admin/cards/ExamPoolAuditCard'));
 const BlockedButReadyCard = lazy(() => import('@/components/admin/cards/BlockedButReadyCard'));
@@ -93,6 +94,7 @@ export default function LeitstellePage() {
   const [crmOpen, setCrmOpen] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
   const [integrationsOpen, setIntegrationsOpen] = useState(false);
+  const [complianceOpen, setComplianceOpen] = useState(false);
 
   const kpis = useMemo(() => {
     if (!packages || !jobs) return null;
@@ -346,6 +348,17 @@ export default function LeitstellePage() {
             <div className="text-[11px] text-muted-foreground">SSO, LTI, CSV, API</div>
           </div>
         </div>
+        <div
+          className="rounded-xl border border-border bg-card p-4 hover:bg-muted/50 transition-colors flex items-center gap-3 cursor-pointer"
+          onClick={() => setComplianceOpen(true)}
+          role="button"
+        >
+          <Shield className="h-5 w-5 text-primary" />
+          <div>
+            <div className="text-sm font-semibold">Compliance</div>
+            <div className="text-[11px] text-muted-foreground">DSGVO, AI Act, Security</div>
+          </div>
+        </div>
       </div>
 
       <BlockedPackagesSheet open={blockedSheetOpen} onOpenChange={setBlockedSheetOpen} />
@@ -362,6 +375,7 @@ export default function LeitstellePage() {
         <CrmPanel open={crmOpen} onOpenChange={setCrmOpen} />
         <SupportPanel open={supportOpen} onOpenChange={setSupportOpen} />
         <IntegrationsPanel open={integrationsOpen} onOpenChange={setIntegrationsOpen} />
+        <CompliancePanel open={complianceOpen} onOpenChange={setComplianceOpen} />
       </Suspense>
     </div>
   );
