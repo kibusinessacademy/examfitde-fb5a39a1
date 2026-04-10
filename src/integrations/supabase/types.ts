@@ -23524,7 +23524,7 @@ export type Database = {
       }
       humor_delivery_events: {
         Row: {
-          competency_id: string | null
+          competence_id: string | null
           context_ref: string | null
           created_at: string
           curriculum_id: string | null
@@ -23538,7 +23538,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
-          competency_id?: string | null
+          competence_id?: string | null
           context_ref?: string | null
           created_at?: string
           curriculum_id?: string | null
@@ -23552,7 +23552,7 @@ export type Database = {
           user_id: string
         }
         Update: {
-          competency_id?: string | null
+          competence_id?: string | null
           context_ref?: string | null
           created_at?: string
           curriculum_id?: string | null
@@ -74643,7 +74643,7 @@ export type Database = {
         Args: {
           p_blueprint_id?: string
           p_certification_id: string
-          p_competency_id?: string
+          p_competence_id?: string
           p_curriculum_id?: string
           p_lesson_id?: string
           p_surface: string
@@ -75365,7 +75365,7 @@ export type Database = {
       llm_running_count: { Args: { p_provider: string }; Returns: number }
       log_humor_delivery: {
         Args: {
-          p_competency_id?: string
+          p_competence_id?: string
           p_curriculum_id?: string
           p_humor_item_id: string
           p_lesson_id?: string
