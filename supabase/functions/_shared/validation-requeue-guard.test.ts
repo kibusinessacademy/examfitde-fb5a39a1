@@ -1,11 +1,12 @@
 /**
  * Regression tests for validation-requeue-guard.ts (F-4.3)
  *
- * 4 cases:
+ * 5 cases:
  *   1. PASS_READY  → blocked: false
  *   2. LIKELY_READY → blocked: false
  *   3. HARD_FAIL   → blocked: true
  *   4. UNKNOWN     → falls through to delta/cooldown logic
+ *   5. OLD_BUG     → identical fails + no delta + LIKELY_READY → NOT blocked
  *
  * Uses a mock Supabase client to isolate guard logic from real DB.
  */
