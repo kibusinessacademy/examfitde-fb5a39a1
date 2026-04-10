@@ -38,12 +38,12 @@ export default function OrgLicensesPanel({ orgId, context }: Props) {
     if (!byProduct.has(key)) byProduct.set(key, { product_id: key, total: 0, active: 0 });
     const entry = byProduct.get(key)!;
     entry.total++;
-    if (s.seat_status === 'active' || s.seat_status === 'ACTIVE') entry.active++;
+    if (s.seat_status === 'ACTIVE') entry.active++;
   }
 
   const licenses = Array.from(byProduct.values());
   const totalSeats = seats.length;
-  const activeSeats = seats.filter((s: any) => s.seat_status === 'active' || s.seat_status === 'ACTIVE').length;
+  const activeSeats = seats.filter((s: any) => s.seat_status === 'ACTIVE').length;
 
   return (
     <div className="space-y-4">
