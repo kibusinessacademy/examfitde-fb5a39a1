@@ -14,6 +14,7 @@
 import { poolForJobType, type WorkerPool, assertKnownJobType } from "./job-map.ts";
 import { checkFanoutLoopGuard } from "./fanout-loop-guard.ts";
 import { checkValidationRequeueGuard } from "./validation-requeue-guard.ts";
+import { checkPoisonLoopGuard } from "./poison-loop-guard.ts";
 
 export interface EnqueueOpts {
   job_type: string;
@@ -172,6 +173,19 @@ export async function enqueueJob(
   const valCheck = await checkValidationRequeueGuard(sb, opts.job_type, packageId);
   if (valCheck.blocked) {
     console.log(`[enqueue] VALIDATION_BLOCKED: ${opts.job_type} for ${packageId?.slice(0, 8)} — ${valCheck.reason}`);
+    return {
+      id: "00000000-0000-0000-0000-000000000000",
+      job_type: opts.job_type,
+      worker_pool: worker_pool,
+      status: "blocked_by_guard",
+      revived: false,
+    } as EnqueueResult;
+  }
+
+  // ── F-5: Poison Loop Guard — prevents no-progress generator loops ──
+  const poisonCheck = await checkPoisonLoopGuard(sb, opts.job_type, packageId);
+  if (poisonCheck.blocked) {
+    console.log(`[enqueue] POISON_LOOP_BLOCKED: ${opts.job_type} for ${packageId?.slice(0, 8)} — ${poisonCheck.reason}`);
     return {
       id: "00000000-0000-0000-0000-000000000000",
       job_type: opts.job_type,
