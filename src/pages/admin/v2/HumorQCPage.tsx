@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, AlertTriangle, CheckCircle2, BarChart3, TrendingUp, List } from 'lucide-react';
+import { ArrowLeft, AlertTriangle, CheckCircle2, BarChart3, TrendingUp, List, Brain, ArrowUpRight, ArrowDownRight, Minus } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
