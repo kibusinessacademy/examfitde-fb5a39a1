@@ -130,8 +130,8 @@ export default function BetriebeLandingPage() {
                 Sie kaufen <span className="text-gradient">Plätze</span> – keine Kurse
               </h2>
               <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-                Egal welcher Ausbildungsberuf: Ihre Auszubildenden trainieren genau die Inhalte,
-                die sie für ihre Prüfung brauchen. Eine Lizenz – alle Berufe.
+                Eine Teamlizenz für Ausbildung deckt alle Ausbildungsberufe ab.
+                Ihre Auszubildenden trainieren genau die Inhalte, die sie für ihre Prüfung brauchen.
               </p>
             </div>
 
@@ -322,7 +322,22 @@ export default function BetriebeLandingPage() {
               <h2 className="text-3xl font-display font-bold">
                 Teamlizenzen – <span className="text-gradient">transparent &amp; fair</span>
               </h2>
-              <p className="text-muted-foreground">Jährlich. Jederzeit kündbar. Zugriff auf alle Ausbildungsberufe.</p>
+              <p className="text-muted-foreground">Jährlich. Jederzeit kündbar. Zugriff auf alle Ausbildungsberufe innerhalb der Kategorie.</p>
+            </div>
+
+            {/* Tier recommendation block */}
+            <div className="grid sm:grid-cols-3 gap-4 max-w-3xl mx-auto">
+              {[
+                { seats: 5, label: 'Kleine Betriebe', desc: 'Ideal für Betriebe mit wenigen Auszubildenden oder zum Einstieg.' },
+                { seats: 10, label: 'Wachsende Teams', desc: 'Für Betriebe mit mehreren Berufen oder Standorten.' },
+                { seats: 25, label: 'Größere Standorte', desc: 'Für zentrale Ausbildungssteuerung und übergreifendes Reporting.' },
+              ].map(rec => (
+                <div key={rec.seats} className="text-center p-4 rounded-xl border border-border bg-card">
+                  <p className="text-2xl font-bold text-gradient">{rec.seats} Plätze</p>
+                  <p className="font-semibold text-sm mt-1">{rec.label}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{rec.desc}</p>
+                </div>
+              ))}
             </div>
 
             {/* Ausbildung tiers */}
@@ -418,20 +433,20 @@ export default function BetriebeLandingPage() {
         <section className="py-16 md:py-20">
           <div className="container max-w-3xl text-center space-y-8">
             <h2 className="text-3xl font-display font-bold">
-              Zahlen, die <span className="text-gradient">überzeugen</span>
+              Warum Betriebe <span className="text-gradient">ExamFit vertrauen</span>
             </h2>
             <div className="flex flex-wrap justify-center gap-12">
               <div>
-                <p className="text-4xl font-display font-bold text-gradient">98%</p>
-                <p className="text-sm text-muted-foreground">Bestehensquote</p>
+                <p className="text-4xl font-display font-bold text-gradient">200+</p>
+                <p className="text-sm text-muted-foreground">Ausbildungsberufe abgedeckt</p>
               </div>
               <div>
-                <p className="text-4xl font-display font-bold text-gradient">5.000+</p>
-                <p className="text-sm text-muted-foreground">Azubis nutzen ExamFit</p>
+                <p className="text-4xl font-display font-bold text-gradient">IHK / HWK</p>
+                <p className="text-sm text-muted-foreground">Prüfungsrelevante Inhalte</p>
               </div>
               <div>
-                <p className="text-4xl font-display font-bold text-gradient">4,8★</p>
-                <p className="text-sm text-muted-foreground">Bewertung</p>
+                <p className="text-4xl font-display font-bold text-gradient">DSGVO</p>
+                <p className="text-sm text-muted-foreground">EU-Hosting & datenschutzkonform</p>
               </div>
             </div>
           </div>
@@ -465,8 +480,7 @@ export default function BetriebeLandingPage() {
                   Bereit für messbare Prüfungsergebnisse?
                 </h2>
                 <p className="text-muted-foreground max-w-xl mx-auto text-lg">
-                  Starten Sie mit 5 Plätzen und sehen Sie innerhalb von 30 Tagen,
-                  wie sich die Prüfungsreife Ihrer Azubis verbessert.
+                  Starten Sie mit 5 Plätzen und machen Sie Prüfungsreife innerhalb kurzer Zeit sichtbar.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
                   <Button size="lg" className="gradient-primary text-primary-foreground shadow-glow h-14 px-8 text-lg" asChild>
