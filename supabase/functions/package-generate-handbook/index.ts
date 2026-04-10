@@ -32,7 +32,9 @@ async function prereqDone(sb: ReturnType<typeof createClient>, packageId: string
   const { data: d1 } = await sb
     .from("package_steps").select("status")
     .eq("package_id", packageId).eq("step_key", stepKey).maybeSingle();
-  if (d1?.status === "done" || d1?.status === "skipped") return true;
+  // If step doesn't exist (track doesn't include it), treat as fulfilled
+  if (!d1) return true;
+  if (d1.status === "done" || d1.status === "skipped") return true;
   // Fallback: legacy table
   const { data: d2 } = await sb
     .from("course_package_build_steps").select("status")
