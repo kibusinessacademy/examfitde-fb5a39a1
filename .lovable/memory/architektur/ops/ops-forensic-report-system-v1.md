@@ -8,7 +8,10 @@ Das 'Ops Forensic Report' System erzeugt strukturierte, kausale Diagnosen für P
 ### Tabellen
 - `ops_forensic_reports`: Hauptbericht pro Package mit Root-Cause-Klassifikation, Kausalkette, Healability-Assessment und empfohlenen Aktionen.
 - `ops_forensic_findings`: Einzelbefunde (symptom, root_cause, supporting_evidence, recommendation) pro Bericht.
-- `step_job_mapping`: SSOT-Tabelle für Step→Job-Type Zuordnung. Ersetzt den fragilen `LIKE '%' || step_key || '%'` Pattern vollständig.
+- `step_job_mapping`: SSOT-Tabelle für Step→Job-Type Zuordnung. Ersetzt den fragilen `LIKE '%' || step_key || '%'` Pattern vollständig. Daten-Projektion der Code-SSOT `STEP_TO_JOB_TYPE` aus `job-map.ts`.
+
+### v_has_missing_upstream (gehärtet v2)
+Prüft jetzt den **unmittelbaren Predecessor** (MAX sort_order < current), nicht mehr "irgendein früherer Step". Liefert zusätzlich `blocked_step` und `blocking_step` für präzise Kausal-Diagnostik.
 
 ### Root-Cause-Taxonomie (feste Klassen)
 NO_SOURCE_BLUEPRINTS, MAPPING_MISMATCH, UPSTREAM_VARIANTS_MISSING, PROMOTION_WRITE_FAILED, POSTCONDITION_FALSE_NEGATIVE, STALE_LOCK_FALSE_ACTIVE, WORKER_POOL_MISMATCH, QUEUE_POLICY_MISMATCH, PAYLOAD_CONTRACT_MISMATCH, DUPLICATE_ORPHAN_PROCESSING, FALSE_FINALIZATION, MATERIALIZATION_GUARD_BLOCK, GOVERNANCE_BLOCK, QUALITY_GATE_BLOCK, ACCESS_OR_ENTITLEMENT_BLOCK, UNKNOWN_NEEDS_MANUAL_REVIEW
