@@ -2,6 +2,25 @@
 
 ## Updated: 2026-04-11
 
+### Status: Phase 2a abgeschlossen. Phase 2b (Verifikation unter Last) aktiv.
+
+> System technisch gehärtet, Reinfektionsschutz aktiv, Massenfehler requeued.
+> Finale Freigabe nach 1 vollständigem Rebuild-Zyklus und Drift-Nullprüfung.
+
+---
+
+### Definition of Done (Phase 2b Kriterien)
+
+| Kriterium | Ziel | Status |
+|-----------|------|--------|
+| A. ops_step_ssot_drift = 0 | Kein Drift nach Runner-Zyklus | ✅ 0 (Stand: 2026-04-11) |
+| B. Legacy-Step Guard 24h clean | Keine Verletzungen | ⏳ Beobachtung |
+| C. Zombie-Recovery ohne Regress | Keine neue Welle in 24h | ⏳ Beobachtung |
+| D. 278 Reopen-Pakete durchlaufen | Blueprints → Pool → Validate konvergiert | ⏳ Requeued |
+| E. WIP/Concurrency stabil | Keine Timeouts, keine Pending-Lawine | ⏳ Beobachtung |
+
+---
+
 ### Zombie-Recovery: Smart Classification (fn_smart_zombie_recovery)
 - **POISON_LOOP** (attempts ≥ 5): → `failed` (terminiert)
 - **STALE_LOCK_RECURRENT** (attempts ≥ 3 + STALE_LOCK error): → `failed` (terminiert)
@@ -29,7 +48,6 @@
 ### Fail-Klassifikation: ops_validate_exam_pool_fail_classification
 - Segmentiert validate_exam_pool Fails nach Root Cause
 - Klassen: NO_BLUEPRINTS, NO_CURRICULUM, GENERATION_NEVER_RAN, REPAIR_EXHAUSTED, LF_COVERAGE_GAP, OTHER
-- Zeigt exam_q_count und blueprint_count pro Paket
 
 ### WIP & Concurrency Governance
 - WIP_TOTAL_CAP = 8, WIP_EFFECTIVE_MAX = 12
