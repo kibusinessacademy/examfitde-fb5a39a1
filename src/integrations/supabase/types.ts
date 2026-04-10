@@ -64272,6 +64272,22 @@ export type Database = {
         }
         Relationships: []
       }
+      v_admin_humor_qc: {
+        Row: {
+          approved_count: number | null
+          avg_quality: number | null
+          certification_id: string | null
+          certification_title: string | null
+          draft_count: number | null
+          duplicate_suspect_count: number | null
+          pct_no_competence: number | null
+          pct_no_lesson: number | null
+          rejected_count: number | null
+          total: number | null
+          type_distribution: Json | null
+        }
+        Relationships: []
+      }
       v_admin_packages_ssot: {
         Row: {
           approved_questions: number | null
