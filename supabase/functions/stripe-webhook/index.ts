@@ -139,7 +139,7 @@ Deno.serve(async (req) => {
                     user_id: userId,
                     role: 'owner',
                     status: 'active',
-                  });
+                  }).then(() => {}).catch(() => {}); // idempotent via unique constraint
                   logStep("Organization created for B2B sub", { orgId, orgName });
                 }
               }
@@ -383,13 +383,13 @@ Deno.serve(async (req) => {
 
                 if (newOrg) {
                   orgId = newOrg.id;
-                  // Add buyer as owner
+                  // Add buyer as owner (idempotent via unique constraint)
                   await adminClient.from('org_memberships').insert({
                     org_id: orgId,
                     user_id: userId,
                     role: 'owner',
                     status: 'active',
-                  });
+                  }).then(() => {}).catch(() => {});
                   logStep("Organization created", { orgId, orgName });
                 }
               }
