@@ -96,6 +96,7 @@ const KursePage = lazyRetry(() => import('@/pages/admin/v2/KursePage'));
 const QueuePage = lazyRetry(() => import('@/pages/admin/v2/QueuePage'));
 const GrowthPage = lazyRetry(() => import('@/pages/admin/v2/GrowthPage'));
 const TestAreaPage = lazyRetry(() => import('@/pages/admin/v2/TestAreaPage'));
+const BusinessBrainPage = lazyRetry(() => import('@/pages/admin/v2/BusinessBrainPage'));
 const CourseWorkspace = lazyRetry(() => import('@/pages/admin/CourseWorkspace'));
 
 // ExamFit@work public pages
@@ -279,6 +280,7 @@ const AppRoutes = () => {
           <Route path="studio/:packageId" element={<CourseWorkspace />} />
           <Route path="queue" element={<QueuePage />} />
           <Route path="growth" element={<GrowthPage />} />
+          <Route path="brain" element={<BusinessBrainPage />} />
           <Route path="test" element={<TestAreaPage />} />
           <Route path="*" element={<Navigate to="/admin/command" replace />} />
         </Route>
