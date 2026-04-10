@@ -31211,6 +31211,7 @@ export type Database = {
       }
       org_licenses: {
         Row: {
+          category: string | null
           contract_ref: string | null
           created_at: string
           ends_at: string | null
@@ -31224,6 +31225,7 @@ export type Database = {
           status: string
         }
         Insert: {
+          category?: string | null
           contract_ref?: string | null
           created_at?: string
           ends_at?: string | null
@@ -31237,6 +31239,7 @@ export type Database = {
           status?: string
         }
         Update: {
+          category?: string | null
           contract_ref?: string | null
           created_at?: string
           ends_at?: string | null
@@ -72036,6 +72039,10 @@ export type Database = {
           step_key: string
         }[]
       }
+      check_team_access: {
+        Args: { p_category: string; p_user_id: string }
+        Returns: boolean
+      }
       check_telemetry_gap_alerts: { Args: never; Returns: Json }
       check_trap_coverage_gate: {
         Args: { p_package_id: string }
@@ -72049,6 +72056,10 @@ export type Database = {
           expected_trigger: string
           is_bound: boolean
         }[]
+      }
+      check_unified_access: {
+        Args: { p_category?: string; p_product_id?: string; p_user_id: string }
+        Returns: boolean
       }
       check_user_entitlement: {
         Args: { p_curriculum_id: string; p_feature?: string; p_user_id: string }
