@@ -17,8 +17,20 @@ const FAQS = [
   { question: 'Wie unterscheidet sich ExamFit von klassischen Prüfungsvorbereitungskursen?', answer: 'ExamFit ist kein Kurs, sondern ein digitales Trainingssystem. Es ergänzt bestehende Angebote durch adaptive Prüfungssimulation, KI-Fehleranalyse und messbare Prüfungsreife.' },
   { question: 'Können Kammern ExamFit ihren Mitgliedsbetrieben empfehlen?', answer: 'Ja. Viele Kammern integrieren ExamFit als empfohlenes Tool in ihre Prüfungsvorbereitungs-Beratung. Wir unterstützen bei der Kommunikation.' },
   { question: 'Orientieren sich die Inhalte am Ausbildungsrahmenplan?', answer: 'Ja. Alle Inhalte basieren auf dem Ausbildungsrahmenplan und den prüfungsrelevanten Anforderungen der jeweiligen Kammer (IHK oder HWK).' },
-  { question: 'Gibt es spezielle Konditionen für Kammer-Programme?', answer: 'Für regionale Förderprogramme oder größere Rollouts bieten wir individuelle Konditionen. Kontaktieren Sie uns für ein Gespräch.' },
+  { question: 'Ist ExamFit DSGVO-konform und datenschutzsicher?', answer: 'Ja. Alle Daten werden auf EU-Servern verarbeitet. Kammern erhalten ausschließlich anonymisierte Aggregate – niemals personenbezogene Lernerdaten. ExamFit erfüllt Art. 25 (Privacy by Design) und Art. 32 DSGVO (technisch-organisatorische Maßnahmen).' },
+  { question: 'Wie erfüllt ExamFit die Anforderungen des EU AI Act?', answer: 'ExamFit ist als KI-System im Bildungsbereich klassifiziert. Wir dokumentieren alle eingesetzten KI-Modelle, deren Datengrundlagen und Entscheidungslogik lückenlos. Alle KI-generierten Prüfungsinhalte durchlaufen ein mehrstufiges Quality-Gate mit menschlicher Aufsicht, bevor sie Lernenden zugänglich werden.' },
+  { question: 'Welche Daten sehen Kammern – und welche nicht?', answer: 'Kammern sehen regionale Trends: aggregierte Bestehenswahrscheinlichkeiten, Risiko-Verteilungen nach Beruf und Schwächen-Cluster. Sie sehen NICHT: Namen, individuelle Ergebnisse oder betriebsbezogene Daten.' },
+  { question: 'Gibt es spezielle Konditionen für Kammer-Programme?', answer: 'Für regionale Förderprogramme oder größere Rollouts bieten wir individuelle Konditionen. Kontaktieren Sie uns unter info@examfit.de.' },
 ];
+
+const CONTACT = {
+  company: 'ExamFit',
+  owner: 'Diana Keil',
+  type: 'Einzelunternehmen',
+  street: 'Elsa-Brandström-Str. 4',
+  city: '76676 Graben-Neudorf',
+  email: 'info@examfit.de',
+};
 
 export default function PruefungstrainingInstitutionenPage() {
   const breadcrumbs = [
@@ -228,7 +240,17 @@ export default function PruefungstrainingInstitutionenPage() {
           </div>
         </section>
 
-        {/* ═══════════════ FINAL CTA ═══════════════ */}
+        {/* ═══════════════ KONTAKT ═══════════════ */}
+        <section className="py-12 border-t border-border">
+          <div className="container max-w-4xl text-center space-y-2">
+            <p className="font-semibold">{CONTACT.company}</p>
+            <p className="text-sm text-muted-foreground">Inhaberin: {CONTACT.owner} · {CONTACT.type}</p>
+            <p className="text-sm text-muted-foreground">{CONTACT.street} · {CONTACT.city}</p>
+            <p className="text-sm text-muted-foreground">{CONTACT.email}</p>
+          </div>
+        </section>
+
+
         <section className="py-20">
           <div className="container max-w-4xl">
             <div className="glass-strong rounded-3xl p-10 md:p-14 text-center relative overflow-hidden">

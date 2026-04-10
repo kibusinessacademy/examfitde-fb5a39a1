@@ -13,6 +13,8 @@ const FAQS = [
   { question: 'Ist ExamFit auch für HWK-Prüfungen geeignet?', answer: 'Ja. ExamFit deckt sowohl IHK- als auch HWK-Ausbildungsberufe ab. Die Inhalte sind jeweils auf die prüfungsrelevanten Anforderungen der zuständigen Kammer abgestimmt.' },
   { question: 'Wie unterscheidet sich ExamFit von alten Prüfungen?', answer: 'ExamFit ist kein Fragenkatalog. Es ist ein adaptives Trainingssystem mit Prüfungssimulation, KI-Fehleranalyse und Bestehenswahrscheinlichkeit – auf Basis psychometrischer Modelle.' },
   { question: 'Gibt es auch Teamlizenzen für Betriebe?', answer: 'Ja! Betriebe kaufen Plätze statt Kurse. Eine Ausbildungslizenz deckt alle Berufe ab – ab 29,80 €/Platz pro Jahr. Ideal für gemischte Teams.' },
+  { question: 'Ist ExamFit DSGVO-konform?', answer: 'Ja. Alle Daten werden auf EU-Servern gespeichert. ExamFit erfüllt die DSGVO vollständig: Datenminimierung, Löschrechte und technische Sicherheitsmaßnahmen sind implementiert.' },
+  { question: 'Wie setzt ExamFit KI ein?', answer: 'KI unterstützt bei Fehleranalyse, adaptivem Training und Bestehenswahrscheinlichkeit. Alle Prüfungsinhalte werden vor Freigabe durch ein mehrstufiges Qualitätssystem geprüft.' },
 ];
 
 export default function IHKPruefungenPage() {
@@ -206,7 +208,17 @@ export default function IHKPruefungenPage() {
           </div>
         </section>
 
-        {/* CTA Section */}
+        {/* ═══════════════ KONTAKT ═══════════════ */}
+        <section className="py-12 border-t border-border">
+          <div className="container max-w-4xl text-center space-y-2">
+            <p className="font-semibold">ExamFit</p>
+            <p className="text-sm text-muted-foreground">Inhaberin: Diana Keil · Einzelunternehmen</p>
+            <p className="text-sm text-muted-foreground">Elsa-Brandström-Str. 4 · 76676 Graben-Neudorf</p>
+            <p className="text-sm text-muted-foreground">info@examfit.de</p>
+          </div>
+        </section>
+
+
         <section className="py-20 bg-gradient-to-br from-primary/10 via-transparent to-accent/10">
           <div className="container text-center max-w-3xl space-y-6">
             <h2 className="text-3xl md:text-4xl font-display font-bold">

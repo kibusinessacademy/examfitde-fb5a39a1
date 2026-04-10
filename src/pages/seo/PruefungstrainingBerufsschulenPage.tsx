@@ -24,8 +24,19 @@ const FAQS = [
   { question: 'Funktioniert ExamFit für verschiedene Berufe gleichzeitig?', answer: 'Ja! Eine Teamlizenz für Ausbildung deckt alle Ausbildungsberufe ab. Ob Automobilkaufmann oder Mechatroniker – alle nutzen dieselbe Lizenz.' },
   { question: 'Wie werden Plätze verteilt?', answer: 'Lehrkräfte oder die Schulverwaltung weisen Plätze per E-Mail-Einladung zu. Plätze können jederzeit freigegeben und neu vergeben werden – z. B. nach bestandener Prüfung.' },
   { question: 'Gibt es Mengenrabatte für Schulen?', answer: 'Ja. Ab 10 Plätzen sinkt der Preis pro Schüler. Für größere Schulen mit 25+ Plätzen gibt es die günstigsten Konditionen.' },
-  { question: 'Ist ExamFit DSGVO-konform?', answer: 'Ja. EU-Hosting, datenschutzkonform und mit ordentlicher Rechnung für die Schulverwaltung.' },
+  { question: 'Ist ExamFit DSGVO-konform?', answer: 'Ja. Alle Daten werden ausschließlich auf EU-Servern gehostet. Schulen erhalten eine ordentliche Rechnung. Betroffenenrechte (Auskunft, Löschung) werden automatisiert umgesetzt. Es gelten technisch-organisatorische Maßnahmen nach Art. 32 DSGVO.' },
+  { question: 'Wie geht ExamFit mit KI und dem EU AI Act um?', answer: 'ExamFit setzt KI ausschließlich zur Unterstützung der Prüfungsvorbereitung ein. Alle KI-generierten Inhalte durchlaufen ein mehrstufiges Qualitätssystem mit menschlicher Aufsicht. Die eingesetzten Modelle und Datengrundlagen sind dokumentiert und transparent.' },
+  { question: 'Werden Schülerdaten an Dritte weitergegeben?', answer: 'Nein. Individuelle Lernerdaten bleiben beim Schüler und der Schule. ExamFit gibt keine personenbezogenen Daten an Dritte weiter.' },
 ];
+
+const CONTACT = {
+  company: 'ExamFit',
+  owner: 'Diana Keil',
+  type: 'Einzelunternehmen',
+  street: 'Elsa-Brandström-Str. 4',
+  city: '76676 Graben-Neudorf',
+  email: 'info@examfit.de',
+};
 
 const ausbildung = PRICING_CATEGORIES.ausbildung;
 const TIERS = ausbildung.b2b.tiers.map(t => ({
@@ -349,7 +360,17 @@ export default function PruefungstrainingBerufsschulenPage() {
           </div>
         </section>
 
-        {/* ═══════════════ FINAL CTA ═══════════════ */}
+        {/* ═══════════════ KONTAKT ═══════════════ */}
+        <section className="py-12 border-t border-border">
+          <div className="container max-w-4xl text-center space-y-2">
+            <p className="font-semibold">{CONTACT.company}</p>
+            <p className="text-sm text-muted-foreground">Inhaberin: {CONTACT.owner} · {CONTACT.type}</p>
+            <p className="text-sm text-muted-foreground">{CONTACT.street} · {CONTACT.city}</p>
+            <p className="text-sm text-muted-foreground">{CONTACT.email}</p>
+          </div>
+        </section>
+
+
         <section className="py-20">
           <div className="container max-w-4xl">
             <div className="glass-strong rounded-3xl p-10 md:p-14 text-center relative overflow-hidden">
