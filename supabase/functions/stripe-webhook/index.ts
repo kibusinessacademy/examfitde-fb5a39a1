@@ -1077,6 +1077,91 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ========== SUBSCRIPTION EVENTS (B2B Recurring) ==========
+
+    if (event.type === "invoice.paid") {
+      const invoice = event.data.object as any;
+      const subscriptionId = invoice.subscription?.toString?.() || invoice.subscription;
+      if (subscriptionId) {
+        logStep("Processing invoice.paid for subscription renewal", { subscriptionId });
+        try {
+          const stripeKey2 = Deno.env.get("STRIPE_SECRET_KEY")!;
+          const stripe2 = new Stripe(stripeKey2, { apiVersion: "2023-10-16" });
+          const sub = await stripe2.subscriptions.retrieve(subscriptionId);
+          const periodEnd = sub.current_period_end
+            ? new Date(sub.current_period_end * 1000).toISOString()
+            : null;
+          const periodStart = sub.current_period_start
+            ? new Date(sub.current_period_start * 1000).toISOString()
+            : null;
+
+          const { error: updErr } = await adminClient
+            .from('org_licenses')
+            .update({
+              status: 'active',
+              current_period_start: periodStart,
+              current_period_end: periodEnd,
+              cancel_at_period_end: sub.cancel_at_period_end ?? false,
+            })
+            .eq('stripe_subscription_id', subscriptionId);
+
+          if (updErr) {
+            logStep("WARN: Could not update org_license on invoice.paid", { error: String(updErr) });
+          } else {
+            logStep("Org license renewed", { subscriptionId, periodEnd });
+          }
+        } catch (subErr) {
+          logStep("WARN: invoice.paid subscription handling failed", { error: String(subErr) });
+        }
+      }
+    }
+
+    if (event.type === "invoice.payment_failed") {
+      const invoice = event.data.object as any;
+      const subscriptionId = invoice.subscription?.toString?.() || invoice.subscription;
+      if (subscriptionId) {
+        logStep("Processing invoice.payment_failed", { subscriptionId });
+        await adminClient
+          .from('org_licenses')
+          .update({ status: 'past_due' })
+          .eq('stripe_subscription_id', subscriptionId);
+        logStep("Org license set to past_due", { subscriptionId });
+      }
+    }
+
+    if (event.type === "customer.subscription.updated") {
+      const sub = event.data.object as any;
+      logStep("Processing customer.subscription.updated", { subscriptionId: sub.id });
+      const periodEnd = sub.current_period_end
+        ? new Date(sub.current_period_end * 1000).toISOString()
+        : null;
+      const periodStart = sub.current_period_start
+        ? new Date(sub.current_period_start * 1000).toISOString()
+        : null;
+
+      await adminClient
+        .from('org_licenses')
+        .update({
+          status: sub.status,
+          current_period_start: periodStart,
+          current_period_end: periodEnd,
+          cancel_at_period_end: sub.cancel_at_period_end ?? false,
+          stripe_price_id: sub.items?.data?.[0]?.price?.id ?? null,
+        })
+        .eq('stripe_subscription_id', sub.id);
+      logStep("Org license updated from subscription", { subscriptionId: sub.id, status: sub.status });
+    }
+
+    if (event.type === "customer.subscription.deleted") {
+      const sub = event.data.object as any;
+      logStep("Processing customer.subscription.deleted", { subscriptionId: sub.id });
+      await adminClient
+        .from('org_licenses')
+        .update({ status: 'canceled', cancel_at_period_end: false })
+        .eq('stripe_subscription_id', sub.id);
+      logStep("Org license canceled", { subscriptionId: sub.id });
+    }
+
     return new Response(JSON.stringify({ received: true }), {
       status: 200,
       headers: { "Content-Type": "application/json" }
