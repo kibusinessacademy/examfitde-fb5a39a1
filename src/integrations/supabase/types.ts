@@ -67104,6 +67104,43 @@ export type Database = {
         }
         Relationships: []
       }
+      v_humor_lesson_impact: {
+        Row: {
+          completed_count: number | null
+          completion_rate_pct: number | null
+          saw_humor: number | null
+          total_pairs: number | null
+        }
+        Relationships: []
+      }
+      v_humor_minicheck_impact: {
+        Row: {
+          saw_humor: number | null
+          start_rate_pct: number | null
+          started_count: number | null
+          total_pairs: number | null
+        }
+        Relationships: []
+      }
+      v_humor_recovery_impact: {
+        Row: {
+          retried_count: number | null
+          retry_rate_pct: number | null
+          saw_humor: number | null
+          total_users: number | null
+        }
+        Relationships: []
+      }
+      v_humor_tutor_impact: {
+        Row: {
+          avg_messages: number | null
+          engaged_sessions: number | null
+          engagement_rate_pct: number | null
+          has_humor: number | null
+          total_sessions: number | null
+        }
+        Relationships: []
+      }
       v_latest_business_kpi: {
         Row: {
           active_campaigns: number | null
