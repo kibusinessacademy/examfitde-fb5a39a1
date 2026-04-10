@@ -9,6 +9,7 @@ import { loadFieldCompetencies, loadFieldTopicDepth, loadExamQuestionSample, bui
 import { shouldUseBatch, BATCH_DEFAULT_MODEL } from "../_shared/batch/routing-config.ts";
 import { buildBatchRequests, submitBatchViaFunction } from "../_shared/batch/enqueue-openai.ts";
 import { getContentProfile } from "../_shared/track-content-profiles.ts";
+import { prereqDone } from "../_shared/prereq-done.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -26,20 +27,6 @@ function assertUuid(label: string, val: unknown) {
   if (typeof val !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val)) {
     throw new Error(`${label} must be a valid UUID, got: ${String(val)}`);
   }
-}
-
-async function prereqDone(sb: ReturnType<typeof createClient>, packageId: string, stepKey: string) {
-  const { data: d1 } = await sb
-    .from("package_steps").select("status")
-    .eq("package_id", packageId).eq("step_key", stepKey).maybeSingle();
-  // If step doesn't exist (track doesn't include it), treat as fulfilled
-  if (!d1) return true;
-  if (d1.status === "done" || d1.status === "skipped") return true;
-  // Fallback: legacy table
-  const { data: d2 } = await sb
-    .from("course_package_build_steps").select("status")
-    .eq("package_id", packageId).eq("step_key", stepKey).maybeSingle();
-  return d2?.status === "done" || d2?.status === "skipped";
 }
 
 // ── Handbook Constants (v15 — Lean Basis Pass) ────────────────
