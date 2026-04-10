@@ -4857,6 +4857,335 @@ export type Database = {
         }
         Relationships: []
       }
+      business_brain_action_queue: {
+        Row: {
+          action_payload: Json
+          action_type: string
+          created_at: string
+          error_message: string | null
+          executed_at: string | null
+          execution_mode: string
+          id: string
+          source_recommendation_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          action_payload?: Json
+          action_type: string
+          created_at?: string
+          error_message?: string | null
+          executed_at?: string | null
+          execution_mode?: string
+          id?: string
+          source_recommendation_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          action_payload?: Json
+          action_type?: string
+          created_at?: string
+          error_message?: string | null
+          executed_at?: string | null
+          execution_mode?: string
+          id?: string
+          source_recommendation_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_brain_action_queue_source_recommendation_id_fkey"
+            columns: ["source_recommendation_id"]
+            isOneToOne: false
+            referencedRelation: "business_brain_recommendations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      business_brain_decisions: {
+        Row: {
+          created_at: string
+          decided_by: string
+          decision_payload: Json
+          decision_type: string
+          id: string
+          outcome_notes: string | null
+          outcome_status: string
+          recommendation_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          decided_by?: string
+          decision_payload?: Json
+          decision_type: string
+          id?: string
+          outcome_notes?: string | null
+          outcome_status?: string
+          recommendation_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          decided_by?: string
+          decision_payload?: Json
+          decision_type?: string
+          id?: string
+          outcome_notes?: string | null
+          outcome_status?: string
+          recommendation_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_brain_decisions_recommendation_id_fkey"
+            columns: ["recommendation_id"]
+            isOneToOne: false
+            referencedRelation: "business_brain_recommendations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      business_brain_goals: {
+        Row: {
+          created_at: string
+          current_value: number | null
+          goal_type: string
+          id: string
+          metadata: Json
+          status: string
+          strategy_mode: string
+          target_value: number
+          time_horizon: string
+          updated_at: string
+          weight: number
+        }
+        Insert: {
+          created_at?: string
+          current_value?: number | null
+          goal_type: string
+          id?: string
+          metadata?: Json
+          status?: string
+          strategy_mode?: string
+          target_value?: number
+          time_horizon?: string
+          updated_at?: string
+          weight?: number
+        }
+        Update: {
+          created_at?: string
+          current_value?: number | null
+          goal_type?: string
+          id?: string
+          metadata?: Json
+          status?: string
+          strategy_mode?: string
+          target_value?: number
+          time_horizon?: string
+          updated_at?: string
+          weight?: number
+        }
+        Relationships: []
+      }
+      business_brain_jobs: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          input_payload: Json
+          job_type: string
+          output_payload: Json
+          started_at: string | null
+          status: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          input_payload?: Json
+          job_type: string
+          output_payload?: Json
+          started_at?: string | null
+          status?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          input_payload?: Json
+          job_type?: string
+          output_payload?: Json
+          started_at?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
+      business_brain_outcomes: {
+        Row: {
+          baseline_metrics: Json
+          created_at: string
+          decision_id: string | null
+          delta_metrics: Json
+          evaluation: string | null
+          id: string
+          measured_at: string
+          outcome_type: string
+          post_metrics: Json
+        }
+        Insert: {
+          baseline_metrics?: Json
+          created_at?: string
+          decision_id?: string | null
+          delta_metrics?: Json
+          evaluation?: string | null
+          id?: string
+          measured_at?: string
+          outcome_type: string
+          post_metrics?: Json
+        }
+        Update: {
+          baseline_metrics?: Json
+          created_at?: string
+          decision_id?: string | null
+          delta_metrics?: Json
+          evaluation?: string | null
+          id?: string
+          measured_at?: string
+          outcome_type?: string
+          post_metrics?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_brain_outcomes_decision_id_fkey"
+            columns: ["decision_id"]
+            isOneToOne: false
+            referencedRelation: "business_brain_decisions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      business_brain_recommendations: {
+        Row: {
+          ai_expected_impact: string | null
+          ai_rationale: string | null
+          ai_risk_notes: string | null
+          ai_summary: string | null
+          confidence_score: number
+          created_at: string
+          execution_mode: string
+          id: string
+          priority_score: number
+          rationale: Json
+          recommendation_type: string
+          recommended_action: Json
+          source_snapshot_id: string | null
+          status: string
+          summary: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          ai_expected_impact?: string | null
+          ai_rationale?: string | null
+          ai_risk_notes?: string | null
+          ai_summary?: string | null
+          confidence_score?: number
+          created_at?: string
+          execution_mode?: string
+          id?: string
+          priority_score?: number
+          rationale?: Json
+          recommendation_type: string
+          recommended_action?: Json
+          source_snapshot_id?: string | null
+          status?: string
+          summary: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          ai_expected_impact?: string | null
+          ai_rationale?: string | null
+          ai_risk_notes?: string | null
+          ai_summary?: string | null
+          confidence_score?: number
+          created_at?: string
+          execution_mode?: string
+          id?: string
+          priority_score?: number
+          rationale?: Json
+          recommendation_type?: string
+          recommended_action?: Json
+          source_snapshot_id?: string | null
+          status?: string
+          summary?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_brain_recommendations_source_snapshot_id_fkey"
+            columns: ["source_snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "business_brain_snapshots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      business_brain_snapshots: {
+        Row: {
+          content_metrics: Json
+          created_at: string
+          generated_at: string
+          growth_metrics: Json
+          id: string
+          learning_metrics: Json
+          opportunity_metrics: Json
+          product_metrics: Json
+          revenue_metrics: Json
+          risk_metrics: Json
+          seo_metrics: Json
+          snapshot_type: string
+          summary: Json
+        }
+        Insert: {
+          content_metrics?: Json
+          created_at?: string
+          generated_at?: string
+          growth_metrics?: Json
+          id?: string
+          learning_metrics?: Json
+          opportunity_metrics?: Json
+          product_metrics?: Json
+          revenue_metrics?: Json
+          risk_metrics?: Json
+          seo_metrics?: Json
+          snapshot_type?: string
+          summary?: Json
+        }
+        Update: {
+          content_metrics?: Json
+          created_at?: string
+          generated_at?: string
+          growth_metrics?: Json
+          id?: string
+          learning_metrics?: Json
+          opportunity_metrics?: Json
+          product_metrics?: Json
+          revenue_metrics?: Json
+          risk_metrics?: Json
+          seo_metrics?: Json
+          snapshot_type?: string
+          summary?: Json
+        }
+        Relationships: []
+      }
       business_kpi_snapshots: {
         Row: {
           active_campaigns: number
@@ -71610,6 +71939,10 @@ export type Database = {
         Returns: Json
       }
       fn_alert_stale_admin_holds: { Args: never; Returns: number }
+      fn_apply_business_goals_to_recommendations: {
+        Args: never
+        Returns: undefined
+      }
       fn_approve_fi_shared_questions: { Args: never; Returns: Json }
       fn_auto_cancel_terminal_loop_jobs: {
         Args: never
@@ -71637,7 +71970,15 @@ export type Database = {
           package_id: string
         }[]
       }
+      fn_build_content_metrics_snapshot: { Args: never; Returns: Json }
+      fn_build_growth_metrics_snapshot: { Args: never; Returns: Json }
+      fn_build_learning_metrics_snapshot: { Args: never; Returns: Json }
+      fn_build_opportunity_metrics_snapshot: { Args: never; Returns: Json }
+      fn_build_product_metrics_snapshot: { Args: never; Returns: Json }
       fn_build_refresh_queue: { Args: never; Returns: number }
+      fn_build_revenue_metrics_snapshot: { Args: never; Returns: Json }
+      fn_build_risk_metrics_snapshot: { Args: never; Returns: Json }
+      fn_build_seo_metrics_snapshot: { Args: never; Returns: Json }
       fn_build_ssot_context: { Args: { p_keyword_id: string }; Returns: Json }
       fn_calculate_pass_probability: {
         Args: {
@@ -71671,6 +72012,10 @@ export type Database = {
       fn_complete_shuttle_session: {
         Args: { p_reason?: string; p_session_id: string; p_user_id: string }
         Returns: Json
+      }
+      fn_compute_business_priority_scores: {
+        Args: { p_snapshot_id: string }
+        Returns: undefined
       }
       fn_compute_content_scores: {
         Args: { p_content_id: string; p_content_type: string }
