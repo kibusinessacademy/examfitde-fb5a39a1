@@ -1,6 +1,6 @@
 import { lazy, Suspense } from 'react';
 import { Link } from 'react-router-dom';
-import { Loader2, Globe, ArrowLeft, BarChart3, FileText, Image, Link2, Settings, Euro, Share2, Search, Target, RefreshCw, Radar, Zap } from 'lucide-react';
+import { Loader2, Globe, ArrowLeft, BarChart3, FileText, Image, Link2, Settings, Euro, Share2, Search, Target, RefreshCw, Radar, Zap, Rocket, DollarSign } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
@@ -18,6 +18,7 @@ const InternalLinkManager = lazy(() => import('@/components/admin/growth/Interna
 const RefreshQueueManager = lazy(() => import('@/components/admin/growth/RefreshQueueManager'));
 const SEOAuditManager = lazy(() => import('@/components/admin/growth/SEOAuditManager'));
 const SEODiscoveryManager = lazy(() => import('@/components/admin/growth/SEODiscoveryManager'));
+const GrowthLoopManager = lazy(() => import('@/components/admin/growth/GrowthLoopManager'));
 
 const Loading = () => (
   <Card><CardContent className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></CardContent></Card>
@@ -35,7 +36,7 @@ export default function GrowthPage() {
           Growth · SEO · Marketing
         </h1>
         <p className="text-xs text-muted-foreground mt-0.5">
-          Content Operating System – Keywords, Briefs, Audits, Discovery, Conversion
+          Content Operating System – Keywords, Briefs, Audits, Discovery, Conversion, Growth Loop
         </p>
       </div>
 
@@ -43,6 +44,9 @@ export default function GrowthPage() {
         <TabsList className="flex flex-wrap h-auto gap-1 bg-muted/50 p-1 rounded-xl">
           <TabsTrigger value="dashboard" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg">
             <BarChart3 className="h-3 w-3" /> Dashboard
+          </TabsTrigger>
+          <TabsTrigger value="growth" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg">
+            <Rocket className="h-3 w-3" /> Growth Loop
           </TabsTrigger>
           <TabsTrigger value="keywords" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg">
             <Search className="h-3 w-3" /> Keywords
@@ -86,6 +90,7 @@ export default function GrowthPage() {
         </TabsList>
 
         <TabsContent value="dashboard" className="mt-4"><Suspense fallback={<Loading />}><GrowthSeoCommandCenter /></Suspense></TabsContent>
+        <TabsContent value="growth" className="mt-4"><Suspense fallback={<Loading />}><GrowthLoopManager /></Suspense></TabsContent>
         <TabsContent value="keywords" className="mt-4"><Suspense fallback={<Loading />}><KeywordStrategyManager /></Suspense></TabsContent>
         <TabsContent value="briefs" className="mt-4"><Suspense fallback={<Loading />}><ContentBriefManager /></Suspense></TabsContent>
         <TabsContent value="blog" className="mt-4"><Suspense fallback={<Loading />}><BlogPostEditor /></Suspense></TabsContent>
