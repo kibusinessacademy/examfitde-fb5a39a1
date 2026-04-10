@@ -70,7 +70,7 @@ const SURFACE_LABELS: Record<string, string> = {
   lesson_outro: 'Lesson Outro',
   minicheck_intro: 'MiniCheck Intro',
   minicheck_result: 'MiniCheck Result',
-  tutor_reply: 'Tutor',
+  tutor: 'Tutor',
   dashboard: 'Dashboard',
   marketing: 'Marketing',
   exam_break: 'Exam Break',
