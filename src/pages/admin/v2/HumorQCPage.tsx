@@ -522,6 +522,159 @@ function DrilldownTab() {
   );
 }
 
+// ── Learning Impact Tab ──
+
+type ImpactRow = { saw_humor: number; total_pairs: number; completed_count?: number; completion_rate_pct?: number; started_count?: number; start_rate_pct?: number };
+type TutorImpactRow = { has_humor: number; total_sessions: number; avg_messages: number; engaged_sessions: number; engagement_rate_pct: number };
+type RecoveryRow = { saw_humor: number; total_users: number; retried_count: number; retry_rate_pct: number };
+
+function LiftIndicator({ withHumor, withoutHumor }: { withHumor: number; withoutHumor: number }) {
+  const lift = withHumor - withoutHumor;
+  if (Math.abs(lift) < 0.5) return <span className="text-muted-foreground flex items-center gap-0.5"><Minus className="h-3 w-3" /> ±0</span>;
+  if (lift > 0) return <span className="text-success flex items-center gap-0.5"><ArrowUpRight className="h-3 w-3" /> +{lift.toFixed(1)}%</span>;
+  return <span className="text-destructive flex items-center gap-0.5"><ArrowDownRight className="h-3 w-3" /> {lift.toFixed(1)}%</span>;
+}
+
+function ImpactCard({ title, withHumor, withoutHumor, metricLabel }: { title: string; withHumor: number; withoutHumor: number; metricLabel: string }) {
+  return (
+    <Card>
+      <CardHeader className="pb-2 pt-3 px-4">
+        <CardTitle className="text-sm">{title}</CardTitle>
+      </CardHeader>
+      <CardContent className="px-4 pb-3 space-y-2">
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-muted-foreground">Mit Humor</span>
+          <span className="font-bold tabular-nums">{withHumor.toFixed(1)}%</span>
+        </div>
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-muted-foreground">Ohne Humor</span>
+          <span className="font-bold tabular-nums">{withoutHumor.toFixed(1)}%</span>
+        </div>
+        <div className="flex items-center justify-between text-sm pt-1 border-t border-border">
+          <span className="text-muted-foreground">{metricLabel}</span>
+          <LiftIndicator withHumor={withHumor} withoutHumor={withoutHumor} />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function LearningImpactTab() {
+  const { data: lessonImpact, isLoading: l1 } = useQuery({
+    queryKey: ['admin', 'humor-impact-lesson'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('v_humor_lesson_impact' as any).select('*');
+      if (error) throw error;
+      return (data ?? []) as unknown as ImpactRow[];
+    },
+  });
+
+  const { data: mcImpact, isLoading: l2 } = useQuery({
+    queryKey: ['admin', 'humor-impact-minicheck'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('v_humor_minicheck_impact' as any).select('*');
+      if (error) throw error;
+      return (data ?? []) as unknown as ImpactRow[];
+    },
+  });
+
+  const { data: tutorImpact, isLoading: l3 } = useQuery({
+    queryKey: ['admin', 'humor-impact-tutor'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('v_humor_tutor_impact' as any).select('*');
+      if (error) throw error;
+      return (data ?? []) as unknown as TutorImpactRow[];
+    },
+  });
+
+  const { data: recoveryImpact, isLoading: l4 } = useQuery({
+    queryKey: ['admin', 'humor-impact-recovery'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('v_humor_recovery_impact' as any).select('*');
+      if (error) throw error;
+      return (data ?? []) as unknown as RecoveryRow[];
+    },
+  });
+
+  if (l1 || l2 || l3 || l4) return <p className="text-sm text-muted-foreground">Lade Impact-Daten…</p>;
+
+  const getRate = (rows: ImpactRow[] | undefined, field: 'completion_rate_pct' | 'start_rate_pct', humor: number) =>
+    Number(rows?.find(r => r.saw_humor === humor)?.[field] ?? 0);
+
+  const lessonWith = getRate(lessonImpact, 'completion_rate_pct', 1);
+  const lessonWithout = getRate(lessonImpact, 'completion_rate_pct', 0);
+  const mcWith = getRate(mcImpact, 'start_rate_pct', 1);
+  const mcWithout = getRate(mcImpact, 'start_rate_pct', 0);
+
+  const tutorWith = Number(tutorImpact?.find(r => r.has_humor === 1)?.engagement_rate_pct ?? 0);
+  const tutorWithout = Number(tutorImpact?.find(r => r.has_humor === 0)?.engagement_rate_pct ?? 0);
+
+  const recovWith = Number(recoveryImpact?.find(r => r.saw_humor === 1)?.retry_rate_pct ?? 0);
+  const recovWithout = Number(recoveryImpact?.find(r => r.saw_humor === 0)?.retry_rate_pct ?? 0);
+
+  const hasAnyData = (lessonImpact?.length ?? 0) > 0 || (mcImpact?.length ?? 0) > 0 || (tutorImpact?.length ?? 0) > 0 || (recoveryImpact?.length ?? 0) > 0;
+
+  if (!hasAnyData) return <p className="text-sm text-muted-foreground">Noch keine Impact-Daten vorhanden. Daten werden gesammelt, sobald Humor ausgespielt wird.</p>;
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">
+        Vergleich: Lernverhalten mit vs. ohne Humor-Exposure. Positive Werte = Humor verbessert das Verhalten.
+      </p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <ImpactCard title="📈 Lesson Completion" withHumor={lessonWith} withoutHumor={lessonWithout} metricLabel="Lift" />
+        <ImpactCard title="⚡ MiniCheck Start" withHumor={mcWith} withoutHumor={mcWithout} metricLabel="Lift" />
+        <ImpactCard title="🤖 Tutor Engagement" withHumor={tutorWith} withoutHumor={tutorWithout} metricLabel="Lift" />
+        <ImpactCard title="💚 Recovery nach Fehler" withHumor={recovWith} withoutHumor={recovWithout} metricLabel="Lift" />
+      </div>
+
+      {/* Detail tables */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {(lessonImpact?.length ?? 0) > 0 && (
+          <Card>
+            <CardHeader className="pb-2"><CardTitle className="text-sm">Lesson Completion Detail</CardTitle></CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader><TableRow><TableHead>Humor</TableHead><TableHead className="text-right">Paare</TableHead><TableHead className="text-right">Completed</TableHead><TableHead className="text-right">Rate</TableHead></TableRow></TableHeader>
+                <TableBody>
+                  {lessonImpact?.map(r => (
+                    <TableRow key={r.saw_humor}>
+                      <TableCell>{r.saw_humor ? '✓ Ja' : '✗ Nein'}</TableCell>
+                      <TableCell className="text-right tabular-nums">{r.total_pairs}</TableCell>
+                      <TableCell className="text-right tabular-nums">{r.completed_count}</TableCell>
+                      <TableCell className="text-right tabular-nums font-medium">{r.completion_rate_pct}%</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        )}
+        {(mcImpact?.length ?? 0) > 0 && (
+          <Card>
+            <CardHeader className="pb-2"><CardTitle className="text-sm">MiniCheck Start Detail</CardTitle></CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader><TableRow><TableHead>Humor</TableHead><TableHead className="text-right">Paare</TableHead><TableHead className="text-right">Gestartet</TableHead><TableHead className="text-right">Rate</TableHead></TableRow></TableHeader>
+                <TableBody>
+                  {mcImpact?.map(r => (
+                    <TableRow key={r.saw_humor}>
+                      <TableCell>{r.saw_humor ? '✓ Ja' : '✗ Nein'}</TableCell>
+                      <TableCell className="text-right tabular-nums">{r.total_pairs}</TableCell>
+                      <TableCell className="text-right tabular-nums">{r.started_count}</TableCell>
+                      <TableCell className="text-right tabular-nums font-medium">{r.start_rate_pct}%</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Main Page ──
 
 export default function HumorQCPage() {
