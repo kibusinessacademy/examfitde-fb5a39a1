@@ -130,7 +130,18 @@ async function artifactExists(
     .eq("step_key", producer.key)
     .maybeSingle();
 
-  if (!step) return false;
+  // ── CRITICAL FIX: Consistency with prereqDone ──
+  // If the producer step doesn't exist in package_steps, it means the track
+  // doesn't include it. This is the same semantics as prereqDone (line 31):
+  // "Step doesn't exist in this package → fulfilled."
+  // Previously this returned false, causing generate_exam_pool to loop
+  // indefinitely for packages without variant pipeline steps.
+  if (!step) {
+    console.log(
+      `[artifact-resolver] Producer step '${producer.key}' not in package_steps for ${packageId.slice(0, 8)} — track doesn't include it, treating artifact '${artifact}' as fulfilled`,
+    );
+    return true;
+  }
   // "done" or "skipped" both count as fulfilled
   if (step.status !== "done" && step.status !== "skipped") return false;
 
