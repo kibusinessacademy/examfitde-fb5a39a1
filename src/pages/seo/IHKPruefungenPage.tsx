@@ -208,7 +208,17 @@ export default function IHKPruefungenPage() {
           </div>
         </section>
 
-        {/* CTA Section */}
+        {/* ═══════════════ KONTAKT ═══════════════ */}
+        <section className="py-12 border-t border-border">
+          <div className="container max-w-4xl text-center space-y-2">
+            <p className="font-semibold">ExamFit</p>
+            <p className="text-sm text-muted-foreground">Inhaberin: Diana Keil · Einzelunternehmen</p>
+            <p className="text-sm text-muted-foreground">Elsa-Brandström-Str. 4 · 76676 Graben-Neudorf</p>
+            <p className="text-sm text-muted-foreground">info@examfit.de</p>
+          </div>
+        </section>
+
+
         <section className="py-20 bg-gradient-to-br from-primary/10 via-transparent to-accent/10">
           <div className="container text-center max-w-3xl space-y-6">
             <h2 className="text-3xl md:text-4xl font-display font-bold">

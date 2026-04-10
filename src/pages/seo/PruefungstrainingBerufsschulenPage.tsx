@@ -360,7 +360,17 @@ export default function PruefungstrainingBerufsschulenPage() {
           </div>
         </section>
 
-        {/* ═══════════════ FINAL CTA ═══════════════ */}
+        {/* ═══════════════ KONTAKT ═══════════════ */}
+        <section className="py-12 border-t border-border">
+          <div className="container max-w-4xl text-center space-y-2">
+            <p className="font-semibold">{CONTACT.company}</p>
+            <p className="text-sm text-muted-foreground">Inhaberin: {CONTACT.owner} · {CONTACT.type}</p>
+            <p className="text-sm text-muted-foreground">{CONTACT.street} · {CONTACT.city}</p>
+            <p className="text-sm text-muted-foreground">{CONTACT.email}</p>
+          </div>
+        </section>
+
+
         <section className="py-20">
           <div className="container max-w-4xl">
             <div className="glass-strong rounded-3xl p-10 md:p-14 text-center relative overflow-hidden">
