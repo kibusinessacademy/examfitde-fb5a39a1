@@ -261,6 +261,16 @@ export default function MiniCheckPlayer({
   // Question screen
   return (
     <div className="space-y-6" data-testid="minicheck-player">
+      {/* Humor intro – only on first question */}
+      {currentIndex === 0 && !hasAnswered && certificationId && (
+        <SurfaceHumorCard
+          certificationId={certificationId}
+          surface="minicheck_intro"
+          competenceId={competenceId}
+          lessonId={lessonId}
+          variant="inline"
+        />
+      )}
       {/* Proactive Help Hints */}
       <ProactiveHelpHints
         failCount={consecutiveFails}
