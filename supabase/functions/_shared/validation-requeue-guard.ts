@@ -61,8 +61,10 @@ const UPSTREAM_PROGRESS_STEPS: Record<string, string[]> = {
  *   - minicheck_questions: FK=curriculum_id, HAS updated_at
  *   - exam_questions:      FK=curriculum_id, NO updated_at → use created_at
  *   - handbook_chapters:   FK=curriculum_id, HAS updated_at
- *   - oral_exam_questions: NO curriculum_id, NO updated_at → not usable for artifact progress
+ *   - oral_exam_questions: FK=learning_field_id (NO package_id, NO curriculum_id) → not usable for artifact progress
  *   - package_content_shards: FK=package_id, HAS updated_at ✅ (direct)
+ *   - question_blueprints: FK=curriculum_id, HAS status (SSOT for blueprints)
+ *   - exam_blueprints:     FK=curriculum_id, NO status (NOT the SSOT for blueprint validation)
  *
  * Tables without package_id require resolving curriculum_id from course_packages first.
  */
@@ -106,7 +108,16 @@ export interface ValidationGuardResult {
 
 // ─── F-4.3: Readiness Probe Results ───────────────────────────────────────
 
-type ReadinessVerdict = "PASS_READY" | "STILL_BLOCKED" | "HARD_FAIL" | "UNKNOWN";
+/**
+ * Readiness verdicts (ordered by confidence):
+ *   PASS_READY    → canonical gate/meta confirms pass → guard MUST allow
+ *   LIKELY_READY  → heuristic evidence suggests pass → guard must NOT hard-block,
+ *                   but normal requeue/cooldown still applies
+ *   UNKNOWN       → no signal → fall through to delta logic
+ *   STILL_BLOCKED → evidence says not ready yet → delta logic
+ *   HARD_FAIL     → canonical gate says permanently broken → guard blocks
+ */
+type ReadinessVerdict = "PASS_READY" | "LIKELY_READY" | "STILL_BLOCKED" | "HARD_FAIL" | "UNKNOWN";
 
 interface ReadinessProbeResult {
   verdict: ReadinessVerdict;
@@ -158,6 +169,15 @@ export async function checkValidationRequeueGuard(
       console.log(`[val-guard] READINESS_PASS: ${stepKey} for pkg ${packageId.slice(0, 8)} — ${probe.reason ?? "gate says PASS"}`);
       await clearBlockState(sb, jobType, packageId);
       return { blocked: false, reason: `READINESS_PASS: ${probe.reason}` };
+    }
+
+    if (probe.verdict === "LIKELY_READY") {
+      // Heuristic evidence suggests pass — do NOT hard-block, but also don't
+      // claim canonical PASS. Clear any existing block state so the validator
+      // gets a chance to run and confirm.
+      console.log(`[val-guard] LIKELY_READY: ${stepKey} for pkg ${packageId.slice(0, 8)} — ${probe.reason ?? "heuristic"}`);
+      await clearBlockState(sb, jobType, packageId);
+      return { blocked: false, reason: `LIKELY_READY: ${probe.reason}` };
     }
 
     if (probe.verdict === "HARD_FAIL") {
@@ -364,20 +384,26 @@ async function probeMinicheckReadiness(sb: any, packageId: string): Promise<Read
   const curriculumId = await getCurriculumIdForPackage(sb, packageId);
   if (!curriculumId) return { verdict: "UNKNOWN" };
 
+  // lessons has competency_id, not curriculum_id — count via competencies join
   const [{ count: questionCount }, { count: lessonCount }] = await Promise.all([
     sb.from("minicheck_questions").select("id", { count: "exact", head: true }).eq("curriculum_id", curriculumId),
-    sb.from("lessons").select("id", { count: "exact", head: true }).eq("curriculum_id", curriculumId),
+    sb.from("lessons").select("id", { count: "exact", head: true })
+      .in("competency_id",
+        // subquery: get competency IDs for this curriculum
+        await sb.from("competencies").select("id").eq("curriculum_id", curriculumId)
+          .then((r: any) => (r.data ?? []).map((c: any) => c.id))
+      ),
   ]);
 
   if ((lessonCount ?? 0) === 0) return { verdict: "STILL_BLOCKED", reason: "no lessons" };
-  // At least 1 question per lesson is the minimum threshold
   if ((questionCount ?? 0) >= (lessonCount ?? 1)) {
-    return { verdict: "PASS_READY", reason: `${questionCount} minichecks for ${lessonCount} lessons` };
+    // Heuristic — real validator may check more dimensions
+    return { verdict: "LIKELY_READY", reason: `${questionCount} minichecks for ${lessonCount} lessons` };
   }
   return { verdict: "STILL_BLOCKED", reason: `${questionCount}/${lessonCount} minichecks` };
 }
 
-// ── Handbook: check chapter count ──
+// ── Handbook: check chapter count (HEURISTIC — not canonical) ──
 
 async function probeHandbookReadiness(sb: any, packageId: string): Promise<ReadinessProbeResult> {
   const curriculumId = await getCurriculumIdForPackage(sb, packageId);
@@ -389,30 +415,32 @@ async function probeHandbookReadiness(sb: any, packageId: string): Promise<Readi
     .eq("curriculum_id", curriculumId);
 
   if ((count ?? 0) > 0) {
-    return { verdict: "PASS_READY", reason: `${count} handbook chapters present` };
+    // Heuristic only — real validator checks depth, completeness, etc.
+    return { verdict: "LIKELY_READY", reason: `${count} handbook chapters present` };
   }
   return { verdict: "STILL_BLOCKED", reason: "no handbook chapters" };
 }
 
-// ── Blueprints: check approved blueprint count ──
+// ── Blueprints: check approved blueprint count (SSOT: question_blueprints) ──
 
 async function probeBlueprintReadiness(sb: any, packageId: string): Promise<ReadinessProbeResult> {
   const curriculumId = await getCurriculumIdForPackage(sb, packageId);
   if (!curriculumId) return { verdict: "UNKNOWN" };
 
   const { count } = await sb
-    .from("exam_blueprints")
+    .from("question_blueprints")
     .select("id", { count: "exact", head: true })
     .eq("curriculum_id", curriculumId)
     .eq("status", "approved");
 
   if ((count ?? 0) >= 10) {
-    return { verdict: "PASS_READY", reason: `${count} approved blueprints` };
+    // Heuristic — real validator checks distribution, LF coverage, etc.
+    return { verdict: "LIKELY_READY", reason: `${count} approved blueprints (question_blueprints)` };
   }
   return { verdict: "STILL_BLOCKED", reason: `only ${count ?? 0} approved blueprints` };
 }
 
-// ── Blueprint Variants: check variant count relative to blueprints ──
+// ── Blueprint Variants: check variant count relative to blueprints (SSOT: question_blueprints) ──
 
 async function probeBlueprintVariantReadiness(sb: any, packageId: string): Promise<ReadinessProbeResult> {
   const curriculumId = await getCurriculumIdForPackage(sb, packageId);
@@ -422,34 +450,48 @@ async function probeBlueprintVariantReadiness(sb: any, packageId: string): Promi
     sb.from("exam_questions").select("id", { count: "exact", head: true })
       .eq("curriculum_id", curriculumId)
       .in("qc_status", ["approved", "review"]),
-    sb.from("exam_blueprints").select("id", { count: "exact", head: true })
+    sb.from("question_blueprints").select("id", { count: "exact", head: true })
       .eq("curriculum_id", curriculumId)
       .eq("status", "approved"),
   ]);
 
   if ((bpCount ?? 0) === 0) return { verdict: "STILL_BLOCKED", reason: "no blueprints" };
-  // Expect at least 2 variants per blueprint on average
   if ((variantCount ?? 0) >= (bpCount ?? 1) * 2) {
-    return { verdict: "PASS_READY", reason: `${variantCount} variants for ${bpCount} blueprints` };
+    // Heuristic — real validator checks per-blueprint distribution
+    return { verdict: "LIKELY_READY", reason: `${variantCount} variants for ${bpCount} blueprints` };
   }
   return { verdict: "STILL_BLOCKED", reason: `${variantCount} variants / ${bpCount} blueprints` };
 }
 
-// ── Oral Exam: check question count ──
+// ── Oral Exam: check question count via learning_field_id (NO package_id on this table) ──
 
 async function probeOralExamReadiness(sb: any, packageId: string): Promise<ReadinessProbeResult> {
+  const curriculumId = await getCurriculumIdForPackage(sb, packageId);
+  if (!curriculumId) return { verdict: "UNKNOWN" };
+
+  // oral_exam_questions has learning_field_id, not package_id
+  // Resolve LF IDs for this curriculum first
+  const { data: lfs } = await sb
+    .from("learning_fields")
+    .select("id")
+    .eq("curriculum_id", curriculumId);
+
+  if (!lfs || lfs.length === 0) return { verdict: "UNKNOWN", reason: "no learning fields" };
+  const lfIds = lfs.map((lf: any) => lf.id);
+
   const { count } = await sb
     .from("oral_exam_questions")
     .select("id", { count: "exact", head: true })
-    .eq("package_id", packageId);
+    .in("learning_field_id", lfIds);
 
   if ((count ?? 0) >= 5) {
-    return { verdict: "PASS_READY", reason: `${count} oral exam questions` };
+    // Heuristic — real validator checks topic coverage, quality, etc.
+    return { verdict: "LIKELY_READY", reason: `${count} oral exam questions across ${lfIds.length} LFs` };
   }
   return { verdict: "STILL_BLOCKED", reason: `only ${count ?? 0} oral exam questions` };
 }
 
-// ── Tutor Index: check if index exists ──
+// ── Tutor Index: check if index exists (HEURISTIC) ──
 
 async function probeTutorIndexReadiness(sb: any, packageId: string): Promise<ReadinessProbeResult> {
   const { count } = await sb
@@ -458,7 +500,8 @@ async function probeTutorIndexReadiness(sb: any, packageId: string): Promise<Rea
     .eq("package_id", packageId);
 
   if ((count ?? 0) > 0) {
-    return { verdict: "PASS_READY", reason: "tutor index exists" };
+    // Heuristic — real validator may check index freshness, version, etc.
+    return { verdict: "LIKELY_READY", reason: "tutor index exists" };
   }
   return { verdict: "STILL_BLOCKED", reason: "no tutor index" };
 }

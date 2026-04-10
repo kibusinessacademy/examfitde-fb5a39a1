@@ -15,28 +15,43 @@
 - `package_validate_blueprints`
 - `package_validate_blueprint_variants`
 
-### Fix: 3-Layer Readiness-Probe-Architektur
+### Fix: 3-Layer Readiness-Probe-Architektur mit 5-stufigem Verdict
+
+**Verdicts (nach Konfidenz geordnet):**
+- `PASS_READY` → kanonischer Gate/Meta-Beleg → Guard MUSS freigeben
+- `LIKELY_READY` → heuristische Evidenz → Guard darf NICHT hard-blocken, normale Requeue erlaubt
+- `UNKNOWN` → kein Signal → Delta-Logik greift
+- `STILL_BLOCKED` → Evidenz sagt "noch nicht bereit" → Delta-Logik
+- `HARD_FAIL` → kanonischer Gate sagt permanent kaputt → Guard blockt
 
 **Layer 0: STEP_ALREADY_DONE Short-Circuit**
 - Wenn Step `status = 'done'` → sofort `blocked: false`
 - Verhindert falsches Nachblocken nach bereits erfolgter Heilung
 
-**Layer 1: Gate-Probe (für Validatoren mit Gate-Funktionen)**
+**Layer 1: Gate-Probe (für Validatoren mit Gate-Funktionen) → liefert PASS_READY**
 - `package_validate_exam_pool` → `fn_classify_exam_pool_gate()` → PASS=allow, HARD_FAIL=block
 - `package_validate_learning_content` → `gate_class` aus Step-Meta
 
-**Layer 2: Generic Readiness Probe (für alle anderen)**
+**Layer 2: Generic Readiness Probe (für alle anderen) → liefert maximal LIKELY_READY**
 - Prüft ob die Artefakt-Datenlage den Validator bestehen lassen würde
-- Minichecks: question_count ≥ lesson_count
+- Minichecks: question_count ≥ lesson_count (via competencies-Join, NICHT lessons.curriculum_id)
 - Handbook: chapter_count > 0
-- Blueprints: approved_count ≥ 10
-- Blueprint-Variants: variant_count ≥ blueprint_count × 2
-- Oral Exam: question_count ≥ 5
+- Blueprints: approved_count ≥ 10 (SSOT: `question_blueprints`, NICHT `exam_blueprints`)
+- Blueprint-Variants: variant_count ≥ blueprint_count × 2 (SSOT: `question_blueprints`)
+- Oral Exam: question_count ≥ 5 (via `learning_fields` → `oral_exam_questions.learning_field_id`)
 - Tutor Index: index exists
 
 **Layer 3: Original Delta-Logik (Fallback)**
 - Nur wenn Probe UNKNOWN oder STILL_BLOCKED zurückgibt
 - Unveränderte upstream-progress + cooldown + identical-fail Logik
 
+### Schema-Korrekturen (Review-Befunde 2026-04-10)
+1. **Blueprint-Tabelle**: `exam_blueprints` hat kein `status`-Feld → SSOT ist `question_blueprints`
+2. **Lessons**: Kein `curriculum_id` → nur `competency_id` → Count via Competencies-Join
+3. **Oral Exam**: Kein `package_id` → nur `learning_field_id` → Count via Learning-Fields-Join
+4. **Heuristische Probes**: Von `PASS_READY` auf `LIKELY_READY` herabgestuft
+
 ### Design-Prinzip
 > "Der Guard darf keine fehlende Veränderung bestrafen, wenn der Validator-Zielzustand bereits erfüllt ist oder erfüllbar wäre."
+
+> "Nur kanonische Gate-Funktionen dürfen PASS_READY liefern. Heuristische Count-Checks liefern maximal LIKELY_READY."
