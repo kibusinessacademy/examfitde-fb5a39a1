@@ -67084,6 +67084,26 @@ export type Database = {
         }
         Relationships: []
       }
+      v_humor_delivery_kpi: {
+        Row: {
+          avg_deliveries_per_item: number | null
+          certification_id: string | null
+          certification_title: string | null
+          dislike_rate_pct: number | null
+          dislikes: number | null
+          humor_type: Database["public"]["Enums"]["humor_type"] | null
+          like_rate_pct: number | null
+          likes: number | null
+          shares: number | null
+          skips: number | null
+          surface: Database["public"]["Enums"]["humor_surface"] | null
+          total_deliveries: number | null
+          total_reactions: number | null
+          unique_items_shown: number | null
+          unique_users: number | null
+        }
+        Relationships: []
+      }
       v_latest_business_kpi: {
         Row: {
           active_campaigns: number | null

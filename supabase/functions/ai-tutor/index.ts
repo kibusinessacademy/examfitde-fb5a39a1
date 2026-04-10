@@ -707,7 +707,69 @@ Deno.serve(async (req) => {
       });
     }
 
-    const systemPrompt = modeRules.systemPrompt + rolePrompt + contextPrompt + blueprintContext;
+    // ── Humor Context (optional, non-blocking) ──
+    let humorContext = "";
+    if (validMode !== AI_MODES.EXAM) {
+      try {
+        // Resolve certification_id from curriculum
+        let certId: string | null = null;
+        if (context.curriculumId) {
+          const { data: pkgRow } = await supabase
+            .from('course_packages')
+            .select('certification_id')
+            .eq('curriculum_id', context.curriculumId)
+            .not('certification_id', 'is', null)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          certId = pkgRow?.certification_id ?? null;
+        }
+
+        if (certId) {
+          const { data: humorData } = await supabase.rpc('get_humor_asset_for_surface', {
+            p_user_id: user.id,
+            p_surface: 'tutor_reply',
+            p_certification_id: certId,
+            p_competence_id: (context.competencyId as string) ?? null,
+            p_lesson_id: (context.lessonId as string) ?? null,
+          });
+
+          const humorRow = Array.isArray(humorData) ? humorData[0] : humorData;
+          if (humorRow?.content) {
+            humorContext = `\n\n--- OPTIONALER HUMOR-KONTEXT ---
+Dir steht folgender berufsbezogener Humor-Impuls zur Verfügung:
+Typ: ${humorRow.humor_type}
+Inhalt: "${humorRow.content}"
+${humorRow.explanation ? `Erklärung: ${humorRow.explanation}` : ''}
+
+REGELN für Humor-Nutzung:
+- Nutze den Impuls NUR wenn er thematisch zur aktuellen Frage passt
+- Maximal als kurzen Einstieg oder lockere Überleitung
+- Danach IMMER in fachlich saubere Erklärung übergehen
+- Erfinde KEINE neuen Witze — nutze nur diesen bereitgestellten Impuls
+- Wenn der Humor nicht passt, ignoriere ihn komplett`;
+
+            // Log delivery
+            try {
+              await supabase.rpc('log_humor_delivery', {
+                p_user_id: user.id,
+                p_humor_item_id: humorRow.id,
+                p_surface: 'tutor_reply',
+                p_competence_id: (context.competencyId as string) ?? null,
+                p_lesson_id: (context.lessonId as string) ?? null,
+                p_session_id: persistentSessionId,
+              });
+            } catch { /* delivery logging is non-critical */ }
+
+            resolvedContext._humorAsset = { id: humorRow.id, type: humorRow.humor_type };
+          }
+        }
+      } catch (e) {
+        console.warn('[ai-tutor] Humor context loading failed:', e);
+      }
+    }
+
+    const systemPrompt = modeRules.systemPrompt + rolePrompt + contextPrompt + blueprintContext + humorContext;
     const aiMessages = [
       { role: "system" as const, content: systemPrompt },
       ...conversationHistory.slice(-10).map((m: any) => ({ role: m.role as "user" | "assistant", content: m.content })),
