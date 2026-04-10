@@ -18,8 +18,8 @@ function envInt(name: string, fallback: number): number {
 }
 
 const DEFAULTS: Record<RunnerKind, RunnerConfig> = {
-  content_runner: { maxConcurrency: 16, claimLimit: 32 },  // Phase C: 12/25 → 16/32 aggressive growth
-  job_runner:     { maxConcurrency: 8,  claimLimit: 8 },   // Stage-4: was 5/5
+  content_runner: { maxConcurrency: 6, claimLimit: 8 },   // Phase D: 16/32 → 6/8 anti-zombie
+  job_runner:     { maxConcurrency: 4,  claimLimit: 6 },   // Phase D: 8/8 → 4/6
 };
 
 export function getRunnerConfig(kind: RunnerKind): RunnerConfig {
@@ -30,8 +30,8 @@ export function getRunnerConfig(kind: RunnerKind): RunnerConfig {
   // Hard safety caps (non-negotiable)
   if (kind === "content_runner") {
     return {
-      maxConcurrency: Math.min(maxConcurrency, 16),   // Phase C: hard cap 12→16
-      claimLimit: Math.min(claimLimit, 32),            // Phase C: hard cap 25→32
+      maxConcurrency: Math.min(maxConcurrency, 8),    // Phase D: hard cap 16→8
+      claimLimit: Math.min(claimLimit, 12),            // Phase D: hard cap 32→12
     };
   }
   return {
@@ -47,24 +47,24 @@ export function getRunnerConfig(kind: RunnerKind): RunnerConfig {
 export type TrackKey = "AUSBILDUNG_VOLL" | "EXAM_FIRST" | "EXAM_FIRST_PLUS" | "STUDIUM";
 
 /** Hard ceiling across all tracks — must match ops_pipeline_config.wip_total_cap */
-export const WIP_TOTAL_CAP = 20;
+export const WIP_TOTAL_CAP = 8;
 
 /** Bonus WIP slots for packages with >50% progress (regardless of priority) */
 export const WIP_BONUS_SLOTS = 4;
 export const WIP_BONUS_PROGRESS_THRESHOLD = 50;
 
 /** Effective cap = WIP_TOTAL_CAP + min(bonus_eligible_count, WIP_BONUS_SLOTS) */
-export const WIP_EFFECTIVE_MAX = WIP_TOTAL_CAP + WIP_BONUS_SLOTS; // hard ceiling = 24
+export const WIP_EFFECTIVE_MAX = WIP_TOTAL_CAP + WIP_BONUS_SLOTS; // hard ceiling = 12
 
 /**
  * WIP quota per track: max packages in "building" status simultaneously.
  * Env-overridable via WIP_QUOTA_<TRACK>.
  */
 export const WIP_QUOTA_DEFAULTS: Record<TrackKey, number> = {
-  AUSBILDUNG_VOLL: 5,
-  EXAM_FIRST_PLUS: 6,
-  EXAM_FIRST: 4,
-  STUDIUM: 2,
+  AUSBILDUNG_VOLL: 3,
+  EXAM_FIRST_PLUS: 3,
+  EXAM_FIRST: 1,
+  STUDIUM: 1,
 };
 
 export function getTrackQuota(track: TrackKey): number {
