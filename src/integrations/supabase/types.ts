@@ -4798,6 +4798,62 @@ export type Database = {
           },
         ]
       }
+      bookkeeping_entries: {
+        Row: {
+          amount_cents: number
+          cost_center: string | null
+          created_at: string
+          credit_account: string
+          currency: string
+          datev_export_id: string | null
+          debit_account: string
+          description: string
+          entry_date: string
+          id: string
+          reference_id: string | null
+          reference_type: string | null
+          tax_key: string | null
+        }
+        Insert: {
+          amount_cents: number
+          cost_center?: string | null
+          created_at?: string
+          credit_account: string
+          currency?: string
+          datev_export_id?: string | null
+          debit_account: string
+          description: string
+          entry_date?: string
+          id?: string
+          reference_id?: string | null
+          reference_type?: string | null
+          tax_key?: string | null
+        }
+        Update: {
+          amount_cents?: number
+          cost_center?: string | null
+          created_at?: string
+          credit_account?: string
+          currency?: string
+          datev_export_id?: string | null
+          debit_account?: string
+          description?: string
+          entry_date?: string
+          id?: string
+          reference_id?: string | null
+          reference_type?: string | null
+          tax_key?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bookkeeping_entries_datev_export_id_fkey"
+            columns: ["datev_export_id"]
+            isOneToOne: false
+            referencedRelation: "datev_exports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bulk_import_jobs: {
         Row: {
           completed_at: string | null
@@ -14299,6 +14355,185 @@ export type Database = {
         }
         Relationships: []
       }
+      crm_activities: {
+        Row: {
+          activity_type: string
+          body: string | null
+          contact_id: string | null
+          created_at: string
+          deal_id: string | null
+          id: string
+          performed_at: string
+          performed_by: string | null
+          subject: string | null
+        }
+        Insert: {
+          activity_type: string
+          body?: string | null
+          contact_id?: string | null
+          created_at?: string
+          deal_id?: string | null
+          id?: string
+          performed_at?: string
+          performed_by?: string | null
+          subject?: string | null
+        }
+        Update: {
+          activity_type?: string
+          body?: string | null
+          contact_id?: string | null
+          created_at?: string
+          deal_id?: string | null
+          id?: string
+          performed_at?: string
+          performed_by?: string | null
+          subject?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_activities_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "crm_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_activities_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "crm_deals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_contacts: {
+        Row: {
+          company: string | null
+          created_at: string
+          email: string | null
+          first_name: string | null
+          id: string
+          job_title: string | null
+          last_contacted_at: string | null
+          last_name: string | null
+          lead_score: number | null
+          lead_source: string | null
+          lifecycle_stage: string
+          notes: string | null
+          org_id: string | null
+          phone: string | null
+          tags: string[] | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          company?: string | null
+          created_at?: string
+          email?: string | null
+          first_name?: string | null
+          id?: string
+          job_title?: string | null
+          last_contacted_at?: string | null
+          last_name?: string | null
+          lead_score?: number | null
+          lead_source?: string | null
+          lifecycle_stage?: string
+          notes?: string | null
+          org_id?: string | null
+          phone?: string | null
+          tags?: string[] | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          company?: string | null
+          created_at?: string
+          email?: string | null
+          first_name?: string | null
+          id?: string
+          job_title?: string | null
+          last_contacted_at?: string | null
+          last_name?: string | null
+          lead_score?: number | null
+          lead_source?: string | null
+          lifecycle_stage?: string
+          notes?: string | null
+          org_id?: string | null
+          phone?: string | null
+          tags?: string[] | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      crm_deals: {
+        Row: {
+          actual_close_date: string | null
+          contact_id: string | null
+          created_at: string
+          currency: string
+          expected_close_date: string | null
+          id: string
+          lost_reason: string | null
+          notes: string | null
+          org_id: string | null
+          owner_id: string | null
+          probability: number | null
+          product_ids: string[] | null
+          stage: string
+          title: string
+          updated_at: string
+          value_cents: number | null
+          won: boolean | null
+        }
+        Insert: {
+          actual_close_date?: string | null
+          contact_id?: string | null
+          created_at?: string
+          currency?: string
+          expected_close_date?: string | null
+          id?: string
+          lost_reason?: string | null
+          notes?: string | null
+          org_id?: string | null
+          owner_id?: string | null
+          probability?: number | null
+          product_ids?: string[] | null
+          stage?: string
+          title: string
+          updated_at?: string
+          value_cents?: number | null
+          won?: boolean | null
+        }
+        Update: {
+          actual_close_date?: string | null
+          contact_id?: string | null
+          created_at?: string
+          currency?: string
+          expected_close_date?: string | null
+          id?: string
+          lost_reason?: string | null
+          notes?: string | null
+          org_id?: string | null
+          owner_id?: string | null
+          probability?: number | null
+          product_ids?: string[] | null
+          stage?: string
+          title?: string
+          updated_at?: string
+          value_cents?: number | null
+          won?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_deals_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "crm_contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       curricula: {
         Row: {
           beruf_id: string | null
@@ -17142,6 +17377,51 @@ export type Database = {
           revenue_account?: string
           tax_account?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      datev_exports: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          date_from: string
+          date_to: string
+          error_message: string | null
+          export_type: string
+          exported_by: string | null
+          file_path: string | null
+          format_version: string
+          id: string
+          row_count: number
+          status: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          date_from: string
+          date_to: string
+          error_message?: string | null
+          export_type?: string
+          exported_by?: string | null
+          file_path?: string | null
+          format_version?: string
+          id?: string
+          row_count?: number
+          status?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          date_from?: string
+          date_to?: string
+          error_message?: string | null
+          export_type?: string
+          exported_by?: string | null
+          file_path?: string | null
+          format_version?: string
+          id?: string
+          row_count?: number
+          status?: string
         }
         Relationships: []
       }
@@ -23536,6 +23816,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      invoice_items: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          invoice_id: string
+          order_id: string | null
+          product_id: string | null
+          quantity: number
+          tax_amount_cents: number
+          tax_rate: number
+          total_cents: number
+          unit_price_cents: number
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          id?: string
+          invoice_id: string
+          order_id?: string | null
+          product_id?: string | null
+          quantity?: number
+          tax_amount_cents?: number
+          tax_rate?: number
+          total_cents?: number
+          unit_price_cents: number
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          invoice_id?: string
+          order_id?: string | null
+          product_id?: string | null
+          quantity?: number
+          tax_amount_cents?: number
+          tax_rate?: number
+          total_cents?: number
+          unit_price_cents?: number
+        }
+        Relationships: []
       }
       invoices: {
         Row: {
