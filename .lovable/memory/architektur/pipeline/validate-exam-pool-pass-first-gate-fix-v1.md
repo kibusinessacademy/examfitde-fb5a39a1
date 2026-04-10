@@ -20,21 +20,26 @@ Neue Reihenfolge in `fn_classify_exam_pool_gate`:
 4. WAITING_FOR_MATERIALIZATION
 5. REPAIRABLE (Fallback)
 
-## Betroffene Pakete (11 geheilt)
+## Betroffene Pakete (10 geheilt, 1 mit separatem Upstream-Problem)
 
-| Paket | Slug | Vorheriger Status |
-|-------|------|-------------------|
-| de6c5c13 | bankkaufmann-frau | queued |
-| eef4bbe6 | bilanzbuchhalter-ihk | queued |
-| 24c3793c | fachinformatiker-anwendungsentwicklung | queued |
-| 42bdd4d8 | fachkraft-kurier-express-post | queued |
-| fdf4c23c | fachkraft-metalltechnik-montagetechnik | failed |
-| 961103c5 | industriemeister-metall-ihk | queued |
-| 259894ef | kaufmann-spedition-logistik | failed |
-| d14ca583 | kaufmann-versicherungen-finanzanlagen | queued |
-| 2e8da39f | mechatroniker-in | queued |
-| 62b52784 | pharmazeutisch-kaufm-angestellter | queued |
-| 03462382 | wirtschaftsfachwirt-ihk | queued |
+### Geheilt (validate_exam_pool → done)
+| Slug | Package ID |
+|------|-----------|
+| bankkaufmann-frau | de6c5c13 |
+| bilanzbuchhalter-ihk | eef4bbe6 |
+| fachinformatiker-anwendungsentwicklung | 24c3793c |
+| fachkraft-kurier-express-post | 42bdd4d8 |
+| fachkraft-metalltechnik-montagetechnik | fdf4c23c |
+| industriemeister-metall-ihk | 961103c5 |
+| kaufmann-spedition-logistik | 259894ef |
+| kaufmann-versicherungen-finanzanlagen | d14ca583 |
+| mechatroniker-in | 2e8da39f |
+| wirtschaftsfachwirt-ihk | 03462382 |
+
+### Nicht heilbar (separates Problem)
+| Slug | Package ID | Grund |
+|------|-----------|-------|
+| pharmazeutisch-kaufm-angestellter | 62b52784 | Upstream-Steps (auto_seed_exam_blueprints etc.) noch queued — Prerequisite-Trigger verhindert Heal |
 
 ## Design-Prinzip
 
