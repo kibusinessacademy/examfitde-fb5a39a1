@@ -1,68 +1,67 @@
 import { Link } from 'react-router-dom';
-import { ArrowRight, BookOpen, Target, Award, CheckCircle } from 'lucide-react';
+import { ArrowRight, BookOpen, Target, Award, CheckCircle, Building2, Users, Brain } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { Breadcrumbs } from '@/components/seo/Breadcrumbs';
 import { useBerufPages } from '@/hooks/useSEOPages';
-import { generateOrganizationSchema, SITE_URL, getBerufUrl, getIHKPruefungUrl } from '@/lib/seo';
+import { generateOrganizationSchema, generateBreadcrumbSchema, generateFAQSchema, SITE_URL, getIHKPruefungUrl } from '@/lib/seo';
+
+const FAQS = [
+  { question: 'Welche IHK-Prüfungen deckt ExamFit ab?', answer: 'ExamFit bietet Prüfungstraining für über 200 IHK-Ausbildungsberufe, von Industriekaufmann über Fachinformatiker bis Mechatroniker. Alle Inhalte orientieren sich am Ausbildungsrahmenplan.' },
+  { question: 'Ist ExamFit auch für HWK-Prüfungen geeignet?', answer: 'Ja. ExamFit deckt sowohl IHK- als auch HWK-Ausbildungsberufe ab. Die Inhalte sind jeweils auf die prüfungsrelevanten Anforderungen der zuständigen Kammer abgestimmt.' },
+  { question: 'Wie unterscheidet sich ExamFit von alten Prüfungen?', answer: 'ExamFit ist kein Fragenkatalog. Es ist ein adaptives Trainingssystem mit Prüfungssimulation, KI-Fehleranalyse und Bestehenswahrscheinlichkeit – auf Basis psychometrischer Modelle.' },
+  { question: 'Gibt es auch Teamlizenzen für Betriebe?', answer: 'Ja! Betriebe kaufen Plätze statt Kurse. Eine Ausbildungslizenz deckt alle Berufe ab – ab 29,80 €/Platz pro Jahr. Ideal für gemischte Teams.' },
+];
 
 export default function IHKPruefungenPage() {
   const { data: berufe, isLoading } = useBerufPages();
 
-  const structuredData = {
-    '@context': 'https://schema.org',
-    '@graph': [
-      generateOrganizationSchema(),
-      {
-        '@type': 'WebPage',
-        name: 'IHK-Prüfung bestehen – Vorbereitung & Training',
-        description: 'Bereite dich optimal auf deine IHK-Prüfung vor. Interaktive Lernkurse, Prüfungstrainer und mündliche Prüfungssimulation für alle Ausbildungsberufe.',
-        url: `${SITE_URL}/ihk-pruefungen`,
-      },
-    ],
-  };
+  const breadcrumbs = [
+    { name: 'Start', url: SITE_URL },
+    { name: 'IHK-Prüfungen' },
+  ];
+
+  const structuredData = [
+    generateBreadcrumbSchema(breadcrumbs),
+    generateFAQSchema(FAQS),
+    generateOrganizationSchema(),
+  ];
 
   return (
     <>
       <SEOHead
-        title="IHK-Prüfung bestehen – Vorbereitung & Training | ExamFit"
-        description="Bereite dich optimal auf deine IHK-Prüfung vor. Interaktive Lernkurse, Prüfungstrainer und mündliche Prüfungssimulation für alle Ausbildungsberufe."
+        title="IHK-Prüfung bestehen – Prüfungstraining mit Simulation & KI-Coach | ExamFit"
+        description="Bereite dich optimal auf deine IHK-Prüfung vor: Prüfungssimulation, adaptive Schwächenanalyse, KI-Prüfungscoach und Bestehenswahrscheinlichkeit für alle Ausbildungsberufe."
         canonical={`${SITE_URL}/ihk-pruefungen`}
         structuredData={structuredData}
       />
 
       <div className="min-h-screen">
         {/* Hero Section */}
-        <section className="relative py-20 overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-transparent to-accent/10" />
+        <section className="relative py-16 md:py-24 overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/8 via-transparent to-accent/5" />
           <div className="container relative z-10">
-            <Breadcrumbs
-              items={[{ label: 'IHK-Prüfungen' }]}
-              className="mb-8"
-            />
-
+            <Breadcrumbs items={[{ label: 'IHK-Prüfungen' }]} className="mb-8" />
             <div className="max-w-4xl">
               <Badge className="mb-4 bg-primary/20 text-primary border-primary/30">
-                IHK-Prüfungsvorbereitung
+                IHK &amp; HWK Prüfungsvorbereitung
               </Badge>
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-display font-bold mb-6">
                 <span className="text-gradient">IHK-Prüfung bestehen</span>
                 <br />
-                mit KI-gestütztem Training
+                mit adaptivem Training &amp; KI-Coach
               </h1>
               <p className="text-xl text-muted-foreground mb-8 max-w-2xl">
-                Bereite dich optimal auf deine Abschlussprüfung vor. Strukturierte Lernkurse, 
-                prüfungsrelevante Fragen und mündliche Prüfungssimulation – alles in einer Plattform.
+                Prüfungssimulation, Schwächenanalyse und Bestehenswahrscheinlichkeit in Echtzeit –
+                für über 200 IHK- und HWK-Ausbildungsberufe.
               </p>
               <div className="flex flex-wrap gap-4">
-                <Button size="lg" asChild>
-                  <Link to="/shop">
-                    Jetzt starten <ArrowRight className="ml-2 h-5 w-5" />
-                  </Link>
+                <Button size="lg" className="gradient-primary text-primary-foreground shadow-glow h-14 px-8 text-lg" asChild>
+                  <Link to="/shop">Jetzt Prüfungstraining starten <ArrowRight className="ml-2 h-5 w-5" /></Link>
                 </Button>
-                <Button size="lg" variant="outline" asChild>
+                <Button size="lg" variant="outline" className="h-14 px-8" asChild>
                   <Link to="/berufe">Berufe entdecken</Link>
                 </Button>
               </div>
@@ -72,35 +71,35 @@ export default function IHKPruefungenPage() {
 
         {/* Benefits Section */}
         <section className="py-16 bg-muted/30">
-          <div className="container">
+          <div className="container max-w-5xl">
             <h2 className="text-3xl font-display font-bold text-center mb-12">
-              So unterstützt dich ExamFit
+              So unterstützt dich <span className="text-gradient">ExamFit</span>
             </h2>
             <div className="grid md:grid-cols-3 gap-8">
               <Card className="glass-card">
                 <CardHeader>
                   <BookOpen className="h-10 w-10 text-primary mb-4" />
-                  <CardTitle>Strukturiertes Lernen</CardTitle>
+                  <CardTitle>Strukturiertes Training</CardTitle>
                   <CardDescription>
-                    Interaktive H5P-Module zu allen Lernfeldern deines Ausbildungsberufs
+                    Lernmodule zu allen Lernfeldern deines Ausbildungsberufs – orientiert am Rahmenplan.
                   </CardDescription>
                 </CardHeader>
               </Card>
               <Card className="glass-card">
                 <CardHeader>
                   <Target className="h-10 w-10 text-accent mb-4" />
-                  <CardTitle>Gezieltes Üben</CardTitle>
+                  <CardTitle>Adaptive Simulation</CardTitle>
                   <CardDescription>
-                    Prüfungsfragen mit adaptivem Algorithmus, der deine Schwächen erkennt
+                    Prüfungssimulation unter realistischen Bedingungen mit automatischer Schwächenanalyse.
                   </CardDescription>
                 </CardHeader>
               </Card>
               <Card className="glass-card">
                 <CardHeader>
-                  <Award className="h-10 w-10 text-success mb-4" />
-                  <CardTitle>Mündliche Prüfung</CardTitle>
+                  <Brain className="h-10 w-10 text-success mb-4" />
+                  <CardTitle>KI-Prüfungscoach</CardTitle>
                   <CardDescription>
-                    KI-Prüfungssimulation mit Echtzeit-Feedback zu deinen Antworten
+                    Erklärt Fehler, zeigt typische Prüfungsfallen und gibt gezielte Trainingsempfehlungen.
                   </CardDescription>
                 </CardHeader>
               </Card>
@@ -108,15 +107,39 @@ export default function IHKPruefungenPage() {
           </div>
         </section>
 
-        {/* Berufe Grid */}
+        {/* B2B Teaser */}
         <section className="py-16">
+          <div className="container max-w-4xl">
+            <div className="glass-card rounded-2xl p-8 md:p-12 text-center space-y-6">
+              <Building2 className="h-12 w-12 text-primary mx-auto" />
+              <h2 className="text-2xl md:text-3xl font-display font-bold">
+                Für Betriebe: <span className="text-gradient">Plätze statt Kurse</span>
+              </h2>
+              <p className="text-muted-foreground max-w-xl mx-auto">
+                Sie bilden in verschiedenen Berufen aus? Eine Teamlizenz für Ausbildung deckt alle IHK- und HWK-Berufe ab.
+                Egal ob Automobilkaufmann, Mechatroniker oder Büromanagement – eine Lizenz reicht.
+              </p>
+              <div className="flex flex-wrap justify-center gap-4 text-sm">
+                <span className="flex items-center gap-1.5"><CheckCircle className="h-4 w-4 text-primary" /> Ab 29,80 €/Platz pro Jahr</span>
+                <span className="flex items-center gap-1.5"><Users className="h-4 w-4 text-primary" /> 5, 10 oder 25 Plätze</span>
+                <span className="flex items-center gap-1.5"><Award className="h-4 w-4 text-primary" /> Alle Berufe enthalten</span>
+              </div>
+              <Button className="gradient-primary text-primary-foreground shadow-glow" asChild>
+                <Link to="/betriebe">Mehr für Betriebe erfahren <ArrowRight className="ml-1 h-4 w-4" /></Link>
+              </Button>
+            </div>
+          </div>
+        </section>
+
+        {/* Berufe Grid */}
+        <section className="py-16 bg-muted/30">
           <div className="container">
             <h2 className="text-3xl font-display font-bold mb-4">
-              Wähle deinen Ausbildungsberuf
+              Wähle deinen <span className="text-gradient">Ausbildungsberuf</span>
             </h2>
             <p className="text-muted-foreground mb-8 max-w-2xl">
-              Wir bieten Prüfungsvorbereitung für alle IHK-Ausbildungsberufe. 
-              Finde deinen Beruf und starte sofort mit dem Lernen.
+              Prüfungstraining für alle IHK- und HWK-Ausbildungsberufe.
+              Finde deinen Beruf und starte sofort.
             </p>
 
             {isLoading ? (
@@ -146,11 +169,9 @@ export default function IHKPruefungenPage() {
                       </CardHeader>
                       <CardContent>
                         <div className="flex items-center justify-between">
-                          <Badge variant="outline">
-                            {beruf.duration} Monate
-                          </Badge>
+                          <Badge variant="outline">{beruf.duration} Monate</Badge>
                           <span className="text-sm text-primary flex items-center">
-                            Zur Vorbereitung <ArrowRight className="ml-1 h-4 w-4" />
+                            Zum Training <ArrowRight className="ml-1 h-4 w-4" />
                           </span>
                         </div>
                       </CardContent>
@@ -163,29 +184,45 @@ export default function IHKPruefungenPage() {
             {berufe && berufe.length > 12 && (
               <div className="text-center mt-8">
                 <Button variant="outline" size="lg" asChild>
-                  <Link to="/berufe">
-                    Alle {berufe.length} Berufe anzeigen
-                  </Link>
+                  <Link to="/berufe">Alle {berufe.length} Berufe anzeigen</Link>
                 </Button>
               </div>
             )}
           </div>
         </section>
 
+        {/* FAQ */}
+        <section className="py-16">
+          <div className="container max-w-3xl space-y-6">
+            <h2 className="text-2xl font-bold text-center">Häufige Fragen</h2>
+            <div className="space-y-3">
+              {FAQS.map(faq => (
+                <details key={faq.question} className="group border border-border rounded-lg bg-card">
+                  <summary className="px-6 py-4 cursor-pointer font-medium hover:text-primary transition-colors">{faq.question}</summary>
+                  <p className="px-6 pb-4 text-sm text-muted-foreground">{faq.answer}</p>
+                </details>
+              ))}
+            </div>
+          </div>
+        </section>
+
         {/* CTA Section */}
         <section className="py-20 bg-gradient-to-br from-primary/10 via-transparent to-accent/10">
-          <div className="container text-center">
-            <h2 className="text-3xl md:text-4xl font-display font-bold mb-6">
+          <div className="container text-center max-w-3xl space-y-6">
+            <h2 className="text-3xl md:text-4xl font-display font-bold">
               Bereit für deine IHK-Prüfung?
             </h2>
-            <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
+            <p className="text-xl text-muted-foreground">
               Starte jetzt mit der Vorbereitung und sichere dir den Prüfungserfolg.
             </p>
-            <Button size="lg" className="shadow-glow" asChild>
-              <Link to="/shop">
-                Jetzt Produkt wählen <ArrowRight className="ml-2 h-5 w-5" />
-              </Link>
-            </Button>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Button size="lg" className="gradient-primary text-primary-foreground shadow-glow h-14 px-8 text-lg" asChild>
+                <Link to="/shop">Jetzt Prüfungstraining starten <ArrowRight className="ml-2 h-5 w-5" /></Link>
+              </Button>
+              <Button size="lg" variant="outline" className="h-14 px-8" asChild>
+                <Link to="/betriebe">Für Betriebe &amp; Teams</Link>
+              </Button>
+            </div>
           </div>
         </section>
       </div>
