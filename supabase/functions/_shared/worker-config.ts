@@ -54,17 +54,17 @@ export const WIP_BONUS_SLOTS = 4;
 export const WIP_BONUS_PROGRESS_THRESHOLD = 50;
 
 /** Effective cap = WIP_TOTAL_CAP + min(bonus_eligible_count, WIP_BONUS_SLOTS) */
-export const WIP_EFFECTIVE_MAX = WIP_TOTAL_CAP + WIP_BONUS_SLOTS; // hard ceiling = 18
+export const WIP_EFFECTIVE_MAX = WIP_TOTAL_CAP + WIP_BONUS_SLOTS; // hard ceiling = 24
 
 /**
  * WIP quota per track: max packages in "building" status simultaneously.
  * Env-overridable via WIP_QUOTA_<TRACK>.
  */
 export const WIP_QUOTA_DEFAULTS: Record<TrackKey, number> = {
-  AUSBILDUNG_VOLL: 4,
-  EXAM_FIRST_PLUS: 4,
-  EXAM_FIRST: 2,
-  STUDIUM: 1,
+  AUSBILDUNG_VOLL: 5,
+  EXAM_FIRST_PLUS: 6,
+  EXAM_FIRST: 4,
+  STUDIUM: 2,
 };
 
 export function getTrackQuota(track: TrackKey): number {
