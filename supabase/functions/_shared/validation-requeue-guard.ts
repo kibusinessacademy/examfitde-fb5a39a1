@@ -491,7 +491,7 @@ async function probeOralExamReadiness(sb: any, packageId: string): Promise<Readi
   return { verdict: "STILL_BLOCKED", reason: `only ${count ?? 0} oral exam questions` };
 }
 
-// ── Tutor Index: check if index exists ──
+// ── Tutor Index: check if index exists (HEURISTIC) ──
 
 async function probeTutorIndexReadiness(sb: any, packageId: string): Promise<ReadinessProbeResult> {
   const { count } = await sb
@@ -500,7 +500,8 @@ async function probeTutorIndexReadiness(sb: any, packageId: string): Promise<Rea
     .eq("package_id", packageId);
 
   if ((count ?? 0) > 0) {
-    return { verdict: "PASS_READY", reason: "tutor index exists" };
+    // Heuristic — real validator may check index freshness, version, etc.
+    return { verdict: "LIKELY_READY", reason: "tutor index exists" };
   }
   return { verdict: "STILL_BLOCKED", reason: "no tutor index" };
 }
