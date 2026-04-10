@@ -27504,6 +27504,7 @@ export type Database = {
           is_duplicate: boolean | null
           last_audited_at: string | null
           lesson_id: string | null
+          link_status: string | null
           mode: string
           options: Json
           question_text: string
@@ -27533,6 +27534,7 @@ export type Database = {
           is_duplicate?: boolean | null
           last_audited_at?: string | null
           lesson_id?: string | null
+          link_status?: string | null
           mode?: string
           options: Json
           question_text: string
@@ -27562,6 +27564,7 @@ export type Database = {
           is_duplicate?: boolean | null
           last_audited_at?: string | null
           lesson_id?: string | null
+          link_status?: string | null
           mode?: string
           options?: Json
           question_text?: string
