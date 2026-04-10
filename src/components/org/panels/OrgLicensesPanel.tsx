@@ -1,3 +1,5 @@
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { OrgContext } from '@/hooks/useOrgConsole';
 import { KpiCard, CommandKpiStrip } from '@/components/admin/enterprise/shared/CommandKpiStrip';
 import { StatusBadge, SeatUsageBar } from '@/components/admin/enterprise/shared/StatusBadge';
@@ -14,9 +16,22 @@ interface Props {
 }
 
 export default function OrgLicensesPanel({ orgId, context }: Props) {
-  const seats = context?.seats || [];
+  const { data: seats = [] } = useQuery({
+    queryKey: ['org-seats-list', orgId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('organization_seats')
+        .select('id, entity_id, learner_user_id, product_id, certification_id, seat_status, start_at, end_at, auto_renew')
+        .eq('organization_id', orgId)
+        .order('created_at', { ascending: false })
+        .limit(500);
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!orgId,
+    staleTime: 60_000,
+  });
 
-  // Group seats by product
   const byProduct = new Map<string, { product_id: string; total: number; active: number }>();
   for (const s of seats) {
     const key = s.product_id || 'unknown';
