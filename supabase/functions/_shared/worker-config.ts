@@ -18,8 +18,8 @@ function envInt(name: string, fallback: number): number {
 }
 
 const DEFAULTS: Record<RunnerKind, RunnerConfig> = {
-  content_runner: { maxConcurrency: 6, claimLimit: 8 },   // Phase D: 16/32 → 6/8 anti-zombie
-  job_runner:     { maxConcurrency: 4,  claimLimit: 6 },   // Phase D: 8/8 → 4/6
+  content_runner: { maxConcurrency: 6, claimLimit: 8 },   // Forensic fix: 16/32 → 6/8 (prevent timeout zombies)
+  job_runner:     { maxConcurrency: 4, claimLimit: 6 },   // Forensic fix: 8/8 → 4/6
 };
 
 export function getRunnerConfig(kind: RunnerKind): RunnerConfig {
@@ -30,8 +30,8 @@ export function getRunnerConfig(kind: RunnerKind): RunnerConfig {
   // Hard safety caps (non-negotiable)
   if (kind === "content_runner") {
     return {
-      maxConcurrency: Math.min(maxConcurrency, 8),    // Phase D: hard cap 16→8
-      claimLimit: Math.min(claimLimit, 12),            // Phase D: hard cap 32→12
+      maxConcurrency: Math.min(maxConcurrency, 8),    // Forensic: hard cap → 8
+      claimLimit: Math.min(claimLimit, 12),            // Forensic: hard cap → 12
     };
   }
   return {
