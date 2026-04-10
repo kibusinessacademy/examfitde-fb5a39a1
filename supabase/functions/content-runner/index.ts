@@ -32,8 +32,12 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-const BASE_CONCURRENCY = envInt("CONTENT_RUNNER_CONCURRENCY", 8);   // Phase C: 12→8 — reserve compute for finish-line validation jobs (WORKER_LIMIT fix)
-const CLAIM_LIMIT = envInt("CONTENT_RUNNER_CLAIM_LIMIT", 16);      // Phase C: 25→16 — match reduced concurrency, prevent edge-fn saturation
+// ── SSOT Concurrency: imported from worker-config (single source of truth) ──
+// DO NOT define local fallbacks here — they bypass the hardened caps.
+import { getRunnerConfig } from "../_shared/worker-config.ts";
+const _runnerCfg = getRunnerConfig("content_runner");
+const BASE_CONCURRENCY = _runnerCfg.maxConcurrency;  // SSOT: 6 (hard cap 8)
+const CLAIM_LIMIT = _runnerCfg.claimLimit;            // SSOT: 8 (hard cap 12)
 const CONTENT_LOCK_TIMEOUT_MINUTES = 5;
 const STALE_LOCK_RECOVERY_MS = 3 * 60_000;
 const DISPATCH_TIMEOUT_MS = 55_000;          // Tier 3: structural/DB-only jobs
@@ -881,9 +885,13 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
     }
   }
 
-  // ── Claim content-pool jobs ──
+  // ── Claim content-pool jobs (SSOT-budgeted) ──
+  // Global claim budget: CLAIM_LIMIT is the TOTAL across ALL pools.
+  // Prebuild gets at most 2 slots; default pool gets the rest.
+  const PREBUILD_MAX = 2;
+  const defaultBudget = Math.max(1, CLAIM_LIMIT - PREBUILD_MAX);
   // deno-lint-ignore no-explicit-any
-  const claimCount = Math.min(CLAIM_LIMIT, BASE_CONCURRENCY * 2);
+  const claimCount = defaultBudget;
   // deno-lint-ignore no-explicit-any
   let { data: jobs, error: claimErr } = await sb.rpc("claim_pending_jobs_v4" as any, {
     p_limit: claimCount,
@@ -893,7 +901,8 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
   jobs = ((jobs ?? []) as any[]).slice(0, claimCount);
 
   // ── Also claim prebuild-pool jobs (variant materialization) ──
-  const prebuildSlots = Math.max(1, Math.floor(claimCount / 3)); // reserve ~1/3 for prebuild
+  // Prebuild is capped within the global CLAIM_LIMIT budget — not additive.
+  const prebuildSlots = PREBUILD_MAX;
   // deno-lint-ignore no-explicit-any
   const { data: prebuildJobs, error: prebuildErr } = await sb.rpc("claim_pending_jobs_v4" as any, {
     p_limit: prebuildSlots,
@@ -902,7 +911,23 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
   });
   if (!prebuildErr && prebuildJobs && prebuildJobs.length > 0) {
     console.log(`[content-runner] Also claimed ${prebuildJobs.length} prebuild job(s)`);
-    jobs = [...(jobs ?? []), ...(prebuildJobs as any[])];
+    // Enforce total claim budget: default + prebuild ≤ CLAIM_LIMIT
+    const totalSoFar = (jobs ?? []).length;
+    const remainingBudget = Math.max(0, CLAIM_LIMIT - totalSoFar);
+    const cappedPrebuild = (prebuildJobs as any[]).slice(0, remainingBudget);
+    if (cappedPrebuild.length < prebuildJobs.length) {
+      // Release excess prebuild claims back to pending
+      const excess = (prebuildJobs as any[]).slice(remainingBudget);
+      for (const ej of excess) {
+        await sb.from("job_queue").update({
+          status: "pending", locked_at: null, locked_by: null,
+          updated_at: new Date().toISOString(),
+          last_error: `CLAIM_BUDGET_EXCEEDED: total ${totalSoFar}+${prebuildJobs.length} > CLAIM_LIMIT ${CLAIM_LIMIT}, released by ${WORKER_ID}`,
+        }).eq("id", ej.id);
+      }
+      console.warn(`[content-runner] CLAIM_BUDGET: released ${excess.length} excess prebuild claims (budget=${CLAIM_LIMIT})`);
+    }
+    jobs = [...(jobs ?? []), ...cappedPrebuild];
   }
 
   if (claimErr) {
