@@ -106,7 +106,16 @@ export interface ValidationGuardResult {
 
 // ─── F-4.3: Readiness Probe Results ───────────────────────────────────────
 
-type ReadinessVerdict = "PASS_READY" | "STILL_BLOCKED" | "HARD_FAIL" | "UNKNOWN";
+/**
+ * Readiness verdicts (ordered by confidence):
+ *   PASS_READY    → canonical gate/meta confirms pass → guard MUST allow
+ *   LIKELY_READY  → heuristic evidence suggests pass → guard must NOT hard-block,
+ *                   but normal requeue/cooldown still applies
+ *   UNKNOWN       → no signal → fall through to delta logic
+ *   STILL_BLOCKED → evidence says not ready yet → delta logic
+ *   HARD_FAIL     → canonical gate says permanently broken → guard blocks
+ */
+type ReadinessVerdict = "PASS_READY" | "LIKELY_READY" | "STILL_BLOCKED" | "HARD_FAIL" | "UNKNOWN";
 
 interface ReadinessProbeResult {
   verdict: ReadinessVerdict;
