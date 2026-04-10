@@ -153,7 +153,7 @@ export default function GrowthLoopManager() {
         <TabsContent value="pipeline" className="mt-4 space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold">AI Content Pipeline</h3>
-            <Button size="sm" onClick={() => runPipeline.mutate()} disabled={runPipeline.isPending}>
+            <Button size="sm" onClick={() => runPipeline.mutate(undefined)} disabled={runPipeline.isPending}>
               {runPipeline.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Play className="h-3 w-3 mr-1" />}
               Pipeline starten
             </Button>
@@ -209,7 +209,7 @@ export default function GrowthLoopManager() {
         <TabsContent value="revenue" className="mt-4 space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold">User Revenue Profiles</h3>
-            <Button size="sm" onClick={() => computeProfiles.mutate()} disabled={computeProfiles.isPending}>
+            <Button size="sm" onClick={() => computeProfiles.mutate(undefined)} disabled={computeProfiles.isPending}>
               {computeProfiles.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <RotateCcw className="h-3 w-3 mr-1" />}
               Profile berechnen
             </Button>
