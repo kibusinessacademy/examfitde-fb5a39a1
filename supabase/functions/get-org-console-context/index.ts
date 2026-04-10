@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
     const url = new URL(req.url);
     const orgIdParam = url.searchParams.get("organization_id");
 
-    // Get user's memberships WITH org details in one query (no N+1)
+    // Get user's memberships WITH org details in one query
     const { data: memberships, error: mErr } = await supabase
       .from("org_memberships")
       .select("org_id, role, status, organizations:org_id(id, name, org_type, parent_org_id, fiscal_year_start_month, default_report_scope)")
@@ -35,7 +35,7 @@ Deno.serve(async (req) => {
     if (mErr) return json(500, { error: "memberships_failed", details: mErr.message }, origin);
     if (!memberships || memberships.length === 0) return json(200, { orgs: [], selected: null }, origin);
 
-    // Build org list with org_type
+    // Build org list
     const orgList = memberships.map((m: any) => ({
       id: m.organizations?.id,
       name: m.organizations?.name,
@@ -52,79 +52,77 @@ Deno.serve(async (req) => {
     const myRole = memberships.find((m: any) => m.org_id === orgId)?.role ?? null;
     const org = memberships.find((m: any) => m.org_id === orgId)?.organizations ?? null;
 
-    // Parallel loads for selected org — base data + new institutional data
+    if (!org?.id) return json(200, { orgs: orgList, selected: null }, origin);
+
+    const orgType = org.org_type ?? "COMPANY";
+
+    // Lightweight parallel aggregations — counts only, no full lists
     const [
-      entitiesRes, membersRes, learnersRes, seatsRes, privacyRes,
-      linksRes, classesRes, instructorsRes,
+      membersCountRes, learnersCountRes, seatsCountRes, privacyRes,
+      linksRes, classesCountRes, instructorsCountRes, curriculaCountRes,
     ] = await Promise.all([
       supabase
-        .from("organization_entities")
-        .select("id, entity_code, legal_name, display_name, vat_id, billing_email, is_default")
-        .eq("organization_id", orgId)
-        .order("entity_code"),
-      supabase
         .from("org_memberships")
-        .select("id, user_id, role, status, created_at")
+        .select("id", { count: "exact", head: true })
         .eq("org_id", orgId)
         .eq("status", "active"),
       supabase
         .from("organization_learners")
-        .select("id, learner_user_id, entity_id, joined_at, left_at")
+        .select("id", { count: "exact", head: true })
         .eq("organization_id", orgId)
-        .is("left_at", null)
-        .order("joined_at", { ascending: false })
-        .limit(200),
+        .is("left_at", null),
       supabase
         .from("organization_seats")
-        .select("id, entity_id, learner_user_id, product_id, certification_id, seat_status, start_at, end_at, auto_renew, notes")
-        .eq("organization_id", orgId)
-        .order("created_at", { ascending: false })
-        .limit(500),
+        .select("id, seat_status")
+        .eq("organization_id", orgId),
       supabase
         .from("org_privacy_access")
         .select("status, scope, approved_until, requested_at")
         .eq("organization_id", orgId)
         .maybeSingle(),
-      // Linked orgs (both directions)
+      // Linked orgs (both directions) — summary only
       supabase
         .from("org_links")
-        .select("id, org_a_id, org_b_id, link_type, status, metadata, created_at")
+        .select("id, org_a_id, org_b_id, link_type")
         .or(`org_a_id.eq.${orgId},org_b_id.eq.${orgId}`)
         .eq("status", "active"),
-      // School classes (if applicable)
+      // Class count
       supabase
         .from("school_classes")
-        .select("id, name, curriculum_id, academic_year, grade_year, status, created_at")
-        .eq("org_id", orgId)
-        .order("created_at", { ascending: false })
-        .limit(100),
-      // Instructor assignments
-      supabase
-        .from("instructor_assignments")
-        .select("id, user_id, curriculum_id, class_id, can_view_progress, can_grade, assignment_type, status")
+        .select("id", { count: "exact", head: true })
         .eq("org_id", orgId)
         .eq("status", "active"),
+      // Instructor count
+      supabase
+        .from("instructor_assignments")
+        .select("id", { count: "exact", head: true })
+        .eq("org_id", orgId)
+        .eq("status", "active"),
+      // Curricula count (distinct curriculum_ids from classes)
+      supabase
+        .from("school_classes")
+        .select("curriculum_id")
+        .eq("org_id", orgId),
     ]);
 
-    if (!org?.id) return json(200, { orgs: orgList, selected: null }, origin);
+    // Seat summary — only counts per status
+    const seats = seatsCountRes.data ?? [];
+    const activeSeats = seats.filter((s: any) => s.seat_status === "active").length;
+    const inactiveSeats = seats.filter((s: any) => s.seat_status !== "active").length;
 
-    const seats = seatsRes.data ?? [];
-    const seatCounts: Record<string, number> = {};
-    for (const s of seats) {
-      seatCounts[s.seat_status] = (seatCounts[s.seat_status] || 0) + 1;
-    }
+    // Unique curricula count
+    const uniqueCurricula = new Set((curriculaCountRes.data ?? []).map((c: any) => c.curriculum_id).filter(Boolean));
 
-    // Resolve linked org names for display
+    // Resolve linked orgs for summary display
     const links = linksRes.data ?? [];
     let linkedOrgs: any[] = [];
     if (links.length > 0) {
-      const linkedIds = links.map((l: any) => l.org_a_id === orgId ? l.org_b_id : l.org_a_id);
-      const uniqueIds = [...new Set(linkedIds)];
-      if (uniqueIds.length > 0) {
+      const linkedIds = [...new Set(links.map((l: any) => l.org_a_id === orgId ? l.org_b_id : l.org_a_id))];
+      if (linkedIds.length > 0) {
         const { data: linkedOrgData } = await supabase
           .from("organizations")
           .select("id, name, org_type")
-          .in("id", uniqueIds);
+          .in("id", linkedIds);
         const orgMap = Object.fromEntries((linkedOrgData ?? []).map((o: any) => [o.id, o]));
         linkedOrgs = links.map((l: any) => {
           const partnerId = l.org_a_id === orgId ? l.org_b_id : l.org_a_id;
@@ -136,14 +134,11 @@ Deno.serve(async (req) => {
             partner_org_id: partnerId,
             partner_org_name: partner?.name ?? null,
             partner_org_type: partner?.org_type ?? null,
-            metadata: l.metadata,
           };
         });
       }
     }
 
-    // Determine org capabilities based on org_type
-    const orgType = org.org_type ?? "COMPANY";
     const capabilities = resolveCapabilities(orgType, myRole);
 
     return json(200, {
@@ -152,15 +147,18 @@ Deno.serve(async (req) => {
         org: { ...org, org_type: orgType },
         my_role: myRole,
         capabilities,
-        entities: entitiesRes.data ?? [],
-        members: membersRes.data ?? [],
-        learners: learnersRes.data ?? [],
-        seats,
-        seat_summary: seatCounts,
-        privacy_access: privacyRes.data ?? { status: "NONE", scope: "ANONYMIZED" },
+        summary: {
+          active_members: membersCountRes.count ?? 0,
+          active_learners: learnersCountRes.count ?? 0,
+          active_seats: activeSeats,
+          inactive_seats: inactiveSeats,
+          classes_count: classesCountRes.count ?? 0,
+          instructors_count: instructorsCountRes.count ?? 0,
+          linked_orgs_count: links.length,
+          curricula_count: uniqueCurricula.size,
+        },
+        privacy_access: privacyRes.data ?? { status: "NONE", scope: "ANONYMIZED", approved_until: null, requested_at: null },
         linked_orgs: linkedOrgs,
-        classes: classesRes.data ?? [],
-        instructors: instructorsRes.data ?? [],
       },
     }, origin);
   } catch (e) {
@@ -168,7 +166,7 @@ Deno.serve(async (req) => {
   }
 });
 
-/** Resolve available capabilities / tabs based on org type and role */
+/** Resolve available capabilities based on org type and role */
 function resolveCapabilities(orgType: string, role: string | null): Record<string, boolean> {
   const base = {
     view_overview: true,
@@ -193,6 +191,17 @@ function resolveCapabilities(orgType: string, role: string | null): Record<strin
         view_seats: true,
         view_billing: isAdmin || role === "BILLING",
         view_integrations: isAdmin,
+        view_compliance: false,
+        view_governance: false,
+        view_institution_analytics: false,
+        view_curricula: false,
+        manage_curricula: false,
+        view_quality: false,
+        view_learners: false,
+        manage_seats: false,
+        view_commissions: false,
+        view_referrals: false,
+        view_leads: false,
       };
     case "IHK":
     case "HWK":
@@ -205,6 +214,20 @@ function resolveCapabilities(orgType: string, role: string | null): Record<strin
         view_linked_orgs: true,
         manage_linked_orgs: isAdmin,
         view_quality: true,
+        view_classes: false,
+        manage_classes: false,
+        view_instructors: false,
+        manage_instructors: false,
+        view_learner_progress: false,
+        view_seats: false,
+        manage_seats: false,
+        view_billing: false,
+        view_integrations: false,
+        view_compliance: false,
+        view_learners: false,
+        view_commissions: false,
+        view_referrals: false,
+        view_leads: false,
       };
     case "PARTNER_AGENCY":
     case "PARTNER_AFFILIATE":
@@ -213,6 +236,24 @@ function resolveCapabilities(orgType: string, role: string | null): Record<strin
         view_commissions: true,
         view_referrals: true,
         view_leads: true,
+        view_classes: false,
+        manage_classes: false,
+        view_instructors: false,
+        manage_instructors: false,
+        view_learner_progress: false,
+        view_linked_orgs: false,
+        manage_linked_orgs: false,
+        view_seats: false,
+        manage_seats: false,
+        view_billing: false,
+        view_integrations: false,
+        view_compliance: false,
+        view_governance: false,
+        view_institution_analytics: false,
+        view_curricula: false,
+        manage_curricula: false,
+        view_quality: false,
+        view_learners: false,
       };
     default: // COMPANY
       return {
@@ -225,6 +266,19 @@ function resolveCapabilities(orgType: string, role: string | null): Record<strin
         view_linked_orgs: true,
         manage_linked_orgs: isAdmin,
         view_compliance: true,
+        view_classes: false,
+        manage_classes: false,
+        view_instructors: false,
+        manage_instructors: false,
+        view_learner_progress: false,
+        view_governance: false,
+        view_institution_analytics: false,
+        view_curricula: false,
+        manage_curricula: false,
+        view_quality: false,
+        view_commissions: false,
+        view_referrals: false,
+        view_leads: false,
       };
   }
 }
