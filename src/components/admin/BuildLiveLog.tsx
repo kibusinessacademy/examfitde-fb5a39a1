@@ -180,7 +180,9 @@ export default function BuildLiveLog({ packageId, isBuilding }: BuildLiveLogProp
                     "flex-1",
                     entry.status === 'failed' ? 'text-destructive' :
                     entry.status === 'done' ? 'text-foreground' :
-                    entry.status === 'running' ? 'text-primary' : 'text-muted-foreground'
+                    entry.status === 'running' ? 'text-primary' : 
+                    entry.status === 'skipped' ? 'text-muted-foreground/60' :
+                    entry.status === 'queued' ? 'text-yellow-500' : 'text-muted-foreground'
                   )}>
                     {entry.message}
                     {entry.duration_ms && entry.status === 'done' && (
