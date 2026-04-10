@@ -43,10 +43,10 @@ export async function getSchoolClassDetail(class_id: string) {
   return fetchJson(`/get-school-class-detail?${sp.toString()}`, { method: "GET" });
 }
 
-// ─── Institution Analytics (IHK/HWK) ──────────────────────────
-export async function getInstitutionAnalytics(organization_id: string) {
+// ─── Institution Dashboard (IHK/HWK) ──────────────────────────
+export async function getInstitutionDashboard(organization_id: string) {
   const sp = new URLSearchParams({ organization_id });
-  return fetchJson(`/get-institution-analytics?${sp.toString()}`, { method: "GET" });
+  return fetchJson(`/get-institution-dashboard?${sp.toString()}`, { method: "GET" });
 }
 
 // ─── Org Links ─────────────────────────────────────────────────
