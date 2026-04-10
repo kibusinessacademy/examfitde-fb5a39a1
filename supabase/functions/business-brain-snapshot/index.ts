@@ -34,12 +34,12 @@ Deno.serve(async (req) => {
     ]);
 
     // Build summary
-    const riskScore = (risk.stalled_packages || 0) + (risk.failed_jobs_24h || 0) + (risk.qgf_packages || 0);
-    const oppScore = (opportunity.keywords_without_content || 0) + (opportunity.publishable_packages || 0);
+    const riskScore = (risk.stalled_packages || 0) + (risk.failed_jobs_24h || 0) + (risk.blocked_packages || 0);
+    const oppScore = (opportunity.keywords_without_any_done_content_job || 0) + (opportunity.publishable_packages || 0);
     const summary = {
       overall_health: riskScore > 20 ? "critical" : riskScore > 10 ? "warning" : "healthy",
       top_risk: risk.failed_jobs_24h > 5 ? "high_failure_rate" : risk.stalled_packages > 3 ? "stalled_packages" : "none",
-      top_opportunity: opportunity.keywords_without_content > 10 ? "content_gaps" : opportunity.publishable_packages > 0 ? "publishable_packages" : "none",
+      top_opportunity: (opportunity.keywords_without_any_done_content_job || 0) > 10 ? "content_gaps" : opportunity.publishable_packages > 0 ? "publishable_packages" : "none",
       risk_score: riskScore,
       opportunity_score: oppScore,
     };
