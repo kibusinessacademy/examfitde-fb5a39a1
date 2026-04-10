@@ -100,13 +100,13 @@ export function useAdminAssignSeat() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (params: { licenseId: string; userId: string }) => {
-      const { data, error } = await supabase.rpc('assign_org_seat' as any, {
+      const { data, error } = await supabase.rpc('assign_org_license_seat' as any, {
         p_license_id: params.licenseId,
         p_user_id: params.userId,
       });
       if (error) throw error;
-      const result = data as { success: boolean; message: string };
-      if (!result.success) throw new Error(result.message);
+      const result = data as { ok: boolean; error?: string; already_assigned?: boolean };
+      if (!result.ok) throw new Error(result.error || 'Assignment failed');
       return result;
     },
     onSuccess: () => {
@@ -123,13 +123,13 @@ export function useAdminRevokeSeat() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (params: { licenseId: string; userId: string }) => {
-      const { data, error } = await supabase.rpc('revoke_org_seat' as any, {
+      const { data, error } = await supabase.rpc('release_org_license_seat' as any, {
         p_license_id: params.licenseId,
         p_user_id: params.userId,
       });
       if (error) throw error;
-      const result = data as { success: boolean; message: string };
-      if (!result.success) throw new Error(result.message);
+      const result = data as { ok: boolean; error?: string };
+      if (!result.ok) throw new Error(result.error || 'Release failed');
       return result;
     },
     onSuccess: () => {
