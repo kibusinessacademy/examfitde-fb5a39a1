@@ -41852,54 +41852,96 @@ export type Database = {
       seo_discovery_state: {
         Row: {
           canonical_url: string
+          content_status: string
           created_at: string | null
+          discovery_hash: string | null
           discovery_health_score: number | null
           drift_issues: Json | null
+          drift_reasons: Json
+          drift_status: string
           id: string
           in_feed: boolean | null
           in_sitemap: boolean | null
+          is_feed_relevant: boolean
           is_indexable: boolean | null
+          is_indexnow_relevant: boolean
+          is_sitemap_relevant: boolean
+          last_discovery_event_at: string | null
           last_discovery_hash: string | null
           last_feed_refresh_at: string | null
+          last_hash_change_at: string | null
+          last_indexnow_status: string | null
+          last_seen_live_at: string | null
           last_sitemap_refresh_at: string | null
           last_submitted_via_indexnow_at: string | null
+          metadata: Json
+          normalized_url: string | null
           source_id: string
           source_type: string
           updated_at: string | null
+          url_hash: string | null
         }
         Insert: {
           canonical_url: string
+          content_status?: string
           created_at?: string | null
+          discovery_hash?: string | null
           discovery_health_score?: number | null
           drift_issues?: Json | null
+          drift_reasons?: Json
+          drift_status?: string
           id?: string
           in_feed?: boolean | null
           in_sitemap?: boolean | null
+          is_feed_relevant?: boolean
           is_indexable?: boolean | null
+          is_indexnow_relevant?: boolean
+          is_sitemap_relevant?: boolean
+          last_discovery_event_at?: string | null
           last_discovery_hash?: string | null
           last_feed_refresh_at?: string | null
+          last_hash_change_at?: string | null
+          last_indexnow_status?: string | null
+          last_seen_live_at?: string | null
           last_sitemap_refresh_at?: string | null
           last_submitted_via_indexnow_at?: string | null
+          metadata?: Json
+          normalized_url?: string | null
           source_id: string
           source_type: string
           updated_at?: string | null
+          url_hash?: string | null
         }
         Update: {
           canonical_url?: string
+          content_status?: string
           created_at?: string | null
+          discovery_hash?: string | null
           discovery_health_score?: number | null
           drift_issues?: Json | null
+          drift_reasons?: Json
+          drift_status?: string
           id?: string
           in_feed?: boolean | null
           in_sitemap?: boolean | null
+          is_feed_relevant?: boolean
           is_indexable?: boolean | null
+          is_indexnow_relevant?: boolean
+          is_sitemap_relevant?: boolean
+          last_discovery_event_at?: string | null
           last_discovery_hash?: string | null
           last_feed_refresh_at?: string | null
+          last_hash_change_at?: string | null
+          last_indexnow_status?: string | null
+          last_seen_live_at?: string | null
           last_sitemap_refresh_at?: string | null
           last_submitted_via_indexnow_at?: string | null
+          metadata?: Json
+          normalized_url?: string | null
           source_id?: string
           source_type?: string
           updated_at?: string | null
+          url_hash?: string | null
         }
         Relationships: []
       }
@@ -42216,6 +42258,8 @@ export type Database = {
           business_priority: number | null
           cluster_name: string
           created_at: string | null
+          curriculum_fit: number | null
+          funnel_stage: string
           id: string
           notes: string | null
           parent_topic: string | null
@@ -42228,6 +42272,8 @@ export type Database = {
           business_priority?: number | null
           cluster_name: string
           created_at?: string | null
+          curriculum_fit?: number | null
+          funnel_stage?: string
           id?: string
           notes?: string | null
           parent_topic?: string | null
@@ -42240,6 +42286,8 @@ export type Database = {
           business_priority?: number | null
           cluster_name?: string
           created_at?: string | null
+          curriculum_fit?: number | null
+          funnel_stage?: string
           id?: string
           notes?: string | null
           parent_topic?: string | null
@@ -42253,8 +42301,10 @@ export type Database = {
       seo_keywords: {
         Row: {
           business_value: number | null
+          cannibalization_risk: boolean | null
           cluster_id: string | null
           content_gap_score: number | null
+          content_status: string | null
           conversion_value: number | null
           created_at: string | null
           curriculum_fit: number | null
@@ -42264,6 +42314,7 @@ export type Database = {
           id: string
           intent_type: string | null
           keyword: string
+          keyword_difficulty: number | null
           notes: string | null
           opportunity_score: number | null
           parent_keyword_id: string | null
@@ -42278,8 +42329,10 @@ export type Database = {
         }
         Insert: {
           business_value?: number | null
+          cannibalization_risk?: boolean | null
           cluster_id?: string | null
           content_gap_score?: number | null
+          content_status?: string | null
           conversion_value?: number | null
           created_at?: string | null
           curriculum_fit?: number | null
@@ -42289,6 +42342,7 @@ export type Database = {
           id?: string
           intent_type?: string | null
           keyword: string
+          keyword_difficulty?: number | null
           notes?: string | null
           opportunity_score?: number | null
           parent_keyword_id?: string | null
@@ -42303,8 +42357,10 @@ export type Database = {
         }
         Update: {
           business_value?: number | null
+          cannibalization_risk?: boolean | null
           cluster_id?: string | null
           content_gap_score?: number | null
+          content_status?: string | null
           conversion_value?: number | null
           created_at?: string | null
           curriculum_fit?: number | null
@@ -42314,6 +42370,7 @@ export type Database = {
           id?: string
           intent_type?: string | null
           keyword?: string
+          keyword_difficulty?: number | null
           notes?: string | null
           opportunity_score?: number | null
           parent_keyword_id?: string | null
@@ -42472,16 +42529,20 @@ export type Database = {
       seo_submission_logs: {
         Row: {
           action: string
+          canonical_url: string | null
           created_at: string | null
           error_message: string | null
+          finished_at: string | null
           http_status: number | null
           id: string
+          priority: number
           provider: string
           request_payload: Json | null
           response_payload: Json | null
           retry_count: number | null
           source_id: string | null
           source_type: string
+          started_at: string | null
           status: string | null
           submitted_at: string | null
           updated_at: string | null
@@ -42489,16 +42550,20 @@ export type Database = {
         }
         Insert: {
           action: string
+          canonical_url?: string | null
           created_at?: string | null
           error_message?: string | null
+          finished_at?: string | null
           http_status?: number | null
           id?: string
+          priority?: number
           provider: string
           request_payload?: Json | null
           response_payload?: Json | null
           retry_count?: number | null
           source_id?: string | null
           source_type: string
+          started_at?: string | null
           status?: string | null
           submitted_at?: string | null
           updated_at?: string | null
@@ -42506,16 +42571,20 @@ export type Database = {
         }
         Update: {
           action?: string
+          canonical_url?: string | null
           created_at?: string | null
           error_message?: string | null
+          finished_at?: string | null
           http_status?: number | null
           id?: string
+          priority?: number
           provider?: string
           request_payload?: Json | null
           response_payload?: Json | null
           retry_count?: number | null
           source_id?: string | null
           source_type?: string
+          started_at?: string | null
           status?: string | null
           submitted_at?: string | null
           updated_at?: string | null
@@ -70850,6 +70919,7 @@ export type Database = {
           package_id: string
         }[]
       }
+      fn_build_refresh_queue: { Args: never; Returns: number }
       fn_calculate_pass_probability: {
         Args: {
           p_curriculum_id?: string
@@ -70861,6 +70931,10 @@ export type Database = {
       fn_cancel_zombie_jobs: { Args: never; Returns: number }
       fn_capture_gate_snapshot: {
         Args: { p_package_id: string }
+        Returns: Json
+      }
+      fn_classify_discovery_state: {
+        Args: { p_source_id: string; p_source_type: string }
         Returns: Json
       }
       fn_classify_exam_pool_gate: {
@@ -70879,6 +70953,10 @@ export type Database = {
         Args: { p_reason?: string; p_session_id: string; p_user_id: string }
         Returns: Json
       }
+      fn_compute_content_scores: {
+        Args: { p_content_id: string; p_content_type: string }
+        Returns: Json
+      }
       fn_compute_exam_pool_hash: {
         Args: { p_curriculum_id: string }
         Returns: string
@@ -70887,9 +70965,25 @@ export type Database = {
         Args: { p_curriculum_id: string }
         Returns: Json
       }
+      fn_compute_keyword_opportunity_score: {
+        Args: { p_keyword_id: string }
+        Returns: number
+      }
       fn_compute_minicheck_fingerprint: {
         Args: { p_curriculum_id: string }
         Returns: Json
+      }
+      fn_compute_seo_discovery_hash: {
+        Args: {
+          p_canonical_url: string
+          p_meta_description: string
+          p_meta_title: string
+          p_noindex: boolean
+          p_status: string
+          p_title: string
+          p_updated_at: string
+        }
+        Returns: string
       }
       fn_create_partner_commission: {
         Args: {
@@ -70907,6 +71001,18 @@ export type Database = {
         Returns: string
       }
       fn_derive_exam_part: { Args: { p_blueprint_id: string }; Returns: string }
+      fn_detect_content_gaps: { Args: { p_cluster_id?: string }; Returns: Json }
+      fn_detect_keyword_cannibalization: { Args: never; Returns: Json }
+      fn_detect_seo_discovery_drift: {
+        Args: never
+        Returns: {
+          canonical_url: string
+          drift_reasons: Json
+          drift_status: string
+          source_id: string
+          source_type: string
+        }[]
+      }
       fn_dry_run_bulk_import: { Args: { p_job_id: string }; Returns: Json }
       fn_effective_wip_state: {
         Args: never
@@ -71074,6 +71180,7 @@ export type Database = {
         Args: { _partner_id: string }
         Returns: number
       }
+      fn_get_seo_discovery_dashboard_summary: { Args: never; Returns: Json }
       fn_get_shuttle_dashboard_summary: {
         Args: { p_curriculum_id: string; p_user_id: string }
         Returns: Json
@@ -71328,6 +71435,10 @@ export type Database = {
       fn_update_package_prebuild_status: {
         Args: { p_package_id: string }
         Returns: string
+      }
+      fn_upsert_seo_discovery_state: {
+        Args: { p_force?: boolean; p_source_id: string; p_source_type: string }
+        Returns: Json
       }
       fn_upsert_variant_inventory:
         | {
