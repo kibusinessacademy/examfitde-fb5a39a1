@@ -1,11 +1,12 @@
 /**
  * Regression tests for validation-requeue-guard.ts (F-4.3)
  *
- * 4 cases:
+ * 5 cases:
  *   1. PASS_READY  → blocked: false
  *   2. LIKELY_READY → blocked: false
  *   3. HARD_FAIL   → blocked: true
  *   4. UNKNOWN     → falls through to delta/cooldown logic
+ *   5. OLD_BUG     → identical fails + no delta + LIKELY_READY → NOT blocked
  *
  * Uses a mock Supabase client to isolate guard logic from real DB.
  */
@@ -208,4 +209,48 @@ Deno.test("UNKNOWN: no gate signal → falls to delta logic (no fails = not bloc
   assertEquals(result.blocked, false);
   // No reason means clean pass through delta logic (no fails found)
   assertEquals(result.reason, undefined);
+});
+
+// ─── Test 5: OLD BUG regression — identical fails + no delta + LIKELY_READY ───
+
+Deno.test("OLD_BUG: identical fails + no upstream delta + LIKELY_READY → not blocked", async () => {
+  const sb = createMockSb({
+    rows: [
+      // Step NOT done
+      {
+        table: "package_steps",
+        match: { package_id: "pkg-5", step_key: "validate_handbook" },
+        result: { data: [{ status: "queued" }] },
+      },
+      // Resolve curriculum_id
+      {
+        table: "course_packages",
+        match: { id: "pkg-5" },
+        result: { data: [{ curriculum_id: "cur-5" }] },
+      },
+      // Handbook chapters exist → LIKELY_READY
+      {
+        table: "handbook_chapters",
+        match: { curriculum_id: "cur-5" },
+        result: { data: [], count: 12 },
+      },
+      // 3 identical recent fails (old bug would hard-block here)
+      {
+        table: "job_queue",
+        match: { package_id: "pkg-5", job_type: "package_validate_handbook", status: "failed" },
+        result: {
+          data: [
+            { result: { fingerprint: "abc123" }, created_at: new Date().toISOString() },
+            { result: { fingerprint: "abc123" }, created_at: new Date().toISOString() },
+            { result: { fingerprint: "abc123" }, created_at: new Date().toISOString() },
+          ],
+        },
+      },
+    ],
+  });
+
+  const result = await checkValidationRequeueGuard(sb, "package_validate_handbook", "pkg-5");
+  // LIKELY_READY must override identical-fail delta logic → NOT blocked
+  assertEquals(result.blocked, false);
+  assertEquals(result.reason?.includes("LIKELY_READY"), true);
 });
