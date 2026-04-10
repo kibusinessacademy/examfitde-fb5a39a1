@@ -728,7 +728,7 @@ Deno.serve(async (req) => {
         if (certId) {
           const { data: humorData } = await supabase.rpc('get_humor_asset_for_surface', {
             p_user_id: user.id,
-            p_surface: 'tutor_reply',
+            p_surface: 'tutor',
             p_certification_id: certId,
             p_competence_id: (context.competencyId as string) ?? null,
             p_lesson_id: (context.lessonId as string) ?? null,
@@ -754,7 +754,7 @@ REGELN für Humor-Nutzung:
               await supabase.rpc('log_humor_delivery', {
                 p_user_id: user.id,
                 p_humor_item_id: humorRow.id,
-                p_surface: 'tutor_reply',
+                p_surface: 'tutor',
                 p_competence_id: (context.competencyId as string) ?? null,
                 p_lesson_id: (context.lessonId as string) ?? null,
                 p_session_id: persistentSessionId,
