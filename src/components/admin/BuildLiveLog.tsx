@@ -73,6 +73,19 @@ function formatLogMessage(step: any): LogEntry {
   } else if (step.status === 'failed') {
     message = `❌ ${stepLabel} fehlgeschlagen`;
     detail = errorMessage || '';
+  } else if (step.status === 'skipped') {
+    message = `⏭ ${stepLabel} übersprungen`;
+    if (log) {
+      try {
+        const parsed = typeof log === 'string' ? JSON.parse(log) : log;
+        if (parsed.skipped_reason) detail = parsed.skipped_reason;
+        else if (parsed.skip_reason) detail = parsed.skip_reason;
+      } catch { /* ignore */ }
+    }
+  } else if (step.status === 'queued' || step.status === 'enqueued') {
+    message = `🔜 ${stepLabel} in Warteschlange`;
+  } else if (step.status === 'pending') {
+    message = `⏸ ${stepLabel} wartet`;
   } else {
     message = `⏸ ${stepLabel} wartet`;
   }
