@@ -1,5 +1,5 @@
 /**
- * F-4 / F-4.1 / F-4.2: Stateful Validation Requeue Guard
+ * F-4 / F-4.1 / F-4.2 / F-4.3: Stateful Validation Requeue Guard
  *
  * Prevents no-progress validation loops by checking whether the
  * gate-relevant state has changed since the last failed validation.
@@ -14,6 +14,16 @@
  *   7. Gate signature prefers structured meta over error-string parsing (F-4.1)
  *   8. Artifact FK mapping corrected to use curriculum_id via course_packages (F-4.2)
  *   9. Meta updates use atomic DB-side JSONB merge RPC (F-4.2)
+ *
+ * F-4.3 (Zero-Deficit Guard Fix):
+ *   10. STEP_ALREADY_DONE short-circuit: if step is already done, never block
+ *   11. GATE_PASS_PROBE: for validators with gate functions, ask the gate BEFORE
+ *       falling through to delta logic. If gate says PASS → allow. HARD_FAIL → block.
+ *   12. Generic readiness probe for validators without dedicated gate functions
+ *
+ * Design principle:
+ *   "The guard must never punish missing deltas when the validator's target
+ *    state is already fulfilled or would pass on the next run."
  */
 
 import { mergePackageStepMeta, removePackageStepMetaKeys } from "./merge-step-meta.ts";
@@ -94,9 +104,24 @@ export interface ValidationGuardResult {
   cooldown_until?: string;
 }
 
+// ─── F-4.3: Readiness Probe Results ───────────────────────────────────────
+
+type ReadinessVerdict = "PASS_READY" | "STILL_BLOCKED" | "HARD_FAIL" | "UNKNOWN";
+
+interface ReadinessProbeResult {
+  verdict: ReadinessVerdict;
+  reason?: string;
+}
+
 /**
  * Check whether a validation job should be blocked from re-enqueue.
  * Returns { blocked: false } for non-guarded job types.
+ *
+ * F-4.3: Now checks readiness BEFORE delta logic:
+ *   Layer 0: Step already done → allow
+ *   Layer 1: Gate probe (for validators with gate functions) → PASS=allow, HARD_FAIL=block
+ *   Layer 2: Generic readiness probe → PASS_READY=allow
+ *   Layer 3: Original delta/upstream logic (only if probe returns UNKNOWN/STILL_BLOCKED)
  */
 export async function checkValidationRequeueGuard(
   sb: any,
@@ -111,6 +136,44 @@ export async function checkValidationRequeueGuard(
   }
 
   try {
+    const stepKey = jobType.replace(/^package_/, "");
+
+    // ═══ LAYER 0: Step already done → never block (F-4.3) ═══
+    // If the step completed successfully (e.g., via manual heal, concurrent run),
+    // blocking a requeue is nonsensical.
+    const stepDone = await isStepAlreadyDone(sb, packageId, stepKey);
+    if (stepDone) {
+      console.log(`[val-guard] STEP_ALREADY_DONE: ${stepKey} for pkg ${packageId.slice(0, 8)} — skipping guard`);
+      await clearBlockState(sb, jobType, packageId);
+      return { blocked: false, reason: "STEP_ALREADY_DONE" };
+    }
+
+    // ═══ LAYER 1+2: Readiness Probe (F-4.3) ═══
+    // Ask the validator's gate function (if available) or generic readiness check
+    // BEFORE falling through to delta logic. This prevents the zero-deficit bug:
+    // "Guard must never punish missing deltas when the target state is already met."
+    const probe = await probeValidatorReadiness(sb, jobType, packageId);
+
+    if (probe.verdict === "PASS_READY") {
+      console.log(`[val-guard] READINESS_PASS: ${stepKey} for pkg ${packageId.slice(0, 8)} — ${probe.reason ?? "gate says PASS"}`);
+      await clearBlockState(sb, jobType, packageId);
+      return { blocked: false, reason: `READINESS_PASS: ${probe.reason}` };
+    }
+
+    if (probe.verdict === "HARD_FAIL") {
+      const reason = `READINESS_HARD_FAIL: ${jobType} on pkg ${packageId.slice(0, 8)} — ${probe.reason}`;
+      console.warn(`[val-guard] ${reason}`);
+      await Promise.all([
+        logValidationBlock(sb, jobType, packageId, reason, "HARD_FAIL", 0),
+        persistBlockState(sb, jobType, packageId, reason, "HARD_FAIL", 0),
+      ]);
+      return { blocked: true, reason };
+    }
+
+    // STILL_BLOCKED or UNKNOWN → fall through to original delta logic
+
+    // ═══ LAYER 3: Original delta/upstream logic ═══
+
     // 1. Find recent failed jobs of same type for this package
     const { data: recentFails } = await sb
       .from("job_queue")
@@ -182,6 +245,222 @@ export async function checkValidationRequeueGuard(
     console.error("[val-guard] Error in checkValidationRequeueGuard:", err);
     return { blocked: false };
   }
+}
+
+// ─── F-4.3: Step Done Check ──────────────────────────────────────────────
+
+async function isStepAlreadyDone(sb: any, packageId: string, stepKey: string): Promise<boolean> {
+  try {
+    const { data } = await sb
+      .from("package_steps")
+      .select("status")
+      .eq("package_id", packageId)
+      .eq("step_key", stepKey)
+      .maybeSingle();
+    return data?.status === "done";
+  } catch {
+    return false;
+  }
+}
+
+// ─── F-4.3: Readiness Probe Architecture ─────────────────────────────────
+//
+// Probes the validator's actual readiness rather than relying solely on
+// upstream deltas. This is the key fix for the zero-deficit bug class:
+// if the validator would PASS, the guard must let it through.
+
+/**
+ * Probe whether a validator would pass on the next run.
+ *
+ * Strategy:
+ *   1. For validators with dedicated gate functions → call the gate
+ *   2. For validators without gates → use generic artifact-count heuristics
+ *   3. If probe fails or is unavailable → return UNKNOWN (safe fallback)
+ */
+async function probeValidatorReadiness(
+  sb: any,
+  jobType: string,
+  packageId: string,
+): Promise<ReadinessProbeResult> {
+  try {
+    switch (jobType) {
+      case "package_validate_exam_pool":
+        return await probeExamPoolGate(sb, packageId);
+
+      case "package_validate_learning_content":
+        return await probeLearningContentReadiness(sb, packageId);
+
+      case "package_validate_lesson_minichecks":
+        return await probeMinicheckReadiness(sb, packageId);
+
+      case "package_validate_handbook":
+      case "package_validate_handbook_depth":
+        return await probeHandbookReadiness(sb, packageId);
+
+      case "package_validate_blueprints":
+        return await probeBlueprintReadiness(sb, packageId);
+
+      case "package_validate_blueprint_variants":
+        return await probeBlueprintVariantReadiness(sb, packageId);
+
+      case "package_validate_oral_exam":
+        return await probeOralExamReadiness(sb, packageId);
+
+      case "package_validate_tutor_index":
+        return await probeTutorIndexReadiness(sb, packageId);
+
+      default:
+        return { verdict: "UNKNOWN" };
+    }
+  } catch (err) {
+    console.warn(`[val-guard] Readiness probe failed for ${jobType}: ${(err as Error)?.message?.slice(0, 100)}`);
+    return { verdict: "UNKNOWN" };
+  }
+}
+
+// ── Exam Pool: Use the canonical gate function ──
+
+async function probeExamPoolGate(sb: any, packageId: string): Promise<ReadinessProbeResult> {
+  const { data, error } = await sb.rpc("fn_classify_exam_pool_gate", { p_package_id: packageId });
+  if (error || !data) return { verdict: "UNKNOWN", reason: error?.message };
+
+  const gateStatus = data.gate_status as string;
+  if (gateStatus === "PASS") {
+    return { verdict: "PASS_READY", reason: "fn_classify_exam_pool_gate → PASS" };
+  }
+  if (gateStatus === "HARD_FAIL") {
+    return { verdict: "HARD_FAIL", reason: `fn_classify_exam_pool_gate → HARD_FAIL: ${data.reason_code}` };
+  }
+  // WAITING_FOR_MATERIALIZATION, REPAIRABLE → still blocked but not permanently
+  return { verdict: "STILL_BLOCKED", reason: `gate_status=${gateStatus}` };
+}
+
+// ── Learning Content: check gate_class from step meta ──
+
+async function probeLearningContentReadiness(sb: any, packageId: string): Promise<ReadinessProbeResult> {
+  const { data } = await sb
+    .from("package_steps")
+    .select("meta")
+    .eq("package_id", packageId)
+    .eq("step_key", "validate_learning_content")
+    .maybeSingle();
+
+  if (!data?.meta) return { verdict: "UNKNOWN" };
+  const meta = data.meta as Record<string, unknown>;
+  const gateClass = meta.gate_class as string | undefined;
+
+  if (gateClass === "healthy" || gateClass === "soft_pass_with_debt") {
+    return { verdict: "PASS_READY", reason: `gate_class=${gateClass}` };
+  }
+  if (gateClass === "hard_fail") {
+    return { verdict: "HARD_FAIL", reason: `gate_class=hard_fail` };
+  }
+  return { verdict: "UNKNOWN" };
+}
+
+// ── Minichecks: check if all lessons have minichecks ──
+
+async function probeMinicheckReadiness(sb: any, packageId: string): Promise<ReadinessProbeResult> {
+  const curriculumId = await getCurriculumIdForPackage(sb, packageId);
+  if (!curriculumId) return { verdict: "UNKNOWN" };
+
+  const [{ count: questionCount }, { count: lessonCount }] = await Promise.all([
+    sb.from("minicheck_questions").select("id", { count: "exact", head: true }).eq("curriculum_id", curriculumId),
+    sb.from("lessons").select("id", { count: "exact", head: true }).eq("curriculum_id", curriculumId),
+  ]);
+
+  if ((lessonCount ?? 0) === 0) return { verdict: "STILL_BLOCKED", reason: "no lessons" };
+  // At least 1 question per lesson is the minimum threshold
+  if ((questionCount ?? 0) >= (lessonCount ?? 1)) {
+    return { verdict: "PASS_READY", reason: `${questionCount} minichecks for ${lessonCount} lessons` };
+  }
+  return { verdict: "STILL_BLOCKED", reason: `${questionCount}/${lessonCount} minichecks` };
+}
+
+// ── Handbook: check chapter count ──
+
+async function probeHandbookReadiness(sb: any, packageId: string): Promise<ReadinessProbeResult> {
+  const curriculumId = await getCurriculumIdForPackage(sb, packageId);
+  if (!curriculumId) return { verdict: "UNKNOWN" };
+
+  const { count } = await sb
+    .from("handbook_chapters")
+    .select("id", { count: "exact", head: true })
+    .eq("curriculum_id", curriculumId);
+
+  if ((count ?? 0) > 0) {
+    return { verdict: "PASS_READY", reason: `${count} handbook chapters present` };
+  }
+  return { verdict: "STILL_BLOCKED", reason: "no handbook chapters" };
+}
+
+// ── Blueprints: check approved blueprint count ──
+
+async function probeBlueprintReadiness(sb: any, packageId: string): Promise<ReadinessProbeResult> {
+  const curriculumId = await getCurriculumIdForPackage(sb, packageId);
+  if (!curriculumId) return { verdict: "UNKNOWN" };
+
+  const { count } = await sb
+    .from("exam_blueprints")
+    .select("id", { count: "exact", head: true })
+    .eq("curriculum_id", curriculumId)
+    .eq("status", "approved");
+
+  if ((count ?? 0) >= 10) {
+    return { verdict: "PASS_READY", reason: `${count} approved blueprints` };
+  }
+  return { verdict: "STILL_BLOCKED", reason: `only ${count ?? 0} approved blueprints` };
+}
+
+// ── Blueprint Variants: check variant count relative to blueprints ──
+
+async function probeBlueprintVariantReadiness(sb: any, packageId: string): Promise<ReadinessProbeResult> {
+  const curriculumId = await getCurriculumIdForPackage(sb, packageId);
+  if (!curriculumId) return { verdict: "UNKNOWN" };
+
+  const [{ count: variantCount }, { count: bpCount }] = await Promise.all([
+    sb.from("exam_questions").select("id", { count: "exact", head: true })
+      .eq("curriculum_id", curriculumId)
+      .in("qc_status", ["approved", "review"]),
+    sb.from("exam_blueprints").select("id", { count: "exact", head: true })
+      .eq("curriculum_id", curriculumId)
+      .eq("status", "approved"),
+  ]);
+
+  if ((bpCount ?? 0) === 0) return { verdict: "STILL_BLOCKED", reason: "no blueprints" };
+  // Expect at least 2 variants per blueprint on average
+  if ((variantCount ?? 0) >= (bpCount ?? 1) * 2) {
+    return { verdict: "PASS_READY", reason: `${variantCount} variants for ${bpCount} blueprints` };
+  }
+  return { verdict: "STILL_BLOCKED", reason: `${variantCount} variants / ${bpCount} blueprints` };
+}
+
+// ── Oral Exam: check question count ──
+
+async function probeOralExamReadiness(sb: any, packageId: string): Promise<ReadinessProbeResult> {
+  const { count } = await sb
+    .from("oral_exam_questions")
+    .select("id", { count: "exact", head: true })
+    .eq("package_id", packageId);
+
+  if ((count ?? 0) >= 5) {
+    return { verdict: "PASS_READY", reason: `${count} oral exam questions` };
+  }
+  return { verdict: "STILL_BLOCKED", reason: `only ${count ?? 0} oral exam questions` };
+}
+
+// ── Tutor Index: check if index exists ──
+
+async function probeTutorIndexReadiness(sb: any, packageId: string): Promise<ReadinessProbeResult> {
+  const { count } = await sb
+    .from("ai_tutor_context_index")
+    .select("id", { count: "exact", head: true })
+    .eq("package_id", packageId);
+
+  if ((count ?? 0) > 0) {
+    return { verdict: "PASS_READY", reason: "tutor index exists" };
+  }
+  return { verdict: "STILL_BLOCKED", reason: "no tutor index" };
 }
 
 // ─── Progress Detection (F-4.1 + F-4.2) ──────────────────────────────────
