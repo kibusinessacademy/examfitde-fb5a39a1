@@ -51,6 +51,14 @@
 
 ### WIP & Concurrency Governance
 - WIP_TOTAL_CAP = 8, WIP_EFFECTIVE_MAX = 12
-- content_runner: maxConcurrency 6, claimLimit 8 (Hard Cap 8/12)
+- content_runner: maxConcurrency 6, claimLimit 8 (Hard Cap 8/12) — **importiert aus worker-config.ts SSOT**
+- content_runner: Prebuild-Claim max 2, innerhalb des Gesamt-CLAIM_LIMIT (nicht additiv)
+- content_runner: lokale Fallbacks (8/16) eliminiert — Runner bezieht Limits nur noch aus getRunnerConfig()
 - job_runner: maxConcurrency 4, claimLimit 6 (Hard Cap 10/10)
 - Poison-Loop Guard bei ≥ 3 identischen Fehlern blockiert Requeues
+
+### Stale-Lock Root Cause (2026-04-11)
+- **Ursache**: content-runner hatte eigene Fallback-Concurrency (8/16) + additiven prebuild-Claim
+- **Effekt**: ~21 Jobs pro Invocation statt gehärteter 8 → Runner-Timeout → Heartbeat/Lease-Verlust → Stale Locks
+- **Fix**: Lokale Fallbacks eliminiert, SSOT-Import aus worker-config.ts, Prebuild im Gesamtbudget gedeckelt
+- **Pattern**: Overclaim → Runner death → stale recovery → requeue → overclaim (Kreislauf)
