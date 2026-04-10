@@ -121,7 +121,7 @@ export default function BuildLiveLog({ packageId, isBuilding }: BuildLiveLogProp
       if (!active || error || !data) return;
 
       const entries = data
-        .filter((s: any) => s.status !== 'pending' && s.status !== 'queued')
+        .filter((s: any) => s.status !== 'pending')
         .map(formatLogMessage);
       setLogs(entries);
     };
