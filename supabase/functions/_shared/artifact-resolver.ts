@@ -16,6 +16,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { findNode, findProducer, type PipelineNode } from "./job-map.ts";
 import { getTrackArtifactOverride, ELITE_HARDEN_MIN_APPROVED } from "./track-prereqs.ts";
+import { getSkippedSteps } from "./track-capabilities.ts";
 import { normalizeTrack } from "./track-normalize.ts";
 
 export interface ArtifactCheckResult {
@@ -130,17 +131,32 @@ async function artifactExists(
     .eq("step_key", producer.key)
     .maybeSingle();
 
-  // ── CRITICAL FIX: Consistency with prereqDone ──
-  // If the producer step doesn't exist in package_steps, it means the track
-  // doesn't include it. This is the same semantics as prereqDone (line 31):
-  // "Step doesn't exist in this package → fulfilled."
-  // Previously this returned false, causing generate_exam_pool to loop
-  // indefinitely for packages without variant pipeline steps.
+  // ── HARDENED FIX: Track-aware missing step handling ──
+  // If the producer step doesn't exist in package_steps, we must distinguish:
+  //   A) Step is legitimately NOT in this track → artifact fulfilled
+  //   B) Step SHOULD be in this track but is missing → data integrity issue → NOT fulfilled
   if (!step) {
-    console.log(
-      `[artifact-resolver] Producer step '${producer.key}' not in package_steps for ${packageId.slice(0, 8)} — track doesn't include it, treating artifact '${artifact}' as fulfilled`,
+    // Check if this producer step is supposed to be skipped for this track
+    const { data: pkg } = await sb
+      .from("course_packages")
+      .select("track")
+      .eq("id", packageId)
+      .maybeSingle();
+    const skippedSteps = getSkippedSteps(pkg?.track);
+    const isSkippedByTrack = skippedSteps.includes(producer.key);
+
+    if (isSkippedByTrack) {
+      console.log(
+        `[artifact-resolver] Producer step '${producer.key}' skipped by track for ${packageId.slice(0, 8)} — artifact '${artifact}' fulfilled`,
+      );
+      return true;
+    }
+
+    // Step SHOULD exist but doesn't — this is a data integrity problem
+    console.warn(
+      `[artifact-resolver] INTEGRITY: Producer step '${producer.key}' MISSING from package_steps for ${packageId.slice(0, 8)} but track requires it — artifact '${artifact}' NOT fulfilled`,
     );
-    return true;
+    return false;
   }
   // "done" or "skipped" both count as fulfilled
   if (step.status !== "done" && step.status !== "skipped") return false;
