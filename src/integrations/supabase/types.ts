@@ -27818,6 +27818,137 @@ export type Database = {
         }
         Relationships: []
       }
+      ops_forensic_findings: {
+        Row: {
+          code: string
+          created_at: string
+          details: Json
+          finding_type: string
+          id: string
+          report_id: string
+          severity: string
+          title: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          details?: Json
+          finding_type: string
+          id?: string
+          report_id: string
+          severity?: string
+          title: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          details?: Json
+          finding_type?: string
+          id?: string
+          report_id?: string
+          severity?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ops_forensic_findings_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "ops_auto_healable_reports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ops_forensic_findings_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "ops_forensic_reports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ops_forensic_findings_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "ops_hard_blocked_reports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ops_forensic_findings_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "ops_open_forensic_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ops_forensic_reports: {
+        Row: {
+          artifact_state: Json
+          auto_heal_allowed: boolean
+          causal_chain: Json
+          created_at: string
+          execution_notes: string | null
+          governance_state: Json
+          healability: string
+          id: string
+          impacted_jobs: Json
+          impacted_steps: Json
+          lease_state: Json
+          package_id: string
+          recommended_actions: Json
+          report_type: string
+          root_cause_class: string | null
+          root_cause_confidence: number
+          status: string
+          summary: string
+          symptom_snapshot: Json
+          updated_at: string
+        }
+        Insert: {
+          artifact_state?: Json
+          auto_heal_allowed?: boolean
+          causal_chain?: Json
+          created_at?: string
+          execution_notes?: string | null
+          governance_state?: Json
+          healability?: string
+          id?: string
+          impacted_jobs?: Json
+          impacted_steps?: Json
+          lease_state?: Json
+          package_id: string
+          recommended_actions?: Json
+          report_type?: string
+          root_cause_class?: string | null
+          root_cause_confidence?: number
+          status?: string
+          summary?: string
+          symptom_snapshot?: Json
+          updated_at?: string
+        }
+        Update: {
+          artifact_state?: Json
+          auto_heal_allowed?: boolean
+          causal_chain?: Json
+          created_at?: string
+          execution_notes?: string | null
+          governance_state?: Json
+          healability?: string
+          id?: string
+          impacted_jobs?: Json
+          impacted_steps?: Json
+          lease_state?: Json
+          package_id?: string
+          recommended_actions?: Json
+          report_type?: string
+          root_cause_class?: string | null
+          root_cause_confidence?: number
+          status?: string
+          summary?: string
+          symptom_snapshot?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
       ops_guardrail_events: {
         Row: {
           created_at: string
@@ -52815,6 +52946,18 @@ export type Database = {
         }
         Relationships: []
       }
+      ops_auto_healable_reports: {
+        Row: {
+          cert_title: string | null
+          created_at: string | null
+          id: string | null
+          package_id: string | null
+          recommended_actions: Json | null
+          root_cause_class: string | null
+          summary: string | null
+        }
+        Relationships: []
+      }
       ops_auto_publish_false_success: {
         Row: {
           auto_publish_finished_at: string | null
@@ -55907,6 +56050,19 @@ export type Database = {
           },
         ]
       }
+      ops_hard_blocked_reports: {
+        Row: {
+          cert_title: string | null
+          created_at: string | null
+          governance_state: Json | null
+          id: string | null
+          package_id: string | null
+          root_cause_class: string | null
+          root_cause_confidence: number | null
+          summary: string | null
+        }
+        Relationships: []
+      }
       ops_heal_effectiveness: {
         Row: {
           action_type: string | null
@@ -57300,6 +57456,33 @@ export type Database = {
           recent_failed_jobs?: never
           status?: string | null
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      ops_open_forensic_reports: {
+        Row: {
+          artifact_state: Json | null
+          auto_heal_allowed: boolean | null
+          causal_chain: Json | null
+          cert_slug: string | null
+          cert_title: string | null
+          created_at: string | null
+          execution_notes: string | null
+          governance_state: Json | null
+          healability: string | null
+          id: string | null
+          impacted_jobs: Json | null
+          impacted_steps: Json | null
+          lease_state: Json | null
+          package_id: string | null
+          recommended_actions: Json | null
+          report_type: string | null
+          root_cause_class: string | null
+          root_cause_confidence: number | null
+          status: string | null
+          summary: string | null
+          symptom_snapshot: Json | null
+          updated_at: string | null
         }
         Relationships: []
       }
@@ -72179,6 +72362,10 @@ export type Database = {
       fn_generate_compliance_document: {
         Args: { p_content_md: string; p_doc_type: string; p_title: string }
         Returns: string
+      }
+      fn_generate_package_forensic_report: {
+        Args: { p_package_id: string }
+        Returns: Json
       }
       fn_get_best_offer: {
         Args: { p_curriculum_id?: string; p_user_id: string }
