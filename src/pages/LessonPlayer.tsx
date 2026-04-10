@@ -457,6 +457,8 @@ export default function LessonPlayer() {
               content={lesson.content}
               h5pContentId={lesson.h5p_content_id}
               lessonId={lesson.id}
+              certificationId={certificationId}
+              competenceId={lesson.competency_id}
               onH5PCompleted={handleH5PCompleted}
               onH5PProgress={handleH5PProgress}
               onMiniCheckCompleted={handleMiniCheckCompleted}
