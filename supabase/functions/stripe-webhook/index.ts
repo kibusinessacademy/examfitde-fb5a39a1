@@ -99,6 +99,127 @@ Deno.serve(async (req) => {
       const _isWorkBrand = _brandLower.includes('examfit@work') || _brandLower.includes('examfitwork') || _brandLower === 'berufski';
       if (_isWorkBrand) {
         logStep("ExamFit@work brand detected — skipping ExamFit handler, will process below");
+      } else if (meta.checkout_source === 'create-b2b-checkout' && meta.flow === 'b2b_subscription') {
+        // ── B2B Subscription checkout fulfillment ──
+        try {
+          const userId = meta.user_id;
+          const category = meta.category;
+          const seats = parseInt(meta.seats || '0');
+          const orgName = meta.org_name || 'Organisation';
+          const subscriptionId = (session as any).subscription?.toString?.() || (session as any).subscription;
+
+          if (!userId || !category || !seats) {
+            logStep("SKIP b2b_subscription fulfillment (missing metadata)", { meta });
+          } else {
+            // Resolve or create org
+            let orgId = meta.org_id || null;
+
+            if (!orgId) {
+              const { data: existingMembership } = await adminClient
+                .from('org_memberships')
+                .select('org_id')
+                .eq('user_id', userId)
+                .eq('role', 'owner')
+                .eq('status', 'active')
+                .limit(1)
+                .maybeSingle();
+
+              if (existingMembership) {
+                orgId = existingMembership.org_id;
+              } else {
+                const { data: newOrg } = await adminClient
+                  .from('organizations')
+                  .insert({ name: orgName, org_type: 'company' })
+                  .select('id')
+                  .single();
+                if (newOrg) {
+                  orgId = newOrg.id;
+                  await adminClient.from('org_memberships').insert({
+                    org_id: orgId,
+                    user_id: userId,
+                    role: 'owner',
+                    status: 'active',
+                  });
+                  logStep("Organization created for B2B sub", { orgId, orgName });
+                }
+              }
+            }
+
+            if (orgId && subscriptionId) {
+              // Idempotency check
+              const { data: existingLic } = await adminClient
+                .from('org_licenses')
+                .select('id')
+                .eq('stripe_subscription_id', subscriptionId)
+                .maybeSingle();
+
+              if (existingLic) {
+                logStep("B2B license already exists (idempotent)", { id: existingLic.id });
+              } else {
+                // Retrieve subscription details from Stripe
+                const stripeKey2 = Deno.env.get("STRIPE_SECRET_KEY")!;
+                const stripe2 = new Stripe(stripeKey2, { apiVersion: "2023-10-16" });
+                const sub = await stripe2.subscriptions.retrieve(subscriptionId);
+
+                const periodEnd = sub.current_period_end
+                  ? new Date(sub.current_period_end * 1000).toISOString()
+                  : null;
+                const periodStart = sub.current_period_start
+                  ? new Date(sub.current_period_start * 1000).toISOString()
+                  : null;
+
+                const { data: newLicense } = await adminClient
+                  .from('org_licenses')
+                  .insert({
+                    org_id: orgId,
+                    product_id: '00000000-0000-0000-0000-000000000000', // placeholder, category is the key
+                    seat_count: seats,
+                    total_seats: seats,
+                    seats_used: 0,
+                    starts_at: new Date().toISOString(),
+                    status: 'active',
+                    category,
+                    stripe_subscription_id: subscriptionId,
+                    stripe_customer_id: (session as any).customer?.toString?.() || null,
+                    stripe_price_id: sub.items?.data?.[0]?.price?.id ?? null,
+                    current_period_start: periodStart,
+                    current_period_end: periodEnd,
+                    cancel_at_period_end: sub.cancel_at_period_end ?? false,
+                  })
+                  .select('id')
+                  .single();
+
+                if (newLicense) {
+                  logStep("B2B subscription license created", { licenseId: newLicense.id, category, seats });
+
+                  // Auto-assign first seat to buyer
+                  await adminClient.rpc('assign_org_license_seat', {
+                    p_license_id: newLicense.id,
+                    p_user_id: userId,
+                    p_assigned_by: userId,
+                  });
+                  logStep("Buyer auto-assigned first seat");
+                }
+              }
+            }
+
+            // Track conversion
+            await adminClient.from('conversion_events').insert({
+              user_id: userId,
+              event_type: 'checkout_completed',
+              metadata: {
+                session_id: session.id,
+                flow: 'b2b_subscription',
+                category,
+                seats,
+                subscription_id: subscriptionId,
+                amount_total: session.amount_total,
+              },
+            }).then(() => {});
+          }
+        } catch (b2bSubErr) {
+          logStep("ERROR: B2B subscription fulfillment failed", { error: String(b2bSubErr) });
+        }
       } else if (meta.checkout_source === 'create-payment') {
         // ── NEW: Product-based payment fulfillment (B2C paywall + B2B pricing plan) ──
         try {
@@ -1075,6 +1196,91 @@ Deno.serve(async (req) => {
           }
         }
       }
+    }
+
+    // ========== SUBSCRIPTION EVENTS (B2B Recurring) ==========
+
+    if (event.type === "invoice.paid") {
+      const invoice = event.data.object as any;
+      const subscriptionId = invoice.subscription?.toString?.() || invoice.subscription;
+      if (subscriptionId) {
+        logStep("Processing invoice.paid for subscription renewal", { subscriptionId });
+        try {
+          const stripeKey2 = Deno.env.get("STRIPE_SECRET_KEY")!;
+          const stripe2 = new Stripe(stripeKey2, { apiVersion: "2023-10-16" });
+          const sub = await stripe2.subscriptions.retrieve(subscriptionId);
+          const periodEnd = sub.current_period_end
+            ? new Date(sub.current_period_end * 1000).toISOString()
+            : null;
+          const periodStart = sub.current_period_start
+            ? new Date(sub.current_period_start * 1000).toISOString()
+            : null;
+
+          const { error: updErr } = await adminClient
+            .from('org_licenses')
+            .update({
+              status: 'active',
+              current_period_start: periodStart,
+              current_period_end: periodEnd,
+              cancel_at_period_end: sub.cancel_at_period_end ?? false,
+            })
+            .eq('stripe_subscription_id', subscriptionId);
+
+          if (updErr) {
+            logStep("WARN: Could not update org_license on invoice.paid", { error: String(updErr) });
+          } else {
+            logStep("Org license renewed", { subscriptionId, periodEnd });
+          }
+        } catch (subErr) {
+          logStep("WARN: invoice.paid subscription handling failed", { error: String(subErr) });
+        }
+      }
+    }
+
+    if (event.type === "invoice.payment_failed") {
+      const invoice = event.data.object as any;
+      const subscriptionId = invoice.subscription?.toString?.() || invoice.subscription;
+      if (subscriptionId) {
+        logStep("Processing invoice.payment_failed", { subscriptionId });
+        await adminClient
+          .from('org_licenses')
+          .update({ status: 'past_due' })
+          .eq('stripe_subscription_id', subscriptionId);
+        logStep("Org license set to past_due", { subscriptionId });
+      }
+    }
+
+    if (event.type === "customer.subscription.updated") {
+      const sub = event.data.object as any;
+      logStep("Processing customer.subscription.updated", { subscriptionId: sub.id });
+      const periodEnd = sub.current_period_end
+        ? new Date(sub.current_period_end * 1000).toISOString()
+        : null;
+      const periodStart = sub.current_period_start
+        ? new Date(sub.current_period_start * 1000).toISOString()
+        : null;
+
+      await adminClient
+        .from('org_licenses')
+        .update({
+          status: sub.status,
+          current_period_start: periodStart,
+          current_period_end: periodEnd,
+          cancel_at_period_end: sub.cancel_at_period_end ?? false,
+          stripe_price_id: sub.items?.data?.[0]?.price?.id ?? null,
+        })
+        .eq('stripe_subscription_id', sub.id);
+      logStep("Org license updated from subscription", { subscriptionId: sub.id, status: sub.status });
+    }
+
+    if (event.type === "customer.subscription.deleted") {
+      const sub = event.data.object as any;
+      logStep("Processing customer.subscription.deleted", { subscriptionId: sub.id });
+      await adminClient
+        .from('org_licenses')
+        .update({ status: 'canceled', cancel_at_period_end: false })
+        .eq('stripe_subscription_id', sub.id);
+      logStep("Org license canceled", { subscriptionId: sub.id });
     }
 
     return new Response(JSON.stringify({ received: true }), {

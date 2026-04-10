@@ -46,9 +46,9 @@ export const PRICING_CATEGORIES: Record<PricingCategory, CategoryPricing> = {
     b2b: {
       pricePerSeatDisplay: '39 €',
       tiers: [
-        { seats: 5, totalCents: 14900, totalDisplay: '149 €', perSeatCents: 2980, perSeatDisplay: '29,80 €', stripeProductId: 'prod_UJIrziUlU2W7WT', stripePriceId: 'price_1TKgFVDxqdaWCpJ66EI2Btx7' },
-        { seats: 10, totalCents: 27900, totalDisplay: '279 €', perSeatCents: 2790, perSeatDisplay: '27,90 €', stripeProductId: 'prod_UJIrdT0gOQDYkW', stripePriceId: 'price_1TKgFXDxqdaWCpJ6mAYDd7Er' },
-        { seats: 25, totalCents: 64900, totalDisplay: '649 €', perSeatCents: 2596, perSeatDisplay: '25,96 €', stripeProductId: 'prod_UJIrefyjEi59Um', stripePriceId: 'price_1TKgFXDxqdaWCpJ6ehraLcMJ' },
+        { seats: 5, totalCents: 14900, totalDisplay: '149 €/Jahr', perSeatCents: 2980, perSeatDisplay: '29,80 €/Jahr', stripeProductId: 'prod_UJJJMKF3JXiJl4', stripePriceId: 'price_1TKggjDxqdaWCpJ6yxAXNuOI' },
+        { seats: 10, totalCents: 27900, totalDisplay: '279 €/Jahr', perSeatCents: 2790, perSeatDisplay: '27,90 €/Jahr', stripeProductId: 'prod_UJJJMKF3JXiJl4', stripePriceId: 'price_1TKggpDxqdaWCpJ6w2gtCyVi' },
+        { seats: 25, totalCents: 64900, totalDisplay: '649 €/Jahr', perSeatCents: 2596, perSeatDisplay: '25,96 €/Jahr', stripeProductId: 'prod_UJJJMKF3JXiJl4', stripePriceId: 'price_1TKggtDxqdaWCpJ6zimlOVL0' },
       ] as const,
     },
   },
@@ -63,9 +63,9 @@ export const PRICING_CATEGORIES: Record<PricingCategory, CategoryPricing> = {
     b2b: {
       pricePerSeatDisplay: '49 €',
       tiers: [
-        { seats: 5, totalCents: 19900, totalDisplay: '199 €', perSeatCents: 3980, perSeatDisplay: '39,80 €', stripeProductId: 'prod_UJIr4seNyF7CtN', stripePriceId: 'price_1TKgFZDxqdaWCpJ6Jt8Jdu1a' },
-        { seats: 10, totalCents: 37900, totalDisplay: '379 €', perSeatCents: 3790, perSeatDisplay: '37,90 €', stripeProductId: 'prod_UJIrtKAde9Ek8i', stripePriceId: 'price_1TKgFaDxqdaWCpJ6C7lGl2UI' },
-        { seats: 25, totalCents: 84900, totalDisplay: '849 €', perSeatCents: 3396, perSeatDisplay: '33,96 €', stripeProductId: 'prod_UJIrBwwdC1r9y9', stripePriceId: 'price_1TKgFbDxqdaWCpJ6YalUB0ZS' },
+        { seats: 5, totalCents: 19900, totalDisplay: '199 €/Jahr', perSeatCents: 3980, perSeatDisplay: '39,80 €/Jahr', stripeProductId: 'prod_UJJJZI03sRtqaB', stripePriceId: 'price_1TKggvDxqdaWCpJ63Jo0sMuk' },
+        { seats: 10, totalCents: 37900, totalDisplay: '379 €/Jahr', perSeatCents: 3790, perSeatDisplay: '37,90 €/Jahr', stripeProductId: 'prod_UJJJZI03sRtqaB', stripePriceId: 'price_1TKgh1DxqdaWCpJ6zUzoeVor' },
+        { seats: 25, totalCents: 89900, totalDisplay: '899 €/Jahr', perSeatCents: 3596, perSeatDisplay: '35,96 €/Jahr', stripeProductId: 'prod_UJJJZI03sRtqaB', stripePriceId: 'price_1TKgh2DxqdaWCpJ6d7laYYTJ' },
       ] as const,
     },
   },
@@ -80,9 +80,9 @@ export const PRICING_CATEGORIES: Record<PricingCategory, CategoryPricing> = {
     b2b: {
       pricePerSeatDisplay: '59 €',
       tiers: [
-        { seats: 5, totalCents: 24900, totalDisplay: '249 €', perSeatCents: 4980, perSeatDisplay: '49,80 €', stripeProductId: 'prod_UJIrSZhqc9JWLM', stripePriceId: 'price_1TKgFbDxqdaWCpJ6xmHCY2Gu' },
-        { seats: 10, totalCents: 46900, totalDisplay: '469 €', perSeatCents: 4690, perSeatDisplay: '46,90 €', stripeProductId: 'prod_UJIrLoi9wTfTgI', stripePriceId: 'price_1TKgFdDxqdaWCpJ6PSrM67wz' },
-        { seats: 25, totalCents: 104900, totalDisplay: '1.049 €', perSeatCents: 4196, perSeatDisplay: '41,96 €', stripeProductId: 'prod_UJIrWobv2KXTIb', stripePriceId: 'price_1TKgFeDxqdaWCpJ6Z4j2LckG' },
+        { seats: 5, totalCents: 24900, totalDisplay: '249 €/Jahr', perSeatCents: 4980, perSeatDisplay: '49,80 €/Jahr', stripeProductId: 'prod_UJJJMCaQBaHe3V', stripePriceId: 'price_1TKggvDxqdaWCpJ6TXVKDj4I' },
+        { seats: 10, totalCents: 47900, totalDisplay: '479 €/Jahr', perSeatCents: 4790, perSeatDisplay: '47,90 €/Jahr', stripeProductId: 'prod_UJJJMCaQBaHe3V', stripePriceId: 'price_1TKgh2DxqdaWCpJ6MBkODaB5' },
+        { seats: 25, totalCents: 114900, totalDisplay: '1.149 €/Jahr', perSeatCents: 4596, perSeatDisplay: '45,96 €/Jahr', stripeProductId: 'prod_UJJJMCaQBaHe3V', stripePriceId: 'price_1TKgh4DxqdaWCpJ63wKN2X6G' },
       ] as const,
     },
   },
@@ -97,9 +97,9 @@ export const PRICING_CATEGORIES: Record<PricingCategory, CategoryPricing> = {
     b2b: {
       pricePerSeatDisplay: '69 €',
       tiers: [
-        { seats: 5, totalCents: 29900, totalDisplay: '299 €', perSeatCents: 5980, perSeatDisplay: '59,80 €', stripeProductId: 'prod_UJIrHL7bNxTHcF', stripePriceId: 'price_1TKgFfDxqdaWCpJ6OER5ohFk' },
-        { seats: 10, totalCents: 55900, totalDisplay: '559 €', perSeatCents: 5590, perSeatDisplay: '55,90 €', stripeProductId: 'prod_UJIrdZyairGppT', stripePriceId: 'price_1TKgFgDxqdaWCpJ6tmT1THIE' },
-        { seats: 25, totalCents: 124900, totalDisplay: '1.249 €', perSeatCents: 4996, perSeatDisplay: '49,96 €', stripeProductId: 'prod_UJIrGOZWrtK5sK', stripePriceId: 'price_1TKgFhDxqdaWCpJ6jpAeZt9s' },
+        { seats: 5, totalCents: 29900, totalDisplay: '299 €/Jahr', perSeatCents: 5980, perSeatDisplay: '59,80 €/Jahr', stripeProductId: 'prod_UJJJOdGKo0p39X', stripePriceId: 'price_1TKggwDxqdaWCpJ6ktZucksn' },
+        { seats: 10, totalCents: 57900, totalDisplay: '579 €/Jahr', perSeatCents: 5790, perSeatDisplay: '57,90 €/Jahr', stripeProductId: 'prod_UJJJOdGKo0p39X', stripePriceId: 'price_1TKgh4DxqdaWCpJ6vlbodQIt' },
+        { seats: 25, totalCents: 124900, totalDisplay: '1.249 €/Jahr', perSeatCents: 4996, perSeatDisplay: '49,96 €/Jahr', stripeProductId: 'prod_UJJJOdGKo0p39X', stripePriceId: 'price_1TKgh5DxqdaWCpJ6xSt0Ptme' },
       ] as const,
     },
   },

@@ -31177,26 +31177,91 @@ export type Database = {
           },
         ]
       }
+      org_license_invites: {
+        Row: {
+          accepted_at: string | null
+          accepted_by: string | null
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          invite_token: string
+          invited_by: string | null
+          license_id: string
+          org_id: string
+          role: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          created_at?: string
+          email: string
+          expires_at?: string
+          id?: string
+          invite_token?: string
+          invited_by?: string | null
+          license_id: string
+          org_id: string
+          role?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          invite_token?: string
+          invited_by?: string | null
+          license_id?: string
+          org_id?: string
+          role?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_license_invites_license_id_fkey"
+            columns: ["license_id"]
+            isOneToOne: false
+            referencedRelation: "org_licenses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       org_license_seats: {
         Row: {
+          assigned_at: string
+          assigned_by: string | null
           claimed_at: string
           id: string
           license_id: string
           released_at: string | null
+          status: string
           user_id: string
         }
         Insert: {
+          assigned_at?: string
+          assigned_by?: string | null
           claimed_at?: string
           id?: string
           license_id: string
           released_at?: string | null
+          status?: string
           user_id: string
         }
         Update: {
+          assigned_at?: string
+          assigned_by?: string | null
           claimed_at?: string
           id?: string
           license_id?: string
           released_at?: string | null
+          status?: string
           user_id?: string
         }
         Relationships: [
@@ -31211,9 +31276,12 @@ export type Database = {
       }
       org_licenses: {
         Row: {
+          cancel_at_period_end: boolean
           category: string | null
           contract_ref: string | null
           created_at: string
+          current_period_end: string | null
+          current_period_start: string | null
           ends_at: string | null
           id: string
           metadata_json: Json
@@ -31223,11 +31291,18 @@ export type Database = {
           seats_used: number
           starts_at: string
           status: string
+          stripe_customer_id: string | null
+          stripe_price_id: string | null
+          stripe_subscription_id: string | null
+          total_seats: number
         }
         Insert: {
+          cancel_at_period_end?: boolean
           category?: string | null
           contract_ref?: string | null
           created_at?: string
+          current_period_end?: string | null
+          current_period_start?: string | null
           ends_at?: string | null
           id?: string
           metadata_json?: Json
@@ -31237,11 +31312,18 @@ export type Database = {
           seats_used?: number
           starts_at?: string
           status?: string
+          stripe_customer_id?: string | null
+          stripe_price_id?: string | null
+          stripe_subscription_id?: string | null
+          total_seats?: number
         }
         Update: {
+          cancel_at_period_end?: boolean
           category?: string | null
           contract_ref?: string | null
           created_at?: string
+          current_period_end?: string | null
+          current_period_start?: string | null
           ends_at?: string | null
           id?: string
           metadata_json?: Json
@@ -31251,6 +31333,10 @@ export type Database = {
           seats_used?: number
           starts_at?: string
           status?: string
+          stripe_customer_id?: string | null
+          stripe_price_id?: string | null
+          stripe_subscription_id?: string | null
+          total_seats?: number
         }
         Relationships: [
           {
@@ -71503,6 +71589,10 @@ export type Database = {
       }
     }
     Functions: {
+      accept_org_license_invite: {
+        Args: { p_invite_token: string; p_user_id: string }
+        Returns: Json
+      }
       accept_qa_risk: {
         Args: {
           p_expires_days?: number
@@ -71627,6 +71717,14 @@ export type Database = {
       assert_qa_release_ok: { Args: never; Returns: undefined }
       assert_ssot_mapping_complete: { Args: never; Returns: Json }
       assert_step_backbone: { Args: { p_package_id: string }; Returns: Json }
+      assign_org_license_seat: {
+        Args: {
+          p_assigned_by?: string
+          p_license_id: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
       assign_org_seat: {
         Args: { p_license_id: string; p_user_id: string }
         Returns: Json
@@ -72849,6 +72947,16 @@ export type Database = {
           p_user_id?: string
         }
         Returns: string
+      }
+      create_org_license_invite: {
+        Args: {
+          p_email: string
+          p_invited_by?: string
+          p_license_id: string
+          p_org_id: string
+          p_role?: string
+        }
+        Returns: Json
       }
       create_partner_commission: {
         Args: {
@@ -75551,6 +75659,10 @@ export type Database = {
           p_source_url: string
           p_title_raw: string
         }
+        Returns: Json
+      }
+      release_org_license_seat: {
+        Args: { p_license_id: string; p_user_id: string }
         Returns: Json
       }
       release_package_lease: {
