@@ -23478,6 +23478,44 @@ export type Database = {
           },
         ]
       }
+      humor_delivery_events: {
+        Row: {
+          context_ref: string | null
+          created_at: string
+          humor_item_id: string
+          id: string
+          reaction: Database["public"]["Enums"]["humor_reaction"] | null
+          surface: Database["public"]["Enums"]["humor_surface"]
+          user_id: string
+        }
+        Insert: {
+          context_ref?: string | null
+          created_at?: string
+          humor_item_id: string
+          id?: string
+          reaction?: Database["public"]["Enums"]["humor_reaction"] | null
+          surface: Database["public"]["Enums"]["humor_surface"]
+          user_id: string
+        }
+        Update: {
+          context_ref?: string | null
+          created_at?: string
+          humor_item_id?: string
+          id?: string
+          reaction?: Database["public"]["Enums"]["humor_reaction"] | null
+          surface?: Database["public"]["Enums"]["humor_surface"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "humor_delivery_events_humor_item_id_fkey"
+            columns: ["humor_item_id"]
+            isOneToOne: false
+            referencedRelation: "humor_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       humor_feedback: {
         Row: {
           created_at: string
@@ -74448,6 +74486,24 @@ export type Database = {
         Returns: Json
       }
       get_factory_executive_report: { Args: never; Returns: Json }
+      get_humor_for_surface: {
+        Args: {
+          p_certification_id: string
+          p_competence_id?: string
+          p_lesson_id?: string
+          p_surface: string
+        }
+        Returns: {
+          competence_id: string
+          humor_type: Database["public"]["Enums"]["humor_type"]
+          id: string
+          lesson_id: string
+          modernity_level: number
+          quality_score: number
+          text: string
+          tone: string
+        }[]
+      }
       get_idempotency_response: {
         Args: { p_endpoint: string; p_idem_key: string; p_user_id: string }
         Returns: Json
@@ -76735,7 +76791,16 @@ export type Database = {
         | "winback"
         | "upsell"
         | "adoption_tip"
+      humor_reaction: "liked" | "disliked" | "skipped" | "shared"
       humor_status: "draft" | "review" | "approved" | "frozen" | "rejected"
+      humor_surface:
+        | "dashboard"
+        | "lesson_intro"
+        | "lesson_outro"
+        | "minicheck_intro"
+        | "minicheck_result"
+        | "tutor"
+        | "exam_break"
       humor_type:
         | "wordplay"
         | "everyday_situation"
@@ -77106,7 +77171,17 @@ export const Constants = {
         "upsell",
         "adoption_tip",
       ],
+      humor_reaction: ["liked", "disliked", "skipped", "shared"],
       humor_status: ["draft", "review", "approved", "frozen", "rejected"],
+      humor_surface: [
+        "dashboard",
+        "lesson_intro",
+        "lesson_outro",
+        "minicheck_intro",
+        "minicheck_result",
+        "tutor",
+        "exam_break",
+      ],
       humor_type: [
         "wordplay",
         "everyday_situation",
