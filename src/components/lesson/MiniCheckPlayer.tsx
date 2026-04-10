@@ -253,6 +253,17 @@ export default function MiniCheckPlayer({
               Erneut versuchen
             </Button>
           )}
+
+          {/* Humor after result */}
+          {certificationId && (
+            <SurfaceHumorCard
+              certificationId={certificationId}
+              surface="minicheck_result"
+              competenceId={competenceId}
+              lessonId={lessonId}
+              variant="inline"
+            />
+          )}
         </CardContent>
       </Card>
     );
