@@ -6501,6 +6501,47 @@ export type Database = {
         }
         Relationships: []
       }
+      class_memberships: {
+        Row: {
+          class_id: string
+          created_at: string
+          enrolled_at: string
+          id: string
+          role: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          class_id: string
+          created_at?: string
+          enrolled_at?: string
+          id?: string
+          role?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          class_id?: string
+          created_at?: string
+          enrolled_at?: string
+          id?: string
+          role?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "class_memberships_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "school_classes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cluster_dominance_snapshots: {
         Row: {
           avg_authority_index: number | null
@@ -23335,6 +23376,123 @@ export type Database = {
         }
         Relationships: []
       }
+      instructor_assignments: {
+        Row: {
+          assigned_at: string
+          class_id: string | null
+          created_at: string
+          curriculum_id: string | null
+          id: string
+          org_id: string
+          role: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          assigned_at?: string
+          class_id?: string | null
+          created_at?: string
+          curriculum_id?: string | null
+          id?: string
+          org_id: string
+          role?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          assigned_at?: string
+          class_id?: string | null
+          created_at?: string
+          curriculum_id?: string | null
+          id?: string
+          org_id?: string
+          role?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "instructor_assignments_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "school_classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "instructor_assignments_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "instructor_assignments_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "instructor_assignments_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "instructor_assignments_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "instructor_assignments_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_qc_backlog"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "instructor_assignments_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_qc_backlog_age"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "instructor_assignments_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "instructor_assignments_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "instructor_assignments_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "instructor_assignments_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "v_org_license_overview"
+            referencedColumns: ["org_id"]
+          },
+        ]
+      }
       intake_raw_documents: {
         Row: {
           candidate_id: string
@@ -30793,6 +30951,68 @@ export type Database = {
           },
         ]
       }
+      org_links: {
+        Row: {
+          created_at: string
+          id: string
+          link_type: string
+          metadata_json: Json
+          org_a_id: string
+          org_b_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          link_type: string
+          metadata_json?: Json
+          org_a_id: string
+          org_b_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          link_type?: string
+          metadata_json?: Json
+          org_a_id?: string
+          org_b_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_links_org_a_id_fkey"
+            columns: ["org_a_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "org_links_org_a_id_fkey"
+            columns: ["org_a_id"]
+            isOneToOne: false
+            referencedRelation: "v_org_license_overview"
+            referencedColumns: ["org_id"]
+          },
+          {
+            foreignKeyName: "org_links_org_b_id_fkey"
+            columns: ["org_b_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "org_links_org_b_id_fkey"
+            columns: ["org_b_id"]
+            isOneToOne: false
+            referencedRelation: "v_org_license_overview"
+            referencedColumns: ["org_id"]
+          },
+        ]
+      }
       org_memberships: {
         Row: {
           created_at: string
@@ -31147,6 +31367,7 @@ export type Database = {
           metadata_json: Json
           name: string
           org_type: string
+          parent_org_id: string | null
           referred_by_partner_id: string | null
           slug: string | null
           updated_at: string
@@ -31163,6 +31384,7 @@ export type Database = {
           metadata_json?: Json
           name: string
           org_type?: string
+          parent_org_id?: string | null
           referred_by_partner_id?: string | null
           slug?: string | null
           updated_at?: string
@@ -31179,11 +31401,26 @@ export type Database = {
           metadata_json?: Json
           name?: string
           org_type?: string
+          parent_org_id?: string | null
           referred_by_partner_id?: string | null
           slug?: string | null
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "organizations_parent_org_id_fkey"
+            columns: ["parent_org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organizations_parent_org_id_fkey"
+            columns: ["parent_org_id"]
+            isOneToOne: false
+            referencedRelation: "v_org_license_overview"
+            referencedColumns: ["org_id"]
+          },
           {
             foreignKeyName: "organizations_referred_by_partner_id_fkey"
             columns: ["referred_by_partner_id"]
@@ -42387,6 +42624,116 @@ export type Database = {
           verified_ok?: boolean | null
         }
         Relationships: []
+      }
+      school_classes: {
+        Row: {
+          academic_year: string | null
+          created_at: string
+          curriculum_id: string | null
+          grade_year: string | null
+          id: string
+          metadata_json: Json
+          name: string
+          org_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          academic_year?: string | null
+          created_at?: string
+          curriculum_id?: string | null
+          grade_year?: string | null
+          id?: string
+          metadata_json?: Json
+          name: string
+          org_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          academic_year?: string | null
+          created_at?: string
+          curriculum_id?: string | null
+          grade_year?: string | null
+          id?: string
+          metadata_json?: Json
+          name?: string
+          org_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "school_classes_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "school_classes_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "school_classes_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "school_classes_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "school_classes_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_qc_backlog"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "school_classes_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_qc_backlog_age"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "school_classes_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "school_classes_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "school_classes_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "school_classes_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "v_org_license_overview"
+            referencedColumns: ["org_id"]
+          },
+        ]
       }
       scim_mappings: {
         Row: {
@@ -72785,6 +73132,10 @@ export type Database = {
         }
       }
       fn_get_growth_dashboard_summary: { Args: never; Returns: Json }
+      fn_get_institution_analytics: {
+        Args: { p_org_id: string }
+        Returns: Json
+      }
       fn_get_jobs_for_step: {
         Args: { p_package_id: string; p_step_key: string }
         Returns: {
@@ -72849,6 +73200,7 @@ export type Database = {
         Args: { _partner_id: string }
         Returns: number
       }
+      fn_get_school_dashboard: { Args: { p_org_id: string }; Returns: Json }
       fn_get_seo_discovery_dashboard_summary: { Args: never; Returns: Json }
       fn_get_shuttle_dashboard_summary: {
         Args: { p_curriculum_id: string; p_user_id: string }
@@ -72866,6 +73218,10 @@ export type Database = {
       fn_has_gate_state_changed: {
         Args: { p_post_snapshot: Json; p_pre_snapshot: Json }
         Returns: Json
+      }
+      fn_has_org_management_role: {
+        Args: { p_org_id: string; p_roles?: string[]; p_user_id: string }
+        Returns: boolean
       }
       fn_heal_ghost_completions:
         | { Args: never; Returns: Json }
