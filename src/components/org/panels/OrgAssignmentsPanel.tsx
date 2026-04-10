@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { OrgContext } from '@/hooks/useOrgConsole';
 import { KpiCard, CommandKpiStrip } from '@/components/admin/enterprise/shared/CommandKpiStrip';
 import { StatusBadge } from '@/components/admin/enterprise/shared/StatusBadge';
@@ -17,7 +19,22 @@ interface Props {
 
 export default function OrgAssignmentsPanel({ orgId, context }: Props) {
   const [search, setSearch] = useState('');
-  const seats = context?.seats || [];
+
+  const { data: seats = [] } = useQuery({
+    queryKey: ['org-seats-assignments', orgId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('organization_seats')
+        .select('id, entity_id, learner_user_id, product_id, seat_status, start_at, end_at')
+        .eq('organization_id', orgId)
+        .order('created_at', { ascending: false })
+        .limit(500);
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!orgId,
+    staleTime: 60_000,
+  });
 
   const activeSeats = seats.filter((s: any) => s.seat_status === 'active' || s.seat_status === 'ACTIVE');
   const filtered = seats.filter((s: any) =>

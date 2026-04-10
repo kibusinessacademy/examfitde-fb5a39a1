@@ -5,7 +5,7 @@ import {
   getOrgConsoleContext,
   getSchoolDashboard,
   getSchoolClassDetail,
-  getInstitutionAnalytics,
+  getInstitutionDashboard,
   getOrgLinks,
 } from '@/lib/orgApi';
 
@@ -15,15 +15,18 @@ export interface OrgContext {
   org: { id: string; name: string; org_type: string; parent_org_id?: string | null } | null;
   my_role: string | null;
   capabilities: Record<string, boolean>;
-  entities: any[];
-  members: any[];
-  learners: any[];
-  seats: any[];
-  seat_summary: Record<string, number>;
-  privacy_access: { status: string; scope: string };
+  summary: {
+    active_members: number;
+    active_learners: number;
+    active_seats: number;
+    inactive_seats: number;
+    classes_count: number;
+    instructors_count: number;
+    linked_orgs_count: number;
+    curricula_count: number;
+  };
+  privacy_access: { status: string; scope: string; approved_until?: string | null; requested_at?: string | null };
   linked_orgs: any[];
-  classes: any[];
-  instructors: any[];
 }
 
 export interface OrgListItem {
@@ -85,16 +88,16 @@ export function useSchoolClassDetail(classId?: string) {
   });
 }
 
-// ─── Institution Analytics (IHK/HWK) ──────────────────────────
+// ─── Institution Dashboard (IHK/HWK) ──────────────────────────
 
-export function useInstitutionAnalytics(orgId?: string) {
+export function useInstitutionDashboard(orgId?: string) {
   const { user } = useAuth();
 
   return useQuery({
-    queryKey: ['institution-analytics', orgId, user?.id],
+    queryKey: ['institution-dashboard', orgId, user?.id],
     queryFn: async () => {
       if (!orgId) return null;
-      return getInstitutionAnalytics(orgId);
+      return getInstitutionDashboard(orgId);
     },
     enabled: !!orgId && !!user,
     staleTime: 60_000,

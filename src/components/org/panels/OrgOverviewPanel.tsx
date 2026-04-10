@@ -1,6 +1,6 @@
 import { OrgContext } from '@/hooks/useOrgConsole';
 import { KpiCard, CommandKpiStrip } from '@/components/admin/enterprise/shared/CommandKpiStrip';
-import { Users, Armchair, CreditCard, AlertTriangle, Activity, Link2, Upload, Shield } from 'lucide-react';
+import { Users, Armchair, CreditCard, Activity, Link2, Upload, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SeatUsageBar } from '@/components/admin/enterprise/shared/StatusBadge';
@@ -13,43 +13,37 @@ interface Props {
 export default function OrgOverviewPanel({ orgId, context }: Props) {
   if (!context) return null;
 
-  const members = context.members || [];
-  const seats = context.seats || [];
-  const summary = context.seat_summary || {};
-  const activeSeats = summary['active'] || summary['ACTIVE'] || 0;
-  const totalSeats = seats.length;
+  const s = context.summary;
+  const totalSeats = s.active_seats + s.inactive_seats;
 
   return (
     <div className="space-y-4">
-      {/* KPI Strip */}
       <CommandKpiStrip>
-        <KpiCard label="Aktive Nutzer" value={members.length} icon={<Users className="h-4 w-4 text-primary" />} tone="neutral" />
-        <KpiCard label="Aktive Seats" value={activeSeats} icon={<Armchair className="h-4 w-4 text-success" />} tone="green" />
+        <KpiCard label="Aktive Nutzer" value={s.active_members} icon={<Users className="h-4 w-4 text-primary" />} tone="neutral" />
+        <KpiCard label="Aktive Seats" value={s.active_seats} icon={<Armchair className="h-4 w-4 text-success" />} tone="green" />
         <KpiCard label="Seats gesamt" value={totalSeats} icon={<Armchair className="h-4 w-4 text-muted-foreground" />} />
         <KpiCard
           label="Seat-Auslastung"
-          value={totalSeats > 0 ? `${Math.round((activeSeats / totalSeats) * 100)}%` : '–'}
+          value={totalSeats > 0 ? `${Math.round((s.active_seats / totalSeats) * 100)}%` : '–'}
           icon={<Activity className="h-4 w-4 text-warning" />}
-          tone={totalSeats > 0 && activeSeats / totalSeats > 0.9 ? 'red' : totalSeats > 0 && activeSeats / totalSeats > 0.7 ? 'yellow' : 'green'}
+          tone={totalSeats > 0 && s.active_seats / totalSeats > 0.9 ? 'red' : totalSeats > 0 && s.active_seats / totalSeats > 0.7 ? 'yellow' : 'green'}
         />
-        <KpiCard label="Entitäten" value={context.entities?.length || 0} icon={<CreditCard className="h-4 w-4 text-primary" />} />
+        <KpiCard label="Verknüpfte Orgs" value={s.linked_orgs_count} icon={<Link2 className="h-4 w-4 text-primary" />} />
       </CommandKpiStrip>
 
       <div className="grid md:grid-cols-2 gap-4">
-        {/* Seat Usage */}
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold">Seat-Auslastung</CardTitle>
           </CardHeader>
           <CardContent>
-            <SeatUsageBar used={activeSeats} total={Math.max(totalSeats, 1)} />
+            <SeatUsageBar used={s.active_seats} total={Math.max(totalSeats, 1)} />
             <p className="text-xs text-muted-foreground mt-2">
-              {activeSeats} von {totalSeats} Seats belegt
+              {s.active_seats} von {totalSeats} Seats belegt
             </p>
           </CardContent>
         </Card>
 
-        {/* Integration Status */}
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold">Integrationen</CardTitle>
@@ -66,7 +60,6 @@ export default function OrgOverviewPanel({ orgId, context }: Props) {
           </CardContent>
         </Card>
 
-        {/* Privacy Access */}
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold">Datenschutz</CardTitle>
@@ -82,7 +75,6 @@ export default function OrgOverviewPanel({ orgId, context }: Props) {
           </CardContent>
         </Card>
 
-        {/* Quick Actions */}
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold">Schnellaktionen</CardTitle>

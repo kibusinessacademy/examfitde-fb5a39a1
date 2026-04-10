@@ -26,7 +26,7 @@ Deno.serve(async (req) => {
     const classId = url.searchParams.get("class_id");
     if (!classId) return json(400, { error: "class_id required" }, origin);
 
-    // Get class with org
+    // Get class with curriculum title
     const { data: cls, error: clsErr } = await supabase
       .from("school_classes")
       .select("id, org_id, name, curriculum_id, academic_year, grade_year, status, created_at")
@@ -64,49 +64,149 @@ Deno.serve(async (req) => {
       if (!assignment) return json(403, { error: "Not assigned to this class" }, origin);
     }
 
-    // Parallel: members + instructor assignments for this class
-    const [membersRes, assignmentsRes] = await Promise.all([
+    // Parallel: curriculum title, members, instructor assignments, readiness
+    const [curriculumRes, membersRes, assignmentsRes] = await Promise.all([
+      cls.curriculum_id
+        ? supabase.from("curricula").select("id, title").eq("id", cls.curriculum_id).maybeSingle()
+        : Promise.resolve({ data: null }),
       supabase
         .from("class_memberships")
-        .select("id, user_id, role, status, joined_at")
+        .select("id, user_id, role, status, enrolled_at")
         .eq("class_id", classId)
         .eq("status", "active"),
       supabase
         .from("instructor_assignments")
-        .select("id, user_id, assignment_type, can_view_progress, can_grade")
+        .select("id, user_id, role, status, assigned_at")
         .eq("class_id", classId)
         .eq("status", "active"),
     ]);
 
     const members = membersRes.data ?? [];
     const students = members.filter((m: any) => m.role === "student");
+    const studentIds = students.map((s: any) => s.user_id);
+    const instructorAssignments = assignmentsRes.data ?? [];
+    const instructorIds = instructorAssignments.map((i: any) => i.user_id);
 
-    // Resolve student profile names
-    let studentProfiles: any[] = [];
-    if (students.length > 0) {
-      const studentIds = students.map((s: any) => s.user_id);
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("id, first_name, last_name, email")
-        .in("id", studentIds);
-      const profileMap = Object.fromEntries((profiles ?? []).map((p: any) => [p.id, p]));
-      studentProfiles = students.map((s: any) => ({
-        membership_id: s.id,
-        user_id: s.user_id,
-        joined_at: s.joined_at,
-        first_name: profileMap[s.user_id]?.first_name ?? null,
-        last_name: profileMap[s.user_id]?.last_name ?? null,
-        email: profileMap[s.user_id]?.email ?? null,
-      }));
+    // Parallel: profiles for students + instructors, readiness for students, last exam sessions
+    const allUserIds = [...new Set([...studentIds, ...instructorIds])];
+    const [profilesRes, readinessRes, examSessionsRes] = await Promise.all([
+      allUserIds.length > 0
+        ? supabase.from("profiles").select("id, full_name, email").in("id", allUserIds)
+        : Promise.resolve({ data: [] }),
+      studentIds.length > 0 && cls.curriculum_id
+        ? supabase
+            .from("readiness_snapshots")
+            .select("user_id, readiness_score, risk_level, mastery_pct, created_at")
+            .in("user_id", studentIds)
+            .eq("curriculum_id", cls.curriculum_id)
+            .order("created_at", { ascending: false })
+        : Promise.resolve({ data: [] }),
+      studentIds.length > 0 && cls.curriculum_id
+        ? supabase
+            .from("exam_sessions")
+            .select("user_id, score_percentage, finished_at")
+            .in("user_id", studentIds)
+            .eq("curriculum_id", cls.curriculum_id)
+            .not("finished_at", "is", null)
+            .order("finished_at", { ascending: false })
+        : Promise.resolve({ data: [] }),
+    ]);
+
+    const profileMap = Object.fromEntries((profilesRes.data ?? []).map((p: any) => [p.id, p]));
+
+    // Latest readiness per student (deduplicate to most recent)
+    const readinessMap: Record<string, any> = {};
+    for (const r of (readinessRes.data ?? [])) {
+      if (!readinessMap[r.user_id]) readinessMap[r.user_id] = r;
     }
 
+    // Latest exam score per student
+    const examMap: Record<string, any> = {};
+    for (const e of (examSessionsRes.data ?? [])) {
+      if (!examMap[e.user_id]) examMap[e.user_id] = e;
+    }
+
+    const now = Date.now();
+
+    // Build student list with readiness
+    const studentProfiles = students.map((s: any) => {
+      const profile = profileMap[s.user_id];
+      const readiness = readinessMap[s.user_id];
+      const exam = examMap[s.user_id];
+      const lastActivity = readiness?.created_at || exam?.finished_at || s.enrolled_at;
+      const inactiveDays = lastActivity ? Math.floor((now - new Date(lastActivity).getTime()) / 86400000) : null;
+
+      return {
+        user_id: s.user_id,
+        full_name: profile?.full_name ?? null,
+        email: profile?.email ?? null,
+        enrolled_at: s.enrolled_at,
+        readiness_score: readiness?.readiness_score ?? 0,
+        risk_level: readiness?.risk_level ?? "not_started",
+        progress_pct: readiness?.mastery_pct ?? 0,
+        last_exam_score: exam?.score_percentage ?? null,
+        last_activity_at: lastActivity ?? null,
+        inactive_days: inactiveDays,
+      };
+    });
+
+    // Build instructor list
+    const instructorProfiles = instructorAssignments.map((a: any) => {
+      const profile = profileMap[a.user_id];
+      return {
+        assignment_id: a.id,
+        user_id: a.user_id,
+        full_name: profile?.full_name ?? null,
+        email: profile?.email ?? null,
+        role: a.role ?? "primary",
+        assigned_at: a.assigned_at,
+      };
+    });
+
+    // KPIs
+    const readinessScores = studentProfiles.map((s: any) => s.readiness_score);
+    const progressScores = studentProfiles.map((s: any) => s.progress_pct);
+    const avgReadiness = readinessScores.length > 0
+      ? Math.round((readinessScores.reduce((a: number, b: number) => a + b, 0) / readinessScores.length) * 10) / 10
+      : 0;
+    const avgProgress = progressScores.length > 0
+      ? Math.round((progressScores.reduce((a: number, b: number) => a + b, 0) / progressScores.length) * 10) / 10
+      : 0;
+
+    const riskCounts = { high: 0, medium: 0, low: 0, not_started: 0 };
+    for (const s of studentProfiles) {
+      const rl = s.risk_level as keyof typeof riskCounts;
+      if (rl in riskCounts) riskCounts[rl]++;
+      else riskCounts.not_started++;
+    }
+
+    const inactiveCount = studentProfiles.filter((s: any) => s.inactive_days !== null && s.inactive_days > 14).length;
+    const active7 = studentProfiles.filter((s: any) => s.inactive_days !== null && s.inactive_days <= 7).length;
+    const active14 = studentProfiles.filter((s: any) => s.inactive_days !== null && s.inactive_days <= 14).length;
+
     return json(200, {
-      class: cls,
-      students: studentProfiles,
-      instructors: assignmentsRes.data ?? [],
+      class: {
+        ...cls,
+        curriculum_title: curriculumRes.data?.title ?? null,
+      },
       kpis: {
-        total_students: students.length,
-        total_instructors: (assignmentsRes.data ?? []).length,
+        student_count: studentProfiles.length,
+        instructor_count: instructorProfiles.length,
+        avg_readiness_score: avgReadiness,
+        avg_progress_pct: avgProgress,
+        high_risk_count: riskCounts.high,
+        medium_risk_count: riskCounts.medium,
+        low_risk_count: riskCounts.low,
+        not_started_count: riskCounts.not_started,
+        inactive_count: inactiveCount,
+      },
+      students: studentProfiles,
+      instructors: instructorProfiles,
+      readiness_distribution: riskCounts,
+      activity_summary: {
+        active_last_7_days: active7,
+        active_last_14_days: active14,
+        inactive_over_14_days: inactiveCount,
       },
     }, origin);
   } catch (e) {
