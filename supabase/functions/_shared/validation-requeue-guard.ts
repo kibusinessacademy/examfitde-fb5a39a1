@@ -169,6 +169,15 @@ export async function checkValidationRequeueGuard(
       return { blocked: false, reason: `READINESS_PASS: ${probe.reason}` };
     }
 
+    if (probe.verdict === "LIKELY_READY") {
+      // Heuristic evidence suggests pass — do NOT hard-block, but also don't
+      // claim canonical PASS. Clear any existing block state so the validator
+      // gets a chance to run and confirm.
+      console.log(`[val-guard] LIKELY_READY: ${stepKey} for pkg ${packageId.slice(0, 8)} — ${probe.reason ?? "heuristic"}`);
+      await clearBlockState(sb, jobType, packageId);
+      return { blocked: false, reason: `LIKELY_READY: ${probe.reason}` };
+    }
+
     if (probe.verdict === "HARD_FAIL") {
       const reason = `READINESS_HARD_FAIL: ${jobType} on pkg ${packageId.slice(0, 8)} — ${probe.reason}`;
       console.warn(`[val-guard] ${reason}`);
