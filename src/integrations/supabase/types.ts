@@ -73657,6 +73657,8 @@ export type Database = {
           overload_count: number
         }[]
       }
+      fn_guard_reconciler_explosion: { Args: never; Returns: undefined }
+      fn_guard_stale_lock_rotation: { Args: never; Returns: undefined }
       fn_has_gate_state_changed: {
         Args: { p_post_snapshot: Json; p_pre_snapshot: Json }
         Returns: Json
