@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { SurfaceHumorCard } from '@/components/humor/SurfaceHumorCard';
 import { CheckCircle2, XCircle, ChevronRight, Trophy, RotateCcw, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -29,6 +30,8 @@ export interface MiniCheckContent {
 interface MiniCheckPlayerProps {
   content: MiniCheckContent;
   lessonId?: string | null;
+  certificationId?: string | null;
+  competenceId?: string | null;
   onCompleted?: (score: number, maxScore: number) => void;
 }
 
@@ -43,6 +46,8 @@ interface QuestionResult {
 export default function MiniCheckPlayer({ 
   content, 
   lessonId,
+  certificationId,
+  competenceId,
   onCompleted 
 }: MiniCheckPlayerProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -248,6 +253,17 @@ export default function MiniCheckPlayer({
               Erneut versuchen
             </Button>
           )}
+
+          {/* Humor after result */}
+          {certificationId && (
+            <SurfaceHumorCard
+              certificationId={certificationId}
+              surface="minicheck_result"
+              competenceId={competenceId}
+              lessonId={lessonId}
+              variant="inline"
+            />
+          )}
         </CardContent>
       </Card>
     );
@@ -256,6 +272,16 @@ export default function MiniCheckPlayer({
   // Question screen
   return (
     <div className="space-y-6" data-testid="minicheck-player">
+      {/* Humor intro – only on first question */}
+      {currentIndex === 0 && !hasAnswered && certificationId && (
+        <SurfaceHumorCard
+          certificationId={certificationId}
+          surface="minicheck_intro"
+          competenceId={competenceId}
+          lessonId={lessonId}
+          variant="inline"
+        />
+      )}
       {/* Proactive Help Hints */}
       <ProactiveHelpHints
         failCount={consecutiveFails}

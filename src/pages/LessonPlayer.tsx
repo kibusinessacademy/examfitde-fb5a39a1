@@ -8,6 +8,8 @@ import { toast } from '@/hooks/use-toast';
 import { Loader2, Lock, ArrowLeft } from 'lucide-react';
 import { recordLearningEvent, snapshotExamReadiness } from '@/lib/learning-telemetry';
 import { useMiniCheckMasterySync } from '@/features/mastery/hooks/useMiniCheckMasterySync';
+import { useCertificationFromCurriculum } from '@/hooks/useCertificationFromCurriculum';
+import { SurfaceHumorCard } from '@/components/humor/SurfaceHumorCard';
 
 import type { Json } from '@/integrations/supabase/types';
 import type { LessonStatus } from '@/hooks/useCourseProgress';
@@ -77,6 +79,7 @@ export default function LessonPlayer() {
   const [miniCheckKey, setMiniCheckKey] = useState(0);
   const [progressionBlocked, setProgressionBlocked] = useState<{ blocked: boolean; reason?: string; prevLessonId?: string } | null>(null);
   const { syncMiniCheckResult } = useMiniCheckMasterySync();
+  const certificationId = useCertificationFromCurriculum(course?.curriculum_id);
 
   const handleRetryMiniCheck = () => {
     setShowFeedback(false);
@@ -434,6 +437,18 @@ export default function LessonPlayer() {
           ]}
         />
 
+        {/* Humor Intro */}
+        {lesson.step !== 'mini_check' && (
+          <SurfaceHumorCard
+            certificationId={certificationId}
+            surface="lesson_intro"
+            competenceId={lesson.competency_id}
+            lessonId={lesson.id}
+            variant="inline"
+            className="max-w-4xl mx-auto mb-4"
+          />
+        )}
+
         {/* Content Area */}
         <Card className="glass-card max-w-4xl mx-auto mb-8" data-testid="lesson-content-card">
           <CardContent className="p-6 md:p-10" data-testid="lesson-content">
@@ -442,6 +457,8 @@ export default function LessonPlayer() {
               content={lesson.content}
               h5pContentId={lesson.h5p_content_id}
               lessonId={lesson.id}
+              certificationId={certificationId}
+              competenceId={lesson.competency_id}
               onH5PCompleted={handleH5PCompleted}
               onH5PProgress={handleH5PProgress}
               onMiniCheckCompleted={handleMiniCheckCompleted}
@@ -463,6 +480,18 @@ export default function LessonPlayer() {
             )}
           </CardContent>
         </Card>
+
+        {/* Humor Outro (after content, before navigation) */}
+        {lesson.step !== 'mini_check' && progress?.completed && (
+          <SurfaceHumorCard
+            certificationId={certificationId}
+            surface="lesson_outro"
+            competenceId={lesson.competency_id}
+            lessonId={lesson.id}
+            variant="inline"
+            className="max-w-4xl mx-auto mb-4"
+          />
+        )}
 
         <LessonNavigation
           prevLesson={prevLesson}

@@ -14,6 +14,8 @@ interface LessonContentProps {
   content: Json | null;
   h5pContentId: string | null;
   lessonId?: string;
+  certificationId?: string | null;
+  competenceId?: string | null;
   onH5PCompleted?: (score?: number, maxScore?: number) => void;
   onH5PProgress?: (progress: number) => void;
   onMiniCheckCompleted?: (score: number, maxScore: number) => void;
@@ -113,6 +115,8 @@ export default function LessonContent({
   content, 
   h5pContentId,
   lessonId,
+  certificationId,
+  competenceId,
   onH5PCompleted,
   onH5PProgress,
   onMiniCheckCompleted
@@ -156,6 +160,8 @@ export default function LessonContent({
           <MiniCheckPlayer
             content={dbMiniChecks}
             lessonId={lessonId}
+            certificationId={certificationId}
+            competenceId={competenceId}
             onCompleted={onMiniCheckCompleted}
           />
         );
@@ -237,6 +243,8 @@ export default function LessonContent({
       <MiniCheckPlayer 
         content={source}
         lessonId={lessonId}
+            certificationId={certificationId}
+            competenceId={competenceId}
         onCompleted={onMiniCheckCompleted}
       />
     );
@@ -262,6 +270,8 @@ export default function LessonContent({
           <MiniCheckPlayer
             content={dbMiniChecks}
             lessonId={lessonId}
+            certificationId={certificationId}
+            competenceId={competenceId}
             onCompleted={onMiniCheckCompleted}
           />
         </div>
