@@ -2,10 +2,12 @@
 
 ## Updated: 2026-04-11
 
-### Status: Phase 2a abgeschlossen. Phase 2b (Verifikation unter Last) aktiv.
+### Status: Root Cause gefixt, Cleanup durchgeführt. Finale Bestätigung nach Live-Verifikation des nächsten Runner-Zyklus.
 
-> System technisch gehärtet, Reinfektionsschutz aktiv, Massenfehler requeued.
-> Finale Freigabe nach 1 vollständigem Rebuild-Zyklus und Drift-Nullprüfung.
+> Root Cause behoben: content-runner verwendet nun zentrale Runner-SSOT aus worker-config.ts;
+> additive Pool-Claims durch global hart gedeckeltes Claim-Budget ersetzt.
+> Stale Backlog mit progressivem Backoff bereinigt.
+> Finale Freigabe nach 1 vollständigem Runner-Zyklus ohne neue Stale-Lock-Welle.
 
 ---
 
