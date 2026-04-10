@@ -160,6 +160,8 @@ export default function LessonContent({
           <MiniCheckPlayer
             content={dbMiniChecks}
             lessonId={lessonId}
+            certificationId={certificationId}
+            competenceId={competenceId}
             onCompleted={onMiniCheckCompleted}
           />
         );
@@ -241,6 +243,8 @@ export default function LessonContent({
       <MiniCheckPlayer 
         content={source}
         lessonId={lessonId}
+            certificationId={certificationId}
+            competenceId={competenceId}
         onCompleted={onMiniCheckCompleted}
       />
     );
@@ -266,6 +270,8 @@ export default function LessonContent({
           <MiniCheckPlayer
             content={dbMiniChecks}
             lessonId={lessonId}
+            certificationId={certificationId}
+            competenceId={competenceId}
             onCompleted={onMiniCheckCompleted}
           />
         </div>
