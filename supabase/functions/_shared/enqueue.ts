@@ -182,6 +182,19 @@ export async function enqueueJob(
     } as EnqueueResult;
   }
 
+  // ── F-5: Poison Loop Guard — prevents no-progress generator loops ──
+  const poisonCheck = await checkPoisonLoopGuard(sb, opts.job_type, packageId);
+  if (poisonCheck.blocked) {
+    console.log(`[enqueue] POISON_LOOP_BLOCKED: ${opts.job_type} for ${packageId?.slice(0, 8)} — ${poisonCheck.reason}`);
+    return {
+      id: "00000000-0000-0000-0000-000000000000",
+      job_type: opts.job_type,
+      worker_pool: worker_pool,
+      status: "blocked_by_guard",
+      revived: false,
+    } as EnqueueResult;
+  }
+
   const idempotencyKey = opts.batch_cursor
     ? `${opts.job_type}:${packageId ?? "global"}:${JSON.stringify(opts.batch_cursor)}`
     : `${opts.job_type}:${packageId ?? "global"}`;
