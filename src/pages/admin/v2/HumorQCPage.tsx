@@ -716,6 +716,9 @@ export default function HumorQCPage() {
           <TabsTrigger value="drilldown" className="gap-1.5">
             <List className="h-3.5 w-3.5" /> Drilldown
           </TabsTrigger>
+          <TabsTrigger value="impact" className="gap-1.5">
+            <Brain className="h-3.5 w-3.5" /> Lernwirkung
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">
@@ -728,6 +731,10 @@ export default function HumorQCPage() {
 
         <TabsContent value="drilldown">
           <DrilldownTab />
+        </TabsContent>
+
+        <TabsContent value="impact">
+          <LearningImpactTab />
         </TabsContent>
       </Tabs>
     </div>
