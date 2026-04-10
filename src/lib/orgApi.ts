@@ -46,7 +46,31 @@ export async function getSchoolClassDetail(class_id: string) {
 // ─── Institution Dashboard (IHK/HWK) ──────────────────────────
 export async function getInstitutionDashboard(organization_id: string) {
   const sp = new URLSearchParams({ organization_id });
-  return fetchJson(`/get-institution-dashboard?${sp.toString()}`, { method: "GET" });
+  return fetchJson(`/get-institution-dashboard?${sp.toString()}`, { method: "GET" }) as Promise<{
+    org: { id: string; name: string; org_type: string };
+    kpis: {
+      linked_schools_count: number;
+      linked_companies_count: number;
+      active_curricula_count: number;
+      active_classes_count: number;
+      active_learners_count: number;
+      avg_readiness_score: number;
+      high_risk_count: number;
+    };
+    linked_orgs: {
+      schools: Array<{ org_id: string; name: string; org_type: string; link_type: string }>;
+      companies: Array<{ org_id: string; name: string; org_type: string; link_type: string }>;
+    };
+    curricula: Array<{
+      curriculum_id: string;
+      title: string | null;
+      active_classes: number;
+      active_learners: number;
+      avg_readiness_score: number;
+    }>;
+    risk_distribution: { high: number; medium: number; low: number; not_started: number };
+    recent_activity: { active_last_7_days: number; active_last_14_days: number; inactive_over_14_days: number };
+  }>;
 }
 
 // ─── Org Links ─────────────────────────────────────────────────
