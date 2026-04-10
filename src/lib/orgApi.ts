@@ -25,11 +25,37 @@ async function fetchJson(path: string, init?: RequestInit) {
   return json;
 }
 
+// ─── Org Console Context ───────────────────────────────────────
 export async function getOrgConsoleContext(organization_id?: string) {
   const q = organization_id ? `?organization_id=${encodeURIComponent(organization_id)}` : "";
   return fetchJson(`/get-org-console-context${q}`, { method: "GET" });
 }
 
+// ─── School Dashboard ──────────────────────────────────────────
+export async function getSchoolDashboard(organization_id: string) {
+  const sp = new URLSearchParams({ organization_id });
+  return fetchJson(`/get-school-dashboard?${sp.toString()}`, { method: "GET" });
+}
+
+// ─── School Class Detail ───────────────────────────────────────
+export async function getSchoolClassDetail(class_id: string) {
+  const sp = new URLSearchParams({ class_id });
+  return fetchJson(`/get-school-class-detail?${sp.toString()}`, { method: "GET" });
+}
+
+// ─── Institution Analytics (IHK/HWK) ──────────────────────────
+export async function getInstitutionAnalytics(organization_id: string) {
+  const sp = new URLSearchParams({ organization_id });
+  return fetchJson(`/get-institution-analytics?${sp.toString()}`, { method: "GET" });
+}
+
+// ─── Org Links ─────────────────────────────────────────────────
+export async function getOrgLinks(organization_id: string) {
+  const sp = new URLSearchParams({ organization_id });
+  return fetchJson(`/get-org-links?${sp.toString()}`, { method: "GET" });
+}
+
+// ─── KPIs ──────────────────────────────────────────────────────
 export async function getOrgKpis(params: {
   organization_id: string;
   mode?: "fiscal_year" | "calendar_year" | "range";
@@ -49,6 +75,7 @@ export async function getOrgKpis(params: {
   return fetchJson(`/get-org-kpis?${sp.toString()}`, { method: "GET" });
 }
 
+// ─── Billing ───────────────────────────────────────────────────
 export async function getOrgBillingContext(params: {
   organization_id: string;
   page?: number;
@@ -66,6 +93,7 @@ export async function getOrgBillingContext(params: {
   return fetchJson(`/get-org-billing-context?${sp.toString()}`, { method: "GET" });
 }
 
+// ─── Invoice Coding ────────────────────────────────────────────
 export async function setOrgInvoiceCoding(payload: {
   organization_id: string;
   invoice_id: string;
@@ -80,6 +108,7 @@ export async function setOrgInvoiceCoding(payload: {
   return fetchJson(`/set-org-invoice-coding`, { method: "POST", body: JSON.stringify(payload) });
 }
 
+// ─── Privacy Access ────────────────────────────────────────────
 export async function requestIdentifiedAccess(payload: {
   organization_id: string;
   scope: "IDENTIFIED";
@@ -88,6 +117,7 @@ export async function requestIdentifiedAccess(payload: {
   return fetchJson(`/request-identified-access`, { method: "POST", body: JSON.stringify(payload) });
 }
 
+// ─── Entities ──────────────────────────────────────────────────
 export async function getOrgEntities(params: { organization_id: string }) {
   const sp = new URLSearchParams({ organization_id: params.organization_id });
   return fetchJson(`/get-org-entities?${sp.toString()}`, { method: "GET" });
@@ -116,6 +146,7 @@ export async function upsertOrgEntityDefaults(payload: {
   return fetchJson(`/upsert-org-entity-defaults`, { method: "POST", body: JSON.stringify(payload) });
 }
 
+// ─── Admin Privacy ─────────────────────────────────────────────
 export async function adminListPrivacyRequests(params?: { status?: string }) {
   const sp = new URLSearchParams();
   if (params?.status) sp.set("status", params.status);

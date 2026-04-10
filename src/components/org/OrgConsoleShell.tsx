@@ -1,7 +1,7 @@
 import { ReactNode, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useOrgConsoleContext, OrgListItem } from '@/hooks/useOrgConsole';
-import { Loader2, Building2, ChevronDown } from 'lucide-react';
+import { Loader2, Building2, ChevronDown, School, Landmark, Handshake } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
 import {
   DropdownMenu,
@@ -11,11 +11,32 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 
+const ORG_TYPE_ICON: Record<string, any> = {
+  SCHOOL: School,
+  UNIVERSITY: School,
+  IHK: Landmark,
+  HWK: Landmark,
+  PARTNER_AGENCY: Handshake,
+  PARTNER_AFFILIATE: Handshake,
+};
+
+const ORG_TYPE_LABEL: Record<string, string> = {
+  SCHOOL: 'Schul-Konsole',
+  UNIVERSITY: 'Hochschul-Konsole',
+  IHK: 'IHK Governance',
+  HWK: 'HWK Governance',
+  COMPANY: 'Enterprise Console',
+  PARTNER_AGENCY: 'Partner Console',
+  PARTNER_AFFILIATE: 'Partner Console',
+};
+
 interface OrgConsoleShellProps {
   children: (ctx: {
     orgId: string;
     orgName: string;
+    orgType: string;
     myRole: string;
+    capabilities: Record<string, boolean>;
     context: ReturnType<typeof useOrgConsoleContext>['data'];
     isLoading: boolean;
   }) => ReactNode;
@@ -26,7 +47,7 @@ export default function OrgConsoleShell({ children }: OrgConsoleShellProps) {
   const [selectedOrgId, setSelectedOrgId] = useState<string | undefined>();
   const { data, isLoading } = useOrgConsoleContext(selectedOrgId);
 
-  if (authLoading) {
+  if (authLoading || isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -36,17 +57,9 @@ export default function OrgConsoleShell({ children }: OrgConsoleShellProps) {
 
   if (!user) return <Navigate to="/auth" replace />;
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
   const orgs = data?.orgs || [];
   const selected = data?.selected;
-  const managementRoles = ['OWNER', 'MANAGER', 'IT_ADMIN', 'BILLING'];
+  const managementRoles = ['OWNER', 'MANAGER', 'IT_ADMIN', 'BILLING', 'SCHOOL_ADMIN', 'IHK_ADMIN', 'HWK_ADMIN', 'INSTRUCTOR'];
   const accessibleOrgs = orgs.filter(o => managementRoles.includes(o.my_role));
 
   if (accessibleOrgs.length === 0) {
@@ -55,15 +68,19 @@ export default function OrgConsoleShell({ children }: OrgConsoleShellProps) {
 
   const orgId = selected?.org?.id || accessibleOrgs[0]?.id || '';
   const orgName = selected?.org?.name || accessibleOrgs[0]?.name || 'Organisation';
+  const orgType = selected?.org?.org_type || accessibleOrgs[0]?.org_type || 'COMPANY';
   const myRole = selected?.my_role || accessibleOrgs[0]?.my_role || '';
+  const capabilities = selected?.capabilities || {};
+
+  const IconComponent = ORG_TYPE_ICON[orgType] || Building2;
+  const consoleLabel = ORG_TYPE_LABEL[orgType] || 'Enterprise Console';
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <header className="border-b border-border bg-card sticky top-0 z-40">
         <div className="max-w-[1400px] mx-auto px-4 h-14 flex items-center gap-3">
-          <Building2 className="h-5 w-5 text-primary" />
-          <span className="font-semibold text-sm text-foreground">Enterprise Console</span>
+          <IconComponent className="h-5 w-5 text-primary" />
+          <span className="font-semibold text-sm text-foreground">{consoleLabel}</span>
           <span className="text-muted-foreground text-xs">|</span>
 
           {accessibleOrgs.length > 1 ? (
@@ -78,6 +95,7 @@ export default function OrgConsoleShell({ children }: OrgConsoleShellProps) {
                 {accessibleOrgs.map((o: OrgListItem) => (
                   <DropdownMenuItem key={o.id} onClick={() => setSelectedOrgId(o.id)}>
                     {o.name}
+                    <span className="ml-2 text-[10px] text-muted-foreground">{o.org_type}</span>
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuContent>
@@ -87,14 +105,13 @@ export default function OrgConsoleShell({ children }: OrgConsoleShellProps) {
           )}
 
           <div className="ml-auto text-[10px] text-muted-foreground capitalize">
-            {myRole.replace('_', ' ')}
+            {myRole.replace(/_/g, ' ')}
           </div>
         </div>
       </header>
 
-      {/* Content */}
       <main className="max-w-[1400px] mx-auto px-4 py-4">
-        {children({ orgId, orgName, myRole, context: data, isLoading })}
+        {children({ orgId, orgName, orgType, myRole, capabilities, context: data, isLoading })}
       </main>
     </div>
   );
