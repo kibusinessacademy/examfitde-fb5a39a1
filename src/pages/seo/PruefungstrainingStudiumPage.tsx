@@ -33,8 +33,20 @@ const FAQS = [
   { question: 'Für welche Studiengänge ist ExamFit verfügbar?', answer: 'Aktuell bieten wir Klausurtraining für über 20 Studiengänge, darunter BWL, Wirtschaftsinformatik, Informatik, Maschinenbau, Jura und weitere MINT- sowie Wirtschaftsfächer.' },
   { question: 'Können Dozenten die Fortschritte einsehen?', answer: 'Ja. Über das Dozenten-Dashboard sehen Lehrende den Kompetenzstand der Studierenden, Risiko-Einschätzungen und den Trainingsfortschritt – pro Kurs oder Seminargruppe.' },
   { question: 'Funktioniert eine Lizenz für verschiedene Studiengänge?', answer: 'Ja! Eine Teamlizenz für Studium deckt alle verfügbaren Studiengänge ab. BWL, Informatik oder Maschinenbau – alle nutzen dieselbe Lizenz.' },
-  { question: 'Gibt es Konditionen für Universitäten und Hochschulen?', answer: 'Ja. Ab 10 Plätzen sinkt der Preis pro Studierendem. Für Hochschulen mit 25+ Plätzen bieten wir die günstigsten Konditionen.' },
+  { question: 'Ist ExamFit DSGVO-konform?', answer: 'Ja. Alle Daten werden ausschließlich auf EU-Servern verarbeitet. Studierende können jederzeit Auskunft über ihre Daten verlangen oder deren Löschung beantragen. Hochschulen erhalten eine ordentliche Rechnung mit ausgewiesener MwSt.' },
+  { question: 'Wie geht ExamFit mit KI um (EU AI Act)?', answer: 'ExamFit dokumentiert alle eingesetzten KI-Modelle transparent. Alle KI-generierten Inhalte durchlaufen ein mehrstufiges Qualitätssystem mit menschlicher Aufsicht. Die Datengrundlagen sind nachvollziehbar und revisionssicher.' },
+  { question: 'Werden Studierendendaten an die Hochschule weitergegeben?', answer: 'Nur wenn die Hochschule eine Teamlizenz nutzt: Dann sehen Dozenten den Kompetenzstand ihrer Studierenden. Individuelle Lernerdaten werden nie an Dritte weitergegeben.' },
+  { question: 'Gibt es Konditionen für Universitäten und Hochschulen?', answer: 'Ja. Ab 10 Plätzen sinkt der Preis pro Studierendem. Für Hochschulen mit 25+ Plätzen bieten wir die günstigsten Konditionen. Kontaktieren Sie uns unter info@examfit.de.' },
 ];
+
+const CONTACT = {
+  company: 'ExamFit',
+  owner: 'Diana Keil',
+  type: 'Einzelunternehmen',
+  street: 'Elsa-Brandström-Str. 4',
+  city: '76676 Graben-Neudorf',
+  email: 'info@examfit.de',
+};
 
 const studium = PRICING_CATEGORIES.studium;
 const TIERS = studium.b2b.tiers.map(t => ({

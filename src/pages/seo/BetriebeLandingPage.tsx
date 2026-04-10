@@ -44,10 +44,31 @@ const FAQS = [
     answer: 'Ja, Sie erhalten automatisch eine Rechnung mit ausgewiesener MwSt. für Ihre Buchhaltung.',
   },
   {
+    question: 'Ist ExamFit DSGVO-konform?',
+    answer: 'Ja. Alle Daten werden ausschließlich auf EU-Servern gespeichert und verarbeitet. ExamFit erfüllt die Anforderungen der DSGVO vollständig: Datenminimierung, Zweckbindung, Auskunfts- und Löschrechte für Nutzer sowie technisch-organisatorische Maßnahmen nach Art. 32 DSGVO.',
+  },
+  {
+    question: 'Wie geht ExamFit mit dem EU AI Act um?',
+    answer: 'ExamFit ist als KI-System im Bildungsbereich gemäß EU AI Act klassifiziert. Wir gewährleisten lückenlose Dokumentation aller KI-Entscheidungen, menschliche Aufsicht über alle KI-generierten Inhalte durch ein mehrstufiges Quality-Gate-System und volle Transparenz über eingesetzte Modelle und Datengrundlagen.',
+  },
+  {
+    question: 'Wer hat Zugriff auf die Lernerdaten meiner Mitarbeiter?',
+    answer: 'Nur Sie als Lizenznehmer und die zugewiesenen Nutzer selbst. ExamFit gibt keine individuellen Lernerdaten an Dritte weiter. Aggregierte, anonymisierte Auswertungen stehen Ihnen im Admin-Dashboard zur Verfügung.',
+  },
+  {
     question: 'Ab wie vielen Azubis lohnt sich das?',
     answer: 'Bereits ab 5 Plätzen profitieren Sie von Mengenrabatten und dem Ausbilder-Dashboard. Die meisten Betriebe starten mit 5–10 Plätzen.',
   },
 ];
+
+const CONTACT = {
+  company: 'ExamFit',
+  owner: 'Diana Keil',
+  type: 'Einzelunternehmen',
+  street: 'Elsa-Brandström-Str. 4',
+  city: '76676 Graben-Neudorf',
+  email: 'info@examfit.de',
+};
 
 /* ─── Pricing tiers for "Ausbildung" category (primary B2B target) ─── */
 const ausbildung = PRICING_CATEGORIES.ausbildung;
@@ -466,6 +487,22 @@ export default function BetriebeLandingPage() {
                 </details>
               ))}
             </div>
+          </div>
+        </section>
+
+        {/* ═══════════════ KONTAKT ═══════════════ */}
+        <section className="py-12 border-t border-border">
+          <div className="container max-w-4xl text-center space-y-2">
+            <p className="font-semibold">{CONTACT.company}</p>
+            <p className="text-sm text-muted-foreground">
+              Inhaberin: {CONTACT.owner} · {CONTACT.type}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {CONTACT.street} · {CONTACT.city}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {CONTACT.email}
+            </p>
           </div>
         </section>
 

@@ -13,6 +13,8 @@ const FAQS = [
   { question: 'Ist ExamFit auch für HWK-Prüfungen geeignet?', answer: 'Ja. ExamFit deckt sowohl IHK- als auch HWK-Ausbildungsberufe ab. Die Inhalte sind jeweils auf die prüfungsrelevanten Anforderungen der zuständigen Kammer abgestimmt.' },
   { question: 'Wie unterscheidet sich ExamFit von alten Prüfungen?', answer: 'ExamFit ist kein Fragenkatalog. Es ist ein adaptives Trainingssystem mit Prüfungssimulation, KI-Fehleranalyse und Bestehenswahrscheinlichkeit – auf Basis psychometrischer Modelle.' },
   { question: 'Gibt es auch Teamlizenzen für Betriebe?', answer: 'Ja! Betriebe kaufen Plätze statt Kurse. Eine Ausbildungslizenz deckt alle Berufe ab – ab 29,80 €/Platz pro Jahr. Ideal für gemischte Teams.' },
+  { question: 'Ist ExamFit DSGVO-konform?', answer: 'Ja. Alle Daten werden auf EU-Servern gespeichert. ExamFit erfüllt die DSGVO vollständig: Datenminimierung, Löschrechte und technische Sicherheitsmaßnahmen sind implementiert.' },
+  { question: 'Wie setzt ExamFit KI ein?', answer: 'KI unterstützt bei Fehleranalyse, adaptivem Training und Bestehenswahrscheinlichkeit. Alle Prüfungsinhalte werden vor Freigabe durch ein mehrstufiges Qualitätssystem geprüft.' },
 ];
 
 export default function IHKPruefungenPage() {
