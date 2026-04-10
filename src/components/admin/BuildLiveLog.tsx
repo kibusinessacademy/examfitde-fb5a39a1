@@ -73,6 +73,19 @@ function formatLogMessage(step: any): LogEntry {
   } else if (step.status === 'failed') {
     message = `❌ ${stepLabel} fehlgeschlagen`;
     detail = errorMessage || '';
+  } else if (step.status === 'skipped') {
+    message = `⏭ ${stepLabel} übersprungen`;
+    if (log) {
+      try {
+        const parsed = typeof log === 'string' ? JSON.parse(log) : log;
+        if (parsed.skipped_reason) detail = parsed.skipped_reason;
+        else if (parsed.skip_reason) detail = parsed.skip_reason;
+      } catch { /* ignore */ }
+    }
+  } else if (step.status === 'queued' || step.status === 'enqueued') {
+    message = `🔜 ${stepLabel} in Warteschlange`;
+  } else if (step.status === 'pending') {
+    message = `⏸ ${stepLabel} wartet`;
   } else {
     message = `⏸ ${stepLabel} wartet`;
   }
@@ -108,7 +121,7 @@ export default function BuildLiveLog({ packageId, isBuilding }: BuildLiveLogProp
       if (!active || error || !data) return;
 
       const entries = data
-        .filter((s: any) => s.status !== 'pending' && s.status !== 'queued')
+        .filter((s: any) => s.status !== 'pending')
         .map(formatLogMessage);
       setLogs(entries);
     };
@@ -167,7 +180,9 @@ export default function BuildLiveLog({ packageId, isBuilding }: BuildLiveLogProp
                     "flex-1",
                     entry.status === 'failed' ? 'text-destructive' :
                     entry.status === 'done' ? 'text-foreground' :
-                    entry.status === 'running' ? 'text-primary' : 'text-muted-foreground'
+                    entry.status === 'running' ? 'text-primary' : 
+                    entry.status === 'skipped' ? 'text-muted-foreground/60' :
+                    entry.status === 'queued' ? 'text-yellow-500' : 'text-muted-foreground'
                   )}>
                     {entry.message}
                     {entry.duration_ms && entry.status === 'done' && (
