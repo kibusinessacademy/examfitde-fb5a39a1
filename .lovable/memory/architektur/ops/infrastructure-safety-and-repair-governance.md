@@ -2,7 +2,7 @@
 
 ## Updated: 2026-04-11
 
-### Status: Phase 2a abgeschlossen. Phase 2b (Verifikation unter Last) aktiv.
+### Status: Root Cause gefixt, Cleanup durchgeführt. Finale Bestätigung nach Live-Verifikation des nächsten Runner-Zyklus.
 
 > System technisch gehärtet, Reinfektionsschutz aktiv, Massenfehler requeued.
 > Finale Freigabe nach 1 vollständigem Rebuild-Zyklus und Drift-Nullprüfung.
