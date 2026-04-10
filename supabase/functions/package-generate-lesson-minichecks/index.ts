@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { prereqDone } from "../_shared/prereq-done.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { callAIWithFailover } from "../_shared/ai-client.ts";
 import type { AIProvider } from "../_shared/ai-client.ts";

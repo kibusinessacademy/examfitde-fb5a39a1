@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { prereqDone } from "../_shared/prereq-done.ts";
 import { pctOrNA } from "../_shared/math-helpers.ts";
 import { checkExamPartMappingDrift } from "../_shared/exam-part-mappings.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";

@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { prereqDone } from "../_shared/prereq-done.ts";
 import { markStepDone } from "../_shared/steps.ts";
 import { assertSchemaReady } from "../_shared/schema-gate.ts";
 import { bootstrapLLMLogging } from "../_shared/llm-log-bootstrap.ts";
