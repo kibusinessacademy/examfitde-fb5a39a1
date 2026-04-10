@@ -382,15 +382,21 @@ async function probeMinicheckReadiness(sb: any, packageId: string): Promise<Read
   const curriculumId = await getCurriculumIdForPackage(sb, packageId);
   if (!curriculumId) return { verdict: "UNKNOWN" };
 
+  // lessons has competency_id, not curriculum_id — count via competencies join
   const [{ count: questionCount }, { count: lessonCount }] = await Promise.all([
     sb.from("minicheck_questions").select("id", { count: "exact", head: true }).eq("curriculum_id", curriculumId),
-    sb.from("lessons").select("id", { count: "exact", head: true }).eq("curriculum_id", curriculumId),
+    sb.from("lessons").select("id", { count: "exact", head: true })
+      .in("competency_id",
+        // subquery: get competency IDs for this curriculum
+        await sb.from("competencies").select("id").eq("curriculum_id", curriculumId)
+          .then((r: any) => (r.data ?? []).map((c: any) => c.id))
+      ),
   ]);
 
   if ((lessonCount ?? 0) === 0) return { verdict: "STILL_BLOCKED", reason: "no lessons" };
-  // At least 1 question per lesson is the minimum threshold
   if ((questionCount ?? 0) >= (lessonCount ?? 1)) {
-    return { verdict: "PASS_READY", reason: `${questionCount} minichecks for ${lessonCount} lessons` };
+    // Heuristic — real validator may check more dimensions
+    return { verdict: "LIKELY_READY", reason: `${questionCount} minichecks for ${lessonCount} lessons` };
   }
   return { verdict: "STILL_BLOCKED", reason: `${questionCount}/${lessonCount} minichecks` };
 }
