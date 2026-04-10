@@ -27495,10 +27495,13 @@ export type Database = {
           correct_answer: number
           created_at: string
           curriculum_id: string | null
+          dedupe_batch: string | null
           difficulty: string | null
           distractor_meta: Json | null
+          duplicate_of: string | null
           explanation: string | null
           id: string
+          is_duplicate: boolean | null
           last_audited_at: string | null
           lesson_id: string | null
           mode: string
@@ -27521,10 +27524,13 @@ export type Database = {
           correct_answer: number
           created_at?: string
           curriculum_id?: string | null
+          dedupe_batch?: string | null
           difficulty?: string | null
           distractor_meta?: Json | null
+          duplicate_of?: string | null
           explanation?: string | null
           id?: string
+          is_duplicate?: boolean | null
           last_audited_at?: string | null
           lesson_id?: string | null
           mode?: string
@@ -27547,10 +27553,13 @@ export type Database = {
           correct_answer?: number
           created_at?: string
           curriculum_id?: string | null
+          dedupe_batch?: string | null
           difficulty?: string | null
           distractor_meta?: Json | null
+          duplicate_of?: string | null
           explanation?: string | null
           id?: string
+          is_duplicate?: boolean | null
           last_audited_at?: string | null
           lesson_id?: string | null
           mode?: string
