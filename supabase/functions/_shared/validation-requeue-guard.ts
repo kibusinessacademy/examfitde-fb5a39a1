@@ -61,8 +61,10 @@ const UPSTREAM_PROGRESS_STEPS: Record<string, string[]> = {
  *   - minicheck_questions: FK=curriculum_id, HAS updated_at
  *   - exam_questions:      FK=curriculum_id, NO updated_at → use created_at
  *   - handbook_chapters:   FK=curriculum_id, HAS updated_at
- *   - oral_exam_questions: NO curriculum_id, NO updated_at → not usable for artifact progress
+ *   - oral_exam_questions: FK=learning_field_id (NO package_id, NO curriculum_id) → not usable for artifact progress
  *   - package_content_shards: FK=package_id, HAS updated_at ✅ (direct)
+ *   - question_blueprints: FK=curriculum_id, HAS status (SSOT for blueprints)
+ *   - exam_blueprints:     FK=curriculum_id, NO status (NOT the SSOT for blueprint validation)
  *
  * Tables without package_id require resolving curriculum_id from course_packages first.
  */
