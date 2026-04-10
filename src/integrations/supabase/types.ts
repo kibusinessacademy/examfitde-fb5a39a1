@@ -5076,9 +5076,11 @@ export type Database = {
           ai_rationale: string | null
           ai_risk_notes: string | null
           ai_summary: string | null
+          base_priority_score: number
           confidence_score: number
           created_at: string
           execution_mode: string
+          goal_adjustment_factor: number
           id: string
           priority_score: number
           rationale: Json
@@ -5095,9 +5097,11 @@ export type Database = {
           ai_rationale?: string | null
           ai_risk_notes?: string | null
           ai_summary?: string | null
+          base_priority_score?: number
           confidence_score?: number
           created_at?: string
           execution_mode?: string
+          goal_adjustment_factor?: number
           id?: string
           priority_score?: number
           rationale?: Json
@@ -5114,9 +5118,11 @@ export type Database = {
           ai_rationale?: string | null
           ai_risk_notes?: string | null
           ai_summary?: string | null
+          base_priority_score?: number
           confidence_score?: number
           created_at?: string
           execution_mode?: string
+          goal_adjustment_factor?: number
           id?: string
           priority_score?: number
           rationale?: Json
