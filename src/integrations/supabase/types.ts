@@ -6897,6 +6897,84 @@ export type Database = {
         }
         Relationships: []
       }
+      content_generation_jobs: {
+        Row: {
+          completed_at: string | null
+          content_brief: Json
+          content_type: string
+          created_at: string
+          curriculum_id: string | null
+          draft_content: Json
+          error: string | null
+          id: string
+          input_payload: Json
+          keyword_id: string | null
+          output_content_id: string | null
+          output_table: string | null
+          persona: string
+          pipeline_step: string
+          priority: number
+          quality_scores: Json
+          research_context: Json
+          retry_count: number
+          ssot_context: Json
+          started_at: string | null
+          status: string
+          updated_at: string
+          validation_result: Json
+        }
+        Insert: {
+          completed_at?: string | null
+          content_brief?: Json
+          content_type: string
+          created_at?: string
+          curriculum_id?: string | null
+          draft_content?: Json
+          error?: string | null
+          id?: string
+          input_payload?: Json
+          keyword_id?: string | null
+          output_content_id?: string | null
+          output_table?: string | null
+          persona?: string
+          pipeline_step?: string
+          priority?: number
+          quality_scores?: Json
+          research_context?: Json
+          retry_count?: number
+          ssot_context?: Json
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+          validation_result?: Json
+        }
+        Update: {
+          completed_at?: string | null
+          content_brief?: Json
+          content_type?: string
+          created_at?: string
+          curriculum_id?: string | null
+          draft_content?: Json
+          error?: string | null
+          id?: string
+          input_payload?: Json
+          keyword_id?: string | null
+          output_content_id?: string | null
+          output_table?: string | null
+          persona?: string
+          pipeline_step?: string
+          priority?: number
+          quality_scores?: Json
+          research_context?: Json
+          retry_count?: number
+          ssot_context?: Json
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+          validation_result?: Json
+        }
+        Relationships: []
+      }
       content_hooks: {
         Row: {
           avg_performance_score: number | null
@@ -7522,6 +7600,90 @@ export type Database = {
           started_at?: string
           status?: string
           warning_count?: number
+        }
+        Relationships: []
+      }
+      content_research_cache: {
+        Row: {
+          context_hash: string
+          created_at: string
+          entities: Json
+          expires_at: string
+          id: string
+          intent_summary: string | null
+          keyword_id: string
+          provider: string
+          questions: Json
+          related_terms: Json
+          search_context: Json
+        }
+        Insert: {
+          context_hash?: string
+          created_at?: string
+          entities?: Json
+          expires_at?: string
+          id?: string
+          intent_summary?: string | null
+          keyword_id: string
+          provider?: string
+          questions?: Json
+          related_terms?: Json
+          search_context?: Json
+        }
+        Update: {
+          context_hash?: string
+          created_at?: string
+          entities?: Json
+          expires_at?: string
+          id?: string
+          intent_summary?: string | null
+          keyword_id?: string
+          provider?: string
+          questions?: Json
+          related_terms?: Json
+          search_context?: Json
+        }
+        Relationships: []
+      }
+      content_ssot_context: {
+        Row: {
+          blueprints: Json
+          common_errors: Json
+          competencies: Json
+          context_hash: string
+          created_at: string
+          curriculum_id: string | null
+          definitions: Json
+          exam_questions: Json
+          expires_at: string
+          id: string
+          keyword_id: string
+        }
+        Insert: {
+          blueprints?: Json
+          common_errors?: Json
+          competencies?: Json
+          context_hash?: string
+          created_at?: string
+          curriculum_id?: string | null
+          definitions?: Json
+          exam_questions?: Json
+          expires_at?: string
+          id?: string
+          keyword_id: string
+        }
+        Update: {
+          blueprints?: Json
+          common_errors?: Json
+          competencies?: Json
+          context_hash?: string
+          created_at?: string
+          curriculum_id?: string | null
+          definitions?: Json
+          exam_questions?: Json
+          expires_at?: string
+          id?: string
+          keyword_id?: string
         }
         Relationships: []
       }
@@ -22084,6 +22246,51 @@ export type Database = {
         }
         Relationships: []
       }
+      growth_metrics: {
+        Row: {
+          content_output_count: number
+          curriculum_id: string | null
+          engagement_score: number
+          id: string
+          referral_rate: number
+          share_rate: number
+          total_conversions: number
+          total_referrals: number
+          total_shares: number
+          updated_at: string
+          user_id: string
+          virality_score: number
+        }
+        Insert: {
+          content_output_count?: number
+          curriculum_id?: string | null
+          engagement_score?: number
+          id?: string
+          referral_rate?: number
+          share_rate?: number
+          total_conversions?: number
+          total_referrals?: number
+          total_shares?: number
+          updated_at?: string
+          user_id: string
+          virality_score?: number
+        }
+        Update: {
+          content_output_count?: number
+          curriculum_id?: string | null
+          engagement_score?: number
+          id?: string
+          referral_rate?: number
+          share_rate?: number
+          total_conversions?: number
+          total_referrals?: number
+          total_shares?: number
+          updated_at?: string
+          user_id?: string
+          virality_score?: number
+        }
+        Relationships: []
+      }
       growth_risk_scores: {
         Row: {
           computed_at: string
@@ -26914,6 +27121,57 @@ export type Database = {
           },
         ]
       }
+      newsletter_campaigns: {
+        Row: {
+          audience: string
+          audience_filter: Json
+          click_rate: number | null
+          content_html: string | null
+          content_md: string | null
+          created_at: string
+          id: string
+          open_rate: number | null
+          recipient_count: number
+          scheduled_at: string | null
+          sent_at: string | null
+          status: string
+          subject: string
+          updated_at: string
+        }
+        Insert: {
+          audience?: string
+          audience_filter?: Json
+          click_rate?: number | null
+          content_html?: string | null
+          content_md?: string | null
+          created_at?: string
+          id?: string
+          open_rate?: number | null
+          recipient_count?: number
+          scheduled_at?: string | null
+          sent_at?: string | null
+          status?: string
+          subject: string
+          updated_at?: string
+        }
+        Update: {
+          audience?: string
+          audience_filter?: Json
+          click_rate?: number | null
+          content_html?: string | null
+          content_md?: string | null
+          created_at?: string
+          id?: string
+          open_rate?: number | null
+          recipient_count?: number
+          scheduled_at?: string | null
+          sent_at?: string | null
+          status?: string
+          subject?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       newsletter_subscribers: {
         Row: {
           email: string
@@ -27069,6 +27327,75 @@ export type Database = {
           total_findings?: number
           verdict?: string
           warning_findings?: number
+        }
+        Relationships: []
+      }
+      offers: {
+        Row: {
+          created_at: string
+          cta_route: string | null
+          cta_text: string | null
+          current_claims: number
+          curriculum_id: string | null
+          description: string | null
+          discount_percentage: number | null
+          id: string
+          max_claims: number | null
+          offer_type: string
+          original_price: number | null
+          price: number | null
+          priority: number
+          product_id: string | null
+          status: string
+          targeting_rules: Json
+          title: string
+          updated_at: string
+          valid_from: string
+          valid_until: string | null
+        }
+        Insert: {
+          created_at?: string
+          cta_route?: string | null
+          cta_text?: string | null
+          current_claims?: number
+          curriculum_id?: string | null
+          description?: string | null
+          discount_percentage?: number | null
+          id?: string
+          max_claims?: number | null
+          offer_type?: string
+          original_price?: number | null
+          price?: number | null
+          priority?: number
+          product_id?: string | null
+          status?: string
+          targeting_rules?: Json
+          title: string
+          updated_at?: string
+          valid_from?: string
+          valid_until?: string | null
+        }
+        Update: {
+          created_at?: string
+          cta_route?: string | null
+          cta_text?: string | null
+          current_claims?: number
+          curriculum_id?: string | null
+          description?: string | null
+          discount_percentage?: number | null
+          id?: string
+          max_claims?: number | null
+          offer_type?: string
+          original_price?: number | null
+          price?: number | null
+          priority?: number
+          product_id?: string | null
+          status?: string
+          targeting_rules?: Json
+          title?: string
+          updated_at?: string
+          valid_from?: string
+          valid_until?: string | null
         }
         Relationships: []
       }
@@ -35550,6 +35877,51 @@ export type Database = {
           },
         ]
       }
+      pricing_rules: {
+        Row: {
+          condition: Json
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          modifier_type: string
+          price_modifier: number
+          priority: number
+          rule_name: string
+          updated_at: string
+          valid_from: string | null
+          valid_until: string | null
+        }
+        Insert: {
+          condition?: Json
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          modifier_type?: string
+          price_modifier?: number
+          priority?: number
+          rule_name: string
+          updated_at?: string
+          valid_from?: string | null
+          valid_until?: string | null
+        }
+        Update: {
+          condition?: Json
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          modifier_type?: string
+          price_modifier?: number
+          priority?: number
+          rule_name?: string
+          updated_at?: string
+          valid_from?: string | null
+          valid_until?: string | null
+        }
+        Relationships: []
+      }
       priority_score_rules: {
         Row: {
           created_at: string
@@ -36269,6 +36641,57 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      product_bundles: {
+        Row: {
+          bundle_price: number
+          created_at: string
+          curriculum_id: string | null
+          description: string | null
+          id: string
+          included_product_ids: string[]
+          name: string
+          original_price: number
+          savings_percent: number | null
+          status: string
+          target_persona: string | null
+          target_stage: string | null
+          updated_at: string
+          valid_until: string | null
+        }
+        Insert: {
+          bundle_price: number
+          created_at?: string
+          curriculum_id?: string | null
+          description?: string | null
+          id?: string
+          included_product_ids?: string[]
+          name: string
+          original_price: number
+          savings_percent?: number | null
+          status?: string
+          target_persona?: string | null
+          target_stage?: string | null
+          updated_at?: string
+          valid_until?: string | null
+        }
+        Update: {
+          bundle_price?: number
+          created_at?: string
+          curriculum_id?: string | null
+          description?: string | null
+          id?: string
+          included_product_ids?: string[]
+          name?: string
+          original_price?: number
+          savings_percent?: number | null
+          status?: string
+          target_persona?: string | null
+          target_stage?: string | null
+          updated_at?: string
+          valid_until?: string | null
+        }
+        Relationships: []
       }
       product_categories: {
         Row: {
@@ -40716,6 +41139,56 @@ export type Database = {
           },
         ]
       }
+      retention_actions: {
+        Row: {
+          action_type: string
+          created_at: string
+          curriculum_id: string | null
+          executed: boolean
+          executed_at: string | null
+          id: string
+          reason: string | null
+          recommended_offer_id: string | null
+          result: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          action_type: string
+          created_at?: string
+          curriculum_id?: string | null
+          executed?: boolean
+          executed_at?: string | null
+          id?: string
+          reason?: string | null
+          recommended_offer_id?: string | null
+          result?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          action_type?: string
+          created_at?: string
+          curriculum_id?: string | null
+          executed?: boolean
+          executed_at?: string | null
+          id?: string
+          reason?: string | null
+          recommended_offer_id?: string | null
+          result?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "retention_actions_recommended_offer_id_fkey"
+            columns: ["recommended_offer_id"]
+            isOneToOne: false
+            referencedRelation: "offers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       retention_events: {
         Row: {
           channel: string | null
@@ -40849,6 +41322,57 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      revenue_metrics_daily: {
+        Row: {
+          active_users: number
+          avg_order_value: number
+          churn_rate: number
+          conversion_rate: number
+          created_at: string
+          date: string
+          id: string
+          ltv: number
+          metadata: Json
+          new_users: number
+          offers_claimed: number
+          offers_shown: number
+          paying_users: number
+          revenue: number
+        }
+        Insert: {
+          active_users?: number
+          avg_order_value?: number
+          churn_rate?: number
+          conversion_rate?: number
+          created_at?: string
+          date?: string
+          id?: string
+          ltv?: number
+          metadata?: Json
+          new_users?: number
+          offers_claimed?: number
+          offers_shown?: number
+          paying_users?: number
+          revenue?: number
+        }
+        Update: {
+          active_users?: number
+          avg_order_value?: number
+          churn_rate?: number
+          conversion_rate?: number
+          created_at?: string
+          date?: string
+          id?: string
+          ltv?: number
+          metadata?: Json
+          new_users?: number
+          offers_claimed?: number
+          offers_shown?: number
+          paying_users?: number
+          revenue?: number
+        }
+        Relationships: []
       }
       risk_scores: {
         Row: {
@@ -47146,6 +47670,65 @@ export type Database = {
         }
         Relationships: []
       }
+      ugc_content: {
+        Row: {
+          approved: boolean
+          approved_at: string | null
+          approved_by: string | null
+          content: Json
+          content_type: string
+          created_at: string
+          id: string
+          published_url: string | null
+          rejection_reason: string | null
+          source_share_event_id: string | null
+          source_type: string | null
+          title: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          approved?: boolean
+          approved_at?: string | null
+          approved_by?: string | null
+          content?: Json
+          content_type: string
+          created_at?: string
+          id?: string
+          published_url?: string | null
+          rejection_reason?: string | null
+          source_share_event_id?: string | null
+          source_type?: string | null
+          title?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          approved?: boolean
+          approved_at?: string | null
+          approved_by?: string | null
+          content?: Json
+          content_type?: string
+          created_at?: string
+          id?: string
+          published_url?: string | null
+          rejection_reason?: string | null
+          source_share_event_id?: string | null
+          source_type?: string | null
+          title?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ugc_content_source_share_event_id_fkey"
+            columns: ["source_share_event_id"]
+            isOneToOne: false
+            referencedRelation: "share_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ui_content_blocks: {
         Row: {
           audience: string
@@ -47194,6 +47777,42 @@ export type Database = {
           scope?: string
           status?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      urgency_signals: {
+        Row: {
+          curriculum_id: string | null
+          days_left: number | null
+          exam_date: string | null
+          id: string
+          metadata: Json
+          signal_type: string
+          updated_at: string
+          urgency_level: string
+          user_id: string
+        }
+        Insert: {
+          curriculum_id?: string | null
+          days_left?: number | null
+          exam_date?: string | null
+          id?: string
+          metadata?: Json
+          signal_type?: string
+          updated_at?: string
+          urgency_level?: string
+          user_id: string
+        }
+        Update: {
+          curriculum_id?: string | null
+          days_left?: number | null
+          exam_date?: string | null
+          id?: string
+          metadata?: Json
+          signal_type?: string
+          updated_at?: string
+          urgency_level?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -47955,6 +48574,60 @@ export type Database = {
           },
         ]
       }
+      user_revenue_profile: {
+        Row: {
+          curriculum_id: string | null
+          engagement_score: number
+          id: string
+          last_activity_at: string | null
+          last_offer_shown: string | null
+          last_offer_shown_at: string | null
+          ltv_estimate: number
+          price_sensitivity: string
+          purchase_count: number
+          purchase_probability: number
+          readiness_score: number
+          risk_level: string
+          total_spent: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          curriculum_id?: string | null
+          engagement_score?: number
+          id?: string
+          last_activity_at?: string | null
+          last_offer_shown?: string | null
+          last_offer_shown_at?: string | null
+          ltv_estimate?: number
+          price_sensitivity?: string
+          purchase_count?: number
+          purchase_probability?: number
+          readiness_score?: number
+          risk_level?: string
+          total_spent?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          curriculum_id?: string | null
+          engagement_score?: number
+          id?: string
+          last_activity_at?: string | null
+          last_offer_shown?: string | null
+          last_offer_shown_at?: string | null
+          ltv_estimate?: number
+          price_sensitivity?: string
+          purchase_count?: number
+          purchase_probability?: number
+          readiness_score?: number
+          risk_level?: string
+          total_spent?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -48396,6 +49069,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      viral_hooks: {
+        Row: {
+          category: string
+          clicks: number
+          created_at: string
+          hook_text: string
+          id: string
+          impressions: number
+          is_active: boolean
+          performance_score: number
+          shares: number
+          target_persona: string | null
+          target_platform: string | null
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          clicks?: number
+          created_at?: string
+          hook_text: string
+          id?: string
+          impressions?: number
+          is_active?: boolean
+          performance_score?: number
+          shares?: number
+          target_persona?: string | null
+          target_platform?: string | null
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          clicks?: number
+          created_at?: string
+          hook_text?: string
+          id?: string
+          impressions?: number
+          is_active?: boolean
+          performance_score?: number
+          shares?: number
+          target_persona?: string | null
+          target_platform?: string | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       wave_governance_decisions: {
         Row: {
@@ -70920,6 +71638,7 @@ export type Database = {
         }[]
       }
       fn_build_refresh_queue: { Args: never; Returns: number }
+      fn_build_ssot_context: { Args: { p_keyword_id: string }; Returns: Json }
       fn_calculate_pass_probability: {
         Args: {
           p_curriculum_id?: string
@@ -70961,6 +71680,10 @@ export type Database = {
         Args: { p_curriculum_id: string }
         Returns: string
       }
+      fn_compute_growth_score: {
+        Args: { p_curriculum_id?: string; p_user_id: string }
+        Returns: Json
+      }
       fn_compute_handbook_depth_fingerprint: {
         Args: { p_curriculum_id: string }
         Returns: Json
@@ -70984,6 +71707,11 @@ export type Database = {
           p_updated_at: string
         }
         Returns: string
+      }
+      fn_compute_urgency: { Args: { p_user_id: string }; Returns: Json }
+      fn_compute_user_revenue_profile: {
+        Args: { p_curriculum_id?: string; p_user_id: string }
+        Returns: Json
       }
       fn_create_partner_commission: {
         Args: {
@@ -71101,6 +71829,10 @@ export type Database = {
         Args: { p_content_md: string; p_doc_type: string; p_title: string }
         Returns: string
       }
+      fn_get_best_offer: {
+        Args: { p_curriculum_id?: string; p_user_id: string }
+        Returns: Json
+      }
       fn_get_fi_equivalent_questions: {
         Args: { p_learning_field_id: string }
         Returns: {
@@ -71166,6 +71898,11 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      fn_get_growth_dashboard_summary: { Args: never; Returns: Json }
+      fn_get_next_revenue_action: {
+        Args: { p_curriculum_id?: string; p_user_id: string }
+        Returns: Json
       }
       fn_get_or_create_shuttle_session: {
         Args: {
