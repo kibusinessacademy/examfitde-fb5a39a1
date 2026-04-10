@@ -23446,6 +23446,50 @@ export type Database = {
           },
         ]
       }
+      humor_asset_reviews: {
+        Row: {
+          created_at: string
+          decision: string
+          humor_item_id: string
+          id: string
+          metadata: Json
+          reason: string | null
+          review_type: string
+          reviewed_by: string
+          score: number | null
+        }
+        Insert: {
+          created_at?: string
+          decision: string
+          humor_item_id: string
+          id?: string
+          metadata?: Json
+          reason?: string | null
+          review_type: string
+          reviewed_by?: string
+          score?: number | null
+        }
+        Update: {
+          created_at?: string
+          decision?: string
+          humor_item_id?: string
+          id?: string
+          metadata?: Json
+          reason?: string | null
+          review_type?: string
+          reviewed_by?: string
+          score?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "humor_asset_reviews_humor_item_id_fkey"
+            columns: ["humor_item_id"]
+            isOneToOne: false
+            referencedRelation: "humor_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       humor_daily_pick: {
         Row: {
           created_at: string
@@ -23480,29 +23524,44 @@ export type Database = {
       }
       humor_delivery_events: {
         Row: {
+          competency_id: string | null
           context_ref: string | null
           created_at: string
+          curriculum_id: string | null
+          dwell_ms: number | null
           humor_item_id: string
           id: string
+          lesson_id: string | null
           reaction: Database["public"]["Enums"]["humor_reaction"] | null
+          session_id: string | null
           surface: Database["public"]["Enums"]["humor_surface"]
           user_id: string
         }
         Insert: {
+          competency_id?: string | null
           context_ref?: string | null
           created_at?: string
+          curriculum_id?: string | null
+          dwell_ms?: number | null
           humor_item_id: string
           id?: string
+          lesson_id?: string | null
           reaction?: Database["public"]["Enums"]["humor_reaction"] | null
+          session_id?: string | null
           surface: Database["public"]["Enums"]["humor_surface"]
           user_id: string
         }
         Update: {
+          competency_id?: string | null
           context_ref?: string | null
           created_at?: string
+          curriculum_id?: string | null
+          dwell_ms?: number | null
           humor_item_id?: string
           id?: string
+          lesson_id?: string | null
           reaction?: Database["public"]["Enums"]["humor_reaction"] | null
+          session_id?: string | null
           surface?: Database["public"]["Enums"]["humor_surface"]
           user_id?: string
         }
@@ -23548,18 +23607,64 @@ export type Database = {
           },
         ]
       }
+      humor_generation_jobs: {
+        Row: {
+          certification_id: string
+          created_at: string
+          curriculum_id: string | null
+          humor_type: string | null
+          id: string
+          prompt_version: string | null
+          result_summary: Json
+          status: string
+          target_count: number
+          updated_at: string
+        }
+        Insert: {
+          certification_id: string
+          created_at?: string
+          curriculum_id?: string | null
+          humor_type?: string | null
+          id?: string
+          prompt_version?: string | null
+          result_summary?: Json
+          status?: string
+          target_count: number
+          updated_at?: string
+        }
+        Update: {
+          certification_id?: string
+          created_at?: string
+          curriculum_id?: string | null
+          humor_type?: string | null
+          id?: string
+          prompt_version?: string | null
+          result_summary?: Json
+          status?: string
+          target_count?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       humor_items: {
         Row: {
+          blueprint_id: string | null
           certification_id: string
           competence_id: string | null
           created_at: string
           created_by: string | null
           created_via: string
+          curriculum_id: string | null
+          difficulty_context: string | null
+          duplication_fingerprint: string | null
+          exam_relevance: string | null
+          explanation: string | null
           humor_type: Database["public"]["Enums"]["humor_type"]
           id: string
           language: string
           last_shown_at: string | null
           lesson_id: string | null
+          metadata: Json
           modernity_level: number
           quality_score: number
           review_after: string | null
@@ -23568,26 +23673,35 @@ export type Database = {
           share_count: number
           share_image_url: string | null
           shown_count: number
+          source_kind: string
           source_prompt_hash: string | null
           status: Database["public"]["Enums"]["humor_status"]
           style_tags: string[]
           text: string
+          title: string | null
           tone: string
           updated_at: string
           valid_from: string | null
           valid_to: string | null
         }
         Insert: {
+          blueprint_id?: string | null
           certification_id: string
           competence_id?: string | null
           created_at?: string
           created_by?: string | null
           created_via?: string
+          curriculum_id?: string | null
+          difficulty_context?: string | null
+          duplication_fingerprint?: string | null
+          exam_relevance?: string | null
+          explanation?: string | null
           humor_type?: Database["public"]["Enums"]["humor_type"]
           id?: string
           language?: string
           last_shown_at?: string | null
           lesson_id?: string | null
+          metadata?: Json
           modernity_level?: number
           quality_score?: number
           review_after?: string | null
@@ -23596,26 +23710,35 @@ export type Database = {
           share_count?: number
           share_image_url?: string | null
           shown_count?: number
+          source_kind?: string
           source_prompt_hash?: string | null
           status?: Database["public"]["Enums"]["humor_status"]
           style_tags?: string[]
           text: string
+          title?: string | null
           tone?: string
           updated_at?: string
           valid_from?: string | null
           valid_to?: string | null
         }
         Update: {
+          blueprint_id?: string | null
           certification_id?: string
           competence_id?: string | null
           created_at?: string
           created_by?: string | null
           created_via?: string
+          curriculum_id?: string | null
+          difficulty_context?: string | null
+          duplication_fingerprint?: string | null
+          exam_relevance?: string | null
+          explanation?: string | null
           humor_type?: Database["public"]["Enums"]["humor_type"]
           id?: string
           language?: string
           last_shown_at?: string | null
           lesson_id?: string | null
+          metadata?: Json
           modernity_level?: number
           quality_score?: number
           review_after?: string | null
@@ -23624,10 +23747,12 @@ export type Database = {
           share_count?: number
           share_image_url?: string | null
           shown_count?: number
+          source_kind?: string
           source_prompt_hash?: string | null
           status?: Database["public"]["Enums"]["humor_status"]
           style_tags?: string[]
           text?: string
+          title?: string | null
           tone?: string
           updated_at?: string
           valid_from?: string | null
@@ -74514,6 +74639,23 @@ export type Database = {
         Returns: Json
       }
       get_factory_executive_report: { Args: never; Returns: Json }
+      get_humor_asset_for_surface: {
+        Args: {
+          p_blueprint_id?: string
+          p_certification_id: string
+          p_competency_id?: string
+          p_curriculum_id?: string
+          p_lesson_id?: string
+          p_surface: string
+          p_user_id: string
+        }
+        Returns: {
+          content: string
+          explanation: string
+          humor_type: string
+          id: string
+        }[]
+      }
       get_humor_for_surface: {
         Args: {
           p_certification_id: string
@@ -75221,6 +75363,18 @@ export type Database = {
         }[]
       }
       llm_running_count: { Args: { p_provider: string }; Returns: number }
+      log_humor_delivery: {
+        Args: {
+          p_competency_id?: string
+          p_curriculum_id?: string
+          p_humor_item_id: string
+          p_lesson_id?: string
+          p_session_id?: string
+          p_surface: string
+          p_user_id: string
+        }
+        Returns: undefined
+      }
       log_job_cost: {
         Args: {
           p_certification_id?: string
