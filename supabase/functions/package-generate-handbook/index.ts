@@ -234,8 +234,17 @@ Deno.serve(async (req) => {
     }
   }
 
-  if (!(await prereqDone(sb, packageId, "validate_learning_content"))) {
-    return json({ ok: false, retry: true, error: "PREREQ_NOT_DONE: validate_learning_content" }, 409);
+  // Track-aware prereq: EXAM_FIRST/EXAM_FIRST_PLUS have no validate_learning_content step.
+  // Only enforce this prereq if the step actually exists in the package.
+  {
+    const { data: vlcStep } = await sb
+      .from("package_steps").select("status")
+      .eq("package_id", packageId).eq("step_key", "validate_learning_content").maybeSingle();
+    // If the step exists and is not done/skipped, block
+    if (vlcStep && vlcStep.status !== "done" && vlcStep.status !== "skipped") {
+      return json({ ok: false, retry: true, error: "PREREQ_NOT_DONE: validate_learning_content" }, 409);
+    }
+    // If the step doesn't exist at all (EXAM_FIRST_PLUS), fall through — handbook can proceed
   }
 
   let professionName = "Ausbildungsberuf";
