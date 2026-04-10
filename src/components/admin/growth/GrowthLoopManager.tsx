@@ -105,7 +105,7 @@ export default function GrowthLoopManager() {
 
   // Compute revenue profiles
   const computeProfiles = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (_unused?: unknown) => {
       const { data, error } = await supabase.functions.invoke('compute-revenue-profiles', {
         body: { limit: 100 },
       });
