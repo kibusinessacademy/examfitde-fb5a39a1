@@ -63,12 +63,13 @@ async function fetchAllApprovedQuestions(
   return { rows: allRows, totalExpected: expectedCount, truncated };
 }
 async function prereqDone(sb: ReturnType<typeof createClient>, packageId: string, stepKey: string) {
-  // "skipped" counts as fulfilled — the step was intentionally bypassed by track logic
   const FULFILLED = ["done", "skipped"];
   const { data: d1 } = await sb
     .from("package_steps").select("status")
     .eq("package_id", packageId).eq("step_key", stepKey).maybeSingle();
-  if (d1?.status && FULFILLED.includes(d1.status)) return true;
+  // If step doesn't exist in this package (track doesn't include it), treat as fulfilled
+  if (!d1) return true;
+  if (FULFILLED.includes(d1.status)) return true;
   const { data: d2 } = await sb
     .from("course_package_build_steps").select("status")
     .eq("package_id", packageId).eq("step_key", stepKey).maybeSingle();

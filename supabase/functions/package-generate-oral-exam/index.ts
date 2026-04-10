@@ -9,14 +9,16 @@ function assertUuid(name: string, v: unknown) {
   if (!v || typeof v !== "string" || !re.test(v)) throw new Error(`INVALID_${name.toUpperCase()}`);
 }
 async function prereqDone(sb: ReturnType<typeof createClient>, packageId: string, stepKey: string) {
+  const FULFILLED = ["done", "skipped"];
   const { data: d1 } = await sb
     .from("package_steps").select("status")
     .eq("package_id", packageId).eq("step_key", stepKey).maybeSingle();
-  if (d1?.status === "done") return true;
+  if (!d1) return true;
+  if (FULFILLED.includes(d1.status)) return true;
   const { data: d2 } = await sb
     .from("course_package_build_steps").select("status")
     .eq("package_id", packageId).eq("step_key", stepKey).maybeSingle();
-  return d2?.status === "done";
+  return d2?.status ? FULFILLED.includes(d2.status) : false;
 }
 
 // ═══ Scenario Hashing for Deduplication ═══
