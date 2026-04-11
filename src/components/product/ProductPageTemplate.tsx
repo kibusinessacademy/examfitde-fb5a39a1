@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { ProductPageSSOT } from '@/types/product-page';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { buildProductSEO } from '@/lib/product-page-seo';
@@ -31,16 +31,20 @@ export function ProductPageTemplate({
   isCheckoutLoading = false,
 }: Props) {
   const [showStickyBar, setShowStickyBar] = useState(false);
+  const heroRef = useRef<HTMLDivElement>(null);
 
   const seo = buildProductSEO(product);
 
-  // Sticky bar visibility: show after scrolling past hero
+  // Sticky bar visibility: show when hero leaves viewport
   useEffect(() => {
-    const handleScroll = () => {
-      setShowStickyBar(window.scrollY > 600);
-    };
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
+    const el = heroRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setShowStickyBar(!entry.isIntersecting),
+      { threshold: 0 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
   }, []);
 
   const handlePrimaryClick = useCallback(() => {
@@ -62,11 +66,13 @@ export function ProductPageTemplate({
       />
 
       <article className="min-h-screen">
-        <ProductHeroSection
-          product={product}
-          onPrimaryClick={handlePrimaryClick}
-          isLoading={isCheckoutLoading}
-        />
+        <div ref={heroRef}>
+          <ProductHeroSection
+            product={product}
+            onPrimaryClick={handlePrimaryClick}
+            isLoading={isCheckoutLoading}
+          />
+        </div>
 
         <ProductTrustBar items={product.trustItems} />
 
