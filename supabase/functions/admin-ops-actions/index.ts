@@ -433,6 +433,52 @@ Deno.serve(async (req) => {
         break;
       }
 
+      /* ── Force-Run a Specific Job ── */
+      case "force_run_job": {
+        const jobId = String(body.job_id || "");
+        if (!jobId) return json({ error: "job_id required" }, 400);
+
+        // Fetch current job state
+        const { data: job, error: jobErr } = await sb
+          .from("job_queue")
+          .select("id, status, job_type, package_id, attempts, max_attempts, meta")
+          .eq("id", jobId)
+          .maybeSingle();
+        if (jobErr || !job) return json({ error: `Job not found: ${jobId}` }, 404);
+
+        beforeState = { job_id: jobId, status: job.status, attempts: job.attempts };
+        affectedIds = [jobId];
+
+        // Reset job to pending with cleared backoff, boosted priority
+        const now = new Date().toISOString();
+        const updatedMeta = {
+          ...(job.meta as Record<string, unknown> || {}),
+          admin_force_run_at: now,
+          admin_force_run_by: user.id,
+          prereq_deferred_at: null,
+          prereq_backoff_s: null,
+          prereq_reason: null,
+        };
+
+        const { error: updateErr } = await sb
+          .from("job_queue")
+          .update({
+            status: "pending",
+            locked_at: null,
+            locked_by: null,
+            started_at: null,
+            run_after: null,
+            priority: 0,
+            meta: updatedMeta as any,
+            updated_at: now,
+          })
+          .eq("id", jobId);
+
+        if (updateErr) throw updateErr;
+        result = { ok: true, job_id: jobId, previous_status: job.status, new_status: "pending", force_priority: 0 };
+        break;
+      }
+
       /* ── Job-Level Zombie/Lease Actions ── */
       case "kill_stale_processing_jobs": {
         const jobIds = Array.isArray(body.job_ids) ? body.job_ids.map(String) : [];
