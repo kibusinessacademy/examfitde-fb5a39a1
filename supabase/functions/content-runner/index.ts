@@ -41,11 +41,16 @@ const BASE_CONCURRENCY = _runnerCfg.maxConcurrency;  // SSOT: 6 (hard cap 8)
 const CLAIM_LIMIT = _runnerCfg.claimLimit;            // SSOT: 8 (hard cap 12)
 const CONTENT_LOCK_TIMEOUT_MINUTES = 5;
 const STALE_LOCK_RECOVERY_MS = 3 * 60_000;
-const DISPATCH_TIMEOUT_MS = 55_000;          // Tier 3: structural/DB-only jobs
-const DISPATCH_TIMEOUT_HEAVY_MS = 90_000;    // Tier 2: LLM-validation + DB-heavy jobs
-const DISPATCH_TIMEOUT_GENERATION_MS = 130_000; // Tier 1: LLM-generation jobs (full budget)
+// ── DISPATCH TIMEOUTS (v2.2: synced with Edge Function lifetime) ──
+// Edge Function hard limit = 60s.  LOOP_MAX_MS = 50s.
+// Dispatch timeout MUST be < LOOP_MAX_MS minus overhead (status-write buffer ~5s).
+// Old values (130s/90s/55s) exceeded the runner's own lifetime → silent stale-locks.
+const DISPATCH_TIMEOUT_MS = 25_000;          // Tier 3: structural/DB-only jobs
+const DISPATCH_TIMEOUT_HEAVY_MS = 35_000;    // Tier 2: LLM-validation + DB-heavy jobs
+const DISPATCH_TIMEOUT_GENERATION_MS = 40_000; // Tier 1: LLM-generation jobs
+const STATUS_WRITE_BUFFER_MS = 5_000;        // Reserved for status-write after dispatch
 const WORKER_ID = `content-runner-${crypto.randomUUID().slice(0, 8)}`;
-const FUNCTION_VERSION = "v2.1-turbo-loop";
+const FUNCTION_VERSION = "v2.2-timeout-fix";
 
 // Pull-loop parameters — TUNED for max throughput
 const LOOP_MAX_MS = envInt("CONTENT_RUNNER_LOOP_MAX_MS", 50_000);    // v2.1: 30s→50s (edge fn limit ~60s)
@@ -77,27 +82,25 @@ function hashJobId(id: string): number {
   return Math.abs(h);
 }
 
-// ── 3-Tier Timeout Classification ──────────────────────────────
-// Tier 1 (130s): LLM generation — full AI budget needed
+// ── 3-Tier Timeout Classification (v2.2: all within Edge Function lifetime) ──
+// Tier 1 (40s): LLM generation — target functions have their own internal budgets
 const GENERATION_JOB_TYPES = new Set([
   "package_generate_handbook", "handbook_expand_section",
   "package_generate_exam_pool", "package_generate_oral_exam",
   "package_elite_harden",
   "package_auto_seed_exam_blueprints",
   "package_generate_lesson_minichecks",
-  "lesson_generate_content_shard",  // Shard jobs need full LLM budget
+  "lesson_generate_content_shard",
 ]);
 
-// Tier 2 (90s): LLM validation / DB-heavy — needs more than 55s but not full 130s
+// Tier 2 (35s): LLM validation / DB-heavy
 const HEAVY_JOB_TYPES = new Set([
-  "package_validate_learning_content",  // parallel LLM tier 2
-  "package_validate_exam_pool",         // LLM tier 2, internal budget 50s
-  "package_build_ai_tutor_index",       // DB-heavy, 200+ lesson index build
+  "package_validate_learning_content",
+  "package_validate_exam_pool",
+  "package_build_ai_tutor_index",
 ]);
 
-// Everything else: Tier 3 (55s) — structural validation, DB queries only
-// Includes: package_validate_oral_exam, package_validate_blueprints,
-//   package_validate_handbook, package_quality_council, etc.
+// Everything else: Tier 3 (25s) — structural validation, DB queries only
 
 // deno-lint-ignore no-explicit-any
 async function dispatchJob(job: any, supabaseUrl: string, serviceKey: string): Promise<{ ok: boolean; result?: any; error?: string; terminal?: boolean }> {
