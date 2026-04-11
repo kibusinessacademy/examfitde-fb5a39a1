@@ -611,6 +611,21 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
       console.error(`[content-runner] 🛑 TERMINAL ${job.job_type} (${shortId}): ${dispatchError}`);
       return { id: job.id, ok: false, error: dispatchError, terminal: true };
     } else {
+      // ── BUDGET_EXHAUSTED FAST-RELEASE ──
+      // Job was never dispatched — release immediately without attempt increment
+      if (dispatchError?.startsWith("BUDGET_EXHAUSTED")) {
+        await sb.from("job_queue").update({
+          status: "pending",
+          locked_at: null,
+          locked_by: null,
+          updated_at: new Date().toISOString(),
+          last_error: dispatchError.slice(0, 2000),
+          run_after: new Date(Date.now() + 5_000).toISOString(), // 5s backoff, retry next runner
+        }).eq("id", job.id);
+        console.warn(`[content-runner] ⏸️ ${job.job_type} (${shortId}) ${dispatchError.slice(0, 100)} — released without attempt increment`);
+        return { id: job.id, ok: false, error: "budget_exhausted_released", terminal: false };
+      }
+
       // Transient or permanent failure
       const errorStr = sanitizeError(dispatchError || "");
 
