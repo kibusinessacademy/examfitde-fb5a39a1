@@ -41,12 +41,9 @@ interface GeneratedVariant {
 }
 
 /**
- * Deterministic variant type distribution.
- * Studium (higher_education) gets more transfer_shift.
- * Ratios are enforced, not random.
+ * Deterministic variant type distribution using largest-remainder method.
  */
 function pickVariantTypes(count: number, isStudium = false): VariantType[] {
-  // Target ratios: [parameter, context, trap, structure, transfer]
   const ratios: Record<string, number[]> = {
     studium:    [0.13, 0.20, 0.20, 0.13, 0.34],
     vocational: [0.20, 0.20, 0.20, 0.13, 0.27],
@@ -57,7 +54,6 @@ function pickVariantTypes(count: number, isStudium = false): VariantType[] {
     "structure_shift", "transfer_shift",
   ];
 
-  // Allocate deterministically with largest-remainder method
   const raw = r.map(p => p * count);
   const floors = raw.map(Math.floor);
   let remaining = count - floors.reduce((a, b) => a + b, 0);
@@ -65,12 +61,10 @@ function pickVariantTypes(count: number, isStudium = false): VariantType[] {
   remainders.sort((a, b) => b.r - a.r);
   for (let j = 0; j < remaining; j++) floors[remainders[j].i]++;
 
-  // Build list and shuffle
   const out: VariantType[] = [];
   for (let i = 0; i < types.length; i++) {
     for (let j = 0; j < floors[i]; j++) out.push(types[i]);
   }
-  // Fisher-Yates shuffle
   for (let i = out.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [out[i], out[j]] = [out[j], out[i]];
@@ -150,10 +144,37 @@ function scoreVariant(bp: Blueprint, variant: GeneratedVariant, variantType: Var
   return { score, flags };
 }
 
+/**
+ * Normalize payload: accept both camelCase and snake_case at boundary,
+ * but ONLY emit snake_case internally (SSOT contract).
+ */
+function normalizePayload(body: Record<string, unknown>) {
+  const p = (body.payload ?? body) as Record<string, unknown>;
+  return {
+    // SSOT snake_case only
+    blueprint_id: (p.blueprint_id ?? p.blueprintId ?? null) as string | null,
+    package_id: (p.package_id ?? p.packageId ?? null) as string | null,
+    curriculum_id: (p.curriculum_id ?? p.curriculumId ?? null) as string | null,
+    course_id: (p.course_id ?? p.courseId ?? null) as string | null,
+    count: (p.count as number) ?? 5,
+    subject_name: (p.subject_name ?? p.subjectName ?? null) as string | null,
+    is_studium: (p.is_studium ?? p.isStudium ?? false) as boolean,
+  };
+}
+
+function errorResponse(status: number, error: string, extra: Record<string, unknown> = {}) {
+  return new Response(JSON.stringify({ ok: false, error, ...extra }), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
+
+  const fnTag = "[generate-blueprint-variants]";
 
   try {
     const sb = createClient(
@@ -162,33 +183,22 @@ Deno.serve(async (req) => {
     );
 
     const body = await req.json();
-    const p = body.payload || body;
+    const p = normalizePayload(body);
 
-    // ── Boundary normalization: accept both camelCase and snake_case ──
-    let blueprintId = p.blueprintId ?? p.blueprint_id ?? null;
-    const count = p.count ?? 20;
-    let subjectName = p.subjectName ?? p.subject_name ?? "Wirtschaftsinformatik";
-    let isStudium = p.isStudium ?? p.is_studium ?? true;
+    // ═══════════════════════════════════════════════════════════
+    // MODE 1: Package-level fan-out (no blueprint_id → enqueue per-blueprint jobs)
+    // ═══════════════════════════════════════════════════════════
+    if (!p.blueprint_id && p.package_id) {
+      console.log(`${fnTag} Package-level dispatch for ${p.package_id}`);
 
-    // Package-level dispatch: if no blueprintId but package_id given,
-    // look up all validated blueprints and process them sequentially
-    const packageId = p.package_id ?? p.packageId ?? null;
-
-    if (!blueprintId && packageId) {
-      console.log(`[generate-blueprint-variants] Package-level dispatch → enqueue-only for ${packageId}`);
-
-      // Resolve curriculum for blueprint lookup
       const { data: pkg } = await sb
         .from("course_packages")
         .select("curriculum_id, course_id")
-        .eq("id", packageId)
+        .eq("id", p.package_id)
         .maybeSingle();
 
       if (!pkg?.curriculum_id) {
-        return new Response(JSON.stringify({ error: "Package or curriculum not found", package_id: packageId }), {
-          status: 404,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return errorResponse(404, "PACKAGE_NOT_FOUND", { package_id: p.package_id });
       }
 
       // Resolve subject name + isStudium
@@ -197,15 +207,14 @@ Deno.serve(async (req) => {
         .select("track, program_type")
         .eq("id", pkg.curriculum_id)
         .maybeSingle();
-      if (cur) {
-        isStudium = cur.track === "STUDIUM" || cur.program_type === "higher_education";
-      }
+      const isStudium = cur?.track === "STUDIUM" || cur?.program_type === "higher_education";
+
       const { data: course } = await sb
         .from("courses")
         .select("title")
         .eq("id", pkg.course_id)
         .maybeSingle();
-      const resolvedSubject = course?.title ?? subjectName;
+      const subjectName = course?.title ?? "Prüfungsvorbereitung";
 
       // Find all approved blueprints
       const { data: blueprints, error: bpListErr } = await sb
@@ -215,32 +224,26 @@ Deno.serve(async (req) => {
         .eq("status", "approved");
 
       if (bpListErr || !blueprints || blueprints.length === 0) {
-        // DM3: Return 409 PREREQ_NOT_DONE so the runner defers instead of marking completed
-        return new Response(JSON.stringify({
-          error: "PREREQ_NOT_DONE",
+        return errorResponse(409, "PREREQ_NOT_DONE", {
           message: "No approved blueprints found — validate_blueprints prerequisite likely incomplete",
-          package_id: packageId,
+          package_id: p.package_id,
           retry: true,
-        }), {
-          status: 409,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      // ── PRE-FLIGHT VALIDATION: Only fan-out eligible blueprints ──
+      // Pre-flight validation
+      let eligibleIds: string[] = [];
+      let blockedIds: string[] = [];
+      const preflightDetails: Record<string, unknown> = {};
+
+      // Try batch RPC first, fallback to per-blueprint
       const { data: preflightResults, error: preflightErr } = await sb.rpc(
         "fn_validate_blueprint_preflight_batch",
         { p_blueprint_ids: blueprints.map(b => b.id) }
       ).maybeSingle();
 
-      // Fallback: validate per-blueprint if batch RPC not available
-      let eligibleIds: string[] = [];
-      let blockedIds: string[] = [];
-      const preflightDetails: Record<string, unknown> = {};
-
       if (preflightErr || !preflightResults) {
-        // Per-blueprint validation via individual RPC calls
-        console.log(`[generate-blueprint-variants] Using per-blueprint preflight validation`);
+        console.log(`${fnTag} Using per-blueprint preflight validation`);
         for (const bp of blueprints) {
           const { data: result } = await sb.rpc("fn_validate_blueprint_preflight", { p_blueprint_id: bp.id });
           if (result && (result as any).eligible) {
@@ -251,76 +254,66 @@ Deno.serve(async (req) => {
           }
         }
       } else {
-        // Batch result
         eligibleIds = (preflightResults as any).eligible_ids || blueprints.map((b: any) => b.id);
         blockedIds = (preflightResults as any).blocked_ids || [];
-        console.log(`[generate-blueprint-variants] Batch preflight: ${eligibleIds.length} eligible, ${blockedIds.length} blocked`);
       }
 
       if (blockedIds.length > 0) {
-        console.warn(`[generate-blueprint-variants] ⚠️ PRE-FLIGHT BLOCKED ${blockedIds.length}/${blueprints.length} blueprints`);
+        console.warn(`${fnTag} ⚠️ PRE-FLIGHT BLOCKED ${blockedIds.length}/${blueprints.length} blueprints`);
       }
 
       if (eligibleIds.length === 0) {
-        // DM3: Return 409 PREREQ_NOT_DONE — all blueprints failed pre-flight
-        return new Response(JSON.stringify({
-          error: "PREREQ_NOT_DONE",
-          message: "All blueprints failed pre-flight validation — prerequisite steps likely incomplete",
-          package_id: packageId,
+        return errorResponse(409, "PREREQ_NOT_DONE", {
+          message: "All blueprints failed pre-flight validation",
+          package_id: p.package_id,
           retry: true,
           total_blueprints: blueprints.length,
           blocked: blockedIds.length,
           preflight_details: preflightDetails,
-        }), {
-          status: 409,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      const countPerBlueprint = Math.max(5, Math.floor(count / eligibleIds.length));
+      const countPerBlueprint = Math.max(5, Math.floor(p.count / eligibleIds.length));
 
-      // ── DUPLICATE GUARD: skip blueprints that already have pending/processing jobs ──
+      // Duplicate guard: skip blueprints that already have pending/processing jobs
       const { data: existingJobs } = await sb
         .from("job_queue")
         .select("payload")
         .eq("job_type", "package_generate_blueprint_variants")
-        .eq("package_id", packageId)
+        .eq("package_id", p.package_id)
         .in("status", ["pending", "processing"]);
 
       const alreadyEnqueued = new Set<string>();
       for (const j of existingJobs ?? []) {
-        const bpId = (j.payload as any)?.blueprintId ?? (j.payload as any)?.blueprint_id;
+        // SSOT: read blueprint_id (snake_case), with legacy fallback
+        const bpId = (j.payload as any)?.blueprint_id ?? (j.payload as any)?.blueprintId;
         if (bpId) alreadyEnqueued.add(bpId);
       }
 
       const newEligible = eligibleIds.filter(id => !alreadyEnqueued.has(id));
-      console.log(`[generate-blueprint-variants] Duplicate guard: ${eligibleIds.length} eligible, ${alreadyEnqueued.size} already enqueued, ${newEligible.length} new`);
 
       if (newEligible.length === 0) {
         return new Response(JSON.stringify({
           ok: true,
           message: "All eligible blueprints already have pending jobs",
-          package_id: packageId,
+          package_id: p.package_id,
           already_enqueued: alreadyEnqueued.size,
-          skipped: eligibleIds.length,
         }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      // Enqueue individual per-blueprint jobs only for NEW eligible blueprints
-      // NOTE: unique constraint uq_job_queue_active_package_job uses payload->>'blueprintId'
+      // Enqueue individual per-blueprint jobs — ONLY snake_case keys
       const jobRows = newEligible.map((bpId) => ({
         job_type: "package_generate_blueprint_variants",
-        package_id: packageId,
+        package_id: p.package_id,
         payload: {
-          package_id: packageId,
+          package_id: p.package_id,
           curriculum_id: pkg.curriculum_id,
           course_id: pkg.course_id,
-          blueprint_id: bpId,
-          blueprintId: bpId, // unique constraint key
+          blueprint_id: bpId,          // SSOT: snake_case only
           count: countPerBlueprint,
-          subject_name: resolvedSubject,
+          subject_name: subjectName,
           is_studium: isStudium,
         },
         status: "pending",
@@ -328,51 +321,48 @@ Deno.serve(async (req) => {
         updated_at: new Date().toISOString(),
       }));
 
-      // Insert one-by-one with conflict guard to handle race conditions
       let enqueueCount = 0;
       let enqueueSkipped = 0;
       for (const row of jobRows) {
         const { error: enqueueErr } = await sb.from("job_queue").insert(row);
         if (enqueueErr) {
-          if (enqueueErr.message?.includes("uq_job_queue_active_package_job") ||
-              enqueueErr.message?.includes("duplicate key")) {
+          if (enqueueErr.message?.includes("duplicate key")) {
             enqueueSkipped++;
-            console.warn(`[generate-blueprint-variants] Skipped duplicate job for blueprint ${(row.payload as any).blueprint_id}`);
           } else {
-            console.error(`[generate-blueprint-variants] Enqueue error:`, enqueueErr);
-            return new Response(JSON.stringify({ error: "Failed to enqueue blueprint jobs", detail: enqueueErr.message }), {
-              status: 500,
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-            });
+            console.error(`${fnTag} Enqueue error:`, enqueueErr.message);
+            return errorResponse(500, "ENQUEUE_FAILED", { detail: enqueueErr.message });
           }
         } else {
           enqueueCount++;
         }
       }
 
-      console.log(`[generate-blueprint-variants] Enqueued ${enqueueCount}/${newEligible.length} jobs for ${packageId} (${enqueueSkipped} duplicates skipped, ${blockedIds.length} blocked by pre-flight)`);
+      console.log(`${fnTag} Enqueued ${enqueueCount}/${newEligible.length} for ${p.package_id} (${enqueueSkipped} dup, ${blockedIds.length} blocked)`);
 
       return new Response(JSON.stringify({
         ok: true,
         mode: "package_fanout_enqueue",
-        package_id: packageId,
+        package_id: p.package_id,
         total_blueprints: blueprints.length,
         blueprints_enqueued: enqueueCount,
         duplicates_skipped: enqueueSkipped,
         blueprints_blocked: blockedIds.length,
         count_per_blueprint: countPerBlueprint,
-        blocked_details: blockedIds.length > 0 ? preflightDetails : undefined,
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    if (!blueprintId) {
-      return new Response(JSON.stringify({ error: "blueprintId required (or package_id for batch mode)" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+    // ═══════════════════════════════════════════════════════════
+    // MODE 2: Single blueprint variant generation
+    // ═══════════════════════════════════════════════════════════
+    if (!p.blueprint_id) {
+      return errorResponse(400, "MISSING_BLUEPRINT_ID", {
+        message: "blueprint_id required (or package_id for batch mode)",
       });
     }
+
+    const blueprintId = p.blueprint_id;
 
     const { data: bp, error: bpErr } = await sb
       .from("question_blueprints")
@@ -381,45 +371,41 @@ Deno.serve(async (req) => {
       .single();
 
     if (bpErr || !bp) {
-      return new Response(JSON.stringify({ error: "Blueprint not found" }), {
-        status: 404,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      return errorResponse(404, "BLUEPRINT_NOT_FOUND", {
+        blueprint_id: blueprintId,
+        detail: bpErr?.message ?? "not found",
       });
     }
 
-    // ── PRE-FLIGHT VALIDATION for single blueprint ──
+    // Pre-flight for single blueprint
     const { data: preflight } = await sb.rpc("fn_validate_blueprint_preflight", { p_blueprint_id: blueprintId });
     if (preflight && !(preflight as any).eligible) {
-      console.warn(`[generate-blueprint-variants] ⚠️ Blueprint ${blueprintId} failed pre-flight:`, preflight);
-      return new Response(JSON.stringify({
-        ok: false,
-        error: "Blueprint failed pre-flight validation",
+      const blockers = (preflight as any).hard_blockers ?? [];
+      console.warn(`${fnTag} Blueprint ${blueprintId} FAILED pre-flight: ${blockers.join(", ")}`);
+      return errorResponse(422, "PREFLIGHT_FAILED", {
         blueprint_id: blueprintId,
-        preflight,
-      }), {
-        status: 422,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        hard_blockers: blockers,
+        soft_warnings: (preflight as any).soft_warnings ?? [],
       });
     }
 
     const blueprint = bp as Blueprint;
-    const variantTypes = pickVariantTypes(count, isStudium);
+    const variantTypes = pickVariantTypes(p.count, p.is_studium);
+    const subjectName = p.subject_name ?? "Prüfungsvorbereitung";
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
     if (!LOVABLE_API_KEY) {
-      return new Response(JSON.stringify({ error: "LOVABLE_API_KEY not configured" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return errorResponse(500, "CONFIG_ERROR", { message: "LOVABLE_API_KEY not configured" });
     }
 
-    // Log target distribution for observability
+    // Log target distribution
     const dist: Record<string, number> = {};
     for (const t of variantTypes) dist[t] = (dist[t] ?? 0) + 1;
-    console.log("Target distribution:", JSON.stringify(dist));
+    console.log(`${fnTag} Blueprint ${blueprintId}: generating ${p.count} variants, dist=${JSON.stringify(dist)}`);
 
     const results: Array<{ variant_type: string; quality_score: number; status: string }> = [];
-    const rows: unknown[] = [];
+    const rows: any[] = [];
+    const errors: Array<{ variant_type: string; error: string }> = [];
 
     for (const variantType of variantTypes) {
       const prompt = buildVariantPrompt(blueprint, variantType, subjectName);
@@ -441,9 +427,11 @@ Deno.serve(async (req) => {
         });
 
         if (!aiResp.ok) {
-          const errText = await aiResp.text();
-          console.error(`AI error for variant ${variantType}:`, aiResp.status, errText);
-          if (aiResp.status === 429 || aiResp.status === 402) break;
+          const errText = await aiResp.text().catch(() => "unreadable");
+          const errMsg = `AI_HTTP_${aiResp.status}: ${errText.slice(0, 200)}`;
+          console.error(`${fnTag} ${errMsg}`);
+          errors.push({ variant_type: variantType, error: errMsg });
+          if (aiResp.status === 429 || aiResp.status === 402) break; // rate-limited, stop
           continue;
         }
 
@@ -452,14 +440,29 @@ Deno.serve(async (req) => {
 
         const jsonMatch = content.match(/\{[\s\S]*\}/);
         if (!jsonMatch) {
-          console.error("No JSON in AI response for", variantType);
+          const errMsg = `NO_JSON_IN_RESPONSE: ${content.slice(0, 100)}`;
+          console.error(`${fnTag} ${errMsg}`);
+          errors.push({ variant_type: variantType, error: errMsg });
           continue;
         }
 
-        const variant: GeneratedVariant = JSON.parse(jsonMatch[0]);
+        let variant: GeneratedVariant;
+        try {
+          variant = JSON.parse(jsonMatch[0]);
+        } catch (parseErr) {
+          const errMsg = `JSON_PARSE_FAILED: ${(parseErr as Error).message}`;
+          errors.push({ variant_type: variantType, error: errMsg });
+          continue;
+        }
+
+        if (!variant.question_text || variant.question_text.trim().length < 10) {
+          errors.push({ variant_type: variantType, error: "EMPTY_QUESTION_TEXT" });
+          continue;
+        }
+
         const { score, flags } = scoreVariant(blueprint, variant, variantType);
 
-        const row = {
+        rows.push({
           blueprint_id: blueprint.id,
           curriculum_id: blueprint.curriculum_id,
           learning_field_id: blueprint.learning_field_id,
@@ -480,61 +483,75 @@ Deno.serve(async (req) => {
           quality_score: score,
           quality_flags: flags,
           status: score >= 80 ? "review" : "draft",
-        };
-
-        rows.push(row);
-        results.push({ variant_type: variantType, quality_score: score, status: row.status });
+        });
+        results.push({ variant_type: variantType, quality_score: score, status: score >= 80 ? "review" : "draft" });
       } catch (e) {
-        console.error(`Error generating ${variantType}:`, e);
+        const errMsg = `EXCEPTION: ${(e as Error).message}`;
+        console.error(`${fnTag} ${errMsg}`);
+        errors.push({ variant_type: variantType, error: errMsg });
         continue;
       }
     }
 
-    if (rows.length > 0) {
-      const { error: insertErr } = await sb.from("exam_question_variants").insert(rows);
-      if (insertErr) {
-        console.error("Insert error:", insertErr);
-        return new Response(JSON.stringify({ error: "Failed to save variants", detail: insertErr.message }), {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+    // ═══ CRITICAL: fail-closed if ZERO variants generated ═══
+    if (rows.length === 0) {
+      const errSummary = errors.length > 0
+        ? errors.map(e => `${e.variant_type}:${e.error}`).join("; ")
+        : "No AI responses produced valid variants";
+      console.error(`${fnTag} ❌ ZERO variants for blueprint ${blueprintId}: ${errSummary}`);
+      return errorResponse(500, "ZERO_VARIANTS_GENERATED", {
+        blueprint_id: blueprintId,
+        blueprint_name: blueprint.name,
+        requested: p.count,
+        errors,
+        message: errSummary,
+      });
+    }
 
-      // ── Update blueprint_variant_inventory ──
-      try {
-        const reviewReadyCount = rows.filter(r => r.status === "review" || r.status === "approved" || r.status === "promoted").length;
-        const pkgId = p.package_id ?? p.packageId ?? null;
-        // Use the 8-param overload to ensure package_id context is preserved
-        const { error: invErr } = await sb.rpc("fn_upsert_variant_inventory" as any, {
-          p_blueprint_id: blueprintId,
-          p_curriculum_id: blueprint.curriculum_id,
-          p_package_id: pkgId,
-          p_target_count: 6,
-          p_new_materialized: rows.length,
-          p_new_approved: reviewReadyCount,
-          p_last_error: null,
-          p_fingerprint: null,
-        });
-        if (invErr) {
-          console.error(`[generate-blueprint-variants] Inventory RPC error for ${blueprintId}:`, invErr);
-        } else {
-          console.log(`[generate-blueprint-variants] Inventory updated: blueprint=${blueprintId}, +${rows.length} materialized, +${reviewReadyCount} approved`);
-        }
-      } catch (invErr) {
-        console.error("[generate-blueprint-variants] Inventory update exception:", invErr);
+    // Insert generated variants
+    const { error: insertErr } = await sb.from("exam_question_variants").insert(rows);
+    if (insertErr) {
+      console.error(`${fnTag} INSERT FAILED for ${blueprintId}:`, insertErr.message);
+      return errorResponse(500, "INSERT_FAILED", {
+        blueprint_id: blueprintId,
+        detail: insertErr.message,
+      });
+    }
+
+    // Update inventory
+    try {
+      const reviewReadyCount = rows.filter((r: any) => r.status === "review").length;
+      const { error: invErr } = await sb.rpc("fn_upsert_variant_inventory" as any, {
+        p_blueprint_id: blueprintId,
+        p_curriculum_id: blueprint.curriculum_id,
+        p_package_id: p.package_id,
+        p_target_count: 6,
+        p_new_materialized: rows.length,
+        p_new_approved: reviewReadyCount,
+        p_last_error: null,
+        p_fingerprint: null,
+      });
+      if (invErr) {
+        console.error(`${fnTag} Inventory RPC error for ${blueprintId}:`, invErr.message);
       }
+    } catch (invErr) {
+      console.error(`${fnTag} Inventory exception:`, (invErr as Error).message);
     }
 
     // Compute actual distribution
     const actualDist: Record<string, number> = {};
     for (const r of results) actualDist[r.variant_type] = (actualDist[r.variant_type] ?? 0) + 1;
 
+    console.log(`${fnTag} ✅ Blueprint ${blueprintId}: ${rows.length}/${p.count} variants saved (${errors.length} errors)`);
+
     return new Response(JSON.stringify({
       ok: true,
       blueprint_id: blueprintId,
       blueprint_name: blueprint.name,
       generated: rows.length,
-      requested: count,
+      requested: p.count,
+      errors_count: errors.length,
+      errors: errors.length > 0 ? errors : undefined,
       target_distribution: dist,
       actual_distribution: actualDist,
       results,
@@ -543,10 +560,8 @@ Deno.serve(async (req) => {
     });
 
   } catch (e) {
-    console.error("generate-blueprint-variants error:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    const errMsg = e instanceof Error ? e.message : "Unknown error";
+    console.error(`${fnTag} FATAL:`, errMsg);
+    return errorResponse(500, "FATAL_ERROR", { message: errMsg });
   }
 });
