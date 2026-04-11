@@ -282,7 +282,7 @@ function resetProviderTransientMeta(job: any, provider?: string | null, model?: 
 // ═══════════════════════════════════════════════════════════════
 
 // deno-lint-ignore no-explicit-any
-async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey: string): Promise<any> {
+async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey: string, loopDeadlineMs?: number): Promise<any> {
   const shortId = String(job.id).slice(0, 8);
   const startMs = Date.now();
 
