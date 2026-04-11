@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, X } from 'lucide-react';
+import { Search, X } from 'lucide-react';
 import { trackConversion } from '@/lib/seo-tracking';
-import { PRICING } from '@/config/pricing';
 
-const EXCLUDED_ROUTES = ['/shop', '/checkout', '/auth', '/pruefungsreife-check'];
+const EXCLUDED_ROUTES = ['/shop', '/checkout', '/auth', '/pruefungsreife-check', '/berufe'];
 const SCROLL_THRESHOLD = 0.35;
 const MOBILE_DELAY_MS = 2000;
 
@@ -63,18 +62,18 @@ export function StickyCTA() {
       <div className="container mx-auto max-w-2xl">
         <div className="glass-strong rounded-2xl px-4 py-3 flex items-center justify-between gap-3 shadow-lg border border-primary/20">
           <div className="flex items-center gap-3 min-w-0">
-            <span className="text-sm font-semibold whitespace-nowrap">{PRICING.defaultPrice} einmalig</span>
-            <span className="text-xs text-muted-foreground hidden sm:inline">· {PRICING.defaultAccess} · {PRICING.noSubscription}</span>
+            <span className="text-sm font-semibold whitespace-nowrap">Passenden Kurs finden</span>
+            <span className="text-xs text-muted-foreground hidden sm:inline">· Beruf suchen · Direkt starten</span>
           </div>
           <div className="flex items-center gap-2">
-            <Link to="/pruefungsreife-check">
+            <Link to="/berufe">
               <Button
                 size="sm"
                 className="gradient-primary text-primary-foreground rounded-xl h-9 px-4 text-sm group whitespace-nowrap"
                 onClick={() => trackConversion({ event: 'cta_click', source: 'sticky_cta', label: 'clicked' })}
               >
-                Prüfungsreife testen
-                <ArrowRight className="h-4 w-4 ml-1 group-hover:translate-x-0.5 transition-transform" />
+                <Search className="h-4 w-4 mr-1" />
+                Kurse finden
               </Button>
             </Link>
             <button
