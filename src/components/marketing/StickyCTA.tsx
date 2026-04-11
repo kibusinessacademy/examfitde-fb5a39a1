@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Search, X } from 'lucide-react';
 import { trackConversion } from '@/lib/seo-tracking';
@@ -57,25 +57,34 @@ export function StickyCTA() {
 
   if (dismissed || !visible || isExcluded) return null;
 
+  const scrollToFinder = () => {
+    const el = document.getElementById('kursfinder');
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      trackConversion({ event: 'hero_scroll_to_finder', source: 'sticky_cta' });
+    }
+  };
+
   return (
     <div className="fixed bottom-0 inset-x-0 z-50 p-3 sm:p-4 animate-fade-in">
       <div className="container mx-auto max-w-2xl">
         <div className="glass-strong rounded-2xl px-4 py-3 flex items-center justify-between gap-3 shadow-lg border border-primary/20">
           <div className="flex items-center gap-3 min-w-0">
-            <span className="text-sm font-semibold whitespace-nowrap">Passenden Kurs finden</span>
-            <span className="text-xs text-muted-foreground hidden sm:inline">· Beruf suchen · Direkt starten</span>
+            <span className="text-sm font-semibold whitespace-nowrap">Prüfungstraining finden</span>
+            <span className="text-xs text-muted-foreground hidden sm:inline">· Beruf suchen & starten</span>
           </div>
           <div className="flex items-center gap-2">
-            <Link to="/berufe">
-              <Button
-                size="sm"
-                className="gradient-primary text-primary-foreground rounded-xl h-9 px-4 text-sm group whitespace-nowrap"
-                onClick={() => trackConversion({ event: 'cta_click', source: 'sticky_cta', label: 'clicked' })}
-              >
-                <Search className="h-4 w-4 mr-1" />
-                Kurse finden
-              </Button>
-            </Link>
+            <Button
+              size="sm"
+              className="gradient-primary text-primary-foreground rounded-xl h-9 px-4 text-sm group whitespace-nowrap"
+              onClick={() => {
+                scrollToFinder();
+                trackConversion({ event: 'cta_click', source: 'sticky_cta', label: 'clicked' });
+              }}
+            >
+              <Search className="h-4 w-4 mr-1" />
+              Beruf suchen
+            </Button>
             <button
               onClick={() => {
                 setDismissed(true);

@@ -1,10 +1,10 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, GraduationCap, BookOpen, Briefcase, BadgeCheck, ArrowRight, Filter } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { usePublishedCourses, type CourseCategory } from '@/hooks/usePublishedCourses';
+import { useHomepageCatalog, type CourseCategory, type CatalogCourseItem } from '@/hooks/usePublishedCourses';
 import { getBerufUrl } from '@/lib/seo';
 import { trackConversion } from '@/lib/seo-tracking';
 
@@ -23,8 +23,18 @@ const categoryColor: Record<CourseCategory, string> = {
   zertifizierung: 'bg-emerald-500/10 text-emerald-500',
 };
 
+const categoryIcon: Record<CourseCategory, typeof GraduationCap> = {
+  ausbildung: GraduationCap,
+  studium: BookOpen,
+  fortbildung: Briefcase,
+  zertifizierung: BadgeCheck,
+};
+
+/** Max badges to show on a card */
+const MAX_BADGES = 3;
+
 export function CourseFinderSection() {
-  const { data: allCourses, isLoading } = usePublishedCourses();
+  const { data: allCourses, isLoading } = useHomepageCatalog();
   const [query, setQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<CourseCategory | 'all'>('all');
   const [showAll, setShowAll] = useState(false);
@@ -41,15 +51,23 @@ export function CourseFinderSection() {
 
     if (isSearching) {
       const q = query.toLowerCase();
-      results = results.filter(c =>
-        c.title.toLowerCase().includes(q) ||
-        c.slug.toLowerCase().includes(q) ||
-        c.description?.toLowerCase().includes(q) ||
-        c.kammer?.toLowerCase().includes(q)
-      );
+      // Search against the DB-generated search_text which includes synonyms
+      results = results.filter(c => c.searchText.includes(q));
+      // Sort by relevance: exact title match first, then popularity
+      results.sort((a, b) => {
+        const aExact = a.title.toLowerCase().includes(q) ? 1 : 0;
+        const bExact = b.title.toLowerCase().includes(q) ? 1 : 0;
+        if (aExact !== bExact) return bExact - aExact;
+        return b.popularityScore - a.popularityScore;
+      });
     } else {
-      // Not searching: show top by popularity
-      results.sort((a, b) => b.popularity - a.popularity);
+      // Not searching: editorial priority first, then popularity
+      results.sort((a, b) => {
+        const aPrio = a.editorialPriority ?? 999;
+        const bPrio = b.editorialPriority ?? 999;
+        if (aPrio !== bPrio) return aPrio - bPrio;
+        return b.popularityScore - a.popularityScore;
+      });
     }
 
     return results;
@@ -57,6 +75,12 @@ export function CourseFinderSection() {
 
   const displayed = showAll ? filtered : filtered.slice(0, 12);
   const hasMore = filtered.length > 12;
+
+  const handleCategoryChange = useCallback((value: CourseCategory | 'all') => {
+    setActiveCategory(value);
+    setShowAll(false);
+    trackConversion({ event: 'finder_filter_select', source: 'homepage_finder', label: value });
+  }, []);
 
   return (
     <section className="py-12 sm:py-16 md:py-20 px-3 sm:px-4" id="kursfinder">
@@ -76,7 +100,7 @@ export function CourseFinderSection() {
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
             <Input
               type="text"
-              placeholder="z. B. Industriekaufmann, Fachinformatiker, Kaufmann für Büromanagement"
+              placeholder="z. B. Industriekaufmann, Fachinformatiker, Bürokaufmann, FISI …"
               value={query}
               onChange={e => {
                 setQuery(e.target.value);
@@ -95,7 +119,7 @@ export function CourseFinderSection() {
           {CATEGORY_FILTERS.map(({ value, label, icon: Icon }) => (
             <button
               key={value}
-              onClick={() => { setActiveCategory(value); setShowAll(false); }}
+              onClick={() => handleCategoryChange(value)}
               className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
                 activeCategory === value
                   ? 'bg-primary text-primary-foreground shadow-md'
@@ -110,13 +134,14 @@ export function CourseFinderSection() {
 
         {/* Results */}
         {isLoading ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="glass-card rounded-xl p-4 animate-pulse h-28" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="glass-card rounded-xl p-5 animate-pulse h-40" />
             ))}
           </div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-12">
+            {isSearching && trackConversion({ event: 'finder_no_results', source: 'homepage_finder', label: query })}
             <p className="text-muted-foreground mb-4">
               {isSearching
                 ? `Kein Kurs gefunden für „${query}". Versuche eine andere Suche.`
@@ -133,42 +158,20 @@ export function CourseFinderSection() {
                 {filtered.length} {filtered.length === 1 ? 'Kurs' : 'Kurse'} gefunden
               </p>
             )}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-              {displayed.map(course => {
-                const Icon = { ausbildung: GraduationCap, studium: BookOpen, fortbildung: Briefcase, zertifizierung: BadgeCheck }[course.category];
-                return (
-                  <Link
-                    key={course.packageId}
-                    to={getBerufUrl(course.slug)}
-                    className="glass-card rounded-xl p-4 group hover:border-primary/30 transition-all duration-300 flex flex-col"
-                    onClick={() => trackConversion({ event: 'course_click', source: 'homepage_finder', label: course.slug })}
-                  >
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className={`p-1.5 rounded-lg ${categoryColor[course.category]}`}>
-                        <Icon className="h-4 w-4" />
-                      </div>
-                      {course.kammer && (
-                        <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                          {course.kammer}
-                        </Badge>
-                      )}
-                    </div>
-                    <h3 className="text-sm font-semibold leading-tight group-hover:text-primary transition-colors flex-1">
-                      {course.title}
-                    </h3>
-                    <span className="text-xs text-primary mt-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      Zum Kurs <ArrowRight className="h-3 w-3" />
-                    </span>
-                  </Link>
-                );
-              })}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+              {displayed.map(course => (
+                <CourseCard key={course.packageId} course={course} />
+              ))}
             </div>
 
             {hasMore && !showAll && (
               <div className="text-center mt-6">
                 <Button
                   variant="outline"
-                  onClick={() => setShowAll(true)}
+                  onClick={() => {
+                    setShowAll(true);
+                    trackConversion({ event: 'finder_show_all', source: 'homepage_finder', label: String(filtered.length) });
+                  }}
                   className="rounded-xl"
                 >
                   Alle {filtered.length} Kurse anzeigen
@@ -179,7 +182,9 @@ export function CourseFinderSection() {
         )}
 
         <div className="text-center mt-8">
-          <Button variant="outline" size="lg" asChild className="rounded-xl">
+          <Button variant="outline" size="lg" asChild className="rounded-xl"
+            onClick={() => trackConversion({ event: 'catalog_view', source: 'homepage_finder' })}
+          >
             <Link to="/berufe">
               Alle Berufe & Kurse entdecken <ArrowRight className="ml-2 h-4 w-4" />
             </Link>
@@ -187,5 +192,64 @@ export function CourseFinderSection() {
         </div>
       </div>
     </section>
+  );
+}
+
+/** Rich course card with badges, description, and clear CTA */
+function CourseCard({ course }: { course: CatalogCourseItem }) {
+  const Icon = categoryIcon[course.category];
+  const shortDesc = course.description
+    ? course.description.length > 120
+      ? course.description.substring(0, 117) + '…'
+      : course.description
+    : null;
+
+  return (
+    <Link
+      to={getBerufUrl(course.slug)}
+      className="glass-card rounded-xl p-5 group hover:border-primary/30 transition-all duration-300 flex flex-col"
+      onClick={() => trackConversion({ event: 'course_card_click', source: 'homepage_finder', label: course.slug })}
+    >
+      {/* Header: category + kammer */}
+      <div className="flex items-center gap-2 mb-3">
+        <div className={`p-1.5 rounded-lg ${categoryColor[course.category]}`}>
+          <Icon className="h-4 w-4" />
+        </div>
+        <span className="text-xs font-medium text-muted-foreground">{course.categoryLabel}</span>
+        {course.kammer && (
+          <Badge variant="outline" className="text-[10px] px-1.5 py-0 ml-auto">
+            {course.kammer}
+          </Badge>
+        )}
+      </div>
+
+      {/* Title */}
+      <h3 className="text-base font-semibold leading-tight group-hover:text-primary transition-colors mb-2">
+        {course.title}
+      </h3>
+
+      {/* Short description */}
+      {shortDesc && (
+        <p className="text-xs text-muted-foreground leading-relaxed mb-3 flex-1">
+          {shortDesc}
+        </p>
+      )}
+
+      {/* Badges */}
+      {course.badges.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mb-3">
+          {course.badges.slice(0, MAX_BADGES).map(badge => (
+            <span key={badge} className="text-[10px] px-2 py-0.5 rounded-full bg-muted/50 text-muted-foreground font-medium">
+              {badge}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* CTA */}
+      <span className="text-sm text-primary font-medium flex items-center gap-1 mt-auto group-hover:gap-2 transition-all">
+        Kurs ansehen <ArrowRight className="h-3.5 w-3.5" />
+      </span>
+    </Link>
   );
 }
