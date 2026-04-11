@@ -21,10 +21,18 @@ export type VerifyResult = {
 
 /**
  * Verify generate_learning_content is truly complete.
- * Checks:
- *   1. needs_regen count = 0 (no lessons missing content)
- *   2. No active child jobs (lesson_generate_content / competency_bundle)
- *   3. completion_ratio >= 0.95 as fallback
+ *
+ * Aligned with markStepDone post-condition (HOLLOW_LESSONS guard):
+ *   - placeholders = 0
+ *   - tier1_failed = 0
+ *   - real_content >= 95% of total
+ *   - avg_len >= 600
+ *   - no active child jobs
+ *
+ * Produces three semantic states:
+ *   - finalizable (ready=true): postcondition WILL pass
+ *   - materially_complete: >=95% but postcondition would fail
+ *   - incomplete: still has significant work remaining
  */
 export async function verifyGenerateLearningContentComplete(
   sb: SB,
@@ -41,43 +49,44 @@ export async function verifyGenerateLearningContentComplete(
     return { ready: false, reason: "no_course_id", snapshot: {} };
   }
 
-  // 2. Count lessons needing regeneration
+  // 2. Use the same RPC as post-conditions.ts for exact alignment
+  const { data: realness, error: rpcErr } = await sb.rpc(
+    "package_lessons_realness",
+    { p_package_id: packageId },
+  );
+
+  if (rpcErr) {
+    return { ready: false, reason: `rpc_error: ${rpcErr.message}`, snapshot: {} };
+  }
+
+  const total = num(realness?.lessons_total);
+  const real = num(realness?.real_content);
+  const ph = num(realness?.placeholders);
+  const emptyish = num(realness?.emptyish);
+  const avg = num(realness?.avg_len);
+
+  if (total === 0) {
+    return { ready: false, reason: "no_lessons", snapshot: {} };
+  }
+
+  // 3. Count tier1_failed lessons (same logic as post-conditions.ts)
   const { data: mods } = await sb
     .from("modules")
     .select("id")
     .eq("course_id", pkg.course_id);
   const moduleIds = (mods ?? []).map((m: any) => m.id);
-
-  if (moduleIds.length === 0) {
-    return { ready: false, reason: "no_modules", snapshot: {} };
+  let tier1Failed = 0;
+  if (moduleIds.length > 0) {
+    const { data: failedLessons } = await sb
+      .from("lessons")
+      .select("id")
+      .in("module_id", moduleIds)
+      .eq("qc_status", "tier1_failed")
+      .neq("step", "mini_check");
+    tier1Failed = failedLessons?.length ?? 0;
   }
 
-  const NEEDS_REGEN_FILTER = [
-    "content.is.null",
-    "qc_status.eq.tier1_failed",
-    "content->>_placeholder.eq.true",
-    "content->>_regenerating.eq.true",
-  ].join(",");
-
-  const { count: needsRegen } = await sb
-    .from("lessons")
-    .select("id", { head: true, count: "exact" })
-    .in("module_id", moduleIds)
-    .neq("step", "mini_check")
-    .or(NEEDS_REGEN_FILTER);
-
-  const { count: totalLessons } = await sb
-    .from("lessons")
-    .select("id", { head: true, count: "exact" })
-    .in("module_id", moduleIds)
-    .neq("step", "mini_check");
-
-  const regen = needsRegen ?? 0;
-  const total = totalLessons ?? 0;
-  const completionRatio = total > 0 ? (total - regen) / total : 0;
-
-  // 3. Check genuinely in-flight child jobs (exclude stale processing + pending)
-  // When artifacts are verified complete, pending jobs are stale re-enqueues
+  // 4. Check genuinely in-flight child jobs
   const { data: childJobs } = await sb
     .from("job_queue")
     .select("id, status, locked_at")
@@ -96,29 +105,65 @@ export async function verifyGenerateLearningContentComplete(
     return false;
   }).length;
 
+  // 5. Exact postcondition alignment with assertStepPostConditions
+  const minReal = Math.max(1, Math.floor(total * 0.95));
+  const postconditionPasses =
+    total > 0 &&
+    ph === 0 &&
+    tier1Failed === 0 &&
+    real >= minReal &&
+    avg >= 600;
+
+  const completionRatio = total > 0 ? real / total : 0;
+  const materially_complete = completionRatio >= 0.95;
+
   const snapshot = {
-    needs_regen: regen,
-    total_lessons: total,
+    lessons_total: total,
+    real_content: real,
+    placeholders: ph,
+    emptyish,
+    tier1_failed: tier1Failed,
+    avg_len: avg,
     completion_ratio: Math.round(completionRatio * 1000) / 1000,
+    min_real_required: minReal,
     active_child_jobs: activeChildren,
+    materially_complete,
+    finalizable: postconditionPasses && activeChildren === 0,
   };
 
-  // Artifact-done: zero lessons need regen AND no active children
-  if (regen === 0 && activeChildren === 0) {
-    return { ready: true, reason: `artifact_complete: 0/${total} need regen, 0 active children`, snapshot };
+  // ONLY set ready when the real postcondition will pass AND no active children
+  if (postconditionPasses && activeChildren === 0) {
+    return {
+      ready: true,
+      reason: `finalizable: ${real}/${total} real, ph=${ph}, t1f=${tier1Failed}, avg=${avg}, 0 active children`,
+      snapshot,
+    };
   }
 
-  // Material completion: ≥95% AND no active children
-  if (completionRatio >= 0.95 && activeChildren === 0) {
-    return { ready: true, reason: `material_complete: ratio=${snapshot.completion_ratio}, ${regen} remaining`, snapshot };
+  // Materially close but postcondition would fail — NOT ready
+  if (materially_complete && activeChildren === 0) {
+    const blockers = [];
+    if (ph > 0) blockers.push(`${ph} placeholders`);
+    if (tier1Failed > 0) blockers.push(`${tier1Failed} tier1_failed`);
+    if (avg < 600) blockers.push(`avg_len=${avg} < 600`);
+    if (real < minReal) blockers.push(`real=${real} < min=${minReal}`);
+    return {
+      ready: false,
+      reason: `materially_complete but not finalizable: ${blockers.join(", ")}`,
+      snapshot,
+    };
   }
 
-  // Not ready
   return {
     ready: false,
-    reason: `incomplete: ${regen}/${total} need regen, ${activeChildren} active children, ratio=${snapshot.completion_ratio}`,
+    reason: `incomplete: ${real}/${total} real, ${activeChildren} active children, ratio=${snapshot.completion_ratio}`,
     snapshot,
   };
+}
+
+function num(x: any): number {
+  const n = Number(x);
+  return Number.isFinite(n) ? n : 0;
 }
 
 /**
