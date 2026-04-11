@@ -171,7 +171,7 @@ Deno.serve(async (req) => {
         .in("status", ["completed", "failed"]);
 
       for (const j of completedJobs ?? []) {
-        const bpId = (j.payload as any)?.blueprintId ?? (j.payload as any)?.blueprint_id;
+        const bpId = (j.payload as any)?.blueprint_id ?? (j.payload as any)?.blueprintId;
         if (bpId) {
           attemptCounts.set(bpId, (attemptCounts.get(bpId) || 0) + 1);
         }
@@ -188,7 +188,7 @@ Deno.serve(async (req) => {
 
     const alreadyEnqueued = new Set<string>();
     for (const j of existingJobs ?? []) {
-      const bpId = (j.payload as any)?.blueprintId ?? (j.payload as any)?.blueprint_id;
+      const bpId = (j.payload as any)?.blueprint_id ?? (j.payload as any)?.blueprintId;
       if (bpId) alreadyEnqueued.add(bpId);
     }
 
@@ -218,7 +218,6 @@ Deno.serve(async (req) => {
         payload: {
           package_id: packageId,
           blueprint_id: gap.blueprint_id,
-          blueprintId: gap.blueprint_id,
           count: Math.min(remaining, 20),
         },
         max_attempts: 3,
