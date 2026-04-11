@@ -157,6 +157,15 @@ function JobRow({ job, onAction, actionPending }: {
           )}
 
           <div className="flex flex-wrap gap-2 pt-1">
+            {/* Force Run — always available for pending/processing jobs */}
+            {(job.job_status === 'pending' || job.job_status === 'processing') && (
+              <Button size="sm" variant="outline" disabled={actionPending}
+                className="text-xs h-8 border-primary/30 text-primary hover:bg-primary/10"
+                onClick={(e) => { e.stopPropagation(); onAction(job.job_id, 'force_run'); }}>
+                {actionPending ? <Loader2 className="h-3 w-3 animate-spin mr-1.5" /> : <Zap className="h-3 w-3 mr-1.5" />}
+                Force Run
+              </Button>
+            )}
             {(isRetriable || isFailed) && (
               <Button size="sm" variant="outline" disabled={actionPending} className="text-xs h-8"
                 onClick={(e) => { e.stopPropagation(); onAction(job.job_id, 'retry'); }}>
@@ -210,6 +219,15 @@ export default function QueuePage() {
       if (action === 'kill_zombie') return runAdminOpsAction('kill_stale_processing_jobs', { job_ids: [jobId] });
       if (action === 'release_lock') return runAdminOpsAction('release_stale_leases', { job_ids: [jobId] });
       if (action === 'cancel') return runAdminOpsAction('cancel_zombie_packages', { job_ids: [jobId] });
+      if (action === 'force_run') {
+        const { data: { session } } = await supabase.auth.getSession();
+        const { data, error } = await supabase.functions.invoke('admin-ops-actions', {
+          body: { action: 'force_run_job', job_id: jobId },
+          headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {},
+        });
+        if (error) throw error;
+        return data;
+      }
       return null;
     },
     onSuccess: (_, vars) => {
