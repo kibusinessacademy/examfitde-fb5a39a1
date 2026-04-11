@@ -249,7 +249,7 @@ export default function BerufePage() {
                                 )}
                               </div>
                             </div>
-                            <CardTitle className="text-base group-hover:text-primary transition-colors leading-snug">
+                            <CardTitle className="text-responsive-base group-hover:text-primary transition-colors leading-snug line-clamp-2">
                               {course.title}
                             </CardTitle>
                           </CardHeader>
