@@ -63,6 +63,36 @@ export async function checkIdempotency(
 
   const existing = await existingVersion(sb, lessonId, stepKey);
   if (existing) {
+    // Self-heal: if approved CV exists but lesson still has placeholder, writeback now
+    try {
+      const { data: lessonRow } = await sb
+        .from("lessons")
+        .select("content")
+        .eq("id", lessonId)
+        .maybeSingle();
+
+      const content = lessonRow?.content;
+      const isStillPlaceholder =
+        !content ||
+        content?._placeholder === true ||
+        content?._regenerating === true ||
+        (typeof content === "object" && Object.keys(content).length < 3);
+
+      if (isStillPlaceholder && existing.content_json) {
+        console.log(
+          `[worker] SELF_HEAL_WRITEBACK: lesson=${lessonId.slice(0, 8)} step=${stepKey} — approved CV exists but lesson still placeholder, repairing`,
+        );
+        await sb.rpc("pipeline_write_lesson_content", {
+          p_lesson_id: lessonId,
+          p_content: existing.content_json,
+        });
+      }
+    } catch (healErr) {
+      console.warn(
+        `[worker] SELF_HEAL_WRITEBACK_FAIL: ${(healErr as Error)?.message?.slice(0, 100)}`,
+      );
+    }
+
     return {
       skip: true,
       response: json({ ok: true, skipped: true, reason: "already_generated", versionId: existing.id }),
