@@ -15,6 +15,7 @@ export interface CatalogCourseItem {
   berufKurz: string | null;
   berufLang: string | null;
   description: string | null;
+  discoveryTeaser: string | null;
   kammer: string | null;
   ausbildungsdauerMonate: number | null;
   dqrNiveau: number | null;
@@ -56,6 +57,7 @@ export function useHomepageCatalog() {
         berufKurz: row.beruf_kurz,
         berufLang: row.beruf_lang,
         description: row.description,
+        discoveryTeaser: row.discovery_teaser || null,
         kammer: row.kammer,
         ausbildungsdauerMonate: row.ausbildungsdauer_monate,
         dqrNiveau: row.dqr_niveau,

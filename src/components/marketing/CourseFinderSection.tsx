@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, GraduationCap, BookOpen, Briefcase, BadgeCheck, ArrowRight, Filter } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -30,14 +30,33 @@ const categoryIcon: Record<CourseCategory, typeof GraduationCap> = {
   zertifizierung: BadgeCheck,
 };
 
-/** Max badges to show on a card */
 const MAX_BADGES = 3;
+
+/** Compute search relevance score (higher = better match) */
+function searchRelevance(course: CatalogCourseItem, q: string): number {
+  const titleLower = course.title.toLowerCase();
+  const berufLower = (course.berufKurz || '').toLowerCase();
+
+  // Tier 1: Title starts with query
+  if (titleLower.startsWith(q)) return 400;
+  // Tier 2: Beruf name starts with query
+  if (berufLower.startsWith(q)) return 300;
+  // Tier 3: Title contains query
+  if (titleLower.includes(q)) return 200;
+  // Tier 4: Beruf name contains query
+  if (berufLower.includes(q)) return 150;
+  // Tier 5: search_text match (synonyms, long names, etc.)
+  if (course.searchText.includes(q)) return 100;
+
+  return 0;
+}
 
 export function CourseFinderSection() {
   const { data: allCourses, isLoading } = useHomepageCatalog();
   const [query, setQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<CourseCategory | 'all'>('all');
   const [showAll, setShowAll] = useState(false);
+  const lastTrackedNoResults = useRef('');
 
   const isSearching = query.length >= 2;
 
@@ -51,27 +70,42 @@ export function CourseFinderSection() {
 
     if (isSearching) {
       const q = query.toLowerCase();
-      // Search against the DB-generated search_text which includes synonyms
-      results = results.filter(c => c.searchText.includes(q));
-      // Sort by relevance: exact title match first, then popularity
-      results.sort((a, b) => {
-        const aExact = a.title.toLowerCase().includes(q) ? 1 : 0;
-        const bExact = b.title.toLowerCase().includes(q) ? 1 : 0;
-        if (aExact !== bExact) return bExact - aExact;
-        return b.popularityScore - a.popularityScore;
-      });
+      // Score each result for relevance, filter out non-matches
+      results = results
+        .map(c => ({ course: c, relevance: searchRelevance(c, q) }))
+        .filter(r => r.relevance > 0)
+        .sort((a, b) => {
+          // Primary: relevance tier
+          if (a.relevance !== b.relevance) return b.relevance - a.relevance;
+          // Secondary: editorial priority
+          const aPrio = a.course.editorialPriority ?? 999;
+          const bPrio = b.course.editorialPriority ?? 999;
+          if (aPrio !== bPrio) return aPrio - bPrio;
+          // Tertiary: popularity
+          return b.course.popularityScore - a.course.popularityScore;
+        })
+        .map(r => r.course);
     } else {
-      // Not searching: editorial priority first, then popularity
+      // Not searching: editorial priority → popularity → published_at DESC
       results.sort((a, b) => {
         const aPrio = a.editorialPriority ?? 999;
         const bPrio = b.editorialPriority ?? 999;
         if (aPrio !== bPrio) return aPrio - bPrio;
-        return b.popularityScore - a.popularityScore;
+        if (a.popularityScore !== b.popularityScore) return b.popularityScore - a.popularityScore;
+        return 0; // DB already ordered by published_at
       });
     }
 
     return results;
   }, [allCourses, query, activeCategory, isSearching]);
+
+  // Track no-results via useEffect, not in render
+  useEffect(() => {
+    if (isSearching && filtered.length === 0 && query !== lastTrackedNoResults.current) {
+      lastTrackedNoResults.current = query;
+      trackConversion({ event: 'finder_no_results', source: 'homepage_finder', label: query });
+    }
+  }, [isSearching, filtered.length, query]);
 
   const displayed = showAll ? filtered : filtered.slice(0, 12);
   const hasMore = filtered.length > 12;
@@ -140,9 +174,7 @@ export function CourseFinderSection() {
             ))}
           </div>
         ) : filtered.length === 0 ? (
-          <div className="text-center py-12" ref={el => {
-            if (el && isSearching) trackConversion({ event: 'finder_no_results', source: 'homepage_finder', label: query });
-          }}>
+          <div className="text-center py-12">
             <p className="text-muted-foreground mb-4">
               {isSearching
                 ? `Kein Kurs gefunden für „${query}". Versuche eine andere Suche.`
@@ -194,13 +226,15 @@ export function CourseFinderSection() {
   );
 }
 
-/** Rich course card with badges, description, and clear CTA */
+/** Rich course card with badges, discovery teaser, and clear CTA */
 function CourseCard({ course }: { course: CatalogCourseItem }) {
   const Icon = categoryIcon[course.category];
-  const shortDesc = course.description
-    ? course.description.length > 120
-      ? course.description.substring(0, 117) + '…'
-      : course.description
+  // Prefer discovery_teaser over raw taetigkeitsprofil
+  const cardText = course.discoveryTeaser || course.description;
+  const shortDesc = cardText
+    ? cardText.length > 130
+      ? cardText.substring(0, 127) + '…'
+      : cardText
     : null;
 
   return (
@@ -227,7 +261,7 @@ function CourseCard({ course }: { course: CatalogCourseItem }) {
         {course.title}
       </h3>
 
-      {/* Short description */}
+      {/* Discovery teaser */}
       {shortDesc && (
         <p className="text-xs text-muted-foreground leading-relaxed mb-3 flex-1">
           {shortDesc}
