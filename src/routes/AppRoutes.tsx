@@ -176,9 +176,10 @@ const AppRoutes = () => {
         {/* SEO Routes */}
         <Route element={<SEOLayout />}>
           <Route path="/pruefungstraining" element={<PruefungstrainingHub />} />
-          <Route path="/pruefungstraining/:slugOrCategory" element={<PruefungstrainingDetailPage />} />
           <Route path="/pruefungstraining/fachwirt/wirtschaftsfachwirt" element={<WirtschaftsfachwirtPage />} />
           <Route path="/pruefungstraining/:category/:slug" element={<PruefungstrainingDetailPage />} />
+          {/* SSOT-driven product page — replaces legacy detail page */}
+          <Route path="/pruefungstraining/:slug" element={<ProductPage />} />
 
           <Route path="/ausbildung" element={<CertificationCategoryPage />} />
           <Route path="/ausbildung/:slug" element={<CertificationSEOPage />} />
