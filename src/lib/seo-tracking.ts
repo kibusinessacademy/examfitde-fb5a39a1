@@ -15,7 +15,15 @@ export type ConversionEvent =
   | 'page_view'
   | 'scroll_depth'
   | 'course_search'
-  | 'course_click';
+  | 'course_click'
+  | 'finder_filter_select'
+  | 'finder_no_results'
+  | 'finder_show_all'
+  | 'hero_scroll_to_finder'
+  | 'catalog_view'
+  | 'course_card_click'
+  | 'role_card_click'
+  | 'bottom_cta_click';
 
 interface TrackingPayload {
   event: ConversionEvent;
