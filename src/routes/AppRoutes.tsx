@@ -73,6 +73,7 @@ const PruefungstrainingStudiumPage = lazyRetry(() => import('@/pages/seo/Pruefun
 const FortbildungLandingPage = lazyRetry(() => import('@/pages/seo/FortbildungLandingPage'));
 const ZertifizierungenLandingPage = lazyRetry(() => import('@/pages/seo/ZertifizierungenLandingPage'));
 const ProductLandingPage = lazyRetry(() => import('@/pages/seo/ProductLandingPage'));
+const ProductPage = lazyRetry(() => import('@/pages/product/ProductPage'));
 const DynamicProductLandingPage = lazyRetry(() => import('@/pages/landing/DynamicProductLandingPage'));
 const PersonaLandingPage = lazyRetry(() => import('@/pages/landing/PersonaLandingPage'));
 const PersonaLandingHubPage = lazyRetry(() => import('@/pages/landing/PersonaLandingHubPage'));
@@ -175,9 +176,10 @@ const AppRoutes = () => {
         {/* SEO Routes */}
         <Route element={<SEOLayout />}>
           <Route path="/pruefungstraining" element={<PruefungstrainingHub />} />
-          <Route path="/pruefungstraining/:slugOrCategory" element={<PruefungstrainingDetailPage />} />
           <Route path="/pruefungstraining/fachwirt/wirtschaftsfachwirt" element={<WirtschaftsfachwirtPage />} />
           <Route path="/pruefungstraining/:category/:slug" element={<PruefungstrainingDetailPage />} />
+          {/* SSOT-driven product page — replaces legacy detail page */}
+          <Route path="/pruefungstraining/:slug" element={<ProductPage />} />
 
           <Route path="/ausbildung" element={<CertificationCategoryPage />} />
           <Route path="/ausbildung/:slug" element={<CertificationSEOPage />} />
