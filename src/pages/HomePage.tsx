@@ -6,7 +6,7 @@ import { generateFAQSchema, generateCourseListSchema, SITE_URL, seoTitle } from 
 import { PRICING } from '@/config/pricing';
 import { StickyCTA } from '@/components/marketing/StickyCTA';
 import { CourseFinderSection } from '@/components/marketing/CourseFinderSection';
-import { PopularCoursesSection } from '@/components/marketing/PopularCoursesSection';
+
 import { trackConversion } from '@/lib/seo-tracking';
 import {
   Accordion,
