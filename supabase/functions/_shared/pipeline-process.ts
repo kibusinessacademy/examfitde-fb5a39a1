@@ -433,23 +433,26 @@ export async function processPackage(
         actionType: "finalize_generate_learning_content",
         cancelStatuses: ["pending", "failed"],
         shouldFinalize: (meta) => {
+          // HARDENED: Primary signal is artifact-based verification (set by rootstep-verifier)
+          const verifierReady = meta?.verifier_ready === true;
+          if (verifierReady) {
+            return { ok: true, reason: `rootstep_verifier: ${meta?.verifier_reason ?? "ready"}`, snapshot: meta?.verifier_snapshot ?? {} };
+          }
+          // Secondary: artifact counts from meta (set by dispatcher edge function)
           const needsRegen = typeof meta?.needs_regen === "number" ? meta.needs_regen : null;
           const completionGate = meta?.completion_gate as Record<string, unknown> | undefined;
           const gateNeedsRegen = typeof completionGate?.needs_regen === "number" ? completionGate.needs_regen : null;
-          const batchComplete = meta?.batch_complete === true;
           const artifactDone = needsRegen === 0 || gateNeedsRegen === 0;
-          // Material completion: ≥95% generated lessons = done (needs_regen becomes rework backlog)
+          // Material completion: ≥95% generated lessons = done
           const completionRatio = typeof meta?.completion_guard?.completion_ratio === "number" ? meta.completion_guard.completion_ratio : null;
           const materiallyComplete = completionRatio !== null && completionRatio >= 0.95;
-          const ok = artifactDone || batchComplete || materiallyComplete;
+          const ok = artifactDone || materiallyComplete;
           const reason = artifactDone
             ? `needs_regen=0 (artifact-done)`
             : materiallyComplete
               ? `material_completion: ratio=${completionRatio} >= 0.95`
-              : batchComplete
-                ? "meta.batch_complete=true"
-                : `needs_regen=${needsRegen ?? "null"}, batch_complete=${meta?.batch_complete}, ratio=${completionRatio}`;
-          return { ok, reason, snapshot: { needs_regen: needsRegen, gate_needs_regen: gateNeedsRegen, batch_complete: batchComplete, completion_ratio: completionRatio, materially_complete: materiallyComplete } };
+              : `needs_regen=${needsRegen ?? "null"}, ratio=${completionRatio}`;
+          return { ok, reason, snapshot: { needs_regen: needsRegen, gate_needs_regen: gateNeedsRegen, completion_ratio: completionRatio, materially_complete: materiallyComplete } };
         },
       },
       {
