@@ -10,7 +10,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Loader2, Save, Globe, GripVertical, Plus, Trash2, ChevronUp, ChevronDown, AlertCircle, AlertTriangle } from 'lucide-react';
+import { Loader2, Save, Globe, GripVertical, Plus, Trash2, ChevronUp, ChevronDown, AlertCircle, AlertTriangle, Info } from 'lucide-react';
 import { toast } from 'sonner';
 import { buildDefaultBlockContent, snapshotPageVersion, isSlugTaken, slugify } from '@/lib/page-studio-utils';
 import { HeroBlockEditor, RichTextBlockEditor, ImageBlockEditor, CTABlockEditor, FAQBlockEditor, TrustBarBlockEditor } from './block-editors';
@@ -50,6 +50,8 @@ const BLOCK_TYPE_LABELS: Record<string, string> = {
   testimonials: '💬 Testimonials',
 };
 
+const TYPED_EDITORS = new Set(['hero', 'rich_text', 'image', 'cta', 'faq', 'trust_bar']);
+
 const AVAILABLE_BLOCK_TYPES = [
   'hero', 'rich_text', 'image', 'cta', 'faq', 'trust_bar',
   'feature_list', 'card_grid', 'steps', 'spacer', 'video', 'testimonials',
@@ -74,7 +76,47 @@ function renderBlockEditor(
     case 'trust_bar':
       return <TrustBarBlockEditor content={block.content_json} onChange={onContentChange} />;
     default:
-      return <GenericBlockEditor content={block.content_json} onChange={onContentChange} />;
+      return <GenericBlockEditor blockType={block.block_type} content={block.content_json} onChange={onContentChange} />;
+  }
+}
+
+/** Persist all dirty metadata + dirty blocks. Returns true on success. */
+async function persistAll(
+  pageId: string,
+  meta: { title: string; slug: string; excerpt: string; seoTitle: string; metaDesc: string; ogTitle: string; ogDesc: string; ogImage: string; canonical: string; robots: string },
+  dirtyBlocks: Record<string, Record<string, any>>,
+  currentSlug: string | undefined,
+) {
+  if (meta.slug !== currentSlug) {
+    const taken = await isSlugTaken(meta.slug.trim(), pageId);
+    if (taken) throw new Error('Slug bereits vergeben.');
+  }
+
+  const { error } = await (supabase as any)
+    .from('cms_pages')
+    .update({
+      title: meta.title,
+      slug: meta.slug.trim(),
+      excerpt: meta.excerpt,
+      seo_title: meta.seoTitle || null,
+      meta_description: meta.metaDesc || null,
+      og_title: meta.ogTitle || null,
+      og_description: meta.ogDesc || null,
+      og_image_url: meta.ogImage || null,
+      canonical_url: meta.canonical || null,
+      robots: meta.robots,
+    })
+    .eq('id', pageId);
+  if (error) {
+    if (error.code === '23505') throw new Error('Slug bereits vergeben.');
+    throw error;
+  }
+
+  for (const [blockId, content] of Object.entries(dirtyBlocks)) {
+    await (supabase as any)
+      .from('cms_page_blocks')
+      .update({ content_json: content })
+      .eq('id', blockId);
   }
 }
 
@@ -82,9 +124,7 @@ export function PageEditorDialog({ pageId, open, onOpenChange }: Props) {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('blocks');
   const [slugError, setSlugError] = useState('');
-  // Track local unsaved block changes
   const [dirtyBlocks, setDirtyBlocks] = useState<Record<string, Record<string, any>>>({});
-  // Track if metadata fields changed
   const [metaDirty, setMetaDirty] = useState(false);
 
   const { data: page, isLoading: pageLoading } = useQuery({
@@ -144,7 +184,6 @@ export function PageEditorDialog({ pageId, open, onOpenChange }: Props) {
     setMetaDirty(false);
   }, [page]);
 
-  // Helper to mark metadata dirty
   const setMetaField = useCallback(<T,>(setter: React.Dispatch<React.SetStateAction<T>>, value: T) => {
     setter(value);
     setMetaDirty(true);
@@ -153,13 +192,12 @@ export function PageEditorDialog({ pageId, open, onOpenChange }: Props) {
   const hasDirtyBlocks = Object.keys(dirtyBlocks).length > 0;
   const hasUnsavedChanges = hasDirtyBlocks || metaDirty;
 
-  const invalidatePage = () => {
+  const invalidateAll = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['cms-pages'] });
     queryClient.invalidateQueries({ queryKey: ['cms-page', pageId] });
     queryClient.invalidateQueries({ queryKey: ['cms-page-blocks', pageId] });
-  };
+  }, [queryClient, pageId]);
 
-  // Warn on close with unsaved changes
   const handleOpenChange = (nextOpen: boolean) => {
     if (!nextOpen && hasUnsavedChanges) {
       const confirmed = window.confirm('Es gibt ungespeicherte Änderungen. Wirklich schließen?');
@@ -168,48 +206,21 @@ export function PageEditorDialog({ pageId, open, onOpenChange }: Props) {
     onOpenChange(nextOpen);
   };
 
-  // Save page metadata + dirty blocks + snapshot
+  const getMeta = useCallback(() => ({
+    title, slug, excerpt, seoTitle, metaDesc, ogTitle, ogDesc, ogImage, canonical, robots,
+  }), [title, slug, excerpt, seoTitle, metaDesc, ogTitle, ogDesc, ogImage, canonical, robots]);
+
+  // Save: metadata + dirty blocks + snapshot
   const saveMutation = useMutation({
     mutationFn: async () => {
-      if (slug !== page?.slug) {
-        const taken = await isSlugTaken(slug.trim(), pageId);
-        if (taken) throw new Error('Slug bereits vergeben.');
-      }
-
-      const { error } = await (supabase as any)
-        .from('cms_pages')
-        .update({
-          title, slug: slug.trim(), excerpt,
-          seo_title: seoTitle || null,
-          meta_description: metaDesc || null,
-          og_title: ogTitle || null,
-          og_description: ogDesc || null,
-          og_image_url: ogImage || null,
-          canonical_url: canonical || null,
-          robots,
-        })
-        .eq('id', pageId);
-      if (error) {
-        if (error.code === '23505') throw new Error('Slug bereits vergeben.');
-        throw error;
-      }
-
-      // Save all dirty block contents
-      for (const [blockId, content] of Object.entries(dirtyBlocks)) {
-        await (supabase as any)
-          .from('cms_page_blocks')
-          .update({ content_json: content })
-          .eq('id', blockId);
-      }
-
-      // Snapshot on save
+      await persistAll(pageId, getMeta(), dirtyBlocks, page?.slug);
       await snapshotPageVersion(pageId);
     },
     onSuccess: () => {
       setSlugError('');
       setDirtyBlocks({});
       setMetaDirty(false);
-      invalidatePage();
+      invalidateAll();
       toast.success('Gespeichert');
     },
     onError: (err: any) => {
@@ -221,33 +232,35 @@ export function PageEditorDialog({ pageId, open, onOpenChange }: Props) {
     },
   });
 
-  // Publish (auto-snapshot via DB trigger)
+  // Publish: full save first, then status change + snapshot
   const publishMutation = useMutation({
     mutationFn: async () => {
-      // Save dirty blocks first if any
-      if (hasDirtyBlocks) {
-        for (const [blockId, content] of Object.entries(dirtyBlocks)) {
-          await (supabase as any)
-            .from('cms_page_blocks')
-            .update({ content_json: content })
-            .eq('id', blockId);
-        }
-      }
+      // Persist ALL current state (meta + blocks) before publishing
+      await persistAll(pageId, getMeta(), dirtyBlocks, page?.slug);
+
       const { error } = await (supabase as any)
         .from('cms_pages')
         .update({ status: 'published', published_at: new Date().toISOString() })
         .eq('id', pageId);
       if (error) throw error;
+      await snapshotPageVersion(pageId);
     },
     onSuccess: () => {
       setDirtyBlocks({});
       setMetaDirty(false);
-      invalidatePage();
+      invalidateAll();
       toast.success('Veröffentlicht');
+    },
+    onError: (err: any) => {
+      if (err.message?.includes('Slug')) {
+        setSlugError(err.message);
+      } else {
+        toast.error(err.message || 'Fehler beim Veröffentlichen');
+      }
     },
   });
 
-  // Structural block mutations — these trigger snapshots
+  // Structural block mutations — snapshot + full invalidation
   const toggleBlock = useMutation({
     mutationFn: async ({ blockId, enabled }: { blockId: string; enabled: boolean }) => {
       const { error } = await (supabase as any)
@@ -255,9 +268,9 @@ export function PageEditorDialog({ pageId, open, onOpenChange }: Props) {
         .update({ is_enabled: enabled })
         .eq('id', blockId);
       if (error) throw error;
-      await snapshotPageVersion(pageId);
+      await snapshotPageVersion(pageId).catch(console.error);
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['cms-page-blocks', pageId] }),
+    onSuccess: invalidateAll,
   });
 
   const moveBlock = useMutation({
@@ -275,9 +288,9 @@ export function PageEditorDialog({ pageId, open, onOpenChange }: Props) {
       for (const u of updates) {
         await (supabase as any).from('cms_page_blocks').update({ sort_order: u.sort_order }).eq('id', u.id);
       }
-      await snapshotPageVersion(pageId);
+      await snapshotPageVersion(pageId).catch(console.error);
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['cms-page-blocks', pageId] }),
+    onSuccess: invalidateAll,
   });
 
   const addBlock = useMutation({
@@ -293,10 +306,10 @@ export function PageEditorDialog({ pageId, open, onOpenChange }: Props) {
           content_json: buildDefaultBlockContent(blockType),
         });
       if (error) throw error;
-      await snapshotPageVersion(pageId);
+      await snapshotPageVersion(pageId).catch(console.error);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['cms-page-blocks', pageId] });
+      invalidateAll();
       toast.success('Block hinzugefügt');
     },
   });
@@ -308,21 +321,19 @@ export function PageEditorDialog({ pageId, open, onOpenChange }: Props) {
         .delete()
         .eq('id', blockId);
       if (error) throw error;
-      // Remove from dirty if tracked
       setDirtyBlocks((prev) => {
         const next = { ...prev };
         delete next[blockId];
         return next;
       });
-      await snapshotPageVersion(pageId);
+      await snapshotPageVersion(pageId).catch(console.error);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['cms-page-blocks', pageId] });
+      invalidateAll();
       toast.success('Block entfernt');
     },
   });
 
-  // Handle block content changes locally (no snapshot per keystroke)
   const handleBlockContentChange = (blockId: string, content: Record<string, any>) => {
     setDirtyBlocks((prev) => ({ ...prev, [blockId]: content }));
   };
@@ -507,47 +518,54 @@ export function PageEditorDialog({ pageId, open, onOpenChange }: Props) {
   );
 }
 
-/** Generic fallback editor for block types without a dedicated editor */
-function GenericBlockEditor({ content, onChange }: { content: Record<string, any>; onChange: (c: Record<string, any>) => void }) {
+/** Generic fallback editor for block types without a dedicated typed editor */
+function GenericBlockEditor({ blockType, content, onChange }: { blockType: string; content: Record<string, any>; onChange: (c: Record<string, any>) => void }) {
   const fields = Object.keys(content);
-  if (fields.length === 0) {
-    return <p className="text-xs text-muted-foreground italic">Leerer Block</p>;
-  }
 
   return (
     <div className="space-y-2">
-      {fields.map((key) => {
-        const val = content[key];
-        if (Array.isArray(val)) {
-          return (
-            <div key={key} className="space-y-1">
-              <Label className="text-[10px] text-muted-foreground">{key}</Label>
-              <p className="text-[10px] text-muted-foreground italic">{val.length} Einträge</p>
-            </div>
-          );
-        }
-        if (typeof val === 'boolean') {
-          return (
-            <div key={key} className="flex items-center gap-2">
-              <Switch checked={val} onCheckedChange={(v) => onChange({ ...content, [key]: v })} />
-              <Label className="text-[10px] text-muted-foreground">{key}</Label>
-            </div>
-          );
-        }
-        if (typeof val === 'string') {
-          return (
-            <div key={key} className="space-y-1">
-              <Label className="text-[10px] text-muted-foreground">{key}</Label>
-              {val.length > 80 ? (
-                <Textarea value={val} onChange={(e) => onChange({ ...content, [key]: e.target.value })} rows={2} className="text-xs" />
-              ) : (
-                <Input value={val} onChange={(e) => onChange({ ...content, [key]: e.target.value })} className="text-xs h-8" />
-              )}
-            </div>
-          );
-        }
-        return null;
-      })}
+      {!TYPED_EDITORS.has(blockType) && (
+        <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-muted/40 border border-dashed border-muted-foreground/30">
+          <Info className="h-3 w-3 text-muted-foreground shrink-0" />
+          <p className="text-[10px] text-muted-foreground">Generischer Editor – für diesen Blocktyp existiert noch kein spezialisierter Editor.</p>
+        </div>
+      )}
+      {fields.length === 0 ? (
+        <p className="text-xs text-muted-foreground italic">Leerer Block</p>
+      ) : (
+        fields.map((key) => {
+          const val = content[key];
+          if (Array.isArray(val)) {
+            return (
+              <div key={key} className="space-y-1">
+                <Label className="text-[10px] text-muted-foreground">{key}</Label>
+                <p className="text-[10px] text-muted-foreground italic">{val.length} Einträge</p>
+              </div>
+            );
+          }
+          if (typeof val === 'boolean') {
+            return (
+              <div key={key} className="flex items-center gap-2">
+                <Switch checked={val} onCheckedChange={(v) => onChange({ ...content, [key]: v })} />
+                <Label className="text-[10px] text-muted-foreground">{key}</Label>
+              </div>
+            );
+          }
+          if (typeof val === 'string') {
+            return (
+              <div key={key} className="space-y-1">
+                <Label className="text-[10px] text-muted-foreground">{key}</Label>
+                {val.length > 80 ? (
+                  <Textarea value={val} onChange={(e) => onChange({ ...content, [key]: e.target.value })} rows={2} className="text-xs" />
+                ) : (
+                  <Input value={val} onChange={(e) => onChange({ ...content, [key]: e.target.value })} className="text-xs h-8" />
+                )}
+              </div>
+            );
+          }
+          return null;
+        })
+      )}
     </div>
   );
 }
