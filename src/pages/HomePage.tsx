@@ -144,8 +144,7 @@ export default function HomePage() {
         {/* ─── 2. Kursfinder mit Suche + Filter ─── */}
         <CourseFinderSection />
 
-        {/* ─── 3. Beliebte Berufe / Top-Kurse ─── */}
-        <PopularCoursesSection />
+        {/* Finder already shows top courses by default — no separate PopularCoursesSection needed */}
 
         {/* ─── 4. So funktioniert ExamFit ─── */}
         <section className="py-12 sm:py-16 md:py-20 px-3 sm:px-4">
