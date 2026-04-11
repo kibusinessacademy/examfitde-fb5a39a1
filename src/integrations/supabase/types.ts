@@ -1578,6 +1578,13 @@ export type Database = {
             foreignKeyName: "ai_tutor_context_index_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_product_page_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "ai_tutor_context_index_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_profit_forecast"
             referencedColumns: ["package_id"]
           },
@@ -3298,6 +3305,13 @@ export type Database = {
             referencedRelation: "v_homepage_course_catalog"
             referencedColumns: ["beruf_id"]
           },
+          {
+            foreignKeyName: "beruf_aliases_beruf_id_fkey"
+            columns: ["beruf_id"]
+            isOneToOne: false
+            referencedRelation: "v_product_page_ssot"
+            referencedColumns: ["beruf_id"]
+          },
         ]
       }
       beruf_dokumente: {
@@ -3386,6 +3400,13 @@ export type Database = {
             columns: ["beruf_id"]
             isOneToOne: false
             referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["beruf_id"]
+          },
+          {
+            foreignKeyName: "beruf_dokumente_beruf_id_fkey"
+            columns: ["beruf_id"]
+            isOneToOne: false
+            referencedRelation: "v_product_page_ssot"
             referencedColumns: ["beruf_id"]
           },
         ]
@@ -3514,6 +3535,13 @@ export type Database = {
             referencedRelation: "v_homepage_course_catalog"
             referencedColumns: ["beruf_id"]
           },
+          {
+            foreignKeyName: "beruf_market_data_beruf_id_fkey"
+            columns: ["beruf_id"]
+            isOneToOne: true
+            referencedRelation: "v_product_page_ssot"
+            referencedColumns: ["beruf_id"]
+          },
         ]
       }
       beruf_market_match_map: {
@@ -3590,6 +3618,13 @@ export type Database = {
             columns: ["beruf_id"]
             isOneToOne: false
             referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["beruf_id"]
+          },
+          {
+            foreignKeyName: "beruf_market_match_map_beruf_id_fkey"
+            columns: ["beruf_id"]
+            isOneToOne: false
+            referencedRelation: "v_product_page_ssot"
             referencedColumns: ["beruf_id"]
           },
         ]
@@ -9601,6 +9636,13 @@ export type Database = {
             foreignKeyName: "council_sessions_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_product_page_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "council_sessions_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_profit_forecast"
             referencedColumns: ["package_id"]
           },
@@ -10824,6 +10866,13 @@ export type Database = {
             foreignKeyName: "course_package_build_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_product_page_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_build_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_profit_forecast"
             referencedColumns: ["package_id"]
           },
@@ -11373,6 +11422,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: true
             referencedRelation: "v_price_recommendation"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_locks_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_product_page_ssot"
             referencedColumns: ["package_id"]
           },
           {
@@ -11949,6 +12005,13 @@ export type Database = {
             foreignKeyName: "course_package_outputs_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_product_page_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_outputs_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_profit_forecast"
             referencedColumns: ["package_id"]
           },
@@ -12513,6 +12576,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_price_recommendation"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_plans_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_product_page_ssot"
             referencedColumns: ["package_id"]
           },
           {
@@ -13095,6 +13165,13 @@ export type Database = {
             columns: ["course_package_id"]
             isOneToOne: true
             referencedRelation: "v_price_recommendation"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_reviews_course_package_id_fkey"
+            columns: ["course_package_id"]
+            isOneToOne: true
+            referencedRelation: "v_product_page_ssot"
             referencedColumns: ["package_id"]
           },
           {
@@ -14223,6 +14300,13 @@ export type Database = {
             foreignKeyName: "course_regulatory_status_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: true
+            referencedRelation: "v_product_page_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_regulatory_status_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
             referencedRelation: "v_profit_forecast"
             referencedColumns: ["package_id"]
           },
@@ -14969,6 +15053,13 @@ export type Database = {
             referencedColumns: ["beruf_id"]
           },
           {
+            foreignKeyName: "curricula_beruf_id_fkey"
+            columns: ["beruf_id"]
+            isOneToOne: false
+            referencedRelation: "v_product_page_ssot"
+            referencedColumns: ["beruf_id"]
+          },
+          {
             foreignKeyName: "curricula_certification_id_fkey"
             columns: ["certification_id"]
             isOneToOne: false
@@ -15639,6 +15730,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_price_recommendation"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "curriculum_discovery_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_product_page_ssot"
             referencedColumns: ["package_id"]
           },
           {
@@ -19623,6 +19721,13 @@ export type Database = {
             foreignKeyName: "duplicate_detection_log_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_product_page_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "duplicate_detection_log_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_profit_forecast"
             referencedColumns: ["package_id"]
           },
@@ -21214,6 +21319,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_price_recommendation"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_validation_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_product_page_ssot"
             referencedColumns: ["package_id"]
           },
           {
@@ -30317,6 +30429,13 @@ export type Database = {
             foreignKeyName: "oral_exam_session_templates_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_product_page_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "oral_exam_session_templates_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_profit_forecast"
             referencedColumns: ["package_id"]
           },
@@ -31018,6 +31137,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: true
             referencedRelation: "v_price_recommendation"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "oral_exam_sessionsets_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_product_page_ssot"
             referencedColumns: ["package_id"]
           },
           {
@@ -33174,6 +33300,13 @@ export type Database = {
             foreignKeyName: "package_content_shards_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_product_page_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_content_shards_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_profit_forecast"
             referencedColumns: ["package_id"]
           },
@@ -33732,6 +33865,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: true
             referencedRelation: "v_price_recommendation"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_leases_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_product_page_ssot"
             referencedColumns: ["package_id"]
           },
           {
@@ -34499,6 +34639,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_product_page_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_profit_forecast"
             referencedColumns: ["package_id"]
           },
@@ -35048,6 +35195,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_price_recommendation"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_tags_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_product_page_ssot"
             referencedColumns: ["package_id"]
           },
           {
@@ -36812,6 +36966,13 @@ export type Database = {
             foreignKeyName: "pipeline_lock_active_package_id_fkey"
             columns: ["active_package_id"]
             isOneToOne: false
+            referencedRelation: "v_product_page_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "pipeline_lock_active_package_id_fkey"
+            columns: ["active_package_id"]
+            isOneToOne: false
             referencedRelation: "v_profit_forecast"
             referencedColumns: ["package_id"]
           },
@@ -37121,6 +37282,13 @@ export type Database = {
             columns: ["beruf_id"]
             isOneToOne: true
             referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["beruf_id"]
+          },
+          {
+            foreignKeyName: "portfolio_priority_beruf_id_fkey"
+            columns: ["beruf_id"]
+            isOneToOne: true
+            referencedRelation: "v_product_page_ssot"
             referencedColumns: ["beruf_id"]
           },
           {
@@ -37764,6 +37932,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_price_recommendation"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "premium_upgrade_runs_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_product_page_ssot"
             referencedColumns: ["package_id"]
           },
           {
@@ -38510,6 +38685,13 @@ export type Database = {
             foreignKeyName: "priority_scores_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: true
+            referencedRelation: "v_product_page_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "priority_scores_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
             referencedRelation: "v_profit_forecast"
             referencedColumns: ["package_id"]
           },
@@ -38944,6 +39126,186 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "certifications"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_page_overrides: {
+        Row: {
+          access_duration_months: number | null
+          badges_override: Json | null
+          cta_primary_label: string | null
+          cta_secondary_label: string | null
+          curriculum_id: string
+          discovery_teaser: string | null
+          faq_items_override: Json | null
+          final_cta_copy: string | null
+          final_cta_headline: string | null
+          hero_headline: string | null
+          hero_image_alt: string | null
+          hero_image_url: string | null
+          hero_kicker: string | null
+          hero_subline: string | null
+          how_it_works_copy: string | null
+          how_it_works_headline: string | null
+          is_subscription: boolean | null
+          meta_description: string | null
+          module_items_override: Json | null
+          offer_highlight: string | null
+          og_description: string | null
+          og_image_url: string | null
+          og_title: string | null
+          pain_copy: string | null
+          pain_headline: string | null
+          price_amount: number | null
+          price_currency: string | null
+          price_label: string | null
+          product_intro: string | null
+          profession_fit_copy: string | null
+          profession_fit_headline: string | null
+          seo_title: string | null
+          short_sales_teaser: string | null
+          trust_items_override: Json | null
+          updated_at: string | null
+          updated_by: string | null
+          usp_copy: string | null
+          usp_headline: string | null
+        }
+        Insert: {
+          access_duration_months?: number | null
+          badges_override?: Json | null
+          cta_primary_label?: string | null
+          cta_secondary_label?: string | null
+          curriculum_id: string
+          discovery_teaser?: string | null
+          faq_items_override?: Json | null
+          final_cta_copy?: string | null
+          final_cta_headline?: string | null
+          hero_headline?: string | null
+          hero_image_alt?: string | null
+          hero_image_url?: string | null
+          hero_kicker?: string | null
+          hero_subline?: string | null
+          how_it_works_copy?: string | null
+          how_it_works_headline?: string | null
+          is_subscription?: boolean | null
+          meta_description?: string | null
+          module_items_override?: Json | null
+          offer_highlight?: string | null
+          og_description?: string | null
+          og_image_url?: string | null
+          og_title?: string | null
+          pain_copy?: string | null
+          pain_headline?: string | null
+          price_amount?: number | null
+          price_currency?: string | null
+          price_label?: string | null
+          product_intro?: string | null
+          profession_fit_copy?: string | null
+          profession_fit_headline?: string | null
+          seo_title?: string | null
+          short_sales_teaser?: string | null
+          trust_items_override?: Json | null
+          updated_at?: string | null
+          updated_by?: string | null
+          usp_copy?: string | null
+          usp_headline?: string | null
+        }
+        Update: {
+          access_duration_months?: number | null
+          badges_override?: Json | null
+          cta_primary_label?: string | null
+          cta_secondary_label?: string | null
+          curriculum_id?: string
+          discovery_teaser?: string | null
+          faq_items_override?: Json | null
+          final_cta_copy?: string | null
+          final_cta_headline?: string | null
+          hero_headline?: string | null
+          hero_image_alt?: string | null
+          hero_image_url?: string | null
+          hero_kicker?: string | null
+          hero_subline?: string | null
+          how_it_works_copy?: string | null
+          how_it_works_headline?: string | null
+          is_subscription?: boolean | null
+          meta_description?: string | null
+          module_items_override?: Json | null
+          offer_highlight?: string | null
+          og_description?: string | null
+          og_image_url?: string | null
+          og_title?: string | null
+          pain_copy?: string | null
+          pain_headline?: string | null
+          price_amount?: number | null
+          price_currency?: string | null
+          price_label?: string | null
+          product_intro?: string | null
+          profession_fit_copy?: string | null
+          profession_fit_headline?: string | null
+          seo_title?: string | null
+          short_sales_teaser?: string | null
+          trust_items_override?: Json | null
+          updated_at?: string | null
+          updated_by?: string | null
+          usp_copy?: string | null
+          usp_headline?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_page_overrides_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: true
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_page_overrides_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: true
+            referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "product_page_overrides_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: true
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "product_page_overrides_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: true
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "product_page_overrides_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: true
+            referencedRelation: "v_ops_qc_backlog"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "product_page_overrides_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: true
+            referencedRelation: "v_ops_qc_backlog_age"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "product_page_overrides_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: true
+            referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "product_page_overrides_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: true
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
           },
         ]
       }
@@ -39802,6 +40164,13 @@ export type Database = {
             foreignKeyName: "production_quality_snapshots_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_product_page_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "production_quality_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_profit_forecast"
             referencedColumns: ["package_id"]
           },
@@ -40088,6 +40457,13 @@ export type Database = {
             referencedRelation: "v_homepage_course_catalog"
             referencedColumns: ["beruf_id"]
           },
+          {
+            foreignKeyName: "profession_glossaries_beruf_id_fkey"
+            columns: ["beruf_id"]
+            isOneToOne: false
+            referencedRelation: "v_product_page_ssot"
+            referencedColumns: ["beruf_id"]
+          },
         ]
       }
       profession_profiles: {
@@ -40173,6 +40549,13 @@ export type Database = {
             columns: ["beruf_id"]
             isOneToOne: false
             referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["beruf_id"]
+          },
+          {
+            foreignKeyName: "profession_profiles_beruf_id_fkey"
+            columns: ["beruf_id"]
+            isOneToOne: false
+            referencedRelation: "v_product_page_ssot"
             referencedColumns: ["beruf_id"]
           },
         ]
@@ -44803,6 +45186,13 @@ export type Database = {
             referencedColumns: ["beruf_id"]
           },
           {
+            foreignKeyName: "seo_documents_beruf_id_fkey"
+            columns: ["beruf_id"]
+            isOneToOne: false
+            referencedRelation: "v_product_page_ssot"
+            referencedColumns: ["beruf_id"]
+          },
+          {
             foreignKeyName: "seo_documents_competency_id_fkey"
             columns: ["competency_id"]
             isOneToOne: false
@@ -47174,6 +47564,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_price_recommendation"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "standalone_artifact_versions_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_product_page_ssot"
             referencedColumns: ["package_id"]
           },
           {
@@ -53689,6 +54086,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_product_page_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_profit_forecast"
             referencedColumns: ["package_id"]
           },
@@ -55387,6 +55791,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_product_page_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_profit_forecast"
             referencedColumns: ["package_id"]
           },
@@ -56220,6 +56631,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_product_page_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_profit_forecast"
             referencedColumns: ["package_id"]
           },
@@ -56936,6 +57354,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_product_page_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_profit_forecast"
             referencedColumns: ["package_id"]
           },
@@ -57485,6 +57910,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_price_recommendation"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_product_page_ssot"
             referencedColumns: ["package_id"]
           },
           {
@@ -58049,6 +58481,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_price_recommendation"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_product_page_ssot"
             referencedColumns: ["package_id"]
           },
           {
@@ -58724,6 +59163,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_price_recommendation"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_product_page_ssot"
             referencedColumns: ["package_id"]
           },
           {
@@ -59488,6 +59934,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_price_recommendation"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_product_page_ssot"
             referencedColumns: ["package_id"]
           },
           {
@@ -60672,6 +61125,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_product_page_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_profit_forecast"
             referencedColumns: ["package_id"]
           },
@@ -60937,6 +61397,13 @@ export type Database = {
             columns: ["beruf_id"]
             isOneToOne: false
             referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["beruf_id"]
+          },
+          {
+            foreignKeyName: "curricula_beruf_id_fkey"
+            columns: ["beruf_id"]
+            isOneToOne: false
+            referencedRelation: "v_product_page_ssot"
             referencedColumns: ["beruf_id"]
           },
         ]
@@ -61538,6 +62005,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_price_recommendation"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_product_page_ssot"
             referencedColumns: ["package_id"]
           },
           {
@@ -62165,6 +62639,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_product_page_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_profit_forecast"
             referencedColumns: ["package_id"]
           },
@@ -62784,6 +63265,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_price_recommendation"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "council_sessions_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_product_page_ssot"
             referencedColumns: ["package_id"]
           },
           {
@@ -63432,6 +63920,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_product_page_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_profit_forecast"
             referencedColumns: ["package_id"]
           },
@@ -63980,6 +64475,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_price_recommendation"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_product_page_ssot"
             referencedColumns: ["package_id"]
           },
           {
@@ -64781,6 +65283,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_price_recommendation"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_product_page_ssot"
             referencedColumns: ["package_id"]
           },
           {
@@ -69642,6 +70151,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_product_page_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_profit_forecast"
             referencedColumns: ["package_id"]
           },
@@ -70018,6 +70534,13 @@ export type Database = {
             columns: ["beruf_id"]
             isOneToOne: false
             referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["beruf_id"]
+          },
+          {
+            foreignKeyName: "curricula_beruf_id_fkey"
+            columns: ["beruf_id"]
+            isOneToOne: false
+            referencedRelation: "v_product_page_ssot"
             referencedColumns: ["beruf_id"]
           },
         ]
@@ -70599,6 +71122,13 @@ export type Database = {
             foreignKeyName: "package_content_shards_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_product_page_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_content_shards_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_profit_forecast"
             referencedColumns: ["package_id"]
           },
@@ -71147,6 +71677,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_price_recommendation"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_product_page_ssot"
             referencedColumns: ["package_id"]
           },
           {
@@ -71785,6 +72322,13 @@ export type Database = {
             foreignKeyName: "package_content_shards_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_product_page_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_content_shards_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_profit_forecast"
             referencedColumns: ["package_id"]
           },
@@ -71948,6 +72492,196 @@ export type Database = {
           roi_ratio: number | null
         }
         Relationships: []
+      }
+      v_product_page_ssot: {
+        Row: {
+          access_duration_months: number | null
+          ai_feedback_image_alt: string | null
+          ai_feedback_image_url: string | null
+          ai_tutor_available: boolean | null
+          analysis_image_alt: string | null
+          analysis_image_url: string | null
+          badges: Json | null
+          beruf_display_name: string | null
+          beruf_id: string | null
+          beruf_kurz: string | null
+          beruf_lang: string | null
+          canonical_slug: string | null
+          canonical_title: string | null
+          canonical_title_norm: string | null
+          canonical_url: string | null
+          course_id: string | null
+          cta_primary_label: string | null
+          cta_primary_url: string | null
+          cta_secondary_label: string | null
+          cta_secondary_url: string | null
+          curriculum_id: string | null
+          curriculum_track: string | null
+          discovery_teaser: string | null
+          domain_key: string | null
+          domain_label: string | null
+          exam_focus: string | null
+          exam_mode_available: boolean | null
+          faq_items_json: Json | null
+          final_cta_copy: string | null
+          final_cta_headline: string | null
+          handbook_available: boolean | null
+          hero_headline: string | null
+          hero_image_alt: string | null
+          hero_image_url: string | null
+          hero_kicker: string | null
+          hero_subline: string | null
+          how_it_works_copy: string | null
+          how_it_works_headline: string | null
+          how_it_works_steps_json: Json | null
+          internal_links_json: Json | null
+          is_subscription: boolean | null
+          kammer: string | null
+          keyword_longtail: string[] | null
+          keyword_primary: string | null
+          keyword_secondary: string[] | null
+          meta_description: string | null
+          meta_keywords: string[] | null
+          minichecks_available: boolean | null
+          module_items_json: Json | null
+          offer_highlight: string | null
+          og_description: string | null
+          og_image_url: string | null
+          og_title: string | null
+          oral_mode_available: boolean | null
+          package_id: string | null
+          pain_copy: string | null
+          pain_headline: string | null
+          persona_profile: string | null
+          preview_image_alt: string | null
+          preview_image_url: string | null
+          price_amount: number | null
+          price_currency: string | null
+          price_label: string | null
+          product_intro: string | null
+          product_type: string | null
+          profession_fit_copy: string | null
+          profession_fit_headline: string | null
+          published_at: string | null
+          related_courses_json: Json | null
+          related_professions: string[] | null
+          related_topics: string[] | null
+          robots: string | null
+          role_fit_items_json: Json | null
+          schema_breadcrumb_json: Json | null
+          schema_faq_json: Json | null
+          schema_product_json: Json | null
+          search_text: string | null
+          seo_title: string | null
+          short_sales_teaser: string | null
+          simulation_image_alt: string | null
+          simulation_image_url: string | null
+          status: string | null
+          sticky_cta_label: string | null
+          sticky_cta_price_label: string | null
+          track: string | null
+          trust_items: Json | null
+          twitter_description: string | null
+          twitter_image_url: string | null
+          twitter_title: string | null
+          updated_at: string | null
+          usp_copy: string | null
+          usp_headline: string | null
+          usp_items_json: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_packages_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_packages_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "ops_recovery_impact"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "course_packages_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "v_course_display_ssot"
+            referencedColumns: ["course_row_id"]
+          },
+          {
+            foreignKeyName: "course_packages_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "course_packages_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_build_priority"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_qc_backlog"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_qc_backlog_age"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
+        ]
       }
       v_profit_forecast: {
         Row: {
@@ -72763,6 +73497,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_price_recommendation"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "standalone_artifact_versions_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_product_page_ssot"
             referencedColumns: ["package_id"]
           },
           {
