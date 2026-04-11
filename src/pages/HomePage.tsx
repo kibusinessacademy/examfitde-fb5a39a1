@@ -224,7 +224,7 @@ export default function HomePage() {
                 { to: '/pruefungstraining-betriebe', icon: Building2, color: 'text-accent', title: 'Für Betriebe', text: 'Mache Prüfungsreife sichtbar und unterstütze Azubis strukturiert bei der Vorbereitung.' },
                 { to: '/pruefungstraining-berufsschulen', icon: BookOpen, color: 'text-success', title: 'Für Berufsschulen', text: 'Ergänze bestehende Lernangebote mit prüfungsnahem Training – ohne den Unterricht zu ersetzen.' },
               ].map(({ to, icon: Icon, color, title, text }) => (
-                <Link key={to} to={to} className="glass-card rounded-2xl p-6 sm:p-8 group hover:border-primary/30 transition-all duration-300">
+                <Link key={to} to={to} className="glass-card rounded-2xl p-6 sm:p-8 group hover:border-primary/30 transition-all duration-300" onClick={() => trackConversion({ event: 'role_card_click', source: 'homepage', label: title })}>
                   <Icon className={`h-10 w-10 ${color} mb-4`} />
                   <h3 className="text-lg font-display font-bold mb-2">{title}</h3>
                   <p className="text-sm text-muted-foreground mb-4">{text}</p>
