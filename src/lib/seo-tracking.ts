@@ -13,7 +13,9 @@ export type ConversionEvent =
   | 'exam_start'
   | 'faq_expand'
   | 'page_view'
-  | 'scroll_depth';
+  | 'scroll_depth'
+  | 'course_search'
+  | 'course_click';
 
 interface TrackingPayload {
   event: ConversionEvent;
