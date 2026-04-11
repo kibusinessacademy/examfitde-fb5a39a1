@@ -209,46 +209,46 @@ Deno.serve(async (req) => {
 
   // ── Step 2: Variant inventory seeding ──
   if ((mode === "variants" || mode === "full") && timeLeft()) {
-    // Single query: packages with approved blueprints but NO variant inventory
-    const { data: candidates } = await sb.rpc("fn_batch_variant_candidates" as any, { p_limit: limit });
+    // Get ALL packages with curriculum
+    const { data: rawPkgs } = await sb
+      .from("course_packages")
+      .select("id, curriculum_id")
+      .in("status", ["blocked", "pending", "building"])
+      .not("curriculum_id", "is", null)
+      .limit(500);
 
-    // Fallback if RPC doesn't exist
-    let varPkgs: Array<{ package_id: string; curriculum_id: string }> = candidates ?? [];
+    const allPkgs = rawPkgs ?? [];
+    const pkgIds = allPkgs.map(p => p.id);
+    const curIds = [...new Set(allPkgs.map(p => p.curriculum_id).filter(Boolean))] as string[];
 
-    if (!candidates || candidates.length === 0) {
-      // Manual fallback: one efficient query
-      const { data: rawPkgs } = await sb
-        .from("course_packages")
-        .select("id, curriculum_id")
-        .in("status", ["blocked", "pending", "building"])
-        .not("curriculum_id", "is", null)
-        .limit(500);
-
-      // Filter in-memory: only those with approved BPs and no inventory
-      const pkgIds = (rawPkgs ?? []).map(p => p.id);
-      const curIds = [...new Set((rawPkgs ?? []).map(p => p.curriculum_id).filter(Boolean))];
-
-      // Batch check: which packages already have inventory
-      const { data: existingInv } = await sb
+    // Batch: distinct package_ids that ALREADY have inventory
+    const invSet = new Set<string>();
+    for (let i = 0; i < pkgIds.length; i += 100) {
+      const chunk = pkgIds.slice(i, i + 100);
+      const { data: rows } = await sb
         .from("blueprint_variant_inventory")
         .select("package_id")
-        .in("package_id", pkgIds.slice(0, 200));
-      const hasInv = new Set((existingInv ?? []).map((r: any) => r.package_id));
+        .in("package_id", chunk);
+      for (const r of rows ?? []) invSet.add((r as any).package_id);
+    }
 
-      // Batch check: which curricula have approved blueprints
-      const { data: approvedCurs } = await sb
+    // Batch: distinct curriculum_ids that have approved blueprints
+    const approvedSet = new Set<string>();
+    for (let i = 0; i < curIds.length; i += 100) {
+      const chunk = curIds.slice(i, i + 100);
+      const { data: rows } = await sb
         .from("question_blueprints")
         .select("curriculum_id")
-        .in("curriculum_id", curIds.slice(0, 200))
+        .in("curriculum_id", chunk)
         .eq("status", "approved")
         .limit(1000);
-      const hasApproved = new Set((approvedCurs ?? []).map((r: any) => r.curriculum_id));
-
-      varPkgs = (rawPkgs ?? [])
-        .filter(p => !hasInv.has(p.id) && hasApproved.has(p.curriculum_id))
-        .slice(0, limit)
-        .map(p => ({ package_id: p.id, curriculum_id: p.curriculum_id! }));
+      for (const r of rows ?? []) approvedSet.add((r as any).curriculum_id);
     }
+
+    const varPkgs = allPkgs
+      .filter(p => !invSet.has(p.id) && approvedSet.has(p.curriculum_id!))
+      .slice(0, limit)
+      .map(p => ({ package_id: p.id, curriculum_id: p.curriculum_id! }));
 
     console.log(`[batch-direct-seed] Variant seeding: ${varPkgs.length} packages`);
     let variantSeeded = 0;
