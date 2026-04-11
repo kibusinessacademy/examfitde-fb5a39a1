@@ -236,7 +236,7 @@ export default function PageStudioPage() {
                   <DropdownMenuItem onClick={() => setEditingPageId(page.id)}>
                     <Eye className="h-4 w-4 mr-2" />Bearbeiten
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => window.open(`/${page.slug}`, '_blank')}>
+                  <DropdownMenuItem onClick={() => window.open(resolvePagePreviewUrl(page), '_blank')}>
                     <ExternalLink className="h-4 w-4 mr-2" />Vorschau
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => duplicateMutation.mutate(page)}>
