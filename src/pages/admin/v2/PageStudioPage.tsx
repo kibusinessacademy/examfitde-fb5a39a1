@@ -11,6 +11,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { CreatePageDialog } from '@/components/admin/page-studio/CreatePageDialog';
 import { PageEditorDialog } from '@/components/admin/page-studio/PageEditorDialog';
+import { resolvePagePreviewUrl, snapshotPageVersion } from '@/lib/page-studio-utils';
 
 interface CmsPage {
   id: string;
@@ -121,6 +122,13 @@ export default function PageStudioPage() {
     },
   });
 
+  // Snapshot on manual save from list
+  const snapshotMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await snapshotPageVersion(id);
+    },
+  });
+
   const filtered = useMemo(() => {
     return pages.filter((p) => {
       if (typeFilter !== 'all' && p.page_type !== typeFilter) return false;
@@ -228,7 +236,7 @@ export default function PageStudioPage() {
                   <DropdownMenuItem onClick={() => setEditingPageId(page.id)}>
                     <Eye className="h-4 w-4 mr-2" />Bearbeiten
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => window.open(`/${page.slug}`, '_blank')}>
+                  <DropdownMenuItem onClick={() => window.open(resolvePagePreviewUrl(page), '_blank')}>
                     <ExternalLink className="h-4 w-4 mr-2" />Vorschau
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => duplicateMutation.mutate(page)}>

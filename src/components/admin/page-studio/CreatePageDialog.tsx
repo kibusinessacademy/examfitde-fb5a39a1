@@ -5,11 +5,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Check } from 'lucide-react';
+import { Loader2, Check, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { slugify, buildDefaultBlockContent, isSlugTaken } from '@/lib/page-studio-utils';
 
 interface Props {
   open: boolean;
@@ -33,14 +33,6 @@ const PAGE_TYPES = [
   { value: 'legal_page', label: 'Rechtliche Seite' },
 ];
 
-function slugify(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '');
-}
-
 export function CreatePageDialog({ open, onOpenChange }: Props) {
   const queryClient = useQueryClient();
   const [step, setStep] = useState<'type' | 'template' | 'details'>('type');
@@ -49,6 +41,7 @@ export function CreatePageDialog({ open, onOpenChange }: Props) {
   const [title, setTitle] = useState('');
   const [slug, setSlug] = useState('');
   const [slugTouched, setSlugTouched] = useState(false);
+  const [slugError, setSlugError] = useState('');
 
   const { data: templates = [] } = useQuery({
     queryKey: ['cms-templates'],
@@ -68,6 +61,12 @@ export function CreatePageDialog({ open, onOpenChange }: Props) {
     mutationFn: async () => {
       if (!selectedTemplate || !title.trim() || !slug.trim()) throw new Error('Fehlende Daten');
 
+      // Check slug uniqueness
+      const taken = await isSlugTaken(slug.trim());
+      if (taken) {
+        throw new Error('Dieser Slug ist bereits vergeben. Bitte wähle einen anderen.');
+      }
+
       // Create page
       const { data: page, error } = await (supabase as any)
         .from('cms_pages')
@@ -80,16 +79,21 @@ export function CreatePageDialog({ open, onOpenChange }: Props) {
         })
         .select('id')
         .single();
-      if (error) throw error;
+      if (error) {
+        if (error.code === '23505') throw new Error('Slug bereits vergeben.');
+        throw error;
+      }
 
-      // Create default blocks from template
+      // Create default blocks from template with typed defaults
       const blocks = (selectedTemplate.default_blocks_json || []).map((b: any, i: number) => ({
         page_id: page.id,
         block_key: b.block_key || `block_${i}`,
         block_type: b.block_type || 'rich_text',
         sort_order: b.sort_order ?? i,
         is_enabled: true,
-        content_json: b.content_json || {},
+        content_json: b.content_json && Object.keys(b.content_json).length > 0
+          ? b.content_json
+          : buildDefaultBlockContent(b.block_type || 'rich_text'),
         styles_json: b.styles_json || {},
       }));
 
@@ -108,7 +112,11 @@ export function CreatePageDialog({ open, onOpenChange }: Props) {
       resetAndClose();
     },
     onError: (err: any) => {
-      toast.error(err.message || 'Fehler beim Erstellen');
+      if (err.message?.includes('Slug')) {
+        setSlugError(err.message);
+      } else {
+        toast.error(err.message || 'Fehler beim Erstellen');
+      }
     },
   });
 
@@ -119,6 +127,7 @@ export function CreatePageDialog({ open, onOpenChange }: Props) {
     setTitle('');
     setSlug('');
     setSlugTouched(false);
+    setSlugError('');
     onOpenChange(false);
   };
 
@@ -126,7 +135,14 @@ export function CreatePageDialog({ open, onOpenChange }: Props) {
     setTitle(val);
     if (!slugTouched) {
       setSlug(slugify(val));
+      setSlugError('');
     }
+  };
+
+  const handleSlugChange = (val: string) => {
+    setSlug(slugify(val));
+    setSlugTouched(true);
+    setSlugError('');
   };
 
   return (
@@ -218,8 +234,14 @@ export function CreatePageDialog({ open, onOpenChange }: Props) {
               </div>
               <Input
                 value={slug}
-                onChange={(e) => { setSlug(slugify(e.target.value)); setSlugTouched(true); }}
+                onChange={(e) => handleSlugChange(e.target.value)}
+                className={slugError ? 'border-destructive' : ''}
               />
+              {slugError && (
+                <p className="text-xs text-destructive flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />{slugError}
+                </p>
+              )}
             </div>
             <div className="flex justify-between pt-2">
               <Button variant="outline" size="sm" onClick={() => setStep('template')}>Zurück</Button>

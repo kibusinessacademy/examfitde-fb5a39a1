@@ -10,8 +10,9 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Loader2, Save, Globe, GripVertical, Plus, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
+import { Loader2, Save, Globe, GripVertical, Plus, Trash2, ChevronUp, ChevronDown, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { buildDefaultBlockContent, snapshotPageVersion, isSlugTaken, slugify } from '@/lib/page-studio-utils';
 
 interface Props {
   pageId: string;
@@ -56,8 +57,8 @@ const AVAILABLE_BLOCK_TYPES = [
 export function PageEditorDialog({ pageId, open, onOpenChange }: Props) {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('blocks');
+  const [slugError, setSlugError] = useState('');
 
-  // Page data
   const { data: page, isLoading: pageLoading } = useQuery({
     queryKey: ['cms-page', pageId],
     enabled: !!pageId,
@@ -72,7 +73,6 @@ export function PageEditorDialog({ pageId, open, onOpenChange }: Props) {
     },
   });
 
-  // Blocks
   const { data: blocks = [], isLoading: blocksLoading } = useQuery({
     queryKey: ['cms-page-blocks', pageId],
     enabled: !!pageId,
@@ -111,15 +111,22 @@ export function PageEditorDialog({ pageId, open, onOpenChange }: Props) {
     setOgImage(page.og_image_url || '');
     setCanonical(page.canonical_url || '');
     setRobots(page.robots || 'index,follow');
+    setSlugError('');
   }, [page]);
 
   // Save page metadata
   const saveMutation = useMutation({
     mutationFn: async () => {
+      // Check slug uniqueness (exclude current page)
+      if (slug !== page?.slug) {
+        const taken = await isSlugTaken(slug.trim(), pageId);
+        if (taken) throw new Error('Slug bereits vergeben.');
+      }
+
       const { error } = await (supabase as any)
         .from('cms_pages')
         .update({
-          title, slug, excerpt,
+          title, slug: slug.trim(), excerpt,
           seo_title: seoTitle || null,
           meta_description: metaDesc || null,
           og_title: ogTitle || null,
@@ -129,16 +136,30 @@ export function PageEditorDialog({ pageId, open, onOpenChange }: Props) {
           robots,
         })
         .eq('id', pageId);
-      if (error) throw error;
+      if (error) {
+        if (error.code === '23505') throw new Error('Slug bereits vergeben.');
+        throw error;
+      }
+
+      // Create a version snapshot on each save
+      await snapshotPageVersion(pageId);
     },
     onSuccess: () => {
+      setSlugError('');
       queryClient.invalidateQueries({ queryKey: ['cms-pages'] });
       queryClient.invalidateQueries({ queryKey: ['cms-page', pageId] });
       toast.success('Gespeichert');
     },
+    onError: (err: any) => {
+      if (err.message?.includes('Slug')) {
+        setSlugError(err.message);
+      } else {
+        toast.error(err.message || 'Fehler beim Speichern');
+      }
+    },
   });
 
-  // Publish
+  // Publish (auto-snapshot happens via DB trigger)
   const publishMutation = useMutation({
     mutationFn: async () => {
       const { error } = await (supabase as any)
@@ -206,7 +227,7 @@ export function PageEditorDialog({ pageId, open, onOpenChange }: Props) {
           block_key: `${blockType}_${Date.now().toString(36)}`,
           block_type: blockType,
           sort_order: maxOrder,
-          content_json: {},
+          content_json: buildDefaultBlockContent(blockType),
         });
       if (error) throw error;
     },
@@ -251,7 +272,8 @@ export function PageEditorDialog({ pageId, open, onOpenChange }: Props) {
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="text-[10px]">{page?.status}</Badge>
               <Button variant="outline" size="sm" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
-                <Save className="h-3.5 w-3.5 mr-1" />Speichern
+                {saveMutation.isPending ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Save className="h-3.5 w-3.5 mr-1" />}
+                Speichern
               </Button>
               {page?.status !== 'published' && (
                 <Button size="sm" onClick={() => publishMutation.mutate()} disabled={publishMutation.isPending}>
@@ -297,8 +319,6 @@ export function PageEditorDialog({ pageId, open, onOpenChange }: Props) {
                     </Button>
                   </div>
                 </div>
-
-                {/* Inline content editing */}
                 <BlockContentEditor
                   block={block}
                   onSave={(content) => updateBlockContent.mutate({ blockId: block.id, content })}
@@ -330,7 +350,16 @@ export function PageEditorDialog({ pageId, open, onOpenChange }: Props) {
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Slug</Label>
-                <Input value={slug} onChange={(e) => setSlug(e.target.value)} />
+                <Input
+                  value={slug}
+                  onChange={(e) => { setSlug(slugify(e.target.value)); setSlugError(''); }}
+                  className={slugError ? 'border-destructive' : ''}
+                />
+                {slugError && (
+                  <p className="text-xs text-destructive flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />{slugError}
+                  </p>
+                )}
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Excerpt / Beschreibung</Label>
@@ -405,7 +434,7 @@ function BlockContentEditor({ block, onSave }: { block: PageBlock; onSave: (cont
 
   const fields = Object.keys(content);
   if (fields.length === 0) {
-    return <p className="text-xs text-muted-foreground italic">Leerer Block</p>;
+    return <p className="text-xs text-muted-foreground italic">Leerer Block – bitte Felder manuell ergänzen</p>;
   }
 
   return (
@@ -416,7 +445,15 @@ function BlockContentEditor({ block, onSave }: { block: PageBlock; onSave: (cont
           return (
             <div key={key} className="space-y-1">
               <Label className="text-[10px] text-muted-foreground">{key}</Label>
-              <p className="text-[10px] text-muted-foreground italic">{val.length} Einträge (JSON-Editor coming soon)</p>
+              <p className="text-[10px] text-muted-foreground italic">{val.length} Einträge</p>
+            </div>
+          );
+        }
+        if (typeof val === 'boolean') {
+          return (
+            <div key={key} className="flex items-center gap-2">
+              <Switch checked={val} onCheckedChange={(v) => updateField(key, v)} />
+              <Label className="text-[10px] text-muted-foreground">{key}</Label>
             </div>
           );
         }
