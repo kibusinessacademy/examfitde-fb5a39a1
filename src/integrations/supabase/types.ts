@@ -76181,6 +76181,10 @@ export type Database = {
       fn_reconcile_stale_integrity_reports: { Args: never; Returns: Json }
       fn_reconcile_stale_qgf_packages: { Args: never; Returns: Json }
       fn_recover_stale_lock_exhausted: { Args: never; Returns: Json }
+      fn_release_stale_job_locks: {
+        Args: { p_lock_ttl_minutes?: number }
+        Returns: Json
+      }
       fn_request_data_deletion: {
         Args: { p_target_user_id: string }
         Returns: Json

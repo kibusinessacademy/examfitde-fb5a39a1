@@ -60,10 +60,18 @@ Deno.serve(async (req) => {
     steps.push({ step: "stale_hold_alert", ok: false, error: (e as Error).message });
   }
 
-  // ── 4. Orphan reaper (edge function) ──
+  // ── 4. Stale lock TTL release (DB function) ──
+  try {
+    const { data, error } = await sb.rpc("fn_release_stale_job_locks", { p_lock_ttl_minutes: 5 });
+    steps.push({ step: "stale_lock_ttl", ok: !error, data: data ?? error?.message });
+  } catch (e) {
+    steps.push({ step: "stale_lock_ttl", ok: false, error: (e as Error).message });
+  }
+
+  // ── 5. Orphan reaper (edge function) ──
   steps.push(await invoke(url, key, "system-orphan-reaper", {}));
 
-  // ── 5. Cron governance audit (edge function) ──
+  // ── 6. Cron governance audit (edge function) ──
   steps.push(await invoke(url, key, "system-cron-governance-audit", {}));
 
   return json(200, {
