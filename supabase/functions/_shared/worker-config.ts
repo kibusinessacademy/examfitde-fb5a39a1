@@ -18,8 +18,11 @@ function envInt(name: string, fallback: number): number {
 }
 
 const DEFAULTS: Record<RunnerKind, RunnerConfig> = {
-  content_runner: { maxConcurrency: 8, claimLimit: 10 },  // Raised: 6/8 → 8/10 (WIP 13)
-  job_runner:     { maxConcurrency: 6, claimLimit: 8 },   // Raised: 4/6 → 6/8 (WIP 13)
+  // FIX: claimLimit must match what a single Edge Function invocation can
+  // actually process before its ~60s timeout.  Old value 10 caused 8 orphan
+  // stale-locks per cycle → infinite STALE_LOCK_RECOVERY loops.
+  content_runner: { maxConcurrency: 3, claimLimit: 3 },
+  job_runner:     { maxConcurrency: 3, claimLimit: 4 },
 };
 
 export function getRunnerConfig(kind: RunnerKind): RunnerConfig {
@@ -28,15 +31,16 @@ export function getRunnerConfig(kind: RunnerKind): RunnerConfig {
   const claimLimit     = envInt(`${kind.toUpperCase()}_CLAIM_LIMIT`, base.claimLimit);
 
   // Hard safety caps (non-negotiable)
+  // Hard safety caps — prevent env overrides from re-introducing the stale-lock problem
   if (kind === "content_runner") {
     return {
-      maxConcurrency: Math.min(maxConcurrency, 13),   // Hard cap → 13
-      claimLimit: Math.min(claimLimit, 15),            // Hard cap → 15
+      maxConcurrency: Math.min(maxConcurrency, 5),
+      claimLimit: Math.min(claimLimit, 5),
     };
   }
   return {
-    maxConcurrency: Math.min(maxConcurrency, 13),
-    claimLimit: Math.min(claimLimit, 13),
+    maxConcurrency: Math.min(maxConcurrency, 6),
+    claimLimit: Math.min(claimLimit, 6),
   };
 }
 
