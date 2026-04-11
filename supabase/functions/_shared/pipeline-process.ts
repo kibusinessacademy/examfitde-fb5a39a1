@@ -395,6 +395,48 @@ export async function processPackage(
     }
   }
 
+  // ── ROOTSTEP VERIFIER RECONCILER ──
+  // Runs artifact-based checks for content root steps and writes results into step meta
+  // so the FINALIZATION_RULES dictionary can use them deterministically.
+  {
+    const ROOTSTEP_VERIFIERS: Array<{
+      stepKey: string;
+      verify: (sb: any, packageId: string) => Promise<{ ready: boolean; reason: string; snapshot: Record<string, any> }>;
+    }> = [
+      { stepKey: "generate_learning_content", verify: verifyGenerateLearningContentComplete },
+      { stepKey: "finalize_learning_content", verify: verifyFinalizeLearningContentComplete },
+    ];
+
+    for (const v of ROOTSTEP_VERIFIERS) {
+      const step = (steps ?? []).find((s: StepRow) => s.step_key === v.stepKey);
+      if (!step || !["queued", "running", "enqueued"].includes(step.status)) continue;
+
+      try {
+        const result = await v.verify(sb, packageId);
+        if (result.ready) {
+          // Write verifier result into step meta for the finalization rule to pick up
+          const currentMeta = (step.meta ?? {}) as Record<string, unknown>;
+          const updatedMeta = {
+            ...currentMeta,
+            verifier_ready: true,
+            verifier_reason: result.reason,
+            verifier_snapshot: result.snapshot,
+            verifier_checked_at: new Date().toISOString(),
+          };
+          await safeQuery(
+            sb.from("package_steps").update({ meta: updatedMeta })
+              .eq("package_id", packageId).eq("step_key", v.stepKey),
+            `rootstep_verifier_${v.stepKey}`,
+          );
+          (step as any).meta = updatedMeta;
+          console.log(`[runner] ✅ VERIFIER: ${shortId}/${v.stepKey} → ready: ${result.reason}`);
+        }
+      } catch (vErr) {
+        console.warn(`[runner] VERIFIER error for ${shortId}/${v.stepKey}: ${(vErr as Error).message}`);
+      }
+    }
+  }
+
   // ── FINALIZATION GUARD (Dictionary-based) ──
   {
     type FinalizationRule = {
