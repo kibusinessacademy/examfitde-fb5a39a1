@@ -1237,7 +1237,7 @@ Deno.serve(async (req) => {
   while (Date.now() < deadline) {
     passes++;
 
-    const pass = await runOnePass(sb, supabaseUrl, serviceKey, passes === 1);
+    const pass = await runOnePass(sb, supabaseUrl, serviceKey, passes === 1, deadline);
 
     totalClaimed += pass.claimed;
     totalSucceeded += pass.succeeded;
