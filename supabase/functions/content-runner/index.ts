@@ -82,11 +82,11 @@ function hashJobId(id: string): number {
   return Math.abs(h);
 }
 
-// ── 3-Tier Timeout Classification (v2.2: all within Edge Function lifetime) ──
-// Tier 1 (40s): LLM generation — target functions have their own internal budgets
+// ── 3-Tier Timeout Classification (v2.3: corrected — orchestrators moved to proper tier) ──
+// Tier 1 (40s): LLM generation — target functions with actual LLM calls
 const GENERATION_JOB_TYPES = new Set([
   "package_generate_handbook", "handbook_expand_section",
-  "package_generate_exam_pool", "package_generate_oral_exam",
+  "package_generate_exam_pool",
   "package_elite_harden",
   "package_auto_seed_exam_blueprints",
   "package_generate_lesson_minichecks",
@@ -98,6 +98,8 @@ const HEAVY_JOB_TYPES = new Set([
   "package_validate_learning_content",
   "package_validate_exam_pool",
   "package_build_ai_tutor_index",
+  // Orchestrators that do DB + enqueue work, not LLM — moved from Tier 1
+  "package_generate_oral_exam",
 ]);
 
 // Everything else: Tier 3 (25s) — structural validation, DB queries only
