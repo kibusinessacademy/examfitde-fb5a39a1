@@ -7,6 +7,7 @@ import { setProviderCooldown, cleanupExpiredCooldowns, filterCooledDownProviders
 import { getModelChainAsync } from "../_shared/model-routing.ts";
 import { resolveAvailableRoute, resolveLastResortRoute } from "../_shared/llm/provider-load-balancer.ts";
 import { checkCircuitBreaker, recordPermanentProviderFailure, recordProviderSuccess, isPermanentProviderError } from "../_shared/llm/provider-circuit-breaker.ts";
+import { runPrebuildPass } from "../_shared/prebuild.ts";
 
 import { PIPELINE_GRAPH, validatePipelineGraph } from "../_shared/job-map.ts";
 
