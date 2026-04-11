@@ -209,38 +209,16 @@ Deno.serve(async (req) => {
 
   // ── Step 2: Variant inventory seeding ──
   if ((mode === "variants" || mode === "full") && timeLeft()) {
-    // Find packages that have blueprints but no variant inventory
-    const { data: varPkgs } = await sb
-      .from("course_packages")
-      .select("id, curriculum_id")
-      .in("status", ["blocked", "pending", "building"])
-      .not("curriculum_id", "is", null)
-      .limit(limit);
+    const { data: varPkgs } = await sb.rpc("fn_packages_needing_variant_inventory", { p_limit: limit });
 
+    console.log(`[batch-direct-seed] Variant seeding: ${(varPkgs ?? []).length} packages`);
+
+    console.log(`[batch-direct-seed] Variant seeding: ${varPkgs.length} packages`);
     let variantSeeded = 0;
 
-    for (const pkg of varPkgs ?? []) {
+    for (const pkg of varPkgs) {
       if (!timeLeft() || variantSeeded >= limit) break;
-      if (!pkg.curriculum_id) continue;
 
-      // Check if has approved blueprints
-      const { count: bpCount } = await sb
-        .from("question_blueprints")
-        .select("id", { count: "exact", head: true })
-        .eq("curriculum_id", pkg.curriculum_id)
-        .eq("status", "approved");
-
-      if ((bpCount ?? 0) === 0) continue;
-
-      // Check if variant inventory already seeded
-      const { count: invCount } = await sb
-        .from("blueprint_variant_inventory")
-        .select("id", { count: "exact", head: true })
-        .eq("package_id", pkg.id);
-
-      if ((invCount ?? 0) > 0) continue;
-
-      // Seed variant inventory via RPC
       try {
         const { data: bps } = await sb
           .from("question_blueprints")
@@ -250,10 +228,11 @@ Deno.serve(async (req) => {
 
         let seeded = 0;
         for (const bp of bps ?? []) {
+          if (!timeLeft()) break;
           await sb.rpc("fn_upsert_variant_inventory" as any, {
             p_blueprint_id: bp.id,
             p_curriculum_id: pkg.curriculum_id,
-            p_package_id: pkg.id,
+            p_package_id: pkg.package_id,
             p_target_count: 6,
             p_new_materialized: 0,
             p_new_approved: 0,
@@ -262,17 +241,17 @@ Deno.serve(async (req) => {
         }
 
         // Update prebuild status
-        await sb.rpc("fn_update_package_prebuild_status" as any, { p_package_id: pkg.id });
+        await sb.rpc("fn_update_package_prebuild_status" as any, { p_package_id: pkg.package_id });
 
         results.push({
-          package_id: pkg.id,
+          package_id: pkg.package_id,
           step: "variants",
           ok: true,
           blueprints_seeded: seeded,
         });
         variantSeeded++;
       } catch (e) {
-        results.push({ package_id: pkg.id, step: "variants", error: (e as Error).message });
+        results.push({ package_id: pkg.package_id, step: "variants", error: (e as Error).message });
       }
     }
   }

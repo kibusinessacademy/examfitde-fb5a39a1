@@ -76150,6 +76150,13 @@ export type Database = {
         Args: { p_package_id: string }
         Returns: Json
       }
+      fn_packages_needing_variant_inventory: {
+        Args: { p_limit?: number }
+        Returns: {
+          curriculum_id: string
+          package_id: string
+        }[]
+      }
       fn_pick_daily_question: {
         Args: { p_curriculum_id: string }
         Returns: Json
