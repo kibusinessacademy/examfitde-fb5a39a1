@@ -13,6 +13,7 @@ import { Switch } from '@/components/ui/switch';
 import { Loader2, Save, Globe, GripVertical, Plus, Trash2, ChevronUp, ChevronDown, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { buildDefaultBlockContent, snapshotPageVersion, isSlugTaken, slugify } from '@/lib/page-studio-utils';
+import { HeroBlockEditor, RichTextBlockEditor, ImageBlockEditor, CTABlockEditor, FAQBlockEditor, TrustBarBlockEditor } from './block-editors';
 
 interface Props {
   pageId: string;
@@ -54,10 +55,35 @@ const AVAILABLE_BLOCK_TYPES = [
   'feature_list', 'card_grid', 'steps', 'spacer', 'video', 'testimonials',
 ];
 
+/** Renders the correct typed editor for a block, or a generic fallback */
+function renderBlockEditor(
+  block: PageBlock,
+  onContentChange: (content: Record<string, any>) => void,
+) {
+  switch (block.block_type) {
+    case 'hero':
+      return <HeroBlockEditor content={block.content_json} onChange={onContentChange} />;
+    case 'rich_text':
+      return <RichTextBlockEditor content={block.content_json} onChange={onContentChange} />;
+    case 'image':
+      return <ImageBlockEditor content={block.content_json} onChange={onContentChange as any} />;
+    case 'cta':
+      return <CTABlockEditor content={block.content_json} onChange={onContentChange} />;
+    case 'faq':
+      return <FAQBlockEditor content={block.content_json} onChange={onContentChange} />;
+    case 'trust_bar':
+      return <TrustBarBlockEditor content={block.content_json} onChange={onContentChange} />;
+    default:
+      return <GenericBlockEditor content={block.content_json} onChange={onContentChange} />;
+  }
+}
+
 export function PageEditorDialog({ pageId, open, onOpenChange }: Props) {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('blocks');
   const [slugError, setSlugError] = useState('');
+  // Track local unsaved block changes
+  const [dirtyBlocks, setDirtyBlocks] = useState<Record<string, Record<string, any>>>({});
 
   const { data: page, isLoading: pageLoading } = useQuery({
     queryKey: ['cms-page', pageId],
@@ -112,12 +138,18 @@ export function PageEditorDialog({ pageId, open, onOpenChange }: Props) {
     setCanonical(page.canonical_url || '');
     setRobots(page.robots || 'index,follow');
     setSlugError('');
+    setDirtyBlocks({});
   }, [page]);
 
-  // Save page metadata
+  const invalidatePage = () => {
+    queryClient.invalidateQueries({ queryKey: ['cms-pages'] });
+    queryClient.invalidateQueries({ queryKey: ['cms-page', pageId] });
+    queryClient.invalidateQueries({ queryKey: ['cms-page-blocks', pageId] });
+  };
+
+  // Save page metadata + dirty blocks + snapshot
   const saveMutation = useMutation({
     mutationFn: async () => {
-      // Check slug uniqueness (exclude current page)
       if (slug !== page?.slug) {
         const taken = await isSlugTaken(slug.trim(), pageId);
         if (taken) throw new Error('Slug bereits vergeben.');
@@ -141,13 +173,21 @@ export function PageEditorDialog({ pageId, open, onOpenChange }: Props) {
         throw error;
       }
 
-      // Create a version snapshot on each save
+      // Save all dirty block contents
+      for (const [blockId, content] of Object.entries(dirtyBlocks)) {
+        await (supabase as any)
+          .from('cms_page_blocks')
+          .update({ content_json: content })
+          .eq('id', blockId);
+      }
+
+      // Snapshot on save
       await snapshotPageVersion(pageId);
     },
     onSuccess: () => {
       setSlugError('');
-      queryClient.invalidateQueries({ queryKey: ['cms-pages'] });
-      queryClient.invalidateQueries({ queryKey: ['cms-page', pageId] });
+      setDirtyBlocks({});
+      invalidatePage();
       toast.success('Gespeichert');
     },
     onError: (err: any) => {
@@ -159,7 +199,7 @@ export function PageEditorDialog({ pageId, open, onOpenChange }: Props) {
     },
   });
 
-  // Publish (auto-snapshot happens via DB trigger)
+  // Publish (auto-snapshot via DB trigger)
   const publishMutation = useMutation({
     mutationFn: async () => {
       const { error } = await (supabase as any)
@@ -169,24 +209,12 @@ export function PageEditorDialog({ pageId, open, onOpenChange }: Props) {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['cms-pages'] });
-      queryClient.invalidateQueries({ queryKey: ['cms-page', pageId] });
+      invalidatePage();
       toast.success('Veröffentlicht');
     },
   });
 
-  // Block mutations
-  const updateBlockContent = useMutation({
-    mutationFn: async ({ blockId, content }: { blockId: string; content: Record<string, any> }) => {
-      const { error } = await (supabase as any)
-        .from('cms_page_blocks')
-        .update({ content_json: content })
-        .eq('id', blockId);
-      if (error) throw error;
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['cms-page-blocks', pageId] }),
-  });
-
+  // Structural block mutations — these trigger snapshots
   const toggleBlock = useMutation({
     mutationFn: async ({ blockId, enabled }: { blockId: string; enabled: boolean }) => {
       const { error } = await (supabase as any)
@@ -213,6 +241,8 @@ export function PageEditorDialog({ pageId, open, onOpenChange }: Props) {
       for (const u of updates) {
         await (supabase as any).from('cms_page_blocks').update({ sort_order: u.sort_order }).eq('id', u.id);
       }
+      // Snapshot on structural change
+      await snapshotPageVersion(pageId);
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['cms-page-blocks', pageId] }),
   });
@@ -230,6 +260,7 @@ export function PageEditorDialog({ pageId, open, onOpenChange }: Props) {
           content_json: buildDefaultBlockContent(blockType),
         });
       if (error) throw error;
+      await snapshotPageVersion(pageId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cms-page-blocks', pageId] });
@@ -244,12 +275,20 @@ export function PageEditorDialog({ pageId, open, onOpenChange }: Props) {
         .delete()
         .eq('id', blockId);
       if (error) throw error;
+      await snapshotPageVersion(pageId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cms-page-blocks', pageId] });
       toast.success('Block entfernt');
     },
   });
+
+  // Handle block content changes locally (no snapshot per keystroke)
+  const handleBlockContentChange = (blockId: string, content: Record<string, any>) => {
+    setDirtyBlocks((prev) => ({ ...prev, [blockId]: content }));
+  };
+
+  const hasDirtyBlocks = Object.keys(dirtyBlocks).length > 0;
 
   if (pageLoading || blocksLoading) {
     return (
@@ -271,6 +310,9 @@ export function PageEditorDialog({ pageId, open, onOpenChange }: Props) {
             <DialogTitle className="text-base">{title || 'Seite bearbeiten'}</DialogTitle>
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="text-[10px]">{page?.status}</Badge>
+              {hasDirtyBlocks && (
+                <Badge variant="outline" className="text-[10px] border-amber-500/50 text-amber-600">Ungespeichert</Badge>
+              )}
               <Button variant="outline" size="sm" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
                 {saveMutation.isPending ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Save className="h-3.5 w-3.5 mr-1" />}
                 Speichern
@@ -293,38 +335,42 @@ export function PageEditorDialog({ pageId, open, onOpenChange }: Props) {
 
           {/* Blocks Tab */}
           <TabsContent value="blocks" className="space-y-3 mt-4">
-            {blocks.map((block, idx) => (
-              <Card key={block.id} className={`p-3 ${!block.is_enabled ? 'opacity-50' : ''}`}>
-                <div className="flex items-center gap-2 mb-2">
-                  <GripVertical className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <span className="text-xs font-medium flex-1">
-                    {BLOCK_TYPE_LABELS[block.block_type] || block.block_type}
-                  </span>
-                  <div className="flex items-center gap-1">
-                    <Button variant="ghost" size="icon" className="h-6 w-6" disabled={idx === 0}
-                      onClick={() => moveBlock.mutate({ blockId: block.id, direction: 'up' })}>
-                      <ChevronUp className="h-3 w-3" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-6 w-6" disabled={idx === blocks.length - 1}
-                      onClick={() => moveBlock.mutate({ blockId: block.id, direction: 'down' })}>
-                      <ChevronDown className="h-3 w-3" />
-                    </Button>
-                    <Switch
-                      checked={block.is_enabled}
-                      onCheckedChange={(checked) => toggleBlock.mutate({ blockId: block.id, enabled: checked })}
-                    />
-                    <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive"
-                      onClick={() => deleteBlock.mutate(block.id)}>
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
+            {blocks.map((block, idx) => {
+              const effectiveContent = dirtyBlocks[block.id] ?? block.content_json;
+              const effectiveBlock = { ...block, content_json: effectiveContent };
+              const isDirty = !!dirtyBlocks[block.id];
+
+              return (
+                <Card key={block.id} className={`p-3 ${!block.is_enabled ? 'opacity-50' : ''}`}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <GripVertical className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="text-xs font-medium flex-1">
+                      {BLOCK_TYPE_LABELS[block.block_type] || block.block_type}
+                      {isDirty && <span className="text-amber-500 ml-1">●</span>}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <Button variant="ghost" size="icon" className="h-6 w-6" disabled={idx === 0}
+                        onClick={() => moveBlock.mutate({ blockId: block.id, direction: 'up' })}>
+                        <ChevronUp className="h-3 w-3" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-6 w-6" disabled={idx === blocks.length - 1}
+                        onClick={() => moveBlock.mutate({ blockId: block.id, direction: 'down' })}>
+                        <ChevronDown className="h-3 w-3" />
+                      </Button>
+                      <Switch
+                        checked={block.is_enabled}
+                        onCheckedChange={(checked) => toggleBlock.mutate({ blockId: block.id, enabled: checked })}
+                      />
+                      <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive"
+                        onClick={() => deleteBlock.mutate(block.id)}>
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
                   </div>
-                </div>
-                <BlockContentEditor
-                  block={block}
-                  onSave={(content) => updateBlockContent.mutate({ blockId: block.id, content })}
-                />
-              </Card>
-            ))}
+                  {renderBlockEditor(effectiveBlock, (content) => handleBlockContentChange(block.id, content))}
+                </Card>
+              );
+            })}
 
             {/* Add Block */}
             <div className="pt-2">
@@ -405,8 +451,8 @@ export function PageEditorDialog({ pageId, open, onOpenChange }: Props) {
               {/* SEO Preview */}
               <Card className="p-3 bg-muted/30">
                 <p className="text-[10px] text-muted-foreground mb-1">Google-Vorschau</p>
-                <p className="text-sm text-blue-600 font-medium truncate">{seoTitle || title || 'Seitentitel'}</p>
-                <p className="text-xs text-green-700 truncate">{canonical || `examfit.de/${slug}`}</p>
+                <p className="text-sm font-medium truncate text-primary">{seoTitle || title || 'Seitentitel'}</p>
+                <p className="text-xs truncate text-muted-foreground">{canonical || `examfit.de/${slug}`}</p>
                 <p className="text-xs text-muted-foreground line-clamp-2">{metaDesc || 'Meta-Beschreibung…'}</p>
               </Card>
             </div>
@@ -417,24 +463,11 @@ export function PageEditorDialog({ pageId, open, onOpenChange }: Props) {
   );
 }
 
-/** Simple inline block content editor */
-function BlockContentEditor({ block, onSave }: { block: PageBlock; onSave: (content: Record<string, any>) => void }) {
-  const [content, setContent] = useState(block.content_json);
-  const [dirty, setDirty] = useState(false);
-
-  useEffect(() => {
-    setContent(block.content_json);
-    setDirty(false);
-  }, [block.content_json]);
-
-  const updateField = (key: string, value: any) => {
-    setContent((prev) => ({ ...prev, [key]: value }));
-    setDirty(true);
-  };
-
+/** Generic fallback editor for block types without a dedicated editor */
+function GenericBlockEditor({ content, onChange }: { content: Record<string, any>; onChange: (c: Record<string, any>) => void }) {
   const fields = Object.keys(content);
   if (fields.length === 0) {
-    return <p className="text-xs text-muted-foreground italic">Leerer Block – bitte Felder manuell ergänzen</p>;
+    return <p className="text-xs text-muted-foreground italic">Leerer Block</p>;
   }
 
   return (
@@ -452,7 +485,7 @@ function BlockContentEditor({ block, onSave }: { block: PageBlock; onSave: (cont
         if (typeof val === 'boolean') {
           return (
             <div key={key} className="flex items-center gap-2">
-              <Switch checked={val} onCheckedChange={(v) => updateField(key, v)} />
+              <Switch checked={val} onCheckedChange={(v) => onChange({ ...content, [key]: v })} />
               <Label className="text-[10px] text-muted-foreground">{key}</Label>
             </div>
           );
@@ -462,20 +495,15 @@ function BlockContentEditor({ block, onSave }: { block: PageBlock; onSave: (cont
             <div key={key} className="space-y-1">
               <Label className="text-[10px] text-muted-foreground">{key}</Label>
               {val.length > 80 ? (
-                <Textarea value={val} onChange={(e) => updateField(key, e.target.value)} rows={2} className="text-xs" />
+                <Textarea value={val} onChange={(e) => onChange({ ...content, [key]: e.target.value })} rows={2} className="text-xs" />
               ) : (
-                <Input value={val} onChange={(e) => updateField(key, e.target.value)} className="text-xs h-8" />
+                <Input value={val} onChange={(e) => onChange({ ...content, [key]: e.target.value })} className="text-xs h-8" />
               )}
             </div>
           );
         }
         return null;
       })}
-      {dirty && (
-        <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => { onSave(content); setDirty(false); }}>
-          <Save className="h-3 w-3 mr-1" />Block speichern
-        </Button>
-      )}
     </div>
   );
 }
