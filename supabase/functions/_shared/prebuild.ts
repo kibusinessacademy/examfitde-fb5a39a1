@@ -20,6 +20,8 @@ const PREBUILD_STEP_TO_RPC: Record<string, string> = {
   finalize_learning_content: "fn_prebuild_finalize_learning_content",
   validate_blueprints: "fn_prebuild_validate_blueprints",
   promote_blueprint_variants: "fn_prebuild_promote_blueprint_variants",
+  validate_handbook: "fn_prebuild_validate_handbook",
+  validate_handbook_depth: "fn_prebuild_validate_handbook_depth",
 };
 
 /** Ordered list of prebuildable step keys (checked in DAG order) */
@@ -27,6 +29,8 @@ const PREBUILD_STEP_ORDER = [
   "finalize_learning_content",
   "validate_blueprints",
   "promote_blueprint_variants",
+  "validate_handbook",
+  "validate_handbook_depth",
 ];
 
 export interface PrebuildResult {
