@@ -210,6 +210,7 @@ export default function QueuePage() {
       if (action === 'kill_zombie') return runAdminOpsAction('kill_stale_processing_jobs', { job_ids: [jobId] });
       if (action === 'release_lock') return runAdminOpsAction('release_stale_leases', { job_ids: [jobId] });
       if (action === 'cancel') return runAdminOpsAction('cancel_zombie_packages', { job_ids: [jobId] });
+      if (action === 'force_run') return runAdminOpsAction('force_run_job', { job_ids: [jobId] });
       return null;
     },
     onSuccess: (_, vars) => {

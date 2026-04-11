@@ -18,6 +18,8 @@ type AdminOpsAction =
   | 'workspace_snapshot'
   // v2 loop smoke test
   | 'smoke_test_v2_loop'
+  // Force-run
+  | 'force_run_job'
   // Batch recovery
   | 'heal_finalization_stall'
   | 'heal_non_building'
