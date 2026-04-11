@@ -140,8 +140,9 @@ export function CourseFinderSection() {
             ))}
           </div>
         ) : filtered.length === 0 ? (
-          <div className="text-center py-12">
-            {isSearching && trackConversion({ event: 'finder_no_results', source: 'homepage_finder', label: query })}
+          <div className="text-center py-12" ref={el => {
+            if (el && isSearching) trackConversion({ event: 'finder_no_results', source: 'homepage_finder', label: query });
+          }}>
             <p className="text-muted-foreground mb-4">
               {isSearching
                 ? `Kein Kurs gefunden für „${query}". Versuche eine andere Suche.`
