@@ -209,45 +209,9 @@ Deno.serve(async (req) => {
 
   // ── Step 2: Variant inventory seeding ──
   if ((mode === "variants" || mode === "full") && timeLeft()) {
-    // Get ALL packages with curriculum
-    const { data: rawPkgs } = await sb
-      .from("course_packages")
-      .select("id, curriculum_id")
-      .in("status", ["blocked", "pending", "building"])
-      .not("curriculum_id", "is", null)
-      .limit(500);
+    const { data: varPkgs } = await sb.rpc("fn_packages_needing_variant_inventory", { p_limit: limit });
 
-    const allPkgs = rawPkgs ?? [];
-    const pkgIds = allPkgs.map(p => p.id);
-    const curIds = [...new Set(allPkgs.map(p => p.curriculum_id).filter(Boolean))] as string[];
-
-    // Batch: distinct package_ids that ALREADY have inventory (use count to avoid row limit)
-    const invSet = new Set<string>();
-    for (const pkg of allPkgs) {
-      const { count } = await sb
-        .from("blueprint_variant_inventory")
-        .select("id", { count: "exact", head: true })
-        .eq("package_id", pkg.id);
-      if ((count ?? 0) > 0) invSet.add(pkg.id);
-    }
-
-    // Batch: distinct curriculum_ids that have approved blueprints
-    const approvedSet = new Set<string>();
-    for (let i = 0; i < curIds.length; i += 100) {
-      const chunk = curIds.slice(i, i + 100);
-      const { data: rows } = await sb
-        .from("question_blueprints")
-        .select("curriculum_id")
-        .in("curriculum_id", chunk)
-        .eq("status", "approved")
-        .limit(1000);
-      for (const r of rows ?? []) approvedSet.add((r as any).curriculum_id);
-    }
-
-    const varPkgs = allPkgs
-      .filter(p => !invSet.has(p.id) && approvedSet.has(p.curriculum_id!))
-      .slice(0, limit)
-      .map(p => ({ package_id: p.id, curriculum_id: p.curriculum_id! }));
+    console.log(`[batch-direct-seed] Variant seeding: ${(varPkgs ?? []).length} packages`);
 
     console.log(`[batch-direct-seed] Variant seeding: ${varPkgs.length} packages`);
     let variantSeeded = 0;
