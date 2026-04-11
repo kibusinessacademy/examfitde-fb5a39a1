@@ -312,7 +312,7 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
   }, 20_000);
 
   try {
-    const { ok, result, error: dispatchError, terminal } = await dispatchJob(job, supabaseUrl, serviceKey);
+    const { ok, result, error: dispatchError, terminal } = await dispatchJob(job, supabaseUrl, serviceKey, loopDeadlineMs);
 
     if (ok) {
       // ── SKIP GUARD (Branch 4b) ──
