@@ -103,17 +103,27 @@ const HEAVY_JOB_TYPES = new Set([
 // Everything else: Tier 3 (25s) — structural validation, DB queries only
 
 // deno-lint-ignore no-explicit-any
-async function dispatchJob(job: any, supabaseUrl: string, serviceKey: string): Promise<{ ok: boolean; result?: any; error?: string; terminal?: boolean }> {
+async function dispatchJob(job: any, supabaseUrl: string, serviceKey: string, loopDeadlineMs?: number): Promise<{ ok: boolean; result?: any; error?: string; terminal?: boolean }> {
   const edgeFn = edgeFunctionForJobType(job.job_type);
   if (!edgeFn) {
     return { ok: false, error: `NO_EDGE_FUNCTION_MAPPING:${job.job_type}`, terminal: true };
   }
 
-  const timeoutMs = GENERATION_JOB_TYPES.has(job.job_type)
+  const tierTimeout = GENERATION_JOB_TYPES.has(job.job_type)
     ? DISPATCH_TIMEOUT_GENERATION_MS
     : HEAVY_JOB_TYPES.has(job.job_type)
       ? DISPATCH_TIMEOUT_HEAVY_MS
       : DISPATCH_TIMEOUT_MS;
+
+  // ── BUDGET GUARD: never dispatch if remaining loop time < timeout + write buffer ──
+  const remainingMs = loopDeadlineMs ? loopDeadlineMs - Date.now() : Infinity;
+  const requiredMs = tierTimeout + STATUS_WRITE_BUFFER_MS;
+  if (remainingMs < requiredMs) {
+    return { ok: false, error: `BUDGET_EXHAUSTED: remaining=${Math.round(remainingMs)}ms < required=${requiredMs}ms — skipping dispatch`, terminal: false };
+  }
+
+  // Clamp timeout to remaining budget minus write buffer
+  const timeoutMs = Math.min(tierTimeout, remainingMs - STATUS_WRITE_BUFFER_MS);
   const url = `${supabaseUrl}/functions/v1/${edgeFn}`;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
