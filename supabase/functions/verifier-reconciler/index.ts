@@ -42,25 +42,31 @@ type SB = any;
 /**
  * Count truly active jobs, excluding stale-locked ones (processing with lock_age > 3min)
  */
-async function countTrulyActiveJobs(sb: SB, packageId: string, jobType: string): Promise<number> {
-  // Get all "active" jobs
+/**
+ * Count jobs that are genuinely in-flight (actively being processed RIGHT NOW).
+ * Excludes:
+ *   - pending/queued jobs (not running, verifier already confirmed artifacts)
+ *   - processing jobs with stale locks (> 3 min = abandoned by runner)
+ */
+async function countInFlightJobs(sb: SB, packageId: string, jobType: string): Promise<number> {
   const { data: jobs } = await sb
     .from("job_queue")
     .select("id, status, locked_at")
     .eq("package_id", packageId)
     .eq("job_type", jobType)
-    .in("status", ["pending", "queued", "processing", "running"]);
+    .in("status", ["processing", "running"]);
 
   if (!jobs || jobs.length === 0) return 0;
 
   const now = Date.now();
-  const STALE_THRESHOLD_MS = 3 * 60_000; // 3 minutes
+  const STALE_THRESHOLD_MS = 3 * 60_000;
 
   return jobs.filter((j: { status: string; locked_at: string | null }) => {
-    if (j.status !== "processing") return true; // pending/queued/running are always active
-    if (!j.locked_at) return false; // processing without lock = stale
+    if (j.status === "running") return true;
+    // processing: only active if lock is fresh
+    if (!j.locked_at) return false;
     const lockAge = now - new Date(j.locked_at).getTime();
-    return lockAge < STALE_THRESHOLD_MS; // processing with fresh lock = active
+    return lockAge < STALE_THRESHOLD_MS;
   }).length;
 }
 
