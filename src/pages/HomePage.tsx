@@ -101,16 +101,17 @@ export default function HomePage() {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-3 justify-center animate-fade-in" style={{ animationDelay: '0.2s' }}>
-              <a href="#kursfinder">
-                <Button
-                  size="lg"
-                  className="gradient-primary text-primary-foreground shadow-glow hover:shadow-glow-lg transition-all rounded-xl h-14 px-8 text-lg group"
-                  onClick={() => trackConversion({ event: 'cta_click', source: 'hero', label: 'find_course' })}
-                >
-                  <Search className="h-5 w-5 mr-2" />
-                  Kurs finden
-                </Button>
-              </a>
+              <Button
+                size="lg"
+                className="gradient-primary text-primary-foreground shadow-glow hover:shadow-glow-lg transition-all rounded-xl h-14 px-8 text-lg group"
+                onClick={() => {
+                  document.getElementById('kursfinder')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  trackConversion({ event: 'hero_scroll_to_finder', source: 'hero', label: 'find_course' });
+                }}
+              >
+                <Search className="h-5 w-5 mr-2" />
+                Kurs finden
+              </Button>
               <Link to="/berufe">
                 <Button
                   size="lg"
