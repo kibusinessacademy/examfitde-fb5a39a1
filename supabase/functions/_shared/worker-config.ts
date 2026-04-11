@@ -49,12 +49,11 @@ export type TrackKey = "AUSBILDUNG_VOLL" | "EXAM_FIRST" | "EXAM_FIRST_PLUS" | "S
 /** Hard ceiling across all tracks — must match ops_pipeline_config.wip_total_cap */
 export const WIP_TOTAL_CAP = 13;
 
-/** Bonus WIP slots for packages with >50% progress (regardless of priority) */
-export const WIP_BONUS_SLOTS = 0;
-export const WIP_BONUS_PROGRESS_THRESHOLD = 50;
+/** Bonus WIP slots reserved for repair work (integrity, healing, requeue) */
+export const WIP_BONUS_REPAIR_SLOTS = 5;
 
-/** Effective cap = WIP_TOTAL_CAP (no bonus slots — flat 13) */
-export const WIP_EFFECTIVE_MAX = WIP_TOTAL_CAP; // hard ceiling = 13
+/** Effective cap = base + repair bonus */
+export const WIP_EFFECTIVE_MAX = WIP_TOTAL_CAP + WIP_BONUS_REPAIR_SLOTS; // 13 + 5 = 18
 
 /**
  * WIP quota per track: max packages in "building" status simultaneously.
