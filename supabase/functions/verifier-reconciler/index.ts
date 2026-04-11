@@ -119,7 +119,24 @@ Deno.serve(async (req) => {
 
         try {
           const result = await v.verify(sb, packageId);
-          if (!result.ready) continue;
+
+          // Always write current verifier state into meta (clears stale ready flags)
+          const currentMeta = (step.meta ?? {}) as Record<string, unknown>;
+          const metaUpdate = {
+            ...currentMeta,
+            verifier_ready: result.ready,
+            verifier_reason: result.reason,
+            verifier_snapshot: result.snapshot,
+            verifier_checked_at: new Date().toISOString(),
+            verifier_source: "standalone_reconciler",
+          };
+          await sb.from("package_steps").update({ meta: metaUpdate })
+            .eq("package_id", packageId).eq("step_key", v.stepKey);
+
+          if (!result.ready) {
+            results.push({ packageId, stepKey: v.stepKey, action: `not_ready: ${result.reason}` });
+            continue;
+          }
 
           // Write verifier result into step meta
           const currentMeta = (step.meta ?? {}) as Record<string, unknown>;
