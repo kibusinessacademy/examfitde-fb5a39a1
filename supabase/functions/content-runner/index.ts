@@ -50,7 +50,7 @@ const DISPATCH_TIMEOUT_HEAVY_MS = 35_000;    // Tier 2: LLM-validation + DB-heav
 const DISPATCH_TIMEOUT_GENERATION_MS = 40_000; // Tier 1: LLM-generation jobs
 const STATUS_WRITE_BUFFER_MS = 5_000;        // Reserved for status-write after dispatch
 const WORKER_ID = `content-runner-${crypto.randomUUID().slice(0, 8)}`;
-const FUNCTION_VERSION = "v2.3-tier-reclassify";
+const FUNCTION_VERSION = "v2.4-orchestrator-tier3";
 
 // Pull-loop parameters — TUNED for max throughput
 const LOOP_MAX_MS = envInt("CONTENT_RUNNER_LOOP_MAX_MS", 50_000);    // v2.1: 30s→50s (edge fn limit ~60s)
@@ -82,7 +82,7 @@ function hashJobId(id: string): number {
   return Math.abs(h);
 }
 
-// ── 3-Tier Timeout Classification (v2.3: corrected — orchestrators moved to proper tier) ──
+// ── 3-Tier Timeout Classification (v2.4: orchestrators demoted to Tier 3) ──
 // Tier 1 (40s): LLM generation — target functions with actual LLM calls
 const GENERATION_JOB_TYPES = new Set([
   "package_generate_handbook", "handbook_expand_section",
@@ -98,9 +98,10 @@ const HEAVY_JOB_TYPES = new Set([
   "package_validate_learning_content",
   "package_validate_exam_pool",
   "package_build_ai_tutor_index",
-  // Orchestrators that do DB + enqueue work, not LLM — moved from Tier 1
-  "package_generate_oral_exam",
 ]);
+// NOTE: package_generate_oral_exam + package_enqueue_handbook_expand are now
+// Tier 3 (25s) — they are lightweight orchestrators that finish in <1s.
+// Keeping them in Tier 2 caused BUDGET_EXHAUSTED when picked up mid-loop.
 
 // Everything else: Tier 3 (25s) — structural validation, DB queries only
 
