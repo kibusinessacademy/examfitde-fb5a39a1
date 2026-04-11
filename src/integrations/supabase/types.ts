@@ -75717,22 +75717,39 @@ export type Database = {
         Args: { p_cap?: number; p_reason?: string }
         Returns: Json
       }
-      enqueue_job_if_absent: {
-        Args: {
-          p_job_type: string
-          p_max_attempts?: number
-          p_package_id?: string
-          p_payload?: Json
-          p_priority?: number
-          p_run_after?: string
-        }
-        Returns: {
-          created: boolean
-          deduped: boolean
-          existing_status: string
-          job_id: string
-        }[]
-      }
+      enqueue_job_if_absent:
+        | {
+            Args: {
+              p_job_type: string
+              p_max_attempts?: number
+              p_package_id?: string
+              p_payload?: Json
+              p_priority?: number
+              p_run_after?: string
+            }
+            Returns: {
+              created: boolean
+              deduped: boolean
+              existing_status: string
+              job_id: string
+            }[]
+          }
+        | {
+            Args: {
+              p_job_type: string
+              p_max_attempts?: number
+              p_package_id?: string
+              p_payload?: Json
+              p_priority?: number
+              p_run_after?: string
+            }
+            Returns: {
+              created: boolean
+              duplicate: boolean
+              id: string
+              status: string
+            }[]
+          }
       enqueue_learning_content_regen_for_package: {
         Args: { p_limit?: number; p_package_id: string }
         Returns: number
