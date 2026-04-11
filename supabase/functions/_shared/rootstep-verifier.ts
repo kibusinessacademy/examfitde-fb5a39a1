@@ -76,15 +76,25 @@ export async function verifyGenerateLearningContentComplete(
   const total = totalLessons ?? 0;
   const completionRatio = total > 0 ? (total - regen) / total : 0;
 
-  // 3. Check active child jobs
-  const { count: activeChildJobs } = await sb
+  // 3. Check genuinely in-flight child jobs (exclude stale processing + pending)
+  // When artifacts are verified complete, pending jobs are stale re-enqueues
+  const { data: childJobs } = await sb
     .from("job_queue")
-    .select("id", { head: true, count: "exact" })
+    .select("id, status, locked_at")
     .eq("package_id", packageId)
     .in("job_type", ["lesson_generate_content", "lesson_generate_competency_bundle"])
-    .in("status", ["pending", "queued", "processing", "running"]);
+    .in("status", ["processing", "running"]);
 
-  const activeChildren = activeChildJobs ?? 0;
+  const STALE_MS = 3 * 60_000;
+  const now = Date.now();
+  const activeChildren = (childJobs ?? []).filter((j: any) => {
+    if (j.status === "running") return true;
+    if (j.status === "processing") {
+      if (!j.locked_at) return false;
+      return (now - new Date(j.locked_at).getTime()) < STALE_MS;
+    }
+    return false;
+  }).length;
 
   const snapshot = {
     needs_regen: regen,
