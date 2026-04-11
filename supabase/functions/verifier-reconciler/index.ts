@@ -136,7 +136,7 @@ Deno.serve(async (req) => {
             .eq("package_id", packageId).eq("step_key", v.stepKey);
 
           // Count truly active jobs (excluding stale processing)
-          const activeChildren = await countTrulyActiveJobs(sb, packageId, v.jobType);
+          const activeChildren = await countInFlightJobs(sb, packageId, v.jobType);
 
           if (activeChildren > 0) {
             results.push({ packageId, stepKey: v.stepKey, action: `verifier_ready, ${activeChildren} truly active jobs remaining` });
@@ -145,8 +145,8 @@ Deno.serve(async (req) => {
 
           // Also check child job types for generate_learning_content
           if (v.stepKey === "generate_learning_content") {
-            const childActive = await countTrulyActiveJobs(sb, packageId, "lesson_generate_content")
-              + await countTrulyActiveJobs(sb, packageId, "lesson_generate_competency_bundle");
+            const childActive = await countInFlightJobs(sb, packageId, "lesson_generate_content")
+              + await countInFlightJobs(sb, packageId, "lesson_generate_competency_bundle");
             if (childActive > 0) {
               results.push({ packageId, stepKey: v.stepKey, action: `verifier_ready, ${childActive} child jobs still active` });
               continue;
