@@ -182,7 +182,18 @@ Deno.serve(async (req) => {
     // has_minichecks → run/skip
     const hasMiniChecks = featureFlags.has_minichecks ?? false;
     if (!hasMiniChecks) {
-      return json({ ok: false, skipped: true, reason: "MINICHECKS_DISABLED" });
+      // Mark step as skipped in DB so downstream is unblocked
+      await sb.from("package_steps")
+        .update({ status: "skipped", finished_at: new Date().toISOString(), meta: { skipped_reason: "MINICHECKS_DISABLED" } })
+        .eq("package_id", packageId)
+        .eq("step_key", "generate_lesson_minichecks")
+        .in("status", ["pending", "queued"]);
+      await sb.from("package_steps")
+        .update({ status: "skipped", finished_at: new Date().toISOString(), meta: { skipped_reason: "MINICHECKS_DISABLED" } })
+        .eq("package_id", packageId)
+        .eq("step_key", "validate_lesson_minichecks")
+        .in("status", ["pending", "queued"]);
+      return json({ ok: true, skipped: true, reason: "MINICHECKS_DISABLED" });
     }
 
     // has_learning_course → lesson vs drill mode
