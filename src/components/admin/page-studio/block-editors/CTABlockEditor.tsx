@@ -10,11 +10,20 @@ interface Props {
 export function CTABlockEditor({ content, onChange }: Props) {
   const update = (key: string, value: string) => onChange({ ...content, [key]: value });
 
+  const headlineEmpty = !content.headline?.trim();
+  const labelEmpty = !content.buttonLabel?.trim();
+
   return (
     <div className="space-y-2">
       <div className="space-y-1">
-        <Label className="text-[10px] text-muted-foreground">Headline</Label>
-        <Input value={content.headline ?? ''} onChange={(e) => update('headline', e.target.value)} className="text-xs h-8" />
+        <Label className={`text-[10px] ${headlineEmpty ? 'text-destructive' : 'text-muted-foreground'}`}>
+          Headline {headlineEmpty && '*'}
+        </Label>
+        <Input
+          value={content.headline ?? ''}
+          onChange={(e) => update('headline', e.target.value)}
+          className={`text-xs h-8 ${headlineEmpty ? 'border-destructive/50' : ''}`}
+        />
       </div>
       <div className="space-y-1">
         <Label className="text-[10px] text-muted-foreground">Text</Label>
@@ -22,8 +31,14 @@ export function CTABlockEditor({ content, onChange }: Props) {
       </div>
       <div className="grid grid-cols-2 gap-2">
         <div className="space-y-1">
-          <Label className="text-[10px] text-muted-foreground">Button-Label</Label>
-          <Input value={content.buttonLabel ?? ''} onChange={(e) => update('buttonLabel', e.target.value)} className="text-xs h-8" />
+          <Label className={`text-[10px] ${labelEmpty ? 'text-destructive' : 'text-muted-foreground'}`}>
+            Button-Label {labelEmpty && '*'}
+          </Label>
+          <Input
+            value={content.buttonLabel ?? ''}
+            onChange={(e) => update('buttonLabel', e.target.value)}
+            className={`text-xs h-8 ${labelEmpty ? 'border-destructive/50' : ''}`}
+          />
         </div>
         <div className="space-y-1">
           <Label className="text-[10px] text-muted-foreground">Button-URL</Label>

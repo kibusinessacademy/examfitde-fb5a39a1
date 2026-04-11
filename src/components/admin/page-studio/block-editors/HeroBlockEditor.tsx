@@ -20,6 +20,8 @@ export function HeroBlockEditor({ content, onChange }: Props) {
   const update = (key: keyof HeroContent, value: string) =>
     onChange({ ...content, [key]: value });
 
+  const headlineEmpty = !content.headline?.trim();
+
   return (
     <div className="space-y-3">
       <div className="space-y-1">
@@ -27,8 +29,15 @@ export function HeroBlockEditor({ content, onChange }: Props) {
         <Input value={content.kicker ?? ''} onChange={(e) => update('kicker', e.target.value)} className="text-xs h-8" placeholder="z. B. Neu bei ExamFit" />
       </div>
       <div className="space-y-1">
-        <Label className="text-[10px] text-muted-foreground">Headline</Label>
-        <Input value={content.headline ?? ''} onChange={(e) => update('headline', e.target.value)} className="text-xs h-8" />
+        <Label className={`text-[10px] ${headlineEmpty ? 'text-destructive' : 'text-muted-foreground'}`}>
+          Headline {headlineEmpty && '*'}
+        </Label>
+        <Input
+          value={content.headline ?? ''}
+          onChange={(e) => update('headline', e.target.value)}
+          className={`text-xs h-8 ${headlineEmpty ? 'border-destructive/50' : ''}`}
+        />
+        {headlineEmpty && <p className="text-[10px] text-destructive">Headline darf nicht leer sein</p>}
       </div>
       <div className="space-y-1">
         <Label className="text-[10px] text-muted-foreground">Subline</Label>
