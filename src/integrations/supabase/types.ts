@@ -78890,6 +78890,10 @@ export type Database = {
         }
         Returns: string
       }
+      snapshot_page_version: {
+        Args: { p_created_by?: string; p_page_id: string }
+        Returns: string
+      }
       start_curriculum_ingest: {
         Args: { p_document_id: string; p_run_type?: string }
         Returns: string
