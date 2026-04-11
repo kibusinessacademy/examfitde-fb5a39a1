@@ -11,6 +11,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { CreatePageDialog } from '@/components/admin/page-studio/CreatePageDialog';
 import { PageEditorDialog } from '@/components/admin/page-studio/PageEditorDialog';
+import { resolvePagePreviewUrl, snapshotPageVersion } from '@/lib/page-studio-utils';
 
 interface CmsPage {
   id: string;
