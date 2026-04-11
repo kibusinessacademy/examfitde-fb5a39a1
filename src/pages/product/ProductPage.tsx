@@ -30,9 +30,9 @@ export default function ProductPage() {
     const fired = new Set<number>();
 
     const handleScroll = () => {
-      const scrollPct = Math.round(
-        (window.scrollY / (document.documentElement.scrollHeight - window.innerHeight)) * 100
-      );
+      const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+      if (maxScroll <= 0) return;
+      const scrollPct = Math.round((window.scrollY / maxScroll) * 100);
       for (const t of thresholds) {
         if (scrollPct >= t && !fired.has(t)) {
           fired.add(t);
@@ -79,8 +79,12 @@ export default function ProductPage() {
         productSlug: product.canonicalSlug,
         metadata: { cta_type: ctaType },
       });
-      // Navigate to checkout
-      navigate(product.ctas.primaryUrl);
+      // Route to correct URL based on CTA type
+      const url =
+        ctaType === 'secondary' && product.ctas.secondaryUrl
+          ? product.ctas.secondaryUrl
+          : product.ctas.primaryUrl;
+      navigate(url);
     },
     [product, navigate]
   );
