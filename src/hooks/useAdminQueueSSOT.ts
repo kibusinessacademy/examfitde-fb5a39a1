@@ -37,10 +37,22 @@ export interface QueueCounts {
 
 type QueueHealthSignal = AdminQueueJob['health_signal'];
 
-function inferHealthSignal(status: string, attempts: number, maxAttempts: number, lastError: string | null): QueueHealthSignal {
+function toMinutesAgo(ts: string | null | undefined): number {
+  if (!ts) return 0;
+  const t = new Date(ts).getTime();
+  if (!Number.isFinite(t)) return 0;
+  return Math.max(0, (Date.now() - t) / 60000);
+}
+
+function inferHealthSignal(status: string, attempts: number, maxAttempts: number, lastError: string | null, startedAt?: string | null): QueueHealthSignal {
   if (status === 'failed' && maxAttempts > 0 && attempts >= maxAttempts) return 'exhausted';
   if (status === 'failed') return 'retriable';
-  if (status === 'processing' && lastError?.toLowerCase().includes('stale')) return 'stale_lock';
+  if (status === 'processing') {
+    if (lastError?.toLowerCase().includes('stale')) return 'stale_lock';
+    const runMin = toMinutesAgo(startedAt);
+    if (runMin > 30) return 'zombie';
+    if (runMin > 10) return 'aging';
+  }
   return 'normal';
 }
 
@@ -61,7 +73,7 @@ function normalizeQueueJob(row: Partial<AdminQueueJob>): AdminQueueJob {
   const healthSignal: QueueHealthSignal = rawHealth === 'ok' ? 'normal'
     : rawHealth && ['zombie', 'stale_lock', 'exhausted', 'retriable', 'aging', 'normal'].includes(rawHealth)
     ? (rawHealth as QueueHealthSignal)
-    : inferHealthSignal(jobStatus, attempts, maxAttempts, lastError);
+    : inferHealthSignal(jobStatus, attempts, maxAttempts, lastError, typeof row.started_at === 'string' ? row.started_at : null);
 
   return {
     job_id: typeof row.job_id === 'string' && row.job_id.length > 0
