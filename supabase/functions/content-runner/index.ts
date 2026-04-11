@@ -845,7 +845,7 @@ type PassResult = {
 };
 
 // deno-lint-ignore no-explicit-any
-async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFirstPass: boolean): Promise<PassResult> {
+async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFirstPass: boolean, loopDeadlineMs?: number): Promise<PassResult> {
   // ── Stale-lock recovery (only on first pass to avoid repeated scanning) ──
   if (isFirstPass) {
     const staleBefore = new Date(Date.now() - STALE_LOCK_RECOVERY_MS).toISOString();
@@ -1154,7 +1154,7 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
   // ── Process jobs in parallel ──
   // deno-lint-ignore no-explicit-any
   const results: any[] = [];
-  const settled = await Promise.allSettled(jobs.map((job: any) => processOneJob(job, sb, supabaseUrl, serviceKey)));
+  const settled = await Promise.allSettled(jobs.map((job: any) => processOneJob(job, sb, supabaseUrl, serviceKey, loopDeadlineMs)));
   for (const s of settled) {
     if (s.status === "fulfilled") {
       results.push(s.value);
