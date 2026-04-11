@@ -295,16 +295,17 @@ export default function HomePage() {
                   Finde dein Prüfungstraining und bereite dich gezielt auf deine Abschlussprüfung vor.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                  <a href="#kursfinder">
-                    <Button
-                      size="lg"
-                      className="gradient-primary text-primary-foreground shadow-glow rounded-xl h-14 px-8 group"
-                      onClick={() => trackConversion({ event: 'cta_click', source: 'bottom_cta', label: 'find_course' })}
-                    >
-                      <Search className="h-5 w-5 mr-2" />
-                      Beruf suchen
-                    </Button>
-                  </a>
+                  <Button
+                    size="lg"
+                    className="gradient-primary text-primary-foreground shadow-glow rounded-xl h-14 px-8 group"
+                    onClick={() => {
+                      document.getElementById('kursfinder')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      trackConversion({ event: 'bottom_cta_click', source: 'bottom_cta', label: 'find_course' });
+                    }}
+                  >
+                    <Search className="h-5 w-5 mr-2" />
+                    Beruf suchen
+                  </Button>
                   <Link to="/berufe">
                     <Button
                       size="lg"
