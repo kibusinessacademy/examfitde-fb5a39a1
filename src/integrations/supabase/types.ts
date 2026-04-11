@@ -6752,6 +6752,261 @@ export type Database = {
           },
         ]
       }
+      cms_media: {
+        Row: {
+          alt_text: string | null
+          caption: string | null
+          created_at: string
+          file_name: string
+          file_size_bytes: number | null
+          height: number | null
+          id: string
+          mime_type: string
+          public_url: string
+          storage_path: string
+          uploaded_by: string | null
+          width: number | null
+        }
+        Insert: {
+          alt_text?: string | null
+          caption?: string | null
+          created_at?: string
+          file_name: string
+          file_size_bytes?: number | null
+          height?: number | null
+          id?: string
+          mime_type: string
+          public_url: string
+          storage_path: string
+          uploaded_by?: string | null
+          width?: number | null
+        }
+        Update: {
+          alt_text?: string | null
+          caption?: string | null
+          created_at?: string
+          file_name?: string
+          file_size_bytes?: number | null
+          height?: number | null
+          id?: string
+          mime_type?: string
+          public_url?: string
+          storage_path?: string
+          uploaded_by?: string | null
+          width?: number | null
+        }
+        Relationships: []
+      }
+      cms_page_blocks: {
+        Row: {
+          block_key: string
+          block_type: string
+          content_json: Json
+          created_at: string
+          id: string
+          is_enabled: boolean
+          page_id: string
+          sort_order: number
+          styles_json: Json
+          updated_at: string
+        }
+        Insert: {
+          block_key: string
+          block_type: string
+          content_json?: Json
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          page_id: string
+          sort_order?: number
+          styles_json?: Json
+          updated_at?: string
+        }
+        Update: {
+          block_key?: string
+          block_type?: string
+          content_json?: Json
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          page_id?: string
+          sort_order?: number
+          styles_json?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cms_page_blocks_page_id_fkey"
+            columns: ["page_id"]
+            isOneToOne: false
+            referencedRelation: "cms_pages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cms_page_versions: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          page_id: string
+          snapshot_json: Json
+          version_number: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          page_id: string
+          snapshot_json: Json
+          version_number: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          page_id?: string
+          snapshot_json?: Json
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cms_page_versions_page_id_fkey"
+            columns: ["page_id"]
+            isOneToOne: false
+            referencedRelation: "cms_pages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cms_pages: {
+        Row: {
+          canonical_url: string | null
+          created_at: string
+          created_by: string | null
+          excerpt: string | null
+          id: string
+          is_system_page: boolean
+          meta_description: string | null
+          og_description: string | null
+          og_image_url: string | null
+          og_title: string | null
+          page_type: string
+          parent_page_id: string | null
+          published_at: string | null
+          robots: string | null
+          schema_json: Json | null
+          seo_title: string | null
+          settings_json: Json | null
+          slug: string
+          status: string
+          template_key: string
+          title: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          canonical_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          excerpt?: string | null
+          id?: string
+          is_system_page?: boolean
+          meta_description?: string | null
+          og_description?: string | null
+          og_image_url?: string | null
+          og_title?: string | null
+          page_type?: string
+          parent_page_id?: string | null
+          published_at?: string | null
+          robots?: string | null
+          schema_json?: Json | null
+          seo_title?: string | null
+          settings_json?: Json | null
+          slug: string
+          status?: string
+          template_key: string
+          title: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          canonical_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          excerpt?: string | null
+          id?: string
+          is_system_page?: boolean
+          meta_description?: string | null
+          og_description?: string | null
+          og_image_url?: string | null
+          og_title?: string | null
+          page_type?: string
+          parent_page_id?: string | null
+          published_at?: string | null
+          robots?: string | null
+          schema_json?: Json | null
+          seo_title?: string | null
+          settings_json?: Json | null
+          slug?: string
+          status?: string
+          template_key?: string
+          title?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cms_pages_parent_page_id_fkey"
+            columns: ["parent_page_id"]
+            isOneToOne: false
+            referencedRelation: "cms_pages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cms_templates: {
+        Row: {
+          created_at: string
+          default_blocks_json: Json
+          default_settings_json: Json | null
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          page_type: string
+          preview_image_url: string | null
+          template_key: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          default_blocks_json?: Json
+          default_settings_json?: Json | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          page_type: string
+          preview_image_url?: string | null
+          template_key: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          default_blocks_json?: Json
+          default_settings_json?: Json | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          page_type?: string
+          preview_image_url?: string | null
+          template_key?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       companies: {
         Row: {
           address: Json | null
