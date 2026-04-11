@@ -101,6 +101,7 @@ const BusinessBrainPage = lazyRetry(() => import('@/pages/admin/v2/BusinessBrain
 const ForensicReportsPage = lazyRetry(() => import('@/pages/admin/v2/ForensicReportsPage'));
 const HumorQCPage = lazyRetry(() => import('@/pages/admin/v2/HumorQCPage'));
 const CourseWorkspace = lazyRetry(() => import('@/pages/admin/CourseWorkspace'));
+const PageStudioPage = lazyRetry(() => import('@/pages/admin/v2/PageStudioPage'));
 
 // ExamFit@work public pages
 const WorkHomePage = lazyRetry(() => import('@/pages/work/WorkHomePage'));
@@ -283,6 +284,7 @@ const AppRoutes = () => {
           <Route path="studio" element={<KursePage />} />
           <Route path="studio/:packageId" element={<CourseWorkspace />} />
           <Route path="queue" element={<QueuePage />} />
+          <Route path="pages" element={<PageStudioPage />} />
           <Route path="growth" element={<GrowthPage />} />
           <Route path="brain" element={<BusinessBrainPage />} />
           <Route path="forensics" element={<ForensicReportsPage />} />
