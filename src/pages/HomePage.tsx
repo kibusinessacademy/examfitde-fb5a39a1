@@ -6,7 +6,7 @@ import { generateFAQSchema, generateCourseListSchema, SITE_URL, seoTitle } from 
 import { PRICING } from '@/config/pricing';
 import { StickyCTA } from '@/components/marketing/StickyCTA';
 import { CourseFinderSection } from '@/components/marketing/CourseFinderSection';
-import { PopularCoursesSection } from '@/components/marketing/PopularCoursesSection';
+
 import { trackConversion } from '@/lib/seo-tracking';
 import {
   Accordion,
@@ -101,16 +101,17 @@ export default function HomePage() {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-3 justify-center animate-fade-in" style={{ animationDelay: '0.2s' }}>
-              <a href="#kursfinder">
-                <Button
-                  size="lg"
-                  className="gradient-primary text-primary-foreground shadow-glow hover:shadow-glow-lg transition-all rounded-xl h-14 px-8 text-lg group"
-                  onClick={() => trackConversion({ event: 'cta_click', source: 'hero', label: 'find_course' })}
-                >
-                  <Search className="h-5 w-5 mr-2" />
-                  Kurs finden
-                </Button>
-              </a>
+              <Button
+                size="lg"
+                className="gradient-primary text-primary-foreground shadow-glow hover:shadow-glow-lg transition-all rounded-xl h-14 px-8 text-lg group"
+                onClick={() => {
+                  document.getElementById('kursfinder')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  trackConversion({ event: 'hero_scroll_to_finder', source: 'hero', label: 'find_course' });
+                }}
+              >
+                <Search className="h-5 w-5 mr-2" />
+                Kurs finden
+              </Button>
               <Link to="/berufe">
                 <Button
                   size="lg"
@@ -143,8 +144,7 @@ export default function HomePage() {
         {/* ─── 2. Kursfinder mit Suche + Filter ─── */}
         <CourseFinderSection />
 
-        {/* ─── 3. Beliebte Berufe / Top-Kurse ─── */}
-        <PopularCoursesSection />
+        {/* Finder already shows top courses by default — no separate PopularCoursesSection needed */}
 
         {/* ─── 4. So funktioniert ExamFit ─── */}
         <section className="py-12 sm:py-16 md:py-20 px-3 sm:px-4">
@@ -223,7 +223,7 @@ export default function HomePage() {
                 { to: '/pruefungstraining-betriebe', icon: Building2, color: 'text-accent', title: 'Für Betriebe', text: 'Mache Prüfungsreife sichtbar und unterstütze Azubis strukturiert bei der Vorbereitung.' },
                 { to: '/pruefungstraining-berufsschulen', icon: BookOpen, color: 'text-success', title: 'Für Berufsschulen', text: 'Ergänze bestehende Lernangebote mit prüfungsnahem Training – ohne den Unterricht zu ersetzen.' },
               ].map(({ to, icon: Icon, color, title, text }) => (
-                <Link key={to} to={to} className="glass-card rounded-2xl p-6 sm:p-8 group hover:border-primary/30 transition-all duration-300">
+                <Link key={to} to={to} className="glass-card rounded-2xl p-6 sm:p-8 group hover:border-primary/30 transition-all duration-300" onClick={() => trackConversion({ event: 'role_card_click', source: 'homepage', label: title })}>
                   <Icon className={`h-10 w-10 ${color} mb-4`} />
                   <h3 className="text-lg font-display font-bold mb-2">{title}</h3>
                   <p className="text-sm text-muted-foreground mb-4">{text}</p>
@@ -294,16 +294,17 @@ export default function HomePage() {
                   Finde dein Prüfungstraining und bereite dich gezielt auf deine Abschlussprüfung vor.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                  <a href="#kursfinder">
-                    <Button
-                      size="lg"
-                      className="gradient-primary text-primary-foreground shadow-glow rounded-xl h-14 px-8 group"
-                      onClick={() => trackConversion({ event: 'cta_click', source: 'bottom_cta', label: 'find_course' })}
-                    >
-                      <Search className="h-5 w-5 mr-2" />
-                      Beruf suchen
-                    </Button>
-                  </a>
+                  <Button
+                    size="lg"
+                    className="gradient-primary text-primary-foreground shadow-glow rounded-xl h-14 px-8 group"
+                    onClick={() => {
+                      document.getElementById('kursfinder')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      trackConversion({ event: 'bottom_cta_click', source: 'bottom_cta', label: 'find_course' });
+                    }}
+                  >
+                    <Search className="h-5 w-5 mr-2" />
+                    Beruf suchen
+                  </Button>
                   <Link to="/berufe">
                     <Button
                       size="lg"

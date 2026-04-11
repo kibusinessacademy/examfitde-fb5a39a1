@@ -454,6 +454,13 @@ export type Database = {
             foreignKeyName: "affiliate_referrals_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "affiliate_referrals_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
             referencedRelation: "v_package_build_priority"
             referencedColumns: ["course_id"]
           },
@@ -1439,6 +1446,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_course_display_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "ai_tutor_context_index_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
             referencedColumns: ["package_id"]
           },
           {
@@ -2950,6 +2964,13 @@ export type Database = {
             foreignKeyName: "azav_massnahmen_zulassungen_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: true
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "azav_massnahmen_zulassungen_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: true
             referencedRelation: "v_package_build_priority"
             referencedColumns: ["course_id"]
           },
@@ -3270,6 +3291,13 @@ export type Database = {
             referencedRelation: "v_course_display_ssot"
             referencedColumns: ["beruf_id"]
           },
+          {
+            foreignKeyName: "beruf_aliases_beruf_id_fkey"
+            columns: ["beruf_id"]
+            isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["beruf_id"]
+          },
         ]
       }
       beruf_dokumente: {
@@ -3351,6 +3379,13 @@ export type Database = {
             columns: ["beruf_id"]
             isOneToOne: false
             referencedRelation: "v_course_display_ssot"
+            referencedColumns: ["beruf_id"]
+          },
+          {
+            foreignKeyName: "beruf_dokumente_beruf_id_fkey"
+            columns: ["beruf_id"]
+            isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
             referencedColumns: ["beruf_id"]
           },
         ]
@@ -3472,6 +3507,13 @@ export type Database = {
             referencedRelation: "v_course_display_ssot"
             referencedColumns: ["beruf_id"]
           },
+          {
+            foreignKeyName: "beruf_market_data_beruf_id_fkey"
+            columns: ["beruf_id"]
+            isOneToOne: true
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["beruf_id"]
+          },
         ]
       }
       beruf_market_match_map: {
@@ -3541,6 +3583,13 @@ export type Database = {
             columns: ["beruf_id"]
             isOneToOne: false
             referencedRelation: "v_course_display_ssot"
+            referencedColumns: ["beruf_id"]
+          },
+          {
+            foreignKeyName: "beruf_market_match_map_beruf_id_fkey"
+            columns: ["beruf_id"]
+            isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
             referencedColumns: ["beruf_id"]
           },
         ]
@@ -8224,6 +8273,13 @@ export type Database = {
             foreignKeyName: "content_versions_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "content_versions_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
             referencedRelation: "v_package_build_priority"
             referencedColumns: ["course_id"]
           },
@@ -9419,6 +9475,13 @@ export type Database = {
             foreignKeyName: "council_sessions_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "council_sessions_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_latest_course_package"
             referencedColumns: ["id"]
           },
@@ -9818,6 +9881,13 @@ export type Database = {
             foreignKeyName: "course_enrollments_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "course_enrollments_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
             referencedRelation: "v_package_build_priority"
             referencedColumns: ["course_id"]
           },
@@ -9893,6 +9963,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_course_display_ssot"
             referencedColumns: ["course_row_id"]
+          },
+          {
+            foreignKeyName: "course_evidence_packs_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["course_id"]
           },
           {
             foreignKeyName: "course_evidence_packs_course_id_fkey"
@@ -10001,6 +10078,13 @@ export type Database = {
             foreignKeyName: "course_generation_locks_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: true
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "course_generation_locks_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: true
             referencedRelation: "v_package_build_priority"
             referencedColumns: ["course_id"]
           },
@@ -10084,6 +10168,13 @@ export type Database = {
             foreignKeyName: "course_health_snapshots_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "course_health_snapshots_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
             referencedRelation: "v_package_build_priority"
             referencedColumns: ["course_id"]
           },
@@ -10147,6 +10238,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_course_display_ssot"
             referencedColumns: ["course_row_id"]
+          },
+          {
+            foreignKeyName: "course_notes_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["course_id"]
           },
           {
             foreignKeyName: "course_notes_course_id_fkey"
@@ -10594,6 +10692,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_course_display_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_build_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
             referencedColumns: ["package_id"]
           },
           {
@@ -11142,6 +11247,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: true
             referencedRelation: "v_course_display_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_locks_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_homepage_course_catalog"
             referencedColumns: ["package_id"]
           },
           {
@@ -11711,6 +11823,13 @@ export type Database = {
             foreignKeyName: "course_package_outputs_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_outputs_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_latest_course_package"
             referencedColumns: ["id"]
           },
@@ -12268,6 +12387,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_course_display_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_plans_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
             referencedColumns: ["package_id"]
           },
           {
@@ -12849,6 +12975,13 @@ export type Database = {
             foreignKeyName: "course_package_reviews_course_package_id_fkey"
             columns: ["course_package_id"]
             isOneToOne: true
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_reviews_course_package_id_fkey"
+            columns: ["course_package_id"]
+            isOneToOne: true
             referencedRelation: "v_latest_course_package"
             referencedColumns: ["id"]
           },
@@ -13207,6 +13340,13 @@ export type Database = {
             foreignKeyName: "course_packages_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "course_packages_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
             referencedRelation: "v_package_build_priority"
             referencedColumns: ["course_id"]
           },
@@ -13420,6 +13560,13 @@ export type Database = {
             foreignKeyName: "course_production_forecasts_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: true
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "course_production_forecasts_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: true
             referencedRelation: "v_package_build_priority"
             referencedColumns: ["course_id"]
           },
@@ -13492,6 +13639,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_course_display_ssot"
             referencedColumns: ["course_row_id"]
+          },
+          {
+            foreignKeyName: "course_quality_audits_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["course_id"]
           },
           {
             foreignKeyName: "course_quality_audits_course_id_fkey"
@@ -13943,6 +14097,13 @@ export type Database = {
             foreignKeyName: "course_regulatory_status_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: true
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_regulatory_status_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
             referencedRelation: "v_latest_course_package"
             referencedColumns: ["id"]
           },
@@ -14145,6 +14306,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_course_display_ssot"
             referencedColumns: ["course_row_id"]
+          },
+          {
+            foreignKeyName: "course_reviews_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["course_id"]
           },
           {
             foreignKeyName: "course_reviews_course_id_fkey"
@@ -14794,6 +14962,13 @@ export type Database = {
             referencedColumns: ["beruf_id"]
           },
           {
+            foreignKeyName: "curricula_beruf_id_fkey"
+            columns: ["beruf_id"]
+            isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["beruf_id"]
+          },
+          {
             foreignKeyName: "curricula_certification_id_fkey"
             columns: ["certification_id"]
             isOneToOne: false
@@ -15338,6 +15513,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_course_display_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "curriculum_discovery_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
             referencedColumns: ["package_id"]
           },
           {
@@ -16546,6 +16728,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_course_display_ssot"
             referencedColumns: ["course_row_id"]
+          },
+          {
+            foreignKeyName: "curriculum_products_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["course_id"]
           },
           {
             foreignKeyName: "curriculum_products_course_id_fkey"
@@ -19308,6 +19497,13 @@ export type Database = {
             foreignKeyName: "duplicate_detection_log_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "duplicate_detection_log_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_latest_course_package"
             referencedColumns: ["id"]
           },
@@ -20892,6 +21088,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_course_display_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_validation_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
             referencedColumns: ["package_id"]
           },
           {
@@ -22574,6 +22777,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_course_display_ssot"
             referencedColumns: ["course_row_id"]
+          },
+          {
+            foreignKeyName: "export_jobs_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["course_id"]
           },
           {
             foreignKeyName: "export_jobs_course_id_fkey"
@@ -25251,6 +25461,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_course_display_ssot"
             referencedColumns: ["course_row_id"]
+          },
+          {
+            foreignKeyName: "learning_events_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["course_id"]
           },
           {
             foreignKeyName: "learning_events_course_id_fkey"
@@ -28330,6 +28547,13 @@ export type Database = {
             foreignKeyName: "modules_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "modules_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
             referencedRelation: "v_package_build_priority"
             referencedColumns: ["course_id"]
           },
@@ -29967,6 +30191,13 @@ export type Database = {
             foreignKeyName: "oral_exam_session_templates_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "oral_exam_session_templates_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_latest_course_package"
             referencedColumns: ["id"]
           },
@@ -30661,6 +30892,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: true
             referencedRelation: "v_course_display_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "oral_exam_sessionsets_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_homepage_course_catalog"
             referencedColumns: ["package_id"]
           },
           {
@@ -32404,6 +32642,13 @@ export type Database = {
             foreignKeyName: "package_content_shards_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "package_content_shards_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
             referencedRelation: "v_package_build_priority"
             referencedColumns: ["course_id"]
           },
@@ -32797,6 +33042,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_course_display_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_content_shards_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
             referencedColumns: ["package_id"]
           },
           {
@@ -33354,6 +33606,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: true
             referencedRelation: "v_course_display_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_leases_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_homepage_course_catalog"
             referencedColumns: ["package_id"]
           },
           {
@@ -34114,6 +34373,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_latest_course_package"
             referencedColumns: ["id"]
           },
@@ -34656,6 +34922,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_course_display_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_tags_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
             referencedColumns: ["package_id"]
           },
           {
@@ -36413,6 +36686,13 @@ export type Database = {
             foreignKeyName: "pipeline_lock_active_package_id_fkey"
             columns: ["active_package_id"]
             isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "pipeline_lock_active_package_id_fkey"
+            columns: ["active_package_id"]
+            isOneToOne: false
             referencedRelation: "v_latest_course_package"
             referencedColumns: ["id"]
           },
@@ -36837,6 +37117,13 @@ export type Database = {
             referencedColumns: ["beruf_id"]
           },
           {
+            foreignKeyName: "portfolio_priority_beruf_id_fkey"
+            columns: ["beruf_id"]
+            isOneToOne: true
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["beruf_id"]
+          },
+          {
             foreignKeyName: "portfolio_priority_cluster_id_fkey"
             columns: ["cluster_id"]
             isOneToOne: false
@@ -36900,6 +37187,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_course_display_ssot"
             referencedColumns: ["course_row_id"]
+          },
+          {
+            foreignKeyName: "post_validation_results_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["course_id"]
           },
           {
             foreignKeyName: "post_validation_results_course_id_fkey"
@@ -37344,6 +37638,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_course_display_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "premium_upgrade_runs_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
             referencedColumns: ["package_id"]
           },
           {
@@ -38077,6 +38378,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: true
             referencedRelation: "v_course_display_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "priority_scores_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_homepage_course_catalog"
             referencedColumns: ["package_id"]
           },
           {
@@ -39368,6 +39676,13 @@ export type Database = {
             foreignKeyName: "production_quality_snapshots_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "production_quality_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_latest_course_package"
             referencedColumns: ["id"]
           },
@@ -39766,6 +40081,13 @@ export type Database = {
             referencedRelation: "v_course_display_ssot"
             referencedColumns: ["beruf_id"]
           },
+          {
+            foreignKeyName: "profession_glossaries_beruf_id_fkey"
+            columns: ["beruf_id"]
+            isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["beruf_id"]
+          },
         ]
       }
       profession_profiles: {
@@ -39844,6 +40166,13 @@ export type Database = {
             columns: ["beruf_id"]
             isOneToOne: false
             referencedRelation: "v_course_display_ssot"
+            referencedColumns: ["beruf_id"]
+          },
+          {
+            foreignKeyName: "profession_profiles_beruf_id_fkey"
+            columns: ["beruf_id"]
+            isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
             referencedColumns: ["beruf_id"]
           },
         ]
@@ -40050,6 +40379,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_course_display_ssot"
             referencedColumns: ["course_row_id"]
+          },
+          {
+            foreignKeyName: "promo_code_redemptions_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["course_id"]
           },
           {
             foreignKeyName: "promo_code_redemptions_course_id_fkey"
@@ -40665,6 +41001,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_course_display_ssot"
             referencedColumns: ["course_row_id"]
+          },
+          {
+            foreignKeyName: "qc_run_results_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["course_id"]
           },
           {
             foreignKeyName: "qc_run_results_course_id_fkey"
@@ -41741,6 +42084,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_course_display_ssot"
             referencedColumns: ["course_row_id"]
+          },
+          {
+            foreignKeyName: "quality_gate_results_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["course_id"]
           },
           {
             foreignKeyName: "quality_gate_results_course_id_fkey"
@@ -43036,6 +43386,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_course_display_ssot"
             referencedColumns: ["course_row_id"]
+          },
+          {
+            foreignKeyName: "revenue_events_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["course_id"]
           },
           {
             foreignKeyName: "revenue_events_course_id_fkey"
@@ -44436,6 +44793,13 @@ export type Database = {
             columns: ["beruf_id"]
             isOneToOne: false
             referencedRelation: "v_course_display_ssot"
+            referencedColumns: ["beruf_id"]
+          },
+          {
+            foreignKeyName: "seo_documents_beruf_id_fkey"
+            columns: ["beruf_id"]
+            isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
             referencedColumns: ["beruf_id"]
           },
           {
@@ -46228,6 +46592,13 @@ export type Database = {
             foreignKeyName: "standalone_artifact_versions_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "standalone_artifact_versions_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
             referencedRelation: "v_package_build_priority"
             referencedColumns: ["course_id"]
           },
@@ -46677,6 +47048,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_course_display_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "standalone_artifact_versions_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
             referencedColumns: ["package_id"]
           },
           {
@@ -47480,6 +47858,13 @@ export type Database = {
             foreignKeyName: "support_ai_responses_context_course_id_fkey"
             columns: ["context_course_id"]
             isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "support_ai_responses_context_course_id_fkey"
+            columns: ["context_course_id"]
+            isOneToOne: false
             referencedRelation: "v_package_build_priority"
             referencedColumns: ["course_id"]
           },
@@ -47591,6 +47976,13 @@ export type Database = {
             foreignKeyName: "support_faq_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "support_faq_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
             referencedRelation: "v_package_build_priority"
             referencedColumns: ["course_id"]
           },
@@ -47674,6 +48066,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_course_display_ssot"
             referencedColumns: ["course_row_id"]
+          },
+          {
+            foreignKeyName: "support_feedback_loop_affected_course_id_fkey"
+            columns: ["affected_course_id"]
+            isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["course_id"]
           },
           {
             foreignKeyName: "support_feedback_loop_affected_course_id_fkey"
@@ -47863,6 +48262,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_course_display_ssot"
             referencedColumns: ["course_row_id"]
+          },
+          {
+            foreignKeyName: "support_tickets_context_course_id_fkey"
+            columns: ["context_course_id"]
+            isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["course_id"]
           },
           {
             foreignKeyName: "support_tickets_context_course_id_fkey"
@@ -52481,6 +52887,13 @@ export type Database = {
             foreignKeyName: "affiliate_referrals_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "affiliate_referrals_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
             referencedRelation: "v_package_build_priority"
             referencedColumns: ["course_id"]
           },
@@ -53150,6 +53563,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_latest_course_package"
             referencedColumns: ["id"]
           },
@@ -53514,6 +53934,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_course_display_ssot"
             referencedColumns: ["course_row_id"]
+          },
+          {
+            foreignKeyName: "curriculum_products_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["course_id"]
           },
           {
             foreignKeyName: "curriculum_products_course_id_fkey"
@@ -54834,6 +55261,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_latest_course_package"
             referencedColumns: ["id"]
           },
@@ -55660,6 +56094,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_latest_course_package"
             referencedColumns: ["id"]
           },
@@ -56369,6 +56810,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_latest_course_package"
             referencedColumns: ["id"]
           },
@@ -56911,6 +57359,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_course_display_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
             referencedColumns: ["package_id"]
           },
           {
@@ -57468,6 +57923,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_course_display_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
             referencedColumns: ["package_id"]
           },
           {
@@ -58136,6 +58598,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_course_display_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
             referencedColumns: ["package_id"]
           },
           {
@@ -58899,6 +59368,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_latest_course_package"
             referencedColumns: ["id"]
           },
@@ -59213,6 +59689,13 @@ export type Database = {
             foreignKeyName: "course_packages_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "course_packages_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
             referencedRelation: "v_package_build_priority"
             referencedColumns: ["course_id"]
           },
@@ -59445,6 +59928,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_course_display_ssot"
             referencedColumns: ["course_row_id"]
+          },
+          {
+            foreignKeyName: "course_packages_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["course_id"]
           },
           {
             foreignKeyName: "course_packages_course_id_fkey"
@@ -60056,6 +60546,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_latest_course_package"
             referencedColumns: ["id"]
           },
@@ -60433,6 +60930,13 @@ export type Database = {
             columns: ["beruf_id"]
             isOneToOne: false
             referencedRelation: "v_course_display_ssot"
+            referencedColumns: ["beruf_id"]
+          },
+          {
+            foreignKeyName: "curricula_beruf_id_fkey"
+            columns: ["beruf_id"]
+            isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
             referencedColumns: ["beruf_id"]
           },
         ]
@@ -60908,6 +61412,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_course_display_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
             referencedColumns: ["package_id"]
           },
           {
@@ -61528,6 +62039,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_latest_course_package"
             referencedColumns: ["id"]
           },
@@ -62140,6 +62658,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_course_display_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "council_sessions_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
             referencedColumns: ["package_id"]
           },
           {
@@ -62781,6 +63306,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_latest_course_package"
             referencedColumns: ["id"]
           },
@@ -63328,6 +63860,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_latest_course_package"
             referencedColumns: ["id"]
           },
@@ -63656,6 +64195,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_course_display_ssot"
             referencedColumns: ["course_row_id"]
+          },
+          {
+            foreignKeyName: "course_packages_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["course_id"]
           },
           {
             foreignKeyName: "course_packages_course_id_fkey"
@@ -64109,6 +64655,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_course_display_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
             referencedColumns: ["package_id"]
           },
           {
@@ -64653,6 +65206,13 @@ export type Database = {
             foreignKeyName: "course_packages_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "course_packages_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
             referencedRelation: "v_package_build_priority"
             referencedColumns: ["course_id"]
           },
@@ -64873,6 +65433,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_course_display_ssot"
             referencedColumns: ["course_row_id"]
+          },
+          {
+            foreignKeyName: "course_packages_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["course_id"]
           },
           {
             foreignKeyName: "course_packages_course_id_fkey"
@@ -65143,6 +65710,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_course_display_ssot"
             referencedColumns: ["course_row_id"]
+          },
+          {
+            foreignKeyName: "course_packages_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["course_id"]
           },
           {
             foreignKeyName: "course_packages_course_id_fkey"
@@ -65510,6 +66084,13 @@ export type Database = {
             foreignKeyName: "course_packages_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "course_packages_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
             referencedRelation: "v_package_build_priority"
             referencedColumns: ["course_id"]
           },
@@ -65645,6 +66226,13 @@ export type Database = {
             foreignKeyName: "course_packages_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "course_packages_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
             referencedRelation: "v_package_build_priority"
             referencedColumns: ["course_id"]
           },
@@ -65749,6 +66337,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_course_display_ssot"
             referencedColumns: ["course_row_id"]
+          },
+          {
+            foreignKeyName: "course_packages_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["course_id"]
           },
           {
             foreignKeyName: "course_packages_course_id_fkey"
@@ -65861,6 +66456,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_course_display_ssot"
             referencedColumns: ["course_row_id"]
+          },
+          {
+            foreignKeyName: "course_packages_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["course_id"]
           },
           {
             foreignKeyName: "course_packages_course_id_fkey"
@@ -66544,6 +67146,13 @@ export type Database = {
             foreignKeyName: "modules_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "modules_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
             referencedRelation: "v_package_build_priority"
             referencedColumns: ["course_id"]
           },
@@ -66597,6 +67206,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_course_display_ssot"
             referencedColumns: ["course_row_id"]
+          },
+          {
+            foreignKeyName: "course_packages_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["course_id"]
           },
           {
             foreignKeyName: "course_packages_course_id_fkey"
@@ -67625,6 +68241,93 @@ export type Database = {
         }
         Relationships: []
       }
+      v_homepage_course_catalog: {
+        Row: {
+          ausbildungsdauer_monate: number | null
+          badges: string[] | null
+          beruf_display_name: string | null
+          beruf_id: string | null
+          beruf_kurz: string | null
+          beruf_lang: string | null
+          category: string | null
+          category_label: string | null
+          course_id: string | null
+          curriculum_id: string | null
+          curriculum_track: string | null
+          description: string | null
+          dqr_niveau: number | null
+          editorial_priority: number | null
+          kammer: string | null
+          package_id: string | null
+          persona_profile: string | null
+          popularity_score: number | null
+          published_at: string | null
+          search_text: string | null
+          slug: string | null
+          title: string | null
+          title_norm: string | null
+          track: string | null
+          zustaendigkeit: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_qc_backlog"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_qc_backlog_age"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
+        ]
+      }
       v_humor_delivery_kpi: {
         Row: {
           avg_deliveries_per_item: number | null
@@ -67799,6 +68502,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_course_display_ssot"
             referencedColumns: ["course_row_id"]
+          },
+          {
+            foreignKeyName: "course_packages_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["course_id"]
           },
           {
             foreignKeyName: "course_packages_course_id_fkey"
@@ -68805,6 +69515,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_latest_course_package"
             referencedColumns: ["id"]
           },
@@ -69295,6 +70012,13 @@ export type Database = {
             referencedRelation: "v_course_display_ssot"
             referencedColumns: ["beruf_id"]
           },
+          {
+            foreignKeyName: "curricula_beruf_id_fkey"
+            columns: ["beruf_id"]
+            isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["beruf_id"]
+          },
         ]
       }
       v_package_content_shard_progress: {
@@ -69337,6 +70061,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_course_display_ssot"
             referencedColumns: ["course_row_id"]
+          },
+          {
+            foreignKeyName: "package_content_shards_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["course_id"]
           },
           {
             foreignKeyName: "package_content_shards_course_id_fkey"
@@ -69735,6 +70466,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_course_display_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_content_shards_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
             referencedColumns: ["package_id"]
           },
           {
@@ -70288,6 +71026,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_latest_course_package"
             referencedColumns: ["id"]
           },
@@ -70484,6 +71229,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_course_display_ssot"
             referencedColumns: ["course_row_id"]
+          },
+          {
+            foreignKeyName: "course_packages_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["course_id"]
           },
           {
             foreignKeyName: "course_packages_course_id_fkey"
@@ -70900,6 +71652,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_course_display_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_content_shards_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
             referencedColumns: ["package_id"]
           },
           {
@@ -71477,6 +72236,13 @@ export type Database = {
             foreignKeyName: "standalone_artifact_versions_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "standalone_artifact_versions_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
             referencedRelation: "v_package_build_priority"
             referencedColumns: ["course_id"]
           },
@@ -71870,6 +72636,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_course_display_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "standalone_artifact_versions_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
             referencedColumns: ["package_id"]
           },
           {
