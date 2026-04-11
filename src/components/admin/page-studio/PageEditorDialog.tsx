@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -10,7 +10,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Loader2, Save, Globe, GripVertical, Plus, Trash2, ChevronUp, ChevronDown, AlertCircle } from 'lucide-react';
+import { Loader2, Save, Globe, GripVertical, Plus, Trash2, ChevronUp, ChevronDown, AlertCircle, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { buildDefaultBlockContent, snapshotPageVersion, isSlugTaken, slugify } from '@/lib/page-studio-utils';
 import { HeroBlockEditor, RichTextBlockEditor, ImageBlockEditor, CTABlockEditor, FAQBlockEditor, TrustBarBlockEditor } from './block-editors';
@@ -84,6 +84,8 @@ export function PageEditorDialog({ pageId, open, onOpenChange }: Props) {
   const [slugError, setSlugError] = useState('');
   // Track local unsaved block changes
   const [dirtyBlocks, setDirtyBlocks] = useState<Record<string, Record<string, any>>>({});
+  // Track if metadata fields changed
+  const [metaDirty, setMetaDirty] = useState(false);
 
   const { data: page, isLoading: pageLoading } = useQuery({
     queryKey: ['cms-page', pageId],
@@ -139,12 +141,31 @@ export function PageEditorDialog({ pageId, open, onOpenChange }: Props) {
     setRobots(page.robots || 'index,follow');
     setSlugError('');
     setDirtyBlocks({});
+    setMetaDirty(false);
   }, [page]);
+
+  // Helper to mark metadata dirty
+  const setMetaField = useCallback(<T,>(setter: React.Dispatch<React.SetStateAction<T>>, value: T) => {
+    setter(value);
+    setMetaDirty(true);
+  }, []);
+
+  const hasDirtyBlocks = Object.keys(dirtyBlocks).length > 0;
+  const hasUnsavedChanges = hasDirtyBlocks || metaDirty;
 
   const invalidatePage = () => {
     queryClient.invalidateQueries({ queryKey: ['cms-pages'] });
     queryClient.invalidateQueries({ queryKey: ['cms-page', pageId] });
     queryClient.invalidateQueries({ queryKey: ['cms-page-blocks', pageId] });
+  };
+
+  // Warn on close with unsaved changes
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen && hasUnsavedChanges) {
+      const confirmed = window.confirm('Es gibt ungespeicherte Änderungen. Wirklich schließen?');
+      if (!confirmed) return;
+    }
+    onOpenChange(nextOpen);
   };
 
   // Save page metadata + dirty blocks + snapshot
@@ -187,6 +208,7 @@ export function PageEditorDialog({ pageId, open, onOpenChange }: Props) {
     onSuccess: () => {
       setSlugError('');
       setDirtyBlocks({});
+      setMetaDirty(false);
       invalidatePage();
       toast.success('Gespeichert');
     },
@@ -202,6 +224,15 @@ export function PageEditorDialog({ pageId, open, onOpenChange }: Props) {
   // Publish (auto-snapshot via DB trigger)
   const publishMutation = useMutation({
     mutationFn: async () => {
+      // Save dirty blocks first if any
+      if (hasDirtyBlocks) {
+        for (const [blockId, content] of Object.entries(dirtyBlocks)) {
+          await (supabase as any)
+            .from('cms_page_blocks')
+            .update({ content_json: content })
+            .eq('id', blockId);
+        }
+      }
       const { error } = await (supabase as any)
         .from('cms_pages')
         .update({ status: 'published', published_at: new Date().toISOString() })
@@ -209,6 +240,8 @@ export function PageEditorDialog({ pageId, open, onOpenChange }: Props) {
       if (error) throw error;
     },
     onSuccess: () => {
+      setDirtyBlocks({});
+      setMetaDirty(false);
       invalidatePage();
       toast.success('Veröffentlicht');
     },
@@ -222,6 +255,7 @@ export function PageEditorDialog({ pageId, open, onOpenChange }: Props) {
         .update({ is_enabled: enabled })
         .eq('id', blockId);
       if (error) throw error;
+      await snapshotPageVersion(pageId);
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['cms-page-blocks', pageId] }),
   });
@@ -241,7 +275,6 @@ export function PageEditorDialog({ pageId, open, onOpenChange }: Props) {
       for (const u of updates) {
         await (supabase as any).from('cms_page_blocks').update({ sort_order: u.sort_order }).eq('id', u.id);
       }
-      // Snapshot on structural change
       await snapshotPageVersion(pageId);
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['cms-page-blocks', pageId] }),
@@ -275,6 +308,12 @@ export function PageEditorDialog({ pageId, open, onOpenChange }: Props) {
         .delete()
         .eq('id', blockId);
       if (error) throw error;
+      // Remove from dirty if tracked
+      setDirtyBlocks((prev) => {
+        const next = { ...prev };
+        delete next[blockId];
+        return next;
+      });
       await snapshotPageVersion(pageId);
     },
     onSuccess: () => {
@@ -288,11 +327,9 @@ export function PageEditorDialog({ pageId, open, onOpenChange }: Props) {
     setDirtyBlocks((prev) => ({ ...prev, [blockId]: content }));
   };
 
-  const hasDirtyBlocks = Object.keys(dirtyBlocks).length > 0;
-
   if (pageLoading || blocksLoading) {
     return (
-      <Dialog open={open} onOpenChange={onOpenChange}>
+      <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogContent className="max-w-3xl max-h-[90vh]">
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -303,17 +340,24 @@ export function PageEditorDialog({ pageId, open, onOpenChange }: Props) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center justify-between">
             <DialogTitle className="text-base">{title || 'Seite bearbeiten'}</DialogTitle>
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="text-[10px]">{page?.status}</Badge>
-              {hasDirtyBlocks && (
-                <Badge variant="outline" className="text-[10px] border-amber-500/50 text-amber-600">Ungespeichert</Badge>
+              {hasUnsavedChanges && (
+                <Badge variant="outline" className="text-[10px] border-amber-500/50 text-amber-600">
+                  <AlertTriangle className="h-3 w-3 mr-0.5" />Ungespeichert
+                </Badge>
               )}
-              <Button variant="outline" size="sm" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => saveMutation.mutate()}
+                disabled={saveMutation.isPending || !hasUnsavedChanges}
+              >
                 {saveMutation.isPending ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Save className="h-3.5 w-3.5 mr-1" />}
                 Speichern
               </Button>
@@ -392,13 +436,13 @@ export function PageEditorDialog({ pageId, open, onOpenChange }: Props) {
             <div className="grid gap-4">
               <div className="space-y-1.5">
                 <Label className="text-xs">Titel</Label>
-                <Input value={title} onChange={(e) => setTitle(e.target.value)} />
+                <Input value={title} onChange={(e) => setMetaField(setTitle, e.target.value)} />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Slug</Label>
                 <Input
                   value={slug}
-                  onChange={(e) => { setSlug(slugify(e.target.value)); setSlugError(''); }}
+                  onChange={(e) => { setMetaField(setSlug, slugify(e.target.value)); setSlugError(''); }}
                   className={slugError ? 'border-destructive' : ''}
                 />
                 {slugError && (
@@ -409,7 +453,7 @@ export function PageEditorDialog({ pageId, open, onOpenChange }: Props) {
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Excerpt / Beschreibung</Label>
-                <Textarea value={excerpt} onChange={(e) => setExcerpt(e.target.value)} rows={3} />
+                <Textarea value={excerpt} onChange={(e) => setMetaField(setExcerpt, e.target.value)} rows={3} />
               </div>
             </div>
           </TabsContent>
@@ -419,33 +463,33 @@ export function PageEditorDialog({ pageId, open, onOpenChange }: Props) {
             <div className="grid gap-4">
               <div className="space-y-1.5">
                 <Label className="text-xs">SEO Title</Label>
-                <Input value={seoTitle} onChange={(e) => setSeoTitle(e.target.value)} placeholder={title} />
+                <Input value={seoTitle} onChange={(e) => setMetaField(setSeoTitle, e.target.value)} placeholder={title} />
                 <p className="text-[10px] text-muted-foreground">{(seoTitle || title).length}/60 Zeichen</p>
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Meta Description</Label>
-                <Textarea value={metaDesc} onChange={(e) => setMetaDesc(e.target.value)} rows={2} />
+                <Textarea value={metaDesc} onChange={(e) => setMetaField(setMetaDesc, e.target.value)} rows={2} />
                 <p className="text-[10px] text-muted-foreground">{metaDesc.length}/160 Zeichen</p>
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Canonical URL</Label>
-                <Input value={canonical} onChange={(e) => setCanonical(e.target.value)} placeholder="https://examfit.de/..." />
+                <Input value={canonical} onChange={(e) => setMetaField(setCanonical, e.target.value)} placeholder="https://examfit.de/..." />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Robots</Label>
-                <Input value={robots} onChange={(e) => setRobots(e.target.value)} />
+                <Input value={robots} onChange={(e) => setMetaField(setRobots, e.target.value)} />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">OG Title</Label>
-                <Input value={ogTitle} onChange={(e) => setOgTitle(e.target.value)} placeholder={seoTitle || title} />
+                <Input value={ogTitle} onChange={(e) => setMetaField(setOgTitle, e.target.value)} placeholder={seoTitle || title} />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">OG Description</Label>
-                <Textarea value={ogDesc} onChange={(e) => setOgDesc(e.target.value)} rows={2} />
+                <Textarea value={ogDesc} onChange={(e) => setMetaField(setOgDesc, e.target.value)} rows={2} />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">OG Bild URL</Label>
-                <Input value={ogImage} onChange={(e) => setOgImage(e.target.value)} placeholder="https://..." />
+                <Input value={ogImage} onChange={(e) => setMetaField(setOgImage, e.target.value)} placeholder="https://..." />
               </div>
 
               {/* SEO Preview */}
