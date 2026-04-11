@@ -886,6 +886,21 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
     }
   }
 
+  // ── PREBUILD PASS: deterministic queue-bypass ──
+  // Before claiming queue jobs, try to advance deterministic steps directly via SQL RPCs.
+  // Budget: max 5 packages, max 3 hops per package — shared with normal claiming.
+  if (isFirstPass) {
+    try {
+      const prebuildSummary = await runPrebuildPass(sb, 5, 3);
+      if (prebuildSummary.steps_advanced > 0) {
+        console.log(`[content-runner] PREBUILD: advanced ${prebuildSummary.steps_advanced} step(s) across ${prebuildSummary.packages_checked} package(s)`);
+      }
+    } catch (e) {
+      // Non-fatal: prebuild is an optimization, not a requirement
+      console.warn(`[content-runner] PREBUILD error (non-fatal): ${(e as Error).message}`);
+    }
+  }
+
   // ── Claim content-pool jobs (SSOT-budgeted) ──
   // Global claim budget: CLAIM_LIMIT is the TOTAL across ALL pools.
   // Prebuild gets at most 2 slots; default pool gets the rest.
