@@ -8,6 +8,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { inferBackoffSeconds, getFanOutConfig, STEP_TO_JOB_TYPE, PIPELINE_GRAPH, type PipelineStepKey } from "./job-map.ts";
 import { isCapabilityGranted } from "./capability-gating.ts";
 import { markStepDone } from "./steps.ts";
+import { verifyGenerateLearningContentComplete, verifyFinalizeLearningContentComplete } from "./rootstep-verifier.ts";
 import { classifyStep } from "./step-weight.ts";
 import {
   type StepKey, type StepRow, type StepAction, type StepClassContext,
