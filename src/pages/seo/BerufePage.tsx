@@ -119,7 +119,7 @@ export default function BerufePage() {
             <Breadcrumbs items={[{ label: 'Alle Kurse & Bildungswege' }]} className="mb-6" />
 
             <div className="max-w-3xl">
-              <h1 className="text-3xl sm:text-4xl md:text-5xl font-display font-bold mb-4">
+              <h1 className="text-responsive-3xl sm:text-responsive-4xl md:text-responsive-5xl font-display font-bold mb-4">
                 <span className="text-gradient">Prüfungsvorbereitung</span>
                 <br />
                 für jeden Bildungsweg
