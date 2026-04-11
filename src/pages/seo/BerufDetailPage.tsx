@@ -1,11 +1,11 @@
 import { useParams, Link } from 'react-router-dom';
-import { ArrowRight, BookOpen, Target, Award, Clock, ExternalLink, CheckCircle, Star, Shield, Building2 } from 'lucide-react';
+import { ArrowRight, BookOpen, Target, Award, Clock, ExternalLink, CheckCircle, Star, Shield, Building2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { Breadcrumbs } from '@/components/seo/Breadcrumbs';
-import { useSingleBeruf } from '@/hooks/useSEOPages';
+import { useHomepageCatalog } from '@/hooks/usePublishedCourses';
 import { getExamTarget } from '@/lib/examTargets';
 import { 
   SEO_TEMPLATES, 
@@ -17,9 +17,19 @@ import {
 
 export default function BerufDetailPage() {
   const { slug } = useParams<{ slug: string }>();
-  const beruf = useSingleBeruf(slug || '');
+  const { data: catalog, isLoading } = useHomepageCatalog();
+  
+  const course = catalog?.find(c => c.slug === slug);
 
-  if (!beruf) {
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!course) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -32,22 +42,24 @@ export default function BerufDetailPage() {
     );
   }
 
-  const kammerLabel = beruf.kammer || 'IHK';
-  const examConfig = getExamTarget(beruf.duration);
-  const seo = SEO_TEMPLATES.beruf(beruf.title, kammerLabel, examConfig.label);
+  const title = course.berufDisplayName || course.title;
+  const kammerLabel = course.kammer || 'IHK';
+  const duration = course.ausbildungsdauerMonate || 36;
+  const examConfig = getExamTarget(duration);
+  const seo = SEO_TEMPLATES.beruf(title, kammerLabel, examConfig.label);
   
   const faqs = [
     {
-      question: `Wie lange dauert die Ausbildung ${beruf.title}?`,
-      answer: `Die Ausbildung dauert in der Regel ${beruf.duration} Monate (${Math.round(beruf.duration / 12)} Jahre).`,
+      question: `Wie lange dauert die Ausbildung ${title}?`,
+      answer: `Die Ausbildung dauert in der Regel ${duration} Monate (${Math.round(duration / 12)} Jahre).`,
     },
     {
-      question: `Was kostet die ${kammerLabel}-Prüfungsvorbereitung für ${beruf.title}?`,
+      question: `Was kostet die ${kammerLabel}-Prüfungsvorbereitung für ${title}?`,
       answer: `Der Lernkurs kostet ${PRODUCT_PRICES.lernkurs}€, der Prüfungstrainer ${PRODUCT_PRICES.pruefungstrainer}€. Das Komplett-Bundle gibt es für nur ${PRODUCT_PRICES.bundle}€ – du sparst also ${PRODUCT_PRICES.lernkurs + PRODUCT_PRICES.pruefungstrainer - PRODUCT_PRICES.bundle}€.`,
     },
     {
-      question: `Wann findet die ${kammerLabel}-Prüfung für ${beruf.title} statt?`,
-      answer: `Die ${kammerLabel}-Abschlussprüfung findet deutschlandweit zu einheitlichen Terminen statt. Die genauen Termine werden von deiner zuständigen ${beruf.kammerName || kammerLabel} bekanntgegeben.`,
+      question: `Wann findet die ${kammerLabel}-Prüfung für ${title} statt?`,
+      answer: `Die ${kammerLabel}-Abschlussprüfung findet deutschlandweit zu einheitlichen Terminen statt. Die genauen Termine werden von deiner zuständigen Kammer bekanntgegeben.`,
     },
     {
       question: `Wie bereite ich mich am besten auf die ${kammerLabel}-Prüfung vor?`,
@@ -59,9 +71,9 @@ export default function BerufDetailPage() {
     '@context': 'https://schema.org',
     '@graph': [
       generateCourseSchema({
-        id: slug || beruf.id,
-        name: `${beruf.title} IHK-Prüfungsvorbereitung`,
-        description: beruf.description || seo.description,
+        id: slug || course.packageId,
+        name: `${title} ${kammerLabel}-Prüfungsvorbereitung`,
+        description: course.description || seo.description,
         url: `${SITE_URL}/berufe/${slug}`,
         price: PRODUCT_PRICES.bundle,
       }),
@@ -86,7 +98,7 @@ export default function BerufDetailPage() {
             <Breadcrumbs
               items={[
                 { label: 'Berufe', href: '/berufe' },
-                { label: beruf.title },
+                { label: title },
               ]}
               className="mb-8"
             />
@@ -97,35 +109,37 @@ export default function BerufDetailPage() {
                   <Star className="h-4 w-4 text-warning fill-warning" />
                   <span className="text-sm text-muted-foreground">98% Bestehensquote</span>
                 </div>
-                <h1 className="text-4xl md:text-5xl font-display font-bold mb-4">
-                  {beruf.title}
+                <h1 className="text-responsive-2xl md:text-responsive-3xl lg:text-responsive-4xl font-display font-bold mb-4">
+                  {title}
                   <br />
                   <span className="text-gradient">{kammerLabel}-Prüfung bestehen</span>
                 </h1>
-                {beruf.fullTitle !== beruf.title && (
+                {course.berufLang && course.berufLang !== title && (
                   <p className="text-lg text-muted-foreground mb-4">
-                    {beruf.fullTitle}
+                    {course.berufLang}
                   </p>
                 )}
                 <p className="text-xl text-muted-foreground mb-6">
-                  {beruf.description || `Bereite dich optimal auf die ${kammerLabel}-Abschlussprüfung ${beruf.title} vor. Strukturierte Lernkurse, prüfungsrelevante Fragen und mündliche Prüfungssimulation.`}
+                  {course.description || `Bereite dich optimal auf die ${kammerLabel}-Abschlussprüfung ${title} vor. Strukturierte Lernkurse, prüfungsrelevante Fragen und mündliche Prüfungssimulation.`}
                 </p>
 
                 <div className="flex flex-wrap gap-4 mb-8">
                   <Badge 
-                    variant={beruf.kammerType === 'IHK' ? 'default' : beruf.kammerType === 'HWK' ? 'secondary' : 'outline'}
+                    variant="default"
                     className="flex items-center gap-1.5 py-1.5 px-3"
                   >
                     <Building2 className="h-4 w-4" />
-                    {beruf.kammerName || kammerLabel}
+                    {kammerLabel}
                   </Badge>
-                  <Badge variant="outline" className="flex items-center gap-1.5 py-1.5 px-3">
-                    <Clock className="h-4 w-4" />
-                    {beruf.duration} Monate Ausbildung
-                  </Badge>
-                  {beruf.dqrLevel && (
+                  {course.ausbildungsdauerMonate && (
+                    <Badge variant="outline" className="flex items-center gap-1.5 py-1.5 px-3">
+                      <Clock className="h-4 w-4" />
+                      {course.ausbildungsdauerMonate} Monate Ausbildung
+                    </Badge>
+                  )}
+                  {course.dqrNiveau && (
                     <Badge variant="outline" className="py-1.5 px-3">
-                      DQR-Niveau {beruf.dqrLevel}
+                      DQR-Niveau {course.dqrNiveau}
                     </Badge>
                   )}
                   <Badge variant="outline" className="flex items-center gap-1.5 py-1.5 px-3">
@@ -133,14 +147,6 @@ export default function BerufDetailPage() {
                     {kammerLabel}-Prüfungsstandards
                   </Badge>
                 </div>
-
-                {beruf.bibbUrl && (
-                  <Button variant="outline" size="sm" asChild>
-                    <a href={beruf.bibbUrl} target="_blank" rel="noopener noreferrer">
-                      BIBB-Berufsprofil <ExternalLink className="ml-2 h-4 w-4" />
-                    </a>
-                  </Button>
-                )}
               </div>
 
               {/* Produkt-CTA Sidebar */}
@@ -215,8 +221,8 @@ export default function BerufDetailPage() {
         {/* Warum ExamFit */}
         <section className="py-16">
           <div className="container max-w-4xl">
-            <h2 className="text-3xl font-display font-bold mb-8 text-center">
-              Warum ExamFit für <span className="text-gradient">{beruf.title}</span> ({kammerLabel})?
+            <h2 className="text-responsive-xl md:text-responsive-2xl font-display font-bold mb-8 text-center">
+              Warum ExamFit für <span className="text-gradient">{title}</span> ({kammerLabel})?
             </h2>
             <div className="grid md:grid-cols-3 gap-6">
               <Card className="glass-card text-center">
@@ -224,7 +230,7 @@ export default function BerufDetailPage() {
                   <div className="text-4xl mb-4">🎯</div>
                   <h3 className="font-semibold mb-2">Prüfungsorientiert</h3>
                   <p className="text-sm text-muted-foreground">
-                    Alle Inhalte sind auf die IHK-Prüfung abgestimmt – kein Ballast.
+                    Alle Inhalte sind auf die {kammerLabel}-Prüfung abgestimmt – kein Ballast.
                   </p>
                 </CardContent>
               </Card>
@@ -253,8 +259,8 @@ export default function BerufDetailPage() {
         {/* FAQ Section */}
         <section className="py-16 bg-muted/30">
           <div className="container max-w-4xl">
-            <h2 className="text-3xl font-display font-bold mb-8 text-center">
-              Häufige Fragen zur {beruf.title} {kammerLabel}-Prüfung
+            <h2 className="text-responsive-xl md:text-responsive-2xl font-display font-bold mb-8 text-center">
+              Häufige Fragen zur {title} {kammerLabel}-Prüfung
             </h2>
             <div className="space-y-6">
               {faqs.map((faq, index) => (
@@ -277,8 +283,8 @@ export default function BerufDetailPage() {
         {/* CTA */}
         <section className="py-20">
           <div className="container text-center">
-            <h2 className="text-3xl md:text-4xl font-display font-bold mb-6">
-              Bereit für die {beruf.title} {kammerLabel}-Prüfung?
+            <h2 className="text-responsive-xl md:text-responsive-2xl lg:text-responsive-3xl font-display font-bold mb-6">
+              Bereit für die {title} {kammerLabel}-Prüfung?
             </h2>
             <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
               Starte jetzt mit dem Komplett-Bundle und spare {PRODUCT_PRICES.lernkurs + PRODUCT_PRICES.pruefungstrainer - PRODUCT_PRICES.bundle}€.
