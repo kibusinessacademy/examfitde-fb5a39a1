@@ -122,6 +122,13 @@ export default function PageStudioPage() {
     },
   });
 
+  // Snapshot on manual save from list
+  const snapshotMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await snapshotPageVersion(id);
+    },
+  });
+
   const filtered = useMemo(() => {
     return pages.filter((p) => {
       if (typeFilter !== 'all' && p.page_type !== typeFilter) return false;
