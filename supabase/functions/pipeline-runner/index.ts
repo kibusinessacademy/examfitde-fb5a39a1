@@ -122,10 +122,18 @@ Deno.serve(async (req) => {
     }
     const effectiveQuotas = rebalanceQuotas(trackStats);
 
+    // ── HARD WIP CAP ENFORCEMENT (v5.2) ──
+    // Even after rebalancing, enforce that no single track exceeds its base quota + 2.
+    // This prevents monopolization even when other tracks lend slots.
+    const TRACK_HARD_CAP_BONUS = 2;
     const trackSlots: Record<string, number> = {};
     for (const track of TRACK_ACQUISITION_ORDER) {
       const current = wipByTrack[track] ?? 0;
-      trackSlots[track] = Math.max(0, effectiveQuotas[track] - current);
+      const baseQuota = getTrackQuota(track);
+      const effectiveQuota = effectiveQuotas[track];
+      // Hard cap: never exceed base quota + bonus, regardless of rebalancing
+      const hardCapped = Math.min(effectiveQuota, baseQuota + TRACK_HARD_CAP_BONUS);
+      trackSlots[track] = Math.max(0, hardCapped - current);
     }
 
     const starvedTracks = TRACK_ACQUISITION_ORDER.filter(t =>
@@ -133,9 +141,25 @@ Deno.serve(async (req) => {
     );
 
     console.log(`[runner] 📊 WIP quotas: ${TRACK_ACQUISITION_ORDER.map(t =>
-      `${t}=${wipByTrack[t] ?? 0}/${effectiveQuotas[t]}(base=${getTrackQuota(t)},slots=${trackSlots[t]},targets=${targetsByTrack[t] ?? 0})`
+      `${t}=${wipByTrack[t] ?? 0}/${Math.min(effectiveQuotas[t], getTrackQuota(t) + TRACK_HARD_CAP_BONUS)}(base=${getTrackQuota(t)},slots=${trackSlots[t]},targets=${targetsByTrack[t] ?? 0})`
     ).join(", ")}${starvedTracks.length ? ` | ⚠️ STARVED: ${starvedTracks.join(",")}` : ""}`);
 
+    // ── STARVATION HEAL: if tracks are starved and over-cap tracks exist, pause excess ──
+    if (starvedTracks.length > 0) {
+      const overCapTracks = TRACK_ACQUISITION_ORDER.filter(t => {
+        const current = wipByTrack[t] ?? 0;
+        const base = getTrackQuota(t);
+        return current > base && !starvedTracks.includes(t);
+      });
+      for (const overTrack of overCapTracks) {
+        const current = wipByTrack[overTrack] ?? 0;
+        const base = getTrackQuota(overTrack);
+        const excess = current - base;
+        if (excess > 0) {
+          console.warn(`[runner] ⚠️ TRACK_REBALANCE: ${overTrack} has ${current} active (base=${base}), ${excess} over cap — starved tracks: ${starvedTracks.join(",")}`);
+        }
+      }
+    }
     let totalAcquired = 0;
 
     // ── Phase 1: Acquire ALL packages first, then process in parallel ──
