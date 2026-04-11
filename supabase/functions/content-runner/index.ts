@@ -7,6 +7,7 @@ import { setProviderCooldown, cleanupExpiredCooldowns, filterCooledDownProviders
 import { getModelChainAsync } from "../_shared/model-routing.ts";
 import { resolveAvailableRoute, resolveLastResortRoute } from "../_shared/llm/provider-load-balancer.ts";
 import { checkCircuitBreaker, recordPermanentProviderFailure, recordProviderSuccess, isPermanentProviderError } from "../_shared/llm/provider-circuit-breaker.ts";
+import { runPrebuildPass } from "../_shared/prebuild.ts";
 
 import { PIPELINE_GRAPH, validatePipelineGraph } from "../_shared/job-map.ts";
 
@@ -882,6 +883,21 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
         } catch (_e) { /* best-effort */ }
       }
       console.warn(`[content-runner] STALE_LOCK_RECOVERY: released ${staleIds.length} orphaned processing job(s)`);
+    }
+  }
+
+  // ── PREBUILD PASS: deterministic queue-bypass ──
+  // Before claiming queue jobs, try to advance deterministic steps directly via SQL RPCs.
+  // Budget: max 5 packages, max 3 hops per package — shared with normal claiming.
+  if (isFirstPass) {
+    try {
+      const prebuildSummary = await runPrebuildPass(sb, 5, 3);
+      if (prebuildSummary.steps_advanced > 0) {
+        console.log(`[content-runner] PREBUILD: advanced ${prebuildSummary.steps_advanced} step(s) across ${prebuildSummary.packages_checked} package(s)`);
+      }
+    } catch (e) {
+      // Non-fatal: prebuild is an optimization, not a requirement
+      console.warn(`[content-runner] PREBUILD error (non-fatal): ${(e as Error).message}`);
     }
   }
 
