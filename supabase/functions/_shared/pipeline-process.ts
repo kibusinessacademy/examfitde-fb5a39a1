@@ -8,6 +8,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { inferBackoffSeconds, getFanOutConfig, STEP_TO_JOB_TYPE, PIPELINE_GRAPH, type PipelineStepKey } from "./job-map.ts";
 import { isCapabilityGranted } from "./capability-gating.ts";
 import { markStepDone } from "./steps.ts";
+import { verifyGenerateLearningContentComplete, verifyFinalizeLearningContentComplete } from "./rootstep-verifier.ts";
 import { classifyStep } from "./step-weight.ts";
 import {
   type StepKey, type StepRow, type StepAction, type StepClassContext,
@@ -394,6 +395,48 @@ export async function processPackage(
     }
   }
 
+  // ── ROOTSTEP VERIFIER RECONCILER ──
+  // Runs artifact-based checks for content root steps and writes results into step meta
+  // so the FINALIZATION_RULES dictionary can use them deterministically.
+  {
+    const ROOTSTEP_VERIFIERS: Array<{
+      stepKey: string;
+      verify: (sb: any, packageId: string) => Promise<{ ready: boolean; reason: string; snapshot: Record<string, any> }>;
+    }> = [
+      { stepKey: "generate_learning_content", verify: verifyGenerateLearningContentComplete },
+      { stepKey: "finalize_learning_content", verify: verifyFinalizeLearningContentComplete },
+    ];
+
+    for (const v of ROOTSTEP_VERIFIERS) {
+      const step = (steps ?? []).find((s: StepRow) => s.step_key === v.stepKey);
+      if (!step || !["queued", "running", "enqueued"].includes(step.status)) continue;
+
+      try {
+        const result = await v.verify(sb, packageId);
+        if (result.ready) {
+          // Write verifier result into step meta for the finalization rule to pick up
+          const currentMeta = (step.meta ?? {}) as Record<string, unknown>;
+          const updatedMeta = {
+            ...currentMeta,
+            verifier_ready: true,
+            verifier_reason: result.reason,
+            verifier_snapshot: result.snapshot,
+            verifier_checked_at: new Date().toISOString(),
+          };
+          await safeQuery(
+            sb.from("package_steps").update({ meta: updatedMeta })
+              .eq("package_id", packageId).eq("step_key", v.stepKey),
+            `rootstep_verifier_${v.stepKey}`,
+          );
+          (step as any).meta = updatedMeta;
+          console.log(`[runner] ✅ VERIFIER: ${shortId}/${v.stepKey} → ready: ${result.reason}`);
+        }
+      } catch (vErr) {
+        console.warn(`[runner] VERIFIER error for ${shortId}/${v.stepKey}: ${(vErr as Error).message}`);
+      }
+    }
+  }
+
   // ── FINALIZATION GUARD (Dictionary-based) ──
   {
     type FinalizationRule = {
@@ -433,23 +476,26 @@ export async function processPackage(
         actionType: "finalize_generate_learning_content",
         cancelStatuses: ["pending", "failed"],
         shouldFinalize: (meta) => {
+          // HARDENED: Primary signal is artifact-based verification (set by rootstep-verifier)
+          const verifierReady = meta?.verifier_ready === true;
+          if (verifierReady) {
+            return { ok: true, reason: `rootstep_verifier: ${meta?.verifier_reason ?? "ready"}`, snapshot: meta?.verifier_snapshot ?? {} };
+          }
+          // Secondary: artifact counts from meta (set by dispatcher edge function)
           const needsRegen = typeof meta?.needs_regen === "number" ? meta.needs_regen : null;
           const completionGate = meta?.completion_gate as Record<string, unknown> | undefined;
           const gateNeedsRegen = typeof completionGate?.needs_regen === "number" ? completionGate.needs_regen : null;
-          const batchComplete = meta?.batch_complete === true;
           const artifactDone = needsRegen === 0 || gateNeedsRegen === 0;
-          // Material completion: ≥95% generated lessons = done (needs_regen becomes rework backlog)
+          // Material completion: ≥95% generated lessons = done
           const completionRatio = typeof meta?.completion_guard?.completion_ratio === "number" ? meta.completion_guard.completion_ratio : null;
           const materiallyComplete = completionRatio !== null && completionRatio >= 0.95;
-          const ok = artifactDone || batchComplete || materiallyComplete;
+          const ok = artifactDone || materiallyComplete;
           const reason = artifactDone
             ? `needs_regen=0 (artifact-done)`
             : materiallyComplete
               ? `material_completion: ratio=${completionRatio} >= 0.95`
-              : batchComplete
-                ? "meta.batch_complete=true"
-                : `needs_regen=${needsRegen ?? "null"}, batch_complete=${meta?.batch_complete}, ratio=${completionRatio}`;
-          return { ok, reason, snapshot: { needs_regen: needsRegen, gate_needs_regen: gateNeedsRegen, batch_complete: batchComplete, completion_ratio: completionRatio, materially_complete: materiallyComplete } };
+              : `needs_regen=${needsRegen ?? "null"}, ratio=${completionRatio}`;
+          return { ok, reason, snapshot: { needs_regen: needsRegen, gate_needs_regen: gateNeedsRegen, completion_ratio: completionRatio, materially_complete: materiallyComplete } };
         },
       },
       {

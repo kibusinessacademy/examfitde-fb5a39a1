@@ -227,7 +227,7 @@ export async function computeAdaptiveWip(
   const { data: rows, error } = await sb
     .from("job_queue")
     .select("status")
-    .eq("job_type", "lesson_generate_content")
+    .in("job_type", ["lesson_generate_content", "lesson_generate_competency_bundle"])
     .gte("created_at", since);
 
   if (error || !rows) return { effectiveWip: baseWip, failRate: 0 };
@@ -248,6 +248,15 @@ export async function computeAdaptiveWip(
  * Count global in-flight lesson_generate_content jobs.
  * Uses SSOT RPC — falls back to direct query if RPC not yet deployed.
  */
+/**
+ * SSOT job types that count toward learning-content WIP.
+ * Both individual lesson jobs AND competency-bundle orchestrators consume capacity.
+ */
+const LEARNING_CONTENT_JOB_TYPES = [
+  "lesson_generate_content",
+  "lesson_generate_competency_bundle",
+];
+
 export async function countGlobalInFlight(sb: any): Promise<number> {
   // Try RPC first (SSOT)
   const { data: rpcData, error: rpcErr } = await sb.rpc("count_global_inflight_lesson_jobs");
@@ -255,14 +264,14 @@ export async function countGlobalInFlight(sb: any): Promise<number> {
     return Number(rpcData);
   }
 
-  // Fallback: direct query
+  // Fallback: direct query — count BOTH job types
   if (rpcErr) {
     console.warn(`[scheduler] count_global_inflight_lesson_jobs RPC failed, using fallback: ${rpcErr.message}`);
   }
   const { count, error } = await sb
     .from("job_queue")
     .select("id", { head: true, count: "exact" })
-    .eq("job_type", "lesson_generate_content")
+    .in("job_type", LEARNING_CONTENT_JOB_TYPES)
     .in("status", ["pending", "queued", "processing"]);
   if (error) return 0;
   return count ?? 0;
@@ -281,14 +290,14 @@ export async function countPackageInFlight(sb: any, packageId: string): Promise<
     return Number(rpcData);
   }
 
-  // Fallback: direct query on top-level package_id column
+  // Fallback: direct query — count BOTH job types
   if (rpcErr) {
     console.warn(`[scheduler] count_package_inflight_jobs RPC failed for ${packageId.slice(0, 8)}, using fallback: ${rpcErr.message}`);
   }
   const { count, error } = await sb
     .from("job_queue")
     .select("id", { head: true, count: "exact" })
-    .eq("job_type", "lesson_generate_content")
+    .in("job_type", LEARNING_CONTENT_JOB_TYPES)
     .eq("package_id", packageId)
     .in("status", ["pending", "queued", "processing"]);
   if (error) return 0;
