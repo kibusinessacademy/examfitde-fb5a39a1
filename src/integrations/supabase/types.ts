@@ -68255,6 +68255,7 @@ export type Database = {
           curriculum_id: string | null
           curriculum_track: string | null
           description: string | null
+          discovery_teaser: string | null
           dqr_niveau: number | null
           editorial_priority: number | null
           kammer: string | null
