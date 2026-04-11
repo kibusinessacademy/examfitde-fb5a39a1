@@ -221,15 +221,14 @@ Deno.serve(async (req) => {
     const pkgIds = allPkgs.map(p => p.id);
     const curIds = [...new Set(allPkgs.map(p => p.curriculum_id).filter(Boolean))] as string[];
 
-    // Batch: distinct package_ids that ALREADY have inventory
+    // Batch: distinct package_ids that ALREADY have inventory (use count to avoid row limit)
     const invSet = new Set<string>();
-    for (let i = 0; i < pkgIds.length; i += 100) {
-      const chunk = pkgIds.slice(i, i + 100);
-      const { data: rows } = await sb
+    for (const pkg of allPkgs) {
+      const { count } = await sb
         .from("blueprint_variant_inventory")
-        .select("package_id")
-        .in("package_id", chunk);
-      for (const r of rows ?? []) invSet.add((r as any).package_id);
+        .select("id", { count: "exact", head: true })
+        .eq("package_id", pkg.id);
+      if ((count ?? 0) > 0) invSet.add(pkg.id);
     }
 
     // Batch: distinct curriculum_ids that have approved blueprints
