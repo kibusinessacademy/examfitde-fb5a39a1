@@ -76189,6 +76189,24 @@ export type Database = {
           status: string
         }[]
       }
+      fn_prebuild_validate_handbook: {
+        Args: { p_package_id: string }
+        Returns: {
+          advanced: boolean
+          meta: Json
+          reason: string
+          status: string
+        }[]
+      }
+      fn_prebuild_validate_handbook_depth: {
+        Args: { p_package_id: string }
+        Returns: {
+          advanced: boolean
+          meta: Json
+          reason: string
+          status: string
+        }[]
+      }
       fn_reap_non_building_pending_jobs: { Args: never; Returns: Json }
       fn_rebalance_wip_priority: {
         Args: { p_max_demotions?: number }
