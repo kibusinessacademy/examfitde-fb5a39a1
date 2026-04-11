@@ -18,8 +18,8 @@ function envInt(name: string, fallback: number): number {
 }
 
 const DEFAULTS: Record<RunnerKind, RunnerConfig> = {
-  content_runner: { maxConcurrency: 6, claimLimit: 8 },   // Forensic fix: 16/32 → 6/8 (prevent timeout zombies)
-  job_runner:     { maxConcurrency: 4, claimLimit: 6 },   // Forensic fix: 8/8 → 4/6
+  content_runner: { maxConcurrency: 8, claimLimit: 10 },  // Raised: 6/8 → 8/10 (WIP 13)
+  job_runner:     { maxConcurrency: 6, claimLimit: 8 },   // Raised: 4/6 → 6/8 (WIP 13)
 };
 
 export function getRunnerConfig(kind: RunnerKind): RunnerConfig {
@@ -30,13 +30,13 @@ export function getRunnerConfig(kind: RunnerKind): RunnerConfig {
   // Hard safety caps (non-negotiable)
   if (kind === "content_runner") {
     return {
-      maxConcurrency: Math.min(maxConcurrency, 8),    // Forensic: hard cap → 8
-      claimLimit: Math.min(claimLimit, 12),            // Forensic: hard cap → 12
+      maxConcurrency: Math.min(maxConcurrency, 13),   // Hard cap → 13
+      claimLimit: Math.min(claimLimit, 15),            // Hard cap → 15
     };
   }
   return {
-    maxConcurrency: Math.min(maxConcurrency, 10),
-    claimLimit: Math.min(claimLimit, 10),
+    maxConcurrency: Math.min(maxConcurrency, 13),
+    claimLimit: Math.min(claimLimit, 13),
   };
 }
 
@@ -47,24 +47,24 @@ export function getRunnerConfig(kind: RunnerKind): RunnerConfig {
 export type TrackKey = "AUSBILDUNG_VOLL" | "EXAM_FIRST" | "EXAM_FIRST_PLUS" | "STUDIUM";
 
 /** Hard ceiling across all tracks — must match ops_pipeline_config.wip_total_cap */
-export const WIP_TOTAL_CAP = 8;
+export const WIP_TOTAL_CAP = 13;
 
 /** Bonus WIP slots for packages with >50% progress (regardless of priority) */
-export const WIP_BONUS_SLOTS = 4;
+export const WIP_BONUS_SLOTS = 0;
 export const WIP_BONUS_PROGRESS_THRESHOLD = 50;
 
-/** Effective cap = WIP_TOTAL_CAP + min(bonus_eligible_count, WIP_BONUS_SLOTS) */
-export const WIP_EFFECTIVE_MAX = WIP_TOTAL_CAP + WIP_BONUS_SLOTS; // hard ceiling = 12
+/** Effective cap = WIP_TOTAL_CAP (no bonus slots — flat 13) */
+export const WIP_EFFECTIVE_MAX = WIP_TOTAL_CAP; // hard ceiling = 13
 
 /**
  * WIP quota per track: max packages in "building" status simultaneously.
  * Env-overridable via WIP_QUOTA_<TRACK>.
  */
 export const WIP_QUOTA_DEFAULTS: Record<TrackKey, number> = {
-  AUSBILDUNG_VOLL: 3,
-  EXAM_FIRST_PLUS: 3,
-  EXAM_FIRST: 1,
-  STUDIUM: 1,
+  AUSBILDUNG_VOLL: 5,
+  EXAM_FIRST_PLUS: 4,
+  EXAM_FIRST: 2,
+  STUDIUM: 2,
 };
 
 export function getTrackQuota(track: TrackKey): number {
