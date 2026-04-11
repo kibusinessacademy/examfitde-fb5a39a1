@@ -183,10 +183,8 @@ export function CourseFinderSection() {
         )}
 
         <div className="text-center mt-8">
-          <Button variant="outline" size="lg" asChild className="rounded-xl"
-            onClick={() => trackConversion({ event: 'catalog_view', source: 'homepage_finder' })}
-          >
-            <Link to="/berufe">
+          <Button variant="outline" size="lg" asChild className="rounded-xl">
+            <Link to="/berufe" onClick={() => trackConversion({ event: 'catalog_view', source: 'homepage_finder' })}>
               Alle Berufe & Kurse entdecken <ArrowRight className="ml-2 h-4 w-4" />
             </Link>
           </Button>
