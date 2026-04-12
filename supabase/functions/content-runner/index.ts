@@ -1042,11 +1042,10 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
       // Release excess prebuild claims back to pending
       const excess = (prebuildJobs as any[]).slice(remainingBudget);
       for (const ej of excess) {
-        await sb.from("job_queue").update({
-          status: "pending", locked_at: null, locked_by: null,
-          updated_at: new Date().toISOString(),
-          last_error: `CLAIM_BUDGET_EXCEEDED: total ${totalSoFar}+${prebuildJobs.length} > CLAIM_LIMIT ${CLAIM_LIMIT}, released by ${WORKER_ID}`,
-        }).eq("id", ej.id);
+        await releaseJobToPending(sb, ej.id, "RELEASE_CLAIM_BUDGET_EXCEEDED", {
+          deferMs: 2_000,
+          detail: `total ${totalSoFar}+${prebuildJobs.length} > CLAIM_LIMIT ${CLAIM_LIMIT}, released by ${WORKER_ID}`,
+        });
       }
       console.warn(`[content-runner] CLAIM_BUDGET: released ${excess.length} excess prebuild claims (budget=${CLAIM_LIMIT})`);
     }
