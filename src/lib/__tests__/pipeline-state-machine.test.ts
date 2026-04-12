@@ -87,8 +87,8 @@ function makeFullPipeline(statusOverrides?: Record<string, string>): StepRow[] {
 // ════════════════════════════════════════════════════════════════
 
 describe("Pipeline SSOT Registry", () => {
-  it("FULL_STEP_ORDER has exactly 23 steps", () => {
-    expect(FULL_STEP_ORDER).toHaveLength(23);
+  it("FULL_STEP_ORDER has exactly 29 steps (SSOT parity with backend)", () => {
+    expect(FULL_STEP_ORDER).toHaveLength(29);
   });
 
   it("every step has labels, short labels, and emoji", () => {

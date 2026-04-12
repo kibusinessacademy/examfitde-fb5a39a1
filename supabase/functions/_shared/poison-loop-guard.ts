@@ -34,19 +34,11 @@ const GENERATOR_GUARDED_JOB_TYPES = new Set([
   "package_elite_harden",
 ]);
 
-/** Maps generator job types to step keys for step-level blocking */
-const JOB_TYPE_TO_STEP_KEY: Record<string, string> = {
-  package_generate_handbook: "generate_handbook",
-  package_generate_exam_pool: "generate_exam_pool",
-  package_generate_learning_content: "generate_learning_content",
-  package_generate_oral_exam: "generate_oral_exam",
-  package_generate_lesson_minichecks: "generate_lesson_minichecks",
-  package_generate_glossary: "generate_glossary",
-  package_generate_blueprint_variants: "generate_blueprint_variants",
-  package_auto_seed_exam_blueprints: "auto_seed_exam_blueprints",
-  package_build_ai_tutor_index: "build_ai_tutor_index",
-  package_elite_harden: "elite_harden",
-};
+/** Maps generator job types to step keys for step-level blocking — derived from SSOT */
+import { STEP_TO_JOB_TYPE } from "./job-map.ts";
+const JOB_TYPE_TO_STEP_KEY: Record<string, string> = Object.fromEntries(
+  Object.entries(STEP_TO_JOB_TYPE).map(([step, jobType]) => [jobType, step])
+);
 
 export interface PoisonLoopGuardResult {
   blocked: boolean;
