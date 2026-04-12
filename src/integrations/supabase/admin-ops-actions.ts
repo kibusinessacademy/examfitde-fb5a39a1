@@ -153,9 +153,21 @@ export async function retryStalledStep(packageId: string, stepKey: string) {
 /* ── v3.0 Safety-Net Actions ── */
 
 export async function resetStaleProcessingJobs() {
-  return runAdminOpsAction('reset_stale_processing' as any);
+  return runAdminOpsAction('reset_stale_processing');
 }
 
 export async function cancelZombieNoopJobs() {
-  return runAdminOpsAction('cancel_zombie_noop_jobs' as any);
+  return runAdminOpsAction('cancel_zombie_noop_jobs');
+}
+
+export async function fullQueueReset() {
+  return runAdminOpsAction('full_queue_reset');
+}
+
+export async function healGhostCompletions() {
+  return runAdminOpsAction('heal_ghost_completions');
+}
+
+export async function purgeCompletedJobs(hours = 24) {
+  return runAdminOpsAction('purge_completed_jobs', { hours });
 }
