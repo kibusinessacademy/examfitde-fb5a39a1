@@ -263,6 +263,23 @@ export function useCoursePackageDetail(packageId: string | undefined) {
     refetchInterval: packageQuery.data?.status === 'building' ? 3000 : false,
   });
 
+  // Active jobs for this package — used to derive effective running status
+  const activeJobsQuery = useQuery({
+    queryKey: ['course-package-active-jobs', packageId],
+    queryFn: async () => {
+      if (!packageId) return [] as { job_type: string; status: string }[];
+      const { data, error } = await (supabase as any)
+        .from('job_queue')
+        .select('job_type, status')
+        .eq('package_id', packageId)
+        .in('status', ['processing', 'pending']);
+      if (error) throw error;
+      return (data || []) as { job_type: string; status: string }[];
+    },
+    enabled: !!packageId,
+    refetchInterval: packageQuery.data?.status === 'building' ? 3000 : false,
+  });
+
   const councilsQuery = useQuery({
     queryKey: ['course-package-councils', packageId],
     queryFn: async () => {
@@ -364,6 +381,7 @@ export function useCoursePackageDetail(packageId: string | undefined) {
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['course-package', packageId] });
     queryClient.invalidateQueries({ queryKey: ['course-package-steps', packageId] });
+    queryClient.invalidateQueries({ queryKey: ['course-package-active-jobs', packageId] });
     queryClient.invalidateQueries({ queryKey: ['course-package-councils', packageId] });
   };
 
@@ -371,6 +389,7 @@ export function useCoursePackageDetail(packageId: string | undefined) {
     package: packageQuery.data,
     packageLoading: packageQuery.isLoading,
     buildSteps: buildStepsQuery.data || [],
+    activeJobs: activeJobsQuery.data || [],
     councils: councilsQuery.data || [],
     startBuild,
     initCouncils,

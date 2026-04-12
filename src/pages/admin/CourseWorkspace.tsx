@@ -48,7 +48,7 @@ export default function CourseWorkspace() {
 
 function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: () => void }) {
   const { setCourseId, refresh: refreshContext } = useActiveCourse();
-  const { package: pkg, packageLoading, buildSteps, councils, startBuild, initCouncils, approveCouncils, invalidate } = useCoursePackageDetail(packageId);
+  const { package: pkg, packageLoading, buildSteps, activeJobs, councils, startBuild, initCouncils, approveCouncils, invalidate } = useCoursePackageDetail(packageId);
   const { track, certType, flags } = useTrackConfig(pkg as any);
   const PIPELINE_STEPS = getActivePipelineStepsUI(flags as unknown as Record<string, boolean>);
 
@@ -177,12 +177,36 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
 
   const stepMap = new Map<string, any>();
   for (const s of buildSteps) stepMap.set(s.step_key, s);
+
+  // Build reverse map: jobType → stepKey from active jobs
+  // Derive which steps have active (processing) jobs
+  const stepsWithProcessingJobs = new Set<string>();
+  for (const job of activeJobs) {
+    // Convention: most job types are `package_{step_key}`, handle known exceptions
+    const stepKey = job.job_type
+      .replace(/^package_/, '')
+      .replace(/^lesson_generate_content.*/, 'generate_learning_content')
+      .replace(/^lesson_generate_competency_bundle/, 'generate_learning_content')
+      .replace(/^handbook_expand_section/, 'expand_handbook');
+    if (job.status === 'processing') {
+      stepsWithProcessingJobs.add(stepKey);
+    }
+  }
+
+  // Helper: derive effective display status (step status + job status)
+  const getEffectiveStatus = (stepKey: string, rawStatus: string) => {
+    if (rawStatus === 'done' || rawStatus === 'skipped' || rawStatus === 'failed') return rawStatus;
+    // If step is queued/enqueued/pending but has a processing job → effectively running
+    if (stepsWithProcessingJobs.has(stepKey) && rawStatus !== 'running') return 'running';
+    return rawStatus;
+  };
+
   // SSOT-aligned: denominator = functional steps (excludes skipped), numerator = done only
   const functionalSteps = buildSteps.filter((s: any) => s?.status !== 'skipped');
   const doneCount = buildSteps.filter((s: any) => s?.status === 'done').length;
   const totalCount = functionalSteps.length || PIPELINE_STEPS.length;
   const failedSteps = buildSteps.filter((s: any) => s.status === 'failed');
-  const runningStep = buildSteps.find((s: any) => s.status === 'running');
+  const runningStep = buildSteps.find((s: any) => s.status === 'running' || stepsWithProcessingJobs.has(s.step_key));
   const currentStepIdx = runningStep ? PIPELINE_STEPS.findIndex(s => s.key === runningStep.step_key) : failedSteps.length > 0 ? PIPELINE_STEPS.findIndex(s => s.key === failedSteps[0].step_key) : doneCount > 0 ? doneCount - 1 : -1;
   // SSOT-first: derive health and publish readiness from canonical view, not step history
   const councilComplete = ssot?.council_complete ?? false;
@@ -353,7 +377,8 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
                 <div className="flex items-center gap-0 overflow-x-auto pb-3">
                   {PIPELINE_STEPS.map((step, i) => {
                     const buildStep = stepMap.get(step.key);
-                    const status = buildStep?.status || 'pending';
+                    const rawStatus = buildStep?.status || 'pending';
+                    const status = getEffectiveStatus(step.key, rawStatus);
                     const Icon = step.icon;
                     const isDone = status === 'done'; const isSkipped = status === 'skipped'; const isFailed = status === 'failed'; const isRunning = status === 'running';
                     // Integrity step done but not passed = warning state
@@ -497,7 +522,8 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
                 <div className="space-y-1">
                   {PIPELINE_STEPS.map((stepDef, idx) => {
                     const step = stepMap.get(stepDef.key);
-                    const status = step?.status || 'queued';
+                    const rawStatus = step?.status || 'queued';
+                    const status = getEffectiveStatus(stepDef.key, rawStatus);
                     const isDone = status === 'done'; const isSkipped = status === 'skipped'; const isFailed = status === 'failed'; const isRunning = status === 'running';
                     const isException = step?.exception_approved === true;
                     const stepKey = stepDef.key;
