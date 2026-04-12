@@ -1278,18 +1278,11 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
     if (excess.length > 0) {
       let overflowReleaseErrors = 0;
       for (const job of excess) {
-        const { error: relErr } = await sb.from("job_queue").update({
-          status: "pending",
-          locked_at: null,
-          locked_by: null,
-          updated_at: new Date().toISOString(),
-          last_error: `LANE_OVERFLOW: ${lane} budget=${budget}, released for next cycle`,
-          run_after: new Date(Date.now() + 2_000).toISOString(),
-        }).eq("id", (job as any).id).eq("status", "processing");
-        if (relErr) {
-          overflowReleaseErrors++;
-          console.error(`[content-runner] LANE_OVERFLOW release FAILED for ${String((job as any).id).slice(0, 8)}: ${relErr.message}`);
-        }
+        const ok = await releaseJobToPending(sb, (job as any).id, "RELEASE_LANE_OVERFLOW", {
+          deferMs: 2_000,
+          detail: `${lane} budget=${budget}, released for next cycle`,
+        });
+        if (!ok) overflowReleaseErrors++;
       }
       console.log(`[content-runner] LANE_OVERFLOW: released ${excess.length} excess ${lane} job(s) (budget=${budget})${overflowReleaseErrors ? ` [${overflowReleaseErrors} release errors!]` : ""}`);
     }
