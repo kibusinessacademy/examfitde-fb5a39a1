@@ -48,7 +48,7 @@ export default function CourseWorkspace() {
 
 function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: () => void }) {
   const { setCourseId, refresh: refreshContext } = useActiveCourse();
-  const { package: pkg, packageLoading, buildSteps, councils, startBuild, initCouncils, approveCouncils, invalidate } = useCoursePackageDetail(packageId);
+  const { package: pkg, packageLoading, buildSteps, activeJobs, councils, startBuild, initCouncils, approveCouncils, invalidate } = useCoursePackageDetail(packageId);
   const { track, certType, flags } = useTrackConfig(pkg as any);
   const PIPELINE_STEPS = getActivePipelineStepsUI(flags as unknown as Record<string, boolean>);
 
