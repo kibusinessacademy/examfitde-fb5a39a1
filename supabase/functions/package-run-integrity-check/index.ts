@@ -174,7 +174,11 @@ async function runCourseReadyGate(
   // Higher-Ed: skip (no IHK oral exam format)
   // ═══════════════════════════════════════════════
   const { data: pkgFlags } = await sb.from("course_packages").select("feature_flags").eq("id", packageId).maybeSingle();
-  const includeOral = !isHigherEd && (pkgFlags as any)?.feature_flags?.include_oral_exam !== false;
+  // Track-aware oral gate: EXAM_FIRST and EXAM_FIRST_PLUS skip oral exam generation,
+  // so the oral gate must NOT fire as a hard-fail blocker for these tracks.
+  // Oral is only mandatory for AUSBILDUNG_VOLL (full vocational training).
+  const oralSkippedByTrack = isExamFirstEarly;
+  const includeOral = !isHigherEd && !oralSkippedByTrack && (pkgFlags as any)?.feature_flags?.include_oral_exam !== false;
 
   if (isHigherEd) {
     results.push({
@@ -182,6 +186,14 @@ async function runCourseReadyGate(
       passed: true,
       severity: "blocker",
       detail: "Skipped (higher_ed profile — no IHK oral exam)",
+    });
+  } else if (oralSkippedByTrack) {
+    // EXAM_FIRST / EXAM_FIRST_PLUS: oral step is skipped in pipeline, so oral gate is not a blocker
+    results.push({
+      gate: "oral_exam_ready",
+      passed: true,
+      severity: "blocker",
+      detail: `Skipped (${trackEarly} track — oral exam not required)`,
     });
   } else if (includeOral) {
     // FIX: oral_exam_sessionsets uses package_id, NOT curriculum_id
@@ -1608,7 +1620,11 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ✅ Mark run_integrity_check step as DONE (SSOT)
+    // ✅ Mark run_integrity_check step — SSOT-aligned semantics:
+    // - gate_passed=true  → status=done, ok=true  (downstream can proceed)
+    // - gate_passed=false → status=done, ok=false  (report generated, but gate failed)
+    // This ensures reconcile_integrity_passed and meta.ok express the same truth.
+    const gatePassed = gate.hardFails.length === 0 && gate.score >= 85;
     try {
       const { data: stepRow } = await sb
         .from("package_steps")
@@ -1622,13 +1638,24 @@ Deno.serve(async (req) => {
         .from("package_steps")
         .update({
           status: "done",
-          last_error: null,
+          last_error: gatePassed ? null : `Integrity gate failed: score=${gate.score}, hard_fails=${gate.hardFails.length}`,
           meta: {
             ...prevMeta,
-            last_error: null,
-            last_error_class: null,
-            last_progress_note: `Integrity ${gate.hardFails.length === 0 ? "passed" : "completed with blockers"} (score=${gate.score})`,
+            // Execution metadata (technical)
+            executed: true,
+            report_generated: true,
             finished_at: new Date().toISOString(),
+            last_error: gatePassed ? null : `Gate failed: ${gate.hardFails.join("; ")}`,
+            last_error_class: gatePassed ? null : "integrity_gate_fail",
+            // Gate result (fachlich) — SSOT: must match reconcile_integrity_passed threshold
+            ok: gatePassed,
+            gate_passed: gatePassed,
+            score: gate.score,
+            hard_fail_count: gate.hardFails.length,
+            hard_fail_reasons: gate.hardFails,
+            last_progress_note: gatePassed
+              ? `Integrity passed (score=${gate.score})`
+              : `Integrity gate FAILED (score=${gate.score}, ${gate.hardFails.length} hard fails: ${gate.hardFails.slice(0, 3).join("; ")})`,
           },
         })
         .eq("package_id", packageId)
