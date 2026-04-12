@@ -164,7 +164,7 @@ Deno.serve(async (req) => {
               packageId,
               stepKey: v.stepKey,
               meta: {
-                ...updatedMeta,
+                ...metaUpdate,
                 finalized_by: "verifier-reconciler",
                 finalization_reason: result.reason,
                 finalization_snapshot: result.snapshot,
