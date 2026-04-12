@@ -388,6 +388,7 @@ export function useCoursePackageDetail(packageId: string | undefined) {
     package: packageQuery.data,
     packageLoading: packageQuery.isLoading,
     buildSteps: buildStepsQuery.data || [],
+    activeJobs: activeJobsQuery.data || [],
     councils: councilsQuery.data || [],
     startBuild,
     initCouncils,
