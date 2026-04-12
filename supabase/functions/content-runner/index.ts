@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { bootstrapLLMLogging } from "../_shared/llm-log-bootstrap.ts";
 import { inferBackoffSeconds, edgeFunctionForJobType, poolForJobType, STEP_TO_JOB_TYPE } from "../_shared/job-map.ts";
+import { laneForJobType, partitionByLane, allocateLaneBudgets, LANE_DISPATCH_ORDER, type RunnerLane } from "../_shared/runner-lanes.ts";
 import { isTransientLlmError, classifyError } from "../_shared/llm/normalize.ts";
 import { setProviderCooldown, cleanupExpiredCooldowns, filterCooledDownProviders, isOnCooldown } from "../_shared/llm/provider-cooldown.ts";
 import { getModelChainAsync } from "../_shared/model-routing.ts";
@@ -50,7 +51,7 @@ const DISPATCH_TIMEOUT_HEAVY_MS = 35_000;    // Tier 2: LLM-validation + DB-heav
 const DISPATCH_TIMEOUT_GENERATION_MS = 40_000; // Tier 1: LLM-generation jobs
 const STATUS_WRITE_BUFFER_MS = 5_000;        // Reserved for status-write after dispatch
 const WORKER_ID = `content-runner-${crypto.randomUUID().slice(0, 8)}`;
-const FUNCTION_VERSION = "v3.1-variant-tier-fix";
+const FUNCTION_VERSION = "v4.0-lane-dispatch";
 
 // Pull-loop parameters — TUNED for max throughput
 const LOOP_MAX_MS = envInt("CONTENT_RUNNER_LOOP_MAX_MS", 50_000);    // v2.1: 30s→50s (edge fn limit ~60s)
@@ -1215,22 +1216,102 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
     return { claimed: totalDeferred, succeeded: 0, failed: 0, deferred: totalDeferred };
   }
 
-  // ── Process jobs in parallel ──
+  // ═══════════════════════════════════════════════════════════════
+  // PHASE 1: Lane-Based Dispatch (Control → Recovery → Generation)
+  // ═══════════════════════════════════════════════════════════════
+  const lanes = partitionByLane(jobs as { job_type: string; id: string }[]);
+  const laneBudgets = allocateLaneBudgets(jobs.length);
+  const laneMetrics: Record<RunnerLane, { dispatched: number; succeeded: number; failed: number; budget_exhausted: number }> = {
+    control:    { dispatched: 0, succeeded: 0, failed: 0, budget_exhausted: 0 },
+    recovery:   { dispatched: 0, succeeded: 0, failed: 0, budget_exhausted: 0 },
+    generation: { dispatched: 0, succeeded: 0, failed: 0, budget_exhausted: 0 },
+  };
+
+  console.log(
+    `[content-runner] LANE_DISPATCH: control=${lanes.control.length} recovery=${lanes.recovery.length} generation=${lanes.generation.length} | ` +
+    `budgets: ctrl=${laneBudgets.control} recov=${laneBudgets.recovery} gen=${laneBudgets.generation}`
+  );
+
   // deno-lint-ignore no-explicit-any
   const results: any[] = [];
-  const settled = await Promise.allSettled(jobs.map((job: any) => processOneJob(job, sb, supabaseUrl, serviceKey, loopDeadlineMs)));
-  for (const s of settled) {
-    if (s.status === "fulfilled") {
-      results.push(s.value);
-    } else {
-      results.push({ ok: false, error: s.reason?.message ?? String(s.reason) });
+
+  for (const lane of LANE_DISPATCH_ORDER) {
+    const laneJobs = lanes[lane];
+    if (laneJobs.length === 0) continue;
+
+    // Budget check: is there enough time left for this lane?
+    const remainingMs = loopDeadlineMs ? loopDeadlineMs - Date.now() : Infinity;
+    if (remainingMs < STATUS_WRITE_BUFFER_MS * 2) {
+      console.warn(`[content-runner] LANE_BUDGET_STOP: skipping ${lane} lane — only ${Math.round(remainingMs)}ms remaining`);
+      // Release undispatched jobs back to pending
+      for (const job of laneJobs) {
+        await sb.from("job_queue").update({
+          status: "pending",
+          locked_at: null,
+          locked_by: null,
+          updated_at: new Date().toISOString(),
+          last_error: `LANE_BUDGET_STOP: ${lane} lane skipped — insufficient time`,
+          run_after: new Date(Date.now() + 3_000).toISOString(),
+        }).eq("id", (job as any).id).eq("status", "processing");
+        laneMetrics[lane].budget_exhausted++;
+      }
+      continue;
     }
+
+    // Cap to lane budget — release excess back to pending for next cycle
+    const budget = laneBudgets[lane];
+    const toDispatch = laneJobs.slice(0, budget);
+    const excess = laneJobs.slice(budget);
+
+    if (excess.length > 0) {
+      for (const job of excess) {
+        await sb.from("job_queue").update({
+          status: "pending",
+          locked_at: null,
+          locked_by: null,
+          updated_at: new Date().toISOString(),
+          last_error: `LANE_OVERFLOW: ${lane} budget=${budget}, released for next cycle`,
+          run_after: new Date(Date.now() + 2_000).toISOString(),
+        }).eq("id", (job as any).id).eq("status", "processing");
+      }
+      console.log(`[content-runner] LANE_OVERFLOW: released ${excess.length} excess ${lane} job(s) (budget=${budget})`);
+    }
+
+    // Dispatch lane jobs in parallel within the lane
+    const settled = await Promise.allSettled(
+      toDispatch.map((job: any) => processOneJob(job, sb, supabaseUrl, serviceKey, loopDeadlineMs))
+    );
+
+    for (const s of settled) {
+      if (s.status === "fulfilled") {
+        results.push(s.value);
+        laneMetrics[lane].dispatched++;
+        if (s.value?.ok) laneMetrics[lane].succeeded++;
+        else laneMetrics[lane].failed++;
+        if (s.value?.error?.includes("budget_exhausted")) laneMetrics[lane].budget_exhausted++;
+      } else {
+        results.push({ ok: false, error: s.reason?.message ?? String(s.reason) });
+        laneMetrics[lane].dispatched++;
+        laneMetrics[lane].failed++;
+      }
+    }
+
+    console.log(
+      `[content-runner] LANE[${lane}]: dispatched=${laneMetrics[lane].dispatched} ` +
+      `ok=${laneMetrics[lane].succeeded} fail=${laneMetrics[lane].failed} ` +
+      `budget_exhausted=${laneMetrics[lane].budget_exhausted}`
+    );
   }
 
   const succeeded = results.filter(r => r.ok).length;
   const failed = results.filter(r => !r.ok).length;
 
-  console.log(`[content-runner] pass: ${succeeded}/${jobs.length} succeeded, ${failed} failed`);
+  console.log(
+    `[content-runner] pass: ${succeeded}/${jobs.length} succeeded, ${failed} failed | ` +
+    `lanes: C=${laneMetrics.control.succeeded}/${laneMetrics.control.dispatched} ` +
+    `R=${laneMetrics.recovery.succeeded}/${laneMetrics.recovery.dispatched} ` +
+    `G=${laneMetrics.generation.succeeded}/${laneMetrics.generation.dispatched}`
+  );
   return { claimed: jobs.length, succeeded, failed, deferred: 0 };
 }
 
@@ -1365,5 +1446,6 @@ Deno.serve(async (req) => {
     concurrency: BASE_CONCURRENCY,
     loop_max_ms: LOOP_MAX_MS,
     loop_sleep_ms: LOOP_SLEEP_MS,
+    lane_dispatch: "control→recovery→generation",
   });
 });
