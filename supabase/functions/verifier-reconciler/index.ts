@@ -55,6 +55,17 @@ interface MetaVerifier {
   isComplete: (meta: Record<string, unknown>) => { ok: boolean; reason: string };
 }
 
+/**
+ * Standard meta-completion check: accepts both meta.ok=true AND meta.batch_complete=true
+ * as valid completion signals. This prevents Finalization Deadlocks where the generator
+ * writes batch_complete but not ok.
+ */
+function standardMetaCheck(meta: Record<string, unknown>): { ok: boolean; reason: string } {
+  if (meta?.ok === true) return { ok: true, reason: "meta.ok=true" };
+  if (meta?.batch_complete === true) return { ok: true, reason: "meta.batch_complete=true" };
+  return { ok: false, reason: "meta.ok and meta.batch_complete both falsy" };
+}
+
 const META_BASED_VERIFIERS: MetaVerifier[] = [
   {
     stepKey: "generate_blueprint_variants",
