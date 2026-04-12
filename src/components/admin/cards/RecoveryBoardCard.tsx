@@ -1,10 +1,16 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { adminRpc } from "@/integrations/supabase/admin-rpc";
-import { healFinalizationStall, healNonBuilding, runAdminOpsAction } from "@/integrations/supabase/admin-ops-actions";
+import {
+  healFinalizationStall,
+  healNonBuilding,
+  runAdminOpsAction,
+  resetStaleProcessingJobs,
+  cancelZombieNoopJobs,
+} from "@/integrations/supabase/admin-ops-actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, Wrench, Loader2, Play } from "lucide-react";
+import { AlertTriangle, Wrench, Loader2, Play, ShieldCheck } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
