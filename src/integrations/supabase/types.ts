@@ -76099,6 +76099,10 @@ export type Database = {
       fn_derive_exam_part: { Args: { p_blueprint_id: string }; Returns: string }
       fn_detect_content_gaps: { Args: { p_cluster_id?: string }; Returns: Json }
       fn_detect_keyword_cannibalization: { Args: never; Returns: Json }
+      fn_detect_publish_recovery_eligible: {
+        Args: { p_package_id: string }
+        Returns: Json
+      }
       fn_detect_seo_discovery_drift: {
         Args: never
         Returns: {
