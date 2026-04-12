@@ -177,12 +177,36 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
 
   const stepMap = new Map<string, any>();
   for (const s of buildSteps) stepMap.set(s.step_key, s);
+
+  // Build reverse map: jobType → stepKey from active jobs
+  // Derive which steps have active (processing) jobs
+  const stepsWithProcessingJobs = new Set<string>();
+  for (const job of activeJobs) {
+    // Convention: most job types are `package_{step_key}`, handle known exceptions
+    const stepKey = job.job_type
+      .replace(/^package_/, '')
+      .replace(/^lesson_generate_content.*/, 'generate_learning_content')
+      .replace(/^lesson_generate_competency_bundle/, 'generate_learning_content')
+      .replace(/^handbook_expand_section/, 'expand_handbook');
+    if (job.status === 'processing') {
+      stepsWithProcessingJobs.add(stepKey);
+    }
+  }
+
+  // Helper: derive effective display status (step status + job status)
+  const getEffectiveStatus = (stepKey: string, rawStatus: string) => {
+    if (rawStatus === 'done' || rawStatus === 'skipped' || rawStatus === 'failed') return rawStatus;
+    // If step is queued/enqueued/pending but has a processing job → effectively running
+    if (stepsWithProcessingJobs.has(stepKey) && rawStatus !== 'running') return 'running';
+    return rawStatus;
+  };
+
   // SSOT-aligned: denominator = functional steps (excludes skipped), numerator = done only
   const functionalSteps = buildSteps.filter((s: any) => s?.status !== 'skipped');
   const doneCount = buildSteps.filter((s: any) => s?.status === 'done').length;
   const totalCount = functionalSteps.length || PIPELINE_STEPS.length;
   const failedSteps = buildSteps.filter((s: any) => s.status === 'failed');
-  const runningStep = buildSteps.find((s: any) => s.status === 'running');
+  const runningStep = buildSteps.find((s: any) => s.status === 'running' || stepsWithProcessingJobs.has(s.step_key));
   const currentStepIdx = runningStep ? PIPELINE_STEPS.findIndex(s => s.key === runningStep.step_key) : failedSteps.length > 0 ? PIPELINE_STEPS.findIndex(s => s.key === failedSteps[0].step_key) : doneCount > 0 ? doneCount - 1 : -1;
   // SSOT-first: derive health and publish readiness from canonical view, not step history
   const councilComplete = ssot?.council_complete ?? false;
