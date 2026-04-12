@@ -201,6 +201,11 @@ async function dispatchJob(job: any, supabaseUrl: string, serviceKey: string, lo
     }
 
     const data = await res.json().catch(() => ({}));
+    const dispatchMs = Date.now() - (loopDeadlineMs ? loopDeadlineMs - remainingMs : Date.now());
+    // Runtime warning for Light jobs that exceed 8s — may be mis-classified
+    if (tierLabel === "T4_LIGHT" && (Date.now() - (loopDeadlineMs! - remainingMs)) > 8_000) {
+      console.warn(`[runner] ⚠️ LIGHT_JOB_SLOW: ${job.job_type} took >${8}s — consider reclassification`);
+    }
     return { ok: true, result: data };
   } catch (e) {
     clearTimeout(timeout);
