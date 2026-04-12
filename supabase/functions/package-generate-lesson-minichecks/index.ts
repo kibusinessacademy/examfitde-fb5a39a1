@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { prereqDone } from "../_shared/prereq-done.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
+import { markStepDone } from "../_shared/steps.ts";
 import { callAIWithFailover } from "../_shared/ai-client.ts";
 import type { AIProvider } from "../_shared/ai-client.ts";
 import { getModelChainAsync } from "../_shared/model-routing.ts";
@@ -591,6 +592,27 @@ Deno.serve(async (req) => {
     if (freshRemaining === 0) {
       batchComplete = true;
       console.log(`[MiniChecks] ✅ DB confirms freshRemaining=0 → batchComplete overridden to true`);
+
+      // ── SELF-FINALIZATION: Mark step as done when all targets are covered ──
+      // This prevents the No-Progress-Loop where jobs keep re-enqueueing
+      // because no rootstep-verifier exists for generate_lesson_minichecks.
+      try {
+        await markStepDone(sb, {
+          packageId,
+          stepKey: "generate_lesson_minichecks",
+          meta: {
+            finalized_by: "minicheck-orchestrator",
+            finalization_reason: "all_targets_covered",
+            remaining_targets: 0,
+            total_generated_lifetime: totalGenerated,
+            finalized_at: new Date().toISOString(),
+          },
+        });
+        console.log(`[MiniChecks] ✅ Step generate_lesson_minichecks marked DONE for ${packageId.slice(0, 8)}`);
+      } catch (finErr) {
+        // Non-fatal: step may already be done or postcondition may block
+        console.warn(`[MiniChecks] ⚠️ Step finalization failed: ${(finErr as Error).message}`);
+      }
     }
 
     // ── Progress Guard & Meta Logging ──

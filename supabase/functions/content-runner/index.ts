@@ -50,7 +50,7 @@ const DISPATCH_TIMEOUT_HEAVY_MS = 35_000;    // Tier 2: LLM-validation + DB-heav
 const DISPATCH_TIMEOUT_GENERATION_MS = 40_000; // Tier 1: LLM-generation jobs
 const STATUS_WRITE_BUFFER_MS = 5_000;        // Reserved for status-write after dispatch
 const WORKER_ID = `content-runner-${crypto.randomUUID().slice(0, 8)}`;
-const FUNCTION_VERSION = "v2.5-4tier-budget";
+const FUNCTION_VERSION = "v2.6-4tier-hardened";
 
 // Pull-loop parameters — TUNED for max throughput
 const LOOP_MAX_MS = envInt("CONTENT_RUNNER_LOOP_MAX_MS", 50_000);    // v2.1: 30s→50s (edge fn limit ~60s)
@@ -109,12 +109,14 @@ const LIGHT_JOB_TYPES = new Set([
   "package_validate_handbook_depth",
   "package_validate_oral_exam",
   "package_validate_tutor_index",
+  "package_validate_lesson_minichecks",
   "package_enqueue_handbook_expand",
-  "package_generate_oral_exam",
   "package_generate_blueprint_variants",
   "package_promote_blueprint_variants",
   "package_finalize_learning_content",
   "package_scaffold_learning_course",
+  "package_auto_publish",
+  "package_quality_council",
 ]);
 
 // Everything else not in Tier 1/2/4: Tier 3 (25s) — moderate DB + orchestration
@@ -126,19 +128,21 @@ async function dispatchJob(job: any, supabaseUrl: string, serviceKey: string, lo
     return { ok: false, error: `NO_EDGE_FUNCTION_MAPPING:${job.job_type}`, terminal: true };
   }
 
-  const tierTimeout = GENERATION_JOB_TYPES.has(job.job_type)
-    ? DISPATCH_TIMEOUT_GENERATION_MS
-    : HEAVY_JOB_TYPES.has(job.job_type)
-      ? DISPATCH_TIMEOUT_HEAVY_MS
-      : LIGHT_JOB_TYPES.has(job.job_type)
-        ? DISPATCH_TIMEOUT_LIGHT_MS
-        : DISPATCH_TIMEOUT_MS;
+  const tierLabel = GENERATION_JOB_TYPES.has(job.job_type) ? "T1_GEN"
+    : HEAVY_JOB_TYPES.has(job.job_type) ? "T2_HEAVY"
+    : LIGHT_JOB_TYPES.has(job.job_type) ? "T4_LIGHT"
+    : "T3_DEFAULT";
+
+  const tierTimeout = tierLabel === "T1_GEN" ? DISPATCH_TIMEOUT_GENERATION_MS
+    : tierLabel === "T2_HEAVY" ? DISPATCH_TIMEOUT_HEAVY_MS
+    : tierLabel === "T4_LIGHT" ? DISPATCH_TIMEOUT_LIGHT_MS
+    : DISPATCH_TIMEOUT_MS;
 
   // ── BUDGET GUARD: never dispatch if remaining loop time < timeout + write buffer ──
   const remainingMs = loopDeadlineMs ? loopDeadlineMs - Date.now() : Infinity;
   const requiredMs = tierTimeout + STATUS_WRITE_BUFFER_MS;
   if (remainingMs < requiredMs) {
-    return { ok: false, error: `BUDGET_EXHAUSTED: remaining=${Math.round(remainingMs)}ms < required=${requiredMs}ms — skipping dispatch`, terminal: false };
+    return { ok: false, error: `BUDGET_EXHAUSTED: remaining=${Math.round(remainingMs)}ms < required=${requiredMs}ms (${tierLabel}) — skipping dispatch`, terminal: false };
   }
 
   // Clamp timeout to remaining budget minus write buffer
@@ -197,6 +201,11 @@ async function dispatchJob(job: any, supabaseUrl: string, serviceKey: string, lo
     }
 
     const data = await res.json().catch(() => ({}));
+    const dispatchMs = Date.now() - (loopDeadlineMs ? loopDeadlineMs - remainingMs : Date.now());
+    // Runtime warning for Light jobs that exceed 8s — may be mis-classified
+    if (tierLabel === "T4_LIGHT" && (Date.now() - (loopDeadlineMs! - remainingMs)) > 8_000) {
+      console.warn(`[runner] ⚠️ LIGHT_JOB_SLOW: ${job.job_type} took >${8}s — consider reclassification`);
+    }
     return { ok: true, result: data };
   } catch (e) {
     clearTimeout(timeout);
