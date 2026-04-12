@@ -364,6 +364,25 @@ export default function QueuePage() {
           <Skull className="h-3 w-3 mr-1.5" />
           Zombie Noop
         </Button>
+        <Button size="sm" variant="outline" disabled={batchMutation.isPending} className="text-xs h-8"
+          onClick={() => batchMutation.mutate('heal_finalization')}>
+          <ListChecks className="h-3 w-3 mr-1.5" />
+          Finalization Heal
+        </Button>
+        <Button size="sm" variant="outline" disabled={batchMutation.isPending} className="text-xs h-8"
+          onClick={() => batchMutation.mutate('heal_non_building')}>
+          <AlertTriangle className="h-3 w-3 mr-1.5" />
+          Non-Building Heal
+        </Button>
+        <Button size="sm" variant="outline" disabled={batchMutation.isPending} className="text-xs h-8"
+          onClick={() => {
+            if (confirm('Alle abgeschlossenen Jobs älter als 24h endgültig löschen?')) {
+              batchMutation.mutate('purge_completed');
+            }
+          }}>
+          <Trash2 className="h-3 w-3 mr-1.5" />
+          Completed purgen
+        </Button>
         {c.failed > 0 && (
           <>
             <Button size="sm" variant="outline" disabled={batchMutation.isPending} className="text-xs h-8"
