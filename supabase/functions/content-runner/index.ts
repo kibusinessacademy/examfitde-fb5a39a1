@@ -2,7 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { bootstrapLLMLogging } from "../_shared/llm-log-bootstrap.ts";
 import { inferBackoffSeconds, edgeFunctionForJobType, poolForJobType, STEP_TO_JOB_TYPE } from "../_shared/job-map.ts";
-import { laneForJobType, partitionByLane, allocateLaneBudgets, LANE_DISPATCH_ORDER, type RunnerLane } from "../_shared/runner-lanes.ts";
+import { laneForJobType, partitionByLane, allocateLaneBudgets, LANE_DISPATCH_ORDER, type RunnerLane, jobTypesForLane } from "../_shared/runner-lanes.ts";
 import { isTransientLlmError, classifyError } from "../_shared/llm/normalize.ts";
 import { setProviderCooldown, cleanupExpiredCooldowns, filterCooledDownProviders, isOnCooldown } from "../_shared/llm/provider-cooldown.ts";
 import { getModelChainAsync } from "../_shared/model-routing.ts";
