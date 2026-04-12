@@ -82,7 +82,7 @@ function hashJobId(id: string): number {
   return Math.abs(h);
 }
 
-// ── 3-Tier Timeout Classification (v2.4: orchestrators demoted to Tier 3) ──
+// ── 4-Tier Timeout Classification (v2.5: Tier 4 for light DB-only orchestrators) ──
 // Tier 1 (40s): LLM generation — target functions with actual LLM calls
 const GENERATION_JOB_TYPES = new Set([
   "package_generate_handbook", "handbook_expand_section",
@@ -99,14 +99,25 @@ const HEAVY_JOB_TYPES = new Set([
   "package_validate_exam_pool",
   "package_build_ai_tutor_index",
 ]);
-// NOTE: package_generate_oral_exam + package_enqueue_handbook_expand are now
-// Tier 3 (25s) — they are lightweight orchestrators that finish in <1s.
-// Keeping them in Tier 2 caused BUDGET_EXHAUSTED when picked up mid-loop.
 
-// NOTE: package_generate_oral_exam is now Tier 3 (25s) — it's a pure orchestrator
-// that enqueues oral exam generation, no LLM calls in the function itself.
+// Tier 4 (10s): Pure DB-query / status-check orchestrators (<5s actual runtime)
+// These jobs do zero LLM calls, zero external API calls — just DB reads + status writes.
+// Required budget: 10s + 5s buffer = 15s (vs 30s for Tier 3), enabling dispatch late in loop.
+const LIGHT_JOB_TYPES = new Set([
+  "package_run_integrity_check",
+  "package_validate_handbook",
+  "package_validate_handbook_depth",
+  "package_validate_oral_exam",
+  "package_validate_tutor_index",
+  "package_enqueue_handbook_expand",
+  "package_generate_oral_exam",
+  "package_generate_blueprint_variants",
+  "package_promote_blueprint_variants",
+  "package_finalize_learning_content",
+  "package_scaffold_learning_course",
+]);
 
-// Everything else: Tier 3 (25s) — structural validation, DB queries only
+// Everything else not in Tier 1/2/4: Tier 3 (25s) — moderate DB + orchestration
 
 // deno-lint-ignore no-explicit-any
 async function dispatchJob(job: any, supabaseUrl: string, serviceKey: string, loopDeadlineMs?: number): Promise<{ ok: boolean; result?: any; error?: string; terminal?: boolean }> {
@@ -119,7 +130,9 @@ async function dispatchJob(job: any, supabaseUrl: string, serviceKey: string, lo
     ? DISPATCH_TIMEOUT_GENERATION_MS
     : HEAVY_JOB_TYPES.has(job.job_type)
       ? DISPATCH_TIMEOUT_HEAVY_MS
-      : DISPATCH_TIMEOUT_MS;
+      : LIGHT_JOB_TYPES.has(job.job_type)
+        ? DISPATCH_TIMEOUT_LIGHT_MS
+        : DISPATCH_TIMEOUT_MS;
 
   // ── BUDGET GUARD: never dispatch if remaining loop time < timeout + write buffer ──
   const remainingMs = loopDeadlineMs ? loopDeadlineMs - Date.now() : Infinity;
