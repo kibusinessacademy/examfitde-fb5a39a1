@@ -106,6 +106,18 @@ const GENERATION_JOB_TYPES_LANE = new Set([
 ]);
 
 /**
+ * Return all known job types for a given lane.
+ * Used by lane-aware claiming to scope DB queries per lane.
+ */
+export function jobTypesForLane(lane: RunnerLane): string[] {
+  switch (lane) {
+    case "control": return [...CONTROL_JOB_TYPES];
+    case "recovery": return [...RECOVERY_JOB_TYPES];
+    case "generation": return [...GENERATION_JOB_TYPES_LANE];
+  }
+}
+
+/**
  * Classify a job type into its runner lane.
  * Unknown job types default to "control" (safe: they get priority dispatch).
  */
