@@ -1197,18 +1197,11 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
 
         // Defer the rest
         if (deferred.length > 0) {
-          const deferMs = 15_000;
-          const deferAt = new Date(Date.now() + deferMs).toISOString();
           for (const job of deferred) {
-            const { error: relErr } = await sb.from("job_queue").update({
-              status: "pending",
-              run_after: deferAt,
-              locked_at: null,
-              locked_by: null,
-              updated_at: new Date().toISOString(),
-              last_error: `HEALTH_GATE: ${workloadKey} on cooldown, deferred ${deferMs / 1000}s (last-resort active for ${forceThrough.length} jobs) by ${WORKER_ID}`,
-            }).eq("id", job.id).eq("status", "processing");
-            if (relErr) console.error(`[content-runner] HEALTH_GATE release FAILED for ${String(job.id).slice(0, 8)}: ${relErr.message}`);
+            await releaseJobToPending(sb, job.id, "RELEASE_HEALTH_GATE", {
+              deferMs: 15_000,
+              detail: `${workloadKey} on cooldown, deferred (last-resort active for ${forceThrough.length} jobs) by ${WORKER_ID}`,
+            });
           }
           totalDeferred += deferred.length;
         }
