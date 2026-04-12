@@ -1209,21 +1209,14 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
       }
 
       // True last resort failed too — full defer
-      const deferMs = 10_000;
       console.warn(
-        `[content-runner] HEALTH_GATE: no healthy route for ${workloadKey} — deferring ${wkJobs.length} job(s) by ${deferMs / 1000}s`,
+        `[content-runner] HEALTH_GATE: no healthy route for ${workloadKey} — deferring ${wkJobs.length} job(s) by 10s`,
       );
-      const deferAt = new Date(Date.now() + deferMs).toISOString();
       for (const job of wkJobs) {
-        const { error: relErr } = await sb.from("job_queue").update({
-          status: "pending",
-          run_after: deferAt,
-          locked_at: null,
-          locked_by: null,
-          updated_at: new Date().toISOString(),
-          last_error: `HEALTH_GATE: ${workloadKey} on cooldown, deferred ${deferMs / 1000}s by ${WORKER_ID}`,
-        }).eq("id", job.id).eq("status", "processing");
-        if (relErr) console.error(`[content-runner] HEALTH_GATE full-defer release FAILED for ${String(job.id).slice(0, 8)}: ${relErr.message}`);
+        await releaseJobToPending(sb, job.id, "RELEASE_HEALTH_GATE", {
+          deferMs: 10_000,
+          detail: `${workloadKey} on cooldown, full-defer by ${WORKER_ID}`,
+        });
       }
       totalDeferred += wkJobs.length;
     } else {
