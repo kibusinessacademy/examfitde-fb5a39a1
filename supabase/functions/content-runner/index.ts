@@ -1243,9 +1243,9 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
     const remainingMs = loopDeadlineMs ? loopDeadlineMs - Date.now() : Infinity;
     if (remainingMs < STATUS_WRITE_BUFFER_MS * 2) {
       console.warn(`[content-runner] LANE_BUDGET_STOP: skipping ${lane} lane — only ${Math.round(remainingMs)}ms remaining`);
-      // Release undispatched jobs back to pending
+      // Release undispatched jobs back to pending — with error checking
       for (const job of laneJobs) {
-        await sb.from("job_queue").update({
+        const { error: relErr } = await sb.from("job_queue").update({
           status: "pending",
           locked_at: null,
           locked_by: null,
@@ -1253,6 +1253,9 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
           last_error: `LANE_BUDGET_STOP: ${lane} lane skipped — insufficient time`,
           run_after: new Date(Date.now() + 3_000).toISOString(),
         }).eq("id", (job as any).id).eq("status", "processing");
+        if (relErr) {
+          console.error(`[content-runner] LANE_BUDGET_STOP release FAILED for ${String((job as any).id).slice(0, 8)}: ${relErr.message}`);
+        }
         laneMetrics[lane].budget_exhausted++;
       }
       continue;
@@ -1264,8 +1267,9 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
     const excess = laneJobs.slice(budget);
 
     if (excess.length > 0) {
+      let overflowReleaseErrors = 0;
       for (const job of excess) {
-        await sb.from("job_queue").update({
+        const { error: relErr } = await sb.from("job_queue").update({
           status: "pending",
           locked_at: null,
           locked_by: null,
@@ -1273,8 +1277,12 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
           last_error: `LANE_OVERFLOW: ${lane} budget=${budget}, released for next cycle`,
           run_after: new Date(Date.now() + 2_000).toISOString(),
         }).eq("id", (job as any).id).eq("status", "processing");
+        if (relErr) {
+          overflowReleaseErrors++;
+          console.error(`[content-runner] LANE_OVERFLOW release FAILED for ${String((job as any).id).slice(0, 8)}: ${relErr.message}`);
+        }
       }
-      console.log(`[content-runner] LANE_OVERFLOW: released ${excess.length} excess ${lane} job(s) (budget=${budget})`);
+      console.log(`[content-runner] LANE_OVERFLOW: released ${excess.length} excess ${lane} job(s) (budget=${budget})${overflowReleaseErrors ? ` [${overflowReleaseErrors} release errors!]` : ""}`);
     }
 
     // Dispatch lane jobs in parallel within the lane

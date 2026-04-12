@@ -114,6 +114,8 @@ export function laneForJobType(jobType: string): RunnerLane {
   if (GENERATION_JOB_TYPES_LANE.has(jobType)) return "generation";
   if (CONTROL_JOB_TYPES.has(jobType)) return "control";
   // Default: unknown jobs go to control (safe — they get dispatched first)
+  // WARNING: log unknown types so we catch misclassifications early
+  console.warn(`[runner-lanes] UNKNOWN_JOB_TYPE_DEFAULTED: "${jobType}" → control (add to SSOT!)`);
   return "control";
 }
 
