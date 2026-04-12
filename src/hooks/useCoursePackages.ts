@@ -381,6 +381,7 @@ export function useCoursePackageDetail(packageId: string | undefined) {
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['course-package', packageId] });
     queryClient.invalidateQueries({ queryKey: ['course-package-steps', packageId] });
+    queryClient.invalidateQueries({ queryKey: ['course-package-active-jobs', packageId] });
     queryClient.invalidateQueries({ queryKey: ['course-package-councils', packageId] });
   };
 
