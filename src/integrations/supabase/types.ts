@@ -76481,6 +76481,7 @@ export type Database = {
         }[]
       }
       fn_reap_non_building_pending_jobs: { Args: never; Returns: Json }
+      fn_reap_zombie_processing_jobs: { Args: never; Returns: number }
       fn_rebalance_wip_priority: {
         Args: { p_max_demotions?: number }
         Returns: {
