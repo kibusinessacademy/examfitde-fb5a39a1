@@ -142,7 +142,8 @@ describe("pickNextAction — Sequential Step Handoff", () => {
     });
     const order = buildStepOrder(steps);
     const action = pickNextAction(steps, order);
-    expect(action).toEqual({ action: "enqueue", stepKey: "generate_learning_content" });
+    // After scaffold + glossary done, next is fanout_learning_content
+    expect(action).toEqual({ action: "enqueue", stepKey: "fanout_learning_content" });
   });
 
   it("skips skipped steps", () => {
@@ -152,7 +153,8 @@ describe("pickNextAction — Sequential Step Handoff", () => {
     });
     const order = buildStepOrder(steps);
     const action = pickNextAction(steps, order);
-    expect(action).toEqual({ action: "enqueue", stepKey: "generate_learning_content" });
+    // After scaffold done + glossary skipped, next is fanout_learning_content
+    expect(action).toEqual({ action: "enqueue", stepKey: "fanout_learning_content" });
   });
 
   it("polls running step with job_id", () => {
@@ -215,7 +217,8 @@ describe("pickNextAction — Sequential Step Handoff", () => {
     steps.find(s => s.step_key === "generate_glossary")!.status = "blocked";
     const order = buildStepOrder(steps);
     const action = pickNextAction(steps, order);
-    expect(action?.stepKey).toBe("generate_learning_content");
+    // After scaffold done + glossary blocked, next is fanout_learning_content
+    expect(action?.stepKey).toBe("fanout_learning_content");
   });
 });
 
