@@ -28,7 +28,10 @@ type AdminOpsAction =
   | 'repair_minichecks'
   | 'repair_oral_exam'
   | 'repair_exam_pool_quality'
-  | 'retry_stalled_step';
+  | 'retry_stalled_step'
+  // v3.0 Safety-Net actions
+  | 'reset_stale_processing'
+  | 'cancel_zombie_noop_jobs';
 
 export interface ScopedPayload {
   limit?: number;
