@@ -81,23 +81,72 @@ Deno.serve(async (req) => {
       const { data: modRows } = await sb.from("modules").select("id").eq("course_id", courseId);
       const moduleIds = (modRows || []).map((m: any) => m.id);
       if (moduleIds.length > 0) {
-        const { count: draftFailedCount } = await sb
+        // Get failed lesson IDs for metadata
+        const { data: failedLessons } = await sb
           .from("lessons")
-          .select("id", { count: "exact", head: true })
+          .select("id, title, qc_status")
           .in("module_id", moduleIds)
           .eq("status", "draft")
           .in("qc_status", ["tier1_failed", "needs_revision"]);
 
-        if ((draftFailedCount ?? 0) > 0) {
+        const draftFailedCount = failedLessons?.length ?? 0;
+
+        if (draftFailedCount > 0) {
+          const failedIds = (failedLessons || []).map((l: any) => l.id);
           console.log(`[auto-publish] 🛑 LESSON_QC_GATE: ${draftFailedCount} lessons are draft+failed`);
-          await sb.from("course_packages").update({ status: "quality_gate_failed" }).eq("id", packageId);
-          await notify(sb, "🛑 Lesson-QC Gate: draft Lessons mit Fehlern",
-            `${draftFailedCount} Lessons sind noch draft + tier1_failed/needs_revision`,
+
+          // Read current publish_retry_count from package meta
+          const { data: pkgMeta } = await sb.from("course_packages")
+            .select("meta").eq("id", packageId).maybeSingle();
+          const currentMeta = (pkgMeta as any)?.meta || {};
+          const retryCount = (currentMeta.publish_retry_count ?? 0) + 1;
+          const maxRetries = 2;
+
+          // Set status to publish_failed (not quality_gate_failed) + store failed lesson metadata
+          await sb.from("course_packages").update({
+            status: "publish_failed",
+            meta: {
+              ...currentMeta,
+              publish_fail_reason: "LESSON_QC_GATE_FAILED",
+              failed_lesson_ids: failedIds,
+              failed_lesson_count: draftFailedCount,
+              publish_retry_count: retryCount,
+              auto_repair_eligible: retryCount <= maxRetries,
+              last_publish_fail_at: new Date().toISOString(),
+            },
+          }).eq("id", packageId);
+
+          await notify(sb, "🛑 Lesson-QC Gate: Publish blockiert",
+            `${draftFailedCount} Lessons sind draft + failed. Auto-Repair ${retryCount <= maxRetries ? "wird gestartet" : "ausgeschöpft"} (Versuch ${retryCount}/${maxRetries})`,
             "quality", "error", "course_package", packageId);
+
+          // Auto-enqueue repair job if within retry limit
+          if (retryCount <= maxRetries) {
+            try {
+              await sb.from("job_queue").insert({
+                job_type: "package_repair_failed_lessons",
+                status: "pending",
+                payload: {
+                  package_id: packageId,
+                  course_id: courseId,
+                  failed_lesson_ids: failedIds,
+                  publish_retry_count: retryCount,
+                },
+                max_attempts: 3,
+              });
+              console.log(`[auto-publish] 📋 Enqueued package_repair_failed_lessons (retry ${retryCount}/${maxRetries})`);
+            } catch (enqErr) {
+              console.warn(`[auto-publish] Failed to enqueue repair job: ${(enqErr as Error).message}`);
+            }
+          }
+
           return json({
             ok: false, retry: false,
             error: "LESSON_QC_GATE_FAILED",
             draft_failed_count: draftFailedCount,
+            failed_lesson_ids: failedIds,
+            publish_retry_count: retryCount,
+            auto_repair_enqueued: retryCount <= maxRetries,
           }, 422);
         }
       }
