@@ -4,16 +4,17 @@ import { verifyGenerateLearningContentComplete, verifyFinalizeLearningContentCom
 import { markStepDone } from "../_shared/steps.ts";
 
 /**
- * verifier-reconciler — Standalone Step Verifier (v2)
+ * verifier-reconciler — Standalone Step Verifier (v3)
  *
  * Runs independently of pipeline-runner leases and WIP limits.
  * Checks building packages for steps that are materially complete
  * but have not been finalized due to verifier starvation.
  *
- * v2 changes:
- *   - DAG-ordered step processing (generate_learning_content before finalize)
- *   - Stale-processing exclusion from active-job count
- *   - Graceful prerequisite-block handling
+ * v3 changes:
+ *   - Added META_BASED_VERIFIERS for generate_blueprint_variants and other
+ *     meta-gated steps that were causing Finalization Deadlocks
+ *   - DAG-ordered: artifact verifiers run first, then meta-based
+ *   - Unified audit logging
  *
  * Designed to run as a cron job every 2-3 minutes.
  */
@@ -30,18 +31,101 @@ function json(body: unknown, status = 200) {
   });
 }
 
+// ═══════════════════════════════════════════════════════════════
+// Layer 1: Artifact-based verifiers (deep DB checks)
 // DAG-ordered: generate must finalize before finalize_learning_content
+// ═══════════════════════════════════════════════════════════════
 const ROOTSTEP_VERIFIERS = [
   { stepKey: "generate_learning_content", jobType: "package_generate_learning_content", verify: verifyGenerateLearningContentComplete },
   { stepKey: "finalize_learning_content", jobType: "package_finalize_learning_content", verify: verifyFinalizeLearningContentComplete },
 ] as const;
 
+// ═══════════════════════════════════════════════════════════════
+// Layer 2: Meta-based verifiers (meta.ok / meta.batch_complete)
+// For steps where completion is signaled via meta flags but
+// the step status never transitions to "done" — causing
+// Finalization Deadlocks and infinite cancel loops.
+// ═══════════════════════════════════════════════════════════════
+interface MetaVerifier {
+  stepKey: string;
+  jobType: string;
+  /** Additional child job types to check for in-flight work */
+  childJobTypes?: string[];
+  /** Check if meta indicates completion */
+  isComplete: (meta: Record<string, unknown>) => { ok: boolean; reason: string };
+}
+
+const META_BASED_VERIFIERS: MetaVerifier[] = [
+  {
+    stepKey: "generate_blueprint_variants",
+    jobType: "package_generate_blueprint_variants",
+    isComplete: (meta) => {
+      if (meta?.ok === true) return { ok: true, reason: "meta.ok=true" };
+      if (meta?.batch_complete === true) return { ok: true, reason: "meta.batch_complete=true" };
+      return { ok: false, reason: "meta.ok and meta.batch_complete both falsy" };
+    },
+  },
+  {
+    stepKey: "validate_blueprint_variants",
+    jobType: "package_validate_blueprint_variants",
+    isComplete: (meta) => {
+      const ok = meta?.ok === true;
+      return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true" };
+    },
+  },
+  {
+    stepKey: "promote_blueprint_variants",
+    jobType: "package_promote_blueprint_variants",
+    isComplete: (meta) => {
+      const ok = meta?.ok === true;
+      return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true" };
+    },
+  },
+  {
+    stepKey: "validate_exam_pool",
+    jobType: "package_validate_exam_pool",
+    isComplete: (meta) => {
+      const ok = meta?.ok === true;
+      return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true" };
+    },
+  },
+  {
+    stepKey: "generate_oral_exam",
+    jobType: "package_generate_oral_exam",
+    isComplete: (meta) => {
+      const ok = meta?.ok === true;
+      return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true" };
+    },
+  },
+  {
+    stepKey: "validate_oral_exam",
+    jobType: "package_validate_oral_exam",
+    isComplete: (meta) => {
+      const ok = meta?.ok === true;
+      return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true" };
+    },
+  },
+  {
+    stepKey: "generate_handbook",
+    jobType: "package_generate_handbook",
+    isComplete: (meta) => {
+      const ok = meta?.ok === true;
+      return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true" };
+    },
+  },
+  {
+    stepKey: "validate_handbook",
+    jobType: "package_validate_handbook",
+    isComplete: (meta) => {
+      const ok = meta?.ok === true;
+      return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true" };
+    },
+  },
+];
+
 // deno-lint-ignore no-explicit-any
 type SB = any;
 
-/**
- * Count truly active jobs, excluding stale-locked ones (processing with lock_age > 3min)
- */
 /**
  * Count jobs that are genuinely in-flight (actively being processed RIGHT NOW).
  * Excludes:
@@ -63,7 +147,6 @@ async function countInFlightJobs(sb: SB, packageId: string, jobType: string): Pr
 
   return jobs.filter((j: { status: string; locked_at: string | null }) => {
     if (j.status === "running") return true;
-    // processing: only active if lock is fresh
     if (!j.locked_at) return false;
     const lockAge = now - new Date(j.locked_at).getTime();
     return lockAge < STALE_THRESHOLD_MS;
@@ -107,12 +190,11 @@ Deno.serve(async (req) => {
       // Track which steps we finalized in this pass (for DAG ordering)
       const finalizedInThisPass = new Set<string>();
 
+      // ── Layer 1: Artifact-based root verifiers ──
       for (const v of ROOTSTEP_VERIFIERS) {
         const step = steps.find((s: { step_key: string }) => s.step_key === v.stepKey);
         if (!step) continue;
-        // Only check non-terminal steps
         if (!["queued", "running", "enqueued"].includes(step.status)) {
-          // If already done, record for DAG tracking
           if (step.status === "done") finalizedInThisPass.add(v.stepKey);
           continue;
         }
@@ -120,7 +202,7 @@ Deno.serve(async (req) => {
         try {
           const result = await v.verify(sb, packageId);
 
-          // Always write current verifier state into meta (clears stale ready flags)
+          // Always write current verifier state into meta
           const currentMeta = (step.meta ?? {}) as Record<string, unknown>;
           const metaUpdate = {
             ...currentMeta,
@@ -138,11 +220,7 @@ Deno.serve(async (req) => {
             continue;
           }
 
-          // Meta already written above — proceed to finalization checks
-
-          // Count truly active jobs (excluding stale processing)
           const activeChildren = await countInFlightJobs(sb, packageId, v.jobType);
-
           if (activeChildren > 0) {
             results.push({ packageId, stepKey: v.stepKey, action: `verifier_ready, ${activeChildren} truly active jobs remaining` });
             continue;
@@ -158,60 +236,55 @@ Deno.serve(async (req) => {
             }
           }
 
-          // Finalize the step
-          try {
-            await markStepDone(sb, {
-              packageId,
-              stepKey: v.stepKey,
-              meta: {
-                ...metaUpdate,
-                finalized_by: "verifier-reconciler",
-                finalization_reason: result.reason,
-                finalization_snapshot: result.snapshot,
-                finalization_source: "standalone_reconciler",
-              },
-            });
-
-            // Cancel remaining pending/failed jobs for this step
-            await sb.from("job_queue").update({
-              status: "cancelled",
-              last_error: "verifier_reconciler_finalized",
-              updated_at: new Date().toISOString(),
-              locked_at: null,
-              locked_by: null,
-            })
-              .eq("package_id", packageId)
-              .eq("job_type", v.jobType)
-              .in("status", ["pending", "failed"]);
-
-            finalizedInThisPass.add(v.stepKey);
-            console.log(`[verifier-reconciler] ✅ Finalized ${shortId}/${v.stepKey}: ${result.reason}`);
-            results.push({ packageId, stepKey: v.stepKey, action: `finalized: ${result.reason}` });
-
-            // Log to auto_heal_log
-            await sb.from("auto_heal_log").insert({
-              action_type: `reconciler_finalize_${v.stepKey}`,
-              trigger_source: "verifier-reconciler",
-              target_type: "course_package",
-              target_id: packageId,
-              result_status: "applied",
-              result_detail: `Standalone verifier finalized ${v.stepKey}: ${result.reason}`,
-              metadata: result.snapshot,
-            });
-          } catch (finalizeErr) {
-            const msg = (finalizeErr as Error).message;
-            // Gracefully handle prerequisite blocks — this is expected for DAG ordering
-            if (msg.includes("verify MISMATCH") || msg.includes("rolled back by a trigger")) {
-              console.warn(`[verifier-reconciler] ⏸️ Prereq-blocked ${shortId}/${v.stepKey}: upstream step not yet done — will retry next cycle`);
-              results.push({ packageId, stepKey: v.stepKey, action: `prereq_blocked: awaiting upstream` });
-            } else {
-              console.warn(`[verifier-reconciler] ⛔ markStepDone blocked ${shortId}/${v.stepKey}: ${msg}`);
-              results.push({ packageId, stepKey: v.stepKey, action: `blocked: ${msg.slice(0, 100)}` });
-            }
-          }
+          // Finalize
+          await finalizeStep(sb, packageId, shortId, v.stepKey, v.jobType, result.reason, result.snapshot, results, finalizedInThisPass);
         } catch (vErr) {
           console.warn(`[verifier-reconciler] Error verifying ${shortId}/${v.stepKey}: ${(vErr as Error).message}`);
         }
+      }
+
+      // ── Layer 2: Meta-based verifiers ──
+      for (const mv of META_BASED_VERIFIERS) {
+        const step = steps.find((s: { step_key: string }) => s.step_key === mv.stepKey);
+        if (!step) continue;
+        if (!["queued", "running", "enqueued"].includes(step.status)) {
+          if (step.status === "done") finalizedInThisPass.add(mv.stepKey);
+          continue;
+        }
+
+        const meta = (step.meta ?? {}) as Record<string, unknown>;
+        const check = mv.isComplete(meta);
+
+        if (!check.ok) continue; // Not ready per meta
+
+        // Check no in-flight jobs
+        const activeJobs = await countInFlightJobs(sb, packageId, mv.jobType);
+        if (mv.childJobTypes) {
+          for (const ct of mv.childJobTypes) {
+            const c = await countInFlightJobs(sb, packageId, ct);
+            if (c > 0) {
+              results.push({ packageId, stepKey: mv.stepKey, action: `meta_ready but ${c} child jobs in ${ct}` });
+              continue;
+            }
+          }
+        }
+        if (activeJobs > 0) {
+          results.push({ packageId, stepKey: mv.stepKey, action: `meta_ready (${check.reason}), ${activeJobs} active jobs` });
+          continue;
+        }
+
+        // Write verifier state + finalize
+        const metaUpdate = {
+          ...meta,
+          verifier_ready: true,
+          verifier_reason: check.reason,
+          verifier_checked_at: new Date().toISOString(),
+          verifier_source: "standalone_reconciler_meta",
+        };
+        await sb.from("package_steps").update({ meta: metaUpdate })
+          .eq("package_id", packageId).eq("step_key", mv.stepKey);
+
+        await finalizeStep(sb, packageId, shortId, mv.stepKey, mv.jobType, check.reason, { meta_check: check.reason }, results, finalizedInThisPass);
       }
 
       // Budget guard: don't exceed 50s
@@ -229,3 +302,69 @@ Deno.serve(async (req) => {
   console.log(`[verifier-reconciler] Done: ${results.length} actions in ${runtimeMs}ms`);
   return json({ ok: true, actions: results.length, results, runtime_ms: runtimeMs });
 });
+
+/**
+ * Shared finalization logic: markStepDone, cancel residual jobs, audit log.
+ */
+async function finalizeStep(
+  sb: SB,
+  packageId: string,
+  shortId: string,
+  stepKey: string,
+  jobType: string,
+  reason: string,
+  snapshot: Record<string, unknown>,
+  results: Array<{ packageId: string; stepKey: string; action: string }>,
+  finalizedInThisPass: Set<string>,
+) {
+  try {
+    await markStepDone(sb, {
+      packageId,
+      stepKey,
+      meta: {
+        verifier_ready: true,
+        verifier_reason: reason,
+        finalized_by: "verifier-reconciler",
+        finalization_reason: reason,
+        finalization_snapshot: snapshot,
+        finalization_source: "standalone_reconciler",
+      },
+    });
+
+    // Cancel remaining pending/failed jobs
+    await sb.from("job_queue").update({
+      status: "cancelled",
+      last_error: "verifier_reconciler_finalized",
+      updated_at: new Date().toISOString(),
+      locked_at: null,
+      locked_by: null,
+    })
+      .eq("package_id", packageId)
+      .eq("job_type", jobType)
+      .in("status", ["pending", "failed"]);
+
+    finalizedInThisPass.add(stepKey);
+    console.log(`[verifier-reconciler] ✅ Finalized ${shortId}/${stepKey}: ${reason}`);
+    results.push({ packageId, stepKey, action: `finalized: ${reason}` });
+
+    // Audit log
+    await sb.from("auto_heal_log").insert({
+      action_type: `reconciler_finalize_${stepKey}`,
+      trigger_source: "verifier-reconciler",
+      target_type: "course_package",
+      target_id: packageId,
+      result_status: "applied",
+      result_detail: `Standalone verifier finalized ${stepKey}: ${reason}`,
+      metadata: snapshot,
+    });
+  } catch (finalizeErr) {
+    const msg = (finalizeErr as Error).message;
+    if (msg.includes("verify MISMATCH") || msg.includes("rolled back by a trigger")) {
+      console.warn(`[verifier-reconciler] ⏸️ Prereq-blocked ${shortId}/${stepKey}: upstream step not yet done — will retry next cycle`);
+      results.push({ packageId, stepKey, action: `prereq_blocked: awaiting upstream` });
+    } else {
+      console.warn(`[verifier-reconciler] ⛔ markStepDone blocked ${shortId}/${stepKey}: ${msg}`);
+      results.push({ packageId, stepKey, action: `blocked: ${msg.slice(0, 100)}` });
+    }
+  }
+}
