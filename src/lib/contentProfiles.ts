@@ -39,6 +39,8 @@ export interface ContentProfile {
   // ── Oral / Tutor ──────────────────────────────────
   includeOralExam: boolean;
   oralExamOptional: boolean;
+  /** Default oral trainer mode when not overridden by feature_flags */
+  defaultOralTrainerMode: "official_simulation" | "didactic_viva";
   includeTutorIndex: boolean;
   tutorDepth: "none" | "reduced" | "full";
 

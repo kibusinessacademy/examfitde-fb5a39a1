@@ -1,11 +1,18 @@
 import type { CertificationType, Track, ValidationProfile } from "./types.ts";
 
+export type OralTrainerMode = "official_simulation" | "didactic_viva";
+
 export type ClassificationResult = {
   track: Track;
   certificationType: CertificationType;
   validationProfile: ValidationProfile;
   examModes: string[];
+  /** Formal truth: does the real exam have an oral component? */
   oralExamEnabled: boolean;
+  /** Product module: always true — trainer is available for all */
+  oralTrainerEnabled: true;
+  /** Derived mode based on formal exam structure */
+  oralTrainerMode: OralTrainerMode;
   calculationHeavy: boolean;
   frameworkHeavy: boolean;
 };
