@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { assertSchemaReady } from "../_shared/schema-gate.ts";
 import { PIPELINE_GRAPH, validatePipelineGraph, STEP_TO_JOB_TYPE, ARTIFACT_IMPACT, getArtifactPriorityBump, poolForJobType, JOB_DEFINITIONS } from "../_shared/job-map.ts";
+import { LANE_DISPATCH_ORDER, jobTypesForLane, allocateLaneBudgets } from "../_shared/runner-lanes.ts";
 import { checkArtifacts } from "../_shared/artifact-resolver.ts";
 import { enqueueJob, allowedPackageStatusesForJobType } from "../_shared/enqueue.ts";
 import { isRepairActionEligible } from "../_shared/repair-eligibility.ts";
@@ -72,8 +73,8 @@ function computeErrorBackoffMs(attempt: number): number {
 }
 
 // ── Function versioning (for deployment forensics) ──────────────────
-const FUNCTION_VERSION = "v5.9-phase3+6-hardened";
-const DEPLOYED_AT = "2026-02-27T17:00:00Z";
+const FUNCTION_VERSION = "v6.0-lane-aware-claiming";
+const DEPLOYED_AT = "2026-04-12T08:30:00Z";
 
 // Adaptive thresholds (rolling 5-min window)
 const THROTTLE_TIMEOUT_THRESHOLD = 10;
@@ -319,16 +320,33 @@ Deno.serve(async (req) => {
   const adaptiveConcurrency = await getAdaptiveConcurrency(sb).catch(() => BASE_CONCURRENCY);
 
   // ── 1. Claim jobs via canonical RPC contract ──
-  let { data: jobs, error: claimErr } = await sb.rpc("claim_pending_jobs_v4" as any, {
-    p_limit: adaptiveConcurrency,
-    p_worker_id: WORKER_ID,
-    p_worker_pool: "default",
-  });
-  jobs = (jobs ?? []) as any[];
+  // ── 1. Lane-aware claiming (v6.0) ──
+  // Claim per-lane with lane-specific budgets to prevent claim→release loops
+  const laneBudgets = allocateLaneBudgets(adaptiveConcurrency);
+  let jobs: any[] = [];
 
-  if (claimErr) {
-    console.error("[job-runner] claim_pending_jobs_v4 error:", claimErr.message);
-    return json({ ok: false, error: claimErr.message }, 500);
+  for (const lane of LANE_DISPATCH_ORDER) {
+    const budget = laneBudgets[lane];
+    if (budget <= 0) continue;
+
+    const laneJobTypes = jobTypesForLane(lane);
+    const { data: laneJobs, error: laneErr } = await sb.rpc("claim_pending_jobs_by_types" as any, {
+      p_job_types: laneJobTypes,
+      p_limit: budget,
+      p_worker_id: WORKER_ID,
+      p_worker_pool: "default",
+    });
+
+    if (laneErr) {
+      console.error(`[job-runner] claim error for ${lane}: ${laneErr.message}`);
+      continue;
+    }
+
+    const claimed = ((laneJobs ?? []) as any[]).slice(0, budget);
+    if (claimed.length > 0) {
+      console.log(`[job-runner] LANE_CLAIM[${lane}]: claimed ${claimed.length}/${budget} job(s)`);
+      jobs.push(...claimed);
+    }
   }
 
   if (!jobs || jobs.length === 0) {
