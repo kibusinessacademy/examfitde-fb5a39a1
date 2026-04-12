@@ -83,7 +83,64 @@ function hashJobId(id: string): number {
   return Math.abs(h);
 }
 
-// ── 4-Tier Timeout Classification (v2.5: Tier 4 for light DB-only orchestrators) ──
+// ── CENTRAL RELEASE FUNCTION (v4.2) ──────────────────────────
+// Single source of truth for releasing jobs back to pending.
+// All skip/defer/budget paths MUST use this instead of inline updates.
+// Invariant: No skip/defer path may leave a job in processing.
+type ReleaseReason =
+  | "RELEASE_BUDGET_EXHAUSTED"
+  | "RELEASE_LANE_BUDGET_STOP"
+  | "RELEASE_LANE_OVERFLOW"
+  | "RELEASE_HEALTH_GATE"
+  | "RELEASE_ROUTING_DEFERRED"
+  | "RELEASE_CIRCUIT_BREAKER"
+  | "RELEASE_CLAIM_BUDGET_EXCEEDED"
+  | "RELEASE_COOLDOWN_DEFERRED";
+
+interface ReleaseOpts {
+  deferMs?: number;       // delay before job is re-eligible (default: 3000)
+  detail?: string;        // human-readable detail appended to reason
+  skipAttemptIncrement?: boolean; // default true — release paths don't count as attempts
+}
+
+async function releaseJobToPending(
+  sb: ReturnType<typeof createClient>,
+  jobId: string,
+  reason: ReleaseReason,
+  opts: ReleaseOpts = {},
+): Promise<boolean> {
+  const { deferMs = 3_000, detail } = opts;
+  const shortId = String(jobId).slice(0, 8);
+  const errorMsg = detail ? `${reason}: ${detail}`.slice(0, 2000) : reason;
+  const releasePayload = {
+    status: "pending" as const,
+    locked_at: null as null,
+    locked_by: null as null,
+    updated_at: new Date().toISOString(),
+    last_error: errorMsg,
+    run_after: new Date(Date.now() + deferMs).toISOString(),
+  };
+
+  // Attempt 1
+  const { error: err1 } = await sb.from("job_queue").update(releasePayload)
+    .eq("id", jobId).eq("status", "processing");
+  if (!err1) return true;
+
+  console.error(`[content-runner] 🚨 ${reason} release FAILED for ${shortId}: ${err1.message} — retrying`);
+  // Retry after 200ms
+  await new Promise(r => setTimeout(r, 200));
+  const { error: err2 } = await sb.from("job_queue").update(releasePayload)
+    .eq("id", jobId).eq("status", "processing");
+  if (!err2) {
+    console.warn(`[content-runner] ⏸️ ${reason} release succeeded on retry for ${shortId}`);
+    return true;
+  }
+
+  console.error(`[content-runner] 🚨 ${reason} RETRY FAILED for ${shortId}: ${err2.message} — job may remain stuck as processing`);
+  return false;
+}
+
+
 // Tier 1 (40s): LLM generation — target functions with actual LLM calls
 const GENERATION_JOB_TYPES = new Set([
   "package_generate_handbook", "handbook_expand_section",
@@ -647,32 +704,13 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
     } else {
       // ── BUDGET_EXHAUSTED FAST-RELEASE ──
       // Job was never dispatched — release immediately without attempt increment
-      // v3.0: Added error-checking + retry to prevent zombie processing jobs
+      // v4.2: Uses central releaseJobToPending with built-in retry
       if (dispatchError?.startsWith("BUDGET_EXHAUSTED")) {
-        const releasePayload = {
-          status: "pending" as const,
-          locked_at: null as null,
-          locked_by: null as null,
-          updated_at: new Date().toISOString(),
-          last_error: dispatchError.slice(0, 2000),
-          run_after: new Date(Date.now() + 5_000).toISOString(),
-        };
-        const { error: releaseErr } = await sb.from("job_queue").update(releasePayload)
-          .eq("id", job.id).eq("status", "processing"); // guard: only release if still processing
-        if (releaseErr) {
-          console.error(`[content-runner] 🚨 FAST-RELEASE FAILED for ${job.job_type} (${shortId}): ${releaseErr.message} — retrying once`);
-          // One retry after 200ms
-          await new Promise(r => setTimeout(r, 200));
-          const { error: retryErr } = await sb.from("job_queue").update(releasePayload)
-            .eq("id", job.id).eq("status", "processing");
-          if (retryErr) {
-            console.error(`[content-runner] 🚨 FAST-RELEASE RETRY FAILED for ${job.job_type} (${shortId}): ${retryErr.message} — job may remain stuck`);
-          } else {
-            console.warn(`[content-runner] ⏸️ ${job.job_type} (${shortId}) FAST-RELEASE succeeded on retry`);
-          }
-        } else {
-          console.warn(`[content-runner] ⏸️ ${job.job_type} (${shortId}) ${dispatchError.slice(0, 100)} — released without attempt increment`);
-        }
+        await releaseJobToPending(sb, job.id, "RELEASE_BUDGET_EXHAUSTED", {
+          deferMs: 5_000,
+          detail: dispatchError.slice(0, 500),
+        });
+        console.warn(`[content-runner] ⏸️ ${job.job_type} (${shortId}) ${dispatchError.slice(0, 100)} — released without attempt increment`);
         return { id: job.id, ok: false, error: "budget_exhausted_released", terminal: false };
       }
 
@@ -683,15 +721,10 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
       // "all_candidates_on_cooldown" is a ROUTER STATE, not a provider error.
       // Do NOT count it as transient, do NOT set new cooldowns, just requeue.
       if (errorStr.includes("all_candidates_on_cooldown")) {
-        const deferAt = new Date(Date.now() + 20_000).toISOString(); // 20s backoff
-        await sb.from("job_queue").update({
-          status: "pending",
-          run_after: deferAt,
-          locked_at: null,
-          locked_by: null,
-          updated_at: new Date().toISOString(),
-          last_error: `ROUTING_DEFERRED: all_candidates_on_cooldown — requeued without attempt increment`,
-        }).eq("id", job.id);
+        await releaseJobToPending(sb, job.id, "RELEASE_ROUTING_DEFERRED", {
+          deferMs: 20_000,
+          detail: "all_candidates_on_cooldown — requeued without attempt increment",
+        });
         console.warn(`[content-runner] ⏸️ ROUTING_DEFERRED ${job.job_type} (${shortId}) — all candidates on cooldown, requeue in 20s (no attempt increment)`);
         return { id: job.id, ok: false, error: "routing_deferred", terminal: false };
       }
@@ -727,14 +760,10 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
       if (isPermanentProviderError(errorStr)) {
         const tripped = await recordPermanentProviderFailure(errorStr.slice(0, 200));
         if (tripped) {
-          const now2 = new Date().toISOString();
-          await sb.from("job_queue").update({
-            status: "pending",
-            run_after: new Date(Date.now() + 10 * 60_000).toISOString(),
-            locked_at: null, locked_by: null,
-            updated_at: now2,
-            last_error: `CIRCUIT_BREAKER: ${errorStr.slice(0, 200)}`,
-          }).eq("id", job.id);
+          await releaseJobToPending(sb, job.id, "RELEASE_CIRCUIT_BREAKER", {
+            deferMs: 10 * 60_000,
+            detail: errorStr.slice(0, 200),
+          });
           return { id: job.id, ok: false, error: "CIRCUIT_BREAKER_TRIPPED", terminal: true };
         }
       }
@@ -1013,11 +1042,10 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
       // Release excess prebuild claims back to pending
       const excess = (prebuildJobs as any[]).slice(remainingBudget);
       for (const ej of excess) {
-        await sb.from("job_queue").update({
-          status: "pending", locked_at: null, locked_by: null,
-          updated_at: new Date().toISOString(),
-          last_error: `CLAIM_BUDGET_EXCEEDED: total ${totalSoFar}+${prebuildJobs.length} > CLAIM_LIMIT ${CLAIM_LIMIT}, released by ${WORKER_ID}`,
-        }).eq("id", ej.id);
+        await releaseJobToPending(sb, ej.id, "RELEASE_CLAIM_BUDGET_EXCEEDED", {
+          deferMs: 2_000,
+          detail: `total ${totalSoFar}+${prebuildJobs.length} > CLAIM_LIMIT ${CLAIM_LIMIT}, released by ${WORKER_ID}`,
+        });
       }
       console.warn(`[content-runner] CLAIM_BUDGET: released ${excess.length} excess prebuild claims (budget=${CLAIM_LIMIT})`);
     }
@@ -1169,18 +1197,11 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
 
         // Defer the rest
         if (deferred.length > 0) {
-          const deferMs = 15_000;
-          const deferAt = new Date(Date.now() + deferMs).toISOString();
           for (const job of deferred) {
-            const { error: relErr } = await sb.from("job_queue").update({
-              status: "pending",
-              run_after: deferAt,
-              locked_at: null,
-              locked_by: null,
-              updated_at: new Date().toISOString(),
-              last_error: `HEALTH_GATE: ${workloadKey} on cooldown, deferred ${deferMs / 1000}s (last-resort active for ${forceThrough.length} jobs) by ${WORKER_ID}`,
-            }).eq("id", job.id).eq("status", "processing");
-            if (relErr) console.error(`[content-runner] HEALTH_GATE release FAILED for ${String(job.id).slice(0, 8)}: ${relErr.message}`);
+            await releaseJobToPending(sb, job.id, "RELEASE_HEALTH_GATE", {
+              deferMs: 15_000,
+              detail: `${workloadKey} on cooldown, deferred (last-resort active for ${forceThrough.length} jobs) by ${WORKER_ID}`,
+            });
           }
           totalDeferred += deferred.length;
         }
@@ -1188,21 +1209,14 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
       }
 
       // True last resort failed too — full defer
-      const deferMs = 10_000;
       console.warn(
-        `[content-runner] HEALTH_GATE: no healthy route for ${workloadKey} — deferring ${wkJobs.length} job(s) by ${deferMs / 1000}s`,
+        `[content-runner] HEALTH_GATE: no healthy route for ${workloadKey} — deferring ${wkJobs.length} job(s) by 10s`,
       );
-      const deferAt = new Date(Date.now() + deferMs).toISOString();
       for (const job of wkJobs) {
-        const { error: relErr } = await sb.from("job_queue").update({
-          status: "pending",
-          run_after: deferAt,
-          locked_at: null,
-          locked_by: null,
-          updated_at: new Date().toISOString(),
-          last_error: `HEALTH_GATE: ${workloadKey} on cooldown, deferred ${deferMs / 1000}s by ${WORKER_ID}`,
-        }).eq("id", job.id).eq("status", "processing");
-        if (relErr) console.error(`[content-runner] HEALTH_GATE full-defer release FAILED for ${String(job.id).slice(0, 8)}: ${relErr.message}`);
+        await releaseJobToPending(sb, job.id, "RELEASE_HEALTH_GATE", {
+          deferMs: 10_000,
+          detail: `${workloadKey} on cooldown, full-defer by ${WORKER_ID}`,
+        });
       }
       totalDeferred += wkJobs.length;
     } else {
@@ -1245,19 +1259,12 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
     const remainingMs = loopDeadlineMs ? loopDeadlineMs - Date.now() : Infinity;
     if (remainingMs < STATUS_WRITE_BUFFER_MS * 2) {
       console.warn(`[content-runner] LANE_BUDGET_STOP: skipping ${lane} lane — only ${Math.round(remainingMs)}ms remaining`);
-      // Release undispatched jobs back to pending — with error checking
+      // v4.2: Central release with retry for all lane-skipped jobs
       for (const job of laneJobs) {
-        const { error: relErr } = await sb.from("job_queue").update({
-          status: "pending",
-          locked_at: null,
-          locked_by: null,
-          updated_at: new Date().toISOString(),
-          last_error: `LANE_BUDGET_STOP: ${lane} lane skipped — insufficient time`,
-          run_after: new Date(Date.now() + 3_000).toISOString(),
-        }).eq("id", (job as any).id).eq("status", "processing");
-        if (relErr) {
-          console.error(`[content-runner] LANE_BUDGET_STOP release FAILED for ${String((job as any).id).slice(0, 8)}: ${relErr.message}`);
-        }
+        await releaseJobToPending(sb, (job as any).id, "RELEASE_LANE_BUDGET_STOP", {
+          deferMs: 3_000,
+          detail: `${lane} lane skipped — insufficient time`,
+        });
         laneMetrics[lane].budget_exhausted++;
       }
       continue;
@@ -1271,18 +1278,11 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
     if (excess.length > 0) {
       let overflowReleaseErrors = 0;
       for (const job of excess) {
-        const { error: relErr } = await sb.from("job_queue").update({
-          status: "pending",
-          locked_at: null,
-          locked_by: null,
-          updated_at: new Date().toISOString(),
-          last_error: `LANE_OVERFLOW: ${lane} budget=${budget}, released for next cycle`,
-          run_after: new Date(Date.now() + 2_000).toISOString(),
-        }).eq("id", (job as any).id).eq("status", "processing");
-        if (relErr) {
-          overflowReleaseErrors++;
-          console.error(`[content-runner] LANE_OVERFLOW release FAILED for ${String((job as any).id).slice(0, 8)}: ${relErr.message}`);
-        }
+        const ok = await releaseJobToPending(sb, (job as any).id, "RELEASE_LANE_OVERFLOW", {
+          deferMs: 2_000,
+          detail: `${lane} budget=${budget}, released for next cycle`,
+        });
+        if (!ok) overflowReleaseErrors++;
       }
       console.log(`[content-runner] LANE_OVERFLOW: released ${excess.length} excess ${lane} job(s) (budget=${budget})${overflowReleaseErrors ? ` [${overflowReleaseErrors} release errors!]` : ""}`);
     }
