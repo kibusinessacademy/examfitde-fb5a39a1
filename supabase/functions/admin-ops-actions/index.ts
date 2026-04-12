@@ -560,7 +560,7 @@ Deno.serve(async (req) => {
         // 2. Cancel zombie noop jobs
         const { data: r2 } = await sb.rpc("fn_cancel_zombie_noop_jobs").catch(() => ({ data: null }));
         // 3. Heal ghost completions
-        const { data: r3 } = await sb.rpc("fn_heal_ghost_completions").catch(() => ({ data: null }));
+        const { data: r3 } = await sb.rpc("fn_heal_ghost_completions", { p_mode: "heal_safe" }).catch(() => ({ data: null }));
         // 4. Reap zombies
         const { data: r4 } = await sb.rpc("fn_reap_zombie_processing_jobs").catch(() => ({ data: null }));
         result = {
@@ -573,7 +573,7 @@ Deno.serve(async (req) => {
         break;
       }
       case "heal_ghost_completions": {
-        const { data: ghostData, error: ghostErr } = await sb.rpc("fn_heal_ghost_completions");
+        const { data: ghostData, error: ghostErr } = await sb.rpc("fn_heal_ghost_completions", { p_mode: "heal_safe" });
         if (ghostErr) throw ghostErr;
         result = { ok: true, ...(ghostData as any) };
         break;

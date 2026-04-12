@@ -77661,9 +77661,7 @@ export type Database = {
         Args: { p_org_id: string; p_roles?: string[]; p_user_id: string }
         Returns: boolean
       }
-      fn_heal_ghost_completions:
-        | { Args: never; Returns: Json }
-        | { Args: { p_mode?: string }; Returns: Json }
+      fn_heal_ghost_completions: { Args: { p_mode?: string }; Returns: Json }
       fn_heal_queued_steps_without_jobs: {
         Args: { p_dry_run?: boolean }
         Returns: {
