@@ -76585,6 +76585,10 @@ export type Database = {
       }
       fn_reset_stale_processing_jobs: { Args: never; Returns: Json }
       fn_reset_zombie_processing_jobs: { Args: never; Returns: number }
+      fn_resolve_oral_trainer_mode: {
+        Args: { p_certification_id: string }
+        Returns: string
+      }
       fn_resolve_partner_attribution: {
         Args: {
           _consume?: boolean
