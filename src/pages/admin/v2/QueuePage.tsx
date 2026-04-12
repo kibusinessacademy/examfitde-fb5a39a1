@@ -243,8 +243,12 @@ export default function QueuePage() {
     mutationFn: async (action: string) => {
       if (action === 'retry_all_failed') return runAdminOpsAction('requeue_failed_jobs', { limit: 50 });
       if (action === 'kill_all_zombies') return runAdminOpsAction('kill_stale_processing_jobs', { limit: 50 });
+      if (action === 'full_reset') return runAdminOpsAction('full_queue_reset');
+      if (action === 'heal_ghosts') return runAdminOpsAction('heal_ghost_completions');
+      if (action === 'reset_stale') return runAdminOpsAction('reset_stale_processing');
+      if (action === 'cancel_zombie_noop') return runAdminOpsAction('cancel_zombie_noop_jobs');
+      if (action === 'purge_completed') return runAdminOpsAction('purge_completed_jobs', { hours: 24 });
       if (action === 'purge_failed') {
-        // Delete all failed jobs directly
         const { error } = await supabase.from('job_queue').delete().eq('status', 'failed');
         if (error) throw new Error(error.message);
         return { purged: true };
