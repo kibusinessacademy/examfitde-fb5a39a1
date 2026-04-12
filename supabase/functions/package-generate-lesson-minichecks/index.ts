@@ -372,6 +372,31 @@ Deno.serve(async (req) => {
 
     // ── BATCH ROUTING: Submit all targets as one batch instead of sync loop ──
     const forceSyncMode = p._force_sync === true || p.force_sync === true;
+    const jobId = p.job_id as string | undefined;
+
+    // ── DUPLICATE BATCH GUARD ──
+    // If this job already has a pending batch, don't re-dispatch.
+    // This prevents the re-dispatch loop when a runner requeues the job.
+    if (jobId) {
+      const { data: existingJob } = await sb
+        .from("job_queue")
+        .select("meta")
+        .eq("id", jobId)
+        .maybeSingle();
+      if (existingJob?.meta?.batch_id && existingJob?.meta?.batch_mode === true) {
+        console.log(`[MiniChecks] DUPLICATE_GUARD: job ${jobId.slice(0, 8)} already has batch=${existingJob.meta.batch_id} — skipping re-dispatch`);
+        return json({
+          ok: true,
+          batch_mode: true,
+          batch_id: existingJob.meta.batch_id,
+          targets_submitted: 0,
+          model: "cached",
+          batch_complete: false,
+          duplicate_prevented: true,
+        });
+      }
+    }
+
     if (shouldUseBatch("package_generate_lesson_minichecks", { forceSyncMode, itemCount: targets.length })) {
       const model = BATCH_DEFAULT_MODEL;
       const batchItems = targets.map((target, idx) => {
@@ -384,7 +409,7 @@ Deno.serve(async (req) => {
         const customId = `mc_${curriculumId.slice(0, 8)}_${(target.lessonId || target.competencyId || target.id).slice(0, 8)}_${idx}_${Date.now()}`;
         return {
           customId,
-          sourceJobId: p.job_id || null,
+          sourceJobId: jobId || null,
           sourceRef: {
             lesson_id: target.lessonId,
             curriculum_id: curriculumId,
@@ -426,6 +451,26 @@ Deno.serve(async (req) => {
         // Fall through to sync loop below
       } else {
         console.log(`[MiniChecks] BATCH_ENQUEUED: ${targets.length} targets → batch_id=${submitResult.batchId} model=${model}`);
+
+        // ── DEFENSE-IN-DEPTH: Set job to batch_pending directly ──
+        // This ensures correct lifecycle even if the runner doesn't handle batch_mode.
+        if (jobId) {
+          const now = new Date().toISOString();
+          await sb.from("job_queue").update({
+            status: "batch_pending",
+            updated_at: now,
+            locked_at: null,
+            locked_by: null,
+            meta: {
+              ...(p._original_meta || {}),
+              batch_id: submitResult.batchId,
+              batch_mode: true,
+              batch_enqueued_at: now,
+            },
+          }).eq("id", jobId);
+          console.log(`[MiniChecks] ✅ Job ${jobId.slice(0, 8)} → batch_pending (self-set)`);
+        }
+
         return json({
           ok: true,
           batch_mode: true,

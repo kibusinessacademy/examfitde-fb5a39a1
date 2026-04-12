@@ -1615,7 +1615,31 @@ Deno.serve(async (req) => {
           tickMetrics.rateLimits++;
         }
       }
-      // ── 3. Batch incomplete → adaptive requeue ─────────────────────
+      // ── 3a. Batch MODE GUARD (v6.1): async batch dispatch → park as batch_pending ──
+      // Functions that submit work to the async batch pipeline return
+      // { ok: true, batch_mode: true, batch_complete: false }.
+      // These jobs MUST NOT be requeued to pending (which causes re-dispatch loops).
+      // Instead, park them as batch_pending and let the batch-result-importer
+      // or batch-poll complete them when results arrive.
+      else if (parsed && parsed.batch_mode === true && parsed.batch_complete === false) {
+        console.log(`[job-runner] 📦 ${fnName} → batch_pending (batch=${parsed.batch_id || "?"})`);
+        finalState = {
+          status: "batch_pending" as any,
+          patch: {
+            meta: {
+              ...(job.meta || {}),
+              batch_id: parsed.batch_id || null,
+              batch_mode: true,
+              batch_enqueued_at: tsNow,
+              last_worker_id: WORKER_ID,
+            },
+          },
+        };
+      }
+      // ── 3b. Batch incomplete → adaptive requeue ─────────────────────
+      // For dispatcher-style jobs (e.g. learning-content fan-out) that return
+      // batch_complete=false WITHOUT batch_mode=true, meaning they need
+      // re-invocation to continue dispatching child work.
       else if (parsed && parsed.batch_complete === false) {
         // ── Dispatcher-aware adaptive delay ──
         // Avoids 3s spam-requeue; gives lesson jobs time to complete
