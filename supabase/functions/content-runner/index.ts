@@ -645,16 +645,32 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
     } else {
       // ── BUDGET_EXHAUSTED FAST-RELEASE ──
       // Job was never dispatched — release immediately without attempt increment
+      // v3.0: Added error-checking + retry to prevent zombie processing jobs
       if (dispatchError?.startsWith("BUDGET_EXHAUSTED")) {
-        await sb.from("job_queue").update({
-          status: "pending",
-          locked_at: null,
-          locked_by: null,
+        const releasePayload = {
+          status: "pending" as const,
+          locked_at: null as null,
+          locked_by: null as null,
           updated_at: new Date().toISOString(),
           last_error: dispatchError.slice(0, 2000),
-          run_after: new Date(Date.now() + 5_000).toISOString(), // 5s backoff, retry next runner
-        }).eq("id", job.id);
-        console.warn(`[content-runner] ⏸️ ${job.job_type} (${shortId}) ${dispatchError.slice(0, 100)} — released without attempt increment`);
+          run_after: new Date(Date.now() + 5_000).toISOString(),
+        };
+        const { error: releaseErr } = await sb.from("job_queue").update(releasePayload)
+          .eq("id", job.id).eq("status", "processing"); // guard: only release if still processing
+        if (releaseErr) {
+          console.error(`[content-runner] 🚨 FAST-RELEASE FAILED for ${job.job_type} (${shortId}): ${releaseErr.message} — retrying once`);
+          // One retry after 200ms
+          await new Promise(r => setTimeout(r, 200));
+          const { error: retryErr } = await sb.from("job_queue").update(releasePayload)
+            .eq("id", job.id).eq("status", "processing");
+          if (retryErr) {
+            console.error(`[content-runner] 🚨 FAST-RELEASE RETRY FAILED for ${job.job_type} (${shortId}): ${retryErr.message} — job may remain stuck`);
+          } else {
+            console.warn(`[content-runner] ⏸️ ${job.job_type} (${shortId}) FAST-RELEASE succeeded on retry`);
+          }
+        } else {
+          console.warn(`[content-runner] ⏸️ ${job.job_type} (${shortId}) ${dispatchError.slice(0, 100)} — released without attempt increment`);
+        }
         return { id: job.id, ok: false, error: "budget_exhausted_released", terminal: false };
       }
 
