@@ -57,6 +57,7 @@ const CONTROL_JOB_TYPES = new Set([
 const RECOVERY_JOB_TYPES = new Set([
   "package_repair_exam_pool_quality",
   "package_repair_minichecks",
+  "package_repair_failed_lessons",
   "repair_learning_content",
   "regenerate_learning_content_cluster",
   // Seeding/recheck (state-correction)

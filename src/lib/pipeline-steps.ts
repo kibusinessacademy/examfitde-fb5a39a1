@@ -154,6 +154,7 @@ export const PACKAGE_STATUS_CONFIG: Record<string, { label: string; color: strin
   building: { label: "Wird gebaut", color: "bg-primary/10 text-primary" },
   blocked: { label: "Blockiert", color: "bg-yellow-500/10 text-yellow-700" },
   quality_gate_failed: { label: "QA blockiert", color: "bg-destructive/10 text-destructive" },
+  publish_failed: { label: "Publish fehlgeschlagen", color: "bg-orange-500/10 text-orange-600" },
   frozen: { label: "Eingefroren", color: "bg-yellow-500/10 text-yellow-700" },
   failed: { label: "Fehlgeschlagen", color: "bg-destructive/10 text-destructive" },
   done: { label: "Fertig", color: "bg-emerald-500/10 text-emerald-600" },

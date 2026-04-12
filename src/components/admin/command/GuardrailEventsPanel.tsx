@@ -53,7 +53,7 @@ export default function GuardrailEventsPanel() {
       (supabase as any)
         .from("v_package_publish_readiness")
         .select("*")
-        .in("status", ["published", "building", "quality_gate_failed"])
+        .in("status", ["published", "building", "quality_gate_failed", "publish_failed"])
         .order("title"),
     ]);
     setEvents(evRes.data ?? []);

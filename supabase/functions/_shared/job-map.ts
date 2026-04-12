@@ -295,6 +295,7 @@ export const JOB_DEFINITIONS: Record<string, JobDefinition> = {
   package_validate_blueprints:       { pool: "default", edgeFunction: "package-validate-blueprints" },
   package_validate_exam_pool:        { pool: "default", edgeFunction: "package-validate-exam-pool" },
   package_repair_exam_pool_quality:  { pool: "default", edgeFunction: "package-repair-exam-pool-quality" },
+  package_repair_failed_lessons:     { pool: "default", edgeFunction: "package-repair-failed-lessons" },
   package_validate_learning_content: { pool: "default", edgeFunction: "package-validate-learning-content" },
   repair_learning_content:           { pool: "default", edgeFunction: "repair-learning-content" },
   regenerate_learning_content_cluster: { pool: "default", edgeFunction: "regenerate-learning-content-cluster" },
