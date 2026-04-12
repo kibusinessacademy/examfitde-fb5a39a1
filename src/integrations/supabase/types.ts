@@ -76428,6 +76428,10 @@ export type Database = {
         Args: { _user_id: string; _visitor_id: string }
         Returns: undefined
       }
+      fn_mark_legacy_exempt: {
+        Args: { p_package_id: string; p_reason: string; p_set_by?: string }
+        Returns: Json
+      }
       fn_materialize_ready_step_jobs: { Args: never; Returns: number }
       fn_minicheck_publish_gate: {
         Args: { p_curriculum_id: string }
@@ -76565,6 +76569,10 @@ export type Database = {
       fn_recover_stale_lock_exhausted: { Args: never; Returns: Json }
       fn_release_stale_job_locks: {
         Args: { p_lock_ttl_minutes?: number }
+        Returns: Json
+      }
+      fn_remove_legacy_exempt: {
+        Args: { p_package_id: string; p_set_by?: string }
         Returns: Json
       }
       fn_request_data_deletion: {
