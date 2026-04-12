@@ -243,8 +243,12 @@ export default function QueuePage() {
     mutationFn: async (action: string) => {
       if (action === 'retry_all_failed') return runAdminOpsAction('requeue_failed_jobs', { limit: 50 });
       if (action === 'kill_all_zombies') return runAdminOpsAction('kill_stale_processing_jobs', { limit: 50 });
+      if (action === 'full_reset') return runAdminOpsAction('full_queue_reset');
+      if (action === 'heal_ghosts') return runAdminOpsAction('heal_ghost_completions');
+      if (action === 'reset_stale') return runAdminOpsAction('reset_stale_processing');
+      if (action === 'cancel_zombie_noop') return runAdminOpsAction('cancel_zombie_noop_jobs');
+      if (action === 'purge_completed') return runAdminOpsAction('purge_completed_jobs', { hours: 24 });
       if (action === 'purge_failed') {
-        // Delete all failed jobs directly
         const { error } = await supabase.from('job_queue').delete().eq('status', 'failed');
         if (error) throw new Error(error.message);
         return { purged: true };
@@ -334,28 +338,54 @@ export default function QueuePage() {
 
       {/* Batch actions */}
       <div className="flex flex-wrap gap-2">
+        {/* Primary ops actions */}
+        <Button size="sm" variant="outline" disabled={batchMutation.isPending}
+          className="text-xs h-8 border-primary/30 text-primary hover:bg-primary/10"
+          onClick={() => {
+            if (confirm('Vollständiges Queue-Reset durchführen?\n\n• Stale Processing → Pending\n• Ghost meta.ok bereinigen\n• Zombie-Noop-Jobs stornieren')) {
+              batchMutation.mutate('full_reset');
+            }
+          }}>
+          {batchMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1.5" /> : <Zap className="h-3 w-3 mr-1.5" />}
+          Full Reset
+        </Button>
+        <Button size="sm" variant="outline" disabled={batchMutation.isPending} className="text-xs h-8"
+          onClick={() => batchMutation.mutate('reset_stale')}>
+          <RotateCcw className="h-3 w-3 mr-1.5" />
+          Stale Processing
+        </Button>
+        <Button size="sm" variant="outline" disabled={batchMutation.isPending} className="text-xs h-8"
+          onClick={() => batchMutation.mutate('heal_ghosts')}>
+          <CheckCircle2 className="h-3 w-3 mr-1.5" />
+          Ghost Heal
+        </Button>
+        <Button size="sm" variant="outline" disabled={batchMutation.isPending} className="text-xs h-8"
+          onClick={() => batchMutation.mutate('cancel_zombie_noop')}>
+          <Skull className="h-3 w-3 mr-1.5" />
+          Zombie Noop
+        </Button>
         {c.failed > 0 && (
           <>
-            <Button size="sm" variant="outline" disabled={batchMutation.isPending} className="text-xs"
+            <Button size="sm" variant="outline" disabled={batchMutation.isPending} className="text-xs h-8"
               onClick={() => batchMutation.mutate('retry_all_failed')}>
               {batchMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1.5" /> : <Play className="h-3 w-3 mr-1.5" />}
               Failed requeuen (max 50)
             </Button>
             <Button size="sm" variant="outline" disabled={batchMutation.isPending}
-              className="text-xs border-destructive/30 text-destructive hover:bg-destructive/10"
+              className="text-xs h-8 border-destructive/30 text-destructive hover:bg-destructive/10"
               onClick={() => {
                 if (confirm(`Alle ${c.failed} fehlgeschlagenen Jobs endgültig löschen?`)) {
                   batchMutation.mutate('purge_failed');
                 }
               }}>
               <Trash2 className="h-3 w-3 mr-1.5" />
-              Alle {c.failed} Failed löschen
+              {c.failed} Failed löschen
             </Button>
           </>
         )}
         {c.cancelled > 0 && (
           <Button size="sm" variant="outline" disabled={batchMutation.isPending}
-            className="text-xs border-muted-foreground/30 text-muted-foreground hover:bg-muted/30"
+            className="text-xs h-8 border-muted-foreground/30 text-muted-foreground hover:bg-muted/30"
             onClick={() => {
               if (confirm(`Alle ${c.cancelled} abgebrochenen Jobs löschen?`)) {
                 batchMutation.mutate('purge_cancelled');

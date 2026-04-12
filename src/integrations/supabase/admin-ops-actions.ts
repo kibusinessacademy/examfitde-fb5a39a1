@@ -31,7 +31,11 @@ type AdminOpsAction =
   | 'retry_stalled_step'
   // v3.0 Safety-Net actions
   | 'reset_stale_processing'
-  | 'cancel_zombie_noop_jobs';
+  | 'cancel_zombie_noop_jobs'
+  // v4.0 Full reset & ghost heal
+  | 'full_queue_reset'
+  | 'heal_ghost_completions'
+  | 'purge_completed_jobs';
 
 export interface ScopedPayload {
   limit?: number;
@@ -149,9 +153,21 @@ export async function retryStalledStep(packageId: string, stepKey: string) {
 /* ── v3.0 Safety-Net Actions ── */
 
 export async function resetStaleProcessingJobs() {
-  return runAdminOpsAction('reset_stale_processing' as any);
+  return runAdminOpsAction('reset_stale_processing');
 }
 
 export async function cancelZombieNoopJobs() {
-  return runAdminOpsAction('cancel_zombie_noop_jobs' as any);
+  return runAdminOpsAction('cancel_zombie_noop_jobs');
+}
+
+export async function fullQueueReset() {
+  return runAdminOpsAction('full_queue_reset');
+}
+
+export async function healGhostCompletions() {
+  return runAdminOpsAction('heal_ghost_completions');
+}
+
+export async function purgeCompletedJobs(hours = 24) {
+  return runAdminOpsAction('purge_completed_jobs', { hours });
 }
