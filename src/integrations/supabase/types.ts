@@ -76767,6 +76767,15 @@ export type Database = {
       fn_heal_ghost_completions:
         | { Args: never; Returns: Json }
         | { Args: { p_mode?: string }; Returns: Json }
+      fn_heal_queued_steps_without_jobs: {
+        Args: { p_dry_run?: boolean }
+        Returns: {
+          action: string
+          job_type: string
+          package_id: string
+          step_key: string
+        }[]
+      }
       fn_heal_track_step_drift: { Args: never; Returns: Json }
       fn_heal_upstream_hotspots: { Args: never; Returns: Json }
       fn_is_qc_coverage_eligible: {
