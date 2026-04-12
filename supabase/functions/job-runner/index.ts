@@ -73,8 +73,8 @@ function computeErrorBackoffMs(attempt: number): number {
 }
 
 // ── Function versioning (for deployment forensics) ──────────────────
-const FUNCTION_VERSION = "v5.9-phase3+6-hardened";
-const DEPLOYED_AT = "2026-02-27T17:00:00Z";
+const FUNCTION_VERSION = "v6.0-lane-aware-claiming";
+const DEPLOYED_AT = "2026-04-12T08:30:00Z";
 
 // Adaptive thresholds (rolling 5-min window)
 const THROTTLE_TIMEOUT_THRESHOLD = 10;
