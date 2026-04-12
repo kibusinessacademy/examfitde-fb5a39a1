@@ -100,7 +100,7 @@ async function fetchCommandData(): Promise<CommandData> {
         queued: data.filter((d: any) => d.status === 'queued').length,
         published: data.filter((d: any) => d.status === 'published').length,
         done: data.filter((d: any) => d.status === 'done').length,
-        failed: data.filter((d: any) => d.status === 'failed' || d.status === 'quality_gate_failed').length,
+        failed: data.filter((d: any) => d.status === 'failed' || d.status === 'quality_gate_failed' || d.status === 'publish_failed').length,
       };
     }),
     sb.from('course_packages')

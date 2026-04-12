@@ -78,6 +78,7 @@ const STATUS_RANK: Record<string, number> = {
   draft: 8,
   failed: 9,
   quality_gate_failed: 10,
+  publish_failed: 10,
 };
 
 const GENDER_INCLUSIVE_MARKER_REGEX = /\/(?:-|)(?:in|frau|mann|r|e|n)\b/i;

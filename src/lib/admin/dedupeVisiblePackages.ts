@@ -11,7 +11,7 @@ export function dedupeVisiblePackages(
   const STATUS_RANK: Record<string, number> = {
     published: 1, building: 2, queued: 3, blocked: 4,
     council_review: 5, qa: 6, planning: 7,
-    quality_gate_failed: 8, failed: 9,
+    quality_gate_failed: 8, publish_failed: 8, failed: 9,
   };
 
   for (const row of rows) {

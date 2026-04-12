@@ -449,7 +449,7 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
             </Card>
           )}
 
-          {!['published', 'done', 'quality_gate_failed'].includes(pkg.status) && !isBuilding && (
+          {!['published', 'done', 'quality_gate_failed', 'publish_failed'].includes(pkg.status) && !isBuilding && (
             <Card className="border-primary/30 bg-primary/5">
               <CardContent className="py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <div>
@@ -664,7 +664,7 @@ function QualityGateBannerSSoT({ packageId }: { packageId: string }) {
   const { data: es } = usePackageEffectiveState(packageId);
   if (!es) return null;
 
-  if (es.should_show_pass_banner && es.package_status === 'quality_gate_failed') {
+  if (es.should_show_pass_banner && (es.package_status === 'quality_gate_failed' || es.package_status === 'publish_failed')) {
     // Integrity passed but status is stale — show green override
     return (
       <Card className="border-emerald-500/30 bg-emerald-500/5">
