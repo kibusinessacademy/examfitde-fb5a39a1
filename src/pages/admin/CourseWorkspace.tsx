@@ -377,7 +377,8 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
                 <div className="flex items-center gap-0 overflow-x-auto pb-3">
                   {PIPELINE_STEPS.map((step, i) => {
                     const buildStep = stepMap.get(step.key);
-                    const status = buildStep?.status || 'pending';
+                    const rawStatus = buildStep?.status || 'pending';
+                    const status = getEffectiveStatus(step.key, rawStatus);
                     const Icon = step.icon;
                     const isDone = status === 'done'; const isSkipped = status === 'skipped'; const isFailed = status === 'failed'; const isRunning = status === 'running';
                     // Integrity step done but not passed = warning state
