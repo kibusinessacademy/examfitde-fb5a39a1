@@ -31,7 +31,11 @@ type AdminOpsAction =
   | 'retry_stalled_step'
   // v3.0 Safety-Net actions
   | 'reset_stale_processing'
-  | 'cancel_zombie_noop_jobs';
+  | 'cancel_zombie_noop_jobs'
+  // v4.0 Full reset & ghost heal
+  | 'full_queue_reset'
+  | 'heal_ghost_completions'
+  | 'purge_completed_jobs';
 
 export interface ScopedPayload {
   limit?: number;
