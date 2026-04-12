@@ -83,7 +83,64 @@ function hashJobId(id: string): number {
   return Math.abs(h);
 }
 
-// ── 4-Tier Timeout Classification (v2.5: Tier 4 for light DB-only orchestrators) ──
+// ── CENTRAL RELEASE FUNCTION (v4.2) ──────────────────────────
+// Single source of truth for releasing jobs back to pending.
+// All skip/defer/budget paths MUST use this instead of inline updates.
+// Invariant: No skip/defer path may leave a job in processing.
+type ReleaseReason =
+  | "RELEASE_BUDGET_EXHAUSTED"
+  | "RELEASE_LANE_BUDGET_STOP"
+  | "RELEASE_LANE_OVERFLOW"
+  | "RELEASE_HEALTH_GATE"
+  | "RELEASE_ROUTING_DEFERRED"
+  | "RELEASE_CIRCUIT_BREAKER"
+  | "RELEASE_CLAIM_BUDGET_EXCEEDED"
+  | "RELEASE_COOLDOWN_DEFERRED";
+
+interface ReleaseOpts {
+  deferMs?: number;       // delay before job is re-eligible (default: 3000)
+  detail?: string;        // human-readable detail appended to reason
+  skipAttemptIncrement?: boolean; // default true — release paths don't count as attempts
+}
+
+async function releaseJobToPending(
+  sb: ReturnType<typeof createClient>,
+  jobId: string,
+  reason: ReleaseReason,
+  opts: ReleaseOpts = {},
+): Promise<boolean> {
+  const { deferMs = 3_000, detail } = opts;
+  const shortId = String(jobId).slice(0, 8);
+  const errorMsg = detail ? `${reason}: ${detail}`.slice(0, 2000) : reason;
+  const releasePayload = {
+    status: "pending" as const,
+    locked_at: null as null,
+    locked_by: null as null,
+    updated_at: new Date().toISOString(),
+    last_error: errorMsg,
+    run_after: new Date(Date.now() + deferMs).toISOString(),
+  };
+
+  // Attempt 1
+  const { error: err1 } = await sb.from("job_queue").update(releasePayload)
+    .eq("id", jobId).eq("status", "processing");
+  if (!err1) return true;
+
+  console.error(`[content-runner] 🚨 ${reason} release FAILED for ${shortId}: ${err1.message} — retrying`);
+  // Retry after 200ms
+  await new Promise(r => setTimeout(r, 200));
+  const { error: err2 } = await sb.from("job_queue").update(releasePayload)
+    .eq("id", jobId).eq("status", "processing");
+  if (!err2) {
+    console.warn(`[content-runner] ⏸️ ${reason} release succeeded on retry for ${shortId}`);
+    return true;
+  }
+
+  console.error(`[content-runner] 🚨 ${reason} RETRY FAILED for ${shortId}: ${err2.message} — job may remain stuck as processing`);
+  return false;
+}
+
+
 // Tier 1 (40s): LLM generation — target functions with actual LLM calls
 const GENERATION_JOB_TYPES = new Set([
   "package_generate_handbook", "handbook_expand_section",
