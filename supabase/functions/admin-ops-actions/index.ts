@@ -539,6 +539,20 @@ Deno.serve(async (req) => {
         break;
       }
 
+      /* ── v3.0 Safety-Net Actions ── */
+      case "reset_stale_processing": {
+        const { data: resetData, error: resetErr } = await sb.rpc("fn_reset_stale_processing_jobs");
+        if (resetErr) throw resetErr;
+        result = { ok: true, ...(resetData as any) };
+        break;
+      }
+      case "cancel_zombie_noop_jobs": {
+        const { data: zombieData, error: zombieErr } = await sb.rpc("fn_cancel_zombie_noop_jobs");
+        if (zombieErr) throw zombieErr;
+        result = { ok: true, ...(zombieData as any) };
+        break;
+      }
+
       default:
         return json({ error: `Unknown action: ${action}` }, 400);
     }
