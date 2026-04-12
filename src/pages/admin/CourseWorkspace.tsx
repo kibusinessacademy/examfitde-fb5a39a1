@@ -522,7 +522,8 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
                 <div className="space-y-1">
                   {PIPELINE_STEPS.map((stepDef, idx) => {
                     const step = stepMap.get(stepDef.key);
-                    const status = step?.status || 'queued';
+                    const rawStatus = step?.status || 'queued';
+                    const status = getEffectiveStatus(stepDef.key, rawStatus);
                     const isDone = status === 'done'; const isSkipped = status === 'skipped'; const isFailed = status === 'failed'; const isRunning = status === 'running';
                     const isException = step?.exception_approved === true;
                     const stepKey = stepDef.key;
