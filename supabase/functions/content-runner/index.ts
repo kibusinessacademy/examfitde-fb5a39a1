@@ -50,7 +50,7 @@ const DISPATCH_TIMEOUT_HEAVY_MS = 35_000;    // Tier 2: LLM-validation + DB-heav
 const DISPATCH_TIMEOUT_GENERATION_MS = 40_000; // Tier 1: LLM-generation jobs
 const STATUS_WRITE_BUFFER_MS = 5_000;        // Reserved for status-write after dispatch
 const WORKER_ID = `content-runner-${crypto.randomUUID().slice(0, 8)}`;
-const FUNCTION_VERSION = "v2.6-4tier-hardened";
+const FUNCTION_VERSION = "v2.7-elite-tier-fix";
 
 // Pull-loop parameters — TUNED for max throughput
 const LOOP_MAX_MS = envInt("CONTENT_RUNNER_LOOP_MAX_MS", 50_000);    // v2.1: 30s→50s (edge fn limit ~60s)
@@ -87,7 +87,6 @@ function hashJobId(id: string): number {
 const GENERATION_JOB_TYPES = new Set([
   "package_generate_handbook", "handbook_expand_section",
   "package_generate_exam_pool",
-  "package_elite_harden",
   "package_auto_seed_exam_blueprints",
   "package_generate_lesson_minichecks",
   "lesson_generate_content_shard",
@@ -98,6 +97,7 @@ const HEAVY_JOB_TYPES = new Set([
   "package_validate_learning_content",
   "package_validate_exam_pool",
   "package_build_ai_tutor_index",
+  "package_elite_harden", // Mixed workload: annotations_only=pure DB, AI phases internally capped
 ]);
 
 // Tier 4 (10s): Pure DB-query / status-check orchestrators (<5s actual runtime)
