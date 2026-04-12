@@ -109,12 +109,14 @@ const LIGHT_JOB_TYPES = new Set([
   "package_validate_handbook_depth",
   "package_validate_oral_exam",
   "package_validate_tutor_index",
+  "package_validate_lesson_minichecks",
   "package_enqueue_handbook_expand",
-  "package_generate_oral_exam",
   "package_generate_blueprint_variants",
   "package_promote_blueprint_variants",
   "package_finalize_learning_content",
   "package_scaffold_learning_course",
+  "package_auto_publish",
+  "package_quality_council",
 ]);
 
 // Everything else not in Tier 1/2/4: Tier 3 (25s) — moderate DB + orchestration
