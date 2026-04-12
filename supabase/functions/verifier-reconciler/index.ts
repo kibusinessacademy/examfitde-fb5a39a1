@@ -121,6 +121,176 @@ const META_BASED_VERIFIERS: MetaVerifier[] = [
       return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true" };
     },
   },
+  // ── Gate / integrity steps that were missing (caused Finalization Deadlocks) ──
+  {
+    stepKey: "run_integrity_check",
+    jobType: "package_run_integrity_check",
+    isComplete: (meta) => {
+      const ok = meta?.ok === true;
+      return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true" };
+    },
+  },
+  {
+    stepKey: "quality_council",
+    jobType: "package_quality_council",
+    isComplete: (meta) => {
+      const ok = meta?.ok === true;
+      return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true" };
+    },
+  },
+  {
+    stepKey: "auto_publish",
+    jobType: "package_auto_publish",
+    isComplete: (meta) => {
+      const ok = meta?.ok === true;
+      return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true" };
+    },
+  },
+  {
+    stepKey: "auto_seed_exam_blueprints",
+    jobType: "package_auto_seed_exam_blueprints",
+    isComplete: (meta) => {
+      const ok = meta?.ok === true;
+      return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true" };
+    },
+  },
+  {
+    stepKey: "generate_exam_pool",
+    jobType: "package_generate_exam_pool",
+    isComplete: (meta) => {
+      const ok = meta?.ok === true;
+      return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true" };
+    },
+  },
+  {
+    stepKey: "fanout_learning_content",
+    jobType: "package_fanout_learning_content",
+    childJobTypes: ["lesson_generate_content_shard"],
+    isComplete: (meta) => {
+      const ok = meta?.ok === true;
+      return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true" };
+    },
+  },
+  {
+    stepKey: "validate_handbook_depth",
+    jobType: "package_validate_handbook_depth",
+    isComplete: (meta) => {
+      const ok = meta?.ok === true;
+      return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true" };
+    },
+  },
+  {
+    stepKey: "validate_lesson_minichecks",
+    jobType: "package_validate_lesson_minichecks",
+    isComplete: (meta) => {
+      const ok = meta?.ok === true;
+      return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true" };
+    },
+  },
+  {
+    stepKey: "validate_tutor_index",
+    jobType: "package_validate_tutor_index",
+    isComplete: (meta) => {
+      const ok = meta?.ok === true;
+      return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true" };
+    },
+  },
+  {
+    stepKey: "validate_learning_content",
+    jobType: "package_validate_learning_content",
+    isComplete: (meta) => {
+      const ok = meta?.ok === true;
+      return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true" };
+    },
+  },
+  {
+    stepKey: "repair_exam_pool_quality",
+    jobType: "package_repair_exam_pool_quality",
+    isComplete: (meta) => {
+      const ok = meta?.ok === true;
+      return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true" };
+    },
+  },
+  {
+    stepKey: "finalize_learning_content",
+    jobType: "package_finalize_learning_content",
+    isComplete: (meta) => {
+      const ok = meta?.ok === true;
+      return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true" };
+    },
+  },
+  {
+    stepKey: "enqueue_handbook_expand",
+    jobType: "package_enqueue_handbook_expand",
+    isComplete: (meta) => {
+      const ok = meta?.ok === true;
+      return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true" };
+    },
+  },
+  {
+    stepKey: "scaffold_learning_course",
+    jobType: "package_scaffold_learning_course",
+    isComplete: (meta) => {
+      const ok = meta?.ok === true;
+      return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true" };
+    },
+  },
+  {
+    stepKey: "elite_harden",
+    jobType: "package_elite_harden",
+    isComplete: (meta) => {
+      const ok = meta?.ok === true;
+      return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true" };
+    },
+  },
+  {
+    stepKey: "expand_handbook",
+    jobType: "handbook_expand_section",
+    isComplete: (meta) => {
+      const ok = meta?.ok === true;
+      return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true" };
+    },
+  },
+  {
+    stepKey: "generate_lesson_minichecks",
+    jobType: "package_generate_lesson_minichecks",
+    isComplete: (meta) => {
+      const ok = meta?.ok === true;
+      return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true" };
+    },
+  },
+  {
+    stepKey: "generate_glossary",
+    jobType: "package_generate_glossary",
+    isComplete: (meta) => {
+      const ok = meta?.ok === true;
+      return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true" };
+    },
+  },
+  {
+    stepKey: "build_ai_tutor_index",
+    jobType: "package_build_ai_tutor_index",
+    isComplete: (meta) => {
+      const ok = meta?.ok === true;
+      return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true" };
+    },
+  },
+  {
+    stepKey: "validate_blueprints",
+    jobType: "package_validate_blueprints",
+    isComplete: (meta) => {
+      const ok = meta?.ok === true;
+      return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true" };
+    },
+  },
+  {
+    stepKey: "exam_rebalance",
+    jobType: "package_exam_rebalance",
+    isComplete: (meta) => {
+      const ok = meta?.ok === true;
+      return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true" };
+    },
+  },
 ];
 
 // deno-lint-ignore no-explicit-any
