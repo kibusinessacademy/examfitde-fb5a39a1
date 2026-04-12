@@ -51,6 +51,24 @@ export default function RecoveryBoardCard() {
     onError: (e) => toast.error(`Fehler: ${e.message}`),
   });
 
+  const resetStale = useMutation({
+    mutationFn: () => resetStaleProcessingJobs(),
+    onSuccess: (res: any) => {
+      toast.success(`Stale Processing Reset: ${res?.reset_count ?? 0} Jobs zurückgesetzt`);
+      qc.invalidateQueries({ queryKey: ["admin"] });
+    },
+    onError: (e) => toast.error(`Reset failed: ${e.message}`),
+  });
+
+  const cancelZombies = useMutation({
+    mutationFn: () => cancelZombieNoopJobs(),
+    onSuccess: (res: any) => {
+      toast.success(`Zombie-Noop Guard: ${res?.cancelled_count ?? 0} Jobs storniert`);
+      qc.invalidateQueries({ queryKey: ["admin"] });
+    },
+    onError: (e) => toast.error(`Cancel failed: ${e.message}`),
+  });
+
   const finTotal = data?.finalization_stall?.total ?? 0;
   const nbTotal = data?.non_building_recoverable?.total ?? 0;
 
