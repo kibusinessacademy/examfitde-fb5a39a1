@@ -183,6 +183,36 @@ export default function RecoveryBoardCard() {
             </div>
           )}
         </div>
+
+        {/* v3.0 Safety-Net Actions */}
+        <div className="space-y-2 border-t pt-3">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="h-3.5 w-3.5 text-primary" />
+            <span className="text-sm font-medium">Safety-Net Guards</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => resetStale.mutate()}
+              disabled={resetStale.isPending}
+              className="h-7 text-xs"
+            >
+              {resetStale.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+              Stale Processing Reset
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => cancelZombies.mutate()}
+              disabled={cancelZombies.isPending}
+              className="h-7 text-xs"
+            >
+              {cancelZombies.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+              Zombie-Noop Guard
+            </Button>
+          </div>
+        </div>
       </CardContent>
     </Card>
   );
