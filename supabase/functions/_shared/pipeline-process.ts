@@ -709,9 +709,13 @@ export async function processPackage(
         actionType: "finalize_run_integrity_check",
         cancelStatuses: ["pending", "failed"],
         shouldFinalize: (meta) => {
-          const ok = meta?.ok === true || meta?.integrity_passed === true;
-          const reason = meta?.ok ? "meta.ok=true" : meta?.integrity_passed ? "meta.integrity_passed=true" : "not_ready";
-          return { ok, reason, snapshot: { ok: !!meta?.ok, integrity_passed: !!meta?.integrity_passed } };
+          // HARDENED: requires execution evidence — meta.ok alone is insufficient (ghost-completion guard)
+          const executed = meta?.executed === true;
+          const ok = executed && (meta?.ok === true || meta?.integrity_passed === true);
+          const reason = !executed
+            ? "BLOCKED: executed!=true (ghost-completion guard)"
+            : meta?.ok ? "meta.ok=true+executed" : meta?.integrity_passed ? "meta.integrity_passed=true+executed" : "not_ready";
+          return { ok, reason, snapshot: { ok: !!meta?.ok, integrity_passed: !!meta?.integrity_passed, executed } };
         },
       },
       {
@@ -720,9 +724,13 @@ export async function processPackage(
         actionType: "finalize_quality_council",
         cancelStatuses: ["pending", "failed"],
         shouldFinalize: (meta) => {
-          const ok = meta?.ok === true || meta?.approved === true;
-          const reason = meta?.ok ? "meta.ok=true" : meta?.approved ? "meta.approved=true" : "not_ready";
-          return { ok, reason, snapshot: { ok: !!meta?.ok, approved: !!meta?.approved } };
+          // HARDENED: requires execution evidence — meta.ok alone is insufficient (ghost-completion guard)
+          const executed = meta?.executed === true;
+          const ok = executed && (meta?.ok === true || meta?.approved === true);
+          const reason = !executed
+            ? "BLOCKED: executed!=true (ghost-completion guard)"
+            : meta?.ok ? "meta.ok=true+executed" : meta?.approved ? "meta.approved=true+executed" : "not_ready";
+          return { ok, reason, snapshot: { ok: !!meta?.ok, approved: !!meta?.approved, executed } };
         },
       },
       {
