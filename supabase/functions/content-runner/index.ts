@@ -1008,60 +1008,79 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
     }
   }
 
-  // ── Claim content-pool jobs (SSOT-budgeted) ──
-  // Global claim budget: CLAIM_LIMIT is the TOTAL across ALL pools.
-  // Prebuild gets at most 2 slots; default pool gets the rest.
-  const PREBUILD_MAX = 2;
-  const defaultBudget = Math.max(1, CLAIM_LIMIT - PREBUILD_MAX);
-  // deno-lint-ignore no-explicit-any
-  const claimCount = defaultBudget;
-  // deno-lint-ignore no-explicit-any
-  let { data: jobs, error: claimErr } = await sb.rpc("claim_pending_jobs_v4" as any, {
-    p_limit: claimCount,
-    p_worker_id: WORKER_ID,
-    p_worker_pool: "default",
-  });
-  jobs = ((jobs ?? []) as any[]).slice(0, claimCount);
+  // ═══════════════════════════════════════════════════════════════
+  // LANE-AWARE CLAIMING (v4.3)
+  // Instead of claiming globally then releasing excess per-lane,
+  // we claim per-lane with lane-specific budgets.
+  // This prevents the claim→release→reclaim loop.
+  // ═══════════════════════════════════════════════════════════════
+  const laneBudgets = allocateLaneBudgets(CLAIM_LIMIT);
+  const laneMetrics: Record<RunnerLane, { claimed: number; dispatched: number; succeeded: number; failed: number; budget_exhausted: number }> = {
+    control:    { claimed: 0, dispatched: 0, succeeded: 0, failed: 0, budget_exhausted: 0 },
+    recovery:   { claimed: 0, dispatched: 0, succeeded: 0, failed: 0, budget_exhausted: 0 },
+    generation: { claimed: 0, dispatched: 0, succeeded: 0, failed: 0, budget_exhausted: 0 },
+  };
 
-  // ── Also claim prebuild-pool jobs (variant materialization) ──
-  // Prebuild is capped within the global CLAIM_LIMIT budget — not additive.
-  const prebuildSlots = PREBUILD_MAX;
+  // deno-lint-ignore no-explicit-any
+  const allClaimedJobs: any[] = [];
+
+  for (const lane of LANE_DISPATCH_ORDER) {
+    const budget = laneBudgets[lane];
+    if (budget <= 0) continue;
+
+    // Check time budget before claiming this lane
+    const remainingMs = loopDeadlineMs ? loopDeadlineMs - Date.now() : Infinity;
+    if (remainingMs < STATUS_WRITE_BUFFER_MS * 2) {
+      console.warn(`[content-runner] LANE_SKIP_PRE_CLAIM: ${lane} lane — only ${Math.round(remainingMs)}ms remaining, not claiming`);
+      continue;
+    }
+
+    const laneJobTypes = jobTypesForLane(lane);
+    // deno-lint-ignore no-explicit-any
+    const { data: laneJobs, error: laneErr } = await (sb as any).rpc("claim_pending_jobs_by_types", {
+      p_job_types: laneJobTypes,
+      p_limit: budget,
+      p_worker_id: WORKER_ID,
+      p_worker_pool: "default",
+    });
+
+    if (laneErr) {
+      console.error(`[content-runner] claim error for ${lane}: ${laneErr.message}`);
+      continue;
+    }
+
+    const claimed = ((laneJobs ?? []) as any[]).slice(0, budget);
+    laneMetrics[lane].claimed = claimed.length;
+    allClaimedJobs.push(...claimed);
+
+    if (claimed.length > 0) {
+      console.log(`[content-runner] LANE_CLAIM[${lane}]: claimed ${claimed.length}/${budget} job(s)`);
+    }
+  }
+
+  // ── Also claim prebuild-pool jobs (lane-agnostic, small budget) ──
+  const PREBUILD_MAX = 2;
   // deno-lint-ignore no-explicit-any
   const { data: prebuildJobs, error: prebuildErr } = await sb.rpc("claim_pending_jobs_v4" as any, {
-    p_limit: prebuildSlots,
+    p_limit: PREBUILD_MAX,
     p_worker_id: WORKER_ID,
     p_worker_pool: "prebuild",
   });
-  if (!prebuildErr && prebuildJobs && prebuildJobs.length > 0) {
-    console.log(`[content-runner] Also claimed ${prebuildJobs.length} prebuild job(s)`);
-    // Enforce total claim budget: default + prebuild ≤ CLAIM_LIMIT
-    const totalSoFar = (jobs ?? []).length;
-    const remainingBudget = Math.max(0, CLAIM_LIMIT - totalSoFar);
-    const cappedPrebuild = (prebuildJobs as any[]).slice(0, remainingBudget);
-    if (cappedPrebuild.length < prebuildJobs.length) {
-      // Release excess prebuild claims back to pending
-      const excess = (prebuildJobs as any[]).slice(remainingBudget);
-      for (const ej of excess) {
-        await releaseJobToPending(sb, ej.id, "RELEASE_CLAIM_BUDGET_EXCEEDED", {
-          deferMs: 2_000,
-          detail: `total ${totalSoFar}+${prebuildJobs.length} > CLAIM_LIMIT ${CLAIM_LIMIT}, released by ${WORKER_ID}`,
-        });
-      }
-      console.warn(`[content-runner] CLAIM_BUDGET: released ${excess.length} excess prebuild claims (budget=${CLAIM_LIMIT})`);
-    }
-    jobs = [...(jobs ?? []), ...cappedPrebuild];
+  if (!prebuildErr && prebuildJobs && (prebuildJobs as any[]).length > 0) {
+    console.log(`[content-runner] Also claimed ${(prebuildJobs as any[]).length} prebuild job(s)`);
+    allClaimedJobs.push(...(prebuildJobs as any[]));
   }
 
-  if (claimErr) {
-    console.error(`[content-runner] claim error: ${claimErr.message}`);
+  // deno-lint-ignore no-explicit-any
+  let jobs: any[] = allClaimedJobs;
+
+  if (jobs.length === 0) {
     return { claimed: 0, succeeded: 0, failed: 0, deferred: 0 };
   }
 
-  if (!jobs || jobs.length === 0) {
-    return { claimed: 0, succeeded: 0, failed: 0, deferred: 0 };
-  }
+  console.log(`[content-runner] Claimed ${jobs.length} job(s) [lane-aware, worker=${WORKER_ID}] ctrl=${laneMetrics.control.claimed} recov=${laneMetrics.recovery.claimed} gen=${laneMetrics.generation.claimed}`);
 
-  // ── Pool mismatch auto-fix ──
+  // ── Pool mismatch auto-fix (preserved from v4.2) ──
   for (const job of jobs) {
     const expectedPool = poolForJobType(job.job_type);
     if (job.worker_pool && job.worker_pool !== expectedPool) {
@@ -1075,24 +1094,17 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
     }
   }
 
-  console.log(`[content-runner] Claimed ${jobs.length} job(s) [concurrency=${BASE_CONCURRENCY}, claimLimit=${claimCount}, worker=${WORKER_ID}]`);
-
-  // ── Finish-Line Guard: enforce jobtype_limits to prevent compute saturation ──
-  // Release excess jobs back to pending if a job_type exceeds its max_processing limit
+  // ── Finish-Line Guard: enforce jobtype_limits ──
   {
     const { data: limits } = await sb.from("jobtype_limits").select("job_type, max_processing");
     if (limits && limits.length > 0) {
       const limitMap = new Map(limits.map((l: any) => [l.job_type, l.max_processing as number]));
-      
-      // Count currently processing jobs per type (globally, not just this runner)
       const typesInBatch = [...new Set(jobs.map((j: any) => j.job_type))];
       const deferredIds: string[] = [];
       
       for (const jt of typesInBatch) {
         const cap = limitMap.get(jt);
-        if (cap == null) continue; // no limit configured
-        
-        // Count ALL globally processing jobs of this type (including ours)
+        if (cap == null) continue;
         const { count: totalProcessing } = await sb
           .from("job_queue")
           .select("id", { count: "exact", head: true })
@@ -1104,7 +1116,6 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
         const overLimit = global - cap;
         
         if (overLimit > 0) {
-          // Release up to overLimit from OUR batch (oldest first = least progress)
           const toRelease = Math.min(overLimit, batchJobs.length);
           const excess = batchJobs.slice(0, toRelease);
           for (const ej of excess) {
@@ -1115,8 +1126,6 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
       }
       
       if (deferredIds.length > 0) {
-        // Release excess back to pending — MUST clear completed_at and preserve existing meta
-        // to prevent phantom completion when another runner picks up the job
         for (const defId of deferredIds) {
           const defJob = jobs.find((j: any) => j.id === defId);
           const existingMeta = (defJob?.meta || {}) as Record<string, unknown>;
@@ -1124,14 +1133,13 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
             status: "pending",
             locked_at: null,
             locked_by: null,
-            completed_at: null,  // CRITICAL: clear to prevent zombie reaper phantom completion
+            completed_at: null,
             updated_at: new Date().toISOString(),
             meta: {
               ...existingMeta,
               deferred_by: WORKER_ID,
               deferred_reason: "jobtype_limit_exceeded",
               deferred_at: new Date().toISOString(),
-              // Clear success markers to prevent confusion
               last_success_at: null,
               liveness_status: "deferred",
             },
@@ -1144,7 +1152,7 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
     }
   }
 
-  // ── Cleanup expired cooldowns (once per first pass) ──
+  // ── Cleanup expired cooldowns ──
   if (isFirstPass) {
     try {
       const cleaned = await cleanupExpiredCooldowns();
@@ -1153,9 +1161,6 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
   }
 
   // ── Intent-aware Provider Health Gate ──
-  // Uses top-level WORKLOAD_KEY_MAP for provider routing
-
-  // Group jobs by workload key for per-intent health checking
   const jobsByWorkload = new Map<string, typeof jobs>();
   for (const job of jobs) {
     const wk = workloadKeyForJob(job.job_type);
@@ -1163,16 +1168,14 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
     jobsByWorkload.get(wk)!.push(job);
   }
 
-  // Check health per workload; defer only unhealthy intents
   const healthyJobs: typeof jobs = [];
   let totalDeferred = 0;
 
-  const LAST_RESORT_MAX_PER_WORKLOAD = 2; // max jobs to force through when all providers on cooldown
+  const LAST_RESORT_MAX_PER_WORKLOAD = 2;
 
   for (const [workloadKey, wkJobs] of jobsByWorkload) {
     const route = await resolveAvailableRoute(workloadKey);
     if (!route?.ok) {
-      // Fallback: try generic "learning_content" route before deferring
       const fallbackRoute = workloadKey !== "learning_content"
         ? await resolveAvailableRoute("learning_content")
         : null;
@@ -1183,7 +1186,6 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
         continue;
       }
 
-      // ── LAST RESORT: bypass cooldown for a small batch to prevent total stall ──
       const lastResort = await resolveLastResortRoute(workloadKey);
       if (lastResort?.ok) {
         const forceThrough = wkJobs.slice(0, LAST_RESORT_MAX_PER_WORKLOAD);
@@ -1195,7 +1197,6 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
         );
         healthyJobs.push(...forceThrough);
 
-        // Defer the rest
         if (deferred.length > 0) {
           for (const job of deferred) {
             await releaseJobToPending(sb, job.id, "RELEASE_HEALTH_GATE", {
@@ -1208,7 +1209,6 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
         continue;
       }
 
-      // True last resort failed too — full defer
       console.warn(
         `[content-runner] HEALTH_GATE: no healthy route for ${workloadKey} — deferring ${wkJobs.length} job(s) by 10s`,
       );
@@ -1225,7 +1225,6 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
     }
   }
 
-  // Replace jobs with only healthy ones
   jobs = healthyJobs;
 
   if (jobs.length === 0) {
@@ -1233,33 +1232,24 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // PHASE 1: Lane-Based Dispatch (Control → Recovery → Generation)
+  // DISPATCH: Process all claimed jobs (already lane-scoped by claiming)
+  // No more lane-level release needed — jobs were claimed per-lane.
   // ═══════════════════════════════════════════════════════════════
-  const lanes = partitionByLane(jobs as { job_type: string; id: string }[]);
-  const laneBudgets = allocateLaneBudgets(jobs.length);
-  const laneMetrics: Record<RunnerLane, { dispatched: number; succeeded: number; failed: number; budget_exhausted: number }> = {
-    control:    { dispatched: 0, succeeded: 0, failed: 0, budget_exhausted: 0 },
-    recovery:   { dispatched: 0, succeeded: 0, failed: 0, budget_exhausted: 0 },
-    generation: { dispatched: 0, succeeded: 0, failed: 0, budget_exhausted: 0 },
-  };
-
-  console.log(
-    `[content-runner] LANE_DISPATCH: control=${lanes.control.length} recovery=${lanes.recovery.length} generation=${lanes.generation.length} | ` +
-    `budgets: ctrl=${laneBudgets.control} recov=${laneBudgets.recovery} gen=${laneBudgets.generation}`
-  );
 
   // deno-lint-ignore no-explicit-any
   const results: any[] = [];
+
+  // Dispatch in lane order for priority, but no excess release needed
+  const lanes = partitionByLane(jobs as { job_type: string; id: string }[]);
 
   for (const lane of LANE_DISPATCH_ORDER) {
     const laneJobs = lanes[lane];
     if (laneJobs.length === 0) continue;
 
-    // Budget check: is there enough time left for this lane?
+    // Budget check: is there enough time left?
     const remainingMs = loopDeadlineMs ? loopDeadlineMs - Date.now() : Infinity;
     if (remainingMs < STATUS_WRITE_BUFFER_MS * 2) {
       console.warn(`[content-runner] LANE_BUDGET_STOP: skipping ${lane} lane — only ${Math.round(remainingMs)}ms remaining`);
-      // v4.2: Central release with retry for all lane-skipped jobs
       for (const job of laneJobs) {
         await releaseJobToPending(sb, (job as any).id, "RELEASE_LANE_BUDGET_STOP", {
           deferMs: 3_000,
@@ -1270,26 +1260,9 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
       continue;
     }
 
-    // Cap to lane budget — release excess back to pending for next cycle
-    const budget = laneBudgets[lane];
-    const toDispatch = laneJobs.slice(0, budget);
-    const excess = laneJobs.slice(budget);
-
-    if (excess.length > 0) {
-      let overflowReleaseErrors = 0;
-      for (const job of excess) {
-        const ok = await releaseJobToPending(sb, (job as any).id, "RELEASE_LANE_OVERFLOW", {
-          deferMs: 2_000,
-          detail: `${lane} budget=${budget}, released for next cycle`,
-        });
-        if (!ok) overflowReleaseErrors++;
-      }
-      console.log(`[content-runner] LANE_OVERFLOW: released ${excess.length} excess ${lane} job(s) (budget=${budget})${overflowReleaseErrors ? ` [${overflowReleaseErrors} release errors!]` : ""}`);
-    }
-
-    // Dispatch lane jobs in parallel within the lane
+    // Dispatch lane jobs in parallel
     const settled = await Promise.allSettled(
-      toDispatch.map((job: any) => processOneJob(job, sb, supabaseUrl, serviceKey, loopDeadlineMs))
+      laneJobs.map((job: any) => processOneJob(job, sb, supabaseUrl, serviceKey, loopDeadlineMs))
     );
 
     for (const s of settled) {
