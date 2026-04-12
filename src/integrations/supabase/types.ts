@@ -59681,6 +59681,20 @@ export type Database = {
         }
         Relationships: []
       }
+      ops_integrity_gate_drift: {
+        Row: {
+          drift_type: string | null
+          hard_fail_reasons: Json | null
+          integrity_passed: boolean | null
+          meta_ok: string | null
+          meta_score: string | null
+          package_id: string | null
+          pkg_status: string | null
+          step_status: string | null
+          title: string | null
+        }
+        Relationships: []
+      }
       ops_integrity_report_mismatch: {
         Row: {
           integrity_passed: boolean | null
