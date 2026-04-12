@@ -75959,6 +75959,7 @@ export type Database = {
         Returns: Json
       }
       fn_cancel_zombie_jobs: { Args: never; Returns: number }
+      fn_cancel_zombie_noop_jobs: { Args: never; Returns: number }
       fn_capture_gate_snapshot: {
         Args: { p_package_id: string }
         Returns: Json
