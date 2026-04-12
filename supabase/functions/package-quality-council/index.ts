@@ -334,6 +334,23 @@ Deno.serve(async (req) => {
     }
 
     console.log(`[QualityCouncil] Package ${packageId.slice(0, 8)}: score=${score} status=${status} badge=${badge} rules=${rulesPassed}/${results.length}`);
+
+    // ── DISPATCH DOWNSTREAM: enqueue auto_publish when council passes ──
+    if (status !== "fail") {
+      try {
+        await enqueueJob(sb, {
+          job_type: "package_auto_publish",
+          package_id: packageId,
+          payload: { package_id: packageId, curriculum_id: curriculumId },
+          priority: 20,
+        });
+        console.log(`[QualityCouncil] ✅ Enqueued package_auto_publish for ${packageId.slice(0, 8)}`);
+      } catch (enqErr) {
+        // Dedupe guard in enqueue_job_if_absent will handle duplicates — log but don't fail
+        console.warn(`[QualityCouncil] auto_publish enqueue skipped: ${(enqErr as Error).message}`);
+      }
+    }
+
     return json({ ok: true, package_id: packageId, score, status, badge, rules_passed: rulesPassed, rules_failed: rulesFailed, rules_warned: rulesWarned });
   } catch (e) {
     return json({ error: (e as Error).message }, 500);
