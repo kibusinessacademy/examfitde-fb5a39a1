@@ -21,6 +21,8 @@ export type AdminAutoHealQueueItem = {
     | "heal_finalization_stall"
     | "heal_non_building"
     | "retry_stalled_step"
+    | "reset_stale_processing"
+    | "cancel_zombie_noop"
     | "manual_review";
   status: "pending" | "processing" | "done" | "failed" | "cancelled";
   notes: string | null;

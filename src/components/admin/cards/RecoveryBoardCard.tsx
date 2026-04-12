@@ -1,10 +1,16 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { adminRpc } from "@/integrations/supabase/admin-rpc";
-import { healFinalizationStall, healNonBuilding, runAdminOpsAction } from "@/integrations/supabase/admin-ops-actions";
+import {
+  healFinalizationStall,
+  healNonBuilding,
+  runAdminOpsAction,
+  resetStaleProcessingJobs,
+  cancelZombieNoopJobs,
+} from "@/integrations/supabase/admin-ops-actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, Wrench, Loader2, Play } from "lucide-react";
+import { AlertTriangle, Wrench, Loader2, Play, ShieldCheck } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -43,6 +49,24 @@ export default function RecoveryBoardCard() {
       qc.invalidateQueries({ queryKey: ["admin", "recovery-board"] });
     },
     onError: (e) => toast.error(`Fehler: ${e.message}`),
+  });
+
+  const resetStale = useMutation({
+    mutationFn: () => resetStaleProcessingJobs(),
+    onSuccess: (res: any) => {
+      toast.success(`Stale Processing Reset: ${res?.reset_count ?? 0} Jobs zurückgesetzt`);
+      qc.invalidateQueries({ queryKey: ["admin"] });
+    },
+    onError: (e) => toast.error(`Reset failed: ${e.message}`),
+  });
+
+  const cancelZombies = useMutation({
+    mutationFn: () => cancelZombieNoopJobs(),
+    onSuccess: (res: any) => {
+      toast.success(`Zombie-Noop Guard: ${res?.cancelled_count ?? 0} Jobs storniert`);
+      qc.invalidateQueries({ queryKey: ["admin"] });
+    },
+    onError: (e) => toast.error(`Cancel failed: ${e.message}`),
   });
 
   const finTotal = data?.finalization_stall?.total ?? 0;
@@ -158,6 +182,36 @@ export default function RecoveryBoardCard() {
               ))}
             </div>
           )}
+        </div>
+
+        {/* v3.0 Safety-Net Actions */}
+        <div className="space-y-2 border-t pt-3">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="h-3.5 w-3.5 text-primary" />
+            <span className="text-sm font-medium">Safety-Net Guards</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => resetStale.mutate()}
+              disabled={resetStale.isPending}
+              className="h-7 text-xs"
+            >
+              {resetStale.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+              Stale Processing Reset
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => cancelZombies.mutate()}
+              disabled={cancelZombies.isPending}
+              className="h-7 text-xs"
+            >
+              {cancelZombies.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+              Zombie-Noop Guard
+            </Button>
+          </div>
         </div>
       </CardContent>
     </Card>

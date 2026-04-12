@@ -28,7 +28,10 @@ type AdminOpsAction =
   | 'repair_minichecks'
   | 'repair_oral_exam'
   | 'repair_exam_pool_quality'
-  | 'retry_stalled_step';
+  | 'retry_stalled_step'
+  // v3.0 Safety-Net actions
+  | 'reset_stale_processing'
+  | 'cancel_zombie_noop_jobs';
 
 export interface ScopedPayload {
   limit?: number;
@@ -115,4 +118,40 @@ export async function healFinalizationStall(limit = 20) {
 
 export async function healNonBuilding(limit = 20) {
   return runAdminOpsAction('heal_non_building', { limit });
+}
+
+/* ── Targeted Repair Actions ── */
+
+export async function repairLessons(packageId: string) {
+  return runAdminOpsAction('repair_lessons', { package_id: packageId });
+}
+
+export async function repairHandbook(packageId: string) {
+  return runAdminOpsAction('repair_handbook', { package_id: packageId });
+}
+
+export async function repairMinichecks(packageId: string) {
+  return runAdminOpsAction('repair_minichecks', { package_id: packageId });
+}
+
+export async function repairOralExam(packageId: string) {
+  return runAdminOpsAction('repair_oral_exam', { package_id: packageId });
+}
+
+export async function repairExamPoolQuality(packageId: string) {
+  return runAdminOpsAction('repair_exam_pool_quality', { package_id: packageId });
+}
+
+export async function retryStalledStep(packageId: string, stepKey: string) {
+  return runAdminOpsAction('retry_stalled_step', { package_id: packageId, step_key: stepKey });
+}
+
+/* ── v3.0 Safety-Net Actions ── */
+
+export async function resetStaleProcessingJobs() {
+  return runAdminOpsAction('reset_stale_processing' as any);
+}
+
+export async function cancelZombieNoopJobs() {
+  return runAdminOpsAction('cancel_zombie_noop_jobs' as any);
 }
