@@ -148,6 +148,7 @@ const GENERATION_JOB_TYPES = new Set([
   "package_auto_seed_exam_blueprints",
   "package_generate_lesson_minichecks",
   "lesson_generate_content_shard",
+  "package_generate_oral_exam",  // v4.4: promoted from T3 — real LLM generation, was causing STALE_LOCK_RECOVERY loops at 25s
 ]);
 
 // Tier 2 (35s): LLM validation / DB-heavy
