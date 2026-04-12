@@ -274,6 +274,50 @@ Deno.test("P:DAG_RUNTIME: no step running with predecessor not done", async () =
 });
 
 // ══════════════════════════════════════════════
+// REGRESSION: run_integrity_check done + ok=false must NOT be treated as passed
+// ══════════════════════════════════════════════
+Deno.test("P:INTEGRITY_GATE: done + meta.ok=false must not enable downstream", async () => {
+  // Find any package where run_integrity_check is done but meta.ok is false
+  const { data: suspectSteps } = await sb
+    .from("package_steps")
+    .select("package_id, step_key, status, meta")
+    .eq("step_key", "run_integrity_check")
+    .eq("status", "done")
+    .limit(100);
+
+  if (!suspectSteps || suspectSteps.length === 0) {
+    console.log("⏭️ No run_integrity_check steps with status=done found — skipping");
+    return;
+  }
+
+  const failedGates = suspectSteps.filter((s) => {
+    const meta = s.meta as Record<string, unknown> | null;
+    return meta && meta.ok === false;
+  });
+
+  if (failedGates.length === 0) {
+    console.log(`✅ All ${suspectSteps.length} done integrity steps have meta.ok=true`);
+    return;
+  }
+
+  // For packages with done + ok=false: integrity_passed on course_packages MUST be false
+  const failedPkgIds = failedGates.map((s) => s.package_id);
+  const { data: packages } = await sb
+    .from("course_packages")
+    .select("id, integrity_passed")
+    .in("id", failedPkgIds);
+
+  const phantomPassed = (packages ?? []).filter((p) => p.integrity_passed === true);
+  assertEquals(
+    phantomPassed.length,
+    0,
+    `❌ SSOT BREACH: ${phantomPassed.length} package(s) have integrity_passed=true despite run_integrity_check.meta.ok=false: ${JSON.stringify(phantomPassed.map((p) => p.id.slice(0, 8)))}`,
+  );
+
+  console.log(`✅ ${failedGates.length} gate-failed integrity step(s) correctly have integrity_passed=false`);
+});
+
+// ══════════════════════════════════════════════
 // SKIP AUDIT
 // ══════════════════════════════════════════════
 Deno.test("SKIP_AUDIT: dag-sequence skip budget", () => {

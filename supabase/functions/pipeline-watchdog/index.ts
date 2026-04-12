@@ -450,15 +450,20 @@ Deno.serve(async (req) => {
     {
       const { data: qgHealedPkgs } = await sb
         .from("course_packages")
-        .select("id")
+        .select("id, integrity_passed")
         .eq("status", "quality_gate_failed")
         .limit(20);
 
       let unblocked = 0;
       for (const pkg of qgHealedPkgs || []) {
+        // ── CRITICAL: integrity_passed flag is the SSOT for gate result ──
+        // status=done on run_integrity_check only means "check executed",
+        // NOT "gate passed". Must verify integrity_passed=true on package.
+        if (!(pkg as any).integrity_passed) continue;
+
         const { data: stepRows } = await sb
           .from("package_steps")
-          .select("step_key, status")
+          .select("step_key, status, meta")
           .eq("package_id", pkg.id);
 
         if (!stepRows || stepRows.length === 0) continue;
@@ -469,6 +474,14 @@ Deno.serve(async (req) => {
         const validateDone = byKey.get("validate_exam_pool") === "done";
         const integrityDone = byKey.get("run_integrity_check") === "done";
         if (!validateDone || !integrityDone) continue;
+
+        // Double-check: run_integrity_check meta.ok must be true
+        const integrityStep = stepRows.find((s: any) => s.step_key === "run_integrity_check");
+        const integrityMeta = integrityStep?.meta as Record<string, unknown> | null;
+        if (!integrityMeta?.ok) {
+          console.warn(`[watchdog] QG-unblock BLOCKED: pkg ${(pkg.id as string).slice(0, 8)} — integrity step done but meta.ok=${integrityMeta?.ok}`);
+          continue;
+        }
 
         // Check that next steps are queued (ready for runner)
         const hasQueuedNext = stepRows.some((s: any) =>
@@ -488,12 +501,12 @@ Deno.serve(async (req) => {
         await sb.rpc("safe_transition_package_status", {
           p_package_id: pkg.id,
           p_new_status: "building",
-          p_extra: { last_error: "Watchdog auto-unblock: QG healed, ready-to-continue" },
+          p_extra: { last_error: "Watchdog auto-unblock: QG healed, integrity_passed=true" },
         });
 
         unblocked++;
-        actions.push(`QG-unblock: pkg ${(pkg.id as string).slice(0, 8)} → building (healed)`);
-        console.log(`[watchdog] QG-unblock: ${(pkg.id as string).slice(0, 8)} — validate_exam_pool+integrity done, next steps queued`);
+        actions.push(`QG-unblock: pkg ${(pkg.id as string).slice(0, 8)} → building (integrity_passed+healed)`);
+        console.log(`[watchdog] QG-unblock: ${(pkg.id as string).slice(0, 8)} — integrity_passed=true, validate+integrity done, next steps queued`);
       }
 
       if (unblocked > 0) {
