@@ -76526,6 +76526,7 @@ export type Database = {
         Args: { p_org_id: string; p_roles?: string[] }
         Returns: undefined
       }
+      fn_reset_stale_processing_jobs: { Args: never; Returns: Json }
       fn_reset_zombie_processing_jobs: { Args: never; Returns: number }
       fn_resolve_partner_attribution: {
         Args: {
