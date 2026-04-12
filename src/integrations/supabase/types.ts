@@ -77086,6 +77086,14 @@ export type Database = {
         Returns: Json
       }
       fn_sync_steps_from_completed_jobs: { Args: never; Returns: Json }
+      fn_test_hollow_guard_regression: {
+        Args: never
+        Returns: {
+          detail: Json
+          passed: boolean
+          test_name: string
+        }[]
+      }
       fn_update_package_prebuild_status: {
         Args: { p_package_id: string }
         Returns: string
