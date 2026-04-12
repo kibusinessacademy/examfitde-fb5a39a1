@@ -657,9 +657,11 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
         const resultBatchComplete = result && typeof result === "object" && result.batch_complete === true;
         if (resultOk || resultBatchComplete) {
           const packageId = job.payload?.package_id;
-          // Reverse-lookup step_key from job_type
+          // Reverse-lookup step_key from job_type (defensive: filter nulls)
           const JOB_TYPE_TO_STEP = Object.fromEntries(
-            Object.entries(STEP_TO_JOB_TYPE).map(([k, v]) => [v, k])
+            Object.entries(STEP_TO_JOB_TYPE)
+              .filter(([, v]) => !!v)
+              .map(([k, v]) => [v, k])
           );
           const stepKey = JOB_TYPE_TO_STEP[job.job_type];
           if (packageId && stepKey) {

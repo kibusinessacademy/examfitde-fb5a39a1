@@ -14,19 +14,8 @@ function json(body: unknown, status = 200) {
   });
 }
 
-// ── Shared Constants ──
-const FULL_STEP_ORDER = [
-  'scaffold_learning_course','generate_glossary','generate_learning_content','validate_learning_content',
-  'auto_seed_exam_blueprints','validate_blueprints',
-  'generate_blueprint_variants','validate_blueprint_variants','promote_blueprint_variants',
-  'generate_exam_pool','validate_exam_pool',
-  'build_ai_tutor_index','validate_tutor_index',
-  'generate_oral_exam','validate_oral_exam',
-  'generate_lesson_minichecks','validate_lesson_minichecks',
-  'generate_handbook','validate_handbook',
-  'elite_harden',
-  'run_integrity_check','quality_council','auto_publish'
-] as const;
+// ── SSOT Import ──
+import { FULL_STEP_ORDER } from "../_shared/job-map.ts";
 
 // EXAM_FIRST track only has these steps
 const EXAM_FIRST_STEPS = new Set([
