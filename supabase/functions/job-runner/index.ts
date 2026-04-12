@@ -320,16 +320,33 @@ Deno.serve(async (req) => {
   const adaptiveConcurrency = await getAdaptiveConcurrency(sb).catch(() => BASE_CONCURRENCY);
 
   // ── 1. Claim jobs via canonical RPC contract ──
-  let { data: jobs, error: claimErr } = await sb.rpc("claim_pending_jobs_v4" as any, {
-    p_limit: adaptiveConcurrency,
-    p_worker_id: WORKER_ID,
-    p_worker_pool: "default",
-  });
-  jobs = (jobs ?? []) as any[];
+  // ── 1. Lane-aware claiming (v6.0) ──
+  // Claim per-lane with lane-specific budgets to prevent claim→release loops
+  const laneBudgets = allocateLaneBudgets(adaptiveConcurrency);
+  let jobs: any[] = [];
 
-  if (claimErr) {
-    console.error("[job-runner] claim_pending_jobs_v4 error:", claimErr.message);
-    return json({ ok: false, error: claimErr.message }, 500);
+  for (const lane of LANE_DISPATCH_ORDER) {
+    const budget = laneBudgets[lane];
+    if (budget <= 0) continue;
+
+    const laneJobTypes = jobTypesForLane(lane);
+    const { data: laneJobs, error: laneErr } = await sb.rpc("claim_pending_jobs_by_types" as any, {
+      p_job_types: laneJobTypes,
+      p_limit: budget,
+      p_worker_id: WORKER_ID,
+      p_worker_pool: "default",
+    });
+
+    if (laneErr) {
+      console.error(`[job-runner] claim error for ${lane}: ${laneErr.message}`);
+      continue;
+    }
+
+    const claimed = ((laneJobs ?? []) as any[]).slice(0, budget);
+    if (claimed.length > 0) {
+      console.log(`[job-runner] LANE_CLAIM[${lane}]: claimed ${claimed.length}/${budget} job(s)`);
+      jobs.push(...claimed);
+    }
   }
 
   if (!jobs || jobs.length === 0) {
