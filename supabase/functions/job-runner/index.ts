@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { assertSchemaReady } from "../_shared/schema-gate.ts";
 import { PIPELINE_GRAPH, validatePipelineGraph, STEP_TO_JOB_TYPE, ARTIFACT_IMPACT, getArtifactPriorityBump, poolForJobType, JOB_DEFINITIONS } from "../_shared/job-map.ts";
+import { LANE_DISPATCH_ORDER, jobTypesForLane, allocateLaneBudgets } from "../_shared/runner-lanes.ts";
 import { checkArtifacts } from "../_shared/artifact-resolver.ts";
 import { enqueueJob, allowedPackageStatusesForJobType } from "../_shared/enqueue.ts";
 import { isRepairActionEligible } from "../_shared/repair-eligibility.ts";
