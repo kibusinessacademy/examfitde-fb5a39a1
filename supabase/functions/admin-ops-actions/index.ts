@@ -553,6 +553,44 @@ Deno.serve(async (req) => {
         break;
       }
 
+      /* ── v4.0 Full Reset & Ghost Heal ── */
+      case "full_queue_reset": {
+        // 1. Reset stale processing
+        const { data: r1 } = await sb.rpc("fn_reset_stale_processing_jobs").catch(() => ({ data: null }));
+        // 2. Cancel zombie noop jobs
+        const { data: r2 } = await sb.rpc("fn_cancel_zombie_noop_jobs").catch(() => ({ data: null }));
+        // 3. Heal ghost completions
+        const { data: r3 } = await sb.rpc("fn_heal_ghost_completions").catch(() => ({ data: null }));
+        // 4. Reap zombies
+        const { data: r4 } = await sb.rpc("fn_reap_zombie_processing_jobs").catch(() => ({ data: null }));
+        result = {
+          ok: true,
+          reset_stale: r1,
+          zombie_noop: r2,
+          ghost_heal: r3,
+          zombie_reap: r4,
+        };
+        break;
+      }
+      case "heal_ghost_completions": {
+        const { data: ghostData, error: ghostErr } = await sb.rpc("fn_heal_ghost_completions");
+        if (ghostErr) throw ghostErr;
+        result = { ok: true, ...(ghostData as any) };
+        break;
+      }
+      case "purge_completed_jobs": {
+        const hours = Number(body.hours) || 24;
+        const cutoff = new Date(Date.now() - hours * 3600_000).toISOString();
+        const { error: delErr, count } = await sb
+          .from("job_queue")
+          .delete({ count: "exact" })
+          .eq("status", "completed")
+          .lt("completed_at", cutoff);
+        if (delErr) throw delErr;
+        result = { ok: true, purged: count ?? 0, older_than_hours: hours };
+        break;
+      }
+
       default:
         return json({ error: `Unknown action: ${action}` }, 400);
     }
