@@ -35,8 +35,9 @@ const CONTROL_JOB_TYPES = new Set([
   // Enqueuers / Scaffolders
   "package_enqueue_handbook_expand",
   "package_scaffold_learning_course",
-  // Integrity
+  // Integrity / Rebalance
   "package_run_integrity_check",
+  "package_exam_rebalance",
   // Course-level finalizer
   "course_finalize",
   "post_validation",
