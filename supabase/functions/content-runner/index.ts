@@ -1259,19 +1259,12 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
     const remainingMs = loopDeadlineMs ? loopDeadlineMs - Date.now() : Infinity;
     if (remainingMs < STATUS_WRITE_BUFFER_MS * 2) {
       console.warn(`[content-runner] LANE_BUDGET_STOP: skipping ${lane} lane — only ${Math.round(remainingMs)}ms remaining`);
-      // Release undispatched jobs back to pending — with error checking
+      // v4.2: Central release with retry for all lane-skipped jobs
       for (const job of laneJobs) {
-        const { error: relErr } = await sb.from("job_queue").update({
-          status: "pending",
-          locked_at: null,
-          locked_by: null,
-          updated_at: new Date().toISOString(),
-          last_error: `LANE_BUDGET_STOP: ${lane} lane skipped — insufficient time`,
-          run_after: new Date(Date.now() + 3_000).toISOString(),
-        }).eq("id", (job as any).id).eq("status", "processing");
-        if (relErr) {
-          console.error(`[content-runner] LANE_BUDGET_STOP release FAILED for ${String((job as any).id).slice(0, 8)}: ${relErr.message}`);
-        }
+        await releaseJobToPending(sb, (job as any).id, "RELEASE_LANE_BUDGET_STOP", {
+          deferMs: 3_000,
+          detail: `${lane} lane skipped — insufficient time`,
+        });
         laneMetrics[lane].budget_exhausted++;
       }
       continue;
