@@ -50,7 +50,7 @@ const DISPATCH_TIMEOUT_HEAVY_MS = 35_000;    // Tier 2: LLM-validation + DB-heav
 const DISPATCH_TIMEOUT_GENERATION_MS = 40_000; // Tier 1: LLM-generation jobs
 const STATUS_WRITE_BUFFER_MS = 5_000;        // Reserved for status-write after dispatch
 const WORKER_ID = `content-runner-${crypto.randomUUID().slice(0, 8)}`;
-const FUNCTION_VERSION = "v2.8-stale-finalization-fix";
+const FUNCTION_VERSION = "v2.9-validate-tier-fix";
 
 // Pull-loop parameters — TUNED for max throughput
 const LOOP_MAX_MS = envInt("CONTENT_RUNNER_LOOP_MAX_MS", 50_000);    // v2.1: 30s→50s (edge fn limit ~60s)
@@ -94,7 +94,6 @@ const GENERATION_JOB_TYPES = new Set([
 
 // Tier 2 (35s): LLM validation / DB-heavy
 const HEAVY_JOB_TYPES = new Set([
-  "package_validate_learning_content",
   "package_validate_exam_pool",
   "package_build_ai_tutor_index",
 ]);
@@ -109,6 +108,7 @@ const HEAVY_JOB_TYPES = new Set([
 // Required budget: 10s + 5s buffer = 15s (vs 30s for Tier 3), enabling dispatch late in loop.
 const LIGHT_JOB_TYPES = new Set([
   "package_run_integrity_check",
+  "package_validate_learning_content",  // v2.9: demoted from T2 — pure DB gate check, no LLM
   "package_validate_handbook",
   "package_validate_handbook_depth",
   "package_validate_oral_exam",
