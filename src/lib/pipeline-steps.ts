@@ -1,20 +1,28 @@
 /**
- * SSOT Pipeline Step Registry
+ * SSOT Pipeline Step Registry (Frontend)
  * 
- * This is the SINGLE SOURCE OF TRUTH for all pipeline step definitions.
+ * This is the SINGLE SOURCE OF TRUTH for all pipeline step definitions on the client.
  * All UI components, tests, and references MUST import from here.
- * Backend edge functions maintain their own copies but MUST match this order.
+ * 
+ * CRITICAL: Must match FULL_STEP_ORDER in supabase/functions/_shared/job-map.ts exactly.
+ * The CI parity test ensures this.
  */
 
 export type PipelineStepKey =
   | "scaffold_learning_course"
   | "generate_glossary"
+  | "fanout_learning_content"
   | "generate_learning_content"
+  | "finalize_learning_content"
   | "validate_learning_content"
   | "auto_seed_exam_blueprints"
   | "validate_blueprints"
+  | "generate_blueprint_variants"
+  | "validate_blueprint_variants"
+  | "promote_blueprint_variants"
   | "generate_exam_pool"
   | "validate_exam_pool"
+  | "repair_exam_pool_quality"
   | "build_ai_tutor_index"
   | "validate_tutor_index"
   | "generate_oral_exam"
@@ -38,17 +46,23 @@ export type PipelineStepKey =
  * Order rationale:
  * - MiniChecks before Handbook (so Handbook can reference MiniCheck data)
  * - elite_harden after Handbook (hardens ALL generated content)
- * - Matches useTrackConfig / UI expectations
+ * - Matches backend FULL_STEP_ORDER exactly (29 steps)
  */
 export const FULL_STEP_ORDER: PipelineStepKey[] = [
   "scaffold_learning_course",
   "generate_glossary",
+  "fanout_learning_content",
   "generate_learning_content",
+  "finalize_learning_content",
   "validate_learning_content",
   "auto_seed_exam_blueprints",
   "validate_blueprints",
+  "generate_blueprint_variants",
+  "validate_blueprint_variants",
+  "promote_blueprint_variants",
   "generate_exam_pool",
   "validate_exam_pool",
+  "repair_exam_pool_quality",
   "build_ai_tutor_index",
   "validate_tutor_index",
   "generate_oral_exam",
@@ -70,12 +84,18 @@ export const FULL_STEP_ORDER: PipelineStepKey[] = [
 export const PIPELINE_STEP_LABELS: Record<PipelineStepKey, string> = {
   scaffold_learning_course: "Lernkurs Scaffold",
   generate_glossary: "Glossar",
+  fanout_learning_content: "Lerninhalte Fan-out",
   generate_learning_content: "Lerninhalte",
+  finalize_learning_content: "Lerninhalte Finalisierung",
   validate_learning_content: "QG Lerninhalte",
   auto_seed_exam_blueprints: "Exam Blueprints",
   validate_blueprints: "QG Blueprints",
+  generate_blueprint_variants: "Blueprint Varianten",
+  validate_blueprint_variants: "QG Varianten",
+  promote_blueprint_variants: "Varianten Promotion",
   generate_exam_pool: "Prüfungsfragen",
   validate_exam_pool: "QG Exam Pool",
+  repair_exam_pool_quality: "Exam Pool Reparatur",
   build_ai_tutor_index: "KI-Tutor Index",
   validate_tutor_index: "QG Tutor",
   generate_oral_exam: "Mündliche Prüfung",
@@ -97,12 +117,18 @@ export const PIPELINE_STEP_LABELS: Record<PipelineStepKey, string> = {
 export const PIPELINE_STEP_SHORT_LABELS: Record<PipelineStepKey, string> = {
   scaffold_learning_course: "Scaffold",
   generate_glossary: "Glossar",
+  fanout_learning_content: "Fan-out",
   generate_learning_content: "Lerninhalte",
+  finalize_learning_content: "Finalize",
   validate_learning_content: "QG Lernen",
   auto_seed_exam_blueprints: "Blueprints",
   validate_blueprints: "QG BP",
+  generate_blueprint_variants: "Varianten",
+  validate_blueprint_variants: "QG Var.",
+  promote_blueprint_variants: "Promotion",
   generate_exam_pool: "Prüfungen",
   validate_exam_pool: "QG Fragen",
+  repair_exam_pool_quality: "Repair EP",
   build_ai_tutor_index: "Tutor",
   validate_tutor_index: "QG Tutor",
   generate_oral_exam: "Mündlich",
@@ -124,12 +150,18 @@ export const PIPELINE_STEP_SHORT_LABELS: Record<PipelineStepKey, string> = {
 export const PIPELINE_STEP_EMOJI: Record<PipelineStepKey, string> = {
   scaffold_learning_course: "📚",
   generate_glossary: "📖",
+  fanout_learning_content: "🔀",
   generate_learning_content: "✏️",
+  finalize_learning_content: "✅",
   validate_learning_content: "✅",
   auto_seed_exam_blueprints: "🗺️",
   validate_blueprints: "✅",
+  generate_blueprint_variants: "🧬",
+  validate_blueprint_variants: "✅",
+  promote_blueprint_variants: "⬆️",
   generate_exam_pool: "❓",
   validate_exam_pool: "✅",
+  repair_exam_pool_quality: "🔧",
   build_ai_tutor_index: "🤖",
   validate_tutor_index: "✅",
   generate_oral_exam: "🎤",
@@ -180,6 +212,9 @@ export function getStepShortLabel(key: string): string {
 /**
  * Known non-SSOT legacy keys that may appear in step_status_json.
  * These are NEVER counted for progress or displayed as current step.
+ * 
+ * IMPORTANT: fanout_learning_content and finalize_learning_content are NOT legacy —
+ * they are canonical SSOT steps in the 29-step pipeline.
  */
 const LEGACY_STEP_KEYS = new Set([
   'generate_curriculum', 'generate_lessons', 'generate_modules',
@@ -188,7 +223,6 @@ const LEGACY_STEP_KEYS = new Set([
   'validate_exam_questions', 'generate_exam_questions',
   'setup_course_package', 'setup_storefront', 'council_review',
   'launch_marketing', 'post_launch_monitor',
-  'fanout_learning_content', 'finalize_learning_content',
 ]);
 
 /**
