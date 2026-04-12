@@ -28,6 +28,8 @@ export function classifyCertification(title: string): ClassificationResult {
       validationProfile: "AEVO",
       examModes: ["schriftlich", "muendlich", "praesentation"],
       oralExamEnabled: true,
+      oralTrainerEnabled: true,
+      oralTrainerMode: "official_simulation",
       calculationHeavy: false,
       frameworkHeavy: false,
     };
@@ -41,6 +43,8 @@ export function classifyCertification(title: string): ClassificationResult {
       validationProfile: "MEISTER",
       examModes: ["schriftlich", "muendlich"],
       oralExamEnabled: true,
+      oralTrainerEnabled: true,
+      oralTrainerMode: "official_simulation",
       calculationHeavy: false,
       frameworkHeavy: false,
     };
@@ -54,6 +58,8 @@ export function classifyCertification(title: string): ClassificationResult {
       validationProfile: n.includes("bilanzbuchhalter") ? "FINANCE" : "IHK_AUFSTIEG",
       examModes: ["schriftlich"],
       oralExamEnabled: false,
+      oralTrainerEnabled: true,
+      oralTrainerMode: "didactic_viva",
       calculationHeavy: n.includes("bilanzbuchhalter"),
       frameworkHeavy: false,
     };
@@ -67,6 +73,8 @@ export function classifyCertification(title: string): ClassificationResult {
       validationProfile: "CERT_TECH",
       examModes: ["schriftlich"],
       oralExamEnabled: false,
+      oralTrainerEnabled: true,
+      oralTrainerMode: "didactic_viva",
       calculationHeavy: false,
       frameworkHeavy: true,
     };
@@ -80,6 +88,8 @@ export function classifyCertification(title: string): ClassificationResult {
       validationProfile: "CERT_TECH",
       examModes: ["schriftlich"],
       oralExamEnabled: false,
+      oralTrainerEnabled: true,
+      oralTrainerMode: "didactic_viva",
       calculationHeavy: false,
       frameworkHeavy: true,
     };
@@ -93,6 +103,8 @@ export function classifyCertification(title: string): ClassificationResult {
       validationProfile: "SECURITY",
       examModes: ["schriftlich"],
       oralExamEnabled: false,
+      oralTrainerEnabled: true,
+      oralTrainerMode: "didactic_viva",
       calculationHeavy: false,
       frameworkHeavy: true,
     };
@@ -106,6 +118,8 @@ export function classifyCertification(title: string): ClassificationResult {
       validationProfile: "CERT_TECH",
       examModes: ["schriftlich"],
       oralExamEnabled: false,
+      oralTrainerEnabled: true,
+      oralTrainerMode: "didactic_viva",
       calculationHeavy: false,
       frameworkHeavy: false,
     };
@@ -119,6 +133,8 @@ export function classifyCertification(title: string): ClassificationResult {
       validationProfile: "CERT_TECH",
       examModes: ["schriftlich"],
       oralExamEnabled: false,
+      oralTrainerEnabled: true,
+      oralTrainerMode: "didactic_viva",
       calculationHeavy: false,
       frameworkHeavy: true,
     };
@@ -132,6 +148,8 @@ export function classifyCertification(title: string): ClassificationResult {
       validationProfile: "PRIVACY",
       examModes: ["schriftlich"],
       oralExamEnabled: false,
+      oralTrainerEnabled: true,
+      oralTrainerMode: "didactic_viva",
       calculationHeavy: false,
       frameworkHeavy: true,
     };
@@ -150,6 +168,8 @@ export function classifyCertification(title: string): ClassificationResult {
       validationProfile: "STUDIUM",
       examModes: ["schriftlich"],
       oralExamEnabled: false,
+      oralTrainerEnabled: true,
+      oralTrainerMode: "didactic_viva",
       calculationHeavy: false,
       frameworkHeavy: false,
     };
@@ -162,6 +182,8 @@ export function classifyCertification(title: string): ClassificationResult {
     validationProfile: "CERT_TECH",
     examModes: ["schriftlich"],
     oralExamEnabled: false,
+    oralTrainerEnabled: true,
+    oralTrainerMode: "didactic_viva",
     calculationHeavy: false,
     frameworkHeavy: false,
   };
