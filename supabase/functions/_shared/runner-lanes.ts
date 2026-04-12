@@ -100,9 +100,6 @@ const GENERATION_JOB_TYPES_LANE = new Set([
   "seo_sitemap_refresh",
   // IHK upgrade
   "upgrade_ihk",
-  // Blueprint variants
-  "package_generate_blueprint_variants",
-  "package_validate_blueprint_variants",
   // Curriculum smoke
   "curriculum_smoke",
 ]);
