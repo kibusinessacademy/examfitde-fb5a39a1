@@ -39,6 +39,8 @@ export interface ContentProfile {
   // ── Oral / Tutor ──────────────────────────────────
   includeOralExam: boolean;
   oralExamOptional: boolean;
+  /** Default oral trainer mode when not overridden by feature_flags */
+  defaultOralTrainerMode: "official_simulation" | "didactic_viva";
   includeTutorIndex: boolean;
   tutorDepth: "none" | "reduced" | "full";
 
@@ -99,6 +101,7 @@ const AZUBI_HIGH_ROI_PROFILE: ContentProfile = {
   recommendedApprovedExamQuestions: 1200,
   includeOralExam: true,
   oralExamOptional: false,
+  defaultOralTrainerMode: "official_simulation",
   includeTutorIndex: true,
   tutorDepth: "full",
   requireTrapCoverage: true,
@@ -121,6 +124,7 @@ const AZUBI_LOW_ROI_PROFILE: ContentProfile = {
   recommendedApprovedExamQuestions: 500,
   includeOralExam: true,
   oralExamOptional: false,
+  defaultOralTrainerMode: "official_simulation",
   includeTutorIndex: true,
   tutorDepth: "reduced",
   requireTrapCoverage: true,
@@ -143,6 +147,7 @@ const SACHKUNDE_PROFILE: ContentProfile = {
   recommendedApprovedExamQuestions: 500,
   includeOralExam: true,
   oralExamOptional: false,
+  defaultOralTrainerMode: "didactic_viva",
   includeTutorIndex: true,
   tutorDepth: "reduced",
   requireTrapCoverage: true,
@@ -165,6 +170,7 @@ const FACHWIRT_PROFILE: ContentProfile = {
   recommendedApprovedExamQuestions: 600,
   includeOralExam: true,
   oralExamOptional: true,
+  defaultOralTrainerMode: "didactic_viva",
   includeTutorIndex: true,
   tutorDepth: "reduced",
   requireTrapCoverage: true,
@@ -185,8 +191,9 @@ const STUDIUM_CONTENT_PROFILE: ContentProfile = {
   includeExamSimulation: true,
   minApprovedExamQuestions: 400,
   recommendedApprovedExamQuestions: 700,
-  includeOralExam: false,
+  includeOralExam: true,
   oralExamOptional: true,
+  defaultOralTrainerMode: "didactic_viva",
   includeTutorIndex: true,
   tutorDepth: "full",
   requireTrapCoverage: true,
