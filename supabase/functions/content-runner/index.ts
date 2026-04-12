@@ -98,9 +98,10 @@ const HEAVY_JOB_TYPES = new Set([
   "package_validate_learning_content",
   "package_validate_exam_pool",
   "package_build_ai_tutor_index",
-  // Orchestrators that do DB + enqueue work, not LLM — moved from Tier 1
-  "package_generate_oral_exam",
 ]);
+
+// NOTE: package_generate_oral_exam is now Tier 3 (25s) — it's a pure orchestrator
+// that enqueues oral exam generation, no LLM calls in the function itself.
 
 // Everything else: Tier 3 (25s) — structural validation, DB queries only
 
