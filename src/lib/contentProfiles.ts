@@ -214,8 +214,11 @@ const PERSONA_PROFILES: Record<PersonaProfile, ContentProfile> = {
 };
 
 // Legacy track-based lookup (backward compat)
+// CRITICAL: AUSBILDUNG_VOLL MUST map to HIGH_ROI to prevent silent under-production.
+// The persona_profile field on the package determines actual depth; this fallback
+// must be conservative-safe (= full production), not cost-optimized.
 const TRACK_PROFILES: Record<Track, ContentProfile> = {
-  AUSBILDUNG_VOLL: AZUBI_LOW_ROI_PROFILE,
+  AUSBILDUNG_VOLL: AZUBI_HIGH_ROI_PROFILE,
   EXAM_FIRST: SACHKUNDE_PROFILE,
   EXAM_FIRST_PLUS: FACHWIRT_PROFILE,
   STUDIUM: STUDIUM_CONTENT_PROFILE,

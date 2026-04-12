@@ -8,6 +8,7 @@
  */
 
 import { getContentProfile } from "../contentProfiles";
+import { getTrackCapabilities } from "../track-capabilities";
 import { normalizeTrack } from "../tracks";
 
 /**
@@ -101,8 +102,11 @@ export function isStepRequiredForTrack(stepKey: StepKey, trackInput: unknown): b
     case "validate_tutor_index":
       return profile.includeTutorIndex;
 
-    // ── Terminal Steps (always required) ──────────────
+    // ── Elite Harden (track-dependent) ─────────────
     case "elite_harden":
+      return getTrackCapabilities(trackInput).eliteHardenEligible;
+
+    // ── Terminal Steps (always required) ──────────────
     case "run_integrity_check":
     case "quality_council":
     case "auto_publish":

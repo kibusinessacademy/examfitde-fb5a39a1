@@ -201,6 +201,7 @@ export function getRequiredSteps(
   const c = getTrackCapabilities(track);
   const effectiveOral = resolveHasOralExam(track, cert);
   const steps: string[] = [
+    "generate_glossary",
     "auto_seed_exam_blueprints",
     "validate_blueprints",
     "generate_blueprint_variants",
@@ -208,6 +209,7 @@ export function getRequiredSteps(
     "promote_blueprint_variants",
     "generate_exam_pool",
     "validate_exam_pool",
+    "repair_exam_pool_quality",
     "build_ai_tutor_index",
     "validate_tutor_index",
     "run_integrity_check",
