@@ -70,237 +70,149 @@ const META_BASED_VERIFIERS: MetaVerifier[] = [
   {
     stepKey: "generate_blueprint_variants",
     jobType: "package_generate_blueprint_variants",
-    isComplete: (meta) => {
-      if (meta?.ok === true) return { ok: true, reason: "meta.ok=true" };
-      if (meta?.batch_complete === true) return { ok: true, reason: "meta.batch_complete=true" };
-      return { ok: false, reason: "meta.ok and meta.batch_complete both falsy" };
-    },
+    isComplete: standardMetaCheck,
   },
   {
     stepKey: "validate_blueprint_variants",
     jobType: "package_validate_blueprint_variants",
-    isComplete: (meta) => {
-      const ok = meta?.ok === true;
-      return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true" };
-    },
+    isComplete: standardMetaCheck,
   },
   {
     stepKey: "promote_blueprint_variants",
     jobType: "package_promote_blueprint_variants",
-    isComplete: (meta) => {
-      const ok = meta?.ok === true;
-      return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true" };
-    },
+    isComplete: standardMetaCheck,
   },
   {
     stepKey: "validate_exam_pool",
     jobType: "package_validate_exam_pool",
-    isComplete: (meta) => {
-      const ok = meta?.ok === true;
-      return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true" };
-    },
+    isComplete: standardMetaCheck,
   },
   {
     stepKey: "generate_oral_exam",
     jobType: "package_generate_oral_exam",
-    isComplete: (meta) => {
-      const ok = meta?.ok === true;
-      return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true" };
-    },
+    isComplete: standardMetaCheck,
   },
   {
     stepKey: "validate_oral_exam",
     jobType: "package_validate_oral_exam",
-    isComplete: (meta) => {
-      const ok = meta?.ok === true;
-      return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true" };
-    },
+    isComplete: standardMetaCheck,
   },
   {
     stepKey: "generate_handbook",
     jobType: "package_generate_handbook",
-    isComplete: (meta) => {
-      const ok = meta?.ok === true;
-      return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true" };
-    },
+    isComplete: standardMetaCheck,
   },
   {
     stepKey: "validate_handbook",
     jobType: "package_validate_handbook",
-    isComplete: (meta) => {
-      const ok = meta?.ok === true;
-      return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true" };
-    },
+    isComplete: standardMetaCheck,
   },
-  // ── Gate / integrity steps that were missing (caused Finalization Deadlocks) ──
+  // ── Gate / integrity steps ──
   {
     stepKey: "run_integrity_check",
     jobType: "package_run_integrity_check",
-    isComplete: (meta) => {
-      const ok = meta?.ok === true;
-      return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true" };
-    },
+    isComplete: standardMetaCheck,
   },
   {
     stepKey: "quality_council",
     jobType: "package_quality_council",
-    isComplete: (meta) => {
-      const ok = meta?.ok === true;
-      return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true" };
-    },
+    isComplete: standardMetaCheck,
   },
   {
     stepKey: "auto_publish",
     jobType: "package_auto_publish",
-    isComplete: (meta) => {
-      const ok = meta?.ok === true;
-      return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true" };
-    },
+    isComplete: standardMetaCheck,
   },
   {
     stepKey: "auto_seed_exam_blueprints",
     jobType: "package_auto_seed_exam_blueprints",
-    isComplete: (meta) => {
-      const ok = meta?.ok === true;
-      return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true" };
-    },
+    isComplete: standardMetaCheck,
   },
   {
     stepKey: "generate_exam_pool",
     jobType: "package_generate_exam_pool",
-    isComplete: (meta) => {
-      const ok = meta?.ok === true;
-      return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true" };
-    },
+    isComplete: standardMetaCheck,
   },
   {
     stepKey: "fanout_learning_content",
     jobType: "package_fanout_learning_content",
     childJobTypes: ["lesson_generate_content_shard"],
-    isComplete: (meta) => {
-      const ok = meta?.ok === true;
-      return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true" };
-    },
+    isComplete: standardMetaCheck,
   },
   {
     stepKey: "validate_handbook_depth",
     jobType: "package_validate_handbook_depth",
-    isComplete: (meta) => {
-      const ok = meta?.ok === true;
-      return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true" };
-    },
+    isComplete: standardMetaCheck,
   },
   {
     stepKey: "validate_lesson_minichecks",
     jobType: "package_validate_lesson_minichecks",
-    isComplete: (meta) => {
-      const ok = meta?.ok === true;
-      return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true" };
-    },
+    isComplete: standardMetaCheck,
   },
   {
     stepKey: "validate_tutor_index",
     jobType: "package_validate_tutor_index",
-    isComplete: (meta) => {
-      const ok = meta?.ok === true;
-      return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true" };
-    },
+    isComplete: standardMetaCheck,
   },
   {
     stepKey: "validate_learning_content",
     jobType: "package_validate_learning_content",
-    isComplete: (meta) => {
-      const ok = meta?.ok === true;
-      return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true" };
-    },
+    isComplete: standardMetaCheck,
   },
   {
     stepKey: "repair_exam_pool_quality",
     jobType: "package_repair_exam_pool_quality",
-    isComplete: (meta) => {
-      const ok = meta?.ok === true;
-      return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true" };
-    },
+    isComplete: standardMetaCheck,
   },
   {
     stepKey: "finalize_learning_content",
     jobType: "package_finalize_learning_content",
-    isComplete: (meta) => {
-      const ok = meta?.ok === true;
-      return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true" };
-    },
+    isComplete: standardMetaCheck,
   },
   {
     stepKey: "enqueue_handbook_expand",
     jobType: "package_enqueue_handbook_expand",
-    isComplete: (meta) => {
-      const ok = meta?.ok === true;
-      return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true" };
-    },
+    isComplete: standardMetaCheck,
   },
   {
     stepKey: "scaffold_learning_course",
     jobType: "package_scaffold_learning_course",
-    isComplete: (meta) => {
-      const ok = meta?.ok === true;
-      return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true" };
-    },
+    isComplete: standardMetaCheck,
   },
   {
     stepKey: "elite_harden",
     jobType: "package_elite_harden",
-    isComplete: (meta) => {
-      const ok = meta?.ok === true;
-      return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true" };
-    },
+    isComplete: standardMetaCheck,
   },
   {
     stepKey: "expand_handbook",
     jobType: "handbook_expand_section",
-    isComplete: (meta) => {
-      const ok = meta?.ok === true;
-      return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true" };
-    },
+    isComplete: standardMetaCheck,
   },
   {
     stepKey: "generate_lesson_minichecks",
     jobType: "package_generate_lesson_minichecks",
-    isComplete: (meta) => {
-      const ok = meta?.ok === true;
-      return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true" };
-    },
+    isComplete: standardMetaCheck,
   },
   {
     stepKey: "generate_glossary",
     jobType: "package_generate_glossary",
-    isComplete: (meta) => {
-      const ok = meta?.ok === true;
-      return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true" };
-    },
+    isComplete: standardMetaCheck,
   },
   {
     stepKey: "build_ai_tutor_index",
     jobType: "package_build_ai_tutor_index",
-    isComplete: (meta) => {
-      const ok = meta?.ok === true;
-      return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true" };
-    },
+    isComplete: standardMetaCheck,
   },
   {
     stepKey: "validate_blueprints",
     jobType: "package_validate_blueprints",
-    isComplete: (meta) => {
-      const ok = meta?.ok === true;
-      return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true" };
-    },
+    isComplete: standardMetaCheck,
   },
   {
     stepKey: "exam_rebalance",
     jobType: "package_exam_rebalance",
-    isComplete: (meta) => {
-      const ok = meta?.ok === true;
-      return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true" };
-    },
+    isComplete: standardMetaCheck,
   },
 ];
 
