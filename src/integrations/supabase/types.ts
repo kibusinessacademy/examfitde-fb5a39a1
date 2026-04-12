@@ -62601,11 +62601,11 @@ export type Database = {
           expected_job_type: string | null
           has_active_job: boolean | null
           package_id: string | null
-          package_status: string | null
-          queued_duration: string | null
-          queued_since: string | null
+          pkg_priority: number | null
+          pkg_status: string | null
           step_key: string | null
           step_status: Database["public"]["Enums"]["step_status"] | null
+          step_updated_at: string | null
         }
         Relationships: [
           {
