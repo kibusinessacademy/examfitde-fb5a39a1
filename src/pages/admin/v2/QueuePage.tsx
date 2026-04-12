@@ -248,6 +248,7 @@ export default function QueuePage() {
       if (action === 'reset_stale') return runAdminOpsAction('reset_stale_processing');
       if (action === 'cancel_zombie_noop') return runAdminOpsAction('cancel_zombie_noop_jobs');
       if (action === 'purge_completed') return runAdminOpsAction('purge_completed_jobs', { hours: 24 });
+      if (action === 'heal_finalization') return runAdminOpsAction('heal_finalization_stall', { limit: 20 });
       if (action === 'purge_failed') {
         const { error } = await supabase.from('job_queue').delete().eq('status', 'failed');
         if (error) throw new Error(error.message);
@@ -363,6 +364,25 @@ export default function QueuePage() {
           onClick={() => batchMutation.mutate('cancel_zombie_noop')}>
           <Skull className="h-3 w-3 mr-1.5" />
           Zombie Noop
+        </Button>
+        <Button size="sm" variant="outline" disabled={batchMutation.isPending} className="text-xs h-8"
+          onClick={() => batchMutation.mutate('heal_finalization')}>
+          <ListChecks className="h-3 w-3 mr-1.5" />
+          Finalization Heal
+        </Button>
+        <Button size="sm" variant="outline" disabled={batchMutation.isPending} className="text-xs h-8"
+          onClick={() => batchMutation.mutate('heal_non_building')}>
+          <AlertTriangle className="h-3 w-3 mr-1.5" />
+          Non-Building Heal
+        </Button>
+        <Button size="sm" variant="outline" disabled={batchMutation.isPending} className="text-xs h-8"
+          onClick={() => {
+            if (confirm('Alle abgeschlossenen Jobs älter als 24h endgültig löschen?')) {
+              batchMutation.mutate('purge_completed');
+            }
+          }}>
+          <Trash2 className="h-3 w-3 mr-1.5" />
+          Completed purgen
         </Button>
         {c.failed > 0 && (
           <>
