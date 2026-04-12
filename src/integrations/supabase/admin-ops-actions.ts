@@ -171,3 +171,28 @@ export async function healGhostCompletions() {
 export async function purgeCompletedJobs(hours = 24) {
   return runAdminOpsAction('purge_completed_jobs', { hours });
 }
+
+/* ── Legacy Exempt Actions ── */
+
+export async function markLegacyExempt(packageId: string, reason: string) {
+  const { data: { session } } = await supabase.auth.getSession();
+  const userId = session?.user?.email ?? 'admin';
+  const { data, error } = await supabase.rpc('fn_mark_legacy_exempt', {
+    p_package_id: packageId,
+    p_reason: reason,
+    p_set_by: userId,
+  });
+  if (error) throw error;
+  return data;
+}
+
+export async function removeLegacyExempt(packageId: string) {
+  const { data: { session } } = await supabase.auth.getSession();
+  const userId = session?.user?.email ?? 'admin';
+  const { data, error } = await supabase.rpc('fn_remove_legacy_exempt', {
+    p_package_id: packageId,
+    p_set_by: userId,
+  });
+  if (error) throw error;
+  return data;
+}
