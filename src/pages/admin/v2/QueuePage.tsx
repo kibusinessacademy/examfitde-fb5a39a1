@@ -249,6 +249,7 @@ export default function QueuePage() {
       if (action === 'cancel_zombie_noop') return runAdminOpsAction('cancel_zombie_noop_jobs');
       if (action === 'purge_completed') return runAdminOpsAction('purge_completed_jobs', { hours: 24 });
       if (action === 'heal_finalization') return runAdminOpsAction('heal_finalization_stall', { limit: 20 });
+      if (action === 'heal_non_building') return runAdminOpsAction('heal_non_building', { limit: 20 });
       if (action === 'purge_failed') {
         const { error } = await supabase.from('job_queue').delete().eq('status', 'failed');
         if (error) throw new Error(error.message);
