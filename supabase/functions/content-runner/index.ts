@@ -1449,8 +1449,3 @@ Deno.serve(async (req) => {
     lane_dispatch: "control→recovery→generation",
   });
 });
-    concurrency: BASE_CONCURRENCY,
-    loop_max_ms: LOOP_MAX_MS,
-    loop_sleep_ms: LOOP_SLEEP_MS,
-  });
-});
