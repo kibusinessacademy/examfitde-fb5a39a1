@@ -103,6 +103,9 @@ const HEAVY_JOB_TYPES = new Set([
 // Tier 3 (25s) — they are lightweight orchestrators that finish in <1s.
 // Keeping them in Tier 2 caused BUDGET_EXHAUSTED when picked up mid-loop.
 
+// NOTE: package_generate_oral_exam is now Tier 3 (25s) — it's a pure orchestrator
+// that enqueues oral exam generation, no LLM calls in the function itself.
+
 // Everything else: Tier 3 (25s) — structural validation, DB queries only
 
 // deno-lint-ignore no-explicit-any
