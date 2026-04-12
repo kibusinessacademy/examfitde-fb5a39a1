@@ -760,14 +760,10 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
       if (isPermanentProviderError(errorStr)) {
         const tripped = await recordPermanentProviderFailure(errorStr.slice(0, 200));
         if (tripped) {
-          const now2 = new Date().toISOString();
-          await sb.from("job_queue").update({
-            status: "pending",
-            run_after: new Date(Date.now() + 10 * 60_000).toISOString(),
-            locked_at: null, locked_by: null,
-            updated_at: now2,
-            last_error: `CIRCUIT_BREAKER: ${errorStr.slice(0, 200)}`,
-          }).eq("id", job.id);
+          await releaseJobToPending(sb, job.id, "RELEASE_CIRCUIT_BREAKER", {
+            deferMs: 10 * 60_000,
+            detail: errorStr.slice(0, 200),
+          });
           return { id: job.id, ok: false, error: "CIRCUIT_BREAKER_TRIPPED", terminal: true };
         }
       }
