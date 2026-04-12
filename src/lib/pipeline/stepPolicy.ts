@@ -101,8 +101,13 @@ export function isStepRequiredForTrack(stepKey: StepKey, trackInput: unknown): b
     case "validate_tutor_index":
       return profile.includeTutorIndex;
 
+    // ── Elite Harden (track-dependent) ─────────────
+    case "elite_harden": {
+      const trackCaps = (await import("../track-capabilities")).getTrackCapabilities(trackInput);
+      return trackCaps.eliteHardenEligible;
+    }
+
     // ── Terminal Steps (always required) ──────────────
-    case "elite_harden":
     case "run_integrity_check":
     case "quality_council":
     case "auto_publish":
