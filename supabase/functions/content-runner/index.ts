@@ -9,6 +9,7 @@ import { getModelChainAsync } from "../_shared/model-routing.ts";
 import { resolveAvailableRoute, resolveLastResortRoute } from "../_shared/llm/provider-load-balancer.ts";
 import { checkCircuitBreaker, recordPermanentProviderFailure, recordProviderSuccess, isPermanentProviderError } from "../_shared/llm/provider-circuit-breaker.ts";
 import { runPrebuildPass } from "../_shared/prebuild.ts";
+import { emitRunnerHeartbeat } from "../_shared/runner-health.ts";
 
 import { PIPELINE_GRAPH, validatePipelineGraph } from "../_shared/job-map.ts";
 
@@ -1513,6 +1514,19 @@ Deno.serve(async (req) => {
   console.log(
     `[content-runner] loop done: passes=${passes} runtime=${runtimeMs}ms claimed=${totalClaimed} succeeded=${totalSucceeded} failed=${totalFailed} deferred=${totalDeferred} emptyPolls=${emptyPolls}`,
   );
+
+  // ── Emit runner health heartbeat ──
+  await emitRunnerHeartbeat(sb, {
+    runner_name: "content-runner",
+    worker_id: WORKER_ID,
+    lanes: ["generation"],
+    status: "ok",
+    passes,
+    claimed: totalClaimed,
+    succeeded: totalSucceeded,
+    failed: totalFailed,
+    runtime_ms: runtimeMs,
+  });
 
   return json({
     ok: true,
