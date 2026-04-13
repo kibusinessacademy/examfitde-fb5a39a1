@@ -151,28 +151,28 @@ const GENERATION_JOB_TYPES = new Set([
   "package_generate_oral_exam",  // v4.4: promoted from T3 — real LLM generation, was causing STALE_LOCK_RECOVERY loops at 25s
 ]);
 
-// Tier 2 (35s): LLM validation / DB-heavy
+// Tier 2 (35s): ONLY jobs with actual long-running LLM calls that genuinely need 30s+
+// v6.0: Drastically reduced — over-classification caused persistent BUDGET_EXHAUSTED
+// because T2 requires 40s budget (35s+5s buffer) out of 50s loop, leaving <10s for all other lanes.
+// Most "heavy" jobs actually complete in 1-5s and were mis-promoted in v5.1.
 const HEAVY_JOB_TYPES = new Set([
-  "package_validate_exam_pool",
-  "package_build_ai_tutor_index",
-  "package_generate_blueprint_variants",  // v3.1: promoted from T4 — real generation/orchestration, needs 35s+5s budget
+  "package_generate_blueprint_variants",  // real LLM generation, genuinely needs 30s+
+  "package_build_ai_tutor_index",         // heavy indexing operation
 ]);
 
-// Note: package_elite_harden demoted to Tier 3 (25s+5s=30s required).
-// Its AI phases are internally capped and annotations_only mode is pure DB.
-// At Tier 2 (40s required) it could only dispatch as the first job in a loop,
-// causing persistent BUDGET_EXHAUSTED blockade.
-
-// v5.1: Tier 2 expanded — many "light" jobs actually invoke Edge Functions that need 20-35s
-// Only truly instant DB-check jobs should be T4_LIGHT.
+// v6.0: HEAVY_EXPANDED removed entirely. Previous v5.1 expansion was the root cause of
+// BUDGET_EXHAUSTED starvation — 6 control/validation jobs at T2_HEAVY (40s required budget)
+// consumed all loop budget, causing every other job type to starve.
+// These jobs actually complete in 1-5s and belong in T3_DEFAULT (25s) or T4_LIGHT (10s):
+//   - package_run_integrity_check → T3 (edge function, 1-3s actual)
+//   - package_quality_council → T3 (AI phases capped internally, 2-8s actual)
+//   - package_promote_blueprint_variants → T4 (deterministic DB promotion, <2s actual)
+//   - package_scaffold_learning_course → T3 (scaffolding, 3-5s actual)
+//   - package_elite_harden → T3 (annotation mode is pure DB, <5s actual)
+//   - package_repair_exam_pool_quality → T3 (recovery lane, 3-10s actual)
 const HEAVY_EXPANDED_JOB_TYPES = new Set([
   ...HEAVY_JOB_TYPES,
-  "package_run_integrity_check",       // v5.1: invokes integrity-check EF, needs 30s+
-  "package_quality_council",           // v5.1: invokes quality-council EF with AI phases
-  "package_promote_blueprint_variants",// v5.1: scans all blueprints sequentially
-  "package_scaffold_learning_course",  // v5.1: scaffolding is heavy orchestration
-  "package_elite_harden",             // v5.1: has AI annotation phases
-  "package_repair_exam_pool_quality", // v5.1: exam pool repair needs LLM time
+  // v6.0: NO additional jobs — T2 is reserved for genuinely long-running operations only
 ]);
 
 // Tier 4 (10s): ONLY truly instant DB status-checks — zero Edge Function calls, zero LLM.
@@ -189,6 +189,9 @@ const LIGHT_JOB_TYPES = new Set([
   "package_auto_publish",              // pure status transition
   "package_validate_blueprints",       // pure DB gate check
   "package_validate_blueprint_variants",// pure DB gate check
+  "package_promote_blueprint_variants", // v6.0: demoted from T2 — deterministic DB promotion, <2s actual
+  "package_validate_exam_pool",        // v6.0: demoted from T2 — pure validation check, <3s actual
+  "package_exam_rebalance",            // pure DB rebalance
 ]);
 
 // Everything else not in Tier 1/2/4: Tier 3 (25s) — moderate DB + orchestration
@@ -1277,6 +1280,15 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
       }
       continue;
     }
+
+    // v6.0: Sort jobs within lane — light jobs first to maximize completions per loop.
+    // Heavy jobs last: if budget runs out, light jobs already completed.
+    const tierRank = (jt: string): number => {
+      if (LIGHT_JOB_TYPES.has(jt)) return 0;
+      if (GENERATION_JOB_TYPES.has(jt) || HEAVY_EXPANDED_JOB_TYPES.has(jt)) return 2;
+      return 1; // T3_DEFAULT
+    };
+    laneJobs.sort((a: any, b: any) => tierRank(a.job_type) - tierRank(b.job_type));
 
     // Dispatch lane jobs in parallel
     const settled = await Promise.allSettled(
