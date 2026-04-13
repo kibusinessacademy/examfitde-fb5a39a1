@@ -41,8 +41,9 @@ export const DEFAULT_POLICIES: Record<string, AIGenerationPolicy> = {
     defaultModel: "gpt-5.4-mini",
     batchRolloutPct: 100,
   },
-  expand_handbook_section: {
-    jobType: "expand_handbook_section",
+  // P4 FIX: canonical name is "handbook_expand_section" (matches pipeline/job-map SSOT)
+  handbook_expand_section: {
+    jobType: "handbook_expand_section",
     enabled: true,
     preferBatch: true,
     allowSync: true,

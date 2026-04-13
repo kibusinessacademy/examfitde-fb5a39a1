@@ -823,10 +823,12 @@ const IMPORTERS: Record<string, BatchImporter> = {
   package_generate_exam_pool: importExamPoolBatch,
   package_generate_handbook: importHandbookSectionBatch,
   package_generate_lesson_minichecks: importMinichecksBatch,
+  // P4 FIX: canonical name + legacy alias
+  handbook_expand_section: importHandbookSectionBatch,
+  expand_handbook_section: importHandbookSectionBatch,  // legacy alias
   // Legacy aliases
   exam_pool_generate: importExamPoolBatch,
   learning_content: importLearningContentBatch,
-  expand_handbook_section: importHandbookSectionBatch,
   handbook_section: importHandbookSectionBatch,
   blueprint_enrich: importBlueprintEnrichBatch,
 };

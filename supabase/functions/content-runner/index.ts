@@ -1227,15 +1227,21 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
   }
 
   // ── Intent-aware Provider Health Gate ──
+  // P3 FIX: Jobs without a workload key (non-LLM/orchestration) bypass the health gate entirely
   const jobsByWorkload = new Map<string, typeof jobs>();
+  const healthyJobs: typeof jobs = [];
+  let totalDeferred = 0;
+
   for (const job of jobs) {
     const wk = workloadKeyForJob(job.job_type);
+    if (!wk) {
+      // No workload key → not an LLM job → bypass health gate
+      healthyJobs.push(job);
+      continue;
+    }
     if (!jobsByWorkload.has(wk)) jobsByWorkload.set(wk, []);
     jobsByWorkload.get(wk)!.push(job);
   }
-
-  const healthyJobs: typeof jobs = [];
-  let totalDeferred = 0;
 
   const LAST_RESORT_MAX_PER_WORKLOAD = 2;
 
