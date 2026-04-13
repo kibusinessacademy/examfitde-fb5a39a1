@@ -152,24 +152,26 @@ const GENERATION_JOB_TYPES = new Set([
   "package_generate_oral_exam",  // v4.4: promoted from T3 — real LLM generation, was causing STALE_LOCK_RECOVERY loops at 25s
 ]);
 
-// Tier 2 (35s): ONLY jobs with actual long-running LLM calls that genuinely need 30s+
-// v6.1: T2_HEAVY is ONLY for jobs that genuinely run 20s+.
-// build_ai_tutor_index moved to T3 — it's indexing, not LLM generation.
+// Tier 2 (90s): Jobs with actual long-running LLM calls that genuinely need 30s+
+// v6.4: Added elite_harden (TIME_BUDGET_MS=110s, AI annotation calls)
 const HEAVY_JOB_TYPES = new Set([
   "package_generate_blueprint_variants",  // real LLM generation, 17-31s measured
+  "package_elite_harden",                 // v6.4: AI annotation, TIME_BUDGET_MS=110s — was T4_LIGHT causing 15s TIMEOUT
 ]);
 
 const HEAVY_EXPANDED_JOB_TYPES = new Set([
   ...HEAVY_JOB_TYPES,
-  // v6.1: NO additional jobs — T2 is reserved for genuinely long-running operations only
 ]);
+// v6.4: package_repair_exam_pool_quality & package_validate_blueprint_variants
+// fall through to T3_DEFAULT (45s) — removed from T4_LIGHT where they timed out at 15s
 
-// v6.1: T4_LIGHT (10s+5s=15s budget) — ALL jobs completing in <10s actual.
+// v6.1→v6.4: T4_LIGHT (10s+5s=15s budget) — ONLY jobs completing in <10s actual.
 // CRITICAL SSOT RULE: Any job completing in <10s MUST be here, not T3_DEFAULT.
-// Over-classification to T3 (30s budget) causes BUDGET_EXHAUSTED cascades that
-// starve the entire queue — only handbook_expand_section and exam_rebalance survive.
+// Over-classification to T3 (30s budget) causes BUDGET_EXHAUSTED cascades.
+// v6.4 FIX: Removed jobs that exceed 15s in practice (validate_blueprint_variants,
+// elite_harden, repair_exam_pool_quality) — they were causing TIMEOUT→STALE_LOCK loops.
 const LIGHT_JOB_TYPES = new Set([
-  // Pure DB gate checks
+  // Pure DB gate checks (<3s actual)
   "package_validate_learning_content",
   "package_validate_handbook",
   "package_validate_handbook_depth",
@@ -177,22 +179,25 @@ const LIGHT_JOB_TYPES = new Set([
   "package_validate_tutor_index",
   "package_validate_lesson_minichecks",
   "package_validate_blueprints",
-  "package_validate_blueprint_variants",
   "package_validate_exam_pool",           // <3s actual
-  // Pure orchestration
+  // Pure orchestration (<5s actual)
   "package_enqueue_handbook_expand",
   "package_finalize_learning_content",
   "package_auto_publish",
   "package_exam_rebalance",
   "package_promote_blueprint_variants",   // <2s actual
-  // v6.1: Moved from T3_DEFAULT — measured at 1-5s, were starving queue with 30s budget
-  "package_run_integrity_check",          // 1.5s measured (was T3, caused BUDGET_EXHAUSTED)
+  // Measured fast jobs
+  "package_run_integrity_check",          // 1.5s measured
   "package_quality_council",              // 2-8s actual
-  "package_elite_harden",                 // <5s actual (annotation mode is pure DB)
   "package_scaffold_learning_course",     // 3-5s actual
-  "package_repair_exam_pool_quality",     // 3-10s actual
   "package_auto_seed_exam_blueprints",    // <5s actual
 ]);
+
+// v6.4: Jobs that were mis-classified as LIGHT but actually need more time.
+// validate_blueprint_variants: N+1 queries on 100+ blueprints → 15-45s actual
+// repair_exam_pool_quality: LLM-assisted repair → HTTP 500 at 15s
+// elite_harden: AI annotation calls → TIME_BUDGET_MS=110s in edge function
+// These are now T3_DEFAULT (45s) or T2_HEAVY (90s) respectively.
 
 // Everything else not in Tier 1/2/4: Tier 3 (25s) — moderate DB + orchestration
 

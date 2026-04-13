@@ -1440,15 +1440,29 @@ async function handlePoll(
     return { packageId, stepKey, waiting: true, jobStatus: "pending" };
   }
 
-  // Job processing — enhanced with liveness guard
+  // Job processing — enhanced with liveness guard (v6.4: job-type-specific thresholds)
   if (job.status === "processing") {
     const currentStep = steps.find((s: StepRow) => s.step_key === stepKey);
     // Use last_heartbeat_at as primary liveness signal
     const heartbeatRef = job.last_heartbeat_at || job.updated_at || job.locked_at;
     const jobAge = heartbeatRef ? Date.now() - new Date(heartbeatRef as string).getTime() : 0;
 
+    // v6.4: Job-type-specific stuck thresholds — prevents false stale kills on long-running jobs
+    const HEAVY_GEN_TYPES = new Set([
+      "package_generate_exam_pool", "package_generate_oral_exam",
+      "package_generate_handbook", "handbook_expand_section",
+      "package_generate_learning_content", "lesson_generate_content_shard",
+      "package_generate_lesson_minichecks", "package_generate_blueprint_variants",
+      "package_elite_harden",
+    ]);
+    const MEDIUM_TYPES = new Set([
+      "package_repair_exam_pool_quality", "package_build_ai_tutor_index",
+      "package_validate_blueprint_variants",
+    ]);
     const ZOMBIE_THRESHOLD_MS = 5 * 60 * 1000;
-    const STUCK_THRESHOLD_MS = 10 * 60 * 1000; // tightened from 30m to 10m with heartbeat
+    const STUCK_THRESHOLD_MS = HEAVY_GEN_TYPES.has(job.job_type) ? 20 * 60 * 1000  // 20min for LLM generators
+      : MEDIUM_TYPES.has(job.job_type) ? 15 * 60 * 1000  // 15min for medium jobs
+      : 10 * 60 * 1000;  // 10min default
     const isZombie = !job.locked_at && jobAge > ZOMBIE_THRESHOLD_MS;
     const isStaleHeartbeat = jobAge > STUCK_THRESHOLD_MS;
 
