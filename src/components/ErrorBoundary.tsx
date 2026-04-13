@@ -1,6 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Props {
   children: ReactNode;
@@ -16,9 +17,7 @@ interface State {
 /**
  * Global Error Boundary — catches React render errors, chunk load failures,
  * and other unrecoverable runtime exceptions.
- * 
- * Chunk-load errors get a specialized "reload" flow.
- * All other errors get a generic fallback with retry + home navigation.
+ * Reports errors to admin_notifications via edge function.
  */
 export class ErrorBoundary extends Component<Props, State> {
   state: State = { hasError: false, error: null, isChunkError: false };
@@ -35,6 +34,25 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error('[ErrorBoundary]', error, info.componentStack);
+    this.reportError(error);
+  }
+
+  private reportError(error: Error) {
+    const isChunkError =
+      /loading chunk|dynamically imported module|failed to fetch|load failed/i.test(error.message);
+
+    try {
+      supabase.functions.invoke('report-frontend-error', {
+        body: {
+          message: error.message,
+          stack: error.stack ?? null,
+          url: window.location.href,
+          isChunkError,
+        },
+      }).catch(() => { /* silent */ });
+    } catch {
+      // never throw from error boundary
+    }
   }
 
   handleReload = () => {
