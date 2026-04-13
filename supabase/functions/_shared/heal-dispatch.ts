@@ -36,12 +36,18 @@ export interface HealDispatchResult {
  * For a given package, find the first step that is queued/failed
  * and whose DAG prerequisites are all done.
  */
+/** Governance steps must NEVER be dispatched by generic healers */
+const GOVERNANCE_STEPS = new Set(["run_integrity_check", "quality_council", "auto_publish"]);
+
 function findFirstRunnableStep(
   steps: Array<{ step_key: string; status: string }>,
 ): PipelineStepKey | null {
   const stepStatusMap = new Map(steps.map(s => [s.step_key, s.status]));
 
   for (const node of PIPELINE_GRAPH) {
+    // P0: Skip governance steps — they must only be dispatched by their own edge functions
+    if (GOVERNANCE_STEPS.has(node.key)) continue;
+
     const currentStatus = stepStatusMap.get(node.key);
     // Only target steps that need work
     if (!currentStatus || currentStatus === "done" || currentStatus === "skipped" || currentStatus === "running") {

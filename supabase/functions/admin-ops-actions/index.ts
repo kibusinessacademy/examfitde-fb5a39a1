@@ -271,7 +271,7 @@ Deno.serve(async (req) => {
           repair_lessons: { jobType: "package_generate_learning_content", stepKey: "generate_learning_content" },
           repair_handbook: { jobType: "package_generate_handbook", stepKey: "generate_handbook" },
           repair_oral_exam: { jobType: "package_generate_oral_exam", stepKey: "generate_oral_exam" },
-          retry_stalled_step: { jobType: "", stepKey: String(body.step_key || "run_integrity_check") },
+          retry_stalled_step: { jobType: "", stepKey: String(body.step_key || "") },
         };
 
         const mapping = repairJobMap[action];
