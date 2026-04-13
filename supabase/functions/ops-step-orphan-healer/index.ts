@@ -442,10 +442,13 @@ Deno.serve(async (req) => {
         }
 
         // ── Pattern C: Zero active jobs despite queued steps ──
+        //    HARDENED: skip governance steps
         if (activeJobs.length === 0) {
           const queuedSteps = steps.filter((s) => s.status === "queued" || s.status === "failed");
           if (queuedSteps.length > 0) {
             for (const node of PIPELINE_GRAPH) {
+              // GOVERNANCE EXCLUSION
+              if (GOVERNANCE_STEPS.has(node.key)) continue;
               const currentStatus = stepMap.get(node.key);
               if (!currentStatus || currentStatus === "done" || currentStatus === "skipped" || currentStatus === "running") continue;
               if (currentStatus !== "queued" && currentStatus !== "failed") continue;

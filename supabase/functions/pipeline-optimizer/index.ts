@@ -210,20 +210,39 @@ Deno.serve(async (req) => {
 
     // ═══════════════════════════════════════════════════════════════
     // 4. Zombie Job Sweep (processing with no lock > 5min)
+    //    HARDENED: skip governance jobs, respect heartbeats
     // ═══════════════════════════════════════════════════════════════
+    const GOVERNANCE_JOB_TYPES_OPT = new Set([
+      "package_run_integrity_check",
+      "package_quality_council",
+      "package_auto_publish",
+    ]);
     const zombieCutoff = new Date(Date.now() - 5 * 60_000).toISOString();
-    const { data: zombies } = await sb.from("job_queue")
-      .update({
-        status: "failed",
-        error: "Optimizer zombie sweep: processing with no lock >5min",
-        completed_at: new Date().toISOString(),
-      })
+    // First query candidates, then filter and update (to exclude governance)
+    const { data: zombieCandidates } = await sb.from("job_queue")
+      .select("id, job_type, last_heartbeat_at")
       .eq("status", "processing")
       .is("locked_at", null)
       .lt("updated_at", zombieCutoff)
-      .select("id");
+      .limit(50);
 
-    const zombieCount = zombies?.length ?? 0;
+    let zombieCount = 0;
+    for (const z of zombieCandidates ?? []) {
+      // GOVERNANCE EXCLUSION
+      if (GOVERNANCE_JOB_TYPES_OPT.has(z.job_type)) continue;
+      // HEARTBEAT CHECK
+      if (z.last_heartbeat_at) {
+        const hbAge = Date.now() - new Date(z.last_heartbeat_at).getTime();
+        if (hbAge < 10 * 60_000) continue;
+      }
+      await sb.from("job_queue").update({
+        status: "failed",
+        error: "Optimizer zombie sweep: processing with no lock >5min",
+        completed_at: new Date().toISOString(),
+      }).eq("id", z.id).eq("status", "processing");
+      zombieCount++;
+    }
+
     if (zombieCount > 0) {
       actions.push(`🧟 Failed ${zombieCount} zombie jobs`);
     }
