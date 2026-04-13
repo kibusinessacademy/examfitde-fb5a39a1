@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { checkRunnerHealth } from "../_shared/runner-health.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -32,8 +33,33 @@ Deno.serve(async (req) => {
 
   const url = Deno.env.get("SUPABASE_URL")!;
   const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const sb = createClient(url, key);
 
   const steps: any[] = [];
+
+  // Step 0: Runner Health Check — FIRST LINE OF DEFENSE
+  try {
+    const health = await checkRunnerHealth(sb);
+    if (health.alerts.length > 0) {
+      for (const alert of health.alerts) {
+        console.error(`[control-plane] ${alert}`);
+      }
+      // Write alerts to admin_notifications for visibility
+      for (const alert of health.alerts) {
+        const severity = alert.includes("🔴") ? "critical" : "warning";
+        await sb.from("admin_notifications").insert({
+          title: alert.slice(0, 200),
+          category: "runner_health",
+          severity,
+          entity_type: "runner",
+          metadata: { runners: health.runners, dead_lanes: health.dead_lanes },
+        }).then(() => {});
+      }
+    }
+    steps.push({ step: "runner_health", ok: true, data: health });
+  } catch (e) {
+    steps.push({ step: "runner_health", ok: false, error: (e as Error).message });
+  }
 
   // Step 1: Build system snapshot
   steps.push({ step: "snapshot", ...(await invoke(url, key, "control-plane-snapshot")) });

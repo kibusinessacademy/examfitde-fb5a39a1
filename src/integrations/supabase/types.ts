@@ -44660,6 +44660,51 @@ export type Database = {
         }
         Relationships: []
       }
+      runner_health_log: {
+        Row: {
+          claimed: number
+          created_at: string
+          error_message: string | null
+          failed: number
+          id: string
+          lanes: string[]
+          passes: number
+          runner_name: string
+          runtime_ms: number
+          status: string
+          succeeded: number
+          worker_id: string
+        }
+        Insert: {
+          claimed?: number
+          created_at?: string
+          error_message?: string | null
+          failed?: number
+          id?: string
+          lanes?: string[]
+          passes?: number
+          runner_name: string
+          runtime_ms?: number
+          status?: string
+          succeeded?: number
+          worker_id: string
+        }
+        Update: {
+          claimed?: number
+          created_at?: string
+          error_message?: string | null
+          failed?: number
+          id?: string
+          lanes?: string[]
+          passes?: number
+          runner_name?: string
+          runtime_ms?: number
+          status?: string
+          succeeded?: number
+          worker_id?: string
+        }
+        Relationships: []
+      }
       sales_leads: {
         Row: {
           contact_email: string | null
@@ -74430,6 +74475,24 @@ export type Database = {
           revenue_eur: number | null
           total_orders: number | null
           total_tokens: number | null
+        }
+        Relationships: []
+      }
+      v_runner_health_latest: {
+        Row: {
+          claimed: number | null
+          error_message: string | null
+          failed: number | null
+          health_status: string | null
+          lanes: string[] | null
+          last_seen_at: string | null
+          passes: number | null
+          runner_name: string | null
+          runtime_ms: number | null
+          seconds_ago: number | null
+          status: string | null
+          succeeded: number | null
+          worker_id: string | null
         }
         Relationships: []
       }
