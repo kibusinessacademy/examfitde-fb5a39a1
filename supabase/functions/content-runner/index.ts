@@ -201,7 +201,7 @@ async function dispatchJob(job: any, supabaseUrl: string, serviceKey: string, lo
   }
 
   const tierLabel = GENERATION_JOB_TYPES.has(job.job_type) ? "T1_GEN"
-    : HEAVY_JOB_TYPES.has(job.job_type) ? "T2_HEAVY"
+    : HEAVY_EXPANDED_JOB_TYPES.has(job.job_type) ? "T2_HEAVY"
     : LIGHT_JOB_TYPES.has(job.job_type) ? "T4_LIGHT"
     : "T3_DEFAULT";
 
