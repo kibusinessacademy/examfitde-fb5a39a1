@@ -29437,6 +29437,36 @@ export type Database = {
         }
         Relationships: []
       }
+      ops_budget_exhausted_log: {
+        Row: {
+          created_at: string
+          id: string
+          job_type: string
+          meta: Json | null
+          package_id: string | null
+          reason: string | null
+          runner: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          job_type: string
+          meta?: Json | null
+          package_id?: string | null
+          reason?: string | null
+          runner?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          job_type?: string
+          meta?: Json | null
+          package_id?: string | null
+          reason?: string | null
+          runner?: string | null
+        }
+        Relationships: []
+      }
       ops_ddl_audit: {
         Row: {
           action: string
