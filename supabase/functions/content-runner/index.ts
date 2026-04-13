@@ -1296,11 +1296,14 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
     );
   }
 
+  const budgetExhaustedCount = results.filter(r => !r.ok && r.error?.includes("budget_exhausted")).length;
   const succeeded = results.filter(r => r.ok).length;
-  const failed = results.filter(r => !r.ok).length;
+  // CRITICAL: budget_exhausted jobs were never dispatched — exclude from failed count
+  // so they don't inflate the circuit-breaker fail rate and starve the pipeline
+  const failed = results.filter(r => !r.ok).length - budgetExhaustedCount;
 
   console.log(
-    `[content-runner] pass: ${succeeded}/${jobs.length} succeeded, ${failed} failed | ` +
+    `[content-runner] pass: ${succeeded}/${jobs.length} succeeded, ${failed} failed, ${budgetExhaustedCount} budget_exhausted | ` +
     `lanes: C=${laneMetrics.control.succeeded}/${laneMetrics.control.dispatched} ` +
     `R=${laneMetrics.recovery.succeeded}/${laneMetrics.recovery.dispatched} ` +
     `G=${laneMetrics.generation.succeeded}/${laneMetrics.generation.dispatched}`
