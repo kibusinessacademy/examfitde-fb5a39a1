@@ -1040,6 +1040,81 @@ Deno.serve(async (req) => {
       }
     }
 
+    // 6b) ── CRITICAL FIX: Close the job_queue completion loop ──
+    // Without this, batch jobs stay on batch_pending forever in job_queue
+    // while the domain import succeeds. This is the symmetric counterpart
+    // to what anthropic-batch-poll does for Anthropic batches.
+    try {
+      const { data: batchReqsWithJobs } = await sb
+        .from("llm_batch_requests")
+        .select("source_job_id, status, domain_imported_at")
+        .eq("batch_id", batchId)
+        .not("source_job_id", "is", null);
+
+      if (batchReqsWithJobs?.length) {
+        // Collect source_job_ids where domain import succeeded
+        const completedJobIds = batchReqsWithJobs
+          .filter((r: any) => r.domain_imported_at != null)
+          .map((r: any) => r.source_job_id)
+          .filter(Boolean);
+
+        const failedJobIds = batchReqsWithJobs
+          .filter((r: any) => r.status === "failed" && r.domain_imported_at == null)
+          .map((r: any) => r.source_job_id)
+          .filter(Boolean);
+
+        // Dedupe
+        const uniqueCompleted = [...new Set(completedJobIds)] as string[];
+        const uniqueFailed = [...new Set(failedJobIds)].filter(
+          (id) => !uniqueCompleted.includes(id as string)
+        ) as string[];
+
+        if (uniqueCompleted.length > 0) {
+          const { error: completeErr, count } = await sb
+            .from("job_queue")
+            .update({
+              status: "completed",
+              completed_at: now,
+              last_error: null,
+              locked_at: null,
+              locked_by: null,
+              meta: {
+                batch_id: batchId,
+                batch_completed_via: "batch-result-importer",
+                batch_import_success: result.successCount,
+                batch_import_failed: result.failCount,
+              },
+            })
+            .in("id", uniqueCompleted)
+            .in("status", ["batch_pending", "pending", "processing"])
+            .select("id", { count: "exact", head: true });
+
+          if (completeErr) {
+            console.warn(`[batch-result-importer] job_queue completion failed: ${completeErr.message?.slice(0, 200)}`);
+          } else {
+            console.log(`[batch-result-importer] ✅ Closed ${count ?? 0}/${uniqueCompleted.length} job_queue rows to completed for batch ${batchId.slice(0, 8)}`);
+          }
+        }
+
+        if (uniqueFailed.length > 0) {
+          await sb
+            .from("job_queue")
+            .update({
+              status: "failed",
+              last_error: `batch_import_failed: batch ${batchId.slice(0, 8)}`,
+              locked_at: null,
+              locked_by: null,
+            })
+            .in("id", uniqueFailed)
+            .in("status", ["batch_pending", "pending", "processing"]);
+
+          console.log(`[batch-result-importer] Marked ${uniqueFailed.length} job_queue rows as failed for batch ${batchId.slice(0, 8)}`);
+        }
+      }
+    } catch (jqErr) {
+      console.warn(`[batch-result-importer] job_queue completion loop failed (non-fatal): ${(jqErr as Error)?.message?.slice(0, 200)}`);
+    }
+
     // 7) Reconcile ai_generation_requests — truly per-request via FK
     try {
       // Load batch request rows with their gateway FK

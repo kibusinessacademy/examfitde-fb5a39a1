@@ -424,17 +424,22 @@ async function finalizeStep(
       },
     });
 
-    // Cancel remaining pending/failed jobs
+    // Complete remaining pending/failed jobs (not cancel — they are materially done)
     await sb.from("job_queue").update({
-      status: "cancelled",
-      last_error: "verifier_reconciler_finalized",
-      updated_at: new Date().toISOString(),
+      status: "completed",
+      completed_at: new Date().toISOString(),
+      last_error: null,
       locked_at: null,
       locked_by: null,
+      meta: {
+        completed_via: "verifier_reconciler",
+        adopted_from_ssot: true,
+        finalization_reason: reason,
+      },
     })
       .eq("package_id", packageId)
       .eq("job_type", jobType)
-      .in("status", ["pending", "failed"]);
+      .in("status", ["pending", "failed", "batch_pending"]);
 
     finalizedInThisPass.add(stepKey);
     console.log(`[verifier-reconciler] ✅ Finalized ${shortId}/${stepKey}: ${reason}`);
