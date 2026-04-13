@@ -1029,6 +1029,37 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
   }
 
   // ═══════════════════════════════════════════════════════════════
+  // PRE-CLAIM STALE CLEANUP (v6.2)
+  // Reset processing jobs >3min with no meta.ok to pending.
+  // This prevents FINISH_LINE_GUARD poisoning from zombie processing jobs.
+  // ═══════════════════════════════════════════════════════════════
+  {
+    const staleCleanupThreshold = new Date(Date.now() - 3 * 60 * 1000).toISOString();
+    const { data: staleJobs } = await sb
+      .from("job_queue")
+      .select("id, job_type")
+      .eq("status", "processing")
+      .lt("updated_at", staleCleanupThreshold)
+      .limit(20);
+    
+    if (staleJobs && staleJobs.length > 0) {
+      const staleIds = staleJobs.map((j: any) => j.id);
+      await sb.from("job_queue").update({
+        status: "pending",
+        locked_at: null,
+        locked_by: null,
+        updated_at: new Date().toISOString(),
+      }).in("id", staleIds);
+      
+      const typeCounts = staleJobs.reduce((acc: Record<string, number>, j: any) => {
+        acc[j.job_type] = (acc[j.job_type] || 0) + 1;
+        return acc;
+      }, {});
+      console.warn(`[content-runner] STALE_CLEANUP: reset ${staleJobs.length} zombie processing jobs: ${JSON.stringify(typeCounts)}`);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════
   // LANE-AWARE CLAIMING (v4.3)
   // Instead of claiming globally then releasing excess per-lane,
   // we claim per-lane with lane-specific budgets.
