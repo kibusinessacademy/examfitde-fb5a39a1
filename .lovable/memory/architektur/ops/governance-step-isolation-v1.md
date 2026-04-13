@@ -47,4 +47,13 @@ Governance-Steps dürfen **ausschließlich** von ihren eigenen Edge Functions fi
 **Kein** Healer, Zombie-Scanner, Reconciler, Watchdog, Stale-Lock-Recovery oder generische Healer-Funktion darf diese Steps auto-finalisieren, enqueuen oder über Lane-Grenzen recyclen.
 
 ### WIP-Enforcement
-WIP-Cap muss an **allen** Enqueue-Punkten geprüft werden, nicht nur bei Lease/Claim.
+WIP-Cap wird jetzt als **permanente DB-Invariante** erzwungen:
+- Trigger `trg_enforce_wip_cap` auf `course_packages` blockiert jede Transition zu `building`, wenn der Cap erreicht ist
+- Cap wird aus `ops_pipeline_config.wip_total_cap` gelesen (Fallback: 18)
+- **Kein** Healer, Reconciler, Watchdog oder manueller Update kann den Cap überschreiten
+
+### Content-Runner Lane-Isolation (v2 verschärft)
+Beide Stale-Lock-/Stale-Cleanup-Pfade im Content-Runner sind jetzt lane-scoped:
+1. Stale-Lock-Recovery (Zeile ~974): nur `generation` Lane Jobs
+2. Pre-Claim Stale Cleanup (Zeile ~1048): nur `generation` Lane Jobs
+Der Job-Runner hat **keine** Stale-Lock-Recovery — kein Lane-Leak dort.
