@@ -82,50 +82,85 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Fetch blueprints to validate
+    // ── Batch-fetch blueprints ──────────────────────────────────
     let blueprintIds: string[] = [];
+    const blueprintNames = new Map<string, string>();
+
     if (blueprintId) {
       blueprintIds = [blueprintId];
+      const { data: bpRow } = await sb
+        .from("question_blueprints")
+        .select("id, name")
+        .eq("id", blueprintId)
+        .single();
+      if (bpRow) blueprintNames.set(bpRow.id, bpRow.name ?? "?");
     } else {
+      // Fetch ALL blueprints with names in ONE query
       const { data: bps } = await sb
         .from("question_blueprints")
-        .select("id")
+        .select("id, name")
         .eq("curriculum_id", resolvedCurriculumId!)
         .order("id", { ascending: true });
-      blueprintIds = (bps ?? []).map((b: any) => b.id);
+      for (const bp of bps ?? []) {
+        blueprintIds.push(bp.id);
+        blueprintNames.set(bp.id, bp.name ?? "?");
+      }
     }
 
+    if (blueprintIds.length === 0) {
+      return new Response(JSON.stringify({
+        ok: true,
+        summary: { total_blueprints: 0, passed_blueprints: 0, failed_blueprints: 0, all_passed: true },
+        results: [],
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ── Batch-fetch ALL variants in ONE query ───────────────────
+    // Supabase has a 1000-row default limit; paginate if needed
+    const allVariants: any[] = [];
+    const PAGE_SIZE = 1000;
+    let offset = 0;
+    let hasMore = true;
+
+    while (hasMore) {
+      const { data: page, error: vErr } = await sb
+        .from("exam_question_variants")
+        .select("blueprint_id, variant_type, quality_score, quality_flags, trap_applied, distractor_meta, status")
+        .in("blueprint_id", blueprintIds)
+        .order("id", { ascending: true })
+        .range(offset, offset + PAGE_SIZE - 1);
+
+      if (vErr) {
+        console.error("variant fetch error:", vErr.message);
+        break;
+      }
+
+      if (page && page.length > 0) {
+        allVariants.push(...page);
+        offset += page.length;
+        hasMore = page.length === PAGE_SIZE;
+      } else {
+        hasMore = false;
+      }
+    }
+
+    // Group variants by blueprint_id
+    const variantsByBlueprint = new Map<string, any[]>();
+    for (const v of allVariants) {
+      const arr = variantsByBlueprint.get(v.blueprint_id) || [];
+      arr.push(v);
+      variantsByBlueprint.set(v.blueprint_id, arr);
+    }
+
+    // ── Validate each blueprint (in-memory, no more DB calls) ──
     const distGates = isStudium ? STUDIUM_GATES : VOCATIONAL_GATES;
     const results: ValidationResult[] = [];
     let allPassed = true;
 
     for (const bpId of blueprintIds) {
-      // Fetch blueprint name
-      const { data: bpRow } = await sb
-        .from("question_blueprints")
-        .select("name")
-        .eq("id", bpId)
-        .single();
-
-      // Fetch all variants for this blueprint
-      const { data: variants, error: vErr } = await sb
-        .from("exam_question_variants")
-        .select("variant_type, quality_score, quality_flags, trap_applied, distractor_meta, status")
-        .eq("blueprint_id", bpId)
-        .order("id", { ascending: true });
-
-      if (vErr || !variants) {
-        results.push({
-          blueprint_id: bpId,
-          blueprint_name: bpRow?.name ?? "?",
-          total_variants: 0,
-          passed: false,
-          gates: { min_variants: { passed: false, actual: 0, required: minVariants } },
-        });
-        allPassed = false;
-        continue;
-      }
-
+      const variants = variantsByBlueprint.get(bpId) || [];
       const total = variants.length;
       const gates: ValidationResult["gates"] = {};
 
@@ -155,7 +190,7 @@ Deno.serve(async (req) => {
 
       // Gate 3: Average quality score
       const avgScore = total > 0
-        ? variants.reduce((s, v) => s + (v.quality_score ?? 0), 0) / total
+        ? variants.reduce((s: number, v: any) => s + (v.quality_score ?? 0), 0) / total
         : 0;
       gates.avg_quality = {
         passed: avgScore >= minAvgQuality,
@@ -165,7 +200,7 @@ Deno.serve(async (req) => {
 
       // Gate 4: Flagged variant percentage
       const flagged = variants.filter(
-        (v) => v.quality_flags && Array.isArray(v.quality_flags) && v.quality_flags.length > 0
+        (v: any) => v.quality_flags && Array.isArray(v.quality_flags) && v.quality_flags.length > 0
       ).length;
       const flaggedPct = total > 0 ? (flagged / total) * 100 : 0;
       gates.flagged_pct = {
@@ -176,7 +211,7 @@ Deno.serve(async (req) => {
       };
 
       // Gate 5: trap_applied coverage
-      const withTrap = variants.filter((v) => v.trap_applied != null).length;
+      const withTrap = variants.filter((v: any) => v.trap_applied != null).length;
       const trapPct = total > 0 ? (withTrap / total) * 100 : 0;
       gates.trap_coverage = {
         passed: trapPct >= 60,
@@ -185,7 +220,7 @@ Deno.serve(async (req) => {
       };
 
       // Gate 6: distractor_meta coverage
-      const withDist = variants.filter((v) => v.distractor_meta != null).length;
+      const withDist = variants.filter((v: any) => v.distractor_meta != null).length;
       const distPct = total > 0 ? (withDist / total) * 100 : 0;
       gates.distractor_meta_coverage = {
         passed: distPct >= 50,
@@ -198,7 +233,7 @@ Deno.serve(async (req) => {
 
       results.push({
         blueprint_id: bpId,
-        blueprint_name: bpRow?.name ?? "?",
+        blueprint_name: blueprintNames.get(bpId) ?? "?",
         total_variants: total,
         passed: bpPassed,
         gates,
