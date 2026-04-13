@@ -163,24 +163,32 @@ const HEAVY_JOB_TYPES = new Set([
 // At Tier 2 (40s required) it could only dispatch as the first job in a loop,
 // causing persistent BUDGET_EXHAUSTED blockade.
 
-// Tier 4 (10s): Pure DB-query / status-check orchestrators (<5s actual runtime)
-// These jobs do zero LLM calls, zero external API calls — just DB reads + status writes.
-// Required budget: 10s + 5s buffer = 15s (vs 30s for Tier 3), enabling dispatch late in loop.
+// v5.1: Tier 2 expanded — many "light" jobs actually invoke Edge Functions that need 20-35s
+// Only truly instant DB-check jobs should be T4_LIGHT.
+const HEAVY_EXPANDED_JOB_TYPES = new Set([
+  ...HEAVY_JOB_TYPES,
+  "package_run_integrity_check",       // v5.1: invokes integrity-check EF, needs 30s+
+  "package_quality_council",           // v5.1: invokes quality-council EF with AI phases
+  "package_promote_blueprint_variants",// v5.1: scans all blueprints sequentially
+  "package_scaffold_learning_course",  // v5.1: scaffolding is heavy orchestration
+  "package_elite_harden",             // v5.1: has AI annotation phases
+  "package_repair_exam_pool_quality", // v5.1: exam pool repair needs LLM time
+]);
+
+// Tier 4 (10s): ONLY truly instant DB status-checks — zero Edge Function calls, zero LLM.
+// Required budget: 10s + 5s buffer = 15s. Only jobs that do a single DB read + status write.
 const LIGHT_JOB_TYPES = new Set([
-  "package_run_integrity_check",
-  "package_validate_learning_content",  // v2.9: demoted from T2 — pure DB gate check, no LLM
-  "package_validate_handbook",
-  "package_validate_handbook_depth",
-  "package_validate_oral_exam",
-  "package_validate_tutor_index",
-  "package_validate_lesson_minichecks",
-  "package_enqueue_handbook_expand",
-  // package_generate_blueprint_variants: v3.1 REMOVED — promoted to T2_HEAVY (was causing BUDGET_EXHAUSTED zombies)
-  "package_promote_blueprint_variants",
-  "package_finalize_learning_content",
-  "package_scaffold_learning_course",
-  "package_auto_publish",
-  "package_quality_council",
+  "package_validate_learning_content",  // pure DB gate check
+  "package_validate_handbook",          // pure DB gate check
+  "package_validate_handbook_depth",    // pure DB gate check
+  "package_validate_oral_exam",         // pure DB gate check
+  "package_validate_tutor_index",       // pure DB gate check
+  "package_validate_lesson_minichecks", // pure DB gate check
+  "package_enqueue_handbook_expand",    // pure orchestration enqueue
+  "package_finalize_learning_content",  // pure barrier check
+  "package_auto_publish",              // pure status transition
+  "package_validate_blueprints",       // pure DB gate check
+  "package_validate_blueprint_variants",// pure DB gate check
 ]);
 
 // Everything else not in Tier 1/2/4: Tier 3 (25s) — moderate DB + orchestration
