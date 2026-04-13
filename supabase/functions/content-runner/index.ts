@@ -399,7 +399,7 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
   let jobProvider: string | null = null;
   let jobModel: string | null = null;
   try {
-    const route = await resolveAvailableRoute(workloadKeyForJob(job.job_type));
+    const route = await resolveAvailableRoute(workloadKeyForJob(job.job_type) ?? "orchestration");
     jobProvider = route?.provider ?? job.meta?.last_provider ?? "unknown";
     jobModel = route?.model ?? job.meta?.last_model ?? "unknown";
   } catch {
@@ -766,7 +766,7 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
         let jobProvider = "unknown";
         let jobModel = "unknown";
         try {
-          const chainForCooldown = await getModelChainAsync(workloadKeyForJob(job.job_type));
+          const chainForCooldown = await getModelChainAsync(workloadKeyForJob(job.job_type) ?? "orchestration");
           const provIdx = attemptIdx % Math.max(1, chainForCooldown.length);
           jobProvider = chainForCooldown[provIdx]?.provider || "unknown";
           jobModel = chainForCooldown[provIdx]?.model || "unknown";
@@ -864,7 +864,7 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
 
         // Set provider cooldown if loop exhausted — JOB-TYPE SCOPED
         if (providerLoopExhausted && jobProvider && jobProvider !== "unknown") {
-          const workloadKey = workloadKeyForJob(job.job_type);
+          const workloadKey = workloadKeyForJob(job.job_type) ?? "orchestration";
           // Cooldown duration: oral_exam gets shorter (3min vs 10min) to recover faster
           const cooldownMs = job.job_type === "package_generate_oral_exam" ? 3 * 60_000 : 10 * 60_000;
           setProviderCooldown({
