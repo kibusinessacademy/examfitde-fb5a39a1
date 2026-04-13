@@ -2458,7 +2458,7 @@ Deno.serve(async (req) => {
     claimed: results.length,
     succeeded: tickMetrics.completed,
     failed: tickMetrics.timeouts + tickMetrics.rateLimits + tickMetrics.dlqItems,
-    runtime_ms: Date.now() - tickStart,
+    runtime_ms: Date.now() - runnerStart,
   });
 
   return json({
