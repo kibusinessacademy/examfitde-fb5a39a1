@@ -37,7 +37,7 @@ export default function HandbookChapterPage() {
 
   // Phase 3: product-based access check
   const { data: hasAccess } = useProductAccessByCurriculum(
-    chapterData?.chapter?.curriculum_id,
+    chapterData?.chapter?.curriculum_id ?? undefined,
     undefined
   );
 

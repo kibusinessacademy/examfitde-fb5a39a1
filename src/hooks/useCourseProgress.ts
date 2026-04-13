@@ -116,7 +116,7 @@ export function useLessonsNeedingReview(courseId?: string) {
     queryKey: ["lessons-needing-review", courseId],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_lessons_needing_review", {
-        p_course_id: courseId ?? null,
+        p_course_id: courseId ?? undefined as any,
       });
       if (error) throw error;
       return data as Array<{

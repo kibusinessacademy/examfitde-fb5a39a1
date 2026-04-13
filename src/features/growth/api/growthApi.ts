@@ -32,7 +32,7 @@ export type SEOContentPage = {
 
 export async function getGrowthContentJobs(status?: string) {
   const { data, error } = await supabase.rpc("get_admin_growth_content_jobs", {
-    p_status: status ?? null,
+    p_status: status ?? undefined as any,
   });
   if (error) throw new Error(error.message);
   return (data ?? []) as GrowthContentJob[];
@@ -40,7 +40,7 @@ export async function getGrowthContentJobs(status?: string) {
 
 export async function getSEOPages(status?: string) {
   const { data, error } = await supabase.rpc("get_admin_seo_pages", {
-    p_status: status ?? null,
+    p_status: status ?? undefined as any,
   });
   if (error) throw new Error(error.message);
   return (data ?? []) as SEOContentPage[];

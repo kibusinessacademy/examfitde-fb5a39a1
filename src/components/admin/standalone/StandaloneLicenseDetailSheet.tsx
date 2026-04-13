@@ -53,7 +53,7 @@ export function StandaloneLicenseDetailSheet({ license, onClose }: Props) {
   };
 
   const handleExtend = () => {
-    const newExpiry = addMonths(new Date(license.expires_at), 3).toISOString();
+    const newExpiry = addMonths(new Date(license.expires_at ?? new Date()), 3).toISOString();
     extendLicense.mutate({ license_id: license.license_id, expires_at: newExpiry });
   };
 

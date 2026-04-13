@@ -39,7 +39,7 @@ export function BadgeHistory() {
       .order('earned_at', { ascending: false })
       .limit(20)
       .then(({ data }) => {
-        if (data) setBadges(data);
+        if (data) setBadges(data.map(d => ({ ...d, badge_icon: d.badge_icon ?? '' })));
         setLoading(false);
       });
   }, [user]);

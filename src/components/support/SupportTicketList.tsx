@@ -176,7 +176,7 @@ export default function SupportTicketList() {
                   <TableRow key={ticket.id}>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        {getStatusIcon(ticket.status)}
+                        {getStatusIcon(ticket.status ?? 'open')}
                         <span className="capitalize text-sm">{ticket.status?.replace('_', ' ')}</span>
                       </div>
                     </TableCell>
@@ -198,11 +198,11 @@ export default function SupportTicketList() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-sm">
-                      {format(new Date(ticket.created_at), 'dd.MM.yy HH:mm', { locale: de })}
+                      {ticket.created_at ? format(new Date(ticket.created_at), 'dd.MM.yy HH:mm', { locale: de }) : '—'}
                     </TableCell>
                     <TableCell className="text-right">
                       <Select
-                        value={ticket.status}
+                        value={ticket.status ?? 'open'}
                         onValueChange={(v) => updateStatus.mutate({ id: ticket.id, status: v })}
                       >
                         <SelectTrigger className="w-32 h-8 text-xs">

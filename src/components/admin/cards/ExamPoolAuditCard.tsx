@@ -206,7 +206,7 @@ export default function ExamPoolAuditCard() {
                         className="h-5 text-[9px] px-1.5 gap-0.5"
                         disabled={healMutation.isPending}
                         onClick={() => healMutation.mutate({
-                          packageId: evt.target_id,
+                          packageId: evt.target_id!,
                           action: 'repair_exam_pool_quality',
                         })}
                       >

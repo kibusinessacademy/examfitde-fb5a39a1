@@ -88,7 +88,7 @@ export default function MiniCheckPlayer({
         p_question_id: currentQuestion.id,
         p_chosen_index: selectedIndex,
         p_session_id: sessionId,
-        p_lesson_id: lessonId || null,
+        p_lesson_id: lessonId ?? null,
       });
 
       if (error) {
@@ -285,7 +285,7 @@ export default function MiniCheckPlayer({
       {/* Proactive Help Hints */}
       <ProactiveHelpHints
         failCount={consecutiveFails}
-        contextLessonId={lessonId}
+        contextLessonId={lessonId ?? undefined}
         onAcceptHelp={(type) => {
           if (type === 'fail_streak' && hasAnswered && currentQuestion) {
             // Show explanation

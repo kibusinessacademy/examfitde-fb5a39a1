@@ -132,7 +132,7 @@ export default function CourseDetailPage() {
     const { data: courseData, error: courseError } = await supabase
       .from("courses")
       .select("*")
-      .eq("id", slug)
+      .eq("id", slug!)
       .single();
 
     if (courseError || !courseData) {

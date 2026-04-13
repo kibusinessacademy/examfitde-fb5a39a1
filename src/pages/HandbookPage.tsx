@@ -25,7 +25,7 @@ export default function HandbookPage() {
 
   // Phase 3: product-based access — handbook is available with any product entitlement
   const { data: hasHandbookAccess } = useProductAccessByCurriculum(
-    chapters?.[0]?.curriculum_id,
+    chapters?.[0]?.curriculum_id ?? undefined,
     undefined
   );
 
@@ -186,7 +186,7 @@ export default function HandbookPage() {
                 key={chapter.id}
                 chapter={chapter}
                 progress={progress?.find(p => p.chapter_id === chapter.id)}
-                hasAccess={hasHandbookAccess}
+                hasAccess={hasHandbookAccess ?? false}
                 index={index}
               />
             ))}

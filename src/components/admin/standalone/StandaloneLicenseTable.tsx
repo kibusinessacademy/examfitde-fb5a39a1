@@ -81,7 +81,7 @@ export function StandaloneLicenseTable({ licenses, onSelect }: Props) {
                   : "—"}
               </TableCell>
               <TableCell className="text-muted-foreground text-xs">
-                {format(new Date(lic.expires_at), "dd.MM.yy")}
+                {lic.expires_at ? format(new Date(lic.expires_at), "dd.MM.yy") : "—"}
               </TableCell>
             </TableRow>
           ))}
