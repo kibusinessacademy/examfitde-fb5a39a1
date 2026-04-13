@@ -356,27 +356,28 @@ export default function CourseDetailPage() {
           </div>
         </div>
 
-        <PageExplainer
-          title="Wie ist dieser Kurs aufgebaut?"
-          description="Der Kurs ist in Module gegliedert, die jeweils mehrere Lektionen enthalten. Jede Lektion folgt dem 5-Schritte-Pfad: Einstieg (10 Min.) → Verstehen (25 Min.) → Anwenden (30 Min.) → Wiederholen (15 Min.) → Mini-Check (10 Min.). Dein Fortschritt wird pro Kompetenz gemessen."
-          workflow={[
-            { label: 'Einschreiben' },
-            { label: 'Module', active: true },
-            { label: 'Lektionen' },
-            { label: 'Mini-Checks' },
-            { label: 'Mastery' },
-          ]}
-          actions={[
-            '"Fortsetzen" / "Training starten" – Springt zur nächsten offenen Lektion',
-            'Modul aufklappen → Zeigt alle Lektionen mit Status (✓ gemeistert, ◐ teilweise, ○ offen)',
-            'Kompetenzraster → Zeigt deinen Mastery-Status pro Kompetenz',
-          ]}
-          tips={[
-            'Ab 80% im Mini-Check gilt ein Lernziel als gemeistert',
-            'Nicht gemeisterte Lernziele werden automatisch zur Wiederholung vorgeschlagen',
-            'Du kannst jederzeit zu früheren Lektionen zurückkehren',
-          ]}
-        />
+        {/* #6: Subtle course info accordion instead of admin-style PageExplainer */}
+        <Accordion type="single" collapsible className="mb-8">
+          <AccordionItem value="course-info" className="glass-card rounded-xl border px-4">
+            <AccordionTrigger className="text-sm hover:no-underline py-3">
+              <div className="flex items-center gap-2">
+                <HelpCircle className="h-4 w-4 text-muted-foreground" />
+                <span className="text-muted-foreground font-medium">Wie ist dieser Kurs aufgebaut?</span>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="text-sm text-muted-foreground pb-4 space-y-3">
+              <p>
+                Der Kurs ist in Module gegliedert, die jeweils mehrere Lektionen enthalten. 
+                Jede Lektion folgt einem didaktischen Pfad: Einstieg → Verstehen → Anwenden → Wiederholen → Mini-Check.
+              </p>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>Ab 80% im Mini-Check gilt ein Lernziel als gemeistert</li>
+                <li>Nicht gemeisterte Lernziele werden automatisch zur Wiederholung vorgeschlagen</li>
+                <li>Du kannst jederzeit zu früheren Lektionen zurückkehren</li>
+              </ul>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
 
         {/* Continue Learning Card for enrolled users with progress */}
         {isEnrolled && courseProgress && progressPercent > 0 && (
