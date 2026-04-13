@@ -8,7 +8,7 @@
 export const BATCH_JOB_TYPES = {
   LESSON_GENERATE_CONTENT: "lesson_generate_content",
   PACKAGE_GENERATE_EXAM_POOL: "package_generate_exam_pool",
-  EXPAND_HANDBOOK_SECTION: "expand_handbook_section",
+  EXPAND_HANDBOOK_SECTION: "handbook_expand_section",  // P4 FIX: canonical name
   PACKAGE_GENERATE_HANDBOOK: "package_generate_handbook",
   PACKAGE_GENERATE_ORAL_EXAM: "package_generate_oral_exam",
   PACKAGE_GENERATE_LESSON_MINICHECKS: "package_generate_lesson_minichecks",
