@@ -361,10 +361,19 @@ async function executeHealAction(
   try {
     switch (action.action_type) {
       case "retry_failed_jobs": {
+        // GOVERNANCE EXCLUSION: never retry governance jobs via auto-healer
+        const GOVERNANCE_JOB_TYPES_AH = new Set(["package_run_integrity_check", "package_quality_council", "package_auto_publish"]);
         const jobType = action.params.job_type as string;
+        if (GOVERNANCE_JOB_TYPES_AH.has(jobType)) {
+          await logHealAction(sb, action, triggerSource, "skipped", `Governance job type ${jobType} excluded`, Date.now() - startMs);
+          return { success: false, detail: `Governance job type ${jobType} excluded from auto-retry` };
+        }
         const limit = (action.params.limit as number) || 5;
         const { data, error } = await sb.from("job_queue")
-          .update({ status: "pending", attempts: 0, run_after: new Date().toISOString() } as any)
+          .update({
+            status: "pending", attempts: 0, run_after: new Date().toISOString(),
+            meta: { transition_source: "ops-auto-healer", transition_reason: "retry_failed_jobs", transition_prev_status: "failed", transition_at: new Date().toISOString() },
+          } as any)
           .eq("status", "failed")
           .eq("job_type", jobType)
           .limit(limit)
@@ -376,16 +385,32 @@ async function executeHealAction(
       }
 
       case "reset_stuck_jobs": {
+        // HARDENED: skip governance jobs, respect heartbeats
+        const GOVERNANCE_JOB_TYPES_AH2 = new Set(["package_run_integrity_check", "package_quality_council", "package_auto_publish"]);
         const cutoff = new Date(Date.now() - 1800_000).toISOString();
-        const { data, error } = await sb.from("job_queue")
-          .update({ status: "pending", attempts: 0, locked_at: null, locked_by: null } as any)
+        const { data: stuckCandidates } = await sb.from("job_queue")
+          .select("id, job_type, last_heartbeat_at, meta")
           .eq("status", "processing")
           .lt("locked_at", cutoff)
-          .select("id");
-        if (error) throw error;
-        const count = data?.length || 0;
-        await logHealAction(sb, action, triggerSource, "success", `${count} stuck Jobs zurückgesetzt`, Date.now() - startMs);
-        return { success: true, detail: `${count} stuck jobs reset` };
+          .limit(50);
+        let resetCount = 0;
+        for (const job of stuckCandidates ?? []) {
+          if (GOVERNANCE_JOB_TYPES_AH2.has(job.job_type)) continue;
+          if (job.last_heartbeat_at) {
+            const hbAge = Date.now() - new Date(job.last_heartbeat_at).getTime();
+            if (hbAge < 10 * 60_000) continue;
+          }
+          await sb.from("job_queue")
+            .update({
+              status: "pending", attempts: 0, locked_at: null, locked_by: null,
+              meta: { ...((job.meta as any) ?? {}), transition_source: "ops-auto-healer", transition_reason: "reset_stuck_jobs", transition_prev_status: "processing", transition_at: new Date().toISOString() },
+            } as any)
+            .eq("id", job.id)
+            .eq("status", "processing");
+          resetCount++;
+        }
+        await logHealAction(sb, action, triggerSource, "success", `${resetCount} stuck Jobs zurückgesetzt`, Date.now() - startMs);
+        return { success: true, detail: `${resetCount} stuck jobs reset` };
       }
 
       case "run_auto_gap_closer": {

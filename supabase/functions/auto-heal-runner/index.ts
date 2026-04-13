@@ -215,6 +215,18 @@ async function escalateInstead(sb: SB, policy: PolicyRow): Promise<HealResult> {
 }
 
 /* ── Heal: Requeue transient failed jobs ── */
+// GOVERNANCE EXCLUSION: never requeue governance job types
+const GOVERNANCE_JOB_TYPES_AHR = new Set([
+  "package_run_integrity_check",
+  "package_quality_council",
+  "package_auto_publish",
+]);
+const GOVERNANCE_STEP_KEYS_AHR = new Set([
+  "run_integrity_check",
+  "quality_council",
+  "auto_publish",
+]);
+
 async function healRequeueTransient(sb: SB, policy: PolicyRow): Promise<HealResult> {
   const thresholdMs = (policy.threshold_minutes || 5) * 60_000;
   const since = new Date(Date.now() - thresholdMs).toISOString();
@@ -222,7 +234,7 @@ async function healRequeueTransient(sb: SB, policy: PolicyRow): Promise<HealResu
 
   const { data: jobs, error } = await sb
     .from("job_queue")
-    .select("id, last_error")
+    .select("id, job_type, last_error")
     .eq("status", "failed")
     .gte("updated_at", since)
     .order("updated_at", { ascending: false })
@@ -232,6 +244,8 @@ async function healRequeueTransient(sb: SB, policy: PolicyRow): Promise<HealResu
   if (!jobs?.length) return { policy_key: policy.policy_key, updated: 0, affected_ids: [] };
 
   const transient = jobs.filter((j: any) => {
+    // GOVERNANCE EXCLUSION
+    if (GOVERNANCE_JOB_TYPES_AHR.has(j.job_type)) return false;
     const err = String(j.last_error || "").toLowerCase();
     return transientPatterns.some(p => err.includes(p));
   });
@@ -249,7 +263,10 @@ async function healRequeueTransient(sb: SB, policy: PolicyRow): Promise<HealResu
 
   const { error: updErr } = await sb
     .from("job_queue")
-    .update({ status: "pending", last_error: null, updated_at: new Date().toISOString() })
+    .update({
+      status: "pending", last_error: null, updated_at: new Date().toISOString(),
+      meta: { transition_source: "auto-heal-runner", transition_reason: "requeue_transient", transition_prev_status: "failed", transition_at: new Date().toISOString() },
+    })
     .in("id", ids);
 
   if (updErr) throw updErr;
@@ -299,6 +316,8 @@ async function healResetStuck(sb: SB, policy: PolicyRow): Promise<HealResult> {
     const stallMin = row.minutes_stuck ?? row.stall_minutes ?? 0;
     if (stallMin < threshold) continue;
     if (!row.package_id || !row.step_key) continue;
+    // GOVERNANCE EXCLUSION: never reset governance steps
+    if (GOVERNANCE_STEP_KEYS_AHR.has(row.step_key)) continue;
 
     const compositeId = `${row.package_id}:${row.step_key}`;
     if (filterBlacklist([compositeId], policy.blacklist_ids || []).length === 0) continue;
@@ -310,7 +329,10 @@ async function healResetStuck(sb: SB, policy: PolicyRow): Promise<HealResult> {
 
     const { error: updErr } = await sb
       .from("package_steps")
-      .update({ status: "queued", started_at: null, finished_at: null, last_error: null, updated_at: new Date().toISOString() })
+      .update({
+        status: "queued", started_at: null, finished_at: null, last_error: null, updated_at: new Date().toISOString(),
+        meta: { transition_source: "auto-heal-runner", transition_reason: "reset_stuck_step", transition_at: new Date().toISOString() },
+      })
       .eq("package_id", row.package_id)
       .eq("step_key", row.step_key);
 
