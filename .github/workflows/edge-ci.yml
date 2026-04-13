@@ -88,6 +88,11 @@ jobs:
         run: |
           node scripts/guards/no-direct-done-write-guard.mjs
 
+      - name: Runner Boot Smoke Tests (TDZ/import guard)
+        run: |
+          deno check supabase/functions/tests/runner-smoke.test.ts
+          echo "✅ Runner smoke test module compiles — no TDZ or import errors"
+
       - name: Success summary
         run: |
-          echo "✅ Edge CI passed: deno check + deno lint + edge guards + SSOT guards + model guards + LLM fetch guards + handler parity"
+          echo "✅ Edge CI passed: deno check + deno lint + edge guards + SSOT guards + model guards + LLM fetch guards + handler parity + runner boot smoke"

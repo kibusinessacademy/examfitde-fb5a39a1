@@ -44662,7 +44662,9 @@ export type Database = {
       }
       runner_health_log: {
         Row: {
+          claim_rate: number | null
           claimed: number
+          completion_rate: number | null
           created_at: string
           error_message: string | null
           failed: number
@@ -44676,7 +44678,9 @@ export type Database = {
           worker_id: string
         }
         Insert: {
+          claim_rate?: number | null
           claimed?: number
+          completion_rate?: number | null
           created_at?: string
           error_message?: string | null
           failed?: number
@@ -44690,7 +44694,9 @@ export type Database = {
           worker_id: string
         }
         Update: {
+          claim_rate?: number | null
           claimed?: number
+          completion_rate?: number | null
           created_at?: string
           error_message?: string | null
           failed?: number
@@ -74480,17 +74486,18 @@ export type Database = {
       }
       v_runner_health_latest: {
         Row: {
+          claim_rate: number | null
           claimed: number | null
+          completion_rate: number | null
+          created_at: string | null
           error_message: string | null
           failed: number | null
           health_status: string | null
           lanes: string[] | null
-          last_seen_at: string | null
           passes: number | null
           runner_name: string | null
           runtime_ms: number | null
           seconds_ago: number | null
-          status: string | null
           succeeded: number | null
           worker_id: string | null
         }
