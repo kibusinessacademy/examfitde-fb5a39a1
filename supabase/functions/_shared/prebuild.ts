@@ -18,7 +18,10 @@ type SB = any;
 /** Step keys that have a matching fn_prebuild_* RPC */
 const PREBUILD_STEP_TO_RPC: Record<string, string> = {
   finalize_learning_content: "fn_prebuild_finalize_learning_content",
+  auto_seed_exam_blueprints: "fn_prebuild_auto_seed_exam_blueprints",
   validate_blueprints: "fn_prebuild_validate_blueprints",
+  generate_blueprint_variants: "fn_prebuild_generate_blueprint_variants",
+  validate_blueprint_variants: "fn_prebuild_validate_blueprint_variants",
   promote_blueprint_variants: "fn_prebuild_promote_blueprint_variants",
   validate_handbook: "fn_prebuild_validate_handbook",
   validate_handbook_depth: "fn_prebuild_validate_handbook_depth",
@@ -27,7 +30,10 @@ const PREBUILD_STEP_TO_RPC: Record<string, string> = {
 /** Ordered list of prebuildable step keys (checked in DAG order) */
 const PREBUILD_STEP_ORDER = [
   "finalize_learning_content",
+  "auto_seed_exam_blueprints",
   "validate_blueprints",
+  "generate_blueprint_variants",
+  "validate_blueprint_variants",
   "promote_blueprint_variants",
   "validate_handbook",
   "validate_handbook_depth",
