@@ -246,7 +246,7 @@ function InterventionDetail({ intervention, onResolve, isPending }: { interventi
         {rec?.recommendation_type && (
           <div>
             <h4 className="text-sm font-medium mb-1">Empfehlung</h4>
-            <p className="text-sm text-muted-foreground">{String(rec.reason ?? "–")}</p>
+            <p className="text-sm text-muted-foreground">{String((rec as Record<string, unknown>).reason ?? "–")}</p>
           </div>
         )}
 
