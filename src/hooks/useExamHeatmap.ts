@@ -6,7 +6,7 @@ export interface HeatmapCell {
   learning_field_id: string;
   learning_field_title: string;
   learning_field_code: string;
-  sort_order: number;
+  sort_order: number | null;
   competency_count: number;
   avg_mastery: number;
   total_answers: number;

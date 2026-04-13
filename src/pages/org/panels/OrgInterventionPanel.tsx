@@ -243,10 +243,10 @@ function InterventionDetail({ intervention, onResolve, isPending }: { interventi
           <Badge variant="secondary">{TRIGGER_LABELS[intervention.trigger_type] ?? intervention.trigger_type}</Badge>
         </div>
 
-        {rec?.recommendation_type && (
+        {!!rec?.recommendation_type && (
           <div>
             <h4 className="text-sm font-medium mb-1">Empfehlung</h4>
-            <p className="text-sm text-muted-foreground">{rec.reason as string ?? "–"}</p>
+            <p className="text-sm text-muted-foreground">{String((rec as Record<string, unknown>).reason ?? "–")}</p>
           </div>
         )}
 

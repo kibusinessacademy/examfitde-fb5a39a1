@@ -53,7 +53,7 @@ export default function DiagnosticTest() {
       const { data, error } = await supabase
         .from('curricula')
         .select('id, title, description')
-        .eq('id', curriculumId)
+        .eq('id', curriculumId!)
         .single();
       if (error) throw error;
       return data;

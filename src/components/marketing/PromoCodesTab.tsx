@@ -166,7 +166,7 @@ export default function PromoCodesTab() {
               </TableCell>
               <TableCell>
                 <Switch
-                  checked={code.is_active}
+                  checked={code.is_active ?? false}
                   onCheckedChange={(checked) => toggleActive.mutate({ id: code.id, isActive: checked })}
                 />
               </TableCell>

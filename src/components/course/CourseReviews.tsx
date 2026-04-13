@@ -101,7 +101,7 @@ export function CourseReviews({ courseId, showWriteReview = true }: CourseReview
       // Direct update statt RPC
       const { error } = await supabase
         .from('course_reviews')
-        .update({ helpful_count: supabase.rpc ? undefined : 1 }) // Fallback
+        .update({ helpful_count: typeof supabase.rpc === 'function' ? undefined : 1 }) // Fallback
         .eq('id', reviewId);
       
       // Alternativ: Increment via raw SQL simulieren

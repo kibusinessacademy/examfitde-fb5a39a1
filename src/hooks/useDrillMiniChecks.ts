@@ -20,7 +20,7 @@ export function useDrillMiniChecks(
 
       const { data, error } = await supabase.rpc('get_drill_minichecks', {
         p_curriculum_id: curriculumId,
-        p_competency_id: competencyId ?? null,
+        p_competency_id: competencyId ?? undefined as any,
         p_limit: limit,
       });
 

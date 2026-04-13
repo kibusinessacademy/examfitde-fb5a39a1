@@ -47,8 +47,8 @@ interface Course {
 
 interface LessonProgress {
   id: string;
-  completed: boolean;
-  time_spent_seconds: number;
+  completed: boolean | null;
+  time_spent_seconds: number | null;
   score: number | null;
 }
 

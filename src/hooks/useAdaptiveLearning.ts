@@ -8,11 +8,11 @@ export interface LearnerDiagnostic {
   id: string;
   user_id: string;
   curriculum_id: string;
-  completed_at: string;
+  completed_at: string | null;
   results: DiagnosticResult[];
   exam_date: string | null;
-  weekly_time_minutes: number;
-  focus_areas: string[];
+  weekly_time_minutes: number | null;
+  focus_areas: string[] | null;
   recommended_path: 'course_first' | 'exam_trainer' | 'mixed' | null;
   estimated_readiness_date: string | null;
 }

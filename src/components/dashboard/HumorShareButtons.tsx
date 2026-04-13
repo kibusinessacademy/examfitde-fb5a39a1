@@ -100,7 +100,7 @@ export function HumorShareButtons({ humorId, humorText }: HumorShareButtonsProps
         size="sm"
         className="h-7 px-2"
         onClick={() => {
-          if (navigator.share) {
+          if (typeof navigator.share === 'function') {
             handleShare("native");
           } else {
             setOpen(true);

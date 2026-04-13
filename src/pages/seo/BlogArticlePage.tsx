@@ -21,7 +21,7 @@ export default function BlogArticlePage() {
       const { data, error } = await supabase
         .from('blog_articles')
         .select('*')
-        .eq('slug', slug)
+        .eq('slug', slug!)
         .eq('status', 'published')
         .maybeSingle();
       if (error) throw error;
@@ -262,9 +262,9 @@ export default function BlogArticlePage() {
           </div>
 
           {/* Keywords */}
-          {article.keywords?.length > 0 && (
+          {(article.keywords?.length ?? 0) > 0 && (
             <div className="mt-8 flex flex-wrap gap-2">
-              {article.keywords.map((kw: string) => (
+              {article.keywords!.map((kw: string) => (
                 <span key={kw} className="inline-flex items-center gap-1 px-3 py-1 text-xs bg-muted text-muted-foreground rounded-full">
                   <Tag className="h-3 w-3" />{kw}
                 </span>
