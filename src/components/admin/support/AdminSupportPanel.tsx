@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import type { Database } from '@/integrations/supabase/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -24,30 +25,12 @@ import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 
-/* ── Types (matching user_tickets DB schema) ── */
-type TicketStatus = 'OPEN' | 'TRIAGE' | 'IN_PROGRESS' | 'RESOLVED' | 'REJECTED' | 'DUPLICATE';
-type TicketPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
-type TicketType = 'CONTENT_ISSUE' | 'FEATURE_REQUEST' | 'BILLING_QUESTION' | 'LICENSE_QUESTION' | 'LEARNER_ACCOUNT_ISSUE' | 'DATA_CORRECTION' | 'TECHNICAL_ISSUE';
-
-interface UserTicket {
-  id: string;
-  created_by: string;
-  title: string;
-  message: string;
-  type: TicketType;
-  status: TicketStatus;
-  priority: TicketPriority;
-  source: string;
-  page_path: string | null;
-  certification_id: string | null;
-  lesson_id: string | null;
-  question_id: string | null;
-  admin_notes: string | null;
-  assigned_to: string | null;
-  attachment_urls: string[];
-  created_at: string;
-  updated_at: string;
-}
+/* ── SSOT Types from DB Enums ── */
+type TicketStatus = Database['public']['Enums']['user_ticket_status'];
+type TicketPriority = Database['public']['Enums']['user_ticket_priority'];
+type TicketType = Database['public']['Enums']['user_ticket_type'];
+type UserTicketRow = Database['public']['Tables']['user_tickets']['Row'];
+type UserTicketUpdate = Database['public']['Tables']['user_tickets']['Update'];
 
 /* ── Constants ── */
 const STATUS_CONFIG: Record<TicketStatus, { label: string; icon: typeof AlertCircle; tone: string }> = {
@@ -98,7 +81,7 @@ function useUserTickets(opts?: { status?: string; search?: string }) {
 
       const { data, error } = await query;
       if (error) throw error;
-      return (data ?? []) as UserTicket[];
+      return (data ?? []) as UserTicketRow[];
     },
     staleTime: 15_000,
   });
@@ -110,54 +93,26 @@ function TicketDetailSheet({
   open,
   onOpenChange,
 }: {
-  ticket: UserTicket | null;
+  ticket: UserTicketRow | null;
   open: boolean;
   onOpenChange: (v: boolean) => void;
 }) {
   const qc = useQueryClient();
   const [notes, setNotes] = useState('');
 
-  const updateStatus = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: TicketStatus }) => {
+  const updateTicket = useMutation({
+    mutationFn: async ({ id, ...patch }: UserTicketUpdate & { id: string }) => {
       const { error } = await supabase
         .from('user_tickets')
-        .update({ status, updated_at: new Date().toISOString() })
+        .update({ ...patch, updated_at: new Date().toISOString() })
         .eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin-user-tickets'] });
-      toast.success('Status aktualisiert');
+      toast.success('Ticket aktualisiert');
     },
     onError: () => toast.error('Fehler beim Aktualisieren'),
-  });
-
-  const saveNotes = useMutation({
-    mutationFn: async ({ id, admin_notes }: { id: string; admin_notes: string }) => {
-      const { error } = await supabase
-        .from('user_tickets')
-        .update({ admin_notes, updated_at: new Date().toISOString() })
-        .eq('id', id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['admin-user-tickets'] });
-      toast.success('Notiz gespeichert');
-    },
-  });
-
-  const updatePriority = useMutation({
-    mutationFn: async ({ id, priority }: { id: string; priority: TicketPriority }) => {
-      const { error } = await supabase
-        .from('user_tickets')
-        .update({ priority, updated_at: new Date().toISOString() })
-        .eq('id', id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['admin-user-tickets'] });
-      toast.success('Priorität aktualisiert');
-    },
   });
 
   if (!ticket) return null;
@@ -264,7 +219,7 @@ function TicketDetailSheet({
                 <div className="text-[10px] text-muted-foreground mb-1">Status ändern</div>
                 <Select
                   value={ticket.status}
-                  onValueChange={(v) => updateStatus.mutate({ id: ticket.id, status: v as TicketStatus })}
+                  onValueChange={(v) => updateTicket.mutate({ id: ticket.id, status: v as TicketStatus })}
                 >
                   <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -278,7 +233,7 @@ function TicketDetailSheet({
                 <div className="text-[10px] text-muted-foreground mb-1">Priorität</div>
                 <Select
                   value={ticket.priority}
-                  onValueChange={(v) => updatePriority.mutate({ id: ticket.id, priority: v as TicketPriority })}
+                  onValueChange={(v) => updateTicket.mutate({ id: ticket.id, priority: v as TicketPriority })}
                 >
                   <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -294,12 +249,12 @@ function TicketDetailSheet({
             {/* Quick actions */}
             <div className="flex gap-2">
               {ticket.status === 'OPEN' && (
-                <Button size="sm" variant="outline" className="flex-1 text-xs" onClick={() => updateStatus.mutate({ id: ticket.id, status: 'IN_PROGRESS' })} disabled={updateStatus.isPending}>
+                <Button size="sm" variant="outline" className="flex-1 text-xs" onClick={() => updateTicket.mutate({ id: ticket.id, status: 'IN_PROGRESS' })} disabled={updateTicket.isPending}>
                   <ArrowRight className="h-3.5 w-3.5 mr-1" />In Bearbeitung
                 </Button>
               )}
               {(ticket.status === 'OPEN' || ticket.status === 'IN_PROGRESS' || ticket.status === 'TRIAGE') && (
-                <Button size="sm" className="flex-1 text-xs" onClick={() => updateStatus.mutate({ id: ticket.id, status: 'RESOLVED' })} disabled={updateStatus.isPending}>
+                <Button size="sm" className="flex-1 text-xs" onClick={() => updateTicket.mutate({ id: ticket.id, status: 'RESOLVED' })} disabled={updateTicket.isPending}>
                   <CheckCircle2 className="h-3.5 w-3.5 mr-1" />Lösen
                 </Button>
               )}
@@ -318,8 +273,8 @@ function TicketDetailSheet({
                 size="sm"
                 variant="outline"
                 className="mt-1.5 text-xs"
-                onClick={() => saveNotes.mutate({ id: ticket.id, admin_notes: notes || ticket.admin_notes || '' })}
-                disabled={saveNotes.isPending}
+                onClick={() => updateTicket.mutate({ id: ticket.id, admin_notes: notes || ticket.admin_notes || '' })}
+                disabled={updateTicket.isPending}
               >
                 Notiz speichern
               </Button>
@@ -335,7 +290,7 @@ function TicketDetailSheet({
 export default function AdminSupportPanel() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [search, setSearch] = useState('');
-  const [selectedTicket, setSelectedTicket] = useState<UserTicket | null>(null);
+  const [selectedTicket, setSelectedTicket] = useState<UserTicketRow | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
 
   const { data: tickets = [], isLoading } = useUserTickets({ status: statusFilter, search });

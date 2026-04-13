@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import type { Database } from '@/integrations/supabase/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -25,23 +26,20 @@ import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 
-interface PromoCode {
+/* ── SSOT Types from DB ── */
+type PromoCodeRow = Database['public']['Tables']['promo_codes']['Row'];
+type PromoCodeInsert = Database['public']['Tables']['promo_codes']['Insert'];
+type PromoCodeUpdate = Database['public']['Tables']['promo_codes']['Update'];
+type PromoDiscountType = 'percentage' | 'fixed' | 'free_trial';
+
+interface PromoRedemption {
   id: string;
-  code: string;
-  discount_type: string;
-  discount_value: number;
-  max_uses: number | null;
-  current_uses: number | null;
-  valid_from: string | null;
-  valid_until: string | null;
-  is_active: boolean | null;
-  description: string | null;
-  applicable_courses: string[] | null;
-  min_purchase_amount: number | null;
-  created_at: string | null;
-  created_by: string | null;
+  promo_code_id: string;
+  discount_applied: number;
+  redeemed_at: string | null;
 }
 
+/* ── Hooks ── */
 function usePromoCodes() {
   return useQuery({
     queryKey: ['admin-promo-codes'],
@@ -51,7 +49,7 @@ function usePromoCodes() {
         .select('*')
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return (data ?? []) as PromoCode[];
+      return (data ?? []) as PromoCodeRow[];
     },
   });
 }
@@ -65,41 +63,45 @@ function usePromoRedemptions() {
         .select('id, promo_code_id, discount_applied, redeemed_at')
         .order('redeemed_at', { ascending: false })
         .limit(200);
-      if (error) return [];
-      return data ?? [];
+      if (error) return [] as PromoRedemption[];
+      return (data ?? []) as PromoRedemption[];
     },
   });
 }
 
+/* ── Form ── */
 function PromoCodeForm({
   initial,
   onSubmit,
   isPending,
   submitLabel,
 }: {
-  initial?: Partial<PromoCode>;
-  onSubmit: (data: Record<string, unknown>) => void;
+  initial?: Partial<PromoCodeRow>;
+  onSubmit: (data: PromoCodeInsert) => void;
   isPending: boolean;
   submitLabel: string;
 }) {
-  const [discountType, setDiscountType] = useState(initial?.discount_type ?? 'percentage');
+  const [discountType, setDiscountType] = useState<PromoDiscountType>(
+    (initial?.discount_type as PromoDiscountType) ?? 'percentage'
+  );
 
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault();
         const fd = new FormData(e.target as HTMLFormElement);
-        onSubmit({
+        const payload: PromoCodeInsert = {
           code: (fd.get('code') as string).toUpperCase(),
           discount_type: discountType,
           discount_value: parseFloat(fd.get('discountValue') as string),
-          max_uses: fd.get('maxUses') ? parseInt(fd.get('maxUses') as string) : null,
+          max_uses: fd.get('maxUses') ? parseInt(fd.get('maxUses') as string, 10) : null,
           valid_from: (fd.get('validFrom') as string) || null,
           valid_until: (fd.get('validUntil') as string) || null,
           description: (fd.get('description') as string) || null,
           min_purchase_amount: fd.get('minPurchase') ? parseFloat(fd.get('minPurchase') as string) : null,
           is_active: true,
-        });
+        };
+        onSubmit(payload);
       }}
       className="space-y-4"
     >
@@ -110,7 +112,7 @@ function PromoCodeForm({
       <div className="grid grid-cols-2 gap-4">
         <div className="grid gap-2">
           <Label>Rabatttyp</Label>
-          <Select value={discountType} onValueChange={setDiscountType} name="discountType">
+          <Select value={discountType} onValueChange={(v) => setDiscountType(v as PromoDiscountType)} name="discountType">
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="percentage">Prozent (%)</SelectItem>
@@ -157,13 +159,14 @@ function PromoCodeForm({
   );
 }
 
+/* ── Main Panel ── */
 export default function AdminPromoCodesPanel() {
   const queryClient = useQueryClient();
   const { data: promoCodes, isLoading } = usePromoCodes();
   const { data: redemptions } = usePromoRedemptions();
   const [search, setSearch] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
-  const [editCode, setEditCode] = useState<PromoCode | null>(null);
+  const [editCode, setEditCode] = useState<PromoCodeRow | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const invalidate = () => {
@@ -172,8 +175,8 @@ export default function AdminPromoCodesPanel() {
   };
 
   const createMutation = useMutation({
-    mutationFn: async (data: Record<string, unknown>) => {
-      const { error } = await supabase.from('promo_codes').insert(data as never);
+    mutationFn: async (data: PromoCodeInsert) => {
+      const { error } = await supabase.from('promo_codes').insert(data);
       if (error) throw error;
     },
     onSuccess: () => { invalidate(); setCreateOpen(false); toast.success('Promo-Code erstellt'); },
@@ -181,8 +184,8 @@ export default function AdminPromoCodesPanel() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, ...data }: Record<string, unknown> & { id: string }) => {
-      const { error } = await supabase.from('promo_codes').update(data as never).eq('id', id);
+    mutationFn: async ({ id, ...data }: PromoCodeUpdate & { id: string }) => {
+      const { error } = await supabase.from('promo_codes').update(data).eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => { invalidate(); setEditCode(null); toast.success('Promo-Code aktualisiert'); },
@@ -199,7 +202,7 @@ export default function AdminPromoCodesPanel() {
 
   const toggleActive = useMutation({
     mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
-      const { error } = await supabase.from('promo_codes').update({ is_active: isActive } as never).eq('id', id);
+      const { error } = await supabase.from('promo_codes').update({ is_active: isActive }).eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => { invalidate(); toast.success('Status aktualisiert'); },
@@ -335,8 +338,7 @@ export default function AdminPromoCodesPanel() {
                       <div className="flex items-center gap-1 text-sm">
                         {code.discount_type === 'percentage' && <><Percent className="h-3.5 w-3.5" />{code.discount_value}%</>}
                         {code.discount_type === 'fixed' && <><DollarSign className="h-3.5 w-3.5" />{code.discount_value}€</>}
-                        {code.discount_type === 'free_trial' && <Gift className="h-3.5 w-3.5 mr-1" />}
-                        {code.discount_type === 'free_trial' && 'Gratis-Test'}
+                        {code.discount_type === 'free_trial' && <><Gift className="h-3.5 w-3.5 mr-1" />Gratis-Test</>}
                       </div>
                     </TableCell>
                     <TableCell>

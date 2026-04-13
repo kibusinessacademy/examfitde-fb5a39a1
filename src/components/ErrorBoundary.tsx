@@ -47,7 +47,10 @@ export class ErrorBoundary extends Component<Props, State> {
           message: error.message,
           stack: error.stack ?? null,
           url: window.location.href,
+          pathname: window.location.pathname,
           isChunkError,
+          buildVersion: import.meta.env.VITE_APP_VERSION ?? null,
+          timestamp: new Date().toISOString(),
         },
       }).catch(() => { /* silent */ });
     } catch {
