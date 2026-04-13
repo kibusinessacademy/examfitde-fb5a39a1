@@ -2,7 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { bootstrapLLMLogging } from "../_shared/llm-log-bootstrap.ts";
 import { inferBackoffSeconds, edgeFunctionForJobType, poolForJobType, STEP_TO_JOB_TYPE } from "../_shared/job-map.ts";
-import { laneForJobType, partitionByLane, allocateLaneBudgets, LANE_DISPATCH_ORDER, type RunnerLane, jobTypesForLane } from "../_shared/runner-lanes.ts";
+import { laneForJobType, partitionByLane, allocateLaneBudgets, redistributeLaneBudgets, LANE_DISPATCH_ORDER, type RunnerLane, jobTypesForLane } from "../_shared/runner-lanes.ts";
 import { isTransientLlmError, classifyError } from "../_shared/llm/normalize.ts";
 import { setProviderCooldown, cleanupExpiredCooldowns, filterCooledDownProviders, isOnCooldown } from "../_shared/llm/provider-cooldown.ts";
 import { getModelChainAsync } from "../_shared/model-routing.ts";
@@ -48,7 +48,7 @@ const STALE_LOCK_RECOVERY_MS = 3 * 60_000;
 const DISPATCH_TIMEOUT_LIGHT_MS = 15_000;    // Tier 4: pure DB-query orchestrators (<5s actual)
 const DISPATCH_TIMEOUT_MS = 45_000;          // Tier 3: structural/DB-only jobs
 const DISPATCH_TIMEOUT_HEAVY_MS = 90_000;    // Tier 2: LLM-validation + DB-heavy jobs
-const DISPATCH_TIMEOUT_GENERATION_MS = 240_000; // Tier 1: LLM-generation jobs (oral exam, handbook etc.)
+const DISPATCH_TIMEOUT_GENERATION_MS = 120_000; // Tier 1: LLM-generation (v7.0: 240s→120s, actual p99 <60s)
 const STATUS_WRITE_BUFFER_MS = 5_000;        // Reserved for status-write after dispatch
 const WORKER_ID = `content-runner-${crypto.randomUUID().slice(0, 8)}`;
 const FUNCTION_VERSION = "v4.3-lane-aware-claiming";
@@ -1072,7 +1072,8 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
   // we claim per-lane with lane-specific budgets.
   // This prevents the claim→release→reclaim loop.
   // ═══════════════════════════════════════════════════════════════
-  const laneBudgets = allocateLaneBudgets(CLAIM_LIMIT);
+  const rawBudgets = allocateLaneBudgets(CLAIM_LIMIT);
+  const laneBudgets = redistributeLaneBudgets(rawBudgets, CONTENT_RUNNER_LANES);
   const laneMetrics: Record<RunnerLane, { claimed: number; dispatched: number; succeeded: number; failed: number; budget_exhausted: number }> = {
     control:    { claimed: 0, dispatched: 0, succeeded: 0, failed: 0, budget_exhausted: 0 },
     recovery:   { claimed: 0, dispatched: 0, succeeded: 0, failed: 0, budget_exhausted: 0 },
