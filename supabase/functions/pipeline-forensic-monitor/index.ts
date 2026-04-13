@@ -245,7 +245,7 @@ Deno.serve(async (req) => {
         healActions.push({ action: "release_expired_cooldowns", affected: released?.length || 0, detail: `Released ${released?.length || 0} expired cooldowns` });
       }
 
-      // 3. Reset stalled package steps
+      // 3. Reset stalled package steps (NEVER unblock intentional_pause)
       if (stalledCount > 0) {
         const stalledIds = (stalledPackages || []).map((s: any) => s.package_id).filter(Boolean);
         if (stalledIds.length > 0) {
@@ -254,8 +254,9 @@ Deno.serve(async (req) => {
             .update({ status: "building" })
             .in("id", stalledIds.slice(0, 10))
             .eq("status", "blocked")
+            .not("blocked_reason", "ilike", "%intentional_pause%")
             .select("id");
-          healActions.push({ action: "unblock_stalled_packages", affected: reset?.length || 0, detail: `Unblocked ${reset?.length || 0} stalled packages` });
+          healActions.push({ action: "unblock_stalled_packages", affected: reset?.length || 0, detail: `Unblocked ${reset?.length || 0} stalled packages (skipped intentional_pause)` });
         }
       }
 
