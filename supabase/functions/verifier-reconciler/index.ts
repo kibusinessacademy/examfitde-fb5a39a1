@@ -414,7 +414,9 @@ async function finalizeStep(
       },
     });
 
-    // Complete remaining pending/failed jobs (not cancel — they are materially done)
+    // Complete remaining pending/failed/processing jobs (not cancel — they are materially done)
+    // HARDENED: Also includes "processing" to prevent split-brain where step is done
+    // but a stale processing job remains orphaned
     await sb.from("job_queue").update({
       status: "completed",
       completed_at: new Date().toISOString(),
@@ -429,7 +431,7 @@ async function finalizeStep(
     })
       .eq("package_id", packageId)
       .eq("job_type", jobType)
-      .in("status", ["pending", "failed", "batch_pending"]);
+      .in("status", ["pending", "failed", "batch_pending", "processing"]);
 
     finalizedInThisPass.add(stepKey);
     console.log(`[verifier-reconciler] ✅ Finalized ${shortId}/${stepKey}: ${reason}`);

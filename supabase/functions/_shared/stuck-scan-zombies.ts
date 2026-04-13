@@ -29,8 +29,8 @@ const ZOMBIFIABLE_STEPS = new Set([
   // Build/transform steps
   "build_ai_tutor_index", "elite_harden", "expand_handbook",
   "enqueue_handbook_expand",
-  // Finalization steps
-  "run_integrity_check", "quality_council", "auto_publish",
+  // GOVERNANCE STEPS EXCLUDED: run_integrity_check, quality_council, auto_publish
+  // must only be finalized by their own edge functions (see governance-finalization-evidence-v1)
   // Variant steps
   "generate_blueprint_variants", "promote_blueprint_variants",
 ]);

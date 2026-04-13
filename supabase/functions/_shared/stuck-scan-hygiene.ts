@@ -357,9 +357,8 @@ const TRUE_STALL_HEALABLE_STEPS = new Set([
   "expand_handbook",
   "validate_handbook_depth",
   "elite_harden",
-  "run_integrity_check",
-  "quality_council",
-  "auto_publish",
+  // GOVERNANCE STEPS EXCLUDED: run_integrity_check, quality_council, auto_publish
+  // must only be finalized by their own edge functions (see governance-finalization-evidence-v1)
 ]);
 
 export async function healTrueStallSteps(sb: SupabaseClient) {

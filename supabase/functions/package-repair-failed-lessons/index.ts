@@ -59,21 +59,16 @@ Deno.serve(async (req) => {
     if (!failedLessons || failedLessons.length === 0) {
       console.log(`[repair-failed-lessons] No failed lessons found — re-enqueue auto_publish`);
 
-      // No failed lessons = repair already happened, re-trigger publish
+      // No failed lessons = repair already happened.
+      // GOVERNANCE FIX: Do NOT re-enqueue auto_publish directly via raw insert.
+      // auto_publish must go through the DAG prerequisite chain (integrity → council → publish).
+      // Set package back to building so the DAG healer picks up the correct next step.
       await sb.from("course_packages").update({
         status: "building",
         updated_at: new Date().toISOString(),
       }).eq("id", packageId);
 
-      // Re-enqueue auto_publish
-      await sb.from("job_queue").insert({
-        job_type: "package_auto_publish",
-        status: "pending",
-        payload: { package_id: packageId, course_id: resolvedCourseId },
-        max_attempts: 3,
-      });
-
-      return json({ ok: true, repaired: 0, action: "re_enqueued_auto_publish" });
+      return json({ ok: true, repaired: 0, action: "set_building_for_dag_dispatch" });
     }
 
     // ── 3. Classify repair mode per lesson ──

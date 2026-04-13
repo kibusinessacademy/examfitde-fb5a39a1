@@ -922,8 +922,8 @@ export async function processPackage(
       "validate_learning_content", "validate_exam_pool", "validate_blueprints",
       "validate_oral_exam", "validate_handbook", "validate_lesson_minichecks",
       "validate_tutor_index", "validate_handbook_depth",
-      "run_integrity_check", "quality_council",
-      "auto_publish", "enqueue_handbook_expand",
+      // GOVERNANCE STEPS EXCLUDED: run_integrity_check, quality_council, auto_publish
+      "enqueue_handbook_expand",
     ]);
     // Build DAG dependency lookup for zombie check
     const dagDepsZombie = new Map<string, string[]>();
