@@ -53,7 +53,19 @@ const HOLLOW_GUARD_STEPS = new Set([
   "generate_lesson_minichecks",
   "generate_handbook",
   "generate_oral_exam",
+  // NOTE: run_integrity_check REMOVED — governance step, must not be reset by healers
+]);
+
+// Governance steps: NEVER enqueued, reset, or skipped by this healer
+const GOVERNANCE_STEPS = new Set([
   "run_integrity_check",
+  "quality_council",
+  "auto_publish",
+]);
+const GOVERNANCE_JOB_TYPES = new Set([
+  "package_run_integrity_check",
+  "package_quality_council",
+  "package_auto_publish",
 ]);
 
 // ── DAG helpers ──
@@ -86,6 +98,7 @@ Deno.serve(async (req) => {
   try {
     // ════════════════════════════════════════════════
     // PATTERN 4: EXHAUSTED-RETRY JOBS (global, not per-package)
+    //   HARDENED: skip governance job types
     // ════════════════════════════════════════════════
     try {
       const { data: exhausted } = await sb
@@ -98,6 +111,8 @@ Deno.serve(async (req) => {
       if (exhausted?.length) {
         const atMax = exhausted.filter((j: any) => j.attempts >= (j.max_attempts || 5));
         for (const job of atMax) {
+          // GOVERNANCE EXCLUSION
+          if (GOVERNANCE_JOB_TYPES.has(job.job_type)) continue;
           try {
             // Cancel the exhausted job
             await sb
@@ -111,7 +126,7 @@ Deno.serve(async (req) => {
               ([, jt]) => jt === job.job_type,
             )?.[0];
 
-            if (stepKey) {
+            if (stepKey && !GOVERNANCE_STEPS.has(stepKey)) {
               await sb
                 .from("package_steps")
                 .update({ status: "queued", updated_at: new Date().toISOString() })
@@ -206,12 +221,13 @@ Deno.serve(async (req) => {
 
     // ════════════════════════════════════════════════
     // PATTERN 6: STALE PROCESSING JOBS (> 15 min)
+    //   HARDENED: skip governance jobs, respect heartbeats
     // ════════════════════════════════════════════════
     try {
       const fifteenMinAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
       const { data: stale } = await sb
         .from("job_queue")
-        .select("id, job_type, package_id, started_at")
+        .select("id, job_type, package_id, started_at, last_heartbeat_at")
         .eq("status", "processing")
         .lt("started_at", fifteenMinAgo)
         .not("package_id", "is", null)
@@ -219,6 +235,13 @@ Deno.serve(async (req) => {
 
       if (stale?.length) {
         for (const job of stale) {
+          // GOVERNANCE EXCLUSION
+          if (GOVERNANCE_JOB_TYPES.has(job.job_type)) continue;
+          // HEARTBEAT CHECK: skip if heartbeat is recent (<10min)
+          if (job.last_heartbeat_at) {
+            const hbAge = Date.now() - new Date(job.last_heartbeat_at).getTime();
+            if (hbAge < 10 * 60_000) continue;
+          }
           try {
             await sb
               .from("job_queue")
@@ -234,7 +257,7 @@ Deno.serve(async (req) => {
               ([, jt]) => jt === job.job_type,
             )?.[0];
 
-            if (stepKey) {
+            if (stepKey && !GOVERNANCE_STEPS.has(stepKey)) {
               await sb
                 .from("package_steps")
                 .update({ status: "queued", updated_at: new Date().toISOString() })
@@ -333,8 +356,11 @@ Deno.serve(async (req) => {
         }
 
         // ── Pattern A: Orphaned steps ──
+        //    HARDENED: skip governance steps
         for (const step of steps) {
           if (step.status !== "queued" && step.status !== "failed") continue;
+          // GOVERNANCE EXCLUSION
+          if (GOVERNANCE_STEPS.has(step.step_key)) continue;
 
           const jobType = STEP_TO_JOB_TYPE[step.step_key as PipelineStepKey];
           if (!jobType) continue;
@@ -367,8 +393,11 @@ Deno.serve(async (req) => {
         }
 
         // ── Pattern B: Blocked without upstream ──
+        //    HARDENED: skip governance steps
         for (const step of steps) {
           if (step.status !== "blocked") continue;
+          // GOVERNANCE EXCLUSION
+          if (GOVERNANCE_STEPS.has(step.step_key)) continue;
 
           const prereqs = getPrereqs(step.step_key);
           const allPrereqsTerminal = prereqs.every((dep) => {
@@ -413,10 +442,13 @@ Deno.serve(async (req) => {
         }
 
         // ── Pattern C: Zero active jobs despite queued steps ──
+        //    HARDENED: skip governance steps
         if (activeJobs.length === 0) {
           const queuedSteps = steps.filter((s) => s.status === "queued" || s.status === "failed");
           if (queuedSteps.length > 0) {
             for (const node of PIPELINE_GRAPH) {
+              // GOVERNANCE EXCLUSION
+              if (GOVERNANCE_STEPS.has(node.key)) continue;
               const currentStatus = stepMap.get(node.key);
               if (!currentStatus || currentStatus === "done" || currentStatus === "skipped" || currentStatus === "running") continue;
               if (currentStatus !== "queued" && currentStatus !== "failed") continue;

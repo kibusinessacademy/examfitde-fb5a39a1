@@ -187,16 +187,10 @@ Deno.serve(async (req) => {
       let jobsCancelled = 0;
 
       if (!dryRun) {
-        const { data: cancelledJobs } = await sb
+        // Only cancel jobs that are NOT actively running with a fresh heartbeat
+        const { data: candidateJobs } = await sb
           .from("job_queue")
-          .update({
-          status: "cancelled",
-          completed_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          locked_at: null,
-          locked_by: null,
-          last_error: `SAFE_GLOBAL_HEAL: ${hollowReason}`,
-          })
+          .select("id, status, last_heartbeat_at")
           .eq("package_id", pkg.id)
           .in("status", ["pending", "processing"])
           .in("job_type", [
@@ -204,10 +198,33 @@ Deno.serve(async (req) => {
             "package_generate_exam_pool",
             "package_validate_blueprints",
             "package_auto_seed_exam_blueprints",
-          ])
-          .select("id");
+          ]);
 
-        jobsCancelled = cancelledJobs?.length ?? 0;
+        const jobIdsToCancel: string[] = [];
+        for (const j of candidateJobs ?? []) {
+          // If processing with fresh heartbeat, skip
+          if (j.status === "processing" && j.last_heartbeat_at) {
+            const hbAge = Date.now() - new Date(j.last_heartbeat_at).getTime();
+            if (hbAge < 10 * 60_000) continue;
+          }
+          jobIdsToCancel.push(j.id);
+        }
+
+        if (jobIdsToCancel.length > 0) {
+          await sb
+            .from("job_queue")
+            .update({
+              status: "cancelled",
+              completed_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+              locked_at: null,
+              locked_by: null,
+              last_error: `SAFE_GLOBAL_HEAL: ${hollowReason}`,
+            })
+            .in("id", jobIdsToCancel);
+        }
+
+        jobsCancelled = jobIdsToCancel.length;
       }
 
       // ══════════════════════════════════════════════════════
