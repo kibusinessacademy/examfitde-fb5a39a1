@@ -1080,6 +1080,10 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
   // we claim per-lane with lane-specific budgets.
   // This prevents the claim→release→reclaim loop.
   // ═══════════════════════════════════════════════════════════════
+  // ── P0 FIX: content-runner ONLY claims "generation" lane ──
+  // job-runner handles control + recovery. This eliminates Split-Brain.
+  const CONTENT_RUNNER_LANES: RunnerLane[] = ["generation"];
+
   const rawBudgets = allocateLaneBudgets(CLAIM_LIMIT);
   const laneBudgets = redistributeLaneBudgets(rawBudgets, CONTENT_RUNNER_LANES);
   const laneMetrics: Record<RunnerLane, { claimed: number; dispatched: number; succeeded: number; failed: number; budget_exhausted: number }> = {
@@ -1090,10 +1094,6 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
 
   // deno-lint-ignore no-explicit-any
   const allClaimedJobs: any[] = [];
-
-  // ── P0 FIX: content-runner ONLY claims "generation" lane ──
-  // job-runner handles control + recovery. This eliminates Split-Brain.
-  const CONTENT_RUNNER_LANES: RunnerLane[] = ["generation"];
 
   for (const lane of CONTENT_RUNNER_LANES) {
     const budget = laneBudgets[lane] || CLAIM_LIMIT; // generation always gets full claim budget
