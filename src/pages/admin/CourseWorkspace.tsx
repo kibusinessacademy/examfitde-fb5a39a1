@@ -23,6 +23,8 @@ import {
   cancelPackageBuild as cancelBuildAction,
   forceUnlockPackage as forceUnlockAction,
   approveStepException as approveExceptionAction,
+  resetToStep as resetToStepAction,
+  enqueueSingleStep as enqueueSingleStepAction,
 } from '@/integrations/supabase/admin-ops-actions';
 import BuildLiveLog from '@/components/admin/BuildLiveLog';
 import ProductModuleStatus from '@/components/admin/ProductModuleStatus';
@@ -91,6 +93,8 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
   const [confirmReset, setConfirmReset] = useState(0);
   const [cancelling, setCancelling] = useState(false);
   const [upgrading, setUpgrading] = useState(false);
+  const [selectedResetStep, setSelectedResetStep] = useState('');
+  const [manualActionLoading, setManualActionLoading] = useState(false);
 
   useEffect(() => {
     if (pkg?.status !== 'building') return;
