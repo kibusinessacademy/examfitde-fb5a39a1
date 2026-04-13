@@ -152,46 +152,45 @@ const GENERATION_JOB_TYPES = new Set([
 ]);
 
 // Tier 2 (35s): ONLY jobs with actual long-running LLM calls that genuinely need 30s+
-// v6.0: Drastically reduced — over-classification caused persistent BUDGET_EXHAUSTED
-// because T2 requires 40s budget (35s+5s buffer) out of 50s loop, leaving <10s for all other lanes.
-// Most "heavy" jobs actually complete in 1-5s and were mis-promoted in v5.1.
+// v6.1: T2_HEAVY is ONLY for jobs that genuinely run 20s+.
+// build_ai_tutor_index moved to T3 — it's indexing, not LLM generation.
 const HEAVY_JOB_TYPES = new Set([
-  "package_generate_blueprint_variants",  // real LLM generation, genuinely needs 30s+
-  "package_build_ai_tutor_index",         // heavy indexing operation
+  "package_generate_blueprint_variants",  // real LLM generation, 17-31s measured
 ]);
 
-// v6.0: HEAVY_EXPANDED removed entirely. Previous v5.1 expansion was the root cause of
-// BUDGET_EXHAUSTED starvation — 6 control/validation jobs at T2_HEAVY (40s required budget)
-// consumed all loop budget, causing every other job type to starve.
-// These jobs actually complete in 1-5s and belong in T3_DEFAULT (25s) or T4_LIGHT (10s):
-//   - package_run_integrity_check → T3 (edge function, 1-3s actual)
-//   - package_quality_council → T3 (AI phases capped internally, 2-8s actual)
-//   - package_promote_blueprint_variants → T4 (deterministic DB promotion, <2s actual)
-//   - package_scaffold_learning_course → T3 (scaffolding, 3-5s actual)
-//   - package_elite_harden → T3 (annotation mode is pure DB, <5s actual)
-//   - package_repair_exam_pool_quality → T3 (recovery lane, 3-10s actual)
 const HEAVY_EXPANDED_JOB_TYPES = new Set([
   ...HEAVY_JOB_TYPES,
-  // v6.0: NO additional jobs — T2 is reserved for genuinely long-running operations only
+  // v6.1: NO additional jobs — T2 is reserved for genuinely long-running operations only
 ]);
 
-// Tier 4 (10s): ONLY truly instant DB status-checks — zero Edge Function calls, zero LLM.
-// Required budget: 10s + 5s buffer = 15s. Only jobs that do a single DB read + status write.
+// v6.1: T4_LIGHT (10s+5s=15s budget) — ALL jobs completing in <10s actual.
+// CRITICAL SSOT RULE: Any job completing in <10s MUST be here, not T3_DEFAULT.
+// Over-classification to T3 (30s budget) causes BUDGET_EXHAUSTED cascades that
+// starve the entire queue — only handbook_expand_section and exam_rebalance survive.
 const LIGHT_JOB_TYPES = new Set([
-  "package_validate_learning_content",  // pure DB gate check
-  "package_validate_handbook",          // pure DB gate check
-  "package_validate_handbook_depth",    // pure DB gate check
-  "package_validate_oral_exam",         // pure DB gate check
-  "package_validate_tutor_index",       // pure DB gate check
-  "package_validate_lesson_minichecks", // pure DB gate check
-  "package_enqueue_handbook_expand",    // pure orchestration enqueue
-  "package_finalize_learning_content",  // pure barrier check
-  "package_auto_publish",              // pure status transition
-  "package_validate_blueprints",       // pure DB gate check
-  "package_validate_blueprint_variants",// pure DB gate check
-  "package_promote_blueprint_variants", // v6.0: demoted from T2 — deterministic DB promotion, <2s actual
-  "package_validate_exam_pool",        // v6.0: demoted from T2 — pure validation check, <3s actual
-  "package_exam_rebalance",            // pure DB rebalance
+  // Pure DB gate checks
+  "package_validate_learning_content",
+  "package_validate_handbook",
+  "package_validate_handbook_depth",
+  "package_validate_oral_exam",
+  "package_validate_tutor_index",
+  "package_validate_lesson_minichecks",
+  "package_validate_blueprints",
+  "package_validate_blueprint_variants",
+  "package_validate_exam_pool",           // <3s actual
+  // Pure orchestration
+  "package_enqueue_handbook_expand",
+  "package_finalize_learning_content",
+  "package_auto_publish",
+  "package_exam_rebalance",
+  "package_promote_blueprint_variants",   // <2s actual
+  // v6.1: Moved from T3_DEFAULT — measured at 1-5s, were starving queue with 30s budget
+  "package_run_integrity_check",          // 1.5s measured (was T3, caused BUDGET_EXHAUSTED)
+  "package_quality_council",              // 2-8s actual
+  "package_elite_harden",                 // <5s actual (annotation mode is pure DB)
+  "package_scaffold_learning_course",     // 3-5s actual
+  "package_repair_exam_pool_quality",     // 3-10s actual
+  "package_auto_seed_exam_blueprints",    // <5s actual
 ]);
 
 // Everything else not in Tier 1/2/4: Tier 3 (25s) — moderate DB + orchestration
