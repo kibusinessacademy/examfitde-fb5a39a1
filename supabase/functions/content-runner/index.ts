@@ -1208,6 +1208,12 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
   const LAST_RESORT_MAX_PER_WORKLOAD = 2;
 
   for (const [workloadKey, wkJobs] of jobsByWorkload) {
+    // v5: Control workloads bypass LLM health gate entirely — they don't use LLM providers
+    if (CONTROL_WORKLOAD_KEYS.has(workloadKey)) {
+      console.log(`[content-runner] HEALTH_GATE_BYPASS: ${workloadKey} (${wkJobs.length} job(s)) — control workload, no LLM route needed`);
+      healthyJobs.push(...wkJobs);
+      continue;
+    }
     const route = await resolveAvailableRoute(workloadKey);
     if (!route?.ok) {
       const fallbackRoute = workloadKey !== "learning_content"
