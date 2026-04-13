@@ -748,6 +748,10 @@ async function releaseProviderCooldowns(sb: SB, body: JsonRow) {
 /* ── Scoped: reset_stalled_steps ── */
 async function resetStalledSteps(sb: SB, body: JsonRow) {
   if (typeof body.package_id === "string" && typeof body.step_key === "string") {
+    // P0: Block governance steps from generic reset
+    if (GOVERNANCE_STEP_KEYS.includes(body.step_key as string)) {
+      return { ok: false, error: `Governance step '${body.step_key}' cannot be reset by generic heal. Use dedicated governance functions.` };
+    }
     const { error } = await sb.from("package_steps")
       .update({ status: "queued", started_at: null, finished_at: null, last_error: null, updated_at: new Date().toISOString() })
       .eq("package_id", body.package_id).eq("step_key", body.step_key);
@@ -761,14 +765,17 @@ async function resetStalledSteps(sb: SB, body: JsonRow) {
   if (!rows?.length) return { ok: true, updated: 0 };
 
   let updated = 0;
+  let governanceSkipped = 0;
   for (const row of rows as any[]) {
     if (!row.package_id || !row.step_key) continue;
+    // P0: Skip governance steps
+    if (GOVERNANCE_STEP_KEYS.includes(row.step_key)) { governanceSkipped++; continue; }
     const { error } = await sb.from("package_steps")
       .update({ status: "queued", started_at: null, finished_at: null, last_error: null, updated_at: new Date().toISOString() })
       .eq("package_id", row.package_id).eq("step_key", row.step_key);
     if (!error) updated += 1;
   }
-  return { ok: true, updated, scope: "global" };
+  return { ok: true, updated, governance_skipped: governanceSkipped, scope: "global" };
 }
 
 /* ── Scoped: cancel_zombie_packages ── */
