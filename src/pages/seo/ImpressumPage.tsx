@@ -34,7 +34,7 @@ export default function ImpressumPage() {
         title="Impressum | ExamFit"
         description={`Impressum von ExamFit – Angaben gemäß § 5 TMG und § 18 Abs. 2 MStV. ${LEGAL_INFO.firmenname}, ${LEGAL_INFO.ort}.`}
         canonical={`${SITE_URL}/impressum`}
-        noindex={true}
+        noindex={false}
       />
 
       <div className="min-h-screen py-12">
