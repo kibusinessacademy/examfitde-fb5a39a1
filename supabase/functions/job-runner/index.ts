@@ -1314,6 +1314,25 @@ Deno.serve(async (req) => {
         .eq("id", execPackageId);
     }
 
+    // ── HEARTBEAT: Write initial heartbeat on claim to prevent stuck-scan reaping ──
+    await sb.from("job_queue").update({
+      updated_at: tsNow,
+      last_heartbeat_at: tsNow,
+      meta: { ...(job.meta || {}), heartbeat_phase: "pre_dispatch", worker_id: WORKER_ID },
+    }).eq("id", job.id).eq("status", "processing");
+
+    // ── Periodic heartbeat interval (every 30s) for long-running jobs ──
+    const hbInterval = setInterval(async () => {
+      try {
+        const hbNow = new Date().toISOString();
+        await sb.from("job_queue").update({
+          updated_at: hbNow,
+          last_heartbeat_at: hbNow,
+          meta: { ...(job.meta || {}), heartbeat_phase: "processing_tick", worker_id: WORKER_ID },
+        }).eq("id", job.id).eq("status", "processing");
+      } catch (_e) { /* best-effort heartbeat */ }
+    }, 30_000);
+
     // ── Single-exit state for guaranteed lock release ─────────────
     type FinalState = {
       status: "completed" | "pending" | "failed" | "cancelled";
@@ -2366,6 +2385,9 @@ Deno.serve(async (req) => {
         }
       }
     }
+
+    // ── Clear heartbeat interval ──
+    clearInterval(hbInterval);
 
     // ── SINGLE EXIT: Guaranteed DB write with lock release ──────────
     if (finalState) {
