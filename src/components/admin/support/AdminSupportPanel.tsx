@@ -73,7 +73,7 @@ function useUserTickets(opts?: { status?: string; search?: string }) {
         .limit(200);
 
       if (opts?.status && opts.status !== 'all') {
-        query = query.eq('status', opts.status);
+        query = query.eq('status', opts.status as TicketStatus);
       }
       if (opts?.search) {
         query = query.ilike('title', `%${opts.search}%`);
