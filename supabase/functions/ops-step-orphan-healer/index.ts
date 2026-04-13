@@ -356,8 +356,11 @@ Deno.serve(async (req) => {
         }
 
         // ── Pattern A: Orphaned steps ──
+        //    HARDENED: skip governance steps
         for (const step of steps) {
           if (step.status !== "queued" && step.status !== "failed") continue;
+          // GOVERNANCE EXCLUSION
+          if (GOVERNANCE_STEPS.has(step.step_key)) continue;
 
           const jobType = STEP_TO_JOB_TYPE[step.step_key as PipelineStepKey];
           if (!jobType) continue;
@@ -390,8 +393,11 @@ Deno.serve(async (req) => {
         }
 
         // ── Pattern B: Blocked without upstream ──
+        //    HARDENED: skip governance steps
         for (const step of steps) {
           if (step.status !== "blocked") continue;
+          // GOVERNANCE EXCLUSION
+          if (GOVERNANCE_STEPS.has(step.step_key)) continue;
 
           const prereqs = getPrereqs(step.step_key);
           const allPrereqsTerminal = prereqs.every((dep) => {
