@@ -40,6 +40,7 @@ Deno.serve(async (req) => {
   const audit = data || {};
   const alerts: string[] = [];
 
+  // --- Scheduler health checks ---
   if (Number(audit.stale_leases || 0) > 0) {
     await openAlert(sb, "scheduler_stale_leases", "critical", "Stale execution leases detected", `${audit.stale_leases} stale leases found`, audit);
     alerts.push("scheduler_stale_leases");
@@ -55,5 +56,66 @@ Deno.serve(async (req) => {
     alerts.push("scheduler_failed_jobs_high");
   }
 
-  return json(200, { ok: audit.ok === true, audit, alerts });
+  // --- Phantom-Done Governance Audit ---
+  const { data: phantomSteps, error: e1 } = await sb
+    .from("ops_phantom_done_governance")
+    .select("package_id, course_title, package_status, step_key, meta_ok, gate_passed");
+  if (e1) console.error("phantom_done_governance query failed:", e1.message);
+
+  const phantomRows = phantomSteps || [];
+  const phantomNonPublished = phantomRows.filter((r: any) => r.package_status !== "published");
+  const phantomPublished = phantomRows.filter((r: any) => r.package_status === "published");
+
+  if (phantomNonPublished.length > 0) {
+    await openAlert(
+      sb,
+      "phantom_done_governance_active",
+      "critical",
+      "Phantom-Done Governance Steps (non-published)",
+      `${phantomNonPublished.length} governance step(s) marked done without gate approval on active packages`,
+      { count: phantomNonPublished.length, steps: phantomNonPublished.slice(0, 20) },
+    );
+    alerts.push("phantom_done_governance_active");
+  }
+
+  if (phantomPublished.length > 0) {
+    await openAlert(
+      sb,
+      "phantom_done_governance_published",
+      "warn",
+      "Phantom-Done Governance Steps (published legacy)",
+      `${phantomPublished.length} governance step(s) on published packages — known legacy`,
+      { count: phantomPublished.length, steps: phantomPublished.slice(0, 20) },
+    );
+    alerts.push("phantom_done_governance_published");
+  }
+
+  // --- Phantom Council Approvals Audit ---
+  const { data: phantomCouncil, error: e2 } = await sb
+    .from("ops_phantom_council_approvals")
+    .select("package_id, course_title, package_status, session_count");
+  if (e2) console.error("phantom_council_approvals query failed:", e2.message);
+
+  const councilRows = phantomCouncil || [];
+  if (councilRows.length > 0) {
+    await openAlert(
+      sb,
+      "phantom_council_approvals",
+      "critical",
+      "Council Approvals without session evidence",
+      `${councilRows.length} package(s) with council_approved=true but 0 sessions`,
+      { count: councilRows.length, packages: councilRows.slice(0, 20) },
+    );
+    alerts.push("phantom_council_approvals");
+  }
+
+  const allOk = audit.ok === true && phantomNonPublished.length === 0 && councilRows.length === 0;
+
+  return json(200, {
+    ok: allOk,
+    audit,
+    phantom_done: { non_published: phantomNonPublished.length, published: phantomPublished.length },
+    phantom_council: councilRows.length,
+    alerts,
+  });
 });
