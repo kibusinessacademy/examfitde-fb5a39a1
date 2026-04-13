@@ -1125,11 +1125,15 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
       for (const jt of typesInBatch) {
         const cap = limitMap.get(jt);
         if (cap == null) continue;
+        // v6.2: Only count FRESH processing jobs (updated within last 5 min)
+        // Stale zombies (>5min) are excluded to prevent guard poisoning
+        const staleThreshold = new Date(Date.now() - 5 * 60 * 1000).toISOString();
         const { count: totalProcessing } = await sb
           .from("job_queue")
           .select("id", { count: "exact", head: true })
           .eq("job_type", jt)
-          .eq("status", "processing");
+          .eq("status", "processing")
+          .gte("updated_at", staleThreshold);
         
         const global = totalProcessing ?? 0;
         const batchJobs = jobs.filter((j: any) => j.job_type === jt);
