@@ -2,10 +2,11 @@ import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { useVerifyPurchase } from '@/hooks/useShop';
 import { useAuth } from '@/hooks/useAuth';
-import { CheckCircle, Copy, Loader2, Package, GraduationCap } from 'lucide-react';
+import { CheckCircle, Copy, Loader2, Package, GraduationCap, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
 
 interface Seat {
@@ -30,6 +31,7 @@ export default function PurchaseSuccessPage() {
   const { user, loading: authLoading } = useAuth();
   const [result, setResult] = useState<PurchaseResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [countdown, setCountdown] = useState(8);
 
   useEffect(() => {
     if (sessionId && user && !authLoading) {
@@ -39,12 +41,31 @@ export default function PurchaseSuccessPage() {
     }
   }, [sessionId, user, authLoading]);
 
+  // Auto-redirect countdown after successful purchase
+  useEffect(() => {
+    if (!result) return;
+    const unassigned = result.seats.filter(s => s.invite_code && !s.assigned_user_id);
+    // Don't auto-redirect if there are invite codes to share
+    if (unassigned.length > 0) return;
+
+    const timer = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          navigate('/dashboard');
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [result, navigate]);
+
   const copyInviteCode = (code: string) => {
     navigator.clipboard.writeText(code);
     toast.success('Einladungscode kopiert!');
   };
 
-  // Simple header for standalone page
   const PageHeader = () => (
     <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center">
@@ -52,7 +73,7 @@ export default function PurchaseSuccessPage() {
           <div className="p-2 rounded-xl bg-primary">
             <GraduationCap className="h-5 w-5 text-primary-foreground" />
           </div>
-          <span className="font-semibold">H5P Lernplattform</span>
+          <span className="font-display font-semibold">ExamFit</span>
         </Link>
       </div>
     </header>
@@ -79,7 +100,7 @@ export default function PurchaseSuccessPage() {
         <PageHeader />
         <div className="container py-12 flex flex-col items-center justify-center min-h-[50vh]">
           <Loader2 className="w-12 h-12 animate-spin text-primary mb-4" />
-          <p className="text-muted-foreground">Kauf wird verifiziert...</p>
+          <p className="text-muted-foreground">Dein Kauf wird verifiziert...</p>
         </div>
       </div>
     );
@@ -115,9 +136,9 @@ export default function PurchaseSuccessPage() {
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
             <CheckCircle className="w-8 h-8 text-primary" />
           </div>
-          <h1 className="text-3xl font-bold mb-2">Kauf erfolgreich!</h1>
+          <h1 className="text-3xl font-display font-bold mb-2">Kauf erfolgreich! 🎉</h1>
           <p className="text-muted-foreground">
-            Vielen Dank für Ihren Einkauf. Sie haben nun Zugang zu Ihren Lerninhalten.
+            Vielen Dank! Du hast jetzt Zugang zu deinem Prüfungstraining.
           </p>
         </div>
 
@@ -125,7 +146,7 @@ export default function PurchaseSuccessPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Package className="w-5 h-5" />
-              Ihre Lizenzen
+              Deine Lizenzen
             </CardTitle>
             <CardDescription>
               Gültig bis: {expiresDate}
@@ -134,7 +155,7 @@ export default function PurchaseSuccessPage() {
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between p-4 bg-primary/5 rounded-lg border border-primary/20">
               <div>
-                <p className="font-medium">Ihre Lizenz</p>
+                <p className="font-medium">Deine Lizenz</p>
                 <p className="text-sm text-muted-foreground">Automatisch aktiviert</p>
               </div>
               <Badge className="bg-primary">Aktiv</Badge>
@@ -164,7 +185,7 @@ export default function PurchaseSuccessPage() {
                   </div>
                 ))}
                 <p className="text-xs text-muted-foreground">
-                  Teilen Sie diese Codes mit Ihren Teilnehmern. 
+                  Teile diese Codes mit deinen Teilnehmern. 
                   Jeder Code kann nur einmal eingelöst werden.
                 </p>
               </div>
@@ -172,9 +193,20 @@ export default function PurchaseSuccessPage() {
           </CardContent>
         </Card>
 
+        {/* Auto-redirect indicator (only when no invite codes to share) */}
+        {unassignedSeats.length === 0 && countdown > 0 && (
+          <div className="mb-6 text-center">
+            <p className="text-sm text-muted-foreground mb-2">
+              Du wirst in {countdown}s automatisch zum Dashboard weitergeleitet…
+            </p>
+            <Progress value={((8 - countdown) / 8) * 100} className="h-1 max-w-xs mx-auto" />
+          </div>
+        )}
+
         <div className="flex gap-4 justify-center">
-          <Button onClick={() => navigate('/dashboard')}>
+          <Button onClick={() => navigate('/dashboard')} className="gradient-primary text-primary-foreground shadow-glow">
             Zum Dashboard
+            <ArrowRight className="h-4 w-4 ml-2" />
           </Button>
           <Button variant="outline" onClick={() => navigate('/courses')}>
             Kurse anzeigen

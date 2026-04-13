@@ -17,18 +17,20 @@ export function ProductHowItWorks() {
           </h2>
         </div>
 
-        <div className="space-y-4">
-          {STEPS.map((step, i) => (
-            <div key={step.num} className="flex items-center gap-4">
-              <div className="w-10 h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold shrink-0">
-                {step.num}
+        <div className="relative">
+          {/* Vertical connector line */}
+          <div className="absolute left-5 top-5 bottom-5 w-0.5 bg-gradient-to-b from-primary/60 via-primary/30 to-primary/10 rounded-full" />
+
+          <div className="space-y-4">
+            {STEPS.map((step) => (
+              <div key={step.num} className="flex items-center gap-4 relative">
+                <div className="w-10 h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold shrink-0 relative z-10 ring-4 ring-background">
+                  {step.num}
+                </div>
+                <p className="text-base font-medium">{step.text}</p>
               </div>
-              <p className="text-base font-medium">{step.text}</p>
-              {i < STEPS.length - 1 && (
-                <div className="hidden" /> // spacer for visual flow
-              )}
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
     </section>
