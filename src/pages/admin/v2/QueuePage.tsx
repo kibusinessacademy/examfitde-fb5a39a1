@@ -299,9 +299,11 @@ export default function QueuePage() {
   const c = counts ?? { pending: 0, processing: 0, failed: 0, completed_1h: 0, cancelled: 0, total: 0 };
 
   const StuckJobTypeAlert = lazy(() => import('@/components/admin/queue/StuckJobTypeAlert'));
+  const RunnerHealthCard = lazy(() => import('@/components/admin/queue/RunnerHealthCard'));
 
   return (
     <div className="space-y-4">
+      <Suspense fallback={null}><RunnerHealthCard /></Suspense>
       <Suspense fallback={null}><StuckJobTypeAlert /></Suspense>
       <div>
         <h1 className="text-xl font-bold text-foreground">Queue</h1>
