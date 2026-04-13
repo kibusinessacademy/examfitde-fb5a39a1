@@ -132,6 +132,20 @@ export function SEOHead({
         document.head.appendChild(link);
       }
       link.href = canonical;
+
+      // hreflang tags for German market
+      const updateHreflang = (lang: string, href: string) => {
+        let el = document.querySelector(`link[rel="alternate"][hreflang="${lang}"]`) as HTMLLinkElement;
+        if (!el) {
+          el = document.createElement('link');
+          el.rel = 'alternate';
+          el.hreflang = lang;
+          document.head.appendChild(el);
+        }
+        el.href = href;
+      };
+      updateHreflang('de', canonical);
+      updateHreflang('x-default', canonical);
     } else if (link) {
       link.remove();
     }
