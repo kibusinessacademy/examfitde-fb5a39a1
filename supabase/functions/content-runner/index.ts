@@ -968,13 +968,18 @@ type PassResult = {
 // deno-lint-ignore no-explicit-any
 async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFirstPass: boolean, loopDeadlineMs?: number): Promise<PassResult> {
   // ── Stale-lock recovery (only on first pass to avoid repeated scanning) ──
+  // LANE-SCOPED: content-runner must ONLY recover GENERATION lane jobs.
+  // Recovering control/recovery lane jobs causes cross-lane interference
+  // and starves the queue with jobs this runner cannot dispatch.
   if (isFirstPass) {
     const staleBefore = new Date(Date.now() - STALE_LOCK_RECOVERY_MS).toISOString();
+    const generationJobTypes = jobTypesForLane("generation");
     const { data: staleRows } = await sb
       .from("job_queue")
       .select("id, attempts, max_attempts")
       .eq("worker_pool", "default")
       .eq("status", "processing")
+      .in("job_type", generationJobTypes)
       .not("locked_by", "is", null)
       .lt("locked_at", staleBefore)
       .lt("updated_at", staleBefore)
