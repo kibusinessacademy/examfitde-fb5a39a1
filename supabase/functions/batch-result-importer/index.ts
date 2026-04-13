@@ -1040,10 +1040,10 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 6b) ── CRITICAL FIX: Close the job_queue completion loop ──
-    // Without this, batch jobs stay on batch_pending forever in job_queue
-    // while the domain import succeeds. This is the symmetric counterpart
-    // to what anthropic-batch-poll does for Anthropic batches.
+    // 6b) ── CRITICAL FIX (v2): Aggregated job_queue completion loop ──
+    // A source_job_id may have MULTIPLE batch requests (e.g. handbook with 8 sections).
+    // The job must only be marked completed when ALL its requests are terminal.
+    // Otherwise we get false-completes → MATERIALIZATION_GUARD failures.
     try {
       const { data: batchReqsWithJobs } = await sb
         .from("llm_batch_requests")
@@ -1052,24 +1052,36 @@ Deno.serve(async (req) => {
         .not("source_job_id", "is", null);
 
       if (batchReqsWithJobs?.length) {
-        // Collect source_job_ids where domain import succeeded
-        const completedJobIds = batchReqsWithJobs
-          .filter((r: any) => r.domain_imported_at != null)
-          .map((r: any) => r.source_job_id)
-          .filter(Boolean);
+        // Group by source_job_id to check ALL requests per job
+        const byJobId = new Map<string, { total: number; imported: number; failed: number; pending: number }>();
+        for (const r of batchReqsWithJobs as any[]) {
+          const jid = r.source_job_id as string;
+          if (!jid) continue;
+          if (!byJobId.has(jid)) byJobId.set(jid, { total: 0, imported: 0, failed: 0, pending: 0 });
+          const entry = byJobId.get(jid)!;
+          entry.total++;
+          if (r.domain_imported_at != null) entry.imported++;
+          else if (r.status === "failed") entry.failed++;
+          else entry.pending++;
+        }
 
-        const failedJobIds = batchReqsWithJobs
-          .filter((r: any) => r.status === "failed" && r.domain_imported_at == null)
-          .map((r: any) => r.source_job_id)
-          .filter(Boolean);
+        const fullyCompleted: string[] = [];
+        const fullyFailed: string[] = [];
 
-        // Dedupe
-        const uniqueCompleted = [...new Set(completedJobIds)] as string[];
-        const uniqueFailed = [...new Set(failedJobIds)].filter(
-          (id) => !uniqueCompleted.includes(id as string)
-        ) as string[];
+        for (const [jobId, counts] of byJobId) {
+          // All requests must be terminal (imported or failed) — no pending
+          if (counts.pending > 0) {
+            console.log(`[batch-result-importer] Job ${jobId.slice(0, 8)}: ${counts.imported}/${counts.total} imported, ${counts.pending} still pending — not closing yet`);
+            continue;
+          }
+          if (counts.imported > 0) {
+            fullyCompleted.push(jobId);
+          } else if (counts.failed === counts.total) {
+            fullyFailed.push(jobId);
+          }
+        }
 
-        if (uniqueCompleted.length > 0) {
+        if (fullyCompleted.length > 0) {
           const { error: completeErr, count } = await sb
             .from("job_queue")
             .update({
@@ -1080,35 +1092,36 @@ Deno.serve(async (req) => {
               locked_by: null,
               meta: {
                 batch_id: batchId,
-                batch_completed_via: "batch-result-importer",
+                batch_completed_via: "batch-result-importer-v2",
                 batch_import_success: result.successCount,
                 batch_import_failed: result.failCount,
+                batch_aggregated: true,
               },
             })
-            .in("id", uniqueCompleted)
+            .in("id", fullyCompleted)
             .in("status", ["batch_pending", "pending", "processing"])
             .select("id", { count: "exact", head: true });
 
           if (completeErr) {
             console.warn(`[batch-result-importer] job_queue completion failed: ${completeErr.message?.slice(0, 200)}`);
           } else {
-            console.log(`[batch-result-importer] ✅ Closed ${count ?? 0}/${uniqueCompleted.length} job_queue rows to completed for batch ${batchId.slice(0, 8)}`);
+            console.log(`[batch-result-importer] ✅ Closed ${count ?? 0}/${fullyCompleted.length} job_queue rows to completed (aggregated) for batch ${batchId.slice(0, 8)}`);
           }
         }
 
-        if (uniqueFailed.length > 0) {
+        if (fullyFailed.length > 0) {
           await sb
             .from("job_queue")
             .update({
               status: "failed",
-              last_error: `batch_import_failed: batch ${batchId.slice(0, 8)}`,
+              last_error: `batch_import_all_failed: batch ${batchId.slice(0, 8)}`,
               locked_at: null,
               locked_by: null,
             })
-            .in("id", uniqueFailed)
+            .in("id", fullyFailed)
             .in("status", ["batch_pending", "pending", "processing"]);
 
-          console.log(`[batch-result-importer] Marked ${uniqueFailed.length} job_queue rows as failed for batch ${batchId.slice(0, 8)}`);
+          console.log(`[batch-result-importer] Marked ${fullyFailed.length} job_queue rows as failed (all requests failed) for batch ${batchId.slice(0, 8)}`);
         }
       }
     } catch (jqErr) {

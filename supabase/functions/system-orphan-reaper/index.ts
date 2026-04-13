@@ -96,18 +96,18 @@ Deno.serve(async (req) => {
     .limit(500);
 
   if (failedJobs && failedJobs.length > 0) {
-    // Get building package IDs to filter
+    // Get building/recoverable package IDs to filter
     const packageIds = [...new Set(failedJobs.map((j: any) => j.package_id).filter(Boolean))];
-    const { data: buildingPkgs } = await sb
+    const { data: activePkgs } = await sb
       .from("course_packages")
       .select("id")
       .in("id", packageIds)
-      .eq("status", "building");
+      .in("status", ["building", "quality_gate_failed", "publish_failed"]);
 
-    const buildingSet = new Set((buildingPkgs || []).map((p: any) => p.id));
+    const activeSet = new Set((activePkgs || []).map((p: any) => p.id));
 
     for (const job of failedJobs) {
-      if (job.package_id && !buildingSet.has(job.package_id)) {
+      if (job.package_id && !activeSet.has(job.package_id)) {
         await sb.from("job_queue").delete().eq("id", job.id);
         reapedOrphanJobs++;
       }
