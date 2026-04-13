@@ -152,16 +152,18 @@ const GENERATION_JOB_TYPES = new Set([
   "package_generate_oral_exam",  // v4.4: promoted from T3 — real LLM generation, was causing STALE_LOCK_RECOVERY loops at 25s
 ]);
 
-// Tier 2 (35s): ONLY jobs with actual long-running LLM calls that genuinely need 30s+
-// v6.1: T2_HEAVY is ONLY for jobs that genuinely run 20s+.
-// build_ai_tutor_index moved to T3 — it's indexing, not LLM generation.
+// Tier 2 (90s): Jobs with actual long-running LLM calls that genuinely need 30s+
+// v6.4: Added elite_harden (TIME_BUDGET_MS=110s, AI annotation calls)
 const HEAVY_JOB_TYPES = new Set([
   "package_generate_blueprint_variants",  // real LLM generation, 17-31s measured
+  "package_elite_harden",                 // v6.4: AI annotation, TIME_BUDGET_MS=110s — was T4_LIGHT causing 15s TIMEOUT
 ]);
 
 const HEAVY_EXPANDED_JOB_TYPES = new Set([
   ...HEAVY_JOB_TYPES,
-  // v6.1: NO additional jobs — T2 is reserved for genuinely long-running operations only
+  // v6.4: Jobs that exceed 15s but don't need full T2 budget
+  "package_repair_exam_pool_quality",     // v6.4: LLM-assisted repair, HTTP 500 at 15s — needs T3 (45s) via fallthrough
+  "package_validate_blueprint_variants",  // v6.4: N+1 queries on 100+ blueprints, TIMEOUT at 15s — needs T3 (45s) via fallthrough
 ]);
 
 // v6.1→v6.4: T4_LIGHT (10s+5s=15s budget) — ONLY jobs completing in <10s actual.
