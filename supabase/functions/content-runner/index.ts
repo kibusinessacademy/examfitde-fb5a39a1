@@ -189,6 +189,9 @@ const LIGHT_JOB_TYPES = new Set([
   "package_auto_publish",              // pure status transition
   "package_validate_blueprints",       // pure DB gate check
   "package_validate_blueprint_variants",// pure DB gate check
+  "package_promote_blueprint_variants", // v6.0: demoted from T2 — deterministic DB promotion, <2s actual
+  "package_validate_exam_pool",        // v6.0: demoted from T2 — pure validation check, <3s actual
+  "package_exam_rebalance",            // pure DB rebalance
 ]);
 
 // Everything else not in Tier 1/2/4: Tier 3 (25s) — moderate DB + orchestration
