@@ -1281,6 +1281,15 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
       continue;
     }
 
+    // v6.0: Sort jobs within lane — light jobs first to maximize completions per loop.
+    // Heavy jobs last: if budget runs out, light jobs already completed.
+    const tierRank = (jt: string): number => {
+      if (LIGHT_JOB_TYPES.has(jt)) return 0;
+      if (GENERATION_JOB_TYPES.has(jt) || HEAVY_EXPANDED_JOB_TYPES.has(jt)) return 2;
+      return 1; // T3_DEFAULT
+    };
+    laneJobs.sort((a: any, b: any) => tierRank(a.job_type) - tierRank(b.job_type));
+
     // Dispatch lane jobs in parallel
     const settled = await Promise.allSettled(
       laneJobs.map((job: any) => processOneJob(job, sb, supabaseUrl, serviceKey, loopDeadlineMs))
