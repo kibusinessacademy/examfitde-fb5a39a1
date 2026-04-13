@@ -632,7 +632,39 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
         {showDanger && (
           <Card className="mt-3 border-destructive/30">
             <CardContent className="py-4 space-y-4">
+              {/* Manual Step Controls */}
               <div>
+                <p className="text-sm font-medium text-foreground mb-2">Manuelles Step-Management</p>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <select value={selectedResetStep} onChange={e => setSelectedResetStep(e.target.value)} className="text-xs border border-border rounded px-2 py-1.5 bg-background text-foreground flex-1">
+                    <option value="">Step auswählen…</option>
+                    {PIPELINE_STEPS.map(s => {
+                      const bs = stepMap.get(s.key);
+                      return <option key={s.key} value={s.key}>{s.label} ({bs?.status || 'pending'})</option>;
+                    })}
+                  </select>
+                  <Button variant="outline" size="sm" disabled={!selectedResetStep || manualActionLoading} onClick={async () => {
+                    setManualActionLoading(true);
+                    try { await enqueueSingleStepAction(packageId, selectedResetStep); toast.success(`Step "${selectedResetStep}" enqueued`); refreshAll(); }
+                    catch (e: any) { toast.error(e.message); }
+                    finally { setManualActionLoading(false); }
+                  }}>
+                    {manualActionLoading ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Zap className="h-3 w-3 mr-1" />} Enqueue
+                  </Button>
+                  <Button variant="outline" size="sm" className="text-warning border-warning/30" disabled={!selectedResetStep || manualActionLoading} onClick={async () => {
+                    if (!confirm(`Paket ab Step "${selectedResetStep}" zurücksetzen? Alle nachfolgenden Steps werden auf queued gesetzt.`)) return;
+                    setManualActionLoading(true);
+                    try { await resetToStepAction(packageId, selectedResetStep); toast.success(`Zurückgesetzt ab "${selectedResetStep}"`); refreshAll(); }
+                    catch (e: any) { toast.error(e.message); }
+                    finally { setManualActionLoading(false); }
+                  }}>
+                    {manualActionLoading ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <RotateCcw className="h-3 w-3 mr-1" />} Reset ab hier
+                  </Button>
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-1">Enqueue: Triggert den gewählten Step-Job manuell. Reset: Setzt diesen und alle nachfolgenden Steps zurück.</p>
+              </div>
+
+              <div className="border-t border-border/30 pt-4">
                 <p className="text-sm font-medium text-destructive">Kurspaket vollständig zurücksetzen</p>
                 <p className="text-xs text-muted-foreground mt-1">Löscht: Locks, Jobs, Lessons, Modules, Exam Questions, Tutor Index, Handbook, Package Steps.</p>
               </div>
