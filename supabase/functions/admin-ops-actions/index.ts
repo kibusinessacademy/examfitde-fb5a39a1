@@ -1115,7 +1115,7 @@ async function cancelPackageBuild(sb: SB, packageId: string) {
   if (jobs?.length) {
     const ids = (jobs as any[]).map((j: any) => j.id);
     await sb.from("job_queue")
-      .update({ status: "failed", last_error: "Cancelled by admin", updated_at: new Date().toISOString() })
+      .update({ status: "failed", last_error: "Cancelled by admin", updated_at: new Date().toISOString(), meta: { transition_source: "admin-ops-actions", transition_reason: "cancel_package_build", transition_at: new Date().toISOString() } } as any)
       .in("id", ids);
   }
 
