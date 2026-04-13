@@ -1082,6 +1082,8 @@ async function unblockPackage(sb: SB, packageId: string, reason: string) {
 
   const resetStepKeys: string[] = [];
   for (const step of (stuckSteps || [])) {
+    // P0: Skip governance steps — they must not be generically unblocked
+    if (GOVERNANCE_STEP_KEYS.includes((step as any).step_key)) continue;
     const meta = (step as any).meta || {};
     const cleanedMeta = {
       ...meta,
