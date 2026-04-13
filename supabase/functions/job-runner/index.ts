@@ -644,14 +644,20 @@ Deno.serve(async (req) => {
       if (notExecutable) {
         const reason = `OPS_GUARD:PACKAGE_NOT_EXECUTABLE status=${pkgState.status ?? "missing"} published_at=${pkgState.published_at ? "set" : "null"}`;
         // Use "cancelled" — this is a deterministic block, not a failure.
-        // Prevents noise in failure metrics and stops retry loops.
+        // CAS: only cancel if still processing (we own it)
         await sb.from("job_queue").update({
           status: "cancelled",
           completed_at: tsNow,
           last_error: reason,
-          meta: { ...(job.meta || {}), outcome: "blocked", blocked_reason: reason },
+          meta: {
+            ...(job.meta || {}),
+            outcome: "blocked",
+            blocked_reason: reason,
+            cancel_reason: "package_not_executable",
+            cancel_source: "job-runner",
+          },
           ...lockRelease(tsNow),
-        }).eq("id", job.id);
+        }).eq("id", job.id).eq("status", "processing");
         results.push({ id: job.id, status: "cancelled", reason: "package_not_executable" });
         continue;
       }
