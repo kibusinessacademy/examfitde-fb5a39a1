@@ -109,17 +109,32 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ── Seed inventory rows for ALL approved blueprints ──
+    // ── Seed inventory rows with BACK-SYNC from existing variants ──
     let seeded = 0;
     for (const bp of allBlueprints) {
+      // Back-sync: count actual variants for this blueprint (artifact truth)
+      const { count: actualCount } = await sb
+        .from("exam_question_variants")
+        .select("id", { count: "exact", head: true })
+        .eq("blueprint_id", bp.id);
+
+      const { count: reviewCount } = await sb
+        .from("exam_question_variants")
+        .select("id", { count: "exact", head: true })
+        .eq("blueprint_id", bp.id)
+        .in("status", ["review", "approved", "promoted"]);
+
+      const mat = actualCount ?? 0;
+      const appr = reviewCount ?? 0;
+
       // deno-lint-ignore no-explicit-any
       await sb.rpc("fn_upsert_variant_inventory" as any, {
         p_blueprint_id: bp.id,
         p_curriculum_id: pkg.curriculum_id,
         p_package_id: packageId,
         p_target_count: 6,
-        p_new_materialized: 0,
-        p_new_approved: 0,
+        p_new_materialized: mat,
+        p_new_approved: appr,
       });
       seeded++;
     }
