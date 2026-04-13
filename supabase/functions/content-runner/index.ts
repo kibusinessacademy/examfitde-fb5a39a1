@@ -713,6 +713,13 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
           deferMs: 5_000,
           detail: dispatchError.slice(0, 500),
         });
+        // Log to telemetry table for monitoring (fire-and-forget)
+        sb.from("ops_budget_exhausted_log").insert({
+          job_type: job.job_type,
+          package_id: job.payload?.package_id ?? null,
+          runner: WORKER_ID,
+          reason: dispatchError.slice(0, 500),
+        }).then(() => {}).catch(() => {});
         console.warn(`[content-runner] ⏸️ ${job.job_type} (${shortId}) ${dispatchError.slice(0, 100)} — released without attempt increment`);
         return { id: job.id, ok: false, error: "budget_exhausted_released", terminal: false };
       }
