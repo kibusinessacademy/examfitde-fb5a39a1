@@ -11,8 +11,8 @@ import { CompetencyProgressGrid, type CompetencyProgress } from "@/components/co
 import { ModuleLessonList } from "@/components/course/ModuleLessonList";
 import { ContinueLearningCard } from "@/components/course/ContinueLearningCard";
 import { Paywall } from "@/components/shop/Paywall";
-import { Loader2, Clock, BookOpen, ArrowLeft, PlayCircle, Zap } from "lucide-react";
-import PageExplainer from "@/components/admin/PageExplainer";
+import { Loader2, Clock, BookOpen, ArrowLeft, PlayCircle, Zap, HelpCircle, ChevronDown } from "lucide-react";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 interface Course {
   id: string;
