@@ -165,13 +165,11 @@ export interface LaneBudget {
  * Control gets priority, Recovery gets guaranteed minimum, Generation gets rest.
  */
 export function allocateLaneBudgets(totalSlots: number): LaneBudget {
-  // P1 FIX: Generation ALWAYS gets at least 1 slot (was 0 for totalSlots <= 3)
   if (totalSlots <= 1) return { control: 1, recovery: 0, generation: 0 };
   if (totalSlots <= 2) return { control: 1, recovery: 0, generation: 1 };
   if (totalSlots <= 3) return { control: 1, recovery: 1, generation: 1 };
   if (totalSlots <= 4) return { control: 2, recovery: 1, generation: 1 };
 
-  // General formula: control ~40%, recovery ~20%, generation ~40%
   const controlSlots = Math.max(1, Math.floor(totalSlots * 0.4));
   const recoverySlots = Math.max(1, Math.floor(totalSlots * 0.2));
   const generationSlots = Math.max(1, totalSlots - controlSlots - recoverySlots);
@@ -181,4 +179,42 @@ export function allocateLaneBudgets(totalSlots: number): LaneBudget {
     recovery: recoverySlots,
     generation: generationSlots,
   };
+}
+
+/**
+ * Redistribute unused lane slots to active lanes.
+ * E.g. job-runner skips generation → those slots go to control+recovery.
+ * content-runner skips control+recovery → those slots go to generation.
+ */
+export function redistributeLaneBudgets(
+  base: LaneBudget,
+  activeLanes: RunnerLane[],
+): LaneBudget {
+  const activeSet = new Set(activeLanes);
+  let freed = 0;
+  const result = { ...base };
+
+  // Collect slots from inactive lanes
+  for (const lane of (["control", "recovery", "generation"] as RunnerLane[])) {
+    if (!activeSet.has(lane)) {
+      freed += result[lane];
+      result[lane] = 0;
+    }
+  }
+
+  if (freed <= 0 || activeLanes.length === 0) return result;
+
+  // Distribute freed slots proportionally to active lanes
+  const totalActive = activeLanes.reduce((s, l) => s + result[l], 0);
+  let distributed = 0;
+  for (let i = 0; i < activeLanes.length; i++) {
+    const lane = activeLanes[i];
+    const share = i === activeLanes.length - 1
+      ? freed - distributed
+      : Math.round((result[lane] / Math.max(1, totalActive)) * freed);
+    result[lane] += share;
+    distributed += share;
+  }
+
+  return result;
 }
