@@ -619,6 +619,8 @@ export async function healFalseLivenessPackages(sb: SupabaseClient): Promise<str
       console.warn(`[stuck-scan] 🎭 FALSE-LIVENESS: ${String(pkg.package_id).slice(0, 8)} "${pkg.title}" — released lease`);
 
       // ── P0.3: Auto-normalize building+false_active → queued after grace period ──
+      // v5.1: NEVER demote if package has active jobs — the DB trigger guard will block it anyway,
+      // but we skip the attempt entirely to avoid noise in guardrail_events.
       if (pkg.status === "building") {
         const lastActivity = pkg.last_step_transition_at || pkg.last_pipeline_event_at;
         const idleMinutes = lastActivity
@@ -626,19 +628,30 @@ export async function healFalseLivenessPackages(sb: SupabaseClient): Promise<str
           : 999;
 
         if (idleMinutes >= GRACE_MINUTES) {
-          const { error: resetErr } = await sb
-            .from("course_packages")
-            .update({
-              status: "queued",
-              updated_at: new Date().toISOString(),
-              stuck_reason: null,
-            })
-            .eq("id", pkg.package_id)
-            .eq("status", "building");
+          // Check for active jobs first — if jobs exist, package is legitimately building
+          const { count: activeJobs } = await sb
+            .from("job_queue")
+            .select("id", { count: "exact", head: true })
+            .eq("package_id", pkg.package_id)
+            .in("status", ["pending", "processing", "batch_pending"]);
 
-          if (!resetErr) {
-            normalized.push(pkg.package_id);
-            console.warn(`[stuck-scan] 🎭→📦 FALSE-LIVENESS NORMALIZE: ${String(pkg.package_id).slice(0, 8)} "${pkg.title}" — building→queued (idle ${Math.round(idleMinutes)}min)`);
+          if ((activeJobs ?? 0) > 0) {
+            console.log(`[stuck-scan] NORMALIZE_SKIP: ${String(pkg.package_id).slice(0, 8)} "${pkg.title}" — has ${activeJobs} active jobs, keeping building`);
+          } else {
+            const { error: resetErr } = await sb
+              .from("course_packages")
+              .update({
+                status: "queued",
+                updated_at: new Date().toISOString(),
+                stuck_reason: null,
+              })
+              .eq("id", pkg.package_id)
+              .eq("status", "building");
+
+            if (!resetErr) {
+              normalized.push(pkg.package_id);
+              console.warn(`[stuck-scan] 🎭→📦 FALSE-LIVENESS NORMALIZE: ${String(pkg.package_id).slice(0, 8)} "${pkg.title}" — building→queued (idle ${Math.round(idleMinutes)}min, 0 active jobs)`);
+            }
           }
         }
       }
@@ -658,19 +671,30 @@ export async function healFalseLivenessPackages(sb: SupabaseClient): Promise<str
         : 999;
 
       if (idleMinutes >= GRACE_MINUTES) {
-        const { error: resetErr } = await sb
-          .from("course_packages")
-          .update({
-            status: "queued",
-            updated_at: new Date().toISOString(),
-            stuck_reason: null,
-          })
-          .eq("id", pkg.package_id)
-          .eq("status", "building");
+        // v5.1: Check for active jobs — don't demote if jobs exist
+        const { count: activeJobs } = await sb
+          .from("job_queue")
+          .select("id", { count: "exact", head: true })
+          .eq("package_id", pkg.package_id)
+          .in("status", ["pending", "processing", "batch_pending"]);
 
-        if (!resetErr) {
-          normalized.push(pkg.package_id);
-          console.warn(`[stuck-scan] 📦 NO-ACTIVITY NORMALIZE: ${String(pkg.package_id).slice(0, 8)} "${pkg.title}" — building→queued (idle ${Math.round(idleMinutes)}min)`);
+        if ((activeJobs ?? 0) > 0) {
+          console.log(`[stuck-scan] NORMALIZE_SKIP: ${String(pkg.package_id).slice(0, 8)} "${pkg.title}" — has ${activeJobs} active jobs, keeping building`);
+        } else {
+          const { error: resetErr } = await sb
+            .from("course_packages")
+            .update({
+              status: "queued",
+              updated_at: new Date().toISOString(),
+              stuck_reason: null,
+            })
+            .eq("id", pkg.package_id)
+            .eq("status", "building");
+
+          if (!resetErr) {
+            normalized.push(pkg.package_id);
+            console.warn(`[stuck-scan] 📦 NO-ACTIVITY NORMALIZE: ${String(pkg.package_id).slice(0, 8)} "${pkg.title}" — building→queued (idle ${Math.round(idleMinutes)}min, 0 active jobs)`);
+          }
         }
       }
     }

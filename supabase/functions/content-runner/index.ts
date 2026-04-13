@@ -148,36 +148,47 @@ const GENERATION_JOB_TYPES = new Set([
   "package_auto_seed_exam_blueprints",
   "package_generate_lesson_minichecks",
   "lesson_generate_content_shard",
-  "package_generate_oral_exam",
+  "package_generate_oral_exam",  // v4.4: promoted from T3 — real LLM generation, was causing STALE_LOCK_RECOVERY loops at 25s
 ]);
 
-// Tier 2 (35s): LLM validation / DB-heavy / variant generation
+// Tier 2 (35s): LLM validation / DB-heavy
 const HEAVY_JOB_TYPES = new Set([
   "package_validate_exam_pool",
   "package_build_ai_tutor_index",
-  "package_generate_blueprint_variants",
-  "package_elite_harden",           // v5: promoted from T3 — has AI phases, needs headroom
-  "package_quality_council",        // v5: promoted from T4 — can run integrity scans, needs 30s+
-  "package_promote_blueprint_variants", // v5: promoted from T4 — scans all blueprints sequentially, 10s too short
-  "package_repair_exam_pool_quality",   // v5: repair with DB-heavy operations
+  "package_generate_blueprint_variants",  // v3.1: promoted from T4 — real generation/orchestration, needs 35s+5s budget
 ]);
 
-// Tier 4 (10s): Pure DB-query / status-check orchestrators (<5s actual runtime)
-// These jobs do zero LLM calls, zero external API calls — just DB reads + status writes.
-// Required budget: 10s + 5s buffer = 15s (vs 30s for Tier 3), enabling dispatch late in loop.
+// Note: package_elite_harden demoted to Tier 3 (25s+5s=30s required).
+// Its AI phases are internally capped and annotations_only mode is pure DB.
+// At Tier 2 (40s required) it could only dispatch as the first job in a loop,
+// causing persistent BUDGET_EXHAUSTED blockade.
+
+// v5.1: Tier 2 expanded — many "light" jobs actually invoke Edge Functions that need 20-35s
+// Only truly instant DB-check jobs should be T4_LIGHT.
+const HEAVY_EXPANDED_JOB_TYPES = new Set([
+  ...HEAVY_JOB_TYPES,
+  "package_run_integrity_check",       // v5.1: invokes integrity-check EF, needs 30s+
+  "package_quality_council",           // v5.1: invokes quality-council EF with AI phases
+  "package_promote_blueprint_variants",// v5.1: scans all blueprints sequentially
+  "package_scaffold_learning_course",  // v5.1: scaffolding is heavy orchestration
+  "package_elite_harden",             // v5.1: has AI annotation phases
+  "package_repair_exam_pool_quality", // v5.1: exam pool repair needs LLM time
+]);
+
+// Tier 4 (10s): ONLY truly instant DB status-checks — zero Edge Function calls, zero LLM.
+// Required budget: 10s + 5s buffer = 15s. Only jobs that do a single DB read + status write.
 const LIGHT_JOB_TYPES = new Set([
-  "package_run_integrity_check",
-  "package_validate_learning_content",
-  "package_validate_handbook",
-  "package_validate_handbook_depth",
-  "package_validate_oral_exam",
-  "package_validate_tutor_index",
-  "package_validate_lesson_minichecks",
-  "package_enqueue_handbook_expand",
-  "package_finalize_learning_content",
-  "package_scaffold_learning_course",
-  "package_auto_publish",
-  "package_validate_blueprint_variants",
+  "package_validate_learning_content",  // pure DB gate check
+  "package_validate_handbook",          // pure DB gate check
+  "package_validate_handbook_depth",    // pure DB gate check
+  "package_validate_oral_exam",         // pure DB gate check
+  "package_validate_tutor_index",       // pure DB gate check
+  "package_validate_lesson_minichecks", // pure DB gate check
+  "package_enqueue_handbook_expand",    // pure orchestration enqueue
+  "package_finalize_learning_content",  // pure barrier check
+  "package_auto_publish",              // pure status transition
+  "package_validate_blueprints",       // pure DB gate check
+  "package_validate_blueprint_variants",// pure DB gate check
 ]);
 
 // Everything else not in Tier 1/2/4: Tier 3 (25s) — moderate DB + orchestration
@@ -190,7 +201,7 @@ async function dispatchJob(job: any, supabaseUrl: string, serviceKey: string, lo
   }
 
   const tierLabel = GENERATION_JOB_TYPES.has(job.job_type) ? "T1_GEN"
-    : HEAVY_JOB_TYPES.has(job.job_type) ? "T2_HEAVY"
+    : HEAVY_EXPANDED_JOB_TYPES.has(job.job_type) ? "T2_HEAVY"
     : LIGHT_JOB_TYPES.has(job.job_type) ? "T4_LIGHT"
     : "T3_DEFAULT";
 
@@ -279,9 +290,7 @@ async function dispatchJob(job: any, supabaseUrl: string, serviceKey: string, lo
 }
 
 // ── Intent-aware workload key mapping (used by health gate + cooldown) ──
-// SSOT: Every job type MUST have an explicit mapping. Unknown types → "control" (no LLM gate).
 const WORKLOAD_KEY_MAP: Record<string, string> = {
-  // Generation (LLM-heavy)
   package_generate_learning_content: "learning_content",
   lesson_generate_content: "learning_content",
   lesson_generate_content_shard: "learning_content",
@@ -294,35 +303,10 @@ const WORKLOAD_KEY_MAP: Record<string, string> = {
   mass_enrich_competencies_v2: "enrichment",
   pool_fill_lf_gaps: "enrichment",
   pool_fill_bloom_gaps: "enrichment",
-  package_auto_seed_exam_blueprints: "exam_pool",
-  package_generate_blueprint_variants: "exam_pool",
-  package_elite_harden: "exam_pool",
-  // Control/Validation (NO LLM — must bypass health gate)
-  package_promote_blueprint_variants: "control",
-  package_validate_exam_pool: "control",
-  package_quality_council: "control",
-  package_repair_exam_pool_quality: "control",
-  package_run_integrity_check: "control",
-  package_validate_learning_content: "control",
-  package_validate_handbook: "control",
-  package_validate_handbook_depth: "control",
-  package_validate_oral_exam: "control",
-  package_validate_tutor_index: "control",
-  package_validate_lesson_minichecks: "control",
-  package_validate_blueprint_variants: "control",
-  package_finalize_learning_content: "control",
-  package_scaffold_learning_course: "control",
-  package_enqueue_handbook_expand: "control",
-  package_auto_publish: "control",
-  package_build_ai_tutor_index: "control",
-  handbook_expand_section: "handbook",
 };
 
-// Control workload key bypasses the LLM health gate entirely
-const CONTROL_WORKLOAD_KEYS = new Set(["control"]);
-
 function workloadKeyForJob(jobType: string): string {
-  return WORKLOAD_KEY_MAP[jobType] ?? "control"; // v5: unknown → control (safe, bypasses LLM gate)
+  return WORKLOAD_KEY_MAP[jobType] ?? "learning_content";
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1208,12 +1192,6 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
   const LAST_RESORT_MAX_PER_WORKLOAD = 2;
 
   for (const [workloadKey, wkJobs] of jobsByWorkload) {
-    // v5: Control workloads bypass LLM health gate entirely — they don't use LLM providers
-    if (CONTROL_WORKLOAD_KEYS.has(workloadKey)) {
-      console.log(`[content-runner] HEALTH_GATE_BYPASS: ${workloadKey} (${wkJobs.length} job(s)) — control workload, no LLM route needed`);
-      healthyJobs.push(...wkJobs);
-      continue;
-    }
     const route = await resolveAvailableRoute(workloadKey);
     if (!route?.ok) {
       const fallbackRoute = workloadKey !== "learning_content"
