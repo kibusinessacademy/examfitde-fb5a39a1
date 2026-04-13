@@ -65,13 +65,19 @@ export function allowedPackageStatusesForJobType(jobType: string): Set<string> {
 
 export function canEnqueueForPackageState(
   jobType: string,
-  pkg: { status: string | null; published_at?: string | null },
+  pkg: { status: string | null; published_at?: string | null; blocked_reason?: string | null },
 ): { ok: boolean; reason: string } {
   if (pkg.published_at) {
     return { ok: false, reason: "already_published" };
   }
 
   const status = pkg.status ?? "unknown";
+
+  // v6.3: Hard block for intentionally paused (non-prio) packages
+  if (pkg.blocked_reason === "intentional_pause") {
+    return { ok: false, reason: "intentional_pause" };
+  }
+
   if (!allowedPackageStatusesForJobType(jobType).has(status)) {
     return { ok: false, reason: `status_${status}` };
   }
@@ -116,7 +122,7 @@ export async function enqueueJob(
   if (packageId) {
     const { data: pkg, error: pkgErr } = await sb
       .from("course_packages")
-      .select("id,status,published_at,course_id,curriculum_id")
+      .select("id,status,published_at,course_id,curriculum_id,blocked_reason")
       .eq("id", packageId)
       .maybeSingle();
 
@@ -135,6 +141,7 @@ export async function enqueueJob(
     const executionGate = canEnqueueForPackageState(opts.job_type, {
       status: pkg.status,
       published_at: pkg.published_at,
+      blocked_reason: pkg.blocked_reason,
     });
 
     if (!executionGate.ok) {

@@ -45,16 +45,16 @@ const STALE_LOCK_RECOVERY_MS = 3 * 60_000;
 // ── DISPATCH TIMEOUTS (v2.5: 4-Tier system for budget efficiency) ──
 // Edge Function hard limit = 60s.  LOOP_MAX_MS = 50s.
 // Dispatch timeout MUST be < LOOP_MAX_MS minus overhead (status-write buffer ~5s).
-const DISPATCH_TIMEOUT_LIGHT_MS = 10_000;    // Tier 4: pure DB-query orchestrators (<5s actual)
-const DISPATCH_TIMEOUT_MS = 25_000;          // Tier 3: structural/DB-only jobs
-const DISPATCH_TIMEOUT_HEAVY_MS = 35_000;    // Tier 2: LLM-validation + DB-heavy jobs
-const DISPATCH_TIMEOUT_GENERATION_MS = 40_000; // Tier 1: LLM-generation jobs
+const DISPATCH_TIMEOUT_LIGHT_MS = 15_000;    // Tier 4: pure DB-query orchestrators (<5s actual)
+const DISPATCH_TIMEOUT_MS = 45_000;          // Tier 3: structural/DB-only jobs
+const DISPATCH_TIMEOUT_HEAVY_MS = 90_000;    // Tier 2: LLM-validation + DB-heavy jobs
+const DISPATCH_TIMEOUT_GENERATION_MS = 240_000; // Tier 1: LLM-generation jobs (oral exam, handbook etc.)
 const STATUS_WRITE_BUFFER_MS = 5_000;        // Reserved for status-write after dispatch
 const WORKER_ID = `content-runner-${crypto.randomUUID().slice(0, 8)}`;
 const FUNCTION_VERSION = "v4.3-lane-aware-claiming";
 
 // Pull-loop parameters — TUNED for max throughput
-const LOOP_MAX_MS = envInt("CONTENT_RUNNER_LOOP_MAX_MS", 50_000);    // v2.1: 30s→50s (edge fn limit ~60s)
+const LOOP_MAX_MS = envInt("CONTENT_RUNNER_LOOP_MAX_MS", 280_000);   // v6.3: 50s→280s (wall_clock=300s)
 const LOOP_SLEEP_MS = envInt("CONTENT_RUNNER_LOOP_SLEEP_MS", 1_500); // v2.1: 2s→1.5s (faster polling)
 const MAX_EMPTY_POLLS = envInt("CONTENT_RUNNER_MAX_EMPTY_POLLS", 3); // v2.1: 2→3 (wait longer for new jobs)
 const ABORT_FAIL_RATE_PERCENT = envInt("CONTENT_RUNNER_ABORT_FAIL_RATE_PERCENT", 80);

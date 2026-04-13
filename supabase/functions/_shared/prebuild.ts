@@ -92,7 +92,7 @@ async function tryPrebuildStep(
     }
 
     return {
-      status: row.status ?? "noop",
+      status: row.step_status ?? row.status ?? "noop",
       advanced: row.advanced ?? false,
       reason: row.reason ?? "UNKNOWN",
       meta: row.meta ?? {},

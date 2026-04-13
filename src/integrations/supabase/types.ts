@@ -77826,7 +77826,7 @@ export type Database = {
           advanced: boolean
           meta: Json
           reason: string
-          status: string
+          step_status: string
         }[]
       }
       fn_prebuild_finalize_learning_content: {
@@ -77844,7 +77844,7 @@ export type Database = {
           advanced: boolean
           meta: Json
           reason: string
-          status: string
+          step_status: string
         }[]
       }
       fn_prebuild_promote_blueprint_variants: {
@@ -77862,7 +77862,7 @@ export type Database = {
           advanced: boolean
           meta: Json
           reason: string
-          status: string
+          step_status: string
         }[]
       }
       fn_prebuild_validate_blueprints: {
