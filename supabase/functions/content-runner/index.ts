@@ -1072,7 +1072,8 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
   // we claim per-lane with lane-specific budgets.
   // This prevents the claim→release→reclaim loop.
   // ═══════════════════════════════════════════════════════════════
-  const laneBudgets = allocateLaneBudgets(CLAIM_LIMIT);
+  const rawBudgets = allocateLaneBudgets(CLAIM_LIMIT);
+  const laneBudgets = redistributeLaneBudgets(rawBudgets, CONTENT_RUNNER_LANES);
   const laneMetrics: Record<RunnerLane, { claimed: number; dispatched: number; succeeded: number; failed: number; budget_exhausted: number }> = {
     control:    { claimed: 0, dispatched: 0, succeeded: 0, failed: 0, budget_exhausted: 0 },
     recovery:   { claimed: 0, dispatched: 0, succeeded: 0, failed: 0, budget_exhausted: 0 },
