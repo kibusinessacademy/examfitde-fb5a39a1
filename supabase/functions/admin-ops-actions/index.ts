@@ -2,6 +2,10 @@ import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { batchHealAndDispatch } from "../_shared/heal-dispatch.ts";
 import { canEnqueueForPackageState, enqueueJob } from "../_shared/enqueue.ts";
 
+/** Governance steps that must NEVER be reset/healed by generic admin actions */
+const GOVERNANCE_STEP_KEYS = ["run_integrity_check", "quality_council", "auto_publish"];
+const GOVERNANCE_JOB_TYPES = ["package_run_integrity_check", "package_quality_council", "package_auto_publish"];
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
