@@ -2,6 +2,10 @@ import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { batchHealAndDispatch } from "../_shared/heal-dispatch.ts";
 import { canEnqueueForPackageState, enqueueJob } from "../_shared/enqueue.ts";
 
+/** Governance steps that must NEVER be reset/healed by generic admin actions */
+const GOVERNANCE_STEP_KEYS = ["run_integrity_check", "quality_council", "auto_publish"];
+const GOVERNANCE_JOB_TYPES = ["package_run_integrity_check", "package_quality_council", "package_auto_publish"];
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -271,7 +275,7 @@ Deno.serve(async (req) => {
           repair_lessons: { jobType: "package_generate_learning_content", stepKey: "generate_learning_content" },
           repair_handbook: { jobType: "package_generate_handbook", stepKey: "generate_handbook" },
           repair_oral_exam: { jobType: "package_generate_oral_exam", stepKey: "generate_oral_exam" },
-          retry_stalled_step: { jobType: "", stepKey: String(body.step_key || "run_integrity_check") },
+          retry_stalled_step: { jobType: "", stepKey: String(body.step_key || "") },
         };
 
         const mapping = repairJobMap[action];
@@ -744,6 +748,10 @@ async function releaseProviderCooldowns(sb: SB, body: JsonRow) {
 /* ── Scoped: reset_stalled_steps ── */
 async function resetStalledSteps(sb: SB, body: JsonRow) {
   if (typeof body.package_id === "string" && typeof body.step_key === "string") {
+    // P0: Block governance steps from generic reset
+    if (GOVERNANCE_STEP_KEYS.includes(body.step_key as string)) {
+      return { ok: false, error: `Governance step '${body.step_key}' cannot be reset by generic heal. Use dedicated governance functions.` };
+    }
     const { error } = await sb.from("package_steps")
       .update({ status: "queued", started_at: null, finished_at: null, last_error: null, updated_at: new Date().toISOString() })
       .eq("package_id", body.package_id).eq("step_key", body.step_key);
@@ -757,14 +765,17 @@ async function resetStalledSteps(sb: SB, body: JsonRow) {
   if (!rows?.length) return { ok: true, updated: 0 };
 
   let updated = 0;
+  let governanceSkipped = 0;
   for (const row of rows as any[]) {
     if (!row.package_id || !row.step_key) continue;
+    // P0: Skip governance steps
+    if (GOVERNANCE_STEP_KEYS.includes(row.step_key)) { governanceSkipped++; continue; }
     const { error } = await sb.from("package_steps")
       .update({ status: "queued", started_at: null, finished_at: null, last_error: null, updated_at: new Date().toISOString() })
       .eq("package_id", row.package_id).eq("step_key", row.step_key);
     if (!error) updated += 1;
   }
-  return { ok: true, updated, scope: "global" };
+  return { ok: true, updated, governance_skipped: governanceSkipped, scope: "global" };
 }
 
 /* ── Scoped: cancel_zombie_packages ── */
@@ -855,6 +866,8 @@ async function recoverFailedPackages(sb: SB, body: JsonRow) {
 
     let stepsReset = 0;
     for (const step of (failedSteps || []) as any[]) {
+      // P0: Skip governance steps — they must not be generically reset
+      if (GOVERNANCE_STEP_KEYS.includes(step.step_key)) continue;
       // Preserve contract keys but clear backoff and transient state
       const oldMeta = step.meta || {};
       const cleanedMeta = {
@@ -1069,6 +1082,8 @@ async function unblockPackage(sb: SB, packageId: string, reason: string) {
 
   const resetStepKeys: string[] = [];
   for (const step of (stuckSteps || [])) {
+    // P0: Skip governance steps — they must not be generically unblocked
+    if (GOVERNANCE_STEP_KEYS.includes((step as any).step_key)) continue;
     const meta = (step as any).meta || {};
     const cleanedMeta = {
       ...meta,
