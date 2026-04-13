@@ -491,7 +491,7 @@ Deno.serve(async (req) => {
         if (jobIds.length > 0) {
           // Kill specific jobs
           const { error } = await sb.from("job_queue")
-            .update({ status: "failed", last_error: "Admin: killed stale processing job", updated_at: new Date().toISOString() })
+            .update({ status: "failed", last_error: "Admin: killed stale processing job", updated_at: new Date().toISOString(), meta: { transition_source: "admin-ops-actions", transition_reason: "kill_stale_processing_jobs", transition_at: new Date().toISOString() } } as any)
             .in("id", jobIds)
             .eq("status", "processing");
           if (error) throw error;
@@ -516,7 +516,7 @@ Deno.serve(async (req) => {
 
         if (jobIds.length > 0) {
           const { error } = await sb.from("job_queue")
-            .update({ locked_by: null, locked_at: null, status: "pending", started_at: null, updated_at: now })
+            .update({ locked_by: null, locked_at: null, status: "pending", started_at: null, updated_at: now, meta: { transition_source: "admin-ops-actions", transition_reason: "release_stale_leases", transition_at: now } } as any)
             .in("id", jobIds)
             .eq("status", "processing");
           if (error) throw error;
@@ -532,7 +532,7 @@ Deno.serve(async (req) => {
           if (stale?.length) {
             const ids = (stale as any[]).map((j: any) => j.id);
             await sb.from("job_queue")
-              .update({ locked_by: null, locked_at: null, status: "pending", started_at: null, updated_at: now })
+              .update({ locked_by: null, locked_at: null, status: "pending", started_at: null, updated_at: now, meta: { transition_source: "admin-ops-actions", transition_reason: "release_stale_leases_global", transition_at: now } } as any)
               .in("id", ids);
             result = { ok: true, released: ids.length, scope: "global" };
             affectedIds = ids;
@@ -631,7 +631,7 @@ Deno.serve(async (req) => {
         const jobTypesToCancel = stepsToReset.map(sk => (STEP_TO_JOB_TYPE as any)[sk]).filter(Boolean);
         if (jobTypesToCancel.length > 0) {
           await sb.from("job_queue")
-            .update({ status: "cancelled", completed_at: new Date().toISOString(), last_error: "admin_reset_to_step" })
+            .update({ status: "cancelled", completed_at: new Date().toISOString(), last_error: "admin_reset_to_step", updated_at: new Date().toISOString(), meta: { transition_source: "admin-ops-actions", transition_reason: "reset_to_step", transition_at: new Date().toISOString() } } as any)
             .eq("package_id", pkgId)
             .in("job_type", jobTypesToCancel)
             .in("status", ["pending", "processing"]);
@@ -1115,7 +1115,7 @@ async function cancelPackageBuild(sb: SB, packageId: string) {
   if (jobs?.length) {
     const ids = (jobs as any[]).map((j: any) => j.id);
     await sb.from("job_queue")
-      .update({ status: "failed", last_error: "Cancelled by admin", updated_at: new Date().toISOString() })
+      .update({ status: "failed", last_error: "Cancelled by admin", updated_at: new Date().toISOString(), meta: { transition_source: "admin-ops-actions", transition_reason: "cancel_package_build", transition_at: new Date().toISOString() } } as any)
       .in("id", ids);
   }
 
