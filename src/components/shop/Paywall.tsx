@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Lock, ShoppingCart, CheckCircle, Loader2 } from 'lucide-react';
+import { Lock, ShoppingCart, CheckCircle, Loader2, Star } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { PRICING } from '@/config/pricing';
 
@@ -20,22 +20,22 @@ const FEATURE_NAMES: Record<PaywallProps['feature'], string> = {
   oral_trainer: 'Mündlicher Prüfungstrainer',
 };
 
-const FEATURE_PRODUCTS: Record<PaywallProps['feature'], { key: string; price: string }[]> = {
+const FEATURE_PRODUCTS: Record<PaywallProps['feature'], { key: string; price: string; label: string; recommended?: boolean }[]> = {
   learning_course: [
-    { key: 'learning_course', price: '19 €' },
-    { key: 'bundle', price: PRICING.defaultPrice },
+    { key: 'learning_course', price: '19 €', label: '📚 Lerninhaltekurs' },
+    { key: 'bundle', price: PRICING.defaultPrice, label: '🎁 Komplett-Bundle', recommended: true },
   ],
   exam_trainer: [
-    { key: 'exam_trainer', price: PRICING.defaultPrice },
-    { key: 'bundle', price: PRICING.defaultPrice },
+    { key: 'exam_trainer', price: PRICING.defaultPrice, label: '🎯 Prüfungstrainer' },
+    { key: 'bundle', price: PRICING.defaultPrice, label: '🎁 Komplett-Bundle', recommended: true },
   ],
   ai_tutor: [
-    { key: 'exam_trainer', price: PRICING.defaultPrice },
-    { key: 'bundle', price: PRICING.defaultPrice },
+    { key: 'exam_trainer', price: PRICING.defaultPrice, label: '🎯 Prüfungstrainer' },
+    { key: 'bundle', price: PRICING.defaultPrice, label: '🎁 Komplett-Bundle', recommended: true },
   ],
   oral_trainer: [
-    { key: 'exam_trainer', price: PRICING.defaultPrice },
-    { key: 'bundle', price: PRICING.defaultPrice },
+    { key: 'exam_trainer', price: PRICING.defaultPrice, label: '🎯 Prüfungstrainer' },
+    { key: 'bundle', price: PRICING.defaultPrice, label: '🎁 Komplett-Bundle', recommended: true },
   ],
 };
 
@@ -104,13 +104,21 @@ export function Paywall({ feature, curriculumId, curriculumTitle, isLoading }: P
               {products.map(p => (
                 <div 
                   key={p.key}
-                  className="flex items-center justify-between p-4 rounded-xl border border-border bg-muted/30"
+                  className={`flex items-center justify-between p-4 rounded-xl border ${
+                    p.recommended 
+                      ? 'border-primary/40 bg-primary/5 ring-1 ring-primary/20' 
+                      : 'border-border bg-muted/30'
+                  }`}
                 >
-                  <span className="font-medium">
-                    {p.key === 'bundle' ? '🎁 Komplett-Bundle' : 
-                     p.key === 'exam_trainer' ? '🎯 Prüfungstrainer' : 
-                     '📚 Lerninhaltekurs'}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">{p.label}</span>
+                    {p.recommended && (
+                      <Badge variant="default" className="text-[10px] px-1.5 py-0 h-5 bg-primary">
+                        <Star className="h-2.5 w-2.5 mr-0.5" />
+                        Empfohlen
+                      </Badge>
+                    )}
+                  </div>
                   <span className="font-bold text-primary">ab {p.price}</span>
                 </div>
               ))}

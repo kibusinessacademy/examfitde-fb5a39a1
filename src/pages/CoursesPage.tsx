@@ -1,12 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Clock, BookOpen, ArrowRight, CheckCircle } from 'lucide-react';
-import PageExplainer from '@/components/admin/PageExplainer';
+import { Input } from '@/components/ui/input';
+import { Loader2, Clock, BookOpen, ArrowRight, CheckCircle, Search, X } from 'lucide-react';
 
 interface Course {
   id: string;
@@ -28,6 +28,8 @@ export default function CoursesPage() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState<'all' | 'enrolled' | 'completed'>('all');
 
   useEffect(() => {
     fetchCourses();
@@ -71,6 +73,28 @@ export default function CoursesPage() {
     return enrollment?.completed_at != null;
   };
 
+  const filteredCourses = useMemo(() => {
+    let result = courses;
+
+    // Text search
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      result = result.filter(c =>
+        c.title.toLowerCase().includes(q) ||
+        c.description?.toLowerCase().includes(q)
+      );
+    }
+
+    // Status filter
+    if (filter === 'enrolled') {
+      result = result.filter(c => isEnrolled(c.id) && !isCompleted(c.id));
+    } else if (filter === 'completed') {
+      result = result.filter(c => isCompleted(c.id));
+    }
+
+    return result;
+  }, [courses, search, filter, enrollments]);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -93,38 +117,63 @@ export default function CoursesPage() {
           </p>
         </div>
 
-        <PageExplainer
-          title="Wie funktionieren die Prüfungstrainings?"
-          description="Jedes Training basiert auf dem offiziellen Rahmenlehrplan deines Ausbildungsberufs. Es enthält Module mit Lektionen, die einem didaktischen 5-Schritte-Pfad folgen: Einstieg → Verstehen → Anwenden → Wiederholen → Mini-Check."
-          workflow={[
-            { label: 'Training wählen', active: true },
-            { label: 'Einschreiben' },
-            { label: 'Lektionen' },
-            { label: 'Mini-Checks' },
-            { label: 'Prüfung' },
-          ]}
-          actions={[
-            '"Training starten" – Schreibe dich ein und beginne mit der ersten Lektion',
-            '"Fortsetzen" – Mache dort weiter, wo du aufgehört hast',
-          ]}
-          tips={[
-            'Jede Lektion hat einen Mini-Check – ab 80% gilt ein Lernziel als gemeistert',
-            'Der Fortschrittsbalken zeigt deine Prüfungsreife, nicht nur den Kursfortschritt',
-          ]}
-        />
+        {/* Search + Filter Bar (#5) */}
+        {courses.length > 0 && (
+          <div className="mb-6 flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Kurs suchen..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="pl-9 pr-9"
+              />
+              {search && (
+                <button
+                  onClick={() => setSearch('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+            {user && enrollments.length > 0 && (
+              <div className="flex gap-1.5">
+                {(['all', 'enrolled', 'completed'] as const).map(f => (
+                  <Button
+                    key={f}
+                    variant={filter === f ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setFilter(f)}
+                    className="text-xs"
+                  >
+                    {f === 'all' ? 'Alle' : f === 'enrolled' ? 'Aktiv' : 'Abgeschlossen'}
+                  </Button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Courses Grid */}
-        {courses.length === 0 ? (
+        {filteredCourses.length === 0 ? (
           <div className="glass-card rounded-2xl p-12 text-center">
             <BookOpen className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-xl font-semibold mb-2">Noch kein Prüfungstraining verfügbar</h3>
+            <h3 className="text-xl font-semibold mb-2">
+              {search ? 'Keine Ergebnisse' : 'Noch kein Prüfungstraining verfügbar'}
+            </h3>
             <p className="text-muted-foreground">
-              Neue Prüfungstrainings werden bald hinzugefügt. Schau später wieder vorbei!
+              {search ? 'Versuche einen anderen Suchbegriff.' : 'Neue Prüfungstrainings werden bald hinzugefügt. Schau später wieder vorbei!'}
             </p>
+            {search && (
+              <Button variant="outline" className="mt-4" onClick={() => setSearch('')}>
+                Suche zurücksetzen
+              </Button>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-            {courses.map((course) => (
+            {filteredCourses.map((course) => (
               <Card key={course.id} className="glass-card border-border hover:border-primary/30 transition-all duration-300 group overflow-hidden">
                 {/* Thumbnail */}
                 <div className="aspect-video bg-muted relative overflow-hidden">

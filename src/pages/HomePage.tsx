@@ -258,7 +258,7 @@ export default function HomePage() {
         </section>
 
         {/* ─── 8. FAQ ─── */}
-        <section className="py-12 sm:py-16 md:py-20 px-3 sm:px-4">
+        <section id="faq" className="py-12 sm:py-16 md:py-20 px-3 sm:px-4 scroll-mt-20">
           <div className="container mx-auto max-w-2xl">
             <h2 className="text-2xl sm:text-3xl font-display font-bold mb-8 text-center">
               Häufige Fragen

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useDashboardSummary, type DashboardEnrollment } from '@/hooks/useDashboardSummary';
@@ -17,13 +17,12 @@ import { useSimulationGate } from '@/hooks/useExamReadiness';
 import { useProductAccessByCurriculum } from '@/hooks/useProductAccess';
 import { useTerminology } from '@/hooks/useProgramType';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import {
   Loader2,
   BookOpen,
   GraduationCap,
-  Clock,
   ArrowRight,
   Target,
   Brain,
@@ -51,6 +50,15 @@ export default function LearnerDashboard() {
   const enrollments = dashboard?.enrollments || [];
   const activeCurriculumId = dashboard?.active_curriculum_id || null;
   const { t } = useTerminology(activeCurriculumId);
+
+  // #12: Auto-expand details after 3rd session
+  useEffect(() => {
+    if (!activeCurriculumId) return;
+    const key = `dashboard_visits_${activeCurriculumId}`;
+    const visits = parseInt(localStorage.getItem(key) || '0', 10) + 1;
+    localStorage.setItem(key, String(visits));
+    if (visits >= 3) setDetailsOpen(true);
+  }, [activeCurriculumId]);
 
   const getCourseProgress = (e: DashboardEnrollment) => {
     if (!e.total_lessons || e.total_lessons === 0) return 0;
@@ -90,82 +98,6 @@ export default function LearnerDashboard() {
         {activeCurriculumId && (
           <div className="mb-6">
             <HeroDecisionCard curriculumId={activeCurriculumId} />
-          </div>
-        )}
-
-        {/* ━━━ Shuttle Mode Quick Launch ━━━ */}
-        {activeCurriculumId && (
-          <div className="mb-4">
-            <button
-              onClick={() => navigate(`/shuttle?curriculum=${activeCurriculumId}`)}
-              className="w-full group"
-            >
-              <Card className="glass-card border-primary/20 hover:border-primary/40 transition-all hover:shadow-md">
-                <CardContent className="p-3 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                    <Zap className="h-5 w-5 text-primary" />
-                  </div>
-                  <div className="flex-1 text-left">
-                    <div className="text-sm font-semibold text-foreground">Shuttle Mode</div>
-                    <div className="text-xs text-muted-foreground">Sofort trainieren – Frage für Frage</div>
-                  </div>
-                  <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                </CardContent>
-              </Card>
-            </button>
-          </div>
-        )}
-
-        {/* ━━━ Daily Challenge Quick Launch ━━━ */}
-        {activeCurriculumId && (
-          <div className="mb-4">
-            <button
-              onClick={() => navigate(`/daily-challenge?curriculum=${activeCurriculumId}`)}
-              className="w-full group"
-            >
-              <Card className="glass-card border-orange-500/20 hover:border-orange-500/40 transition-all hover:shadow-md">
-                <CardContent className="p-3 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-orange-500/10 flex items-center justify-center flex-shrink-0">
-                    <Flame className="h-5 w-5 text-orange-500" />
-                  </div>
-                  <div className="flex-1 text-left">
-                    <div className="text-sm font-semibold text-foreground">Daily Challenge</div>
-                    <div className="text-xs text-muted-foreground">5 Fragen pro Tag – baue deinen Streak auf</div>
-                  </div>
-                  <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-orange-500 transition-colors" />
-                </CardContent>
-              </Card>
-            </button>
-          </div>
-        )}
-
-        {/* ━━━ Exam Heatmap Quick Launch ━━━ */}
-        {activeCurriculumId && (
-          <div className="mb-4">
-            <button
-              onClick={() => navigate(`/heatmap?curriculum=${activeCurriculumId}`)}
-              className="w-full group"
-            >
-              <Card className="glass-card border-emerald-500/20 hover:border-emerald-500/40 transition-all hover:shadow-md">
-                <CardContent className="p-3 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
-                    <Grid3X3 className="h-5 w-5 text-emerald-500" />
-                  </div>
-                  <div className="flex-1 text-left">
-                    <div className="text-sm font-semibold text-foreground">Prüfungs-Heatmap</div>
-                    <div className="text-xs text-muted-foreground">Deine Stärken & Schwächen auf einen Blick</div>
-                  </div>
-                  <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-emerald-500 transition-colors" />
-                </CardContent>
-              </Card>
-            </button>
-          </div>
-        )}
-
-        {/* ━━━ Witz des Tages ━━━ */}
-        {activeCurriculumId && (
-          <div className="mb-6">
-            <DailyHumorCard curriculumId={activeCurriculumId} />
           </div>
         )}
 
@@ -217,6 +149,13 @@ export default function LearnerDashboard() {
           </div>
         )}
 
+        {/* ━━━ Witz des Tages (nach Mastery, nicht im Task-Flow) ━━━ */}
+        {activeCurriculumId && (
+          <div className="mb-6">
+            <DailyHumorCard curriculumId={activeCurriculumId} />
+          </div>
+        )}
+
         {/* ━━━ SECTION 4: Collapsible Details ━━━ */}
         <Collapsible open={detailsOpen} onOpenChange={setDetailsOpen}>
           <CollapsibleTrigger asChild>
@@ -256,7 +195,7 @@ export default function LearnerDashboard() {
           </CollapsibleContent>
         </Collapsible>
 
-        {/* ━━━ SECTION 5: Quick Actions (kompakt) ━━━ */}
+        {/* ━━━ SECTION 5: Quick Actions (consolidated – #3) ━━━ */}
         <QuickActionsGrid activeCurriculumId={activeCurriculumId} />
 
         {/* Empty state */}
@@ -283,6 +222,7 @@ export default function LearnerDashboard() {
 }
 
 function QuickActionsGrid({ activeCurriculumId }: { activeCurriculumId: string | null }) {
+  const navigate = useNavigate();
   const { data: gate } = useSimulationGate(activeCurriculumId ?? undefined);
   const { data: hasExamTrainer, isLoading: entitlementLoading } = useProductAccessByCurriculum(
     activeCurriculumId ?? undefined, 'exam_trainer'
@@ -291,10 +231,14 @@ function QuickActionsGrid({ activeCurriculumId }: { activeCurriculumId: string |
   const simulationBlocked = gate && !gate.allowed;
   const adaptiveBlocked = !entitlementLoading && !hasExamTrainer;
 
+  // #3: Consolidated – all quick launches merged into one grid
   const actions = [
+    { to: `/shuttle?curriculum=${activeCurriculumId}`, icon: Zap, label: 'Shuttle', gradient: 'bg-gradient-to-br from-primary to-secondary', blocked: false },
+    { to: `/daily-challenge?curriculum=${activeCurriculumId}`, icon: Flame, label: 'Daily', gradient: 'bg-gradient-to-br from-orange-500 to-amber-500', blocked: false },
     { to: '/exam-trainer', icon: Target, label: t('examTrainer'), gradient: 'gradient-accent', blocked: false },
     { to: '/exam-simulation', icon: GraduationCap, label: t('examSimulation'), gradient: 'gradient-primary', blocked: !!simulationBlocked },
     { to: '/oral-exam', icon: Mic, label: 'Mündlich', gradient: 'bg-gradient-to-br from-blue-500 to-cyan-500', blocked: false },
+    { to: `/heatmap?curriculum=${activeCurriculumId}`, icon: Grid3X3, label: 'Heatmap', gradient: 'bg-gradient-to-br from-emerald-500 to-green-500', blocked: false },
     { to: '/spaced-repetition', icon: Brain, label: 'Wiederholen', gradient: 'bg-gradient-to-br from-purple-500 to-indigo-600', blocked: false },
     { to: '/exam-anxiety', icon: Heart, label: 'Stressabbau', gradient: 'bg-gradient-to-br from-rose-500 to-pink-600', blocked: false },
   ];
@@ -302,18 +246,18 @@ function QuickActionsGrid({ activeCurriculumId }: { activeCurriculumId: string |
   return (
     <div className="mt-6">
       <h2 className="text-base font-display font-semibold mb-3">Schnellzugriff</h2>
-      <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+      <div className="grid grid-cols-4 gap-2">
         {actions.map((action) => {
           const content = (
             <Card className={cn(
               'glass-card transition-all touch-manipulation',
               action.blocked ? 'opacity-50 cursor-not-allowed' : 'hover:border-primary/30 active:scale-[0.97]'
             )}>
-              <CardContent className="p-3 text-center">
-                <div className={`p-2 rounded-lg ${action.gradient} inline-flex mb-1.5 ${action.blocked ? 'grayscale' : ''}`}>
+              <CardContent className="p-2.5 text-center">
+                <div className={`p-2 rounded-lg ${action.gradient} inline-flex mb-1 ${action.blocked ? 'grayscale' : ''}`}>
                   <action.icon className="h-4 w-4 text-white" />
                 </div>
-                <h3 className="font-medium text-xs leading-tight">{action.label}</h3>
+                <h3 className="font-medium text-[10px] leading-tight">{action.label}</h3>
               </CardContent>
             </Card>
           );

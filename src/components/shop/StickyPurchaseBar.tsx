@@ -18,9 +18,9 @@ export function StickyPurchaseBar({ priceDisplay, onBuyClick, isLoading, visible
       <div className="max-w-lg mx-auto flex items-center justify-between gap-3">
         <div className="flex flex-col min-w-0">
           <span className="text-lg font-bold text-foreground">{priceDisplay}</span>
-          <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-            <Clock className="h-2.5 w-2.5" /> {PRICING.defaultAccess} · Kein Abo
-          </span>
+          <Link to="/pruefungsreife-check" className="text-[10px] text-primary hover:underline flex items-center gap-1">
+            <Shield className="h-2.5 w-2.5" /> Kostenlos testen
+          </Link>
         </div>
         <Button
           className="gradient-primary text-primary-foreground shadow-glow rounded-xl h-12 px-6 text-sm font-semibold shrink-0"
