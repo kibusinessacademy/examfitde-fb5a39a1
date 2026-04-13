@@ -108,21 +108,11 @@ const META_BASED_VERIFIERS: MetaVerifier[] = [
     isComplete: standardMetaCheck,
   },
   // ── Gate / integrity steps ──
-  {
-    stepKey: "run_integrity_check",
-    jobType: "package_run_integrity_check",
-    isComplete: standardMetaCheck,
-  },
-  {
-    stepKey: "quality_council",
-    jobType: "package_quality_council",
-    isComplete: standardMetaCheck,
-  },
-  {
-    stepKey: "auto_publish",
-    jobType: "package_auto_publish",
-    isComplete: standardMetaCheck,
-  },
+  // HARDENED: run_integrity_check, quality_council, auto_publish are EXCLUDED
+  // from meta-based verification. These governance steps require evidence-based
+  // finalization (actual job execution + functional approval) to prevent
+  // Phantom-Passes. See governance-finalization-evidence-v1.
+  // They must only be finalized by their own edge functions, never by the reconciler.
   {
     stepKey: "auto_seed_exam_blueprints",
     jobType: "package_auto_seed_exam_blueprints",
