@@ -866,6 +866,8 @@ async function recoverFailedPackages(sb: SB, body: JsonRow) {
 
     let stepsReset = 0;
     for (const step of (failedSteps || []) as any[]) {
+      // P0: Skip governance steps — they must not be generically reset
+      if (GOVERNANCE_STEP_KEYS.includes(step.step_key)) continue;
       // Preserve contract keys but clear backoff and transient state
       const oldMeta = step.meta || {};
       const cleanedMeta = {
