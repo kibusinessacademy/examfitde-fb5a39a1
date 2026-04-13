@@ -595,6 +595,87 @@ Deno.serve(async (req) => {
         break;
       }
 
+      /* ── v5.0 Manual Course Controls ── */
+      case "reset_to_step": {
+        const pkgId = body.package_id as string;
+        const targetStep = body.step_key as string;
+        if (!pkgId || !targetStep) return json({ error: "package_id and step_key required" }, 400);
+
+        // Load all steps for this package
+        const { data: allSteps } = await sb.from("package_steps")
+          .select("step_key, status")
+          .eq("package_id", pkgId);
+        if (!allSteps?.length) return json({ error: "No steps found" }, 404);
+
+        // Import PIPELINE_GRAPH to get ordering
+        const { PIPELINE_GRAPH } = await import("../_shared/job-map.ts");
+        const targetIdx = PIPELINE_GRAPH.findIndex((n: any) => n.key === targetStep);
+        if (targetIdx < 0) return json({ error: `Unknown step: ${targetStep}` }, 400);
+
+        // Reset target step and all downstream steps to queued
+        const stepsToReset: string[] = [];
+        for (let i = targetIdx; i < PIPELINE_GRAPH.length; i++) {
+          stepsToReset.push(PIPELINE_GRAPH[i].key);
+        }
+
+        for (const sk of stepsToReset) {
+          await sb.from("package_steps")
+            .update({ status: "queued", started_at: null, finished_at: null, last_error: null, updated_at: new Date().toISOString(),
+              meta: { reset_by: "admin_reset_to_step", reset_at: new Date().toISOString(), target_step: targetStep } })
+            .eq("package_id", pkgId)
+            .eq("step_key", sk);
+        }
+
+        // Cancel any pending/processing jobs for reset steps
+        const { STEP_TO_JOB_TYPE } = await import("../_shared/job-map.ts");
+        const jobTypesToCancel = stepsToReset.map(sk => (STEP_TO_JOB_TYPE as any)[sk]).filter(Boolean);
+        if (jobTypesToCancel.length > 0) {
+          await sb.from("job_queue")
+            .update({ status: "cancelled", completed_at: new Date().toISOString(), last_error: "admin_reset_to_step" })
+            .eq("package_id", pkgId)
+            .in("job_type", jobTypesToCancel)
+            .in("status", ["pending", "processing"]);
+        }
+
+        // Ensure package is in building status
+        await sb.from("course_packages")
+          .update({ status: "building", updated_at: new Date().toISOString() })
+          .eq("id", pkgId)
+          .in("status", ["blocked", "failed", "quality_gate_failed", "publish_failed"]);
+
+        result = { ok: true, reset_steps: stepsToReset, target: targetStep };
+        affectedIds = [pkgId];
+        break;
+      }
+
+      case "enqueue_single_step": {
+        const pkgId2 = body.package_id as string;
+        const stepKey2 = body.step_key as string;
+        if (!pkgId2 || !stepKey2) return json({ error: "package_id and step_key required" }, 400);
+
+        const { STEP_TO_JOB_TYPE: S2J } = await import("../_shared/job-map.ts");
+        const jobType2 = (S2J as any)[stepKey2];
+        if (!jobType2) return json({ error: `No job type for step: ${stepKey2}` }, 400);
+
+        // Set step to queued
+        await sb.from("package_steps")
+          .update({ status: "queued", started_at: null, finished_at: null, last_error: null, updated_at: new Date().toISOString() })
+          .eq("package_id", pkgId2)
+          .eq("step_key", stepKey2);
+
+        // Enqueue the job
+        await enqueueJob(sb, {
+          job_type: jobType2,
+          payload: { package_id: pkgId2, source: "admin_enqueue_single_step", step_key: stepKey2 },
+          package_id: pkgId2,
+          priority: 1,
+        });
+
+        result = { ok: true, enqueued: jobType2, step: stepKey2 };
+        affectedIds = [pkgId2];
+        break;
+      }
+
       default:
         return json({ error: `Unknown action: ${action}` }, 400);
     }

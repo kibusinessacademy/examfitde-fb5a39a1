@@ -53,43 +53,66 @@ Deno.serve(async (req) => {
   const nowIso = now.toISOString();
 
   try {
+    // ── Governance steps: NEVER touched by global healers ──
+    const GOVERNANCE_JOB_TYPES = new Set([
+      "package_run_integrity_check",
+      "package_quality_council",
+      "package_auto_publish",
+    ]);
+    const GOVERNANCE_STEP_KEYS = new Set([
+      "run_integrity_check",
+      "quality_council",
+      "auto_publish",
+    ]);
+
     // ═══════════════════════════════════════════════════════════
     // 1. STALE PROCESSING JOBS (>10 min without heartbeat)
+    //    HARDENED: skip governance jobs, respect heartbeats, add transition metadata
     // ═══════════════════════════════════════════════════════════
     const staleThreshold = new Date(now.getTime() - 10 * 60_000).toISOString();
     const { data: staleJobs } = await sb
       .from("job_queue")
-      .select("id, job_type, provider, locked_at, attempts, max_attempts, payload")
+      .select("id, job_type, provider, locked_at, attempts, max_attempts, payload, last_heartbeat_at, meta")
       .eq("status", "processing")
       .lt("locked_at", staleThreshold);
 
     if (staleJobs && staleJobs.length > 0) {
-      // Release provider slots
+      const resetIds: string[] = [];
       for (const sj of staleJobs) {
+        // GOVERNANCE EXCLUSION
+        if (GOVERNANCE_JOB_TYPES.has(sj.job_type)) continue;
+        // HEARTBEAT CHECK: skip if heartbeat is fresh (<10min)
+        if (sj.last_heartbeat_at) {
+          const hbAge = now.getTime() - new Date(sj.last_heartbeat_at).getTime();
+          if (hbAge < 10 * 60_000) continue;
+        }
+        // Release provider slot
         if (sj.provider) {
           try { await sb.rpc("release_provider_slot", { p_provider: sj.provider }); } catch { /* ignore */ }
         }
+        // Reset with transition metadata
+        await sb
+          .from("job_queue")
+          .update({
+            status: "pending",
+            locked_at: null,
+            locked_by: null,
+            scheduled_at: new Date(now.getTime() + 30_000).toISOString(),
+            last_error: "Watchdog: stale processing reset",
+            last_error_code: "STALE_LOCK",
+            meta: { ...((sj.meta as any) ?? {}), transition_source: "production-watchdog", transition_reason: "stale_processing_reset", transition_prev_status: "processing", transition_at: nowIso },
+          })
+          .eq("id", sj.id)
+          .eq("status", "processing"); // CAS guard
+        resetIds.push(sj.id);
       }
 
-      const staleIds = staleJobs.map((j: { id: string }) => j.id);
-      await sb
-        .from("job_queue")
-        .update({
-          status: "pending",
-          locked_at: null,
-          locked_by: null,
-          scheduled_at: new Date(now.getTime() + 30_000).toISOString(),
-          last_error: "Watchdog: stale processing reset",
-          last_error_code: "STALE_LOCK",
-        })
-        .in("id", staleIds);
+      results.push({ check: "STALE_PROCESSING", action: resetIds.length > 0 ? "reset_to_pending" : "none", count: resetIds.length });
 
-      results.push({ check: "STALE_PROCESSING", action: "reset_to_pending", count: staleJobs.length });
-
-      if (staleJobs.length >= 5) {
+      if (resetIds.length >= 5) {
         alerts.push({
-          title: `⚠️ ${staleJobs.length} Jobs stale (>10min processing)`,
-          body: `Job-Typen: ${[...new Set(staleJobs.map((j: { job_type: string }) => j.job_type))].join(", ")}`,
+          title: `⚠️ ${resetIds.length} Jobs stale (>10min processing)`,
+          body: `Job-Typen: ${[...new Set(staleJobs.filter(j => resetIds.includes(j.id)).map((j: { job_type: string }) => j.job_type))].join(", ")}`,
           severity: "warning",
           category: "ops",
         });
@@ -130,23 +153,27 @@ Deno.serve(async (req) => {
       if ((activeJobs ?? 0) === 0) {
         orphanCount++;
 
-        // Check for retryable failed jobs
+        // Check for retryable failed jobs — EXCLUDE governance jobs
         const { data: failedJobs } = await sb
           .from("job_queue")
-          .select("id, job_type, attempts, max_attempts")
+          .select("id, job_type, attempts, max_attempts, meta")
           .eq("status", "failed")
           .eq("package_id", pkg.id)
           .lt("attempts", 25);
 
-        if (failedJobs && failedJobs.length > 0) {
-          // Re-enqueue failed jobs
-          for (const fj of failedJobs) {
+        // Filter out governance job types
+        const retryableJobs = (failedJobs || []).filter((fj: any) => !GOVERNANCE_JOB_TYPES.has(fj.job_type));
+
+        if (retryableJobs.length > 0) {
+          // Re-enqueue failed jobs (governance excluded)
+          for (const fj of retryableJobs) {
             await sb.from("job_queue").update({
               status: "pending",
               run_after: new Date(now.getTime() + 10_000).toISOString(),
               locked_at: null,
               locked_by: null,
-            }).eq("id", fj.id);
+              meta: { ...((fj.meta as any) ?? {}), transition_source: "production-watchdog", transition_reason: "orphan_build_retry", transition_prev_status: "failed", transition_at: nowIso },
+            }).eq("id", fj.id).eq("status", "failed"); // CAS guard
           }
           results.push({
             check: "ORPHAN_BUILD",
@@ -425,7 +452,11 @@ Deno.serve(async (req) => {
       }
 
       // Case 2: Failed step(s) that can be retried — reset to pending
+      //         HARDENED: skip governance steps
       for (const fs of failedSteps) {
+        // GOVERNANCE EXCLUSION
+        if (GOVERNANCE_STEP_KEYS.has(fs.step_key)) continue;
+
         // Check if there are stuck fan-out jobs blocking this step
         const jobType = STEP_TO_JOB_TYPE[fs.step_key];
         if (jobType) {
@@ -450,7 +481,7 @@ Deno.serve(async (req) => {
           p_package_id: pkg.id,
           p_step_key: fs.step_key,
           p_status: "pending",
-          p_log: { reset_by: "production-watchdog", note: "Auto-recovery from failed state" },
+          p_log: { reset_by: "production-watchdog", note: "Auto-recovery from failed state", transition_source: "production-watchdog" },
         });
       }
 

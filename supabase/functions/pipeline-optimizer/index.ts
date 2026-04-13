@@ -239,6 +239,7 @@ Deno.serve(async (req) => {
         status: "failed",
         error: "Optimizer zombie sweep: processing with no lock >5min",
         completed_at: new Date().toISOString(),
+        meta: { transition_source: "pipeline-optimizer", transition_reason: "zombie_sweep", transition_prev_status: "processing", transition_at: new Date().toISOString() },
       }).eq("id", z.id).eq("status", "processing");
       zombieCount++;
     }
