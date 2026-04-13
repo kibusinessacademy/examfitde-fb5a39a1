@@ -65560,6 +65560,16 @@ export type Database = {
         }
         Relationships: []
       }
+      ops_step_dag_drift: {
+        Row: {
+          depends_on: string | null
+          drift_status: string | null
+          in_pipeline_dag: boolean | null
+          in_step_dag: boolean | null
+          step_key: string | null
+        }
+        Relationships: []
+      }
       ops_step_done_below_threshold: {
         Row: {
           actual: number | null
