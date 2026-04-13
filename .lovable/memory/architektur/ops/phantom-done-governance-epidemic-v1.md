@@ -1,16 +1,18 @@
-# Phantom-Done Governance Epidemic v1
+# Phantom-Done Governance Epidemic v1 — Abschlussbewertung
 
 ## Umgesetzt: 2026-04-13
 
-### Problembild
-132 Governance-Steps systemweit im Status `done` ohne fachliche Freigabe (`meta.ok != true`). Betroffene Steps: `run_integrity_check` (41), `quality_council` (41), `validate_exam_pool` (28), `auto_publish` (22). Primäre Quelle: `standalone_reconciler` (54 Fälle), Rest ohne `finalization_source`.
+---
 
-### Root Cause
+## Problembild
+Systemweit waren Governance-Steps (`run_integrity_check`, `quality_council`, `auto_publish`, `validate_exam_pool`) fälschlicherweise als `done` markiert, obwohl `meta.ok != true` und/oder `gate_passed != true`. Betroffen: **132 Steps** auf non-published Paketen (P0, bereinigt) + **68 Steps** auf 26 published Paketen (bekannte Altlast). Zusätzlich: **15 Pakete** mit `council_approved = true` ohne eine einzige `council_session`.
+
+## Root Cause
 1. **Reconciler-Altschaden**: Ältere Versionen des `verifier-reconciler` hatten Governance-Steps in der `META_BASED_VERIFIERS` Liste. `standardMetaCheck` akzeptierte `meta.batch_complete=true` als Completion-Signal — ohne zu prüfen, ob `meta.ok=true` oder `gate_passed=true`.
 2. **Sync-Trigger ohne Gate-Prüfung**: `trg_sync_step_on_job_complete` setzte Steps auf `done` wenn der zugehörige Job completed war — ohne Postcondition-Prüfung der fachlichen Gate-Flags.
-3. **Phantom Council Approvals**: 6 Pakete mit `council_approved=true` ohne eine einzige `council_session` — Flag wurde nie evidenzbasiert gesetzt.
+3. **Phantom Council Approvals**: 15 Pakete mit `council_approved=true` ohne eine einzige `council_session` — Flag wurde nie evidenzbasiert gesetzt.
 
-### Kausalkette
+## Kausalkette
 ```
 Reconciler/Sync-Trigger finalisiert Step ohne Gate-Prüfung
 → run_integrity_check = done (gate_passed = null/false)
@@ -20,31 +22,48 @@ Reconciler/Sync-Trigger finalisiert Step ohne Gate-Prüfung
 → Downstream (Learner-UI, Product-Listing) könnte ungeprüfte Inhalte sichtbar machen
 ```
 
-### Fix-Design
-1. **Batch-Reset (64 Steps)**: Alle Phantom-Done Governance-Steps auf non-published Packages → `queued` mit vollständigem Audit-Trail (`reset_by: forensic-phantom-done-audit-p0`).
+## Fix-Design
+
+### P0 — Non-Published Pakete (abgeschlossen)
+1. **Batch-Reset (64 Steps)**: Alle Phantom-Done Governance-Steps auf non-published Packages → `queued` mit Audit-Trail (`reset_by: forensic-phantom-done-audit-p0`).
 2. **Trigger-Bypass**: `DISABLE TRIGGER USER` / `ENABLE TRIGGER USER` für atomaren Batch-Reset ohne Guard-Konflikte.
-3. **Reconciler bereits gehärtet** (Code-Review bestätigt): Lines 110-115 schließen `run_integrity_check`, `quality_council`, `auto_publish` explizit aus `META_BASED_VERIFIERS` aus.
+3. **Reconciler bereits gehärtet**: Lines 110-115 schließen Governance-Steps aus `META_BASED_VERIFIERS` aus.
 
-### Verifikation
-- 0 Phantom-Done Governance-Steps auf non-published Packages nach Reset
-- Bilanzbuchhalter: alle 3 Governance-Steps auf `queued` mit Audit-Trail
-- 64 Steps total resettet
+### P1 — Council Approvals + Audit-Infrastruktur (abgeschlossen)
+1. **Phantom Council Reset**: 7 Pakete (6 blocked, 1 archived) mit `council_approved=true` aber 0 Sessions → `council_approved = false`.
+2. **Audit-View `ops_phantom_done_governance`**: Permanente View für alle Governance-Steps mit `done` aber `meta.ok != true`.
+3. **Audit-View `ops_phantom_council_approvals`**: Permanente View für alle Pakete mit `council_approved=true` aber 0 Sessions.
 
-### Restrisiken
-1. **Published Packages**: ~60 Phantom-Done Governance-Steps auf 26 published Packages nicht resettet (Disruption-Risiko). Betrifft: AEVO, BWL, Drogist, Industriemeister, Lagerlogistik, u.a.
-2. **Phantom Council Approvals**: 6 blocked Packages mit `council_approved=true` ohne Session-Evidenz — Flag-Wert ist falsch.
-3. **`validate_exam_pool`** bleibt in `META_BASED_VERIFIERS` — könnte erneut phantom-done werden wenn `standardMetaCheck` batch_complete akzeptiert.
+## Verifikation
+- **P0**: 0 Phantom-Done Governance-Steps auf non-published Packages ✅
+- **P1**: 0 Phantom Council Approvals auf blocked/archived Packages ✅
+- **Audit-Views**: Beide Views aktiv, zeigen verbleibende published Altlasten korrekt an ✅
+- Verbleibend in Views: 68 published Phantom-Steps, 8 published Phantom-Council-Approvals
 
-### Dauermaßnahmen
-1. `validate_exam_pool` aus `META_BASED_VERIFIERS` entfernen oder eigene Gate-Prüfung hinzufügen
-2. Published Packages einzeln prüfen und Phantom-Done Steps gezielt korrigieren
-3. Nightly Audit-View `ops_phantom_done_governance` einführen
-4. `council_approved` Flag an Session-Evidenz binden (Trigger-Härtung)
+## Restrisiken
 
-### Non-Building Forensik (Gesamtbild)
-- **352 blocked**: 204 intentional_pause, 132 admin_hold, 16 compliance_hold
-- **31 planning**: Alle ohne Steps (0 total_steps) — noch nicht initialisiert
-- **26 published**: 1 Anomalie (Scrum Master PSM I: published ohne council_approved)
-- **5 queued**: 1 mit ENRICHMENT_GATE Block (Büromanagement: 13/39 Kompetenzen)
-- **4 archived**: 3 §34-Kurse mit intentional_pause + failed validate_exam_pool
-- **344 Packages** mit `validate_exam_pool = failed` — systematisches Problem bei Exam-Pool-Validierung auf blocked Packages
+### Kritisch
+1. **Published Phantom-Governance (68 Steps)**: 22 `auto_publish`, 17 `quality_council`, 13 `run_integrity_check`, 16 `validate_exam_pool` auf 26 published Paketen — nicht resettet wegen Produktions-Disruptions-Risiko.
+2. **Published Phantom Council Approvals (8 Pakete)**: `council_approved=true` ohne Sessions auf published Paketen — ebenfalls bewusst nicht angefasst.
+
+### Moderat
+3. **344 failed `validate_exam_pool`** auf blocked Packages — systematisches Problem bei Exam-Pool-Generierung, wird beim Unblock wieder aktiv.
+4. **`validate_exam_pool`** bleibt in `META_BASED_VERIFIERS` anfällig, wenn `standardMetaCheck` batch_complete akzeptiert.
+
+## Dauermaßnahmen
+1. ✅ `ops_phantom_done_governance` Audit-View eingeführt
+2. ✅ `ops_phantom_council_approvals` Audit-View eingeführt
+3. ✅ Reconciler gehärtet (Governance-Steps ausgeschlossen)
+4. ⬜ Published Pakete einzeln prüfen und Phantom-Done Steps gezielt korrigieren
+5. ⬜ `validate_exam_pool` aus `META_BASED_VERIFIERS` entfernen oder eigene Gate-Prüfung hinzufügen
+6. ⬜ `council_approved` Flag an Session-Evidenz binden (Trigger-Härtung)
+7. ⬜ Nightly Cron der Audit-Views mit Alert-Erzeugung
+
+## Gesamtstatistik
+| Schicht | Maßnahme | Ergebnis |
+|---------|----------|----------|
+| Non-published | 64 Steps reset → queued | ✅ Bereinigt |
+| Blocked/Archived | 7 council_approved → false | ✅ Bereinigt |
+| Published | 68 Steps + 8 Council Approvals | ⚠️ Bekannte Altlast |
+| Audit-Infra | 2 Views angelegt | ✅ Aktiv |
+| Reconciler | Governance-Isolation gehärtet | ✅ Gesichert |
