@@ -48,27 +48,56 @@ Deno.serve(async (req) => {
   const warnings: string[] = [];
 
   try {
+    // ── Governance steps: NEVER touched by global healers ──
+    const GOVERNANCE_JOB_TYPES = new Set([
+      "package_run_integrity_check",
+      "package_quality_council",
+      "package_auto_publish",
+    ]);
+
     // ═══════════════════════════════════════════════════════════════
     // 1. FIX STUCK PROCESSING JOBS (>15 min)
+    //    HARDENED: skip governance jobs, respect heartbeats
     // ═══════════════════════════════════════════════════════════════
     const fifteenMinAgo = new Date(Date.now() - 15 * 60_000).toISOString();
     const { data: stuckJobs } = await sb
       .from("job_queue")
-      .select("id, job_type, attempts, max_attempts")
+      .select("id, job_type, attempts, max_attempts, last_heartbeat_at, meta")
       .eq("status", "processing")
       .lt("started_at", fifteenMinAgo)
       .limit(20);
 
     for (const job of stuckJobs ?? []) {
+      // GOVERNANCE EXCLUSION: never touch governance jobs
+      if (GOVERNANCE_JOB_TYPES.has(job.job_type)) {
+        actions.push(`⏭️ Skip stuck governance job ${job.job_type} (protected)`);
+        continue;
+      }
+      // HEARTBEAT CHECK: if heartbeat is fresh (<10min), skip
+      if (job.last_heartbeat_at) {
+        const hbAge = Date.now() - new Date(job.last_heartbeat_at).getTime();
+        if (hbAge < 10 * 60_000) {
+          actions.push(`⏭️ Skip stuck job ${job.job_type} (fresh heartbeat ${Math.round(hbAge / 60_000)}min ago)`);
+          continue;
+        }
+      }
       const maxAttempts = job.max_attempts ?? 5;
       if ((job.attempts ?? 0) >= maxAttempts) {
         await sb.from("job_queue")
-          .update({ status: "failed", error: "Guardian: max attempts after stuck" })
+          .update({
+            status: "failed",
+            error: "Guardian: max attempts after stuck",
+            meta: { ...(job.meta as any ?? {}), transition_source: "production-guardian", transition_reason: "stuck_max_attempts", transition_prev_status: "processing", transition_at: new Date().toISOString() },
+          })
           .eq("id", job.id);
         actions.push(`Failed stuck job ${job.job_type} (max attempts)`);
       } else {
         await sb.from("job_queue")
-          .update({ status: "pending", started_at: null })
+          .update({
+            status: "pending",
+            started_at: null,
+            meta: { ...(job.meta as any ?? {}), transition_source: "production-guardian", transition_reason: "stuck_reset", transition_prev_status: "processing", transition_at: new Date().toISOString() },
+          })
           .eq("id", job.id);
         actions.push(`Reset stuck job ${job.job_type} → pending`);
       }
@@ -232,60 +261,11 @@ Deno.serve(async (req) => {
     // ═══════════════════════════════════════════════════════════════
     // 4b. RE-CHECK QA_FAILED PACKAGES (auto-retry quality council)
     // ═══════════════════════════════════════════════════════════════
-    const { data: qaFailedPkgs } = await sb
-      .from("course_packages")
-      .select("id, course_id, updated_at")
-      .eq("status", "qa_failed")
-      .order("updated_at", { ascending: true })
-      .limit(3);
-
-    for (const qaPkg of qaFailedPkgs ?? []) {
-      // Check if content was regenerated after the QA report
-      const { data: qaReport } = await sb
-        .from("package_quality_reports")
-        .select("created_at")
-        .eq("package_id", qaPkg.id)
-        .maybeSingle();
-
-      const reportAge = qaReport?.created_at ? Date.now() - new Date(qaReport.created_at).getTime() : Infinity;
-      const pkgUpdateAge = Date.now() - new Date(qaPkg.updated_at).getTime();
-
-      // Re-check if: report is older than 30 min AND package was updated after report
-      if (qaReport && reportAge > 30 * 60_000 && pkgUpdateAge < reportAge) {
-        // Delete old report so quality council runs fresh
-        await sb.from("package_quality_reports").delete().eq("package_id", qaPkg.id);
-        // Re-queue quality council
-        await sb.from("job_queue").insert({
-          job_type: "package_quality_council",
-          status: "pending",
-          package_id: qaPkg.id,
-          attempts: 0,
-          max_attempts: 3,
-          payload: { package_id: qaPkg.id, course_id: qaPkg.course_id, retry_from: "guardian_qa_retry" },
-          run_after: new Date().toISOString(),
-        });
-        // Set package back to building so auto-publish can pick it up
-        await sb.from("course_packages")
-          .update({ status: "building", updated_at: new Date().toISOString() })
-          .eq("id", qaPkg.id);
-        actions.push(`Re-triggered QA for qa_failed pkg ${qaPkg.id.slice(0, 8)} (content updated since last report)`);
-      } else if (!qaReport) {
-        // No report at all — just re-trigger
-        await sb.from("job_queue").insert({
-          job_type: "package_quality_council",
-          status: "pending",
-          package_id: qaPkg.id,
-          attempts: 0,
-          max_attempts: 3,
-          payload: { package_id: qaPkg.id, course_id: qaPkg.course_id, retry_from: "guardian_qa_retry" },
-          run_after: new Date().toISOString(),
-        });
-        await sb.from("course_packages")
-          .update({ status: "building", updated_at: new Date().toISOString() })
-          .eq("id", qaPkg.id);
-        actions.push(`QA retry for pkg ${qaPkg.id.slice(0, 8)} (no report found)`);
-      }
-    }
+    // ── 4b REMOVED: Guardian must NOT directly enqueue governance jobs ──
+    // package_quality_council is a governance step and may only be enqueued
+    // by its own edge function (package-quality-council). The previous logic
+    // here bypassed the governance isolation invariant.
+    // QA-failed packages are handled by the verifier-reconciler instead.
 
     // ═══════════════════════════════════════════════════════════════
     // 5. AUTO-TRIGGER PIPELINE (if idle + queued packages exist)
@@ -624,11 +604,9 @@ Deno.serve(async (req) => {
               );
               actions.push(`🔧 Reclaimed slot for orphaned building pkg ${bPkg.id.slice(0, 8)}`);
 
-              const { data: resetCount2 } = await sb.rpc("reset_failed_jobs_for_package", {
-                p_package_id: bPkg.id,
-                p_job_types: ["package_run_integrity_check", "package_auto_publish"],
-              });
-              actions.push(`Reset ${resetCount2 ?? 0} failed integrity/autopublish jobs for pkg ${bPkg.id.slice(0, 8)}`);
+              // GOVERNANCE EXCLUSION: do NOT reset governance jobs here
+              // Governance jobs (integrity, council, publish) may only be managed by their own functions
+              actions.push(`Reclaimed slot for pkg ${bPkg.id.slice(0, 8)} — governance jobs left untouched`);
             } catch (e) {
               warnings.push(`Failed to reclaim slot for ${bPkg.id.slice(0, 8)}: ${(e as Error).message}`);
             }
