@@ -2386,6 +2386,9 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── Clear heartbeat interval ──
+    clearInterval(hbInterval);
+
     // ── SINGLE EXIT: Guaranteed DB write with lock release ──────────
     if (finalState) {
       // Normalize: patch uses 'error' but DB column is 'last_error'
