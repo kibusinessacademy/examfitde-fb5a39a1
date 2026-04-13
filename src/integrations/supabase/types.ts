@@ -77820,6 +77820,15 @@ export type Database = {
         Returns: Json
       }
       fn_populate_fi_lf_equivalence: { Args: never; Returns: Json }
+      fn_prebuild_auto_seed_exam_blueprints: {
+        Args: { p_package_id: string }
+        Returns: {
+          advanced: boolean
+          meta: Json
+          reason: string
+          status: string
+        }[]
+      }
       fn_prebuild_finalize_learning_content: {
         Args: { p_package_id: string }
         Returns: {
@@ -77829,7 +77838,25 @@ export type Database = {
           status: string
         }[]
       }
+      fn_prebuild_generate_blueprint_variants: {
+        Args: { p_package_id: string }
+        Returns: {
+          advanced: boolean
+          meta: Json
+          reason: string
+          status: string
+        }[]
+      }
       fn_prebuild_promote_blueprint_variants: {
+        Args: { p_package_id: string }
+        Returns: {
+          advanced: boolean
+          meta: Json
+          reason: string
+          status: string
+        }[]
+      }
+      fn_prebuild_validate_blueprint_variants: {
         Args: { p_package_id: string }
         Returns: {
           advanced: boolean
