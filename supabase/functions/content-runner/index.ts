@@ -161,10 +161,9 @@ const HEAVY_JOB_TYPES = new Set([
 
 const HEAVY_EXPANDED_JOB_TYPES = new Set([
   ...HEAVY_JOB_TYPES,
-  // v6.4: Jobs that exceed 15s but don't need full T2 budget
-  "package_repair_exam_pool_quality",     // v6.4: LLM-assisted repair, HTTP 500 at 15s — needs T3 (45s) via fallthrough
-  "package_validate_blueprint_variants",  // v6.4: N+1 queries on 100+ blueprints, TIMEOUT at 15s — needs T3 (45s) via fallthrough
 ]);
+// v6.4: package_repair_exam_pool_quality & package_validate_blueprint_variants
+// fall through to T3_DEFAULT (45s) — removed from T4_LIGHT where they timed out at 15s
 
 // v6.1→v6.4: T4_LIGHT (10s+5s=15s budget) — ONLY jobs completing in <10s actual.
 // CRITICAL SSOT RULE: Any job completing in <10s MUST be here, not T3_DEFAULT.
