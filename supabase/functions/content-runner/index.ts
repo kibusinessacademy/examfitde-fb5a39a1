@@ -1272,9 +1272,16 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
       if (s.status === "fulfilled") {
         results.push(s.value);
         laneMetrics[lane].dispatched++;
-        if (s.value?.ok) laneMetrics[lane].succeeded++;
-        else laneMetrics[lane].failed++;
-        if (s.value?.error?.includes("budget_exhausted")) laneMetrics[lane].budget_exhausted++;
+        const isBudgetExhausted = s.value?.error?.includes("budget_exhausted");
+        if (isBudgetExhausted) {
+          // BUDGET_EXHAUSTED = job was never dispatched, not a real failure
+          // Must NOT count toward circuit-breaker fail rate
+          laneMetrics[lane].budget_exhausted++;
+        } else if (s.value?.ok) {
+          laneMetrics[lane].succeeded++;
+        } else {
+          laneMetrics[lane].failed++;
+        }
       } else {
         results.push({ ok: false, error: s.reason?.message ?? String(s.reason) });
         laneMetrics[lane].dispatched++;
