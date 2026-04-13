@@ -8,6 +8,7 @@ import { checkArtifacts } from "../_shared/artifact-resolver.ts";
 import { enqueueJob, allowedPackageStatusesForJobType } from "../_shared/enqueue.ts";
 import { isRepairActionEligible } from "../_shared/repair-eligibility.ts";
 import { verifyArtifact, buildVerifyAuditMeta } from "../_shared/artifact-verifier.ts";
+import { emitRunnerHeartbeat } from "../_shared/runner-health.ts";
 
 /**
  * job-runner — Atomically claims pending jobs via claim_pending_jobs RPC
@@ -2446,6 +2447,20 @@ Deno.serve(async (req) => {
   await writeSnapshot(sb, tickMetrics, adaptiveConcurrency, action);
 
   console.log(`[job-runner] Tick done [w=${WORKER_ID} c=${adaptiveConcurrency}]: ${JSON.stringify(results)}`);
+
+  // ── Emit runner health heartbeat ──
+  await emitRunnerHeartbeat(sb, {
+    runner_name: "job-runner",
+    worker_id: WORKER_ID,
+    lanes: ["control", "recovery"],
+    status: "ok",
+    passes: 1,
+    claimed: results.length,
+    succeeded: tickMetrics.completed,
+    failed: tickMetrics.timeouts + tickMetrics.rateLimits + tickMetrics.dlqItems,
+    runtime_ms: Date.now() - tickStart,
+  });
+
   return json({
     ok: true,
     processed: results.length,
