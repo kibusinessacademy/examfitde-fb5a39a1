@@ -35,7 +35,10 @@ type AdminOpsAction =
   // v4.0 Full reset & ghost heal
   | 'full_queue_reset'
   | 'heal_ghost_completions'
-  | 'purge_completed_jobs';
+  | 'purge_completed_jobs'
+  // v5.0 Manual course controls
+  | 'reset_to_step'
+  | 'enqueue_single_step';
 
 export interface ScopedPayload {
   limit?: number;
@@ -170,6 +173,16 @@ export async function healGhostCompletions() {
 
 export async function purgeCompletedJobs(hours = 24) {
   return runAdminOpsAction('purge_completed_jobs', { hours });
+}
+
+/* ── v5.0 Manual Course Controls ── */
+
+export async function resetToStep(packageId: string, stepKey: string) {
+  return runAdminOpsAction('reset_to_step', { package_id: packageId, step_key: stepKey });
+}
+
+export async function enqueueSingleStep(packageId: string, stepKey: string) {
+  return runAdminOpsAction('enqueue_single_step', { package_id: packageId, step_key: stepKey });
 }
 
 /* ── Legacy Exempt Actions ── */
