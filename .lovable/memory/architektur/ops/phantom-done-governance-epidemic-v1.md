@@ -54,10 +54,10 @@ Reconciler/Sync-Trigger finalisiert Step ohne Gate-Prüfung
 1. ✅ `ops_phantom_done_governance` Audit-View eingeführt
 2. ✅ `ops_phantom_council_approvals` Audit-View eingeführt
 3. ✅ Reconciler gehärtet (Governance-Steps ausgeschlossen)
-4. ⬜ Published Pakete einzeln prüfen und Phantom-Done Steps gezielt korrigieren
-5. ⬜ `validate_exam_pool` aus `META_BASED_VERIFIERS` entfernen oder eigene Gate-Prüfung hinzufügen
-6. ⬜ `council_approved` Flag an Session-Evidenz binden (Trigger-Härtung)
-7. ⬜ Nightly Cron der Audit-Views mit Alert-Erzeugung
+4. ✅ Nightly Cron: `system-cron-governance-audit` prüft beide Audit-Views und erzeugt Alerts bei Phantom-Befunden
+5. ⬜ Published Pakete einzeln prüfen und Phantom-Done Steps gezielt korrigieren
+6. ⬜ `validate_exam_pool` aus `META_BASED_VERIFIERS` entfernen oder eigene Gate-Prüfung hinzufügen
+7. ⬜ `council_approved` Flag an Session-Evidenz binden (Trigger-Härtung)
 
 ## Gesamtstatistik
 | Schicht | Maßnahme | Ergebnis |
@@ -66,4 +66,5 @@ Reconciler/Sync-Trigger finalisiert Step ohne Gate-Prüfung
 | Blocked/Archived | 7 council_approved → false | ✅ Bereinigt |
 | Published | 68 Steps + 8 Council Approvals | ⚠️ Bekannte Altlast |
 | Audit-Infra | 2 Views angelegt | ✅ Aktiv |
+| Nightly Cron | Governance-Audit mit Alerts | ✅ Aktiv |
 | Reconciler | Governance-Isolation gehärtet | ✅ Gesichert |
