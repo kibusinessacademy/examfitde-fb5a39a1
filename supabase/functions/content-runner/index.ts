@@ -292,23 +292,30 @@ async function dispatchJob(job: any, supabaseUrl: string, serviceKey: string, lo
 }
 
 // ── Intent-aware workload key mapping (used by health gate + cooldown) ──
+// P3 FIX: Complete workload key map — non-LLM jobs return null to bypass health gate
 const WORKLOAD_KEY_MAP: Record<string, string> = {
   package_generate_learning_content: "learning_content",
   lesson_generate_content: "learning_content",
   lesson_generate_content_shard: "learning_content",
+  package_fanout_learning_content: "learning_content",
   package_generate_handbook: "handbook",
+  handbook_expand_section: "handbook",
   package_generate_exam_pool: "exam_pool",
   package_generate_oral_exam: "oral_exam",
   package_generate_lesson_minichecks: "minichecks",
   package_generate_glossary: "glossary",
+  package_generate_blueprint_variants: "blueprint_variants",
+  package_auto_seed_exam_blueprints: "blueprint_seed",
+  package_elite_harden: "orchestration",
   lesson_generate_competency_bundle: "competency_bundle",
   mass_enrich_competencies_v2: "enrichment",
   pool_fill_lf_gaps: "enrichment",
   pool_fill_bloom_gaps: "enrichment",
 };
 
-function workloadKeyForJob(jobType: string): string {
-  return WORKLOAD_KEY_MAP[jobType] ?? "learning_content";
+// P3 FIX: return null for unmapped jobs → they bypass the health gate entirely
+function workloadKeyForJob(jobType: string): string | null {
+  return WORKLOAD_KEY_MAP[jobType] ?? null;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -392,7 +399,7 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
   let jobProvider: string | null = null;
   let jobModel: string | null = null;
   try {
-    const route = await resolveAvailableRoute(workloadKeyForJob(job.job_type));
+    const route = await resolveAvailableRoute(workloadKeyForJob(job.job_type) ?? "orchestration");
     jobProvider = route?.provider ?? job.meta?.last_provider ?? "unknown";
     jobModel = route?.model ?? job.meta?.last_model ?? "unknown";
   } catch {
@@ -759,7 +766,7 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
         let jobProvider = "unknown";
         let jobModel = "unknown";
         try {
-          const chainForCooldown = await getModelChainAsync(workloadKeyForJob(job.job_type));
+          const chainForCooldown = await getModelChainAsync(workloadKeyForJob(job.job_type) ?? "orchestration");
           const provIdx = attemptIdx % Math.max(1, chainForCooldown.length);
           jobProvider = chainForCooldown[provIdx]?.provider || "unknown";
           jobModel = chainForCooldown[provIdx]?.model || "unknown";
@@ -857,7 +864,7 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
 
         // Set provider cooldown if loop exhausted — JOB-TYPE SCOPED
         if (providerLoopExhausted && jobProvider && jobProvider !== "unknown") {
-          const workloadKey = workloadKeyForJob(job.job_type);
+          const workloadKey = workloadKeyForJob(job.job_type) ?? "orchestration";
           // Cooldown duration: oral_exam gets shorter (3min vs 10min) to recover faster
           const cooldownMs = job.job_type === "package_generate_oral_exam" ? 3 * 60_000 : 10 * 60_000;
           setProviderCooldown({
@@ -1075,8 +1082,12 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
   // deno-lint-ignore no-explicit-any
   const allClaimedJobs: any[] = [];
 
-  for (const lane of LANE_DISPATCH_ORDER) {
-    const budget = laneBudgets[lane];
+  // ── P0 FIX: content-runner ONLY claims "generation" lane ──
+  // job-runner handles control + recovery. This eliminates Split-Brain.
+  const CONTENT_RUNNER_LANES: RunnerLane[] = ["generation"];
+
+  for (const lane of CONTENT_RUNNER_LANES) {
+    const budget = laneBudgets[lane] || CLAIM_LIMIT; // generation always gets full claim budget
     if (budget <= 0) continue;
 
     // Check time budget before claiming this lane
@@ -1216,15 +1227,21 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
   }
 
   // ── Intent-aware Provider Health Gate ──
+  // P3 FIX: Jobs without a workload key (non-LLM/orchestration) bypass the health gate entirely
   const jobsByWorkload = new Map<string, typeof jobs>();
+  const healthyJobs: typeof jobs = [];
+  let totalDeferred = 0;
+
   for (const job of jobs) {
     const wk = workloadKeyForJob(job.job_type);
+    if (!wk) {
+      // No workload key → not an LLM job → bypass health gate
+      healthyJobs.push(job);
+      continue;
+    }
     if (!jobsByWorkload.has(wk)) jobsByWorkload.set(wk, []);
     jobsByWorkload.get(wk)!.push(job);
   }
-
-  const healthyJobs: typeof jobs = [];
-  let totalDeferred = 0;
 
   const LAST_RESORT_MAX_PER_WORKLOAD = 2;
 

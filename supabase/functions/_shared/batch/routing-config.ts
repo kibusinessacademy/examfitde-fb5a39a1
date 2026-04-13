@@ -20,7 +20,7 @@
 const BATCH_ROUTING_FLAGS: Record<string, boolean> = {
   lesson_generate_content: true,
   package_generate_exam_pool: true,
-  expand_handbook_section: true,
+  handbook_expand_section: true,          // P4 FIX: was "expand_handbook_section"
   package_generate_handbook: true,
   package_generate_oral_exam: true,
   package_generate_lesson_minichecks: true,

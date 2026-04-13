@@ -27,6 +27,7 @@ const CONTROL_JOB_TYPES = new Set([
   "package_validate_tutor_index",
   "package_validate_lesson_minichecks",
   "package_validate_blueprint_variants",
+  "package_validate_blueprints",           // P2 FIX: was missing
   // Promoters / Finalizers
   "package_promote_blueprint_variants",
   "package_finalize_learning_content",
@@ -38,6 +39,8 @@ const CONTROL_JOB_TYPES = new Set([
   // Integrity / Rebalance
   "package_run_integrity_check",
   "package_exam_rebalance",
+  // Tutor index (DB indexing, not LLM)
+  "package_build_ai_tutor_index",          // P2 FIX: was missing
   // Course-level finalizer
   "course_finalize",
   "post_validation",
@@ -85,6 +88,9 @@ const GENERATION_JOB_TYPES_LANE = new Set([
   "package_generate_blueprint_variants",
   "package_generate_oral_exam",
   "package_elite_harden",
+  "package_generate_glossary",              // P2 FIX: was missing
+  "package_fanout_learning_content",        // P2 FIX: was missing
+  "package_generate_learning_content",      // P2 FIX: was missing
   // Root dispatchers
   "generate_course",
   "extract_curriculum",
@@ -159,14 +165,16 @@ export interface LaneBudget {
  * Control gets priority, Recovery gets guaranteed minimum, Generation gets rest.
  */
 export function allocateLaneBudgets(totalSlots: number): LaneBudget {
+  // P1 FIX: Generation ALWAYS gets at least 1 slot (was 0 for totalSlots <= 3)
   if (totalSlots <= 1) return { control: 1, recovery: 0, generation: 0 };
-  if (totalSlots <= 2) return { control: 1, recovery: 1, generation: 0 };
-  if (totalSlots <= 3) return { control: 2, recovery: 1, generation: 0 };
+  if (totalSlots <= 2) return { control: 1, recovery: 0, generation: 1 };
+  if (totalSlots <= 3) return { control: 1, recovery: 1, generation: 1 };
+  if (totalSlots <= 4) return { control: 2, recovery: 1, generation: 1 };
 
-  // General formula: control gets ~40%, recovery ~20%, generation ~40%
-  const controlSlots = Math.max(2, Math.ceil(totalSlots * 0.4));
-  const recoverySlots = Math.max(1, Math.ceil(totalSlots * 0.2));
-  const generationSlots = Math.max(0, totalSlots - controlSlots - recoverySlots);
+  // General formula: control ~40%, recovery ~20%, generation ~40%
+  const controlSlots = Math.max(1, Math.floor(totalSlots * 0.4));
+  const recoverySlots = Math.max(1, Math.floor(totalSlots * 0.2));
+  const generationSlots = Math.max(1, totalSlots - controlSlots - recoverySlots);
 
   return {
     control: controlSlots,

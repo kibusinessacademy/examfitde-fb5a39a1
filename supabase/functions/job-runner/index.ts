@@ -2,7 +2,8 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { assertSchemaReady } from "../_shared/schema-gate.ts";
 import { PIPELINE_GRAPH, validatePipelineGraph, STEP_TO_JOB_TYPE, ARTIFACT_IMPACT, getArtifactPriorityBump, poolForJobType, JOB_DEFINITIONS } from "../_shared/job-map.ts";
-import { LANE_DISPATCH_ORDER, jobTypesForLane, allocateLaneBudgets } from "../_shared/runner-lanes.ts";
+import { LANE_DISPATCH_ORDER, jobTypesForLane, allocateLaneBudgets, type RunnerLane } from "../_shared/runner-lanes.ts";
+import { getRunnerConfig } from "../_shared/worker-config.ts";
 import { checkArtifacts } from "../_shared/artifact-resolver.ts";
 import { enqueueJob, allowedPackageStatusesForJobType } from "../_shared/enqueue.ts";
 import { isRepairActionEligible } from "../_shared/repair-eligibility.ts";
@@ -43,10 +44,11 @@ const REWORK_SECRET_FUNCTIONS = new Set([
   "pool-rework-trap-retrofit",
 ]);
 
-// ── Adaptive Concurrency Constants ──────────────────────────────────
-const BASE_CONCURRENCY = 6;
-const MIN_CONCURRENCY = 4;
-const MAX_CONCURRENCY = 12;
+// ── P5 FIX: SSOT Concurrency from worker-config.ts ──────────────────
+const _jobRunnerCfg = getRunnerConfig("job_runner");
+const BASE_CONCURRENCY = _jobRunnerCfg.claimLimit;            // SSOT: 4
+const MIN_CONCURRENCY = Math.max(1, _jobRunnerCfg.maxConcurrency - 1); // 2
+const MAX_CONCURRENCY = _jobRunnerCfg.maxConcurrency * 2;     // 6 (allow adaptive ramp)
 // v5.3: Increased from 140s→180s to reduce "signal aborted" on heavy AI jobs
 // (exam-pool generation with 58+ questions, learning content with glossary injection)
 const JOB_TIMEOUT_MS = 180_000;
@@ -325,7 +327,11 @@ Deno.serve(async (req) => {
   const laneBudgets = allocateLaneBudgets(adaptiveConcurrency);
   let jobs: any[] = [];
 
-  for (const lane of LANE_DISPATCH_ORDER) {
+  // ── P0 FIX: job-runner ONLY claims "control" + "recovery" lanes ──
+  // content-runner handles generation. This eliminates Split-Brain.
+  const JOB_RUNNER_LANES: RunnerLane[] = ["control", "recovery"];
+
+  for (const lane of JOB_RUNNER_LANES) {
     const budget = laneBudgets[lane];
     if (budget <= 0) continue;
 
