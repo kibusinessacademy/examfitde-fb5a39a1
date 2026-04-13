@@ -2449,6 +2449,9 @@ Deno.serve(async (req) => {
   console.log(`[job-runner] Tick done [w=${WORKER_ID} c=${adaptiveConcurrency}]: ${JSON.stringify(results)}`);
 
   // ── Emit runner health heartbeat ──
+  const jobRunnerRuntimeMs = Date.now() - runnerStart;
+  const jobRunnerRuntimeMin = jobRunnerRuntimeMs / 60_000;
+  const jobRunnerFailed = tickMetrics.timeouts + tickMetrics.rateLimits + tickMetrics.dlqItems;
   await emitRunnerHeartbeat(sb, {
     runner_name: "job-runner",
     worker_id: WORKER_ID,
@@ -2457,8 +2460,10 @@ Deno.serve(async (req) => {
     passes: 1,
     claimed: results.length,
     succeeded: tickMetrics.completed,
-    failed: tickMetrics.timeouts + tickMetrics.rateLimits + tickMetrics.dlqItems,
-    runtime_ms: Date.now() - runnerStart,
+    failed: jobRunnerFailed,
+    runtime_ms: jobRunnerRuntimeMs,
+    completion_rate: jobRunnerRuntimeMin > 0 ? Math.round((tickMetrics.completed / jobRunnerRuntimeMin) * 100) / 100 : 0,
+    claim_rate: jobRunnerRuntimeMin > 0 ? Math.round((results.length / jobRunnerRuntimeMin) * 100) / 100 : 0,
   });
 
   return json({

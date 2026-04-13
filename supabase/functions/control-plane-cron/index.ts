@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
           category: "runner_health",
           severity,
           entity_type: "runner",
-          metadata: { runners: health.runners, dead_lanes: health.dead_lanes },
+          metadata: { runners: health.runners, dead_lanes: health.dead_lanes, idle_lanes: health.idle_lanes },
         }).then(() => {});
       }
     }

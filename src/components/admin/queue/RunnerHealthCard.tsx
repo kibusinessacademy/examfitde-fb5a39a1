@@ -15,6 +15,8 @@ interface RunnerHealth {
   failed: number;
   runtime_ms: number;
   error_message: string | null;
+  completion_rate: number | null;
+  claim_rate: number | null;
 }
 
 function formatAgo(seconds: number): string {
@@ -83,8 +85,8 @@ export default function RunnerHealthCard() {
               )}>
                 {formatAgo(r.seconds_ago)}
               </span>
-              <span className="text-[10px] text-muted-foreground">
-                ✓{r.succeeded} ✗{r.failed}
+              <span className="text-[10px] text-muted-foreground" title={`${r.completion_rate ?? 0}/min completed, ${r.claim_rate ?? 0}/min claimed`}>
+                ✓{r.succeeded} ✗{r.failed} | {r.completion_rate ?? 0}/m
               </span>
             </div>
           ))}

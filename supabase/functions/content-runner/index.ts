@@ -1518,6 +1518,7 @@ Deno.serve(async (req) => {
   );
 
   // ── Emit runner health heartbeat ──
+  const runtimeMinutes = runtimeMs / 60_000;
   await emitRunnerHeartbeat(sb, {
     runner_name: "content-runner",
     worker_id: WORKER_ID,
@@ -1528,6 +1529,8 @@ Deno.serve(async (req) => {
     succeeded: totalSucceeded,
     failed: totalFailed,
     runtime_ms: runtimeMs,
+    completion_rate: runtimeMinutes > 0 ? Math.round((totalSucceeded / runtimeMinutes) * 100) / 100 : 0,
+    claim_rate: runtimeMinutes > 0 ? Math.round((totalClaimed / runtimeMinutes) * 100) / 100 : 0,
   });
 
   return json({
