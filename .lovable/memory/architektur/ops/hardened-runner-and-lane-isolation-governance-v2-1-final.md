@@ -1,32 +1,42 @@
 # Memory: architektur/ops/hardened-runner-and-lane-isolation-governance-v2-1-final
 Updated: now
 
-## v6.1 Tier Reclassification — BUDGET_EXHAUSTED Root Cause Fix (Final)
+## v6.4 Tier Reclassification — Stale-Loop Root Cause Fix
 
 ### Problem
-Only `handbook_expand_section` and `package_exam_rebalance` completed. All other job types were trapped in a BUDGET_EXHAUSTED → STALE_LOCK_RECOVERY → re-claim cycle. v6.0 fix was insufficient because it only moved jobs from T2_HEAVY to T3_DEFAULT, but T3_DEFAULT still requires 30s budget (25s+5s buffer).
+Only `handbook_expand_section` and `package_validate_exam_pool` completed. All other job types were trapped in TIMEOUT→STALE_PROCESSING_GUARD→STALE_LOCK_RECOVERY→pending→processing loops. Jobs never reached terminal state.
 
-### Root Cause (v6.1 discovery)
-In v6.0, 7 jobs were moved from T2_HEAVY to T3_DEFAULT. But T3_DEFAULT requires 25s+5s=30s budget. With a 50s loop budget and ~8s boot/claim overhead, after one T3 dispatch at ~30s budget, only ~12s remained — still BUDGET_EXHAUSTED for all subsequent T3 jobs. Additionally, FINISH_LINE_GUARD was blocking `package_run_integrity_check` because 14 stale processing jobs exceeded the cap of 11.
+### Root Cause (v6.4 discovery)
+Three jobs were critically misclassified as T4_LIGHT (15s budget):
+- `package_validate_blueprint_variants`: N+1 queries on 100+ blueprints → confirmed `TIMEOUT: edge function exceeded 15s`
+- `package_elite_harden`: TIME_BUDGET_MS=110s with AI annotation calls → impossible at 15s
+- `package_repair_exam_pool_quality`: LLM-assisted repair → HTTP 500 at 15s
 
-### Fix (v6.1)
-1. **Aggressive T4_LIGHT reclassification**: Moved ALL jobs completing in <10s to T4_LIGHT (10s+5s=15s budget):
-   - `package_run_integrity_check` (1.5s measured)
-   - `package_quality_council` (2-8s actual)
-   - `package_elite_harden` (<5s actual)
-   - `package_scaffold_learning_course` (3-5s actual)
-   - `package_repair_exam_pool_quality` (3-10s actual)
-   - `package_auto_seed_exam_blueprints` (<5s actual)
+Additionally, `fn_reset_stale_processing_jobs` used a **global 5-minute** stale threshold for ALL job types, killing legitimate long-running jobs.
 
-2. **T2_HEAVY reduced further**: Only `package_generate_blueprint_variants` remains. `package_build_ai_tutor_index` moved to T3_DEFAULT.
+### Fix (v6.4)
+1. **Tier reclassification**:
+   - `package_elite_harden` → T2_HEAVY (90s budget) — AI annotation with 110s internal budget
+   - `package_validate_blueprint_variants` → T3_DEFAULT (45s budget) — bulk DB queries
+   - `package_repair_exam_pool_quality` → T3_DEFAULT (45s budget) — LLM repair
 
-3. **Stale processing cleanup**: Migration resets processing jobs older than 3 minutes to unblock FINISH_LINE_GUARD caps.
+2. **Job-type-specific stale thresholds in `fn_reset_stale_processing_jobs`**:
+   - T1_GEN / LLM generation: 15 minutes
+   - T2_HEAVY / medium jobs: 10 minutes
+   - Default: 5 minutes (unchanged)
+   - Heartbeat-aware: jobs with heartbeat <3min are never considered stale
+
+3. **Job-type-specific stuck thresholds in `pipeline-process.ts`**:
+   - Heavy generators: 20 minutes
+   - Medium jobs: 15 minutes
+   - Default: 10 minutes
+
+4. **Fresh start**: All stuck jobs reset to pending with 0 attempts
 
 ### SSOT Rules
 - Timeout tier = budget reservation, NOT max execution time
 - Any job completing in <10s MUST be T4_LIGHT (15s budget)
-- T3_DEFAULT (30s budget) is for jobs genuinely needing 10-25s
-- T2_HEAVY (40s budget) ONLY for jobs genuinely running 20s+
-- Over-classification causes systemic starvation via BUDGET_EXHAUSTED cascades
-- The 50s loop budget is a hard constraint — with 15s T4 budget, you can dispatch 3 jobs per loop
-- Light jobs first within each lane (intra-lane sorting)
+- Jobs with AI/LLM calls MUST be T2_HEAVY (90s) or T1_GEN (120s)
+- Jobs with bulk DB queries (100+ rows) should be T3_DEFAULT (45s) minimum
+- Stale thresholds MUST be job-type-specific — global 5min kills long-runners
+- Heartbeat (<3min fresh) overrides stale detection
