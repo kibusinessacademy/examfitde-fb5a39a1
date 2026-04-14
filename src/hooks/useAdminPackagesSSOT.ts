@@ -108,6 +108,7 @@ function mapFallbackPackage(row: any): Omit<AdminPackageSSOT, '_source'> {
     has_stale_publish: false,
     is_stuck: !!row?.stuck_reason,
     council_complete: !!councilApproved,
+    stuck_class: null,
     has_publish_drift: false,
   };
 }
