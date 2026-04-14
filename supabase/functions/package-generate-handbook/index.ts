@@ -369,12 +369,16 @@ Deno.serve(async (req) => {
       content_markdown: sec.content_markdown as string,
     }, { phase: "basis" });
 
-    if (result.ok && sec.learning_field_id) {
-      populatedLfIds.add(sec.learning_field_id);
+    if (result.ok) {
+      // Valid section — track LF coverage if it has an LF, otherwise it's a valid padding section
+      if (sec.learning_field_id) {
+        populatedLfIds.add(sec.learning_field_id);
+      }
+      // Padding sections (no learning_field_id) with valid content are kept as-is
     } else if (sec.id) {
       invalidSectionIds.push(sec.id as string);
       invalidReasons.push({
-        lfId: sec.learning_field_id || "unknown",
+        lfId: sec.learning_field_id || "padding",
         reason: result.reason || "unknown",
       });
     }
