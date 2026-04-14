@@ -18,7 +18,10 @@ import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 type SB = ReturnType<typeof createClient>;
 
 // Valid exam_part values (SSOT)
-const VALID_EXAM_PARTS = ["AP1", "AP2", "Teil 1", "Teil 2", "GP1", "GP2"] as const;
+const VALID_EXAM_PARTS = [
+  "AP1", "AP2", "Teil 1", "Teil 2", "GP1", "GP2",
+  "Schriftlich", "Mündlich", "WiSo", "Beide",
+] as const;
 type ValidExamPart = typeof VALID_EXAM_PARTS[number];
 
 // Normalized mapping: various spellings → canonical form
@@ -29,6 +32,8 @@ const EXAM_PART_NORMALIZE: Record<string, string> = {
   "teil 2": "Teil 2",
   "teil1": "Teil 1",
   "teil2": "Teil 2",
+  "teil_1": "Teil 1",
+  "teil_2": "Teil 2",
   "gp1": "GP1",
   "gp2": "GP2",
   "gestreckte abschlussprüfung teil 1": "Teil 1",
@@ -37,6 +42,12 @@ const EXAM_PART_NORMALIZE: Record<string, string> = {
   "abschlussprüfung teil 2": "Teil 2",
   "part 1": "Teil 1",
   "part 2": "Teil 2",
+  "schriftlich": "Schriftlich",
+  "mündlich": "Mündlich",
+  "muendlich": "Mündlich",
+  "wiso": "WiSo",
+  "both": "Beide",
+  "beide": "Beide",
 };
 
 export type EnsureResult =
