@@ -45,6 +45,7 @@ export interface AdminPackageSSOT {
   has_stale_publish: boolean;
   is_stuck: boolean;
   council_complete: boolean;
+  stuck_class: string | null;
   has_publish_drift: boolean;
   _source: AdminPackagesSource;
 }
@@ -107,6 +108,7 @@ function mapFallbackPackage(row: any): Omit<AdminPackageSSOT, '_source'> {
     has_stale_publish: false,
     is_stuck: !!row?.stuck_reason,
     council_complete: !!councilApproved,
+    stuck_class: null,
     has_publish_drift: false,
   };
 }
