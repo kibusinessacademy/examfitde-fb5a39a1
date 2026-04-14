@@ -54,6 +54,8 @@ export async function markStepDone(sb: SB, args: {
     ...(previousErrors.length > 0 ? { previous_errors: previousErrors } : {}),
     // Post-condition passed → set flag for DB trigger guard
     postcondition_verified: true,
+    // Ghost-Guard compliance: meta.ok MUST be true for done transitions
+    ok: true,
     // Explicitly remove stale failure signals
     last_error_class: undefined,
     failed_at: undefined,
