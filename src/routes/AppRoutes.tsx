@@ -262,6 +262,14 @@ const AppRoutes = () => {
           <Route path="/pruefungsangst-studium" element={<PruefungsangstStudiumPage />} />
           <Route path="/muendliche-pruefung-studium" element={<MuendlichePruefungStudiumPage />} />
 
+          {/* Scrum & PRINCE2 Pillar-Cluster */}
+          <Route path="/scrum-prince2-zertifizierung" element={<ScrumPrince2ZertifizierungPage />} />
+          <Route path="/scrum-psm-vorbereitung" element={<ScrumPSMVorbereitungPage />} />
+          <Route path="/scrum-csm-training" element={<ScrumCSMTrainingPage />} />
+          <Route path="/prince2-foundation" element={<Prince2FoundationPage />} />
+          <Route path="/prince2-practitioner" element={<Prince2PractitionerPage />} />
+          <Route path="/scrum-prince2-vergleich" element={<ScrumPrince2VergleichPage />} />
+
           <Route path="/ihk-pruefungen" element={<IHKPruefungenPage />} />
           <Route path="/pruefungstraining-azubis" element={<PruefungstrainingAzubisPage />} />
           <Route path="/pruefungstraining-betriebe" element={<PruefungstrainingBetriebePage />} />
