@@ -563,18 +563,28 @@ Deno.serve(async (req) => {
 
   for (let i = 0; i < batchFields.length; i++) {
     const lf = batchFields[i] as any;
-    const chapterSortOrder = fieldIdToChapterSort.get(lf.id) || 1;
-    const chapter = chapters.find((c: any) => c.sort_order === chapterSortOrder);
+    const isPadding = lf._isPadding === true;
+
+    // Resolve chapter — padding entries carry their own chapter reference
+    let chapter: { id: string; sort_order: number } | undefined;
+    if (isPadding) {
+      chapter = chapters.find((c: any) => c.id === lf._chapterId);
+    } else {
+      const chapterSortOrder = fieldIdToChapterSort.get(lf.id) || 1;
+      chapter = chapters.find((c: any) => c.sort_order === chapterSortOrder);
+    }
     if (!chapter) continue;
 
-    // Load rich context for this LF
-    const [subtopics, competencies, sampleQuestions] = await Promise.all([
-      loadFieldTopicDepth(sb, curriculumId, lf.title),
-      loadFieldCompetencies(sb, lf.id),
-      loadExamQuestionSample(sb, curriculumId, lf.id),
-    ]);
+    // Load context — for padding chapters, use profession-wide context
+    const [subtopics, competencies, sampleQuestions] = isPadding
+      ? [[] as string[], [] as { name: string; bloom: string; misconceptions: string[] }[], [] as string[]]
+      : await Promise.all([
+          loadFieldTopicDepth(sb, curriculumId, lf.title),
+          loadFieldCompetencies(sb, lf.id),
+          loadExamQuestionSample(sb, curriculumId, lf.id),
+        ]);
 
-    const wordTarget = lfWordTargets.get(lf.id) || MIN_WORD_TARGET;
+    const wordTarget = isPadding ? MIN_WORD_TARGET : (lfWordTargets.get(lf.id) || MIN_WORD_TARGET);
 
     const generated = await generateSectionContent(
       sb,
@@ -598,17 +608,19 @@ Deno.serve(async (req) => {
     else llmFailCount++;
 
     // ── WRITE GUARD: Skip fallback content entirely ──
-    // If the LLM didn't produce real content, do NOT write a placeholder.
-    // The field stays "ungenerated" and will be retried on the next invocation.
     if (!hasRealContent) {
       console.warn(`[generate-handbook] WRITE_GUARD: Skipping ${lf.code} — LLM output too short (${generated.content.length}/${MIN_SECTION_CHARS} chars). Will retry next invocation.`);
       continue;
     }
 
-    const candidateRow = {
+    const sectionKey = isPadding
+      ? `pad-${String(lf.code).toLowerCase()}-${curriculumId.slice(0, 8)}`
+      : `lf-${String(lf.code).toLowerCase().replace(/\s+/g, '-')}-${curriculumId.slice(0, 8)}`;
+
+    const candidateRow: Record<string, unknown> = {
       chapter_id: chapter.id,
-      section_key: `lf-${String(lf.code).toLowerCase().replace(/\s+/g, '-')}-${curriculumId.slice(0, 8)}`,
-      title: `${lf.code}: ${lf.title}`,
+      section_key: sectionKey,
+      title: isPadding ? lf.title : `${lf.code}: ${lf.title}`,
       content_markdown: generated.content,
       basis_content: generated.content,
       basis_generated_at: new Date().toISOString(),
@@ -616,7 +628,7 @@ Deno.serve(async (req) => {
       expand_status: generated.content.length >= 800 ? "pending" : "not_ready",
       content_type: "text",
       sort_order: sectionOrder++,
-      learning_field_id: lf.id,
+      learning_field_id: isPadding ? null : lf.id,
       metadata: {
         depth_enriched: subtopics.length > 0,
         llm_generated: true,
@@ -624,9 +636,10 @@ Deno.serve(async (req) => {
         llm_model: generated.model,
         word_target: wordTarget,
         actual_chars: generated.content.length,
-        exam_weight_pct: weightByLf.get(lf.id) || null,
+        exam_weight_pct: isPadding ? null : (weightByLf.get(lf.id) || null),
         competency_count: competencies.length,
-        version: "v10_basis_only",
+        is_padding_section: isPadding,
+        version: "v20_padding_aware",
       },
     };
 
@@ -637,7 +650,7 @@ Deno.serve(async (req) => {
     }, { phase: "basis" });
 
     if (!validation.ok) {
-      console.warn(`[generate-handbook] REJECT_FORENSIC: section_key=${candidateRow.section_key} chapter_id=${chapter.id} raw_chars=${generated.content.length} guard=validateGeneratedSection reason="${validation.reason}" provider=${generated.provider} model=${generated.model}`);
+      console.warn(`[generate-handbook] REJECT_FORENSIC: section_key=${sectionKey} chapter_id=${chapter.id} raw_chars=${generated.content.length} guard=validateGeneratedSection reason="${validation.reason}" provider=${generated.provider} model=${generated.model}`);
       llmSuccessCount--;
       llmFailCount++;
       continue;
