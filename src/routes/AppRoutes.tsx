@@ -224,6 +224,18 @@ const AppRoutes = () => {
           <Route path="/probepruefung" element={<ProbepruefungPage />} />
           <Route path="/lernplan-pruefung" element={<LernplanPruefungPage />} />
 
+          {/* IHK Pillar-Cluster */}
+          <Route path="/ihk-pruefungsvorbereitung" element={<IHKPruefungsvorbereitungPage />} />
+          <Route path="/ihk-pruefungsfragen" element={<IHKPruefungsfragenPage />} />
+          <Route path="/ihk-fachgespraech" element={<IHKFachgespraechPage />} />
+          <Route path="/ihk-probepruefung" element={<IHKProbepruefungPage />} />
+
+          {/* AEVO Pillar-Cluster */}
+          <Route path="/aevo-pruefungsvorbereitung" element={<AEVOPruefungsvorbereitungPage />} />
+          <Route path="/aevo-schriftliche-pruefung" element={<AEVOSchriftlichePage />} />
+          <Route path="/aevo-praktische-pruefung" element={<AEVOPraktischePage />} />
+          <Route path="/aevo-fachgespraech" element={<AEVOFachgespraechPage />} />
+
           <Route path="/ihk-pruefungen" element={<IHKPruefungenPage />} />
           <Route path="/pruefungstraining-azubis" element={<PruefungstrainingAzubisPage />} />
           <Route path="/pruefungstraining-betriebe" element={<PruefungstrainingBetriebePage />} />
