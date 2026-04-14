@@ -68,6 +68,17 @@ const GOVERNANCE_JOB_TYPES = new Set([
   "package_auto_publish",
 ]);
 
+/**
+ * SUBJOB STEPS: Steps whose jobs require specific payload context (e.g. section_id).
+ * The orphan-healer MUST NOT blindly enqueue these with an empty payload — instead
+ * it should re-trigger the ENQUEUE step that properly fans out with correct payloads.
+ *
+ * Map: step_key → enqueue_step_key (the step that knows how to fan out correctly)
+ */
+const SUBJOB_REDIRECT_MAP: Record<string, string> = {
+  expand_handbook: "enqueue_handbook_expand",
+};
+
 // ── DAG helpers ──
 
 function getPrereqs(stepKey: string): string[] {
