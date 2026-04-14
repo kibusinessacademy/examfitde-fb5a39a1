@@ -222,6 +222,12 @@ export async function healBatchCompleteStuck(sb: SupabaseClient) {
     const meta = (ps.meta ?? {}) as Record<string, unknown>;
     const jobType = STEP_TO_JOB_TYPE[ps.step_key] ?? null;
 
+    // ── SSOT: Auto-skip if step is not applicable for this track ──
+    if (await autoSkipIfNotApplicable(sb, ps.package_id, ps.step_key, "stuck-scan-batch-complete")) {
+      results.push({ package_id: ps.package_id, step_key: ps.step_key, action: `ssot-auto-skip: track_not_applicable` });
+      continue;
+    }
+
     // ── SSOT: Use centralized finalizability check ──
     const finResult = await isStepFinalizable(sb, {
       package_id: ps.package_id,
