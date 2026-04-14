@@ -159,11 +159,13 @@ const HEAVY_JOB_TYPES = new Set([
   "package_elite_harden",                 // v6.4: AI annotation, TIME_BUDGET_MS=110s — was T4_LIGHT causing 15s TIMEOUT
 ]);
 
+// v7.1: Added validate_blueprint_variants (N+1 on 100+ blueprints, 15-45s actual → 502 at T3)
+// and repair_exam_pool_quality (LLM-assisted repair → 502 at T3) to T2_HEAVY (90s)
 const HEAVY_EXPANDED_JOB_TYPES = new Set([
   ...HEAVY_JOB_TYPES,
+  "package_validate_blueprint_variants",  // v7.1: promoted from T3 — N+1 queries cause 502 at 45s
+  "package_repair_exam_pool_quality",     // v7.1: promoted from T3 — LLM-assisted repair causes 502 at 45s
 ]);
-// v6.4: package_repair_exam_pool_quality & package_validate_blueprint_variants
-// fall through to T3_DEFAULT (45s) — removed from T4_LIGHT where they timed out at 15s
 
 // v6.1→v6.4: T4_LIGHT (10s+5s=15s budget) — ONLY jobs completing in <10s actual.
 // CRITICAL SSOT RULE: Any job completing in <10s MUST be here, not T3_DEFAULT.
@@ -973,62 +975,13 @@ type PassResult = {
 
 // deno-lint-ignore no-explicit-any
 async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFirstPass: boolean, loopDeadlineMs?: number): Promise<PassResult> {
-  // ── Stale-lock recovery (only on first pass to avoid repeated scanning) ──
-  // LANE-SCOPED: content-runner must ONLY recover GENERATION lane jobs.
-  // Recovering control/recovery lane jobs causes cross-lane interference
-  // and starves the queue with jobs this runner cannot dispatch.
+  // ── v7.1: Runner-local STALE_LOCK_RECOVERY removed ──
+  // Stale-lock detection is now handled exclusively by stuck-scan (SSOT actor).
+  // Having two competing stale-handlers (content-runner + stuck-scan) caused
+  // double-intervention churn: jobs oscillated between processing→pending
+  // without ever reaching terminal state. See forensic assessment v7.1.
   if (isFirstPass) {
-    const staleBefore = new Date(Date.now() - STALE_LOCK_RECOVERY_MS).toISOString();
-    const generationJobTypes = jobTypesForLane("generation");
-    const { data: staleRows } = await sb
-      .from("job_queue")
-      .select("id, attempts, max_attempts")
-      .eq("worker_pool", "default")
-      .eq("status", "processing")
-      .in("job_type", generationJobTypes)
-      .not("locked_by", "is", null)
-      .lt("locked_at", staleBefore)
-      .lt("updated_at", staleBefore)
-      .limit(50);
-
-    if (staleRows && staleRows.length > 0) {
-      // ── Stale-lock recovery with attempt increment to prevent infinite cycling ──
-      for (const row of staleRows) {
-        const nextAttempts = (row.attempts ?? 0) + 1;
-        const maxAttempts = row.max_attempts ?? 8;
-        const exhausted = nextAttempts >= maxAttempts;
-        await sb.from("job_queue").update({
-          status: exhausted ? "failed" : "pending",
-          run_after: exhausted ? null : new Date(Date.now() + Math.min(nextAttempts * 10_000, 120_000)).toISOString(),
-          locked_at: null,
-          locked_by: null,
-          attempts: nextAttempts,
-          updated_at: new Date().toISOString(),
-          last_error: exhausted
-            ? `STALE_LOCK_EXHAUSTED: ${nextAttempts}/${maxAttempts} attempts by ${WORKER_ID}`
-            : `STALE_LOCK_RECOVERY: attempt ${nextAttempts}/${maxAttempts} by ${WORKER_ID}`,
-        }).eq("id", row.id);
-      }
-      const staleIds = staleRows.map((r: { id: string }) => r.id);
-      // Best-effort: update job meta with recovery info (no RPC dependency)
-      for (const sid of staleIds) {
-        try {
-          const { data: existingJob } = await sb
-            .from("job_queue")
-            .select("meta")
-            .eq("id", sid)
-            .maybeSingle();
-          const merged = {
-            ...(existingJob?.meta ?? {}),
-            recovered_by: WORKER_ID,
-            recovered_at: new Date().toISOString(),
-            reason: "stale_processing_lock",
-          };
-          await sb.from("job_queue").update({ meta: merged }).eq("id", sid);
-        } catch (_e) { /* best-effort */ }
-      }
-      console.warn(`[content-runner] STALE_LOCK_RECOVERY: released ${staleIds.length} orphaned processing job(s)`);
-    }
+    console.log(`[content-runner] v7.1: stale-lock recovery delegated to stuck-scan SSOT`);
   }
 
   // ── PREBUILD PASS: deterministic queue-bypass ──
