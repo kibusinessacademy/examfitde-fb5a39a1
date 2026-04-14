@@ -97,6 +97,15 @@ const AEVOSchriftlichePage = lazyRetry(() => import('@/pages/seo/AEVOSchriftlich
 const AEVOPraktischePage = lazyRetry(() => import('@/pages/seo/AEVOPraktischePage'));
 const AEVOFachgespraechPage = lazyRetry(() => import('@/pages/seo/AEVOFachgespraechPage'));
 
+// Studium Pillar-Cluster Pages
+const StudiumPruefungsvorbereitungPage = lazyRetry(() => import('@/pages/seo/StudiumPruefungsvorbereitungPage'));
+const KlausurtrainingStudiumPage = lazyRetry(() => import('@/pages/seo/KlausurtrainingStudiumPage'));
+const BWLKlausurPage = lazyRetry(() => import('@/pages/seo/BWLKlausurPage'));
+const RechnungswesenStudiumPage = lazyRetry(() => import('@/pages/seo/RechnungswesenStudiumPage'));
+const LernplanStudiumPage = lazyRetry(() => import('@/pages/seo/LernplanStudiumPage'));
+const PruefungsangstStudiumPage = lazyRetry(() => import('@/pages/seo/PruefungsangstStudiumPage'));
+const MuendlichePruefungStudiumPage = lazyRetry(() => import('@/pages/seo/MuendlichePruefungStudiumPage'));
+
 // Legal Pages
 const AGBPage = lazyRetry(() => import('@/pages/seo/AGBPage'));
 const FAQPage = lazyRetry(() => import('@/pages/seo/FAQPage'));
