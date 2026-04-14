@@ -87,6 +87,16 @@ const MuendlichePruefungPage = lazyRetry(() => import('@/pages/seo/MuendlichePru
 const ProbepruefungPage = lazyRetry(() => import('@/pages/seo/ProbepruefungPage'));
 const LernplanPruefungPage = lazyRetry(() => import('@/pages/seo/LernplanPruefungPage'));
 
+// IHK + AEVO Pillar-Cluster Pages
+const IHKPruefungsvorbereitungPage = lazyRetry(() => import('@/pages/seo/IHKPruefungsvorbereitungPage'));
+const IHKPruefungsfragenPage = lazyRetry(() => import('@/pages/seo/IHKPruefungsfragenPage'));
+const IHKFachgespraechPage = lazyRetry(() => import('@/pages/seo/IHKFachgespraechPage'));
+const IHKProbepruefungPage = lazyRetry(() => import('@/pages/seo/IHKProbepruefungPage'));
+const AEVOPruefungsvorbereitungPage = lazyRetry(() => import('@/pages/seo/AEVOPruefungsvorbereitungPage'));
+const AEVOSchriftlichePage = lazyRetry(() => import('@/pages/seo/AEVOSchriftlichePage'));
+const AEVOPraktischePage = lazyRetry(() => import('@/pages/seo/AEVOPraktischePage'));
+const AEVOFachgespraechPage = lazyRetry(() => import('@/pages/seo/AEVOFachgespraechPage'));
+
 // Legal Pages
 const AGBPage = lazyRetry(() => import('@/pages/seo/AGBPage'));
 const FAQPage = lazyRetry(() => import('@/pages/seo/FAQPage'));
