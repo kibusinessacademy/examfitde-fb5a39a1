@@ -368,10 +368,69 @@ Deno.serve(async (req) => {
 
         // ── Pattern A: Orphaned steps ──
         //    HARDENED: skip governance steps
+        //    v3: Subjob-based steps redirect to their enqueue step instead of
+        //        blindly creating payload-less jobs that become no-ops.
         for (const step of steps) {
           if (step.status !== "queued" && step.status !== "failed") continue;
           // GOVERNANCE EXCLUSION
           if (GOVERNANCE_STEPS.has(step.step_key)) continue;
+
+          // v3: SUBJOB REDIRECT — for steps like expand_handbook, re-trigger
+          // the enqueue step that creates properly-formed subjobs with section_id etc.
+          const redirectEnqueueStep = SUBJOB_REDIRECT_MAP[step.step_key];
+          if (redirectEnqueueStep) {
+            const enqueueStepStatus = stepMap.get(redirectEnqueueStep);
+            // Only redirect if the enqueue step is in done/skipped — if it's already
+            // queued/failed, it will be picked up by this same loop.
+            if (enqueueStepStatus === "done" || enqueueStepStatus === "skipped") {
+              try {
+                // Reset the enqueue step so the runner re-dispatches with proper payloads
+                await sb
+                  .from("package_steps")
+                  .update({
+                    status: "queued",
+                    updated_at: new Date().toISOString(),
+                    meta: {
+                      ...(steps.find(s => s.step_key === redirectEnqueueStep)?.meta || {}),
+                      re_triggered_by: "ops-step-orphan-healer",
+                      re_triggered_at: new Date().toISOString(),
+                      reason: `subjob_redirect_from_${step.step_key}`,
+                    },
+                  })
+                  .eq("package_id", pkg.id)
+                  .eq("step_key", redirectEnqueueStep);
+
+                stepMap.set(redirectEnqueueStep, "queued");
+
+                const redirectJobType = STEP_TO_JOB_TYPE[redirectEnqueueStep as PipelineStepKey];
+                if (redirectJobType && !activeJobTypes.has(redirectJobType)) {
+                  await enqueueJob(sb, {
+                    job_type: redirectJobType,
+                    payload: {
+                      package_id: pkg.id,
+                      curriculum_id: (pkg as any).curriculum_id,
+                      source: "ops-step-orphan-healer",
+                      heal_pattern: "subjob_redirect",
+                    },
+                    package_id: pkg.id,
+                    priority: 5,
+                  });
+                }
+
+                actions.push({
+                  package_id: pkg.id,
+                  title: pkg.title ?? "",
+                  pattern: "orphaned_step",
+                  step_key: step.step_key,
+                  action: `subjob_redirect→${redirectEnqueueStep}`,
+                  job_type: redirectJobType,
+                });
+              } catch (e) {
+                errors.push(`SubjobRedirect ${step.step_key}→${redirectEnqueueStep} for ${pkg.id.slice(0, 8)}: ${(e as Error).message}`);
+              }
+            }
+            continue; // Never blindly enqueue subjob-type jobs
+          }
 
           const jobType = STEP_TO_JOB_TYPE[step.step_key as PipelineStepKey];
           if (!jobType) continue;
@@ -383,6 +442,7 @@ Deno.serve(async (req) => {
               job_type: jobType,
               payload: {
                 package_id: pkg.id,
+                curriculum_id: (pkg as any).curriculum_id,
                 source: "ops-step-orphan-healer",
                 heal_pattern: "orphaned_step",
               },
@@ -398,6 +458,7 @@ Deno.serve(async (req) => {
               action: "enqueue",
               job_type: jobType,
             });
+
           } catch (e) {
             errors.push(`Enqueue ${jobType} for ${pkg.id.slice(0, 8)}: ${(e as Error).message}`);
           }
