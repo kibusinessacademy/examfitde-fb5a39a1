@@ -2393,7 +2393,18 @@ Deno.serve(async (req) => {
       if (patchError !== undefined) {
         dbPatch.last_error = patchError;
       }
-      await sb.from("job_queue").update(dbPatch).eq("id", job.id);
+      const { error: updateErr } = await sb.from("job_queue").update(dbPatch).eq("id", job.id);
+      if (updateErr) {
+        console.error(`[job-runner] CRITICAL: DB update failed for job ${job.id} (${job.job_type}) → ${finalState.status}: ${updateErr.message}`);
+        // Retry once without meta (meta serialization issues are common)
+        const { meta: _metaDrop, ...retryPatch } = dbPatch;
+        const { error: retryErr } = await sb.from("job_queue").update(retryPatch).eq("id", job.id);
+        if (retryErr) {
+          console.error(`[job-runner] CRITICAL: Retry also failed for job ${job.id}: ${retryErr.message}`);
+        } else {
+          console.log(`[job-runner] Retry without meta succeeded for job ${job.id}`);
+        }
+      }
 
       // ── STEP SYNC: Update package_steps on permanent/terminal failures ──
       // Without this, steps stay in 'enqueued'/'queued' and stuck-scan
