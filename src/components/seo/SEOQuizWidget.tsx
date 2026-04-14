@@ -1,6 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, CheckCircle, XCircle, RotateCcw, Brain } from 'lucide-react';
+import { ArrowRight, CheckCircle, XCircle, RotateCcw, Brain, ShoppingCart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useQuery } from '@tanstack/react-query';
@@ -14,6 +14,7 @@ interface Props {
   /** fallback static questions if no DB data */
   fallbackQuestions?: QuizQuestion[];
   ctaText?: string;
+  /** Explicit product link. If omitted, auto-resolved from certificationSlug via DB */
   ctaLink?: string;
   maxQuestions?: number;
   className?: string;
