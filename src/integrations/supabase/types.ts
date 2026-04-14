@@ -68763,6 +68763,7 @@ export type Database = {
           status: string | null
           steps_done: number | null
           steps_functional: number | null
+          stuck_class: string | null
           stuck_reason: string | null
           total_questions: number | null
           track: string | null
