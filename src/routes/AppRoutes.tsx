@@ -106,6 +106,14 @@ const LernplanStudiumPage = lazyRetry(() => import('@/pages/seo/LernplanStudiumP
 const PruefungsangstStudiumPage = lazyRetry(() => import('@/pages/seo/PruefungsangstStudiumPage'));
 const MuendlichePruefungStudiumPage = lazyRetry(() => import('@/pages/seo/MuendlichePruefungStudiumPage'));
 
+// Scrum & PRINCE2 Pillar-Cluster Pages
+const ScrumPrince2ZertifizierungPage = lazyRetry(() => import('@/pages/seo/ScrumPrince2ZertifizierungPage'));
+const ScrumPSMVorbereitungPage = lazyRetry(() => import('@/pages/seo/ScrumPSMVorbereitungPage'));
+const ScrumCSMTrainingPage = lazyRetry(() => import('@/pages/seo/ScrumCSMTrainingPage'));
+const Prince2FoundationPage = lazyRetry(() => import('@/pages/seo/Prince2FoundationPage'));
+const Prince2PractitionerPage = lazyRetry(() => import('@/pages/seo/Prince2PractitionerPage'));
+const ScrumPrince2VergleichPage = lazyRetry(() => import('@/pages/seo/ScrumPrince2VergleichPage'));
+
 // Legal Pages
 const AGBPage = lazyRetry(() => import('@/pages/seo/AGBPage'));
 const FAQPage = lazyRetry(() => import('@/pages/seo/FAQPage'));
