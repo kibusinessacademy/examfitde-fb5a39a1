@@ -654,6 +654,12 @@ Deno.serve(async (req) => {
         const stepKey2 = body.step_key as string;
         if (!pkgId2 || !stepKey2) return json({ error: "package_id and step_key required" }, 400);
 
+        // ── SSOT: Check track applicability before enqueue ──
+        const appCheck2 = await isStepApplicableForPackage(sb, pkgId2, stepKey2);
+        if (!appCheck2.applicable) {
+          return json({ ok: false, error: `Step '${stepKey2}' is not applicable for track '${appCheck2.track}' (${appCheck2.reason})`, ssot_blocked: true }, 400);
+        }
+
         const { STEP_TO_JOB_TYPE: S2J } = await import("../_shared/job-map.ts");
         const jobType2 = (S2J as any)[stepKey2];
         if (!jobType2) return json({ error: `No job type for step: ${stepKey2}` }, 400);
