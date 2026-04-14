@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { batchHealAndDispatch } from "../_shared/heal-dispatch.ts";
 import { canEnqueueForPackageState, enqueueJob } from "../_shared/enqueue.ts";
+import { isStepApplicableForPackage } from "../_shared/stuck-scan-helpers.ts";
 
 /** Governance steps that must NEVER be reset/healed by generic admin actions */
 const GOVERNANCE_STEP_KEYS = ["run_integrity_check", "quality_council", "auto_publish"];
