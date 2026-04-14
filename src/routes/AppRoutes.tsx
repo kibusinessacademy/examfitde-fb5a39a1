@@ -209,6 +209,11 @@ const AppRoutes = () => {
 
           <Route path="/:slug" element={<ProgrammaticSEODispatcher />} />
 
+          <Route path="/pruefungsfragen" element={<PruefungsfragenPage />} />
+          <Route path="/muendliche-pruefung" element={<MuendlichePruefungPage />} />
+          <Route path="/probepruefung" element={<ProbepruefungPage />} />
+          <Route path="/lernplan-pruefung" element={<LernplanPruefungPage />} />
+
           <Route path="/ihk-pruefungen" element={<IHKPruefungenPage />} />
           <Route path="/pruefungstraining-azubis" element={<PruefungstrainingAzubisPage />} />
           <Route path="/pruefungstraining-betriebe" element={<PruefungstrainingBetriebePage />} />
