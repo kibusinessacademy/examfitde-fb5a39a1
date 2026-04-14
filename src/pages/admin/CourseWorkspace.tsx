@@ -25,6 +25,7 @@ import {
   approveStepException as approveExceptionAction,
   resetToStep as resetToStepAction,
   enqueueSingleStep as enqueueSingleStepAction,
+  runAdminOpsAction,
 } from '@/integrations/supabase/admin-ops-actions';
 import BuildLiveLog from '@/components/admin/BuildLiveLog';
 import ProductModuleStatus from '@/components/admin/ProductModuleStatus';
