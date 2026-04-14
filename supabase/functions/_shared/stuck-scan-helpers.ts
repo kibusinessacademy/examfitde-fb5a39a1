@@ -241,3 +241,107 @@ export async function safeRpc(
     return { data: null, error: e };
   }
 }
+
+// ═══════════════════════════════════════════════════════
+//  SSOT: Track Step Applicability Check
+// ═══════════════════════════════════════════════════════
+// All healers, admin-ops, and orchestrators MUST use this
+// before resetting a step to "queued" or enqueuing a job.
+// ═══════════════════════════════════════════════════════
+
+/** Cache for track lookups — avoids repeated DB hits within a single scan cycle */
+const _trackCache = new Map<string, string | null>();
+
+/**
+ * Resolve the product track for a given package_id.
+ * Returns null if the package or track is unknown.
+ */
+export async function resolvePackageTrack(
+  sb: SupabaseClient,
+  packageId: string,
+): Promise<string | null> {
+  if (_trackCache.has(packageId)) return _trackCache.get(packageId)!;
+  const { data, error } = await sb
+    .from("course_packages")
+    .select("track")
+    .eq("id", packageId)
+    .maybeSingle();
+  const track = error ? null : (data?.track as string | null) ?? null;
+  _trackCache.set(packageId, track);
+  return track;
+}
+
+/**
+ * Check if a step_key is applicable for the given package's track.
+ * Returns { applicable: true } if the step should run,
+ * { applicable: false, reason } if it must be skipped.
+ *
+ * Falls back to applicable=true if the track is unknown or the
+ * step has no entry in track_step_applicability (fail-open for
+ * new steps not yet registered).
+ */
+export async function isStepApplicableForPackage(
+  sb: SupabaseClient,
+  packageId: string,
+  stepKey: string,
+): Promise<{ applicable: boolean; reason?: string; track?: string }> {
+  const track = await resolvePackageTrack(sb, packageId);
+  if (!track) return { applicable: true, reason: "track_unknown_fail_open" };
+
+  const { data, error } = await sb
+    .from("track_step_applicability")
+    .select("should_run")
+    .eq("track", track)
+    .eq("step_key", stepKey)
+    .maybeSingle();
+
+  if (error || !data) return { applicable: true, reason: "no_applicability_entry_fail_open", track };
+
+  if (!data.should_run) {
+    return { applicable: false, reason: `track_not_applicable:${track}`, track };
+  }
+  return { applicable: true, track };
+}
+
+/**
+ * If a step is not applicable for its track, auto-skip it and log.
+ * Returns true if the step was skipped.
+ */
+export async function autoSkipIfNotApplicable(
+  sb: SupabaseClient,
+  packageId: string,
+  stepKey: string,
+  source: string,
+): Promise<boolean> {
+  const check = await isStepApplicableForPackage(sb, packageId, stepKey);
+  if (check.applicable) return false;
+
+  await sb.from("package_steps").update({
+    status: "skipped",
+    updated_at: new Date().toISOString(),
+    meta: {
+      skip_reason: "track_not_applicable",
+      skipped_by: source,
+      skipped_at: new Date().toISOString(),
+      track: check.track,
+    },
+  }).eq("package_id", packageId).eq("step_key", stepKey);
+
+  await sb.from("auto_heal_log").insert({
+    action_type: "ssot_applicability_auto_skip",
+    trigger_source: source,
+    target_type: "package_step",
+    target_id: packageId,
+    result_status: "applied",
+    result_detail: `Step ${stepKey} auto-skipped: ${check.reason}`,
+    metadata: { step_key: stepKey, track: check.track, reason: check.reason },
+  }).catch(() => {});
+
+  console.warn(`[${source}] ⏭️ SSOT auto-skip: ${stepKey} for ${packageId.slice(0, 8)} — ${check.reason}`);
+  return true;
+}
+
+/** Clear the per-scan track cache (call at the start of each stuck-scan cycle) */
+export function clearTrackCache() {
+  _trackCache.clear();
+}
