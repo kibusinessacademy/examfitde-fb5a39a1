@@ -161,6 +161,9 @@ export async function healStatusLag(sb: SupabaseClient) {
     const jobType = STEP_TO_JOB_TYPE[ps.step_key] ?? null;
     if (!jobType) continue;
 
+    // ── SSOT: Auto-skip if step is not applicable for this track ──
+    if (await autoSkipIfNotApplicable(sb, ps.package_id, ps.step_key, "stuck-scan-status-lag")) continue;
+
     const { count: procCnt } = await sb
       .from("job_queue")
       .select("id", { count: "exact", head: true })
