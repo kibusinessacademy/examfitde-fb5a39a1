@@ -1,7 +1,9 @@
 /**
  * stuck-scan: Hygiene — lease cleanup, pool mismatch sweep, transient revive.
+ *
+ * SSOT-AWARE: All healers check track_step_applicability before enqueue/reset.
  */
-import { safeRpc, type SupabaseClient } from "./stuck-scan-helpers.ts";
+import { safeRpc, autoSkipIfNotApplicable, isStepApplicableForPackage, type SupabaseClient } from "./stuck-scan-helpers.ts";
 import { enqueueJob } from "./enqueue.ts";
 import { isRepairActionEligible } from "./repair-eligibility.ts";
 import { STEP_TO_JOB_TYPE, getArtifactPriorityBump } from "./job-map.ts";
@@ -157,6 +159,12 @@ export async function healLearningContentDeadlocks(sb: SupabaseClient) {
       .limit(20);
 
     for (const row of candidates || []) {
+      // ── SSOT: Skip packages where generate_learning_content is not applicable ──
+      const appCheck = await isStepApplicableForPackage(sb, row.package_id, "generate_learning_content");
+      if (!appCheck.applicable) {
+        console.log(`[stuck-scan] 🩹 DEADLOCK_HEAL skip: ${String(row.package_id).slice(0, 8)} — step not applicable (${appCheck.reason})`);
+        continue;
+      }
       try {
         const { data: result } = await sb.rpc("heal_learning_content_deadlock", {
           p_package_id: row.package_id,
@@ -381,6 +389,9 @@ export async function healTrueStallSteps(sb: SupabaseClient) {
 
       const minAgeMinutes = step.drift_signal === "PENDING_DISPATCH" ? 2 : 15;
       if ((step.age_minutes ?? 0) < minAgeMinutes) continue;
+
+      // ── SSOT: Auto-skip if step is not applicable for this track ──
+      if (await autoSkipIfNotApplicable(sb, step.package_id, step.step_key, "stuck-scan-true-stall")) continue;
 
       const { data: pkg, error: pkgErr } = await sb
         .from("course_packages")

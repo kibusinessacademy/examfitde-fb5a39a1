@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { batchHealAndDispatch } from "../_shared/heal-dispatch.ts";
 import { canEnqueueForPackageState, enqueueJob } from "../_shared/enqueue.ts";
+import { isStepApplicableForPackage } from "../_shared/stuck-scan-helpers.ts";
 
 /** Governance steps that must NEVER be reset/healed by generic admin actions */
 const GOVERNANCE_STEP_KEYS = ["run_integrity_check", "quality_council", "auto_publish"];
@@ -145,6 +146,11 @@ Deno.serve(async (req) => {
         const pid = String(body.package_id || "");
         const sk = String(body.step_key || "");
         if (!pid || !sk) return json({ error: "package_id and step_key required" }, 400);
+        // ── SSOT: Check track applicability ──
+        const appCheckRetry = await isStepApplicableForPackage(sb, pid, sk);
+        if (!appCheckRetry.applicable) {
+          return json({ ok: false, error: `Step '${sk}' is not applicable for track '${appCheckRetry.track}' (${appCheckRetry.reason})`, ssot_blocked: true }, 400);
+        }
         beforeState = { package_id: pid, step_key: sk };
         affectedIds = [`${pid}:${sk}`];
         result = await retryPackageStep(sb, pid, sk, body);
@@ -652,6 +658,12 @@ Deno.serve(async (req) => {
         const pkgId2 = body.package_id as string;
         const stepKey2 = body.step_key as string;
         if (!pkgId2 || !stepKey2) return json({ error: "package_id and step_key required" }, 400);
+
+        // ── SSOT: Check track applicability before enqueue ──
+        const appCheck2 = await isStepApplicableForPackage(sb, pkgId2, stepKey2);
+        if (!appCheck2.applicable) {
+          return json({ ok: false, error: `Step '${stepKey2}' is not applicable for track '${appCheck2.track}' (${appCheck2.reason})`, ssot_blocked: true }, 400);
+        }
 
         const { STEP_TO_JOB_TYPE: S2J } = await import("../_shared/job-map.ts");
         const jobType2 = (S2J as any)[stepKey2];
