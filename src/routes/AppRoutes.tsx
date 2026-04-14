@@ -82,6 +82,10 @@ const EnterpriseDemoPage = lazyRetry(() => import('@/pages/seo/EnterpriseDemoPag
 const PruefungsreifeCheck = lazyRetry(() => import('@/components/marketing/PruefungsreifeCheck'));
 const BlogIndexPage = lazyRetry(() => import('@/pages/seo/BlogIndexPage'));
 const BlogArticlePage = lazyRetry(() => import('@/pages/seo/BlogArticlePage'));
+const PruefungsfragenPage = lazyRetry(() => import('@/pages/seo/PruefungsfragenPage'));
+const MuendlichePruefungPage = lazyRetry(() => import('@/pages/seo/MuendlichePruefungPage'));
+const ProbepruefungPage = lazyRetry(() => import('@/pages/seo/ProbepruefungPage'));
+const LernplanPruefungPage = lazyRetry(() => import('@/pages/seo/LernplanPruefungPage'));
 
 // Legal Pages
 const AGBPage = lazyRetry(() => import('@/pages/seo/AGBPage'));
