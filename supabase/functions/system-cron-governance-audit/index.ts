@@ -109,13 +109,73 @@ Deno.serve(async (req) => {
     alerts.push("phantom_council_approvals");
   }
 
-  const allOk = audit.ok === true && phantomNonPublished.length === 0 && councilRows.length === 0;
+  // --- Orphan-Step Audit (Phantom-Queued) ---
+  const { data: orphanSteps, error: e3 } = await sb
+    .from("ops_orphan_step_audit")
+    .select("package_id, step_key, orphan_class, step_age_minutes, dag_ready, guard_evidence, course_title")
+    .order("step_age_minutes", { ascending: false });
+  if (e3) console.error("orphan_step_audit query failed:", e3.message);
+
+  const orphanRows = orphanSteps || [];
+  const guardSwallowed = orphanRows.filter((r: any) => r.orphan_class === "guard_swallowed");
+  const materializerGap = orphanRows.filter((r: any) => r.orphan_class === "materializer_gap");
+  const orphanQueued = orphanRows.filter((r: any) => r.orphan_class === "orphan_queued");
+
+  // Alert on guard_swallowed (deadlock risk)
+  if (guardSwallowed.length > 0) {
+    await openAlert(
+      sb,
+      "orphan_step_guard_swallowed",
+      "critical",
+      "Guard-swallowed steps detected (deadlock risk)",
+      `${guardSwallowed.length} step(s) had their jobs blocked by a guard without completing the step`,
+      { count: guardSwallowed.length, steps: guardSwallowed.slice(0, 20) },
+    );
+    alerts.push("orphan_step_guard_swallowed");
+  }
+
+  // Alert on materializer_gap (DAG-ready but never materialized)
+  if (materializerGap.length > 0) {
+    await openAlert(
+      sb,
+      "orphan_step_materializer_gap",
+      "warn",
+      "Materializer gap: DAG-ready steps without jobs",
+      `${materializerGap.length} step(s) are DAG-ready but have no job materialized`,
+      { count: materializerGap.length, steps: materializerGap.slice(0, 20) },
+    );
+    alerts.push("orphan_step_materializer_gap");
+  }
+
+  // Alert on orphan_queued (old steps with no job)
+  if (orphanQueued.length > 0) {
+    await openAlert(
+      sb,
+      "orphan_step_queued",
+      "warn",
+      "Orphan queued steps without active jobs",
+      `${orphanQueued.length} step(s) are queued/enqueued with no active or recent job`,
+      { count: orphanQueued.length, steps: orphanQueued.slice(0, 20) },
+    );
+    alerts.push("orphan_step_queued");
+  }
+
+  const allOk = audit.ok === true
+    && phantomNonPublished.length === 0
+    && councilRows.length === 0
+    && guardSwallowed.length === 0;
 
   return json(200, {
     ok: allOk,
     audit,
     phantom_done: { non_published: phantomNonPublished.length, published: phantomPublished.length },
     phantom_council: councilRows.length,
+    orphan_steps: {
+      guard_swallowed: guardSwallowed.length,
+      materializer_gap: materializerGap.length,
+      orphan_queued: orphanQueued.length,
+      total: orphanRows.length,
+    },
     alerts,
   });
 });
