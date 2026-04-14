@@ -392,7 +392,23 @@ Deno.serve(async (req) => {
 
   // Filter fields to only those that still need generation
   const fieldsNeedingGeneration = fields.filter((lf: any) => !populatedLfIds.has(lf.id));
-  console.log(`[generate-handbook] ${populatedLfIds.size}/${fields.length} LFs valid. ${invalidSectionIds.length} purged. ${fieldsNeedingGeneration.length} remaining.`);
+
+  // ── v20: Detect padding chapters without sections ──
+  // Chapters that have no LFs assigned (padding) AND no existing sections need content.
+  const chaptersWithSections = new Set((existingSections || []).map((s: any) => s.chapter_id));
+  const paddingChaptersNeedingSections = chapters
+    .filter((c: any) => !chaptersWithSections.has(c.id))
+    .map((c: any, idx: number) => ({
+      _isPadding: true,
+      _chapterId: c.id,
+      _chapterSortOrder: c.sort_order,
+      id: `padding-${c.id}`,
+      code: PADDING_TOPICS[idx % PADDING_TOPICS.length].code,
+      title: PADDING_TOPICS[idx % PADDING_TOPICS.length].title,
+      description: PADDING_TOPICS[idx % PADDING_TOPICS.length].description,
+    }));
+
+  console.log(`[generate-handbook] ${populatedLfIds.size}/${fields.length} LFs valid. ${invalidSectionIds.length} purged. ${fieldsNeedingGeneration.length} LFs remaining. ${paddingChaptersNeedingSections.length} padding chapters need sections.`);
 
   // ── COVERAGE-FIRST COMPLETION CHECK ──
   // Handbook sections often cover multiple LFs per section (e.g., one section for LF01+LF02).
