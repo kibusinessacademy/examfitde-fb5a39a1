@@ -435,9 +435,9 @@ Deno.serve(async (req) => {
     });
   }
 
-  if (fieldsNeedingGeneration.length === 0) {
-    // All LFs individually tracked but coverage check failed — unusual state
-    console.warn(`[generate-handbook] All LFs populated but coverage failed — forcing re-evaluation`);
+  if (fieldsNeedingGeneration.length === 0 && paddingChaptersNeedingSections.length === 0) {
+    // All LFs individually tracked AND no padding work, but coverage check failed — unusual state
+    console.warn(`[generate-handbook] All LFs populated, no padding work, but coverage failed — forcing re-evaluation`);
     return json({
       ok: true,
       batch_complete: false,
@@ -447,6 +447,11 @@ Deno.serve(async (req) => {
       sections: existingSections?.length || 0,
       message: `Coverage verification failed at early exit: ${preGenCoverage.coveredChapters}/${preGenCoverage.totalChapters} chapters`,
     });
+  }
+
+  // v21: If only padding chapters remain, skip batch routing and go straight to sync generation
+  if (fieldsNeedingGeneration.length === 0 && paddingChaptersNeedingSections.length > 0) {
+    console.log(`[generate-handbook] v21: All LFs done but ${paddingChaptersNeedingSections.length} padding chapters need sections — entering sync generation for padding`);
   }
 
   // Build field→chapter mapping (maps field index in ALL fields to chapter sort_order)
