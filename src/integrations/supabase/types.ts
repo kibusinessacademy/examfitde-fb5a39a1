@@ -29860,6 +29860,39 @@ export type Database = {
         }
         Relationships: []
       }
+      ops_nightly_audit_results: {
+        Row: {
+          audit_run_at: string
+          auto_healed: boolean
+          created_at: string
+          details: Json
+          finding_key: string
+          id: string
+          layer: string
+          severity: string
+        }
+        Insert: {
+          audit_run_at?: string
+          auto_healed?: boolean
+          created_at?: string
+          details?: Json
+          finding_key: string
+          id?: string
+          layer: string
+          severity?: string
+        }
+        Update: {
+          audit_run_at?: string
+          auto_healed?: boolean
+          created_at?: string
+          details?: Json
+          finding_key?: string
+          id?: string
+          layer?: string
+          severity?: string
+        }
+        Relationships: []
+      }
       ops_pipeline_config: {
         Row: {
           key: string
@@ -79107,6 +79140,7 @@ export type Database = {
             Returns: boolean
           }
       fn_nightly_auto_heal: { Args: never; Returns: Json }
+      fn_nightly_completion_sync_audit: { Args: never; Returns: Json }
       fn_normalize_curriculum_slug: {
         Args: { p_title: string }
         Returns: string
