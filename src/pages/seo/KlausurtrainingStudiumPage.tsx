@@ -77,7 +77,7 @@ export default function KlausurtrainingStudiumPage() {
 
         <section className="py-16">
           <div className="container max-w-4xl">
-            <SEOQuizWidget title="Probiere das Klausurtraining" subtitle="5 Fragen – teste dich jetzt" certificationSlug="bwl" ctaText="Vollständiges Training starten" ctaLink="/shop" />
+            <SEOQuizWidget title="Probiere das Klausurtraining" subtitle="5 Fragen – teste dich jetzt" certificationSlug="bwl" ctaText="Vollständiges Training starten"  />
           </div>
         </section>
 

@@ -98,7 +98,7 @@ export default function StudiumPruefungsvorbereitungPage() {
               subtitle="5 Fragen – wie gut bist du vorbereitet?"
               certificationSlug="bwl"
               ctaText="Jetzt Klausurtraining starten"
-              ctaLink="/shop"
+              
             />
           </div>
         </section>

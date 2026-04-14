@@ -99,7 +99,7 @@ export default function IHKProbepruefungPage() {
               subtitle="5 Fragen – wie bestehst du?"
               certificationSlug="aevo"
               ctaText="Vollständige Probeprüfung starten"
-              ctaLink="/shop"
+              
             />
           </div>
         </section>

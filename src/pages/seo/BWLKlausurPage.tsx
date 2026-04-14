@@ -70,7 +70,7 @@ export default function BWLKlausurPage() {
 
         <section className="py-16">
           <div className="container max-w-4xl">
-            <SEOQuizWidget title="BWL-Prüfungsfragen testen" subtitle="5 Fragen – wie fit bist du?" certificationSlug="bwl" ctaText="Vollständiges BWL-Training" ctaLink="/shop" />
+            <SEOQuizWidget title="BWL-Prüfungsfragen testen" subtitle="5 Fragen – wie fit bist du?" certificationSlug="bwl" ctaText="Vollständiges BWL-Training"  />
           </div>
         </section>
 

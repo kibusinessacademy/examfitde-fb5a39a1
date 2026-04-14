@@ -69,7 +69,7 @@ export default function RechnungswesenStudiumPage() {
 
         <section className="py-16">
           <div className="container max-w-4xl">
-            <SEOQuizWidget title="Rechnungswesen-Fragen testen" subtitle="Wie fit bist du in Buchführung & Bilanz?" certificationSlug="bwl" ctaText="Vollständiges Training" ctaLink="/shop" />
+            <SEOQuizWidget title="Rechnungswesen-Fragen testen" subtitle="Wie fit bist du in Buchführung & Bilanz?" certificationSlug="bwl" ctaText="Vollständiges Training"  />
           </div>
         </section>
 
