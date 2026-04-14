@@ -628,10 +628,13 @@ Deno.serve(async (req) => {
 
   // Take at most BATCH_SIZE from LFs that still need generation, OR padding chapters
   // v20: Padding chapters are processed after all LFs are done
+  // v23: When only padding remains, process ALL at once — BATCH_SIZE=1 caused
+  //      MATERIALIZATION_GUARD THRESHOLD_FAIL (5/8) because only 1 padding chapter
+  //      was written per invocation, and the guard ran between invocations.
   const hasLfWork = fieldsNeedingGeneration.length > 0;
   const batchFields = hasLfWork
     ? fieldsNeedingGeneration.slice(0, BATCH_SIZE)
-    : paddingChaptersNeedingSections.slice(0, BATCH_SIZE);
+    : paddingChaptersNeedingSections; // v23: ALL padding in one pass
 
   for (let i = 0; i < batchFields.length; i++) {
     const lf = batchFields[i] as any;
