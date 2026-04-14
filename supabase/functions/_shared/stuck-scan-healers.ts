@@ -5,10 +5,13 @@
  * IMPORTANT: All job-liveness checks MUST go through the SSOT functions
  * in stuck-scan-helpers.ts (isStepFinalizable / filterGenuinelyActiveJobs).
  * Do NOT add inline job-count checks here.
+ *
+ * SSOT-AWARE: All healers MUST check track_step_applicability via
+ * autoSkipIfNotApplicable before resetting steps to "queued".
  */
 import { STEP_TO_JOB_TYPE } from "./job-map.ts";
 import { markStepDone } from "./steps.ts";
-import { isStepFinalizable, cancelTerminalLoopJobs, filterGenuinelyActiveJobs, type SupabaseClient } from "./stuck-scan-helpers.ts";
+import { isStepFinalizable, cancelTerminalLoopJobs, filterGenuinelyActiveJobs, autoSkipIfNotApplicable, type SupabaseClient } from "./stuck-scan-helpers.ts";
 
 const ORPHAN_MIN_AGE_MS = 10 * 60 * 1000;
 const ENQ_DRIFT_MIN_AGE_MS = 10 * 60 * 1000;
@@ -41,6 +44,12 @@ export async function healOrphanProcessing(sb: SupabaseClient) {
 
     const { active: genuinelyActive } = filterGenuinelyActiveJobs(activeJobs ?? []);
     if (genuinelyActive.length > 0) continue;
+
+    // ── SSOT: Auto-skip if step is not applicable for this track ──
+    if (await autoSkipIfNotApplicable(sb, ps.package_id, ps.step_key, "stuck-scan-orphan-heal")) {
+      orphanResults.push({ package_id: ps.package_id, step_key: ps.step_key, action: `ssot-auto-skip: track_not_applicable` });
+      continue;
+    }
 
     const prevMeta = (ps.meta ?? {}) as Record<string, unknown>;
     const stallCount = Number(prevMeta.stall_count ?? 0) + 1;
@@ -102,6 +111,12 @@ export async function healEnqueuedDrift(sb: SupabaseClient) {
 
     const { active: genuinelyActive } = filterGenuinelyActiveJobs(activeJobs ?? []);
     if (genuinelyActive.length > 0) continue;
+
+    // ── SSOT: Auto-skip if step is not applicable for this track ──
+    if (await autoSkipIfNotApplicable(sb, ps.package_id, ps.step_key, "stuck-scan-enqueued-drift")) {
+      enqueuedDriftResults.push({ package_id: ps.package_id, step_key: ps.step_key, action: `ssot-auto-skip: track_not_applicable` });
+      continue;
+    }
 
     const prevMeta = (ps.meta ?? {}) as Record<string, unknown>;
     const ageMin = Math.round(ageMs / 60000);
