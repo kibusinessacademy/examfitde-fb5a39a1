@@ -37,6 +37,16 @@ const TARGET_CHAPTERS = 8;
 const BATCH_SIZE = 1;
 const MIN_SECTION_CHARS = 800;    // v15: lowered from 1800 — lean basis floor
 
+// ── Padding Chapter Topics (v20 — SSOT for cross-cutting exam content) ──
+// When a curriculum has fewer LFs than TARGET_CHAPTERS, padding chapters
+// get one of these topics to ensure every chapter carries real content.
+const PADDING_TOPICS = [
+  { code: "PRUEF-STRAT", title: "Prüfungsstrategie und Zeitmanagement", description: "Systematische Prüfungsvorbereitung: Zeitplanung in der Prüfung, Aufgabenpriorisierung, Umgang mit Unsicherheit und schwierigen Fragestellungen." },
+  { code: "FACH-UEBERG", title: "Fachübergreifende Zusammenhänge", description: "Verknüpfung der Lernfelder untereinander, Transferwissen zwischen Themengebieten, typische lernfeldübergreifende Prüfungsaufgaben." },
+  { code: "SCHLUESSEL", title: "Schlüsselkonzepte und Kernformeln", description: "Zentrale Definitionen, Formeln, Berechnungsschemata und Merksätze über alle Lernfelder hinweg — kompakt zum Nachschlagen." },
+  { code: "PRUEF-VORBER", title: "Prüfungsvorbereitung und Lernmethodik", description: "Effektive Lernstrategien, Selbstkontrolle, Wiederholungstechniken und Umgang mit Prüfungsangst." },
+];
+
 // ── Section Generator ────────────────────────────────────────
 
 async function generateSectionContent(

@@ -190,8 +190,13 @@ export function filterValidSections(
 }
 
 /**
- * Layer 3: Post-write coverage verification.
- * Checks that enough chapters have real content in the DB.
+ * Layer 3: Post-write coverage verification (v20 — SSOT-aware).
+ *
+ * SSOT PRINCIPLE: The expected section count is derived from the same logic
+ * the generator uses — max(lf_count, TARGET_CHAPTERS) — not from a separate
+ * hardcoded constant. The verifier counts chapters WITH real sections,
+ * not just chapters that exist.
+ *
  * Call BEFORE marking generate_handbook as done.
  */
 export async function verifyHandbookCoverage(
@@ -202,7 +207,10 @@ export async function verifyHandbookCoverage(
   coveredChapters: number;
   totalChapters: number;
   minNeeded: number;
+  totalSections: number;
   totalChars: number;
+  expectedSections: number;
+  actualSections: number;
   details?: string;
 }> {
   // Load all chapters for this curriculum
@@ -217,7 +225,10 @@ export async function verifyHandbookCoverage(
       coveredChapters: 0,
       totalChapters: 0,
       minNeeded: 1,
+      totalSections: 0,
       totalChars: 0,
+      expectedSections: 1,
+      actualSections: 0,
       details: chErr ? `DB error: ${chErr.message}` : "no chapters found",
     };
   }
@@ -236,7 +247,10 @@ export async function verifyHandbookCoverage(
       coveredChapters: 0,
       totalChapters: chapters.length,
       minNeeded: 1,
+      totalSections: 0,
       totalChars: 0,
+      expectedSections: chapters.length,
+      actualSections: 0,
       details: `sections query error: ${secErr.message}`,
     };
   }
@@ -244,17 +258,20 @@ export async function verifyHandbookCoverage(
   // Count distinct chapters with VALIDATED content using SSOT realness check
   let totalChars = 0;
   const coveredChapterIds = new Set<string>();
+  let realSectionCount = 0;
   for (const sec of (sections || [])) {
     const md = (sec.content_markdown || "").trim();
     totalChars += md.length;
-    // Use SSOT isRealHandbookSection instead of full validateGeneratedSection
-    // This aligns coverage check with the same thresholds used by post-conditions & validators
     if (isRealHandbookSection(sec) && sec.chapter_id) {
       coveredChapterIds.add(sec.chapter_id);
+      realSectionCount++;
     }
   }
 
   const totalChapters = chapters.length;
+  // SSOT: expected sections = total chapters (generator must produce 1 section per chapter)
+  // This aligns with the generator which creates padding sections for chapters without LFs
+  const expectedSections = totalChapters;
   const minNeeded = Math.max(1, Math.ceil(totalChapters * COVERAGE_MIN_RATIO));
   const coveredChapters = coveredChapterIds.size;
 
@@ -263,6 +280,9 @@ export async function verifyHandbookCoverage(
     coveredChapters,
     totalChapters,
     minNeeded,
+    totalSections: (sections || []).length,
     totalChars,
+    expectedSections,
+    actualSections: realSectionCount,
   };
 }
