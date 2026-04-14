@@ -116,6 +116,39 @@ export async function enqueueJob(
 
   const packageId = opts.package_id ?? (opts.payload?.package_id as string) ?? null;
 
+  // ── SSOT APPLICABILITY GATE: reject jobs for non-applicable steps ──
+  // Checks track_step_applicability to prevent enqueuing jobs for steps
+  // that should be skipped on this package's track.
+  if (packageId) {
+    // Reverse-map job_type → step_key (lazy, since we import from job-map)
+    const { STEP_TO_JOB_TYPE } = await import("./job-map.ts");
+    const stepKey = Object.entries(STEP_TO_JOB_TYPE).find(([, jt]) => jt === opts.job_type)?.[0];
+    if (stepKey) {
+      const { data: applicability } = await sb
+        .from("track_step_applicability")
+        .select("should_run, condition")
+        .eq("step_key", stepKey)
+        .eq("track", (await sb.from("course_packages").select("track").eq("id", packageId).maybeSingle()).data?.track ?? "__NONE__")
+        .maybeSingle();
+
+      if (applicability && !applicability.should_run && !applicability.condition) {
+        console.log(`[enqueue] SSOT_APPLICABILITY_BLOCKED: ${opts.job_type} not applicable for track (step=${stepKey})`);
+        // Auto-skip the step if it's not already skipped
+        await sb.from("package_steps").update({
+          status: "skipped",
+          meta: sb.rpc ? undefined : {},
+        }).eq("package_id", packageId).eq("step_key", stepKey).neq("status", "skipped");
+        return {
+          id: "00000000-0000-0000-0000-000000000000",
+          job_type: opts.job_type,
+          worker_pool: worker_pool,
+          status: "blocked_by_ssot",
+          revived: false,
+        } as EnqueueResult;
+      }
+    }
+  }
+
   // Hard guard: never enqueue package-bound jobs for immutable/non-building packages.
   // This prevents infinite requeue loops on already published packages.
   // Covers ALL job types with a package_id (including pool_fill_lf_gaps).

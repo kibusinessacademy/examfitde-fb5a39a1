@@ -141,9 +141,37 @@ export async function runPrebuildPass(
     return summary;
   }
 
+  // ── SSOT APPLICABILITY FILTER: skip steps that shouldn't run on this track ──
+  // Load applicability in bulk for all candidate packages
+  const candidatePackageIds = [...new Set(candidates.map((c: any) => c.package_id))];
+  const { data: pkgTracks } = await sb
+    .from("course_packages")
+    .select("id, track")
+    .in("id", candidatePackageIds);
+
+  const trackByPkg = new Map<string, string>();
+  for (const p of pkgTracks ?? []) trackByPkg.set(p.id, p.track);
+
+  const { data: applicabilityRows } = await sb
+    .from("track_step_applicability")
+    .select("track, step_key, should_run")
+    .eq("should_run", false);
+
+  const skipSet = new Set<string>();
+  for (const r of applicabilityRows ?? []) {
+    skipSet.add(`${r.track}::${r.step_key}`);
+  }
+
+  // Filter out non-applicable candidates
+  const filteredCandidates = candidates.filter((c: any) => {
+    const track = trackByPkg.get(c.package_id);
+    if (!track) return true; // unknown track → don't filter
+    return !skipSet.has(`${track}::${c.step_key}`);
+  });
+
   // Group by package_id, deduplicate
   const byPackage = new Map<string, string[]>();
-  for (const row of candidates) {
+  for (const row of filteredCandidates) {
     if (!byPackage.has(row.package_id)) byPackage.set(row.package_id, []);
     byPackage.get(row.package_id)!.push(row.step_key);
   }
