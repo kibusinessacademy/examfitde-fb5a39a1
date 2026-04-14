@@ -390,6 +390,9 @@ export async function healTrueStallSteps(sb: SupabaseClient) {
       const minAgeMinutes = step.drift_signal === "PENDING_DISPATCH" ? 2 : 15;
       if ((step.age_minutes ?? 0) < minAgeMinutes) continue;
 
+      // ── SSOT: Auto-skip if step is not applicable for this track ──
+      if (await autoSkipIfNotApplicable(sb, step.package_id, step.step_key, "stuck-scan-true-stall")) continue;
+
       const { data: pkg, error: pkgErr } = await sb
         .from("course_packages")
         .select("id, title, status, course_id, curriculum_id, certification_id, feature_flags")
