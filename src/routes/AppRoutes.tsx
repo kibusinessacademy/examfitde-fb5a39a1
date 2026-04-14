@@ -245,6 +245,15 @@ const AppRoutes = () => {
           <Route path="/aevo-praktische-pruefung" element={<AEVOPraktischePage />} />
           <Route path="/aevo-fachgespraech" element={<AEVOFachgespraechPage />} />
 
+          {/* Studium Pillar-Cluster */}
+          <Route path="/studium-pruefungsvorbereitung" element={<StudiumPruefungsvorbereitungPage />} />
+          <Route path="/klausurtraining-studium" element={<KlausurtrainingStudiumPage />} />
+          <Route path="/bwl-klausur" element={<BWLKlausurPage />} />
+          <Route path="/rechnungswesen-studium" element={<RechnungswesenStudiumPage />} />
+          <Route path="/lernplan-studium" element={<LernplanStudiumPage />} />
+          <Route path="/pruefungsangst-studium" element={<PruefungsangstStudiumPage />} />
+          <Route path="/muendliche-pruefung-studium" element={<MuendlichePruefungStudiumPage />} />
+
           <Route path="/ihk-pruefungen" element={<IHKPruefungenPage />} />
           <Route path="/pruefungstraining-azubis" element={<PruefungstrainingAzubisPage />} />
           <Route path="/pruefungstraining-betriebe" element={<PruefungstrainingBetriebePage />} />
