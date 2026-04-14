@@ -189,7 +189,7 @@ function getResultTier(percentage: number) {
   if (percentage >= 90) return {
     icon: Trophy, label: 'Prüfungs-Profi', color: 'text-yellow-500',
     message: 'Hervorragend! Du beherrschst den Stoff souverän.',
-    ctaMessage: 'Sichere dir jetzt dein Zertifikat – du bist bereit!',
+    ctaMessage: 'Du bist auf einem sehr guten Weg – sichere dir jetzt deinen Vorsprung!',
     urgency: true,
   };
   if (percentage >= 70) return {
@@ -389,7 +389,7 @@ export function SEOQuizWidget({
               </Button>
               {tier.urgency && (
                 <p className="text-xs text-center text-primary font-medium animate-pulse">
-                  🔥 Du bist bereit – starte heute noch dein Training
+                  🔥 Du bist auf einem guten Weg – jetzt den letzten Schritt gehen
                 </p>
               )}
               <Button variant="ghost" size="sm" onClick={handleReset} className="w-full text-muted-foreground">

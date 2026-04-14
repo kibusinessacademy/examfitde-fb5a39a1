@@ -547,11 +547,78 @@ Deno.serve(async (req) => {
         // Fall through to sync loop below
       } else {
         console.log(`[generate-handbook] BATCH_ENQUEUED: ${batchItems.length} fields → batch_id=${submitResult.batchId} model=${model}`);
+
+        // v22: Before returning, generate padding sections synchronously.
+        // Without this, the job returns batch_complete=false, the verifier sees 4/8 sections,
+        // marks it THRESHOLD_FAIL, and padding chapters are never reached.
+        if (paddingChaptersNeedingSections.length > 0) {
+          console.log(`[generate-handbook] v22: Generating ${paddingChaptersNeedingSections.length} padding sections before batch return`);
+          let paddingWritten = 0;
+          for (const pad of paddingChaptersNeedingSections) {
+            const padField = pad as any;
+            const chapter = chapters.find((c: any) => c.id === padField._chapterId);
+            if (!chapter) continue;
+
+            const padWordTarget = MIN_WORD_TARGET;
+            const generated = await generateSectionContent(
+              sb, professionName, padField.code, padField.title, padField.description || "",
+              [], [], [], padWordTarget, packageId, startMs, _handbookChain, _expandChain, packageTrack,
+            );
+
+            if (generated.content.length < MIN_SECTION_CHARS) {
+              console.warn(`[generate-handbook] v22: Padding ${padField.code} too short (${generated.content.length}/${MIN_SECTION_CHARS})`);
+              continue;
+            }
+
+            const validation = validateGeneratedSection({
+              title: padField.title, content_markdown: generated.content,
+            }, { phase: "basis" });
+
+            if (!validation.ok) {
+              console.warn(`[generate-handbook] v22: Padding ${padField.code} rejected: ${validation.reason}`);
+              continue;
+            }
+
+            const sectionKey = `pad-${String(padField.code).toLowerCase()}-${curriculumId.slice(0, 8)}`;
+            const { error: secErr } = await sb.from("handbook_sections").upsert([{
+              chapter_id: chapter.id,
+              section_key: sectionKey,
+              title: padField.title,
+              content_markdown: generated.content,
+              basis_content: generated.content,
+              basis_generated_at: new Date().toISOString(),
+              content_tier: "basis",
+              expand_status: generated.content.length >= 800 ? "pending" : "not_ready",
+              content_type: "text",
+              sort_order: (existingSections?.length || 0) + 1 + paddingWritten,
+              learning_field_id: null,
+              metadata: {
+                llm_generated: true, llm_provider: generated.provider, llm_model: generated.model,
+                word_target: padWordTarget, actual_chars: generated.content.length,
+                is_padding_section: true, version: "v22_batch_padding_fix",
+              },
+            }], { onConflict: "chapter_id,section_key", ignoreDuplicates: false });
+
+            if (secErr) {
+              console.error(`[generate-handbook] v22: Padding upsert failed: ${secErr.message}`);
+            } else {
+              paddingWritten++;
+            }
+
+            if (shouldSoftStop(startMs, "handbook")) {
+              console.warn(`[generate-handbook] v22: Soft-stop during padding, wrote ${paddingWritten}/${paddingChaptersNeedingSections.length}`);
+              break;
+            }
+          }
+          console.log(`[generate-handbook] v22: Wrote ${paddingWritten}/${paddingChaptersNeedingSections.length} padding sections alongside batch`);
+        }
+
         return json({
           ok: true,
           batch_mode: true,
           batch_id: submitResult.batchId,
           fields_submitted: batchItems.length,
+          padding_written: paddingChaptersNeedingSections.length,
           model,
           batch_complete: false,
         });
