@@ -590,7 +590,7 @@ Deno.serve(async (req) => {
               content_tier: "basis",
               expand_status: generated.content.length >= 800 ? "pending" : "not_ready",
               content_type: "text",
-              sort_order: (existingSections?.length || 0) + 1 + paddingWritten,
+              sort_order: chapter.sort_order * 100 + paddingWritten + 1,
               learning_field_id: null,
               metadata: {
                 llm_generated: true, llm_provider: generated.provider, llm_model: generated.model,
@@ -618,7 +618,7 @@ Deno.serve(async (req) => {
           batch_mode: true,
           batch_id: submitResult.batchId,
           fields_submitted: batchItems.length,
-          padding_written: paddingChaptersNeedingSections.length,
+          padding_written: paddingWritten,
           model,
           batch_complete: false,
         });
