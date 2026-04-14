@@ -82,6 +82,10 @@ const EnterpriseDemoPage = lazyRetry(() => import('@/pages/seo/EnterpriseDemoPag
 const PruefungsreifeCheck = lazyRetry(() => import('@/components/marketing/PruefungsreifeCheck'));
 const BlogIndexPage = lazyRetry(() => import('@/pages/seo/BlogIndexPage'));
 const BlogArticlePage = lazyRetry(() => import('@/pages/seo/BlogArticlePage'));
+const PruefungsfragenPage = lazyRetry(() => import('@/pages/seo/PruefungsfragenPage'));
+const MuendlichePruefungPage = lazyRetry(() => import('@/pages/seo/MuendlichePruefungPage'));
+const ProbepruefungPage = lazyRetry(() => import('@/pages/seo/ProbepruefungPage'));
+const LernplanPruefungPage = lazyRetry(() => import('@/pages/seo/LernplanPruefungPage'));
 
 // Legal Pages
 const AGBPage = lazyRetry(() => import('@/pages/seo/AGBPage'));
@@ -204,6 +208,11 @@ const AppRoutes = () => {
           <Route path="/pruefungstraining-studium/:slug" element={<PersonaLandingPage personaType="studium" />} />
 
           <Route path="/:slug" element={<ProgrammaticSEODispatcher />} />
+
+          <Route path="/pruefungsfragen" element={<PruefungsfragenPage />} />
+          <Route path="/muendliche-pruefung" element={<MuendlichePruefungPage />} />
+          <Route path="/probepruefung" element={<ProbepruefungPage />} />
+          <Route path="/lernplan-pruefung" element={<LernplanPruefungPage />} />
 
           <Route path="/ihk-pruefungen" element={<IHKPruefungenPage />} />
           <Route path="/pruefungstraining-azubis" element={<PruefungstrainingAzubisPage />} />
