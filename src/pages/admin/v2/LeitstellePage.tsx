@@ -44,6 +44,7 @@ const ValidateGuardDiagnosticsCard = lazy(() => import('@/components/admin/cards
 const BatchActionsCard = lazy(() => import('@/components/admin/cards/BatchActionsCard'));
 const WorkerLivenessCard = lazy(() => import('@/components/admin/cards/WorkerLivenessCard'));
 const ThroughputCard = lazy(() => import('@/components/admin/cards/ThroughputCard'));
+const OrphanStepCard = lazy(() => import('@/components/admin/cards/OrphanStepCard'));
 
 function KpiTile({ label, value, icon, tone = 'neutral', onClick }: {
   label: string;
@@ -283,6 +284,11 @@ export default function LeitstellePage() {
       {/* Worker Liveness */}
       <Suspense fallback={<Skeleton className="h-20" />}>
         <WorkerLivenessCard />
+      </Suspense>
+
+      {/* Orphan-Step Audit */}
+      <Suspense fallback={<Skeleton className="h-28" />}>
+        <OrphanStepCard />
       </Suspense>
 
       {/* Status Invariant Violations */}

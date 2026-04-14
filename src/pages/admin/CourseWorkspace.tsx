@@ -25,6 +25,7 @@ import {
   approveStepException as approveExceptionAction,
   resetToStep as resetToStepAction,
   enqueueSingleStep as enqueueSingleStepAction,
+  runAdminOpsAction,
 } from '@/integrations/supabase/admin-ops-actions';
 import BuildLiveLog from '@/components/admin/BuildLiveLog';
 import ProductModuleStatus from '@/components/admin/ProductModuleStatus';
@@ -453,7 +454,37 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
             </Card>
           )}
 
-          {!['published', 'done', 'quality_gate_failed', 'publish_failed'].includes(pkg.status) && !isBuilding && (
+          {/* Unblock button for blocked packages */}
+          {pkg.status === 'blocked' && (
+            <Card className="border-destructive/30 bg-destructive/5">
+              <CardContent className="py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-foreground flex items-center gap-2"><Unlock className="h-4 w-4 text-destructive" /> Kurs ist blockiert</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {(pkg as any).blocked_reason ? `Grund: ${(pkg as any).blocked_reason}` : 'Paket entblockieren und Pipeline fortsetzen'}
+                  </p>
+                </div>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  disabled={pipelineRunning}
+                  onClick={async () => {
+                    setPipelineRunning(true);
+                    try {
+                      await runAdminOpsAction('unblock_package', { package_id: packageId, reason: 'Admin-Unblock via CourseWorkspace' });
+                      toast.success('Paket entblockiert – Pipeline wird fortgesetzt');
+                      refreshAll();
+                    } catch (e: any) { toast.error(`Entblockieren fehlgeschlagen: ${e.message}`); }
+                    finally { setPipelineRunning(false); }
+                  }}
+                >
+                  {pipelineRunning ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Unlock className="h-4 w-4 mr-1" />} Entblockieren & Starten
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {!['published', 'done', 'quality_gate_failed', 'publish_failed', 'blocked'].includes(pkg.status) && !isBuilding && (
             <Card className="border-primary/30 bg-primary/5">
               <CardContent className="py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <div>
