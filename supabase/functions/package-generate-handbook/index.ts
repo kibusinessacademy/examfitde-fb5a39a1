@@ -37,6 +37,16 @@ const TARGET_CHAPTERS = 8;
 const BATCH_SIZE = 1;
 const MIN_SECTION_CHARS = 800;    // v15: lowered from 1800 — lean basis floor
 
+// ── Padding Chapter Topics (v20 — SSOT for cross-cutting exam content) ──
+// When a curriculum has fewer LFs than TARGET_CHAPTERS, padding chapters
+// get one of these topics to ensure every chapter carries real content.
+const PADDING_TOPICS = [
+  { code: "PRUEF-STRAT", title: "Prüfungsstrategie und Zeitmanagement", description: "Systematische Prüfungsvorbereitung: Zeitplanung in der Prüfung, Aufgabenpriorisierung, Umgang mit Unsicherheit und schwierigen Fragestellungen." },
+  { code: "FACH-UEBERG", title: "Fachübergreifende Zusammenhänge", description: "Verknüpfung der Lernfelder untereinander, Transferwissen zwischen Themengebieten, typische lernfeldübergreifende Prüfungsaufgaben." },
+  { code: "SCHLUESSEL", title: "Schlüsselkonzepte und Kernformeln", description: "Zentrale Definitionen, Formeln, Berechnungsschemata und Merksätze über alle Lernfelder hinweg — kompakt zum Nachschlagen." },
+  { code: "PRUEF-VORBER", title: "Prüfungsvorbereitung und Lernmethodik", description: "Effektive Lernstrategien, Selbstkontrolle, Wiederholungstechniken und Umgang mit Prüfungsangst." },
+];
+
 // ── Section Generator ────────────────────────────────────────
 
 async function generateSectionContent(
@@ -382,7 +392,23 @@ Deno.serve(async (req) => {
 
   // Filter fields to only those that still need generation
   const fieldsNeedingGeneration = fields.filter((lf: any) => !populatedLfIds.has(lf.id));
-  console.log(`[generate-handbook] ${populatedLfIds.size}/${fields.length} LFs valid. ${invalidSectionIds.length} purged. ${fieldsNeedingGeneration.length} remaining.`);
+
+  // ── v20: Detect padding chapters without sections ──
+  // Chapters that have no LFs assigned (padding) AND no existing sections need content.
+  const chaptersWithSections = new Set((existingSections || []).map((s: any) => s.chapter_id));
+  const paddingChaptersNeedingSections = chapters
+    .filter((c: any) => !chaptersWithSections.has(c.id))
+    .map((c: any, idx: number) => ({
+      _isPadding: true,
+      _chapterId: c.id,
+      _chapterSortOrder: c.sort_order,
+      id: `padding-${c.id}`,
+      code: PADDING_TOPICS[idx % PADDING_TOPICS.length].code,
+      title: PADDING_TOPICS[idx % PADDING_TOPICS.length].title,
+      description: PADDING_TOPICS[idx % PADDING_TOPICS.length].description,
+    }));
+
+  console.log(`[generate-handbook] ${populatedLfIds.size}/${fields.length} LFs valid. ${invalidSectionIds.length} purged. ${fieldsNeedingGeneration.length} LFs remaining. ${paddingChaptersNeedingSections.length} padding chapters need sections.`);
 
   // ── COVERAGE-FIRST COMPLETION CHECK ──
   // Handbook sections often cover multiple LFs per section (e.g., one section for LF01+LF02).
@@ -528,23 +554,37 @@ Deno.serve(async (req) => {
     }
   }
 
-  // Take at most BATCH_SIZE from the fields that still need generation
-  const batchFields = fieldsNeedingGeneration.slice(0, BATCH_SIZE);
+  // Take at most BATCH_SIZE from LFs that still need generation, OR padding chapters
+  // v20: Padding chapters are processed after all LFs are done
+  const hasLfWork = fieldsNeedingGeneration.length > 0;
+  const batchFields = hasLfWork
+    ? fieldsNeedingGeneration.slice(0, BATCH_SIZE)
+    : paddingChaptersNeedingSections.slice(0, BATCH_SIZE);
 
   for (let i = 0; i < batchFields.length; i++) {
     const lf = batchFields[i] as any;
-    const chapterSortOrder = fieldIdToChapterSort.get(lf.id) || 1;
-    const chapter = chapters.find((c: any) => c.sort_order === chapterSortOrder);
+    const isPadding = lf._isPadding === true;
+
+    // Resolve chapter — padding entries carry their own chapter reference
+    let chapter: { id: string; sort_order: number } | undefined;
+    if (isPadding) {
+      chapter = chapters.find((c: any) => c.id === lf._chapterId);
+    } else {
+      const chapterSortOrder = fieldIdToChapterSort.get(lf.id) || 1;
+      chapter = chapters.find((c: any) => c.sort_order === chapterSortOrder);
+    }
     if (!chapter) continue;
 
-    // Load rich context for this LF
-    const [subtopics, competencies, sampleQuestions] = await Promise.all([
-      loadFieldTopicDepth(sb, curriculumId, lf.title),
-      loadFieldCompetencies(sb, lf.id),
-      loadExamQuestionSample(sb, curriculumId, lf.id),
-    ]);
+    // Load context — for padding chapters, use profession-wide context
+    const [subtopics, competencies, sampleQuestions] = isPadding
+      ? [[] as string[], [] as { name: string; bloom: string; misconceptions: string[] }[], [] as string[]]
+      : await Promise.all([
+          loadFieldTopicDepth(sb, curriculumId, lf.title),
+          loadFieldCompetencies(sb, lf.id),
+          loadExamQuestionSample(sb, curriculumId, lf.id),
+        ]);
 
-    const wordTarget = lfWordTargets.get(lf.id) || MIN_WORD_TARGET;
+    const wordTarget = isPadding ? MIN_WORD_TARGET : (lfWordTargets.get(lf.id) || MIN_WORD_TARGET);
 
     const generated = await generateSectionContent(
       sb,
@@ -568,17 +608,19 @@ Deno.serve(async (req) => {
     else llmFailCount++;
 
     // ── WRITE GUARD: Skip fallback content entirely ──
-    // If the LLM didn't produce real content, do NOT write a placeholder.
-    // The field stays "ungenerated" and will be retried on the next invocation.
     if (!hasRealContent) {
       console.warn(`[generate-handbook] WRITE_GUARD: Skipping ${lf.code} — LLM output too short (${generated.content.length}/${MIN_SECTION_CHARS} chars). Will retry next invocation.`);
       continue;
     }
 
-    const candidateRow = {
+    const sectionKey = isPadding
+      ? `pad-${String(lf.code).toLowerCase()}-${curriculumId.slice(0, 8)}`
+      : `lf-${String(lf.code).toLowerCase().replace(/\s+/g, '-')}-${curriculumId.slice(0, 8)}`;
+
+    const candidateRow: Record<string, unknown> = {
       chapter_id: chapter.id,
-      section_key: `lf-${String(lf.code).toLowerCase().replace(/\s+/g, '-')}-${curriculumId.slice(0, 8)}`,
-      title: `${lf.code}: ${lf.title}`,
+      section_key: sectionKey,
+      title: isPadding ? lf.title : `${lf.code}: ${lf.title}`,
       content_markdown: generated.content,
       basis_content: generated.content,
       basis_generated_at: new Date().toISOString(),
@@ -586,7 +628,7 @@ Deno.serve(async (req) => {
       expand_status: generated.content.length >= 800 ? "pending" : "not_ready",
       content_type: "text",
       sort_order: sectionOrder++,
-      learning_field_id: lf.id,
+      learning_field_id: isPadding ? null : lf.id,
       metadata: {
         depth_enriched: subtopics.length > 0,
         llm_generated: true,
@@ -594,9 +636,10 @@ Deno.serve(async (req) => {
         llm_model: generated.model,
         word_target: wordTarget,
         actual_chars: generated.content.length,
-        exam_weight_pct: weightByLf.get(lf.id) || null,
+        exam_weight_pct: isPadding ? null : (weightByLf.get(lf.id) || null),
         competency_count: competencies.length,
-        version: "v10_basis_only",
+        is_padding_section: isPadding,
+        version: "v20_padding_aware",
       },
     };
 
@@ -607,7 +650,7 @@ Deno.serve(async (req) => {
     }, { phase: "basis" });
 
     if (!validation.ok) {
-      console.warn(`[generate-handbook] REJECT_FORENSIC: section_key=${candidateRow.section_key} chapter_id=${chapter.id} raw_chars=${generated.content.length} guard=validateGeneratedSection reason="${validation.reason}" provider=${generated.provider} model=${generated.model}`);
+      console.warn(`[generate-handbook] REJECT_FORENSIC: section_key=${sectionKey} chapter_id=${chapter.id} raw_chars=${generated.content.length} guard=validateGeneratedSection reason="${validation.reason}" provider=${generated.provider} model=${generated.model}`);
       llmSuccessCount--;
       llmFailCount++;
       continue;
@@ -638,13 +681,15 @@ Deno.serve(async (req) => {
   }
 
   // Check remaining after this batch — use ACTUAL written count, not pre-filter count
+  // v20: Include both LF-based and padding chapter work in remaining calculation
   const writtenCount = actualWrittenCount;
-  const remainingAfterBatch = fieldsNeedingGeneration.length - batchFields.length + (batchFields.length - writtenCount);
+  const totalWorkItems = fieldsNeedingGeneration.length + paddingChaptersNeedingSections.length;
+  const remainingAfterBatch = totalWorkItems - batchFields.length + (batchFields.length - writtenCount);
   const totalPopulated = populatedLfIds.size + writtenCount;
   const isComplete = remainingAfterBatch <= 0;
-  const progress = Math.round((totalPopulated / fields.length) * 100);
+  const progress = Math.round((totalPopulated / Math.max(fields.length, totalWorkItems)) * 100);
 
-  console.log(`[generate-handbook] Batch: ${writtenCount} sections written (${llmFailCount} rejected), Total: ${totalPopulated}/${fields.length} (${progress}%)${isComplete ? ' — COMPLETE' : ''}`);
+  console.log(`[generate-handbook] Batch: ${writtenCount} sections written (${llmFailCount} rejected), Total: ${totalPopulated}/${fields.length} LFs + ${paddingChaptersNeedingSections.length} padding (${progress}%)${isComplete ? ' — COMPLETE' : ''}`);
 
   // ── P1: Prevent completed-without-writes ──
   // If we attempted generation but wrote nothing, signal blocked_by_guard / provider_empty
