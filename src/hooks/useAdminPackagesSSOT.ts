@@ -45,6 +45,7 @@ export interface AdminPackageSSOT {
   has_stale_publish: boolean;
   is_stuck: boolean;
   council_complete: boolean;
+  stuck_class: string | null;
   has_publish_drift: boolean;
   _source: AdminPackagesSource;
 }
