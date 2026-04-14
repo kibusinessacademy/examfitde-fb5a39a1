@@ -106,6 +106,14 @@ const LernplanStudiumPage = lazyRetry(() => import('@/pages/seo/LernplanStudiumP
 const PruefungsangstStudiumPage = lazyRetry(() => import('@/pages/seo/PruefungsangstStudiumPage'));
 const MuendlichePruefungStudiumPage = lazyRetry(() => import('@/pages/seo/MuendlichePruefungStudiumPage'));
 
+// Scrum & PRINCE2 Pillar-Cluster Pages
+const ScrumPrince2ZertifizierungPage = lazyRetry(() => import('@/pages/seo/ScrumPrince2ZertifizierungPage'));
+const ScrumPSMVorbereitungPage = lazyRetry(() => import('@/pages/seo/ScrumPSMVorbereitungPage'));
+const ScrumCSMTrainingPage = lazyRetry(() => import('@/pages/seo/ScrumCSMTrainingPage'));
+const Prince2FoundationPage = lazyRetry(() => import('@/pages/seo/Prince2FoundationPage'));
+const Prince2PractitionerPage = lazyRetry(() => import('@/pages/seo/Prince2PractitionerPage'));
+const ScrumPrince2VergleichPage = lazyRetry(() => import('@/pages/seo/ScrumPrince2VergleichPage'));
+
 // Legal Pages
 const AGBPage = lazyRetry(() => import('@/pages/seo/AGBPage'));
 const FAQPage = lazyRetry(() => import('@/pages/seo/FAQPage'));
@@ -253,6 +261,14 @@ const AppRoutes = () => {
           <Route path="/lernplan-studium" element={<LernplanStudiumPage />} />
           <Route path="/pruefungsangst-studium" element={<PruefungsangstStudiumPage />} />
           <Route path="/muendliche-pruefung-studium" element={<MuendlichePruefungStudiumPage />} />
+
+          {/* Scrum & PRINCE2 Pillar-Cluster */}
+          <Route path="/scrum-prince2-zertifizierung" element={<ScrumPrince2ZertifizierungPage />} />
+          <Route path="/scrum-psm-vorbereitung" element={<ScrumPSMVorbereitungPage />} />
+          <Route path="/scrum-csm-training" element={<ScrumCSMTrainingPage />} />
+          <Route path="/prince2-foundation" element={<Prince2FoundationPage />} />
+          <Route path="/prince2-practitioner" element={<Prince2PractitionerPage />} />
+          <Route path="/scrum-prince2-vergleich" element={<ScrumPrince2VergleichPage />} />
 
           <Route path="/ihk-pruefungen" element={<IHKPruefungenPage />} />
           <Route path="/pruefungstraining-azubis" element={<PruefungstrainingAzubisPage />} />
