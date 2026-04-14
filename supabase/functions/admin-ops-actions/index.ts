@@ -146,6 +146,11 @@ Deno.serve(async (req) => {
         const pid = String(body.package_id || "");
         const sk = String(body.step_key || "");
         if (!pid || !sk) return json({ error: "package_id and step_key required" }, 400);
+        // ── SSOT: Check track applicability ──
+        const appCheckRetry = await isStepApplicableForPackage(sb, pid, sk);
+        if (!appCheckRetry.applicable) {
+          return json({ ok: false, error: `Step '${sk}' is not applicable for track '${appCheckRetry.track}' (${appCheckRetry.reason})`, ssot_blocked: true }, 400);
+        }
         beforeState = { package_id: pid, step_key: sk };
         affectedIds = [`${pid}:${sk}`];
         result = await retryPackageStep(sb, pid, sk, body);
