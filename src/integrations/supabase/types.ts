@@ -77537,6 +77537,10 @@ export type Database = {
         Args: { p_package_id: string }
         Returns: undefined
       }
+      admin_force_steps_done: {
+        Args: { p_package_id: string; p_reason?: string; p_step_keys: string[] }
+        Returns: Json
+      }
       admin_reset_code_lockout: {
         Args: { p_code: string; p_note?: string }
         Returns: undefined
