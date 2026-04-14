@@ -554,8 +554,12 @@ Deno.serve(async (req) => {
     }
   }
 
-  // Take at most BATCH_SIZE from the fields that still need generation
-  const batchFields = fieldsNeedingGeneration.slice(0, BATCH_SIZE);
+  // Take at most BATCH_SIZE from LFs that still need generation, OR padding chapters
+  // v20: Padding chapters are processed after all LFs are done
+  const hasLfWork = fieldsNeedingGeneration.length > 0;
+  const batchFields = hasLfWork
+    ? fieldsNeedingGeneration.slice(0, BATCH_SIZE)
+    : paddingChaptersNeedingSections.slice(0, BATCH_SIZE);
 
   for (let i = 0; i < batchFields.length; i++) {
     const lf = batchFields[i] as any;
