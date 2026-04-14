@@ -87,6 +87,16 @@ const MuendlichePruefungPage = lazyRetry(() => import('@/pages/seo/MuendlichePru
 const ProbepruefungPage = lazyRetry(() => import('@/pages/seo/ProbepruefungPage'));
 const LernplanPruefungPage = lazyRetry(() => import('@/pages/seo/LernplanPruefungPage'));
 
+// IHK + AEVO Pillar-Cluster Pages
+const IHKPruefungsvorbereitungPage = lazyRetry(() => import('@/pages/seo/IHKPruefungsvorbereitungPage'));
+const IHKPruefungsfragenPage = lazyRetry(() => import('@/pages/seo/IHKPruefungsfragenPage'));
+const IHKFachgespraechPage = lazyRetry(() => import('@/pages/seo/IHKFachgespraechPage'));
+const IHKProbepruefungPage = lazyRetry(() => import('@/pages/seo/IHKProbepruefungPage'));
+const AEVOPruefungsvorbereitungPage = lazyRetry(() => import('@/pages/seo/AEVOPruefungsvorbereitungPage'));
+const AEVOSchriftlichePage = lazyRetry(() => import('@/pages/seo/AEVOSchriftlichePage'));
+const AEVOPraktischePage = lazyRetry(() => import('@/pages/seo/AEVOPraktischePage'));
+const AEVOFachgespraechPage = lazyRetry(() => import('@/pages/seo/AEVOFachgespraechPage'));
+
 // Legal Pages
 const AGBPage = lazyRetry(() => import('@/pages/seo/AGBPage'));
 const FAQPage = lazyRetry(() => import('@/pages/seo/FAQPage'));
@@ -213,6 +223,18 @@ const AppRoutes = () => {
           <Route path="/muendliche-pruefung" element={<MuendlichePruefungPage />} />
           <Route path="/probepruefung" element={<ProbepruefungPage />} />
           <Route path="/lernplan-pruefung" element={<LernplanPruefungPage />} />
+
+          {/* IHK Pillar-Cluster */}
+          <Route path="/ihk-pruefungsvorbereitung" element={<IHKPruefungsvorbereitungPage />} />
+          <Route path="/ihk-pruefungsfragen" element={<IHKPruefungsfragenPage />} />
+          <Route path="/ihk-fachgespraech" element={<IHKFachgespraechPage />} />
+          <Route path="/ihk-probepruefung" element={<IHKProbepruefungPage />} />
+
+          {/* AEVO Pillar-Cluster */}
+          <Route path="/aevo-pruefungsvorbereitung" element={<AEVOPruefungsvorbereitungPage />} />
+          <Route path="/aevo-schriftliche-pruefung" element={<AEVOSchriftlichePage />} />
+          <Route path="/aevo-praktische-pruefung" element={<AEVOPraktischePage />} />
+          <Route path="/aevo-fachgespraech" element={<AEVOFachgespraechPage />} />
 
           <Route path="/ihk-pruefungen" element={<IHKPruefungenPage />} />
           <Route path="/pruefungstraining-azubis" element={<PruefungstrainingAzubisPage />} />
