@@ -42,7 +42,6 @@ const _runnerCfg = getRunnerConfig("content_runner");
 const BASE_CONCURRENCY = _runnerCfg.maxConcurrency;  // SSOT: 6 (hard cap 8)
 const CLAIM_LIMIT = _runnerCfg.claimLimit;            // SSOT: 8 (hard cap 12)
 const CONTENT_LOCK_TIMEOUT_MINUTES = 5;
-const STALE_LOCK_RECOVERY_MS = 3 * 60_000;
 // ── DISPATCH TIMEOUTS (v2.5: 4-Tier system for budget efficiency) ──
 // Edge Function hard limit = 60s.  LOOP_MAX_MS = 50s.
 // Dispatch timeout MUST be < LOOP_MAX_MS minus overhead (status-write buffer ~5s).
