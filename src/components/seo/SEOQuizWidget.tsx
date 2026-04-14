@@ -211,7 +211,11 @@ export function SEOQuizWidget({
             </p>
             <div className="flex flex-wrap justify-center gap-3">
               <Button asChild className="gradient-primary text-primary-foreground shadow-glow">
-                <Link to={ctaLink}>{ctaText} <ArrowRight className="ml-2 h-4 w-4" /></Link>
+                <Link to={resolvedCtaLink}>
+                  <ShoppingCart className="mr-2 h-4 w-4" />
+                  {resolvedCtaText}
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
               </Button>
               <Button variant="outline" onClick={handleReset}>
                 <RotateCcw className="mr-2 h-4 w-4" /> Nochmal versuchen
