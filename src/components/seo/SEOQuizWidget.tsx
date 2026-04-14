@@ -67,6 +67,34 @@ const AEVO_FALLBACK: QuizQuestion[] = [
   },
 ];
 
+/** Auto-resolve product link from certification slug via SSOT */
+function useProductLinkForCert(certificationSlug?: string) {
+  return useQuery({
+    queryKey: ['seo-quiz-product-link', certificationSlug],
+    queryFn: async () => {
+      if (!certificationSlug) return null;
+
+      // Try seo_internal_link_suggestions first (cluster_to_product)
+      const { data: linkSuggestion } = await supabase
+        .from('seo_internal_link_suggestions')
+        .select('target_url')
+        .ilike('source_url', `%${certificationSlug}%`)
+        .eq('link_type', 'cluster_to_product')
+        .eq('status', 'active')
+        .order('priority', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (linkSuggestion?.target_url) return linkSuggestion.target_url;
+
+      // Fallback: derive from certification_catalog slug
+      return `/pruefungstraining/${certificationSlug}`;
+    },
+    enabled: !!certificationSlug,
+    staleTime: 1000 * 60 * 60,
+  });
+}
+
 function useSEOQuizQuestions(certificationSlug?: string, maxQuestions = 5) {
   return useQuery({
     queryKey: ['seo-quiz', certificationSlug, maxQuestions],
@@ -109,12 +137,17 @@ export function SEOQuizWidget({
   subtitle,
   certificationSlug,
   fallbackQuestions,
-  ctaText = 'Vollständiges Training starten',
-  ctaLink = '/shop',
+  ctaText,
+  ctaLink,
   maxQuestions = 5,
   className = '',
 }: Props) {
   const { data: dbQuestions } = useSEOQuizQuestions(certificationSlug, maxQuestions);
+  const { data: autoProductLink } = useProductLinkForCert(certificationSlug);
+
+  // Resolve CTA: explicit prop > SSOT auto-link > fallback /shop
+  const resolvedCtaLink = ctaLink || autoProductLink || '/shop';
+  const resolvedCtaText = ctaText || (autoProductLink ? 'Jetzt Kurs starten' : 'Vollständiges Training starten');
 
   const questions = dbQuestions ?? fallbackQuestions ?? (certificationSlug === 'aevo' ? AEVO_FALLBACK : []);
   const activeQuestions = questions.slice(0, maxQuestions);
