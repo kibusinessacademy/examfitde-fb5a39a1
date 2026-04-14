@@ -101,7 +101,7 @@ export default function IHKPruefungsvorbereitungPage() {
               subtitle="5 Fragen – wie gut bist du vorbereitet?"
               certificationSlug="aevo"
               ctaText="Jetzt IHK-Training starten"
-              ctaLink="/shop"
+              
             />
           </div>
         </section>

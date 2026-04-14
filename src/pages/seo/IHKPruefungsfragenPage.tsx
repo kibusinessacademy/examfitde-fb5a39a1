@@ -85,7 +85,7 @@ export default function IHKPruefungsfragenPage() {
               subtitle="5 Beispielfragen – wie gut bist du vorbereitet?"
               certificationSlug="aevo"
               ctaText="Alle IHK-Fragen üben"
-              ctaLink="/shop"
+              
             />
           </div>
         </section>
