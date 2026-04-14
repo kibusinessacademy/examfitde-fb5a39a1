@@ -97,6 +97,15 @@ const AEVOSchriftlichePage = lazyRetry(() => import('@/pages/seo/AEVOSchriftlich
 const AEVOPraktischePage = lazyRetry(() => import('@/pages/seo/AEVOPraktischePage'));
 const AEVOFachgespraechPage = lazyRetry(() => import('@/pages/seo/AEVOFachgespraechPage'));
 
+// Studium Pillar-Cluster Pages
+const StudiumPruefungsvorbereitungPage = lazyRetry(() => import('@/pages/seo/StudiumPruefungsvorbereitungPage'));
+const KlausurtrainingStudiumPage = lazyRetry(() => import('@/pages/seo/KlausurtrainingStudiumPage'));
+const BWLKlausurPage = lazyRetry(() => import('@/pages/seo/BWLKlausurPage'));
+const RechnungswesenStudiumPage = lazyRetry(() => import('@/pages/seo/RechnungswesenStudiumPage'));
+const LernplanStudiumPage = lazyRetry(() => import('@/pages/seo/LernplanStudiumPage'));
+const PruefungsangstStudiumPage = lazyRetry(() => import('@/pages/seo/PruefungsangstStudiumPage'));
+const MuendlichePruefungStudiumPage = lazyRetry(() => import('@/pages/seo/MuendlichePruefungStudiumPage'));
+
 // Legal Pages
 const AGBPage = lazyRetry(() => import('@/pages/seo/AGBPage'));
 const FAQPage = lazyRetry(() => import('@/pages/seo/FAQPage'));
@@ -235,6 +244,15 @@ const AppRoutes = () => {
           <Route path="/aevo-schriftliche-pruefung" element={<AEVOSchriftlichePage />} />
           <Route path="/aevo-praktische-pruefung" element={<AEVOPraktischePage />} />
           <Route path="/aevo-fachgespraech" element={<AEVOFachgespraechPage />} />
+
+          {/* Studium Pillar-Cluster */}
+          <Route path="/studium-pruefungsvorbereitung" element={<StudiumPruefungsvorbereitungPage />} />
+          <Route path="/klausurtraining-studium" element={<KlausurtrainingStudiumPage />} />
+          <Route path="/bwl-klausur" element={<BWLKlausurPage />} />
+          <Route path="/rechnungswesen-studium" element={<RechnungswesenStudiumPage />} />
+          <Route path="/lernplan-studium" element={<LernplanStudiumPage />} />
+          <Route path="/pruefungsangst-studium" element={<PruefungsangstStudiumPage />} />
+          <Route path="/muendliche-pruefung-studium" element={<MuendlichePruefungStudiumPage />} />
 
           <Route path="/ihk-pruefungen" element={<IHKPruefungenPage />} />
           <Route path="/pruefungstraining-azubis" element={<PruefungstrainingAzubisPage />} />
