@@ -112,6 +112,20 @@ for (const file of files) {
       }
     }
   }
+
+  // SSOT Guard: detect legacy table references that have been renamed
+  const LEGACY_TABLE_REFS = [
+    { legacy: "pipeline_step_edges", replacement: "step_dag_edges" },
+  ];
+  // Skip migration files (read-only historical records)
+  if (!file.includes("supabase/migrations")) {
+    for (const { legacy, replacement } of LEGACY_TABLE_REFS) {
+      if (content.includes(legacy)) {
+        console.error(`❌ HARD FAIL: Legacy table reference '${legacy}' in ${file} — use '${replacement}' instead`);
+        hardFail = true;
+      }
+    }
+  }
 }
 
 if (hardFail) {
