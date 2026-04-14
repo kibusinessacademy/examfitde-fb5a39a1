@@ -235,6 +235,15 @@ const PruefungstrainingHub = () => {
           </div>
         </section>
 
+        {/* Pillar → Cluster Links */}
+        <section className="py-8">
+          <SEOInternalLinks 
+            sourceUrl="/pruefungstraining" 
+            linkTypes={['pillar_to_cluster']}
+            title="Vertiefe deine Prüfungsvorbereitung"
+          />
+        </section>
+
         {/* CTA */}
         <section className="text-center py-8 space-y-4 bg-card rounded-2xl border border-border">
           <h2 className="text-2xl font-bold">Bereit für deine Prüfung?</h2>
