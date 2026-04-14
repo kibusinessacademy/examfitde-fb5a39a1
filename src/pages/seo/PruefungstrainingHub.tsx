@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { SEOInternalLinks } from '@/components/seo/SEOInternalLinks';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { Breadcrumbs } from '@/components/seo/Breadcrumbs';
 import { generateFAQSchema, generateBreadcrumbSchema, SITE_URL } from '@/lib/seo';
