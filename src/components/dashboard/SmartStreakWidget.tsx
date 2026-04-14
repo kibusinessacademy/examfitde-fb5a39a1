@@ -1,8 +1,10 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { useDashboardStats } from '@/hooks/useDashboardStats';
-import { Flame, Clock, Brain } from 'lucide-react';
+import { Flame, Clock, Brain, Zap } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useTerminology } from '@/hooks/useProgramType';
+import { motion } from 'framer-motion';
 
 interface SmartStreakWidgetProps {
   curriculumId?: string;
@@ -29,25 +31,46 @@ export function SmartStreakWidget({ curriculumId }: SmartStreakWidgetProps) {
     return 'Noch kein Training heute – 10 Min reichen';
   };
 
+  const streakLevel = streak >= 7 ? 'fire' : streak >= 3 ? 'warm' : 'cold';
+
   return (
-    <Card className="glass-card">
-      <CardContent className="p-5">
+    <Card className="glass-card overflow-hidden">
+      <div className={cn(
+        "absolute inset-0 pointer-events-none",
+        streakLevel === 'fire' ? 'bg-gradient-to-br from-orange-500/5 to-transparent' :
+        streakLevel === 'warm' ? 'bg-gradient-to-br from-yellow-500/5 to-transparent' : ''
+      )} />
+      <CardContent className="relative p-5">
         <div className="flex items-center gap-4 mb-4">
-          <div className={cn(
-            'p-2.5 rounded-xl flex-shrink-0',
-            streak >= 3 ? 'bg-orange-500/10' : 'bg-muted'
-          )}>
-            <Flame className={cn('h-5 w-5', streak >= 3 ? 'text-orange-500' : 'text-muted-foreground')} />
-          </div>
+          <motion.div
+            initial={{ scale: 0.8 }}
+            animate={{ scale: 1 }}
+            className={cn(
+              'p-3 rounded-2xl flex-shrink-0',
+              streakLevel === 'fire' ? 'bg-orange-500/10' : streakLevel === 'warm' ? 'bg-yellow-500/10' : 'bg-muted'
+            )}
+          >
+            <Flame className={cn('h-6 w-6', streakLevel === 'fire' ? 'text-orange-500' : streakLevel === 'warm' ? 'text-yellow-500' : 'text-muted-foreground')} />
+          </motion.div>
           <div>
             <div className="flex items-baseline gap-2">
-              <span className={cn(
-                'text-3xl font-display font-bold',
-                streak >= 7 ? 'text-orange-500' : streak >= 3 ? 'text-yellow-500' : 'text-foreground'
-              )}>
+              <motion.span
+                initial={{ scale: 0.5, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ type: 'spring', stiffness: 200 }}
+                className={cn(
+                  'text-3xl font-display font-bold',
+                  streakLevel === 'fire' ? 'text-orange-500' : streakLevel === 'warm' ? 'text-yellow-500' : 'text-foreground'
+                )}
+              >
                 {streak}
-              </span>
+              </motion.span>
               <span className="text-sm text-muted-foreground">Tage in Folge</span>
+              {streak >= 7 && (
+                <Badge className="bg-orange-500/10 text-orange-600 border-orange-500/20 text-xs ml-1">
+                  <Zap className="h-3 w-3 mr-0.5" /> Max
+                </Badge>
+              )}
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
               {streak > 0 && t('examRelevance')}
@@ -56,20 +79,44 @@ export function SmartStreakWidget({ curriculumId }: SmartStreakWidgetProps) {
         </div>
 
         <div className="space-y-2.5">
-          <div className="flex items-center gap-2.5 text-sm">
+          <motion.div
+            initial={{ x: -8, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            transition={{ delay: 0.2 }}
+            className="flex items-center gap-2.5 text-sm"
+          >
             <Brain className="h-4 w-4 text-primary flex-shrink-0" />
             <span className="text-muted-foreground">{getStreakMessage()}</span>
-          </div>
-          <div className="flex items-center gap-2.5 text-sm">
+          </motion.div>
+          <motion.div
+            initial={{ x: -8, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            transition={{ delay: 0.3 }}
+            className="flex items-center gap-2.5 text-sm"
+          >
             <Clock className="h-4 w-4 text-accent flex-shrink-0" />
             <span className="text-muted-foreground">{getTimeInsight()}</span>
-          </div>
+          </motion.div>
           {successRate > 0 && (
-            <div className="mt-3 pt-3 border-t border-border">
-              <p className="text-xs text-muted-foreground">
-                Aktuelle Trefferquote: <span className="font-semibold text-foreground">{Math.round(successRate)}%</span>
-              </p>
-            </div>
+            <motion.div
+              initial={{ y: 5, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.4 }}
+              className="mt-3 pt-3 border-t border-border"
+            >
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">Aktuelle Trefferquote</p>
+                <span className="text-sm font-bold text-foreground">{Math.round(successRate)}%</span>
+              </div>
+              <div className="h-1.5 bg-muted rounded-full mt-1.5 overflow-hidden">
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${successRate}%` }}
+                  transition={{ delay: 0.5, duration: 0.8, ease: 'easeOut' }}
+                  className="h-full bg-primary rounded-full"
+                />
+              </div>
+            </motion.div>
           )}
         </div>
       </CardContent>
