@@ -681,13 +681,15 @@ Deno.serve(async (req) => {
   }
 
   // Check remaining after this batch — use ACTUAL written count, not pre-filter count
+  // v20: Include both LF-based and padding chapter work in remaining calculation
   const writtenCount = actualWrittenCount;
-  const remainingAfterBatch = fieldsNeedingGeneration.length - batchFields.length + (batchFields.length - writtenCount);
+  const totalWorkItems = fieldsNeedingGeneration.length + paddingChaptersNeedingSections.length;
+  const remainingAfterBatch = totalWorkItems - batchFields.length + (batchFields.length - writtenCount);
   const totalPopulated = populatedLfIds.size + writtenCount;
   const isComplete = remainingAfterBatch <= 0;
-  const progress = Math.round((totalPopulated / fields.length) * 100);
+  const progress = Math.round((totalPopulated / Math.max(fields.length, totalWorkItems)) * 100);
 
-  console.log(`[generate-handbook] Batch: ${writtenCount} sections written (${llmFailCount} rejected), Total: ${totalPopulated}/${fields.length} (${progress}%)${isComplete ? ' — COMPLETE' : ''}`);
+  console.log(`[generate-handbook] Batch: ${writtenCount} sections written (${llmFailCount} rejected), Total: ${totalPopulated}/${fields.length} LFs + ${paddingChaptersNeedingSections.length} padding (${progress}%)${isComplete ? ' — COMPLETE' : ''}`);
 
   // ── P1: Prevent completed-without-writes ──
   // If we attempted generation but wrote nothing, signal blocked_by_guard / provider_empty
