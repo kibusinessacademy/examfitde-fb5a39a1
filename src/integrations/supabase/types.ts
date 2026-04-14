@@ -50955,6 +50955,30 @@ export type Database = {
           },
         ]
       }
+      track_step_applicability: {
+        Row: {
+          condition: string | null
+          should_run: boolean
+          step_key: string
+          track: Database["public"]["Enums"]["product_track"]
+          updated_at: string
+        }
+        Insert: {
+          condition?: string | null
+          should_run?: boolean
+          step_key: string
+          track: Database["public"]["Enums"]["product_track"]
+          updated_at?: string
+        }
+        Update: {
+          condition?: string | null
+          should_run?: boolean
+          step_key?: string
+          track?: Database["public"]["Enums"]["product_track"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       tracking_events: {
         Row: {
           created_at: string

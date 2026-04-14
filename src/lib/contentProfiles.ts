@@ -191,8 +191,9 @@ const STUDIUM_CONTENT_PROFILE: ContentProfile = {
   includeExamSimulation: true,
   minApprovedExamQuestions: 400,
   recommendedApprovedExamQuestions: 700,
-  includeOralExam: true,
-  oralExamOptional: true,
+  /** STUDIUM has no oral exam tradition — resolveHasOralExam() is SSOT */
+  includeOralExam: false,
+  oralExamOptional: false,
   defaultOralTrainerMode: "didactic_viva",
   includeTutorIndex: true,
   tutorDepth: "full",
