@@ -1,9 +1,12 @@
 import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Download, ExternalLink, Loader2, Apple, Smartphone, Copy, CheckCircle2, ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
+import { Download, ExternalLink, Loader2, Apple, Smartphone, Copy, CheckCircle2, ChevronDown, ChevronUp, Sparkles, Shield, Package } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+
+const CURRENT_YEAR = new Date().getFullYear();
+const COPYRIGHT_TEXT = `© ${CURRENT_YEAR} ExamFit – Alle Rechte vorbehalten.`;
 
 type StoreListing = {
   app_name?: string;
@@ -20,6 +23,8 @@ type StoreListing = {
   technical_requirements?: { min_os_version?: string; devices?: string; permissions?: string[] };
   checklist?: string[];
   aso_tips?: string[];
+  copyright_notice?: string;
+  legal_footer?: string;
 };
 
 function CopyButton({ text, label }: { text: string; label?: string }) {
