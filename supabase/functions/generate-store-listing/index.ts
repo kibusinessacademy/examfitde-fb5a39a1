@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
     const maxLong = store === "apple" ? 4000 : 4000;
 
     const currentYear = new Date().getFullYear();
-    const copyrightNotice = `© ${currentYear} ExamFit – Alle Rechte vorbehalten.`;
+    const copyrightNotice = `© ${currentYear} ExamFit.de – Alle Rechte vorbehalten.`;
 
     const systemPrompt = `Du bist ein Senior App Store Optimization (ASO) Spezialist und erfahrener App-Marketing-Experte für den deutschen Bildungsmarkt.
 

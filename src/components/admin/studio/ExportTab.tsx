@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
 const CURRENT_YEAR = new Date().getFullYear();
-const COPYRIGHT_TEXT = `© ${CURRENT_YEAR} ExamFit – Alle Rechte vorbehalten.`;
+const COPYRIGHT_TEXT = `© ${CURRENT_YEAR} ExamFit.de – Alle Rechte vorbehalten.`;
 
 type StoreListing = {
   app_name?: string;
