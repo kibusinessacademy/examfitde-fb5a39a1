@@ -62,7 +62,7 @@ Deno.serve(async (req) => {
 
   // ── 4. Stale lock TTL release (DB function) ──
   try {
-    const { data, error } = await sb.rpc("fn_release_stale_job_locks", { p_lock_ttl_minutes: 5 });
+    const { data, error } = await sb.rpc("fn_release_stale_job_locks", { p_lock_ttl_minutes: 3 });
     steps.push({ step: "stale_lock_ttl", ok: !error, data: data ?? error?.message });
   } catch (e) {
     steps.push({ step: "stale_lock_ttl", ok: false, error: (e as Error).message });

@@ -217,7 +217,7 @@ Deno.serve(async (req) => {
       "package_quality_council",
       "package_auto_publish",
     ]);
-    const zombieCutoff = new Date(Date.now() - 5 * 60_000).toISOString();
+    const zombieCutoff = new Date(Date.now() - 3 * 60_000).toISOString();
     // First query candidates, then filter and update (to exclude governance)
     const { data: zombieCandidates } = await sb.from("job_queue")
       .select("id, job_type, last_heartbeat_at")
