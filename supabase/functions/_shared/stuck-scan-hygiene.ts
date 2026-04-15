@@ -993,7 +993,7 @@ export async function healValidateExamPoolLoop(sb: SupabaseClient) {
 
         await sb.from("course_packages").update({
           status: "blocked",
-          blocked_reason: "VALIDATE_EXAM_POOL_TRUE_STALL",
+          blocked_reason: "pipeline_repair_required",
           last_error: `True stall: ${reasonCode}`,
           updated_at: new Date().toISOString(),
         }).eq("id", step.package_id);

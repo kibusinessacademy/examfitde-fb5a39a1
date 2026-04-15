@@ -2002,7 +2002,7 @@ Deno.serve(async (req) => {
             await sb.from("course_packages")
               .update({
                 status: "blocked",
-                blocked_reason: `kill_switch: ${validationStepKey} failed after ${healCycles} heal cycles`,
+                blocked_reason: "pipeline_repair_required",
                 last_error: `Kill-switch: ${validationStepKey} exhausted ${healCycles} heal cycles. ${issuesSummary.slice(0, 300)}`,
               })
               .eq("id", packageId);

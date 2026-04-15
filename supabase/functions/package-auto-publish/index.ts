@@ -211,7 +211,7 @@ Deno.serve(async (req) => {
       // Block package + clear integrity_passed
       await sb.from("course_packages").update({
         integrity_passed: false,
-        blocked_reason: "INTEGRITY_REPORT_MISSING_AFTER_DONE",
+        blocked_reason: "pipeline_repair_required",
         updated_at: new Date().toISOString(),
       }).eq("id", packageId);
 

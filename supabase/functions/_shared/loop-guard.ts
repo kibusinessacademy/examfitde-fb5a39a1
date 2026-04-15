@@ -280,7 +280,7 @@ export async function applyLoopGuardBlock(
     .from("course_packages")
     .update({
       status: "blocked",
-      blocked_reason: `loop_guard_${stepKey}`,
+      blocked_reason: "pipeline_repair_required",
       last_error: reason,
     })
     .eq("id", packageId);

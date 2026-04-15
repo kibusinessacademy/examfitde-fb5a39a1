@@ -104,7 +104,7 @@ Deno.serve(async (req) => {
     if (!effectiveCurriculumId || !effectiveCourseId) {
       await sb.from("course_packages").update({
         status: "blocked",
-        blocked_reason: "missing_curriculum_or_course_id",
+        blocked_reason: "awaiting_source_data",
         updated_at: new Date().toISOString(),
       }).eq("id", packageId);
       try { await sb.rpc("release_pipeline_lock", { p_package_id: packageId }); } catch (_) { /* ignore */ }
