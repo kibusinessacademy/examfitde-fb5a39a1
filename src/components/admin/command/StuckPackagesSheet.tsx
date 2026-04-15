@@ -387,9 +387,27 @@ export function StuckPackagesSheet({ open, onOpenChange }: {
       const pkg = stuckPackages.find(p => p.id === packageId);
       const firstStalledStep = pkg?.stalled_steps?.[0]?.step_key;
 
-      if (action === 'resume_pipeline' || action === 'materialize_jobs') {
+      if (action === 'resume_pipeline') {
         const targetStep = stepKey || firstStalledStep || 'generate_learning_content';
         return runAdminOpsAction('retry_stalled_step', { package_id: packageId, step_key: targetStep });
+      }
+      if (action === 'materialize_jobs') {
+        // Enqueue all DAG-ready steps sequentially
+        const stalledSteps = pkg?.stalled_steps || [];
+        const dagReady = stalledSteps.filter(s => s.status === 'queued').slice(0, 5);
+        if (dagReady.length === 0) {
+          const targetStep = firstStalledStep || 'generate_learning_content';
+          return runAdminOpsAction('enqueue_single_step', { package_id: packageId, step_key: targetStep });
+        }
+        let lastResult: any;
+        for (const step of dagReady) {
+          try {
+            lastResult = await runAdminOpsAction('enqueue_single_step', { package_id: packageId, step_key: step.step_key });
+          } catch (e) {
+            console.warn(`[materialize] failed for step ${step.step_key}:`, e);
+          }
+        }
+        return lastResult ?? { ok: true, action: 'materialize_jobs', materialized: dagReady.length };
       }
       if (action === 'retry_failed') {
         return runAdminOpsAction('requeue_failed_jobs', { package_id: packageId });
