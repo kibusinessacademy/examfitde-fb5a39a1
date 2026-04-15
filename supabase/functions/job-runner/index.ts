@@ -1040,7 +1040,7 @@ Deno.serve(async (req) => {
 
         if (shouldBlockStep) {
           // ── TERMINAL BLOCK: Step + Package become blocked ──
-          const blockReason = `AUTO_PUBLISH_GATE_BLOCKED: ${cancelCount} deterministic failures in 2h. integrity_passed=false, no active autofix.`;
+          const blockReason = "pipeline_repair_required";
           console.warn(`[job-runner] 🛑 LOOP GUARD: blocking auto_publish step + package (pkg ${jobPackageId.slice(0, 8)})`);
 
           // Block the step so pipeline-process won't re-enqueue
