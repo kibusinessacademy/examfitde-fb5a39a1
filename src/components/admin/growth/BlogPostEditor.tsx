@@ -151,12 +151,16 @@ export default function BlogPostEditor() {
   const { create, update, publish, remove } = useBlogPostMutations();
   const [search, setSearch] = useState('');
   const [editPost, setEditPost] = useState<BlogPost | null>(null);
-  const [showCreate, setShowCreate] = useState(false);
   const [filter, setFilter] = useState<string>('all');
 
   if (isLoading) return <Skeleton className="h-60" />;
 
-  const filtered = (posts || []).filter(p => {
+  const all = posts || [];
+  const publishedCount = all.filter(p => p.status === 'published').length;
+  const draftCount = all.filter(p => p.status !== 'published').length;
+  const totalWords = all.reduce((s, p) => s + ((p as any)._word_count || 0), 0);
+
+  const filtered = all.filter(p => {
     if (filter !== 'all' && p.status !== filter) return false;
     if (search && !p.title.toLowerCase().includes(search.toLowerCase()) && !p.slug.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
@@ -164,6 +168,34 @@ export default function BlogPostEditor() {
 
   return (
     <div className="space-y-4">
+      {/* KPI Strip */}
+      <div className="grid grid-cols-4 gap-3">
+        <Card className="border-border">
+          <CardContent className="p-3">
+            <div className="text-lg font-bold text-foreground">{all.length}</div>
+            <div className="text-[10px] text-muted-foreground">Artikel gesamt</div>
+          </CardContent>
+        </Card>
+        <Card className="border-emerald-500/20">
+          <CardContent className="p-3">
+            <div className="text-lg font-bold text-emerald-600">{publishedCount}</div>
+            <div className="text-[10px] text-muted-foreground">Published</div>
+          </CardContent>
+        </Card>
+        <Card className="border-amber-500/20">
+          <CardContent className="p-3">
+            <div className="text-lg font-bold text-amber-600">{draftCount}</div>
+            <div className="text-[10px] text-muted-foreground">Entwürfe</div>
+          </CardContent>
+        </Card>
+        <Card className="border-primary/20">
+          <CardContent className="p-3">
+            <div className="text-lg font-bold text-foreground">{totalWords.toLocaleString('de-DE')}</div>
+            <div className="text-[10px] text-muted-foreground">Wörter gesamt</div>
+          </CardContent>
+        </Card>
+      </div>
+
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2 flex-1 min-w-0">
           <div className="relative flex-1 max-w-sm">
@@ -198,6 +230,7 @@ export default function BlogPostEditor() {
         )}
         {filtered.map(post => {
           const seo = seoScore(post);
+          const extra = post as any;
           return (
             <Card key={post.id} className="hover:bg-muted/20 transition-colors">
               <CardContent className="py-3 px-4">
@@ -211,8 +244,22 @@ export default function BlogPostEditor() {
                       )}>
                         SEO {seo.score}%
                       </Badge>
+                      {post.category && (
+                        <Badge variant="outline" className="text-[9px]">{post.category}</Badge>
+                      )}
                     </div>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">/{post.slug} · {post.category || 'Keine Kategorie'}</p>
+                    <div className="flex items-center gap-3 mt-0.5">
+                      <p className="text-[10px] text-muted-foreground">/{post.slug}</p>
+                      {extra._word_count > 0 && (
+                        <span className="text-[9px] text-muted-foreground">{extra._word_count} Wörter</span>
+                      )}
+                      {extra._reading_time > 0 && (
+                        <span className="text-[9px] text-muted-foreground">{extra._reading_time} min</span>
+                      )}
+                      {extra._views > 0 && (
+                        <span className="text-[9px] text-muted-foreground">👁 {extra._views}</span>
+                      )}
+                    </div>
                     {seo.issues.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-1">
                         {seo.issues.slice(0, 3).map((issue, i) => (
@@ -223,6 +270,9 @@ export default function BlogPostEditor() {
                     )}
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
+                    <a href={`/wissen/${post.slug}`} target="_blank" rel="noopener noreferrer">
+                      <Button variant="ghost" size="icon" className="h-7 w-7" title="Live ansehen"><ExternalLink className="h-3 w-3" /></Button>
+                    </a>
                     {post.status !== 'published' && (
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => publish.mutate(post.id)} title="Veröffentlichen">
                         <Send className="h-3 w-3" />
