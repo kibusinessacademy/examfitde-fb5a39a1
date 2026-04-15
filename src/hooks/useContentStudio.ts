@@ -4,7 +4,7 @@ import { useRealtimeInvalidation } from './useAdminRealtimeInvalidation';
 import { toast } from 'sonner';
 
 // ═══════════════════════════════════════════════════════════
-// Content Pages
+// Content Pages (custom + certification SEO pages unified)
 // ═══════════════════════════════════════════════════════════
 
 export interface ContentPage {
@@ -25,6 +25,10 @@ export interface ContentPage {
   published_at: string | null;
   created_at: string;
   updated_at: string;
+  // unified source marker
+  _source?: 'content_pages' | 'certification_seo';
+  _quality_score?: number | null;
+  _word_count?: number | null;
 }
 
 export function useContentPages() {
@@ -33,12 +37,50 @@ export function useContentPages() {
   return useQuery({
     queryKey: ['content-pages'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('content_pages')
-        .select('*')
-        .order('updated_at', { ascending: false });
-      if (error) throw error;
-      return (data || []) as ContentPage[];
+      // Fetch both sources in parallel
+      const [customResult, seoResult] = await Promise.all([
+        supabase
+          .from('content_pages')
+          .select('*')
+          .order('updated_at', { ascending: false }),
+        supabase
+          .from('certification_seo_pages')
+          .select('*')
+          .order('updated_at', { ascending: false }),
+      ]);
+
+      if (customResult.error) throw customResult.error;
+
+      const customPages = (customResult.data || []).map((p: any) => ({
+        ...p,
+        _source: 'content_pages' as const,
+      })) as ContentPage[];
+
+      // Map certification_seo_pages to ContentPage shape
+      const seoPages = (seoResult.data || []).map((s: any) => ({
+        id: s.id,
+        slug: s.slug,
+        page_type: s.page_type || 'landing',
+        title: s.title,
+        meta_title: s.meta_title,
+        meta_description: s.meta_description,
+        canonical_url: null,
+        body_md: s.content_html || '',
+        schema_json: s.content_json,
+        status: s.is_published ? 'published' : 'draft',
+        language: 'de',
+        audience: 'b2c',
+        og_image_url: null,
+        noindex: false,
+        published_at: s.published_at,
+        created_at: s.created_at,
+        updated_at: s.updated_at,
+        _source: 'certification_seo' as const,
+        _quality_score: s.quality_score,
+        _word_count: s.word_count,
+      })) as ContentPage[];
+
+      return [...customPages, ...seoPages];
     },
   });
 }
