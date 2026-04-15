@@ -30,6 +30,7 @@ interface ExhaustedPackage {
   guard_state: string;
   last_validate_at: string | null;
   error_categories: ErrorCategory[];
+  gate_class: string | null;
 }
 
 type ErrorCategory =
