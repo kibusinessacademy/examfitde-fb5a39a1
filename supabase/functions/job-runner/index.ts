@@ -1929,17 +1929,17 @@ Deno.serve(async (req) => {
           } catch (_e) { /* best-effort */ }
         }
 
+        // Hoist stepRow so it's available in both shouldHealNow and HARD_FAIL_BREAKER branches
+        const { data: stepRow } = await sb
+          .from("package_steps")
+          .select("attempts, meta")
+          .eq("package_id", packageId)
+          .eq("step_key", validationStepKey ?? predecessorStep)
+          .maybeSingle();
+
         if (shouldHealNow) {
           // Trigger targeted re-seed via predecessor reset
           const MAX_HEAL_CYCLES = 7;
-
-          // Check how many times we've already healed this step
-          const { data: stepRow } = await sb
-            .from("package_steps")
-            .select("attempts, meta")
-            .eq("package_id", packageId)
-            .eq("step_key", predecessorStep)
-            .maybeSingle();
 
           const healCycles = (stepRow?.meta as any)?.heal_cycles ?? 0;
 
