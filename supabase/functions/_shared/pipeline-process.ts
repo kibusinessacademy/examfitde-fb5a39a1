@@ -107,7 +107,7 @@ export async function processPackage(
   if (!pkg.curriculum_id || !pkg.course_id) {
     await safeQuery(
       sb.from("course_packages")
-        .update({ status: "blocked", blocked_reason: "missing_curriculum_or_course_id" })
+        .update({ status: "blocked", blocked_reason: "awaiting_source_data" })
         .eq("id", packageId),
     );
     await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
@@ -214,7 +214,7 @@ export async function processPackage(
         console.error(`[runner] build-course-package failed for ${shortId}: ${JSON.stringify(buildData)}`);
         await safeQuery(
           sb.from("course_packages")
-            .update({ status: "blocked", blocked_reason: `build_init_failed: ${buildData.error || buildRes.status}` })
+            .update({ status: "blocked", blocked_reason: "pipeline_repair_required" })
             .eq("id", packageId),
         );
         await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
@@ -1180,7 +1180,7 @@ export async function processPackage(
         console.error(`[runner] 🚨 GHOST COMPLETION BLOCKED for ${shortId}`);
         await safeQuery(sb.from("course_packages").update({ 
           status: "quality_gate_failed", 
-          blocked_reason: "GHOST_COMPLETION: All steps done but none were ever executed" 
+          blocked_reason: "pipeline_repair_required" 
         }).eq("id", packageId));
         await safeQuery(sb.from("admin_notifications").insert({
           title: `🚨 Ghost Completion blockiert: ${shortId}`,
@@ -1203,7 +1203,7 @@ export async function processPackage(
       } else {
         await safeQuery(sb.from("course_packages").update({ 
           status: "quality_gate_failed",
-          blocked_reason: "ALL_STEPS_DONE_BUT_INTEGRITY_FAILED",
+          blocked_reason: "pipeline_repair_required",
         }).eq("id", packageId));
         console.log(`[runner] Package ${shortId} → quality_gate_failed`);
       }
@@ -1221,7 +1221,7 @@ export async function processPackage(
       if (!hasEnqueued) {
         await safeQuery(
           sb.from("course_packages")
-            .update({ status: "blocked", blocked_reason: "no_runnable_steps" })
+            .update({ status: "blocked", blocked_reason: "pipeline_repair_required" })
             .eq("id", packageId),
         );
       }
