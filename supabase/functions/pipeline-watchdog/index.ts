@@ -556,7 +556,7 @@ Deno.serve(async (req) => {
         // Block the package — generator cannot produce enough content
         await sb.from("course_packages").update({
           status: "blocked",
-          blocked_reason: `QG_HEAL_EXHAUSTED: ${currentRetryCount} heal cycles without resolution`,
+          blocked_reason: "pipeline_repair_required",
           updated_at: new Date().toISOString(),
         }).eq("id", pkg.id);
         await sb.from("admin_notifications").insert({
@@ -791,7 +791,7 @@ Deno.serve(async (req) => {
       if (currentRetryCount >= FAILED_MAX_HEAL_CYCLES) {
         await sb.from("course_packages").update({
           status: "blocked",
-          blocked_reason: `FAILED_HEAL_EXHAUSTED: ${currentRetryCount} heal cycles without resolution`,
+          blocked_reason: "pipeline_repair_required",
           updated_at: new Date().toISOString(),
         }).eq("id", pkg.id);
         await sb.from("admin_notifications").insert({

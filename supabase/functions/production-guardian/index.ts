@@ -1032,7 +1032,7 @@ Deno.serve(async (req) => {
             await sb.from("course_packages")
               .update({
                 status: "blocked",
-                blocked_reason: "auto_stall_block",
+                blocked_reason: "pipeline_repair_required",
                 stuck_reason: `SHADOW_STALLED_${Math.round(stalledMinutes)}min`,
                 updated_at: new Date().toISOString(),
               })

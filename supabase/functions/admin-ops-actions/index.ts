@@ -922,7 +922,7 @@ async function cancelZombiePackages(sb: SB, body: JsonRow) {
 
   if (typeof body.package_id === "string") {
     const { error } = await sb.from("course_packages")
-      .update({ status: "blocked", blocked_reason: "admin_phase3_cancelled_zombie", updated_at: new Date().toISOString() })
+      .update({ status: "blocked", blocked_reason: "auto_heal_zombie", updated_at: new Date().toISOString() })
       .eq("id", body.package_id);
     if (error) throw error;
     return { ok: true, updated: 1, scope: "single_package" };
@@ -937,7 +937,7 @@ async function cancelZombiePackages(sb: SB, body: JsonRow) {
   if (!ids.length) return { ok: true, updated: 0 };
 
   const { error } = await sb.from("course_packages")
-    .update({ status: "blocked", blocked_reason: "admin_phase3_cancelled_zombie", updated_at: new Date().toISOString() })
+    .update({ status: "blocked", blocked_reason: "auto_heal_zombie", updated_at: new Date().toISOString() })
     .in("id", ids);
   if (error) throw error;
   return { ok: true, updated: ids.length, scope: "global" };

@@ -1040,7 +1040,7 @@ Deno.serve(async (req) => {
 
         if (shouldBlockStep) {
           // ── TERMINAL BLOCK: Step + Package become blocked ──
-          const blockReason = `AUTO_PUBLISH_GATE_BLOCKED: ${cancelCount} deterministic failures in 2h. integrity_passed=false, no active autofix.`;
+          const blockReason = "pipeline_repair_required";
           console.warn(`[job-runner] 🛑 LOOP GUARD: blocking auto_publish step + package (pkg ${jobPackageId.slice(0, 8)})`);
 
           // Block the step so pipeline-process won't re-enqueue
@@ -2002,7 +2002,7 @@ Deno.serve(async (req) => {
             await sb.from("course_packages")
               .update({
                 status: "blocked",
-                blocked_reason: `kill_switch: ${validationStepKey} failed after ${healCycles} heal cycles`,
+                blocked_reason: "pipeline_repair_required",
                 last_error: `Kill-switch: ${validationStepKey} exhausted ${healCycles} heal cycles. ${issuesSummary.slice(0, 300)}`,
               })
               .eq("id", packageId);
@@ -2161,7 +2161,7 @@ Deno.serve(async (req) => {
             await sb.from("course_packages")
               .update({
                 status: "blocked",
-                blocked_reason: `${terminalStepKey ?? "validate_exam_pool"}_terminal_escalation`,
+                blocked_reason: "pipeline_repair_required",
                 last_error: `Terminal escalation at ${terminalStepKey ?? job.job_type}: ${issuesSummary.slice(0, 300)}`,
               })
               .eq("id", packageId);
