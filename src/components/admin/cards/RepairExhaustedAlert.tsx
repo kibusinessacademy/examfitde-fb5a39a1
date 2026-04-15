@@ -39,6 +39,17 @@ type ErrorCategory =
   | 'BLOOM'
   | 'OTHER';
 
+type StatusFilter = 'ALL' | 'building' | 'blocked' | 'queued' | 'published' | 'other_status';
+
+const STATUS_LABELS: Record<StatusFilter, string> = {
+  ALL: 'Alle Status',
+  building: 'Building',
+  blocked: 'Blockiert',
+  queued: 'Queued',
+  published: 'Publiziert',
+  other_status: 'Sonstige',
+};
+
 const CATEGORY_LABELS: Record<ErrorCategory, string> = {
   EXAM_POOL: 'Exam-Pool',
   COMPETENCY: 'Kompetenz-Abdeckung',
