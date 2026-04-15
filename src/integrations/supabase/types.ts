@@ -10575,6 +10575,39 @@ export type Database = {
           },
         ]
       }
+      course_inquiries: {
+        Row: {
+          created_at: string
+          email: string
+          first_name: string
+          id: string
+          last_name: string
+          message: string | null
+          phone: string | null
+          requested_courses: Json
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          first_name: string
+          id?: string
+          last_name: string
+          message?: string | null
+          phone?: string | null
+          requested_courses?: Json
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          first_name?: string
+          id?: string
+          last_name?: string
+          message?: string | null
+          phone?: string | null
+          requested_courses?: Json
+        }
+        Relationships: []
+      }
       course_notes: {
         Row: {
           content: string
