@@ -242,6 +242,13 @@ function ExhaustedPackageRow({ pkg, onRepair, busyId }: {
         </Badge>
       </div>
 
+      {/* GATE_PASS indicator */}
+      {pkg.gate_class === 'PASS' && (
+        <div className="text-[11px] font-semibold text-emerald-400">
+          GATE_PASS
+        </div>
+      )}
+
       {/* Show stall reason if no hard_fail_reasons */}
       {pkg.hard_fail_reasons.length === 0 && pkg.stall_reason_code && (
         <div className="text-[11px] text-muted-foreground">
