@@ -163,6 +163,21 @@ function useRepairExhaustedPackages() {
         if (c) reportResults.push(...c);
       }
 
+      // Check gate classification for REPAIR_EXHAUSTED packages
+      const repairExhaustedIds = exhausted
+        .filter((s: any) => (s.meta?.stall_reason_code || '').includes('REPAIR_EXHAUSTED'))
+        .map((s: any) => s.package_id);
+
+      const gateMap = new Map<string, string>();
+      for (const pkgId of repairExhaustedIds) {
+        try {
+          const { data: gateResult } = await supabase.rpc('fn_classify_exam_pool_gate', { p_package_id: pkgId });
+          if (gateResult && typeof gateResult === 'object' && 'gate_class' in (gateResult as any)) {
+            gateMap.set(pkgId, (gateResult as any).gate_class);
+          }
+        } catch { /* ignore gate check failures */ }
+      }
+
       const pkgMap = new Map<string, any>();
       for (const p of pkgResults) pkgMap.set(p.package_id, p);
       const reportMap = new Map<string, any>();
@@ -187,6 +202,7 @@ function useRepairExhaustedPackages() {
           guard_state: s.meta?.guard_state || 'unknown',
           last_validate_at: s.meta?.last_validate_completed_at || null,
           error_categories: categorizeReasons(hardFails, stallCode),
+          gate_class: gateMap.get(s.package_id) ?? null,
         };
       });
     },
