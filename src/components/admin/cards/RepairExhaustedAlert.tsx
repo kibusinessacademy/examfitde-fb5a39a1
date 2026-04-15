@@ -507,6 +507,9 @@ export function RepairExhaustedAlert() {
       if (action === 'enqueue_exam_generation') {
         return runAdminOpsAction('enqueue_single_step', { package_id: packageId, step_key: 'generate_exam_pool' });
       }
+      if (action === 'heal_gate_pass') {
+        return runAdminOpsAction('heal_gate_pass', { package_id: packageId });
+      }
       return runAdminOpsAction(action as any, { package_id: packageId });
     },
     onSuccess: (_data, vars) => {
