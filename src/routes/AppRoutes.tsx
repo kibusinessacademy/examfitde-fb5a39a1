@@ -128,13 +128,9 @@ const KursePage = lazyRetry(() => import('@/pages/admin/v2/KursePage'));
 const QueuePage = lazyRetry(() => import('@/pages/admin/v2/QueuePage'));
 const GrowthPage = lazyRetry(() => import('@/pages/admin/v2/GrowthPage'));
 const TestAreaPage = lazyRetry(() => import('@/pages/admin/v2/TestAreaPage'));
-const BusinessBrainPage = lazyRetry(() => import('@/pages/admin/v2/BusinessBrainPage'));
-const ForensicReportsPage = lazyRetry(() => import('@/pages/admin/v2/ForensicReportsPage'));
-const HumorQCPage = lazyRetry(() => import('@/pages/admin/v2/HumorQCPage'));
 const CourseWorkspace = lazyRetry(() => import('@/pages/admin/CourseWorkspace'));
-const PageStudioPage = lazyRetry(() => import('@/pages/admin/v2/PageStudioPage'));
-// MarketingPage removed — Promo is now a tab in Growth
 const SupportPage = lazyRetry(() => import('@/pages/admin/v2/SupportPage'));
+const KPIPage = lazyRetry(() => import('@/pages/admin/v2/KPIPage'));
 
 // ExamFit@work public pages
 const WorkHomePage = lazyRetry(() => import('@/pages/work/WorkHomePage'));
@@ -351,13 +347,9 @@ const AppRoutes = () => {
           <Route path="studio" element={<KursePage />} />
           <Route path="studio/:packageId" element={<CourseWorkspace />} />
           <Route path="queue" element={<QueuePage />} />
-          <Route path="pages" element={<PageStudioPage />} />
           <Route path="growth" element={<GrowthPage />} />
-          <Route path="brain" element={<BusinessBrainPage />} />
-          <Route path="forensics" element={<ForensicReportsPage />} />
-          <Route path="humor-qc" element={<HumorQCPage />} />
-          {/* marketing route removed — Promo is now a tab in Growth */}
           <Route path="support" element={<SupportPage />} />
+          <Route path="kpi" element={<KPIPage />} />
           <Route path="test" element={<TestAreaPage />} />
           <Route path="*" element={<Navigate to="/admin/command" replace />} />
         </Route>
