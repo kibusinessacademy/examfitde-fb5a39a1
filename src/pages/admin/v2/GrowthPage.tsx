@@ -1,6 +1,6 @@
 import { lazy, Suspense } from 'react';
 import { Link } from 'react-router-dom';
-import { Loader2, Globe, ArrowLeft, BarChart3, FileText, Image, Link2, Settings, Euro, Share2, Search, Target, RefreshCw, Radar, Zap, Rocket, DollarSign } from 'lucide-react';
+import { Loader2, Globe, ArrowLeft, BarChart3, FileText, Image, Link2, Settings, Euro, Share2, Search, Target, RefreshCw, Radar, Zap, Rocket, DollarSign, Tag } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
@@ -19,6 +19,7 @@ const RefreshQueueManager = lazy(() => import('@/components/admin/growth/Refresh
 const SEOAuditManager = lazy(() => import('@/components/admin/growth/SEOAuditManager'));
 const SEODiscoveryManager = lazy(() => import('@/components/admin/growth/SEODiscoveryManager'));
 const GrowthLoopManager = lazy(() => import('@/components/admin/growth/GrowthLoopManager'));
+const PromoCodesPanel = lazy(() => import('@/components/admin/marketing/AdminPromoCodesPanel'));
 
 const Loading = () => (
   <Card><CardContent className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></CardContent></Card>
@@ -87,6 +88,9 @@ export default function GrowthPage() {
           <TabsTrigger value="pricing" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg">
             <Euro className="h-3 w-3" /> Preise
           </TabsTrigger>
+          <TabsTrigger value="promo" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg">
+            <Tag className="h-3 w-3" /> Promo
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="dashboard" className="mt-4"><Suspense fallback={<Loading />}><GrowthSeoCommandCenter /></Suspense></TabsContent>
@@ -104,6 +108,7 @@ export default function GrowthPage() {
         <TabsContent value="assets" className="mt-4"><Suspense fallback={<Loading />}><ContentAssetManager /></Suspense></TabsContent>
         <TabsContent value="social" className="mt-4"><Suspense fallback={<Loading />}><SocialMediaManager /></Suspense></TabsContent>
         <TabsContent value="pricing" className="mt-4"><Suspense fallback={<Loading />}><PricingManager /></Suspense></TabsContent>
+        <TabsContent value="promo" className="mt-4"><Suspense fallback={<Loading />}><PromoCodesPanel /></Suspense></TabsContent>
       </Tabs>
     </div>
   );
