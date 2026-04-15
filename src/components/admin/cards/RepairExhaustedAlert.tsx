@@ -37,6 +37,7 @@ type ErrorCategory =
   | 'MINICHECK'
   | 'TRAP'
   | 'BLOOM'
+  | 'LESSON_QUALITY'
   | 'OTHER';
 
 type StatusFilter = 'ALL' | 'building' | 'blocked' | 'queued' | 'published' | 'other_status';
@@ -56,6 +57,7 @@ const CATEGORY_LABELS: Record<ErrorCategory, string> = {
   MINICHECK: 'MiniChecks',
   TRAP: 'Trap-Verteilung',
   BLOOM: 'Bloom-Taxonomie',
+  LESSON_QUALITY: 'Lektionsqualität',
   OTHER: 'Sonstige',
 };
 
@@ -65,6 +67,7 @@ const CATEGORY_COLORS: Record<ErrorCategory, string> = {
   MINICHECK: 'bg-yellow-900/40 text-yellow-300 border-yellow-700/50',
   TRAP: 'bg-purple-900/40 text-purple-300 border-purple-700/50',
   BLOOM: 'bg-blue-900/40 text-blue-300 border-blue-700/50',
+  LESSON_QUALITY: 'bg-amber-900/40 text-amber-300 border-amber-700/50',
   OTHER: 'bg-muted text-muted-foreground border-border',
 };
 
@@ -84,6 +87,8 @@ function categorizeReasons(reasons: string[]): ErrorCategory[] {
       cats.add('TRAP');
     if (upper.includes('BLOOM'))
       cats.add('BLOOM');
+    if (upper.includes('LESSON_QUALITY') || upper.includes('PLACEHOLDER') || upper.includes('TIER1_HOLLOW'))
+      cats.add('LESSON_QUALITY');
   }
   if (cats.size === 0 && reasons.length > 0) cats.add('OTHER');
   if (cats.size === 0) cats.add('OTHER');
@@ -255,6 +260,19 @@ function ExhaustedPackageRow({ pkg, onRepair, busyId }: {
             disabled={busy}
             onClick={() => onRepair(pkg.package_id, 'repair_lessons')}
             title="5-Schritte-Lektionen für fehlende Kompetenzen regenerieren"
+          >
+            {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wrench className="h-3 w-3" />}
+            Lektionen reparieren
+          </Button>
+        )}
+        {hasCategory(pkg, 'LESSON_QUALITY') && (
+          <Button
+            size="sm"
+            variant="destructive"
+            className="h-7 text-[11px] gap-1"
+            disabled={busy}
+            onClick={() => onRepair(pkg.package_id, 'repair_lessons')}
+            title="Placeholder-Lektionen neu generieren lassen"
           >
             {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wrench className="h-3 w-3" />}
             Lektionen reparieren
