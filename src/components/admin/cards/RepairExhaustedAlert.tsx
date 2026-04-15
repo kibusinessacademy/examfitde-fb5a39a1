@@ -13,7 +13,7 @@ import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
   AlertOctagon, ArrowRight, RefreshCw, Loader2, Wrench, Zap,
-  Filter, ChevronDown, ChevronUp, Play,
+  Filter, ChevronDown, ChevronUp, Play, CheckCircle2,
 } from 'lucide-react';
 
 /* ── Types ── */
@@ -30,6 +30,7 @@ interface ExhaustedPackage {
   guard_state: string;
   last_validate_at: string | null;
   error_categories: ErrorCategory[];
+  gate_class: string | null;
 }
 
 type ErrorCategory =
@@ -162,6 +163,21 @@ function useRepairExhaustedPackages() {
         if (c) reportResults.push(...c);
       }
 
+      // Check gate classification for REPAIR_EXHAUSTED packages
+      const repairExhaustedIds = exhausted
+        .filter((s: any) => (s.meta?.stall_reason_code || '').includes('REPAIR_EXHAUSTED'))
+        .map((s: any) => s.package_id);
+
+      const gateMap = new Map<string, string>();
+      for (const pkgId of repairExhaustedIds) {
+        try {
+          const { data: gateResult } = await supabase.rpc('fn_classify_exam_pool_gate', { p_package_id: pkgId });
+          if (gateResult && typeof gateResult === 'object' && 'gate_class' in (gateResult as any)) {
+            gateMap.set(pkgId, (gateResult as any).gate_class);
+          }
+        } catch { /* ignore gate check failures */ }
+      }
+
       const pkgMap = new Map<string, any>();
       for (const p of pkgResults) pkgMap.set(p.package_id, p);
       const reportMap = new Map<string, any>();
@@ -186,6 +202,7 @@ function useRepairExhaustedPackages() {
           guard_state: s.meta?.guard_state || 'unknown',
           last_validate_at: s.meta?.last_validate_completed_at || null,
           error_categories: categorizeReasons(hardFails, stallCode),
+          gate_class: gateMap.get(s.package_id) ?? null,
         };
       });
     },
@@ -225,6 +242,13 @@ function ExhaustedPackageRow({ pkg, onRepair, busyId }: {
         </Badge>
       </div>
 
+      {/* GATE_PASS indicator */}
+      {pkg.gate_class === 'PASS' && (
+        <div className="text-[11px] font-semibold text-emerald-400">
+          GATE_PASS
+        </div>
+      )}
+
       {/* Show stall reason if no hard_fail_reasons */}
       {pkg.hard_fail_reasons.length === 0 && pkg.stall_reason_code && (
         <div className="text-[11px] text-muted-foreground">
@@ -250,6 +274,20 @@ function ExhaustedPackageRow({ pkg, onRepair, busyId }: {
 
       {/* Context-sensitive buttons */}
       <div className="flex flex-wrap gap-1.5 pt-1">
+        {/* GATE_PASS: Pool meets all criteria — just finalize the step */}
+        {pkg.gate_class === 'PASS' && (
+          <Button
+            size="sm"
+            variant="default"
+            className="h-7 text-[11px] gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+            disabled={busy}
+            onClick={() => onRepair(pkg.package_id, 'heal_gate_pass')}
+            title="Gate = PASS → Step auf done setzen"
+          >
+            {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
+            Gate Pass → Done
+          </Button>
+        )}
         {/* GENERATION_NEVER_RAN: Exam pool was never generated — need to enqueue generation */}
         {isGenNeverRan && (
           <Button
@@ -468,6 +506,9 @@ export function RepairExhaustedAlert() {
       }
       if (action === 'enqueue_exam_generation') {
         return runAdminOpsAction('enqueue_single_step', { package_id: packageId, step_key: 'generate_exam_pool' });
+      }
+      if (action === 'heal_gate_pass') {
+        return runAdminOpsAction('heal_gate_pass', { package_id: packageId });
       }
       return runAdminOpsAction(action as any, { package_id: packageId });
     },
