@@ -1,6 +1,6 @@
 import { lazy, Suspense } from 'react';
 import { Link } from 'react-router-dom';
-import { Loader2, Globe, ArrowLeft, BarChart3, FileText, Image, Link2, Settings, Euro, Share2, Search, Target, RefreshCw, Radar, Zap, Rocket, DollarSign, Tag } from 'lucide-react';
+import { Loader2, Globe, ArrowLeft, BarChart3, FileText, Image, Link2, Settings, Euro, Share2, Search, Target, RefreshCw, Radar, Zap, Rocket, Tag, Music, Laugh } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
@@ -20,6 +20,8 @@ const SEOAuditManager = lazy(() => import('@/components/admin/growth/SEOAuditMan
 const SEODiscoveryManager = lazy(() => import('@/components/admin/growth/SEODiscoveryManager'));
 const GrowthLoopManager = lazy(() => import('@/components/admin/growth/GrowthLoopManager'));
 const PromoCodesPanel = lazy(() => import('@/components/admin/marketing/AdminPromoCodesPanel'));
+const LearningFieldSongPanel = lazy(() => import('@/components/admin/songs/LearningFieldSongPanel'));
+const HumorQCPage = lazy(() => import('@/pages/admin/v2/HumorQCPage'));
 
 const Loading = () => (
   <Card><CardContent className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></CardContent></Card>
@@ -91,6 +93,12 @@ export default function GrowthPage() {
           <TabsTrigger value="promo" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg">
             <Tag className="h-3 w-3" /> Promo
           </TabsTrigger>
+          <TabsTrigger value="songs" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg">
+            <Music className="h-3 w-3" /> Songs
+          </TabsTrigger>
+          <TabsTrigger value="humor" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg">
+            <Laugh className="h-3 w-3" /> Humor QC
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="dashboard" className="mt-4"><Suspense fallback={<Loading />}><GrowthSeoCommandCenter /></Suspense></TabsContent>
@@ -109,6 +117,8 @@ export default function GrowthPage() {
         <TabsContent value="social" className="mt-4"><Suspense fallback={<Loading />}><SocialMediaManager /></Suspense></TabsContent>
         <TabsContent value="pricing" className="mt-4"><Suspense fallback={<Loading />}><PricingManager /></Suspense></TabsContent>
         <TabsContent value="promo" className="mt-4"><Suspense fallback={<Loading />}><PromoCodesPanel /></Suspense></TabsContent>
+        <TabsContent value="songs" className="mt-4"><Suspense fallback={<Loading />}><LearningFieldSongPanel /></Suspense></TabsContent>
+        <TabsContent value="humor" className="mt-4"><Suspense fallback={<Loading />}><HumorQCPage /></Suspense></TabsContent>
       </Tabs>
     </div>
   );
