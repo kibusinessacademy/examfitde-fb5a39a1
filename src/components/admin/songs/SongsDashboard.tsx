@@ -328,7 +328,7 @@ export default function SongsDashboard() {
             </div>
 
             {lfsWithoutSong.length > 0 && (
-              <Card className="border-amber-500/30 bg-amber-50/5 dark:bg-amber-950/20">
+              <Card className="border-destructive/30 bg-muted/30">
                 <CardContent className="p-4">
                   <p className="text-sm font-medium mb-2">
                     ⚠️ {lfsWithoutSong.length} Lernfelder ohne Song
