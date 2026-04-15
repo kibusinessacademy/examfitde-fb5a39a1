@@ -39,6 +39,17 @@ type ErrorCategory =
   | 'BLOOM'
   | 'OTHER';
 
+type StatusFilter = 'ALL' | 'building' | 'blocked' | 'queued' | 'published' | 'other_status';
+
+const STATUS_LABELS: Record<StatusFilter, string> = {
+  ALL: 'Alle Status',
+  building: 'Building',
+  blocked: 'Blockiert',
+  queued: 'Queued',
+  published: 'Publiziert',
+  other_status: 'Sonstige',
+};
+
 const CATEGORY_LABELS: Record<ErrorCategory, string> = {
   EXAM_POOL: 'Exam-Pool',
   COMPETENCY: 'Kompetenz-Abdeckung',
@@ -133,8 +144,8 @@ function useRepairExhaustedPackages() {
           title: pkg.canonical_title || pkg.raw_title || 'Unbenannt',
           status: pkg.status || 'unknown',
           build_progress: pkg.build_progress ?? 0,
-          attempts: s.attempts || 0,
-          consecutive_no_progress: s.meta?.consecutive_no_progress || 0,
+          attempts: s.attempts || s.meta?.attempts || 0,
+          consecutive_no_progress: s.meta?.consecutive_no_progress || s.attempts || s.meta?.attempts || 0,
           hard_fail_reasons: hardFails,
           guard_state: s.meta?.guard_state || 'unknown',
           last_validate_at: s.meta?.last_validate_completed_at || null,
@@ -234,24 +245,46 @@ export function RepairExhaustedAlert() {
   const { data: exhausted = [] } = useRepairExhaustedPackages();
   const qc = useQueryClient();
   const [activeFilter, setActiveFilter] = useState<ErrorCategory | 'ALL'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
   const [collapsed, setCollapsed] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  // Compute available categories
+  // Compute available categories (safe against undefined error_categories)
   const categoryStats = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const pkg of exhausted) {
-      for (const cat of pkg.error_categories) {
+      const cats = Array.isArray(pkg.error_categories) ? pkg.error_categories : [];
+      for (const cat of cats) {
         counts[cat] = (counts[cat] || 0) + 1;
       }
     }
     return counts;
   }, [exhausted]);
 
+  // Compute status counts
+  const statusStats = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const pkg of exhausted) {
+      const s = ['building', 'blocked', 'queued', 'published'].includes(pkg.status) ? pkg.status : 'other_status';
+      counts[s] = (counts[s] || 0) + 1;
+    }
+    return counts;
+  }, [exhausted]);
+
   const filteredPackages = useMemo(() => {
-    if (activeFilter === 'ALL') return exhausted;
-    return exhausted.filter(p => p.error_categories.includes(activeFilter));
-  }, [exhausted, activeFilter]);
+    let result = exhausted;
+    if (activeFilter !== 'ALL') {
+      result = result.filter(p => (Array.isArray(p.error_categories) ? p.error_categories : []).includes(activeFilter));
+    }
+    if (statusFilter !== 'ALL') {
+      if (statusFilter === 'other_status') {
+        result = result.filter(p => !['building', 'blocked', 'queued', 'published'].includes(p.status));
+      } else {
+        result = result.filter(p => p.status === statusFilter);
+      }
+    }
+    return result;
+  }, [exhausted, activeFilter, statusFilter]);
 
   const repairMutation = useMutation({
     mutationFn: async ({ packageId, action }: { packageId: string; action: string }) => {
@@ -315,7 +348,37 @@ export function RepairExhaustedAlert() {
 
       {!collapsed && (
         <>
-          {/* Filter Bar */}
+          {/* Status Filter Bar */}
+          {Object.keys(statusStats).length > 0 && (
+            <div className="flex flex-wrap gap-1.5 items-center">
+              <span className="text-[10px] text-muted-foreground font-medium shrink-0">Status:</span>
+              <button
+                onClick={() => setStatusFilter('ALL')}
+                className={`px-2 py-0.5 rounded-full text-[10px] font-medium border transition-colors ${
+                  statusFilter === 'ALL'
+                    ? 'bg-primary/20 text-primary border-primary/40'
+                    : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted'
+                }`}
+              >
+                Alle ({exhausted.length})
+              </button>
+              {(Object.keys(statusStats) as StatusFilter[]).map(s => (
+                <button
+                  key={s}
+                  onClick={() => setStatusFilter(statusFilter === s ? 'ALL' : s)}
+                  className={`px-2 py-0.5 rounded-full text-[10px] font-medium border transition-colors ${
+                    statusFilter === s
+                      ? 'bg-primary/20 text-primary border-primary/40'
+                      : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted'
+                  }`}
+                >
+                  {STATUS_LABELS[s]} ({statusStats[s]})
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Category Filter Bar */}
           {availableCategories.length > 1 && (
             <div className="flex flex-wrap gap-1.5 items-center">
               <Filter className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
