@@ -37,6 +37,7 @@ const SystemPanel = lazy(() => import('@/components/admin/enterprise/SystemPanel
 const IntegrationHub = lazy(() => import('@/components/admin/enterprise/IntegrationHub'));
 const SalesDemoPanel = lazy(() => import('@/components/admin/enterprise/SalesDemoPanel'));
 
+const RepairExhaustedAlert = lazy(() => import('@/components/admin/cards/RepairExhaustedAlert'));
 const ExamPoolAuditCard = lazy(() => import('@/components/admin/cards/ExamPoolAuditCard'));
 const BlockedButReadyCard = lazy(() => import('@/components/admin/cards/BlockedButReadyCard'));
 const RecoveryBoardCard = lazy(() => import('@/components/admin/cards/RecoveryBoardCard'));
@@ -201,6 +202,11 @@ export default function LeitstellePage() {
         {/* Original Overview Content */}
         <TabsContent value="overview" className="space-y-6">
 
+      {/* ═══ SECTION 1: Critical Alerts (always visible, top priority) ═══ */}
+      <Suspense fallback={null}>
+        <RepairExhaustedAlert />
+      </Suspense>
+
       {/* KPI Grid */}
       {kpis && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
@@ -213,21 +219,7 @@ export default function LeitstellePage() {
         </div>
       )}
 
-      {/* Queue Pressure */}
-      {kpis && (
-        <div>
-          <h2 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
-            <Cpu className="h-4 w-4 text-muted-foreground" /> Queue
-          </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <KpiTile label="Pending" value={kpis.jobsPending} icon={<Clock className="h-4 w-4 text-muted-foreground" />} />
-            <KpiTile label="Processing" value={kpis.jobsProcessing} icon={<Zap className="h-4 w-4 text-primary" />} tone={kpis.jobsProcessing > 0 ? 'green' : 'neutral'} />
-            <KpiTile label="Failed" value={kpis.jobsFailed} icon={<XCircle className="h-4 w-4 text-destructive" />} tone={kpis.jobsFailed > 0 ? 'red' : 'neutral'} onClick={() => setFailedJobsOpen(true)} />
-            <KpiTile label="Zombies" value={kpis.zombies} icon={<AlertTriangle className="h-4 w-4 text-destructive" />} tone={kpis.zombies > 0 ? 'red' : 'neutral'} onClick={() => setZombieJobsOpen(true)} />
-          </div>
-        </div>
-      )}
-
+      {/* ═══ SECTION 2: Situational Warnings ═══ */}
       {/* Drift Warnings */}
       {kpis && kpis.stalePublish > 0 && (
         <div
@@ -271,6 +263,43 @@ export default function LeitstellePage() {
         </div>
       )}
 
+      {/* ═══ SECTION 3: Queue Status ═══ */}
+      {kpis && (
+        <div>
+          <h2 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
+            <Cpu className="h-4 w-4 text-muted-foreground" /> Queue
+          </h2>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <KpiTile label="Pending" value={kpis.jobsPending} icon={<Clock className="h-4 w-4 text-muted-foreground" />} />
+            <KpiTile label="Processing" value={kpis.jobsProcessing} icon={<Zap className="h-4 w-4 text-primary" />} tone={kpis.jobsProcessing > 0 ? 'green' : 'neutral'} />
+            <KpiTile label="Failed" value={kpis.jobsFailed} icon={<XCircle className="h-4 w-4 text-destructive" />} tone={kpis.jobsFailed > 0 ? 'red' : 'neutral'} onClick={() => setFailedJobsOpen(true)} />
+            <KpiTile label="Zombies" value={kpis.zombies} icon={<AlertTriangle className="h-4 w-4 text-destructive" />} tone={kpis.zombies > 0 ? 'red' : 'neutral'} onClick={() => setZombieJobsOpen(true)} />
+          </div>
+        </div>
+      )}
+
+      {/* ═══ SECTION 4: Diagnostics & Repair Tools ═══ */}
+      {/* Validate Guard Diagnostics — actionable repair cards */}
+      <Suspense fallback={<Skeleton className="h-28" />}>
+        <ValidateGuardDiagnosticsCard />
+      </Suspense>
+
+      {/* Exam Pool Audit */}
+      <Suspense fallback={<Skeleton className="h-32" />}>
+        <ExamPoolAuditCard />
+      </Suspense>
+
+      {/* Status Invariant Violations */}
+      <Suspense fallback={<Skeleton className="h-28" />}>
+        <BlockedButReadyCard />
+      </Suspense>
+
+      {/* Recovery Board */}
+      <Suspense fallback={<Skeleton className="h-28" />}>
+        <RecoveryBoardCard />
+      </Suspense>
+
+      {/* ═══ SECTION 5: Throughput & Operations ═══ */}
       {/* Throughput & Cost */}
       <Suspense fallback={<Skeleton className="h-24" />}>
         <ThroughputCard />
@@ -289,26 +318,6 @@ export default function LeitstellePage() {
       {/* Orphan-Step Audit */}
       <Suspense fallback={<Skeleton className="h-28" />}>
         <OrphanStepCard />
-      </Suspense>
-
-      {/* Status Invariant Violations */}
-      <Suspense fallback={<Skeleton className="h-28" />}>
-        <BlockedButReadyCard />
-      </Suspense>
-
-      {/* Validate Guard Diagnostics */}
-      <Suspense fallback={<Skeleton className="h-28" />}>
-        <ValidateGuardDiagnosticsCard />
-      </Suspense>
-
-      {/* Recovery Board */}
-      <Suspense fallback={<Skeleton className="h-28" />}>
-        <RecoveryBoardCard />
-      </Suspense>
-
-      {/* Exam Pool Audit */}
-      <Suspense fallback={<Skeleton className="h-32" />}>
-        <ExamPoolAuditCard />
       </Suspense>
 
       {/* Critical Packages */}
