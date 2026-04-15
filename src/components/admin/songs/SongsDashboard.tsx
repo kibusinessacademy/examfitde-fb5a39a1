@@ -275,7 +275,7 @@ export default function SongsDashboard() {
                 <SelectContent>
                   {(curricula || []).map(c => (
                     <SelectItem key={c.id} value={c.id}>
-                      {c.short_title || c.title}
+                      {c.title}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -328,9 +328,9 @@ export default function SongsDashboard() {
             </div>
 
             {lfsWithoutSong.length > 0 && (
-              <Card className="border-amber-500/30 bg-amber-50/50 dark:bg-amber-950/20">
+              <Card className="border-amber-500/30 bg-amber-50/5 dark:bg-amber-950/20">
                 <CardContent className="p-4">
-                  <p className="text-sm font-medium text-amber-700 dark:text-amber-400 mb-2">
+                  <p className="text-sm font-medium mb-2">
                     ⚠️ {lfsWithoutSong.length} Lernfelder ohne Song
                   </p>
                   <div className="flex flex-wrap gap-1 mb-3">
