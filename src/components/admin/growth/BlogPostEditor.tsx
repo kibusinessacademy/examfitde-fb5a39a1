@@ -151,6 +151,7 @@ export default function BlogPostEditor() {
   const { create, update, publish, remove } = useBlogPostMutations();
   const [search, setSearch] = useState('');
   const [editPost, setEditPost] = useState<BlogPost | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
   const [filter, setFilter] = useState<string>('all');
 
   if (isLoading) return <Skeleton className="h-60" />;
