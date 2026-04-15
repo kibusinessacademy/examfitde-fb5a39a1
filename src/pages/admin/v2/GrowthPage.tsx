@@ -19,6 +19,7 @@ const RefreshQueueManager = lazy(() => import('@/components/admin/growth/Refresh
 const SEOAuditManager = lazy(() => import('@/components/admin/growth/SEOAuditManager'));
 const SEODiscoveryManager = lazy(() => import('@/components/admin/growth/SEODiscoveryManager'));
 const GrowthLoopManager = lazy(() => import('@/components/admin/growth/GrowthLoopManager'));
+const PromoCodesPanel = lazy(() => import('@/components/admin/marketing/AdminPromoCodesPanel'));
 
 const Loading = () => (
   <Card><CardContent className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></CardContent></Card>
@@ -86,6 +87,9 @@ export default function GrowthPage() {
           </TabsTrigger>
           <TabsTrigger value="pricing" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg">
             <Euro className="h-3 w-3" /> Preise
+          </TabsTrigger>
+          <TabsTrigger value="promo" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg">
+            <Tag className="h-3 w-3" /> Promo
           </TabsTrigger>
         </TabsList>
 
