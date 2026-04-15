@@ -53,10 +53,21 @@ function mapHardFailsToHealActions(hardFails: string[], blockReason: string): He
       }
     }
 
-    if (upper.includes('EASY_TOO_HIGH') || upper.includes('BLOOM_GATE') || upper.includes('TRAP_COVERAGE')) {
+    if (upper.includes('EASY_TOO_HIGH') || upper.includes('BLOOM_GATE') || upper.includes('TRAP_COVERAGE') || upper.includes('HARDISH_TOO_LOW')) {
       if (!seen.has('repair_exam_pool_quality')) {
         actions.push({ key: 'repair_exam_pool_quality', label: 'Exam-Pool reparieren', description: 'Schwierigkeitsverteilung, Bloom-Level und Trap-Coverage korrigieren' });
         seen.add('repair_exam_pool_quality');
+      }
+    }
+
+    if (upper.includes('COMPETENCY_COVERAGE')) {
+      if (!seen.has('repair_exam_pool_quality')) {
+        actions.push({ key: 'repair_exam_pool_quality', label: 'Exam-Pool reparieren', description: 'Coverage-Lücken bei Kompetenzen schließen' });
+        seen.add('repair_exam_pool_quality');
+      }
+      if (!seen.has('force_pool_fill')) {
+        actions.push({ key: 'force_pool_fill', label: 'Force Pool-Fill', description: 'Exhaustion-Counter zurücksetzen & neue Fragen für fehlende Kompetenzen generieren' });
+        seen.add('force_pool_fill');
       }
     }
 
@@ -78,6 +89,13 @@ function mapHardFailsToHealActions(hardFails: string[], blockReason: string): He
       if (!seen.has('repair_lessons')) {
         actions.push({ key: 'repair_lessons', label: 'Lektionen reparieren', description: 'Fehlende oder fehlerhafte Lektionen regenerieren' });
         seen.add('repair_lessons');
+      }
+    }
+
+    if (upper.includes('REPAIR_EXHAUSTED') || upper.includes('HARD_STALLED')) {
+      if (!seen.has('force_pool_fill')) {
+        actions.push({ key: 'force_pool_fill', label: '⚡ Force Pool-Fill (Reset)', description: 'Exhaustion-Counter zurücksetzen & Pool-Reparatur erzwingen' });
+        seen.add('force_pool_fill');
       }
     }
   }
