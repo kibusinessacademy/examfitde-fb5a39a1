@@ -1000,7 +1000,7 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
   // CRITICAL: Only clean up GENERATION lane jobs to prevent cross-lane interference.
   // ═══════════════════════════════════════════════════════════════
   {
-    const staleCleanupThreshold = new Date(Date.now() - 3 * 60 * 1000).toISOString();
+    const staleCleanupThreshold = new Date(Date.now() - 15 * 60 * 1000).toISOString(); // P1 FIX: 15min for LLM generation jobs (was 3min, caused churn)
     const generationJobTypesForCleanup = jobTypesForLane("generation");
     const { data: staleJobs } = await sb
       .from("job_queue")
