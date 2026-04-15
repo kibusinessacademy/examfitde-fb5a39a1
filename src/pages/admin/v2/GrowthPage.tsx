@@ -20,7 +20,7 @@ const SEOAuditManager = lazy(() => import('@/components/admin/growth/SEOAuditMan
 const SEODiscoveryManager = lazy(() => import('@/components/admin/growth/SEODiscoveryManager'));
 const GrowthLoopManager = lazy(() => import('@/components/admin/growth/GrowthLoopManager'));
 const PromoCodesPanel = lazy(() => import('@/components/admin/marketing/AdminPromoCodesPanel'));
-const LearningFieldSongPanel = lazy(() => import('@/components/admin/songs/LearningFieldSongPanel'));
+const LearningFieldSongPanel = lazy(() => import('@/components/admin/songs/LearningFieldSongPanel').then(m => ({ default: m.LearningFieldSongPanel })));
 const HumorQCPage = lazy(() => import('@/pages/admin/v2/HumorQCPage'));
 
 const Loading = () => (
