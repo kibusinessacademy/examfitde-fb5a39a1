@@ -274,6 +274,20 @@ function ExhaustedPackageRow({ pkg, onRepair, busyId }: {
 
       {/* Context-sensitive buttons */}
       <div className="flex flex-wrap gap-1.5 pt-1">
+        {/* GATE_PASS: Pool meets all criteria — just finalize the step */}
+        {pkg.gate_class === 'PASS' && (
+          <Button
+            size="sm"
+            variant="default"
+            className="h-7 text-[11px] gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+            disabled={busy}
+            onClick={() => onRepair(pkg.package_id, 'heal_gate_pass')}
+            title="Gate = PASS → Step auf done setzen"
+          >
+            {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
+            Gate Pass → Done
+          </Button>
+        )}
         {/* GENERATION_NEVER_RAN: Exam pool was never generated — need to enqueue generation */}
         {isGenNeverRan && (
           <Button
