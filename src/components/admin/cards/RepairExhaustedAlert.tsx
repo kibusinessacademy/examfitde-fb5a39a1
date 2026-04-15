@@ -90,6 +90,10 @@ function categorizeReasons(reasons: string[]): ErrorCategory[] {
   return Array.from(cats);
 }
 
+function hasCategory(pkg: ExhaustedPackage, cat: ErrorCategory): boolean {
+  return Array.isArray(pkg.error_categories) && pkg.error_categories.includes(cat);
+}
+
 /* ── Data Hook ── */
 
 function useRepairExhaustedPackages() {
@@ -203,17 +207,59 @@ function ExhaustedPackageRow({ pkg, onRepair, busyId }: {
       )}
 
       <div className="flex flex-wrap gap-1.5 pt-1">
-        <Button
-          size="sm"
-          variant="destructive"
-          className="h-7 text-[11px] gap-1"
-          disabled={busy}
-          onClick={() => onRepair(pkg.package_id, 'force_pool_fill')}
-          title="Pool-Fill + Validate-Reset (umgeht WIP-Cap nicht)"
-        >
-          {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3" />}
-          Force Pool-Fill
-        </Button>
+        {/* Show contextual buttons based on error categories */}
+        {hasCategory(pkg, 'EXAM_POOL') && (
+          <Button
+            size="sm"
+            variant="destructive"
+            className="h-7 text-[11px] gap-1"
+            disabled={busy}
+            onClick={() => onRepair(pkg.package_id, 'force_pool_fill')}
+            title="Pool-Fill + Validate-Reset (umgeht WIP-Cap nicht)"
+          >
+            {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3" />}
+            Force Pool-Fill
+          </Button>
+        )}
+        {hasCategory(pkg, 'COMPETENCY') && (
+          <Button
+            size="sm"
+            variant="destructive"
+            className="h-7 text-[11px] gap-1"
+            disabled={busy}
+            onClick={() => onRepair(pkg.package_id, 'force_pool_fill')}
+            title="Fragen für fehlende Kompetenzen generieren"
+          >
+            {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3" />}
+            Coverage Pool-Fill
+          </Button>
+        )}
+        {hasCategory(pkg, 'MINICHECK') && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-[11px] gap-1 border-yellow-600/50 text-yellow-300 hover:bg-yellow-900/30"
+            disabled={busy}
+            onClick={() => onRepair(pkg.package_id, 'repair_minichecks')}
+            title="MiniChecks für Lektionen ohne Fragen neu generieren"
+          >
+            {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wrench className="h-3 w-3" />}
+            MiniChecks reparieren
+          </Button>
+        )}
+        {(hasCategory(pkg, 'COMPETENCY') || pkg.hard_fail_reasons.some(r => r.toUpperCase().includes('STEP_GAP'))) && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-[11px] gap-1 border-orange-600/50 text-orange-300 hover:bg-orange-900/30"
+            disabled={busy}
+            onClick={() => onRepair(pkg.package_id, 'repair_lessons')}
+            title="5-Schritte-Lektionen für fehlende Kompetenzen regenerieren"
+          >
+            {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wrench className="h-3 w-3" />}
+            Lektionen reparieren
+          </Button>
+        )}
         <Button
           size="sm"
           variant="outline"
@@ -291,12 +337,16 @@ export function RepairExhaustedAlert() {
       setBusyId(packageId);
       if (action === 'force_pool_fill') {
         await runAdminOpsAction('repair_exam_pool_quality', { package_id: packageId });
-        // Use reset_to_step which handles regression properly
         return runAdminOpsAction('reset_to_step', { package_id: packageId, step_key: 'validate_exam_pool' });
       }
       if (action === 'retry_validate') {
-        // Use reset_to_step instead of retry_package_step to avoid REGRESSION_BLOCKED
         return runAdminOpsAction('reset_to_step', { package_id: packageId, step_key: 'validate_exam_pool' });
+      }
+      if (action === 'repair_minichecks') {
+        return runAdminOpsAction('repair_minichecks', { package_id: packageId });
+      }
+      if (action === 'repair_lessons') {
+        return runAdminOpsAction('repair_lessons', { package_id: packageId });
       }
       return runAdminOpsAction(action as any, { package_id: packageId });
     },
