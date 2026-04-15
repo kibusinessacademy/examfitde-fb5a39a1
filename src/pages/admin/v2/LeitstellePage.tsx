@@ -37,7 +37,7 @@ const SystemPanel = lazy(() => import('@/components/admin/enterprise/SystemPanel
 const IntegrationHub = lazy(() => import('@/components/admin/enterprise/IntegrationHub'));
 const SalesDemoPanel = lazy(() => import('@/components/admin/enterprise/SalesDemoPanel'));
 
-const RepairExhaustedAlert = lazy(() => import('@/components/admin/cards/RepairExhaustedAlert'));
+const RepairExhaustedAlert = lazy(() => import('@/components/admin/cards/RepairExhaustedAlert').then(m => ({ default: m.RepairExhaustedAlert })));
 const ExamPoolAuditCard = lazy(() => import('@/components/admin/cards/ExamPoolAuditCard'));
 const BlockedButReadyCard = lazy(() => import('@/components/admin/cards/BlockedButReadyCard'));
 const RecoveryBoardCard = lazy(() => import('@/components/admin/cards/RecoveryBoardCard'));
