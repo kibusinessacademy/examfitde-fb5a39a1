@@ -265,6 +265,19 @@ function ExhaustedPackageRow({ pkg, onRepair, busyId }: {
             Lektionen reparieren
           </Button>
         )}
+        {hasCategory(pkg, 'LESSON_QUALITY') && (
+          <Button
+            size="sm"
+            variant="destructive"
+            className="h-7 text-[11px] gap-1"
+            disabled={busy}
+            onClick={() => onRepair(pkg.package_id, 'repair_lessons')}
+            title="Placeholder-Lektionen neu generieren lassen"
+          >
+            {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wrench className="h-3 w-3" />}
+            Lektionen reparieren
+          </Button>
+        )}
         <Button
           size="sm"
           variant="outline"
