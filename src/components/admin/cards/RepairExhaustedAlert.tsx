@@ -37,6 +37,7 @@ type ErrorCategory =
   | 'MINICHECK'
   | 'TRAP'
   | 'BLOOM'
+  | 'LESSON_QUALITY'
   | 'OTHER';
 
 type StatusFilter = 'ALL' | 'building' | 'blocked' | 'queued' | 'published' | 'other_status';
