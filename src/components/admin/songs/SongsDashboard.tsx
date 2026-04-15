@@ -52,7 +52,7 @@ export default function SongsDashboard() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("curricula")
-        .select("id, title, short_title")
+        .select("id, title")
         .order("title");
       if (error) throw error;
       return data;
@@ -103,7 +103,6 @@ export default function SongsDashboard() {
         .limit(500);
       return data || [];
     },
-    enabled: !!learningFields?.length,
   });
 
   const compsByLf = useMemo(() => {
