@@ -208,7 +208,18 @@ export function useBlogPostMutations() {
 
   const create = useMutation({
     mutationFn: async (post: Partial<BlogPost>) => {
-      const { data, error } = await supabase.from('blog_posts').insert(post as any).select().single();
+      const mapped = {
+        slug: post.slug,
+        title: post.title,
+        meta_description: post.meta_description,
+        content_md: post.body_md,
+        keywords: post.tags,
+        topic_cluster: post.category,
+        og_image_url: post.og_image_url,
+        canonical_url: post.canonical_url,
+        status: post.status === 'review' ? 'draft_generated' : (post.status || 'draft'),
+      };
+      const { data, error } = await supabase.from('blog_articles').insert(mapped as any).select().single();
       if (error) throw error;
       return data;
     },
@@ -218,7 +229,17 @@ export function useBlogPostMutations() {
 
   const update = useMutation({
     mutationFn: async ({ id, ...updates }: Partial<BlogPost> & { id: string }) => {
-      const { error } = await supabase.from('blog_posts').update(updates as any).eq('id', id);
+      const mapped: Record<string, unknown> = {};
+      if (updates.title !== undefined) mapped.title = updates.title;
+      if (updates.slug !== undefined) mapped.slug = updates.slug;
+      if (updates.meta_description !== undefined) mapped.meta_description = updates.meta_description;
+      if (updates.body_md !== undefined) mapped.content_md = updates.body_md;
+      if (updates.tags !== undefined) mapped.keywords = updates.tags;
+      if (updates.category !== undefined) mapped.topic_cluster = updates.category;
+      if (updates.og_image_url !== undefined) mapped.og_image_url = updates.og_image_url;
+      if (updates.canonical_url !== undefined) mapped.canonical_url = updates.canonical_url;
+      if (updates.status !== undefined) mapped.status = updates.status === 'review' ? 'draft_generated' : updates.status;
+      const { error } = await supabase.from('blog_articles').update(mapped as any).eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => { invalidate(); toast.success('Artikel gespeichert'); },
@@ -227,7 +248,7 @@ export function useBlogPostMutations() {
 
   const publish = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('blog_posts')
+      const { error } = await supabase.from('blog_articles')
         .update({ status: 'published', published_at: new Date().toISOString() } as any)
         .eq('id', id);
       if (error) throw error;
@@ -237,7 +258,7 @@ export function useBlogPostMutations() {
 
   const remove = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('blog_posts').delete().eq('id', id);
+      const { error } = await supabase.from('blog_articles').delete().eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => { invalidate(); toast.success('Artikel gelöscht'); },
