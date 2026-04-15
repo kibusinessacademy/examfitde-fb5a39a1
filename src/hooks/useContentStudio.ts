@@ -156,17 +156,48 @@ export interface BlogPost {
 }
 
 export function useBlogPosts() {
-  useRealtimeInvalidation('blog_posts', [['blog-posts']]);
+  useRealtimeInvalidation('blog_articles', [['blog-posts']]);
 
   return useQuery({
     queryKey: ['blog-posts'],
     queryFn: async () => {
+      // blog_articles is the SSOT table with 90+ articles
       const { data, error } = await supabase
-        .from('blog_posts')
+        .from('blog_articles')
         .select('*')
         .order('updated_at', { ascending: false });
       if (error) throw error;
-      return (data || []) as BlogPost[];
+      // Map blog_articles columns to BlogPost interface
+      return (data || []).map((a: any) => ({
+        id: a.id,
+        slug: a.slug,
+        title: a.title,
+        meta_title: a.title, // blog_articles has no separate meta_title
+        meta_description: a.meta_description,
+        excerpt: a.meta_description,
+        body_md: a.content_md || '',
+        category: a.topic_cluster,
+        tags: a.keywords || [],
+        internal_links: a.internal_links_json,
+        schema_json: a.faq_json,
+        status: a.status === 'published' ? 'published'
+          : a.status === 'draft_generated' ? 'review'
+          : a.status === 'archived' ? 'archived'
+          : 'draft',
+        author_name: a.generated_by_model,
+        og_image_url: a.og_image_url || a.hero_image_url,
+        canonical_url: a.canonical_url,
+        noindex: false,
+        published_at: a.published_at,
+        created_at: a.created_at,
+        updated_at: a.updated_at,
+        // extra fields for UI
+        _word_count: a.word_count,
+        _reading_time: a.reading_time_min,
+        _ai_score: a.ai_detection_score,
+        _views: a.total_views,
+        _performance: a.performance_score,
+      })) as BlogPost[];
     },
   });
 }
