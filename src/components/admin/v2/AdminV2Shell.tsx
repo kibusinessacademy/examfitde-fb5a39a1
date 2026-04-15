@@ -143,13 +143,13 @@ export default function AdminV2Shell({ children }: Props) {
 
       {/* ── Mobile Bottom Tab Bar (top 5 items only) ── */}
       <div className="fixed bottom-0 inset-x-0 z-40 border-t border-border bg-card/95 backdrop-blur px-2 py-1.5 lg:hidden safe-bottom">
-        <div className="grid grid-cols-6 gap-1">
+        <div className="flex overflow-x-auto gap-1 px-1">
           {NAV_ITEMS.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
               className={({ isActive }) => cn(
-                "flex flex-col items-center gap-0.5 rounded-xl px-2 py-2 text-center text-[10px] transition-colors min-h-[44px] justify-center",
+                "flex flex-col items-center gap-0.5 rounded-xl px-2 py-2 text-center text-[10px] transition-colors min-h-[44px] min-w-[3.5rem] justify-center shrink-0",
                 isActive
                   ? "bg-primary/10 text-primary font-medium"
                   : "text-muted-foreground"
