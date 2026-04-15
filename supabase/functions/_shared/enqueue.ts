@@ -340,9 +340,10 @@ export async function enqueueJob(
     })
     .eq("id", existing.id)
     .select("id, job_type, worker_pool, status")
-    .single();
+    .maybeSingle();
 
   if (reviveErr) throw reviveErr;
+  if (!revived) throw error; // fallback to original error if revive returned nothing
 
   return { ...revived, revived: true } as EnqueueResult;
 }
