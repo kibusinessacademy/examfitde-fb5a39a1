@@ -108,6 +108,21 @@ function TicketDetailSheet({
 }) {
   const qc = useQueryClient();
   const [notes, setNotes] = useState('');
+  const [aiLoading, setAiLoading] = useState<string | null>(null);
+  const [aiResult, setAiResult] = useState<string | null>(null);
+
+  const handleAI = async (action: string) => {
+    if (!ticket) return;
+    setAiLoading(action);
+    try {
+      const ctx = `Titel: ${ticket.title}\nNachricht: ${ticket.message}\nTyp: ${ticket.type}\nPriorität: ${ticket.priority}\nStatus: ${ticket.status}\nSeite: ${ticket.page_path || 'k.A.'}`;
+      const result = await callSupportAI({ role: 'support', action, context: ctx });
+      setAiResult(result);
+      toast.success('KI-Analyse erstellt');
+    } catch (e) {
+      toast.error(`Fehler: ${(e as Error).message}`);
+    } finally { setAiLoading(null); }
+  };
 
   const updateTicket = useMutation({
     mutationFn: async ({ id, ...patch }: UserTicketUpdate & { id: string }) => {
