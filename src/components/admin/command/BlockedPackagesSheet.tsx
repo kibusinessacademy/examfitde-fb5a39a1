@@ -321,6 +321,11 @@ export function BlockedPackagesSheet({ open, onOpenChange }: {
       if (action === 'unblock_package') {
         return runAdminOpsAction('unblock_package' as any, { package_id: packageId });
       }
+      if (action === 'force_pool_fill') {
+        // Reset exhaustion + re-enqueue pool repair
+        await runAdminOpsAction('repair_exam_pool_quality', { package_id: packageId });
+        return runAdminOpsAction('retry_package_step', { package_id: packageId, step_key: 'validate_exam_pool' });
+      }
       return runAdminOpsAction(action as any, { package_id: packageId });
     },
     onSuccess: (_data, vars) => {
