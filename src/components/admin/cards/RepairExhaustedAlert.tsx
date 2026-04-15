@@ -90,6 +90,10 @@ function categorizeReasons(reasons: string[]): ErrorCategory[] {
   return Array.from(cats);
 }
 
+function hasCategory(pkg: ExhaustedPackage, cat: ErrorCategory): boolean {
+  return Array.isArray(pkg.error_categories) && pkg.error_categories.includes(cat);
+}
+
 /* ── Data Hook ── */
 
 function useRepairExhaustedPackages() {
