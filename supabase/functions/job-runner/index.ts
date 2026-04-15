@@ -1986,7 +1986,7 @@ Deno.serve(async (req) => {
               })
               .eq("id", packageId);
             try {
-              const cancelTypes = [jobType, STEP_TO_JOB_TYPE[predecessorStep as keyof typeof STEP_TO_JOB_TYPE]].filter(Boolean);
+              const cancelTypes = [job.job_type, STEP_TO_JOB_TYPE[predecessorStep as keyof typeof STEP_TO_JOB_TYPE]].filter(Boolean);
               for (const ct of cancelTypes) {
                 await sb.rpc("cancel_jobs_for_package" as any, {
                   p_package_id: packageId, p_job_type: ct, p_statuses: ["pending", "processing"],
@@ -2118,7 +2118,7 @@ Deno.serve(async (req) => {
           // ── P0 HARD_FAIL BREAKER ──
           // If the QG result signals a terminal hard failure (e.g. repair exhausted),
           // do NOT requeue — escalate to failed immediately to stop retry loops.
-          console.error(`[job-runner] 🛑 HARD_FAIL_BREAKER: ${jobType} (${job.id}) — stopping retry loop: ${issuesSummary.slice(0, 200)}`);
+          console.error(`[job-runner] 🛑 HARD_FAIL_BREAKER: ${job.job_type} (${job.id}) — stopping retry loop: ${issuesSummary.slice(0, 200)}`);
           if (validationStepKey) {
             await sb.from("package_steps")
               .update({
