@@ -128,6 +128,31 @@ function StoreListingPanel({ listing, store }: { listing: StoreListing; store: '
         ))}
       </div>
     ) : null },
+    { key: 'copyright', title: '© Copyright & Rechtshinweise', content: (
+      <div className="space-y-2 text-xs">
+        {listing.copyright_notice && (
+          <div className="flex justify-between items-start gap-2">
+            <div className="flex gap-2 items-start">
+              <Shield className="h-3 w-3 text-primary shrink-0 mt-0.5" />
+              <span className="font-medium">{listing.copyright_notice}</span>
+            </div>
+            <CopyButton text={listing.copyright_notice} label="Copyright" />
+          </div>
+        )}
+        {listing.legal_footer && (
+          <div className="flex justify-between items-start gap-2 mt-1">
+            <span className="text-muted-foreground">{listing.legal_footer}</span>
+            <CopyButton text={listing.legal_footer} label="Rechtshinweis" />
+          </div>
+        )}
+        {!listing.copyright_notice && (
+          <div className="flex justify-between items-start gap-2">
+            <span>{COPYRIGHT_TEXT} Alle Inhalte urheberrechtlich geschützt.</span>
+            <CopyButton text={`${COPYRIGHT_TEXT} Alle Inhalte urheberrechtlich geschützt.`} label="Copyright" />
+          </div>
+        )}
+      </div>
+    )},
     { key: 'release', title: 'Release Notes', content: listing.whats_new ? (
       <div className="flex justify-between items-start gap-2">
         <pre className="text-xs whitespace-pre-wrap">{listing.whats_new}</pre>
