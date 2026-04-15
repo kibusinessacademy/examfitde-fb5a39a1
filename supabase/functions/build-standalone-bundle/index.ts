@@ -282,11 +282,17 @@ async function markFailed(sb: any, artifactId: string | undefined, reason: strin
 // INLINE PLAYER SHELL (v1.0.0)
 // ═══════════════════════════════════════════════════
 
+const CURRENT_YEAR = new Date().getFullYear();
+const COPYRIGHT_NOTICE = `© ${CURRENT_YEAR} ExamFit – Alle Rechte vorbehalten. Dieses Lernprodukt ist urheberrechtlich geschützt. Jede Vervielfältigung, Verbreitung oder Weitergabe ohne ausdrückliche Genehmigung ist untersagt.`;
+
 const PLAYER_HTML = `<!DOCTYPE html>
 <html lang="de">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="author" content="ExamFit">
+  <meta name="copyright" content="${COPYRIGHT_NOTICE}">
+  <meta name="robots" content="noindex, nofollow">
   <title>ExamFit Standalone</title>
   <link rel="stylesheet" href="assets/app/player.css">
 </head>
@@ -316,6 +322,14 @@ const PLAYER_HTML = `<!DOCTYPE html>
       </div>
     </main>
   </div>
+  <footer id="copyright-footer">
+    <div class="copyright-inner">
+      <span class="copyright-logo">📘 ExamFit</span>
+      <span class="copyright-text">© ${CURRENT_YEAR} ExamFit – Alle Rechte vorbehalten</span>
+      <span class="copyright-license">Lizenziertes Produkt · Nicht zur Weitergabe</span>
+    </div>
+  </footer>
+  <div id="watermark" aria-hidden="true">ExamFit © ${CURRENT_YEAR}</div>
   <script src="assets/app/player.js"><\/script>
 </body>
 </html>`;
@@ -381,13 +395,26 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .nav-btn { padding: .5rem 1.25rem; border: 1px solid var(--ef-border); border-radius: 6px; background: var(--ef-surface); cursor: pointer; font-size: .95rem; transition: background .15s; }
 .nav-btn:hover { background: var(--ef-primary-light); }
 .nav-btn:disabled { opacity: .4; cursor: default; }
+/* Copyright Footer */
+#copyright-footer { position: fixed; bottom: 0; left: 0; right: 0; background: var(--ef-surface); border-top: 1px solid var(--ef-border); padding: .5rem 1rem; z-index: 20; }
+.copyright-inner { display: flex; align-items: center; justify-content: center; gap: 1.5rem; flex-wrap: wrap; }
+.copyright-logo { font-weight: 600; font-size: .85rem; }
+.copyright-text { font-size: .75rem; color: var(--ef-text-secondary); }
+.copyright-license { font-size: .7rem; color: var(--ef-text-secondary); opacity: .7; font-style: italic; }
+/* Watermark */
+#watermark { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-30deg); font-size: 4rem; font-weight: 700; color: rgba(37,99,235,0.04); pointer-events: none; z-index: 0; white-space: nowrap; user-select: none; }
+#content { padding-bottom: 3.5rem; }
+/* Print protection */
+@media print { #watermark { color: rgba(37,99,235,0.08) !important; } #copyright-footer { position: static; } body::after { content: '© ExamFit – Alle Rechte vorbehalten. Urheberrechtlich geschützt.'; display: block; text-align: center; padding: 1rem; font-size: .8rem; color: #64748b; } }
 /* Responsive */
 @media (max-width: 768px) {
   #sidebar { transform: translateX(-100%); }
   #sidebar.open { transform: translateX(0); }
   #toggle-sidebar { display: block; }
-  #content { margin-left: 0; padding: 1rem; }
+  #content { margin-left: 0; padding: 1rem 1rem 3.5rem; }
   .sidebar-header h1 { font-size: 1rem; }
+  .copyright-inner { gap: .5rem; }
+  .copyright-logo { display: none; }
 }
 `;
 

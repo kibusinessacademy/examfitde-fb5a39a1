@@ -60,6 +60,9 @@ Deno.serve(async (req) => {
     const maxShort = store === "apple" ? 30 : 80;
     const maxLong = store === "apple" ? 4000 : 4000;
 
+    const currentYear = new Date().getFullYear();
+    const copyrightNotice = `© ${currentYear} ExamFit – Alle Rechte vorbehalten.`;
+
     const systemPrompt = `Du bist ein Senior App Store Optimization (ASO) Spezialist und erfahrener App-Marketing-Experte für den deutschen Bildungsmarkt.
 
 Erstelle ein vollständiges, sofort verwendbares ${storeType} Listing für eine Lern-App.
@@ -69,7 +72,9 @@ WICHTIG:
 - ASO-optimiert mit relevanten Keywords
 - Conversion-optimiert (hohe Download-Rate)
 - Compliance mit ${store === "apple" ? "Apple App Store Review Guidelines" : "Google Play Store Policies"}
-- Realistische Feature-Beschreibungen basierend auf den echten Inhalten`;
+- Realistische Feature-Beschreibungen basierend auf den echten Inhalten
+- COPYRIGHT-HINWEIS: Füge "${copyrightNotice}" in die long_description ein (am Ende)
+- RECHTEHINWEIS: Erwähne in der Beschreibung, dass alle Inhalte urheberrechtlich geschützt sind`;
 
     const prompt = `Erstelle ein komplettes ${storeType} Listing für folgende Lern-App:
 
@@ -77,13 +82,14 @@ WICHTIG:
 **Beruf/Zertifizierung:** ${curriculumTitle || title}
 **Inhalte:** ${lessonCount} Lektionen, ${questionCount}+ Prüfungsfragen
 **Kompetenzen:** ${competencies.slice(0, 10).join(", ")}
+**Copyright:** ${copyrightNotice}
 
 Erstelle folgende Felder als JSON mit diesen Keys:
 
 1. "app_name" – App-Name (max 30 Zeichen)
 2. "subtitle" – Untertitel (max ${maxShort} Zeichen)
 3. "short_description" – Kurzbeschreibung (max ${maxShort} Zeichen, nur Google Play)
-4. "long_description" – Ausführliche Beschreibung (max ${maxLong} Zeichen, mit Emojis und Formatierung)
+4. "long_description" – Ausführliche Beschreibung (max ${maxLong} Zeichen, mit Emojis und Formatierung). MUSS am Ende "${copyrightNotice}" enthalten.
 5. "keywords" – Komma-getrennte Keywords (max 100 Zeichen, nur Apple)
 6. "category" – Empfohlene Kategorie
 7. "content_rating" – Altersfreigabe-Empfehlung
@@ -92,8 +98,10 @@ Erstelle folgende Felder als JSON mit diesen Keys:
 10. "screenshot_texts" – Array mit 5-6 Screenshot-Overlay-Texten (kurz, conversion-optimiert)
 11. "dsa_info" – DSA-Händlerinformationen Template
 12. "technical_requirements" – Object mit min_os_version, devices, permissions[]
-13. "checklist" – Array mit allen Schritten zur Store-Veröffentlichung
-14. "aso_tips" – Array mit 3-5 ASO-Optimierungstipps`;
+13. "checklist" – Array mit allen Schritten zur Store-Veröffentlichung (inklusive Copyright-Registrierung)
+14. "aso_tips" – Array mit 3-5 ASO-Optimierungstipps
+15. "copyright_notice" – Vollständiger Copyright-Text: "${copyrightNotice} Alle Inhalte, Texte, Grafiken und Software sind Eigentum von ExamFit. Jede Vervielfältigung bedarf der schriftlichen Genehmigung."
+16. "legal_footer" – Rechtshinweis für Store-Seite`;
 
     const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -133,8 +141,10 @@ Erstelle folgende Felder als JSON mit diesen Keys:
                 },
                 checklist: { type: "array", items: { type: "string" } },
                 aso_tips: { type: "array", items: { type: "string" } },
+                copyright_notice: { type: "string" },
+                legal_footer: { type: "string" },
               },
-              required: ["app_name", "long_description", "category", "checklist"],
+              required: ["app_name", "long_description", "category", "checklist", "copyright_notice"],
             },
           },
         }],
