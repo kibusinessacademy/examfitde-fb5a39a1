@@ -1,7 +1,7 @@
 /**
  * RepairExhaustedAlert — Prominent alert for packages where auto-repair
  * has exhausted its retry limit and requires manual intervention.
- * Includes filter by error category and fixed repair action dispatching.
+ * Includes filter by error category and context-sensitive repair buttons.
  */
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -13,7 +13,7 @@ import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
   AlertOctagon, ArrowRight, RefreshCw, Loader2, Wrench, Zap,
-  Filter, ChevronDown, ChevronUp,
+  Filter, ChevronDown, ChevronUp, Play,
 } from 'lucide-react';
 
 /* ── Types ── */
@@ -26,6 +26,7 @@ interface ExhaustedPackage {
   attempts: number;
   consecutive_no_progress: number;
   hard_fail_reasons: string[];
+  stall_reason_code: string;
   guard_state: string;
   last_validate_at: string | null;
   error_categories: ErrorCategory[];
@@ -38,6 +39,8 @@ type ErrorCategory =
   | 'TRAP'
   | 'BLOOM'
   | 'LESSON_QUALITY'
+  | 'GENERATION_NEVER_RAN'
+  | 'REPAIR_EXHAUSTED'
   | 'OTHER';
 
 type StatusFilter = 'ALL' | 'building' | 'blocked' | 'queued' | 'published' | 'other_status';
@@ -58,6 +61,8 @@ const CATEGORY_LABELS: Record<ErrorCategory, string> = {
   TRAP: 'Trap-Verteilung',
   BLOOM: 'Bloom-Taxonomie',
   LESSON_QUALITY: 'Lektionsqualität',
+  GENERATION_NEVER_RAN: 'Generierung ausstehend',
+  REPAIR_EXHAUSTED: 'Repair erschöpft',
   OTHER: 'Sonstige',
 };
 
@@ -68,14 +73,18 @@ const CATEGORY_COLORS: Record<ErrorCategory, string> = {
   TRAP: 'bg-purple-900/40 text-purple-300 border-purple-700/50',
   BLOOM: 'bg-blue-900/40 text-blue-300 border-blue-700/50',
   LESSON_QUALITY: 'bg-amber-900/40 text-amber-300 border-amber-700/50',
+  GENERATION_NEVER_RAN: 'bg-slate-700/40 text-slate-300 border-slate-600/50',
+  REPAIR_EXHAUSTED: 'bg-red-900/60 text-red-200 border-red-600/50',
   OTHER: 'bg-muted text-muted-foreground border-border',
 };
 
 /* ── Helpers ── */
 
-function categorizeReasons(reasons: string[]): ErrorCategory[] {
+function categorizeReasons(hardFails: string[], stallCode: string): ErrorCategory[] {
   const cats = new Set<ErrorCategory>();
-  for (const r of reasons) {
+
+  // 1. Classify from integrity report hard_fail_reasons
+  for (const r of hardFails) {
     const upper = r.toUpperCase();
     if (upper.includes('HARDISH') || upper.includes('TOO_FEW_APPROVED') || upper.includes('EXAM_POOL'))
       cats.add('EXAM_POOL');
@@ -90,7 +99,14 @@ function categorizeReasons(reasons: string[]): ErrorCategory[] {
     if (upper.includes('LESSON_QUALITY') || upper.includes('PLACEHOLDER') || upper.includes('TIER1_HOLLOW'))
       cats.add('LESSON_QUALITY');
   }
-  if (cats.size === 0 && reasons.length > 0) cats.add('OTHER');
+
+  // 2. Classify from stall_reason_code (meta-level)
+  const sc = (stallCode || '').toUpperCase();
+  if (sc.includes('GENERATION_NEVER_RAN'))
+    cats.add('GENERATION_NEVER_RAN');
+  if (sc.includes('REPAIR_EXHAUSTED'))
+    cats.add('REPAIR_EXHAUSTED');
+
   if (cats.size === 0) cats.add('OTHER');
   return Array.from(cats);
 }
@@ -126,27 +142,37 @@ function useRepairExhaustedPackages() {
 
       const ids = exhausted.map((s: any) => s.package_id);
 
-      const [{ data: pkgs }, { data: cpkgs }] = await Promise.all([
-        (supabase as any)
-          .from('v_admin_packages_ssot')
-          .select('package_id, canonical_title, raw_title, status, build_progress')
-          .in('package_id', ids),
-        (supabase as any)
-          .from('course_packages')
-          .select('id, integrity_report')
-          .in('id', ids),
-      ]);
+      // Batch IDs in chunks of 50 for PostgREST URL limits
+      const chunkSize = 50;
+      const pkgResults: any[] = [];
+      const reportResults: any[] = [];
+      for (let i = 0; i < ids.length; i += chunkSize) {
+        const chunk = ids.slice(i, i + chunkSize);
+        const [{ data: p }, { data: c }] = await Promise.all([
+          (supabase as any)
+            .from('v_admin_packages_ssot')
+            .select('package_id, canonical_title, raw_title, status, build_progress')
+            .in('package_id', chunk),
+          (supabase as any)
+            .from('course_packages')
+            .select('id, integrity_report')
+            .in('id', chunk),
+        ]);
+        if (p) pkgResults.push(...p);
+        if (c) reportResults.push(...c);
+      }
 
       const pkgMap = new Map<string, any>();
-      for (const p of pkgs || []) pkgMap.set(p.package_id, p);
+      for (const p of pkgResults) pkgMap.set(p.package_id, p);
       const reportMap = new Map<string, any>();
-      for (const c of cpkgs || []) reportMap.set(c.id, c.integrity_report);
+      for (const c of reportResults) reportMap.set(c.id, c.integrity_report);
 
       return exhausted.map((s: any) => {
         const pkg = pkgMap.get(s.package_id) || {};
         const report = reportMap.get(s.package_id);
         const summary = report?.v3?.summary || {};
         const hardFails: string[] = summary.hard_fail_reasons || [];
+        const stallCode: string = s.meta?.stall_reason_code || '';
 
         return {
           package_id: s.package_id,
@@ -154,11 +180,12 @@ function useRepairExhaustedPackages() {
           status: pkg.status || 'unknown',
           build_progress: pkg.build_progress ?? 0,
           attempts: s.attempts || s.meta?.attempts || 0,
-          consecutive_no_progress: s.meta?.consecutive_no_progress || s.attempts || s.meta?.attempts || 0,
+          consecutive_no_progress: s.meta?.consecutive_no_progress || s.meta?.hard_stall_count || s.attempts || 0,
           hard_fail_reasons: hardFails,
+          stall_reason_code: stallCode,
           guard_state: s.meta?.guard_state || 'unknown',
           last_validate_at: s.meta?.last_validate_completed_at || null,
-          error_categories: categorizeReasons(hardFails),
+          error_categories: categorizeReasons(hardFails, stallCode),
         };
       });
     },
@@ -175,6 +202,8 @@ function ExhaustedPackageRow({ pkg, onRepair, busyId }: {
   busyId: string | null;
 }) {
   const busy = busyId === pkg.package_id;
+  const isGenNeverRan = hasCategory(pkg, 'GENERATION_NEVER_RAN');
+
   return (
     <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 space-y-2">
       <div className="flex items-start justify-between gap-2">
@@ -187,13 +216,21 @@ function ExhaustedPackageRow({ pkg, onRepair, busyId }: {
             <ArrowRight className="h-3 w-3 shrink-0" />
           </Link>
           <div className="text-[10px] text-muted-foreground font-mono mt-0.5">
-            {pkg.package_id.slice(0, 8)} · {pkg.build_progress}% · {pkg.consecutive_no_progress} Versuche ohne Fortschritt
+            {pkg.package_id.slice(0, 8)} · {pkg.build_progress}% · {pkg.status}
+            {pkg.consecutive_no_progress > 0 && ` · ${pkg.consecutive_no_progress}× stalled`}
           </div>
         </div>
         <Badge variant="destructive" className="text-[10px] shrink-0">
           Exhausted
         </Badge>
       </div>
+
+      {/* Show stall reason if no hard_fail_reasons */}
+      {pkg.hard_fail_reasons.length === 0 && pkg.stall_reason_code && (
+        <div className="text-[11px] text-muted-foreground">
+          <span className="font-medium text-destructive/80">{pkg.stall_reason_code}</span>
+        </div>
+      )}
 
       {pkg.hard_fail_reasons.length > 0 && (
         <div className="space-y-1">
@@ -211,21 +248,54 @@ function ExhaustedPackageRow({ pkg, onRepair, busyId }: {
         </div>
       )}
 
+      {/* Context-sensitive buttons */}
       <div className="flex flex-wrap gap-1.5 pt-1">
-        {/* Show contextual buttons based on error categories */}
-        {hasCategory(pkg, 'EXAM_POOL') && (
+        {/* GENERATION_NEVER_RAN: Exam pool was never generated — need to enqueue generation */}
+        {isGenNeverRan && (
+          <Button
+            size="sm"
+            variant="destructive"
+            className="h-7 text-[11px] gap-1"
+            disabled={busy}
+            onClick={() => onRepair(pkg.package_id, 'enqueue_exam_generation')}
+            title="Exam-Pool-Generierung anstoßen (enqueue generate_exam_pool Step)"
+          >
+            {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />}
+            Pool-Generierung starten
+          </Button>
+        )}
+
+        {/* REPAIR_EXHAUSTED: Repair ran but couldn't fix — offer targeted repairs */}
+        {hasCategory(pkg, 'REPAIR_EXHAUSTED') && (
           <Button
             size="sm"
             variant="destructive"
             className="h-7 text-[11px] gap-1"
             disabled={busy}
             onClick={() => onRepair(pkg.package_id, 'force_pool_fill')}
-            title="Pool-Fill + Validate-Reset (umgeht WIP-Cap nicht)"
+            title="Pool-Fill + Validate-Reset"
           >
             {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3" />}
             Force Pool-Fill
           </Button>
         )}
+
+        {/* EXAM_POOL specific */}
+        {hasCategory(pkg, 'EXAM_POOL') && !hasCategory(pkg, 'REPAIR_EXHAUSTED') && (
+          <Button
+            size="sm"
+            variant="destructive"
+            className="h-7 text-[11px] gap-1"
+            disabled={busy}
+            onClick={() => onRepair(pkg.package_id, 'force_pool_fill')}
+            title="Exam-Pool reparieren + Validate-Reset"
+          >
+            {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3" />}
+            Force Pool-Fill
+          </Button>
+        )}
+
+        {/* COMPETENCY: Coverage gaps */}
         {hasCategory(pkg, 'COMPETENCY') && (
           <Button
             size="sm"
@@ -239,11 +309,28 @@ function ExhaustedPackageRow({ pkg, onRepair, busyId }: {
             Coverage Pool-Fill
           </Button>
         )}
+
+        {/* LESSON_QUALITY: Placeholder or hollow lessons */}
+        {hasCategory(pkg, 'LESSON_QUALITY') && (
+          <Button
+            size="sm"
+            variant="destructive"
+            className="h-7 text-[11px] gap-1"
+            disabled={busy}
+            onClick={() => onRepair(pkg.package_id, 'repair_lessons')}
+            title="Placeholder-Lektionen neu generieren"
+          >
+            {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wrench className="h-3 w-3" />}
+            Lektionen reparieren
+          </Button>
+        )}
+
+        {/* MINICHECK: Unparsed minichecks */}
         {hasCategory(pkg, 'MINICHECK') && (
           <Button
             size="sm"
             variant="outline"
-            className="h-7 text-[11px] gap-1 border-yellow-600/50 text-yellow-300 hover:bg-yellow-900/30"
+            className="h-7 text-[11px] gap-1"
             disabled={busy}
             onClick={() => onRepair(pkg.package_id, 'repair_minichecks')}
             title="MiniChecks für Lektionen ohne Fragen neu generieren"
@@ -252,11 +339,13 @@ function ExhaustedPackageRow({ pkg, onRepair, busyId }: {
             MiniChecks reparieren
           </Button>
         )}
+
+        {/* COMPETENCY with step gaps → lesson repair */}
         {(hasCategory(pkg, 'COMPETENCY') || pkg.hard_fail_reasons.some(r => r.toUpperCase().includes('STEP_GAP'))) && (
           <Button
             size="sm"
             variant="outline"
-            className="h-7 text-[11px] gap-1 border-orange-600/50 text-orange-300 hover:bg-orange-900/30"
+            className="h-7 text-[11px] gap-1"
             disabled={busy}
             onClick={() => onRepair(pkg.package_id, 'repair_lessons')}
             title="5-Schritte-Lektionen für fehlende Kompetenzen regenerieren"
@@ -265,39 +354,50 @@ function ExhaustedPackageRow({ pkg, onRepair, busyId }: {
             Lektionen reparieren
           </Button>
         )}
-        {hasCategory(pkg, 'LESSON_QUALITY') && (
+
+        {/* TRAP distribution */}
+        {hasCategory(pkg, 'TRAP') && (
           <Button
             size="sm"
-            variant="destructive"
+            variant="outline"
             className="h-7 text-[11px] gap-1"
             disabled={busy}
-            onClick={() => onRepair(pkg.package_id, 'repair_lessons')}
-            title="Placeholder-Lektionen neu generieren lassen"
+            onClick={() => onRepair(pkg.package_id, 'repair_exam_pool_quality')}
+            title="Trap-Verteilung rebalancieren"
           >
             {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wrench className="h-3 w-3" />}
-            Lektionen reparieren
+            Trap-Rebalance
           </Button>
         )}
-        <Button
-          size="sm"
-          variant="outline"
-          className="h-7 text-[11px] gap-1"
-          disabled={busy}
-          onClick={() => onRepair(pkg.package_id, 'repair_exam_pool_quality')}
-        >
-          {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wrench className="h-3 w-3" />}
-          Exam-Pool reparieren
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          className="h-7 text-[11px] gap-1"
-          disabled={busy}
-          onClick={() => onRepair(pkg.package_id, 'retry_validate')}
-        >
-          {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
-          Validate Reset
-        </Button>
+
+        {/* BLOOM taxonomy */}
+        {hasCategory(pkg, 'BLOOM') && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-[11px] gap-1"
+            disabled={busy}
+            onClick={() => onRepair(pkg.package_id, 'repair_exam_pool_quality')}
+            title="Bloom-Taxonomie-Verteilung reparieren"
+          >
+            {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wrench className="h-3 w-3" />}
+            Bloom reparieren
+          </Button>
+        )}
+
+        {/* Fallback: Validate Reset — always available unless GENERATION_NEVER_RAN */}
+        {!isGenNeverRan && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-[11px] gap-1"
+            disabled={busy}
+            onClick={() => onRepair(pkg.package_id, 'retry_validate')}
+          >
+            {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+            Validate Reset
+          </Button>
+        )}
       </div>
     </div>
   );
@@ -313,7 +413,7 @@ export function RepairExhaustedAlert() {
   const [collapsed, setCollapsed] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  // Compute available categories (safe against undefined error_categories)
+  // Compute available categories
   const categoryStats = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const pkg of exhausted) {
@@ -365,6 +465,9 @@ export function RepairExhaustedAlert() {
       }
       if (action === 'repair_lessons') {
         return runAdminOpsAction('repair_lessons', { package_id: packageId });
+      }
+      if (action === 'enqueue_exam_generation') {
+        return runAdminOpsAction('enqueue_single_step', { package_id: packageId, step_key: 'generate_exam_pool' });
       }
       return runAdminOpsAction(action as any, { package_id: packageId });
     },
@@ -478,27 +581,23 @@ export function RepairExhaustedAlert() {
 
           {/* Package List */}
           <div className="space-y-2 max-h-[60vh] overflow-y-auto">
-            {filteredPackages.map((pkg) => (
+            {filteredPackages.map(pkg => (
               <ExhaustedPackageRow
                 key={pkg.package_id}
                 pkg={pkg}
-                onRepair={(packageId, action) =>
-                  repairMutation.mutate({ packageId, action })
-                }
+                onRepair={(id, action) => repairMutation.mutate({ packageId: id, action })}
                 busyId={busyId}
               />
             ))}
           </div>
 
-          {/* Summary hint */}
-          <div className="text-[10px] text-muted-foreground border-t border-border/50 pt-2">
-            💡 <strong>WIP-Cap:</strong> Force Pool-Fill funktioniert nur wenn Building-Slots frei sind (aktuell max 13).
-            Bei "Exhausted" Paketen mit hohem Progress (&gt;80%) reicht oft ein einzelner "Validate Reset".
-          </div>
+          {filteredPackages.length === 0 && (
+            <div className="text-xs text-muted-foreground text-center py-4">
+              Keine Pakete für diese Filter-Kombination.
+            </div>
+          )}
         </>
       )}
     </div>
   );
 }
-
-export default RepairExhaustedAlert;
