@@ -36,6 +36,11 @@ Antworte immer auf Deutsch, strukturiert mit Bullet-Points. Maximal 400 Wörter.
       seo: `Du bist ein Senior SEO Marketing Spezialist für ExamFit.
 Du analysierst SEO-Daten, Keywords, Content-Gaps und gibst konkrete Optimierungsempfehlungen.
 Antworte immer auf Deutsch, kurz und präzise. Maximal 300 Wörter.`,
+
+      humor_qc: `Du bist ein Senior Customer Success Spezialist und Humor-Content-Stratege für ExamFit, eine IHK-Prüfungsvorbereitungs-Plattform.
+Du bist Experte für humorbasierte Lernerfahrungen, Content-Qualitätssicherung und Engagement-Optimierung.
+Du analysierst Humor-Content professionell, identifizierst Qualitätsprobleme und generierst neue, hochwertige Humor-Inhalte.
+Antworte immer auf Deutsch, strukturiert und präzise. Maximal 400 Wörter.`,
     };
 
     const ACTION_PROMPTS: Record<string, (ctx: string) => string> = {
@@ -86,6 +91,35 @@ Gib konkrete Keyword-Vorschläge und Content-Ideen für IHK-Prüfungsvorbereitun
       competitor_analysis: (ctx) => `Erstelle eine Wettbewerber-SEO-Analyse basierend auf:
 ${ctx}
 Identifiziere Chancen für Rankings bei IHK-relevanten Keywords.`,
+
+      // Humor QC
+      analyze_quality: (ctx) => `Analysiere die Humor-Content-Qualität anhand dieser QC-Daten:
+${ctx}
+Bewerte: 1. Gesamtqualitätslevel, 2. Problematische Bereiche (niedrige Scores, Dubletten, fehlende Zuordnungen), 3. Typ-Verteilungs-Balance, 4. Konkrete Verbesserungsmaßnahmen priorisiert nach Impact.`,
+
+      generate_humor: (ctx) => `Generiere 5 neue, hochwertige Humor-Items für die IHK-Prüfungsvorbereitung basierend auf:
+${ctx}
+Für jedes Item gib an:
+- Text (der Humor-Inhalt, kurz und prägnant)
+- Typ (wordplay, everyday_situation, exam_stress, self_irony, micro_tip)
+- Surface (lesson_intro, lesson_outro, minicheck_intro, minicheck_result, dashboard, exam_break)
+- Qualitäts-Begründung (warum dieser Humor funktioniert)
+Achte auf: Kulturelle Angemessenheit für den DACH-Raum, Bezug zu IHK-Prüfungen, Motivationsfördernd, Keine verletzenden Inhalte.`,
+
+      optimize_content: (ctx) => `Analysiere diese schwachen Humor-Items und erstelle optimierte Versionen:
+${ctx}
+Für jedes Item: 1. Problem-Diagnose (warum es schwach scored), 2. Optimierter Text, 3. Erwarteter Score-Verbesserung.
+Fokus auf: Relevanz zum Lernkontext, Wortspiel-Qualität, Emotionaler Impact, Kürze und Prägnanz.`,
+
+      retention_analysis: (ctx) => `Analysiere die Humor-Impact-Daten auf die Lernretention:
+${ctx}
+Bewerte: 1. Welche Humor-Typen den stärksten Retention-Effekt haben, 2. Welche Surfaces am meisten profitieren, 3. Optimierungsvorschläge für die Humor-Strategie, 4. A/B-Test-Empfehlungen.`,
+
+      bulk_generate: (ctx) => `Du bist ein Humor-Content-Generator für ExamFit. Generiere exakt 10 neue Humor-Items für folgende Zertifizierung:
+${ctx}
+Format pro Item (JSON-Array):
+[{"text": "...", "humor_type": "wordplay|everyday_situation|exam_stress|self_irony|micro_tip", "surface": "lesson_intro|lesson_outro|minicheck_intro|minicheck_result|dashboard|exam_break", "quality_reasoning": "..."}]
+Regeln: Kulturell angemessen DACH-Raum, IHK-Bezug, motivierend, nie verletzend. Vielfalt bei Typen und Surfaces. Gib NUR das JSON-Array zurück, keine Erklärungen.`,
     };
 
     const systemPrompt = ROLE_PROMPTS[role] || ROLE_PROMPTS.kpi;
