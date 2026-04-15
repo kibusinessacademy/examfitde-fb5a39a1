@@ -245,24 +245,46 @@ export function RepairExhaustedAlert() {
   const { data: exhausted = [] } = useRepairExhaustedPackages();
   const qc = useQueryClient();
   const [activeFilter, setActiveFilter] = useState<ErrorCategory | 'ALL'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
   const [collapsed, setCollapsed] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  // Compute available categories
+  // Compute available categories (safe against undefined error_categories)
   const categoryStats = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const pkg of exhausted) {
-      for (const cat of pkg.error_categories) {
+      const cats = Array.isArray(pkg.error_categories) ? pkg.error_categories : [];
+      for (const cat of cats) {
         counts[cat] = (counts[cat] || 0) + 1;
       }
     }
     return counts;
   }, [exhausted]);
 
+  // Compute status counts
+  const statusStats = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const pkg of exhausted) {
+      const s = ['building', 'blocked', 'queued', 'published'].includes(pkg.status) ? pkg.status : 'other_status';
+      counts[s] = (counts[s] || 0) + 1;
+    }
+    return counts;
+  }, [exhausted]);
+
   const filteredPackages = useMemo(() => {
-    if (activeFilter === 'ALL') return exhausted;
-    return exhausted.filter(p => p.error_categories.includes(activeFilter));
-  }, [exhausted, activeFilter]);
+    let result = exhausted;
+    if (activeFilter !== 'ALL') {
+      result = result.filter(p => (Array.isArray(p.error_categories) ? p.error_categories : []).includes(activeFilter));
+    }
+    if (statusFilter !== 'ALL') {
+      if (statusFilter === 'other_status') {
+        result = result.filter(p => !['building', 'blocked', 'queued', 'published'].includes(p.status));
+      } else {
+        result = result.filter(p => p.status === statusFilter);
+      }
+    }
+    return result;
+  }, [exhausted, activeFilter, statusFilter]);
 
   const repairMutation = useMutation({
     mutationFn: async ({ packageId, action }: { packageId: string; action: string }) => {
