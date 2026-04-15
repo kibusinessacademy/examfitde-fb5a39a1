@@ -203,17 +203,59 @@ function ExhaustedPackageRow({ pkg, onRepair, busyId }: {
       )}
 
       <div className="flex flex-wrap gap-1.5 pt-1">
-        <Button
-          size="sm"
-          variant="destructive"
-          className="h-7 text-[11px] gap-1"
-          disabled={busy}
-          onClick={() => onRepair(pkg.package_id, 'force_pool_fill')}
-          title="Pool-Fill + Validate-Reset (umgeht WIP-Cap nicht)"
-        >
-          {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3" />}
-          Force Pool-Fill
-        </Button>
+        {/* Show contextual buttons based on error categories */}
+        {hasCategory(pkg, 'EXAM_POOL') && (
+          <Button
+            size="sm"
+            variant="destructive"
+            className="h-7 text-[11px] gap-1"
+            disabled={busy}
+            onClick={() => onRepair(pkg.package_id, 'force_pool_fill')}
+            title="Pool-Fill + Validate-Reset (umgeht WIP-Cap nicht)"
+          >
+            {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3" />}
+            Force Pool-Fill
+          </Button>
+        )}
+        {hasCategory(pkg, 'COMPETENCY') && (
+          <Button
+            size="sm"
+            variant="destructive"
+            className="h-7 text-[11px] gap-1"
+            disabled={busy}
+            onClick={() => onRepair(pkg.package_id, 'force_pool_fill')}
+            title="Fragen für fehlende Kompetenzen generieren"
+          >
+            {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3" />}
+            Coverage Pool-Fill
+          </Button>
+        )}
+        {hasCategory(pkg, 'MINICHECK') && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-[11px] gap-1 border-yellow-600/50 text-yellow-300 hover:bg-yellow-900/30"
+            disabled={busy}
+            onClick={() => onRepair(pkg.package_id, 'repair_minichecks')}
+            title="MiniChecks für Lektionen ohne Fragen neu generieren"
+          >
+            {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wrench className="h-3 w-3" />}
+            MiniChecks reparieren
+          </Button>
+        )}
+        {(hasCategory(pkg, 'COMPETENCY') || pkg.hard_fail_reasons.some(r => r.toUpperCase().includes('STEP_GAP'))) && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-[11px] gap-1 border-orange-600/50 text-orange-300 hover:bg-orange-900/30"
+            disabled={busy}
+            onClick={() => onRepair(pkg.package_id, 'repair_lessons')}
+            title="5-Schritte-Lektionen für fehlende Kompetenzen regenerieren"
+          >
+            {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wrench className="h-3 w-3" />}
+            Lektionen reparieren
+          </Button>
+        )}
         <Button
           size="sm"
           variant="outline"
