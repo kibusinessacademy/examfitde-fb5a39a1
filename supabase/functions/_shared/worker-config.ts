@@ -34,13 +34,13 @@ export function getRunnerConfig(kind: RunnerKind): RunnerConfig {
   // Hard safety caps — prevent env overrides from re-introducing the stale-lock problem
   if (kind === "content_runner") {
     return {
-      maxConcurrency: Math.min(maxConcurrency, 5),
-      claimLimit: Math.min(claimLimit, 5),
+      maxConcurrency: Math.min(maxConcurrency, 10),
+      claimLimit: Math.min(claimLimit, 10),
     };
   }
   return {
-    maxConcurrency: Math.min(maxConcurrency, 6),
-    claimLimit: Math.min(claimLimit, 6),
+    maxConcurrency: Math.min(maxConcurrency, 10),
+    claimLimit: Math.min(claimLimit, 10),
   };
 }
 
