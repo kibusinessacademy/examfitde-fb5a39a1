@@ -18,7 +18,7 @@ function envInt(name: string, fallback: number): number {
 }
 
 const DEFAULTS: Record<RunnerKind, RunnerConfig> = {
-  // v7.0: Raised limits for throughput — stale-lock guard (3min cleanup) prevents orphans.
+  // v7.1: Raised limits for throughput — stale-lock guard (3min cleanup) prevents orphans.
   // content-runner: 280s loop with 1.5s sleep → can process ~25 light jobs per cycle.
   // job-runner: 110s budget, most control jobs complete in <5s → can process 15+ per cycle.
   content_runner: { maxConcurrency: 8, claimLimit: 8 },
