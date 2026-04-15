@@ -222,7 +222,7 @@ export default function EnterpriseDemoPage() {
         {/* Footer */}
         <footer className="border-t py-8">
           <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-muted-foreground">
-            <span>© {new Date().getFullYear()} ExamFit · Alle Daten in der EU (Frankfurt)</span>
+            <span><span>© {new Date().getFullYear()} ExamFit.de · Alle Daten in der EU (Frankfurt)</span></span>
             <div className="flex gap-4">
               <Link to="/datenschutz" className="hover:text-foreground">Datenschutz</Link>
               <Link to="/impressum" className="hover:text-foreground">Impressum</Link>

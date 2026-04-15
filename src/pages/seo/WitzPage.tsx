@@ -116,7 +116,7 @@ export default function WitzPage() {
             </Card>
 
             <p className="text-center text-xs text-muted-foreground mt-4">
-              © ExamFit – Intelligentes Prüfungstraining
+              © ExamFit.de – Intelligentes Prüfungstraining
             </p>
           </div>
         </div>

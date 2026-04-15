@@ -283,7 +283,7 @@ async function markFailed(sb: any, artifactId: string | undefined, reason: strin
 // ═══════════════════════════════════════════════════
 
 const CURRENT_YEAR = new Date().getFullYear();
-const COPYRIGHT_NOTICE = `© ${CURRENT_YEAR} ExamFit – Alle Rechte vorbehalten. Dieses Lernprodukt ist urheberrechtlich geschützt. Jede Vervielfältigung, Verbreitung oder Weitergabe ohne ausdrückliche Genehmigung ist untersagt.`;
+const COPYRIGHT_NOTICE = `© ${CURRENT_YEAR} ExamFit.de – Alle Rechte vorbehalten. Dieses Lernprodukt ist urheberrechtlich geschützt. Jede Vervielfältigung, Verbreitung oder Weitergabe ohne ausdrückliche Genehmigung ist untersagt.`;
 
 const PLAYER_HTML = `<!DOCTYPE html>
 <html lang="de">
@@ -324,8 +324,8 @@ const PLAYER_HTML = `<!DOCTYPE html>
   </div>
   <footer id="copyright-footer">
     <div class="copyright-inner">
-      <span class="copyright-logo">📘 ExamFit</span>
-      <span class="copyright-text">© ${CURRENT_YEAR} ExamFit – Alle Rechte vorbehalten</span>
+      <span class="copyright-logo">📘 ExamFit.de</span>
+      <span class="copyright-text">© ${CURRENT_YEAR} ExamFit.de – Alle Rechte vorbehalten</span>
       <span class="copyright-license">Lizenziertes Produkt · Nicht zur Weitergabe</span>
     </div>
   </footer>
@@ -405,7 +405,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 #watermark { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-30deg); font-size: 4rem; font-weight: 700; color: rgba(37,99,235,0.04); pointer-events: none; z-index: 0; white-space: nowrap; user-select: none; }
 #content { padding-bottom: 3.5rem; }
 /* Print protection */
-@media print { #watermark { color: rgba(37,99,235,0.08) !important; } #copyright-footer { position: static; } body::after { content: '© ExamFit – Alle Rechte vorbehalten. Urheberrechtlich geschützt.'; display: block; text-align: center; padding: 1rem; font-size: .8rem; color: #64748b; } }
+@media print { #watermark { color: rgba(37,99,235,0.08) !important; } #copyright-footer { position: static; } body::after { @media print { #watermark { color: rgba(37,99,235,0.08) !important; } #copyright-footer { position: static; } body::after { content: '© ExamFit.de – Alle Rechte vorbehalten. Urheberrechtlich geschützt.'; display: block; text-align: center; padding: 1rem; font-size: .8rem; color: #64748b; } }; display: block; text-align: center; padding: 1rem; font-size: .8rem; color: #64748b; } }
 /* Responsive */
 @media (max-width: 768px) {
   #sidebar { transform: translateX(-100%); }
