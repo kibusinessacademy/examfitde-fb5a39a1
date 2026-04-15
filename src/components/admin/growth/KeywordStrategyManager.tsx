@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Plus, Search, TrendingUp, Target, Zap, Filter, ArrowUpDown } from 'lucide-react';
+import { Plus, Search, TrendingUp, Target, Zap, Loader2, Sparkles, Wrench, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface SeoKeyword {
@@ -65,6 +65,30 @@ function useKeywords() {
   });
 }
 
+/** Auto-heal: create a content brief for a gap keyword */
+async function autoCreateBrief(kw: SeoKeyword) {
+  const { error } = await supabase.from('seo_content_briefs' as any).insert({
+    keyword_id: kw.id,
+    target_keyword: kw.keyword,
+    page_type: kw.target_page_type || 'blog',
+    status: 'draft',
+    funnel_stage: kw.funnel_stage,
+    persona: kw.persona,
+    notes: `Auto-erstellt für Content Gap (Score: ${kw.content_gap_score}). Suchvolumen: ${kw.search_volume || 'k.A.'}`,
+  });
+  if (error) throw error;
+}
+
+/** Auto-heal: set gap status to active and reduce gap score */
+async function autoHealGap(kw: SeoKeyword) {
+  const { error } = await supabase.from('seo_keywords' as any).update({
+    status: 'active',
+    content_gap_score: Math.max(0, kw.content_gap_score - 3),
+    notes: `${kw.notes || ''}\n[Auto-Heal] Gap geschlossen am ${new Date().toLocaleDateString('de-DE')}`.trim(),
+  }).eq('id', kw.id);
+  if (error) throw error;
+}
+
 export default function KeywordStrategyManager() {
   const qc = useQueryClient();
   const { data: keywords = [], isLoading } = useKeywords();
@@ -73,6 +97,7 @@ export default function KeywordStrategyManager() {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState<Record<string, any>>({});
+  const [healingIds, setHealingIds] = useState<Set<string>>(new Set());
 
   const addMutation = useMutation({
     mutationFn: async (kw: Record<string, any>) => {
@@ -107,12 +132,48 @@ export default function KeywordStrategyManager() {
     onError: (e: any) => toast.error(e.message),
   });
 
+  const handleAutoHeal = async (kw: SeoKeyword) => {
+    setHealingIds(prev => new Set([...prev, kw.id]));
+    try {
+      // 1. Create content brief
+      await autoCreateBrief(kw);
+      // 2. Update gap status
+      await autoHealGap(kw);
+      qc.invalidateQueries({ queryKey: ['seo-keywords'] });
+      qc.invalidateQueries({ queryKey: ['seo-content-briefs'] });
+      toast.success(`Gap für "${kw.keyword}" geheilt – Brief erstellt`);
+    } catch (e: any) {
+      toast.error(`Auto-Heal fehlgeschlagen: ${e.message}`);
+    } finally {
+      setHealingIds(prev => { const n = new Set(prev); n.delete(kw.id); return n; });
+    }
+  };
+
+  const handleBulkHeal = async () => {
+    const gaps = keywords.filter(k => k.content_gap_score > 5);
+    if (gaps.length === 0) { toast.info('Keine Content Gaps > 5 gefunden'); return; }
+    toast.info(`Heile ${gaps.length} Content Gaps…`);
+    let success = 0;
+    for (const kw of gaps) {
+      try {
+        await autoCreateBrief(kw);
+        await autoHealGap(kw);
+        success++;
+      } catch { /* skip individual failures */ }
+    }
+    qc.invalidateQueries({ queryKey: ['seo-keywords'] });
+    qc.invalidateQueries({ queryKey: ['seo-content-briefs'] });
+    toast.success(`${success}/${gaps.length} Gaps geheilt`);
+  };
+
   const filtered = keywords.filter(k => {
     if (search && !k.keyword.toLowerCase().includes(search.toLowerCase())) return false;
     if (filterIntent !== 'all' && k.intent_type !== filterIntent) return false;
     if (filterStatus !== 'all' && k.status !== filterStatus) return false;
     return true;
   });
+
+  const gapKeywords = keywords.filter(k => k.content_gap_score > 5);
 
   const intentColor: Record<string, string> = {
     informational: 'bg-blue-500/15 text-blue-600',
@@ -141,11 +202,35 @@ export default function KeywordStrategyManager() {
           <div className="text-2xl font-bold text-amber-500">{keywords.filter(k => k.opportunity_score >= 7).length}</div>
           <div className="text-xs text-muted-foreground">High Opportunity</div>
         </CardContent></Card>
-        <Card><CardContent className="pt-4 pb-3 text-center">
-          <div className="text-2xl font-bold text-blue-500">{keywords.filter(k => k.content_gap_score > 5).length}</div>
-          <div className="text-xs text-muted-foreground">Content Gaps</div>
-        </CardContent></Card>
+        <Card className={gapKeywords.length > 0 ? 'border-amber-500/40' : ''}>
+          <CardContent className="pt-4 pb-3 text-center">
+            <div className={`text-2xl font-bold ${gapKeywords.length > 0 ? 'text-amber-500' : 'text-blue-500'}`}>
+              {gapKeywords.length}
+            </div>
+            <div className="text-xs text-muted-foreground">Content Gaps</div>
+          </CardContent>
+        </Card>
       </div>
+
+      {/* Gap Auto-Heal Banner */}
+      {gapKeywords.length > 0 && (
+        <Card className="border-l-4 border-l-amber-500 bg-amber-500/5">
+          <CardContent className="py-3 px-4 flex items-center justify-between">
+            <div className="flex items-center gap-2 text-xs">
+              <Wrench className="h-4 w-4 text-amber-500" />
+              <span><strong>{gapKeywords.length}</strong> Content Gaps erkannt – Briefs können automatisch erstellt werden</span>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs gap-1 border-amber-500/30 hover:bg-amber-500/10 text-amber-600"
+              onClick={handleBulkHeal}
+            >
+              <Sparkles className="h-3 w-3" /> Alle heilen
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Toolbar */}
       <Card><CardContent className="pt-4 pb-3">
@@ -251,39 +336,73 @@ export default function KeywordStrategyManager() {
             Keine Keywords gefunden. Füge dein erstes Keyword hinzu.
           </CardContent></Card>
         )}
-        {filtered.map(kw => (
-          <Card key={kw.id} className="hover:border-primary/30 transition-colors">
-            <CardContent className="pt-3 pb-3">
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-medium text-sm">{kw.keyword}</span>
-                    <Badge variant="outline" className={`text-[10px] ${intentColor[kw.intent_type] || ''}`}>
-                      {kw.intent_type}
-                    </Badge>
-                    <Badge variant="outline" className="text-[10px]">{kw.funnel_stage?.toUpperCase()}</Badge>
-                    {kw.persona && <Badge variant="outline" className="text-[10px]">{kw.persona}</Badge>}
-                    {kw.target_page_type && <Badge variant="secondary" className="text-[10px]">→ {kw.target_page_type}</Badge>}
+        {filtered.map(kw => {
+          const isGap = kw.content_gap_score > 5;
+          const isHealing = healingIds.has(kw.id);
+          return (
+            <Card key={kw.id} className={`hover:border-primary/30 transition-colors ${isGap ? 'border-l-2 border-l-amber-500' : ''}`}>
+              <CardContent className="pt-3 pb-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-medium text-sm">{kw.keyword}</span>
+                      <Badge variant="outline" className={`text-[10px] ${intentColor[kw.intent_type] || ''}`}>
+                        {kw.intent_type}
+                      </Badge>
+                      <Badge variant="outline" className="text-[10px]">{kw.funnel_stage?.toUpperCase()}</Badge>
+                      {kw.persona && <Badge variant="outline" className="text-[10px]">{kw.persona}</Badge>}
+                      {kw.target_page_type && <Badge variant="secondary" className="text-[10px]">→ {kw.target_page_type}</Badge>}
+                    </div>
+                    <div className="flex items-center gap-3 mt-1.5 text-[10px] text-muted-foreground">
+                      {kw.search_volume != null && <span>Vol: {kw.search_volume.toLocaleString()}</span>}
+                      {kw.difficulty != null && <span>Diff: {kw.difficulty}</span>}
+                      <span>BV: {kw.business_value}</span>
+                      <span>CV: {kw.conversion_value}</span>
+                      <span>CF: {kw.curriculum_fit}</span>
+                      {kw.content_gap_score > 0 && <span className="text-amber-500 font-semibold">Gap: {kw.content_gap_score}</span>}
+                    </div>
+                    {/* Gap Auto-Heal Actions */}
+                    {isGap && (
+                      <div className="flex items-center gap-1.5 mt-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-[10px] h-6 gap-1 border-amber-500/30 text-amber-600 hover:bg-amber-500/10"
+                          disabled={isHealing}
+                          onClick={() => handleAutoHeal(kw)}
+                        >
+                          {isHealing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wrench className="h-3 w-3" />}
+                          Gap heilen
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-[10px] h-6 gap-1 text-muted-foreground"
+                          disabled={isHealing}
+                          onClick={async () => {
+                            try {
+                              await autoCreateBrief(kw);
+                              qc.invalidateQueries({ queryKey: ['seo-content-briefs'] });
+                              toast.success('Brief erstellt');
+                            } catch (e: any) { toast.error(e.message); }
+                          }}
+                        >
+                          <FileText className="h-3 w-3" /> Brief erstellen
+                        </Button>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex items-center gap-3 mt-1.5 text-[10px] text-muted-foreground">
-                    {kw.search_volume && <span>Vol: {kw.search_volume.toLocaleString()}</span>}
-                    {kw.difficulty && <span>Diff: {kw.difficulty}</span>}
-                    <span>BV: {kw.business_value}</span>
-                    <span>CV: {kw.conversion_value}</span>
-                    <span>CF: {kw.curriculum_fit}</span>
-                    {kw.content_gap_score > 0 && <span className="text-amber-500">Gap: {kw.content_gap_score}</span>}
+                  <div className="text-right">
+                    <div className={`text-lg font-bold ${scoreColor(kw.opportunity_score)}`}>
+                      {Number(kw.opportunity_score).toFixed(1)}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground">Score</div>
                   </div>
                 </div>
-                <div className="text-right">
-                  <div className={`text-lg font-bold ${scoreColor(kw.opportunity_score)}`}>
-                    {Number(kw.opportunity_score).toFixed(1)}
-                  </div>
-                  <div className="text-[10px] text-muted-foreground">Score</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
     </div>
   );
