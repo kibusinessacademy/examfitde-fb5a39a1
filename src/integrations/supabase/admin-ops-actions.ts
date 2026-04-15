@@ -38,7 +38,9 @@ type AdminOpsAction =
   | 'purge_completed_jobs'
   // v5.0 Manual course controls
   | 'reset_to_step'
-  | 'enqueue_single_step';
+  | 'enqueue_single_step'
+  // v6.0 Gate-Pass heal
+  | 'heal_gate_pass';
 
 export interface ScopedPayload {
   limit?: number;

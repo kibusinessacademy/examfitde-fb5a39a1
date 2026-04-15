@@ -688,6 +688,42 @@ Deno.serve(async (req) => {
         break;
       }
 
+      /* ── v6.0 Gate-Pass Heal: Mark validate_exam_pool as done if gate classifies PASS ── */
+      case "heal_gate_pass": {
+        const gpPkgId = body.package_id as string;
+        if (!gpPkgId) return json({ error: "package_id required" }, 400);
+
+        // Call the canonical gate classifier
+        const { data: gateResult, error: gateErr } = await sb.rpc("fn_classify_exam_pool_gate", { p_package_id: gpPkgId });
+        if (gateErr) return json({ error: `Gate classification failed: ${gateErr.message}` }, 500);
+
+        const gateClass = (gateResult as any)?.gate_class;
+        if (gateClass !== "PASS") {
+          return json({ ok: false, error: `Gate is '${gateClass}', not PASS. Cannot heal.`, gate_result: gateResult }, 400);
+        }
+
+        // Mark validate_exam_pool step as done
+        const now = new Date().toISOString();
+        await sb.from("package_steps")
+          .update({
+            status: "done",
+            finished_at: now,
+            updated_at: now,
+            meta: {
+              guard_state: "pass_ready",
+              healed_by: "admin_heal_gate_pass",
+              healed_at: now,
+              gate_result: gateResult,
+            },
+          })
+          .eq("package_id", gpPkgId)
+          .eq("step_key", "validate_exam_pool");
+
+        result = { ok: true, healed: true, gate_class: gateClass, package_id: gpPkgId };
+        affectedIds = [gpPkgId];
+        break;
+      }
+
       default:
         return json({ error: `Unknown action: ${action}` }, 400);
     }
