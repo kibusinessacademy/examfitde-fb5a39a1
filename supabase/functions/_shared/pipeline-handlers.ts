@@ -78,7 +78,7 @@ export async function handleJobFailed(
     await safeQuery(
       sb.from("course_packages").update({
         status: "blocked",
-        blocked_reason: `${stepKey}_terminal_escalation`,
+        blocked_reason: "pipeline_repair_required",
         last_error: `Terminal escalation at ${stepKey}: ${errorMsg.slice(0, 300)}`,
       }).eq("id", packageId),
       "terminal_validation_escalation_pkg_block",

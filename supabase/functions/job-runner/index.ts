@@ -2161,7 +2161,7 @@ Deno.serve(async (req) => {
             await sb.from("course_packages")
               .update({
                 status: "blocked",
-                blocked_reason: `${terminalStepKey ?? "validate_exam_pool"}_terminal_escalation`,
+                blocked_reason: "pipeline_repair_required",
                 last_error: `Terminal escalation at ${terminalStepKey ?? job.job_type}: ${issuesSummary.slice(0, 300)}`,
               })
               .eq("id", packageId);

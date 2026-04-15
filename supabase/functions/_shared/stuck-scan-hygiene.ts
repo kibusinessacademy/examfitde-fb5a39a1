@@ -828,7 +828,7 @@ export async function healValidateExamPoolLoop(sb: SupabaseClient) {
 
         await sb.from("course_packages").update({
           status: "blocked",
-          blocked_reason: "validate_exam_pool_terminal_escalation",
+          blocked_reason: "pipeline_repair_required",
           last_error: `Terminal escalation at validate_exam_pool: ${reconciledError.slice(0, 300)}`,
           updated_at: now,
         }).eq("id", step.package_id);
