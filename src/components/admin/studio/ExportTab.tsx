@@ -1,9 +1,12 @@
 import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Download, ExternalLink, Loader2, Apple, Smartphone, Copy, CheckCircle2, ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
+import { Download, ExternalLink, Loader2, Apple, Smartphone, Copy, CheckCircle2, ChevronDown, ChevronUp, Sparkles, Shield, Package } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+
+const CURRENT_YEAR = new Date().getFullYear();
+const COPYRIGHT_TEXT = `© ${CURRENT_YEAR} ExamFit – Alle Rechte vorbehalten.`;
 
 type StoreListing = {
   app_name?: string;
@@ -20,6 +23,8 @@ type StoreListing = {
   technical_requirements?: { min_os_version?: string; devices?: string; permissions?: string[] };
   checklist?: string[];
   aso_tips?: string[];
+  copyright_notice?: string;
+  legal_footer?: string;
 };
 
 function CopyButton({ text, label }: { text: string; label?: string }) {
@@ -123,6 +128,31 @@ function StoreListingPanel({ listing, store }: { listing: StoreListing; store: '
         ))}
       </div>
     ) : null },
+    { key: 'copyright', title: '© Copyright & Rechtshinweise', content: (
+      <div className="space-y-2 text-xs">
+        {listing.copyright_notice && (
+          <div className="flex justify-between items-start gap-2">
+            <div className="flex gap-2 items-start">
+              <Shield className="h-3 w-3 text-primary shrink-0 mt-0.5" />
+              <span className="font-medium">{listing.copyright_notice}</span>
+            </div>
+            <CopyButton text={listing.copyright_notice} label="Copyright" />
+          </div>
+        )}
+        {listing.legal_footer && (
+          <div className="flex justify-between items-start gap-2 mt-1">
+            <span className="text-muted-foreground">{listing.legal_footer}</span>
+            <CopyButton text={listing.legal_footer} label="Rechtshinweis" />
+          </div>
+        )}
+        {!listing.copyright_notice && (
+          <div className="flex justify-between items-start gap-2">
+            <span>{COPYRIGHT_TEXT} Alle Inhalte urheberrechtlich geschützt.</span>
+            <CopyButton text={`${COPYRIGHT_TEXT} Alle Inhalte urheberrechtlich geschützt.`} label="Copyright" />
+          </div>
+        )}
+      </div>
+    )},
     { key: 'release', title: 'Release Notes', content: listing.whats_new ? (
       <div className="flex justify-between items-start gap-2">
         <pre className="text-xs whitespace-pre-wrap">{listing.whats_new}</pre>
@@ -157,6 +187,8 @@ export default function ExportTab({ pkg, packageId }: { pkg: any; packageId: str
   const [exporting, setExporting] = useState(false);
   const [jsxExportUrl, setJsxExportUrl] = useState<string | null>(null);
   const [jsxExporting, setJsxExporting] = useState(false);
+  const [standaloneUrl, setStandaloneUrl] = useState<string | null>(null);
+  const [standaloneExporting, setStandaloneExporting] = useState(false);
 
   // Store listing states
   const [appleListing, setAppleListing] = useState<StoreListing | null>(null);
@@ -199,6 +231,24 @@ export default function ExportTab({ pkg, packageId }: { pkg: any; packageId: str
     finally { setJsxExporting(false); }
   };
 
+  const handleStandaloneExport = async () => {
+    setStandaloneExporting(true);
+    try {
+      const res = await supabase.functions.invoke('build-standalone-bundle', {
+        body: { package_id: packageId, version_tag: `v${Date.now()}` },
+      });
+      if (res.error) throw res.error;
+      const resData = res.data as Record<string, unknown>;
+      if (resData?.download_url) {
+        setStandaloneUrl(resData.download_url as string);
+        toast.success('Standalone-Produkt erstellt – mit Copyright & Player');
+      } else {
+        toast.info('Bundle erstellt, Download-URL wird generiert...');
+      }
+    } catch (e: any) { toast.error(`Standalone-Fehler: ${e?.message || 'Unbekannt'}`); }
+    finally { setStandaloneExporting(false); }
+  };
+
   const handleStoreListing = async (store: 'apple' | 'google') => {
     const setLoading = store === 'apple' ? setAppleLoading : setGoogleLoading;
     const setListing = store === 'apple' ? setAppleListing : setGoogleListing;
@@ -230,6 +280,55 @@ export default function ExportTab({ pkg, packageId }: { pkg: any; packageId: str
 
   return (
     <div className="space-y-4">
+      {/* ── Standalone Produkt (Hero Card) ── */}
+      <Card className="border-primary/40 bg-gradient-to-br from-primary/5 to-primary/10">
+        <CardContent className="p-5">
+          <div className="flex items-start gap-4">
+            <div className="p-3 rounded-xl bg-primary/10">
+              <Package className="h-8 w-8 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-base font-bold flex items-center gap-2">
+                📘 Standalone Kursprodukt
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/20 text-primary font-medium">Neu</span>
+              </h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                Vollständiges, offline-fähiges Lernprodukt mit integriertem Player, 
+                Wissenschecks, Fortschrittstracking und Copyright-Schutz.
+              </p>
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">Offline-Player</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">Wissenschecks</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">Progress-Tracking</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">Copyright-geschützt</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">Wasserzeichen</span>
+              </div>
+              <div className="flex items-center gap-2 mt-3">
+                <Button 
+                  size="sm" className="gap-1.5"
+                  onClick={handleStandaloneExport} 
+                  disabled={standaloneExporting || pkg.status === 'planning'}
+                >
+                  {standaloneExporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Package className="h-3.5 w-3.5" />}
+                  Standalone-Produkt exportieren
+                </Button>
+                {standaloneUrl && (
+                  <Button size="sm" variant="outline" asChild>
+                    <a href={standaloneUrl} target="_blank" rel="noopener noreferrer">
+                      <Download className="h-3 w-3 mr-1" /> Herunterladen
+                    </a>
+                  </Button>
+                )}
+              </div>
+              <div className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                <Shield className="h-3 w-3" />
+                <span>{COPYRIGHT_TEXT} Urheberrechtlich geschütztes Produkt.</span>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Download banners */}
       {exportUrl && (
         <Card className="border-success/30 bg-success/5">
@@ -297,6 +396,7 @@ export default function ExportTab({ pkg, packageId }: { pkg: any; packageId: str
                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted/50">ASO</span>
                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted/50">DSGVO</span>
                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted/50">DSA</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted/50">©&nbsp;Copyright</span>
                   </div>
                   <Button
                     variant="outline" size="sm" className="mt-2 gap-1"
@@ -327,6 +427,7 @@ export default function ExportTab({ pkg, packageId }: { pkg: any; packageId: str
                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted/50">ASO</span>
                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted/50">DSGVO</span>
                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted/50">Data Safety</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted/50">©&nbsp;Copyright</span>
                   </div>
                   <Button
                     variant="outline" size="sm" className="mt-2 gap-1"
@@ -350,11 +451,21 @@ export default function ExportTab({ pkg, packageId }: { pkg: any; packageId: str
               <strong>Technischer Hinweis:</strong> Capacitor ist bereits konfiguriert (iOS + Android). 
               Für den Store-Upload: Projekt via GitHub exportieren → <code className="text-[10px] bg-muted/50 px-1 rounded">npx cap sync</code> → 
               Xcode (iOS) bzw. Android Studio (Android) → Signieren → Hochladen.
-              Die KI generiert alle Store-Texte, Metadaten und Checklisten direkt aus den echten Kursinhalten.
+              Die KI generiert alle Store-Texte, Metadaten, Copyright-Hinweise und Checklisten direkt aus den echten Kursinhalten.
             </p>
           </CardContent>
         </Card>
       </div>
+
+      {/* ── Copyright Footer ── */}
+      <Card className="border-border/20 bg-muted/5">
+        <CardContent className="p-3 text-center">
+          <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+            <Shield className="h-3.5 w-3.5" />
+            <span>{COPYRIGHT_TEXT} Alle Kursinhalte, Texte, Grafiken und Software sind Eigentum von ExamFit. Jede Vervielfältigung bedarf der schriftlichen Genehmigung.</span>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
