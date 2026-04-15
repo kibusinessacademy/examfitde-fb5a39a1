@@ -13,7 +13,7 @@ import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
   AlertOctagon, ArrowRight, RefreshCw, Loader2, Wrench, Zap,
-  Filter, ChevronDown, ChevronUp, Play,
+  Filter, ChevronDown, ChevronUp, Play, CheckCircle2,
 } from 'lucide-react';
 
 /* ── Types ── */
