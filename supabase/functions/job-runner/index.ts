@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { assertSchemaReady } from "../_shared/schema-gate.ts";
-import { PIPELINE_GRAPH, validatePipelineGraph, STEP_TO_JOB_TYPE, ARTIFACT_IMPACT, getArtifactPriorityBump, poolForJobType, JOB_DEFINITIONS } from "../_shared/job-map.ts";
+import { PIPELINE_GRAPH, validatePipelineGraph, STEP_TO_JOB_TYPE, ARTIFACT_IMPACT, getArtifactPriorityBump, poolForJobType, JOB_DEFINITIONS, stepKeyForJobType } from "../_shared/job-map.ts";
 import { LANE_DISPATCH_ORDER, jobTypesForLane, allocateLaneBudgets, redistributeLaneBudgets, type RunnerLane } from "../_shared/runner-lanes.ts";
 import { getRunnerConfig } from "../_shared/worker-config.ts";
 import { checkArtifacts } from "../_shared/artifact-resolver.ts";
@@ -105,6 +105,27 @@ function lockRelease(tsNow: string) {
     locked_by: null as string | null,
     updated_at: tsNow,
   };
+}
+
+function downstreamJobTypesForStep(stepKey: string | null | undefined): string[] {
+  if (!stepKey) return [];
+
+  const visited = new Set<string>();
+  const stack = [stepKey];
+
+  while (stack.length > 0) {
+    const current = stack.pop()!;
+    for (const node of PIPELINE_GRAPH) {
+      if ((node.dependsOn ?? []).includes(current) && !visited.has(node.key)) {
+        visited.add(node.key);
+        stack.push(node.key);
+      }
+    }
+  }
+
+  return [...visited]
+    .map((key) => STEP_TO_JOB_TYPE[key as keyof typeof STEP_TO_JOB_TYPE])
+    .filter((value): value is string => Boolean(value));
 }
 
 /** Requeue a job as pending with a run_after backoff */
@@ -2119,15 +2140,61 @@ Deno.serve(async (req) => {
           // If the QG result signals a terminal hard failure (e.g. repair exhausted),
           // do NOT requeue — escalate to failed immediately to stop retry loops.
           console.error(`[job-runner] 🛑 HARD_FAIL_BREAKER: ${job.job_type} (${job.id}) — stopping retry loop: ${issuesSummary.slice(0, 200)}`);
+          const terminalStepKey = validationStepKey ?? stepKeyForJobType(job.job_type);
+          const terminalError = `HARD_FAIL_BREAKER: ${issuesSummary.slice(0, 500)}`;
           if (validationStepKey) {
             await sb.from("package_steps")
               .update({
                 status: "failed",
-                last_error: `HARD_FAIL_BREAKER: ${issuesSummary.slice(0, 500)}`,
-                meta: { ...(stepRow?.meta as Record<string, unknown> ?? {}), terminal_escalation: true, hard_fail_breaker_at: tsNow },
+                last_error: terminalError,
+                meta: {
+                  ...(stepRow?.meta as Record<string, unknown> ?? {}),
+                  gate_status: "HARD_FAIL",
+                  terminal_escalation: true,
+                  hard_fail_breaker_at: tsNow,
+                },
               })
               .eq("package_id", packageId)
               .eq("step_key", validationStepKey);
+          }
+          if (packageId) {
+            await sb.from("course_packages")
+              .update({
+                status: "blocked",
+                blocked_reason: `${terminalStepKey ?? "validate_exam_pool"}_terminal_escalation`,
+                last_error: `Terminal escalation at ${terminalStepKey ?? job.job_type}: ${issuesSummary.slice(0, 300)}`,
+              })
+              .eq("id", packageId);
+
+            const cancelTypes = [job.job_type, ...downstreamJobTypesForStep(terminalStepKey)]
+              .filter((value, index, arr): value is string => Boolean(value) && arr.indexOf(value) === index);
+
+            for (const cancelType of cancelTypes) {
+              try {
+                await sb.rpc("cancel_jobs_for_package" as any, {
+                  p_package_id: packageId,
+                  p_job_type: cancelType,
+                  p_statuses: ["pending", "processing"],
+                  p_reason: `terminal_escalation: ${terminalStepKey ?? job.job_type}`,
+                });
+              } catch (_cancelErr) { /* best-effort */ }
+            }
+
+            try {
+              await sb.from("auto_heal_log").insert({
+                action_type: "validation_terminal_escalation",
+                trigger_source: "job-runner",
+                target_type: "package_step",
+                target_id: packageId,
+                result_status: "escalated",
+                result_detail: `${terminalStepKey ?? job.job_type} terminal escalation detected — package blocked to prevent requeue loop`,
+                metadata: {
+                  step: terminalStepKey ?? job.job_type,
+                  job_type: job.job_type,
+                  error: issuesSummary.slice(0, 400),
+                },
+              });
+            } catch (_logErr) { /* best-effort */ }
           }
           finalState = {
             status: "failed",
@@ -2432,7 +2499,7 @@ Deno.serve(async (req) => {
       // Without this, steps stay in 'enqueued'/'queued' and stuck-scan
       // re-creates failed jobs infinitely.
       if (finalState.status === "failed" && job.payload?.package_id) {
-        const stepKey = job.job_type?.replace(/^package_/, "");
+        const stepKey = stepKeyForJobType(job.job_type);
         if (stepKey) {
           const failError = String(patchError ?? "job_failed").slice(0, 2000);
           try {

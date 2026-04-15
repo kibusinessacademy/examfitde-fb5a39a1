@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { bootstrapLLMLogging } from "../_shared/llm-log-bootstrap.ts";
-import { inferBackoffSeconds, edgeFunctionForJobType, poolForJobType, STEP_TO_JOB_TYPE } from "../_shared/job-map.ts";
+import { inferBackoffSeconds, edgeFunctionForJobType, poolForJobType, STEP_TO_JOB_TYPE, stepKeyForJobType } from "../_shared/job-map.ts";
 import { laneForJobType, partitionByLane, allocateLaneBudgets, redistributeLaneBudgets, LANE_DISPATCH_ORDER, type RunnerLane, jobTypesForLane } from "../_shared/runner-lanes.ts";
 import { isTransientLlmError, classifyError } from "../_shared/llm/normalize.ts";
 import { setProviderCooldown, cleanupExpiredCooldowns, filterCooledDownProviders, isOnCooldown } from "../_shared/llm/provider-cooldown.ts";
@@ -511,7 +511,7 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
 
         // Also update the step to 'failed' to prevent stuck-scan from re-enqueueing
         const packageId = job.payload?.package_id;
-        const stepKey = job.job_type?.replace(/^package_/, "");
+        const stepKey = stepKeyForJobType(job.job_type);
         if (packageId && stepKey) {
           try {
             await sb.from("package_steps").update({

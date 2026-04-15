@@ -8,6 +8,23 @@ import { enqueueJob } from "./enqueue.ts";
 import { isRepairActionEligible } from "./repair-eligibility.ts";
 import { STEP_TO_JOB_TYPE, getArtifactPriorityBump } from "./job-map.ts";
 
+function isTerminalValidateExamPoolState(step: {
+  meta?: unknown;
+  last_error?: string | null;
+}) {
+  const meta = (step.meta ?? {}) as Record<string, unknown>;
+  const reasonCodes = Array.isArray(meta.reason_codes) ? meta.reason_codes.map(String) : [];
+  const lastError = String(step.last_error ?? "");
+  const validationReason = String(meta.validation_requeue_reason ?? "");
+
+  return meta.terminal_escalation === true ||
+    meta.validation_requeue_signature === "HARD_FAIL" ||
+    (meta.validation_requeue_blocked === true && /READINESS_HARD_FAIL|HARD_FAIL/i.test(validationReason)) ||
+    (meta.last_guard_action === "block" && /HARD_FAIL/i.test(String(meta.stall_reason_code ?? ""))) ||
+    reasonCodes.some((code) => /HARD_FAIL/i.test(code)) ||
+    /HARD_FAIL|HARD_FAIL_BREAKER|VALIDATE_EXAM_POOL_TRUE_STALL/i.test(lastError);
+}
+
 export async function runHygiene(sb: SupabaseClient) {
   let hygieneResult: Record<string, unknown> = {};
   try {
@@ -789,6 +806,46 @@ export async function healValidateExamPoolLoop(sb: SupabaseClient) {
       const guardState = classification.guard_state as string;
       const action = classification.action as string;
       const reasonCode = classification.reason_code as string | null;
+      const stepMeta = (step.meta as Record<string, unknown>) ?? {};
+
+      if (isTerminalValidateExamPoolState(step)) {
+        const now = new Date().toISOString();
+        const reconciledReason = reasonCode ?? String(stepMeta.stall_reason_code ?? "HARD_FAIL_REPAIR_EXHAUSTED");
+        const reconciledError = String(step.last_error ?? stepMeta.validation_requeue_reason ?? `HARD_FAIL: ${reconciledReason}`).slice(0, 500);
+
+        await sb.from("package_steps").update({
+          status: "failed",
+          last_error: reconciledError,
+          meta: {
+            ...stepMeta,
+            terminal_escalation: true,
+            guard_state: "hard_stalled",
+            stall_reason_code: reconciledReason,
+            hard_fail_reconciled_at: now,
+          },
+          updated_at: now,
+        }).eq("package_id", step.package_id).eq("step_key", "validate_exam_pool");
+
+        await sb.from("course_packages").update({
+          status: "blocked",
+          blocked_reason: "validate_exam_pool_terminal_escalation",
+          last_error: `Terminal escalation at validate_exam_pool: ${reconciledError.slice(0, 300)}`,
+          updated_at: now,
+        }).eq("id", step.package_id);
+
+        await sb.from("auto_heal_log").insert({
+          action_type: "validate_exam_pool_terminal_reconciled",
+          trigger_source: "stuck-scan",
+          target_type: "package_step",
+          target_id: step.package_id,
+          result_status: "escalated",
+          result_detail: `Terminal validate_exam_pool state reconciled (${reconciledReason})`,
+          metadata: { guard_state: guardState, reason_code: reconciledReason, action },
+        }).catch(() => {});
+
+        repaired++;
+        continue;
+      }
 
       // Skip healthy or already-recovering packages
       if (guardState === "healthy" || guardState === "recovering") {
@@ -881,7 +938,6 @@ export async function healValidateExamPoolLoop(sb: SupabaseClient) {
 
         // Set grace period so validate doesn't re-run immediately
         const graceDuration = 20 * 60 * 1000; // 20 minutes
-        const stepMeta = (step.meta as Record<string, unknown>) ?? {};
         await sb.from("package_steps").update({
           status: "queued",
           last_error: null,
@@ -922,7 +978,6 @@ export async function healValidateExamPoolLoop(sb: SupabaseClient) {
 
       // hard_stalled → deterministic block with clear reason code
       if (guardState === "hard_stalled") {
-        const stepMeta = (step.meta as Record<string, unknown>) ?? {};
         await sb.from("package_steps").update({
           status: "failed",
           last_error: `VALIDATE_EXAM_POOL_TRUE_STALL: No progress after multiple repair cycles. Reason: ${reasonCode}`,
