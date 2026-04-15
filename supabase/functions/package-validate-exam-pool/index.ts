@@ -534,11 +534,35 @@ Deno.serve(async (req) => {
     if (gateStatus === "HARD_FAIL") {
       try { await runSnapshotWritePath(sb, packageId, curriculumId, p.job_id ?? null); } catch (_) {}
 
+      const { data: currentStep } = await sb.from("package_steps")
+        .select("meta")
+        .eq("package_id", packageId)
+        .eq("step_key", "validate_exam_pool")
+        .maybeSingle();
+
+      const currentMeta = (currentStep?.meta ?? {}) as Record<string, unknown>;
+      const terminalError = `HARD_FAIL: ${reasonCodes.join(", ")}`;
+
       await sb.from("package_steps").update({
-        meta: { ok: false, gate_status: "HARD_FAIL", reason_codes: reasonCodes },
-        last_error: `HARD_FAIL: ${reasonCodes.join(", ")}`,
+        status: "failed",
+        meta: {
+          ...currentMeta,
+          ok: false,
+          gate_status: "HARD_FAIL",
+          reason_codes: reasonCodes,
+          terminal_escalation: true,
+          hard_fail_breaker_at: new Date().toISOString(),
+        },
+        last_error: terminalError,
         updated_at: new Date().toISOString(),
       }).eq("package_id", packageId).eq("step_key", "validate_exam_pool");
+
+      await sb.from("course_packages").update({
+        status: "blocked",
+        blocked_reason: "validate_exam_pool_terminal_escalation",
+        last_error: `Terminal escalation at validate_exam_pool: ${reasonCodes.join(", ").slice(0, 300)}`,
+        updated_at: new Date().toISOString(),
+      }).eq("id", packageId);
 
       return json({
         ok: false,

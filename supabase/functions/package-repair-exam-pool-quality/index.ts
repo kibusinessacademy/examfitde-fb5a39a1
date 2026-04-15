@@ -346,6 +346,22 @@ async function handleGateChanged(
   repairResult: Record<string, unknown>,
   qcReconciled: number,
 ) {
+  const { data: validateStep } = await sb.from("package_steps")
+    .select("status, meta, last_error")
+    .eq("package_id", packageId)
+    .eq("step_key", "validate_exam_pool")
+    .maybeSingle();
+
+  const validateMeta = (validateStep?.meta ?? {}) as Record<string, unknown>;
+  const validateIsTerminal = validateMeta.terminal_escalation === true ||
+    validateMeta.validation_requeue_signature === "HARD_FAIL" ||
+    /HARD_FAIL|HARD_FAIL_BREAKER/i.test(String(validateStep?.last_error ?? ""));
+
+  if (validateIsTerminal) {
+    console.warn(`[repair-exam-pool] validate_exam_pool is terminal for ${packageId.slice(0, 8)} — skip requeue`);
+    return;
+  }
+
   await sb.from("package_steps").update({
     status: "queued",
     updated_at: new Date().toISOString(),

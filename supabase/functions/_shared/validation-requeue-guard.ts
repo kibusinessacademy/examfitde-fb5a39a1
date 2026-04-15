@@ -27,6 +27,7 @@
  */
 
 import { mergePackageStepMeta, removePackageStepMetaKeys } from "./merge-step-meta.ts";
+import { stepKeyForJobType } from "./job-map.ts";
 
 /** Validator job types subject to requeue guard */
 export const VALIDATION_GUARDED_JOB_TYPES = new Set([
@@ -147,7 +148,10 @@ export async function checkValidationRequeueGuard(
   }
 
   try {
-    const stepKey = jobType.replace(/^package_/, "");
+    const stepKey = stepKeyForJobType(jobType);
+    if (!stepKey) {
+      return { blocked: false };
+    }
 
     // ═══ LAYER 0: Step already done → never block (F-4.3) ═══
     // If the step completed successfully (e.g., via manual heal, concurrent run),
@@ -645,7 +649,8 @@ async function persistBlockState(
   identicalCount: number,
   cooldownUntil?: string,
 ): Promise<void> {
-  const stepKey = jobType.replace(/^package_/, "");
+  const stepKey = stepKeyForJobType(jobType);
+  if (!stepKey) return;
   try {
     await mergePackageStepMeta(sb, packageId, stepKey, {
       validation_requeue_blocked: true,
@@ -666,7 +671,8 @@ async function clearBlockState(
   jobType: string,
   packageId: string,
 ): Promise<void> {
-  const stepKey = jobType.replace(/^package_/, "");
+  const stepKey = stepKeyForJobType(jobType);
+  if (!stepKey) return;
   try {
     await removePackageStepMetaKeys(sb, packageId, stepKey, BLOCK_META_KEYS);
   } catch (_e) {

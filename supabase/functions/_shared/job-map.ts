@@ -69,6 +69,16 @@ export const STEP_TO_JOB_TYPE: Record<PipelineStepKey, string> = {
   auto_publish: "package_auto_publish",
 };
 
+/** Canonical reverse lookup: job_type → step_key */
+export const JOB_TYPE_TO_STEP_KEY = Object.fromEntries(
+  Object.entries(STEP_TO_JOB_TYPE).map(([stepKey, jobType]) => [jobType, stepKey]),
+) as Record<string, PipelineStepKey>;
+
+export function stepKeyForJobType(jobType: string | null | undefined): PipelineStepKey | null {
+  if (!jobType) return null;
+  return JOB_TYPE_TO_STEP_KEY[jobType] ?? null;
+}
+
 /**
  * Canonical step ordering — superset of all possible steps.
  * Steps not present in a package's DB rows are simply skipped.
