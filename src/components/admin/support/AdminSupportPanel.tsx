@@ -19,11 +19,20 @@ import {
   AlertCircle, Clock, CheckCircle2, XCircle, Search, Filter,
   MessageSquare, ArrowRight, ExternalLink, Bug, Lightbulb,
   CreditCard, Users, FileText, HelpCircle, Wrench, AlertTriangle,
+  Sparkles, Loader2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+
+/* ── AI Helper ── */
+async function callSupportAI(payload: Record<string, unknown>) {
+  const { data, error } = await supabase.functions.invoke('admin-ai-assistant', { body: payload });
+  if (error) throw new Error(error.message);
+  if (data?.error) throw new Error(data.error);
+  return data?.result as string;
+}
 
 /* ── SSOT Types from DB Enums ── */
 type TicketStatus = Database['public']['Enums']['user_ticket_status'];
