@@ -356,7 +356,7 @@ const AppRoutes = () => {
           <Route path="brain" element={<BusinessBrainPage />} />
           <Route path="forensics" element={<ForensicReportsPage />} />
           <Route path="humor-qc" element={<HumorQCPage />} />
-          <Route path="marketing" element={<MarketingPage />} />
+          {/* marketing route removed — Promo is now a tab in Growth */}
           <Route path="support" element={<SupportPage />} />
           <Route path="test" element={<TestAreaPage />} />
           <Route path="*" element={<Navigate to="/admin/command" replace />} />
