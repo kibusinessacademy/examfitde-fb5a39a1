@@ -298,6 +298,28 @@ export async function enqueueJob(
       return { ...active, revived: false } as EnqueueResult;
     }
 
+    // Check for completed row — delete it and retry insert
+    const { data: completedRow } = await sb
+      .from("job_queue")
+      .select("id")
+      .eq("idempotency_key", idempotencyKey)
+      .eq("status", "completed")
+      .limit(1)
+      .maybeSingle();
+
+    if (completedRow) {
+      console.log(`[enqueue] CLEAR_COMPLETED: ${opts.job_type} completed row ${String(completedRow.id).slice(0,8)} — deleting to re-enqueue`);
+      await sb.from("job_queue").delete().eq("id", completedRow.id);
+      // Retry insert after clearing completed row
+      const { data: retryData, error: retryErr } = await sb
+        .from("job_queue")
+        .insert(row)
+        .select("id, job_type, worker_pool, status")
+        .maybeSingle();
+      if (retryErr) throw retryErr;
+      if (retryData) return retryData as EnqueueResult;
+    }
+
     // Also try matching by package_id + job_type (for partial unique index hits)
     if (packageId) {
       const { data: activeByPkg } = await sb
