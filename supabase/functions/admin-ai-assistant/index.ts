@@ -1,0 +1,129 @@
+import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
+
+Deno.serve(async (req) => {
+  const corsResponse = handleCorsPreflightRequest(req);
+  if (corsResponse) return corsResponse;
+
+  const origin = req.headers.get("origin");
+  const headers = { ...getCorsHeaders(origin), "Content-Type": "application/json; charset=utf-8" };
+
+  try {
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) {
+      return new Response(JSON.stringify({ error: "LOVABLE_API_KEY not configured" }), { status: 500, headers });
+    }
+
+    const body = await req.json();
+    const { role, action, context, ticket, query } = body;
+
+    if (!role || !action) {
+      return new Response(JSON.stringify({ error: "role and action required" }), { status: 400, headers });
+    }
+
+    const ROLE_PROMPTS: Record<string, string> = {
+      support: `Du bist ein Senior Kundenservice Manager für ExamFit, eine IHK-Prüfungsvorbereitungs-Plattform.
+Du analysierst Support-Tickets professionell und gibst konkrete Handlungsempfehlungen.
+Antworte immer auf Deutsch, kurz und präzise. Maximal 300 Wörter.`,
+
+      crm: `Du bist ein Key Account Manager und Data Science Spezialist für ExamFit.
+Du analysierst Kundendaten, identifizierst Upsell-Chancen, Churn-Risiken und Segmentierungsstrategien.
+Antworte immer auf Deutsch, kurz und präzise. Maximal 300 Wörter.`,
+
+      kpi: `Du bist ein Senior Data Manager für ExamFit, eine IHK-Prüfungsvorbereitungs-Plattform.
+Du interpretierst KPIs, erkennst Trends und gibst datenbasierte Handlungsempfehlungen.
+Antworte immer auf Deutsch, strukturiert mit Bullet-Points. Maximal 400 Wörter.`,
+
+      seo: `Du bist ein Senior SEO Marketing Spezialist für ExamFit.
+Du analysierst SEO-Daten, Keywords, Content-Gaps und gibst konkrete Optimierungsempfehlungen.
+Antworte immer auf Deutsch, kurz und präzise. Maximal 300 Wörter.`,
+    };
+
+    const ACTION_PROMPTS: Record<string, (ctx: string) => string> = {
+      // Support
+      auto_triage: (ctx) => `Analysiere dieses Support-Ticket und erstelle ein Triage-Ergebnis:
+${ctx}
+Gib zurück: 1. Empfohlene Priorität (LOW/MEDIUM/HIGH/CRITICAL), 2. Empfohlener Typ, 3. Kurze Zusammenfassung, 4. Empfohlene nächste Schritte.`,
+
+      draft_response: (ctx) => `Erstelle einen freundlichen, professionellen Antwort-Entwurf für dieses Support-Ticket:
+${ctx}
+Die Antwort soll empathisch, lösungsorientiert und markenkonform sein. Schließe mit einem klaren nächsten Schritt ab.`,
+
+      suggest_resolution: (ctx) => `Analysiere das Ticket und schlage eine Lösung vor:
+${ctx}
+Berücksichtige häufige Probleme bei IHK-Prüfungsvorbereitung (Zugangsprobleme, Inhaltsfehler, Abrechnungsfragen).`,
+
+      // CRM
+      analyze_customer: (ctx) => `Analysiere dieses Kundenprofil und gib Empfehlungen:
+${ctx}
+Identifiziere: 1. Engagement-Level, 2. Upsell-Potenzial, 3. Churn-Risiko, 4. Empfohlene Maßnahmen.`,
+
+      segment_analysis: (ctx) => `Analysiere diese Kundensegment-Daten:
+${ctx}
+Identifiziere Muster, profitable Segmente und Optimierungspotenziale.`,
+
+      retention_tips: (ctx) => `Basierend auf diesen Daten, erstelle konkrete Retention-Strategien:
+${ctx}
+Fokussiere auf Maßnahmen, die bei einer Lernplattform wirksam sind.`,
+
+      // KPI
+      analyze_revenue: (ctx) => `Analysiere diese Revenue-KPIs:
+${ctx}
+Identifiziere: 1. Stärken, 2. Schwächen, 3. Trends, 4. Konkrete Handlungsempfehlungen für Wachstum.`,
+
+      analyze_pipeline: (ctx) => `Analysiere diese Pipeline-KPIs:
+${ctx}
+Identifiziere: 1. Engpässe, 2. Risiken, 3. Optimierungspotenzial, 4. Prioritäten.`,
+
+      growth_tips: (ctx) => `Basierend auf diesen Geschäftsdaten, erstelle 5 konkrete Wachstumstipps:
+${ctx}
+Fokussiere auf schnell umsetzbare Maßnahmen mit hohem ROI für eine Lernplattform.`,
+
+      // SEO
+      content_gap_analysis: (ctx) => `Analysiere diese SEO-Daten und identifiziere Content-Gaps:
+${ctx}
+Gib konkrete Keyword-Vorschläge und Content-Ideen für IHK-Prüfungsvorbereitung.`,
+
+      competitor_analysis: (ctx) => `Erstelle eine Wettbewerber-SEO-Analyse basierend auf:
+${ctx}
+Identifiziere Chancen für Rankings bei IHK-relevanten Keywords.`,
+    };
+
+    const systemPrompt = ROLE_PROMPTS[role] || ROLE_PROMPTS.kpi;
+    const actionFn = ACTION_PROMPTS[action];
+    if (!actionFn) {
+      return new Response(JSON.stringify({ error: `Unknown action: ${action}` }), { status: 400, headers });
+    }
+
+    const userPrompt = actionFn(context || ticket || query || '');
+
+    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-3-flash-preview",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+      }),
+    });
+
+    if (!aiResponse.ok) {
+      const status = aiResponse.status;
+      if (status === 429) return new Response(JSON.stringify({ error: "Rate limit. Bitte warte kurz." }), { status: 429, headers });
+      if (status === 402) return new Response(JSON.stringify({ error: "AI Credits aufgebraucht." }), { status: 402, headers });
+      return new Response(JSON.stringify({ error: "AI gateway error" }), { status: 500, headers });
+    }
+
+    const aiData = await aiResponse.json();
+    const content = aiData.choices?.[0]?.message?.content || "";
+
+    return new Response(JSON.stringify({ result: content }), { status: 200, headers });
+  } catch (e) {
+    console.error("[admin-ai-assistant] Error:", e);
+    return new Response(JSON.stringify({ error: String((e as Error)?.message ?? e) }), { status: 500, headers });
+  }
+});
