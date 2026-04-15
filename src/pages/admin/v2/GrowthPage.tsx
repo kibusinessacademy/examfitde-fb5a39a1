@@ -108,6 +108,7 @@ export default function GrowthPage() {
         <TabsContent value="assets" className="mt-4"><Suspense fallback={<Loading />}><ContentAssetManager /></Suspense></TabsContent>
         <TabsContent value="social" className="mt-4"><Suspense fallback={<Loading />}><SocialMediaManager /></Suspense></TabsContent>
         <TabsContent value="pricing" className="mt-4"><Suspense fallback={<Loading />}><PricingManager /></Suspense></TabsContent>
+        <TabsContent value="promo" className="mt-4"><Suspense fallback={<Loading />}><PromoCodesPanel /></Suspense></TabsContent>
       </Tabs>
     </div>
   );
