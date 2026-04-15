@@ -1344,12 +1344,9 @@ Deno.serve(async (req) => {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), JOB_TIMEOUT_MS);
 
-      const payload = {
-        ...(job.payload || {}),
-        ...(job.batch_cursor ? { _batch_cursor: job.batch_cursor, batch_cursor: job.batch_cursor } : {}),
-        _job_id: job.id,
-        _job_type: job.job_type,
-      };
+      // ── Shared payload normalization (P0 fix: inject package_id/curriculum_id/course_id) ──
+      const { buildDispatchPayload } = await import("../_shared/build-dispatch-payload.ts");
+      const payload = buildDispatchPayload(job);
 
       // Rework functions use dedicated cron secret, not Bearer service key
       const isReworkFn = REWORK_SECRET_FUNCTIONS.has(fnName);

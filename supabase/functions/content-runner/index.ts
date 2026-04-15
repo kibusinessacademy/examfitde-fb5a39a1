@@ -233,14 +233,9 @@ async function dispatchJob(job: any, supabaseUrl: string, serviceKey: string, lo
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    // Normalize camelCase→snake_case payload keys (safety net for orphan_reconciler compat)
-    const rawPayload = job.payload ?? {};
-    const normalizedPayload = { ...rawPayload };
-    // Inject top-level job columns into payload if missing (materialization gap fix)
-    if (job.package_id && !normalizedPayload.package_id) normalizedPayload.package_id = job.package_id;
-    if (rawPayload.packageId && !normalizedPayload.package_id) normalizedPayload.package_id = rawPayload.packageId;
-    if (rawPayload.courseId && !rawPayload.course_id) normalizedPayload.course_id = rawPayload.courseId;
-    if (rawPayload.curriculumId && !rawPayload.curriculum_id) normalizedPayload.curriculum_id = rawPayload.curriculumId;
+    // ── Shared payload normalization (P0 fix: inject package_id/curriculum_id/course_id) ──
+    const { buildDispatchPayload } = await import("../_shared/build-dispatch-payload.ts");
+    const normalizedPayload = buildDispatchPayload(job);
 
     const res = await fetch(url, {
       method: "POST",
