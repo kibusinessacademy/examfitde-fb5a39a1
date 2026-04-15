@@ -20,7 +20,7 @@ const SEOAuditManager = lazy(() => import('@/components/admin/growth/SEOAuditMan
 const SEODiscoveryManager = lazy(() => import('@/components/admin/growth/SEODiscoveryManager'));
 const GrowthLoopManager = lazy(() => import('@/components/admin/growth/GrowthLoopManager'));
 const PromoCodesPanel = lazy(() => import('@/components/admin/marketing/AdminPromoCodesPanel'));
-const LearningFieldSongPanel = lazy(() => import('@/components/admin/songs/LearningFieldSongPanel').then(m => ({ default: m.LearningFieldSongPanel })));
+const SongsDashboard = lazy(() => import('@/components/admin/songs/SongsDashboard'));
 const HumorQCPage = lazy(() => import('@/pages/admin/v2/HumorQCPage'));
 
 const Loading = () => (
@@ -117,13 +117,7 @@ export default function GrowthPage() {
         <TabsContent value="social" className="mt-4"><Suspense fallback={<Loading />}><SocialMediaManager /></Suspense></TabsContent>
         <TabsContent value="pricing" className="mt-4"><Suspense fallback={<Loading />}><PricingManager /></Suspense></TabsContent>
         <TabsContent value="promo" className="mt-4"><Suspense fallback={<Loading />}><PromoCodesPanel /></Suspense></TabsContent>
-        <TabsContent value="songs" className="mt-4">
-          <Card><CardContent className="p-6 text-center">
-            <Music className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-            <p className="text-sm text-muted-foreground">Lernfeld-Songs werden pro Kurs im Course Workspace verwaltet.</p>
-            <p className="text-xs text-muted-foreground mt-1">Öffne einen Kurs unter Kurse → Workspace um Songs hochzuladen.</p>
-          </CardContent></Card>
-        </TabsContent>
+        <TabsContent value="songs" className="mt-4"><Suspense fallback={<Loading />}><SongsDashboard /></Suspense></TabsContent>
         <TabsContent value="humor" className="mt-4"><Suspense fallback={<Loading />}><HumorQCPage /></Suspense></TabsContent>
       </Tabs>
     </div>

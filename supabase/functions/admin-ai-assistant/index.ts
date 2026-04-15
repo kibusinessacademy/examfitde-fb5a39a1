@@ -41,6 +41,12 @@ Antworte immer auf Deutsch, kurz und präzise. Maximal 300 Wörter.`,
 Du bist Experte für humorbasierte Lernerfahrungen, Content-Qualitätssicherung und Engagement-Optimierung.
 Du analysierst Humor-Content professionell, identifizierst Qualitätsprobleme und generierst neue, hochwertige Humor-Inhalte.
 Antworte immer auf Deutsch, strukturiert und präzise. Maximal 400 Wörter.`,
+
+      songwriter: `Du bist ein professioneller Songwriter und Texter, spezialisiert auf Bildungs-Songs für deutsche Auszubildende (IHK-Prüfungsvorbereitung).
+Du erstellst eingängige, melodische Lernsongs, die Fachinhalte musikalisch aufbereiten.
+Deine Songs sind: inhaltlich korrekt, didaktisch wertvoll, jugendfreundlich, einprägsam, motivierend.
+Sprache: Deutsch. Fachbegriffe korrekt verwenden.
+Antworte NUR mit dem reinen Songtext (mit Section-Tags), keine Erklärungen.`,
     };
 
     const ACTION_PROMPTS: Record<string, (ctx: string) => string> = {
@@ -120,6 +126,59 @@ ${ctx}
 Format pro Item (JSON-Array):
 [{"text": "...", "humor_type": "wordplay|everyday_situation|exam_stress|self_irony|micro_tip", "surface": "lesson_intro|lesson_outro|minicheck_intro|minicheck_result|dashboard|exam_break", "quality_reasoning": "..."}]
 Regeln: Kulturell angemessen DACH-Raum, IHK-Bezug, motivierend, nie verletzend. Vielfalt bei Typen und Surfaces. Gib NUR das JSON-Array zurück, keine Erklärungen.`,
+
+      // Songwriter actions
+      generate_song: (ctx) => `Erstelle einen eingängigen Lernsong basierend auf diesen Lerninhalten:
+${ctx}
+
+REGELN:
+1. Struktur EXAKT so (mit Tags in eckigen Klammern):
+   [Hook] (2 catchy Zeilen)
+   [Chorus] (Kerninhalt zusammenfassen, einprägsam)
+   [Verse 1] (Fachbegriffe einführen, Grundlagen)
+   [Verse 2] (Ablauf/Prozess erklären, Zusammenhänge)
+   [Bridge] (typische Prüfungsfalle benennen + Merkhilfe)
+   [Chorus] (Wiederholung)
+   [Outro] (1-2 Zeilen Abschluss, motivierend)
+2. Sprache: Deutsch, klar, jugendfreundlich
+3. Länge: STRIKT 150–220 Wörter (60–90 Sekunden)
+4. Fachbegriffe korrekt und verständlich verwenden
+5. NUR Songtext, KEINE Erklärungen
+6. Reimschema einhalten wo möglich`,
+
+      improve_lyrics: (ctx) => `Analysiere diesen Songtext und erstelle eine verbesserte Version:
+${ctx}
+
+Verbessere: 1. Reimschema und Flow, 2. Fachliche Korrektheit, 3. Einprägsamkeit, 4. Motivationsfaktor.
+Gib NUR den verbesserten Songtext zurück (mit Section-Tags). Keine Erklärungen.`,
+
+      suggest_style: (ctx) => `Basierend auf diesem Lernfeld und Kontext, empfehle den optimalen Musik-Stil:
+${ctx}
+
+Gib zurück:
+1. Genre/Stil (z.B. "Educational Pop", "German Rap", "LoFi Study Beat")
+2. BPM-Empfehlung
+3. Instrumentierung
+4. Suno-Style-Prompt (1 Satz, englisch, für AI-Musikgenerierung optimiert)
+5. Begründung warum dieser Stil didaktisch optimal ist`,
+
+      bulk_generate_songs: (ctx) => `Du bist ein Lernsong-Generator. Erstelle für JEDES der folgenden Lernfelder einen eigenen Song:
+${ctx}
+
+Pro Song:
+- Titel (kurz, einprägsam)
+- Songtext (150-220 Wörter, mit Section-Tags [Hook], [Chorus], [Verse 1], [Verse 2], [Bridge], [Outro])
+- Style-Prompt (englisch, 1 Satz für AI-Musik)
+
+Trenne die Songs mit "---SONG---".
+Format pro Song:
+TITLE: ...
+STYLE: ...
+LYRICS:
+[Hook]
+...
+
+Gib NUR die Songs zurück, keine Erklärungen.`,
     };
 
     const systemPrompt = ROLE_PROMPTS[role] || ROLE_PROMPTS.kpi;
