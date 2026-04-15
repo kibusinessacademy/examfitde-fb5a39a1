@@ -396,6 +396,7 @@ export default function ExportTab({ pkg, packageId }: { pkg: any; packageId: str
                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted/50">ASO</span>
                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted/50">DSGVO</span>
                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted/50">DSA</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted/50">©&nbsp;Copyright</span>
                   </div>
                   <Button
                     variant="outline" size="sm" className="mt-2 gap-1"
@@ -426,6 +427,7 @@ export default function ExportTab({ pkg, packageId }: { pkg: any; packageId: str
                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted/50">ASO</span>
                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted/50">DSGVO</span>
                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted/50">Data Safety</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted/50">©&nbsp;Copyright</span>
                   </div>
                   <Button
                     variant="outline" size="sm" className="mt-2 gap-1"
@@ -449,11 +451,21 @@ export default function ExportTab({ pkg, packageId }: { pkg: any; packageId: str
               <strong>Technischer Hinweis:</strong> Capacitor ist bereits konfiguriert (iOS + Android). 
               Für den Store-Upload: Projekt via GitHub exportieren → <code className="text-[10px] bg-muted/50 px-1 rounded">npx cap sync</code> → 
               Xcode (iOS) bzw. Android Studio (Android) → Signieren → Hochladen.
-              Die KI generiert alle Store-Texte, Metadaten und Checklisten direkt aus den echten Kursinhalten.
+              Die KI generiert alle Store-Texte, Metadaten, Copyright-Hinweise und Checklisten direkt aus den echten Kursinhalten.
             </p>
           </CardContent>
         </Card>
       </div>
+
+      {/* ── Copyright Footer ── */}
+      <Card className="border-border/20 bg-muted/5">
+        <CardContent className="p-3 text-center">
+          <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+            <Shield className="h-3.5 w-3.5" />
+            <span>{COPYRIGHT_TEXT} Alle Kursinhalte, Texte, Grafiken und Software sind Eigentum von ExamFit. Jede Vervielfältigung bedarf der schriftlichen Genehmigung.</span>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
