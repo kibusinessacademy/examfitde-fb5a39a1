@@ -133,7 +133,7 @@ const ForensicReportsPage = lazyRetry(() => import('@/pages/admin/v2/ForensicRep
 const HumorQCPage = lazyRetry(() => import('@/pages/admin/v2/HumorQCPage'));
 const CourseWorkspace = lazyRetry(() => import('@/pages/admin/CourseWorkspace'));
 const PageStudioPage = lazyRetry(() => import('@/pages/admin/v2/PageStudioPage'));
-const MarketingPage = lazyRetry(() => import('@/pages/admin/v2/MarketingPage'));
+// MarketingPage removed — Promo is now a tab in Growth
 const SupportPage = lazyRetry(() => import('@/pages/admin/v2/SupportPage'));
 
 // ExamFit@work public pages
