@@ -21,8 +21,8 @@ const DEFAULTS: Record<RunnerKind, RunnerConfig> = {
   // v7.0: Raised limits for throughput — stale-lock guard (3min cleanup) prevents orphans.
   // content-runner: 280s loop with 1.5s sleep → can process ~25 light jobs per cycle.
   // job-runner: 110s budget, most control jobs complete in <5s → can process 15+ per cycle.
-  content_runner: { maxConcurrency: 5, claimLimit: 5 },
-  job_runner:     { maxConcurrency: 6, claimLimit: 6 },
+  content_runner: { maxConcurrency: 8, claimLimit: 8 },
+  job_runner:     { maxConcurrency: 8, claimLimit: 8 },
 };
 
 export function getRunnerConfig(kind: RunnerKind): RunnerConfig {
@@ -34,13 +34,13 @@ export function getRunnerConfig(kind: RunnerKind): RunnerConfig {
   // Hard safety caps — prevent env overrides from re-introducing the stale-lock problem
   if (kind === "content_runner") {
     return {
-      maxConcurrency: Math.min(maxConcurrency, 5),
-      claimLimit: Math.min(claimLimit, 5),
+      maxConcurrency: Math.min(maxConcurrency, 10),
+      claimLimit: Math.min(claimLimit, 10),
     };
   }
   return {
-    maxConcurrency: Math.min(maxConcurrency, 6),
-    claimLimit: Math.min(claimLimit, 6),
+    maxConcurrency: Math.min(maxConcurrency, 10),
+    claimLimit: Math.min(claimLimit, 10),
   };
 }
 
