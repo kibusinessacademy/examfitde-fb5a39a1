@@ -337,12 +337,16 @@ export function RepairExhaustedAlert() {
       setBusyId(packageId);
       if (action === 'force_pool_fill') {
         await runAdminOpsAction('repair_exam_pool_quality', { package_id: packageId });
-        // Use reset_to_step which handles regression properly
         return runAdminOpsAction('reset_to_step', { package_id: packageId, step_key: 'validate_exam_pool' });
       }
       if (action === 'retry_validate') {
-        // Use reset_to_step instead of retry_package_step to avoid REGRESSION_BLOCKED
         return runAdminOpsAction('reset_to_step', { package_id: packageId, step_key: 'validate_exam_pool' });
+      }
+      if (action === 'repair_minichecks') {
+        return runAdminOpsAction('repair_minichecks', { package_id: packageId });
+      }
+      if (action === 'repair_lessons') {
+        return runAdminOpsAction('repair_lessons', { package_id: packageId });
       }
       return runAdminOpsAction(action as any, { package_id: packageId });
     },
