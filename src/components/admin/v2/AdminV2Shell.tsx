@@ -3,7 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { 
   LayoutDashboard, Package, ListChecks, Menu, X, 
-  LogOut, Sparkles, Globe, Play, FileText, HeadphonesIcon
+  LogOut, Sparkles, Globe, Play, HeadphonesIcon, BarChart3
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Badge } from '@/components/ui/badge';
@@ -12,10 +12,10 @@ import { Badge } from '@/components/ui/badge';
 const NAV_ITEMS = [
   { to: '/admin/command', label: 'Leitstelle', icon: LayoutDashboard },
   { to: '/admin/studio', label: 'Kurse', icon: Package },
-  { to: '/admin/pages', label: 'Pages', icon: FileText },
   { to: '/admin/queue', label: 'Queue', icon: ListChecks },
   { to: '/admin/growth', label: 'Growth', icon: Globe },
   { to: '/admin/support', label: 'Support', icon: HeadphonesIcon },
+  { to: '/admin/kpi', label: 'KPIs', icon: BarChart3 },
   { to: '/admin/test', label: 'Testen', icon: Play },
 ] as const;
 
@@ -29,10 +29,8 @@ export default function AdminV2Shell({ children }: Props) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(() => typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches);
 
-  // Close on route change
   useEffect(() => { setMobileOpen(false); }, [location.pathname]);
 
-  // Track desktop breakpoint
   useEffect(() => {
     const mql = window.matchMedia('(min-width: 1024px)');
     const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
@@ -41,7 +39,6 @@ export default function AdminV2Shell({ children }: Props) {
     return () => mql.removeEventListener('change', handler);
   }, []);
   
-  // Lock scroll
   useEffect(() => {
     document.body.style.overflow = mobileOpen ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };
@@ -64,7 +61,7 @@ export default function AdminV2Shell({ children }: Props) {
           <span className="font-bold text-sm">ExamFit</span>
           <Badge variant="outline" className="text-[9px] h-4 px-1 font-mono text-muted-foreground">SSOT</Badge>
         </div>
-        <div className="w-11" /> {/* spacer */}
+        <div className="w-11" />
       </header>
 
       {/* ── Mobile Overlay ── */}
@@ -75,7 +72,7 @@ export default function AdminV2Shell({ children }: Props) {
         />
       )}
 
-      {/* ── Sidebar (Desktop + Mobile Drawer) ── */}
+      {/* ── Sidebar ── */}
       <aside
         {...(!isDesktop && !mobileOpen ? { inert: '' as any } : {})}
         className={cn(
@@ -86,7 +83,6 @@ export default function AdminV2Shell({ children }: Props) {
         )}
         aria-hidden={!isDesktop && !mobileOpen ? true : undefined}
       >
-        {/* Desktop Logo */}
         <div className="hidden lg:flex items-center gap-2 h-14 px-4 border-b border-border shrink-0">
           <div className="p-1.5 rounded-lg bg-primary/15 shrink-0">
             <Sparkles className="h-4 w-4 text-primary" />
@@ -95,7 +91,6 @@ export default function AdminV2Shell({ children }: Props) {
           <Badge variant="outline" className="text-[9px] h-4 px-1 font-mono text-muted-foreground">SSOT</Badge>
         </div>
 
-        {/* Nav */}
         <nav className="flex-1 px-2 pt-3 space-y-0.5">
           {NAV_ITEMS.map((item) => (
             <NavLink
@@ -115,7 +110,6 @@ export default function AdminV2Shell({ children }: Props) {
           ))}
         </nav>
 
-        {/* Footer */}
         <div className="px-2 pb-3 space-y-1 border-t border-border pt-3">
           <div className="px-3 py-1.5 text-[10px] text-muted-foreground/60 font-mono">
             Admin v2 · SSOT-only
@@ -140,7 +134,7 @@ export default function AdminV2Shell({ children }: Props) {
         </div>
       </main>
 
-      {/* ── Mobile Bottom Tab Bar (top 5 items only) ── */}
+      {/* ── Mobile Bottom Tab Bar ── */}
       <div className="fixed bottom-0 inset-x-0 z-40 border-t border-border bg-card/95 backdrop-blur px-2 py-1.5 lg:hidden safe-bottom">
         <div className="flex overflow-x-auto gap-1 px-1">
           {NAV_ITEMS.map((item) => (

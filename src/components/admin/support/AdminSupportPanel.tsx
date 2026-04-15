@@ -19,11 +19,20 @@ import {
   AlertCircle, Clock, CheckCircle2, XCircle, Search, Filter,
   MessageSquare, ArrowRight, ExternalLink, Bug, Lightbulb,
   CreditCard, Users, FileText, HelpCircle, Wrench, AlertTriangle,
+  Sparkles, Loader2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+
+/* ── AI Helper ── */
+async function callSupportAI(payload: Record<string, unknown>) {
+  const { data, error } = await supabase.functions.invoke('admin-ai-assistant', { body: payload });
+  if (error) throw new Error(error.message);
+  if (data?.error) throw new Error(data.error);
+  return data?.result as string;
+}
 
 /* ── SSOT Types from DB Enums ── */
 type TicketStatus = Database['public']['Enums']['user_ticket_status'];
@@ -99,6 +108,21 @@ function TicketDetailSheet({
 }) {
   const qc = useQueryClient();
   const [notes, setNotes] = useState('');
+  const [aiLoading, setAiLoading] = useState<string | null>(null);
+  const [aiResult, setAiResult] = useState<string | null>(null);
+
+  const handleAI = async (action: string) => {
+    if (!ticket) return;
+    setAiLoading(action);
+    try {
+      const ctx = `Titel: ${ticket.title}\nNachricht: ${ticket.message}\nTyp: ${ticket.type}\nPriorität: ${ticket.priority}\nStatus: ${ticket.status}\nSeite: ${ticket.page_path || 'k.A.'}`;
+      const result = await callSupportAI({ role: 'support', action, context: ctx });
+      setAiResult(result);
+      toast.success('KI-Analyse erstellt');
+    } catch (e) {
+      toast.error(`Fehler: ${(e as Error).message}`);
+    } finally { setAiLoading(null); }
+  };
 
   const updateTicket = useMutation({
     mutationFn: async ({ id, ...patch }: UserTicketUpdate & { id: string }) => {
@@ -278,6 +302,32 @@ function TicketDetailSheet({
               >
                 Notiz speichern
               </Button>
+            </div>
+
+            {/* KI-Assistent */}
+            <div className="border-t border-border pt-3 space-y-2">
+              <div className="text-xs font-semibold text-foreground flex items-center gap-1">
+                <Sparkles className="h-3.5 w-3.5 text-primary" /> KI-Assistent
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" variant="outline" className="text-[10px] gap-1" onClick={() => handleAI('auto_triage')} disabled={!!aiLoading}>
+                  {aiLoading === 'auto_triage' ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />} Auto-Triage
+                </Button>
+                <Button size="sm" variant="outline" className="text-[10px] gap-1" onClick={() => handleAI('draft_response')} disabled={!!aiLoading}>
+                  {aiLoading === 'draft_response' ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />} Antwort-Entwurf
+                </Button>
+                <Button size="sm" variant="outline" className="text-[10px] gap-1" onClick={() => handleAI('suggest_resolution')} disabled={!!aiLoading}>
+                  {aiLoading === 'suggest_resolution' ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />} Lösung vorschlagen
+                </Button>
+              </div>
+              {aiResult && (
+                <Card className="border-primary/20 bg-primary/5">
+                  <CardContent className="p-3">
+                    <div className="text-[11px] text-foreground whitespace-pre-wrap leading-relaxed">{aiResult}</div>
+                    <Button variant="ghost" size="sm" className="mt-1.5 text-[10px]" onClick={() => setAiResult(null)}>Schließen</Button>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           </div>
         </div>
