@@ -383,14 +383,20 @@ export function StuckPackagesSheet({ open, onOpenChange }: {
 
   const healMutation = useMutation({
     mutationFn: async ({ packageId, action, stepKey }: { packageId: string; action: string; stepKey?: string }) => {
+      // Find the actual first stalled step for this package
+      const pkg = stuckPackages.find(p => p.id === packageId);
+      const firstStalledStep = pkg?.stalled_steps?.[0]?.step_key;
+
       if (action === 'resume_pipeline' || action === 'materialize_jobs') {
-        return runAdminOpsAction('retry_stalled_step', { package_id: packageId, step_key: stepKey || 'generate_learning_content' });
+        const targetStep = stepKey || firstStalledStep || 'generate_learning_content';
+        return runAdminOpsAction('retry_stalled_step', { package_id: packageId, step_key: targetStep });
       }
       if (action === 'retry_failed') {
         return runAdminOpsAction('requeue_failed_jobs', { package_id: packageId });
       }
       if (action === 'repair_upstream') {
-        return runAdminOpsAction('retry_stalled_step', { package_id: packageId, step_key: stepKey || 'generate_learning_content' });
+        const targetStep = stepKey || firstStalledStep || 'generate_learning_content';
+        return runAdminOpsAction('retry_stalled_step', { package_id: packageId, step_key: targetStep });
       }
       if (action === 'skip_validation') {
         return runAdminOpsAction('approve_step_exception', {
@@ -400,7 +406,8 @@ export function StuckPackagesSheet({ open, onOpenChange }: {
         });
       }
       if (action === 'retry_stalled_step') {
-        return runAdminOpsAction('retry_stalled_step', { package_id: packageId, step_key: stepKey || 'run_integrity_check' });
+        const targetStep = stepKey || firstStalledStep || 'run_integrity_check';
+        return runAdminOpsAction('retry_stalled_step', { package_id: packageId, step_key: targetStep });
       }
       return runAdminOpsAction(action as any, { package_id: packageId });
     },
