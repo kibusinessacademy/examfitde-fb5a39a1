@@ -2114,6 +2114,31 @@ Deno.serve(async (req) => {
               attempts: newAttempts,
             },
           };
+        } else if (/HARD_FAIL|REPAIR_EXHAUSTED|kill.switch/i.test(issuesSummary)) {
+          // ── P0 HARD_FAIL BREAKER ──
+          // If the QG result signals a terminal hard failure (e.g. repair exhausted),
+          // do NOT requeue — escalate to failed immediately to stop retry loops.
+          console.error(`[job-runner] 🛑 HARD_FAIL_BREAKER: ${jobType} (${job.id}) — stopping retry loop: ${issuesSummary.slice(0, 200)}`);
+          if (validationStepKey) {
+            await sb.from("package_steps")
+              .update({
+                status: "failed",
+                last_error: `HARD_FAIL_BREAKER: ${issuesSummary.slice(0, 500)}`,
+                meta: { ...(stepRow?.meta as Record<string, unknown> ?? {}), terminal_escalation: true, hard_fail_breaker_at: tsNow },
+              })
+              .eq("package_id", packageId)
+              .eq("step_key", validationStepKey);
+          }
+          finalState = {
+            status: "failed",
+            metricsAction: "dlq",
+            patch: {
+              error: `🛑 HARD_FAIL_BREAKER: ${issuesSummary}`,
+              result: typeof parsed === "object" ? parsed : { raw: parsed },
+              completed_at: tsNow,
+              attempts: newAttempts,
+            },
+          };
         } else {
           // Requeue with backoff (for jobs that haven't exhausted attempts yet)
           finalState = {
