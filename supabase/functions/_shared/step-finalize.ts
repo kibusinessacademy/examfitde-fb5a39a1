@@ -31,7 +31,7 @@ export async function finalizeStepDone(sb: SB, packageId: string, stepKey: strin
     // Log but don't throw — the function already did its work, and the runner
     // will see the job result. markStepDone failures are usually post-condition failures
     // which should NOT be swallowed silently.
-    console.error(`[step-finalize] ❌ markStepDone failed for ${stepKey} (${packageId.slice(0, 8)}): ${(e as Error).message}`);
+    console.error(`[step-finalize] ❌ markStepDone failed for ${stepKey} (${packageId.slice(0, 8)}): stage=${(e as any)?.__meta?.preflight ? 'preflight' : (e as any)?.__meta?.postcondition ? 'postcondition' : 'runtime'} | ${(e as Error).message}`);
     // Re-throw post-condition failures so the function returns error to runner
     throw e;
   }

@@ -28,12 +28,20 @@ export async function markStepDone(sb: SB, args: {
   });
 
   // ✅ Guard: NEVER mark done unless post-conditions pass
-  await assertStepPostConditions(sb, {
-    packageId: args.packageId,
-    stepKey: args.stepKey,
-    expectedLessons: args.expectedLessons,
-    track: args.track,
-  });
+  try {
+    await assertStepPostConditions(sb, {
+      packageId: args.packageId,
+      stepKey: args.stepKey,
+      expectedLessons: args.expectedLessons,
+      track: args.track,
+    });
+  } catch (pcErr: any) {
+    // Tag postcondition errors for failure_stage classification
+    if (!pcErr.__meta) pcErr.__meta = {};
+    pcErr.__meta.postcondition = true;
+    pcErr.__meta.step_key = args.stepKey;
+    throw pcErr;
+  }
 
   // ── P1-D: On heal-to-done, historize last_error into meta.previous_errors[] ──
   // Fetch current step to capture existing last_error before clearing
@@ -147,6 +155,12 @@ export async function markStepFailed(sb: SB, args: {
   const isHollow = isHollowVerdict(verdict);
   const errMeta = args.err?.__meta ?? {};
 
+  // ── failure_stage classification for forensic audit ──
+  const failureStage: "preflight" | "postcondition" | "runtime" =
+    errMeta.preflight ? "preflight"
+    : errMeta.postcondition ? "postcondition"
+    : "runtime";
+
   // ── Progress Fingerprint comparison ──
   const prevFpReal = Number(args.stepMeta?.fp_real ?? 0);
   const currFpReal = Number(errMeta.fp_real ?? 0);
@@ -166,6 +180,7 @@ export async function markStepFailed(sb: SB, args: {
     ...errMeta,
     last_error: String(args.err?.message ?? args.err),
     last_error_class: verdict ? "permanent" : "transient",
+    failure_stage: failureStage,
     failed_at: new Date().toISOString(),
     // Persist fingerprint for next comparison
     fp_real: errMeta.fp_real ?? args.stepMeta?.fp_real ?? null,
@@ -173,6 +188,8 @@ export async function markStepFailed(sb: SB, args: {
     fp_avg_len: errMeta.fp_avg_len ?? args.stepMeta?.fp_avg_len ?? null,
     progress_reset: madeProgress ? true : undefined,
   };
+
+  console.log(`[markStepFailed] ${args.stepKey} | stage=${failureStage} | verdict=${verdict ?? "none"} | attempt=${nextAttempts} | pkg=${args.packageId.slice(0, 8)}`);
 
   // Persist the failure first (audit trail)
   const { error } = await sb

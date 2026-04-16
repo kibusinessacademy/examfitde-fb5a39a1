@@ -14,6 +14,11 @@ export interface FailCtx {
  * - serialization/timeout => retryable (rethrow)
  */
 export async function handleDbFailure(ctx: FailCtx, err: any) {
+  // Tag as runtime failure for failure_stage classification
+  if (!err.__meta) err.__meta = {};
+  if (!err.__meta.preflight && !err.__meta.postcondition) {
+    err.__meta.runtime = true;
+  }
   const c = classifyDbError(err);
 
   const metaPatch = {
