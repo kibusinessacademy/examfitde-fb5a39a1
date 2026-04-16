@@ -2,7 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { assertSchemaReady } from "../_shared/schema-gate.ts";
 import { enqueueJob } from "../_shared/enqueue.ts";
-import { markStepDone } from "../_shared/steps.ts";
+import { markStepDone, markStepFailed } from "../_shared/steps.ts";
 // pctOrNA no longer needed — all metrics come from v3.summary (SSOT)
 
 function json(body: unknown, status = 200) {
@@ -352,17 +352,35 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ── Mark step done via SSOT markStepDone (postcondition guard) ──
-    try {
-      await markStepDone(sb, {
-        packageId,
-        stepKey: "quality_council",
-        meta: { executed: true, score, status, badge, rules_passed: rulesPassed, rules_failed: rulesFailed, rules_warned: rulesWarned },
-      });
-      console.log(`[QualityCouncil] ✅ Step quality_council marked DONE for ${packageId.slice(0, 8)}`);
-    } catch (stepErr) {
-      console.error(`[QualityCouncil] ⛔ markStepDone failed for ${packageId.slice(0, 8)}: ${(stepErr as Error).message}`);
-      // Step not done = job will be retried, which is correct fail-closed behavior
+    // ── Mark step done/failed via SSOT (postcondition guard) ──
+    // GOVERNANCE: Only markStepDone when gate passes. On fail → markStepFailed.
+    // Calling markStepDone with council_approved=false triggers the DB guard.
+    if (status === "fail") {
+      const failErr = new Error(`Quality gate failed: score=${score}, ${rulesFailed} blocking rules`);
+      (failErr as any).__meta = { verdict: null, score, badge, rules_failed: rulesFailed };
+      try {
+        await markStepFailed(sb, {
+          packageId,
+          stepKey: "quality_council",
+          err: failErr,
+          stepMeta: { executed: true, score, status, badge, rules_passed: rulesPassed, rules_failed: rulesFailed, rules_warned: rulesWarned },
+          autoRebuildHollow: false,
+        });
+        console.log(`[QualityCouncil] ❌ Step quality_council marked FAILED for ${packageId.slice(0, 8)}: score=${score}`);
+      } catch (stepErr) {
+        console.error(`[QualityCouncil] ⛔ markStepFailed failed for ${packageId.slice(0, 8)}: ${(stepErr as Error).message}`);
+      }
+    } else {
+      try {
+        await markStepDone(sb, {
+          packageId,
+          stepKey: "quality_council",
+          meta: { executed: true, score, status, badge, rules_passed: rulesPassed, rules_failed: rulesFailed, rules_warned: rulesWarned },
+        });
+        console.log(`[QualityCouncil] ✅ Step quality_council marked DONE for ${packageId.slice(0, 8)}`);
+      } catch (stepErr) {
+        console.error(`[QualityCouncil] ⛔ markStepDone failed for ${packageId.slice(0, 8)}: ${(stepErr as Error).message}`);
+      }
     }
 
     // GOVERNANCE FIX: Do NOT dispatch auto_publish directly.
