@@ -172,6 +172,7 @@ export async function markStepFailed(sb: SB, args: {
     .update({
       status: "failed",
       finished_at: new Date().toISOString(),
+      last_error: String(args.err?.message ?? args.err).slice(0, 500),
       meta: baseMeta,
     })
     .eq("package_id", args.packageId)
