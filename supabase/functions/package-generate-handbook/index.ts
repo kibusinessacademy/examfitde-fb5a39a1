@@ -10,6 +10,7 @@ import { shouldUseBatch, BATCH_DEFAULT_MODEL } from "../_shared/batch/routing-co
 import { buildBatchRequests, submitBatchViaFunction } from "../_shared/batch/enqueue-openai.ts";
 import { getContentProfile } from "../_shared/track-content-profiles.ts";
 import { prereqDone } from "../_shared/prereq-done.ts";
+import { finalizeStepDone, finalizeStepFailed } from "../_shared/step-finalize.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

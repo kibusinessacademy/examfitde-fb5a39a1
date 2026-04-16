@@ -3,6 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 import { callAIJSON } from "../_shared/ai-client.ts";
 import { getModel } from "../_shared/model-routing.ts";
+import { finalizeStepDone, finalizeStepFailed } from "../_shared/step-finalize.ts";
 
 /**
  * package-curriculum-ingest — Pipeline step that automatically extracts

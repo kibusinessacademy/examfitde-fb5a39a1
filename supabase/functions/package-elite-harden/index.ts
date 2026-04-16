@@ -5,6 +5,7 @@ import type { AIProvider } from "../_shared/ai-client.ts";
 import { getModelChainAsync } from "../_shared/model-routing.ts";
 import { computeElite, buildAnnotationInput } from "../_shared/elite-annotation.ts";
 import { enqueueJob } from "../_shared/enqueue.ts";
+import { finalizeStepDone, finalizeStepFailed } from "../_shared/step-finalize.ts";
 
 /**
  * package-elite-harden — Pipeline Step (Phase-Split v3)

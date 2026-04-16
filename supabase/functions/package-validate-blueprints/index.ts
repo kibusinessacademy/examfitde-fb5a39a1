@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
+import { finalizeStepDone, finalizeStepFailed } from "../_shared/step-finalize.ts";
 
 /**
  * package-validate-blueprints v2 — Pipeline Step (after auto_seed_exam_blueprints)
