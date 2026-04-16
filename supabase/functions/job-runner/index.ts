@@ -2,7 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { assertSchemaReady } from "../_shared/schema-gate.ts";
 import { PIPELINE_GRAPH, validatePipelineGraph, STEP_TO_JOB_TYPE, ARTIFACT_IMPACT, getArtifactPriorityBump, poolForJobType, JOB_DEFINITIONS, stepKeyForJobType } from "../_shared/job-map.ts";
-import { LANE_DISPATCH_ORDER, jobTypesForLane, allocateLaneBudgets, redistributeLaneBudgets, type RunnerLane } from "../_shared/runner-lanes.ts";
+import { LANE_DISPATCH_ORDER, jobTypesForLane, allocateLaneBudgets, redistributeLaneBudgets, enforcePerTypeCaps, PER_TYPE_TICK_CAPS, type RunnerLane } from "../_shared/runner-lanes.ts";
 import { getRunnerConfig } from "../_shared/worker-config.ts";
 import { checkArtifacts } from "../_shared/artifact-resolver.ts";
 import { enqueueJob, allowedPackageStatusesForJobType } from "../_shared/enqueue.ts";
@@ -380,6 +380,39 @@ Deno.serve(async (req) => {
 
   if (!jobs || jobs.length === 0) {
     return json({ ok: true, processed: 0, concurrency: adaptiveConcurrency, worker: WORKER_ID, message: "No pending jobs" });
+  }
+
+  // ── Fix #1: Per-Type Tick-Capacity Cap (anti Tick-Capacity-Overflow) ──
+  // Schwere Jobtypen (z. B. package_run_integrity_check) dürfen pro Tick nur
+  // begrenzt geclaimt werden, sonst überschreitet ihre serielle Verarbeitung
+  // das 110s Edge-Runtime-Limit, der Runner crasht und Jobs hängen in
+  // `processing` ohne Completion-Persistenz.
+  {
+    const { kept, deferred } = enforcePerTypeCaps(jobs);
+    if (deferred.length > 0) {
+      const releaseTs = new Date(Date.now() + 5_000).toISOString();
+      const nowIso = new Date().toISOString();
+      const grouped = deferred.reduce<Record<string, number>>((acc, j) => {
+        acc[j.job_type] = (acc[j.job_type] ?? 0) + 1;
+        return acc;
+      }, {});
+      console.log(`[job-runner] PER_TYPE_CAP: deferring ${deferred.length} job(s) — caps=${JSON.stringify(grouped)}`);
+      for (const dj of deferred) {
+        await sb.from("job_queue").update({
+          status: "pending",
+          locked_at: null,
+          locked_by: null,
+          scheduled_at: releaseTs,
+          run_after: releaseTs,
+          meta: { ...(dj.meta || {}), per_type_cap_deferred_at: nowIso, per_type_cap: PER_TYPE_TICK_CAPS[dj.job_type] },
+          updated_at: nowIso,
+        }).eq("id", dj.id);
+      }
+      jobs = kept;
+    }
+    if (jobs.length === 0) {
+      return json({ ok: true, processed: 0, deferred: deferred.length, concurrency: adaptiveConcurrency, worker: WORKER_ID, message: "All claimed jobs deferred by per-type cap" });
+    }
   }
 
   // ── Defense-in-Depth: Auto-fix pool mismatch on claimed jobs ──

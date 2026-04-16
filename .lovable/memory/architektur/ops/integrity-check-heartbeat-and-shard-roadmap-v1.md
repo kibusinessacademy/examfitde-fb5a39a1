@@ -55,14 +55,45 @@ END IF;
 - **2 Pakete (passed=true, Score 100):** auf `completed` gesetzt
 - **7 Pakete (passed=false, Score 69-91):** bleiben `failed`, aber mit korrektem `QUALITY_THRESHOLD_NOT_MET` Error statt irreführendem `STALE_LOCK_LOOP_HARD_KILL`
 
+## Fix #1 — Per-Type Tick-Capacity Cap (LIVE seit 2026-04-16 20:30)
+
+**Problem:** Runner claimt im selben Tick bis zu 8 schwere `package_run_integrity_check` Jobs (lane="control", budget≈3-4, plus redistribution). Bei 10-15s pro Job überschreitet die serielle Verarbeitung das 110s Edge-Limit → Runner-Pod abortet bevor `status=completed` persistiert wird.
+
+**Lösung in `_shared/runner-lanes.ts`:**
+
+```typescript
+export const PER_TYPE_TICK_CAPS: Record<string, number> = {
+  package_run_integrity_check: 2,
+  package_quality_council: 2,
+  package_validate_exam_pool: 3,
+  package_validate_handbook_depth: 3,
+  package_elite_harden: 2,
+  package_repair_exam_pool_quality: 2,
+};
+```
+
+**Anwendung in `job-runner/index.ts`:** Direkt nach Lane-Claim, vor Pool-Autofix. Übersteigt ein Jobtyp den Cap, werden überzählige Jobs sauber zurück auf `pending` gesetzt mit `run_after = now()+5s` und `meta.per_type_cap_deferred_at`. Lane-Claim selbst bleibt unverändert (FIFO-Fairness pro Lane bleibt erhalten).
+
+## Fix #3 v2 — Schemafest gegen v3 integrity_report (LIVE seit 2026-04-16 20:29)
+
+**Problem v1:** Recovery prüfte `integrity_report_version_num IS NOT NULL`, aber v3-Reports speichern Score als **number** (nicht Objekt) und neue Pakete kennen primär `gate_version` ("COURSE_READY_v1.7"). Bei Score < 80 hat v1 den Job als `STALE_LOCK_LOOP_HARD_KILL` markiert statt als fachlichen Fail.
+
+**Lösung v2:**
+- Evidenz-OR: `integrity_version_num IS NOT NULL OR gate_version IS NOT NULL`
+- Score-Lesen tolerant: `jsonb_typeof(...) = 'number'` ODER `'object'` mit `overall`
+- Pfad A `integrity_passed=true` → `completed`
+- Pfad B `integrity_passed=false` → `failed/QUALITY_THRESHOLD_NOT_MET` (statt Hard-Kill nach 5 Cycles)
+
 ## Stage 2 — Sharding (NUR bei echtem Bedarf)
 
 **Trigger:**
-- Ein Paket mit >800 Fragen crasht trotz Heartbeat erneut
+- Ein Paket mit >800 Fragen crasht trotz Heartbeat + Per-Type-Cap erneut
 - Mediane Laufzeit nähert sich Edge-Limit
-- Repeated Hard-Kills nach Fix #3
+- Repeated Hard-Kills nach Fix #3 v2
 
 **Pattern:** Orchestrator → N × Shard-Jobs (250 Fragen) → Finalize-Aggregator
+
+## Sweep 2026-04-16 20:25 (Tick-Overflow-Welle)
 
 ## Offen (geringere Priorität)
 

@@ -182,6 +182,57 @@ export function allocateLaneBudgets(totalSlots: number): LaneBudget {
 }
 
 /**
+ * SSOT: Per-Job-Type Tick-Capacity Caps.
+ *
+ * Limits how many jobs of a single heavy job_type may be claimed in ONE tick.
+ * Prevents Tick-Capacity-Overflow where 7-8 heavy jobs serialised in 110s
+ * Edge runtime crash the runner before it can persist `status=completed`.
+ *
+ * Background: package_run_integrity_check takes ~10-15s each. 8 in one tick
+ * = 80-120s ≥ 110s Edge limit → runner pod aborts → jobs stuck in `processing`.
+ *
+ * Add a job_type here when forensic evidence shows the same overflow pattern
+ * (multiple jobs claimed in same ms-tick, lock_age > Edge timeout, no completion).
+ */
+export const PER_TYPE_TICK_CAPS: Record<string, number> = {
+  // Heavy artifact-validating jobs (10-20s each, fan-out over many records)
+  package_run_integrity_check: 2,
+  package_quality_council: 2,
+  package_validate_exam_pool: 3,
+  package_validate_handbook_depth: 3,
+  package_elite_harden: 2,
+  package_repair_exam_pool_quality: 2,
+};
+
+/**
+ * Apply per-type caps to a list of claimed jobs.
+ * Returns { kept, deferred } where `deferred` jobs MUST be released back to
+ * pending by the caller (status=pending, locked_at=NULL, run_after=now+5s).
+ */
+export function enforcePerTypeCaps<T extends { job_type: string }>(
+  jobs: T[],
+): { kept: T[]; deferred: T[] } {
+  const counts = new Map<string, number>();
+  const kept: T[] = [];
+  const deferred: T[] = [];
+  for (const job of jobs) {
+    const cap = PER_TYPE_TICK_CAPS[job.job_type];
+    if (cap === undefined) {
+      kept.push(job);
+      continue;
+    }
+    const seen = counts.get(job.job_type) ?? 0;
+    if (seen >= cap) {
+      deferred.push(job);
+    } else {
+      kept.push(job);
+      counts.set(job.job_type, seen + 1);
+    }
+  }
+  return { kept, deferred };
+}
+
+/**
  * Redistribute unused lane slots to active lanes.
  * E.g. job-runner skips generation → those slots go to control+recovery.
  * content-runner skips control+recovery → those slots go to generation.
