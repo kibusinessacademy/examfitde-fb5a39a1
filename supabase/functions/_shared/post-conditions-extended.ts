@@ -84,12 +84,16 @@ export async function assertExtendedPostConditions(sb: SB, args: {
   // ── generate_glossary ──
   if (stepKey === "generate_glossary") {
     const { data: pkg } = await sb
-      .from("course_packages").select("curriculum_id").eq("id", packageId).single();
+      .from("course_packages").select("curriculum_id, track").eq("id", packageId).single();
     if (!pkg?.curriculum_id) throw hollowError("HOLLOW_GLOSSARY", { reason: "no curriculum_id" });
 
     const { data: curr } = await sb
       .from("curricula").select("beruf_id").eq("id", pkg.curriculum_id).single();
-    if (!curr?.beruf_id) throw hollowError("HOLLOW_GLOSSARY", { reason: "no beruf_id on curriculum" });
+    // STUDIUM tracks may not have beruf_id — glossary is optional for them
+    if (!curr?.beruf_id) {
+      if (pkg.track === "STUDIUM") return true; // allow skip
+      throw hollowError("HOLLOW_GLOSSARY", { reason: "no beruf_id on curriculum" });
+    }
 
     const { data: glossary } = await sb
       .from("profession_glossaries").select("id, glossary, token_count")

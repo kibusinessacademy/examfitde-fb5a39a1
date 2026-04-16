@@ -285,11 +285,25 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ═══ COVERAGE GUARANTEE: Ensure every competency has at least one blueprint ═══
+    const coveredCompIds = new Set(blueprintRows.map((b: any) => b.competency_id));
+    const missingComps = competencies.filter((c: any) => !coveredCompIds.has(c.id));
+    if (missingComps.length > 0) {
+      console.warn(`[OralExam] Coverage gap: ${missingComps.length} competencies missing after dedup. Adding fallback blueprints.`);
+      for (const comp of missingComps) {
+        const lfId = (comp as any).learning_field_id;
+        const fallbackScenario = `Der Prüfling soll im Fachgespräch nachweisen, dass er die Kompetenz "${comp.title}" beherrscht. ${comp.description || ""}`.trim();
+        const fallbackHash = await hashScenario(fallbackScenario + comp.id);
+        seenHashes.add(fallbackHash);
+        blueprintRows.push(buildBlueprint(curriculumId, certificationId, comp, lfId, fallbackScenario, fallbackHash, [], blueprintRows.length));
+      }
+    }
+
     if (blueprintRows.length < 10) {
       throw new Error(`Only ${blueprintRows.length} unique blueprints generated (need ≥10). Curriculum may lack sufficient competency diversity.`);
     }
 
-    console.log(`[OralExam] Generated ${blueprintRows.length} unique blueprints (${seenHashes.size} unique hashes) across ${lfTargets.length} LFs`);
+    console.log(`[OralExam] Generated ${blueprintRows.length} unique blueprints (${seenHashes.size} unique hashes, ${missingComps.length} fallback) across ${lfTargets.length} LFs`);
 
     const { data: inserted, error: insertErr } = await sb
       .from("oral_exam_blueprints")

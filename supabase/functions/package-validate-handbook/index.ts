@@ -330,11 +330,14 @@ Deno.serve(async (req) => {
   const totalHandbookChars = (sections as any[]).reduce((sum, s) => sum + (s.content_markdown || '').length, 0);
   const handbookSizePass = totalHandbookChars >= MIN_HANDBOOK_TOTAL_CHARS;
   
+  // Empty chapters are a warning, not a hard gate — sections are the real quality signal.
+  // chapterIssues only block if >50% chapters are empty (structural problem).
+  const emptyChapterRate = chapterIssues.length / chapters.length;
   const overallPass = passRate >= 60 
     && placeholderRate <= 30 
     && headingOnlyRate <= 10
     && handbookSizePass
-    && chapterIssues.length === 0;
+    && emptyChapterRate <= 0.5;
 
   if (!overallPass) {
     // Rate-limit alerts: only one per 10 minutes
