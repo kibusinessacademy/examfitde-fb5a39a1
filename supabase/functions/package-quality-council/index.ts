@@ -336,6 +336,22 @@ Deno.serve(async (req) => {
 
     console.log(`[QualityCouncil] Package ${packageId.slice(0, 8)}: score=${score} status=${status} badge=${badge} rules=${rulesPassed}/${results.length}`);
 
+    // ── Set council_approved on course_packages BEFORE markStepDone ──
+    // The DB trigger trg_guard_governance_step_finalization requires
+    // council_approved=true before quality_council can transition to done.
+    // Only set when gate passes (not fail) — fail-closed governance.
+    if (status !== "fail") {
+      const { error: approveErr } = await sb
+        .from("course_packages")
+        .update({ council_approved: true })
+        .eq("id", packageId);
+      if (approveErr) {
+        console.error(`[QualityCouncil] Failed to set council_approved=true: ${approveErr.message}`);
+      } else {
+        console.log(`[QualityCouncil] ✅ council_approved=true set for ${packageId.slice(0, 8)}`);
+      }
+    }
+
     // ── Mark step done via SSOT markStepDone (postcondition guard) ──
     try {
       await markStepDone(sb, {
