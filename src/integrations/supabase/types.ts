@@ -80434,6 +80434,17 @@ export type Database = {
           zombie_class: string
         }[]
       }
+      fn_ssot_ghost_success_count: { Args: never; Returns: number }
+      fn_ssot_hard_fail_summary: {
+        Args: never
+        Returns: {
+          cnt: number
+          step_key: string
+        }[]
+      }
+      fn_ssot_job_step_drift_count: { Args: never; Returns: number }
+      fn_ssot_processing_leak_count: { Args: never; Returns: number }
+      fn_ssot_queued_without_jobs_count: { Args: never; Returns: number }
       fn_start_shuttle_session: {
         Args: { p_curriculum_id: string; p_user_id: string }
         Returns: Json
