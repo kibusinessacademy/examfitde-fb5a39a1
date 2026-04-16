@@ -10,6 +10,7 @@ import {
   Sparkles, Loader2, RefreshCw, Target, Zap, ShieldCheck
 } from 'lucide-react';
 import { toast } from 'sonner';
+const SSOTHealthCard = lazy(() => import('@/components/admin/SSOTHealthCard'));
 
 async function callKpiAI(payload: Record<string, unknown>) {
   const { data, error } = await supabase.functions.invoke('admin-ai-assistant', { body: payload });
