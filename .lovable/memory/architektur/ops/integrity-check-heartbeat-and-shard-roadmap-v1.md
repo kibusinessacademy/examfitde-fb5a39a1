@@ -1,6 +1,6 @@
 ---
 name: integrity-check-heartbeat-and-shard-roadmap-v1
-description: package-run-integrity-check Heartbeat-Stage-1 (live, 25s tick) und Sharding-Roadmap (Stage 2, geplant). Verhindert STALE_LOCK_RECOVERY-Loops bei Pools >800 approved Fragen.
+description: package-run-integrity-check Heartbeat-Stage-1 (live, 25s tick) + Live-Verifikation v_integrity_check_heartbeat_health + Sharding-Roadmap (Stage 2) + Job-Runner-Completion-Bug (offen).
 type: feature
 ---
 
@@ -8,15 +8,12 @@ type: feature
 
 ## Problem (forensisch verifiziert 2026-04-16)
 
-`package-run-integrity-check` ist 1754 Zeilen monolithisch. Pakete mit
-≥800 approved Fragen erreichen NIE `completed`-Status:
+`package-run-integrity-check` ist 1803 Zeilen monolithisch. Pakete mit
+≥800 approved Fragen erreichen NIE `completed`-Status. Nach Live-Test
+am 2026-04-16 19:17 wurde aber ein **zweiter, übergeordneter Bug**
+identifiziert (siehe „Offener Befund" unten).
 
-- 11 Jobs gleichzeitig in `processing` ohne `attempts`-Increment
-- Edge stirbt vor Lock-Update → STALE_LOCK_RECOVERY → Re-Pickup → Loop
-- Erfolgreiche Runs (1424 Fragen) zeigen 0.05–13s Dauer — nur weil
-  pagination-truncation den Pool künstlich begrenzte. Vollscan crasht.
-
-## Stage 1 — Heartbeat (LIVE seit 2026-04-16)
+## Stage 1 — Heartbeat (LIVE seit 2026-04-16, deployed)
 
 In `Deno.serve` Handler:
 1. `startIntegrityHeartbeat(sb, jobId, packageId)` startet 25s-Loop
@@ -25,10 +22,51 @@ In `Deno.serve` Handler:
 4. `finally`-Block stoppt Heartbeat sicher (auch bei early-return)
 
 **Effekt:** `fn_release_stale_job_locks` betrachtet Jobs mit
-`processing_tick_at < 3min` als alive. Damit endet der Recovery-Loop für
-Jobs, die legitim 60–120s laufen.
+`processing_tick_at < 3min` als alive.
 
-## Stage 2 — Sharding (GEPLANT)
+## Live-Verifikations-View (kanonisch seit 2026-04-16)
+
+`v_integrity_check_heartbeat_health` klassifiziert Jobs in 6 Klassen:
+- `alive` — tick <90s
+- `progressing` — tick <3min
+- `no_heartbeat_yet` — >60s ohne tick (frisch gepickt oder Kurzläufer)
+- `stale_lock` — tick >3min (Heartbeat hängt)
+- `sharding_required` — >800 approved + recoveries≥2
+- `completed`/`failed`/`cancelled`/`pending` — terminal/wartend
+
+**Trigger Stage 2:**
+- Ein Paket mit >800 Fragen crasht trotz Heartbeat erneut
+- Mediane Laufzeit nähert sich Edge-Limit
+- Repeated Hard-Kills bei diesem Jobtyp
+
+## Offener Befund (2026-04-16 19:17): Job-Runner-Completion-Lücke
+
+**Symptom:** Edge-Function läuft erfolgreich durch (`COURSE_READY`,
+`pool_loaded=N/N`, score=73-100), Cold-Start <50ms, returnt 200. Aber
+`job_queue.status` bleibt `processing`, der Runner setzt nie `completed`.
+
+**Beweis aus Live-Test:**
+- 9 Jobs gleichzeitig gepickt von `job-runner-18760eff` um 19:17:01
+- Alle 9 Edge-Function-Calls erfolgreich abgeschlossen 19:17:10–19:17:20
+- Logs zeigen `COURSE_READY score=...` für alle Pakete inkl. Scrum 1977q
+- Keine `markJobCompleted`-Spur, keine Failure-Spur
+- Status nach 3min: alle 9 noch `processing`, age=177s
+
+**Hypothesen (zu prüfen):**
+1. Runner hat einen anderen Worker-Pool und ruft nicht selbst die
+   Edge-Function — der Heartbeat-Code läuft daher in einem anderen
+   Pfad als der Job-Runner-Aufruf
+2. Runner ignoriert `200 OK` weil Response-Body das `success`-Flag
+   nicht im erwarteten Format hat
+3. Doppelte Pickup-Pfade: Cron + Runner picken denselben Job, einer
+   führt aus, der andere blockiert das Status-Update
+
+**Nächster forensischer Schritt:**
+- Runner-Code in `_shared/job-runner.ts` o.ä. inspizieren
+- Prüfen ob Edge-Response-Schema `{ ok, status, ... }` statt `{ success }` ist
+- Workspace-Telemetrie für `job-runner-18760eff` prüfen
+
+## Stage 2 — Sharding (GEPLANT, hängt an Runner-Bug)
 
 Wenn Heartbeat allein nicht reicht (Edge-Wallclock-Limit ~150s), wird
 das Async-Pattern eingeführt:
@@ -45,14 +83,8 @@ integrity_check_finalize (aggregator)
   → aggregiert + schreibt finalen Report
 ```
 
-Trigger für Stage 2: Wenn nach 1 Woche Heartbeat-Live noch >2 Pakete
-in STALE_LOCK_RECOVERY-Loop fallen.
-
-## Pre-Migration Cleanup (2026-04-16)
-
-Cancellt 11 stuck Jobs mit `pre_heartbeat_migration_cancel` Marker,
-enqueued frische Jobs für 9 building-Pakete mit Curriculum-Referenz im
-Payload (SSOT-Guard-konform). Audit in `admin_actions`.
+**Vorbedingung:** Runner-Completion-Bug muss zuerst behoben sein,
+sonst stranden auch Shard-Jobs auf `processing`.
 
 ## SSOT-Regeln
 
@@ -62,3 +94,5 @@ Payload (SSOT-Guard-konform). Audit in `admin_actions`.
 - **Job-Payload SSOT:** `package_run_integrity_check` Payload MUSS
   `package_id` + `curriculum_id` enthalten (guard_job_payload Trigger)
 - **Stale-Detection-Hierarchie:** Heartbeat (<3min) > attempts > lock_age
+- **Live-Verifikation:** `v_integrity_check_heartbeat_health` ist die
+  kanonische Wahrheit für Health-Klassifikation, kein Ad-hoc-SQL
