@@ -81154,6 +81154,7 @@ export type Database = {
         Args: { p_dry_run?: boolean }
         Returns: Json
       }
+      fn_reconcile_seed_blueprints_causality: { Args: never; Returns: Json }
       fn_reconcile_stale_integrity_reports: { Args: never; Returns: Json }
       fn_reconcile_stale_qgf_packages: { Args: never; Returns: Json }
       fn_recover_stale_lock_exhausted: { Args: never; Returns: Json }
