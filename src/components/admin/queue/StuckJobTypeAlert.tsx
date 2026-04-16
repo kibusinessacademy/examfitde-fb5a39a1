@@ -68,8 +68,11 @@ export default function StuckJobTypeAlert() {
         if (completedTypes.has(jt)) continue;
 
         // If NONE of these pending jobs were ever attempted by the runner,
-        // they're likely DAG-blocked – not a real blockade
+        // they're DAG-blocked (waiting for upstream steps) – not a real blockade
         if (info.attempted === 0) continue;
+
+        // Require at least 2 attempted-but-stuck jobs to avoid single-zombie noise
+        if (info.attempted < 2) continue;
 
         const ageMs = now - new Date(info.oldest).getTime();
         const ageHours = Math.round(ageMs / 3600000 * 10) / 10;
