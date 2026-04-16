@@ -357,7 +357,7 @@ Deno.serve(async (req) => {
       await markStepDone(sb, {
         packageId,
         stepKey: "quality_council",
-        meta: { score, status, badge, rules_passed: rulesPassed, rules_failed: rulesFailed, rules_warned: rulesWarned },
+        meta: { executed: true, score, status, badge, rules_passed: rulesPassed, rules_failed: rulesFailed, rules_warned: rulesWarned },
       });
       console.log(`[QualityCouncil] ✅ Step quality_council marked DONE for ${packageId.slice(0, 8)}`);
     } catch (stepErr) {
