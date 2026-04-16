@@ -388,15 +388,30 @@ async function probeMinicheckReadiness(sb: any, packageId: string): Promise<Read
   const curriculumId = await getCurriculumIdForPackage(sb, packageId);
   if (!curriculumId) return { verdict: "UNKNOWN" };
 
-  // lessons has competency_id, not curriculum_id — count via competencies join
+  // SSOT governance: competencies has NO curriculum_id — must join via learning_fields.
+  // 1) get all learning_field IDs for the curriculum
+  // 2) get competency IDs whose learning_field_id IN (...)
+  // 3) count lessons with competency_id IN (...)
+  const { data: lfRows } = await sb
+    .from("learning_fields")
+    .select("id")
+    .eq("curriculum_id", curriculumId);
+  const lfIds = (lfRows ?? []).map((r: any) => r.id);
+
+  let competencyIds: string[] = [];
+  if (lfIds.length > 0) {
+    const { data: compRows } = await sb
+      .from("competencies")
+      .select("id")
+      .in("learning_field_id", lfIds);
+    competencyIds = (compRows ?? []).map((r: any) => r.id);
+  }
+
   const [{ count: questionCount }, { count: lessonCount }] = await Promise.all([
     sb.from("minicheck_questions").select("id", { count: "exact", head: true }).eq("curriculum_id", curriculumId),
-    sb.from("lessons").select("id", { count: "exact", head: true })
-      .in("competency_id",
-        // subquery: get competency IDs for this curriculum
-        await sb.from("competencies").select("id").eq("curriculum_id", curriculumId)
-          .then((r: any) => (r.data ?? []).map((c: any) => c.id))
-      ),
+    competencyIds.length > 0
+      ? sb.from("lessons").select("id", { count: "exact", head: true }).in("competency_id", competencyIds)
+      : Promise.resolve({ count: 0 }),
   ]);
 
   if ((lessonCount ?? 0) === 0) return { verdict: "STILL_BLOCKED", reason: "no lessons" };
