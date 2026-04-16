@@ -565,14 +565,11 @@ Deno.serve(async (req) => {
 
       /* ── v4.0 Full Reset & Ghost Heal ── */
       case "full_queue_reset": {
-        // 1. Reset stale processing
-        const { data: r1 } = await sb.rpc("fn_reset_stale_processing_jobs").catch(() => ({ data: null }));
-        // 2. Cancel zombie noop jobs
-        const { data: r2 } = await sb.rpc("fn_cancel_zombie_noop_jobs").catch(() => ({ data: null }));
-        // 3. Heal ghost completions
-        const { data: r3 } = await sb.rpc("fn_heal_ghost_completions", { p_mode: "heal_safe" }).catch(() => ({ data: null }));
-        // 4. Reap zombies
-        const { data: r4 } = await sb.rpc("fn_reap_zombie_processing_jobs").catch(() => ({ data: null }));
+        let r1 = null, r2 = null, r3 = null, r4 = null;
+        try { const { data } = await sb.rpc("fn_reset_stale_processing_jobs"); r1 = data; } catch (_) { /* skip */ }
+        try { const { data } = await sb.rpc("fn_cancel_zombie_noop_jobs"); r2 = data; } catch (_) { /* skip */ }
+        try { const { data } = await sb.rpc("fn_heal_ghost_completions", { p_mode: "heal_safe" }); r3 = data; } catch (_) { /* skip */ }
+        try { const { data } = await sb.rpc("fn_reap_zombie_processing_jobs"); r4 = data; } catch (_) { /* skip */ }
         result = {
           ok: true,
           reset_stale: r1,
