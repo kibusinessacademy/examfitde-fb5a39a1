@@ -1791,5 +1791,8 @@ Deno.serve(async (req) => {
     // Return 200 so Runner doesn't enter "edge-call failed" codepath —
     // the step state in DB is the SSOT for failure.
     return json({ ok: false, error: err.message });
+  } finally {
+    // Always stop heartbeat — even on early-return (PACKAGE_NOT_FOUND, MISSING_COURSE_ID, etc.)
+    try { heartbeat.stop(); } catch { /* noop */ }
   }
 });
