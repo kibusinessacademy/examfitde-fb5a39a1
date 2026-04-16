@@ -40,6 +40,7 @@ Deno.serve(async (req) => {
     return json({ ok: false, retry: true, error: "PREREQ_NOT_DONE: validate_exam_pool" }, 409);
   }
 
+  try {
   // Idempotent: check if already done for this package
   const { data: existingIdx, error: exErr } = await sb
     .from("ai_tutor_context_index").select("id")
