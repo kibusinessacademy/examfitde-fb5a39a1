@@ -2,7 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { assertSchemaReady } from "../_shared/schema-gate.ts";
 import { enqueueJob } from "../_shared/enqueue.ts";
-import { markStepDone } from "../_shared/steps.ts";
+import { markStepDone, markStepFailed } from "../_shared/steps.ts";
 // pctOrNA no longer needed — all metrics come from v3.summary (SSOT)
 
 function json(body: unknown, status = 200) {
