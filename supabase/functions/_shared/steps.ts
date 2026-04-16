@@ -172,6 +172,7 @@ export async function markStepFailed(sb: SB, args: {
     ...errMeta,
     last_error: String(args.err?.message ?? args.err),
     last_error_class: verdict ? "permanent" : "transient",
+    failure_stage: failureStage,
     failed_at: new Date().toISOString(),
     // Persist fingerprint for next comparison
     fp_real: errMeta.fp_real ?? args.stepMeta?.fp_real ?? null,
