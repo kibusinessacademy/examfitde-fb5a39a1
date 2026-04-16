@@ -1018,6 +1018,47 @@ function serializeErr(e: any): { name: string; message: string; stack: string; c
   };
 }
 
+/**
+ * Heartbeat: keeps job_queue.meta.processing_tick_at fresh so the stale-lock
+ * recovery sweep does NOT kill an integrity-check that is legitimately working
+ * on a large pool (>800 approved questions can take 60–120s).
+ *
+ * SSOT: Heartbeat-aware stale detection in fn_release_stale_job_locks treats
+ * jobs with a tick_at < 3min as alive.
+ */
+function startIntegrityHeartbeat(sb: any, jobId: string | null, packageId: string): { stop: () => void } {
+  if (!jobId) return { stop: () => {} };
+  const HEARTBEAT_MS = 25_000;
+  const WORKER_ID = `integrity-check-${crypto.randomUUID().slice(0, 8)}`;
+  let stopped = false;
+  const tick = async () => {
+    if (stopped) return;
+    try {
+      const { error } = await sb.rpc("heartbeat_job_processing", {
+        p_job_id: jobId,
+        p_worker_id: WORKER_ID,
+        p_meta: { source: "package-run-integrity-check", pkg: packageId.slice(0, 8) },
+      });
+      if (error) {
+        // Fallback: direct meta update if RPC signature differs
+        const { data: cur } = await sb.from("job_queue").select("meta").eq("id", jobId).maybeSingle();
+        const nextMeta = { ...(cur?.meta ?? {}), processing_tick_at: new Date().toISOString(), last_heartbeat_source: "integrity-check" };
+        await sb.from("job_queue").update({ meta: nextMeta }).eq("id", jobId);
+      }
+    } catch (e) {
+      console.warn(`[integrity-check] heartbeat failed pkg=${packageId.slice(0, 8)}: ${(e as Error).message}`);
+    }
+  };
+  void tick();
+  const handle = setInterval(tick, HEARTBEAT_MS);
+  return {
+    stop: () => {
+      stopped = true;
+      clearInterval(handle);
+    },
+  };
+}
+
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "Use POST" }, 405);
   const START_MS = Date.now();
@@ -1027,15 +1068,20 @@ Deno.serve(async (req) => {
   const p = body.payload || body;
 
   let packageId: string | null = null;
+  let heartbeat: { stop: () => void } = { stop: () => {} };
 
   try {
     // ── Payload normalization: accept both camelCase and snake_case ──
     const rawPackageId = p?.package_id || p?.packageId;
     const rawCourseId = p?.course_id || p?.courseId;
     const forceRun = p?.force === true;
+    const jobId = (p?.job_id || p?.jobId || body?.job_id || null) as string | null;
 
     assertUuid("package_id", rawPackageId);
     packageId = rawPackageId as string;
+
+    // Start heartbeat AFTER package_id is validated so we never tick on garbage
+    heartbeat = startIntegrityHeartbeat(sb, jobId, packageId);
 
     // ── Guard: only run for building packages (unless force=true) ──
     const { data: pkgData } = await sb
@@ -1750,5 +1796,8 @@ Deno.serve(async (req) => {
     // Return 200 so Runner doesn't enter "edge-call failed" codepath —
     // the step state in DB is the SSOT for failure.
     return json({ ok: false, error: err.message });
+  } finally {
+    // Always stop heartbeat — even on early-return (PACKAGE_NOT_FOUND, MISSING_COURSE_ID, etc.)
+    try { heartbeat.stop(); } catch { /* noop */ }
   }
 });
