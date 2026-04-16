@@ -45631,6 +45631,45 @@ export type Database = {
         }
         Relationships: []
       }
+      runner_tick_telemetry: {
+        Row: {
+          budget_seconds: number
+          claimed_count: number
+          created_at: string
+          estimated_seconds: number
+          heavy_budget_deferred: number
+          id: number
+          kept_count: number
+          per_type_deferred: number
+          type_breakdown: Json
+          worker_id: string
+        }
+        Insert: {
+          budget_seconds?: number
+          claimed_count?: number
+          created_at?: string
+          estimated_seconds?: number
+          heavy_budget_deferred?: number
+          id?: number
+          kept_count?: number
+          per_type_deferred?: number
+          type_breakdown?: Json
+          worker_id: string
+        }
+        Update: {
+          budget_seconds?: number
+          claimed_count?: number
+          created_at?: string
+          estimated_seconds?: number
+          heavy_budget_deferred?: number
+          id?: number
+          kept_count?: number
+          per_type_deferred?: number
+          type_breakdown?: Json
+          worker_id?: string
+        }
+        Relationships: []
+      }
       sales_leads: {
         Row: {
           contact_email: string | null
@@ -77610,6 +77649,38 @@ export type Database = {
           seconds_ago: number | null
           succeeded: number | null
           worker_id: string | null
+        }
+        Relationships: []
+      }
+      v_runner_tick_overflow_alerts: {
+        Row: {
+          alert_level: string | null
+          budget_sec: number | null
+          hot_workers: Json | null
+          jobs_deferred_heavy: number | null
+          jobs_deferred_per_type: number | null
+          observed_at: string | null
+          overflow_ticks: number | null
+          peak_estimated_sec: number | null
+          per_type_ticks: number | null
+          ticks_60min: number | null
+        }
+        Relationships: []
+      }
+      v_runner_tick_overflow_health: {
+        Row: {
+          avg_estimated_sec: number | null
+          budget_sec: number | null
+          health_class: string | null
+          hour_bucket: string | null
+          max_estimated_sec: number | null
+          ticks: number | null
+          ticks_near_budget: number | null
+          ticks_with_heavy_defer: number | null
+          total_claimed: number | null
+          total_heavy_budget_deferred: number | null
+          total_kept: number | null
+          total_per_type_deferred: number | null
         }
         Relationships: []
       }

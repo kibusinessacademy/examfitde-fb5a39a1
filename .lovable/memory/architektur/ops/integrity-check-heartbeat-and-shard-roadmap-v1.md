@@ -95,10 +95,31 @@ export const PER_TYPE_TICK_CAPS: Record<string, number> = {
 
 ## Sweep 2026-04-16 20:25 (Tick-Overflow-Welle)
 
+## Fix #1b — Heavy-Job Tick Budget (LIVE seit 2026-04-16 20:43)
+
+**Problem:** Per-Type-Cap allein reicht nicht. Mischlast-Tick (1× integrity 15s + 2× exam-pool gen 60s + 1× elite_harden 20s = 95s) bleibt unter allen Per-Type-Caps, sprengt aber das 110s Edge-Limit. Außerdem fehlen neue heavy types in der Cap-Tabelle, bis sie forensisch auffallen.
+
+**Lösung in `_shared/runner-lanes.ts`:**
+- `ESTIMATED_RUNTIME_SECONDS` — p95-Schätzungen pro heavy job_type
+- `HEAVY_JOB_TICK_BUDGET_SECONDS = 85` — ~20% Headroom unter 110s
+- `enforceHeavyJobBudget(jobs)` — admittiert in Reihenfolge bis Budget erschöpft
+
+**Anwendung in `job-runner/index.ts`:** Direkt nach `enforcePerTypeCaps`. Surplus-Jobs landen auf `pending` mit `run_after = now()+5s` und Meta-Audit (`heavy_budget_estimate_sec`, `heavy_budget_tick_admitted_sec`, `heavy_budget_ceiling_sec`). Cheap jobs (estimate=0) immer admittiert.
+
+## Monitoring — Tick-Overflow-Früherkennung (LIVE seit 2026-04-16 20:43)
+
+**Tabelle `runner_tick_telemetry`:** Jeder Tick schreibt eine Zeile. Indexed nach `created_at DESC` + partial index für Overflow-Ticks. Service-Role schreibt, Admins lesen.
+
+**View `v_runner_tick_overflow_health` (24h, stündlich):**
+- `healthy` / `near_budget` (≥80% Budget) / `over_budget_deferring` / `chronic_overflow` (≥50% der Ticks deferren)
+
+**View `v_runner_tick_overflow_alerts` (60min):**
+- `P1_chronic_overflow` (≥5) / `P2_repeated_overflow` (≥2) / `P3_isolated_pressure` / `ok`
+- `hot_workers` jsonb zeigt Worker-IDs mit Overflow-Häufung
+
 ## Offen (geringere Priorität)
 
-- **Fix #1 — Per-Type-Tick-Cap:** Runner sollte max. 2-3 `package_run_integrity_check` pro Tick claimen (nicht 8). Reduziert Crash-Wahrscheinlichkeit.
-- **Fix #2 — Immediate-Persistence:** Runner schreibt `finalState` sofort nach jedem Job, nicht am Tick-Ende. Heilt die Wurzelursache.
+- **Fix #2 — Immediate-Persistence:** Runner schreibt `finalState` sofort nach jedem Job, nicht am Tick-Ende. Heilt die Wurzelursache (Ghost-Completions bei Pod-Crash).
 
 ## SSOT-Regeln
 
@@ -106,4 +127,6 @@ export const PER_TYPE_TICK_CAPS: Record<string, number> = {
 - **Finally-Cleanup:** Heartbeat-Handle MUSS in `finally` gestoppt werden
 - **Artifact-Aware Recovery:** Stale-Lock-Recovery für integrity-check MUSS `pkg_updated_at > started_at` prüfen
 - **Step-Sync executed:** Trigger MUSS `executed=true` setzen, sonst blockt Integrity-Guard
-- **Live-Verifikation:** `v_integrity_check_heartbeat_health` ist die kanonische Wahrheit für Health-Klassifikation
+- **Live-Verifikation:** `v_integrity_check_heartbeat_health` ist kanonische Wahrheit für Heartbeat-Health
+- **Tick-Budget-Monitoring:** `v_runner_tick_overflow_alerts` MUSS regelmäßig geprüft werden; `P1_chronic_overflow` triggert Cap-Reduktion oder Sharding (Stage 2)
+- **Heavy-Job-Estimates:** Neue heavy job_types MÜSSEN in `ESTIMATED_RUNTIME_SECONDS` ergänzt werden, sonst werden sie als 0s gewertet und können den Tick sprengen
