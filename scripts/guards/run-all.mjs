@@ -22,6 +22,7 @@ const guards = [
   "payload-key-contract-guard.mjs",
   "payload-schema-contract-report.mjs --check",
   "no-direct-done-write-guard.mjs",
+  "completion-helper-guard.mjs",
   "no-legacy-org-members-guard.mjs",
 ];
 

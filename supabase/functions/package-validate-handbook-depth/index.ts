@@ -178,6 +178,13 @@ Deno.serve(async (req) => {
     );
   }
 
+  // ── SSOT Finalization ──
+  if (depthPass) {
+    await finalizeStepDone(sb, packageId, STEP_KEY, { quality_tier: qualityTier, ...validationMetrics });
+  } else {
+    await finalizeStepFailed(sb, packageId, STEP_KEY, new Error(`depth_threshold_not_met: tier=${qualityTier}`), { quality_tier: qualityTier, ...validationMetrics });
+  }
+
   return json({
     ok: true, batch_complete: true, basis_pass: true,
     depth_pass: depthPass, quality_tier: qualityTier,

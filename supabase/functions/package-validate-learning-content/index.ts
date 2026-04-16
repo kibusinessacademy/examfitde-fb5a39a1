@@ -577,13 +577,13 @@ Deno.serve(async (req) => {
 
   await mergePackageStepMeta(sb, packageId, "validate_learning_content", metaPatch);
 
-  // If passing, also update step status to done
+  // If passing, finalize via SSOT path
   if (overallPass) {
-    await sb
-      .from("package_steps")
-      .update({ status: "done", finished_at: now, started_at: stepMeta.started_at || now })
-      .eq("package_id", packageId)
-      .eq("step_key", "validate_learning_content");
+    await finalizeStepDone(sb, packageId, "validate_learning_content", {
+      gate_class: classification.gateClass,
+      tier1_pass_rate: t1PassRate,
+      tier2_avg_score: avgScore,
+    });
   }
 
   // ── Enqueue repair jobs for non-passing classifications (via SSOT helper) ──

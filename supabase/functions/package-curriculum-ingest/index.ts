@@ -246,14 +246,7 @@ Deno.serve(async (req) => {
       .order("legal_priority", { ascending: false });
 
     if (!docs || docs.length === 0) {
-      // Mark step as skipped
-      if (step_id) {
-        await sb.from("package_steps").update({
-          status: "skipped",
-          last_error: "No active documents found",
-          finished_at: new Date().toISOString(),
-        }).eq("id", step_id);
-      }
+      await finalizeStepDone(sb, package_id, "curriculum_ingest", { skipped: true, reason: "no_active_documents" });
       return new Response(
         JSON.stringify({ error: "No documents found", skipped: true }),
         { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } },
@@ -362,14 +355,11 @@ Deno.serve(async (req) => {
       console.warn("[package-curriculum-ingest] Coverage compute failed (non-blocking):", covErr);
     }
 
-    // ── 7. Mark step as done ──
-    if (step_id) {
-      await sb.from("package_steps").update({
-        status: totalTopics >= 5 ? "done" : "failed",
-        last_error: totalTopics < 5 ? `Only ${totalTopics} topics extracted (min 5)` : null,
-        finished_at: new Date().toISOString(),
-        meta: { total_topics: totalTopics, documents_processed: results.length },
-      }).eq("id", step_id);
+    // ── 7. SSOT Finalization ──
+    if (totalTopics >= 5) {
+      await finalizeStepDone(sb, package_id, "curriculum_ingest", { total_topics: totalTopics, documents_processed: results.length });
+    } else {
+      await finalizeStepFailed(sb, package_id, "curriculum_ingest", new Error(`Only ${totalTopics} topics extracted (min 5)`), { total_topics: totalTopics });
     }
 
     return new Response(
@@ -384,6 +374,13 @@ Deno.serve(async (req) => {
     );
   } catch (err) {
     console.error("[package-curriculum-ingest] Error:", err);
+    const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    try {
+      const body2 = await req.clone().json().catch(() => ({}));
+      if (body2.package_id) {
+        await finalizeStepFailed(sb, body2.package_id, "curriculum_ingest", err);
+      }
+    } catch { /* best-effort */ }
     return new Response(
       JSON.stringify({ error: (err as Error).message }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },

@@ -36,6 +36,7 @@ Deno.serve(async (req) => {
     const moduleIds = (modRows || []).map((m: any) => m.id);
 
     if (moduleIds.length === 0) {
+      await finalizeStepDone(sb, packageId, "repair_failed_lessons", { skipped: true, reason: "no_modules" });
       return json({ ok: true, repaired: 0, reason: "no_modules" });
     }
 
@@ -58,17 +59,14 @@ Deno.serve(async (req) => {
     }
 
     if (!failedLessons || failedLessons.length === 0) {
-      console.log(`[repair-failed-lessons] No failed lessons found — re-enqueue auto_publish`);
+      console.log(`[repair-failed-lessons] No failed lessons found — setting building for DAG dispatch`);
 
-      // No failed lessons = repair already happened.
-      // GOVERNANCE FIX: Do NOT re-enqueue auto_publish directly via raw insert.
-      // auto_publish must go through the DAG prerequisite chain (integrity → council → publish).
-      // Set package back to building so the DAG healer picks up the correct next step.
       await sb.from("course_packages").update({
         status: "building",
         updated_at: new Date().toISOString(),
       }).eq("id", packageId);
 
+      await finalizeStepDone(sb, packageId, "repair_failed_lessons", { repaired: 0, action: "set_building_for_dag_dispatch" });
       return json({ ok: true, repaired: 0, action: "set_building_for_dag_dispatch" });
     }
 
@@ -182,6 +180,11 @@ Deno.serve(async (req) => {
       });
     } catch (_) { /* non-critical */ }
 
+    await finalizeStepDone(sb, packageId, "repair_failed_lessons", {
+      repaired: repairs.length,
+      publish_retry_count: publishRetryCount,
+    });
+
     return json({
       ok: true,
       repaired: repairs.length,
@@ -192,6 +195,7 @@ Deno.serve(async (req) => {
 
   } catch (err) {
     console.error(`[repair-failed-lessons] Error: ${(err as Error).message}`);
+    await finalizeStepFailed(sb, packageId, "repair_failed_lessons", err);
     return json({ error: (err as Error).message }, 500);
   }
 });

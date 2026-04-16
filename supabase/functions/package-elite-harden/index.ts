@@ -676,6 +676,10 @@ Deno.serve(async (req) => {
       const elapsed = ((Date.now() - start) / 1000).toFixed(1);
       console.log(`[EliteHarden] ✅ annotations_only ${finalStatus} in ${elapsed}s — ${result.annotated} approved, ${result.draftAnnotated} draft`);
 
+      if (result.done) {
+        await finalizeStepDone(sb, packageId, "elite_harden", { phase: "annotations_only", annotated: result.annotated });
+      }
+
       return json({
         ok: true,
         batch_complete: result.done,
@@ -702,6 +706,7 @@ Deno.serve(async (req) => {
 
       const elapsed = ((Date.now() - start) / 1000).toFixed(1);
       console.log(`[EliteHarden] ✅ minichecks_only done in ${elapsed}s — ${mcResult.upgraded}/${mcResult.total}`);
+      await finalizeStepDone(sb, packageId, "elite_harden", { phase: "minichecks_only", ...mcResult });
       return json({ ok: true, batch_complete: true, phase, run_id: runId, results: { minicheck: mcResult }, elapsed_s: parseFloat(elapsed) });
     }
 
@@ -721,6 +726,7 @@ Deno.serve(async (req) => {
 
       const elapsed = ((Date.now() - start) / 1000).toFixed(1);
       console.log(`[EliteHarden] ✅ oral_only done in ${elapsed}s — ${oralResult.upgraded}/${oralResult.total}`);
+      await finalizeStepDone(sb, packageId, "elite_harden", { phase: "oral_only", ...oralResult });
       return json({ ok: true, batch_complete: true, phase, run_id: runId, results: { oral: oralResult }, elapsed_s: parseFloat(elapsed) });
     }
 
@@ -740,6 +746,7 @@ Deno.serve(async (req) => {
 
       const elapsed = ((Date.now() - start) / 1000).toFixed(1);
       console.log(`[EliteHarden] ✅ drafts_upgrade done in ${elapsed}s — ${draftResult.upgraded}/${draftResult.total} upgraded`);
+      await finalizeStepDone(sb, packageId, "elite_harden", { phase: "drafts_upgrade", ...draftResult });
       return json({ ok: true, batch_complete: true, phase, run_id: runId, results: { drafts: draftResult }, elapsed_s: parseFloat(elapsed) });
     }
 
@@ -791,6 +798,8 @@ Deno.serve(async (req) => {
       const elapsed = ((Date.now() - start) / 1000).toFixed(1);
       console.log(`[EliteHarden] ✅ "all" done in ${elapsed}s — annotations: ${annotResult.annotated}, enqueued drafts_upgrade+minichecks+oral`);
 
+      await finalizeStepDone(sb, packageId, "elite_harden", { phase: "all", annotated: annotResult.annotated });
+
       return json({
         ok: true,
         batch_complete: true,
@@ -808,6 +817,7 @@ Deno.serve(async (req) => {
       error_message: String(err),
       last_error: String((err as Error)?.message || err),
     });
+    await finalizeStepFailed(sb, packageId, "elite_harden", err);
     console.error(`[EliteHarden] FATAL: ${(err as Error)?.message || err}`);
     return json({ ok: false, error: String(err) }, 500);
   }
