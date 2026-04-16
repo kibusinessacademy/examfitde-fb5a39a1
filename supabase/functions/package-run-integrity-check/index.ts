@@ -1029,21 +1029,26 @@ function serializeErr(e: any): { name: string; message: string; stack: string; c
 function startIntegrityHeartbeat(sb: any, jobId: string | null, packageId: string): { stop: () => void } {
   if (!jobId) return { stop: () => {} };
   const HEARTBEAT_MS = 25_000;
+  const WORKER_ID = `integrity-check-${crypto.randomUUID().slice(0, 8)}`;
   let stopped = false;
   const tick = async () => {
     if (stopped) return;
     try {
-      await sb.rpc("fn_jobqueue_heartbeat", { p_job_id: jobId, p_source: "package-run-integrity-check" }).catch(async () => {
-        // Fallback: direct meta update if RPC missing
+      const { error } = await sb.rpc("heartbeat_job_processing", {
+        p_job_id: jobId,
+        p_worker_id: WORKER_ID,
+        p_meta: { source: "package-run-integrity-check", pkg: packageId.slice(0, 8) },
+      });
+      if (error) {
+        // Fallback: direct meta update if RPC signature differs
         const { data: cur } = await sb.from("job_queue").select("meta").eq("id", jobId).maybeSingle();
         const nextMeta = { ...(cur?.meta ?? {}), processing_tick_at: new Date().toISOString(), last_heartbeat_source: "integrity-check" };
         await sb.from("job_queue").update({ meta: nextMeta }).eq("id", jobId);
-      });
+      }
     } catch (e) {
       console.warn(`[integrity-check] heartbeat failed pkg=${packageId.slice(0, 8)}: ${(e as Error).message}`);
     }
   };
-  // Fire immediately, then on interval
   void tick();
   const handle = setInterval(tick, HEARTBEAT_MS);
   return {
