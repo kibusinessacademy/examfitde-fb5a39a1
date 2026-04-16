@@ -337,6 +337,10 @@ Deno.serve(async (req) => {
     const depthCount = blueprintRows.filter((b: any) => b.metadata?.depth_enriched).length;
     const sessCount = sessInserted?.length || 0;
 
+    await finalizeStepDone(sb, packageId, "generate_oral_exam", {
+      blueprints_created: inserted.length, sessions_created: sessCount, unique_hashes: seenHashes.size,
+    });
+
     return json({
       ok: true, batch_complete: true,
       blueprints_created: inserted.length,
@@ -348,6 +352,7 @@ Deno.serve(async (req) => {
   } catch (e: unknown) {
     const msg = (e as Error)?.message || String(e);
     console.error(`[OralExam] Error: ${msg}`);
+    await finalizeStepFailed(sb, packageId, "generate_oral_exam", e);
     return json({ ok: false, error: msg }, 500);
   }
 });

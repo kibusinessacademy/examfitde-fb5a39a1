@@ -120,6 +120,7 @@ Deno.serve(async (req) => {
       .contains("payload", { package_id: packageId })
       .in("status", ["pending", "processing"]);
 
+    await finalizeStepFailed(sb, packageId, "validate_handbook", new Error(`Anti-loop triggered after ${attempts} attempts`));
     return json({
       ok: false,
       anti_loop: true,
@@ -161,6 +162,7 @@ Deno.serve(async (req) => {
   if (chErr) return json({ error: chErr.message }, 500);
 
   if (!chapters || chapters.length < MIN_CHAPTERS) {
+    await finalizeStepFailed(sb, packageId, "validate_handbook", new Error(`Nur ${chapters?.length || 0}/${MIN_CHAPTERS} Kapitel`));
     return json({
       ok: false,
       message: `❌ Handbook QC: Nur ${chapters?.length || 0}/${MIN_CHAPTERS} Kapitel vorhanden.`,
@@ -176,6 +178,7 @@ Deno.serve(async (req) => {
 
   if (secErr) return json({ error: secErr.message }, 500);
   if (!sections || sections.length === 0) {
+    await finalizeStepFailed(sb, packageId, "validate_handbook", new Error("Keine Sektionen gefunden"));
     return json({ ok: false, message: "❌ Handbook QC: Keine Sektionen gefunden." });
   }
 
@@ -354,6 +357,18 @@ Deno.serve(async (req) => {
         });
       } catch (_e) { /* best-effort */ }
     }
+  }
+
+  // SSOT Finalization
+  if (overallPass) {
+    await finalizeStepDone(sb, packageId, "validate_handbook", {
+      pass_rate: passRate, sections_total: results.length, sections_passed: passed,
+      total_handbook_chars: totalHandbookChars, depth_enriched: depthEnrichedCount,
+    });
+  } else {
+    await finalizeStepFailed(sb, packageId, "validate_handbook", new Error(`Handbook QC: ${passed}/${results.length} passed`), {
+      pass_rate: passRate, placeholder_count: placeholderCount, heading_only_count: headingOnlyCount,
+    });
   }
 
   return json({

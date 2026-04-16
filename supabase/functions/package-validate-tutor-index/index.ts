@@ -77,6 +77,7 @@ Deno.serve(async (req) => {
   if (idxErr) return json({ error: idxErr.message }, 500);
 
   if (!indexRow) {
+    await finalizeStepFailed(sb, packageId, "validate_tutor_index", new Error("NO_INDEX_FOUND"));
     return json({
       ok: false,
       batch_complete: true,
@@ -207,6 +208,12 @@ Deno.serve(async (req) => {
   await sb.from("course_packages").update({
     last_error: passed ? null : `Tutor-Index QC: ${issues.length} Fehler`,
   }).eq("id", packageId);
+
+  if (passed) {
+    await finalizeStepDone(sb, packageId, "validate_tutor_index", { quality_score: score, total_chunks: totalChunks });
+  } else {
+    await finalizeStepFailed(sb, packageId, "validate_tutor_index", new Error(`Tutor-Index QC: ${issues.length} Fehler`), { quality_score: score });
+  }
 
   return json({
     ok: passed,

@@ -50,6 +50,7 @@ Deno.serve(async (req) => {
     .eq("curriculum_id", curriculumId);
 
   if (chErr || !chapters?.length) {
+    await finalizeStepDone(sb, packageId, "enqueue_handbook_expand", { skipped: true, reason: "no_chapters" });
     return json({ ok: true, batch_complete: true, enqueued: 0, message: "No chapters found" });
   }
 
@@ -71,6 +72,7 @@ Deno.serve(async (req) => {
 
   if (expandable.length === 0) {
     console.log(`[enqueue-handbook-expand] No expandable sections for package ${packageId.slice(0, 8)}`);
+    await finalizeStepDone(sb, packageId, "enqueue_handbook_expand", { skipped: true, reason: "no_expandable" });
     return json({ ok: true, batch_complete: true, enqueued: 0, message: "All sections already expanded or not ready" });
   }
 
@@ -123,6 +125,8 @@ Deno.serve(async (req) => {
   }
 
   console.log(`[enqueue-handbook-expand] Enqueued ${enqueued} expand jobs for package ${packageId.slice(0, 8)} (${expandable.length} expandable, ${activeJobSectionIds.size} already active, ${skippedDuplicates} skipped duplicates)`);
+
+  await finalizeStepDone(sb, packageId, "enqueue_handbook_expand", { enqueued, total_expandable: expandable.length });
 
   return json({
     ok: true,

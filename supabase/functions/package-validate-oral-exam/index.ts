@@ -82,7 +82,8 @@ Deno.serve(async (req) => {
 
   if (bpErr) return json({ error: bpErr.message }, 500);
   if (!blueprints || blueprints.length === 0) {
-    return json({ ok: false, error: "NO_BLUEPRINTS_TO_VALIDATE" }, 409);
+    await finalizeStepFailed(sb, packageId, "validate_oral_exam", new Error("NO_BLUEPRINTS_TO_VALIDATE"));
+    return json({ ok: false, batch_complete: true, error: "NO_BLUEPRINTS_TO_VALIDATE" }, 409);
   }
 
   console.log(`[validate-oral] Validating ${blueprints.length} blueprints for ${professionName} (pkg ${packageId.slice(0, 8)})`);
@@ -97,8 +98,9 @@ Deno.serve(async (req) => {
 
   // Count check
   if (blueprints.length < MIN_BLUEPRINTS) {
+    await finalizeStepFailed(sb, packageId, "validate_oral_exam", new Error(`Nur ${blueprints.length}/${MIN_BLUEPRINTS} Blueprints`));
     return json({
-      ok: false,
+      ok: false, batch_complete: true,
       message: `❌ Oral Exam QC: Nur ${blueprints.length}/${MIN_BLUEPRINTS} Blueprints vorhanden.`,
     });
   }
@@ -204,11 +206,13 @@ Deno.serve(async (req) => {
     }
   }
 
-  // CRITICAL FIX: Always set batch_complete: true.
-  // When validation fails, the step should be marked as FAILED (ok: false),
-  // NOT re-queued as a batch continuation. The job-runner interprets
-  // batch_complete: false as "more work needed → re-queue", causing an
-  // infinite loop when the underlying data can't pass validation.
+  // SSOT Finalization
+  if (overallPass) {
+    await finalizeStepDone(sb, packageId, "validate_oral_exam", { pass_rate: passRate, total: results.length, passed });
+  } else {
+    await finalizeStepFailed(sb, packageId, "validate_oral_exam", new Error(`Oral QC: ${passed}/${results.length} passed`), { pass_rate: passRate });
+  }
+
   return json({
     ok: overallPass,
     batch_complete: true,

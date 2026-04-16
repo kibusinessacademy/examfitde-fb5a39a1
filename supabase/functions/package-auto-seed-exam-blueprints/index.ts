@@ -424,6 +424,8 @@ Deno.serve(async (req) => {
   } catch (e: unknown) {
     const msg = (e as Error)?.message || String(e);
     console.error(`[SeedV4] Unhandled error: ${msg}`);
+    const packageId = p?.package_id as string;
+    if (packageId) await finalizeStepFailed(sb, packageId, "auto_seed_exam_blueprints", e);
     return json({ ok: false, error: msg }, 500);
   }
 });
@@ -694,8 +696,13 @@ async function handleSeed(sb: ReturnType<typeof createClient>, p: any) {
     console.warn(`[SeedV4] ⚠️ LF_COVERAGE_WARN: ${missingLfIds.length} LFs missing, continuing with partial coverage`);
   }
 
+  await finalizeStepDone(sb, packageId, "auto_seed_exam_blueprints", {
+    seeded: insertedCount, upgraded: upgradedCount, health_score: health.health_score, health_grade: health.grade,
+  });
+
   return json({
     ok: true,
+    batch_complete: true,
     seeded: insertedCount,
     upgraded: upgradedCount,
     existing: totalExisting,

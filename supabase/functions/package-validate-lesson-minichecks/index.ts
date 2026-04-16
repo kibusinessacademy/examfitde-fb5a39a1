@@ -105,6 +105,8 @@ Deno.serve(async (req) => {
         buildBypassMeta(bypass, { quality_tier: "reused" }),
       );
 
+      await finalizeStepDone(sb, packageId, "validate_lesson_minichecks", { bypassed: true, bypass_reason: bypass.reason });
+
       return json({
         ok: true,
         total: bypass.totalCount ?? 0,
@@ -388,6 +390,9 @@ Deno.serve(async (req) => {
 
     // Gate passed
     if (gatePassed) {
+      await finalizeStepDone(sb, packageId, "validate_lesson_minichecks", {
+        total: totalCount, approved: approvedCount || 0, coverage: coverage !== null ? Math.round(coverage * 100) : null,
+      });
       return json({
         ok: true,
         total: totalCount, approved: approvedCount || 0, draft: draftCount,
@@ -426,6 +431,9 @@ Deno.serve(async (req) => {
     }
 
     // Coverage ≥ 90% but critical issues → permanent structural failure
+    await finalizeStepFailed(sb, packageId, "validate_lesson_minichecks",
+      new Error(`GATE_FAIL: coverage=${coveragePct}%, critical=${criticalCount}`),
+      { coverage_state: "ready_but_defective" });
     return json({
       ok: false, permanent: true,
       error: `GATE_FAIL: coverage=${coveragePct}%, critical_issues=${criticalCount}`,

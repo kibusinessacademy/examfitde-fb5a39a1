@@ -319,8 +319,11 @@ Deno.serve(async (req) => {
 
     console.log(`[exam-rebalance] Completed: ${actions.length} repair actions for ${packageId.slice(0, 8)}`);
 
+    await finalizeStepDone(sb, packageId, "exam_rebalance", { actions_count: actions.length, unblocked: actions.length > 0 });
+
     return json({
       ok: true,
+      batch_complete: true,
       package_id: packageId,
       diagnosis,
       actions,
@@ -329,6 +332,7 @@ Deno.serve(async (req) => {
   } catch (e: unknown) {
     const msg = (e as Error)?.message || String(e);
     console.error(`[exam-rebalance] Error: ${msg}`);
+    await finalizeStepFailed(sb, packageId, "exam_rebalance", e);
     return json({ ok: false, error: msg }, 500);
   }
 });
