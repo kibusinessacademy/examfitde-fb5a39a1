@@ -73216,6 +73216,23 @@ export type Database = {
         }
         Relationships: []
       }
+      v_integrity_check_heartbeat_health: {
+        Row: {
+          age_sec: number | null
+          approved_q: number | null
+          attempts: number | null
+          health_class: string | null
+          job_id: string | null
+          last_tick_at: string | null
+          package_id: string | null
+          package_title: string | null
+          recoveries: number | null
+          started_at: string | null
+          status: string | null
+          tick_age_sec: number | null
+        }
+        Relationships: []
+      }
       v_latest_business_kpi: {
         Row: {
           active_campaigns: number | null
