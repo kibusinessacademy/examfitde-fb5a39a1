@@ -46,7 +46,8 @@ Deno.serve(async (req) => {
 
         if ((moduleCount ?? 0) > 0 && (lessonCount ?? 0) > 0) {
           console.log(`[scaffold] Course ${courseId} locked AND has ${moduleCount} modules, ${lessonCount} lessons — idempotent success`);
-          return json({ ok: true, skipped: true, reason: "GENERATION_LOCKED", modules: moduleCount, lessons: lessonCount });
+          await finalizeStepDone(sb, packageId, "scaffold_learning_course", { skipped: true, reason: "GENERATION_LOCKED", modules: moduleCount, lessons: lessonCount });
+          return json({ ok: true, batch_complete: true, skipped: true, reason: "GENERATION_LOCKED", modules: moduleCount, lessons: lessonCount });
         }
 
         // Lock exists but NO artifacts — previous run failed mid-flight. Clear lock and re-run.
@@ -174,6 +175,7 @@ Deno.serve(async (req) => {
       // Return 422 (permanent) so pipeline does NOT proceed on empty scaffold.
       if (lessonsCreated === 0) {
         console.error(`[scaffold] PERMANENT: ${modulesCreated} modules created but 0 lessons — competencies likely missing for curriculum ${curriculumId}`);
+        await finalizeStepFailed(sb, packageId, "scaffold_learning_course", new Error("SCAFFOLD_EMPTY_NO_LESSONS"), { modules_created: modulesCreated });
         return json({
           ok: false,
           batch_complete: false,
@@ -186,6 +188,7 @@ Deno.serve(async (req) => {
         }, 422);
       }
 
+      await finalizeStepDone(sb, packageId, "scaffold_learning_course", { modules_created: modulesCreated, lessons_created: lessonsCreated });
       return json({ ok: true, batch_complete: true, modules_created: modulesCreated, lessons_created: lessonsCreated });
 
     } finally {
@@ -202,12 +205,13 @@ Deno.serve(async (req) => {
         .eq("course_id", courseId);
       if ((modCheck ?? 0) > 0) {
         console.log(`[scaffold] Idempotent hit (${msg.slice(0, 60)}) — ${modCheck} modules exist, treating as success`);
-        return json({ ok: true, skipped: true, reason: "already_exists", modules: modCheck });
+        await finalizeStepDone(sb, packageId, "scaffold_learning_course", { skipped: true, reason: "already_exists", modules: modCheck });
+        return json({ ok: true, batch_complete: true, skipped: true, reason: "already_exists", modules: modCheck });
       }
-      // Constraint hit but no artifacts — this is a real failure
       console.error(`[scaffold] Constraint hit but 0 modules — NOT treating as success: ${msg.slice(0, 100)}`);
     }
     console.error(`[scaffold] Error: ${msg}`);
+    await finalizeStepFailed(sb, packageId, "scaffold_learning_course", e);
     return json({ ok: false, error: msg }, 500);
   }
 });
