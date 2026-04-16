@@ -205,6 +205,83 @@ export const PER_TYPE_TICK_CAPS: Record<string, number> = {
 };
 
 /**
+ * SSOT: Estimated runtime per heavy job_type (seconds).
+ *
+ * Used by the Heavy-Job-Budget guard to cap cumulative tick runtime BEFORE
+ * Edge-Runtime hard-kills the runner pod. Values are conservative p95 from
+ * ai_usage_log + edge_function_logs forensics (2026-04-16 incident window).
+ *
+ * Anything not listed here is treated as 0s (cheap control/recovery jobs).
+ */
+export const ESTIMATED_RUNTIME_SECONDS: Record<string, number> = {
+  package_run_integrity_check: 15,
+  package_quality_council: 15,
+  package_validate_exam_pool: 8,
+  package_validate_handbook_depth: 8,
+  package_elite_harden: 20,
+  package_repair_exam_pool_quality: 18,
+  package_generate_handbook: 25,
+  handbook_expand_section: 20,
+  package_generate_exam_pool: 30,
+  package_generate_lesson_minichecks: 18,
+  package_generate_blueprint_variants: 22,
+  package_generate_oral_exam: 15,
+  package_generate_glossary: 12,
+  package_fanout_learning_content: 10,
+  package_generate_learning_content: 25,
+  lesson_generate_content_shard: 15,
+  generate_course: 20,
+  extract_curriculum: 18,
+};
+
+/**
+ * SSOT: Heavy Job Tick Budget (seconds).
+ *
+ * Hard ceiling for cumulative estimated runtime of all jobs claimed in ONE tick.
+ * Set ~20% below the Edge-Runtime hard limit (110s) to leave headroom for
+ * dispatch overhead, DB writes, and heartbeat noise.
+ *
+ * If sum(ESTIMATED_RUNTIME_SECONDS[job.type]) > BUDGET, surplus jobs are
+ * deferred — even if PER_TYPE_TICK_CAPS would have allowed them.
+ *
+ * This is the secondary guard that catches:
+ *   - new heavy job types not yet in PER_TYPE_TICK_CAPS
+ *   - mixed-load ticks (1× integrity + 2× exam-pool gen + 1× elite_harden)
+ *   - cap miscalibration after pipeline expansion
+ */
+export const HEAVY_JOB_TICK_BUDGET_SECONDS = 85;
+
+/**
+ * Apply the Heavy-Job-Budget after per-type caps.
+ * Walks jobs in order and stops admitting once the cumulative estimate
+ * crosses HEAVY_JOB_TICK_BUDGET_SECONDS.
+ *
+ * Cheap jobs (estimate=0) are always admitted — they can't trigger overflow.
+ */
+export function enforceHeavyJobBudget<T extends { job_type: string }>(
+  jobs: T[],
+  budgetSeconds: number = HEAVY_JOB_TICK_BUDGET_SECONDS,
+): { kept: T[]; deferred: T[]; estimatedSeconds: number } {
+  const kept: T[] = [];
+  const deferred: T[] = [];
+  let used = 0;
+  for (const job of jobs) {
+    const cost = ESTIMATED_RUNTIME_SECONDS[job.job_type] ?? 0;
+    if (cost === 0) {
+      kept.push(job);
+      continue;
+    }
+    if (used + cost > budgetSeconds) {
+      deferred.push(job);
+      continue;
+    }
+    kept.push(job);
+    used += cost;
+  }
+  return { kept, deferred, estimatedSeconds: used };
+}
+
+/**
  * Apply per-type caps to a list of claimed jobs.
  * Returns { kept, deferred } where `deferred` jobs MUST be released back to
  * pending by the caller (status=pending, locked_at=NULL, run_after=now+5s).
