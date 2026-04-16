@@ -192,6 +192,9 @@ export default function KPIPage() {
         </TabsContent>
 
         <TabsContent value="quality" className="mt-4 space-y-4">
+          <Suspense fallback={<Skeleton className="h-48 w-full" />}>
+            <SSOTHealthCard />
+          </Suspense>
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
             <KpiCard title="Published" value={pipeline?.published ?? '—'} icon={ShieldCheck} tone="success" subtitle="Qualitätsgeprüft" />
             <KpiCard title="Blocked" value={pipeline?.blocked ?? '—'} icon={Zap} tone={(pipeline?.blocked ?? 0) > 0 ? 'destructive' : 'success'} />
