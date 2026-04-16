@@ -147,6 +147,12 @@ export async function markStepFailed(sb: SB, args: {
   const isHollow = isHollowVerdict(verdict);
   const errMeta = args.err?.__meta ?? {};
 
+  // ── failure_stage classification for forensic audit ──
+  const failureStage: "preflight" | "postcondition" | "runtime" =
+    errMeta.preflight ? "preflight"
+    : errMeta.postcondition ? "postcondition"
+    : "runtime";
+
   // ── Progress Fingerprint comparison ──
   const prevFpReal = Number(args.stepMeta?.fp_real ?? 0);
   const currFpReal = Number(errMeta.fp_real ?? 0);
