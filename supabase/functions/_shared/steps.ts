@@ -2,6 +2,7 @@
 // SSOT Step-State Management: all "done" and "failed" transitions go through here
 import { assertStepPostConditions } from "./post-conditions.ts";
 import { requeueStepWithBackoff, isHollowVerdict } from "./requeue-policy.ts";
+import { runPreflightAssertions } from "./preflight-registry.ts";
 
 type SB = any;
 
