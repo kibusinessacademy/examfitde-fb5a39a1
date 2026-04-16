@@ -77986,6 +77986,16 @@ export type Database = {
       admin_force_steps_done:
         | {
             Args: {
+              p_emergency_bypass?: boolean
+              p_force_publish?: boolean
+              p_package_id: string
+              p_reason?: string
+              p_step_keys: string[]
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
               p_package_id: string
               p_reason?: string
               p_step_keys: string[]
