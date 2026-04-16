@@ -38,8 +38,20 @@ Deno.serve(async (req) => {
       const { data: curr } = await sb.from("curricula").select("title, beruf").eq("id", (pkg as any).curriculum_id).maybeSingle();
       if (curr) curriculumTitle = (curr as any).title || "";
 
-      const { data: comps } = await sb.from("competencies").select("title").eq("curriculum_id", (pkg as any).curriculum_id).limit(20);
-      competencies = (comps || []).map((c: any) => c.title);
+      // SSOT governance: competencies.learning_field_id → learning_fields.curriculum_id
+      const { data: lfRows } = await sb
+        .from("learning_fields")
+        .select("id")
+        .eq("curriculum_id", (pkg as any).curriculum_id);
+      const lfIds = (lfRows || []).map((r: any) => r.id);
+      if (lfIds.length > 0) {
+        const { data: comps } = await sb
+          .from("competencies")
+          .select("title")
+          .in("learning_field_id", lfIds)
+          .limit(20);
+        competencies = (comps || []).map((c: any) => c.title);
+      }
     }
 
     // Count content
