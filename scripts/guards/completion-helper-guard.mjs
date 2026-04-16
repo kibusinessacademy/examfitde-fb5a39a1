@@ -19,6 +19,9 @@ const FUNCTIONS_DIR = path.join(ROOT, "supabase", "functions");
 // Functions that are NOT pipeline steps and don't need finalization
 const EXEMPT = [
   "package-run-integrity-check",  // uses its own integrity finalization
+  "package-auto-publish",         // orchestrator, not a pipeline step executor
+  "package-queue-next",           // orchestrator, dispatches next steps
+  "package-repair-exam-pool-quality", // complex self-finalization (legacy bypass)
 ];
 
 const REQUIRED_PATTERNS = [
