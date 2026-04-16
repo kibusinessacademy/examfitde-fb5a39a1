@@ -35179,6 +35179,69 @@ export type Database = {
         }
         Relationships: []
       }
+      package_release_audit_snapshots: {
+        Row: {
+          approved_questions: number | null
+          course_title: string | null
+          covered_learning_fields: number | null
+          created_at: string
+          deficiency_codes: string[]
+          exam_relevant_questions: number | null
+          handbook_chapters: number | null
+          id: string
+          metrics: Json
+          minicheck_questions: number | null
+          oral_blueprints: number | null
+          package_id: string
+          package_status: string | null
+          release_class: string
+          snapshot_date: string
+          total_learning_fields: number | null
+          track: string | null
+          tutor_indices: number | null
+        }
+        Insert: {
+          approved_questions?: number | null
+          course_title?: string | null
+          covered_learning_fields?: number | null
+          created_at?: string
+          deficiency_codes?: string[]
+          exam_relevant_questions?: number | null
+          handbook_chapters?: number | null
+          id?: string
+          metrics?: Json
+          minicheck_questions?: number | null
+          oral_blueprints?: number | null
+          package_id: string
+          package_status?: string | null
+          release_class: string
+          snapshot_date?: string
+          total_learning_fields?: number | null
+          track?: string | null
+          tutor_indices?: number | null
+        }
+        Update: {
+          approved_questions?: number | null
+          course_title?: string | null
+          covered_learning_fields?: number | null
+          created_at?: string
+          deficiency_codes?: string[]
+          exam_relevant_questions?: number | null
+          handbook_chapters?: number | null
+          id?: string
+          metrics?: Json
+          minicheck_questions?: number | null
+          oral_blueprints?: number | null
+          package_id?: string
+          package_status?: string | null
+          release_class?: string
+          snapshot_date?: string
+          total_learning_fields?: number | null
+          track?: string | null
+          tutor_indices?: number | null
+        }
+        Relationships: []
+      }
       package_steps: {
         Row: {
           attempts: number
@@ -81211,6 +81274,7 @@ export type Database = {
           zombie_class: string
         }[]
       }
+      fn_snapshot_release_classification: { Args: never; Returns: Json }
       fn_ssot_ghost_success_count: { Args: never; Returns: number }
       fn_ssot_hard_fail_summary: {
         Args: never
