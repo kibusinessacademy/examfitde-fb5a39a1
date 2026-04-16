@@ -168,7 +168,10 @@ Deno.serve(async (req) => {
     }
 
     // ═══ STEP 4: Proportional allocation ═══
-    const MAX_BLUEPRINTS = 30;
+    // CRITICAL: Must cover ALL competencies — DB trigger trg_guard_oral_exam_completeness
+    // requires every competency to have at least one blueprint.
+    const totalCompetencies = competencies.length;
+    const TARGET_BLUEPRINTS = Math.max(30, totalCompetencies);
     const MIN_SHARE = 0.06;
 
     const lfWeights: { lfId: string; lfTitle: string; weight: number; comps: typeof competencies }[] = [];
@@ -185,17 +188,23 @@ Deno.serve(async (req) => {
     const normSum = lfWeights.reduce((s, lw) => s + lw.weight, 0);
     for (const lw of lfWeights) lw.weight /= normSum;
 
+    // Ensure every LF gets at least as many slots as it has competencies (full coverage)
     const lfTargets = lfWeights.map(lw => ({
       ...lw,
-      target: Math.max(1, Math.round(lw.weight * MAX_BLUEPRINTS)),
+      target: Math.max(lw.comps.length, Math.round(lw.weight * TARGET_BLUEPRINTS)),
     }));
 
     let totalTarget = lfTargets.reduce((s, t) => s + t.target, 0);
-    while (totalTarget > MAX_BLUEPRINTS) {
+    // Only trim if over target AND all competencies are still covered
+    while (totalTarget > TARGET_BLUEPRINTS) {
       const maxLf = lfTargets.reduce((a, b) => a.target > b.target ? a : b);
+      // Never go below the number of competencies in this LF
+      if (maxLf.target <= maxLf.comps.length) break;
       maxLf.target--;
       totalTarget--;
     }
+
+    console.log(`[OralExam] Allocation: ${totalCompetencies} competencies → ${totalTarget} blueprint slots across ${lfTargets.length} LFs`);
 
     // ═══ STEP 5: Load subtopics ═══
     const { data: allSubtopics } = await sb
