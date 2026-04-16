@@ -5,6 +5,7 @@ import { getContentProfile } from "../_shared/track-content-profiles.ts";
 import { resolveIntegrityProfile, getValidationPolicy, buildValidatorMeta } from "../_shared/validation/learning-content-policy.ts";
 import { checkValidatorBypass, buildBypassMeta, buildFullRunMeta, buildFailedRunMeta } from "../_shared/validator-bypass.ts";
 import { mergePackageStepMeta } from "../_shared/merge-step-meta.ts";
+import { finalizeStepDone, finalizeStepFailed } from "../_shared/step-finalize.ts";
 
 /**
  * package-validate-lesson-minichecks  (V4 — with fingerprint bypass, Pattern E)

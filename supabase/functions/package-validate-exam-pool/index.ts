@@ -6,6 +6,7 @@ import { callAIJSON } from "../_shared/ai-client.ts";
 import { getModel } from "../_shared/model-routing.ts";
 import { handleDbFailure } from "../_shared/job-fail.ts";
 import { QC_COVERAGE_ELIGIBLE, QC_UNRESOLVED, QC_TERMINAL_REJECTED } from "../_shared/qc-status.ts";
+import { finalizeStepDone, finalizeStepFailed } from "../_shared/step-finalize.ts";
 
 // ── Snapshot Write-Path Helpers ──
 

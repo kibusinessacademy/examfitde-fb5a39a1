@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { loadOrGenerateGlossary } from "../_shared/glossary-loader.ts";
+import { finalizeStepDone, finalizeStepFailed } from "../_shared/step-finalize.ts";
 
 /**
  * package-generate-glossary — Pipeline Step (pre-warm)

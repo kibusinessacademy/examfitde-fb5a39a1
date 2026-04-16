@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { checkValidatorBypass, buildBypassMeta, buildFullRunMeta, buildFailedRunMeta } from "../_shared/validator-bypass.ts";
 import { mergePackageStepMeta } from "../_shared/merge-step-meta.ts";
+import { finalizeStepDone, finalizeStepFailed } from "../_shared/step-finalize.ts";
 
 /**
  * package-validate-handbook-depth — Optional Quality/Elite Gate (v3 hardened)

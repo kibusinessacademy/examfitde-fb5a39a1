@@ -3,6 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { callAIWithFailover } from "../_shared/ai-client.ts";
 import { getModelChainAsync } from "../_shared/model-routing.ts";
 import { resolveAvailableRoute } from "../_shared/llm/provider-load-balancer.ts";
+import { finalizeStepDone, finalizeStepFailed } from "../_shared/step-finalize.ts";
 
 // ═══════════════════════════════════════════════════════════════════════
 // Blueprint Seeder v4 — "Premium Elite" Grade

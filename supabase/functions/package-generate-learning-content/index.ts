@@ -17,6 +17,7 @@ import {
   countLeasedPackages,
 } from "../_shared/learning-content-scheduler.ts";
 import {
+import { finalizeStepDone, finalizeStepFailed } from "../_shared/step-finalize.ts";
   neutralizeStaleTransientFailed,
   reviveLearningContentStepIfDead,
 } from "../_shared/learning-content-revive.ts";

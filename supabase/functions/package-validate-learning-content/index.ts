@@ -25,6 +25,7 @@ import {
   type LearningContentCapabilities,
 } from "../_shared/learning-content-capabilities.ts";
 import {
+import { finalizeStepDone, finalizeStepFailed } from "../_shared/step-finalize.ts";
   resolveIntegrityProfile,
   getValidationPolicy,
   buildTier2Prompt,
