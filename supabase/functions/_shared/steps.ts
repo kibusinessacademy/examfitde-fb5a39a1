@@ -2,6 +2,7 @@
 // SSOT Step-State Management: all "done" and "failed" transitions go through here
 import { assertStepPostConditions } from "./post-conditions.ts";
 import { requeueStepWithBackoff, isHollowVerdict } from "./requeue-policy.ts";
+import { runPreflightAssertions } from "./preflight-registry.ts";
 
 type SB = any;
 
@@ -18,6 +19,13 @@ export async function markStepDone(sb: SB, args: {
   track?: string | null;
 }) {
   const finished_at = args.finishedAt ?? new Date().toISOString();
+
+  // ✅ Preflight: step-specific contract assertions (before post-conditions)
+  await runPreflightAssertions(sb, {
+    packageId: args.packageId,
+    stepKey: args.stepKey,
+    meta: args.meta,
+  });
 
   // ✅ Guard: NEVER mark done unless post-conditions pass
   await assertStepPostConditions(sb, {
