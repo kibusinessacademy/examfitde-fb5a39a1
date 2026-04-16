@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -160,10 +160,31 @@ Deno.serve(async (req) => {
     alerts.push("orphan_step_queued");
   }
 
+  // --- Repeat-Failure Detection (Dauermaßnahme: Early-Cancel P1 Alert) ---
+  const { data: repeatFailures, error: e4 } = await sb.rpc("fn_detect_repeat_step_failures", {
+    p_min_failures: 3,
+    p_window_hours: 6,
+  });
+  if (e4) console.error("repeat_failure_detection query failed:", e4.message);
+
+  const repeatRows = repeatFailures || [];
+  if (repeatRows.length > 0) {
+    await openAlert(
+      sb,
+      "repeat_step_failures",
+      "critical",
+      "Repeat step failures detected (P1 early-cancel)",
+      `${repeatRows.length} step(s) failed 3+ times in 6h — likely trigger/function mismatch`,
+      { count: repeatRows.length, steps: repeatRows.slice(0, 20) },
+    );
+    alerts.push("repeat_step_failures");
+  }
+
   const allOk = audit.ok === true
     && phantomNonPublished.length === 0
     && councilRows.length === 0
-    && guardSwallowed.length === 0;
+    && guardSwallowed.length === 0
+    && repeatRows.length === 0;
 
   return json(200, {
     ok: allOk,
@@ -176,6 +197,7 @@ Deno.serve(async (req) => {
       orphan_queued: orphanQueued.length,
       total: orphanRows.length,
     },
+    repeat_failures: repeatRows.length,
     alerts,
   });
 });

@@ -79814,6 +79814,17 @@ export type Database = {
         Args: { p_package_id: string }
         Returns: Json
       }
+      fn_detect_repeat_step_failures: {
+        Args: { p_min_failures?: number; p_window_hours?: number }
+        Returns: {
+          failure_count: number
+          first_failure_at: string
+          last_error: string
+          last_failure_at: string
+          package_id: string
+          step_key: string
+        }[]
+      }
       fn_detect_seo_discovery_drift: {
         Args: never
         Returns: {

@@ -303,7 +303,19 @@ Deno.serve(async (req) => {
       throw new Error(`Only ${blueprintRows.length} unique blueprints generated (need ≥10). Curriculum may lack sufficient competency diversity.`);
     }
 
-    console.log(`[OralExam] Generated ${blueprintRows.length} unique blueprints (${seenHashes.size} unique hashes, ${missingComps.length} fallback) across ${lfTargets.length} LFs`);
+    // ═══ PRE-FLIGHT COVERAGE ASSERTION ═══
+    // Verifies the allocation invariant BEFORE insert, so we never hit the DB trigger
+    const preFlightCovered = new Set(blueprintRows.map((b: any) => b.competency_id));
+    const preFlightMissing = competencies.filter((c: any) => !preFlightCovered.has(c.id));
+    if (preFlightMissing.length > 0) {
+      throw new Error(
+        `PRE_FLIGHT_COVERAGE_FAIL: ${preFlightMissing.length}/${totalCompetencies} competencies uncovered after dedup+fallback. ` +
+        `This would be rejected by trg_guard_oral_exam_completeness. Aborting before insert.`
+      );
+    }
+
+    console.log(`[OralExam] Pre-flight OK: ${preFlightCovered.size}/${totalCompetencies} competencies covered. ` +
+      `${blueprintRows.length} unique blueprints (${seenHashes.size} hashes, ${missingComps.length} fallback) across ${lfTargets.length} LFs`);
 
     const { data: inserted, error: insertErr } = await sb
       .from("oral_exam_blueprints")
