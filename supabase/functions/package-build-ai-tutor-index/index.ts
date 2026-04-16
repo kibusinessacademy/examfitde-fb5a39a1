@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { prereqDone } from "../_shared/prereq-done.ts";
+import { finalizeStepDone, finalizeStepFailed } from "../_shared/step-finalize.ts";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -237,5 +238,14 @@ Deno.serve(async (req) => {
 
   // build_progress is now auto-computed by DB trigger from package_steps — no manual write needed
 
+  // ── SSOT finalization ──
+  await finalizeStepDone(sb, packageId, "build_ai_tutor_index", { policyVersion, ...statsObj });
+
   return json({ ok: true, policyVersion, ...statsObj });
+  } catch (err) {
+    const msg = (err as Error)?.message || String(err);
+    console.error(`[AI-Tutor-Index] Error: ${msg}`);
+    await finalizeStepFailed(sb, packageId, "build_ai_tutor_index", err);
+    return json({ ok: false, error: msg }, 500);
+  }
 });
