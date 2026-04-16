@@ -28,12 +28,20 @@ export async function markStepDone(sb: SB, args: {
   });
 
   // ✅ Guard: NEVER mark done unless post-conditions pass
-  await assertStepPostConditions(sb, {
-    packageId: args.packageId,
-    stepKey: args.stepKey,
-    expectedLessons: args.expectedLessons,
-    track: args.track,
-  });
+  try {
+    await assertStepPostConditions(sb, {
+      packageId: args.packageId,
+      stepKey: args.stepKey,
+      expectedLessons: args.expectedLessons,
+      track: args.track,
+    });
+  } catch (pcErr: any) {
+    // Tag postcondition errors for failure_stage classification
+    if (!pcErr.__meta) pcErr.__meta = {};
+    pcErr.__meta.postcondition = true;
+    pcErr.__meta.step_key = args.stepKey;
+    throw pcErr;
+  }
 
   // ── P1-D: On heal-to-done, historize last_error into meta.previous_errors[] ──
   // Fetch current step to capture existing last_error before clearing
