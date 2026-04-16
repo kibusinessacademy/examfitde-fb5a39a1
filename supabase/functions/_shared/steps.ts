@@ -20,6 +20,13 @@ export async function markStepDone(sb: SB, args: {
 }) {
   const finished_at = args.finishedAt ?? new Date().toISOString();
 
+  // ✅ Preflight: step-specific contract assertions (before post-conditions)
+  await runPreflightAssertions(sb, {
+    packageId: args.packageId,
+    stepKey: args.stepKey,
+    meta: args.meta,
+  });
+
   // ✅ Guard: NEVER mark done unless post-conditions pass
   await assertStepPostConditions(sb, {
     packageId: args.packageId,
