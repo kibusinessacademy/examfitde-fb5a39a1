@@ -36,6 +36,7 @@ Deno.serve(async (req) => {
     const moduleIds = (modRows || []).map((m: any) => m.id);
 
     if (moduleIds.length === 0) {
+      await finalizeStepDone(sb, packageId, "repair_failed_lessons", { skipped: true, reason: "no_modules" });
       return json({ ok: true, repaired: 0, reason: "no_modules" });
     }
 
