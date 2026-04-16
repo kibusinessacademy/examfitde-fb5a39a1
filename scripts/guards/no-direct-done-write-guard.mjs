@@ -30,8 +30,6 @@ const LEGACY_BYPASS = [
   "admin-ops-actions/index.ts",                 // P3: admin force-done action
   "fanout-learning-content/index.ts",           // P2: fanout self-finalization
   "job-runner/index.ts",                        // P2: skip-step logic
-  "package-run-integrity-check/index.ts",       // P1: integrity self-finalization
-  "package-validate-learning-content/index.ts", // P1: validate self-finalization
 ];
 
 function walk(dir, files = []) {
