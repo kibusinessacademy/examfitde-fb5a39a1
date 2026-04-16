@@ -24,6 +24,7 @@ const guards = [
   "no-direct-done-write-guard.mjs",
   "completion-helper-guard.mjs",
   "no-legacy-org-members-guard.mjs",
+  "trigger-function-parity-guard.mjs",
 ];
 
 function run(entry) {
