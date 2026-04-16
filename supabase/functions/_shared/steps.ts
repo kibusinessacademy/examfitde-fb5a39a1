@@ -189,6 +189,8 @@ export async function markStepFailed(sb: SB, args: {
     progress_reset: madeProgress ? true : undefined,
   };
 
+  console.log(`[markStepFailed] ${args.stepKey} | stage=${failureStage} | verdict=${verdict ?? "none"} | attempt=${nextAttempts} | pkg=${args.packageId.slice(0, 8)}`);
+
   // Persist the failure first (audit trail)
   const { error } = await sb
     .from("package_steps")
