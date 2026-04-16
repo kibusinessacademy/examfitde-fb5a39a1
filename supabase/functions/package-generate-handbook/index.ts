@@ -425,9 +425,12 @@ Deno.serve(async (req) => {
   console.log(`[generate-handbook] Pre-gen coverage: ${preGenCoverage.coveredChapters}/${preGenCoverage.totalChapters} chapters (need ${preGenCoverage.minNeeded}), ${preGenCoverage.totalChars} chars → ${preGenCoverage.ok ? 'COMPLETE' : 'INCOMPLETE'}`);
 
   if (preGenCoverage.ok) {
-    // Coverage is complete — all chapters have real content.
-    // Even if some individual LF IDs aren't tracked (multi-LF sections), the handbook is done.
     console.log(`[generate-handbook] ✅ Coverage complete despite ${fieldsNeedingGeneration.length} unmapped LF IDs — marking batch_complete=true`);
+    await finalizeStepDone(sb, packageId, "generate_handbook", {
+      chapters: chapters.length,
+      sections: existingSections?.length || 0,
+      coverage: preGenCoverage,
+    });
     return json({
       ok: true,
       batch_complete: true,
@@ -830,6 +833,13 @@ Deno.serve(async (req) => {
       message: `Coverage verification failed: ${coverage.coveredChapters}/${coverage.totalChapters} chapters with content (need ${coverage.minNeeded})`,
     });
   }
+
+  await finalizeStepDone(sb, packageId, "generate_handbook", {
+    chapters: chapters.length,
+    sections: totalPopulated,
+    llm_generated: llmSuccessCount,
+    coverage,
+  });
 
   return json({
     ok: true,
