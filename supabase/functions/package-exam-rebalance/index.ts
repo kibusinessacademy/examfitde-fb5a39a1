@@ -84,6 +84,23 @@ Deno.serve(async (req) => {
   if (!packageId) return json({ error: "package_id required" }, 400);
 
   try {
+    // ── BACKBONE GUARD: skip gracefully if exam_rebalance step doesn't exist ──
+    const { data: stepRow, error: stepErr } = await sb
+      .from("package_steps")
+      .select("id")
+      .eq("package_id", packageId)
+      .eq("step_key", "exam_rebalance")
+      .maybeSingle();
+
+    if (stepErr || !stepRow) {
+      console.log(`[exam-rebalance] STEP_NOT_IN_BACKBONE: exam_rebalance step missing for ${packageId.slice(0, 8)} — idempotent skip`);
+      return json({
+        ok: true,
+        skipped: true,
+        reason: "STEP_NOT_IN_BACKBONE",
+        package_id: packageId,
+      });
+    }
     // ── 1. Load package ──
     const { data: pkg, error: pkgErr } = await sb
       .from("course_packages")
