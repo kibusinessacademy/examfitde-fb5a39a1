@@ -59,6 +59,7 @@ Deno.serve(async (req) => {
 
   if (!berufId) {
     console.log("[gen-glossary] No beruf_id found — skipping (fail-soft)");
+    await finalizeStepDone(sb, packageId, "generate_glossary", { skipped: true, reason: "no_beruf_id" });
     return json({ ok: true, batch_complete: true, skipped: true, reason: "no_beruf_id" });
   }
 
@@ -72,6 +73,7 @@ Deno.serve(async (req) => {
 
   if (cached) {
     console.log(`[gen-glossary] Glossary already cached for "${professionName}" — skipping`);
+    await finalizeStepDone(sb, packageId, "generate_glossary", { skipped: true, reason: "already_cached" });
     return json({ ok: true, batch_complete: true, skipped: true, reason: "already_cached", version: cached.version });
   }
 
@@ -89,6 +91,8 @@ Deno.serve(async (req) => {
 
     console.log(`[gen-glossary] ✅ Glossary generated for "${professionName}" in ${durationMs}ms (${termCount} terms)`);
 
+    await finalizeStepDone(sb, packageId, "generate_glossary", { term_count: termCount, duration_ms: durationMs });
+
     return json({
       ok: true,
       batch_complete: true,
@@ -100,9 +104,9 @@ Deno.serve(async (req) => {
     const errMsg = (e as Error).message || String(e);
     console.error(`[gen-glossary] ❌ Failed: ${errMsg}`);
 
-    // FAIL-SOFT: Return batch_complete so pipeline continues without glossary.
-    // The content generator will just run without glossary enrichment.
-    console.warn(`[gen-glossary] ⚠️ Glossary is optional — marking batch_complete to unblock pipeline`);
+    // FAIL-SOFT: Glossary is optional — mark step done so pipeline continues.
+    console.warn(`[gen-glossary] ⚠️ Glossary is optional — marking step done (fail-soft) to unblock pipeline`);
+    await finalizeStepDone(sb, packageId, "generate_glossary", { fail_soft: true, error: errMsg });
     return json({
       ok: false,
       batch_complete: true,

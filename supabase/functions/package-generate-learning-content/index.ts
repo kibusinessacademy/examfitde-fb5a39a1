@@ -16,8 +16,8 @@ import {
   computeFairShareBatch,
   countLeasedPackages,
 } from "../_shared/learning-content-scheduler.ts";
-import {
 import { finalizeStepDone, finalizeStepFailed } from "../_shared/step-finalize.ts";
+import {
   neutralizeStaleTransientFailed,
   reviveLearningContentStepIfDead,
 } from "../_shared/learning-content-revive.ts";
@@ -263,6 +263,8 @@ Deno.serve(async (req) => {
       dispatch_blocked_reason: null,
       completion_gate: { needs_regen: 0, active_jobs: 0 },
     });
+
+    await finalizeStepDone(sb, packageId, "generate_learning_content", { needs_regen: 0 });
 
     return json({
       ok: true,

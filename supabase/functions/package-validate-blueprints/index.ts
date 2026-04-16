@@ -105,6 +105,7 @@ Deno.serve(async (req) => {
 
   if (bpErr) return json({ error: bpErr.message }, 500);
   if (!blueprints || blueprints.length === 0) {
+    await finalizeStepFailed(sb, packageId, "validate_blueprints", new Error("Keine Blueprints gefunden"));
     return json({
       ok: false, batch_complete: true,
       message: "❌ Keine Blueprints gefunden — Seeding hat nichts erzeugt.",
@@ -366,13 +367,18 @@ Deno.serve(async (req) => {
     last_error: passed ? null : `Blueprint QC v2: ${issues.length} Fehler`,
   }).eq("id", packageId);
 
+  if (passed) {
+    await finalizeStepDone(sb, packageId, "validate_blueprints", { quality_score: score, total_blueprints: blueprints.length, coverage_pct: coveragePct });
+  } else {
+    await finalizeStepFailed(sb, packageId, "validate_blueprints", new Error(`Blueprint QC: ${issues.length} issues`), { quality_score: score });
+  }
+
   return json({
     ok: passed,
     batch_complete: true,
     summary,
     issues,
     warnings,
-    // Pass missing LF IDs so pipeline-runner can target re-seed
     missing_lf_ids: missingLfIds.length > 0 ? missingLfIds : undefined,
     message: passed
       ? `✅ Blueprint-Validierung v2 bestanden: ${blueprints.length} Blueprints, ${coveragePct.toFixed(0)}% Coverage, ${caseBasedPct.toFixed(0)}% case-based, Score ${score}`
