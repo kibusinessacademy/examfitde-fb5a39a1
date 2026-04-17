@@ -260,6 +260,8 @@ Deno.serve(async (req) => {
         job_type: "package_generate_exam_pool",
         package_id: packageId,
         priority: 30,
+        // batch_cursor enters idempotency_key — gives each LF its own job row
+        batch_cursor: { lf_repair: d.learning_field_id, target_per_lf: targetPerLf },
         payload: {
           curriculum_id: curriculumId,
           _fan_out: true,
