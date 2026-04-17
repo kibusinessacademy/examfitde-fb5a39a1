@@ -335,23 +335,33 @@ async function runCourseReadyGate(
   };
   const poolTh = POOL_THRESHOLDS[trackEarly] ?? POOL_THRESHOLDS["AUSBILDUNG_VOLL"];
 
-  const poolPassed = totalApproved >= poolTh.minApproved && hardishPct >= poolTh.minHardishPct && easyPct <= poolTh.maxEasyPct;
+  // ── FIX A: Suppress ratio-based reasons when sample size is below minimum ──
+  //    Below minApproved, hardishPct/easyPct are statistically meaningless and produced
+  //    false-positive HARDISH_TOO_LOW(0.0%<X%) signals across the platform.
+  const sampleTooSmall = totalApproved < poolTh.minApproved;
+  const poolPassed = !sampleTooSmall && hardishPct >= poolTh.minHardishPct && easyPct <= poolTh.maxEasyPct;
   results.push({
     gate: "exam_pool_distribution",
     passed: poolPassed,
     severity: "blocker",
-    detail: `${totalApproved} approved (min ${poolTh.minApproved}) | easy=${easyPct.toFixed(1)}% medium=${mediumPct.toFixed(1)}% hard=${hardOnlyPct.toFixed(1)}% very_hard=${veryHardPct.toFixed(1)}% (hardish=${hardishPct.toFixed(1)}%) [track=${trackEarly}]`,
+    detail: `${totalApproved} approved (min ${poolTh.minApproved}) | easy=${easyPct.toFixed(1)}% medium=${mediumPct.toFixed(1)}% hard=${hardOnlyPct.toFixed(1)}% very_hard=${veryHardPct.toFixed(1)}% (hardish=${hardishPct.toFixed(1)}%) [track=${trackEarly}]${sampleTooSmall ? " — ratio checks suppressed (sample < min)" : ""}`,
   });
   if (!poolPassed) {
     const reasons: string[] = [];
-    if (totalApproved < poolTh.minApproved) reasons.push(`TOO_FEW_APPROVED(${totalApproved}/${poolTh.minApproved})`);
-    if (hardishPct < poolTh.minHardishPct) reasons.push(`HARDISH_TOO_LOW(${hardishPct.toFixed(1)}%<${poolTh.minHardishPct}%)`);
-    if (easyPct > poolTh.maxEasyPct) reasons.push(`EASY_TOO_HIGH(${easyPct.toFixed(1)}%>${poolTh.maxEasyPct}%)`);
+    if (sampleTooSmall) {
+      // Only report TOO_FEW_APPROVED — skip ratio-based reasons entirely
+      reasons.push(`TOO_FEW_APPROVED(${totalApproved}/${poolTh.minApproved})`);
+    } else {
+      // Sample is large enough → ratio checks are meaningful
+      if (hardishPct < poolTh.minHardishPct) reasons.push(`HARDISH_TOO_LOW(${hardishPct.toFixed(1)}%<${poolTh.minHardishPct}%)`);
+      if (easyPct > poolTh.maxEasyPct) reasons.push(`EASY_TOO_HIGH(${easyPct.toFixed(1)}%>${poolTh.maxEasyPct}%)`);
+    }
     hardFails.push(`EXAM_POOL: ${reasons.join(", ")}`);
   }
 
   // Warning: hardish < 45% but >= 40% (approaching but not at SSOT target)
-  if (hardishPct < 45 && hardishPct >= 40) {
+  // Only emit when sample size is statistically meaningful.
+  if (!sampleTooSmall && hardishPct < 45 && hardishPct >= 40) {
     warnings.push(`HARDISH_BELOW_TARGET: ${hardishPct.toFixed(1)}% (SSOT target ≥45%)`);
     results.push({ gate: "exam_hardish_target", passed: false, severity: "warning", detail: `hardish=${hardishPct.toFixed(1)}% (SSOT target ≥45%)` });
   }
