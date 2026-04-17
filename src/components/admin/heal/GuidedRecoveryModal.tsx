@@ -196,6 +196,7 @@ export function GuidedRecoveryModal({ row, open, onClose }: Props) {
   const qc = useQueryClient();
   const [resetDone, setResetDone] = useState(false);
   const [repairsDone, setRepairsDone] = useState<Set<RepairKey>>(new Set());
+  const { isApplicable } = useTrackApplicability();
 
   const options = useMemo(
     () => (row ? buildRepairOptions(row) : []),
@@ -242,7 +243,15 @@ export function GuidedRecoveryModal({ row, open, onClose }: Props) {
       });
       invalidate();
     },
-    onError: (err: Error) => {
+    onError: (err: Error & { ssotBlocked?: boolean }) => {
+      // Track-Applicability Block: freundlicher Hinweis statt rotem Error-Toast.
+      if (err.ssotBlocked) {
+        toast({
+          title: "Repair für diesen Track nicht zulässig",
+          description: err.message,
+        });
+        return;
+      }
       toast({
         title: "Repair fehlgeschlagen",
         description: err.message,
