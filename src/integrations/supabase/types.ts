@@ -25339,6 +25339,48 @@ export type Database = {
           },
         ]
       }
+      integrity_check_history: {
+        Row: {
+          created_at: string
+          curriculum_id: string | null
+          hard_fail_count: number
+          hard_fail_reasons: string[]
+          id: string
+          job_id: string | null
+          no_progress_blocked: boolean
+          package_id: string
+          passed: boolean
+          score: number | null
+          trigger_source: string | null
+        }
+        Insert: {
+          created_at?: string
+          curriculum_id?: string | null
+          hard_fail_count?: number
+          hard_fail_reasons?: string[]
+          id?: string
+          job_id?: string | null
+          no_progress_blocked?: boolean
+          package_id: string
+          passed?: boolean
+          score?: number | null
+          trigger_source?: string | null
+        }
+        Update: {
+          created_at?: string
+          curriculum_id?: string | null
+          hard_fail_count?: number
+          hard_fail_reasons?: string[]
+          id?: string
+          job_id?: string | null
+          no_progress_blocked?: boolean
+          package_id?: string
+          passed?: boolean
+          score?: number | null
+          trigger_source?: string | null
+        }
+        Relationships: []
+      }
       invoice_items: {
         Row: {
           created_at: string
@@ -81315,6 +81357,20 @@ export type Database = {
       fn_reconcile_seed_blueprints_causality: { Args: never; Returns: Json }
       fn_reconcile_stale_integrity_reports: { Args: never; Returns: Json }
       fn_reconcile_stale_qgf_packages: { Args: never; Returns: Json }
+      fn_record_integrity_run_and_check_progress: {
+        Args: {
+          p_curriculum_id: string
+          p_hard_fails: string[]
+          p_job_id?: string
+          p_min_improvement?: number
+          p_package_id: string
+          p_passed: boolean
+          p_score: number
+          p_trigger_source?: string
+          p_window?: number
+        }
+        Returns: Json
+      }
       fn_recover_stale_lock_exhausted: { Args: never; Returns: Json }
       fn_release_stale_job_locks: {
         Args: { p_lock_ttl_minutes?: number }
