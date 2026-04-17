@@ -1309,19 +1309,27 @@ async function enqueueLearningFieldJobs(
   const lfCount = lfGroups.size;
   if (lfCount === 0) return { enqueued: 0, learningFields: 0, skipped: 0, skipped_covered: 0, skipped_cooldown: 0, skipped_dedup: 0, errors: [], lf_details: [] };
 
+  // ── Phase 2b: LF-balanced target calculation ──
+  // Default to EVEN distribution across all LFs (1/N), then blend small influence
+  // from natural blueprint volume so high-blueprint LFs get marginally more.
+  // Blend ratio: 80% even baseline + 20% blueprint-weighted (was 100% bp-weighted).
+  // This prevents structural skew where one LF with many blueprints dominates.
   const totalBps = bps.length;
-  const MIN_LF_SHARE = 0.06;
-  const MAX_LF_SHARE = Math.min(0.20, 2.0 / lfCount);
+  const evenShare = 1 / lfCount;
+  const MIN_LF_SHARE = Math.max(0.05, evenShare * 0.7);                   // floor: 70% of even share
+  const MAX_LF_SHARE = Math.min(0.18, Math.max(evenShare * 1.3, 1.5 / lfCount)); // ceil: 130% of even share, never >18%
+  const BLUEPRINT_WEIGHT_BLEND = 0.20;                                    // 20% blueprint influence
 
   const lfWeights = new Map<string, number>();
   for (const [lfId, lfBps] of lfGroups) {
-    const naturalWeight = totalBps > 0 ? lfBps.length / totalBps : 1 / lfCount;
-    lfWeights.set(lfId, Math.min(MAX_LF_SHARE, Math.max(MIN_LF_SHARE, naturalWeight)));
+    const bpShare = totalBps > 0 ? lfBps.length / totalBps : evenShare;
+    const blendedWeight = (1 - BLUEPRINT_WEIGHT_BLEND) * evenShare + BLUEPRINT_WEIGHT_BLEND * bpShare;
+    lfWeights.set(lfId, Math.min(MAX_LF_SHARE, Math.max(MIN_LF_SHARE, blendedWeight)));
   }
 
   const totalWeight = Array.from(lfWeights.values()).reduce((s, w) => s + w, 0);
   for (const [lfId, w] of lfWeights) lfWeights.set(lfId, w / totalWeight);
-  console.log(`[ExamPool-v5] Anti-Dominanz: lfCount=${lfCount}, MAX_LF_SHARE=${(MAX_LF_SHARE * 100).toFixed(1)}%, weights=[${Array.from(lfWeights.entries()).map(([id, w]) => `${id.slice(0, 8)}:${(w * 100).toFixed(1)}%`).join(', ')}]`);
+  console.log(`[ExamPool-v5] LF-Balanced v2b: lfCount=${lfCount}, evenShare=${(evenShare*100).toFixed(1)}%, MIN=${(MIN_LF_SHARE*100).toFixed(1)}%, MAX=${(MAX_LF_SHARE * 100).toFixed(1)}%, blend=${BLUEPRINT_WEIGHT_BLEND}, weights=[${Array.from(lfWeights.entries()).map(([id, w]) => `${id.slice(0, 8)}:${(w * 100).toFixed(1)}%`).join(', ')}]`);
 
   const lfIds = Array.from(lfGroups.keys());
   const existingPerLf = new Map<string, number>();
@@ -1934,19 +1942,30 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ─── ANTI-DOMINANZ CAP (per-LF runtime guard) ──────
-    // Prevents a single LF from exceeding 25% of total questions at runtime,
-    // even if the fan-out target was set higher due to legacy/race conditions.
+    // ─── ANTI-DOMINANZ CAP v2b (per-LF runtime guard, adaptive) ──────
+    // Tighter cap: max( ceil(1.4 / lfCount), 0.18 ) — was static 25%.
+    // For 4 LFs → 35% cap, 8 LFs → 18%, 12+ LFs → 18% (floor).
+    // Hard-blocks any LF from absorbing budget that other LFs need.
     if (isFanOut && p.learning_field_filter && globalTotal > 0) {
       const { count: lfCurrentCount } = await sb.from("exam_questions")
         .select("id", { count: "exact", head: true })
         .eq("curriculum_id", curriculumId)
         .eq("learning_field_id", p.learning_field_filter);
       const lfCurrent = lfCurrentCount ?? 0;
-      const maxPerLf = Math.ceil(Math.max(globalTotal, examTarget) * 0.25);
+      const totalLfs = new Set(bps.map(b => (b as BlueprintInfo).learning_field_id).filter(Boolean)).size;
+      const adaptiveCapPct = totalLfs > 0 ? Math.max(0.18, Math.min(0.35, 1.4 / totalLfs)) : 0.25;
+      const maxPerLf = Math.ceil(Math.max(globalTotal, examTarget) * adaptiveCapPct);
+
+      // ── Phase 2b skip-if-over-target: never overshoot lf_target_total either ──
+      const declaredLfTarget = p.lf_target_total ?? null;
+      if (declaredLfTarget != null && lfCurrent >= declaredLfTarget) {
+        console.log(`[ExamPool-v5] LF_TARGET_REACHED skip: LF ${p.learning_field_filter.slice(0,8)} has ${lfCurrent} >= declared lf_target_total=${declaredLfTarget}. Stopping.`);
+        return json({ ok: true, batch_complete: true, engine: "v5-ihk-quality", lf_target_already_reached: true, lf_count: lfCurrent, lf_target: declaredLfTarget });
+      }
+
       if (lfCurrent >= maxPerLf) {
-        console.log(`[ExamPool-v5] ANTI-DOMINANZ CAP: LF ${p.learning_field_filter.slice(0,8)} has ${lfCurrent}/${globalTotal} (${((lfCurrent/globalTotal)*100).toFixed(1)}%) >= 25% cap (${maxPerLf}). Stopping.`);
-        return json({ ok: true, batch_complete: true, engine: "v5-ihk-quality", anti_dominanz_cap: true, lf_count: lfCurrent, max_per_lf: maxPerLf });
+        console.log(`[ExamPool-v5] ANTI-DOMINANZ CAP v2b: LF ${p.learning_field_filter.slice(0,8)} has ${lfCurrent}/${globalTotal} (${((lfCurrent/globalTotal)*100).toFixed(1)}%) >= ${(adaptiveCapPct*100).toFixed(0)}% cap (${maxPerLf}, lfCount=${totalLfs}). Stopping.`);
+        return json({ ok: true, batch_complete: true, engine: "v5-ihk-quality", anti_dominanz_cap: true, lf_count: lfCurrent, max_per_lf: maxPerLf, cap_pct: adaptiveCapPct, total_lfs: totalLfs });
       }
     }
 
