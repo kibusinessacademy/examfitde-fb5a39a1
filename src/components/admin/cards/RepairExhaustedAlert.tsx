@@ -656,6 +656,9 @@ export function RepairExhaustedAlert() {
             </div>
           )}
 
+          {/* Bulk-Bar */}
+          <BulkResetExhaustionBar selectedIds={Array.from(selectedIds)} onClear={clearSelection} />
+
           {/* Package List */}
           <div className="space-y-2 max-h-[60vh] overflow-y-auto">
             {filteredPackages.map(pkg => (
@@ -664,6 +667,8 @@ export function RepairExhaustedAlert() {
                 pkg={pkg}
                 onRepair={(id, action) => repairMutation.mutate({ packageId: id, action })}
                 busyId={busyId}
+                selected={selectedIds.has(pkg.package_id)}
+                onToggleSelect={toggleSelect}
               />
             ))}
           </div>
