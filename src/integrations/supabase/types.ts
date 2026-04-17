@@ -79000,10 +79000,19 @@ export type Database = {
         Args: { p_code: string; p_note?: string }
         Returns: undefined
       }
-      admin_reset_repair_exhaustion: {
-        Args: { p_package_id: string; p_step_keys?: string[] }
-        Returns: Json
-      }
+      admin_reset_repair_exhaustion:
+        | {
+            Args: { p_package_id: string; p_step_keys?: string[] }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_caller_id?: string
+              p_package_id: string
+              p_step_keys?: string[]
+            }
+            Returns: Json
+          }
       admin_unblock_user: {
         Args: { p_reason?: string; p_user_id: string }
         Returns: undefined
