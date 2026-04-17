@@ -428,7 +428,7 @@ export function GuidedRecoveryModal({ row, open, onClose }: Props) {
                             </Badge>
                           )}
                           {done && (
-                            <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
+                            <CheckCircle2 className="h-3.5 w-3.5 text-success" />
                           )}
                         </div>
                         <p className="mt-1 text-xs text-muted-foreground">
