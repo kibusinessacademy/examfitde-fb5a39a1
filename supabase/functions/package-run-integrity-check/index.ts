@@ -239,7 +239,66 @@ async function runCourseReadyGate(
   // GATE 3: Exam-Pool Mindestverteilung
   // FIX: Use correct DB enum values (easy/medium/hard/very_hard), NOT German translations
   // ═══════════════════════════════════════════════
-  const currFilter = curriculumId ?? courseId;
+  // ── FIX C: Strict curriculum filter — never silently fall back to courseId for exam_questions reads.
+  //    exam_questions are curriculum-keyed; using courseId yields phantom 0-row pools and false HARDISH_TOO_LOW(0.0%).
+  if (!curriculumId) {
+    hardFails.push(`POOL_FILTER: NO_CURRICULUM (cannot evaluate exam_pool_distribution without curriculum_id)`);
+    results.push({
+      gate: "exam_pool_distribution",
+      passed: false,
+      severity: "blocker",
+      detail: `Skipped: NO_CURRICULUM resolved for package ${packageId.slice(0, 8)} — pool distribution checks require a valid curriculum filter`,
+    });
+    // Return early-ish: skip ratio/bloom/cognitive checks downstream by setting an empty pool
+    // and a dedicated reason. We intentionally do NOT continue with hardish/easy ratio logic.
+    return {
+      results,
+      hardFails,
+      warnings,
+      excellence,
+      score: 0,
+      integrityProfile,
+    };
+  }
+
+  // ── FIX B: Defer integrity-check while upstream generation is still active ──
+  //    fn_classify_exam_pool_gate is the canonical SSOT for pool readiness.
+  //    If WAITING_FOR_MATERIALIZATION / UPSTREAM_GENERATION_ACTIVE / RECOVERING → no hard-fail,
+  //    return a non-blocking "deferred" result that the caller marks as pending instead of failed.
+  try {
+    const { data: gateClassification } = await sb.rpc("fn_classify_exam_pool_gate", { p_package_id: packageId });
+    const gateStatus = (gateClassification as any)?.gate_status as string | undefined;
+    const reasonCodes = ((gateClassification as any)?.reason_codes ?? []) as string[];
+    const isUpstreamActive = reasonCodes.includes("UPSTREAM_GENERATION_ACTIVE")
+      || reasonCodes.includes("RECOVERING");
+    const isDeferrable = gateStatus === "WAITING_FOR_MATERIALIZATION" || isUpstreamActive;
+
+    if (isDeferrable) {
+      console.log(
+        `[integrity-check] DEFER pkg=${packageId.slice(0, 8)} gate_status=${gateStatus} reasons=${reasonCodes.join(",")} — pool not yet materialized`,
+      );
+      results.push({
+        gate: "exam_pool_distribution",
+        passed: true, // pass-through, no blocker
+        severity: "warning",
+        detail: `Deferred: ${gateStatus} (${reasonCodes.join(", ") || "upstream still active"}) — integrity check will re-run after materialization`,
+      });
+      warnings.push(`INTEGRITY_DEFERRED: ${gateStatus} — upstream generation still active, ratio checks skipped`);
+      // Return early — no hard-fails, no false HARDISH_TOO_LOW(0.0%)
+      return {
+        results,
+        hardFails,
+        warnings,
+        excellence,
+        score: 0, // caller treats deferred runs as pending, not failed
+        integrityProfile,
+      };
+    }
+  } catch (gateErr) {
+    console.warn(`[integrity-check] fn_classify_exam_pool_gate probe failed: ${(gateErr as Error)?.message} — proceeding with legacy ratio checks`);
+  }
+
+  const currFilter = curriculumId;
   // FIX v2: Paginated full-pool fetch — prevents silent truncation at 1000 rows.
   // The Supabase JS client defaults to LIMIT 1000 when no .range()/.limit() is set.
   // This caused false Publish-Gate failures for large pools (9000+ questions).
@@ -276,23 +335,33 @@ async function runCourseReadyGate(
   };
   const poolTh = POOL_THRESHOLDS[trackEarly] ?? POOL_THRESHOLDS["AUSBILDUNG_VOLL"];
 
-  const poolPassed = totalApproved >= poolTh.minApproved && hardishPct >= poolTh.minHardishPct && easyPct <= poolTh.maxEasyPct;
+  // ── FIX A: Suppress ratio-based reasons when sample size is below minimum ──
+  //    Below minApproved, hardishPct/easyPct are statistically meaningless and produced
+  //    false-positive HARDISH_TOO_LOW(0.0%<X%) signals across the platform.
+  const sampleTooSmall = totalApproved < poolTh.minApproved;
+  const poolPassed = !sampleTooSmall && hardishPct >= poolTh.minHardishPct && easyPct <= poolTh.maxEasyPct;
   results.push({
     gate: "exam_pool_distribution",
     passed: poolPassed,
     severity: "blocker",
-    detail: `${totalApproved} approved (min ${poolTh.minApproved}) | easy=${easyPct.toFixed(1)}% medium=${mediumPct.toFixed(1)}% hard=${hardOnlyPct.toFixed(1)}% very_hard=${veryHardPct.toFixed(1)}% (hardish=${hardishPct.toFixed(1)}%) [track=${trackEarly}]`,
+    detail: `${totalApproved} approved (min ${poolTh.minApproved}) | easy=${easyPct.toFixed(1)}% medium=${mediumPct.toFixed(1)}% hard=${hardOnlyPct.toFixed(1)}% very_hard=${veryHardPct.toFixed(1)}% (hardish=${hardishPct.toFixed(1)}%) [track=${trackEarly}]${sampleTooSmall ? " — ratio checks suppressed (sample < min)" : ""}`,
   });
   if (!poolPassed) {
     const reasons: string[] = [];
-    if (totalApproved < poolTh.minApproved) reasons.push(`TOO_FEW_APPROVED(${totalApproved}/${poolTh.minApproved})`);
-    if (hardishPct < poolTh.minHardishPct) reasons.push(`HARDISH_TOO_LOW(${hardishPct.toFixed(1)}%<${poolTh.minHardishPct}%)`);
-    if (easyPct > poolTh.maxEasyPct) reasons.push(`EASY_TOO_HIGH(${easyPct.toFixed(1)}%>${poolTh.maxEasyPct}%)`);
+    if (sampleTooSmall) {
+      // Only report TOO_FEW_APPROVED — skip ratio-based reasons entirely
+      reasons.push(`TOO_FEW_APPROVED(${totalApproved}/${poolTh.minApproved})`);
+    } else {
+      // Sample is large enough → ratio checks are meaningful
+      if (hardishPct < poolTh.minHardishPct) reasons.push(`HARDISH_TOO_LOW(${hardishPct.toFixed(1)}%<${poolTh.minHardishPct}%)`);
+      if (easyPct > poolTh.maxEasyPct) reasons.push(`EASY_TOO_HIGH(${easyPct.toFixed(1)}%>${poolTh.maxEasyPct}%)`);
+    }
     hardFails.push(`EXAM_POOL: ${reasons.join(", ")}`);
   }
 
   // Warning: hardish < 45% but >= 40% (approaching but not at SSOT target)
-  if (hardishPct < 45 && hardishPct >= 40) {
+  // Only emit when sample size is statistically meaningful.
+  if (!sampleTooSmall && hardishPct < 45 && hardishPct >= 40) {
     warnings.push(`HARDISH_BELOW_TARGET: ${hardishPct.toFixed(1)}% (SSOT target ≥45%)`);
     results.push({ gate: "exam_hardish_target", passed: false, severity: "warning", detail: `hardish=${hardishPct.toFixed(1)}% (SSOT target ≥45%)` });
   }
