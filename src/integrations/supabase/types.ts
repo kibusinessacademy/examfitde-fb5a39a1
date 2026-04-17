@@ -77633,6 +77633,22 @@ export type Database = {
         }
         Relationships: []
       }
+      v_runner_cycle_diagnostics: {
+        Row: {
+          claimable_now: number | null
+          claimed_5m: number | null
+          done_5m: number | null
+          failed_5m: number | null
+          job_type: string | null
+          max_priority: number | null
+          oldest_pending: string | null
+          oldest_pending_age_sec: number | null
+          pending: number | null
+          processing: number | null
+          routed_to_worker: string | null
+        }
+        Relationships: []
+      }
       v_runner_health_latest: {
         Row: {
           claim_rate: number | null
