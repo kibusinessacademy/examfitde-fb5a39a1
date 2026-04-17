@@ -77652,6 +77652,20 @@ export type Database = {
         }
         Relationships: []
       }
+      v_runner_idle_anomaly: {
+        Row: {
+          anomaly_class: string | null
+          heartbeats: number | null
+          pending_jobs: number | null
+          processing_jobs: number | null
+          runner_name: string | null
+          seconds_since_last_heartbeat: number | null
+          total_claimed: number | null
+          total_failed: number | null
+          total_succeeded: number | null
+        }
+        Relationships: []
+      }
       v_runner_tick_overflow_alerts: {
         Row: {
           alert_level: string | null
@@ -79042,6 +79056,7 @@ export type Database = {
       auto_heal_shallow_content: { Args: never; Returns: Json }
       auto_link_certification_documents: { Args: never; Returns: number }
       auto_ops_cycle: { Args: never; Returns: Json }
+      auto_promote_status_drift: { Args: { p_limit?: number }; Returns: Json }
       auto_provision_all_curricula: { Args: never; Returns: Json }
       auto_rebind_missing_triggers: {
         Args: { dry_run?: boolean }
@@ -79062,6 +79077,10 @@ export type Database = {
             }
             Returns: Json
           }
+      auto_resume_blocked_with_progress: {
+        Args: { p_limit?: number }
+        Returns: Json
+      }
       auto_retry_stuck_package: {
         Args: { p_package_id: string }
         Returns: number
