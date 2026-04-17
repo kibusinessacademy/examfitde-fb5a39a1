@@ -113,8 +113,15 @@ export function AdminAutoHealQueue() {
       await updateAdminAutoHealStatus({ queueId: vars.queueId, status: "done" });
       await invalidateAll();
     },
-    onError: (err: Error) =>
-      toast.error("Heal fehlgeschlagen", { description: err.message }),
+    onError: (err: Error & { ssotBlocked?: boolean }) => {
+      if (err.ssotBlocked) {
+        toast.warning("Aktion für diesen Track nicht zulässig", {
+          description: err.message,
+        });
+        return;
+      }
+      toast.error("Heal fehlgeschlagen", { description: err.message });
+    },
   });
 
   const bulkMutation = useMutation({

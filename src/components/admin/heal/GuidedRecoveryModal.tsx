@@ -45,6 +45,17 @@ import {
   Wrench,
 } from "lucide-react";
 import type { HealWorklistRow } from "./types";
+import { useTrackApplicability } from "./useTrackApplicability";
+
+/** Mapping Repair-Option → SSOT-Step (für Track-Applicability-Check). */
+const REPAIR_TO_STEP: Record<string, string> = {
+  repair_exam_pool_quality: "repair_exam_pool_quality",
+  repair_lessons: "generate_learning_content",
+  repair_handbook: "generate_handbook",
+  repair_minichecks: "generate_lesson_minichecks",
+  repair_oral_exam: "generate_oral_exam",
+  reconcile_pipeline_tail: "build_ai_tutor_index",
+};
 
 type RepairKey =
   | "repair_exam_pool_quality"
@@ -185,6 +196,7 @@ export function GuidedRecoveryModal({ row, open, onClose }: Props) {
   const qc = useQueryClient();
   const [resetDone, setResetDone] = useState(false);
   const [repairsDone, setRepairsDone] = useState<Set<RepairKey>>(new Set());
+  const { isApplicable } = useTrackApplicability();
 
   const options = useMemo(
     () => (row ? buildRepairOptions(row) : []),
@@ -231,7 +243,15 @@ export function GuidedRecoveryModal({ row, open, onClose }: Props) {
       });
       invalidate();
     },
-    onError: (err: Error) => {
+    onError: (err: Error & { ssotBlocked?: boolean }) => {
+      // Track-Applicability Block: freundlicher Hinweis statt rotem Error-Toast.
+      if (err.ssotBlocked) {
+        toast({
+          title: "Repair für diesen Track nicht zulässig",
+          description: err.message,
+        });
+        return;
+      }
       toast({
         title: "Repair fehlgeschlagen",
         description: err.message,
@@ -405,27 +425,42 @@ export function GuidedRecoveryModal({ row, open, onClose }: Props) {
                 const done = repairsDone.has(opt.key);
                 const pending =
                   repairMut.isPending && repairMut.variables?.key === opt.key;
+                const mappedStep = REPAIR_TO_STEP[opt.key];
+                const trackOk = mappedStep
+                  ? isApplicable(row.track ?? null, mappedStep)
+                  : true;
+                const trackLabel = row.track ?? "unbekannt";
                 return (
                   <div
                     key={opt.key}
                     className={`rounded-md border p-3 ${
-                      opt.recommended
-                        ? "border-primary/40 bg-primary/5"
-                        : "border-border"
+                      !trackOk
+                        ? "border-muted bg-muted/20 opacity-60"
+                        : opt.recommended
+                          ? "border-primary/40 bg-primary/5"
+                          : "border-border"
                     }`}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-sm font-medium">
                             {opt.label}
                           </span>
-                          {opt.recommended && (
+                          {opt.recommended && trackOk && (
                             <Badge
                               variant="secondary"
                               className="text-[10px]"
                             >
                               empfohlen
+                            </Badge>
+                          )}
+                          {!trackOk && (
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] border-muted-foreground/40 text-muted-foreground"
+                            >
+                              nicht für Track {trackLabel}
                             </Badge>
                           )}
                           {done && (
@@ -435,7 +470,14 @@ export function GuidedRecoveryModal({ row, open, onClose }: Props) {
                         <p className="mt-1 text-xs text-muted-foreground">
                           {opt.description}
                         </p>
-                        {opt.reasons.length > 0 && (
+                        {!trackOk && (
+                          <p className="mt-1 text-[11px] text-muted-foreground italic">
+                            Step <code>{mappedStep}</code> ist für Track{" "}
+                            <strong>{trackLabel}</strong> per SSOT nicht aktiv —
+                            Repair würde abgewiesen.
+                          </p>
+                        )}
+                        {trackOk && opt.reasons.length > 0 && (
                           <div className="mt-1.5 flex flex-wrap gap-1">
                             {opt.reasons.map((r) => (
                               <span
@@ -450,10 +492,17 @@ export function GuidedRecoveryModal({ row, open, onClose }: Props) {
                       </div>
                       <Button
                         size="sm"
-                        variant={done ? "outline" : opt.recommended ? "default" : "outline"}
-                        disabled={pending || done || repairMut.isPending}
+                        variant={done ? "outline" : opt.recommended && trackOk ? "default" : "outline"}
+                        disabled={
+                          pending || done || repairMut.isPending || !trackOk
+                        }
                         onClick={() => repairMut.mutate(opt)}
                         className="gap-1.5 shrink-0"
+                        title={
+                          !trackOk
+                            ? `Nicht zulässig für Track ${trackLabel}`
+                            : undefined
+                        }
                       >
                         {pending ? (
                           <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -462,7 +511,7 @@ export function GuidedRecoveryModal({ row, open, onClose }: Props) {
                         ) : (
                           <Wrench className="h-3.5 w-3.5" />
                         )}
-                        {done ? "Gestartet" : "Reparieren"}
+                        {done ? "Gestartet" : !trackOk ? "Gesperrt" : "Reparieren"}
                       </Button>
                     </div>
                   </div>

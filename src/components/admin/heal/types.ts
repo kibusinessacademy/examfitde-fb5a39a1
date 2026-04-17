@@ -44,6 +44,8 @@ export interface HealWorklistRow {
   actionability_class: ActionabilityClass;
   recommended_action_reasons: string[];
   urgency_score: number;
+  /** Track-Code des Pakets (AUSBILDUNG_VOLL | EXAM_FIRST | EXAM_FIRST_PLUS | STUDIUM). Optional — wird per Join nachgeladen. */
+  track?: string | null;
 }
 
 export interface MorningBriefing {

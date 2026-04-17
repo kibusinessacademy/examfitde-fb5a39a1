@@ -63,6 +63,22 @@ export async function getHealWorklist(
     open_jobs_by_type: row.open_jobs_by_type ?? {},
   }));
 
+  // Reichere mit Track-Code an (für Track-aware UI-Filterung in GuidedRecoveryModal).
+  // Einzelner Bulk-Lookup statt N+1.
+  const pkgIds = rows.map((r) => r.package_id).filter(Boolean);
+  if (pkgIds.length > 0) {
+    const { data: pkgs } = await supabase
+      .from("course_packages")
+      .select("id, track")
+      .in("id", pkgIds);
+    if (pkgs) {
+      const trackById = new Map<string, string | null>(
+        (pkgs as Array<{ id: string; track: string | null }>).map((p) => [p.id, p.track]),
+      );
+      rows = rows.map((r) => ({ ...r, track: trackById.get(r.package_id) ?? null }));
+    }
+  }
+
   if (filters.search?.trim()) {
     const needle = filters.search.trim().toLowerCase();
     rows = rows.filter((r) =>
