@@ -87,7 +87,12 @@ export async function runAdminOpsAction(
     const message = 'error' in data && typeof data.error === 'string'
       ? data.error
       : `Admin action failed: ${action}`;
-    throw new Error(message);
+    const err = new Error(message) as Error & { ssotBlocked?: boolean };
+    // Markiere Track-Applicability-Blocks für freundliche UI-Behandlung.
+    if (data && typeof data === 'object' && 'ssot_blocked' in data && data.ssot_blocked === true) {
+      err.ssotBlocked = true;
+    }
+    throw err;
   }
   return data;
 }

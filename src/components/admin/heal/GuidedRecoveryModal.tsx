@@ -45,6 +45,17 @@ import {
   Wrench,
 } from "lucide-react";
 import type { HealWorklistRow } from "./types";
+import { useTrackApplicability } from "./useTrackApplicability";
+
+/** Mapping Repair-Option → SSOT-Step (für Track-Applicability-Check). */
+const REPAIR_TO_STEP: Record<string, string> = {
+  repair_exam_pool_quality: "repair_exam_pool_quality",
+  repair_lessons: "generate_learning_content",
+  repair_handbook: "generate_handbook",
+  repair_minichecks: "generate_lesson_minichecks",
+  repair_oral_exam: "generate_oral_exam",
+  reconcile_pipeline_tail: "build_ai_tutor_index",
+};
 
 type RepairKey =
   | "repair_exam_pool_quality"
