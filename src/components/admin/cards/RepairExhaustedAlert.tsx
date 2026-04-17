@@ -237,22 +237,24 @@ function ExhaustedPackageRow({ pkg, onRepair, busyId, selected, onToggleSelect }
             aria-label="Paket auswählen"
           />
           <div className="min-w-0 flex-1">
-          <Link
-            to={`/admin/studio/${pkg.package_id}`}
-            className="text-sm font-semibold text-foreground hover:text-primary transition-colors flex items-center gap-1"
-          >
-            {pkg.title}
-            <ArrowRight className="h-3 w-3 shrink-0" />
-          </Link>
-          <div className="text-[10px] text-muted-foreground font-mono mt-0.5">
-            {pkg.package_id.slice(0, 8)} · {pkg.build_progress}% · {pkg.status}
-            {pkg.consecutive_no_progress > 0 && ` · ${pkg.consecutive_no_progress}× stalled`}
+            <Link
+              to={`/admin/studio/${pkg.package_id}`}
+              className="text-sm font-semibold text-foreground hover:text-primary transition-colors flex items-center gap-1"
+            >
+              {pkg.title}
+              <ArrowRight className="h-3 w-3 shrink-0" />
+            </Link>
+            <div className="text-[10px] text-muted-foreground font-mono mt-0.5">
+              {pkg.package_id.slice(0, 8)} · {pkg.build_progress}% · {pkg.status}
+              {pkg.consecutive_no_progress > 0 && ` · ${pkg.consecutive_no_progress}× stalled`}
+            </div>
           </div>
         </div>
         <Badge variant="destructive" className="text-[10px] shrink-0">
           Exhausted
         </Badge>
       </div>
+
 
       {/* GATE_PASS indicator */}
       {pkg.gate_class === 'PASS' && (
