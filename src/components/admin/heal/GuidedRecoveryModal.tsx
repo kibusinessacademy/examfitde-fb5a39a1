@@ -425,27 +425,42 @@ export function GuidedRecoveryModal({ row, open, onClose }: Props) {
                 const done = repairsDone.has(opt.key);
                 const pending =
                   repairMut.isPending && repairMut.variables?.key === opt.key;
+                const mappedStep = REPAIR_TO_STEP[opt.key];
+                const trackOk = mappedStep
+                  ? isApplicable(row.track ?? null, mappedStep)
+                  : true;
+                const trackLabel = row.track ?? "unbekannt";
                 return (
                   <div
                     key={opt.key}
                     className={`rounded-md border p-3 ${
-                      opt.recommended
-                        ? "border-primary/40 bg-primary/5"
-                        : "border-border"
+                      !trackOk
+                        ? "border-muted bg-muted/20 opacity-60"
+                        : opt.recommended
+                          ? "border-primary/40 bg-primary/5"
+                          : "border-border"
                     }`}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-sm font-medium">
                             {opt.label}
                           </span>
-                          {opt.recommended && (
+                          {opt.recommended && trackOk && (
                             <Badge
                               variant="secondary"
                               className="text-[10px]"
                             >
                               empfohlen
+                            </Badge>
+                          )}
+                          {!trackOk && (
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] border-muted-foreground/40 text-muted-foreground"
+                            >
+                              nicht für Track {trackLabel}
                             </Badge>
                           )}
                           {done && (
@@ -455,7 +470,14 @@ export function GuidedRecoveryModal({ row, open, onClose }: Props) {
                         <p className="mt-1 text-xs text-muted-foreground">
                           {opt.description}
                         </p>
-                        {opt.reasons.length > 0 && (
+                        {!trackOk && (
+                          <p className="mt-1 text-[11px] text-muted-foreground italic">
+                            Step <code>{mappedStep}</code> ist für Track{" "}
+                            <strong>{trackLabel}</strong> per SSOT nicht aktiv —
+                            Repair würde abgewiesen.
+                          </p>
+                        )}
+                        {trackOk && opt.reasons.length > 0 && (
                           <div className="mt-1.5 flex flex-wrap gap-1">
                             {opt.reasons.map((r) => (
                               <span
@@ -470,10 +492,17 @@ export function GuidedRecoveryModal({ row, open, onClose }: Props) {
                       </div>
                       <Button
                         size="sm"
-                        variant={done ? "outline" : opt.recommended ? "default" : "outline"}
-                        disabled={pending || done || repairMut.isPending}
+                        variant={done ? "outline" : opt.recommended && trackOk ? "default" : "outline"}
+                        disabled={
+                          pending || done || repairMut.isPending || !trackOk
+                        }
                         onClick={() => repairMut.mutate(opt)}
                         className="gap-1.5 shrink-0"
+                        title={
+                          !trackOk
+                            ? `Nicht zulässig für Track ${trackLabel}`
+                            : undefined
+                        }
                       >
                         {pending ? (
                           <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -482,7 +511,7 @@ export function GuidedRecoveryModal({ row, open, onClose }: Props) {
                         ) : (
                           <Wrench className="h-3.5 w-3.5" />
                         )}
-                        {done ? "Gestartet" : "Reparieren"}
+                        {done ? "Gestartet" : !trackOk ? "Gesperrt" : "Reparieren"}
                       </Button>
                     </div>
                   </div>
