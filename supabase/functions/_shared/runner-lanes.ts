@@ -108,6 +108,13 @@ const GENERATION_JOB_TYPES_LANE = new Set([
   "upgrade_ihk",
   // Curriculum smoke
   "curriculum_smoke",
+  // Pool-Fill (Heal/Backfill) — LLM-Generierung von fehlenden Bloom-Tax-Fragen
+  "pool_fill_bloom_gaps",
+  "pool_fill_competency_gaps",
+  "pool_fill_lf_gaps",
+  // Lesson Backfill
+  "lesson_generate_competency_bundle",
+  "lesson_generate_content",
 ]);
 
 /**
