@@ -476,6 +476,16 @@ export function RepairExhaustedAlert() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
   const [collapsed, setCollapsed] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+  const clearSelection = () => setSelectedIds(new Set());
 
   // Compute available categories
   const categoryStats = useMemo(() => {
