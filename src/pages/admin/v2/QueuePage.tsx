@@ -157,7 +157,6 @@ function JobRow({ job, onAction, actionPending }: {
           )}
 
           <div className="flex flex-wrap gap-2 pt-1">
-            {/* Force Run — always available for pending/processing jobs */}
             {(job.job_status === 'pending' || job.job_status === 'processing') && (
               <Button size="sm" variant="outline" disabled={actionPending}
                 className="text-xs h-8 border-primary/30 text-primary hover:bg-primary/10"
@@ -208,10 +207,8 @@ export default function QueuePage() {
   const { toast } = useToast();
   const qc = useQueryClient();
 
-  // Server-side counts — always accurate
   const { data: counts } = useAdminQueueCounts();
-  // Jobs list — filtered by status to avoid truncation
-  const { data: jobs, isLoading, error } = useAdminQueueSSOT(statusFilter);
+  const { data: jobs, isLoading, error } = useAdminQueueSSOT(statusFilter, search);
 
   const actionMutation = useMutation({
     mutationFn: async ({ jobId, action }: { jobId: string; action: string }) => {
@@ -271,18 +268,7 @@ export default function QueuePage() {
     },
   });
 
-  // Client-side search filter on already status-filtered jobs
-  const filtered = useMemo(() => {
-    if (!jobs) return [];
-    if (!search.trim()) return jobs;
-    const q = search.toLowerCase();
-    return jobs.filter(j =>
-      j.job_type.toLowerCase().includes(q) ||
-      j.job_id.toLowerCase().includes(q) ||
-      (j.package_title || '').toLowerCase().includes(q) ||
-      (j.last_error || '').toLowerCase().includes(q)
-    );
-  }, [jobs, search]);
+  const filtered = useMemo(() => jobs ?? [], [jobs]);
 
   // Zombies/exhausted from loaded jobs
   const zombieCount = useMemo(() => jobs?.filter(j => j.health_signal === 'zombie').length ?? 0, [jobs]);
