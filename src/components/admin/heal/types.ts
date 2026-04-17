@@ -8,6 +8,7 @@ export type RecommendedAction =
   | "guided_recovery"
   | "mark_content_gap"
   | "force_publish"
+  | "needs_repair_dispatch"
   | "bulk_reconcile"
   | "awaiting_pipeline"
   | "monitor"
