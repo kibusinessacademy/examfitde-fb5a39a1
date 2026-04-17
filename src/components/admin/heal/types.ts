@@ -9,6 +9,7 @@ export type RecommendedAction =
   | "mark_content_gap"
   | "force_publish"
   | "bulk_reconcile"
+  | "awaiting_pipeline"
   | "monitor"
   | "manual_review";
 
@@ -86,6 +87,7 @@ export const ACTION_LABEL: Record<RecommendedAction, string> = {
   mark_content_gap: "Content-Gap markieren",
   force_publish: "Force Publish",
   bulk_reconcile: "Reconcile Artefakte",
+  awaiting_pipeline: "Awaiting Pipeline",
   monitor: "Monitoring",
   manual_review: "Manual Review",
 };
@@ -96,6 +98,7 @@ export const ACTION_DESCRIPTION: Record<RecommendedAction, string> = {
   mark_content_gap: "Wiederholte Repair-Fehlschläge — als Content-Lücke markieren",
   force_publish: "Release-OK & nicht published — direkt veröffentlichen",
   bulk_reconcile: "Release-Warn ohne aktive Jobs — Artefakt-Abgleich",
+  awaiting_pipeline: "Frisches blockiertes Paket ohne gestartete Jobs — zunächst beobachten",
   monitor: "Aktive Verarbeitung läuft — beobachten",
   manual_review: "Kein klares Aktions-Signal — manuelle Sichtung",
 };
