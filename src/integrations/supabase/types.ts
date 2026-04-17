@@ -70703,99 +70703,27 @@ export type Database = {
           actionability_class: string | null
           active_reconcile_jobs: number | null
           active_repair_jobs: number | null
-          approved_questions: number | null
           blocked_reason: string | null
-          covered_learning_fields: number | null
-          curriculum_id: string | null
           deficiency_codes: string[] | null
           exhausted_steps: number | null
           failed_jobs_24h: number | null
-          failed_steps: number | null
-          hard_stall_count_total: number | null
-          hard_stalled_steps: number | null
-          integrity_runs_total: number | null
+          hard_stall_steps: number | null
           is_published: boolean | null
-          last_heal_action: string | null
-          last_heal_action_at: string | null
-          last_integrity_run_at: string | null
           last_processing_at: string | null
-          last_progress_at: string | null
-          no_progress_blocked_recent: boolean | null
           open_jobs_by_type: Json | null
           package_id: string | null
           package_status: string | null
+          package_title: string | null
           package_updated_at: string | null
           pending_jobs: number | null
           processing_jobs: number | null
-          published_at: string | null
-          recent_integrity_scores: Json | null
           recommended_action: string | null
           recommended_action_reasons: string[] | null
           release_class: string | null
-          retry_count: number | null
-          stuck_reason: string | null
-          title: string | null
-          total_learning_fields: number | null
+          repair_attempts: number | null
           urgency_score: number | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "course_packages_curriculum_id_fkey"
-            columns: ["curriculum_id"]
-            isOneToOne: false
-            referencedRelation: "curricula"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "course_packages_curriculum_id_fkey"
-            columns: ["curriculum_id"]
-            isOneToOne: false
-            referencedRelation: "elite_readiness_per_curriculum"
-            referencedColumns: ["curriculum_id"]
-          },
-          {
-            foreignKeyName: "course_packages_curriculum_id_fkey"
-            columns: ["curriculum_id"]
-            isOneToOne: false
-            referencedRelation: "ops_curriculum_quality_dashboard"
-            referencedColumns: ["curriculum_id"]
-          },
-          {
-            foreignKeyName: "course_packages_curriculum_id_fkey"
-            columns: ["curriculum_id"]
-            isOneToOne: false
-            referencedRelation: "ops_curriculum_quality_dashboard_mv"
-            referencedColumns: ["curriculum_id"]
-          },
-          {
-            foreignKeyName: "course_packages_curriculum_id_fkey"
-            columns: ["curriculum_id"]
-            isOneToOne: false
-            referencedRelation: "v_ops_qc_backlog"
-            referencedColumns: ["curriculum_id"]
-          },
-          {
-            foreignKeyName: "course_packages_curriculum_id_fkey"
-            columns: ["curriculum_id"]
-            isOneToOne: false
-            referencedRelation: "v_ops_qc_backlog_age"
-            referencedColumns: ["curriculum_id"]
-          },
-          {
-            foreignKeyName: "course_packages_curriculum_id_fkey"
-            columns: ["curriculum_id"]
-            isOneToOne: false
-            referencedRelation: "v_ops_qc_promotion_funnel"
-            referencedColumns: ["curriculum_id"]
-          },
-          {
-            foreignKeyName: "course_packages_curriculum_id_fkey"
-            columns: ["curriculum_id"]
-            isOneToOne: false
-            referencedRelation: "v_orphan_blueprint_audit"
-            referencedColumns: ["curriculum_id"]
-          },
-        ]
+        Relationships: []
       }
       v_admin_humor_qc: {
         Row: {
@@ -70817,12 +70745,13 @@ export type Database = {
         Row: {
           critical_actions_pending: number | null
           failed_jobs_24h: number | null
-          healed_24h: number | null
-          newly_blocked_24h: number | null
-          newly_published_24h: number | null
-          no_progress_blocks_24h: number | null
+          healed_count: number | null
+          newly_blocked_count: number | null
+          newly_published_count: number | null
           publish_ready_count: number | null
+          quality_no_progress_blocks: number | null
           wip_active: number | null
+          wip_capacity: number | null
         }
         Relationships: []
       }
@@ -79441,7 +79370,7 @@ export type Database = {
             Returns: Json
           }
       admin_smart_heal_bulk: {
-        Args: { p_caller_id?: string; p_package_ids: string[] }
+        Args: { _action?: string; _package_ids: string[] }
         Returns: Json
       }
       admin_unblock_user: {
