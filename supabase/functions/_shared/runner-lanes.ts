@@ -91,6 +91,15 @@ const GENERATION_JOB_TYPES_LANE = new Set([
   "package_generate_glossary",              // P2 FIX: was missing
   "package_fanout_learning_content",        // P2 FIX: was missing
   "package_generate_learning_content",      // P2 FIX: was missing
+  // Pool-Fill (LLM-driven gap repair) — added 2026-04-17
+  "pool_fill_bloom_gaps",
+  "pool_fill_competency_gaps",
+  "pool_fill_lf_gaps",
+  // Lesson generation (all variants) — added 2026-04-17
+  "lesson_generate_content",
+  "lesson_generate_competency_bundle",
+  // Blueprint variant generation (LLM) — added 2026-04-17
+  "blueprint_generate_variants",
   // Root dispatchers
   "generate_course",
   "extract_curriculum",
