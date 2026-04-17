@@ -1290,8 +1290,41 @@ Deno.serve(async (req) => {
 
     // ── Depublish protection: published packages get report+notify only ──
     // Re-fetch to get current status (may have changed since handler start)
-    const { data: cpStatus } = await sb.from("course_packages").select("published_at, status").eq("id", packageId).maybeSingle();
+    const { data: cpStatus } = await sb.from("course_packages").select("published_at, status, curriculum_id").eq("id", packageId).maybeSingle();
     const isAlreadyPublished = Boolean((cpStatus as any)?.published_at) || (cpStatus as any)?.status === "published";
+
+    // ── NO-PROGRESS GUARD (Option A) ──
+    // Records every integrity run in integrity_check_history.
+    // If 3 consecutive FAILED runs show no score improvement (range <3 points),
+    // package is auto-blocked with reason="quality_no_progress_3x" and pending
+    // repair/integrity jobs are cancelled to break the retry storm.
+    let noProgressBlocked = false;
+    try {
+      const { data: progressResult, error: progressErr } = await sb.rpc(
+        "fn_record_integrity_run_and_check_progress",
+        {
+          p_package_id: packageId,
+          p_curriculum_id: (cpStatus as any)?.curriculum_id ?? null,
+          p_score: gate.score,
+          p_passed: gate.hardFails.length === 0,
+          p_hard_fails: gate.hardFails,
+          p_trigger_source: "package_run_integrity_check",
+          p_job_id: null,
+          p_min_improvement: 3,
+          p_window: 3,
+        },
+      );
+      if (progressErr) {
+        console.warn(`[integrity-check] no-progress-guard RPC error: ${progressErr.message}`);
+      } else if (progressResult && (progressResult as any).no_progress_block === true) {
+        noProgressBlocked = true;
+        console.log(
+          `[integrity-check] pkg=${packageId.slice(0, 8)} NO_PROGRESS_BLOCK triggered — scores=${JSON.stringify((progressResult as any).recent_scores)}, range=${(progressResult as any).score_range}`,
+        );
+      }
+    } catch (gErr) {
+      console.warn(`[integrity-check] no-progress-guard threw: ${(gErr as Error).message}`);
+    }
 
     const updatePayload: Record<string, unknown> = {
       integrity_report: report,
@@ -1300,6 +1333,26 @@ Deno.serve(async (req) => {
       integrity_passed: gate.hardFails.length === 0,
       // build_progress is SSOT-derived from package_steps — no manual write
     };
+
+    // If no-progress-guard already set status=blocked + cancelled jobs,
+    // skip the entire downstream gate-classification path.
+    if (noProgressBlocked) {
+      updatePayload.status = "blocked";
+      (updatePayload as any).blocked_reason = "quality_no_progress_3x";
+      (updatePayload as any).gate_class = "terminal";
+      const { error: uErrNP } = await sb.from("course_packages").update(updatePayload).eq("id", packageId);
+      if (uErrNP) {
+        console.error(`[integrity-check] no-progress block update failed: ${uErrNP.message}`);
+      }
+      return json({
+        ok: true,
+        package_id: packageId,
+        score: gate.score,
+        passed: false,
+        no_progress_blocked: true,
+        message: "Package blocked due to no integrity progress across 3 runs. Manual review required.",
+      });
+    }
 
     // ── Runtime Policy Violation Guard (EXAM_FIRST) ──
     // Detects if Full-Track thresholds leaked into EXAM_FIRST evaluation
