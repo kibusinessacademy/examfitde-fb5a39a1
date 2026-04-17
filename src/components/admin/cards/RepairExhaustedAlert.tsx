@@ -453,6 +453,16 @@ function ExhaustedPackageRow({ pkg, onRepair, busyId, selected, onToggleSelect }
           </Button>
         )}
       </div>
+
+      {/* v8 Repair Toolbox */}
+      <div className="pt-1 border-t border-destructive/20">
+        <RepairToolboxActions
+          packageId={pkg.package_id}
+          packageTitle={pkg.title}
+          size="sm"
+          variant="inline"
+        />
+      </div>
     </div>
   );
 }
