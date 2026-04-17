@@ -261,7 +261,14 @@ Deno.serve(async (req) => {
 
   // ── DISPATCH: targeted fan-out per deficit LF ──
   const dispatched: Array<{ lf_code: string; deficit: number; lf_target_total: number; job_id: string }> = [];
+  const skippedLfs: Array<{ lf_code: string; reason: string }> = [];
   for (const d of deficits) {
+    // Per-LF dedup: skip if this exact LF already has an active repair fan-out
+    if (activeLfSet.has(d.learning_field_id)) {
+      console.log(`[lf-cov-repair] per-lf dedup: lf=${d.lf_code} already has active fan-out, skipping`);
+      skippedLfs.push({ lf_code: d.lf_code, reason: "active_fanout_for_lf" });
+      continue;
+    }
     try {
       const result = await enqueueJob(sb, {
         job_type: "package_generate_exam_pool",
@@ -286,17 +293,20 @@ Deno.serve(async (req) => {
         lf_target_total: d.target_count,
         job_id: (result as { id: string }).id,
       });
+      // Track newly enqueued LF so subsequent iterations can't double-enqueue
+      activeLfSet.add(d.learning_field_id);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       console.warn(`[lf-cov-repair] enqueue failed for lf=${d.lf_code}: ${msg}`);
+      skippedLfs.push({ lf_code: d.lf_code, reason: `enqueue_failed: ${msg}` });
     }
   }
 
   if (dispatched.length === 0) {
     await markBlocked(sb, packageId, "no_jobs_dispatched", {
-      deficits_count: deficits.length, target_per_lf: targetPerLf,
+      deficits_count: deficits.length, target_per_lf: targetPerLf, skipped_lfs: skippedLfs,
     });
-    return json({ status: "blocked", reason: "no_jobs_dispatched" });
+    return json({ status: "blocked", reason: "no_jobs_dispatched", skipped_lfs: skippedLfs });
   }
 
   // ── Heartbeat / progress meta ──
