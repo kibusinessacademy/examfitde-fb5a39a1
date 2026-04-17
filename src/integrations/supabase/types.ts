@@ -77633,6 +77633,22 @@ export type Database = {
         }
         Relationships: []
       }
+      v_runner_cycle_diagnostics: {
+        Row: {
+          claimable_now: number | null
+          claimed_5m: number | null
+          done_5m: number | null
+          failed_5m: number | null
+          job_type: string | null
+          max_priority: number | null
+          oldest_pending: string | null
+          oldest_pending_age_sec: number | null
+          pending: number | null
+          processing: number | null
+          routed_to_worker: string | null
+        }
+        Relationships: []
+      }
       v_runner_health_latest: {
         Row: {
           claim_rate: number | null
@@ -80711,6 +80727,17 @@ export type Database = {
         Args: { p_curriculum_id: string }
         Returns: Json
       }
+      fn_compute_package_coverage: {
+        Args: { p_package_id: string }
+        Returns: {
+          comp_total: number
+          comp_with_lesson: number
+          comp_with_question: number
+          competency_question_coverage_pct: number
+          lesson_coverage_pct: number
+          track: string
+        }[]
+      }
       fn_compute_seo_discovery_hash: {
         Args: {
           p_canonical_url: string
@@ -81415,6 +81442,13 @@ export type Database = {
           detail: Json
           passed: boolean
           test_name: string
+        }[]
+      }
+      fn_track_min_coverage_thresholds: {
+        Args: { p_track: string }
+        Returns: {
+          min_competency_question_coverage_pct: number
+          min_lesson_coverage_pct: number
         }[]
       }
       fn_update_package_prebuild_status: {
