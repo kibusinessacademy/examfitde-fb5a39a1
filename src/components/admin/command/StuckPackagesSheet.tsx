@@ -310,6 +310,12 @@ function StuckPackageItem({ pkg, onHeal, busy }: {
           );
         })}
       </div>
+
+      {/* v8 Repair Toolbox: Reset Exhaustion / content_gap / Hard Rebuild */}
+      <div className="pt-2 border-t border-border">
+        <div className="text-[10px] font-semibold text-muted-foreground mb-1.5">Heavy-Duty Reparatur</div>
+        <RepairToolboxActions packageId={pkg.id} packageTitle={pkg.title} size="sm" variant="inline" />
+      </div>
     </div>
   );
 }
