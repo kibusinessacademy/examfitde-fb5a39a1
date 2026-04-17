@@ -81518,6 +81518,17 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      fn_get_lf_coverage_deficit: {
+        Args: { p_package_id: string; p_target_per_lf?: number }
+        Returns: {
+          current_count: number
+          deficit: number
+          learning_field_id: string
+          lf_code: string
+          lf_title: string
+          target_count: number
+        }[]
+      }
       fn_get_next_revenue_action: {
         Args: { p_curriculum_id?: string; p_user_id: string }
         Returns: Json
