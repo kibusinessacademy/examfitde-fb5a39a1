@@ -46,12 +46,19 @@ type AdminOpsAction =
   | 'reconcile_pipeline_tail'
   | 'mark_content_gap'
   | 'bulk_heal_by_class'
-  | 'zombie_sweep';
+  | 'zombie_sweep'
+  // v8.0 Repair-Marker, Reset-Exhaustion, Hard-Rebuild
+  | 'mark_repair'
+  | 'unmark_repair'
+  | 'reset_repair_exhaustion'
+  | 'hard_depublish_and_rebuild'
+  | 'bulk_reset_repair_exhaustion';
 
 export interface ScopedPayload {
   limit?: number;
   package_id?: string;
   step_key?: string;
+  step_keys?: string[];
   provider?: string;
   job_ids?: string[];
   job_type?: string;
