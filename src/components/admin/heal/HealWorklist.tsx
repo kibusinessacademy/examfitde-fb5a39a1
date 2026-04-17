@@ -74,6 +74,7 @@ export function HealWorklist() {
   });
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [openId, setOpenId] = useState<string | null>(null);
+  const [guidedId, setGuidedId] = useState<string | null>(null);
   const { toast } = useToast();
   const { data, isLoading, error } = useHealWorklist(filters);
   const bulk = useSmartHealBulk();
