@@ -917,6 +917,73 @@ Deno.serve(async (req) => {
         break;
       }
 
+      // ── v8 Heal Actions: Repair-Marker, Reset-Exhaustion, Hard-Rebuild ──
+      case "mark_repair":
+      case "unmark_repair": {
+        const pid = String(body.package_id || "");
+        if (!pid) return json({ error: "package_id required" }, 400);
+        affectedIds = [pid];
+        const { data, error } = await sb.rpc("admin_mark_package_repair", {
+          p_package_id: pid,
+          p_reason: body.reason ? String(body.reason) : null,
+          p_unmark: action === "unmark_repair",
+        });
+        if (error) return json({ ok: false, error: error.message }, 400);
+        result = { ok: true, action, ...(data as any) };
+        break;
+      }
+
+      case "reset_repair_exhaustion": {
+        const pid = String(body.package_id || "");
+        if (!pid) return json({ error: "package_id required" }, 400);
+        affectedIds = [pid];
+        const stepKeys = Array.isArray(body.step_keys) ? body.step_keys.map(String) : null;
+        const { data, error } = await sb.rpc("admin_reset_repair_exhaustion", {
+          p_package_id: pid,
+          p_step_keys: stepKeys,
+        });
+        if (error) return json({ ok: false, error: error.message }, 400);
+        result = { ok: true, action, ...(data as any) };
+        break;
+      }
+
+      case "hard_depublish_and_rebuild": {
+        const pid = String(body.package_id || "");
+        const reason = String(body.reason || "admin_hard_rebuild");
+        if (!pid) return json({ error: "package_id required" }, 400);
+        affectedIds = [pid];
+        const { data, error } = await sb.rpc("admin_force_depublish_and_rebuild", {
+          p_package_id: pid,
+          p_reason: reason,
+        });
+        if (error) return json({ ok: false, error: error.message }, 400);
+        // Mark as repair so it gets bonus WIP slot during rebuild
+        await sb.rpc("admin_mark_package_repair", {
+          p_package_id: pid,
+          p_reason: `hard_rebuild: ${reason}`,
+          p_unmark: false,
+        });
+        result = { ok: true, action, package_id: pid, ...(data as any) };
+        break;
+      }
+
+      case "bulk_reset_repair_exhaustion": {
+        const packageIds = Array.isArray(body.package_ids) ? body.package_ids.map(String) : [];
+        if (packageIds.length === 0) return json({ error: "package_ids required" }, 400);
+        if (packageIds.length > 50) return json({ error: "max 50 packages per bulk action" }, 400);
+        affectedIds = packageIds;
+        const results: any[] = [];
+        for (const pid of packageIds) {
+          const { data, error } = await sb.rpc("admin_reset_repair_exhaustion", {
+            p_package_id: pid, p_step_keys: null,
+          });
+          results.push(error ? { package_id: pid, ok: false, error: error.message } : { package_id: pid, ok: true, ...(data as any) });
+        }
+        const okCount = results.filter(r => r.ok).length;
+        result = { ok: true, action, total: packageIds.length, succeeded: okCount, failed: packageIds.length - okCount, results };
+        break;
+      }
+
       default:
         return json({ error: `Unknown action: ${action}` }, 400);
     }
