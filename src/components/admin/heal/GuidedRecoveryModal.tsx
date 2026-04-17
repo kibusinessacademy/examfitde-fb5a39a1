@@ -84,8 +84,9 @@ function buildRepairOptions(row: HealWorklistRow): RepairOption[] {
     preds.some((p) => src.some((s) => s.includes(p)));
 
   const examReasons: string[] = [];
-  if (has(["POOL", "EXAM_", "BLUEPRINT"], codes))
-    examReasons.push("deficiency: pool/exam/blueprint");
+  // SSOT-Deficiency-Tokens für Pool: POOL_*, EXAM_*, BLUEPRINT_*, APPROVED_Q (z.B. APPROVED_Q<500), Q< / Q_LT (Mengen-Schwellen)
+  if (has(["POOL", "EXAM_", "BLUEPRINT", "APPROVED_Q", "Q<", "Q_LT"], codes))
+    examReasons.push("deficiency: pool/exam/blueprint/approved_q");
   if (jobs.some((j) => j.includes("exam") || j.includes("pool")))
     examReasons.push("offene exam/pool jobs");
   if (reason.includes("POOL") || reason.includes("EXAM"))
