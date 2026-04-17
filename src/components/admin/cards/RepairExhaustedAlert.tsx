@@ -220,8 +220,8 @@ function ExhaustedPackageRow({ pkg, onRepair, busyId, selected, onToggleSelect }
   pkg: ExhaustedPackage;
   onRepair: (packageId: string, action: string) => void;
   busyId: string | null;
-  selected: boolean;
-  onToggleSelect: (id: string) => void;
+  selected?: boolean;
+  onToggleSelect?: (id: string) => void;
 }) {
   const busy = busyId === pkg.package_id;
   const isGenNeverRan = hasCategory(pkg, 'GENERATION_NEVER_RAN');
@@ -230,12 +230,14 @@ function ExhaustedPackageRow({ pkg, onRepair, busyId, selected, onToggleSelect }
     <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 space-y-2">
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-start gap-2 min-w-0 flex-1">
-          <Checkbox
-            checked={selected}
-            onCheckedChange={() => onToggleSelect(pkg.package_id)}
-            className="mt-0.5 shrink-0"
-            aria-label="Paket auswählen"
-          />
+          {onToggleSelect && (
+            <Checkbox
+              checked={!!selected}
+              onCheckedChange={() => onToggleSelect(pkg.package_id)}
+              className="mt-0.5 shrink-0"
+              aria-label="Paket auswählen"
+            />
+          )}
           <div className="min-w-0 flex-1">
             <Link
               to={`/admin/studio/${pkg.package_id}`}
