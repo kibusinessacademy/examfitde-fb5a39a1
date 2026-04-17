@@ -70704,12 +70704,15 @@ export type Database = {
           active_reconcile_jobs: number | null
           active_repair_jobs: number | null
           blocked_reason: string | null
+          blocked_steps: number | null
+          course_title: string | null
+          curriculum_id: string | null
           deficiency_codes: string[] | null
           exhausted_steps: number | null
           failed_jobs_24h: number | null
-          hard_stall_steps: number | null
           is_published: boolean | null
           last_processing_at: string | null
+          last_step_change: string | null
           open_jobs_by_type: Json | null
           package_id: string | null
           package_status: string | null
@@ -70720,10 +70723,67 @@ export type Database = {
           recommended_action: string | null
           recommended_action_reasons: string[] | null
           release_class: string | null
-          repair_attempts: number | null
+          repair_attempts_proxy: number | null
           urgency_score: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_qc_backlog"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_qc_backlog_age"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
+        ]
       }
       v_admin_humor_qc: {
         Row: {
@@ -70743,9 +70803,9 @@ export type Database = {
       }
       v_admin_morning_briefing: {
         Row: {
+          completed_repairs_24h: number | null
           critical_actions_pending: number | null
           failed_jobs_24h: number | null
-          healed_count: number | null
           newly_blocked_count: number | null
           newly_published_count: number | null
           publish_ready_count: number | null
@@ -79370,7 +79430,11 @@ export type Database = {
             Returns: Json
           }
       admin_smart_heal_bulk: {
-        Args: { _action?: string; _package_ids: string[] }
+        Args: {
+          p_action?: string
+          p_caller_id?: string
+          p_package_ids: string[]
+        }
         Returns: Json
       }
       admin_unblock_user: {
