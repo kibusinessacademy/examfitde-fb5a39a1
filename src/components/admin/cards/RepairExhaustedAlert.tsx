@@ -15,6 +15,9 @@ import {
   AlertOctagon, ArrowRight, RefreshCw, Loader2, Wrench, Zap,
   Filter, ChevronDown, ChevronUp, Play, CheckCircle2,
 } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { RepairToolboxActions } from '@/components/admin/heal/RepairToolboxActions';
+import { BulkResetExhaustionBar } from '@/components/admin/heal/BulkResetExhaustionBar';
 
 /* ── Types ── */
 
@@ -213,10 +216,12 @@ function useRepairExhaustedPackages() {
 
 /* ── Row Component ── */
 
-function ExhaustedPackageRow({ pkg, onRepair, busyId }: {
+function ExhaustedPackageRow({ pkg, onRepair, busyId, selected, onToggleSelect }: {
   pkg: ExhaustedPackage;
   onRepair: (packageId: string, action: string) => void;
   busyId: string | null;
+  selected?: boolean;
+  onToggleSelect?: (id: string) => void;
 }) {
   const busy = busyId === pkg.package_id;
   const isGenNeverRan = hasCategory(pkg, 'GENERATION_NEVER_RAN');
@@ -224,23 +229,34 @@ function ExhaustedPackageRow({ pkg, onRepair, busyId }: {
   return (
     <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 space-y-2">
       <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <Link
-            to={`/admin/studio/${pkg.package_id}`}
-            className="text-sm font-semibold text-foreground hover:text-primary transition-colors flex items-center gap-1"
-          >
-            {pkg.title}
-            <ArrowRight className="h-3 w-3 shrink-0" />
-          </Link>
-          <div className="text-[10px] text-muted-foreground font-mono mt-0.5">
-            {pkg.package_id.slice(0, 8)} · {pkg.build_progress}% · {pkg.status}
-            {pkg.consecutive_no_progress > 0 && ` · ${pkg.consecutive_no_progress}× stalled`}
+        <div className="flex items-start gap-2 min-w-0 flex-1">
+          {onToggleSelect && (
+            <Checkbox
+              checked={!!selected}
+              onCheckedChange={() => onToggleSelect(pkg.package_id)}
+              className="mt-0.5 shrink-0"
+              aria-label="Paket auswählen"
+            />
+          )}
+          <div className="min-w-0 flex-1">
+            <Link
+              to={`/admin/studio/${pkg.package_id}`}
+              className="text-sm font-semibold text-foreground hover:text-primary transition-colors flex items-center gap-1"
+            >
+              {pkg.title}
+              <ArrowRight className="h-3 w-3 shrink-0" />
+            </Link>
+            <div className="text-[10px] text-muted-foreground font-mono mt-0.5">
+              {pkg.package_id.slice(0, 8)} · {pkg.build_progress}% · {pkg.status}
+              {pkg.consecutive_no_progress > 0 && ` · ${pkg.consecutive_no_progress}× stalled`}
+            </div>
           </div>
         </div>
         <Badge variant="destructive" className="text-[10px] shrink-0">
           Exhausted
         </Badge>
       </div>
+
 
       {/* GATE_PASS indicator */}
       {pkg.gate_class === 'PASS' && (
@@ -437,6 +453,16 @@ function ExhaustedPackageRow({ pkg, onRepair, busyId }: {
           </Button>
         )}
       </div>
+
+      {/* v8 Repair Toolbox */}
+      <div className="pt-1 border-t border-destructive/20">
+        <RepairToolboxActions
+          packageId={pkg.package_id}
+          packageTitle={pkg.title}
+          size="sm"
+          variant="inline"
+        />
+      </div>
     </div>
   );
 }
@@ -450,6 +476,16 @@ export function RepairExhaustedAlert() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
   const [collapsed, setCollapsed] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+  const clearSelection = () => setSelectedIds(new Set());
 
   // Compute available categories
   const categoryStats = useMemo(() => {
@@ -620,6 +656,9 @@ export function RepairExhaustedAlert() {
             </div>
           )}
 
+          {/* Bulk-Bar */}
+          <BulkResetExhaustionBar selectedIds={Array.from(selectedIds)} onClear={clearSelection} />
+
           {/* Package List */}
           <div className="space-y-2 max-h-[60vh] overflow-y-auto">
             {filteredPackages.map(pkg => (
@@ -628,6 +667,8 @@ export function RepairExhaustedAlert() {
                 pkg={pkg}
                 onRepair={(id, action) => repairMutation.mutate({ packageId: id, action })}
                 busyId={busyId}
+                selected={selectedIds.has(pkg.package_id)}
+                onToggleSelect={toggleSelect}
               />
             ))}
           </div>

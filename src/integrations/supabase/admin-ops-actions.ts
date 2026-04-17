@@ -46,12 +46,19 @@ type AdminOpsAction =
   | 'reconcile_pipeline_tail'
   | 'mark_content_gap'
   | 'bulk_heal_by_class'
-  | 'zombie_sweep';
+  | 'zombie_sweep'
+  // v8.0 Repair-Marker, Reset-Exhaustion, Hard-Rebuild
+  | 'mark_repair'
+  | 'unmark_repair'
+  | 'reset_repair_exhaustion'
+  | 'hard_depublish_and_rebuild'
+  | 'bulk_reset_repair_exhaustion';
 
 export interface ScopedPayload {
   limit?: number;
   package_id?: string;
   step_key?: string;
+  step_keys?: string[];
   provider?: string;
   job_ids?: string[];
   job_type?: string;
@@ -248,4 +255,26 @@ export async function bulkHealByClass(
 
 export async function zombieSweep(olderThanMinutes = 30) {
   return runAdminOpsAction('zombie_sweep', { older_than_minutes: olderThanMinutes });
+}
+
+/* ── v8.0 Repair-Marker / Exhaustion-Reset / Hard-Rebuild ── */
+
+export async function markPackageRepair(packageId: string, reason?: string) {
+  return runAdminOpsAction('mark_repair', { package_id: packageId, reason });
+}
+
+export async function unmarkPackageRepair(packageId: string) {
+  return runAdminOpsAction('unmark_repair', { package_id: packageId });
+}
+
+export async function resetRepairExhaustion(packageId: string, stepKeys?: string[]) {
+  return runAdminOpsAction('reset_repair_exhaustion', { package_id: packageId, step_keys: stepKeys });
+}
+
+export async function hardDepublishAndRebuild(packageId: string, reason: string) {
+  return runAdminOpsAction('hard_depublish_and_rebuild', { package_id: packageId, reason });
+}
+
+export async function bulkResetRepairExhaustion(packageIds: string[]) {
+  return runAdminOpsAction('bulk_reset_repair_exhaustion', { package_ids: packageIds });
 }

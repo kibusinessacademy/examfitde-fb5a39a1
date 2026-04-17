@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Wrench, AlertTriangle, CheckCircle2, ArrowRight, Play, Eye, RefreshCw, Zap, SkipForward } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { RepairToolboxActions } from '@/components/admin/heal/RepairToolboxActions';
 
 type StuckClass = 'active_processing' | 'claim_starvation' | 'no_jobs' | 'failed_jobs' | null;
 
@@ -308,6 +309,12 @@ function StuckPackageItem({ pkg, onHeal, busy }: {
             </Button>
           );
         })}
+      </div>
+
+      {/* v8 Repair Toolbox: Reset Exhaustion / content_gap / Hard Rebuild */}
+      <div className="pt-2 border-t border-border">
+        <div className="text-[10px] font-semibold text-muted-foreground mb-1.5">Heavy-Duty Reparatur</div>
+        <RepairToolboxActions packageId={pkg.id} packageTitle={pkg.title} size="sm" variant="inline" />
       </div>
     </div>
   );
