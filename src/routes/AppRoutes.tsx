@@ -131,6 +131,7 @@ const TestAreaPage = lazyRetry(() => import('@/pages/admin/v2/TestAreaPage'));
 const CourseWorkspace = lazyRetry(() => import('@/pages/admin/CourseWorkspace'));
 const SupportPage = lazyRetry(() => import('@/pages/admin/v2/SupportPage'));
 const KPIPage = lazyRetry(() => import('@/pages/admin/v2/KPIPage'));
+const HealCockpitPage = lazyRetry(() => import('@/pages/admin/v2/HealCockpitPage'));
 
 // ExamFit@work public pages
 const WorkHomePage = lazyRetry(() => import('@/pages/work/WorkHomePage'));
@@ -350,6 +351,7 @@ const AppRoutes = () => {
           <Route path="growth" element={<GrowthPage />} />
           <Route path="support" element={<SupportPage />} />
           <Route path="kpi" element={<KPIPage />} />
+          <Route path="heal-cockpit" element={<HealCockpitPage />} />
           <Route path="test" element={<TestAreaPage />} />
           <Route path="*" element={<Navigate to="/admin/command" replace />} />
         </Route>
