@@ -13892,6 +13892,7 @@ export type Database = {
           integrity_report_version_num: number | null
           is_published: boolean
           is_rebuild: boolean
+          is_repair: boolean
           last_error: string | null
           last_progress_at: string | null
           legacy_exempt_at: string | null
@@ -13906,6 +13907,9 @@ export type Database = {
           quality_report: Json | null
           queue_position: number | null
           ready_since: string | null
+          repair_marked_at: string | null
+          repair_marked_by: string | null
+          repair_reason: string | null
           resolution_owner: string | null
           retry_count: number | null
           review_due_at: string | null
@@ -13957,6 +13961,7 @@ export type Database = {
           integrity_report_version_num?: number | null
           is_published?: boolean
           is_rebuild?: boolean
+          is_repair?: boolean
           last_error?: string | null
           last_progress_at?: string | null
           legacy_exempt_at?: string | null
@@ -13971,6 +13976,9 @@ export type Database = {
           quality_report?: Json | null
           queue_position?: number | null
           ready_since?: string | null
+          repair_marked_at?: string | null
+          repair_marked_by?: string | null
+          repair_reason?: string | null
           resolution_owner?: string | null
           retry_count?: number | null
           review_due_at?: string | null
@@ -14022,6 +14030,7 @@ export type Database = {
           integrity_report_version_num?: number | null
           is_published?: boolean
           is_rebuild?: boolean
+          is_repair?: boolean
           last_error?: string | null
           last_progress_at?: string | null
           legacy_exempt_at?: string | null
@@ -14036,6 +14045,9 @@ export type Database = {
           quality_report?: Json | null
           queue_position?: number | null
           ready_since?: string | null
+          repair_marked_at?: string | null
+          repair_marked_by?: string | null
+          repair_reason?: string | null
           resolution_owner?: string | null
           retry_count?: number | null
           review_due_at?: string | null
@@ -78934,9 +78946,21 @@ export type Database = {
             }
             Returns: Json
           }
+      admin_mark_content_gap: {
+        Args: { p_package_id: string; p_reason: string }
+        Returns: Json
+      }
+      admin_mark_package_repair: {
+        Args: { p_package_id: string; p_reason?: string; p_unmark?: boolean }
+        Returns: Json
+      }
       admin_reset_code_lockout: {
         Args: { p_code: string; p_note?: string }
         Returns: undefined
+      }
+      admin_reset_repair_exhaustion: {
+        Args: { p_package_id: string; p_step_keys?: string[] }
+        Returns: Json
       }
       admin_unblock_user: {
         Args: { p_reason?: string; p_user_id: string }
@@ -83666,6 +83690,7 @@ export type Database = {
           integrity_report_version_num: number | null
           is_published: boolean
           is_rebuild: boolean
+          is_repair: boolean
           last_error: string | null
           last_progress_at: string | null
           legacy_exempt_at: string | null
@@ -83680,6 +83705,9 @@ export type Database = {
           quality_report: Json | null
           queue_position: number | null
           ready_since: string | null
+          repair_marked_at: string | null
+          repair_marked_by: string | null
+          repair_reason: string | null
           resolution_owner: string | null
           retry_count: number | null
           review_due_at: string | null
@@ -84022,6 +84050,7 @@ export type Database = {
           integrity_report_version_num: number | null
           is_published: boolean
           is_rebuild: boolean
+          is_repair: boolean
           last_error: string | null
           last_progress_at: string | null
           legacy_exempt_at: string | null
@@ -84036,6 +84065,9 @@ export type Database = {
           quality_report: Json | null
           queue_position: number | null
           ready_since: string | null
+          repair_marked_at: string | null
+          repair_marked_by: string | null
+          repair_reason: string | null
           resolution_owner: string | null
           retry_count: number | null
           review_due_at: string | null
