@@ -1296,14 +1296,42 @@ Deno.serve(async (req) => {
     // ── Run COURSE_READY gate ──
     const gate = await runCourseReadyGate(sb, courseId, currId, packageId);
 
-    console.log(`[integrity-check] pkg=${packageId.slice(0, 8)} COURSE_READY score=${gate.score} hardFails=${gate.hardFails.length} warnings=${gate.warnings.length} excellence=${gate.excellence.length} pool_loaded=${gate.metrics.totalApproved}/${gate.metrics.approvedCountExpected} truncated=${gate.metrics.sampleTruncated}`);
+    // ── FIX (Phase 2c followup): Handle deferred / no-curriculum early returns ──
+    // runCourseReadyGate may return early with metrics.deferred=true or metrics.noCurriculum=true.
+    // In both cases we MUST NOT destructure further or write integrity_report — caller treats
+    // this as transient retry (deferred) or hard fail (no_curriculum) without crashing.
+    const gMetrics: any = (gate as any).metrics ?? {};
+    if (gMetrics.deferred === true) {
+      console.log(`[integrity-check] pkg=${packageId.slice(0, 8)} DEFERRED reason=${gMetrics.deferReason} — returning transient retry`);
+      return json({
+        ok: false,
+        retry: true,
+        transient: true,
+        backoff_seconds: 120,
+        error: `INTEGRITY_DEFERRED: ${gMetrics.deferReason}`,
+        deferred: true,
+        defer_reason: gMetrics.deferReason,
+      }, 200);
+    }
+    if (gMetrics.noCurriculum === true) {
+      console.log(`[integrity-check] pkg=${packageId.slice(0, 8)} NO_CURRICULUM — hard fail (no curriculum_id resolved)`);
+      return json({
+        ok: false,
+        retry: false,
+        transient: false,
+        error: "POOL_FILTER: NO_CURRICULUM",
+        hard_fails: gate.hardFails,
+      }, 200);
+    }
+
+    console.log(`[integrity-check] pkg=${packageId.slice(0, 8)} COURSE_READY score=${gate.score} hardFails=${gate.hardFails.length} warnings=${gate.warnings.length} excellence=${gate.excellence.length} pool_loaded=${gMetrics.totalApproved}/${gMetrics.approvedCountExpected} truncated=${gMetrics.sampleTruncated}`);
     for (const hf of gate.hardFails) console.log(`  ❌ ${hf}`);
     for (const w of gate.warnings) console.log(`  ⚠️ ${w}`);
     for (const e of gate.excellence) console.log(`  🌟 ${e}`);
 
     // ── Build council-friendly v3.summary (SSOT for Council) ──
     // Council reads ONLY from summary — computed directly from gate metrics.
-    const { totalApproved, approvedQs, uniqueLFs, moduleIds, totalCompetencies, approvedCountExpected, sampleTruncated } = gate.metrics;
+    const { totalApproved, approvedQs, uniqueLFs, moduleIds, totalCompetencies, approvedCountExpected, sampleTruncated } = gMetrics;
 
     // Competency binding
     const summaryUnboundCount = approvedQs.filter((q: any) => !q.competency_id).length;
