@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Wrench, AlertTriangle, CheckCircle2, ArrowRight, Play, Eye, RefreshCw, Zap, SkipForward } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { RepairToolboxActions } from '@/components/admin/heal/RepairToolboxActions';
 
 type StuckClass = 'active_processing' | 'claim_starvation' | 'no_jobs' | 'failed_jobs' | null;
 
