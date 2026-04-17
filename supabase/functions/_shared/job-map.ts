@@ -449,8 +449,9 @@ export const JOB_DEFINITIONS: Record<string, JobDefinition> = {
   security_gate_check:               { pool: "default", edgeFunction: "security-gate-check" },
   security_botnet_gate:              { pool: "default", edgeFunction: "security-botnet-gate" },
 
-  // ── blueprint seeding ───────────────────────────────────────
-  blueprint_generate_variants:       { pool: "default", edgeFunction: "blueprint-seed-by-competency" },
+  // ── blueprint variants (prebuild) ───────────────────────────
+  // SSOT: prebuild pool, schreibt in exam_question_variants
+  blueprint_generate_variants:       { pool: "prebuild", edgeFunction: "generate-blueprint-variants" },
 
   // ── seeding / orchestration ─────────────────────────────────
   seo_certification_generate:        { pool: "default", edgeFunction: "seo-certification-generate" },

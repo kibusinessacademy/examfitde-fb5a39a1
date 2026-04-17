@@ -51,9 +51,35 @@ const REPAIR_JOB_TYPES = new Set([
   "package_run_integrity_check",
 ]);
 
+/**
+ * PREBUILD jobs run BEFORE a package transitions to `building`.
+ * They prepare canonical artefacts (blueprints, variants, inventory) and
+ * MUST be allowed in any pre-build status incl. `planning`, `queued`, `blocked`.
+ * Analog zu Seeding/Lernfeld-Prebuild: außerhalb der Build-Queue.
+ */
+const PREBUILD_JOB_TYPES = new Set([
+  "blueprint_generate_variants",
+  "package_generate_blueprint_variants",
+  "package_validate_blueprint_variants",
+  "package_promote_blueprint_variants",
+  "package_generate_blueprints",
+  "ensure_variant_inventory",
+  "validate_variant_inventory",
+]);
+
 export function allowedPackageStatusesForJobType(jobType: string): Set<string> {
   if (COUNCIL_JOB_TYPES.has(jobType)) {
     return new Set(["building", "council_review", "quality_gate_failed"]);
+  }
+
+  if (PREBUILD_JOB_TYPES.has(jobType)) {
+    return new Set([
+      "planning",
+      "queued",
+      "blocked",
+      "building",
+      "quality_gate_failed",
+    ]);
   }
 
   if (REPAIR_JOB_TYPES.has(jobType)) {
