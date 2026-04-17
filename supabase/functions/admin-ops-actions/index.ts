@@ -721,6 +721,202 @@ Deno.serve(async (req) => {
         break;
       }
 
+      /* ── Context-Sensitive Heal Actions (v_package_release_classification) ── */
+      case "force_publish_release_ok": {
+        const pid = String(body.package_id || "");
+        if (!pid) return json({ error: "package_id required" }, 400);
+        affectedIds = [pid];
+
+        // Verify release_class = 'release_ok' before publishing
+        const { data: cls } = await sb
+          .from("v_package_release_classification")
+          .select("release_class, deficiency_codes")
+          .eq("package_id", pid)
+          .maybeSingle();
+
+        if (!cls) return json({ error: `Package ${pid} not found in release classification` }, 404);
+        if (cls.release_class !== "release_ok") {
+          return json({
+            ok: false,
+            error: `PUBLISH_BLOCKED: package is '${cls.release_class}' (codes: ${(cls.deficiency_codes ?? []).join(",")})`,
+            release_class: cls.release_class,
+            codes: cls.deficiency_codes,
+          }, 400);
+        }
+
+        const { error: forceErr } = await sb.rpc("admin_force_steps_done", {
+          p_package_id: pid,
+          p_step_keys: ["quality_council", "run_integrity_check", "auto_publish"],
+          p_reason: `admin_force_publish: release_ok via UI by ${user.id}`,
+          p_emergency_bypass: true,
+          p_force_publish: true,
+        });
+        if (forceErr) return json({ ok: false, error: forceErr.message }, 400);
+
+        // Cancel obsolete jobs
+        await sb.from("job_queue")
+          .update({ status: "cancelled", completed_at: new Date().toISOString(), meta: { cancelled_by: "force_publish_release_ok" } })
+          .eq("package_id", pid)
+          .in("status", ["pending", "queued", "processing", "batch_pending"]);
+
+        result = { ok: true, action: "force_publish_release_ok", package_id: pid, release_class: cls.release_class };
+        break;
+      }
+
+      case "reconcile_pipeline_tail": {
+        const pid = String(body.package_id || "");
+        if (!pid) return json({ error: "package_id required" }, 400);
+        affectedIds = [pid];
+
+        // Reconcile only — no force_publish (respects hollow-publish guard)
+        const { error: reconErr } = await sb.rpc("admin_force_steps_done", {
+          p_package_id: pid,
+          p_step_keys: ["quality_council", "run_integrity_check", "auto_publish"],
+          p_reason: `admin_reconcile: pipeline tail via UI by ${user.id}`,
+          p_emergency_bypass: true,
+          p_force_publish: false,
+        });
+        if (reconErr) return json({ ok: false, error: reconErr.message }, 400);
+
+        await sb.from("job_queue")
+          .update({ status: "cancelled", completed_at: new Date().toISOString(), meta: { cancelled_by: "reconcile_pipeline_tail" } })
+          .eq("package_id", pid)
+          .in("status", ["pending", "queued", "processing", "batch_pending"]);
+
+        result = { ok: true, action: "reconcile_pipeline_tail", package_id: pid };
+        break;
+      }
+
+      case "mark_content_gap": {
+        const pid = String(body.package_id || "");
+        const reason = String(body.reason || "manual_review_content_insufficient");
+        if (!pid) return json({ error: "package_id required" }, 400);
+        affectedIds = [pid];
+
+        const { error: updErr } = await sb
+          .from("course_packages")
+          .update({
+            status: "blocked",
+            blocked_reason: "content_gap",
+            blocked_at: new Date().toISOString(),
+            stuck_reason: `admin_mark_content_gap: ${reason} (by ${user.id})`,
+          })
+          .eq("id", pid);
+        if (updErr) return json({ ok: false, error: updErr.message }, 400);
+
+        await sb.from("job_queue")
+          .update({ status: "cancelled", completed_at: new Date().toISOString(), meta: { cancelled_by: "mark_content_gap" } })
+          .eq("package_id", pid)
+          .in("status", ["pending", "queued", "processing", "batch_pending"]);
+
+        result = { ok: true, action: "mark_content_gap", package_id: pid, reason };
+        break;
+      }
+
+      case "bulk_heal_by_class": {
+        const targetClass = String(body.release_class || ""); // 'release_ok' | 'release_block' | 'release_warn'
+        const packageIds = Array.isArray(body.package_ids) ? body.package_ids.map(String) : [];
+        if (!targetClass || packageIds.length === 0) {
+          return json({ error: "release_class and package_ids required" }, 400);
+        }
+        if (packageIds.length > 50) {
+          return json({ error: "max 50 packages per bulk action" }, 400);
+        }
+        affectedIds = packageIds;
+
+        const results: any[] = [];
+        for (const pid of packageIds) {
+          try {
+            const { data: cls } = await sb
+              .from("v_package_release_classification")
+              .select("release_class, deficiency_codes")
+              .eq("package_id", pid)
+              .maybeSingle();
+            if (!cls) { results.push({ package_id: pid, ok: false, error: "not_found" }); continue; }
+            if (cls.release_class !== targetClass) {
+              results.push({ package_id: pid, ok: false, error: `class_mismatch: actual=${cls.release_class}` });
+              continue;
+            }
+
+            if (targetClass === "release_ok") {
+              const { error } = await sb.rpc("admin_force_steps_done", {
+                p_package_id: pid,
+                p_step_keys: ["quality_council", "run_integrity_check", "auto_publish"],
+                p_reason: `admin_bulk_publish_release_ok by ${user.id}`,
+                p_emergency_bypass: true,
+                p_force_publish: true,
+              });
+              if (error) { results.push({ package_id: pid, ok: false, error: error.message }); continue; }
+            } else if (targetClass === "release_block" || targetClass === "release_warn") {
+              const { error } = await sb.rpc("admin_force_steps_done", {
+                p_package_id: pid,
+                p_step_keys: ["quality_council", "run_integrity_check", "auto_publish"],
+                p_reason: `admin_bulk_reconcile by ${user.id}`,
+                p_emergency_bypass: true,
+                p_force_publish: false,
+              });
+              if (error) { results.push({ package_id: pid, ok: false, error: error.message }); continue; }
+            }
+
+            await sb.from("job_queue")
+              .update({ status: "cancelled", completed_at: new Date().toISOString(), meta: { cancelled_by: "bulk_heal_by_class" } })
+              .eq("package_id", pid)
+              .in("status", ["pending", "queued", "processing", "batch_pending"]);
+
+            results.push({ package_id: pid, ok: true });
+          } catch (e: any) {
+            results.push({ package_id: pid, ok: false, error: e.message });
+          }
+        }
+
+        const okCount = results.filter(r => r.ok).length;
+        result = { ok: true, action: "bulk_heal_by_class", target_class: targetClass, total: packageIds.length, succeeded: okCount, failed: packageIds.length - okCount, results };
+        break;
+      }
+
+      case "zombie_sweep": {
+        const olderThanMin = Number(body.older_than_minutes) || 30;
+        // Find stale processing jobs
+        const cutoff = new Date(Date.now() - olderThanMin * 60_000).toISOString();
+        const { data: zombies } = await sb
+          .from("job_queue")
+          .select("id, package_id, job_type, locked_by, locked_at")
+          .eq("status", "processing")
+          .lt("locked_at", cutoff);
+
+        const zombieIds = (zombies ?? []).map((z: any) => z.id);
+        affectedIds = zombieIds;
+
+        if (zombieIds.length === 0) {
+          result = { ok: true, action: "zombie_sweep", total: 0, swept: 0 };
+          break;
+        }
+
+        const { error: sweepErr } = await sb
+          .from("job_queue")
+          .update({
+            status: "failed",
+            completed_at: new Date().toISOString(),
+            locked_at: null,
+            locked_by: null,
+            last_error: `zombie_sweep: stale processing >${olderThanMin}min (by ${user.id})`,
+            meta: { cancelled_by: "zombie_sweep_ui", reason: `stale_processing_over_${olderThanMin}min` },
+          })
+          .in("id", zombieIds);
+
+        if (sweepErr) return json({ ok: false, error: sweepErr.message }, 400);
+
+        result = {
+          ok: true,
+          action: "zombie_sweep",
+          total: zombieIds.length,
+          swept: zombieIds.length,
+          older_than_minutes: olderThanMin,
+          sample: (zombies ?? []).slice(0, 5),
+        };
+        break;
+      }
+
       default:
         return json({ error: `Unknown action: ${action}` }, 400);
     }

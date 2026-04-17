@@ -40,7 +40,13 @@ type AdminOpsAction =
   | 'reset_to_step'
   | 'enqueue_single_step'
   // v6.0 Gate-Pass heal
-  | 'heal_gate_pass';
+  | 'heal_gate_pass'
+  // v7.0 Context-sensitive heal (release_classification-driven)
+  | 'force_publish_release_ok'
+  | 'reconcile_pipeline_tail'
+  | 'mark_content_gap'
+  | 'bulk_heal_by_class'
+  | 'zombie_sweep';
 
 export interface ScopedPayload {
   limit?: number;
@@ -51,6 +57,10 @@ export interface ScopedPayload {
   job_type?: string;
   hours?: number;
   reason?: string;
+  // v7.0 Context-sensitive heal
+  package_ids?: string[];
+  release_class?: 'release_ok' | 'release_block' | 'release_warn';
+  older_than_minutes?: number;
 }
 
 export async function runAdminOpsAction(
@@ -210,4 +220,32 @@ export async function removeLegacyExempt(packageId: string) {
   });
   if (error) throw error;
   return data;
+}
+
+/* ── v7.0 Context-Sensitive Heal Actions ── */
+
+export async function forcePublishReleaseOk(packageId: string) {
+  return runAdminOpsAction('force_publish_release_ok', { package_id: packageId });
+}
+
+export async function reconcilePipelineTail(packageId: string) {
+  return runAdminOpsAction('reconcile_pipeline_tail', { package_id: packageId });
+}
+
+export async function markContentGap(packageId: string, reason: string) {
+  return runAdminOpsAction('mark_content_gap', { package_id: packageId, reason });
+}
+
+export async function bulkHealByClass(
+  releaseClass: 'release_ok' | 'release_block' | 'release_warn',
+  packageIds: string[],
+) {
+  return runAdminOpsAction('bulk_heal_by_class', {
+    release_class: releaseClass,
+    package_ids: packageIds,
+  });
+}
+
+export async function zombieSweep(olderThanMinutes = 30) {
+  return runAdminOpsAction('zombie_sweep', { older_than_minutes: olderThanMinutes });
 }
