@@ -941,6 +941,7 @@ Deno.serve(async (req) => {
         const { data, error } = await sb.rpc("admin_reset_repair_exhaustion", {
           p_package_id: pid,
           p_step_keys: stepKeys,
+          p_caller_id: user.id,
         });
         if (error) return json({ ok: false, error: error.message }, 400);
         result = { ok: true, action, ...(data as any) };
@@ -975,7 +976,7 @@ Deno.serve(async (req) => {
         const results: any[] = [];
         for (const pid of packageIds) {
           const { data, error } = await sb.rpc("admin_reset_repair_exhaustion", {
-            p_package_id: pid, p_step_keys: null,
+            p_package_id: pid, p_step_keys: null, p_caller_id: user.id,
           });
           results.push(error ? { package_id: pid, ok: false, error: error.message } : { package_id: pid, ok: true, ...(data as any) });
         }
