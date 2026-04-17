@@ -350,7 +350,7 @@ export function GuidedRecoveryModal({ row, open, onClose }: Props) {
               <RotateCcw className="h-4 w-4 text-primary" />
               2. Reset Exhaustion
               {resetDone && (
-                <CheckCircle2 className="h-4 w-4 text-green-600" />
+                <CheckCircle2 className="h-4 w-4 text-success" />
               )}
             </div>
             <div className="rounded-md border p-3 space-y-2">
