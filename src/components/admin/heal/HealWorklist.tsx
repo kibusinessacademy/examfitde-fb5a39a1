@@ -26,6 +26,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useHealWorklist, useSmartHealBulk } from "./hooks";
 import { HealWorklistRow } from "./HealWorklistRow";
 import { PackageDrawer } from "./PackageDrawer";
+import { GuidedRecoveryModal } from "./GuidedRecoveryModal";
 import { useToast } from "@/hooks/use-toast";
 import type {
   ActionabilityClass,
