@@ -316,7 +316,7 @@ Deno.serve(async (req) => {
   await sb.from("auto_heal_log").insert({
     action_type: REPAIR_ACTION,
     result_status: "success",
-    result_detail: `dispatched ${dispatched.length}/${deficits.length} LF fan-out jobs`,
+    result_detail: `dispatched ${dispatched.length}/${deficits.length} LF fan-out jobs (skipped ${skippedLfs.length})`,
     metadata: {
       package_id: packageId,
       curriculum_id: curriculumId,
@@ -324,7 +324,9 @@ Deno.serve(async (req) => {
       target_per_lf: targetPerLf,
       deficits_count: deficits.length,
       dispatched_count: dispatched.length,
+      skipped_count: skippedLfs.length,
       dispatched,
+      skipped_lfs: skippedLfs,
       pre_snapshot: preSnapshot,
       post_snapshot: postSnapshot,
       gate_change: gateChange,
@@ -336,6 +338,7 @@ Deno.serve(async (req) => {
   await markDone(sb, packageId, {
     dispatched_count: dispatched.length,
     deficits_count: deficits.length,
+    skipped_count: skippedLfs.length,
     target_per_lf: targetPerLf,
     pending_followup: "fan_out_completion_triggers_validate_exam_pool",
     pre_snapshot: preSnapshot,
@@ -345,8 +348,10 @@ Deno.serve(async (req) => {
     status: "dispatched",
     deficits: deficits.length,
     dispatched: dispatched.length,
+    skipped: skippedLfs.length,
     target_per_lf: targetPerLf,
     jobs: dispatched,
+    skipped_lfs: skippedLfs,
     next: "fan-out completion will re-trigger validate_exam_pool via job-runner",
   });
 });
