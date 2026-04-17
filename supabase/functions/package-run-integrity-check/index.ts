@@ -258,6 +258,17 @@ async function runCourseReadyGate(
       excellence,
       score: 0,
       integrityProfile,
+      metrics: {
+        totalApproved: 0,
+        approvedQs: [] as any[],
+        uniqueLFs: new Set<string>(),
+        moduleIds: [] as string[],
+        totalCompetencies: 0,
+        approvedCountExpected: 0,
+        sampleTruncated: false,
+        deferred: false,
+        noCurriculum: true,
+      },
     };
   }
 
@@ -292,6 +303,18 @@ async function runCourseReadyGate(
         excellence,
         score: 0, // caller treats deferred runs as pending, not failed
         integrityProfile,
+        metrics: {
+          totalApproved: 0,
+          approvedQs: [] as any[],
+          uniqueLFs: new Set<string>(),
+          moduleIds: [] as string[],
+          totalCompetencies: 0,
+          approvedCountExpected: 0,
+          sampleTruncated: false,
+          deferred: true,
+          deferReason: gateStatus,
+          noCurriculum: false,
+        },
       };
     }
   } catch (gateErr) {
