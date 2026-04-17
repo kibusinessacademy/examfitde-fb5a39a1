@@ -8,8 +8,10 @@ import type {
   HealWorklistFilters,
   HealWorklistRow,
   MorningBriefing,
-  RecommendedAction,
 } from "./types";
+
+/** Allowlist for explicit override actions in bulk RPC. RPC enforces the same. */
+export type BulkOverrideAction = "bulk_reconcile";
 
 export async function getMorningBriefing(): Promise<MorningBriefing> {
   const { data, error } = await supabase
@@ -52,7 +54,14 @@ export async function getHealWorklist(
   const { data, error } = await q;
   if (error) throw error;
 
-  let rows = (data ?? []) as unknown as HealWorklistRow[];
+  // v1: top-500 by urgency_score from server, search filtering is client-side.
+  // Side effect: search may not surface matches outside the top-500 window.
+  let rows = ((data ?? []) as unknown as HealWorklistRow[]).map((row) => ({
+    ...row,
+    recommended_action_reasons: row.recommended_action_reasons ?? [],
+    deficiency_codes: row.deficiency_codes ?? [],
+    open_jobs_by_type: row.open_jobs_by_type ?? {},
+  }));
 
   if (filters.search?.trim()) {
     const needle = filters.search.trim().toLowerCase();
@@ -68,7 +77,7 @@ export async function getHealWorklist(
 export async function smartHealBulk(
   packageIds: string[],
   callerId?: string | null,
-  action?: RecommendedAction,
+  action?: BulkOverrideAction,
 ): Promise<BulkHealResponse> {
   const { data, error } = await supabase.rpc("admin_smart_heal_bulk" as never, {
     p_package_ids: packageIds,

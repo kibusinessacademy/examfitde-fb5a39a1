@@ -7,8 +7,9 @@ import {
   getHealWorklist,
   getMorningBriefing,
   smartHealBulk,
+  type BulkOverrideAction,
 } from "./api";
-import type { HealWorklistFilters, RecommendedAction } from "./types";
+import type { HealWorklistFilters } from "./types";
 
 const POLL_MS = 30_000;
 
@@ -39,10 +40,11 @@ export function useSmartHealBulk() {
       action,
     }: {
       packageIds: string[];
-      action?: RecommendedAction;
+      action?: BulkOverrideAction;
     }) => smartHealBulk(packageIds, user?.id ?? null, action),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["heal-cockpit"] });
+      qc.invalidateQueries({ queryKey: ["heal-cockpit", "briefing"] });
+      qc.invalidateQueries({ queryKey: ["heal-cockpit", "worklist"] });
     },
   });
 }

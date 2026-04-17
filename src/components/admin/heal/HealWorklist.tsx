@@ -34,6 +34,7 @@ import type {
   RecommendedAction,
   ReleaseClass,
 } from "./types";
+import type { BulkOverrideAction } from "./api";
 import { ACTION_LABEL } from "./types";
 import { Loader2, Sparkles } from "lucide-react";
 
@@ -91,22 +92,31 @@ export function HealWorklist() {
     [selected, autoSelectableIds],
   );
 
+  // Normalize once — used for button labels, hint, and submit. Avoids drift.
+  const BULK_LIMIT = 25;
+  const effectiveSelectedAutoIds = useMemo(
+    () => selectedAutoIds.slice(0, BULK_LIMIT),
+    [selectedAutoIds],
+  );
+
   const allAutoSelected =
     autoSelectableIds.length > 0 &&
     autoSelectableIds.every((id) => selected.has(id));
 
   const toggleAll = (checked: boolean) => {
-    if (checked) {
-      setSelected(new Set([...selected, ...autoSelectableIds]));
-    } else {
-      const next = new Set(selected);
-      autoSelectableIds.forEach((id) => next.delete(id));
-      setSelected(next);
-    }
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (checked) {
+        autoSelectableIds.forEach((id) => next.add(id));
+      } else {
+        autoSelectableIds.forEach((id) => next.delete(id));
+      }
+      return next;
+    });
   };
 
-  const runBulk = async (overrideAction?: RecommendedAction) => {
-    const ids = selectedAutoIds.slice(0, 25);
+  const runBulk = async (overrideAction?: BulkOverrideAction) => {
+    const ids = effectiveSelectedAutoIds;
     if (ids.length === 0) {
       toast({
         title: "Keine auto-fähigen Pakete ausgewählt",
@@ -250,10 +260,14 @@ export function HealWorklist() {
             <div className="mt-3 flex flex-wrap items-center gap-2 rounded-md border border-primary/30 bg-primary/5 p-2">
               <Sparkles className="h-4 w-4 text-primary" />
               <span className="text-sm">
-                <strong>{selectedAutoIds.length}</strong> auto-fähige Pakete ausgewählt
-                {selectedAutoIds.length > 25 && (
+                <strong>{effectiveSelectedAutoIds.length}</strong>
+                {selectedAutoIds.length > BULK_LIMIT
+                  ? ` von ${selectedAutoIds.length}`
+                  : ""}{" "}
+                auto-fähige Pakete ausgewählt
+                {selectedAutoIds.length > BULK_LIMIT && (
                   <span className="ml-1 text-destructive">
-                    (Limit 25 — nur erste 25 werden gesendet)
+                    (Limit {BULK_LIMIT} — nur die ersten werden gesendet)
                   </span>
                 )}
               </span>
@@ -270,8 +284,9 @@ export function HealWorklist() {
                   variant="outline"
                   onClick={() => runBulk("bulk_reconcile")}
                   disabled={bulk.isPending}
+                  title="Erzwingt Reconcile-Artefakte für alle ausgewählten auto-Pakete"
                 >
-                  Force Reconcile
+                  Force Reconcile ({effectiveSelectedAutoIds.length})
                 </Button>
                 <Button
                   size="sm"
@@ -281,7 +296,7 @@ export function HealWorklist() {
                   {bulk.isPending && (
                     <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
                   )}
-                  Smart Heal
+                  Smart Heal ({effectiveSelectedAutoIds.length})
                 </Button>
               </div>
             </div>
@@ -331,10 +346,12 @@ export function HealWorklist() {
                       row={row}
                       selected={selected.has(row.package_id)}
                       onSelect={(checked) => {
-                        const next = new Set(selected);
-                        if (checked) next.add(row.package_id);
-                        else next.delete(row.package_id);
-                        setSelected(next);
+                        setSelected((prev) => {
+                          const next = new Set(prev);
+                          if (checked) next.add(row.package_id);
+                          else next.delete(row.package_id);
+                          return next;
+                        });
                       }}
                       onOpen={() => setOpenId(row.package_id)}
                       onAction={() => runSingle(row)}
