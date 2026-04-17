@@ -377,6 +377,12 @@ export function HealWorklist() {
         onClose={() => setOpenId(null)}
         onAction={(row) => runSingle(row)}
       />
+
+      <GuidedRecoveryModal
+        row={rows.find((r) => r.package_id === guidedId) ?? null}
+        open={!!guidedId}
+        onClose={() => setGuidedId(null)}
+      />
     </>
   );
 }
