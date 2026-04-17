@@ -40,7 +40,13 @@ type AdminOpsAction =
   | 'reset_to_step'
   | 'enqueue_single_step'
   // v6.0 Gate-Pass heal
-  | 'heal_gate_pass';
+  | 'heal_gate_pass'
+  // v7.0 Context-sensitive heal (release_classification-driven)
+  | 'force_publish_release_ok'
+  | 'reconcile_pipeline_tail'
+  | 'mark_content_gap'
+  | 'bulk_heal_by_class'
+  | 'zombie_sweep';
 
 export interface ScopedPayload {
   limit?: number;
@@ -51,6 +57,10 @@ export interface ScopedPayload {
   job_type?: string;
   hours?: number;
   reason?: string;
+  // v7.0 Context-sensitive heal
+  package_ids?: string[];
+  release_class?: 'release_ok' | 'release_block' | 'release_warn';
+  older_than_minutes?: number;
 }
 
 export async function runAdminOpsAction(
