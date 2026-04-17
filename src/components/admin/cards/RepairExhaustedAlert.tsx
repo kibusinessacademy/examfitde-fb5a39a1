@@ -15,6 +15,9 @@ import {
   AlertOctagon, ArrowRight, RefreshCw, Loader2, Wrench, Zap,
   Filter, ChevronDown, ChevronUp, Play, CheckCircle2,
 } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { RepairToolboxActions } from '@/components/admin/heal/RepairToolboxActions';
+import { BulkResetExhaustionBar } from '@/components/admin/heal/BulkResetExhaustionBar';
 
 /* ── Types ── */
 
