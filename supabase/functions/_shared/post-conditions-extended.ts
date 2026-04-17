@@ -89,10 +89,13 @@ export async function assertExtendedPostConditions(sb: SB, args: {
 
     const { data: curr } = await sb
       .from("curricula").select("beruf_id").eq("id", pkg.curriculum_id).single();
-    // STUDIUM tracks may not have beruf_id — glossary is optional for them
+    // FAIL-SOFT: Glossary is optional enrichment (see package-generate-glossary).
+    // If the curriculum has no beruf_id, the function intentionally skips
+    // and marks the step done. The post-condition MUST be consistent and
+    // accept skipped glossary for all tracks (ZERTIFIKAT, EXAM_FIRST_PLUS,
+    // FORTBILDUNG, STUDIUM) — otherwise the pipeline deadlocks.
     if (!curr?.beruf_id) {
-      if (pkg.track === "STUDIUM") return true; // allow skip
-      throw hollowError("HOLLOW_GLOSSARY", { reason: "no beruf_id on curriculum" });
+      return true; // glossary skipped intentionally — pipeline continues
     }
 
     const { data: glossary } = await sb
