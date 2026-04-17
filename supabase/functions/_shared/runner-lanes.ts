@@ -91,6 +91,15 @@ const GENERATION_JOB_TYPES_LANE = new Set([
   "package_generate_glossary",              // P2 FIX: was missing
   "package_fanout_learning_content",        // P2 FIX: was missing
   "package_generate_learning_content",      // P2 FIX: was missing
+  // Pool-Fill (LLM-driven gap repair) — added 2026-04-17
+  "pool_fill_bloom_gaps",
+  "pool_fill_competency_gaps",
+  "pool_fill_lf_gaps",
+  // Lesson generation (all variants) — added 2026-04-17
+  "lesson_generate_content",
+  "lesson_generate_competency_bundle",
+  // Blueprint variant generation (LLM) — added 2026-04-17
+  "blueprint_generate_variants",
   // Root dispatchers
   "generate_course",
   "extract_curriculum",
@@ -237,6 +246,12 @@ export const ESTIMATED_RUNTIME_SECONDS: Record<string, number> = {
   package_fanout_learning_content: 10,
   package_generate_learning_content: 25,
   lesson_generate_content_shard: 15,
+  lesson_generate_content: 20,
+  lesson_generate_competency_bundle: 25,
+  blueprint_generate_variants: 22,
+  pool_fill_bloom_gaps: 20,
+  pool_fill_competency_gaps: 20,
+  pool_fill_lf_gaps: 20,
   generate_course: 20,
   extract_curriculum: 18,
 };
