@@ -3,16 +3,17 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { 
   LayoutDashboard, Package, ListChecks, Menu, X, 
-  LogOut, Sparkles, Globe, Play, HeadphonesIcon, BarChart3
+  LogOut, Sparkles, Globe, Play, HeadphonesIcon, BarChart3, Stethoscope
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Badge } from '@/components/ui/badge';
 
-/** SSOT: 7 operative areas */
+/** SSOT: 8 operative areas */
 const NAV_ITEMS = [
   { to: '/admin/command', label: 'Leitstelle', icon: LayoutDashboard },
   { to: '/admin/studio', label: 'Kurse', icon: Package },
   { to: '/admin/queue', label: 'Queue', icon: ListChecks },
+  { to: '/admin/heal-cockpit', label: 'Heal-Cockpit', icon: Stethoscope },
   { to: '/admin/growth', label: 'Growth', icon: Globe },
   { to: '/admin/support', label: 'Support', icon: HeadphonesIcon },
   { to: '/admin/kpi', label: 'KPIs', icon: BarChart3 },
