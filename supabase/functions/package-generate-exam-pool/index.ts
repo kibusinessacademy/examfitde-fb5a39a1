@@ -1942,19 +1942,30 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ─── ANTI-DOMINANZ CAP (per-LF runtime guard) ──────
-    // Prevents a single LF from exceeding 25% of total questions at runtime,
-    // even if the fan-out target was set higher due to legacy/race conditions.
+    // ─── ANTI-DOMINANZ CAP v2b (per-LF runtime guard, adaptive) ──────
+    // Tighter cap: max( ceil(1.4 / lfCount), 0.18 ) — was static 25%.
+    // For 4 LFs → 35% cap, 8 LFs → 18%, 12+ LFs → 18% (floor).
+    // Hard-blocks any LF from absorbing budget that other LFs need.
     if (isFanOut && p.learning_field_filter && globalTotal > 0) {
       const { count: lfCurrentCount } = await sb.from("exam_questions")
         .select("id", { count: "exact", head: true })
         .eq("curriculum_id", curriculumId)
         .eq("learning_field_id", p.learning_field_filter);
       const lfCurrent = lfCurrentCount ?? 0;
-      const maxPerLf = Math.ceil(Math.max(globalTotal, examTarget) * 0.25);
+      const totalLfs = new Set(bps.map(b => (b as BlueprintInfo).learning_field_id).filter(Boolean)).size;
+      const adaptiveCapPct = totalLfs > 0 ? Math.max(0.18, Math.min(0.35, 1.4 / totalLfs)) : 0.25;
+      const maxPerLf = Math.ceil(Math.max(globalTotal, examTarget) * adaptiveCapPct);
+
+      // ── Phase 2b skip-if-over-target: never overshoot lf_target_total either ──
+      const declaredLfTarget = p.lf_target_total ?? null;
+      if (declaredLfTarget != null && lfCurrent >= declaredLfTarget) {
+        console.log(`[ExamPool-v5] LF_TARGET_REACHED skip: LF ${p.learning_field_filter.slice(0,8)} has ${lfCurrent} >= declared lf_target_total=${declaredLfTarget}. Stopping.`);
+        return json({ ok: true, batch_complete: true, engine: "v5-ihk-quality", lf_target_already_reached: true, lf_count: lfCurrent, lf_target: declaredLfTarget });
+      }
+
       if (lfCurrent >= maxPerLf) {
-        console.log(`[ExamPool-v5] ANTI-DOMINANZ CAP: LF ${p.learning_field_filter.slice(0,8)} has ${lfCurrent}/${globalTotal} (${((lfCurrent/globalTotal)*100).toFixed(1)}%) >= 25% cap (${maxPerLf}). Stopping.`);
-        return json({ ok: true, batch_complete: true, engine: "v5-ihk-quality", anti_dominanz_cap: true, lf_count: lfCurrent, max_per_lf: maxPerLf });
+        console.log(`[ExamPool-v5] ANTI-DOMINANZ CAP v2b: LF ${p.learning_field_filter.slice(0,8)} has ${lfCurrent}/${globalTotal} (${((lfCurrent/globalTotal)*100).toFixed(1)}%) >= ${(adaptiveCapPct*100).toFixed(0)}% cap (${maxPerLf}, lfCount=${totalLfs}). Stopping.`);
+        return json({ ok: true, batch_complete: true, engine: "v5-ihk-quality", anti_dominanz_cap: true, lf_count: lfCurrent, max_per_lf: maxPerLf, cap_pct: adaptiveCapPct, total_lfs: totalLfs });
       }
     }
 
