@@ -186,16 +186,23 @@ Deno.serve(async (req) => {
     return json({ status: "blocked", reason: "recommended_action_mismatch", expected: REPAIR_ACTION, actual: recommended });
   }
 
-  // ── GUARD 3: Dedup — active LF-repair fan-out jobs ──
+  // ── GUARD 3: Dedup — active LF-repair fan-out jobs (overall) ──
   const { data: activeFanouts } = await sb.from("job_queue")
-    .select("id")
+    .select("id, payload")
     .eq("package_id", packageId)
     .eq("job_type", "package_generate_exam_pool")
     .in("status", ["pending", "processing", "queued", "running"])
     .contains("payload", { _origin: REPAIR_ACTION });
-  if ((activeFanouts?.length ?? 0) > 0) {
-    console.log(`[lf-cov-repair] dedup hit: ${activeFanouts!.length} active LF-repair fan-out jobs`);
-    return json({ status: "skipped", reason: "active_fanout_jobs_exist", count: activeFanouts!.length });
+  // Build set of LF ids already in-flight for this package
+  const activeLfSet = new Set<string>();
+  for (const row of (activeFanouts ?? []) as Array<{ payload: Record<string, unknown> | null }>) {
+    const lf = row.payload?.learning_field_filter;
+    if (typeof lf === "string") activeLfSet.add(lf);
+  }
+  // If a global cap of active LF-repair waves exists (e.g. >= 12), bail to avoid pile-up
+  if ((activeFanouts?.length ?? 0) >= 12) {
+    console.log(`[lf-cov-repair] global dedup hit: ${activeFanouts!.length} active LF-repair fan-out jobs`);
+    return json({ status: "skipped", reason: "active_fanout_cap_reached", count: activeFanouts!.length });
   }
 
   // ── GUARD 4: No-progress / repeat without delta ──
