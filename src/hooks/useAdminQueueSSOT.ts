@@ -63,6 +63,25 @@ function toAgeMinutes(createdAt: string | null | undefined) {
   return Math.max(0, Math.round((Date.now() - timestamp) / 60000));
 }
 
+function sanitizeQueueSearch(value: string | undefined) {
+  return (value ?? '')
+    .trim()
+    .replace(/[,%()]/g, ' ')
+    .replace(/\s+/g, ' ');
+}
+
+function matchesQueueSearch(job: AdminQueueJob, search: string) {
+  if (!search) return true;
+  const q = search.toLowerCase();
+  return (
+    job.job_type.toLowerCase().includes(q) ||
+    job.job_id.toLowerCase().includes(q) ||
+    (job.package_title || '').toLowerCase().includes(q) ||
+    (job.package_status || '').toLowerCase().includes(q) ||
+    (job.last_error || '').toLowerCase().includes(q)
+  );
+}
+
 function normalizeQueueJob(row: Partial<AdminQueueJob>): AdminQueueJob {
   const createdAt = typeof row.created_at === 'string' ? row.created_at : new Date().toISOString();
   const attempts = typeof row.attempts === 'number' ? row.attempts : 0;
@@ -72,8 +91,8 @@ function normalizeQueueJob(row: Partial<AdminQueueJob>): AdminQueueJob {
   const rawHealth = row.health_signal as string | undefined;
   const healthSignal: QueueHealthSignal = rawHealth === 'ok' ? 'normal'
     : rawHealth && ['zombie', 'stale_lock', 'exhausted', 'retriable', 'aging', 'normal'].includes(rawHealth)
-    ? (rawHealth as QueueHealthSignal)
-    : inferHealthSignal(jobStatus, attempts, maxAttempts, lastError, typeof row.started_at === 'string' ? row.started_at : null);
+      ? (rawHealth as QueueHealthSignal)
+      : inferHealthSignal(jobStatus, attempts, maxAttempts, lastError, typeof row.started_at === 'string' ? row.started_at : null);
 
   return {
     job_id: typeof row.job_id === 'string' && row.job_id.length > 0
@@ -145,11 +164,13 @@ export function useAdminQueueCounts() {
   });
 }
 
-export function useAdminQueueSSOT(statusFilter?: string) {
+export function useAdminQueueSSOT(statusFilter?: string, search?: string) {
   return useQuery({
-    queryKey: ['admin', 'queue-ssot', statusFilter],
+    queryKey: ['admin', 'queue-ssot', statusFilter, search],
     queryFn: async (): Promise<AdminQueueJob[]> => {
-      // Map UI filter to actual DB statuses
+      const normalizedSearch = sanitizeQueueSearch(search);
+      const hasSearch = normalizedSearch.length > 0;
+
       const statusMap: Record<string, string[]> = {
         pending: ['pending', 'queued'],
         processing: ['processing', 'running', 'batch_pending'],
@@ -158,21 +179,32 @@ export function useAdminQueueSSOT(statusFilter?: string) {
         cancelled: ['cancelled'],
       };
 
-      // Default: show active statuses only
+      const activeStatuses = ['pending', 'queued', 'processing', 'running', 'batch_pending', 'failed'];
+      const allStatuses = [...activeStatuses, 'completed', 'cancelled'];
       const statuses = statusFilter && statusFilter !== 'all'
         ? statusMap[statusFilter] || [statusFilter]
-        : ['pending', 'queued', 'processing', 'running', 'batch_pending', 'failed'];
+        : hasSearch
+          ? allStatuses
+          : activeStatuses;
 
       try {
-        const query = (supabase as any)
+        let query = (supabase as any)
           .from('v_admin_queue_ssot')
           .select('*')
-          .in('job_status', statuses)
-          .order('priority', { ascending: true })
-          .order('created_at', { ascending: true })
-          .limit(200);
+          .in('job_status', statuses);
 
-        const { data, error } = await query;
+        if (hasSearch) {
+          const like = `%${normalizedSearch}%`;
+          query = query
+            .or(`job_type.ilike.${like},package_title.ilike.${like},package_status.ilike.${like},last_error.ilike.${like}`)
+            .order('created_at', { ascending: false });
+        } else {
+          query = query
+            .order('priority', { ascending: true })
+            .order('created_at', { ascending: true });
+        }
+
+        const { data, error } = await query.limit(200);
         if (!error && Array.isArray(data)) {
           return data.map((row: any) => normalizeQueueJob(row as Partial<AdminQueueJob>));
         }
@@ -181,10 +213,12 @@ export function useAdminQueueSSOT(statusFilter?: string) {
         console.warn('[admin-queue] SSOT query exception, using fallback:', e);
       }
 
-      // Fallback: edge function
       try {
         const fallbackJobs = await adminRpc.opsQueueOverview();
-        return fallbackJobs.map(mapLegacyJob).slice(0, 200);
+        return fallbackJobs
+          .map(mapLegacyJob)
+          .filter((job) => matchesQueueSearch(job, normalizedSearch))
+          .slice(0, 200);
       } catch (e) {
         console.warn('[admin-queue] Fallback also failed:', e);
         return [];
