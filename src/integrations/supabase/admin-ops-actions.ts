@@ -256,3 +256,25 @@ export async function bulkHealByClass(
 export async function zombieSweep(olderThanMinutes = 30) {
   return runAdminOpsAction('zombie_sweep', { older_than_minutes: olderThanMinutes });
 }
+
+/* ── v8.0 Repair-Marker / Exhaustion-Reset / Hard-Rebuild ── */
+
+export async function markPackageRepair(packageId: string, reason?: string) {
+  return runAdminOpsAction('mark_repair', { package_id: packageId, reason });
+}
+
+export async function unmarkPackageRepair(packageId: string) {
+  return runAdminOpsAction('unmark_repair', { package_id: packageId });
+}
+
+export async function resetRepairExhaustion(packageId: string, stepKeys?: string[]) {
+  return runAdminOpsAction('reset_repair_exhaustion', { package_id: packageId, step_keys: stepKeys });
+}
+
+export async function hardDepublishAndRebuild(packageId: string, reason: string) {
+  return runAdminOpsAction('hard_depublish_and_rebuild', { package_id: packageId, reason });
+}
+
+export async function bulkResetRepairExhaustion(packageIds: string[]) {
+  return runAdminOpsAction('bulk_reset_repair_exhaustion', { package_ids: packageIds });
+}
