@@ -41,6 +41,7 @@ import { ALL_PIPELINE_STEPS, diagnoseError } from '@/components/admin/studio/wor
 import type { PipelineStepUI } from '@/lib/pipeline-ui-registry';
 import { getActivePipelineStepsUI } from '@/lib/pipeline-ui-registry';
 import { useQuery } from '@tanstack/react-query';
+import { MIN_QUESTIONS_PER_PACKAGE } from '@/lib/examPoolLimits';
 
 export default function CourseWorkspace() {
   const { packageId } = useParams<{ packageId: string }>();
@@ -303,8 +304,11 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
                    releaseState === 'ready_to_publish' ? 'Bereit' :
                    pkg.status}
                 </Badge>
-                <div className={cn("flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold", healthScore >= 95 ? 'bg-success/10 text-success' : healthScore >= 80 ? 'bg-warning/10 text-warning' : 'bg-destructive/10 text-destructive')}>
-                  <Activity className="h-3 w-3" /> {healthScore}%
+                <div
+                  title="Health Score = Integrität + Council + Step-Done + Drift-Penalties (nicht Build-Fortschritt)"
+                  className={cn("flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold", healthScore >= 95 ? 'bg-success/10 text-success' : healthScore >= 80 ? 'bg-warning/10 text-warning' : 'bg-destructive/10 text-destructive')}
+                >
+                  <Activity className="h-3 w-3" /> Health {healthScore}%
                 </div>
               </div>
             </div>
@@ -346,10 +350,10 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
         <Card className="border-border/40">
           <CardContent className="py-3 px-4">
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Fragen</p>
-            <p className={cn("text-xl font-bold mt-0.5", ssot && ssot.approved_questions >= 100 ? 'text-success' : 'text-foreground')}>
+            <p className={cn("text-xl font-bold mt-0.5", ssot && ssot.approved_questions >= MIN_QUESTIONS_PER_PACKAGE ? 'text-success' : 'text-foreground')}>
               {ssot ? `${ssot.approved_questions}` : '–'}
             </p>
-            <p className="text-[10px] text-muted-foreground mt-1">{ssot ? `von ${ssot.total_questions} total · ${ssot.approved_questions >= 100 ? '✓' : '✗'} Gate (≥100)` : 'Approved'}</p>
+            <p className="text-[10px] text-muted-foreground mt-1">{ssot ? `von ${ssot.total_questions} total · ${ssot.approved_questions >= MIN_QUESTIONS_PER_PACKAGE ? '✓' : '✗'} Gate (≥${MIN_QUESTIONS_PER_PACKAGE})` : 'Approved'}</p>
           </CardContent>
         </Card>
         <Card className="border-border/40">
