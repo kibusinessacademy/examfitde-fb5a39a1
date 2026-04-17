@@ -1309,19 +1309,27 @@ async function enqueueLearningFieldJobs(
   const lfCount = lfGroups.size;
   if (lfCount === 0) return { enqueued: 0, learningFields: 0, skipped: 0, skipped_covered: 0, skipped_cooldown: 0, skipped_dedup: 0, errors: [], lf_details: [] };
 
+  // ── Phase 2b: LF-balanced target calculation ──
+  // Default to EVEN distribution across all LFs (1/N), then blend small influence
+  // from natural blueprint volume so high-blueprint LFs get marginally more.
+  // Blend ratio: 80% even baseline + 20% blueprint-weighted (was 100% bp-weighted).
+  // This prevents structural skew where one LF with many blueprints dominates.
   const totalBps = bps.length;
-  const MIN_LF_SHARE = 0.06;
-  const MAX_LF_SHARE = Math.min(0.20, 2.0 / lfCount);
+  const evenShare = 1 / lfCount;
+  const MIN_LF_SHARE = Math.max(0.05, evenShare * 0.7);                   // floor: 70% of even share
+  const MAX_LF_SHARE = Math.min(0.18, Math.max(evenShare * 1.3, 1.5 / lfCount)); // ceil: 130% of even share, never >18%
+  const BLUEPRINT_WEIGHT_BLEND = 0.20;                                    // 20% blueprint influence
 
   const lfWeights = new Map<string, number>();
   for (const [lfId, lfBps] of lfGroups) {
-    const naturalWeight = totalBps > 0 ? lfBps.length / totalBps : 1 / lfCount;
-    lfWeights.set(lfId, Math.min(MAX_LF_SHARE, Math.max(MIN_LF_SHARE, naturalWeight)));
+    const bpShare = totalBps > 0 ? lfBps.length / totalBps : evenShare;
+    const blendedWeight = (1 - BLUEPRINT_WEIGHT_BLEND) * evenShare + BLUEPRINT_WEIGHT_BLEND * bpShare;
+    lfWeights.set(lfId, Math.min(MAX_LF_SHARE, Math.max(MIN_LF_SHARE, blendedWeight)));
   }
 
   const totalWeight = Array.from(lfWeights.values()).reduce((s, w) => s + w, 0);
   for (const [lfId, w] of lfWeights) lfWeights.set(lfId, w / totalWeight);
-  console.log(`[ExamPool-v5] Anti-Dominanz: lfCount=${lfCount}, MAX_LF_SHARE=${(MAX_LF_SHARE * 100).toFixed(1)}%, weights=[${Array.from(lfWeights.entries()).map(([id, w]) => `${id.slice(0, 8)}:${(w * 100).toFixed(1)}%`).join(', ')}]`);
+  console.log(`[ExamPool-v5] LF-Balanced v2b: lfCount=${lfCount}, evenShare=${(evenShare*100).toFixed(1)}%, MIN=${(MIN_LF_SHARE*100).toFixed(1)}%, MAX=${(MAX_LF_SHARE * 100).toFixed(1)}%, blend=${BLUEPRINT_WEIGHT_BLEND}, weights=[${Array.from(lfWeights.entries()).map(([id, w]) => `${id.slice(0, 8)}:${(w * 100).toFixed(1)}%`).join(', ')}]`);
 
   const lfIds = Array.from(lfGroups.keys());
   const existingPerLf = new Map<string, number>();
