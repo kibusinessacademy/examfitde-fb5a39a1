@@ -186,16 +186,23 @@ Deno.serve(async (req) => {
     return json({ status: "blocked", reason: "recommended_action_mismatch", expected: REPAIR_ACTION, actual: recommended });
   }
 
-  // ── GUARD 3: Dedup — active LF-repair fan-out jobs ──
+  // ── GUARD 3: Dedup — active LF-repair fan-out jobs (overall) ──
   const { data: activeFanouts } = await sb.from("job_queue")
-    .select("id")
+    .select("id, payload")
     .eq("package_id", packageId)
     .eq("job_type", "package_generate_exam_pool")
     .in("status", ["pending", "processing", "queued", "running"])
     .contains("payload", { _origin: REPAIR_ACTION });
-  if ((activeFanouts?.length ?? 0) > 0) {
-    console.log(`[lf-cov-repair] dedup hit: ${activeFanouts!.length} active LF-repair fan-out jobs`);
-    return json({ status: "skipped", reason: "active_fanout_jobs_exist", count: activeFanouts!.length });
+  // Build set of LF ids already in-flight for this package
+  const activeLfSet = new Set<string>();
+  for (const row of (activeFanouts ?? []) as Array<{ payload: Record<string, unknown> | null }>) {
+    const lf = row.payload?.learning_field_filter;
+    if (typeof lf === "string") activeLfSet.add(lf);
+  }
+  // If a global cap of active LF-repair waves exists (e.g. >= 12), bail to avoid pile-up
+  if ((activeFanouts?.length ?? 0) >= 12) {
+    console.log(`[lf-cov-repair] global dedup hit: ${activeFanouts!.length} active LF-repair fan-out jobs`);
+    return json({ status: "skipped", reason: "active_fanout_cap_reached", count: activeFanouts!.length });
   }
 
   // ── GUARD 4: No-progress / repeat without delta ──
@@ -254,7 +261,14 @@ Deno.serve(async (req) => {
 
   // ── DISPATCH: targeted fan-out per deficit LF ──
   const dispatched: Array<{ lf_code: string; deficit: number; lf_target_total: number; job_id: string }> = [];
+  const skippedLfs: Array<{ lf_code: string; reason: string }> = [];
   for (const d of deficits) {
+    // Per-LF dedup: skip if this exact LF already has an active repair fan-out
+    if (activeLfSet.has(d.learning_field_id)) {
+      console.log(`[lf-cov-repair] per-lf dedup: lf=${d.lf_code} already has active fan-out, skipping`);
+      skippedLfs.push({ lf_code: d.lf_code, reason: "active_fanout_for_lf" });
+      continue;
+    }
     try {
       const result = await enqueueJob(sb, {
         job_type: "package_generate_exam_pool",
@@ -279,17 +293,20 @@ Deno.serve(async (req) => {
         lf_target_total: d.target_count,
         job_id: (result as { id: string }).id,
       });
+      // Track newly enqueued LF so subsequent iterations can't double-enqueue
+      activeLfSet.add(d.learning_field_id);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       console.warn(`[lf-cov-repair] enqueue failed for lf=${d.lf_code}: ${msg}`);
+      skippedLfs.push({ lf_code: d.lf_code, reason: `enqueue_failed: ${msg}` });
     }
   }
 
   if (dispatched.length === 0) {
     await markBlocked(sb, packageId, "no_jobs_dispatched", {
-      deficits_count: deficits.length, target_per_lf: targetPerLf,
+      deficits_count: deficits.length, target_per_lf: targetPerLf, skipped_lfs: skippedLfs,
     });
-    return json({ status: "blocked", reason: "no_jobs_dispatched" });
+    return json({ status: "blocked", reason: "no_jobs_dispatched", skipped_lfs: skippedLfs });
   }
 
   // ── Heartbeat / progress meta ──
@@ -299,7 +316,7 @@ Deno.serve(async (req) => {
   await sb.from("auto_heal_log").insert({
     action_type: REPAIR_ACTION,
     result_status: "success",
-    result_detail: `dispatched ${dispatched.length}/${deficits.length} LF fan-out jobs`,
+    result_detail: `dispatched ${dispatched.length}/${deficits.length} LF fan-out jobs (skipped ${skippedLfs.length})`,
     metadata: {
       package_id: packageId,
       curriculum_id: curriculumId,
@@ -307,7 +324,9 @@ Deno.serve(async (req) => {
       target_per_lf: targetPerLf,
       deficits_count: deficits.length,
       dispatched_count: dispatched.length,
+      skipped_count: skippedLfs.length,
       dispatched,
+      skipped_lfs: skippedLfs,
       pre_snapshot: preSnapshot,
       post_snapshot: postSnapshot,
       gate_change: gateChange,
@@ -319,6 +338,7 @@ Deno.serve(async (req) => {
   await markDone(sb, packageId, {
     dispatched_count: dispatched.length,
     deficits_count: deficits.length,
+    skipped_count: skippedLfs.length,
     target_per_lf: targetPerLf,
     pending_followup: "fan_out_completion_triggers_validate_exam_pool",
     pre_snapshot: preSnapshot,
@@ -328,8 +348,10 @@ Deno.serve(async (req) => {
     status: "dispatched",
     deficits: deficits.length,
     dispatched: dispatched.length,
+    skipped: skippedLfs.length,
     target_per_lf: targetPerLf,
     jobs: dispatched,
+    skipped_lfs: skippedLfs,
     next: "fan-out completion will re-trigger validate_exam_pool via job-runner",
   });
 });
