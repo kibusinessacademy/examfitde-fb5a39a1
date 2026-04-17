@@ -80711,6 +80711,17 @@ export type Database = {
         Args: { p_curriculum_id: string }
         Returns: Json
       }
+      fn_compute_package_coverage: {
+        Args: { p_package_id: string }
+        Returns: {
+          comp_total: number
+          comp_with_lesson: number
+          comp_with_question: number
+          competency_question_coverage_pct: number
+          lesson_coverage_pct: number
+          track: string
+        }[]
+      }
       fn_compute_seo_discovery_hash: {
         Args: {
           p_canonical_url: string
@@ -81415,6 +81426,13 @@ export type Database = {
           detail: Json
           passed: boolean
           test_name: string
+        }[]
+      }
+      fn_track_min_coverage_thresholds: {
+        Args: { p_track: string }
+        Returns: {
+          min_competency_question_coverage_pct: number
+          min_lesson_coverage_pct: number
         }[]
       }
       fn_update_package_prebuild_status: {
