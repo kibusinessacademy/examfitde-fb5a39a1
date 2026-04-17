@@ -146,9 +146,13 @@ export function HealWorklist() {
   };
 
   const runSingle = async (row: Row) => {
+    if (row.actionability_class === "modal") {
+      setGuidedId(row.package_id);
+      return;
+    }
     if (row.actionability_class !== "auto") {
       toast({
-        title: `${ACTION_LABEL[row.recommended_action]} erfordert ${row.actionability_class === "modal" ? "Modal" : row.actionability_class === "confirm" ? "Bestätigung" : "Beobachtung"}`,
+        title: `${ACTION_LABEL[row.recommended_action]} erfordert ${row.actionability_class === "confirm" ? "Bestätigung" : "Beobachtung"}`,
         description: "Wird in v1 noch nicht silent ausgeführt.",
       });
       return;
