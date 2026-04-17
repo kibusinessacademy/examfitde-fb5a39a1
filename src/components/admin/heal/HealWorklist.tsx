@@ -26,6 +26,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useHealWorklist, useSmartHealBulk } from "./hooks";
 import { HealWorklistRow } from "./HealWorklistRow";
 import { PackageDrawer } from "./PackageDrawer";
+import { GuidedRecoveryModal } from "./GuidedRecoveryModal";
 import { useToast } from "@/hooks/use-toast";
 import type {
   ActionabilityClass,
@@ -73,6 +74,7 @@ export function HealWorklist() {
   });
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [openId, setOpenId] = useState<string | null>(null);
+  const [guidedId, setGuidedId] = useState<string | null>(null);
   const { toast } = useToast();
   const { data, isLoading, error } = useHealWorklist(filters);
   const bulk = useSmartHealBulk();
@@ -144,9 +146,13 @@ export function HealWorklist() {
   };
 
   const runSingle = async (row: Row) => {
+    if (row.actionability_class === "modal") {
+      setGuidedId(row.package_id);
+      return;
+    }
     if (row.actionability_class !== "auto") {
       toast({
-        title: `${ACTION_LABEL[row.recommended_action]} erfordert ${row.actionability_class === "modal" ? "Modal" : row.actionability_class === "confirm" ? "Bestätigung" : "Beobachtung"}`,
+        title: `${ACTION_LABEL[row.recommended_action]} erfordert ${row.actionability_class === "confirm" ? "Bestätigung" : "Beobachtung"}`,
         description: "Wird in v1 noch nicht silent ausgeführt.",
       });
       return;
@@ -370,6 +376,12 @@ export function HealWorklist() {
         rows={rows}
         onClose={() => setOpenId(null)}
         onAction={(row) => runSingle(row)}
+      />
+
+      <GuidedRecoveryModal
+        row={rows.find((r) => r.package_id === guidedId) ?? null}
+        open={!!guidedId}
+        onClose={() => setGuidedId(null)}
       />
     </>
   );
