@@ -20,6 +20,70 @@ type PreflightFn = (sb: SB, ctx: PreflightContext) => Promise<void>;
  */
 const PREFLIGHT_REGISTRY: Record<string, PreflightFn> = {
 
+  // ── generate_learning_content: SSOT artifact-truth gate (HOLLOW_LEARNING_CONTENT) ──
+  // Mirrors artifact-verifier rules to block premature markStepDone before DB trigger sync.
+  generate_learning_content: async (sb, ctx) => {
+    const { data, error } = await sb.rpc("package_lessons_realness", { p_package_id: ctx.packageId });
+    if (error) {
+      throw preflightError("PREFLIGHT_LEARNING_CONTENT", {
+        reason: `RPC_ERROR: ${error.message ?? String(error)}`,
+      });
+    }
+
+    const total = Number(data?.lessons_total ?? 0);
+    const real = Number(data?.real_content ?? 0);
+    const placeholders = Number(data?.placeholders ?? 0);
+    const avgLen = Number(data?.avg_len ?? 0);
+
+    if (total === 0) {
+      throw preflightError("PREFLIGHT_LEARNING_CONTENT", {
+        reason: "no lessons exist for package — cannot mark generate_learning_content done",
+        total,
+      });
+    }
+
+    if (placeholders > 0) {
+      throw preflightError("PREFLIGHT_PLACEHOLDER_LESSONS_PRESENT", {
+        reason: `${placeholders}/${total} lessons are placeholder shells`,
+        placeholders,
+        total,
+      });
+    }
+
+    const substantiveRatio = real / total;
+    if (substantiveRatio < 0.90) {
+      throw preflightError("PREFLIGHT_LESSON_SUBSTANCE_BELOW_THRESHOLD", {
+        reason: `substantive_ratio ${substantiveRatio.toFixed(3)} < 0.90 (${real}/${total})`,
+        real,
+        total,
+        substantive_ratio: substantiveRatio,
+        threshold: 0.90,
+      });
+    }
+
+    // Pending lesson_generate_content jobs would invalidate any "done" claim
+    const { count: pendingJobs } = await sb
+      .from("job_queue")
+      .select("id", { count: "exact", head: true })
+      .eq("package_id", ctx.packageId)
+      .eq("job_type", "lesson_generate_content")
+      .in("status", ["pending", "enqueued", "processing"]);
+
+    if ((pendingJobs ?? 0) > 0) {
+      throw preflightError("PREFLIGHT_LESSON_GENERATION_INCOMPLETE", {
+        reason: `${pendingJobs} lesson_generate_content jobs still active`,
+        pending_jobs: pendingJobs,
+      });
+    }
+
+    if (avgLen < 600) {
+      throw preflightError("PREFLIGHT_LEARNING_CONTENT_AVG_LEN", {
+        reason: `avg_len ${avgLen} < 600`,
+        avg_len: avgLen,
+      });
+    }
+  },
+
   // ── quality_council: council_approved must be true before done ──
   quality_council: async (sb, ctx) => {
     const { data: pkg } = await sb
