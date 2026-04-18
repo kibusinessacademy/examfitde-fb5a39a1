@@ -592,9 +592,10 @@ Deno.serve(async (req) => {
     classification.repairAction === "enqueue_targeted_repair" ||
     classification.repairAction === "enqueue_major_regeneration"
   ) {
-    const repairJobType = classification.repairAction === "enqueue_targeted_repair"
-      ? "repair_learning_content"
-      : "regenerate_learning_content_cluster";
+    // Both targeted and major repairs use the same job type — repair_mode in
+    // the payload distinguishes them. The legacy "regenerate_learning_content_cluster"
+    // job type was never deployed as an edge function (404 drift).
+    const repairJobType = "repair_learning_content";
 
     try {
       const result = await enqueueJob(sb, {
