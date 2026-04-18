@@ -33,10 +33,41 @@ export async function handleDbFailure(ctx: FailCtx, err: any) {
   // 1) Mark job
   if (ctx.jobId) {
     if (c.class === "permanent") {
-      await ctx.supabase
-        .from("job_queue")
-        .update({ status: "failed", last_error: metaPatch })
-        .eq("id", ctx.jobId);
+      // Phase 2 Härtung: Materialization-Guard-Failures werden cancelled (kein Retry-Loop)
+      const errStr = String(c.message ?? err?.message ?? "");
+      const isMatGuard = /MATERIALIZATION_GUARD|TOO_FEW_CHUNKS/.test(errStr);
+
+      if (isMatGuard) {
+        try {
+          await ctx.supabase.rpc("fn_route_materialization_block", {
+            p_job_id: ctx.jobId,
+            p_last_error: errStr,
+          });
+        } catch (_e) {
+          // Fallback auf normalen failed-Pfad
+          await ctx.supabase
+            .from("job_queue")
+            .update({ status: "failed", last_error: metaPatch })
+            .eq("id", ctx.jobId);
+        }
+      } else {
+        await ctx.supabase
+          .from("job_queue")
+          .update({ status: "failed", last_error: metaPatch })
+          .eq("id", ctx.jobId);
+
+        // Hot-Loop-Check nach echtem Failure (best-effort, fail-open)
+        if (ctx.packageId) {
+          try {
+            await ctx.supabase.rpc("fn_check_hot_loop_quarantine", {
+              p_package_id: ctx.packageId,
+              p_job_type: null, // wird über job-row gelookupt
+            });
+          } catch (_e) {
+            // Silent: Quarantäne-Check darf den Failure-Pfad nie brechen
+          }
+        }
+      }
     } else {
       await ctx.supabase
         .from("job_queue")
