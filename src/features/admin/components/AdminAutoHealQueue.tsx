@@ -15,8 +15,6 @@ import {
   type ReleaseClassification,
 } from "@/features/admin/api/releaseClassificationApi";
 import {
-  forcePublishReleaseOk,
-  reconcilePipelineTail,
   markContentGap,
   bulkHealByClass,
   zombieSweep,
@@ -25,6 +23,8 @@ import { AutoHealActionBadge } from "@/features/admin/components/AutoHealActionB
 import { ReleaseClassBadge } from "@/features/admin/components/ReleaseClassBadge";
 import { ContextSensitiveHealActions } from "@/features/admin/components/ContextSensitiveHealActions";
 import { TestPriorityReasons } from "@/features/admin/components/TestPriorityReasons";
+import { usePackageHealAction } from "@/lib/admin/heal/usePackageHealAction";
+import { recommendHeal } from "@/lib/admin/heal/healService";
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
@@ -90,38 +90,50 @@ export function AdminAutoHealQueue() {
     onSuccess: invalidateAll,
   });
 
-  const healMutation = useMutation({
-    mutationFn: async (params: {
-      action: "force_publish" | "reconcile" | "content_gap";
-      packageId: string;
-      queueId: string;
-    }) => {
-      if (params.action === "force_publish") {
-        return forcePublishReleaseOk(params.packageId);
-      }
-      if (params.action === "reconcile") {
-        return reconcilePipelineTail(params.packageId);
-      }
+  const heal = usePackageHealAction();
+
+  const runHeal = async (
+    packageId: string,
+    queueId: string,
+    mode: "soft" | "hard",
+    deficitCodes: string[] | undefined,
+    releaseClass: ReleaseClass | undefined,
+  ) => {
+    const rec = recommendHeal({
+      hardFailReasons: deficitCodes,
+      releaseClass: releaseClass ?? null,
+      hasActiveJobs: false,
+      isStuck: mode === "hard",
+    });
+    try {
+      await heal.mutateAsync({
+        packageId,
+        mode,
+        resetFromStep: mode === "soft" ? "auto_publish" : (rec.resetFromStep ?? "run_integrity_check"),
+        reason: `auto_heal_queue:${mode}:${queueId}`,
+        cancelActiveJobs: mode === "hard",
+        enqueuePlan: mode === "hard" ? rec.enqueuePlan : undefined,
+      });
+      await updateAdminAutoHealStatus({ queueId, status: "done" });
+      await invalidateAll();
+    } catch {
+      // toast already handled in hook
+    }
+  };
+
+  const contentGapMutation = useMutation({
+    mutationFn: async (params: { packageId: string; queueId: string }) => {
       const reason =
         window.prompt("Begründung für content_gap (optional)") ||
         "manual_review_content_insufficient";
-      return markContentGap(params.packageId, reason);
+      await markContentGap(params.packageId, reason);
+      await updateAdminAutoHealStatus({ queueId: params.queueId, status: "done" });
     },
-    onSuccess: async (_data, vars) => {
-      toast.success(`${vars.action} erfolgreich`);
-      // Markiere Queue-Item als done
-      await updateAdminAutoHealStatus({ queueId: vars.queueId, status: "done" });
+    onSuccess: async () => {
+      toast.success("content_gap markiert");
       await invalidateAll();
     },
-    onError: (err: Error & { ssotBlocked?: boolean }) => {
-      if (err.ssotBlocked) {
-        toast.warning("Aktion für diesen Track nicht zulässig", {
-          description: err.message,
-        });
-        return;
-      }
-      toast.error("Heal fehlgeschlagen", { description: err.message });
-    },
+    onError: (err: Error) => toast.error("Mark content_gap fehlgeschlagen", { description: err.message }),
   });
 
   const bulkMutation = useMutation({
