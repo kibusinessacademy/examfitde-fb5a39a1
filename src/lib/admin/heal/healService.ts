@@ -1,45 +1,54 @@
 /**
- * SSOT Heal Service v1
+ * SSOT Heal Service v2
  * ────────────────────
  * Zentraler Entry-Point für alle manuellen Heal-Aktionen.
- * Ersetzt die historisch fragmentierten Pfade:
- *   - recover_and_reenter_package (legacy)
- *   - direkte status-Transitions
- *   - lose verteilte runAdminOpsAction-Calls
  *
- * Zwei Modi:
- *   - SOFT  → admin-ops-actions.reset_to_step (Reentry, kein Job-Cancel)
- *   - HARD  → admin_manual_heal_package RPC (Cancel Jobs + Step-Reset + clear blocked_reason)
+ * Härtungen ggü. v1:
+ *   - Promise<HealResult> Typ-Signatur korrekt
+ *   - Reason-Schema erzwungen (assertValidHealReason)
+ *   - enqueuePlan über harte Action-Registry (HealEnqueueAction → AdminOpsAction)
+ *   - Soft-Heal Auto-Upgrade auf Hard wenn Snapshot stuck/loop signalisiert
  *
- * Optionales Enqueue-Plan: Liste von Jobs die NACH dem Heal eingereiht werden.
- * (Realisiert über admin-ops-actions.enqueue_single_step bzw. dedizierte Repair-Actions.)
+ * Recommendation lebt in healRecommendations.ts (datenbasiert, nicht reason-only).
  */
 import { supabase } from "@/integrations/supabase/client";
+import { runAdminOpsAction } from "@/integrations/supabase/admin-ops-actions";
 import {
-  runAdminOpsAction,
-  type AdminOpsAction,
-} from "@/integrations/supabase/admin-ops-actions";
+  resolveHealOpsAction,
+  type HealEnqueueAction,
+} from "./healActionRegistry";
+import { assertValidHealReason } from "./healReason";
+import {
+  shouldForceHardHeal,
+  type HealSnapshot,
+  type HealMode,
+} from "./healRecommendations";
 
-export type HealMode = "soft" | "hard";
+export type { HealMode, HealSnapshot } from "./healRecommendations";
+export { recommendHeal } from "./healRecommendations";
+export type { HealEnqueueAction } from "./healActionRegistry";
+export { buildHealReason } from "./healReason";
 
 export interface HealEnqueueStep {
-  /** admin-ops action that materialises a job (e.g. 'repair_exam_pool_quality'). */
-  action: AdminOpsAction;
-  /** Optional extra payload merged into the action call. */
+  action: HealEnqueueAction;
   payload?: Record<string, unknown>;
 }
 
 export interface RunHealParams {
   packageId: string;
   mode: HealMode;
-  /** Required for hard heal; optional for soft (defaults to current step). */
-  resetFromStep?: string;
-  /** Audit reason — required. */
+  /** Required for hard heal; required for soft heal (no implicit fallback). */
+  resetFromStep: string;
+  /** SSOT reason — must match buildHealReason() schema. */
   reason: string;
   /** Optional cancel toggle for hard heal (default true). */
   cancelActiveJobs?: boolean;
-  /** Optional follow-up jobs to enqueue post-heal. */
+  /** Optional follow-up actions resolved through HealActionRegistry. */
   enqueuePlan?: HealEnqueueStep[];
+  /** Optional snapshot — used for Soft→Hard auto-upgrade guard. */
+  snapshot?: HealSnapshot;
+  /** Free-text operator note (audit-only, not part of primary reason). */
+  operatorNote?: string;
 }
 
 export interface HealResult {
@@ -47,44 +56,62 @@ export interface HealResult {
   mode: HealMode;
   packageId: string;
   reset?: unknown;
-  enqueued: Array<{ action: string; ok: boolean; error?: string }>;
+  enqueued: Array<{ action: HealEnqueueAction; ok: boolean; error?: string }>;
+  upgradedToHard: boolean;
 }
 
-/**
- * Single SSOT entry point for any manual heal in admin UI.
- */
 export async function runPackageHealAction(
   params: RunHealParams,
 ): Promise<HealResult> {
-  const { packageId, mode, resetFromStep, reason, cancelActiveJobs = true, enqueuePlan } = params;
+  const {
+    packageId,
+    resetFromStep,
+    reason,
+    cancelActiveJobs = true,
+    enqueuePlan,
+    snapshot,
+    operatorNote,
+  } = params;
 
+  // ── 1. Reason-Schema enforcement ──
+  assertValidHealReason(reason);
+  if (!resetFromStep) {
+    throw new Error("runPackageHealAction: resetFromStep is required");
+  }
+
+  // ── 2. Soft → Hard auto-upgrade guard ──
+  let mode = params.mode;
+  let upgradedToHard = false;
+  if (mode === "soft" && snapshot && shouldForceHardHeal(snapshot)) {
+    mode = "hard";
+    upgradedToHard = true;
+  }
+
+  // ── 3. Execute reset ──
   let resetResult: unknown = null;
-
   if (mode === "soft") {
-    if (!resetFromStep) {
-      throw new Error("SOFT heal requires resetFromStep");
-    }
     resetResult = await runAdminOpsAction("reset_to_step", {
       package_id: packageId,
       step_key: resetFromStep,
     });
   } else {
-    // HARD: SECURITY DEFINER RPC handles cancel + reset + blocked_reason clear + audit
     const { data, error } = await (supabase as any).rpc("admin_manual_heal_package", {
       p_package_id: packageId,
-      p_reset_from_step: resetFromStep ?? null,
+      p_reset_from_step: resetFromStep,
       p_cancel_active_jobs: cancelActiveJobs,
-      p_reason: reason,
+      p_reason: operatorNote ? `${reason} | note=${operatorNote}` : reason,
     });
     if (error) throw new Error(error.message || "admin_manual_heal_package failed");
     resetResult = data;
   }
 
+  // ── 4. Resolve & execute enqueuePlan via Action Registry ──
   const enqueued: HealResult["enqueued"] = [];
   if (enqueuePlan?.length) {
     for (const step of enqueuePlan) {
       try {
-        await runAdminOpsAction(step.action, {
+        const opsAction = resolveHealOpsAction(step.action);
+        await runAdminOpsAction(opsAction, {
           package_id: packageId,
           ...(step.payload ?? {}),
         });
@@ -95,110 +122,5 @@ export async function runPackageHealAction(
     }
   }
 
-  return { ok: true, mode, packageId, reset: resetResult, enqueued };
-}
-
-/**
- * Mapping helper: derive recommended (mode, resetStep, enqueuePlan) from
- * a deficit signal. UI-Komponenten nutzen das, statt Hard-/Soft-Logik selbst zu schreiben.
- */
-export interface HealRecommendation {
-  mode: HealMode;
-  resetFromStep?: string;
-  enqueuePlan?: HealEnqueueStep[];
-  rationale: string;
-}
-
-export function recommendHeal(input: {
-  hardFailReasons?: string[];
-  blockReason?: string | null;
-  hasActiveJobs?: boolean;
-  isStuck?: boolean;
-  releaseClass?: "release_ok" | "release_warn" | "release_block" | null;
-}): HealRecommendation {
-  const reasons = (input.hardFailReasons ?? []).map((r) => r.toUpperCase());
-  const stuck = !!input.isStuck;
-  const block = (input.blockReason ?? "").toLowerCase();
-
-  // 1. Stuck / loop / queued-without-job / repair-no-effect → HARD
-  if (
-    stuck ||
-    block.includes("repair_no_effect") ||
-    block.includes("queued_without_job") ||
-    block.includes("active_jobs_exist") ||
-    block.includes("pipeline_repair_required")
-  ) {
-    const stepGuess = guessRepairStep(reasons);
-    return {
-      mode: "hard",
-      resetFromStep: stepGuess.step,
-      enqueuePlan: stepGuess.enqueue,
-      rationale: "Stuck / loop / pipeline_repair_required — Hard reset required.",
-    };
-  }
-
-  // 2. release_ok with no active jobs → soft reentry to publish
-  if (input.releaseClass === "release_ok" && !input.hasActiveJobs) {
-    return {
-      mode: "soft",
-      resetFromStep: "auto_publish",
-      rationale: "Release-OK and no active jobs — soft reentry to publish step.",
-    };
-  }
-
-  // 3. Default: soft reentry to integrity check
-  return {
-    mode: "soft",
-    resetFromStep: "run_integrity_check",
-    rationale: "Default soft reentry: re-run integrity check.",
-  };
-}
-
-function guessRepairStep(reasons: string[]): { step: string; enqueue: HealEnqueueStep[] } {
-  if (reasons.some((r) => r.includes("MINICHECK"))) {
-    return {
-      step: "fanout_learning_content",
-      enqueue: [{ action: "repair_minichecks" }],
-    };
-  }
-  if (reasons.some((r) => r.includes("LESSON") || r.includes("PLACEHOLDER") || r.includes("TIER1"))) {
-    return {
-      step: "scaffold_learning_course",
-      enqueue: [{ action: "repair_lessons" }],
-    };
-  }
-  if (reasons.some((r) => r.includes("HANDBOOK"))) {
-    return {
-      step: "generate_handbook",
-      enqueue: [{ action: "repair_handbook" }],
-    };
-  }
-  if (reasons.some((r) => r.includes("ORAL_EXAM"))) {
-    return {
-      step: "generate_oral_exam",
-      enqueue: [{ action: "repair_oral_exam" }],
-    };
-  }
-  // Exam pool / bloom / coverage / hardish → repair_exam_pool_quality
-  if (
-    reasons.some(
-      (r) =>
-        r.includes("EXAM_POOL") ||
-        r.includes("BLOOM") ||
-        r.includes("COVERAGE") ||
-        r.includes("HARDISH") ||
-        r.includes("EASY_TOO_HIGH") ||
-        r.includes("TRAP"),
-    )
-  ) {
-    return {
-      step: "generate_exam_pool",
-      enqueue: [{ action: "repair_exam_pool_quality" }],
-    };
-  }
-  // Generic fallback
-  return {
-    step: "run_integrity_check",
-    enqueue: [],
-  };
+  return { ok: true, mode, packageId, reset: resetResult, enqueued, upgradedToHard };
 }

@@ -53,8 +53,10 @@ function BlockedPackageItem({ pkg, onSoftReentry, onHardHeal, onUnblock, onConte
   const scoreTone = pkg.score >= 90 ? 'text-amber-500' : pkg.score >= 70 ? 'text-orange-500' : 'text-destructive';
   const isAdminHold = pkg.block_reason.startsWith('admin_hold');
   const recommendation = recommendHeal({
+    packageId: pkg.id,
     hardFailReasons: pkg.hard_fail_reasons,
     blockReason: pkg.block_reason,
+    hasActiveJobs: false,
     isStuck: pkg.block_reason.includes('pipeline_repair_required') || pkg.block_reason.includes('repair_no_effect'),
   });
 
@@ -270,15 +272,17 @@ export function BlockedPackagesSheet({ open, onOpenChange }: {
 
   const triggerHeal = (pkg: BlockedPackage, mode: 'soft' | 'hard') => {
     const rec = recommendHeal({
+      packageId: pkg.id,
       hardFailReasons: pkg.hard_fail_reasons,
       blockReason: pkg.block_reason,
+      hasActiveJobs: false,
       isStuck: pkg.block_reason.includes('pipeline_repair_required') || pkg.block_reason.includes('repair_no_effect'),
     });
     heal.mutate({
       packageId: pkg.id,
       mode,
       resetFromStep: rec.resetFromStep ?? 'run_integrity_check',
-      reason: `blocked_packages_sheet:${mode}:${pkg.block_reason}`,
+      reason: mode === 'hard' ? `manual_hard_heal:${rec.resetFromStep}` : `manual_soft_reentry:${rec.resetFromStep}`,
       cancelActiveJobs: mode === 'hard',
       enqueuePlan: mode === 'hard' ? rec.enqueuePlan : undefined,
     });

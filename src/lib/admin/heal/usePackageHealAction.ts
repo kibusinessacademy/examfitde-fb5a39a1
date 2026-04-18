@@ -13,7 +13,7 @@ import {
   type HealResult,
 } from "@/lib/admin/heal/healService";
 
-const INVALIDATION_KEYS: ReadonlyArray<readonly unknown[]> = [
+const GLOBAL_INVALIDATION_KEYS: ReadonlyArray<readonly unknown[]> = [
   ["admin"],
   ["admin-auto-heal-queue"],
   ["release-classifications"],
@@ -24,6 +24,15 @@ const INVALIDATION_KEYS: ReadonlyArray<readonly unknown[]> = [
   ["job-queue"],
   ["admin-actions"],
   ["heal-cockpit"],
+  ["auto-heal-recommendations"],
+];
+
+const PACKAGE_SCOPED_KEYS = (pkgId: string): ReadonlyArray<readonly unknown[]> => [
+  ["package-detail", pkgId],
+  ["course-package", pkgId],
+  ["package-jobs", pkgId],
+  ["package-step-history", pkgId],
+  ["package-steps", pkgId],
 ];
 
 export function usePackageHealAction() {
@@ -34,7 +43,8 @@ export function usePackageHealAction() {
     onSuccess: (res) => {
       const enqFails = res.enqueued.filter((e) => !e.ok);
       const enqOk = res.enqueued.length - enqFails.length;
-      const titlePrefix = res.mode === "hard" ? "Hard Heal ausgeführt" : "Soft Heal ausgeführt";
+      const baseTitle = res.mode === "hard" ? "Hard Heal ausgeführt" : "Soft Heal ausgeführt";
+      const titlePrefix = res.upgradedToHard ? `${baseTitle} (Soft→Hard upgrade)` : baseTitle;
 
       if (enqFails.length > 0) {
         toast.warning(`${titlePrefix} — ${enqFails.length} Folgejob(s) fehlgeschlagen`, {
@@ -46,7 +56,8 @@ export function usePackageHealAction() {
         toast.success(titlePrefix);
       }
 
-      INVALIDATION_KEYS.forEach((k) => qc.invalidateQueries({ queryKey: k as unknown[] }));
+      GLOBAL_INVALIDATION_KEYS.forEach((k) => qc.invalidateQueries({ queryKey: k as unknown[] }));
+      PACKAGE_SCOPED_KEYS(res.packageId).forEach((k) => qc.invalidateQueries({ queryKey: k as unknown[] }));
     },
     onError: (err) => {
       if (err.ssotBlocked) {
