@@ -34562,6 +34562,48 @@ export type Database = {
           },
         ]
       }
+      package_job_quarantine: {
+        Row: {
+          blocked_until: string
+          cleared_at: string | null
+          cleared_by: string | null
+          created_at: string
+          failure_signature: string
+          id: string
+          identical_fail_count: number
+          job_type: string
+          metadata: Json
+          package_id: string
+          reason: string
+        }
+        Insert: {
+          blocked_until: string
+          cleared_at?: string | null
+          cleared_by?: string | null
+          created_at?: string
+          failure_signature: string
+          id?: string
+          identical_fail_count?: number
+          job_type: string
+          metadata?: Json
+          package_id: string
+          reason: string
+        }
+        Update: {
+          blocked_until?: string
+          cleared_at?: string | null
+          cleared_by?: string | null
+          created_at?: string
+          failure_signature?: string
+          id?: string
+          identical_fail_count?: number
+          job_type?: string
+          metadata?: Json
+          package_id?: string
+          reason?: string
+        }
+        Relationships: []
+      }
       package_leases: {
         Row: {
           acquired_at: string
@@ -70107,6 +70149,22 @@ export type Database = {
         }
         Relationships: []
       }
+      v_active_job_quarantines: {
+        Row: {
+          blocked_until: string | null
+          created_at: string | null
+          failure_signature: string | null
+          id: string | null
+          identical_fail_count: number | null
+          job_type: string | null
+          metadata: Json | null
+          minutes_remaining: number | null
+          package_id: string | null
+          package_title: string | null
+          reason: string | null
+        }
+        Relationships: []
+      }
       v_admin_auto_test_queue: {
         Row: {
           approved_questions: number | null
@@ -80047,6 +80105,10 @@ export type Database = {
         Args: { p_reason?: string; p_until?: string; p_user_id: string }
         Returns: undefined
       }
+      admin_clear_job_quarantine: {
+        Args: { p_quarantine_id: string }
+        Returns: boolean
+      }
       admin_close_orphan_governance_steps:
         | {
             Args: { p_dry_run?: boolean }
@@ -81910,6 +81972,21 @@ export type Database = {
         Args: { p_package_id: string }
         Returns: Json
       }
+      fn_check_hot_loop_quarantine: {
+        Args: {
+          p_block_minutes?: number
+          p_job_type: string
+          p_package_id: string
+          p_threshold?: number
+          p_window_minutes?: number
+        }
+        Returns: {
+          fail_count: number
+          quarantined: boolean
+          reason: string
+          signature: string
+        }[]
+      }
       fn_classify_discovery_state: {
         Args: { p_source_id: string; p_source_type: string }
         Returns: Json
@@ -82120,6 +82197,10 @@ export type Database = {
       }
       fn_expire_stale_attributions: { Args: never; Returns: number }
       fn_export_user_data: { Args: { p_target_user_id: string }; Returns: Json }
+      fn_extract_failure_signature: {
+        Args: { p_last_error: string }
+        Returns: string
+      }
       fn_generate_compliance_document: {
         Args: { p_content_md: string; p_doc_type: string; p_title: string }
         Returns: string
@@ -82612,6 +82693,10 @@ export type Database = {
       fn_return_job_to_pending_no_burn: {
         Args: { p_backoff_seconds: number; p_job_id: string; p_reason: string }
         Returns: undefined
+      }
+      fn_route_materialization_block: {
+        Args: { p_job_id: string; p_last_error: string }
+        Returns: boolean
       }
       fn_select_next_shuttle_question:
         | {
