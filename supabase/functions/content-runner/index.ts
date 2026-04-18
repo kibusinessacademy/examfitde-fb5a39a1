@@ -634,18 +634,20 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
           console.warn(`[content-runner] MATERIALIZATION_GUARD: ${job.job_type} (${shortId}) blocked — ${artifactCheck.reason} (retry ${matRetries}/3)`);
           
           if (artifactCheck.permanent || matRetries >= 3) {
+            // Phase 2 Härtung: Mat-Guard-Failures gehen NICHT in failed (kein Retry-Loop),
+            // sondern in cancelled mit Reason BLOCKED_BY_MATERIALIZATION
             await sb.from("job_queue").update({
-              status: "failed",
-              last_error: `MATERIALIZATION_GUARD: ${artifactCheck.reason}${matRetries >= 3 ? " — exhausted" : ""}`,
+              status: "cancelled",
+              last_error: `BLOCKED_BY_MATERIALIZATION: ${artifactCheck.reason}${matRetries >= 3 ? " — exhausted" : ""}`,
               completed_at: now,
               updated_at: now,
               locked_at: null,
               locked_by: null,
-              meta: { ...(job.meta || {}), ...auditMeta, materialization_retries: matRetries },
+              meta: { ...(job.meta || {}), ...auditMeta, materialization_retries: matRetries, blocked_by_materialization: true },
             }).eq("id", job.id);
-            return { id: job.id, ok: false, error: `MATERIALIZATION_GUARD: ${artifactCheck.reason}` };
+            return { id: job.id, ok: false, error: `BLOCKED_BY_MATERIALIZATION: ${artifactCheck.reason}` };
           }
-          
+
           // Requeue with backoff
           await sb.from("job_queue").update({
             status: "pending",
