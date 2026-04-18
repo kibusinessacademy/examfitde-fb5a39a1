@@ -121,18 +121,24 @@ function formatReasonCode(reason: string): { label: string; detail: string } {
   return { label: reason, detail: '' };
 }
 
-function BlockedPackageItem({ pkg, onHeal, busy }: {
+function BlockedPackageItem({ pkg, onSoftReentry, onHardHeal, onUnblock, onContentGap, busy }: {
   pkg: BlockedPackage;
-  onHeal: (packageId: string, action: string, stepKey?: string) => void;
+  onSoftReentry: (pkg: BlockedPackage) => void;
+  onHardHeal: (pkg: BlockedPackage) => void;
+  onUnblock: (packageId: string) => void;
+  onContentGap: (packageId: string) => void;
   busy: boolean;
 }) {
-  const healActions = mapHardFailsToHealActions(pkg.hard_fail_reasons, pkg.block_reason);
   const scoreTone = pkg.score >= 90 ? 'text-amber-500' : pkg.score >= 70 ? 'text-orange-500' : 'text-destructive';
   const isAdminHold = pkg.block_reason.startsWith('admin_hold');
+  const recommendation = recommendHeal({
+    hardFailReasons: pkg.hard_fail_reasons,
+    blockReason: pkg.block_reason,
+    isStuck: pkg.block_reason.includes('pipeline_repair_required') || pkg.block_reason.includes('repair_no_effect'),
+  });
 
   return (
     <div className="rounded-xl border border-border bg-card p-4 space-y-3">
-      {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <Link
@@ -158,7 +164,6 @@ function BlockedPackageItem({ pkg, onHeal, busy }: {
         </div>
       </div>
 
-      {/* Block Reason */}
       {isAdminHold ? (
         <div className="rounded-lg border border-warning/20 bg-warning/5 p-2">
           <div className="text-xs font-medium text-foreground">Admin Hold</div>
@@ -168,7 +173,6 @@ function BlockedPackageItem({ pkg, onHeal, busy }: {
         </div>
       ) : (
         <>
-          {/* Hard Fail Reasons */}
           {pkg.hard_fail_reasons.length > 0 && (
             <div className="space-y-1.5">
               <div className="text-[11px] font-semibold text-destructive flex items-center gap-1">
@@ -187,7 +191,6 @@ function BlockedPackageItem({ pkg, onHeal, busy }: {
             </div>
           )}
 
-          {/* Warnings (collapsed) */}
           {pkg.warnings.length > 0 && (
             <div className="space-y-1">
               <div className="text-[11px] font-semibold text-warning flex items-center gap-1">
@@ -211,42 +214,53 @@ function BlockedPackageItem({ pkg, onHeal, busy }: {
         </>
       )}
 
-      {/* Heal Actions */}
-      <div className="space-y-1.5">
+      {/* SSOT Heal Actions */}
+      <div className="space-y-1.5 pt-1 border-t border-border">
         <div className="text-[11px] font-semibold text-foreground flex items-center gap-1">
           <Wrench className="h-3 w-3" />
-          Reparatur-Optionen
+          Heal-Aktion (Empfehlung: {recommendation.mode === 'hard' ? 'Hard Heal' : 'Soft Reentry'})
         </div>
-        <div className="grid gap-1.5">
-          {healActions.map((action) => (
+        <div className="text-[10px] text-muted-foreground italic">{recommendation.rationale}</div>
+
+        {isAdminHold ? (
+          <Button size="sm" variant="default" disabled={busy} onClick={() => onUnblock(pkg.id)} className="w-full">
+            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <RotateCcw className="h-3.5 w-3.5 mr-1.5" />}
+            Admin-Hold aufheben
+          </Button>
+        ) : (
+          <div className="grid grid-cols-2 gap-1.5">
             <Button
-              key={action.key}
+              size="sm"
+              variant={recommendation.mode === 'soft' ? 'default' : 'outline'}
+              disabled={busy}
+              onClick={() => onSoftReentry(pkg)}
+              title="reset_to_step ohne Job-Cancel"
+            >
+              <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+              Soft Reentry
+            </Button>
+            <Button
+              size="sm"
+              variant={recommendation.mode === 'hard' ? 'default' : 'outline'}
+              disabled={busy}
+              onClick={() => onHardHeal(pkg)}
+              title="admin_manual_heal_package: Cancel Jobs + Reset + Clear blocked"
+            >
+              <Hammer className="h-3.5 w-3.5 mr-1.5" />
+              Hard Heal
+            </Button>
+            <Button
               size="sm"
               variant="outline"
-              className="justify-start h-auto py-2 px-3 text-left"
               disabled={busy}
-              onClick={() => {
-                if (action.key === 'retry_stalled_step') {
-                  onHeal(pkg.id, action.key, 'run_integrity_check');
-                } else if (action.key === 'unblock') {
-                  onHeal(pkg.id, 'unblock_package');
-                } else {
-                  onHeal(pkg.id, action.key);
-                }
-              }}
+              onClick={() => onContentGap(pkg.id)}
+              className="col-span-2 border-destructive/30 text-destructive hover:bg-destructive/10"
             >
-              {busy ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin mr-2 shrink-0" />
-              ) : (
-                <RotateCcw className="h-3.5 w-3.5 mr-2 shrink-0" />
-              )}
-              <div className="min-w-0">
-                <div className="text-xs font-medium">{action.label}</div>
-                <div className="text-[10px] text-muted-foreground">{action.description}</div>
-              </div>
+              <AlertTriangle className="h-3.5 w-3.5 mr-1.5" />
+              Mark content_gap
             </Button>
-          ))}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );
