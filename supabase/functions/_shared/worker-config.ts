@@ -18,11 +18,13 @@ function envInt(name: string, fallback: number): number {
 }
 
 const DEFAULTS: Record<RunnerKind, RunnerConfig> = {
-  // v7.1: Raised limits for throughput — stale-lock guard (3min cleanup) prevents orphans.
+  // v8.0: Hardcap raised to 50 (per user request 2026-04-18).
+  // RISK: Edge-Runtime hard limit ~110s — relies on HEAVY_JOB_TICK_BUDGET_SECONDS=85
+  // and stale-lock guard (3min cleanup) to prevent runner pod aborts.
   // content-runner: 280s loop with 1.5s sleep → can process ~25 light jobs per cycle.
   // job-runner: 110s budget, most control jobs complete in <5s → can process 15+ per cycle.
-  content_runner: { maxConcurrency: 8, claimLimit: 8 },
-  job_runner:     { maxConcurrency: 8, claimLimit: 8 },
+  content_runner: { maxConcurrency: 50, claimLimit: 50 },
+  job_runner:     { maxConcurrency: 50, claimLimit: 50 },
 };
 
 export function getRunnerConfig(kind: RunnerKind): RunnerConfig {
