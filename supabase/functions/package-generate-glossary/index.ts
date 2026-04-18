@@ -63,18 +63,43 @@ Deno.serve(async (req) => {
     return json({ ok: true, batch_complete: true, skipped: true, reason: "no_beruf_id" });
   }
 
-  // Check if already cached
+  // Check if already cached AND substantive (entries + token_count >= post-condition thresholds)
   const { data: cached } = await sb
     .from("profession_glossaries")
-    .select("id, version")
+    .select("id, version, glossary, token_count")
     .eq("beruf_id", berufId)
+    .order("version", { ascending: false })
     .limit(1)
     .maybeSingle();
 
-  if (cached) {
-    console.log(`[gen-glossary] Glossary already cached for "${professionName}" — skipping`);
-    await finalizeStepDone(sb, packageId, "generate_glossary", { skipped: true, reason: "already_cached" });
+  // Hollow-Cache Detection: post-condition requires entryCount >= 1 AND tokenCount >= 100
+  // (see _shared/post-conditions-extended.ts line 113). If cache is hollow → regenerate.
+  function isCacheHollow(row: any): boolean {
+    if (!row) return true;
+    const tokenCount = Number(row.token_count ?? 0);
+    if (tokenCount < 100) return true;
+    const g = row.glossary;
+    if (!g || typeof g !== "object") return true;
+    // Count substantive content: terms + formulas + traps + scenarios + calculations
+    const terms = g.fachbegriffe ? Object.values(g.fachbegriffe).reduce((s: number, arr: any) => s + (Array.isArray(arr) ? arr.length : 0), 0) : 0;
+    const formulas = Array.isArray(g.formeln) ? g.formeln.length : 0;
+    const traps = Array.isArray(g.pruefungsfallen) ? g.pruefungsfallen.length : 0;
+    const scenarios = Array.isArray(g.szenarien) ? g.szenarien.length : 0;
+    const calcs = Array.isArray(g.rechenbeispiele) ? g.rechenbeispiele.length : 0;
+    const totalEntries = terms + formulas + traps + scenarios + calcs;
+    return totalEntries < 10; // less than 10 substantive items = hollow
+  }
+
+  if (cached && !isCacheHollow(cached)) {
+    console.log(`[gen-glossary] Substantive cache hit for "${professionName}" v${cached.version} (tokens=${cached.token_count}) — skipping`);
+    await finalizeStepDone(sb, packageId, "generate_glossary", { skipped: true, reason: "already_cached", version: cached.version });
     return json({ ok: true, batch_complete: true, skipped: true, reason: "already_cached", version: cached.version });
+  }
+
+  if (cached) {
+    // Hollow cache → invalidate (delete) so loadOrGenerateGlossary regenerates fresh
+    console.warn(`[gen-glossary] ⚠️ Hollow cache detected for "${professionName}" v${cached.version} (tokens=${cached.token_count}) — invalidating and regenerating`);
+    await sb.from("profession_glossaries").delete().eq("id", cached.id);
   }
 
   // Generate (slow LLM call — we have full edge function runtime here)

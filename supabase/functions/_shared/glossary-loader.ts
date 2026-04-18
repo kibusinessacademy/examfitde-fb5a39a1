@@ -97,6 +97,24 @@ export async function loadCachedGlossary(
 }
 
 /**
+ * Hollow-Cache Detection: returns true if the cached glossary row is too thin
+ * to satisfy the post-condition (entry_count >= 1 AND token_count >= 100).
+ */
+function isGlossaryRowHollow(row: { glossary?: any; token_count?: number | null } | null | undefined): boolean {
+  if (!row) return true;
+  const tokenCount = Number(row.token_count ?? 0);
+  if (tokenCount < 100) return true;
+  const g = row.glossary;
+  if (!g || typeof g !== "object") return true;
+  const terms = g.fachbegriffe ? Object.values(g.fachbegriffe).reduce((s: number, arr: any) => s + (Array.isArray(arr) ? arr.length : 0), 0) : 0;
+  const formulas = Array.isArray(g.formeln) ? g.formeln.length : 0;
+  const traps = Array.isArray(g.pruefungsfallen) ? g.pruefungsfallen.length : 0;
+  const scenarios = Array.isArray(g.szenarien) ? g.szenarien.length : 0;
+  const calcs = Array.isArray(g.rechenbeispiele) ? g.rechenbeispiele.length : 0;
+  return (terms + formulas + traps + scenarios + calcs) < 10;
+}
+
+/**
  * Load glossary from cache or generate on-demand.
  * Has an explicit 80s timeout on the LLM call to stay within edge runtime limits.
  * @param track - Track key for profile-aware prompt (default: AUSBILDUNG_VOLL)
@@ -108,18 +126,23 @@ export async function loadOrGenerateGlossary(
   curriculumId?: string,
   track?: string,
 ): Promise<ProfessionGlossary> {
-  // 1) Check cache
+  // 1) Check cache (with hollow-detection — invalidate if too thin to pass post-condition)
   const { data: cached } = await sb
     .from("profession_glossaries")
-    .select("glossary, version")
+    .select("id, glossary, version, token_count")
     .eq("beruf_id", berufId)
     .order("version", { ascending: false })
     .limit(1)
     .maybeSingle();
 
-  if (cached?.glossary) {
-    console.log(`[glossary-loader] Cache hit for "${professionName}" v${cached.version}`);
+  if (cached?.glossary && !isGlossaryRowHollow(cached as any)) {
+    console.log(`[glossary-loader] Substantive cache hit for "${professionName}" v${cached.version}`);
     return { professionName, ...(cached.glossary as any) };
+  }
+
+  if (cached) {
+    console.warn(`[glossary-loader] ⚠️ Hollow cache for "${professionName}" v${cached.version} — invalidating`);
+    await sb.from("profession_glossaries").delete().eq("id", cached.id as string);
   }
 
   // 2) Build curriculum context (compact)
