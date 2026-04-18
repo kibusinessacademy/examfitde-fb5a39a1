@@ -1056,6 +1056,16 @@ export async function healPlaceholderStalls(sb: SupabaseClient) {
 
       if ((activeJobs ?? 0) > 0) continue;
 
+      // Phase 2 Härtung Fix #1: SSOT-Pre-Check vor enqueue
+      // Verhindert sinnlose INSERTs für EXAM_FIRST/PLUS Tracks (~170 Cancels/h eliminiert)
+      const wasSkipped = await autoSkipIfNotApplicable(
+        sb,
+        step.package_id,
+        "generate_learning_content",
+        "stuck-scan-placeholder-reconciliation",
+      );
+      if (wasSkipped) continue;
+
       // Enqueue regen job
       try {
         await enqueueJob(sb, {

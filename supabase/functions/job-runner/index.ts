@@ -1430,6 +1430,37 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── Phase 2 Härtung Fix #3: Pre-Run-Step-Finalized-Guard ──────
+    // Wenn der Ziel-Step bereits done/skipped ist, wird der Job nicht dispatched
+    // sondern als cancelled mit klarem Reason beendet (verhindert step_finalized races).
+    if (execPackageId) {
+      const stepKey = stepKeyForJobType(job.job_type);
+      if (stepKey) {
+        const { data: stepRow } = await sb
+          .from("package_steps")
+          .select("status")
+          .eq("package_id", execPackageId)
+          .eq("step_key", stepKey)
+          .maybeSingle();
+        if (stepRow && (stepRow.status === "done" || stepRow.status === "skipped")) {
+          console.log(`[job-runner] ⏭️ Pre-run step-finalized: ${job.job_type} skipped (step=${stepKey} status=${stepRow.status})`);
+          await sb.from("job_queue").update({
+            status: "cancelled",
+            last_error: `Step ${stepKey} already ${stepRow.status} pre-run`,
+            completed_at: tsNow,
+            meta: {
+              ...(job.meta || {}),
+              cancel_reason: "step_finalized_pre_run",
+              transition_source: "trg_pre_run_step_guard",
+              prev_step_status: stepRow.status,
+            },
+          }).eq("id", job.id);
+          results.push({ id: job.id, status: "cancelled", reason: "step_finalized_pre_run" });
+          continue;
+        }
+      }
+    }
+
     const startMs = Date.now();
 
     // ── Progress heartbeat: update last_progress_at so UI doesn't show "stuck" ──
