@@ -1,3 +1,9 @@
+/**
+ * @deprecated Use `runPackageHealAction({ mode: 'hard' })` from
+ * `@/lib/admin/heal/healService` instead. This wrapper around the legacy
+ * `recover_and_reenter_package` RPC is kept only for non-UI consumers and
+ * will be removed once they migrate.
+ */
 import { supabase } from "@/integrations/supabase/client";
 
 export interface RecoverResult {
@@ -12,6 +18,7 @@ export interface RecoverResult {
   error?: string;
 }
 
+/** @deprecated see file header */
 export async function recoverAndReenterPackage(
   packageId: string,
   reason: string,
