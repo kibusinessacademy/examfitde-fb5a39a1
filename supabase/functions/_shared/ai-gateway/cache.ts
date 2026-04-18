@@ -163,6 +163,16 @@ export async function storeInCache(
     costEur?: number;
   },
 ): Promise<void> {
+  // Refuse to store hollow bodies — prevents poisoning the cache at the source.
+  const hollow = isCacheBodyHollow(opts.responseBody);
+  if (hollow.hollow) {
+    console.warn(
+      `[ai-gateway/cache] ⚠️ Refused to store hollow body — job=${opts.jobType} ` +
+      `reason=${hollow.reason}`,
+    );
+    return;
+  }
+
   try {
     await sb.from("ai_generation_cache").upsert(
       {
