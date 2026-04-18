@@ -1456,8 +1456,9 @@ Deno.serve(async (req) => {
       const timer = setTimeout(() => controller.abort(), JOB_TIMEOUT_MS);
 
       // ── Shared payload normalization (P0 fix: inject package_id/curriculum_id/course_id) ──
-      const { buildDispatchPayload } = await import("../_shared/build-dispatch-payload.ts");
-      const payload = buildDispatchPayload(job);
+      // v2: resolveDispatchPayload lädt course_id bei Bedarf aus DB nach
+      const { resolveDispatchPayload } = await import("../_shared/build-dispatch-payload.ts");
+      const payload = await resolveDispatchPayload(job, sb);
 
       // Rework functions use dedicated cron secret, not Bearer service key
       const isReworkFn = REWORK_SECRET_FUNCTIONS.has(fnName);
