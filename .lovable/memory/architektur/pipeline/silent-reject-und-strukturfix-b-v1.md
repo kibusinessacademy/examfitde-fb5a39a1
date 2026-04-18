@@ -1,6 +1,6 @@
 ---
 name: Silent-Reject Diagnose & Struktur-Fix B (2026-04-18)
-description: enqueue_job_if_absent gab gefälschte UUIDs bei Reject zurück. Hollow-Guard nutzte fehlende View. ZERTIFIKAT-Track fehlte in applicability. Komplett behoben.
+description: enqueue_job_if_absent gab gefälschte UUIDs bei Reject zurück. Hollow-Guard JOIN-Pfad korrigiert auf SSOT (competencies→learning_fields). ZERTIFIKAT-Track in applicability ergänzt.
 type: feature
 ---
 
@@ -13,20 +13,36 @@ type: feature
 
 ### B1 — enqueue_job_if_absent transparent
 - Bei `fanout_capped` und `zero_progress_blocked` jetzt `id=NULL` (statt fake UUID)
-- Status-Werte sind explizit: `duplicate_active`, `fanout_capped`, `zero_progress_blocked`, `pending`
+- Status-Werte explizit: `duplicate_active`, `fanout_capped`, `zero_progress_blocked`, `pending`
 - Jeder Reject schreibt `auto_heal_log` Eintrag mit Reason — auditierbar
 
 ### B2 — Track-Applicability für ZERTIFIKAT
 `track_step_applicability` enthielt nur AUSBILDUNG_VOLL, EXAM_FIRST, EXAM_FIRST_PLUS, STUDIUM. Track `ZERTIFIKAT` (z.B. PRINCE2, Scrum Master) fehlte komplett. Jetzt ergänzt für alle 4 LC-Steps.
 
-### B3 — Hollow-Guard ohne realness view
-Säule 2 (vom 18.04. Mittag) referenzierte `package_lessons_realness` — Tabelle existiert nicht. Trigger lief leer. Jetzt **inline berechnet** aus `lessons` Tabelle:
-- `real_lessons`: content >= 800 Zeichen UND generation_status NOT IN (pending,placeholder,failed)
-- `placeholder_lessons`: content < 200 Zeichen ODER status IN (pending,placeholder)
+### B3 — Hollow-Guard SCHEMAFEST (v2, 2026-04-18 19:27)
+**WICHTIG**: Die erste B3-Version war schemafalsch (nutzte `JOIN modules m ... JOIN curriculum c` — Tabelle `curriculum` existiert nicht, sie heißt `curricula`; und `lessons.module_id` ist nicht der SSOT-Pfad).
+
+**Korrigierter SSOT-Pfad** (in `fn_trigger_sync_step_on_job_complete`):
+```sql
+FROM course_packages cp
+JOIN learning_fields lf ON lf.curriculum_id = cp.curriculum_id
+JOIN competencies co ON co.learning_field_id = lf.id
+JOIN lessons l ON l.competency_id = co.id
+WHERE cp.id = NEW.package_id;
+```
+
+**Auch entfernt**: `jsonb_typeof(l.content) = 'object'` Check (fragil bei text/jsonb-Mix). Stattdessen reine `length(l.content::text)` Heuristik.
+
+**Schwellen**:
+- `real_lessons`: content::text >= 1000 chars UND generation_status NOT IN (pending,placeholder,failed)
+- `placeholder_lessons`: content NULL ODER < 200 chars ODER status IN (pending,placeholder)
 - Hollow-Trigger wenn placeholders > 0 ODER ratio < 0.90
 - Setzt Step zurück auf `queued` mit `meta.allow_regression_by='b3_hollow_guard_revoke'`
 
 ## Schemas die abweichen vom erwarteten Layout
 - `track_step_applicability.condition` (nicht `reason`)
 - Track-Kind = `product_track` (nicht `track_kind`)
-- `package_lessons_realness` View existiert NICHT — immer inline aus `lessons` joinen
+- Tabelle heißt `curricula` (nicht `curriculum`)
+- `package_lessons_realness` View existiert NICHT — immer inline aus SSOT-Pfad
+- **SSOT-Pfad für Lesson-Aggregation**: lessons → competencies → learning_fields.curriculum_id → course_packages
+- **NICHT verwenden**: lessons.module_id → modules → curriculum (schemafalsch)
