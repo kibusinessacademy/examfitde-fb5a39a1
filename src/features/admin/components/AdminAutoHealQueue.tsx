@@ -100,6 +100,7 @@ export function AdminAutoHealQueue() {
     releaseClass: ReleaseClass | undefined,
   ) => {
     const rec = recommendHeal({
+      packageId,
       hardFailReasons: deficitCodes,
       releaseClass: releaseClass ?? null,
       hasActiveJobs: false,
@@ -110,7 +111,7 @@ export function AdminAutoHealQueue() {
         packageId,
         mode,
         resetFromStep: mode === "soft" ? "auto_publish" : (rec.resetFromStep ?? "run_integrity_check"),
-        reason: `auto_heal_queue:${mode}:${queueId}`,
+        reason: mode === "hard" ? `auto_heal_queue:hard:${queueId}` : `auto_heal_queue:soft:${queueId}`,
         cancelActiveJobs: mode === "hard",
         enqueuePlan: mode === "hard" ? rec.enqueuePlan : undefined,
       });
