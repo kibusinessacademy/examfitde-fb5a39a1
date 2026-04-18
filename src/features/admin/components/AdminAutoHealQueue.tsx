@@ -334,27 +334,15 @@ export function AdminAutoHealQueue() {
                   </div>
                   <ContextSensitiveHealActions
                     releaseClass={cls?.release_class}
-                    busy={healMutation.isPending}
-                    onForcePublish={() =>
-                      healMutation.mutate({
-                        action: "force_publish",
-                        packageId: item.package_id,
-                        queueId: item.id,
-                      })
+                    busy={heal.isPending || contentGapMutation.isPending}
+                    onSoftPublish={() =>
+                      runHeal(item.package_id, item.id, "soft", cls?.deficiency_codes, cls?.release_class)
                     }
-                    onReconcile={() =>
-                      healMutation.mutate({
-                        action: "reconcile",
-                        packageId: item.package_id,
-                        queueId: item.id,
-                      })
+                    onHardHeal={() =>
+                      runHeal(item.package_id, item.id, "hard", cls?.deficiency_codes, cls?.release_class)
                     }
                     onMarkContentGap={() =>
-                      healMutation.mutate({
-                        action: "content_gap",
-                        packageId: item.package_id,
-                        queueId: item.id,
-                      })
+                      contentGapMutation.mutate({ packageId: item.package_id, queueId: item.id })
                     }
                   />
 
