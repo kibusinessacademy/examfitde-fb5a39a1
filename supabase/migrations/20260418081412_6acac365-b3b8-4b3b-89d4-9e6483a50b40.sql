@@ -1,0 +1,2 @@
+UPDATE public.ops_pipeline_config SET value = '25', updated_at = now() WHERE key = 'wip_total_cap';
+INSERT INTO public.admin_actions (action, scope, payload) VALUES ('wip_cap_raised', 'pipeline', jsonb_build_object('from', 70, 'to', 25, 'reason', 'align_db_with_code_ssot_v8.1', 'recovery_lane_min', 10));
