@@ -102,6 +102,70 @@ function thresholdCheck(
 
 const VERIFIERS: Record<string, (sb: SB, job: any) => Promise<VerifyResult>> = {
 
+  // ── package_generate_learning_content: HARD GUARD against hollow lessons ──
+  // Fail-closed when substantive_ratio < 0.90, hollow_count > 0, or pending generations exist.
+  // This is the SSOT verifier that prevents the verifier-/sync-pfad re-drift loop.
+  package_generate_learning_content: async (sb, job) => {
+    const r = requirePayloadId(job, "package_id");
+    if ("ok" in r) return r;
+
+    // Use the existing realness RPC (SSOT for substantive lesson detection)
+    const { data, error } = await sb.rpc("package_lessons_realness", { p_package_id: r.id });
+    if (error) return { ok: false, reason: `VERIFIER_ERROR: ${error.message ?? String(error)}` };
+
+    const total = Number(data?.lessons_total ?? 0);
+    const real = Number(data?.real_content ?? 0);
+    const placeholders = Number(data?.placeholders ?? 0);
+    const avgLen = Number(data?.avg_len ?? 0);
+
+    if (total === 0) {
+      return { ok: false, reason: "HOLLOW_LEARNING_CONTENT:no_lessons", count: 0, threshold: 1 };
+    }
+
+    const substantiveRatio = real / total;
+    const minRatio = 0.90;
+
+    // Check 1: hollow lessons present?
+    if (placeholders > 0) {
+      return {
+        ok: false,
+        reason: `PLACEHOLDER_LESSONS_PRESENT:${placeholders}/${total}`,
+        count: placeholders,
+        threshold: 0,
+      };
+    }
+
+    // Check 2: substantive ratio threshold
+    if (substantiveRatio < minRatio) {
+      return {
+        ok: false,
+        reason: `LESSON_SUBSTANCE_BELOW_THRESHOLD:${real}/${total}@${substantiveRatio.toFixed(3)}<${minRatio}`,
+        count: real,
+        threshold: Math.ceil(total * minRatio),
+      };
+    }
+
+    // Check 3: still pending lesson_generate_content jobs?
+    const { count: pendingJobs } = await sb
+      .from("job_queue")
+      .select("id", { count: "exact", head: true })
+      .eq("package_id", r.id)
+      .eq("job_type", "lesson_generate_content")
+      .in("status", ["pending", "enqueued", "processing"]);
+
+    if ((pendingJobs ?? 0) > 0) {
+      return {
+        ok: false,
+        reason: `LESSON_GENERATION_INCOMPLETE:${pendingJobs}_jobs_active`,
+        count: pendingJobs ?? 0,
+        threshold: 0,
+      };
+    }
+
+    // Check 4: avg length floor (existing threshold)
+    return thresholdCheck("generate_learning_content", "avg_lesson_length", avgLen);
+  },
+
   package_scaffold_learning_course: async (sb, job) => {
     const r = requirePayloadId(job, "package_id");
     if ("ok" in r) return r;
