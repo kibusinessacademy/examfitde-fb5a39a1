@@ -25630,6 +25630,7 @@ export type Database = {
           id: string
           idempotency_key: string | null
           job_type: string
+          lane: string | null
           last_error: string | null
           last_error_code: string | null
           last_error_hint: string | null
@@ -25668,6 +25669,7 @@ export type Database = {
           id?: string
           idempotency_key?: string | null
           job_type: string
+          lane?: string | null
           last_error?: string | null
           last_error_code?: string | null
           last_error_hint?: string | null
@@ -25706,6 +25708,7 @@ export type Database = {
           id?: string
           idempotency_key?: string | null
           job_type?: string
+          lane?: string | null
           last_error?: string | null
           last_error_code?: string | null
           last_error_hint?: string | null
@@ -77711,6 +77714,19 @@ export type Database = {
         }
         Relationships: []
       }
+      v_process_health_kpis: {
+        Row: {
+          force_steps_done_7d: number | null
+          generated_at: string | null
+          heals_last_7d: number | null
+          lane_load: Json | null
+          orphan_heals_7d: number | null
+          pkgs_healed_last_7d: number | null
+          repair_exhausted_7d: number | null
+          stuck_packages_now: number | null
+        }
+        Relationships: []
+      }
       v_product_page_ssot: {
         Row: {
           access_duration_months: number | null
@@ -80176,6 +80192,7 @@ export type Database = {
               id: string
               idempotency_key: string | null
               job_type: string
+              lane: string | null
               last_error: string | null
               last_error_code: string | null
               last_error_hint: string | null
@@ -80227,6 +80244,7 @@ export type Database = {
               id: string
               idempotency_key: string | null
               job_type: string
+              lane: string | null
               last_error: string | null
               last_error_code: string | null
               last_error_hint: string | null
@@ -80279,6 +80297,7 @@ export type Database = {
           id: string
           idempotency_key: string | null
           job_type: string
+          lane: string | null
           last_error: string | null
           last_error_code: string | null
           last_error_hint: string | null
@@ -80330,6 +80349,7 @@ export type Database = {
           id: string
           idempotency_key: string | null
           job_type: string
+          lane: string | null
           last_error: string | null
           last_error_code: string | null
           last_error_hint: string | null
@@ -80381,6 +80401,7 @@ export type Database = {
           id: string
           idempotency_key: string | null
           job_type: string
+          lane: string | null
           last_error: string | null
           last_error_code: string | null
           last_error_hint: string | null
@@ -80433,6 +80454,7 @@ export type Database = {
           id: string
           idempotency_key: string | null
           job_type: string
+          lane: string | null
           last_error: string | null
           last_error_code: string | null
           last_error_hint: string | null
@@ -80480,6 +80502,7 @@ export type Database = {
           id: string
           idempotency_key: string | null
           job_type: string
+          lane: string | null
           last_error: string | null
           last_error_code: string | null
           last_error_hint: string | null
@@ -80895,6 +80918,7 @@ export type Database = {
         }
         Returns: Json
       }
+      derive_job_lane: { Args: { p_job_type: string }; Returns: string }
       derive_pipeline_steps: { Args: { p_flags: Json }; Returns: Json }
       detect_device_burst: {
         Args: { p_minutes?: number; p_user_threshold?: number }
@@ -81494,6 +81518,7 @@ export type Database = {
           id: string
           idempotency_key: string | null
           job_type: string
+          lane: string | null
           last_error: string | null
           last_error_code: string | null
           last_error_hint: string | null
@@ -83252,6 +83277,16 @@ export type Database = {
           size_bytes: number
           storage_bucket: string
           storage_path: string
+        }[]
+      }
+      list_repeat_heal_packages: {
+        Args: { p_threshold?: number; p_window?: string }
+        Returns: {
+          distinct_actions: string[]
+          first_heal: string
+          heal_count: number
+          last_heal: string
+          package_id: string
         }[]
       }
       llm_running_count: { Args: { p_provider: string }; Returns: number }
