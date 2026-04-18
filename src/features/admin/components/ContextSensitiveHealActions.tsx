@@ -1,27 +1,31 @@
+/**
+ * ContextSensitiveHealActions v8.3
+ * ────────────────────────────────
+ * Reine Präsentationskomponente. Keine eigenen Heal-Calls mehr.
+ * Mappt release_class → semantische Buttons, ruft Callbacks vom Parent auf.
+ *
+ * Parent verwendet usePackageHealAction (SSOT-Hook) für die Ausführung.
+ */
 import { Button } from "@/components/ui/button";
-import { Loader2, Rocket, GitMerge, OctagonAlert } from "lucide-react";
+import { Loader2, Rocket, GitMerge, OctagonAlert, Wrench } from "lucide-react";
 import type { ReleaseClass } from "@/features/admin/api/releaseClassificationApi";
 
 interface Props {
   releaseClass?: ReleaseClass | null;
   busy: boolean;
-  onForcePublish: () => void;
-  onReconcile: () => void;
+  /** Soft heal → reset_to_step('auto_publish') (release_ok) */
+  onSoftPublish?: () => void;
+  /** Hard heal + targeted repair (release_warn / release_block / unknown) */
+  onHardHeal: () => void;
+  /** Mark content_gap (release_warn / release_block escalation) */
   onMarkContentGap: () => void;
 }
 
-/**
- * Renders heal actions depending on release_class:
- *  - release_ok    → primary: Force-Publish
- *  - release_warn  → primary: Reconcile (kann publish wenn Force erlaubt)
- *  - release_block → primary: Reconcile (kein Publish), secondary: Mark content_gap
- *  - unknown       → alle drei sichtbar als Fallback
- */
 export function ContextSensitiveHealActions({
   releaseClass,
   busy,
-  onForcePublish,
-  onReconcile,
+  onSoftPublish,
+  onHardHeal,
   onMarkContentGap,
 }: Props) {
   const Spin = () => <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />;
@@ -29,13 +33,13 @@ export function ContextSensitiveHealActions({
   if (releaseClass === "release_ok") {
     return (
       <div className="grid grid-cols-2 gap-2">
-        <Button size="sm" disabled={busy} onClick={onForcePublish}>
+        <Button size="sm" disabled={busy || !onSoftPublish} onClick={onSoftPublish}>
           {busy ? <Spin /> : <Rocket className="h-3.5 w-3.5 mr-1.5" />}
-          Force-Publish
+          Soft Reentry → Publish
         </Button>
-        <Button size="sm" variant="outline" disabled={busy} onClick={onReconcile}>
-          {busy ? <Spin /> : <GitMerge className="h-3.5 w-3.5 mr-1.5" />}
-          Reconcile (no publish)
+        <Button size="sm" variant="outline" disabled={busy} onClick={onHardHeal}>
+          {busy ? <Spin /> : <Wrench className="h-3.5 w-3.5 mr-1.5" />}
+          Hard Heal
         </Button>
       </div>
     );
@@ -44,9 +48,9 @@ export function ContextSensitiveHealActions({
   if (releaseClass === "release_warn") {
     return (
       <div className="grid grid-cols-2 gap-2">
-        <Button size="sm" disabled={busy} onClick={onReconcile}>
+        <Button size="sm" disabled={busy} onClick={onHardHeal}>
           {busy ? <Spin /> : <GitMerge className="h-3.5 w-3.5 mr-1.5" />}
-          Reconcile
+          Hard Heal + Repair
         </Button>
         <Button
           size="sm"
@@ -65,9 +69,9 @@ export function ContextSensitiveHealActions({
   if (releaseClass === "release_block") {
     return (
       <div className="grid grid-cols-2 gap-2">
-        <Button size="sm" variant="outline" disabled={busy} onClick={onReconcile}>
-          {busy ? <Spin /> : <GitMerge className="h-3.5 w-3.5 mr-1.5" />}
-          Reconcile (kein Publish)
+        <Button size="sm" variant="outline" disabled={busy} onClick={onHardHeal}>
+          {busy ? <Spin /> : <Wrench className="h-3.5 w-3.5 mr-1.5" />}
+          Hard Heal (kein Publish)
         </Button>
         <Button
           size="sm"
@@ -86,11 +90,11 @@ export function ContextSensitiveHealActions({
   // Unknown class — fallback
   return (
     <div className="grid grid-cols-3 gap-2">
-      <Button size="sm" variant="outline" disabled={busy} onClick={onForcePublish}>
-        Force-Publish
+      <Button size="sm" variant="outline" disabled={busy || !onSoftPublish} onClick={onSoftPublish}>
+        Soft Reentry
       </Button>
-      <Button size="sm" variant="outline" disabled={busy} onClick={onReconcile}>
-        Reconcile
+      <Button size="sm" variant="outline" disabled={busy} onClick={onHardHeal}>
+        Hard Heal
       </Button>
       <Button
         size="sm"
