@@ -10,8 +10,10 @@ import {
 } from '@/components/admin/AdminSheet';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Wrench, RotateCcw, AlertTriangle, CheckCircle2, ArrowRight, ShieldOff } from 'lucide-react';
+import { Loader2, Wrench, RotateCcw, AlertTriangle, CheckCircle2, ArrowRight, ShieldOff, Hammer } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { usePackageHealAction } from '@/lib/admin/heal/usePackageHealAction';
+import { recommendHeal } from '@/lib/admin/heal/healService';
 
 interface BlockedPackage {
   id: string;
@@ -27,86 +29,7 @@ interface BlockedPackage {
   blocker_count: number;
 }
 
-type HealAction = {
-  key: string;
-  label: string;
-  description: string;
-};
-
-function mapHardFailsToHealActions(hardFails: string[], blockReason: string): HealAction[] {
-  const actions: HealAction[] = [];
-  const seen = new Set<string>();
-
-  // For admin_hold, offer unblock
-  if (blockReason.startsWith('admin_hold')) {
-    actions.push({ key: 'unblock', label: 'Admin-Hold aufheben', description: 'Paket zurück in die Pipeline freigeben' });
-    return actions;
-  }
-
-  for (const reason of hardFails) {
-    const upper = reason.toUpperCase();
-
-    if (upper.includes('MINICHECK_UNPARSED') || upper.includes('MINICHECK_EMPTY')) {
-      if (!seen.has('repair_minichecks')) {
-        actions.push({ key: 'repair_minichecks', label: 'MiniChecks reparieren', description: 'Leere/unparsed MiniChecks neu generieren' });
-        seen.add('repair_minichecks');
-      }
-    }
-
-    if (upper.includes('EASY_TOO_HIGH') || upper.includes('BLOOM_GATE') || upper.includes('TRAP_COVERAGE') || upper.includes('HARDISH_TOO_LOW')) {
-      if (!seen.has('repair_exam_pool_quality')) {
-        actions.push({ key: 'repair_exam_pool_quality', label: 'Exam-Pool reparieren', description: 'Schwierigkeitsverteilung, Bloom-Level und Trap-Coverage korrigieren' });
-        seen.add('repair_exam_pool_quality');
-      }
-    }
-
-    if (upper.includes('COMPETENCY_COVERAGE')) {
-      if (!seen.has('repair_exam_pool_quality')) {
-        actions.push({ key: 'repair_exam_pool_quality', label: 'Exam-Pool reparieren', description: 'Coverage-Lücken bei Kompetenzen schließen' });
-        seen.add('repair_exam_pool_quality');
-      }
-      if (!seen.has('force_pool_fill')) {
-        actions.push({ key: 'force_pool_fill', label: 'Force Pool-Fill', description: 'Exhaustion-Counter zurücksetzen & neue Fragen für fehlende Kompetenzen generieren' });
-        seen.add('force_pool_fill');
-      }
-    }
-
-    if (upper.includes('HANDBOOK') || upper.includes('HANDBOOK_DEPTH')) {
-      if (!seen.has('repair_handbook')) {
-        actions.push({ key: 'repair_handbook', label: 'Handbuch reparieren', description: 'Handbuch-Tiefe auf Mindeststandard bringen' });
-        seen.add('repair_handbook');
-      }
-    }
-
-    if (upper.includes('ORAL_EXAM')) {
-      if (!seen.has('repair_oral_exam')) {
-        actions.push({ key: 'repair_oral_exam', label: 'Mündliche Prüfung reparieren', description: 'Oral-Exam-Blueprints neu generieren' });
-        seen.add('repair_oral_exam');
-      }
-    }
-
-    if (upper.includes('LESSON') || upper.includes('PLACEHOLDER') || upper.includes('TIER1_FAILED')) {
-      if (!seen.has('repair_lessons')) {
-        actions.push({ key: 'repair_lessons', label: 'Lektionen reparieren', description: 'Fehlende oder fehlerhafte Lektionen regenerieren' });
-        seen.add('repair_lessons');
-      }
-    }
-
-    if (upper.includes('REPAIR_EXHAUSTED') || upper.includes('HARD_STALLED')) {
-      if (!seen.has('force_pool_fill')) {
-        actions.push({ key: 'force_pool_fill', label: '⚡ Force Pool-Fill (Reset)', description: 'Exhaustion-Counter zurücksetzen & Pool-Reparatur erzwingen' });
-        seen.add('force_pool_fill');
-      }
-    }
-  }
-
-  // Always offer rerun integrity as fallback
-  if (actions.length === 0) {
-    actions.push({ key: 'retry_stalled_step', label: 'Integrity neu prüfen', description: 'run_integrity_check erneut ausführen' });
-  }
-
-  return actions;
-}
+// Legacy mapHardFailsToHealActions removed in v9 — replaced by recommendHeal() (SSOT).
 
 function formatReasonCode(reason: string): { label: string; detail: string } {
   const colonIdx = reason.indexOf(':');
@@ -119,18 +42,24 @@ function formatReasonCode(reason: string): { label: string; detail: string } {
   return { label: reason, detail: '' };
 }
 
-function BlockedPackageItem({ pkg, onHeal, busy }: {
+function BlockedPackageItem({ pkg, onSoftReentry, onHardHeal, onUnblock, onContentGap, busy }: {
   pkg: BlockedPackage;
-  onHeal: (packageId: string, action: string, stepKey?: string) => void;
+  onSoftReentry: (pkg: BlockedPackage) => void;
+  onHardHeal: (pkg: BlockedPackage) => void;
+  onUnblock: (packageId: string) => void;
+  onContentGap: (packageId: string) => void;
   busy: boolean;
 }) {
-  const healActions = mapHardFailsToHealActions(pkg.hard_fail_reasons, pkg.block_reason);
   const scoreTone = pkg.score >= 90 ? 'text-amber-500' : pkg.score >= 70 ? 'text-orange-500' : 'text-destructive';
   const isAdminHold = pkg.block_reason.startsWith('admin_hold');
+  const recommendation = recommendHeal({
+    hardFailReasons: pkg.hard_fail_reasons,
+    blockReason: pkg.block_reason,
+    isStuck: pkg.block_reason.includes('pipeline_repair_required') || pkg.block_reason.includes('repair_no_effect'),
+  });
 
   return (
     <div className="rounded-xl border border-border bg-card p-4 space-y-3">
-      {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <Link
@@ -156,7 +85,6 @@ function BlockedPackageItem({ pkg, onHeal, busy }: {
         </div>
       </div>
 
-      {/* Block Reason */}
       {isAdminHold ? (
         <div className="rounded-lg border border-warning/20 bg-warning/5 p-2">
           <div className="text-xs font-medium text-foreground">Admin Hold</div>
@@ -166,7 +94,6 @@ function BlockedPackageItem({ pkg, onHeal, busy }: {
         </div>
       ) : (
         <>
-          {/* Hard Fail Reasons */}
           {pkg.hard_fail_reasons.length > 0 && (
             <div className="space-y-1.5">
               <div className="text-[11px] font-semibold text-destructive flex items-center gap-1">
@@ -185,7 +112,6 @@ function BlockedPackageItem({ pkg, onHeal, busy }: {
             </div>
           )}
 
-          {/* Warnings (collapsed) */}
           {pkg.warnings.length > 0 && (
             <div className="space-y-1">
               <div className="text-[11px] font-semibold text-warning flex items-center gap-1">
@@ -209,42 +135,53 @@ function BlockedPackageItem({ pkg, onHeal, busy }: {
         </>
       )}
 
-      {/* Heal Actions */}
-      <div className="space-y-1.5">
+      {/* SSOT Heal Actions */}
+      <div className="space-y-1.5 pt-1 border-t border-border">
         <div className="text-[11px] font-semibold text-foreground flex items-center gap-1">
           <Wrench className="h-3 w-3" />
-          Reparatur-Optionen
+          Heal-Aktion (Empfehlung: {recommendation.mode === 'hard' ? 'Hard Heal' : 'Soft Reentry'})
         </div>
-        <div className="grid gap-1.5">
-          {healActions.map((action) => (
+        <div className="text-[10px] text-muted-foreground italic">{recommendation.rationale}</div>
+
+        {isAdminHold ? (
+          <Button size="sm" variant="default" disabled={busy} onClick={() => onUnblock(pkg.id)} className="w-full">
+            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <RotateCcw className="h-3.5 w-3.5 mr-1.5" />}
+            Admin-Hold aufheben
+          </Button>
+        ) : (
+          <div className="grid grid-cols-2 gap-1.5">
             <Button
-              key={action.key}
+              size="sm"
+              variant={recommendation.mode === 'soft' ? 'default' : 'outline'}
+              disabled={busy}
+              onClick={() => onSoftReentry(pkg)}
+              title="reset_to_step ohne Job-Cancel"
+            >
+              <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+              Soft Reentry
+            </Button>
+            <Button
+              size="sm"
+              variant={recommendation.mode === 'hard' ? 'default' : 'outline'}
+              disabled={busy}
+              onClick={() => onHardHeal(pkg)}
+              title="admin_manual_heal_package: Cancel Jobs + Reset + Clear blocked"
+            >
+              <Hammer className="h-3.5 w-3.5 mr-1.5" />
+              Hard Heal
+            </Button>
+            <Button
               size="sm"
               variant="outline"
-              className="justify-start h-auto py-2 px-3 text-left"
               disabled={busy}
-              onClick={() => {
-                if (action.key === 'retry_stalled_step') {
-                  onHeal(pkg.id, action.key, 'run_integrity_check');
-                } else if (action.key === 'unblock') {
-                  onHeal(pkg.id, 'unblock_package');
-                } else {
-                  onHeal(pkg.id, action.key);
-                }
-              }}
+              onClick={() => onContentGap(pkg.id)}
+              className="col-span-2 border-destructive/30 text-destructive hover:bg-destructive/10"
             >
-              {busy ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin mr-2 shrink-0" />
-              ) : (
-                <RotateCcw className="h-3.5 w-3.5 mr-2 shrink-0" />
-              )}
-              <div className="min-w-0">
-                <div className="text-xs font-medium">{action.label}</div>
-                <div className="text-[10px] text-muted-foreground">{action.description}</div>
-              </div>
+              <AlertTriangle className="h-3.5 w-3.5 mr-1.5" />
+              Mark content_gap
             </Button>
-          ))}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -313,30 +250,39 @@ export function BlockedPackagesSheet({ open, onOpenChange }: {
   const holdPackages = blockedPackages.filter(p => p.block_reason.startsWith('admin_hold'));
   const displayPackages = showAdminHolds ? holdPackages : nonHoldPackages;
 
-  const healMutation = useMutation({
-    mutationFn: async ({ packageId, action, stepKey }: { packageId: string; action: string; stepKey?: string }) => {
-      if (action === 'retry_stalled_step') {
-        return runAdminOpsAction('retry_package_step', { package_id: packageId, step_key: stepKey || 'run_integrity_check' });
+  const heal = usePackageHealAction();
+
+  const utilityMutation = useMutation({
+    mutationFn: async ({ packageId, action }: { packageId: string; action: 'unblock_package' | 'mark_content_gap' }) => {
+      if (action === 'mark_content_gap') {
+        const reason = window.prompt('Begründung für content_gap (optional)') || 'manual_review_content_insufficient';
+        return runAdminOpsAction('mark_content_gap', { package_id: packageId, reason });
       }
-      if (action === 'unblock_package') {
-        return runAdminOpsAction('unblock_package' as any, { package_id: packageId });
-      }
-      if (action === 'force_pool_fill') {
-        // Reset exhaustion + re-enqueue pool repair
-        await runAdminOpsAction('repair_exam_pool_quality', { package_id: packageId });
-        return runAdminOpsAction('retry_package_step', { package_id: packageId, step_key: 'validate_exam_pool' });
-      }
-      return runAdminOpsAction(action as any, { package_id: packageId });
+      return runAdminOpsAction('unblock_package', { package_id: packageId });
     },
     onSuccess: (_data, vars) => {
-      toast({ title: 'Aktion gestartet', description: `Aktion "${vars.action}" für Paket wurde eingeplant.` });
+      toast({ title: vars.action === 'mark_content_gap' ? 'content_gap markiert' : 'Hold aufgehoben' });
       qc.invalidateQueries({ queryKey: ['blocked-packages-detail'] });
       qc.invalidateQueries({ queryKey: ['command-data'] });
     },
-    onError: (err: Error) => {
-      toast({ title: 'Fehler', description: err.message, variant: 'destructive' });
-    },
+    onError: (err: Error) => toast({ title: 'Fehler', description: err.message, variant: 'destructive' }),
   });
+
+  const triggerHeal = (pkg: BlockedPackage, mode: 'soft' | 'hard') => {
+    const rec = recommendHeal({
+      hardFailReasons: pkg.hard_fail_reasons,
+      blockReason: pkg.block_reason,
+      isStuck: pkg.block_reason.includes('pipeline_repair_required') || pkg.block_reason.includes('repair_no_effect'),
+    });
+    heal.mutate({
+      packageId: pkg.id,
+      mode,
+      resetFromStep: rec.resetFromStep ?? 'run_integrity_check',
+      reason: `blocked_packages_sheet:${mode}:${pkg.block_reason}`,
+      cancelActiveJobs: mode === 'hard',
+      enqueuePlan: mode === 'hard' ? rec.enqueuePlan : undefined,
+    });
+  };
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -394,10 +340,11 @@ export function BlockedPackagesSheet({ open, onOpenChange }: {
             <BlockedPackageItem
               key={pkg.id}
               pkg={pkg}
-              onHeal={(packageId, action, stepKey) =>
-                healMutation.mutate({ packageId, action, stepKey })
-              }
-              busy={healMutation.isPending}
+              onSoftReentry={(p) => triggerHeal(p, 'soft')}
+              onHardHeal={(p) => triggerHeal(p, 'hard')}
+              onUnblock={(id) => utilityMutation.mutate({ packageId: id, action: 'unblock_package' })}
+              onContentGap={(id) => utilityMutation.mutate({ packageId: id, action: 'mark_content_gap' })}
+              busy={heal.isPending || utilityMutation.isPending}
             />
           ))}
         </div>
