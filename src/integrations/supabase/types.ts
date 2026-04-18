@@ -79404,6 +79404,15 @@ export type Database = {
             }
             Returns: Json
           }
+      admin_manual_heal_package: {
+        Args: {
+          p_cancel_active_jobs?: boolean
+          p_package_id: string
+          p_reason?: string
+          p_reset_from_step: string
+        }
+        Returns: Json
+      }
       admin_mark_content_gap: {
         Args: { p_package_id: string; p_reason: string }
         Returns: Json
