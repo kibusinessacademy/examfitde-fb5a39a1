@@ -1,6 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 
-type AdminOpsAction =
+export type AdminOpsAction =
   | 'requeue_failed_jobs'
   | 'release_provider_cooldowns'
   | 'reset_stalled_steps'

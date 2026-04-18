@@ -17,14 +17,14 @@
 import { supabase } from "@/integrations/supabase/client";
 import {
   runAdminOpsAction,
-  type AdminOpsActionType,
+  type AdminOpsAction,
 } from "@/integrations/supabase/admin-ops-actions";
 
 export type HealMode = "soft" | "hard";
 
 export interface HealEnqueueStep {
   /** admin-ops action that materialises a job (e.g. 'repair_exam_pool_quality'). */
-  action: AdminOpsActionType;
+  action: AdminOpsAction;
   /** Optional extra payload merged into the action call. */
   payload?: Record<string, unknown>;
 }
