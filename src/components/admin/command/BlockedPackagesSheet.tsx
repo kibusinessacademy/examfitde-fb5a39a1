@@ -329,30 +329,39 @@ export function BlockedPackagesSheet({ open, onOpenChange }: {
   const holdPackages = blockedPackages.filter(p => p.block_reason.startsWith('admin_hold'));
   const displayPackages = showAdminHolds ? holdPackages : nonHoldPackages;
 
-  const healMutation = useMutation({
-    mutationFn: async ({ packageId, action, stepKey }: { packageId: string; action: string; stepKey?: string }) => {
-      if (action === 'retry_stalled_step') {
-        return runAdminOpsAction('retry_package_step', { package_id: packageId, step_key: stepKey || 'run_integrity_check' });
+  const heal = usePackageHealAction();
+
+  const utilityMutation = useMutation({
+    mutationFn: async ({ packageId, action }: { packageId: string; action: 'unblock_package' | 'mark_content_gap' }) => {
+      if (action === 'mark_content_gap') {
+        const reason = window.prompt('Begründung für content_gap (optional)') || 'manual_review_content_insufficient';
+        return runAdminOpsAction('mark_content_gap', { package_id: packageId, reason });
       }
-      if (action === 'unblock_package') {
-        return runAdminOpsAction('unblock_package' as any, { package_id: packageId });
-      }
-      if (action === 'force_pool_fill') {
-        // Reset exhaustion + re-enqueue pool repair
-        await runAdminOpsAction('repair_exam_pool_quality', { package_id: packageId });
-        return runAdminOpsAction('retry_package_step', { package_id: packageId, step_key: 'validate_exam_pool' });
-      }
-      return runAdminOpsAction(action as any, { package_id: packageId });
+      return runAdminOpsAction('unblock_package', { package_id: packageId });
     },
     onSuccess: (_data, vars) => {
-      toast({ title: 'Aktion gestartet', description: `Aktion "${vars.action}" für Paket wurde eingeplant.` });
+      toast({ title: vars.action === 'mark_content_gap' ? 'content_gap markiert' : 'Hold aufgehoben' });
       qc.invalidateQueries({ queryKey: ['blocked-packages-detail'] });
       qc.invalidateQueries({ queryKey: ['command-data'] });
     },
-    onError: (err: Error) => {
-      toast({ title: 'Fehler', description: err.message, variant: 'destructive' });
-    },
+    onError: (err: Error) => toast({ title: 'Fehler', description: err.message, variant: 'destructive' }),
   });
+
+  const triggerHeal = (pkg: BlockedPackage, mode: 'soft' | 'hard') => {
+    const rec = recommendHeal({
+      hardFailReasons: pkg.hard_fail_reasons,
+      blockReason: pkg.block_reason,
+      isStuck: pkg.block_reason.includes('pipeline_repair_required') || pkg.block_reason.includes('repair_no_effect'),
+    });
+    heal.mutate({
+      packageId: pkg.id,
+      mode,
+      resetFromStep: rec.resetFromStep ?? 'run_integrity_check',
+      reason: `blocked_packages_sheet:${mode}:${pkg.block_reason}`,
+      cancelActiveJobs: mode === 'hard',
+      enqueuePlan: mode === 'hard' ? rec.enqueuePlan : undefined,
+    });
+  };
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -410,10 +419,11 @@ export function BlockedPackagesSheet({ open, onOpenChange }: {
             <BlockedPackageItem
               key={pkg.id}
               pkg={pkg}
-              onHeal={(packageId, action, stepKey) =>
-                healMutation.mutate({ packageId, action, stepKey })
-              }
-              busy={healMutation.isPending}
+              onSoftReentry={(p) => triggerHeal(p, 'soft')}
+              onHardHeal={(p) => triggerHeal(p, 'hard')}
+              onUnblock={(id) => utilityMutation.mutate({ packageId: id, action: 'unblock_package' })}
+              onContentGap={(id) => utilityMutation.mutate({ packageId: id, action: 'mark_content_gap' })}
+              busy={heal.isPending || utilityMutation.isPending}
             />
           ))}
         </div>
