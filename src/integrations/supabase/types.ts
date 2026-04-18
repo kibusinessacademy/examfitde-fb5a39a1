@@ -80047,15 +80047,25 @@ export type Database = {
         Args: { p_reason?: string; p_until?: string; p_user_id: string }
         Returns: undefined
       }
-      admin_close_orphan_governance_steps: {
-        Args: { p_dry_run?: boolean }
-        Returns: {
-          out_action: string
-          out_job_type: string
-          out_package_id: string
-          out_step_key: string
-        }[]
-      }
+      admin_close_orphan_governance_steps:
+        | {
+            Args: { p_dry_run?: boolean }
+            Returns: {
+              out_action: string
+              out_job_type: string
+              out_package_id: string
+              out_step_key: string
+            }[]
+          }
+        | {
+            Args: { p_dry_run?: boolean; p_limit?: number; p_step_key?: string }
+            Returns: {
+              out_action: string
+              out_job_type: string
+              out_package_id: string
+              out_step_key: string
+            }[]
+          }
       admin_decide_security_review: {
         Args: {
           p_block_until?: string
