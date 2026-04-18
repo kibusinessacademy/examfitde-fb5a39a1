@@ -104,6 +104,25 @@ export function classifyDbError(err: any): ClassifiedDbError {
     };
   }
 
+  // ── Säule 4 (2026-04-18): Materialization-Guard exhausted = permanent ──
+  // BLOCKED_BY_MATERIALIZATION mit "exhausted" bedeutet: Retry-Budget des Guards
+  // ist aufgebraucht, weiter retryen würde nur Hot-Loops erzeugen. Permanent fail.
+  if (
+    (m.includes("blocked_by_materialization") && m.includes("exhausted")) ||
+    m.includes("placeholder_lessons_present") ||
+    m.includes("hollow_learning_content") ||
+    m.includes("lesson_substance_below_threshold") ||
+    (m.includes("threshold_fail") && m.includes("exhausted"))
+  ) {
+    return {
+      class: "permanent",
+      kind: "check_violation",
+      code,
+      message,
+      hintKey: "materialization_guard_exhausted",
+    };
+  }
+
   return { class: "retryable", kind: "unknown", code, message, hintKey: "pg_unknown" };
 }
 
