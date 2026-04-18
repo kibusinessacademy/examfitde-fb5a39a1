@@ -38,6 +38,28 @@ export async function computeDeficit(
 
 // ── Lesson Content Deficit ──────────────────────────────────────────────────
 
+/**
+ * Detect if a lessons.content payload is a hollow/placeholder shell.
+ * Used to override approved-CV deficit decisions when the lesson row
+ * itself was never materialized (Skip-Bug fix).
+ */
+function isLessonContentHollow(content: any): { hollow: boolean; reason?: string } {
+  if (content == null) return { hollow: true, reason: "content_null" };
+  if (typeof content === "object") {
+    if (content._placeholder === true) return { hollow: true, reason: "placeholder_flag" };
+    if (content._regenerating === true) return { hollow: true, reason: "regenerating_flag" };
+    if (Object.keys(content).length < 3) return { hollow: true, reason: "shallow_object" };
+  }
+  // Length-based heuristic on serialized content
+  try {
+    const text = typeof content === "string" ? content : JSON.stringify(content);
+    if (text.length < 400) return { hollow: true, reason: "content_too_short" };
+    if (/Inhalt wird generiert/i.test(text)) return { hollow: true, reason: "stub_marker" };
+    if (/⏳/.test(text) && text.length < 800) return { hollow: true, reason: "spinner_stub" };
+  } catch { /* ignore */ }
+  return { hollow: false };
+}
+
 async function computeLessonDeficit(
   sb: any,
   ctx: { lessonId?: string; stepKey?: string },
@@ -60,6 +82,50 @@ async function computeLessonDeficit(
   }
 
   if ((count ?? 0) > 0) {
+    // SKIP-BUG GUARD: approved CV exists, but verify the lesson row itself
+    // was actually materialized. Otherwise the Materialization-Guard will
+    // keep cancelling downstream and we never recover.
+    try {
+      const { data: lessonRow } = await sb
+        .from("lessons")
+        .select("content, qc_status")
+        .eq("id", ctx.lessonId)
+        .maybeSingle();
+
+      // Force regen if QC explicitly failed
+      if (lessonRow?.qc_status === "tier1_failed") {
+        return {
+          shouldGenerate: true,
+          artifact: "lesson_content",
+          reason: "tier1_failed_despite_approved_cv",
+          actualCount: count ?? 0,
+          targetCount: 1,
+          missingCount: 1,
+        };
+      }
+
+      const hollow = isLessonContentHollow(lessonRow?.content);
+      if (hollow.hollow) {
+        return {
+          shouldGenerate: true,
+          artifact: "lesson_content",
+          reason: `lesson_${hollow.reason}_despite_approved_cv`,
+          actualCount: count ?? 0,
+          targetCount: 1,
+          missingCount: 1,
+          details: { lesson_id: ctx.lessonId, hollow_reason: hollow.reason },
+        };
+      }
+    } catch (probeErr) {
+      // On probe failure, prefer to regenerate (safe default)
+      return {
+        shouldGenerate: true,
+        artifact: "lesson_content",
+        reason: "lesson_probe_error",
+        details: { error: (probeErr as Error)?.message?.slice(0, 200) },
+      };
+    }
+
     return {
       shouldGenerate: false,
       artifact: "lesson_content",
