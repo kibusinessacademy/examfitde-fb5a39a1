@@ -53,23 +53,23 @@ export function getRunnerConfig(kind: RunnerKind): RunnerConfig {
 export type TrackKey = "AUSBILDUNG_VOLL" | "EXAM_FIRST" | "EXAM_FIRST_PLUS" | "STUDIUM";
 
 /** Hard ceiling across all tracks — must match ops_pipeline_config.wip_total_cap */
-export const WIP_TOTAL_CAP = 13;
+export const WIP_TOTAL_CAP = 25;
 
 /** Bonus WIP slots reserved for repair work (integrity, healing, requeue) */
 export const WIP_BONUS_REPAIR_SLOTS = 5;
 
 /** Effective cap = base + repair bonus */
-export const WIP_EFFECTIVE_MAX = WIP_TOTAL_CAP + WIP_BONUS_REPAIR_SLOTS; // 13 + 5 = 18
+export const WIP_EFFECTIVE_MAX = WIP_TOTAL_CAP + WIP_BONUS_REPAIR_SLOTS; // 25 + 5 = 30
 
 /**
  * WIP quota per track: max packages in "building" status simultaneously.
  * Env-overridable via WIP_QUOTA_<TRACK>.
  */
 export const WIP_QUOTA_DEFAULTS: Record<TrackKey, number> = {
-  AUSBILDUNG_VOLL: 5,
-  EXAM_FIRST_PLUS: 4,
-  EXAM_FIRST: 2,
-  STUDIUM: 2,
+  AUSBILDUNG_VOLL: 9,
+  EXAM_FIRST_PLUS: 8,
+  EXAM_FIRST: 4,
+  STUDIUM: 4,
 };
 
 export function getTrackQuota(track: TrackKey): number {

@@ -182,12 +182,15 @@ export interface LaneBudget {
  */
 export function allocateLaneBudgets(totalSlots: number): LaneBudget {
   if (totalSlots <= 1) return { control: 1, recovery: 0, generation: 0 };
-  if (totalSlots <= 2) return { control: 1, recovery: 0, generation: 1 };
+  if (totalSlots <= 2) return { control: 1, recovery: 1, generation: 0 };
   if (totalSlots <= 3) return { control: 1, recovery: 1, generation: 1 };
-  if (totalSlots <= 4) return { control: 2, recovery: 1, generation: 1 };
+  if (totalSlots <= 4) return { control: 1, recovery: 2, generation: 1 };
 
-  const controlSlots = Math.max(1, Math.floor(totalSlots * 0.4));
-  const recoverySlots = Math.max(1, Math.floor(totalSlots * 0.2));
+  // Recovery lane minimum raised from 1→10 (2026-04-18) to clear stuck-package backlog.
+  // Recovery jobs are cheap (heal/reconcile/repair) — safe at high concurrency.
+  const recoveryMin = Math.min(10, totalSlots - 2);
+  const controlSlots = Math.max(1, Math.floor(totalSlots * 0.3));
+  const recoverySlots = Math.max(recoveryMin, Math.floor(totalSlots * 0.3));
   const generationSlots = Math.max(1, totalSlots - controlSlots - recoverySlots);
 
   return {
