@@ -1664,17 +1664,24 @@ async function handleJobCompleted(
 
           const boostRows = Array.isArray(existingBoost) ? existingBoost : (existingBoost as any)?.data ?? [];
           if (!Array.isArray(boostRows) || boostRows.length === 0) {
-            console.log(`[runner] ⚡ Low-progress boost: only ${deltaReal} lessons this run`);
-            try {
-              await enqueueJob(sb, {
-                job_type: boostJobType,
-                package_id: packageId,
-                priority: 70,
-                payload: { package_id: packageId, reason: "low_progress_boost", real: afterReal, total: afterTotal },
-                max_attempts: 8,
-              });
-            } catch (boostErr) {
-              console.warn(`[runner] Low-progress boost enqueue failed: ${(boostErr as Error).message}`);
+            // Phase 2 Härtung Fix #1: SSOT-Pre-Check vor Boost-Enqueue
+            const { isStepApplicableForPackage } = await import("./stuck-scan-helpers.ts");
+            const applic = await isStepApplicableForPackage(sb, packageId, "generate_learning_content");
+            if (!applic.applicable) {
+              console.log(`[runner] ⏭️ Boost skipped (SSOT): ${applic.reason}`);
+            } else {
+              console.log(`[runner] ⚡ Low-progress boost: only ${deltaReal} lessons this run`);
+              try {
+                await enqueueJob(sb, {
+                  job_type: boostJobType,
+                  package_id: packageId,
+                  priority: 70,
+                  payload: { package_id: packageId, reason: "low_progress_boost", real: afterReal, total: afterTotal },
+                  max_attempts: 8,
+                });
+              } catch (boostErr) {
+                console.warn(`[runner] Low-progress boost enqueue failed: ${(boostErr as Error).message}`);
+              }
             }
           }
         }
