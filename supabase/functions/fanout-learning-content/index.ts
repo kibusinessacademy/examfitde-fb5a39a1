@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { assertSchemaReady } from "../_shared/schema-gate.ts";
 import { enqueueJob } from "../_shared/enqueue.ts";
+import { prereqDone } from "../_shared/prereq-done.ts";
 
 /**
  * fanout-learning-content — Creates shard records per learning field
@@ -82,15 +83,11 @@ Deno.serve(async (req) => {
     console.log(`[fanout] Resolved from package: course_id=${courseId}, curriculum_id=${curriculumId}`);
   }
 
-  // ── Prereq: scaffold must be done ──
-  const { data: scaffoldStep } = await sb
-    .from("package_steps")
-    .select("status")
-    .eq("package_id", packageId)
-    .eq("step_key", "scaffold_learning_course")
-    .maybeSingle();
-
-  if (scaffoldStep?.status !== "done") {
+  // ── Prereq: scaffold must be done OR skipped (for EXAM_FIRST/EXAM_FIRST_PLUS tracks) ──
+  // SSOT: use shared prereqDone() which accepts both 'done' and 'skipped' as fulfilled.
+  // Previously this used status !== 'done' which blocked EXAM_FIRST tracks where
+  // scaffold_learning_course is intentionally 'skipped' per track_step_applicability.
+  if (!(await prereqDone(sb, packageId, "scaffold_learning_course"))) {
     return json({
       ok: false,
       retry: true,
