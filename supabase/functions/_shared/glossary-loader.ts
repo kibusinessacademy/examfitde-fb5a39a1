@@ -72,6 +72,24 @@ function buildGlossaryPrompt(profile: ContentProfile, professionName: string, cu
 
 // Legacy constant for backward compatibility
 const GLOSSARY_PROMPT = buildGlossaryPrompt(getContentProfile("AUSBILDUNG_VOLL"), "{PROFESSION}", "{CURRICULUM_CONTEXT}");
+
+/**
+ * Compute robust token-count for cache row.
+ * Prefers provider usage (input+output tokens). Falls back to char/4 heuristic
+ * over the serialized glossary JSON to guarantee a non-zero, content-proportional
+ * value. This prevents Hollow-Cache loops when providers return zero usage.
+ */
+function computeGlossaryTokenCount(aiResult: any, glossaryBody: unknown): number {
+  const usage = aiResult?.usage ?? {};
+  const fromUsage = Number(usage.input_tokens || 0) + Number(usage.output_tokens || 0);
+  if (fromUsage > 0) return fromUsage;
+  try {
+    const serialized = JSON.stringify(glossaryBody ?? {});
+    return Math.max(1, Math.ceil(serialized.length / 4));
+  } catch {
+    return 0;
+  }
+}
 /**
  * Read glossary from cache ONLY (no generation). Returns null if not cached.
  * Use this in time-critical functions like content generation.
@@ -234,7 +252,7 @@ export async function loadOrGenerateGlossary(
           branchenspezifisch: { typische_akteure: [], arbeitsumgebungen: [], dokumente: [], werkzeuge_software: [] },
         };
         // Cache the raw fallback so we don't keep retrying
-        const tokenCount = (aiResult.usage?.input_tokens || 0) + (aiResult.usage?.output_tokens || 0);
+        const tokenCount = computeGlossaryTokenCount(aiResult, rawFallback);
         await sb.from("profession_glossaries").insert({
           beruf_id: berufId, profession_name: professionName,
           glossary: rawFallback, token_count: tokenCount,
@@ -252,7 +270,7 @@ export async function loadOrGenerateGlossary(
         rechenbeispiele: [],
         branchenspezifisch: { typische_akteure: [], arbeitsumgebungen: [], dokumente: [], werkzeuge_software: [] },
       };
-      const tokenCount = (aiResult.usage?.input_tokens || 0) + (aiResult.usage?.output_tokens || 0);
+      const tokenCount = computeGlossaryTokenCount(aiResult, rawFallback);
       await sb.from("profession_glossaries").insert({
         beruf_id: berufId, profession_name: professionName,
         glossary: rawFallback, token_count: tokenCount,
@@ -262,7 +280,7 @@ export async function loadOrGenerateGlossary(
   }
 
   // 4) Cache it
-  const tokenCount = (aiResult.usage?.input_tokens || 0) + (aiResult.usage?.output_tokens || 0);
+  const tokenCount = computeGlossaryTokenCount(aiResult, glossary);
   await sb.from("profession_glossaries").insert({
     beruf_id: berufId,
     profession_name: professionName,
