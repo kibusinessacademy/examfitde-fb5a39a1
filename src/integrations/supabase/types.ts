@@ -80153,6 +80153,14 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_soft_reset_package: {
+        Args: {
+          p_package_id: string
+          p_reason?: string
+          p_take_offline?: boolean
+        }
+        Returns: Json
+      }
       admin_unblock_user: {
         Args: { p_reason?: string; p_user_id: string }
         Returns: undefined
