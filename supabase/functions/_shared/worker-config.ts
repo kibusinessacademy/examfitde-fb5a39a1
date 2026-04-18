@@ -33,16 +33,16 @@ export function getRunnerConfig(kind: RunnerKind): RunnerConfig {
   const claimLimit     = envInt(`${kind.toUpperCase()}_CLAIM_LIMIT`, base.claimLimit);
 
   // Hard safety caps (non-negotiable)
-  // Hard safety caps — prevent env overrides from re-introducing the stale-lock problem
+  // Hard safety caps — raised to 50 (2026-04-18) to allow throughput scale-up.
   if (kind === "content_runner") {
     return {
-      maxConcurrency: Math.min(maxConcurrency, 10),
-      claimLimit: Math.min(claimLimit, 10),
+      maxConcurrency: Math.min(maxConcurrency, 50),
+      claimLimit: Math.min(claimLimit, 50),
     };
   }
   return {
-    maxConcurrency: Math.min(maxConcurrency, 10),
-    claimLimit: Math.min(claimLimit, 10),
+    maxConcurrency: Math.min(maxConcurrency, 50),
+    claimLimit: Math.min(claimLimit, 50),
   };
 }
 
