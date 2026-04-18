@@ -82410,6 +82410,10 @@ export type Database = {
         Args: { p_package_id: string; p_repair_action: string }
         Returns: Json
       }
+      fn_is_step_applicable_for_package: {
+        Args: { p_package_id: string; p_step_key: string }
+        Returns: boolean
+      }
       fn_is_step_bypass_eligible: {
         Args: {
           p_current_fingerprint: string
