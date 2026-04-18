@@ -58,11 +58,11 @@ export async function handleDbFailure(ctx: FailCtx, err: any) {
           .eq("id", ctx.jobId);
 
         // Hot-Loop-Check nach echtem Failure (best-effort, fail-open)
-        if (ctx.packageId) {
+        if (ctx.packageId && ctx.jobType) {
           try {
             await ctx.supabase.rpc("fn_check_hot_loop_quarantine", {
               p_package_id: ctx.packageId,
-              p_job_type: null, // wird über job-row gelookupt
+              p_job_type: ctx.jobType,
             });
           } catch (_e) {
             // Silent: Quarantäne-Check darf den Failure-Pfad nie brechen
