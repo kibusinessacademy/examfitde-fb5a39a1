@@ -236,7 +236,8 @@ async function dispatchJob(job: any, supabaseUrl: string, serviceKey: string, lo
     // ── Shared payload normalization (P0 fix: inject package_id/curriculum_id/course_id) ──
     // v2: resolveDispatchPayload lädt course_id bei Bedarf aus DB nach
     const { resolveDispatchPayload } = await import("../_shared/build-dispatch-payload.ts");
-    const normalizedPayload = await resolveDispatchPayload(job, sb);
+    const sbForResolve = createClient(supabaseUrl, serviceKey);
+    const normalizedPayload = await resolveDispatchPayload(job, sbForResolve);
 
     const res = await fetch(url, {
       method: "POST",
