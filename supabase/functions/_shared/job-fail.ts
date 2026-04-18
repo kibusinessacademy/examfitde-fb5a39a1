@@ -4,6 +4,7 @@ import { mergePackageStepMeta } from "./merge-step-meta.ts";
 export interface FailCtx {
   supabase: any;
   jobId?: string | null;
+  jobType?: string | null;
   packageId?: string | null;
   stepKey?: string | null;
 }
