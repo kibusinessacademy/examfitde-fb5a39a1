@@ -85000,6 +85000,7 @@ export type Database = {
         | "blocked"
         | "timeout"
         | "skipped"
+        | "pending_enqueue"
       user_ticket_priority: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"
       user_ticket_status:
         | "OPEN"
@@ -85381,6 +85382,7 @@ export const Constants = {
         "blocked",
         "timeout",
         "skipped",
+        "pending_enqueue",
       ],
       user_ticket_priority: ["LOW", "MEDIUM", "HIGH", "CRITICAL"],
       user_ticket_status: [
