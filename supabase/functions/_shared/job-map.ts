@@ -308,8 +308,9 @@ export const JOB_DEFINITIONS: Record<string, JobDefinition> = {
   package_repair_exam_pool_lf_coverage: { pool: "default", edgeFunction: "package-repair-exam-pool-lf-coverage" },
   package_repair_failed_lessons:     { pool: "default", edgeFunction: "package-repair-failed-lessons" },
   package_validate_learning_content: { pool: "default", edgeFunction: "package-validate-learning-content" },
-  repair_learning_content:           { pool: "default", edgeFunction: "repair-learning-content" },
-  regenerate_learning_content_cluster: { pool: "default", edgeFunction: "regenerate-learning-content-cluster" },
+  repair_learning_content:           { pool: "default", edgeFunction: "repair-lessons" },
+  // Legacy alias — kept for in-flight jobs; routes to the same major-regen function.
+  regenerate_learning_content_cluster: { pool: "default", edgeFunction: "regenerate-weak-lessons" },
   package_validate_oral_exam:        { pool: "default", edgeFunction: "package-validate-oral-exam" },
   package_validate_tutor_index:      { pool: "default", edgeFunction: "package-validate-tutor-index" },
   package_validate_lesson_minichecks:{ pool: "default", edgeFunction: "package-validate-lesson-minichecks" },
