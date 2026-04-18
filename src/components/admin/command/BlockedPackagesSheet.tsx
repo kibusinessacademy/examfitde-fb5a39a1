@@ -10,8 +10,10 @@ import {
 } from '@/components/admin/AdminSheet';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Wrench, RotateCcw, AlertTriangle, CheckCircle2, ArrowRight, ShieldOff } from 'lucide-react';
+import { Loader2, Wrench, RotateCcw, AlertTriangle, CheckCircle2, ArrowRight, ShieldOff, Hammer } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { usePackageHealAction } from '@/lib/admin/heal/usePackageHealAction';
+import { recommendHeal } from '@/lib/admin/heal/healService';
 
 interface BlockedPackage {
   id: string;
