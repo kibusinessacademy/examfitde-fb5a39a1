@@ -336,10 +336,10 @@ export function AdminAutoHealQueue() {
                     releaseClass={cls?.release_class}
                     busy={heal.isPending || contentGapMutation.isPending}
                     onSoftPublish={() =>
-                      runHeal(item.package_id, item.id, "soft", cls?.deficiency_codes, cls?.release_class)
+                      runHeal(item.package_id, item.id, "soft", cls?.deficiency_codes ?? undefined, cls?.release_class)
                     }
                     onHardHeal={() =>
-                      runHeal(item.package_id, item.id, "hard", cls?.deficiency_codes, cls?.release_class)
+                      runHeal(item.package_id, item.id, "hard", cls?.deficiency_codes ?? undefined, cls?.release_class)
                     }
                     onMarkContentGap={() =>
                       contentGapMutation.mutate({ packageId: item.package_id, queueId: item.id })
