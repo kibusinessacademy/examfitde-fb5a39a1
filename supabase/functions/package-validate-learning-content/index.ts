@@ -183,7 +183,7 @@ async function tier2Validate(
 
 // aggregateFailureModes and detectCatastrophicFailures imported from _shared/validation-issue.ts
 
-Deno.serve(async (req) => {
+async function handleRequest(req: Request): Promise<Response> {
   if (req.method !== "POST") return json({ error: "Use POST" }, 405);
 
   const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
@@ -237,6 +237,35 @@ Deno.serve(async (req) => {
     .maybeSingle();
 
   const stepMeta = (stepRow?.meta as Record<string, any>) || {};
+
+  // ── HARDENED v3 (2026-04-19): Pre-Check pending lessons before loading content ──
+  // Prevents validator crash on unmaterialized lessons (Ghost-Completion symptom).
+  const { count: pendingLessonsCount } = await sb
+    .from("lessons")
+    .select("id, modules!inner(course_id)", { head: true, count: "exact" })
+    .eq("modules.course_id", courseId)
+    .neq("step", "mini_check")
+    .or("generation_status.eq.pending,generation_status.is.null,content.is.null");
+
+  if ((pendingLessonsCount ?? 0) > 0) {
+    console.warn(`[validate-lessons] WAITING_FOR_MATERIALIZATION: pkg=${packageId.slice(0, 8)} pending=${pendingLessonsCount}`);
+    await mergePackageStepMeta(sb, packageId, "validate_learning_content", {
+      waiting_for_materialization_at: new Date().toISOString(),
+      pending_lessons_count: pendingLessonsCount,
+    });
+    return json({
+      ok: true,
+      completed: false,
+      skipped: true,
+      gate_class: "waiting_for_materialization",
+      reason_code: "WAITING_FOR_MATERIALIZATION",
+      advance_pipeline: false,
+      repair_enqueued: false,
+      transient: true,
+      retry: true,
+      message: `⏳ ${pendingLessonsCount} lessons still pending materialization — validator deferred.`,
+    });
+  }
 
   // ── Load all lessons ──
   const { data: allLessons, error: fetchErr } = await sb
@@ -697,4 +726,32 @@ Deno.serve(async (req) => {
         ? `❌ Hard Fail: ${classification.reasonCode} — Tier 1 ${t1PassPct.toFixed(0)}%`
         : `⚠️ ${classification.gateClass}: Tier 1 ${t1PassPct.toFixed(0)}%, Repair: ${repairEnqueued ? "enqueued" : "pending"}`,
   });
+}
+
+// ── HARDENED v3 (2026-04-19): Top-level try/catch prevents HTTP 500 crashes ──
+Deno.serve(async (req) => {
+  try {
+    return await handleRequest(req);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    const stack = err instanceof Error ? err.stack : undefined;
+    console.error(`[validate-lessons] UNHANDLED EXCEPTION: ${msg}`);
+    if (stack) console.error(stack);
+
+    const isTransient =
+      msg.includes("timeout") || msg.includes("TIMEOUT") ||
+      msg.includes("AbortError") || msg.includes("connection") ||
+      msg.includes("fetch failed") || msg.includes("ECONNRESET");
+
+    return json({
+      ok: false,
+      completed: false,
+      retry: isTransient,
+      transient: isTransient,
+      gate_class: "validator_exception",
+      reason_code: "VALIDATE_LEARNING_CONTENT_EXCEPTION",
+      error: `UNHANDLED: ${msg.slice(0, 300)}`,
+      hint: "Validator threw — see edge function logs for stack trace",
+    }, isTransient ? 503 : 500);
+  }
 });

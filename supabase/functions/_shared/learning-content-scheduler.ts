@@ -74,11 +74,15 @@ export async function countLeasedPackages(sb: any): Promise<number> {
 }
 
 // ── SSOT needs_regen filter ──
+// HARDENED v3 (2026-04-19): includes generation_status='pending' to prevent ghost-completion
+// where lessons exist with skeleton content but were never materialized.
 const NEEDS_REGEN_OR_FILTER = [
   "content.is.null",
   "qc_status.eq.tier1_failed",
   "content->>_placeholder.eq.true",
   "content->>_regenerating.eq.true",
+  "generation_status.eq.pending",
+  "generation_status.is.null",
 ].join(",");
 
 /**
