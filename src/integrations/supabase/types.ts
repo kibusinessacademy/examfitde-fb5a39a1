@@ -83061,6 +83061,7 @@ export type Database = {
       fn_heal_ghost_completions:
         | { Args: never; Returns: Json }
         | { Args: { p_mode?: string }; Returns: Json }
+      fn_heal_orphan_queued_steps: { Args: { p_limit?: number }; Returns: Json }
       fn_heal_queued_steps_without_jobs: {
         Args: { p_dry_run?: boolean }
         Returns: {
