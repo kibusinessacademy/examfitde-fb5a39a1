@@ -75356,6 +75356,17 @@ export type Database = {
         }
         Relationships: []
       }
+      v_ops_step_job_coupling_gaps: {
+        Row: {
+          avg_age_min: number | null
+          distinct_packages: number | null
+          gaps: number | null
+          max_age_min: number | null
+          package_status: string | null
+          step_key: string | null
+        }
+        Relationships: []
+      }
       v_ops_worker_liveness: {
         Row: {
           claimable_now: number | null
@@ -80191,7 +80202,8 @@ export type Database = {
         Args: { _step_keys?: string[] }
         Returns: {
           action: string
-          job_type: string
+          err: string
+          job_id: string
           package_id: string
           step_key: string
         }[]
