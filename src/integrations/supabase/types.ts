@@ -13948,6 +13948,7 @@ export type Database = {
           legacy_exempt_from_hollow_guard: boolean
           legacy_exempt_reason: string | null
           locked_at: string | null
+          manual_heal_cooldown_until: string | null
           persona_profile: string
           pipeline_mode: Database["public"]["Enums"]["pipeline_mode"]
           priority: number
@@ -14017,6 +14018,7 @@ export type Database = {
           legacy_exempt_from_hollow_guard?: boolean
           legacy_exempt_reason?: string | null
           locked_at?: string | null
+          manual_heal_cooldown_until?: string | null
           persona_profile?: string
           pipeline_mode?: Database["public"]["Enums"]["pipeline_mode"]
           priority?: number
@@ -14086,6 +14088,7 @@ export type Database = {
           legacy_exempt_from_hollow_guard?: boolean
           legacy_exempt_reason?: string | null
           locked_at?: string | null
+          manual_heal_cooldown_until?: string | null
           persona_profile?: string
           pipeline_mode?: Database["public"]["Enums"]["pipeline_mode"]
           priority?: number
@@ -80173,15 +80176,26 @@ export type Database = {
             }
             Returns: Json
           }
-      admin_manual_heal_package: {
-        Args: {
-          p_cancel_active_jobs?: boolean
-          p_package_id: string
-          p_reason?: string
-          p_reset_from_step: string
-        }
-        Returns: Json
-      }
+      admin_manual_heal_package:
+        | {
+            Args: {
+              p_cancel_active_jobs?: boolean
+              p_package_id: string
+              p_reason?: string
+              p_reset_from_step: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_cancel_active_jobs?: boolean
+              p_cooldown_minutes?: number
+              p_package_id: string
+              p_reason?: string
+              p_reset_from_step: string
+            }
+            Returns: Json
+          }
       admin_mark_content_gap: {
         Args: { p_package_id: string; p_reason: string }
         Returns: Json
@@ -82386,7 +82400,9 @@ export type Database = {
         Args: { p_org_id: string; p_roles?: string[]; p_user_id: string }
         Returns: boolean
       }
-      fn_heal_ghost_completions: { Args: { p_mode?: string }; Returns: Json }
+      fn_heal_ghost_completions:
+        | { Args: never; Returns: Json }
+        | { Args: { p_mode?: string }; Returns: Json }
       fn_heal_queued_steps_without_jobs: {
         Args: { p_dry_run?: boolean }
         Returns: {
@@ -85038,6 +85054,7 @@ export type Database = {
           legacy_exempt_from_hollow_guard: boolean
           legacy_exempt_reason: string | null
           locked_at: string | null
+          manual_heal_cooldown_until: string | null
           persona_profile: string
           pipeline_mode: Database["public"]["Enums"]["pipeline_mode"]
           priority: number
@@ -85398,6 +85415,7 @@ export type Database = {
           legacy_exempt_from_hollow_guard: boolean
           legacy_exempt_reason: string | null
           locked_at: string | null
+          manual_heal_cooldown_until: string | null
           persona_profile: string
           pipeline_mode: Database["public"]["Enums"]["pipeline_mode"]
           priority: number
