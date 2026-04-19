@@ -630,33 +630,79 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
         const auditMeta = buildVerifyAuditMeta(artifactCheck);
         
         if (!artifactCheck.ok) {
+          // ── PROGRESS-AWARE MATERIALIZATION GUARD (v5) ──
+          // Increased budget: 8 retries (was 3), with dynamic backoff.
+          // Critical: as long as placeholder_count is decreasing between retries,
+          // we keep waiting — only hard-cancel on stagnation or hard cap.
+          const MAT_GUARD_MAX_RETRIES = 8;
+          const MAT_GUARD_STAGNATION_LIMIT = 3; // consecutive retries without progress
           const matRetries = ((job.meta as any)?.materialization_retries ?? 0) + 1;
-          console.warn(`[content-runner] MATERIALIZATION_GUARD: ${job.job_type} (${shortId}) blocked — ${artifactCheck.reason} (retry ${matRetries}/3)`);
-          
-          if (artifactCheck.permanent || matRetries >= 3) {
-            // Phase 2 Härtung: Mat-Guard-Failures gehen NICHT in failed (kein Retry-Loop),
-            // sondern in cancelled mit Reason BLOCKED_BY_MATERIALIZATION
+          const prevCount = (job.meta as any)?.materialization_last_count;
+          const currentCount = artifactCheck.count ?? null;
+          const prevStagnant = (job.meta as any)?.materialization_stagnant_streak ?? 0;
+
+          // Progress detection: count decreased = real progress
+          let stagnantStreak = prevStagnant;
+          let progressing = false;
+          if (typeof prevCount === "number" && typeof currentCount === "number") {
+            if (currentCount < prevCount) {
+              progressing = true;
+              stagnantStreak = 0;
+            } else {
+              stagnantStreak = prevStagnant + 1;
+            }
+          }
+
+          const stagnated = stagnantStreak >= MAT_GUARD_STAGNATION_LIMIT;
+          const exhausted = matRetries >= MAT_GUARD_MAX_RETRIES;
+          console.warn(`[content-runner] MATERIALIZATION_GUARD: ${job.job_type} (${shortId}) blocked — ${artifactCheck.reason} (retry ${matRetries}/${MAT_GUARD_MAX_RETRIES}, count=${currentCount}, prev=${prevCount}, stagnant=${stagnantStreak}/${MAT_GUARD_STAGNATION_LIMIT}, progressing=${progressing})`);
+
+          if (artifactCheck.permanent || exhausted || stagnated) {
+            const exhaustReason = artifactCheck.permanent
+              ? "permanent"
+              : exhausted
+              ? "max_retries"
+              : "stagnation";
             await sb.from("job_queue").update({
               status: "cancelled",
-              last_error: `BLOCKED_BY_MATERIALIZATION: ${artifactCheck.reason}${matRetries >= 3 ? " — exhausted" : ""}`,
+              last_error: `BLOCKED_BY_MATERIALIZATION: ${artifactCheck.reason} — ${exhaustReason}`,
               completed_at: now,
               updated_at: now,
               locked_at: null,
               locked_by: null,
-              meta: { ...(job.meta || {}), ...auditMeta, materialization_retries: matRetries, blocked_by_materialization: true },
+              meta: {
+                ...(job.meta || {}),
+                ...auditMeta,
+                materialization_retries: matRetries,
+                materialization_last_count: currentCount,
+                materialization_stagnant_streak: stagnantStreak,
+                materialization_exhaust_reason: exhaustReason,
+                blocked_by_materialization: true,
+              },
             }).eq("id", job.id);
-            return { id: job.id, ok: false, error: `BLOCKED_BY_MATERIALIZATION: ${artifactCheck.reason}` };
+            return { id: job.id, ok: false, error: `BLOCKED_BY_MATERIALIZATION: ${artifactCheck.reason} (${exhaustReason})` };
           }
 
-          // Requeue with backoff
+          // Dynamic backoff: longer when progressing (give materialization time to finish),
+          // shorter when stagnant (fail fast). 60s base, +30s per retry, max 240s.
+          const baseBackoff = progressing ? 90 : 60;
+          const dynamicBackoff = Math.min(240, baseBackoff + matRetries * 30);
+
           await sb.from("job_queue").update({
             status: "pending",
-            run_after: new Date(Date.now() + 90_000).toISOString(),
-            last_error: `MATERIALIZATION_GUARD: ${artifactCheck.reason} — retry ${matRetries}/3`,
+            run_after: new Date(Date.now() + dynamicBackoff * 1000).toISOString(),
+            last_error: `MATERIALIZATION_GUARD: ${artifactCheck.reason} — retry ${matRetries}/${MAT_GUARD_MAX_RETRIES} (count=${currentCount}, progressing=${progressing})`,
             updated_at: now,
             locked_at: null,
             locked_by: null,
-            meta: { ...(job.meta || {}), ...auditMeta, materialization_retries: matRetries },
+            meta: {
+              ...(job.meta || {}),
+              ...auditMeta,
+              materialization_retries: matRetries,
+              materialization_last_count: currentCount,
+              materialization_stagnant_streak: stagnantStreak,
+              materialization_progressing: progressing,
+            },
           }).eq("id", job.id);
           return { id: job.id, ok: false, error: `MATERIALIZATION_GUARD: ${artifactCheck.reason}`, retry: true };
         }
