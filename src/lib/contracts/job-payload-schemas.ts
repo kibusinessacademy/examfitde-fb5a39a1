@@ -138,6 +138,11 @@ export const RepairExamPoolQualityPayloadSchema = PackageJobBaseSchema.extend({
   reason_codes: z.array(z.string()).optional(),
 });
 
+export const RepairExamPoolCompetencyCoveragePayloadSchema = PackageJobBaseSchema.extend({
+  target_per_competency: z.number().int().positive().optional(),
+  reason_codes: z.array(z.string()).optional(),
+});
+
 export const RepairMinichecksPayloadSchema = PackageJobBaseSchema;
 
 export const ExamRebalancePayloadSchema = PackageJobBaseSchema.extend({
@@ -230,6 +235,7 @@ export const JOB_PAYLOAD_SCHEMA_REGISTRY: Record<string, z.ZodTypeAny> = {
 
   // Repair
   package_repair_exam_pool_quality: RepairExamPoolQualityPayloadSchema,
+  package_repair_exam_pool_competency_coverage: RepairExamPoolCompetencyCoveragePayloadSchema,
   package_repair_minichecks: RepairMinichecksPayloadSchema,
   package_exam_rebalance: ExamRebalancePayloadSchema,
   pool_fill_bloom_gaps: PoolFillBloomGapsPayloadSchema,

@@ -15,6 +15,7 @@ export type HealEnqueueAction =
   | "enqueue_generate_exam_pool"
   | "enqueue_repair_exam_pool_quality"
   | "enqueue_repair_exam_pool_lf_coverage"
+  | "enqueue_repair_exam_pool_competency_coverage"
   | "enqueue_scaffold_learning_course"
   | "enqueue_repair_lessons"
   | "enqueue_repair_handbook"
@@ -30,6 +31,7 @@ export const HEAL_ACTION_TO_OPS: Record<HealEnqueueAction, AdminOpsAction> = {
   enqueue_generate_exam_pool: "repair_exam_pool_quality", // erzwingt Generation via Quality-Repair-Pfad
   enqueue_repair_exam_pool_quality: "repair_exam_pool_quality",
   enqueue_repair_exam_pool_lf_coverage: "repair_exam_pool_quality", // bis dedizierter LF-Repair-OpsKey existiert
+  enqueue_repair_exam_pool_competency_coverage: "repair_exam_pool_quality", // bis dedizierter Competency-OpsKey existiert
   enqueue_scaffold_learning_course: "repair_lessons",
   enqueue_repair_lessons: "repair_lessons",
   enqueue_repair_handbook: "repair_handbook",

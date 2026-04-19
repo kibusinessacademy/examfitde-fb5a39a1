@@ -59,6 +59,8 @@ const CONTROL_JOB_TYPES = new Set([
 // Repair, reconcile, heal — must not be blocked by generation load.
 const RECOVERY_JOB_TYPES = new Set([
   "package_repair_exam_pool_quality",
+  "package_repair_exam_pool_lf_coverage",
+  "package_repair_exam_pool_competency_coverage",
   "package_repair_minichecks",
   "package_repair_failed_lessons",
   "repair_learning_content",
@@ -221,6 +223,8 @@ export const PER_TYPE_TICK_CAPS: Record<string, number> = {
   package_validate_handbook_depth: 3,
   package_elite_harden: 2,
   package_repair_exam_pool_quality: 2,
+  package_repair_exam_pool_lf_coverage: 3,
+  package_repair_exam_pool_competency_coverage: 3,
 };
 
 /**
@@ -239,6 +243,8 @@ export const ESTIMATED_RUNTIME_SECONDS: Record<string, number> = {
   package_validate_handbook_depth: 8,
   package_elite_harden: 20,
   package_repair_exam_pool_quality: 18,
+  package_repair_exam_pool_lf_coverage: 8,
+  package_repair_exam_pool_competency_coverage: 8,
   package_generate_handbook: 25,
   handbook_expand_section: 20,
   package_generate_exam_pool: 30,
