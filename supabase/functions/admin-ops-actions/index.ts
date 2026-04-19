@@ -266,6 +266,7 @@ Deno.serve(async (req) => {
 
       /* ── Targeted Repair Actions ── */
       case "repair_exam_pool_quality":
+      case "repair_exam_pool_competency_coverage":
       case "repair_minichecks":
       case "repair_lessons":
       case "repair_handbook":
@@ -277,6 +278,7 @@ Deno.serve(async (req) => {
 
         const repairJobMap: Record<string, { jobType: string; stepKey: string }> = {
           repair_exam_pool_quality: { jobType: "package_repair_exam_pool_quality", stepKey: "repair_exam_pool_quality" },
+          repair_exam_pool_competency_coverage: { jobType: "package_repair_exam_pool_competency_coverage", stepKey: "repair_exam_pool_competency_coverage" },
           repair_minichecks: { jobType: "package_generate_lesson_minichecks", stepKey: "generate_lesson_minichecks" },
           repair_lessons: { jobType: "package_generate_learning_content", stepKey: "generate_learning_content" },
           repair_handbook: { jobType: "package_generate_handbook", stepKey: "generate_handbook" },
