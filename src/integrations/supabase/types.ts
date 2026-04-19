@@ -74489,6 +74489,17 @@ export type Database = {
         }
         Relationships: []
       }
+      v_ops_failed_no_start_jobs_24h: {
+        Row: {
+          cnt: number | null
+          empty_err: number | null
+          hard_kill_err: number | null
+          inflated_recoveries: number | null
+          job_type: string | null
+          last_seen: string | null
+        }
+        Relationships: []
+      }
       v_ops_ghost_completions: {
         Row: {
           has_active_siblings: boolean | null
@@ -80176,6 +80187,15 @@ export type Database = {
             }
             Returns: Json
           }
+      admin_heal_step_job_coupling: {
+        Args: { _step_keys?: string[] }
+        Returns: {
+          action: string
+          job_type: string
+          package_id: string
+          step_key: string
+        }[]
+      }
       admin_manual_heal_package:
         | {
             Args: {
