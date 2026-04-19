@@ -115,6 +115,16 @@ export function recommendHeal(snap: HealSnapshot): HealRecommendation {
     };
   }
 
+  if (reasons.some((r) => r.includes("COMPETENCY") || r.includes("REPAIR_COMPETENCY_COVERAGE"))) {
+    return {
+      mode: forceHard ? "hard" : "soft",
+      resetFromStep: "generate_exam_pool",
+      enqueuePlan: [{ action: "enqueue_repair_exam_pool_competency_coverage" }],
+      rationale: "Competency coverage reason detected — targeted competency coverage repair.",
+      forcedHard: forceHard,
+    };
+  }
+
   // ── 5. Reason-getrieben: Minichecks / Handbook / Oral ──
   if (reasons.some((r) => r.includes("MINICHECK")) || snap.hasMinichecks === false) {
     return {

@@ -193,6 +193,8 @@ function useRepairExhaustedPackages() {
         const summary = report?.v3?.summary || {};
         const hardFails: string[] = summary.hard_fail_reasons || [];
         const stallCode: string = s.meta?.stall_reason_code || '';
+        const gateClass = gateMap.get(s.package_id) ?? null;
+        const consecutiveNoProgress = s.meta?.consecutive_no_progress || s.meta?.hard_stall_count || s.attempts || 0;
 
         return {
           package_id: s.package_id,
@@ -200,16 +202,31 @@ function useRepairExhaustedPackages() {
           status: pkg.status || 'unknown',
           build_progress: pkg.build_progress ?? 0,
           attempts: s.attempts || s.meta?.attempts || 0,
-          consecutive_no_progress: s.meta?.consecutive_no_progress || s.meta?.hard_stall_count || s.attempts || 0,
+          consecutive_no_progress: consecutiveNoProgress,
           hard_fail_reasons: hardFails,
           stall_reason_code: stallCode,
           guard_state: s.meta?.guard_state || 'unknown',
           last_validate_at: s.meta?.last_validate_completed_at || null,
           error_categories: categorizeReasons(hardFails, stallCode),
-          gate_class: gateMap.get(s.package_id) ?? null,
+          gate_class: gateClass,
         };
       })
-        .filter((pkg) => !(pkg.gate_class === 'PASS' && pkg.status === 'building'));
+        .filter((pkg) => {
+          if (pkg.gate_class === 'PASS' && pkg.status === 'building') return false;
+
+          const reasonBlob = [...pkg.hard_fail_reasons, pkg.stall_reason_code]
+            .filter(Boolean)
+            .join(' ')
+            .toUpperCase();
+
+          const hasLiveExhaustionSignal =
+            reasonBlob.includes('REPAIR_EXHAUSTED') ||
+            reasonBlob.includes('REPAIR_COMPETENCY_COVERAGE') ||
+            reasonBlob.includes('GENERATION_NEVER_RAN') ||
+            pkg.consecutive_no_progress >= 10;
+
+          return hasLiveExhaustionSignal;
+        });
     },
     refetchInterval: 30_000,
     staleTime: 15_000,
@@ -358,11 +375,11 @@ function ExhaustedPackageRow({ pkg, onRepair, busyId, selected, onToggleSelect }
             variant="destructive"
             className="h-7 text-[11px] gap-1"
             disabled={busy}
-            onClick={() => onRepair(pkg.package_id, 'force_pool_fill')}
+            onClick={() => onRepair(pkg.package_id, 'repair_exam_pool_competency_coverage')}
             title="Fragen für fehlende Kompetenzen generieren"
           >
             {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3" />}
-            Coverage Pool-Fill
+            Competency Repair
           </Button>
         )}
 
