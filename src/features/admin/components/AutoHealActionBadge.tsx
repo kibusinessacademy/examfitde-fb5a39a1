@@ -1,6 +1,7 @@
 const LABELS: Record<string, string> = {
   repair_exam_pool: "Exam-Pool reparieren",
   repair_exam_pool_quality: "Exam-Pool Qualität reparieren",
+  repair_exam_pool_competency_coverage: "Kompetenz-Abdeckung reparieren",
   repair_learning_content: "Learning Content reparieren",
   repair_lessons: "Lektionen reparieren",
   repair_handbook: "Handbuch reparieren",

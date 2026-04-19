@@ -103,14 +103,24 @@ export function recommendHeal(snap: HealSnapshot): HealRecommendation {
     };
   }
 
-  // ── 4. Comp-Coverage < 75% → Quality-Repair (deckt Gaps via Generation) ──
+  // ── 4. Comp-Coverage < 75% → dedizierter Competency-Coverage-Repair ──
   const compPct = snap.competencyCoveragePct ?? null;
   if (compPct !== null && compPct < 75) {
     return {
       mode: forceHard ? "hard" : "soft",
       resetFromStep: "generate_exam_pool",
-      enqueuePlan: [{ action: "enqueue_repair_exam_pool_quality" }],
-      rationale: `Competency coverage ${compPct.toFixed(1)}% < 75% — quality repair to close gaps.`,
+      enqueuePlan: [{ action: "enqueue_repair_exam_pool_competency_coverage" }],
+      rationale: `Competency coverage ${compPct.toFixed(1)}% < 75% — targeted competency coverage repair.`,
+      forcedHard: forceHard,
+    };
+  }
+
+  if (reasons.some((r) => r.includes("COMPETENCY") || r.includes("REPAIR_COMPETENCY_COVERAGE"))) {
+    return {
+      mode: forceHard ? "hard" : "soft",
+      resetFromStep: "generate_exam_pool",
+      enqueuePlan: [{ action: "enqueue_repair_exam_pool_competency_coverage" }],
+      rationale: "Competency coverage reason detected — targeted competency coverage repair.",
       forcedHard: forceHard,
     };
   }

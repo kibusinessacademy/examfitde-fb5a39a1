@@ -28,6 +28,7 @@ export type AdminOpsAction =
   | 'repair_minichecks'
   | 'repair_oral_exam'
   | 'repair_exam_pool_quality'
+  | 'repair_exam_pool_competency_coverage'
   | 'retry_stalled_step'
   // v3.0 Safety-Net actions
   | 'reset_stale_processing'
@@ -171,6 +172,10 @@ export async function repairOralExam(packageId: string) {
 
 export async function repairExamPoolQuality(packageId: string) {
   return runAdminOpsAction('repair_exam_pool_quality', { package_id: packageId });
+}
+
+export async function repairExamPoolCompetencyCoverage(packageId: string) {
+  return runAdminOpsAction('repair_exam_pool_competency_coverage', { package_id: packageId });
 }
 
 export async function retryStalledStep(packageId: string, stepKey: string) {
