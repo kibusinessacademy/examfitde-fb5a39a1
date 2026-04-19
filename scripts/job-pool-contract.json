@@ -8,6 +8,7 @@
   "pool_fill_lf_gaps": "default",
   "pool_fill_bloom_gaps": "default",
   "package_generate_exam_pool": "default",
+  "package_repair_exam_pool_competency_coverage": "default",
   "lesson_generate_competency_bundle": "default",
   "handbook_expand_section": "default",
   "pipeline_tick": "default",
