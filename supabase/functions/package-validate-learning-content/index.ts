@@ -183,7 +183,7 @@ async function tier2Validate(
 
 // aggregateFailureModes and detectCatastrophicFailures imported from _shared/validation-issue.ts
 
-Deno.serve(async (req) => {
+async function handleRequest(req: Request): Promise<Response> {
   if (req.method !== "POST") return json({ error: "Use POST" }, 405);
 
   const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
