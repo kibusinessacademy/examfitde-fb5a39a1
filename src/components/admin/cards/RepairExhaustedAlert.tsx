@@ -87,9 +87,12 @@ const CATEGORY_COLORS: Record<ErrorCategory, string> = {
 function categorizeReasons(hardFails: string[], stallCode: string): ErrorCategory[] {
   const cats = new Set<ErrorCategory>();
 
-  // 1. Classify from integrity report hard_fail_reasons
-  for (const r of hardFails) {
-    const upper = r.toUpperCase();
+  // Combine both sources — stall_reason_code can carry topic signals like
+  // REPAIR_COMPETENCY_COVERAGE or REPAIR_LF_COVERAGE that hint at category.
+  const sources = [...hardFails.map(r => r.toUpperCase()), (stallCode || '').toUpperCase()];
+
+  for (const upper of sources) {
+    if (!upper) continue;
     if (upper.includes('HARDISH') || upper.includes('TOO_FEW_APPROVED') || upper.includes('EXAM_POOL'))
       cats.add('EXAM_POOL');
     if (upper.includes('COMPETENCY') || upper.includes('COVERAGE'))
@@ -104,7 +107,7 @@ function categorizeReasons(hardFails: string[], stallCode: string): ErrorCategor
       cats.add('LESSON_QUALITY');
   }
 
-  // 2. Classify from stall_reason_code (meta-level)
+  // Stall-only meta categories
   const sc = (stallCode || '').toUpperCase();
   if (sc.includes('GENERATION_NEVER_RAN'))
     cats.add('GENERATION_NEVER_RAN');
