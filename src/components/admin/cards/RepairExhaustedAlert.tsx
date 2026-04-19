@@ -186,7 +186,8 @@ function useRepairExhaustedPackages() {
       const reportMap = new Map<string, any>();
       for (const c of reportResults) reportMap.set(c.id, c.integrity_report);
 
-      return exhausted.map((s: any) => {
+      return exhausted
+        .map((s: any) => {
         const pkg = pkgMap.get(s.package_id) || {};
         const report = reportMap.get(s.package_id);
         const summary = report?.v3?.summary || {};
@@ -207,7 +208,8 @@ function useRepairExhaustedPackages() {
           error_categories: categorizeReasons(hardFails, stallCode),
           gate_class: gateMap.get(s.package_id) ?? null,
         };
-      });
+      })
+        .filter((pkg) => !(pkg.gate_class === 'PASS' && pkg.status === 'building'));
     },
     refetchInterval: 30_000,
     staleTime: 15_000,
@@ -527,8 +529,12 @@ export function RepairExhaustedAlert() {
   const repairMutation = useMutation({
     mutationFn: async ({ packageId, action }: { packageId: string; action: string }) => {
       setBusyId(packageId);
-      if (action === 'force_pool_fill') {
+        if (action === 'force_pool_fill') {
         await runAdminOpsAction('repair_exam_pool_quality', { package_id: packageId });
+        return runAdminOpsAction('reset_to_step', { package_id: packageId, step_key: 'validate_exam_pool' });
+      }
+      if (action === 'repair_exam_pool_competency_coverage') {
+        await runAdminOpsAction('repair_exam_pool_competency_coverage', { package_id: packageId });
         return runAdminOpsAction('reset_to_step', { package_id: packageId, step_key: 'validate_exam_pool' });
       }
       if (action === 'retry_validate') {
