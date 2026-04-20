@@ -82997,6 +82997,16 @@ export type Database = {
         Returns: undefined
       }
       fn_approve_fi_shared_questions: { Args: never; Returns: Json }
+      fn_audit_materialization_drift: {
+        Args: never
+        Returns: {
+          detail: string
+          drift_type: string
+          fn_name: string
+          severity: string
+          suggestion: string
+        }[]
+      }
       fn_audit_prebuild_drift: {
         Args: never
         Returns: {
@@ -83789,6 +83799,18 @@ export type Database = {
       fn_route_materialization_block: {
         Args: { p_job_id: string; p_last_error: string }
         Returns: boolean
+      }
+      fn_run_materialization_sweep_all: {
+        Args: { p_limit?: number }
+        Returns: {
+          advanced: boolean
+          curriculum_title: string
+          meta: Json
+          package_id: string
+          reason: string
+          step_key: string
+          step_status: string
+        }[]
       }
       fn_run_prebuild_sweep_all: {
         Args: { p_limit?: number }
