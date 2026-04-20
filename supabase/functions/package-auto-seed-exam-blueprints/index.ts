@@ -275,18 +275,45 @@ Antworte NUR als JSON-Objekt:
       }
     }
 
+    const primaryProvider = chain[0]?.provider ?? "unknown";
+    const primaryModel = chain[0]?.model ?? "unknown";
     let blueprints = await attemptGeneration(chain, "PRIMARY");
+    const cleanPrimary = blueprints.length;
 
-    // Wave 15b Hybrid Retry: if AI returned 0 clean blueprints, retry with cheap fast model
+    // Wave 15b Hybrid Retry: bind retry to SAME working provider infra,
+    // only switch MODEL to a cheap/fast alternative. Picks a different model
+    // from the primary chain to avoid pseudo-retry on the same model.
+    let retryProvider = "none";
+    let retryModel = "none";
+    let cleanRetry = 0;
     if (blueprints.length === 0) {
-      console.warn(`[SeedV4] PRIMARY produced 0 clean blueprints — retrying with gemini-2.5-flash`);
-      const retryChain = [{ provider: "google", model: "google/gemini-2.5-flash" }];
-      blueprints = await attemptGeneration(retryChain, "RETRY_FLASH");
+      // Pick a different model on the same provider (chain[1]); fallback to a known cheap model
+      const retryEntry = chain.find(c => c.model !== primaryModel && c.provider === primaryProvider)
+        ?? (primaryProvider === "openai" ? { provider: "openai", model: "gpt-4o-mini" } : null);
+      if (retryEntry) {
+        retryProvider = retryEntry.provider;
+        retryModel = retryEntry.model;
+        console.warn(`[SeedV4] PRIMARY (${primaryProvider}/${primaryModel}) → 0 clean — RETRY on ${retryProvider}/${retryModel}`);
+        blueprints = await attemptGeneration([retryEntry], "RETRY_FAST");
+        cleanRetry = blueprints.length;
+      } else {
+        console.warn(`[SeedV4] No viable retry candidate (primary=${primaryProvider}/${primaryModel}) — skipping retry`);
+      }
     }
+
+    // Forensic log line for downstream analysis (Wave 15b §3)
+    console.log(
+      `[SeedV4][FORENSICS] comp="${comp.title}" beruf="${berufName}" ` +
+      `primary=${primaryProvider}/${primaryModel} retry=${retryProvider}/${retryModel} ` +
+      `clean_primary=${cleanPrimary} clean_retry=${cleanRetry} ai_attempts=${cleanRetry > 0 || cleanPrimary > 0 ? (cleanPrimary > 0 ? 1 : 2) : 2}`
+    );
 
     // Wave 15b Fail-Fast: if still empty after retry, throw — do NOT produce junk
     if (blueprints.length === 0) {
-      throw new Error(`AI_GENERATION_FAILED: 0 clean blueprints after primary + retry for competency "${comp.title}" (beruf=${berufName})`);
+      throw new Error(
+        `AI_GENERATION_FAILED: 0 clean blueprints after primary(${primaryProvider}/${primaryModel}) + retry(${retryProvider}/${retryModel}) ` +
+        `for competency "${comp.title}" (beruf=${berufName})`
+      );
     }
 
     // Pad up to facets.length by re-using clean blueprints (rotate cognitive levels)
