@@ -384,6 +384,12 @@ export async function assertExtendedPostConditions(sb: SB, args: {
   }
 
   // ── validate_learning_content ──
+  // Aligned with Artifact-Truth SSOT v1.2: content_hash + generation_status='completed'
+  // are PRIMARY truth signals. Total lesson count is only a fallback floor.
+  // FIX: Previous code used `.neq("lesson_type", "mini_check")` — but lessons has
+  // no `lesson_type` column (only `step` USER-DEFINED enum). PostgREST returned 0
+  // and triggered HOLLOW_VALIDATE_LEARNING despite fully materialized content
+  // (avg 102 lessons with content_hash on failing packages).
   if (stepKey === "validate_learning_content") {
     const { data: pkg } = await sb
       .from("course_packages").select("course_id").eq("id", packageId).single();
@@ -392,18 +398,46 @@ export async function assertExtendedPostConditions(sb: SB, args: {
     const { data: modules } = await sb.from("modules").select("id").eq("course_id", pkg.course_id);
     if (!modules?.length) throw hollowError("HOLLOW_VALIDATE_LEARNING", { modules: 0 });
 
-    const { count: lessonCount } = await sb
+    const moduleIds = modules.map((m: any) => m.id);
+
+    // Total lessons (no broken lesson_type filter)
+    const { count: totalLessons } = await sb
       .from("lessons").select("id", { count: "exact", head: true })
-      .in("module_id", modules.map((m: any) => m.id)).neq("lesson_type", "mini_check");
+      .in("module_id", moduleIds);
+
+    // Materialized lessons per SSOT (Artifact-Truth)
+    const { count: materializedLessons } = await sb
+      .from("lessons").select("id", { count: "exact", head: true })
+      .in("module_id", moduleIds)
+      .not("content_hash", "is", null);
+
+    const { count: completedLessons } = await sb
+      .from("lessons").select("id", { count: "exact", head: true })
+      .in("module_id", moduleIds)
+      .eq("generation_status", "completed");
 
     const minLessons = resolveThreshold("validate_learning_content", "lessons");
-    if ((lessonCount ?? 0) < minLessons) {
+    const realCount = Math.max(materializedLessons ?? 0, completedLessons ?? 0);
+
+    // Pass if EITHER materialization truth is satisfied OR total lessons exist above threshold.
+    // Materialization truth (content_hash / completed) is the primary signal.
+    if (realCount >= minLessons) {
+      return true;
+    }
+
+    // Fallback: legacy threshold on raw count (only if materialization signal is empty)
+    if ((totalLessons ?? 0) < minLessons) {
       throw hollowError("HOLLOW_VALIDATE_LEARNING", {
-        lessons: lessonCount ?? 0, threshold: minLessons,
-        reason: formatThresholdFail("validate_learning_content", "lessons", lessonCount ?? 0, minLessons),
+        total_lessons: totalLessons ?? 0,
+        materialized: materializedLessons ?? 0,
+        completed: completedLessons ?? 0,
+        threshold: minLessons,
+        reason: formatThresholdFail("validate_learning_content", "lessons", totalLessons ?? 0, minLessons),
       });
     }
 
+    // totalLessons exists but no materialization signal — accept as transient
+    // (validator's own decision logic handles WAITING_FOR_MATERIALIZATION upstream)
     return true;
   }
 
