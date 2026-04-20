@@ -82997,6 +82997,47 @@ export type Database = {
         Returns: undefined
       }
       fn_approve_fi_shared_questions: { Args: never; Returns: Json }
+      fn_audit_all_drift: { Args: never; Returns: Json }
+      fn_audit_drift_bridge_presence: {
+        Args: never
+        Returns: {
+          category: string
+          evidence: string
+          function_name: string
+          issue: string
+          severity: string
+        }[]
+      }
+      fn_audit_drift_enum_domain: {
+        Args: never
+        Returns: {
+          category: string
+          evidence: string
+          function_name: string
+          issue: string
+          severity: string
+        }[]
+      }
+      fn_audit_drift_step_finalization: {
+        Args: never
+        Returns: {
+          category: string
+          evidence: string
+          function_name: string
+          issue: string
+          severity: string
+        }[]
+      }
+      fn_audit_drift_syntax_schema: {
+        Args: never
+        Returns: {
+          category: string
+          evidence: string
+          function_name: string
+          issue: string
+          severity: string
+        }[]
+      }
       fn_audit_materialization_drift: {
         Args: never
         Returns: {
