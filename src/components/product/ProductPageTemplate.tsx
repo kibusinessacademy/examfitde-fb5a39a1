@@ -18,6 +18,7 @@ import { StickyProductBar } from './StickyProductBar';
 
 interface Props {
   product: ProductPageSSOT;
+  paywall?: ResolvedPaywall | null;
   onCtaClick: (ctaType: string) => void;
   onFaqExpand?: (question: string) => void;
   onRelatedCourseClick?: (slug: string) => void;
