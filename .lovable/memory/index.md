@@ -23,8 +23,10 @@
 - **Legacy-Track-Mapping**: `ZERTIFIKAT`/`BRANCHENZERTIFIKAT` → `EXAM_FIRST_PLUS` via `normalizeTrackKey()` in `_shared/track-normalize.ts` + `src/lib/tracks.ts`.
 - **NON_BYPASSABLE_HOLLOW_DONE**: `auto_seed_exam_blueprints` darf NIE done sein wenn `exam_blueprints` count = 0. `fn_guard_hollow_done` blockt unbypassable.
 - **Promote-Bridge ist dauerhafte Materialisierungsstrategie**: `fn_prebuild_promote_blueprint_variants` per-row tolerant gegen Kollisionen, Step-Adoption an Artifact-Truth gebunden (`exam_questions_total > 0`), nicht an Insert-Erfolg pro Row.
+- **Placeholder-Guard ist Pflicht**: `fn_guard_variant_placeholder_pollution` (HARD/check_violation) blockt `\{[A-Za-z_]+\}` in `exam_question_variants.question_text/answer_text`. `fn_guard_blueprint_placeholder_soft` auto-deprecated `question_blueprints.question_template`. Bridges müssen `check_violation` per-row tolerieren.
 
 ## Memories
+- [Wave 15a Placeholder-Guard + Source-Regen](mem://architektur/ops/wave15a-placeholder-guard-und-source-regen-v1) — HARD-Guard auf variants, SOFT-Auto-Deprecate auf blueprints, fn_audit_placeholder_pollution. 36 active polluted variants systemweit rejected, BB Hollow-Done korrigiert, 12 Klasse-A Pakete im Re-Seed.
 - [Wave 14 Generate-Bridge + Trigger-Toleranz](mem://architektur/ops/wave14-generate-bridge-und-trigger-toleranz-v1) — Per-row INSERT in exam_question_variants mit LF-Fallback (blueprint.lf → competency.lf → curriculum-first-lf). Promote-Bridge fängt raise_exception + APPROVAL_REQUIRES_TRAP_TYPE. 426/438 Pakete.
 - [Wave 13c Row-Tolerant Bridge + Drift-Audit v2](mem://architektur/ops/wave13c-row-tolerant-bridge-und-precise-drift-audit-v1) — Per-row Kollisionstoleranz, 4-Regel-Drift-Audit (statt Regex-Sweep). 425/438 Pakete mit exam_questions.
 - [Wave 13 Restpaket-Forensik + Drift-Audit](mem://architektur/ops/wave13-restpaket-forensik-und-drift-audit-v1) — Klassen A/B/D, Promote-Bridge v3, 4-Kategorien-Drift-Audit.
