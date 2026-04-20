@@ -151,20 +151,11 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // ── 5. Telemetry: paywall_shown ──
-    if (trigger_context && (userId || visitor_id)) {
+    // ── 5. Telemetry: paywall_shown (auth users only — schema-konform) ──
+    if (trigger_context && userId) {
       await sb.from("conversion_events").insert({
         user_id: userId,
-        visitor_id: userId ? null : visitor_id,
         event_type: "paywall_shown",
-        metadata: {
-          product_id: resolvedProductId,
-          package_id,
-          experiment_key: experimentKey,
-          variant_key: variant?.variant_key ?? null,
-          trigger_context,
-          platform,
-        },
       } as never).then(() => {}, () => {});
     }
 
