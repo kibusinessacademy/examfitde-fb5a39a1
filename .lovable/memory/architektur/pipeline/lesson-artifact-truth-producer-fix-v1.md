@@ -1,6 +1,6 @@
 ---
-name: Lesson Artifact-Truth Producer-Fix + Causality Governance v1.1
-description: pipeline_write_lesson_content setzt content_hash + generation_status='completed' atomar bei echtem Content. Backfill v1+v2 für 13.5k Lessons. Causality-Guard verhindert HARD_FAIL_NO_BLUEPRINTS bei validate_exam_pool.
+name: Lesson Artifact-Truth Producer-Fix + Causality Governance + Validator Lifecycle v1.2
+description: pipeline_write_lesson_content setzt content_hash + generation_status='completed' atomar bei echtem Content. Backfill v1+v2 für 13.5k Lessons. Causality-Guard verhindert HARD_FAIL_NO_BLUEPRINTS. package-validate-learning-content finalisiert ALLE early-return Pfade via SSOT (kein Stale-Lock-Loop).
 type: feature
 ---
 
@@ -76,10 +76,34 @@ Kursen, auch durch Pipeline-RPCs. Backfill MUSS sealed Kurse via
 - `package_steps` hat `last_error`, KEIN `error`
 - `job_queue.last_error` (text, frei) für Cancel-Reasons
 
+## P2 — Validator Lifecycle Finalisierung (kein Stale-Lock-Loop)
+
+`package-validate-learning-content` hatte 3 early-return Pfade ohne SSOT-Finalisierung,
+was zu `STALE_LOCK_LOOP_HARD_KILL` führte (Job blieb in `processing`, Step nie terminiert).
+
+Patch v2.2: Jeder terminale Branch ruft jetzt explizit `finalizeStepDone` oder `finalizeStepFailed`:
+
+| Branch | Finalisierung | Reason |
+|---|---|---|
+| `WAITING_FOR_MATERIALIZATION` (pending lessons > 0) | `finalizeStepDone` (transient skip) | `WAITING_FOR_MATERIALIZATION` |
+| `SKIP_RETRY` (repair in flight) | `finalizeStepDone` (transient skip) | `SKIP_RETRY_REPAIR_IN_FLIGHT` |
+| `ALL_LESSONS_ARE_PLACEHOLDERS` (totalLessons > 0) | `finalizeStepDone` (transient skip) | `ALL_LESSONS_ARE_PLACEHOLDERS` |
+| `0 total lessons` (echter Defekt) | `finalizeStepFailed` (permanent) | `NO_MATERIALIZED_CONTENT` |
+
+Standardisierte Finalisierungs-Meta in `package_steps.meta` für Forensik:
+- `decision_type`: `transient_skip` | `permanent_fail`
+- `decision_reason`: kanonischer Reason-Code
+- `repair_in_flight`, `materialized_lessons_count`, `total_lessons` (kontextabhängig)
+
+**Regel:** Vor jedem `return json(...)` in einem terminalen Branch MUSS genau eines passieren:
+`finalizeStepDone(...)` ODER `finalizeStepFailed(...)`. Kein früher Return ohne Finalisierung.
+Top-level `try/catch` in `Deno.serve` bleibt als Fangnetz für Runtime-Exceptions.
+
 ## Files
 - DB-Migration 2026-04-20 #1: `pipeline_write_lesson_content` 3-Wege-Logik + Backfill v1 (12k)
 - DB-Migration 2026-04-20 #2: Backfill Sweep v2 (1.482 Lessons, SSOT-only)
 - DB-Migration 2026-04-20 #3: `fn_guard_validate_exam_pool_causality` + Trigger
+- Edge Function 2026-04-20 #4: `package-validate-learning-content` early-return finalization (P2)
 - Consumer: `supabase/functions/_shared/lesson-gen/persistence.ts` (unverändert — RPC ist API-kompatibel)
 
 ## Sister Pattern

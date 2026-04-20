@@ -252,10 +252,20 @@ async function handleRequest(req: Request): Promise<Response> {
     await mergePackageStepMeta(sb, packageId, "validate_learning_content", {
       waiting_for_materialization_at: new Date().toISOString(),
       pending_lessons_count: pendingLessonsCount,
+      decision_type: "transient_skip",
+      decision_reason: "WAITING_FOR_MATERIALIZATION",
+    });
+    // SSOT-Finalisierung: transient skip → done (kein Stale-Lock-Loop)
+    await finalizeStepDone(sb, packageId, "validate_learning_content", {
+      done_reason: "WAITING_FOR_MATERIALIZATION",
+      transient: true,
+      requeue_recommended: true,
+      pending_lessons_count: pendingLessonsCount,
+      skipped: true,
     });
     return json({
       ok: true,
-      completed: false,
+      completed: true,
       skipped: true,
       gate_class: "waiting_for_materialization",
       reason_code: "WAITING_FOR_MATERIALIZATION",
@@ -263,7 +273,7 @@ async function handleRequest(req: Request): Promise<Response> {
       repair_enqueued: false,
       transient: true,
       retry: true,
-      message: `⏳ ${pendingLessonsCount} lessons still pending materialization — validator deferred.`,
+      message: `⏳ ${pendingLessonsCount} lessons still pending materialization — validator deferred (step finalized as transient skip).`,
     });
   }
 
@@ -297,6 +307,16 @@ async function handleRequest(req: Request): Promise<Response> {
   if (lessons.length === 0) {
     if (totalLessons === 0) {
       console.error(`[validate-lessons] PERMANENT: 0 total lessons for course ${courseId}`);
+      // SSOT-Finalisierung: echter Materialisierungsdefekt → failed (sichtbar)
+      const noLessonsErr = new Error("PREDECESSOR_FAILURE_NO_LESSONS: 0 materialized lessons");
+      (noLessonsErr as any).__meta = { permanent: true, reason_code: "NO_MATERIALIZED_CONTENT" };
+      await finalizeStepFailed(sb, packageId, "validate_learning_content", noLessonsErr, {
+        decision_type: "permanent_fail",
+        decision_reason: "NO_MATERIALIZED_CONTENT",
+        materialized_lessons_count: 0,
+        total_lessons: 0,
+        gate_class: "hard_fail",
+      });
       return json({
         ok: false,
         completed: false,
@@ -309,6 +329,22 @@ async function handleRequest(req: Request): Promise<Response> {
         message: `❌ PERMANENT: Kein einziges Lesson existiert für diesen Kurs.`,
       }, 422);
     }
+    // Alle Lessons sind Platzhalter — Major Regen erforderlich, aber Step terminieren
+    await mergePackageStepMeta(sb, packageId, "validate_learning_content", {
+      decision_type: "transient_skip",
+      decision_reason: "ALL_LESSONS_ARE_PLACEHOLDERS",
+      materialized_lessons_count: 0,
+      total_lessons: totalLessons,
+      placeholder_count: placeholderCount,
+    });
+    await finalizeStepDone(sb, packageId, "validate_learning_content", {
+      done_reason: "ALL_LESSONS_ARE_PLACEHOLDERS",
+      transient: true,
+      requeue_recommended: true,
+      gate_class: "major_regeneration_required",
+      materialized_lessons_count: 0,
+      total_lessons: totalLessons,
+    });
     return json({
       ok: true,
       completed: true,
@@ -318,7 +354,7 @@ async function handleRequest(req: Request): Promise<Response> {
       reason_code: "NO_MATERIALIZED_CONTENT",
       advance_pipeline: false,
       repair_enqueued: false,
-      message: `⚠️ Alle ${totalLessons} Lektionen sind Platzhalter — Major Regeneration erforderlich.`,
+      message: `⚠️ Alle ${totalLessons} Lektionen sind Platzhalter — Major Regeneration erforderlich (step finalized).`,
     });
   }
 
@@ -399,6 +435,23 @@ async function handleRequest(req: Request): Promise<Response> {
     } else {
       // Repair is in-flight or enqueued — safe to skip
       console.log(`[validate-lessons] SKIP_RETRY: ${retryDecision.reason}, gate_class=${prevClass}`);
+      // SSOT-Finalisierung: bewusster Defer → done (kein Stale-Lock-Loop)
+      await mergePackageStepMeta(sb, packageId, "validate_learning_content", {
+        decision_type: "transient_skip",
+        decision_reason: "SKIP_RETRY_REPAIR_IN_FLIGHT",
+        repair_in_flight: repairInFlight,
+        repair_enqueued_since_last: repairEnqueuedSinceLastValidation,
+        skip_retry_reason: retryDecision.reason,
+        last_skip_at: new Date().toISOString(),
+      });
+      await finalizeStepDone(sb, packageId, "validate_learning_content", {
+        done_reason: "SKIP_RETRY_REPAIR_IN_FLIGHT",
+        repair_in_flight: true,
+        transient: true,
+        skipped: true,
+        skip_reason: retryDecision.reason,
+        gate_class: prevClass,
+      });
       return json({
         ok: true,
         completed: true,
@@ -408,7 +461,7 @@ async function handleRequest(req: Request): Promise<Response> {
         reason_code: stepMeta.reason_code || "REPAIR_ALREADY_ENQUEUED",
         advance_pipeline: false,
         repair_enqueued: repairInFlight || repairEnqueuedSinceLastValidation,
-        message: `⏭ Validator übersprungen: ${retryDecision.reason} (gate_class=${prevClass}).`,
+        message: `⏭ Validator übersprungen: ${retryDecision.reason} (gate_class=${prevClass}, step finalized).`,
       });
     }
   }
