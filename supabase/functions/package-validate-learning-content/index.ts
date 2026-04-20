@@ -252,10 +252,20 @@ async function handleRequest(req: Request): Promise<Response> {
     await mergePackageStepMeta(sb, packageId, "validate_learning_content", {
       waiting_for_materialization_at: new Date().toISOString(),
       pending_lessons_count: pendingLessonsCount,
+      decision_type: "transient_skip",
+      decision_reason: "WAITING_FOR_MATERIALIZATION",
+    });
+    // SSOT-Finalisierung: transient skip → done (kein Stale-Lock-Loop)
+    await finalizeStepDone(sb, packageId, "validate_learning_content", {
+      done_reason: "WAITING_FOR_MATERIALIZATION",
+      transient: true,
+      requeue_recommended: true,
+      pending_lessons_count: pendingLessonsCount,
+      skipped: true,
     });
     return json({
       ok: true,
-      completed: false,
+      completed: true,
       skipped: true,
       gate_class: "waiting_for_materialization",
       reason_code: "WAITING_FOR_MATERIALIZATION",
@@ -263,7 +273,7 @@ async function handleRequest(req: Request): Promise<Response> {
       repair_enqueued: false,
       transient: true,
       retry: true,
-      message: `⏳ ${pendingLessonsCount} lessons still pending materialization — validator deferred.`,
+      message: `⏳ ${pendingLessonsCount} lessons still pending materialization — validator deferred (step finalized as transient skip).`,
     });
   }
 
