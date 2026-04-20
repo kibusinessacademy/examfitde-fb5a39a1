@@ -83228,7 +83228,7 @@ export type Database = {
           advanced: boolean
           meta: Json
           reason: string
-          status: string
+          step_status: string
         }[]
       }
       fn_prebuild_validate_blueprint_variants: {
@@ -83246,7 +83246,7 @@ export type Database = {
           advanced: boolean
           meta: Json
           reason: string
-          status: string
+          step_status: string
         }[]
       }
       fn_prebuild_validate_handbook: {
