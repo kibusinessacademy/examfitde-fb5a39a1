@@ -83879,6 +83879,16 @@ export type Database = {
         Args: { p_job_id: string; p_last_error: string }
         Returns: boolean
       }
+      fn_run_generate_bridge_sweep: {
+        Args: { p_limit?: number }
+        Returns: {
+          meta: Json
+          package_id: string
+          reason: string
+          step_status: string
+          title: string
+        }[]
+      }
       fn_run_materialization_sweep_all: {
         Args: { p_limit?: number }
         Returns: {
