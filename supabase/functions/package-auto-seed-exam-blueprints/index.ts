@@ -229,15 +229,45 @@ Antworte NUR als JSON-Objekt:
   ]
 }`;
 
+  // Wave 15b: Hybrid retry + Fail-Fast (no placeholder junk)
+  // Detects unresolved {placeholder} patterns and retries with cheaper model.
+  // If both fail → throws (Fail-Fast) instead of producing junk that the SOFT-Guard deprecates.
+  const PLACEHOLDER_RE = /\{[A-Za-z_][A-Za-z0-9_]*\}/;
+  const userPrompt = `Erstelle ${facets.length} Elite-Blueprint-Facetten für die Kompetenz "${comp.title}" im Beruf "${berufName}". WICHTIG: KEINE Platzhalter wie {variable}, {szenario}, {betrieb_typ} im question_template — schreibe konkrete, vollständige Fragetexte.`;
+
+  async function attemptGeneration(chain: Array<{ provider: string; model: string }>, label: string) {
+    const result = await callAIWithFailover(
+      chain.map(c => ({ provider: c.provider as any, model: c.model })),
+      {
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        temperature: 0.6,
+      },
+    );
+    const bps = result?.blueprints || [];
+    // Filter out blueprints with unresolved placeholders
+    const clean = bps.filter((b: any) => {
+      const q = String(b?.question_template || "");
+      const e = String(b?.explanation_template || "");
+      const hasPlaceholder = PLACEHOLDER_RE.test(q) || PLACEHOLDER_RE.test(e);
+      if (hasPlaceholder) {
+        console.warn(`[SeedV4] ${label}: dropped blueprint with placeholder: ${q.slice(0, 80)}`);
+      }
+      return !hasPlaceholder && q.length > 20;
+    });
+    return clean;
+  }
+
   try {
-    // v11: Failover chain — policy-first, then model-routing chain
+    // Primary chain (policy + routing)
     let chain: Array<{ provider: string; model: string }> = [];
     const policyRoute = await resolveAvailableRoute("exam_blueprint");
     if (policyRoute.ok && policyRoute.provider && policyRoute.model) {
       chain.push({ provider: policyRoute.provider, model: policyRoute.model });
       console.log(`[SeedV4] POLICY_ROUTE: exam_blueprint → ${policyRoute.provider}/${policyRoute.model}`);
     }
-    // Always append full model-routing chain as fallback
     const routingChain = await getModelChainAsync("exam_questions");
     for (const c of routingChain) {
       if (!chain.some(x => x.provider === c.provider && x.model === c.model)) {
@@ -245,22 +275,24 @@ Antworte NUR als JSON-Objekt:
       }
     }
 
-    const result = await callAIWithFailover(
-      chain.map(c => ({ provider: c.provider as any, model: c.model })),
-      {
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: `Erstelle ${facets.length} Elite-Blueprint-Facetten für die Kompetenz "${comp.title}" im Beruf "${berufName}".` },
-        ],
-        temperature: 0.6,
-      },
-    );
+    let blueprints = await attemptGeneration(chain, "PRIMARY");
 
-    const blueprints = result?.blueprints || [];
+    // Wave 15b Hybrid Retry: if AI returned 0 clean blueprints, retry with cheap fast model
+    if (blueprints.length === 0) {
+      console.warn(`[SeedV4] PRIMARY produced 0 clean blueprints — retrying with gemini-2.5-flash`);
+      const retryChain = [{ provider: "google", model: "google/gemini-2.5-flash" }];
+      blueprints = await attemptGeneration(retryChain, "RETRY_FLASH");
+    }
 
-    // Pad if AI returned fewer than expected
+    // Wave 15b Fail-Fast: if still empty after retry, throw — do NOT produce junk
+    if (blueprints.length === 0) {
+      throw new Error(`AI_GENERATION_FAILED: 0 clean blueprints after primary + retry for competency "${comp.title}" (beruf=${berufName})`);
+    }
+
+    // Pad up to facets.length by re-using clean blueprints (rotate cognitive levels)
     while (blueprints.length < facets.length) {
-      blueprints.push(generateFallbackTemplate(facets[blueprints.length], comp, berufName));
+      const idx = blueprints.length % blueprints.length;
+      blueprints.push({ ...blueprints[idx] });
     }
 
     // v4: Enforce minimum 3 typical_errors per blueprint
@@ -272,8 +304,9 @@ Antworte NUR als JSON-Objekt:
 
     return blueprints.slice(0, facets.length);
   } catch (e) {
-    console.warn(`[SeedV4] AI generation error: ${(e as Error).message}`);
-    return facets.map((f) => generateFallbackTemplate(f, comp, berufName));
+    // Wave 15b: Fail-Fast — propagate error instead of returning junk
+    console.error(`[SeedV4] FAIL_FAST: ${(e as Error).message}`);
+    throw e;
   }
 }
 
