@@ -23,6 +23,47 @@ const PREFLIGHT_REGISTRY: Record<string, PreflightFn> = {
   // ── generate_learning_content: SSOT artifact-truth gate (HOLLOW_LEARNING_CONTENT) ──
   // Mirrors artifact-verifier rules to block premature markStepDone before DB trigger sync.
   generate_learning_content: async (sb, ctx) => {
+    // ── C3: Track-aware Skip — wenn Learning Content für diesen Track nicht anwendbar ist,
+    // (scaffold_learning_course=skipped UND track_step_applicability.should_run=false),
+    // dann ist ein Learning-Content-Preflight inhaltlich unsinnig → sauberer Pass-through.
+    // Wichtig: Beide Bedingungen MÜSSEN erfüllt sein, damit ein versehentlich geskipter
+    // Scaffold auf einem applicable-Track NICHT fälschlich alles durchwinkt.
+    try {
+      const { data: pkg } = await sb
+        .from("course_packages")
+        .select("track")
+        .eq("id", ctx.packageId)
+        .maybeSingle();
+      const track = pkg?.track ?? null;
+
+      if (track) {
+        const { data: scaffoldStep } = await sb
+          .from("package_steps")
+          .select("status")
+          .eq("package_id", ctx.packageId)
+          .eq("step_key", "scaffold_learning_course")
+          .maybeSingle();
+
+        const { data: applicability } = await sb
+          .from("track_step_applicability")
+          .select("should_run")
+          .eq("track", track)
+          .eq("step_key", "generate_learning_content")
+          .maybeSingle();
+
+        const scaffoldSkipped = scaffoldStep?.status === "skipped";
+        const notApplicable = applicability?.should_run === false;
+
+        if (scaffoldSkipped && notApplicable) {
+          // Sauberer Skip-/Pass-through: Track produziert keinen Lernkurs.
+          // Kein Fail, kein Throw — markStepDone darf legitim weiterlaufen.
+          return;
+        }
+      }
+    } catch (_skipCheckErr) {
+      // Bei Fehlern in der Skip-Prüfung: konservativ in den normalen Preflight fallen.
+    }
+
     const { data, error } = await sb.rpc("package_lessons_realness", { p_package_id: ctx.packageId });
     if (error) {
       throw preflightError("PREFLIGHT_LEARNING_CONTENT", {
