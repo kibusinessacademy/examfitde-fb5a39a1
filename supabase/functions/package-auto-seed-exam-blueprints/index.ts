@@ -257,15 +257,45 @@ Antworte NUR als JSON-Objekt:
       },
     );
     const bps = result?.blueprints || [];
-    // Filter out blueprints with unresolved placeholders
+    // Wave 15c: param_sets-Validierung — Templates dürfen Platzhalter haben,
+    // ABER jeder Platzhalter MUSS in JEDEM param_set als Key vorkommen.
     const clean = bps.filter((b: any) => {
       const q = String(b?.question_template || "");
       const e = String(b?.explanation_template || "");
-      const hasPlaceholder = PLACEHOLDER_RE.test(q) || PLACEHOLDER_RE.test(e);
-      if (hasPlaceholder) {
-        console.warn(`[SeedV4] ${label}: dropped blueprint with placeholder: ${q.slice(0, 80)}`);
+      if (q.length < 20) {
+        console.warn(`[SeedV4] ${label}: dropped (too short): ${q.slice(0, 80)}`);
+        return false;
       }
-      return !hasPlaceholder && q.length > 20;
+      // Extract all unique placeholders from question + explanation (reset regex state)
+      const placeholders = new Set<string>();
+      const re1 = /\{([A-Za-z_][A-Za-z0-9_]*)\}/g;
+      for (const m of q.matchAll(re1)) placeholders.add(m[1]);
+      const re2 = /\{([A-Za-z_][A-Za-z0-9_]*)\}/g;
+      for (const m of e.matchAll(re2)) placeholders.add(m[1]);
+
+      if (placeholders.size === 0) {
+        // No placeholders — concrete question, accept directly
+        return true;
+      }
+
+      // Has placeholders → require param_sets covering all of them
+      const paramSets = Array.isArray(b?.param_sets) ? b.param_sets : [];
+      if (paramSets.length === 0) {
+        console.warn(`[SeedV4] ${label}: dropped (placeholders without param_sets): ${q.slice(0, 80)}`);
+        return false;
+      }
+      const missing: string[] = [];
+      for (const ph of placeholders) {
+        const allCovered = paramSets.every((ps: any) =>
+          ps && typeof ps === "object" && ph in ps && ps[ph] != null && String(ps[ph]).length > 0
+        );
+        if (!allCovered) missing.push(ph);
+      }
+      if (missing.length > 0) {
+        console.warn(`[SeedV4] ${label}: dropped (param_sets missing keys [${missing.join(",")}]): ${q.slice(0, 80)}`);
+        return false;
+      }
+      return true;
     });
     return clean;
   }
