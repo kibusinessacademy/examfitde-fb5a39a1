@@ -1,0 +1,48 @@
+# Project Memory
+
+## Core
+- Frontend never calculates mastery logic; didactic calculations remain strictly server-side.
+- All internal/public tables must enforce strict RLS policies, filtering by `user_id` and `curriculum_id`.
+- TypeScript codebase enforces `strictNullChecks`; `!` assertions are strictly forbidden, use explicit guards.
+- Edge functions must execute in <15-30s; avoid N+1 query patterns by using `.in()` batching.
+- Follow "Docs-as-Code": System and logic changes must be documented to maintain the Master Blueprint SSOT.
+- Pipeline operations follow a 'fail-closed' model: Do not overwrite governance states or bypass required steps. 
+- Manual step heals must use `admin_force_steps_done()` — never blind UPDATE against `package_steps`.
+- **RULE: package_steps.status darf NIE direkt auf done/failed gesetzt werden — NUR via markStepDone()/markStepFailed() aus _shared/steps.ts.**
+- Hochrisiko-Steps (quality_council, generate_oral_exam, validate_handbook, generate_exam_pool) haben zentrale Preflight-Assertions in `_shared/preflight-registry.ts`.
+- `admin_force_steps_done(id, steps, reason, emergency_bypass, force_publish)` ist das EINZIGE Notfall-Tool. Nie mehr Sonder-Migrationen mit Trigger-Disables.
+- Artefakt-Joins SSOT: Exam Questions, Oral, Handbook, MiniChecks über `curriculum_id`; Tutor Index über `package_id`.
+- **competencies hat KEINE curriculum_id** — Joins MÜSSEN über `learning_fields.curriculum_id` (siehe Memory).
+- **Causality-Drift-Prinzip**: Kein Step-State ohne Artefaktprüfung, kein Artefaktzustand ohne Reconciler zurück in Step-State.
+- **Routing-Parität**: Jeder Eintrag in content-runner WORKLOAD_KEY_MAP MUSS eine `llm_provider_routing_policies`-Zeile haben, sonst loopt PROVIDER_LOOP_GUARD endlos auf "unknown/unknown".
+- **HEAL-FIRST PRINZIP**: Bei Diagnosen IMMER direkt heilen statt nur analysieren oder nach Genehmigung fragen.
+- **NEW-COURSE-PFLICHT**: Jeder neue Kurs MUSS in dieser Reihenfolge: (1) `generate-certification`, (2) `init_course_package_steps` (28 Schritte), (3) `blueprint-fanout` → 24 Blueprints, (4) `admin_force_steps_done` für `auto_seed_exam_blueprints`+`validate_blueprints` (reason `pre_build_adoption_after_fanout`).
+- **Job-Queue Lane-Routing**: Jobs werden über `job_queue.lane` (build/recovery/control) verteilt. Lane-Mapping NUR in `derive_job_lane()`.
+- **Atomare Step→Job Kopplung**: BEFORE-Trigger `trg_atomic_enqueue_on_step_queued` garantiert atomare Job-Erzeugung bei queued-Transition. pending_enqueue als Cap-Reject-Fallback.
+- **Wave-Reset-Convention**: Bei Reset `package_steps.status='queued'` MUSS meta enthalten `wave` ODER `reset_reason` ODER `allow_regression=true` — sonst feuert Atomic-Trigger NICHT erneut (Idempotenz-Schutz).
+- **Legacy-Track-Mapping**: `ZERTIFIKAT`/`BRANCHENZERTIFIKAT` → `EXAM_FIRST_PLUS` via `normalizeTrackKey()` in `_shared/track-normalize.ts` + `src/lib/tracks.ts`.
+- **NON_BYPASSABLE_HOLLOW_DONE**: `auto_seed_exam_blueprints` darf NIE done sein wenn `exam_blueprints` count = 0. `fn_guard_hollow_done` blockt unbypassable.
+- **Promote-Bridge ist dauerhafte Materialisierungsstrategie**: `fn_prebuild_promote_blueprint_variants` per-row tolerant gegen Kollisionen, Step-Adoption an Artifact-Truth gebunden (`exam_questions_total > 0`), nicht an Insert-Erfolg pro Row.
+
+## Memories
+- [Wave 13c Row-Tolerant Bridge + Drift-Audit v2](mem://architektur/ops/wave13c-row-tolerant-bridge-und-precise-drift-audit-v1) — Per-row Kollisionstoleranz, 4-Regel-Drift-Audit (statt Regex-Sweep). 425/438 Pakete mit exam_questions.
+- [Wave 13 Restpaket-Forensik + Drift-Audit](mem://architektur/ops/wave13-restpaket-forensik-und-drift-audit-v1) — Klassen A/B/D, Promote-Bridge v3, 4-Kategorien-Drift-Audit.
+- [Atomic-Coupling Orphan-Heal v8](mem://architektur/ops/atomic-coupling-orphan-heal-v8) — Wave-8 Trigger-Härtung. Akzeptiert Reset-Cases (meta.wave/reset_reason/allow_regression). fn_heal_orphan_queued_steps(limit) + Cron alle 5 min für queued-ohne-Job.
+- [Process Hardening Recovery-Lane v1](mem://architektur/ops/process-hardening-recovery-lane-v1) — job_queue.lane (build/recovery/control), v_process_health_kpis, list_repeat_heal_packages.
+- [Atomic Step→Job Coupling v2](mem://architektur/ops/atomic-step-job-coupling-v2) — BEFORE-Trigger Job-Atomarität. pending_enqueue + 5-Min Cron-Resolver.
+- [New Course Creation Checklist](mem://architektur/produkt/new-course-creation-checklist-v1) — generate-certification → Step-Backbone (28) → blueprint-fanout → Step-Sync.
+- [PROVIDER_LOOP_GUARD Routing Fix](mem://architektur/ops/provider-loop-guard-routing-policy-fix-v1) — Repair-Jobs loopten auf "unknown/unknown" weil llm_provider_routing_policies fehlten.
+- [Forensic: Pipeline Stalls & Requeue Loops](mem://architektur/ops/forensic-pipeline-stalls-v1) — global 5min stale threshold killing long-running jobs.
+- [Forensic: Oral Exam Cancel Loop](mem://architektur/ops/forensic-queue-audit-oral-exam-cancel-loop-v1) — MAX_BLUEPRINTS=30 vs. Trigger 100% Abdeckung.
+- [Hardened Runner & Lane Isolation](mem://architektur/ops/hardened-runner-and-lane-isolation-governance-v2-1-final) — Tier reclassification, stale thresholds.
+- [Dauermaßnahmen: Trigger-Function Parity](mem://architektur/ops/dauermasnahmen-trigger-function-parity-v1) — CI-Guard, Pre-Flight Assertions.
+- [Preflight Registry für markStepDone](mem://architektur/ops/preflight-registry-markstepdone-v1) — Zentrale Contract-Prüfung.
+- [admin_force_steps_done Full Emergency Bypass v2](mem://architektur/ops/admin-force-steps-done-full-emergency-bypass-v2) — Vollständiger Bypass über package_steps + course_packages mit optionalem Force-Publish.
+- [Hollow-Publish Guard & Depublish-Rebuild](mem://architektur/ops/hollow-publish-guard-and-depublish-rebuild-v1) — Trigger verhindert published ohne Pflichtartefakte.
+- [Release Classification View v1](mem://architektur/ops/release-classification-view-v1) — v_package_release_classification: 3-Klassen (release_ok/warn/block).
+- [Causality-Drift Governance v1](mem://architektur/ops/causality-drift-governance-v1) — Reconciler für Artefakt→Step Drift.
+- [Competencies → Curriculum Join via learning_fields](mem://architektur/daten/competencies-join-via-learning-fields-ssot) — competencies.learning_field_id → learning_fields.curriculum_id.
+- [D+ Validator Meta-only Reset (Phase 1b)](mem://architektur/pipeline/dplus-validator-meta-only-reset-v1) — Klassifikation/Ausführung getrennt.
+- [D+ Phase 2: LF-Coverage Repair Function](mem://architektur/pipeline/dplus-phase2-lf-coverage-repair-v1) — package-repair-exam-pool-lf-coverage.
+- [Integrity-Check Defer + Sample-Guard (Phase 2c)](mem://architektur/ops/integrity-check-defer-and-sample-guard-v1) — ratio-Reasons skip bei sample<min, defer bei WAITING.
+- [Upstream Auto-Skip nicht-applicable Steps](mem://architektur/ops/upstream-auto-skip-package-steps-v1) — BEFORE-Trigger schreibt nicht-applicable queued Steps direkt zu skipped.
