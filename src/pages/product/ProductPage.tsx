@@ -2,6 +2,7 @@ import { useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { useProductPageSSOT } from '@/hooks/useProductPageSSOT';
+import { useResolvePaywall } from '@/hooks/useResolvePaywall';
 import { ProductPageTemplate } from '@/components/product/ProductPageTemplate';
 import { trackEvent } from '@/lib/tracking/track';
 
@@ -9,6 +10,10 @@ export default function ProductPage() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const { data: product, isLoading, error } = useProductPageSSOT(slug);
+  const { data: paywall } = useResolvePaywall({
+    packageId: product?.packageId ?? null,
+    triggerContext: 'product_page_view',
+  });
   const trackedViewRef = useRef<string | null>(null);
 
   // Track product_view once per slug
@@ -135,6 +140,7 @@ export default function ProductPage() {
   return (
     <ProductPageTemplate
       product={product}
+      paywall={paywall ?? null}
       onCtaClick={handleCtaClick}
       onFaqExpand={handleFaqExpand}
       onRelatedCourseClick={handleRelatedCourseClick}

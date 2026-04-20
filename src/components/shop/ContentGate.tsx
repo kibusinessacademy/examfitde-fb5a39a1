@@ -28,7 +28,8 @@ export function ContentGate({
 }: ContentGateProps) {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { data: paywall, isLoading } = useResolvePaywall(productId, {
+  const { data: paywall, isLoading } = useResolvePaywall({
+    productId,
     experimentKey,
     triggerContext,
   });
