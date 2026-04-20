@@ -254,9 +254,31 @@ Antworte NUR als JSON-Objekt:
           { role: "user", content: userPrompt },
         ],
         temperature: 0.6,
+        response_format: { type: "json_object" },
       },
     );
-    const bps = result?.blueprints || [];
+    // Wave 15c-fix: callAIWithFailover returns { content, toolCalls, ... } — must parse content
+    let parsed: any = {};
+    const raw = String(result?.content || "").trim();
+    if (raw) {
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        // Try to extract JSON object from markdown / prose
+        const m = raw.match(/\{[\s\S]*\}/);
+        if (m) {
+          try { parsed = JSON.parse(m[0]); } catch {
+            console.warn(`[SeedV4] ${label}: JSON parse failed, raw[0..200]=${raw.slice(0, 200)}`);
+          }
+        } else {
+          console.warn(`[SeedV4] ${label}: no JSON in response, raw[0..200]=${raw.slice(0, 200)}`);
+        }
+      }
+    } else {
+      console.warn(`[SeedV4] ${label}: empty content from ${result?.provider}/${result?.model}`);
+    }
+    const bps = Array.isArray(parsed?.blueprints) ? parsed.blueprints : [];
+    console.log(`[SeedV4] ${label}: parsed ${bps.length} raw blueprints from ${result?.provider}/${result?.model}`);
     // Wave 15c: param_sets-Validierung — Templates dürfen Platzhalter haben,
     // ABER jeder Platzhalter MUSS in JEDEM param_set als Key vorkommen.
     const clean = bps.filter((b: any) => {
