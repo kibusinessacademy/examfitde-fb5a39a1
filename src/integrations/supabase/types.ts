@@ -83085,6 +83085,17 @@ export type Database = {
           suggestion: string
         }[]
       }
+      fn_audit_placeholder_pollution: {
+        Args: never
+        Returns: {
+          active_polluted: number
+          curriculum_id: string
+          package_title: string
+          sample_text: string
+          source_table: string
+          total_polluted: number
+        }[]
+      }
       fn_audit_prebuild_drift: {
         Args: never
         Returns: {
