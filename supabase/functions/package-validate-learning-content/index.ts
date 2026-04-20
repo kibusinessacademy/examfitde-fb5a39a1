@@ -435,6 +435,23 @@ async function handleRequest(req: Request): Promise<Response> {
     } else {
       // Repair is in-flight or enqueued — safe to skip
       console.log(`[validate-lessons] SKIP_RETRY: ${retryDecision.reason}, gate_class=${prevClass}`);
+      // SSOT-Finalisierung: bewusster Defer → done (kein Stale-Lock-Loop)
+      await mergePackageStepMeta(sb, packageId, "validate_learning_content", {
+        decision_type: "transient_skip",
+        decision_reason: "SKIP_RETRY_REPAIR_IN_FLIGHT",
+        repair_in_flight: repairInFlight,
+        repair_enqueued_since_last: repairEnqueuedSinceLastValidation,
+        skip_retry_reason: retryDecision.reason,
+        last_skip_at: new Date().toISOString(),
+      });
+      await finalizeStepDone(sb, packageId, "validate_learning_content", {
+        done_reason: "SKIP_RETRY_REPAIR_IN_FLIGHT",
+        repair_in_flight: true,
+        transient: true,
+        skipped: true,
+        skip_reason: retryDecision.reason,
+        gate_class: prevClass,
+      });
       return json({
         ok: true,
         completed: true,
@@ -444,7 +461,7 @@ async function handleRequest(req: Request): Promise<Response> {
         reason_code: stepMeta.reason_code || "REPAIR_ALREADY_ENQUEUED",
         advance_pipeline: false,
         repair_enqueued: repairInFlight || repairEnqueuedSinceLastValidation,
-        message: `⏭ Validator übersprungen: ${retryDecision.reason} (gate_class=${prevClass}).`,
+        message: `⏭ Validator übersprungen: ${retryDecision.reason} (gate_class=${prevClass}, step finalized).`,
       });
     }
   }
