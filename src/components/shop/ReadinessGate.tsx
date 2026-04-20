@@ -31,13 +31,11 @@ export function ReadinessGate({
   const { track } = useTrackGrowthEvent();
   const trackedRef = useRef(false);
 
-  const { data: paywall, isLoading } = useResolvePaywall(
-    isLowReadiness ? productId : null,
-    {
-      experimentKey,
-      triggerContext: 'readiness_low',
-    }
-  );
+  const { data: paywall, isLoading } = useResolvePaywall({
+    productId: isLowReadiness ? productId : null,
+    experimentKey,
+    triggerContext: 'readiness_low',
+  });
 
   const checkout = useStartCheckout();
 
