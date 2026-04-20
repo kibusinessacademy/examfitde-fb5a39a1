@@ -13,10 +13,9 @@ export function useProductPageSSOT(slug: string | undefined) {
       if (!slug) return null;
 
       const { data, error } = await (supabase as any)
-        .from('v_product_page_ssot')
+        .from('v_product_page_published_ssot')
         .select('*')
         .eq('canonical_slug', slug)
-        .eq('status', 'published')
         .maybeSingle();
 
       if (error) {
