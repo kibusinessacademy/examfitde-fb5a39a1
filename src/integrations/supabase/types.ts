@@ -83494,6 +83494,7 @@ export type Database = {
           step_key: string
         }[]
       }
+      fn_heal_remaining_packages_by_class: { Args: never; Returns: Json }
       fn_heal_track_step_drift: { Args: never; Returns: Json }
       fn_heal_upstream_hotspots: { Args: never; Returns: Json }
       fn_is_qc_coverage_eligible: {
