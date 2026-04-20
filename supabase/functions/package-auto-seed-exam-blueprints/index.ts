@@ -200,27 +200,37 @@ ELITE-ANFORDERUNGEN PRO FACETTE:
    - MUSS berufsspezifisch sein (${berufName}!)
    - MUSS ein realistisches IHK-Prüfungsszenario darstellen
    - Bei apply/analyze/evaluate: IMMER mit konkreter Betriebssituation
-   - Mindestens 2 Variablen-Platzhalter pro Template
+   - Mindestens 2 Variablen-Platzhalter pro Template (z. B. {betrieb_typ}, {betrag})
+   - WICHTIG: Jeder Platzhalter MUSS in param_sets mit konkreten Werten belegt sein
 
-2. explanation_template: Strukturiertes Erklärungsschema.
+2. param_sets: PFLICHT! Array mit mindestens 2 konkreten Belegungen aller Platzhalter aus question_template.
+   - Format: [{ "betrieb_typ": "Pflegeheim", "betrag": "850 €" }, { "betrieb_typ": "Werkstatt", "betrag": "1.200 €" }]
+   - Jeder im question_template verwendete {placeholder} MUSS in JEDEM param_set als Key vorkommen
+   - Werte müssen realistisch und berufsspezifisch sein
+
+3. explanation_template: Strukturiertes Erklärungsschema (kann auch Platzhalter enthalten, dieselben wie in question_template).
    - Fachliche Begründung mit Rechtsgrundlage/Norm wenn relevant
    - Warum sind die Alternativen falsch?
 
-3. typical_errors: Exakt 3-5 berufsspezifische IHK-typische Prüfungsfehler.
+4. typical_errors: Exakt 3-5 berufsspezifische IHK-typische Prüfungsfehler.
    - KEINE generischen Fehler!
    - Jeder Fehler muss konkret zum Berufsfeld ${berufName} passen
    - Fehler müssen psychometrisch plausibel sein (häufige Verwechslungen)
 
-4. trap_spec: JSON mit Prüfungsfallen-Spezifikation:
+5. trap_spec: JSON mit Prüfungsfallen-Spezifikation:
    { "trap_type": "...", "why_tempting": "...", "examiner_intention": "...", "common_misconception": "..." }
 
-5. typical_exam_trap: Ein Satz zur häufigsten Prüfungsfalle.
+6. typical_exam_trap: Ein Satz zur häufigsten Prüfungsfalle.
 
 Antworte NUR als JSON-Objekt:
 {
   "blueprints": [
     {
-      "question_template": "...",
+      "question_template": "Berechne den Eigenanteil für einen Klienten in {betrieb_typ} bei einem Einkommen von {betrag}.",
+      "param_sets": [
+        { "betrieb_typ": "Pflegeheim", "betrag": "850 €" },
+        { "betrieb_typ": "Werkstatt für behinderte Menschen", "betrag": "1.200 €" }
+      ],
       "explanation_template": "...",
       "typical_errors": ["...", "...", "..."],
       "trap_spec": { "trap_type": "...", "why_tempting": "...", "examiner_intention": "...", "common_misconception": "..." },
@@ -229,11 +239,11 @@ Antworte NUR als JSON-Objekt:
   ]
 }`;
 
-  // Wave 15b: Hybrid retry + Fail-Fast (no placeholder junk)
-  // Detects unresolved {placeholder} patterns and retries with cheaper model.
-  // If both fail → throws (Fail-Fast) instead of producing junk that the SOFT-Guard deprecates.
-  const PLACEHOLDER_RE = /\{[A-Za-z_][A-Za-z0-9_]*\}/;
-  const userPrompt = `Erstelle ${facets.length} Elite-Blueprint-Facetten für die Kompetenz "${comp.title}" im Beruf "${berufName}". WICHTIG: KEINE Platzhalter wie {variable}, {szenario}, {betrieb_typ} im question_template — schreibe konkrete, vollständige Fragetexte.`;
+  // Wave 15c: param_sets-Pflicht-Validierung statt blinder Placeholder-Filter.
+  // Templates DÜRFEN Platzhalter enthalten — aber JEDER Platzhalter MUSS in JEDEM param_set belegt sein.
+  // Sonst → kann template-engine nicht expandieren → drop.
+  const PLACEHOLDER_RE = /\{([A-Za-z_][A-Za-z0-9_]*)\}/g;
+  const userPrompt = `Erstelle ${facets.length} Elite-Blueprint-Facetten für die Kompetenz "${comp.title}" im Beruf "${berufName}". Verwende {platzhalter} im question_template UND liefere für jedes Template mindestens 2 konkrete param_sets, die ALLE Platzhalter mit realistischen berufsspezifischen Werten belegen.`;
 
   async function attemptGeneration(chain: Array<{ provider: string; model: string }>, label: string) {
     const result = await callAIWithFailover(
@@ -244,18 +254,70 @@ Antworte NUR als JSON-Objekt:
           { role: "user", content: userPrompt },
         ],
         temperature: 0.6,
+        response_format: { type: "json_object" },
       },
     );
-    const bps = result?.blueprints || [];
-    // Filter out blueprints with unresolved placeholders
+    // Wave 15c-fix: callAIWithFailover returns { content, toolCalls, ... } — must parse content
+    let parsed: any = {};
+    const raw = String(result?.content || "").trim();
+    if (raw) {
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        // Try to extract JSON object from markdown / prose
+        const m = raw.match(/\{[\s\S]*\}/);
+        if (m) {
+          try { parsed = JSON.parse(m[0]); } catch {
+            console.warn(`[SeedV4] ${label}: JSON parse failed, raw[0..200]=${raw.slice(0, 200)}`);
+          }
+        } else {
+          console.warn(`[SeedV4] ${label}: no JSON in response, raw[0..200]=${raw.slice(0, 200)}`);
+        }
+      }
+    } else {
+      console.warn(`[SeedV4] ${label}: empty content from ${result?.provider}/${result?.model}`);
+    }
+    const bps = Array.isArray(parsed?.blueprints) ? parsed.blueprints : [];
+    console.log(`[SeedV4] ${label}: parsed ${bps.length} raw blueprints from ${result?.provider}/${result?.model}`);
+    // Wave 15c: param_sets-Validierung — Templates dürfen Platzhalter haben,
+    // ABER jeder Platzhalter MUSS in JEDEM param_set als Key vorkommen.
     const clean = bps.filter((b: any) => {
       const q = String(b?.question_template || "");
       const e = String(b?.explanation_template || "");
-      const hasPlaceholder = PLACEHOLDER_RE.test(q) || PLACEHOLDER_RE.test(e);
-      if (hasPlaceholder) {
-        console.warn(`[SeedV4] ${label}: dropped blueprint with placeholder: ${q.slice(0, 80)}`);
+      if (q.length < 20) {
+        console.warn(`[SeedV4] ${label}: dropped (too short): ${q.slice(0, 80)}`);
+        return false;
       }
-      return !hasPlaceholder && q.length > 20;
+      // Extract all unique placeholders from question + explanation (reset regex state)
+      const placeholders = new Set<string>();
+      const re1 = /\{([A-Za-z_][A-Za-z0-9_]*)\}/g;
+      for (const m of q.matchAll(re1)) placeholders.add(m[1]);
+      const re2 = /\{([A-Za-z_][A-Za-z0-9_]*)\}/g;
+      for (const m of e.matchAll(re2)) placeholders.add(m[1]);
+
+      if (placeholders.size === 0) {
+        // No placeholders — concrete question, accept directly
+        return true;
+      }
+
+      // Has placeholders → require param_sets covering all of them
+      const paramSets = Array.isArray(b?.param_sets) ? b.param_sets : [];
+      if (paramSets.length === 0) {
+        console.warn(`[SeedV4] ${label}: dropped (placeholders without param_sets): ${q.slice(0, 80)}`);
+        return false;
+      }
+      const missing: string[] = [];
+      for (const ph of placeholders) {
+        const allCovered = paramSets.every((ps: any) =>
+          ps && typeof ps === "object" && ph in ps && ps[ph] != null && String(ps[ph]).length > 0
+        );
+        if (!allCovered) missing.push(ph);
+      }
+      if (missing.length > 0) {
+        console.warn(`[SeedV4] ${label}: dropped (param_sets missing keys [${missing.join(",")}]): ${q.slice(0, 80)}`);
+        return false;
+      }
+      return true;
     });
     return clean;
   }

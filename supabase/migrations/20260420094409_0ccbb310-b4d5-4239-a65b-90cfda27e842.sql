@@ -1,0 +1,1 @@
+UPDATE job_queue SET status='pending', attempts=0, run_after=now(), last_error=NULL, locked_by=NULL, locked_at=NULL WHERE id='19220d90-19ee-4f81-a799-e9504d31701d';
