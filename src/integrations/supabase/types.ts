@@ -23846,9 +23846,10 @@ export type Database = {
           id: string
           metadata_json: Json
           platform: string | null
-          user_id: string
+          user_id: string | null
           variant: string
           variant_id: string | null
+          visitor_id: string | null
         }
         Insert: {
           assigned_at?: string
@@ -23858,9 +23859,10 @@ export type Database = {
           id?: string
           metadata_json?: Json
           platform?: string | null
-          user_id: string
+          user_id?: string | null
           variant: string
           variant_id?: string | null
+          visitor_id?: string | null
         }
         Update: {
           assigned_at?: string
@@ -23870,9 +23872,10 @@ export type Database = {
           id?: string
           metadata_json?: Json
           platform?: string | null
-          user_id?: string
+          user_id?: string | null
           variant?: string
           variant_id?: string | null
+          visitor_id?: string | null
         }
         Relationships: [
           {
@@ -81980,6 +81983,14 @@ export type Database = {
         }
         Returns: Json
       }
+      assign_paywall_variant_anon: {
+        Args: {
+          p_experiment_key: string
+          p_platform?: string
+          p_visitor_id: string
+        }
+        Returns: Json
+      }
       attach_finding_remediation: {
         Args: {
           p_council_version_id: string
@@ -84725,6 +84736,10 @@ export type Database = {
       get_active_package_for_curriculum: {
         Args: { p_curriculum_id: string }
         Returns: string
+      }
+      get_active_paywall_experiment_for_package: {
+        Args: { p_package_id: string }
+        Returns: Json
       }
       get_active_pipeline_package: {
         Args: never
