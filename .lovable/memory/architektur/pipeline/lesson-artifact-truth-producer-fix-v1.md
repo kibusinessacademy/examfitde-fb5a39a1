@@ -1,6 +1,6 @@
 ---
-name: Lesson Artifact-Truth Producer-Fix + Causality Governance + Validator Lifecycle v1.2
-description: pipeline_write_lesson_content setzt content_hash + generation_status='completed' atomar bei echtem Content. Backfill v1+v2 für 13.5k Lessons. Causality-Guard verhindert HARD_FAIL_NO_BLUEPRINTS. package-validate-learning-content finalisiert ALLE early-return Pfade via SSOT (kein Stale-Lock-Loop).
+name: Lesson Artifact-Truth Producer-Fix + Causality + Lifecycle + Postcondition-Alignment v1.3
+description: pipeline_write_lesson_content setzt content_hash + generation_status='completed' atomar. Backfill v1+v2 für 13.5k Lessons. Causality-Guard verhindert HARD_FAIL_NO_BLUEPRINTS. validate-learning-content finalisiert ALLE early-return Pfade. HOLLOW_VALIDATE_LEARNING Postcondition: Phantom-Filter `lesson_type` (Spalte existiert nicht) entfernt, content_hash + generation_status='completed' jetzt Primärsignale.
 type: feature
 ---
 
