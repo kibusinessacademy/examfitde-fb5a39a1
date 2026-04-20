@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { ProductPageSSOT } from '@/types/product-page';
+import type { ResolvedPaywall } from '@/hooks/useResolvePaywall';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { buildProductSEO } from '@/lib/product-page-seo';
 import { ProductHeroSection } from './ProductHeroSection';
@@ -17,6 +18,7 @@ import { StickyProductBar } from './StickyProductBar';
 
 interface Props {
   product: ProductPageSSOT;
+  paywall?: ResolvedPaywall | null;
   onCtaClick: (ctaType: string) => void;
   onFaqExpand?: (question: string) => void;
   onRelatedCourseClick?: (slug: string) => void;
