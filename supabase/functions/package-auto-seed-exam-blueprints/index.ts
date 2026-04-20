@@ -287,17 +287,18 @@ Antworte NUR als JSON-Objekt:
     let retryModel = "none";
     let cleanRetry = 0;
     if (blueprints.length === 0) {
-      // Pick a different model on the same provider (chain[1]); fallback to a known cheap model
-      const retryEntry = chain.find(c => c.model !== primaryModel && c.provider === primaryProvider)
-        ?? (primaryProvider === "openai" ? { provider: "openai", model: "gpt-4o-mini" } : null);
-      if (retryEntry) {
-        retryProvider = retryEntry.provider;
-        retryModel = retryEntry.model;
-        console.warn(`[SeedV4] PRIMARY (${primaryProvider}/${primaryModel}) → 0 clean — RETRY on ${retryProvider}/${retryModel}`);
-        blueprints = await attemptGeneration([retryEntry], "RETRY_FAST");
+      // HARD-PIN retry to gpt-4o-mini: production-verified (99.8% success in batch).
+      // gpt-5.x family currently has 0% success in our infra (see batch/routing-config.ts).
+      // Same openai provider (key proven available), different model.
+      const RETRY_MODEL = "gpt-4o-mini";
+      if (primaryProvider === "openai" && primaryModel !== RETRY_MODEL) {
+        retryProvider = "openai";
+        retryModel = RETRY_MODEL;
+        console.warn(`[SeedV4] PRIMARY (${primaryProvider}/${primaryModel}) → 0 clean — RETRY on ${retryProvider}/${retryModel} (hard-pinned, production-verified)`);
+        blueprints = await attemptGeneration([{ provider: "openai", model: RETRY_MODEL }], "RETRY_GPT4O_MINI");
         cleanRetry = blueprints.length;
       } else {
-        console.warn(`[SeedV4] No viable retry candidate (primary=${primaryProvider}/${primaryModel}) — skipping retry`);
+        console.warn(`[SeedV4] Retry skipped: primary=${primaryProvider}/${primaryModel} already on retry model or non-openai`);
       }
     }
 
