@@ -8,22 +8,23 @@ const corsHeaders = {
 };
 
 /**
- * Resolve Paywall
+ * Resolve Paywall (anon + auth)
  *
- * Returns the correct paywall configuration for a user based on:
- * 1. Whether they already have access (entitlement or org license)
- * 2. Which experiment variant they're assigned to
- * 3. Which platform they're on (web/ios/android)
+ * Resolves paywall variant for a product/package.
+ * - Authenticated users: sticky on user_id, checks entitlements first.
+ * - Anonymous visitors: sticky on visitor_id (cookie/local UUID).
  *
- * Response:
- * - has_access: true → no paywall needed
- * - has_access: false → paywall variant returned with platform-specific checkout ID
+ * Inputs (POST JSON):
+ *   { product_id?: uuid, package_id?: uuid, experiment_key?: string,
+ *     visitor_id?: string, platform?: 'web'|'ios'|'android', trigger_context?: string }
+ *
+ * If experiment_key is omitted, the function auto-resolves the active
+ * experiment for the given package_id (via products.active_package_id).
  */
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
-
   if (req.method !== "POST") {
     return new Response(JSON.stringify({ error: "Method not allowed" }), {
       status: 405,
@@ -35,132 +36,158 @@ Deno.serve(async (req: Request) => {
   const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-  // User client for auth
   const userClient = createClient(supabaseUrl, supabaseAnonKey);
-  // Service client for RPCs
   const sb = createClient(supabaseUrl, serviceRoleKey);
 
   try {
-    // Authenticate user
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: "Not authenticated" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    const body = await req.json().catch(() => ({}));
+    const {
+      product_id,
+      package_id,
+      experiment_key: bodyExperimentKey,
+      visitor_id,
+      platform = "web",
+      trigger_context,
+    } = body as {
+      product_id?: string;
+      package_id?: string;
+      experiment_key?: string | null;
+      visitor_id?: string | null;
+      platform?: "web" | "ios" | "android";
+      trigger_context?: string | null;
+    };
 
-    const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: authErr } = await userClient.auth.getUser(token);
-    if (authErr || !user) {
+    if (!product_id && !package_id) {
       return new Response(
-        JSON.stringify({ error: "Invalid token" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const body = await req.json();
-    const { product_id, experiment_key, platform = "web", trigger_context } = body;
-
-    if (!product_id) {
-      return new Response(
-        JSON.stringify({ error: "product_id required" }),
+        JSON.stringify({ error: "product_id or package_id required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // ── 1. Check existing access ─────────────────────────────
-    // Personal entitlement
-    const { data: hasEntitlement } = await sb.rpc("can_access_product", {
-      p_user_id: user.id,
-      p_product_id: product_id,
-    });
-
-    if (hasEntitlement) {
-      return new Response(
-        JSON.stringify({ has_access: true, access_type: "entitlement" }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    // Optional: resolve user (anon-allowed)
+    let userId: string | null = null;
+    const authHeader = req.headers.get("Authorization");
+    if (authHeader) {
+      const token = authHeader.replace("Bearer ", "");
+      const { data: { user } } = await userClient.auth.getUser(token);
+      if (user) userId = user.id;
     }
 
-    // Org license
-    const { data: hasOrgAccess } = await sb.rpc("check_org_license_access", {
-      p_user_id: user.id,
-      p_product_id: product_id,
-    });
+    // ── 1. Auto-resolve experiment_key from package_id if not given ──
+    let experimentKey: string | null = bodyExperimentKey ?? null;
+    let resolvedProductId: string | null = product_id ?? null;
 
-    if (hasOrgAccess) {
-      return new Response(
-        JSON.stringify({ has_access: true, access_type: "org_license" }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // ── 2. No access → resolve paywall variant ───────────────
-    let variant = null;
-
-    if (experiment_key) {
-      const { data: variantData } = await sb.rpc("assign_paywall_variant", {
-        p_user_id: user.id,
-        p_experiment_key: experiment_key,
-        p_platform: platform,
+    if (!experimentKey && package_id) {
+      const { data: expMeta } = await sb.rpc("get_active_paywall_experiment_for_package", {
+        p_package_id: package_id,
       });
-
-      if (variantData && !(variantData as any).error) {
-        variant = variantData;
+      if (expMeta && typeof expMeta === "object") {
+        experimentKey = (expMeta as Record<string, unknown>).experiment_key as string ?? null;
+        if (!resolvedProductId) {
+          resolvedProductId = (expMeta as Record<string, unknown>).product_id as string ?? null;
+        }
       }
     }
 
-    // Determine checkout ID and actual price based on platform
+    // ── 2. Auth-Pfad: Check entitlement / org-license ──
+    if (userId && resolvedProductId) {
+      const { data: hasEntitlement } = await sb.rpc("can_access_product", {
+        p_user_id: userId,
+        p_product_id: resolvedProductId,
+      });
+      if (hasEntitlement) {
+        return ok({ has_access: true, access_type: "entitlement", platform });
+      }
+      const { data: hasOrgAccess } = await sb.rpc("check_org_license_access", {
+        p_user_id: userId,
+        p_product_id: resolvedProductId,
+      });
+      if (hasOrgAccess) {
+        return ok({ has_access: true, access_type: "org_license", platform });
+      }
+    }
+
+    // ── 3. Variant-Resolution ──
+    let variant: Record<string, unknown> | null = null;
+
+    if (experimentKey) {
+      if (userId) {
+        const { data } = await sb.rpc("assign_paywall_variant", {
+          p_user_id: userId,
+          p_experiment_key: experimentKey,
+          p_platform: platform,
+        });
+        if (data && !(data as Record<string, unknown>).error) {
+          variant = data as Record<string, unknown>;
+        }
+      } else if (visitor_id) {
+        const { data } = await sb.rpc("assign_paywall_variant_anon", {
+          p_visitor_id: visitor_id,
+          p_experiment_key: experimentKey,
+          p_platform: platform,
+        });
+        if (data && !(data as Record<string, unknown>).error) {
+          variant = data as Record<string, unknown>;
+        }
+      }
+    }
+
+    // ── 4. Platform-spezifische Checkout-IDs ──
     let checkout_id: string | null = null;
     let actual_price_cents: number | null = null;
     if (variant) {
-      const v = variant as Record<string, unknown>;
       switch (platform) {
         case "ios":
-          checkout_id = v.apple_sku as string || null;
-          actual_price_cents = (v.ios_price_cents as number) ?? (v.price_cents as number);
+          checkout_id = (variant.apple_sku as string) || null;
+          actual_price_cents = (variant.ios_price_cents as number) ?? (variant.price_cents as number);
           break;
         case "android":
-          checkout_id = v.google_sku as string || null;
-          actual_price_cents = (v.android_price_cents as number) ?? (v.price_cents as number);
+          checkout_id = (variant.google_sku as string) || null;
+          actual_price_cents = (variant.android_price_cents as number) ?? (variant.price_cents as number);
           break;
         default:
-          checkout_id = v.stripe_price_id as string || null;
-          actual_price_cents = (v.web_price_cents as number) ?? (v.price_cents as number);
+          checkout_id = (variant.stripe_price_id as string) || null;
+          actual_price_cents = (variant.web_price_cents as number) ?? (variant.price_cents as number);
       }
     }
 
-    // ── 3. Log conversion event ──────────────────────────────
-    if (trigger_context) {
+    // ── 5. Telemetry: paywall_shown ──
+    if (trigger_context && (userId || visitor_id)) {
       await sb.from("conversion_events").insert({
-        user_id: user.id,
+        user_id: userId,
+        visitor_id: userId ? null : visitor_id,
         event_type: "paywall_shown",
         metadata: {
-          product_id,
-          experiment_key,
-          variant_key: (variant as any)?.variant_key,
+          product_id: resolvedProductId,
+          package_id,
+          experiment_key: experimentKey,
+          variant_key: variant?.variant_key ?? null,
           trigger_context,
           platform,
         },
-      }).then(() => {});
+      } as never).then(() => {}, () => {});
     }
 
-    return new Response(
-      JSON.stringify({
-        has_access: false,
-        variant,
-        checkout_id,
-        actual_price_cents,
-        platform,
-      }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return ok({
+      has_access: false,
+      experiment_key: experimentKey,
+      variant,
+      checkout_id,
+      actual_price_cents,
+      platform,
+    });
   } catch (err) {
     console.error("Resolve paywall error:", err);
-    return new Response(
-      JSON.stringify({ error: "Internal error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: "Internal error" }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  function ok(payload: Record<string, unknown>) {
+    return new Response(JSON.stringify(payload), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });
