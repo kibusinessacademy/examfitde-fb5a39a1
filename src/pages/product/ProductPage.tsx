@@ -140,6 +140,7 @@ export default function ProductPage() {
   return (
     <ProductPageTemplate
       product={product}
+      paywall={paywall ?? null}
       onCtaClick={handleCtaClick}
       onFaqExpand={handleFaqExpand}
       onRelatedCourseClick={handleRelatedCourseClick}
