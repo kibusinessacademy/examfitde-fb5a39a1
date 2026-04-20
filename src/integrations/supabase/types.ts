@@ -82998,6 +82998,16 @@ export type Database = {
       }
       fn_approve_fi_shared_questions: { Args: never; Returns: Json }
       fn_audit_all_drift: { Args: never; Returns: Json }
+      fn_audit_all_drift_v2: { Args: never; Returns: Json }
+      fn_audit_drift_bare_meta_v2: {
+        Args: never
+        Returns: {
+          detail: string
+          function_name: string
+          rule: string
+          severity: string
+        }[]
+      }
       fn_audit_drift_bridge_presence: {
         Args: never
         Returns: {
@@ -83005,6 +83015,15 @@ export type Database = {
           evidence: string
           function_name: string
           issue: string
+          severity: string
+        }[]
+      }
+      fn_audit_drift_bridge_presence_v2: {
+        Args: never
+        Returns: {
+          detail: string
+          function_name: string
+          rule: string
           severity: string
         }[]
       }
@@ -83018,6 +83037,15 @@ export type Database = {
           severity: string
         }[]
       }
+      fn_audit_drift_schema_domain_v2: {
+        Args: never
+        Returns: {
+          detail: string
+          function_name: string
+          rule: string
+          severity: string
+        }[]
+      }
       fn_audit_drift_step_finalization: {
         Args: never
         Returns: {
@@ -83025,6 +83053,15 @@ export type Database = {
           evidence: string
           function_name: string
           issue: string
+          severity: string
+        }[]
+      }
+      fn_audit_drift_step_finalization_v2: {
+        Args: never
+        Returns: {
+          detail: string
+          function_name: string
+          rule: string
           severity: string
         }[]
       }
