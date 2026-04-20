@@ -352,6 +352,7 @@ export const JOB_DEFINITIONS: Record<string, JobDefinition> = {
   seo_qc_check:                      { pool: "default", edgeFunction: "seo-qc-check" },
   seo_publish:                       { pool: "default", edgeFunction: "seo-publish" },
   seo_content_batch:                 { pool: "default", edgeFunction: "seo-generate" },
+  package_auto_generate_seo_suite:   { pool: "default", edgeFunction: "package-auto-generate-seo-suite" },
   publish_product:                   { pool: "default", edgeFunction: "product-orchestrator" },
   repair_lessons:                    { pool: "default", edgeFunction: "repair-lessons" },
   improve_lesson:                    { pool: "default", edgeFunction: "improve-lesson" },

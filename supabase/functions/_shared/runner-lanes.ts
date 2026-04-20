@@ -115,6 +115,7 @@ const GENERATION_JOB_TYPES_LANE = new Set([
   "seo_generate",
   "seo_qc_check",
   "seo_sitemap_refresh",
+  "package_auto_generate_seo_suite",  // Post-publish marketing orchestrator
   // IHK upgrade
   "upgrade_ihk",
   // Curriculum smoke
