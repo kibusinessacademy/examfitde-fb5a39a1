@@ -25,6 +25,7 @@
 - **Promote-Bridge ist dauerhafte Materialisierungsstrategie**: `fn_prebuild_promote_blueprint_variants` per-row tolerant gegen Kollisionen, Step-Adoption an Artifact-Truth gebunden (`exam_questions_total > 0`), nicht an Insert-Erfolg pro Row.
 
 ## Memories
+- [Wave 14 Generate-Bridge + Trigger-Toleranz](mem://architektur/ops/wave14-generate-bridge-und-trigger-toleranz-v1) — Per-row INSERT in exam_question_variants mit LF-Fallback (blueprint.lf → competency.lf → curriculum-first-lf). Promote-Bridge fängt raise_exception + APPROVAL_REQUIRES_TRAP_TYPE. 426/438 Pakete.
 - [Wave 13c Row-Tolerant Bridge + Drift-Audit v2](mem://architektur/ops/wave13c-row-tolerant-bridge-und-precise-drift-audit-v1) — Per-row Kollisionstoleranz, 4-Regel-Drift-Audit (statt Regex-Sweep). 425/438 Pakete mit exam_questions.
 - [Wave 13 Restpaket-Forensik + Drift-Audit](mem://architektur/ops/wave13-restpaket-forensik-und-drift-audit-v1) — Klassen A/B/D, Promote-Bridge v3, 4-Kategorien-Drift-Audit.
 - [Atomic-Coupling Orphan-Heal v8](mem://architektur/ops/atomic-coupling-orphan-heal-v8) — Wave-8 Trigger-Härtung. Akzeptiert Reset-Cases (meta.wave/reset_reason/allow_regression). fn_heal_orphan_queued_steps(limit) + Cron alle 5 min für queued-ohne-Job.
