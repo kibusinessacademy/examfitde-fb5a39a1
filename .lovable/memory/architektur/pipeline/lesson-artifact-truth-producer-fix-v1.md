@@ -99,12 +99,31 @@ Standardisierte Finalisierungs-Meta in `package_steps.meta` für Forensik:
 `finalizeStepDone(...)` ODER `finalizeStepFailed(...)`. Kein früher Return ohne Finalisierung.
 Top-level `try/catch` in `Deno.serve` bleibt als Fangnetz für Runtime-Exceptions.
 
+## P0a — Postcondition-Alignment (HOLLOW_VALIDATE_LEARNING)
+
+`assertExtendedPostConditions("validate_learning_content")` hatte zwei Defekte:
+
+**Defekt A — Phantom-Filter:** `.neq("lesson_type", "mini_check")` referenzierte eine
+nicht existierende Spalte. Die echte Spalte heißt `step` (USER-DEFINED enum).
+PostgREST lieferte daher einen Fehler oder unerwartetes Verhalten.
+
+**Defekt B — Producer-Truth ignoriert:** Die Postcondition prüfte nur `COUNT(lessons)`
+und kannte weder `content_hash` noch `generation_status='completed'`. Forensik zeigte
+15 Pakete mit avg **102 Lessons mit content_hash + completed**, die trotzdem als
+HOLLOW abgelehnt wurden.
+
+**Fix:** Postcondition akzeptiert jetzt vorrangig den SSOT-Materialisierungsstatus:
+- `realCount = max(content_hash IS NOT NULL, generation_status='completed')`
+- Wenn `realCount >= minLessons` → pass
+- Sonst Fallback auf totalLessons (ohne Phantom-Filter)
+- Bei totalLessons > 0 ohne Materialisierung → transient pass (Validator-Logik handhabt WAITING_FOR_MATERIALIZATION)
+
 ## Files
 - DB-Migration 2026-04-20 #1: `pipeline_write_lesson_content` 3-Wege-Logik + Backfill v1 (12k)
 - DB-Migration 2026-04-20 #2: Backfill Sweep v2 (1.482 Lessons, SSOT-only)
 - DB-Migration 2026-04-20 #3: `fn_guard_validate_exam_pool_causality` + Trigger
 - Edge Function 2026-04-20 #4: `package-validate-learning-content` early-return finalization (P2)
-- Consumer: `supabase/functions/_shared/lesson-gen/persistence.ts` (unverändert — RPC ist API-kompatibel)
+- Edge Function 2026-04-20 #5: `_shared/post-conditions-extended.ts` validate_learning_content alignment (P0a)
 
 ## Sister Pattern
 Siehe `architektur/ops/causality-drift-governance-v1.md` für analogen Guard
