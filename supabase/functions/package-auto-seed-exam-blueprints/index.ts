@@ -617,11 +617,17 @@ async function handleSeed(sb: ReturnType<typeof createClient>, p: any) {
 
   if (compErr) throw new Error(`Competencies query: ${compErr.message}`);
 
-  // 4) Load existing blueprints for diff
+  // 4) Load existing ACTIVE blueprints for diff
+  // SSOT: deprecated rows must NOT count as "covered" — otherwise the seeder
+  // skips re-generation for curricula whose blueprints were mass-deprecated
+  // (e.g. Wave15a placeholder cleanup) and the package gets stuck in
+  // NON_BYPASSABLE_HOLLOW_DONE forever.
   const { data: existingBps } = await sb
     .from("question_blueprints")
     .select("id, competency_id, learning_field_id, cognitive_level, question_template, typical_exam_trap, exam_context_type, allowed_question_types, exam_relevance_score, trap_spec, typical_errors")
-    .eq("curriculum_id", curriculumId);
+    .eq("curriculum_id", curriculumId)
+    .is("deprecated_at", null)
+    .neq("status", "deprecated");
 
   const existingByComp = new Map<string, any[]>();
   const existingByLf = new Map<string, any[]>();
@@ -757,11 +763,13 @@ async function handleSeed(sb: ReturnType<typeof createClient>, p: any) {
     if (!updErr) upgradedCount++;
   }
 
-  // 8) Health score
+  // 8) Health score — only over ACTIVE blueprints (matches guard SSOT)
   const { data: allBps } = await sb
     .from("question_blueprints")
     .select("cognitive_level, question_template, typical_exam_trap, exam_context_type, allowed_question_types, exam_relevance_score, trap_spec, typical_errors")
-    .eq("curriculum_id", curriculumId);
+    .eq("curriculum_id", curriculumId)
+    .is("deprecated_at", null)
+    .neq("status", "deprecated");
 
   const health = computeHealthScore(allBps || []);
 
