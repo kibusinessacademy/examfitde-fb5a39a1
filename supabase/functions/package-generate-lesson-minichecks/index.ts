@@ -308,12 +308,40 @@ Deno.serve(async (req) => {
       }
 
       if (targets.length === 0) {
-        console.log(`[MiniChecks] No eligible lessons found for course ${effectiveCourseId} — falling back to drill mode`);
+        // FIX (P1 anti-loop): In lesson mode with has_learning_course=true,
+        // an empty targets list means all lessons are at/above MIN_ITEMS_PER_LESSON.
+        // Do NOT fall back to drill mode (that would target competencies and
+        // perpetually loop because drill-coverage is not a valid completion gate
+        // for lesson-mode packages). Instead: finalize the step directly.
+        console.log(`[MiniChecks] All lessons covered (≥${MIN_ITEMS_PER_LESSON} items each) — finalizing step for ${packageId.slice(0, 8)}`);
+        try {
+          await markStepDone(sb, {
+            packageId,
+            stepKey: "generate_lesson_minichecks",
+            meta: {
+              finalized_by: "minicheck-orchestrator",
+              finalization_reason: "lesson_mode_all_lessons_above_min_no_targets",
+              remaining_targets: 0,
+              finalized_at: new Date().toISOString(),
+            },
+          });
+          console.log(`[MiniChecks] ✅ Step generate_lesson_minichecks marked DONE (early finalize)`);
+        } catch (finErr) {
+          console.warn(`[MiniChecks] ⚠️ Early finalize failed: ${(finErr as Error).message}`);
+        }
+        return json({
+          ok: true,
+          batch_complete: true,
+          early_finalized: true,
+          mode: "lesson",
+          remaining_targets: 0,
+          elapsed_ms: Date.now() - startMs,
+        });
       }
     }
 
-    // DRILL MODE: fallback or explicit
-    if (mode === "drill" || (mode === "lesson" && targets.length === 0)) {
+    // DRILL MODE: only when explicitly drill (no learning course)
+    if (mode === "drill") {
       const effectiveMode = "drill";
       const { data: lfs } = await sb
         .from("learning_fields")
