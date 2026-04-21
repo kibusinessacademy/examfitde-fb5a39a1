@@ -154,8 +154,23 @@ interface LfData {
 // v4: AI-Powered Blueprint Generation with shared client + enrichment
 // ═══════════════════════════════════════════════════════════════════════
 
+// Track-aware framing context. STUDIUM uses an academic frame (Modul/Klausur)
+// instead of the IHK-Berufsfeld framing — this fixes the "beruf=Fachkraft" mismatch
+// that produced 0 clean blueprints for academic curricula.
+type FramingContext = {
+  track: "STUDIUM" | "BERUF";
+  /** Display name used in prompt (study programme for STUDIUM, beruf for BERUF) */
+  contextLabel: string;
+  /** Role string used in system prompt */
+  expertRole: string;
+  /** Examination type wording */
+  examType: string;
+  /** Scenario placeholder example (varies per track) */
+  scenarioExample: string;
+};
+
 async function generateBlueprintTemplates(
-  berufName: string,
+  framing: FramingContext,
   comp: CompetencyData,
   lfTitle: string,
   facets: BlueprintFacet[],
@@ -176,14 +191,39 @@ async function generateBlueprintTemplates(
     ? `\nBEKANNTE FEHLVORSTELLUNGEN bei dieser Kompetenz:\n${comp.typical_misconceptions.map(m => `- ${m}`).join("\n")}`
     : "";
 
+  const isStudium = framing.track === "STUDIUM";
+  const contextLabel = framing.contextLabel;
+
   const glossaryBlock = glossaryTerms.length > 0
-    ? `\nFACHBEGRIFFE (${berufName}):\n${glossaryTerms.slice(0, 30).join(", ")}`
+    ? `\nFACHBEGRIFFE (${contextLabel}):\n${glossaryTerms.slice(0, 30).join(", ")}`
     : "";
 
-  const systemPrompt = `Du bist ein IHK-Prüfungsexperte für den Beruf "${berufName}".
-Du erstellst Blueprint-Templates für Prüfungsfragen auf ELITE-Niveau.
+  const contextHeader = isStudium
+    ? `STUDIENGANG / MODULKONTEXT: ${contextLabel}`
+    : `BERUF: ${contextLabel}`;
 
-BERUF: ${berufName}
+  const scenarioRule = isStudium
+    ? `   - MUSS akademisch/fachwissenschaftlich rahmen (${contextLabel})
+   - MUSS ein realistisches Klausur-/Modulprüfungsszenario darstellen
+   - Bei apply/analyze/evaluate: IMMER mit konkretem Fall-/Anwendungsbeispiel (Unternehmen, Kennzahlen, Sachverhalt)`
+    : `   - MUSS berufsspezifisch sein (${contextLabel}!)
+   - MUSS ein realistisches IHK-Prüfungsszenario darstellen
+   - Bei apply/analyze/evaluate: IMMER mit konkreter Betriebssituation`;
+
+  const errorRule = isStudium
+    ? `4. typical_errors: Exakt 3-5 modulspezifische, akademisch typische Klausurfehler.
+   - KEINE generischen Fehler!
+   - Jeder Fehler muss konkret zum Modul/Studiengang ${contextLabel} passen
+   - Fehler müssen psychometrisch plausibel sein (häufige Verwechslungen / Konzeptmissverständnisse)`
+    : `4. typical_errors: Exakt 3-5 berufsspezifische IHK-typische Prüfungsfehler.
+   - KEINE generischen Fehler!
+   - Jeder Fehler muss konkret zum Berufsfeld ${contextLabel} passen
+   - Fehler müssen psychometrisch plausibel sein (häufige Verwechslungen)`;
+
+  const systemPrompt = `Du bist ${framing.expertRole}.
+Du erstellst Blueprint-Templates für ${framing.examType} auf ELITE-Niveau.
+
+${contextHeader}
 LERNFELD: ${lfTitle}
 KOMPETENZ: ${comp.title}${comp.action_verb ? ` (Handlungsverb: ${comp.action_verb})` : ""}
 ${comp.description ? `BESCHREIBUNG: ${comp.description}` : ""}
@@ -197,25 +237,20 @@ ${facetDescriptions}
 
 ELITE-ANFORDERUNGEN PRO FACETTE:
 1. question_template: Konkretes Fragemuster mit {variable} Platzhaltern.
-   - MUSS berufsspezifisch sein (${berufName}!)
-   - MUSS ein realistisches IHK-Prüfungsszenario darstellen
-   - Bei apply/analyze/evaluate: IMMER mit konkreter Betriebssituation
-   - Mindestens 2 Variablen-Platzhalter pro Template (z. B. {betrieb_typ}, {betrag})
+${scenarioRule}
+   - Mindestens 2 Variablen-Platzhalter pro Template (z. B. ${framing.scenarioExample})
    - WICHTIG: Jeder Platzhalter MUSS in param_sets mit konkreten Werten belegt sein
 
 2. param_sets: PFLICHT! Array mit mindestens 2 konkreten Belegungen aller Platzhalter aus question_template.
    - Format: [{ "betrieb_typ": "Pflegeheim", "betrag": "850 €" }, { "betrieb_typ": "Werkstatt", "betrag": "1.200 €" }]
    - Jeder im question_template verwendete {placeholder} MUSS in JEDEM param_set als Key vorkommen
-   - Werte müssen realistisch und berufsspezifisch sein
+   - Werte müssen realistisch und ${isStudium ? "fachlich passend" : "berufsspezifisch"} sein
 
 3. explanation_template: Strukturiertes Erklärungsschema (kann auch Platzhalter enthalten, dieselben wie in question_template).
-   - Fachliche Begründung mit Rechtsgrundlage/Norm wenn relevant
+   - Fachliche Begründung mit ${isStudium ? "Modell-/Theoriereferenz" : "Rechtsgrundlage/Norm"} wenn relevant
    - Warum sind die Alternativen falsch?
 
-4. typical_errors: Exakt 3-5 berufsspezifische IHK-typische Prüfungsfehler.
-   - KEINE generischen Fehler!
-   - Jeder Fehler muss konkret zum Berufsfeld ${berufName} passen
-   - Fehler müssen psychometrisch plausibel sein (häufige Verwechslungen)
+${errorRule}
 
 5. trap_spec: JSON mit Prüfungsfallen-Spezifikation:
    { "trap_type": "...", "why_tempting": "...", "examiner_intention": "...", "common_misconception": "..." }
