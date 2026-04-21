@@ -401,9 +401,9 @@ Antworte NUR als JSON-Objekt:
       }
     }
 
-    // Forensic log line for downstream analysis (Wave 15b §3)
+    // Forensic log line for downstream analysis (Wave 15b §3 + STUDIUM track tag)
     console.log(
-      `[SeedV4][FORENSICS] comp="${comp.title}" beruf="${berufName}" ` +
+      `[SeedV4][FORENSICS] comp="${comp.title}" track=${framing.track} ctx="${contextLabel}" ` +
       `primary=${primaryProvider}/${primaryModel} retry=${retryProvider}/${retryModel} ` +
       `clean_primary=${cleanPrimary} clean_retry=${cleanRetry} ai_attempts=${cleanRetry > 0 || cleanPrimary > 0 ? (cleanPrimary > 0 ? 1 : 2) : 2}`
     );
@@ -412,7 +412,7 @@ Antworte NUR als JSON-Objekt:
     if (blueprints.length === 0) {
       throw new Error(
         `AI_GENERATION_FAILED: 0 clean blueprints after primary(${primaryProvider}/${primaryModel}) + retry(${retryProvider}/${retryModel}) ` +
-        `for competency "${comp.title}" (beruf=${berufName})`
+        `for competency "${comp.title}" (track=${framing.track}, ctx=${contextLabel})`
       );
     }
 
@@ -425,7 +425,7 @@ Antworte NUR als JSON-Objekt:
     // v4: Enforce minimum 3 typical_errors per blueprint
     for (const bp of blueprints) {
       if (!Array.isArray(bp.typical_errors) || bp.typical_errors.length < 3) {
-        bp.typical_errors = ensureMinErrors(bp.typical_errors, comp, berufName);
+        bp.typical_errors = ensureMinErrors(bp.typical_errors, comp, contextLabel);
       }
     }
 
