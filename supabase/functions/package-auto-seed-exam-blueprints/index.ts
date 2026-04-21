@@ -746,12 +746,12 @@ async function handleSeed(sb: ReturnType<typeof createClient>, p: any) {
     }
 
     // Upgrade empty-template blueprints
-    upgradeEmptyBlueprints(existing, lfs, berufName, toUpgrade, lf);
+    upgradeEmptyBlueprints(existing, lfs, framing.contextLabel, toUpgrade, lf);
   }
 
   // ── Path B: Competency-based seeding for LFs WITH competencies ──
   if (comps?.length) {
-    console.log(`[SeedV4] Seeding from ${comps.length} competencies for "${berufName}"`);
+    console.log(`[SeedV4] Seeding from ${comps.length} competencies for "${framing.contextLabel}" (track=${framing.track})`);
 
     const BATCH_SIZE = 8;
     const compBatches: CompetencyData[][] = [];
@@ -771,7 +771,7 @@ async function handleSeed(sb: ReturnType<typeof createClient>, p: any) {
         if (relevantFacets.length > 0 && aiCallCount < MAX_AI_CALLS) {
           const lf = lfMap.get(comp.learning_field_id);
           const lfTitle = lf?.title || "Lernfeld";
-          const templates = await generateBlueprintTemplates(berufName, comp, lfTitle, relevantFacets, glossaryTerms);
+          const templates = await generateBlueprintTemplates(framing, comp, lfTitle, relevantFacets, glossaryTerms);
           aiCallCount++;
 
           for (let i = 0; i < relevantFacets.length; i++) {
@@ -789,7 +789,7 @@ async function handleSeed(sb: ReturnType<typeof createClient>, p: any) {
 
           if (needsTemplateUpgrade || needsErrorUpgrade) {
             const facet = BLUEPRINT_FACETS.find(f => f.cognitive === bp.cognitive_level) || BLUEPRINT_FACETS[0];
-            const fallback = generateFallbackTemplate(facet, comp, berufName);
+            const fallback = generateFallbackTemplate(facet, comp, framing.contextLabel);
             const updates: any = {};
             if (needsTemplateUpgrade) {
               updates.question_template = fallback.question_template;
