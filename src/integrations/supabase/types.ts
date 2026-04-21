@@ -83394,6 +83394,15 @@ export type Database = {
         Returns: Json
       }
       enqueue_distribution_targets: { Args: never; Returns: Json }
+      enqueue_empty_blueprint_repair: {
+        Args: { p_package_id: string }
+        Returns: {
+          empty_bp_count: number
+          job_id: string
+          learning_field_id: string
+          status: string
+        }[]
+      }
       enqueue_finance_export: {
         Args: { p_currency?: string; p_export_type: string; p_month: string }
         Returns: string
@@ -83895,6 +83904,18 @@ export type Database = {
           drift_status: string
           source_id: string
           source_type: string
+        }[]
+      }
+      fn_drain_conflict_type_backfill: {
+        Args: never
+        Returns: {
+          recent_errors: number
+          recent_runs: number
+          recent_update_rate: number
+          recent_updated: number
+          remaining_nulls: number
+          should_continue: boolean
+          stop_reason: string
         }[]
       }
       fn_dry_run_bulk_import: { Args: { p_job_id: string }; Returns: Json }
