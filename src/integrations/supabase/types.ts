@@ -83910,6 +83910,7 @@ export type Database = {
         Args: never
         Returns: {
           recent_errors: number
+          recent_processed: number
           recent_runs: number
           recent_update_rate: number
           recent_updated: number

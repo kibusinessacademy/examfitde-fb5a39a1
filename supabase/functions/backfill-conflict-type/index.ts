@@ -168,14 +168,25 @@ Deno.serve(async (req) => {
       distribution[result.conflict_type] = (distribution[result.conflict_type] || 0) + 1;
     }
 
-    // Log to auto_heal_log
-    if (!dryRun && updated > 0) {
+    // Log to auto_heal_log — `processed` is the true denominator (rows scanned),
+    // `updated` is rows where DB write succeeded, `conflicts` is rows where
+    // conflict_type != 'none'. Stop-Guard uses processed vs updated for true
+    // efficiency rate.
+    if (!dryRun) {
       await sb.from("auto_heal_log").insert({
         action_type: "backfill_conflict_type",
         trigger_source: "backfill-conflict-type",
-        result_status: "ok",
-        result_detail: `Backfilled ${updated} questions (${conflicts} with conflict_type)`,
-        metadata: { updated, conflicts, distribution, curriculum_id: curriculumId, errors: errors.slice(0, 5) },
+        result_status: errors.length > 0 ? "partial" : "ok",
+        result_detail: `Processed ${questions.length}, updated ${updated} (${conflicts} with conflict_type, ${errors.length} errors)`,
+        metadata: {
+          processed: questions.length,
+          updated,
+          conflicts,
+          error_count: errors.length,
+          distribution,
+          curriculum_id: curriculumId,
+          errors: errors.slice(0, 5),
+        },
       });
     }
 
