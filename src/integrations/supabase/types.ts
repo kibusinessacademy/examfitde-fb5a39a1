@@ -84239,6 +84239,10 @@ export type Database = {
         Args: { p_package_id: string }
         Returns: boolean
       }
+      fn_job_type_requires_building: {
+        Args: { p_job_type: string }
+        Returns: boolean
+      }
       fn_link_visitor_attribution: {
         Args: { _user_id: string; _visitor_id: string }
         Returns: undefined
