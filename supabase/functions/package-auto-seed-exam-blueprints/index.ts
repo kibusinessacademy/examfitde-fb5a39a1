@@ -601,12 +601,21 @@ async function handleSeed(sb: ReturnType<typeof createClient>, p: any) {
     console.log(`[SeedV4] 🎯 Targeted mode: seeding only ${targetLfIds.length} LFs`);
   }
 
-  // 1) Load curriculum + beruf
+  // 1) Load curriculum + beruf + package track (STUDIUM vs. BERUF framing)
   const { data: curriculum } = await sb
     .from("curricula")
     .select("id, title, beruf_id")
     .eq("id", curriculumId)
     .single();
+
+  const { data: pkgRow } = await sb
+    .from("course_packages")
+    .select("track")
+    .eq("id", packageId)
+    .maybeSingle();
+
+  const trackRaw = (pkgRow?.track as string | undefined) || "";
+  const isStudium = trackRaw.toUpperCase() === "STUDIUM";
 
   let berufName = "Fachkraft";
   if (curriculum?.beruf_id) {
@@ -618,7 +627,28 @@ async function handleSeed(sb: ReturnType<typeof createClient>, p: any) {
     if (beruf?.bezeichnung_kurz) berufName = beruf.bezeichnung_kurz;
   }
 
-  // v4: Load profession glossary for domain-specific terms
+  // STUDIUM: prefer the curriculum/study programme title over a (often missing) beruf
+  const studiumLabel = (curriculum?.title || "Studienmodul").trim();
+
+  const framing: FramingContext = isStudium
+    ? {
+        track: "STUDIUM",
+        contextLabel: studiumLabel,
+        expertRole: `ein/e Hochschuldozent/in und Klausurautor/in für das Modul "${studiumLabel}"`,
+        examType: "Modul-/Klausurfragen",
+        scenarioExample: "{unternehmen}, {kennzahl}",
+      }
+    : {
+        track: "BERUF",
+        contextLabel: berufName,
+        expertRole: `ein IHK-Prüfungsexperte für den Beruf "${berufName}"`,
+        examType: "IHK-Prüfungsfragen",
+        scenarioExample: "{betrieb_typ}, {betrag}",
+      };
+
+  console.log(`[SeedV4] Framing resolved: track=${framing.track} ctx="${framing.contextLabel}"`);
+
+  // v4: Load profession glossary for domain-specific terms (only when beruf_id present)
   let glossaryTerms: string[] = [];
   if (curriculum?.beruf_id) {
     const { data: glossary } = await sb
