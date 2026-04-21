@@ -84406,6 +84406,7 @@ export type Database = {
         Args: { p_dry_run?: boolean }
         Returns: Json
       }
+      fn_reconcile_blueprint_approval_drift: { Args: never; Returns: Json }
       fn_reconcile_orphan_steps: { Args: never; Returns: Json }
       fn_reconcile_package_steps_to_ssot: {
         Args: { p_dry_run?: boolean; p_package_id: string }
