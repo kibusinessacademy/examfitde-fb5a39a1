@@ -827,8 +827,85 @@ async function handleSeed(sb: ReturnType<typeof createClient>, p: any) {
     console.warn(`[SeedV4] ⚠️ LF_COVERAGE_WARN: ${missingLfIds.length} LFs missing, continuing with partial coverage`);
   }
 
+  // ── EFFECTIVE BLUEPRINT POSTCONDITION (P0 Seed-Truth Guard) ──────
+  // Prevents the "Seed-Lüge" pattern where step is marked done but
+  // effective (non-deprecated) blueprint count is below the track-
+  // derived minimum. Datagestützte Formel statt Magic Numbers:
+  //   min_required = max(competencies_count, learning_fields_count * 3, 5)
+  // Begründung:
+  //   - Seeder erzeugt 5 Facets pro Competency (siehe BLUEPRINT_FACETS).
+  //   - Pro LF wird typischerweise mind. 3 verschiedene Facets erwartet,
+  //     damit downstream LF-Coverage + cognitive_spread halten.
+  //   - Floor 5 verhindert Trivial-Pakete ohne sinnvollen Pool.
+  // Bei Unterschreitung: finalizeStepFailed mit SEED_INSUFFICIENT_BLUEPRINTS,
+  // damit downstream UPSTREAM_CAUSALITY_NOT_SATISFIED_BLUEPRINTS Guard nicht
+  // erst hot-loopt, sondern hier schon sauber blockiert wird.
+  const { count: effectiveBpCount } = await sb
+    .from("question_blueprints")
+    .select("id", { count: "exact", head: true })
+    .eq("curriculum_id", curriculumId)
+    .is("deprecated_at", null);
+
+  const effective = effectiveBpCount ?? 0;
+  const competenciesCount = (comps || []).length;
+  const lfCount = allLfIds.length;
+  const minRequired = Math.max(competenciesCount, lfCount * 3, 5);
+
+  if (effective < minRequired) {
+    const reason =
+      `SEED_INSUFFICIENT_BLUEPRINTS: effective=${effective} < required=${minRequired} ` +
+      `(competencies=${competenciesCount}, learning_fields=${lfCount}). ` +
+      `Seeder reports inserted=${insertedCount}, upgraded=${upgradedCount}, ` +
+      `existing=${totalExisting}, ai_calls=${aiCallCount}.`;
+    console.error(`[SeedV4] ❌ ${reason}`);
+
+    // Audit-Trail (best effort, never block on logging error)
+    try {
+      await sb.from("admin_actions").insert({
+        scope: "package",
+        action: "seed_postcondition_violation",
+        affected_ids: [packageId],
+        payload: {
+          reason_code: "SEED_INSUFFICIENT_BLUEPRINTS",
+          effective_blueprint_count: effective,
+          min_required: minRequired,
+          competencies_count: competenciesCount,
+          learning_fields_count: lfCount,
+          inserted: insertedCount,
+          upgraded: upgradedCount,
+          existing: totalExisting,
+          ai_calls: aiCallCount,
+        },
+      });
+    } catch (logErr) {
+      console.warn(`[SeedV4] audit log failed (non-blocking): ${(logErr as Error).message}`);
+    }
+
+    await finalizeStepFailed(
+      sb,
+      packageId,
+      "auto_seed_exam_blueprints",
+      new Error(reason),
+    );
+    return json({
+      ok: false,
+      error: reason,
+      reason_code: "SEED_INSUFFICIENT_BLUEPRINTS",
+      effective_blueprint_count: effective,
+      min_required: minRequired,
+      retry: false,
+    }, 422);
+  }
+
   await finalizeStepDone(sb, packageId, "auto_seed_exam_blueprints", {
-    seeded: insertedCount, upgraded: upgradedCount, health_score: health.health_score, health_grade: health.grade,
+    seeded: insertedCount,
+    upgraded: upgradedCount,
+    health_score: health.health_score,
+    health_grade: health.grade,
+    effective_blueprint_count: effective,
+    min_required: minRequired,
+    competencies_count: competenciesCount,
+    learning_fields_count: lfCount,
   });
 
   return json({
