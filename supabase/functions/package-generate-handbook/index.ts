@@ -343,11 +343,23 @@ Deno.serve(async (req) => {
         };
       });
 
-      const { data: newChapters, error: chErr } = await sb
-        .from("handbook_chapters").insert(chaptersToCreate).select("id, sort_order");
-      if (chErr) throw new Error(`Chapter insert: ${chErr.message}`);
-      if (!newChapters?.length) throw new Error("handbook_chapters: 0 rows inserted");
-      chapters = newChapters;
+      // P0.5 IDEMPOTENT: upsert on (curriculum_id, chapter_key) so retries after partial
+      // materialization or cross-curriculum constraint crashes don't HTTP-500.
+      // DO NOTHING (ignoreDuplicates) preserves existing chapter content as SSOT.
+      const { error: chErr } = await sb
+        .from("handbook_chapters")
+        .upsert(chaptersToCreate, { onConflict: "curriculum_id,chapter_key", ignoreDuplicates: true });
+      if (chErr) throw new Error(`Chapter upsert: ${chErr.message}`);
+
+      // Re-fetch (upsert with ignoreDuplicates does not return existing rows)
+      const { data: refetched, error: refErr } = await sb
+        .from("handbook_chapters")
+        .select("id, sort_order")
+        .eq("curriculum_id", curriculumId)
+        .order("sort_order", { ascending: true });
+      if (refErr) throw new Error(`Chapter refetch: ${refErr.message}`);
+      if (!refetched?.length) throw new Error("handbook_chapters: 0 rows after upsert");
+      chapters = refetched;
     }
   }
 
