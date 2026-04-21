@@ -737,7 +737,7 @@ async function handleSeed(sb: ReturnType<typeof createClient>, p: any) {
         description: null, taxonomy_level: null, bloom_level: null,
         action_verb: null, typical_misconceptions: null, exam_relevance_tier: null,
       };
-      const templates = await generateBlueprintTemplates(berufName, fakeComp, lf.title, missingFacets, glossaryTerms);
+      const templates = await generateBlueprintTemplates(framing, fakeComp, lf.title, missingFacets, glossaryTerms);
       aiCallCount++;
 
       for (let i = 0; i < missingFacets.length; i++) {
