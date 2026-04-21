@@ -154,8 +154,23 @@ interface LfData {
 // v4: AI-Powered Blueprint Generation with shared client + enrichment
 // ═══════════════════════════════════════════════════════════════════════
 
+// Track-aware framing context. STUDIUM uses an academic frame (Modul/Klausur)
+// instead of the IHK-Berufsfeld framing — this fixes the "beruf=Fachkraft" mismatch
+// that produced 0 clean blueprints for academic curricula.
+type FramingContext = {
+  track: "STUDIUM" | "BERUF";
+  /** Display name used in prompt (study programme for STUDIUM, beruf for BERUF) */
+  contextLabel: string;
+  /** Role string used in system prompt */
+  expertRole: string;
+  /** Examination type wording */
+  examType: string;
+  /** Scenario placeholder example (varies per track) */
+  scenarioExample: string;
+};
+
 async function generateBlueprintTemplates(
-  berufName: string,
+  framing: FramingContext,
   comp: CompetencyData,
   lfTitle: string,
   facets: BlueprintFacet[],
@@ -176,14 +191,39 @@ async function generateBlueprintTemplates(
     ? `\nBEKANNTE FEHLVORSTELLUNGEN bei dieser Kompetenz:\n${comp.typical_misconceptions.map(m => `- ${m}`).join("\n")}`
     : "";
 
+  const isStudium = framing.track === "STUDIUM";
+  const contextLabel = framing.contextLabel;
+
   const glossaryBlock = glossaryTerms.length > 0
-    ? `\nFACHBEGRIFFE (${berufName}):\n${glossaryTerms.slice(0, 30).join(", ")}`
+    ? `\nFACHBEGRIFFE (${contextLabel}):\n${glossaryTerms.slice(0, 30).join(", ")}`
     : "";
 
-  const systemPrompt = `Du bist ein IHK-Prüfungsexperte für den Beruf "${berufName}".
-Du erstellst Blueprint-Templates für Prüfungsfragen auf ELITE-Niveau.
+  const contextHeader = isStudium
+    ? `STUDIENGANG / MODULKONTEXT: ${contextLabel}`
+    : `BERUF: ${contextLabel}`;
 
-BERUF: ${berufName}
+  const scenarioRule = isStudium
+    ? `   - MUSS akademisch/fachwissenschaftlich rahmen (${contextLabel})
+   - MUSS ein realistisches Klausur-/Modulprüfungsszenario darstellen
+   - Bei apply/analyze/evaluate: IMMER mit konkretem Fall-/Anwendungsbeispiel (Unternehmen, Kennzahlen, Sachverhalt)`
+    : `   - MUSS berufsspezifisch sein (${contextLabel}!)
+   - MUSS ein realistisches IHK-Prüfungsszenario darstellen
+   - Bei apply/analyze/evaluate: IMMER mit konkreter Betriebssituation`;
+
+  const errorRule = isStudium
+    ? `4. typical_errors: Exakt 3-5 modulspezifische, akademisch typische Klausurfehler.
+   - KEINE generischen Fehler!
+   - Jeder Fehler muss konkret zum Modul/Studiengang ${contextLabel} passen
+   - Fehler müssen psychometrisch plausibel sein (häufige Verwechslungen / Konzeptmissverständnisse)`
+    : `4. typical_errors: Exakt 3-5 berufsspezifische IHK-typische Prüfungsfehler.
+   - KEINE generischen Fehler!
+   - Jeder Fehler muss konkret zum Berufsfeld ${contextLabel} passen
+   - Fehler müssen psychometrisch plausibel sein (häufige Verwechslungen)`;
+
+  const systemPrompt = `Du bist ${framing.expertRole}.
+Du erstellst Blueprint-Templates für ${framing.examType} auf ELITE-Niveau.
+
+${contextHeader}
 LERNFELD: ${lfTitle}
 KOMPETENZ: ${comp.title}${comp.action_verb ? ` (Handlungsverb: ${comp.action_verb})` : ""}
 ${comp.description ? `BESCHREIBUNG: ${comp.description}` : ""}
@@ -197,25 +237,20 @@ ${facetDescriptions}
 
 ELITE-ANFORDERUNGEN PRO FACETTE:
 1. question_template: Konkretes Fragemuster mit {variable} Platzhaltern.
-   - MUSS berufsspezifisch sein (${berufName}!)
-   - MUSS ein realistisches IHK-Prüfungsszenario darstellen
-   - Bei apply/analyze/evaluate: IMMER mit konkreter Betriebssituation
-   - Mindestens 2 Variablen-Platzhalter pro Template (z. B. {betrieb_typ}, {betrag})
+${scenarioRule}
+   - Mindestens 2 Variablen-Platzhalter pro Template (z. B. ${framing.scenarioExample})
    - WICHTIG: Jeder Platzhalter MUSS in param_sets mit konkreten Werten belegt sein
 
 2. param_sets: PFLICHT! Array mit mindestens 2 konkreten Belegungen aller Platzhalter aus question_template.
    - Format: [{ "betrieb_typ": "Pflegeheim", "betrag": "850 €" }, { "betrieb_typ": "Werkstatt", "betrag": "1.200 €" }]
    - Jeder im question_template verwendete {placeholder} MUSS in JEDEM param_set als Key vorkommen
-   - Werte müssen realistisch und berufsspezifisch sein
+   - Werte müssen realistisch und ${isStudium ? "fachlich passend" : "berufsspezifisch"} sein
 
 3. explanation_template: Strukturiertes Erklärungsschema (kann auch Platzhalter enthalten, dieselben wie in question_template).
-   - Fachliche Begründung mit Rechtsgrundlage/Norm wenn relevant
+   - Fachliche Begründung mit ${isStudium ? "Modell-/Theoriereferenz" : "Rechtsgrundlage/Norm"} wenn relevant
    - Warum sind die Alternativen falsch?
 
-4. typical_errors: Exakt 3-5 berufsspezifische IHK-typische Prüfungsfehler.
-   - KEINE generischen Fehler!
-   - Jeder Fehler muss konkret zum Berufsfeld ${berufName} passen
-   - Fehler müssen psychometrisch plausibel sein (häufige Verwechslungen)
+${errorRule}
 
 5. trap_spec: JSON mit Prüfungsfallen-Spezifikation:
    { "trap_type": "...", "why_tempting": "...", "examiner_intention": "...", "common_misconception": "..." }
@@ -243,7 +278,9 @@ Antworte NUR als JSON-Objekt:
   // Templates DÜRFEN Platzhalter enthalten — aber JEDER Platzhalter MUSS in JEDEM param_set belegt sein.
   // Sonst → kann template-engine nicht expandieren → drop.
   const PLACEHOLDER_RE = /\{([A-Za-z_][A-Za-z0-9_]*)\}/g;
-  const userPrompt = `Erstelle ${facets.length} Elite-Blueprint-Facetten für die Kompetenz "${comp.title}" im Beruf "${berufName}". Verwende {platzhalter} im question_template UND liefere für jedes Template mindestens 2 konkrete param_sets, die ALLE Platzhalter mit realistischen berufsspezifischen Werten belegen.`;
+  const userPrompt = isStudium
+    ? `Erstelle ${facets.length} Elite-Blueprint-Facetten für die Kompetenz "${comp.title}" im Modul-/Studienkontext "${contextLabel}". Verwende {platzhalter} im question_template UND liefere für jedes Template mindestens 2 konkrete param_sets, die ALLE Platzhalter mit realistischen, fachlich passenden Werten belegen (Unternehmen, Kennzahlen, Modelle, Sachverhalte).`
+    : `Erstelle ${facets.length} Elite-Blueprint-Facetten für die Kompetenz "${comp.title}" im Beruf "${contextLabel}". Verwende {platzhalter} im question_template UND liefere für jedes Template mindestens 2 konkrete param_sets, die ALLE Platzhalter mit realistischen berufsspezifischen Werten belegen.`;
 
   async function attemptGeneration(chain: Array<{ provider: string; model: string }>, label: string) {
     const result = await callAIWithFailover(
@@ -364,9 +401,9 @@ Antworte NUR als JSON-Objekt:
       }
     }
 
-    // Forensic log line for downstream analysis (Wave 15b §3)
+    // Forensic log line for downstream analysis (Wave 15b §3 + STUDIUM track tag)
     console.log(
-      `[SeedV4][FORENSICS] comp="${comp.title}" beruf="${berufName}" ` +
+      `[SeedV4][FORENSICS] comp="${comp.title}" track=${framing.track} ctx="${contextLabel}" ` +
       `primary=${primaryProvider}/${primaryModel} retry=${retryProvider}/${retryModel} ` +
       `clean_primary=${cleanPrimary} clean_retry=${cleanRetry} ai_attempts=${cleanRetry > 0 || cleanPrimary > 0 ? (cleanPrimary > 0 ? 1 : 2) : 2}`
     );
@@ -375,7 +412,7 @@ Antworte NUR als JSON-Objekt:
     if (blueprints.length === 0) {
       throw new Error(
         `AI_GENERATION_FAILED: 0 clean blueprints after primary(${primaryProvider}/${primaryModel}) + retry(${retryProvider}/${retryModel}) ` +
-        `for competency "${comp.title}" (beruf=${berufName})`
+        `for competency "${comp.title}" (track=${framing.track}, ctx=${contextLabel})`
       );
     }
 
@@ -388,7 +425,7 @@ Antworte NUR als JSON-Objekt:
     // v4: Enforce minimum 3 typical_errors per blueprint
     for (const bp of blueprints) {
       if (!Array.isArray(bp.typical_errors) || bp.typical_errors.length < 3) {
-        bp.typical_errors = ensureMinErrors(bp.typical_errors, comp, berufName);
+        bp.typical_errors = ensureMinErrors(bp.typical_errors, comp, contextLabel);
       }
     }
 
@@ -564,12 +601,21 @@ async function handleSeed(sb: ReturnType<typeof createClient>, p: any) {
     console.log(`[SeedV4] 🎯 Targeted mode: seeding only ${targetLfIds.length} LFs`);
   }
 
-  // 1) Load curriculum + beruf
+  // 1) Load curriculum + beruf + package track (STUDIUM vs. BERUF framing)
   const { data: curriculum } = await sb
     .from("curricula")
     .select("id, title, beruf_id")
     .eq("id", curriculumId)
     .single();
+
+  const { data: pkgRow } = await sb
+    .from("course_packages")
+    .select("track")
+    .eq("id", packageId)
+    .maybeSingle();
+
+  const trackRaw = (pkgRow?.track as string | undefined) || "";
+  const isStudium = trackRaw.toUpperCase() === "STUDIUM";
 
   let berufName = "Fachkraft";
   if (curriculum?.beruf_id) {
@@ -581,7 +627,28 @@ async function handleSeed(sb: ReturnType<typeof createClient>, p: any) {
     if (beruf?.bezeichnung_kurz) berufName = beruf.bezeichnung_kurz;
   }
 
-  // v4: Load profession glossary for domain-specific terms
+  // STUDIUM: prefer the curriculum/study programme title over a (often missing) beruf
+  const studiumLabel = (curriculum?.title || "Studienmodul").trim();
+
+  const framing: FramingContext = isStudium
+    ? {
+        track: "STUDIUM",
+        contextLabel: studiumLabel,
+        expertRole: `ein/e Hochschuldozent/in und Klausurautor/in für das Modul "${studiumLabel}"`,
+        examType: "Modul-/Klausurfragen",
+        scenarioExample: "{unternehmen}, {kennzahl}",
+      }
+    : {
+        track: "BERUF",
+        contextLabel: berufName,
+        expertRole: `ein IHK-Prüfungsexperte für den Beruf "${berufName}"`,
+        examType: "IHK-Prüfungsfragen",
+        scenarioExample: "{betrieb_typ}, {betrag}",
+      };
+
+  console.log(`[SeedV4] Framing resolved: track=${framing.track} ctx="${framing.contextLabel}"`);
+
+  // v4: Load profession glossary for domain-specific terms (only when beruf_id present)
   let glossaryTerms: string[] = [];
   if (curriculum?.beruf_id) {
     const { data: glossary } = await sb
@@ -670,7 +737,7 @@ async function handleSeed(sb: ReturnType<typeof createClient>, p: any) {
         description: null, taxonomy_level: null, bloom_level: null,
         action_verb: null, typical_misconceptions: null, exam_relevance_tier: null,
       };
-      const templates = await generateBlueprintTemplates(berufName, fakeComp, lf.title, missingFacets, glossaryTerms);
+      const templates = await generateBlueprintTemplates(framing, fakeComp, lf.title, missingFacets, glossaryTerms);
       aiCallCount++;
 
       for (let i = 0; i < missingFacets.length; i++) {
@@ -679,12 +746,12 @@ async function handleSeed(sb: ReturnType<typeof createClient>, p: any) {
     }
 
     // Upgrade empty-template blueprints
-    upgradeEmptyBlueprints(existing, lfs, berufName, toUpgrade, lf);
+    upgradeEmptyBlueprints(existing, lfs, framing.contextLabel, toUpgrade, lf);
   }
 
   // ── Path B: Competency-based seeding for LFs WITH competencies ──
   if (comps?.length) {
-    console.log(`[SeedV4] Seeding from ${comps.length} competencies for "${berufName}"`);
+    console.log(`[SeedV4] Seeding from ${comps.length} competencies for "${framing.contextLabel}" (track=${framing.track})`);
 
     const BATCH_SIZE = 8;
     const compBatches: CompetencyData[][] = [];
@@ -704,7 +771,7 @@ async function handleSeed(sb: ReturnType<typeof createClient>, p: any) {
         if (relevantFacets.length > 0 && aiCallCount < MAX_AI_CALLS) {
           const lf = lfMap.get(comp.learning_field_id);
           const lfTitle = lf?.title || "Lernfeld";
-          const templates = await generateBlueprintTemplates(berufName, comp, lfTitle, relevantFacets, glossaryTerms);
+          const templates = await generateBlueprintTemplates(framing, comp, lfTitle, relevantFacets, glossaryTerms);
           aiCallCount++;
 
           for (let i = 0; i < relevantFacets.length; i++) {
@@ -722,7 +789,7 @@ async function handleSeed(sb: ReturnType<typeof createClient>, p: any) {
 
           if (needsTemplateUpgrade || needsErrorUpgrade) {
             const facet = BLUEPRINT_FACETS.find(f => f.cognitive === bp.cognitive_level) || BLUEPRINT_FACETS[0];
-            const fallback = generateFallbackTemplate(facet, comp, berufName);
+            const fallback = generateFallbackTemplate(facet, comp, framing.contextLabel);
             const updates: any = {};
             if (needsTemplateUpgrade) {
               updates.question_template = fallback.question_template;
@@ -915,7 +982,8 @@ async function handleSeed(sb: ReturnType<typeof createClient>, p: any) {
     upgraded: upgradedCount,
     existing: totalExisting,
     ai_calls: aiCallCount,
-    beruf: berufName,
+    beruf: framing.contextLabel,
+    track: framing.track,
     source: comps?.length ? "hybrid" : "learning_fields",
     health,
     version: "4.2.0",
