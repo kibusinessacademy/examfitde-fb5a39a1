@@ -278,7 +278,9 @@ Antworte NUR als JSON-Objekt:
   // Templates DÜRFEN Platzhalter enthalten — aber JEDER Platzhalter MUSS in JEDEM param_set belegt sein.
   // Sonst → kann template-engine nicht expandieren → drop.
   const PLACEHOLDER_RE = /\{([A-Za-z_][A-Za-z0-9_]*)\}/g;
-  const userPrompt = `Erstelle ${facets.length} Elite-Blueprint-Facetten für die Kompetenz "${comp.title}" im Beruf "${berufName}". Verwende {platzhalter} im question_template UND liefere für jedes Template mindestens 2 konkrete param_sets, die ALLE Platzhalter mit realistischen berufsspezifischen Werten belegen.`;
+  const userPrompt = isStudium
+    ? `Erstelle ${facets.length} Elite-Blueprint-Facetten für die Kompetenz "${comp.title}" im Modul-/Studienkontext "${contextLabel}". Verwende {platzhalter} im question_template UND liefere für jedes Template mindestens 2 konkrete param_sets, die ALLE Platzhalter mit realistischen, fachlich passenden Werten belegen (Unternehmen, Kennzahlen, Modelle, Sachverhalte).`
+    : `Erstelle ${facets.length} Elite-Blueprint-Facetten für die Kompetenz "${comp.title}" im Beruf "${contextLabel}". Verwende {platzhalter} im question_template UND liefere für jedes Template mindestens 2 konkrete param_sets, die ALLE Platzhalter mit realistischen berufsspezifischen Werten belegen.`;
 
   async function attemptGeneration(chain: Array<{ provider: string; model: string }>, label: string) {
     const result = await callAIWithFailover(
