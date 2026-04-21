@@ -146,12 +146,14 @@ Deno.serve(async (req) => {
       const result = classifyQuestion(q.question_text || "", opts, q.explanation || "");
 
       if (!dryRun) {
+        // scenario_type wird NICHT mehr hier gesetzt — eigener Constraint-konformer Pfad,
+        // freie Heuristik-Werte ("scenario"/"conflict"/"standard") verletzen
+        // exam_questions_scenario_type_check (erlaubt: error_detection, applied_case, ...).
         const { error: updErr } = await sb
           .from("exam_questions")
           .update({
             conflict_type: result.conflict_type,
             complexity_score: result.complexity_score,
-            scenario_type: result.scenario_type,
           })
           .eq("id", q.id);
 
