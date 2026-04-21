@@ -571,9 +571,9 @@ Deno.serve(async (req) => {
         // v22: Before returning, generate padding sections synchronously.
         // Without this, the job returns batch_complete=false, the verifier sees 4/8 sections,
         // marks it THRESHOLD_FAIL, and padding chapters are never reached.
+        let paddingWritten = 0;
         if (paddingChaptersNeedingSections.length > 0) {
           console.log(`[generate-handbook] v22: Generating ${paddingChaptersNeedingSections.length} padding sections before batch return`);
-          let paddingWritten = 0;
           for (const pad of paddingChaptersNeedingSections) {
             const padField = pad as any;
             const chapter = chapters.find((c: any) => c.id === padField._chapterId);
