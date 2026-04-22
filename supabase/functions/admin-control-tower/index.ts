@@ -51,35 +51,18 @@ async function safeCount(sb: SB, table: string, filters?: (q: any) => any): Prom
   }
 }
 
+import { requireAdmin } from "../_shared/adminGuard.ts";
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) return json({ error: "Unauthorized" }, 401);
-
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-
-    // Verify caller
-    const userClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: { user }, error: authErr } = await userClient.auth.getUser();
-    if (authErr || !user) return json({ error: "Unauthorized" }, 401);
-
-    // Admin role guard
-    const sb = createClient(supabaseUrl, serviceKey);
-    const { data: roleRow } = await sb
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", user.id)
-      .eq("role", "admin")
-      .maybeSingle();
-    if (!roleRow) return json({ error: "Forbidden" }, 403);
+    // P0 Security: central admin guard (JWT + user_roles check)
+    const guard = await requireAdmin(req);
+    if (guard instanceof Response) return guard;
+    const sb = guard.sb;
     const body = await req.json();
     const { action, recovery_type, package_id } = body;
 

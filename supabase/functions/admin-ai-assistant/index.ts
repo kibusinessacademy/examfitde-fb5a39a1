@@ -1,4 +1,5 @@
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
+import { requireAdmin } from "../_shared/adminGuard.ts";
 
 Deno.serve(async (req) => {
   const corsResponse = handleCorsPreflightRequest(req);
@@ -6,6 +7,10 @@ Deno.serve(async (req) => {
 
   const origin = req.headers.get("origin");
   const headers = { ...getCorsHeaders(origin), "Content-Type": "application/json; charset=utf-8" };
+
+  // P0 Security: gate every call behind admin role check
+  const guard = await requireAdmin(req);
+  if (guard instanceof Response) return guard;
 
   try {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
