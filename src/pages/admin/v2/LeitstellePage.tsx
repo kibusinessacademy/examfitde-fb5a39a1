@@ -207,6 +207,9 @@ export default function LeitstellePage() {
       <Suspense fallback={null}>
         <RepairExhaustedAlert />
       </Suspense>
+      <Suspense fallback={null}>
+        <BlockedPackagesCard variant="compact" detailHrefBuilder={(id) => `/admin/courses/${id}`} />
+      </Suspense>
 
       {/* KPI Grid */}
       {kpis && (
