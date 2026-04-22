@@ -1878,10 +1878,132 @@ Deno.serve(async (req) => {
       }, 409);
     }
 
-    console.log(`[ExamPool-v5][TARGETED_FILL] DONE: ${insertedQuestions} questions inserted across ${competenciesProcessed} competencies`);
+    // ── P1 Auto-Continuation: determine remaining targets after partial run ───
+    let remainingTargetCompetencyIds: string[] = [];
+    try {
+      const { data: approvedRows } = await sb2
+        .from("exam_questions")
+        .select("competency_id")
+        .eq("curriculum_id", curriculumId)
+        .eq("status", "approved")
+        .in("competency_id", resolvedIds);
+      const covered = new Set((approvedRows ?? []).map((r: any) => String(r.competency_id)));
+      remainingTargetCompetencyIds = resolvedIds.filter((id: string) => !covered.has(String(id)));
+    } catch (e) {
+      console.warn(`[ExamPool-v5][TARGETED_FILL] remaining-query failed: ${(e as Error)?.message ?? e}`);
+    }
+
+    let continuation: Record<string, unknown> = {
+      attempted: false,
+      enqueued: false,
+      reason: "NO_CONTINUATION_NEEDED",
+      remaining_target_competencies: remainingTargetCompetencyIds.length,
+    };
+
+    const shouldContinue =
+      insertedQuestions > 0 &&
+      remainingTargetCompetencyIds.length > 0 &&
+      continuationDepth < MAX_CONTINUATION_DEPTH;
+
+    if (shouldContinue) {
+      continuation.attempted = true;
+      try {
+        // Active-Job-Dedup: refuse if a targeted_competency_fill job is already pending/processing
+        const { data: activeExisting } = await sb2
+          .from("job_queue")
+          .select("id")
+          .eq("package_id", packageId)
+          .eq("job_type", "package_generate_exam_pool")
+          .in("status", ["pending", "queued", "processing", "running", "batch_pending"])
+          .contains("payload", { mode: "targeted_competency_fill" })
+          .limit(1);
+
+        if ((activeExisting ?? []).length > 0) {
+          continuation = {
+            ...continuation,
+            enqueued: false,
+            reason: "ACTIVE_TARGETED_JOB_EXISTS",
+          };
+        } else {
+          const nextDepth = continuationDepth + 1;
+          const childPayload = {
+            triggered_by: "targeted_fill_continuation",
+            reason: "remaining_target_competencies_after_partial_success",
+            package_id: packageId,
+            curriculum_id: curriculumId,
+            certification_id: p.certification_id ?? null,
+            is_repair: true,
+            mode: "targeted_competency_fill",
+            target_competency_ids: remainingTargetCompetencyIds,
+            min_questions_per_competency: Number(p.min_questions_per_competency ?? 5),
+            questions_per_blueprint: Number(p.questions_per_blueprint ?? 5),
+            continuation_of_targeted_fill: true,
+            continuation_depth: nextDepth,
+            root_job_id: rootJobId ?? parentJobId ?? null,
+            parent_job_id: parentJobId,
+          };
+          const childMeta = {
+            manual_heal: true,
+            cluster: "targeted_fill_continuation",
+            continuation_depth: nextDepth,
+            remaining_target_competencies: remainingTargetCompetencyIds.length,
+            root_job_id: rootJobId ?? parentJobId ?? null,
+            parent_job_id: parentJobId,
+          };
+          const { error: insErr } = await sb2.from("job_queue").insert({
+            job_type: "package_generate_exam_pool",
+            package_id: packageId,
+            status: "pending",
+            priority: 2,
+            max_attempts: 10,
+            run_after: new Date(Date.now() + 15_000).toISOString(),
+            payload: childPayload,
+            meta: childMeta,
+          });
+          if (insErr) throw insErr;
+          continuation = {
+            ...continuation,
+            enqueued: true,
+            reason: "CONTINUATION_ENQUEUED",
+            continuation_depth_next: nextDepth,
+          };
+        }
+      } catch (e) {
+        continuation = {
+          attempted: true,
+          enqueued: false,
+          reason: "CONTINUATION_ENQUEUE_FAILED",
+          error: (e as Error)?.message ?? String(e),
+          remaining_target_competencies: remainingTargetCompetencyIds.length,
+        };
+      }
+    } else if (remainingTargetCompetencyIds.length > 0 && continuationDepth >= MAX_CONTINUATION_DEPTH) {
+      continuation = {
+        attempted: false,
+        enqueued: false,
+        reason: "MAX_CONTINUATION_DEPTH_REACHED",
+        remaining_target_competencies: remainingTargetCompetencyIds.length,
+        continuation_depth: continuationDepth,
+      };
+    } else if (remainingTargetCompetencyIds.length === 0) {
+      continuation = {
+        attempted: false,
+        enqueued: false,
+        reason: "TARGETED_FILL_COMPLETE",
+        remaining_target_competencies: 0,
+      };
+    }
+
+    console.log(
+      `[ExamPool-v5][TARGETED_FILL] DONE inserted=${insertedQuestions} processed_bps=${processedBps} processed_comps=${competenciesProcessed} remaining=${remainingTargetCompetencyIds.length} depth=${continuationDepth} continuation=${continuation.reason}`,
+    );
     return json({
       ok: true,
       ...baseMeta,
+      continuation_depth: continuationDepth,
+      remaining_target_competencies: remainingTargetCompetencyIds.length,
+      remaining_target_competency_ids: remainingTargetCompetencyIds.slice(0, 100),
+      continuation,
     });
   }
   // ═══ END SCOPED REPAIR BRANCH ══════════════════════════════════════════════
