@@ -82184,6 +82184,7 @@ export type Database = {
         Args: { _limit?: number }
         Returns: {
           body: string
+          cluster: string
           created_at: string
           id: string
           is_read: boolean
