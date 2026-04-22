@@ -616,6 +616,24 @@ export function RepairExhaustedAlert() {
       if (action === 'heal_gate_pass') {
         return runAdminOpsAction('heal_gate_pass', { package_id: packageId });
       }
+      if (action === 'reset_exhaustion') {
+        return runAdminOpsAction('reset_repair_exhaustion', {
+          package_id: packageId,
+          step_keys: ['validate_exam_pool'],
+        });
+      }
+      if (action === 'reset_and_retry') {
+        // 1) HARD_FAIL_BREAKER / consecutive_no_progress clearen
+        await runAdminOpsAction('reset_repair_exhaustion', {
+          package_id: packageId,
+          step_keys: ['validate_exam_pool'],
+        });
+        // 2) validate_exam_pool sauber zurücksetzen → neuer Lauf
+        return runAdminOpsAction('reset_to_step', {
+          package_id: packageId,
+          step_key: 'validate_exam_pool',
+        });
+      }
       return runAdminOpsAction(action as any, { package_id: packageId });
     },
     onSuccess: (_data, vars) => {
