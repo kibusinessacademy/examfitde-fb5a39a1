@@ -272,14 +272,16 @@ function useRepairExhaustedPackages() {
 
 /* ── Row Component ── */
 
-function ExhaustedPackageRow({ pkg, onRepair, busyId, selected, onToggleSelect }: {
+function ExhaustedPackageRow({ pkg, onRepair, busyId, selected, onToggleSelect, locked }: {
   pkg: ExhaustedPackage;
   onRepair: (packageId: string, action: string) => void;
   busyId: string | null;
   selected?: boolean;
   onToggleSelect?: (id: string) => void;
+  locked: boolean;
 }) {
   const busy = busyId === pkg.package_id;
+  const disabled = busy || locked;
   const isGenNeverRan = hasCategory(pkg, 'GENERATION_NEVER_RAN');
 
   return (
