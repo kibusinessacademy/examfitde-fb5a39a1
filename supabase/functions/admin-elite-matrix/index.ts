@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
+import { requireAdmin } from "../_shared/adminGuard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -20,44 +21,10 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "Use POST" }, 405);
 
   try {
-    // Auth: require admin via shared auth helper
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return json({ error: "Unauthorized" }, 401);
-    }
-
-    const sb = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: authHeader } } }
-    );
-
-    const { data: claimsData, error: claimsErr } = await sb.auth.getClaims(
-      authHeader.replace("Bearer ", "")
-    );
-    if (claimsErr || !claimsData?.claims) {
-      return json({ error: "Unauthorized" }, 401);
-    }
-
-    const userId = claimsData.claims.sub as string;
-
-    // Check admin role
-    const adminSb = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-      { auth: { persistSession: false } }
-    );
-
-    const { data: roleData } = await adminSb
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userId)
-      .eq("role", "admin")
-      .maybeSingle();
-
-    if (!roleData) {
-      return json({ error: "Forbidden: admin role required" }, 403);
-    }
+    // P0 Security: central admin guard
+    const guard = await requireAdmin(req);
+    if (guard instanceof Response) return guard;
+    const adminSb = guard.sb;
 
     // Fetch matrix data
     const { data, error } = await adminSb
