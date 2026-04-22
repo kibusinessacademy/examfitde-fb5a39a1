@@ -38,6 +38,7 @@ const IntegrationHub = lazy(() => import('@/components/admin/enterprise/Integrat
 const SalesDemoPanel = lazy(() => import('@/components/admin/enterprise/SalesDemoPanel'));
 
 const RepairExhaustedAlert = lazy(() => import('@/components/admin/cards/RepairExhaustedAlert').then(m => ({ default: m.RepairExhaustedAlert })));
+const BlockedPackagesCard = lazy(() => import('@/components/admin/heal/BlockedPackagesCard').then(m => ({ default: m.BlockedPackagesCard })));
 const ExamPoolAuditCard = lazy(() => import('@/components/admin/cards/ExamPoolAuditCard'));
 const BlockedButReadyCard = lazy(() => import('@/components/admin/cards/BlockedButReadyCard'));
 const RecoveryBoardCard = lazy(() => import('@/components/admin/cards/RecoveryBoardCard'));
@@ -205,6 +206,9 @@ export default function LeitstellePage() {
       {/* ═══ SECTION 1: Critical Alerts (always visible, top priority) ═══ */}
       <Suspense fallback={null}>
         <RepairExhaustedAlert />
+      </Suspense>
+      <Suspense fallback={null}>
+        <BlockedPackagesCard variant="compact" detailHrefBuilder={(id) => `/admin/courses/${id}`} />
       </Suspense>
 
       {/* KPI Grid */}
