@@ -286,15 +286,35 @@ export default function QueuePage() {
 
   const StuckJobTypeAlert = lazy(() => import('@/components/admin/queue/StuckJobTypeAlert'));
   const RunnerHealthCard = lazy(() => import('@/components/admin/queue/RunnerHealthCard'));
+  const QueueActionCockpit = lazy(() => import('@/components/admin/queue/QueueActionCockpit').then(m => ({ default: m.QueueActionCockpit })));
   const QueueHealthDashboard = lazy(() => import('@/components/admin/queue/QueueHealthDashboard').then(m => ({ default: m.QueueHealthDashboard })));
 
   return (
     <div className="space-y-4">
+      {/* === ACTION-FIRST COCKPIT (Primary Interface) === */}
+      {/* 1. Health-Header (kompakt) + 2. Empfohlene Aktionen (priorisiert mit Risk-Tags) */}
+      <Suspense fallback={null}><QueueActionCockpit /></Suspense>
+
+      {/* === RUNNER HEALTH (Infrastruktur-Signal) === */}
       <Suspense fallback={null}><RunnerHealthCard /></Suspense>
       <Suspense fallback={null}><StuckJobTypeAlert /></Suspense>
-      <Suspense fallback={null}><QueueHealthDashboard /></Suspense>
+
+      {/* === DRILLDOWN: Operations-Detail-Layer === */}
+      <details className="group rounded-xl border border-border bg-card/50">
+        <summary className="cursor-pointer p-3 flex items-center justify-between hover:bg-muted/30 transition-colors rounded-xl">
+          <div>
+            <h2 className="text-sm font-semibold text-foreground">Drilldown · Root Causes & Audit</h2>
+            <p className="text-[10px] text-muted-foreground mt-0.5">Detaillierte Cluster-Analyse, Status-Transitionen und Bulk-Aktionen</p>
+          </div>
+          <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
+        </summary>
+        <div className="border-t border-border p-3">
+          <Suspense fallback={null}><QueueHealthDashboard /></Suspense>
+        </div>
+      </details>
+
       <div>
-        <h1 className="text-xl font-bold text-foreground">Queue</h1>
+        <h1 className="text-xl font-bold text-foreground">Queue · Live-Liste</h1>
         <p className="text-xs text-muted-foreground mt-0.5">Operations Queue · Echtdaten (Server-Counts)</p>
       </div>
 
