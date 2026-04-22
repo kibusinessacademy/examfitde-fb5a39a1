@@ -748,10 +748,11 @@ export function RepairExhaustedAlert() {
               <ExhaustedPackageRow
                 key={pkg.package_id}
                 pkg={pkg}
-                onRepair={(id, action) => repairMutation.mutate({ packageId: id, action })}
+                onRepair={requestRepair}
                 busyId={busyId}
                 selected={selectedIds.has(pkg.package_id)}
                 onToggleSelect={toggleSelect}
+                locked={hasActiveRepair}
               />
             ))}
           </div>
@@ -763,6 +764,85 @@ export function RepairExhaustedAlert() {
           )}
         </>
       )}
+
+      {/* Globaler Lock-Hinweis */}
+      {hasActiveRepair && (
+        <div className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-[11px] text-warning-foreground flex items-center gap-2">
+          <Loader2 className="h-3 w-3 animate-spin shrink-0" />
+          <span>
+            <strong>Repair-Lock aktiv:</strong> {activeRepairs.data} aktive(r) <code>package_repair_*</code>-Job(s) in der Queue.
+            Heal-Buttons sind blockiert, um doppelte Reparaturen zu vermeiden.
+          </span>
+        </div>
+      )}
+
+      {/* Bestätigungsdialog vor Repair-Ausführung */}
+      <AlertDialog open={!!pendingAction} onOpenChange={(open) => !open && setPendingAction(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <ShieldAlert className="h-4 w-4 text-warning" />
+              {pendingAction ? (ACTION_LABELS[pendingAction.action]?.title ?? pendingAction.action) : ''} bestätigen
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-xs">
+                <p>
+                  Aktion <strong>{pendingAction?.action}</strong> wird für Paket{' '}
+                  <code>{pendingAction?.pkgTitle}</code> ausgeführt.
+                </p>
+                {pendingAction && ACTION_LABELS[pendingAction.action]?.description && (
+                  <p className="text-muted-foreground">{ACTION_LABELS[pendingAction.action].description}</p>
+                )}
+                {pendingAction && ACTION_LABELS[pendingAction.action]?.danger && (
+                  <p className="text-destructive font-medium">
+                    ⚠️ Diese Aktion erzeugt Queue-Jobs und verbraucht KI-Budget. Auto-Repair-Limit wurde bereits erreicht.
+                  </p>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (!pendingAction) return;
+                repairMutation.mutate({ packageId: pendingAction.packageId, action: pendingAction.action });
+                setPendingAction(null);
+              }}
+            >
+              Jetzt ausführen
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Verständlicher Fehler-Dialog */}
+      <AlertDialog open={!!lastError} onOpenChange={(open) => !open && setLastError(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertOctagon className="h-4 w-4 text-destructive" />
+              {lastError?.parsed.title ?? 'Fehler'}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-xs">
+                <p>{lastError?.parsed.description}</p>
+                {lastError?.parsed.details && lastError.parsed.details.length > 0 && (
+                  <ul className="list-disc pl-4 space-y-0.5 text-muted-foreground">
+                    {lastError.parsed.details.slice(0, 5).map((d, i) => <li key={i}>{d}</li>)}
+                  </ul>
+                )}
+                <p className="text-[10px] text-muted-foreground font-mono break-all">
+                  Kategorie: {lastError?.parsed.kind} · Paket: {lastError?.packageId.slice(0, 8)}
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Schließen</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
