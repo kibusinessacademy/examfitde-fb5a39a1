@@ -16,8 +16,15 @@ import {
   Loader2, ChevronRight, CheckCircle2, Zap, Eye,
 } from 'lucide-react';
 import { QueueValidationWarnings } from './QueueValidationWarnings';
+import { QueueHealthcheckBanner } from './QueueHealthcheckBanner';
 
 type RiskLevel = 'SAFE' | 'LOW' | 'MEDIUM' | 'HIGH';
+
+interface HealthcheckResponse {
+  status: 'ok' | 'warn' | 'fail' | string;
+  view_clusters?: string[];
+  heal_clusters?: string[];
+}
 
 interface RecommendedAction {
   action_key: string;
