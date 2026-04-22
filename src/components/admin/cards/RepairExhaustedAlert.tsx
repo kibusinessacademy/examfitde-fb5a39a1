@@ -52,6 +52,8 @@ const ACTION_LABELS: Record<string, { title: string; description: string; danger
   repair_minichecks: { title: 'MiniChecks reparieren', description: 'Erzeugt MiniChecks für Lektionen ohne Fragen.' },
   repair_exam_pool_quality: { title: 'Pool-Qualität reparieren', description: 'Trap-/Bloom-Verteilung wird rebalanciert.', danger: true },
   retry_validate: { title: 'Validate Reset', description: 'Setzt nur den validate_exam_pool-Step zurück. Sicherste Option.' },
+  reset_exhaustion: { title: 'Exhaustion-Counter zurücksetzen', description: 'Hebt den HARD_FAIL_BREAKER / HARD_FAIL_REPAIR_EXHAUSTED-Status auf, ohne neue Jobs zu starten. Nötig bevor weitere Repair-Aktionen wieder greifen.' },
+  reset_and_retry: { title: 'Exhaustion lösen + Validate-Retry', description: 'Atomare Sequenz: HARD_FAIL_BREAKER aufheben → validate_exam_pool zurücksetzen. Empfohlen bei „Manuelles Review erforderlich".', danger: true },
 };
 
 /* ── Types ── */
