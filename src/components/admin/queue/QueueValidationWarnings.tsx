@@ -407,6 +407,7 @@ function DrilldownSheet({ warning }: { warning: ValidationWarning }) {
     queryKey: ['package-active-repair', warning.package_id],
     enabled: open && !!warning.package_id,
     queryFn: async () => {
+      if (!warning.package_id) return 0;
       const { count, error } = await supabase
         .from('job_queue')
         .select('id', { count: 'exact', head: true })
