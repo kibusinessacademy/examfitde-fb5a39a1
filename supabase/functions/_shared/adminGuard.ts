@@ -50,20 +50,26 @@ export async function requireAdmin(
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-  // Verify JWT using anon client
+  // Verify JWT via anon client (works on all SDK versions)
   const anonSb = createClient(url, anonKey, {
-    global: { headers: { Authorization: authHeader } },
+    auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  const { data: claims, error } = await anonSb.auth.getClaims(token);
-  if (error || !claims?.claims?.sub) {
+  let userId: string | null = null;
+  try {
+    const { data, error } = await anonSb.auth.getUser(token);
+    if (error || !data?.user?.id) {
+      return json({ error: "Unauthorized" }, 401);
+    }
+    userId = data.user.id;
+  } catch (_e) {
     return json({ error: "Unauthorized" }, 401);
   }
 
-  const userId = claims.claims.sub as string;
-
   // Check admin role using service client
-  const sb = createClient(url, serviceKey);
+  const sb = createClient(url, serviceKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
 
   const { data: roles } = await sb
     .from("user_roles")
