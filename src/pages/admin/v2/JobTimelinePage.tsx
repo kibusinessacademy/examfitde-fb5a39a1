@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -56,7 +56,7 @@ export default function JobTimelinePage() {
   const jobId = params.get('job_id') || null;
   const pkgId = params.get('package_id') || null;
 
-  const { data, isLoading, error } = useQuery({
+  const { data: rawData, isLoading, error } = useQuery({
     queryKey: ['job-timeline', jobId, pkgId],
     queryFn: async () => {
       if (!jobId && !pkgId) return [];
@@ -69,6 +69,18 @@ export default function JobTimelinePage() {
     enabled: !!(jobId || pkgId),
     refetchInterval: 15_000,
   });
+
+  const data = useMemo(() => {
+    if (!rawData) return rawData;
+    const q = errorClassFilter.trim().toLowerCase();
+    if (!q) return rawData;
+    return rawData.filter(r =>
+      r.error_class?.toLowerCase().includes(q) ||
+      r.last_error?.toLowerCase().includes(q) ||
+      r.decision?.toLowerCase().includes(q) ||
+      r.job_type?.toLowerCase().includes(q)
+    );
+  }, [rawData, errorClassFilter]);
 
   const apply = () => {
     const next = new URLSearchParams();
@@ -95,6 +107,8 @@ export default function JobTimelinePage() {
             placeholder="job_id (UUID)" className="font-mono text-xs" />
           <Input value={pkgIdInput} onChange={(e) => setPkgIdInput(e.target.value)}
             placeholder="package_id (UUID)" className="font-mono text-xs" />
+          <Input value={errorClassFilter} onChange={(e) => setErrorClassFilter(e.target.value)}
+            placeholder="Filter: error class / job_type" className="font-mono text-xs" />
           <Button size="sm" onClick={apply}>
             <Search className="mr-1.5 h-3 w-3" /> Anzeigen
           </Button>
