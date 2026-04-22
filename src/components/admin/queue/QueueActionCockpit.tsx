@@ -463,7 +463,21 @@ export function QueueActionCockpit() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setDryRunResult(null)}>Schließen</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => { setDryRunResult(null); setConfirmAction(null); }}>
+              Schließen
+            </AlertDialogCancel>
+            {confirmAction && !confirmAction.is_safe && dryRunResult?.ok && (
+              <AlertDialogAction
+                onClick={() => {
+                  const a = confirmAction;
+                  setDryRunResult(null);
+                  execute.mutate({ action: a, dryRun: false });
+                }}
+                className="bg-warning hover:bg-warning/90 text-warning-foreground"
+              >
+                Trotzdem jetzt ausführen
+              </AlertDialogAction>
+            )}
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
