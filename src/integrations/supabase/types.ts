@@ -81989,6 +81989,10 @@ export type Database = {
         Args: { p_action_id: string }
         Returns: undefined
       }
+      admin_execute_recommended_action: {
+        Args: { _action_key: string; _max_jobs?: number }
+        Returns: Json
+      }
       admin_force_depublish_and_rebuild: {
         Args: { p_package_id: string }
         Returns: undefined
@@ -82061,6 +82065,7 @@ export type Database = {
           ts: string
         }[]
       }
+      admin_get_queue_health_score: { Args: never; Returns: Json }
       admin_heal_step_job_coupling: {
         Args: { _step_keys?: string[] }
         Returns: {
@@ -82126,6 +82131,21 @@ export type Database = {
       admin_mark_package_repair: {
         Args: { p_package_id: string; p_reason?: string; p_unmark?: boolean }
         Returns: Json
+      }
+      admin_recommend_queue_actions: {
+        Args: never
+        Returns: {
+          action_key: string
+          affected_packages: number
+          cluster: string
+          description: string
+          is_safe: boolean
+          job_count: number
+          priority: number
+          recommended_strategy: string
+          risk_level: string
+          title: string
+        }[]
       }
       admin_reconcile_redundant_seeding: {
         Args: { _dry_run?: boolean }
@@ -84010,6 +84030,10 @@ export type Database = {
           reason: string
           step_key: string
         }[]
+      }
+      fn_auto_heal_failed_clusters: {
+        Args: { _dry_run?: boolean; _max_per_cluster?: number }
+        Returns: Json
       }
       fn_auto_heal_hard_fail_repair_exhausted: { Args: never; Returns: Json }
       fn_auto_heal_materialization_guard: { Args: never; Returns: Json }
