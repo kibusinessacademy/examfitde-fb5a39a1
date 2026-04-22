@@ -5,6 +5,7 @@
 import { Helmet } from "react-helmet-async";
 import { MorningBriefing } from "@/components/admin/heal/MorningBriefing";
 import { HealWorklist } from "@/components/admin/heal/HealWorklist";
+import { BlockedPackagesCard } from "@/components/admin/heal/BlockedPackagesCard";
 import { Stethoscope } from "lucide-react";
 
 export default function HealCockpitPage() {
@@ -32,6 +33,7 @@ export default function HealCockpitPage() {
       </header>
 
       <MorningBriefing />
+      <BlockedPackagesCard detailHrefBuilder={(id) => `/admin/courses/${id}`} />
       <HealWorklist />
     </div>
   );
