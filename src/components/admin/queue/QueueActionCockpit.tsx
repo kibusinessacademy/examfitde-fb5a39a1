@@ -183,21 +183,44 @@ export function QueueActionCockpit() {
       const processedCount = toCount(r.processed);
       const skippedCount = toCount(r.skipped);
       const errorCount = toCount(r.errors);
-      toast({
-        title: res.ok ? 'Heilung ausgeführt' : 'Aktion fehlgeschlagen',
-        description: res.ok
-          ? `Cluster ${res.cluster}: ${processedCount} verarbeitet, ${skippedCount} übersprungen, ${errorCount} Fehler.`
-          : `Aktion ${vars.action.action_key} konnte nicht ausgeführt werden.`,
-        variant: res.ok ? 'default' : 'destructive',
-      });
+
+      // Wenn die RPC zwar HTTP-200 lieferte, aber Jobs Fehler hatten,
+      // zeigen wir die parsed-Diagnose statt einer nichtssagenden „0/Fehler"-Meldung.
+      if (errorCount > 0 || (!res.ok && processedCount === 0)) {
+        const parsed = parseHealError({ result: r });
+        toast({
+          title: parsed.title,
+          description:
+            parsed.description +
+            (parsed.details && parsed.details.length > 0
+              ? `\n• ${parsed.details.slice(0, 3).join('\n• ')}`
+              : ''),
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: res.ok ? 'Heilung ausgeführt' : 'Aktion fehlgeschlagen',
+          description: res.ok
+            ? `Cluster ${res.cluster}: ${processedCount} verarbeitet, ${skippedCount} übersprungen, ${errorCount} Fehler.`
+            : `Aktion ${vars.action.action_key} konnte nicht ausgeführt werden.`,
+          variant: res.ok ? 'default' : 'destructive',
+        });
+      }
       qc.invalidateQueries({ queryKey: ['queue-health-score'] });
       qc.invalidateQueries({ queryKey: ['queue-recommended-actions'] });
       qc.invalidateQueries({ queryKey: ['queue-health'] });
       qc.invalidateQueries({ queryKey: ['queue-counts'] });
+      qc.invalidateQueries({ queryKey: ['active-repair-jobs'] });
       setConfirmAction(null);
+      setSafeConfirm(null);
     },
     onError: (e: Error) => {
-      toast({ title: 'Fehler', description: e.message, variant: 'destructive' });
+      const parsed = parseHealError(e);
+      toast({
+        title: parsed.title,
+        description: parsed.description,
+        variant: 'destructive',
+      });
     },
   });
 
