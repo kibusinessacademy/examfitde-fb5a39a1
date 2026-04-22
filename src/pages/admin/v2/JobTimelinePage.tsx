@@ -52,6 +52,7 @@ export default function JobTimelinePage() {
   const [params, setParams] = useSearchParams();
   const [jobIdInput, setJobIdInput] = useState(params.get('job_id') ?? '');
   const [pkgIdInput, setPkgIdInput] = useState(params.get('package_id') ?? '');
+  const [errorClassFilter, setErrorClassFilter] = useState('');
   const jobId = params.get('job_id') || null;
   const pkgId = params.get('package_id') || null;
 
