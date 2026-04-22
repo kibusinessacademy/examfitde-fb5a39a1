@@ -350,9 +350,15 @@ export function QueueActionCockpit() {
                         variant={isPrimary ? 'default' : 'outline'}
                         disabled={execute.isPending}
                         onClick={() => {
-                          setConfirmAction(a);
+                          // SAFE → direkt heilen.
+                          // MEDIUM/HIGH → Dry-Run-First erzwingen; danach öffnet der
+                          // Dry-Run-Result-Dialog und Operator kann "Trotzdem ausführen".
                           if (a.is_safe) {
+                            setConfirmAction(a);
                             execute.mutate({ action: a, dryRun: false });
+                          } else {
+                            setConfirmAction(a);
+                            execute.mutate({ action: a, dryRun: true });
                           }
                         }}
                         className="h-7 px-3 text-[11px] font-semibold"
@@ -362,9 +368,9 @@ export function QueueActionCockpit() {
                         ) : a.is_safe ? (
                           <Zap className="h-3 w-3 mr-1.5" />
                         ) : (
-                          <AlertTriangle className="h-3 w-3 mr-1.5" />
+                          <Eye className="h-3 w-3 mr-1.5" />
                         )}
-                        {a.is_safe ? 'Jetzt heilen' : 'Bestätigen'}
+                        {a.is_safe ? 'Jetzt heilen' : 'Vorschau & Bestätigen'}
                         <ChevronRight className="h-3 w-3 ml-0.5" />
                       </Button>
                     </>
