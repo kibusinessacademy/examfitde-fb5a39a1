@@ -46714,6 +46714,27 @@ export type Database = {
         }
         Relationships: []
       }
+      security_anon_allowlist: {
+        Row: {
+          added_at: string
+          object_kind: string
+          object_name: string
+          reason: string
+        }
+        Insert: {
+          added_at?: string
+          object_kind: string
+          object_name: string
+          reason: string
+        }
+        Update: {
+          added_at?: string
+          object_kind?: string
+          object_name?: string
+          reason?: string
+        }
+        Relationships: []
+      }
       security_audit_snapshots: {
         Row: {
           created_at: string
