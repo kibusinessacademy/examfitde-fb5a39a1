@@ -187,8 +187,8 @@ export function QueueActionCockpit() {
 
   return (
     <div className="space-y-3">
-      {/* === VALIDATION WARNINGS (Job-Type-Mismatch etc.) === */}
-      <QueueValidationWarnings />
+      {/* Action-First Reihenfolge:
+          1. Health-Header · 2. Empfohlene Aktionen · 3. Validation+System-Health-Warnings */}
 
       {/* === KONTEXT-HEADER === */}
       <Card className="border-border bg-gradient-to-br from-card to-muted/20">
