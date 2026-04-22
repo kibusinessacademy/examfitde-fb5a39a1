@@ -45470,6 +45470,57 @@ export type Database = {
         }
         Relationships: []
       }
+      queue_validation_audit: {
+        Row: {
+          cluster: string | null
+          created_at: string
+          decision: string
+          id: string
+          is_valid: boolean
+          job_type: string
+          mode: string | null
+          package_id: string | null
+          payload_excerpt: Json | null
+          reason: string | null
+          severity: string | null
+          source: string
+          source_job_id: string | null
+          validation: Json | null
+        }
+        Insert: {
+          cluster?: string | null
+          created_at?: string
+          decision: string
+          id?: string
+          is_valid: boolean
+          job_type: string
+          mode?: string | null
+          package_id?: string | null
+          payload_excerpt?: Json | null
+          reason?: string | null
+          severity?: string | null
+          source: string
+          source_job_id?: string | null
+          validation?: Json | null
+        }
+        Update: {
+          cluster?: string | null
+          created_at?: string
+          decision?: string
+          id?: string
+          is_valid?: boolean
+          job_type?: string
+          mode?: string | null
+          package_id?: string | null
+          payload_excerpt?: Json | null
+          reason?: string | null
+          severity?: string | null
+          source?: string
+          source_job_id?: string | null
+          validation?: Json | null
+        }
+        Relationships: []
+      }
       rate_limits: {
         Row: {
           request_count: number
@@ -82018,6 +82069,10 @@ export type Database = {
         Args: { p_action_id: string }
         Returns: undefined
       }
+      admin_dry_run_repair_for_package: {
+        Args: { _package_id: string }
+        Returns: Json
+      }
       admin_execute_recommended_action: {
         Args: { _action_key: string; _dry_run?: boolean; _max_jobs?: number }
         Returns: Json
@@ -82095,6 +82150,36 @@ export type Database = {
         }[]
       }
       admin_get_queue_health_score: { Args: never; Returns: Json }
+      admin_get_queue_validation_audit: {
+        Args: {
+          _limit?: number
+          _only_invalid?: boolean
+          _package_id?: string
+          _source_job_id?: string
+        }
+        Returns: {
+          cluster: string | null
+          created_at: string
+          decision: string
+          id: string
+          is_valid: boolean
+          job_type: string
+          mode: string | null
+          package_id: string | null
+          payload_excerpt: Json | null
+          reason: string | null
+          severity: string | null
+          source: string
+          source_job_id: string | null
+          validation: Json | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "queue_validation_audit"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       admin_get_queue_validation_warnings: {
         Args: { _limit?: number }
         Returns: {
@@ -82184,6 +82269,7 @@ export type Database = {
         Args: { _cluster: string }
         Returns: number
       }
+      admin_queue_system_healthcheck: { Args: never; Returns: Json }
       admin_recommend_queue_actions: {
         Args: never
         Returns: {
@@ -84643,6 +84729,23 @@ export type Database = {
       fn_log_guardrail_event: {
         Args: { p_details: Json; p_guard_key: string }
         Returns: undefined
+      }
+      fn_log_queue_validation: {
+        Args: {
+          _cluster: string
+          _decision: string
+          _is_valid: boolean
+          _job_type: string
+          _mode: string
+          _package_id: string
+          _payload_excerpt: Json
+          _reason: string
+          _severity: string
+          _source: string
+          _source_job_id: string
+          _validation: Json
+        }
+        Returns: string
       }
       fn_mark_legacy_exempt: {
         Args: { p_package_id: string; p_reason: string; p_set_by?: string }
