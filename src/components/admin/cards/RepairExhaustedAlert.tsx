@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import {
   AlertOctagon, ArrowRight, RefreshCw, Loader2, Wrench, Zap,
   Filter, ChevronDown, ChevronUp, Play, CheckCircle2, ShieldAlert,
+  Unlock, RotateCcw,
 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RepairToolboxActions } from '@/components/admin/heal/RepairToolboxActions';
@@ -51,6 +52,8 @@ const ACTION_LABELS: Record<string, { title: string; description: string; danger
   repair_minichecks: { title: 'MiniChecks reparieren', description: 'Erzeugt MiniChecks für Lektionen ohne Fragen.' },
   repair_exam_pool_quality: { title: 'Pool-Qualität reparieren', description: 'Trap-/Bloom-Verteilung wird rebalanciert.', danger: true },
   retry_validate: { title: 'Validate Reset', description: 'Setzt nur den validate_exam_pool-Step zurück. Sicherste Option.' },
+  reset_exhaustion: { title: 'Exhaustion-Counter zurücksetzen', description: 'Hebt den HARD_FAIL_BREAKER / HARD_FAIL_REPAIR_EXHAUSTED-Status auf, ohne neue Jobs zu starten. Nötig bevor weitere Repair-Aktionen wieder greifen.' },
+  reset_and_retry: { title: 'Exhaustion lösen + Validate-Retry', description: 'Atomare Sequenz: HARD_FAIL_BREAKER aufheben → validate_exam_pool zurücksetzen. Empfohlen bei „Manuelles Review erforderlich".', danger: true },
 };
 
 /* ── Types ── */
@@ -348,6 +351,32 @@ function ExhaustedPackageRow({ pkg, onRepair, busyId, selected, onToggleSelect, 
 
       {/* Context-sensitive buttons */}
       <div className="flex flex-wrap gap-1.5 pt-1">
+        {/* PRIMARY EXIT — Reset Exhaustion / Reset & Retry.
+            Solange HARD_FAIL_BREAKER aktiv ist, werden alle anderen
+            Repair-Jobs intern verworfen → diese Aktionen sind der einzige Ausweg. */}
+        <Button
+          size="sm"
+          variant="default"
+          className="h-7 text-[11px] gap-1"
+          disabled={disabled}
+          onClick={() => onRepair(pkg.package_id, 'reset_and_retry')}
+          title="HARD_FAIL_BREAKER aufheben und validate_exam_pool neu starten"
+        >
+          {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
+          Exhaustion lösen + Retry
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-7 text-[11px] gap-1"
+          disabled={disabled}
+          onClick={() => onRepair(pkg.package_id, 'reset_exhaustion')}
+          title="Nur den HARD_FAIL_BREAKER-Status aufheben — kein neuer Job"
+        >
+          {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Unlock className="h-3 w-3" />}
+          Exhaustion zurücksetzen
+        </Button>
+
         {/* GATE_PASS: Pool meets all criteria — just finalize the step */}
         {pkg.gate_class === 'PASS' && (
           <Button
@@ -612,6 +641,24 @@ export function RepairExhaustedAlert() {
       }
       if (action === 'heal_gate_pass') {
         return runAdminOpsAction('heal_gate_pass', { package_id: packageId });
+      }
+      if (action === 'reset_exhaustion') {
+        return runAdminOpsAction('reset_repair_exhaustion', {
+          package_id: packageId,
+          step_keys: ['validate_exam_pool'],
+        });
+      }
+      if (action === 'reset_and_retry') {
+        // 1) HARD_FAIL_BREAKER / consecutive_no_progress clearen
+        await runAdminOpsAction('reset_repair_exhaustion', {
+          package_id: packageId,
+          step_keys: ['validate_exam_pool'],
+        });
+        // 2) validate_exam_pool sauber zurücksetzen → neuer Lauf
+        return runAdminOpsAction('reset_to_step', {
+          package_id: packageId,
+          step_key: 'validate_exam_pool',
+        });
       }
       return runAdminOpsAction(action as any, { package_id: packageId });
     },
