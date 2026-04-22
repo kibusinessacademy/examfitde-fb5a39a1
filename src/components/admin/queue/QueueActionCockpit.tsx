@@ -15,6 +15,7 @@ import {
   Activity, AlertTriangle, ShieldCheck, Shield, ShieldAlert, Sparkles,
   Loader2, ChevronRight, CheckCircle2, Zap, Eye,
 } from 'lucide-react';
+import { QueueValidationWarnings } from './QueueValidationWarnings';
 
 type RiskLevel = 'SAFE' | 'LOW' | 'MEDIUM' | 'HIGH';
 
