@@ -248,9 +248,14 @@ export function QueueActionCockpit() {
                 Empfohlene Aktionen
               </h3>
             </div>
-            <span className="text-[10px] text-muted-foreground tabular-nums">
-              {recommended.length} Cluster
-            </span>
+            <div className="flex items-center gap-2 text-[10px] text-muted-foreground tabular-nums">
+              <span>{recommended.length} Cluster</span>
+              {hiddenByGuard > 0 && (
+                <Badge variant="outline" className="h-4 px-1.5 text-[9px] border-warning/40 text-warning">
+                  {hiddenByGuard} ausgeblendet (SSOT-Guard)
+                </Badge>
+              )}
+            </div>
           </div>
 
           {actions.isLoading && (
