@@ -16,8 +16,15 @@ import {
   Loader2, ChevronRight, CheckCircle2, Zap, Eye,
 } from 'lucide-react';
 import { QueueValidationWarnings } from './QueueValidationWarnings';
+import { QueueHealthcheckBanner } from './QueueHealthcheckBanner';
 
 type RiskLevel = 'SAFE' | 'LOW' | 'MEDIUM' | 'HIGH';
+
+interface HealthcheckResponse {
+  status: 'ok' | 'warn' | 'fail' | string;
+  view_clusters?: string[];
+  heal_clusters?: string[];
+}
 
 interface RecommendedAction {
   action_key: string;
@@ -100,6 +107,28 @@ export function QueueActionCockpit() {
     refetchInterval: 15_000,
   });
 
+  // SSOT: Erlaubte Cluster aus dem Backend-Healthcheck holen.
+  // Wir rendern NUR Aktionen, deren Cluster die View tatsächlich liefert
+  // UND die fn_auto_heal_cluster handhabt — keine hartcodierten Enums.
+  const healthcheck = useQuery({
+    queryKey: ['queue-system-healthcheck-allowed-clusters'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('admin_queue_system_healthcheck' as any);
+      if (error) throw error;
+      return data as unknown as HealthcheckResponse;
+    },
+    refetchInterval: 60_000,
+    retry: 1,
+  });
+
+  const allowedClusters = useMemo(() => {
+    const view = new Set(healthcheck.data?.view_clusters ?? []);
+    const heal = new Set(healthcheck.data?.heal_clusters ?? []);
+    const intersection = new Set<string>();
+    view.forEach((c) => { if (heal.has(c)) intersection.add(c); });
+    return intersection;
+  }, [healthcheck.data]);
+
   const actions = useQuery({
     queryKey: ['queue-recommended-actions'],
     queryFn: async () => {
@@ -147,12 +176,19 @@ export function QueueActionCockpit() {
   const score = health.data?.score ?? null;
   const status = health.data?.status ?? 'attention';
   const statusMeta = STATUS_META[status];
-  const recommended = useMemo(() => actions.data ?? [], [actions.data]);
+  const allActions = useMemo(() => actions.data ?? [], [actions.data]);
+  // SSOT-Filter: nur Aktionen für Cluster, die View ∩ fn_auto_heal_cluster wirklich kennt.
+  // Solange Healthcheck nicht geladen ist, alles zeigen (kein false-negative blocking).
+  const recommended = useMemo(() => {
+    if (allowedClusters.size === 0) return allActions;
+    return allActions.filter((a) => allowedClusters.has(a.cluster));
+  }, [allActions, allowedClusters]);
+  const hiddenByGuard = allActions.length - recommended.length;
 
   return (
     <div className="space-y-3">
-      {/* === VALIDATION WARNINGS (Job-Type-Mismatch etc.) === */}
-      <QueueValidationWarnings />
+      {/* Action-First Reihenfolge:
+          1. Health-Header · 2. Empfohlene Aktionen · 3. Validation+System-Health-Warnings */}
 
       {/* === KONTEXT-HEADER === */}
       <Card className="border-border bg-gradient-to-br from-card to-muted/20">
@@ -212,9 +248,14 @@ export function QueueActionCockpit() {
                 Empfohlene Aktionen
               </h3>
             </div>
-            <span className="text-[10px] text-muted-foreground tabular-nums">
-              {recommended.length} Cluster
-            </span>
+            <div className="flex items-center gap-2 text-[10px] text-muted-foreground tabular-nums">
+              <span>{recommended.length} Cluster</span>
+              {hiddenByGuard > 0 && (
+                <Badge variant="outline" className="h-4 px-1.5 text-[9px] border-warning/40 text-warning">
+                  {hiddenByGuard} ausgeblendet (SSOT-Guard)
+                </Badge>
+              )}
+            </div>
           </div>
 
           {actions.isLoading && (
@@ -314,9 +355,15 @@ export function QueueActionCockpit() {
                         variant={isPrimary ? 'default' : 'outline'}
                         disabled={execute.isPending}
                         onClick={() => {
-                          setConfirmAction(a);
+                          // SAFE → direkt heilen.
+                          // MEDIUM/HIGH → Dry-Run-First erzwingen; danach öffnet der
+                          // Dry-Run-Result-Dialog und Operator kann "Trotzdem ausführen".
                           if (a.is_safe) {
+                            setConfirmAction(a);
                             execute.mutate({ action: a, dryRun: false });
+                          } else {
+                            setConfirmAction(a);
+                            execute.mutate({ action: a, dryRun: true });
                           }
                         }}
                         className="h-7 px-3 text-[11px] font-semibold"
@@ -326,9 +373,9 @@ export function QueueActionCockpit() {
                         ) : a.is_safe ? (
                           <Zap className="h-3 w-3 mr-1.5" />
                         ) : (
-                          <AlertTriangle className="h-3 w-3 mr-1.5" />
+                          <Eye className="h-3 w-3 mr-1.5" />
                         )}
-                        {a.is_safe ? 'Jetzt heilen' : 'Bestätigen'}
+                        {a.is_safe ? 'Jetzt heilen' : 'Vorschau & Bestätigen'}
                         <ChevronRight className="h-3 w-3 ml-0.5" />
                       </Button>
                     </>
@@ -339,6 +386,10 @@ export function QueueActionCockpit() {
           })}
         </CardContent>
       </Card>
+
+      {/* === VALIDATION + SYSTEM-HEALTH WARNINGS (nach Aktionen, Action-First Layout) === */}
+      <QueueValidationWarnings />
+      <QueueHealthcheckBanner />
 
       {/* Bestätigungs-Dialog für nicht-safe Aktionen */}
       <AlertDialog
@@ -412,7 +463,21 @@ export function QueueActionCockpit() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setDryRunResult(null)}>Schließen</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => { setDryRunResult(null); setConfirmAction(null); }}>
+              Schließen
+            </AlertDialogCancel>
+            {confirmAction && !confirmAction.is_safe && dryRunResult?.ok && (
+              <AlertDialogAction
+                onClick={() => {
+                  const a = confirmAction;
+                  setDryRunResult(null);
+                  execute.mutate({ action: a, dryRun: false });
+                }}
+                className="bg-warning hover:bg-warning/90 text-warning-foreground"
+              >
+                Trotzdem jetzt ausführen
+              </AlertDialogAction>
+            )}
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
