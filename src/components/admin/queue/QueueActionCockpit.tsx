@@ -107,6 +107,28 @@ export function QueueActionCockpit() {
     refetchInterval: 15_000,
   });
 
+  // SSOT: Erlaubte Cluster aus dem Backend-Healthcheck holen.
+  // Wir rendern NUR Aktionen, deren Cluster die View tatsächlich liefert
+  // UND die fn_auto_heal_cluster handhabt — keine hartcodierten Enums.
+  const healthcheck = useQuery({
+    queryKey: ['queue-system-healthcheck-allowed-clusters'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('admin_queue_system_healthcheck' as any);
+      if (error) throw error;
+      return data as unknown as HealthcheckResponse;
+    },
+    refetchInterval: 60_000,
+    retry: 1,
+  });
+
+  const allowedClusters = useMemo(() => {
+    const view = new Set(healthcheck.data?.view_clusters ?? []);
+    const heal = new Set(healthcheck.data?.heal_clusters ?? []);
+    const intersection = new Set<string>();
+    view.forEach((c) => { if (heal.has(c)) intersection.add(c); });
+    return intersection;
+  }, [healthcheck.data]);
+
   const actions = useQuery({
     queryKey: ['queue-recommended-actions'],
     queryFn: async () => {
