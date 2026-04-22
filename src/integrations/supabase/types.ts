@@ -45350,6 +45350,24 @@ export type Database = {
           },
         ]
       }
+      queue_health_failed_snapshot: {
+        Row: {
+          job_id: string
+          snapshot_id: number
+          taken_at: string
+        }
+        Insert: {
+          job_id: string
+          snapshot_id: number
+          taken_at?: string
+        }
+        Update: {
+          job_id?: string
+          snapshot_id?: number
+          taken_at?: string
+        }
+        Relationships: []
+      }
       queue_health_snapshots: {
         Row: {
           failed_count: number
@@ -81924,6 +81942,27 @@ export type Database = {
             }
             Returns: Json
           }
+      admin_get_failed_root_causes: {
+        Args: never
+        Returns: {
+          affected_packages: number | null
+          avg_attempts: number | null
+          error_class: string | null
+          failed_jobs: number | null
+          first_seen_at: string | null
+          job_type: string | null
+          last_run_at: string | null
+          max_attempts_seen: number | null
+          package_ids: string[] | null
+          sample_error: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "v_failed_jobs_root_causes"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       admin_heal_step_job_coupling: {
         Args: { _step_keys?: string[] }
         Returns: {
@@ -81933,6 +81972,10 @@ export type Database = {
           package_id: string
           step_key: string
         }[]
+      }
+      admin_job_action: {
+        Args: { _action: string; _job_id: string; _reason?: string }
+        Returns: Json
       }
       admin_manual_heal_package:
         | {
@@ -84372,6 +84415,7 @@ export type Database = {
         Args: { p_package_id: string }
         Returns: boolean
       }
+      fn_job_active_statuses: { Args: never; Returns: string[] }
       fn_job_type_requires_building: {
         Args: { p_job_type: string }
         Returns: boolean
