@@ -547,6 +547,52 @@ export function QueueActionCockpit() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* SAFE-Confirm — zweiter Schritt für „Jetzt heilen" auf SAFE-Aktionen.
+          Verhindert versehentliche Klicks; blockiert zusätzlich, falls noch Repair-Jobs laufen. */}
+      <AlertDialog
+        open={!!safeConfirm}
+        onOpenChange={(open) => !open && setSafeConfirm(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-success" />
+              Heilung bestätigen
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-xs">
+                <p>{safeConfirm?.title}</p>
+                <div className="rounded-md border border-border bg-muted/30 p-2 space-y-1">
+                  <div>Cluster: <code className="text-[10px]">{safeConfirm?.cluster}</code></div>
+                  <div>Strategie: <code className="text-[10px]">{safeConfirm?.recommended_strategy}</code></div>
+                  <div>Betrifft: {safeConfirm?.job_count} Job(s) in {safeConfirm?.package_count} Paket(en)</div>
+                </div>
+                {hasActiveRepair && (
+                  <div className="rounded-md border border-warning/40 bg-warning/10 p-2 text-warning">
+                    ⚠️ {activeRepairs.data} Repair-Job(s) laufen aktuell — die Aktion ist gesperrt.
+                  </div>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setSafeConfirm(null)}>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={hasActiveRepair || execute.isPending}
+              onClick={() => {
+                if (safeConfirm) {
+                  const a = safeConfirm;
+                  setConfirmAction(a);
+                  execute.mutate({ action: a, dryRun: false });
+                }
+              }}
+            >
+              Jetzt heilen
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
