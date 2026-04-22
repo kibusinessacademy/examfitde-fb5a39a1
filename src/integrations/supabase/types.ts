@@ -72022,6 +72022,35 @@ export type Database = {
           },
         ]
       }
+      v_admin_queue_job_classification: {
+        Row: {
+          attempts: number | null
+          cluster: string | null
+          created_at: string | null
+          error_class: string | null
+          has_active_sibling: boolean | null
+          has_newer_success: boolean | null
+          id: string | null
+          is_admin_terminal: boolean | null
+          is_retry_path_terminal: boolean | null
+          is_terminal: boolean | null
+          job_type: string | null
+          lane: string | null
+          last_error: string | null
+          max_attempts: number | null
+          meta: Json | null
+          package_id: string | null
+          recommended_strategy: string | null
+          retryable: boolean | null
+          risk_level: string | null
+          safe_to_auto_execute: boolean | null
+          status: string | null
+          strategy_scope: string | null
+          subcluster: string | null
+          updated_at: string | null
+        }
+        Relationships: []
+      }
       v_admin_queue_ssot: {
         Row: {
           age_minutes: number | null
@@ -81990,7 +82019,7 @@ export type Database = {
         Returns: undefined
       }
       admin_execute_recommended_action: {
-        Args: { _action_key: string; _max_jobs?: number }
+        Args: { _action_key: string; _dry_run?: boolean; _max_jobs?: number }
         Returns: Json
       }
       admin_force_depublish_and_rebuild: {
@@ -82136,15 +82165,17 @@ export type Database = {
         Args: never
         Returns: {
           action_key: string
-          affected_packages: number
           cluster: string
           description: string
           is_safe: boolean
           job_count: number
+          oldest_job_at: string
+          package_count: number
           priority: number
           recommended_strategy: string
           risk_level: string
           title: string
+          why_recommended: string
         }[]
       }
       admin_reconcile_redundant_seeding: {
@@ -82174,6 +82205,10 @@ export type Database = {
             }
             Returns: Json
           }
+      admin_resolve_repair_strategy_for_package: {
+        Args: { _package_id: string }
+        Returns: Json
+      }
       admin_smart_heal_bulk: {
         Args: {
           p_action?: string
@@ -84031,6 +84066,10 @@ export type Database = {
           step_key: string
         }[]
       }
+      fn_auto_heal_cluster: {
+        Args: { _cluster: string; _dry_run?: boolean; _max_jobs?: number }
+        Returns: Json
+      }
       fn_auto_heal_failed_clusters: {
         Args: { _dry_run?: boolean; _max_per_cluster?: number }
         Returns: Json
@@ -84099,6 +84138,10 @@ export type Database = {
         Returns: Json
       }
       fn_classify_job_error: { Args: { _err: string }; Returns: string }
+      fn_classify_unclassified_subcluster: {
+        Args: { _err: string; _meta: Json }
+        Returns: string
+      }
       fn_classify_validate_guard: {
         Args: { p_package_id: string }
         Returns: Json
