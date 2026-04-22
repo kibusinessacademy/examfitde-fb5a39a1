@@ -13,22 +13,24 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import {
   Activity, AlertTriangle, ShieldCheck, Shield, ShieldAlert, Sparkles,
-  Loader2, ChevronRight, CheckCircle2, Zap,
+  Loader2, ChevronRight, CheckCircle2, Zap, Eye,
 } from 'lucide-react';
 
 type RiskLevel = 'SAFE' | 'LOW' | 'MEDIUM' | 'HIGH';
 
 interface RecommendedAction {
   action_key: string;
+  cluster: string;
   priority: number;
   risk_level: RiskLevel;
-  cluster: string;
+  is_safe: boolean;
   job_count: number;
-  affected_packages: number;
+  package_count: number;
   title: string;
   description: string;
   recommended_strategy: string;
-  is_safe: boolean;
+  why_recommended: string;
+  oldest_job_at: string | null;
 }
 
 interface HealthScore {
@@ -40,13 +42,38 @@ interface HealthScore {
   total_active: number;
   critical_clusters: number;
   terminal_count: number;
+  weighted_breakdown?: {
+    hard_fail_clusters: number;
+    stale_lock: number;
+    transient: number;
+    structural: number;
+    requeue_loop: number;
+    terminal: number;
+    backlog_pressure: number;
+  };
 }
 
-const RISK_META: Record<RiskLevel, { label: string; icon: typeof Shield; cls: string; ring: string }> = {
-  SAFE:   { label: 'SAFE',   icon: ShieldCheck, cls: 'bg-success/10 text-success border-success/30',     ring: 'ring-success/40' },
-  LOW:    { label: 'LOW',    icon: Shield,      cls: 'bg-primary/10 text-primary border-primary/30',     ring: 'ring-primary/40' },
-  MEDIUM: { label: 'MEDIUM', icon: Shield,      cls: 'bg-warning/10 text-warning border-warning/30',     ring: 'ring-warning/40' },
-  HIGH:   { label: 'HIGH',   icon: ShieldAlert, cls: 'bg-destructive/10 text-destructive border-destructive/30', ring: 'ring-destructive/40' },
+interface ExecuteResult {
+  ok: boolean;
+  action_key: string;
+  cluster: string;
+  dry_run: boolean;
+  result: {
+    ok: boolean;
+    cluster: string;
+    dry_run: boolean;
+    processed: number;
+    skipped: number;
+    errors: number;
+    details: Array<{ job_id: string; action: string; strategy?: string; reason?: string }>;
+  };
+}
+
+const RISK_META: Record<RiskLevel, { label: string; icon: typeof Shield; cls: string; iconCls: string }> = {
+  SAFE:   { label: 'SAFE',   icon: ShieldCheck, cls: 'bg-success/10 text-success border-success/30',     iconCls: 'text-success' },
+  LOW:    { label: 'LOW',    icon: Shield,      cls: 'bg-primary/10 text-primary border-primary/30',     iconCls: 'text-primary' },
+  MEDIUM: { label: 'MEDIUM', icon: Shield,      cls: 'bg-warning/10 text-warning border-warning/30',     iconCls: 'text-warning' },
+  HIGH:   { label: 'HIGH',   icon: ShieldAlert, cls: 'bg-destructive/10 text-destructive border-destructive/30', iconCls: 'text-destructive' },
 };
 
 const STATUS_META: Record<HealthScore['status'], { label: string; cls: string; dot: string }> = {
@@ -60,6 +87,7 @@ export function QueueActionCockpit() {
   const qc = useQueryClient();
   const { toast } = useToast();
   const [confirmAction, setConfirmAction] = useState<RecommendedAction | null>(null);
+  const [dryRunResult, setDryRunResult] = useState<ExecuteResult | null>(null);
 
   const health = useQuery({
     queryKey: ['queue-health-score'],
@@ -82,42 +110,47 @@ export function QueueActionCockpit() {
   });
 
   const execute = useMutation({
-    mutationFn: async (action: RecommendedAction) => {
+    mutationFn: async ({ action, dryRun }: { action: RecommendedAction; dryRun: boolean }) => {
       const { data, error } = await supabase.rpc('admin_execute_recommended_action' as any, {
         _action_key: action.action_key,
         _max_jobs: 50,
+        _dry_run: dryRun,
       });
       if (error) throw error;
-      return data as { ok: boolean; cluster: string; healed: number };
+      return { ...(data as ExecuteResult), _dryRun: dryRun };
     },
-    onSuccess: (res, action) => {
+    onSuccess: (res, vars) => {
+      if (vars.dryRun) {
+        setDryRunResult(res as ExecuteResult);
+        return;
+      }
+      const r = res.result;
       toast({
-        title: res.ok ? 'Heilung gestartet' : 'Aktion fehlgeschlagen',
+        title: res.ok ? 'Heilung ausgeführt' : 'Aktion fehlgeschlagen',
         description: res.ok
-          ? `${res.healed ?? 0} Job(s) im Cluster ${res.cluster} verarbeitet.`
-          : `Aktion ${action.action_key} konnte nicht ausgeführt werden.`,
+          ? `Cluster ${res.cluster}: ${r.processed} verarbeitet, ${r.skipped} übersprungen, ${r.errors} Fehler.`
+          : `Aktion ${vars.action.action_key} konnte nicht ausgeführt werden.`,
         variant: res.ok ? 'default' : 'destructive',
       });
       qc.invalidateQueries({ queryKey: ['queue-health-score'] });
       qc.invalidateQueries({ queryKey: ['queue-recommended-actions'] });
       qc.invalidateQueries({ queryKey: ['queue-health'] });
       qc.invalidateQueries({ queryKey: ['queue-counts'] });
+      setConfirmAction(null);
     },
     onError: (e: Error) => {
       toast({ title: 'Fehler', description: e.message, variant: 'destructive' });
     },
-    onSettled: () => setConfirmAction(null),
   });
 
   const score = health.data?.score ?? null;
   const status = health.data?.status ?? 'attention';
   const statusMeta = STATUS_META[status];
   const recommended = useMemo(() => actions.data ?? [], [actions.data]);
-  const topAction = recommended[0];
 
   return (
     <div className="space-y-3">
-      {/* === KONTEXT-HEADER (kompakt, nicht dominant) === */}
+      {/* === KONTEXT-HEADER === */}
       <Card className="border-border bg-gradient-to-br from-card to-muted/20">
         <CardContent className="p-3">
           <div className="flex items-center justify-between gap-3">
@@ -140,9 +173,7 @@ export function QueueActionCockpit() {
                     {statusMeta.label}
                   </Badge>
                 </div>
-                <div className="text-[10px] text-muted-foreground mt-0.5">
-                  Queue Health
-                </div>
+                <div className="text-[10px] text-muted-foreground mt-0.5">Queue Health</div>
               </div>
             </div>
             {health.data && (
@@ -167,7 +198,7 @@ export function QueueActionCockpit() {
         </CardContent>
       </Card>
 
-      {/* === EMPFOHLENE AKTIONEN (Primary Interface) === */}
+      {/* === EMPFOHLENE AKTIONEN === */}
       <Card className="border-primary/30 bg-card">
         <CardContent className="p-3 space-y-2">
           <div className="flex items-center justify-between">
@@ -178,14 +209,14 @@ export function QueueActionCockpit() {
               </h3>
             </div>
             <span className="text-[10px] text-muted-foreground tabular-nums">
-              {recommended.length} {recommended.length === 1 ? 'Cluster' : 'Cluster'}
+              {recommended.length} Cluster
             </span>
           </div>
 
           {actions.isLoading && (
             <div className="space-y-2">
-              <Skeleton className="h-14 w-full" />
-              <Skeleton className="h-14 w-full" />
+              <Skeleton className="h-20 w-full" />
+              <Skeleton className="h-20 w-full" />
             </div>
           )}
 
@@ -218,80 +249,85 @@ export function QueueActionCockpit() {
                     : 'border-border bg-card hover:bg-muted/30'
                 )}
               >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-start gap-2 min-w-0 flex-1">
-                    <div className="flex shrink-0 items-center gap-1 mt-0.5">
-                      <span className="text-[10px] font-bold text-muted-foreground tabular-nums w-4">
-                        {idx + 1}.
-                      </span>
-                      <Icon className={cn('h-3.5 w-3.5', meta.cls.split(' ')[1])} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-xs font-semibold text-foreground">{a.title}</span>
-                        <Badge
-                          variant="outline"
-                          className={cn('h-4 px-1.5 text-[9px] font-bold border', meta.cls)}
-                        >
-                          {meta.label}
+                <div className="flex items-start gap-2">
+                  <div className="flex shrink-0 items-center gap-1 mt-0.5">
+                    <span className="text-[10px] font-bold text-muted-foreground tabular-nums w-4">
+                      {idx + 1}.
+                    </span>
+                    <Icon className={cn('h-3.5 w-3.5', meta.iconCls)} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-xs font-semibold text-foreground">{a.title}</span>
+                      <Badge variant="outline" className={cn('h-4 px-1.5 text-[9px] font-bold border', meta.cls)}>
+                        {meta.label}
+                      </Badge>
+                      {isPrimary && (
+                        <Badge variant="outline" className="h-4 px-1.5 text-[9px] border-primary/40 text-primary bg-primary/10">
+                          <Zap className="h-2 w-2 mr-0.5" />
+                          Empfohlen
                         </Badge>
-                        {isPrimary && (
-                          <Badge variant="outline" className="h-4 px-1.5 text-[9px] border-primary/40 text-primary bg-primary/10">
-                            <Zap className="h-2 w-2 mr-0.5" />
-                            Empfohlen
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-[10px] text-muted-foreground mt-0.5 leading-snug">
-                        {a.description}
-                      </p>
-                      <div className="flex items-center gap-2 mt-1 text-[9px] text-muted-foreground">
-                        <span className="font-mono">{a.cluster}</span>
-                        <span>·</span>
-                        <span>{a.job_count} Job{a.job_count !== 1 && 's'}</span>
-                        {a.affected_packages > 0 && (
-                          <>
-                            <span>·</span>
-                            <span>{a.affected_packages} Paket{a.affected_packages !== 1 && 'e'}</span>
-                          </>
-                        )}
-                      </div>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-1 leading-snug">
+                      {a.description}
+                    </p>
+                    <div className="flex items-center gap-2 mt-1.5 text-[9px] text-muted-foreground flex-wrap">
+                      <span className="font-mono px-1 py-0.5 rounded bg-muted/50">{a.cluster}</span>
+                      <span>·</span>
+                      <span><strong className="text-foreground">{a.job_count}</strong> Job{a.job_count !== 1 && 's'}</span>
+                      {a.package_count > 0 && (
+                        <>
+                          <span>·</span>
+                          <span><strong className="text-foreground">{a.package_count}</strong> Paket{a.package_count !== 1 && 'e'}</span>
+                        </>
+                      )}
+                      <span>·</span>
+                      <span className="font-mono">{a.recommended_strategy}</span>
                     </div>
                   </div>
                 </div>
-                <div className="mt-2 flex items-center justify-end">
+                <div className="mt-2 flex items-center justify-end gap-1.5">
                   {isManual ? (
                     <span className="text-[10px] text-muted-foreground flex items-center gap-1">
                       <AlertTriangle className="h-3 w-3" />
                       Manueller Review nötig
                     </span>
                   ) : (
-                    <Button
-                      size="sm"
-                      variant={isPrimary ? 'default' : 'outline'}
-                      disabled={execute.isPending}
-                      onClick={() => {
-                        if (a.is_safe) {
-                          // 1-Klick: direkt ausführen
+                    <>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={execute.isPending}
+                        onClick={() => execute.mutate({ action: a, dryRun: true })}
+                        className="h-7 px-2 text-[10px] text-muted-foreground hover:text-foreground"
+                      >
+                        <Eye className="h-3 w-3 mr-1" />
+                        Dry Run
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant={isPrimary ? 'default' : 'outline'}
+                        disabled={execute.isPending}
+                        onClick={() => {
                           setConfirmAction(a);
-                          execute.mutate(a);
-                        } else {
-                          // Bestätigung nötig
-                          setConfirmAction(a);
-                        }
-                      }}
-                      className="h-7 px-3 text-[11px] font-semibold"
-                    >
-                      {isExecutingThis ? (
-                        <Loader2 className="h-3 w-3 animate-spin mr-1.5" />
-                      ) : a.is_safe ? (
-                        <Zap className="h-3 w-3 mr-1.5" />
-                      ) : (
-                        <AlertTriangle className="h-3 w-3 mr-1.5" />
-                      )}
-                      {a.is_safe ? '1-Klick heilen' : 'Mit Bestätigung'}
-                      <ChevronRight className="h-3 w-3 ml-0.5" />
-                    </Button>
+                          if (a.is_safe) {
+                            execute.mutate({ action: a, dryRun: false });
+                          }
+                        }}
+                        className="h-7 px-3 text-[11px] font-semibold"
+                      >
+                        {isExecutingThis ? (
+                          <Loader2 className="h-3 w-3 animate-spin mr-1.5" />
+                        ) : a.is_safe ? (
+                          <Zap className="h-3 w-3 mr-1.5" />
+                        ) : (
+                          <AlertTriangle className="h-3 w-3 mr-1.5" />
+                        )}
+                        {a.is_safe ? 'Jetzt heilen' : 'Bestätigen'}
+                        <ChevronRight className="h-3 w-3 ml-0.5" />
+                      </Button>
+                    </>
                   )}
                 </div>
               </div>
@@ -311,25 +347,68 @@ export function QueueActionCockpit() {
               <AlertTriangle className="h-4 w-4 text-warning" />
               {confirmAction?.title}
             </AlertDialogTitle>
-            <AlertDialogDescription className="space-y-2 text-xs">
-              <span className="block">{confirmAction?.description}</span>
-              <span className="block rounded-md border border-warning/30 bg-warning/5 p-2 text-warning">
-                <strong>Risiko-Level: {confirmAction?.risk_level}</strong>
-                <br />
-                Strategie: <code className="text-[10px]">{confirmAction?.recommended_strategy}</code>
-                <br />
-                Betrifft: {confirmAction?.job_count} Job(s) in {confirmAction?.affected_packages} Paket(en).
-              </span>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-xs">
+                <p>{confirmAction?.description}</p>
+                <div className="rounded-md border border-warning/30 bg-warning/5 p-2 text-warning space-y-1">
+                  <div><strong>Risiko-Level: {confirmAction?.risk_level}</strong></div>
+                  <div>Strategie: <code className="text-[10px]">{confirmAction?.recommended_strategy}</code></div>
+                  <div>Cluster: <code className="text-[10px]">{confirmAction?.cluster}</code></div>
+                  <div>Betrifft: {confirmAction?.job_count} Job(s) in {confirmAction?.package_count} Paket(en)</div>
+                </div>
+                <p className="text-[10px] text-muted-foreground">{confirmAction?.why_recommended}</p>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setConfirmAction(null)}>Abbrechen</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => confirmAction && execute.mutate(confirmAction)}
+              onClick={() => confirmAction && execute.mutate({ action: confirmAction, dryRun: false })}
               className="bg-warning hover:bg-warning/90 text-warning-foreground"
             >
               Trotzdem ausführen
             </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Dry-Run-Ergebnis-Dialog */}
+      <AlertDialog open={!!dryRunResult} onOpenChange={(open) => !open && setDryRunResult(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Eye className="h-4 w-4 text-primary" />
+              Dry Run · {dryRunResult?.cluster}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-xs">
+                <p>So würde die Heilung ablaufen — es wurde nichts verändert.</p>
+                <div className="rounded-md border border-primary/30 bg-primary/5 p-2 space-y-1 text-foreground">
+                  <div>Verarbeitet: <strong>{dryRunResult?.result.processed}</strong></div>
+                  <div>Übersprungen: <strong>{dryRunResult?.result.skipped}</strong></div>
+                  <div>Fehler: <strong>{dryRunResult?.result.errors}</strong></div>
+                </div>
+                {dryRunResult?.result.details && dryRunResult.result.details.length > 0 && (
+                  <div className="max-h-48 overflow-y-auto rounded-md border border-border bg-muted/30 p-2 space-y-1">
+                    {dryRunResult.result.details.slice(0, 20).map((d, i) => (
+                      <div key={i} className="font-mono text-[10px]">
+                        <span className="text-muted-foreground">{d.action}</span>
+                        {d.strategy && <span className="text-primary"> → {d.strategy}</span>}
+                        {d.reason && <span className="text-warning"> ({d.reason})</span>}
+                      </div>
+                    ))}
+                    {dryRunResult.result.details.length > 20 && (
+                      <div className="text-[10px] text-muted-foreground">
+                        … +{dryRunResult.result.details.length - 20} weitere
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setDryRunResult(null)}>Schließen</AlertDialogCancel>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
