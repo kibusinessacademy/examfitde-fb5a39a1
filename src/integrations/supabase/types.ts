@@ -82095,6 +82095,21 @@ export type Database = {
         }[]
       }
       admin_get_queue_health_score: { Args: never; Returns: Json }
+      admin_get_queue_validation_warnings: {
+        Args: { _limit?: number }
+        Returns: {
+          body: string
+          created_at: string
+          id: string
+          is_read: boolean
+          job_type: string
+          mode: string
+          package_id: string
+          severity: string
+          source_job_id: string
+          title: string
+        }[]
+      }
       admin_has_recent_terminal_notification: {
         Args: { _job_type: string; _package_id: string; _within?: string }
         Returns: boolean
@@ -82244,6 +82259,10 @@ export type Database = {
       admin_unseal_package_for_regen: {
         Args: { p_package_id: string }
         Returns: undefined
+      }
+      admin_validate_repair_job_type: {
+        Args: { _job_type: string; _payload: Json }
+        Returns: Json
       }
       append_next_adaptive_question: {
         Args: { p_session_id: string }
