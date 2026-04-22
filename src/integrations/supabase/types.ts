@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_action_throttle: {
+        Row: {
+          action_type: string
+          request_count: number
+          user_id: string
+          window_start: string
+        }
+        Insert: {
+          action_type: string
+          request_count?: number
+          user_id: string
+          window_start?: string
+        }
+        Update: {
+          action_type?: string
+          request_count?: number
+          user_id?: string
+          window_start?: string
+        }
+        Relationships: []
+      }
       admin_actions: {
         Row: {
           action: string
@@ -25932,15 +25953,60 @@ export type Database = {
         }
         Relationships: []
       }
+      job_retry_decisions: {
+        Row: {
+          attempts: number | null
+          checks: Json
+          cooldown_seconds: number | null
+          decided_at: string
+          decision: string
+          error_class: string | null
+          id: number
+          job_id: string
+          package_id: string | null
+          package_status: string | null
+          reason: string | null
+        }
+        Insert: {
+          attempts?: number | null
+          checks?: Json
+          cooldown_seconds?: number | null
+          decided_at?: string
+          decision: string
+          error_class?: string | null
+          id?: number
+          job_id: string
+          package_id?: string | null
+          package_status?: string | null
+          reason?: string | null
+        }
+        Update: {
+          attempts?: number | null
+          checks?: Json
+          cooldown_seconds?: number | null
+          decided_at?: string
+          decision?: string
+          error_class?: string | null
+          id?: number
+          job_id?: string
+          package_id?: string | null
+          package_status?: string | null
+          reason?: string | null
+        }
+        Relationships: []
+      }
       job_status_transitions: {
         Row: {
           attempts: number | null
+          change_kind: string | null
           created_at: string
           error_class: string | null
           id: number
           job_id: string
           job_type: string | null
+          last_error: string | null
           meta: Json | null
+          meta_diff: Json | null
           new_status: string
           old_status: string | null
           package_id: string | null
@@ -25949,12 +26015,15 @@ export type Database = {
         }
         Insert: {
           attempts?: number | null
+          change_kind?: string | null
           created_at?: string
           error_class?: string | null
           id?: number
           job_id: string
           job_type?: string | null
+          last_error?: string | null
           meta?: Json | null
+          meta_diff?: Json | null
           new_status: string
           old_status?: string | null
           package_id?: string | null
@@ -25963,12 +26032,15 @@ export type Database = {
         }
         Update: {
           attempts?: number | null
+          change_kind?: string | null
           created_at?: string
           error_class?: string | null
           id?: number
           job_id?: string
           job_type?: string | null
+          last_error?: string | null
           meta?: Json | null
+          meta_diff?: Json | null
           new_status?: string
           old_status?: string | null
           package_id?: string | null
@@ -81874,6 +81946,10 @@ export type Database = {
         Args: { p_reason?: string; p_until?: string; p_user_id: string }
         Returns: undefined
       }
+      admin_check_action_throttle: {
+        Args: { _action: string; _max_per_min?: number; _user_id: string }
+        Returns: boolean
+      }
       admin_clear_job_quarantine: {
         Args: { p_quarantine_id: string }
         Returns: boolean
@@ -81963,6 +82039,25 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      admin_get_job_timeline: {
+        Args: { _job_id?: string; _limit?: number; _package_id?: string }
+        Returns: {
+          attempts: number
+          decision: string
+          error_class: string
+          job_id: string
+          job_type: string
+          kind: string
+          last_error: string
+          new_status: string
+          old_status: string
+          package_id: string
+          payload: Json
+          reason: string
+          trigger_source: string
+          ts: string
+        }[]
+      }
       admin_heal_step_job_coupling: {
         Args: { _step_keys?: string[] }
         Returns: {
@@ -81974,7 +82069,21 @@ export type Database = {
         }[]
       }
       admin_job_action: {
-        Args: { _action: string; _job_id: string; _reason?: string }
+        Args: {
+          _action: string
+          _force?: boolean
+          _job_id: string
+          _reason?: string
+        }
+        Returns: Json
+      }
+      admin_job_action_bulk: {
+        Args: {
+          _action: string
+          _force?: boolean
+          _job_ids: string[]
+          _reason: string
+        }
         Returns: Json
       }
       admin_manual_heal_package:
