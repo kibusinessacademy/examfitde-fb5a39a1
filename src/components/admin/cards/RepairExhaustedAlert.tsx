@@ -13,11 +13,45 @@ import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
   AlertOctagon, ArrowRight, RefreshCw, Loader2, Wrench, Zap,
-  Filter, ChevronDown, ChevronUp, Play, CheckCircle2,
+  Filter, ChevronDown, ChevronUp, Play, CheckCircle2, ShieldAlert,
 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RepairToolboxActions } from '@/components/admin/heal/RepairToolboxActions';
 import { BulkResetExhaustionBar } from '@/components/admin/heal/BulkResetExhaustionBar';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { parseHealError } from '@/components/admin/queue/healErrorParser';
+
+/* ── Active-repair lock — verhindert parallele Heal-Aktionen ── */
+function useActiveRepairLock() {
+  return useQuery({
+    queryKey: ['active-repair-jobs'],
+    queryFn: async () => {
+      const { count } = await (supabase as any)
+        .from('job_queue')
+        .select('id', { count: 'exact', head: true })
+        .in('status', ['processing', 'running', 'pending'])
+        .like('job_type', 'package_repair_%');
+      return count ?? 0;
+    },
+    refetchInterval: 5_000,
+    staleTime: 2_000,
+  });
+}
+
+/* ── Aktion-Labels für Bestätigungsdialog ── */
+const ACTION_LABELS: Record<string, { title: string; description: string; danger?: boolean }> = {
+  heal_gate_pass: { title: 'Gate-Pass → Done', description: 'Step wird auf done gesetzt, weil das Gate PASS meldet. Keine Generierung.' },
+  enqueue_exam_generation: { title: 'Pool-Generierung starten', description: 'Erzwingt einen neuen generate_exam_pool-Lauf. Verbraucht KI-Budget.', danger: true },
+  force_pool_fill: { title: 'Force Pool-Fill', description: 'Reparatur (repair_exam_pool_quality) + Validate-Reset. Kann mehrere Jobs erzeugen.', danger: true },
+  repair_exam_pool_competency_coverage: { title: 'Competency Repair', description: 'Generiert fehlende Kompetenz-Fragen + Validate-Reset.', danger: true },
+  repair_lessons: { title: 'Lektionen reparieren', description: 'Generiert Placeholder-/Hollow-Lektionen neu. Hoher KI-Verbrauch.', danger: true },
+  repair_minichecks: { title: 'MiniChecks reparieren', description: 'Erzeugt MiniChecks für Lektionen ohne Fragen.' },
+  repair_exam_pool_quality: { title: 'Pool-Qualität reparieren', description: 'Trap-/Bloom-Verteilung wird rebalanciert.', danger: true },
+  retry_validate: { title: 'Validate Reset', description: 'Setzt nur den validate_exam_pool-Step zurück. Sicherste Option.' },
+};
 
 /* ── Types ── */
 
