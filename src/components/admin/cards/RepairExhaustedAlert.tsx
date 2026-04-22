@@ -619,20 +619,36 @@ export function RepairExhaustedAlert() {
       toast.success(`Reparatur für ${vars.packageId.slice(0, 8)} gestartet`);
       qc.invalidateQueries({ queryKey: ['admin', 'repair-exhausted'] });
       qc.invalidateQueries({ queryKey: ['admin'] });
+      qc.invalidateQueries({ queryKey: ['active-repair-jobs'] });
       setBusyId(null);
+      setLastError(null);
     },
     onError: (err: Error, vars) => {
+      const parsed = parseHealError(err);
+      setLastError({ packageId: vars.packageId, parsed });
       const msg = err.message;
       if (msg.includes('WIP_CAP_EXCEEDED')) {
         toast.error('WIP-Limit erreicht — es bauen bereits zu viele Pakete. Warte bis Slots frei werden.', { duration: 6000 });
       } else if (msg.includes('REGRESSION_BLOCKED')) {
         toast.error('Step-Regression blockiert. Verwende "reset_to_step" im Workspace.', { duration: 6000 });
       } else {
-        toast.error(`Fehler: ${msg}`);
+        toast.error(parsed.title, { description: parsed.description, duration: 8000 });
       }
       setBusyId(null);
     },
   });
+
+  /** Klick auf Repair-Button → erst Bestätigungsdialog. */
+  const requestRepair = (packageId: string, action: string) => {
+    if (hasActiveRepair) {
+      toast.warning('Repair-Lock aktiv', {
+        description: 'Es laufen bereits Repair-Jobs in der Queue. Bitte warten, bis diese abgeschlossen sind.',
+      });
+      return;
+    }
+    const pkg = exhausted.find(p => p.package_id === packageId);
+    setPendingAction({ packageId, action, pkgTitle: pkg?.title ?? packageId.slice(0, 8) });
+  };
 
   if (exhausted.length === 0) return null;
 
