@@ -381,6 +381,9 @@ function Chip({
 
 function DrilldownSheet({ warning }: { warning: ValidationWarning }) {
   const [open, setOpen] = useState(false);
+  const [preview, setPreview] = useState<RepairPreviewResult | null>(null);
+  const [feedback, setFeedback] = useState<InlineFeedback | null>(null);
+  const qc = useQueryClient();
 
   const audit = useQuery({
     queryKey: ['queue-validation-audit', warning.package_id, warning.source_job_id],
@@ -400,28 +403,97 @@ function DrilldownSheet({ warning }: { warning: ValidationWarning }) {
     },
   });
 
-  const dryRun = async () => {
-    if (!warning.package_id) {
-      toast.error('Kein package_id verfügbar');
-      return;
-    }
-    const t = toast.loading('Dry-Run läuft …');
-    try {
+  const activeRepair = useQuery({
+    queryKey: ['package-active-repair', warning.package_id],
+    enabled: open && !!warning.package_id,
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('job_queue')
+        .select('id', { count: 'exact', head: true })
+        .eq('package_id', warning.package_id)
+        .in('status', ['processing', 'running', 'pending', 'queued'])
+        .like('job_type', 'package_repair_%');
+      if (error) throw error;
+      return count ?? 0;
+    },
+    refetchInterval: 5_000,
+  });
+
+  const hasActiveRepair = (activeRepair.data ?? 0) > 0;
+
+  const dryRun = useMutation({
+    mutationFn: async () => {
+      if (!warning.package_id) throw new Error('Kein package_id verfügbar');
       const { data, error } = await supabase.rpc(
         'admin_dry_run_repair_for_package' as any,
         { _package_id: warning.package_id },
       );
       if (error) throw error;
-      const res = data as any;
-      toast.success(
-        `Dry-Run: ${res?.decision ?? 'unbekannt'}${res?.reason ? ` · ${res.reason}` : ''}`,
-        { id: t },
-      );
+      return (data ?? {}) as RepairPreviewResult;
+    },
+    onSuccess: (res) => {
+      setPreview(res);
+      const nextFeedback = buildPreviewFeedback(res);
+      setFeedback(nextFeedback);
+      toast.success(`Dry-Run: ${res?.decision ?? 'unbekannt'}`);
       audit.refetch();
-    } catch (e: any) {
-      toast.error(`Dry-Run fehlgeschlagen: ${e?.message ?? 'unbekannt'}`, { id: t });
-    }
-  };
+    },
+    onError: (err: unknown) => {
+      const parsed = parseHealError(err);
+      setPreview(null);
+      setFeedback({
+        tone: 'destructive',
+        title: parsed.title,
+        description: parsed.description,
+        details: parsed.details,
+      });
+      toast.error(parsed.title, { description: parsed.description });
+    },
+  });
+
+  const executeRepair = useMutation({
+    mutationFn: async () => {
+      if (!warning.package_id) throw new Error('Kein package_id verfügbar');
+      const { data, error } = await supabase.rpc(
+        'admin_execute_repair_for_package' as any,
+        { _package_id: warning.package_id },
+      );
+      if (error) throw error;
+      return (data ?? {}) as RepairExecuteResult;
+    },
+    onSuccess: (res) => {
+      if (res.ok) {
+        setFeedback({
+          tone: 'success',
+          title: 'Repair-Job eingereiht',
+          description: `Die Reparatur wurde gestartet${res.job_id ? ` (Job ${res.job_id.slice(0, 8)}…)` : ''}.`,
+          details: [res.job_type ? `Job-Typ: ${res.job_type}` : null, res.mode ? `Mode: ${res.mode}` : null].filter(Boolean) as string[],
+        });
+        toast.success('Repair-Job eingereiht');
+      } else {
+        const previewData = res.preview ?? preview;
+        setFeedback(previewData ? buildPreviewFeedback(previewData) : {
+          tone: 'warning',
+          title: 'Reparatur nicht eingereiht',
+          description: humanizeRepairReason(res.reason, preview?.strategy),
+        });
+        toast.warning('Reparatur nicht eingereiht', { description: humanizeRepairReason(res.reason, preview?.strategy) });
+      }
+      qc.invalidateQueries({ queryKey: ['queue-validation-warnings'] });
+      qc.invalidateQueries({ queryKey: ['package-active-repair', warning.package_id] });
+      audit.refetch();
+    },
+    onError: (err: unknown) => {
+      const parsed = parseHealError(err);
+      setFeedback({
+        tone: 'destructive',
+        title: parsed.title,
+        description: parsed.description,
+        details: parsed.details,
+      });
+      toast.error(parsed.title, { description: parsed.description });
+    },
+  });
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -433,6 +505,9 @@ function DrilldownSheet({ warning }: { warning: ValidationWarning }) {
       <SheetContent side="right" className="w-full sm:max-w-xl overflow-y-auto">
         <SheetHeader>
           <SheetTitle className="text-sm">Validation Audit · Drilldown</SheetTitle>
+          <SheetDescription>
+            Vorschau, Diagnose und direkte Reparatur für das betroffene Paket.
+          </SheetDescription>
         </SheetHeader>
 
         <div className="mt-3 space-y-2 text-xs">
@@ -442,9 +517,34 @@ function DrilldownSheet({ warning }: { warning: ValidationWarning }) {
             {warning.mode && <Badge variant="outline">mode: {warning.mode}</Badge>}
           </div>
           <p className="text-muted-foreground">{warning.body}</p>
+          {feedback && (
+            <div className={cn('rounded-md border p-2 space-y-1 text-[11px]', INLINE_FEEDBACK_TONE[feedback.tone])}>
+              <div className="font-semibold">{feedback.title}</div>
+              <div>{feedback.description}</div>
+              {feedback.details && feedback.details.length > 0 && (
+                <ul className="list-disc pl-4 space-y-0.5">
+                  {feedback.details.slice(0, 3).map((detail) => <li key={detail}>{detail}</li>)}
+                </ul>
+              )}
+            </div>
+          )}
+          {hasActiveRepair && (
+            <div className="rounded-md border border-warning/30 bg-warning/10 p-2 text-[11px] text-warning">
+              Für dieses Paket läuft bereits ein Repair-Job — neuer Start ist blockiert, bis der aktuelle Lauf fertig ist.
+            </div>
+          )}
           <div className="flex gap-2">
-            <Button size="sm" onClick={dryRun} className="h-7 text-[11px]">
-              <PlayCircle className="h-3 w-3 mr-1" /> Dry-Run jetzt ausführen
+            <Button size="sm" onClick={() => dryRun.mutate()} disabled={dryRun.isPending || executeRepair.isPending} className="h-7 text-[11px]">
+              {dryRun.isPending ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <PlayCircle className="h-3 w-3 mr-1" />}Dry-Run jetzt ausführen
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => executeRepair.mutate()}
+              disabled={hasActiveRepair || executeRepair.isPending || dryRun.isPending || preview?.decision !== 'preview_ok'}
+              className="h-7 text-[11px]"
+            >
+              {executeRepair.isPending ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Wrench className="h-3 w-3 mr-1" />}Repair jetzt starten
             </Button>
             <Button size="sm" variant="outline" onClick={() => audit.refetch()} className="h-7 text-[11px]">
               <RefreshCw className="h-3 w-3 mr-1" /> Refresh Audit
