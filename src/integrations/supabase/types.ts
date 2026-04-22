@@ -82077,6 +82077,10 @@ export type Database = {
         Args: { _action_key: string; _dry_run?: boolean; _max_jobs?: number }
         Returns: Json
       }
+      admin_execute_repair_for_package: {
+        Args: { _package_id: string }
+        Returns: Json
+      }
       admin_force_depublish_and_rebuild: {
         Args: { p_package_id: string }
         Returns: undefined
