@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import {
   AlertOctagon, ArrowRight, RefreshCw, Loader2, Wrench, Zap,
   Filter, ChevronDown, ChevronUp, Play, CheckCircle2, ShieldAlert,
+  Unlock, RotateCcw,
 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RepairToolboxActions } from '@/components/admin/heal/RepairToolboxActions';
