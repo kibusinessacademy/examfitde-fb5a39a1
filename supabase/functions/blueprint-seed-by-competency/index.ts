@@ -266,11 +266,15 @@ Deno.serve(async (req) => {
     }
 
     // 3) Load existing blueprints for this competency
+    //    Only count "live" BPs (approved/review). Drafts/rejected from earlier
+    //    failed runs MUST NOT mark a facet as covered, otherwise the seeder
+    //    permanently skips genuinely missing competencies.
     const { data: existingBps } = await sb
       .from("question_blueprints")
-      .select("id, cognitive_level")
+      .select("id, cognitive_level, status")
       .eq("curriculum_id", curriculumId)
-      .eq("competency_id", competencyId);
+      .eq("competency_id", competencyId)
+      .in("status", ["approved", "review"]);
 
     const existingCogLevels = new Set((existingBps || []).map((b: any) => b.cognitive_level));
 
