@@ -13,11 +13,45 @@ import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
   AlertOctagon, ArrowRight, RefreshCw, Loader2, Wrench, Zap,
-  Filter, ChevronDown, ChevronUp, Play, CheckCircle2,
+  Filter, ChevronDown, ChevronUp, Play, CheckCircle2, ShieldAlert,
 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RepairToolboxActions } from '@/components/admin/heal/RepairToolboxActions';
 import { BulkResetExhaustionBar } from '@/components/admin/heal/BulkResetExhaustionBar';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { parseHealError } from '@/components/admin/queue/healErrorParser';
+
+/* ── Active-repair lock — verhindert parallele Heal-Aktionen ── */
+function useActiveRepairLock() {
+  return useQuery({
+    queryKey: ['active-repair-jobs'],
+    queryFn: async () => {
+      const { count } = await (supabase as any)
+        .from('job_queue')
+        .select('id', { count: 'exact', head: true })
+        .in('status', ['processing', 'running', 'pending'])
+        .like('job_type', 'package_repair_%');
+      return count ?? 0;
+    },
+    refetchInterval: 5_000,
+    staleTime: 2_000,
+  });
+}
+
+/* ── Aktion-Labels für Bestätigungsdialog ── */
+const ACTION_LABELS: Record<string, { title: string; description: string; danger?: boolean }> = {
+  heal_gate_pass: { title: 'Gate-Pass → Done', description: 'Step wird auf done gesetzt, weil das Gate PASS meldet. Keine Generierung.' },
+  enqueue_exam_generation: { title: 'Pool-Generierung starten', description: 'Erzwingt einen neuen generate_exam_pool-Lauf. Verbraucht KI-Budget.', danger: true },
+  force_pool_fill: { title: 'Force Pool-Fill', description: 'Reparatur (repair_exam_pool_quality) + Validate-Reset. Kann mehrere Jobs erzeugen.', danger: true },
+  repair_exam_pool_competency_coverage: { title: 'Competency Repair', description: 'Generiert fehlende Kompetenz-Fragen + Validate-Reset.', danger: true },
+  repair_lessons: { title: 'Lektionen reparieren', description: 'Generiert Placeholder-/Hollow-Lektionen neu. Hoher KI-Verbrauch.', danger: true },
+  repair_minichecks: { title: 'MiniChecks reparieren', description: 'Erzeugt MiniChecks für Lektionen ohne Fragen.' },
+  repair_exam_pool_quality: { title: 'Pool-Qualität reparieren', description: 'Trap-/Bloom-Verteilung wird rebalanciert.', danger: true },
+  retry_validate: { title: 'Validate Reset', description: 'Setzt nur den validate_exam_pool-Step zurück. Sicherste Option.' },
+};
 
 /* ── Types ── */
 
@@ -238,14 +272,16 @@ function useRepairExhaustedPackages() {
 
 /* ── Row Component ── */
 
-function ExhaustedPackageRow({ pkg, onRepair, busyId, selected, onToggleSelect }: {
+function ExhaustedPackageRow({ pkg, onRepair, busyId, selected, onToggleSelect, locked }: {
   pkg: ExhaustedPackage;
   onRepair: (packageId: string, action: string) => void;
   busyId: string | null;
   selected?: boolean;
   onToggleSelect?: (id: string) => void;
+  locked: boolean;
 }) {
   const busy = busyId === pkg.package_id;
+  const disabled = busy || locked;
   const isGenNeverRan = hasCategory(pkg, 'GENERATION_NEVER_RAN');
 
   return (
@@ -318,7 +354,7 @@ function ExhaustedPackageRow({ pkg, onRepair, busyId, selected, onToggleSelect }
             size="sm"
             variant="default"
             className="h-7 text-[11px] gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
-            disabled={busy}
+            disabled={disabled}
             onClick={() => onRepair(pkg.package_id, 'heal_gate_pass')}
             title="Gate = PASS → Step auf done setzen"
           >
@@ -332,7 +368,7 @@ function ExhaustedPackageRow({ pkg, onRepair, busyId, selected, onToggleSelect }
             size="sm"
             variant="destructive"
             className="h-7 text-[11px] gap-1"
-            disabled={busy}
+            disabled={disabled}
             onClick={() => onRepair(pkg.package_id, 'enqueue_exam_generation')}
             title="Exam-Pool-Generierung anstoßen (enqueue generate_exam_pool Step)"
           >
@@ -347,7 +383,7 @@ function ExhaustedPackageRow({ pkg, onRepair, busyId, selected, onToggleSelect }
             size="sm"
             variant="destructive"
             className="h-7 text-[11px] gap-1"
-            disabled={busy}
+            disabled={disabled}
             onClick={() => onRepair(pkg.package_id, 'force_pool_fill')}
             title="Pool-Fill + Validate-Reset"
           >
@@ -362,7 +398,7 @@ function ExhaustedPackageRow({ pkg, onRepair, busyId, selected, onToggleSelect }
             size="sm"
             variant="destructive"
             className="h-7 text-[11px] gap-1"
-            disabled={busy}
+            disabled={disabled}
             onClick={() => onRepair(pkg.package_id, 'force_pool_fill')}
             title="Exam-Pool reparieren + Validate-Reset"
           >
@@ -377,7 +413,7 @@ function ExhaustedPackageRow({ pkg, onRepair, busyId, selected, onToggleSelect }
             size="sm"
             variant="destructive"
             className="h-7 text-[11px] gap-1"
-            disabled={busy}
+            disabled={disabled}
             onClick={() => onRepair(pkg.package_id, 'repair_exam_pool_competency_coverage')}
             title="Fragen für fehlende Kompetenzen generieren"
           >
@@ -392,7 +428,7 @@ function ExhaustedPackageRow({ pkg, onRepair, busyId, selected, onToggleSelect }
             size="sm"
             variant="destructive"
             className="h-7 text-[11px] gap-1"
-            disabled={busy}
+            disabled={disabled}
             onClick={() => onRepair(pkg.package_id, 'repair_lessons')}
             title="Placeholder-Lektionen neu generieren"
           >
@@ -407,7 +443,7 @@ function ExhaustedPackageRow({ pkg, onRepair, busyId, selected, onToggleSelect }
             size="sm"
             variant="outline"
             className="h-7 text-[11px] gap-1"
-            disabled={busy}
+            disabled={disabled}
             onClick={() => onRepair(pkg.package_id, 'repair_minichecks')}
             title="MiniChecks für Lektionen ohne Fragen neu generieren"
           >
@@ -422,7 +458,7 @@ function ExhaustedPackageRow({ pkg, onRepair, busyId, selected, onToggleSelect }
             size="sm"
             variant="outline"
             className="h-7 text-[11px] gap-1"
-            disabled={busy}
+            disabled={disabled}
             onClick={() => onRepair(pkg.package_id, 'repair_lessons')}
             title="5-Schritte-Lektionen für fehlende Kompetenzen regenerieren"
           >
@@ -437,7 +473,7 @@ function ExhaustedPackageRow({ pkg, onRepair, busyId, selected, onToggleSelect }
             size="sm"
             variant="outline"
             className="h-7 text-[11px] gap-1"
-            disabled={busy}
+            disabled={disabled}
             onClick={() => onRepair(pkg.package_id, 'repair_exam_pool_quality')}
             title="Trap-Verteilung rebalancieren"
           >
@@ -452,7 +488,7 @@ function ExhaustedPackageRow({ pkg, onRepair, busyId, selected, onToggleSelect }
             size="sm"
             variant="outline"
             className="h-7 text-[11px] gap-1"
-            disabled={busy}
+            disabled={disabled}
             onClick={() => onRepair(pkg.package_id, 'repair_exam_pool_quality')}
             title="Bloom-Taxonomie-Verteilung reparieren"
           >
@@ -467,7 +503,7 @@ function ExhaustedPackageRow({ pkg, onRepair, busyId, selected, onToggleSelect }
             size="sm"
             variant="outline"
             className="h-7 text-[11px] gap-1"
-            disabled={busy}
+            disabled={disabled}
             onClick={() => onRepair(pkg.package_id, 'retry_validate')}
           >
             {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
@@ -499,6 +535,11 @@ export function RepairExhaustedAlert() {
   const [collapsed, setCollapsed] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [pendingAction, setPendingAction] = useState<{ packageId: string; action: string; pkgTitle: string } | null>(null);
+  const [lastError, setLastError] = useState<{ packageId: string; parsed: ReturnType<typeof parseHealError> } | null>(null);
+
+  const activeRepairs = useActiveRepairLock();
+  const hasActiveRepair = (activeRepairs.data ?? 0) > 0;
 
   const toggleSelect = (id: string) => {
     setSelectedIds(prev => {
@@ -578,20 +619,36 @@ export function RepairExhaustedAlert() {
       toast.success(`Reparatur für ${vars.packageId.slice(0, 8)} gestartet`);
       qc.invalidateQueries({ queryKey: ['admin', 'repair-exhausted'] });
       qc.invalidateQueries({ queryKey: ['admin'] });
+      qc.invalidateQueries({ queryKey: ['active-repair-jobs'] });
       setBusyId(null);
+      setLastError(null);
     },
     onError: (err: Error, vars) => {
+      const parsed = parseHealError(err);
+      setLastError({ packageId: vars.packageId, parsed });
       const msg = err.message;
       if (msg.includes('WIP_CAP_EXCEEDED')) {
         toast.error('WIP-Limit erreicht — es bauen bereits zu viele Pakete. Warte bis Slots frei werden.', { duration: 6000 });
       } else if (msg.includes('REGRESSION_BLOCKED')) {
         toast.error('Step-Regression blockiert. Verwende "reset_to_step" im Workspace.', { duration: 6000 });
       } else {
-        toast.error(`Fehler: ${msg}`);
+        toast.error(parsed.title, { description: parsed.description, duration: 8000 });
       }
       setBusyId(null);
     },
   });
+
+  /** Klick auf Repair-Button → erst Bestätigungsdialog. */
+  const requestRepair = (packageId: string, action: string) => {
+    if (hasActiveRepair) {
+      toast.warning('Repair-Lock aktiv', {
+        description: 'Es laufen bereits Repair-Jobs in der Queue. Bitte warten, bis diese abgeschlossen sind.',
+      });
+      return;
+    }
+    const pkg = exhausted.find(p => p.package_id === packageId);
+    setPendingAction({ packageId, action, pkgTitle: pkg?.title ?? packageId.slice(0, 8) });
+  };
 
   if (exhausted.length === 0) return null;
 
@@ -691,10 +748,11 @@ export function RepairExhaustedAlert() {
               <ExhaustedPackageRow
                 key={pkg.package_id}
                 pkg={pkg}
-                onRepair={(id, action) => repairMutation.mutate({ packageId: id, action })}
+                onRepair={requestRepair}
                 busyId={busyId}
                 selected={selectedIds.has(pkg.package_id)}
                 onToggleSelect={toggleSelect}
+                locked={hasActiveRepair}
               />
             ))}
           </div>
@@ -706,6 +764,85 @@ export function RepairExhaustedAlert() {
           )}
         </>
       )}
+
+      {/* Globaler Lock-Hinweis */}
+      {hasActiveRepair && (
+        <div className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-[11px] text-warning-foreground flex items-center gap-2">
+          <Loader2 className="h-3 w-3 animate-spin shrink-0" />
+          <span>
+            <strong>Repair-Lock aktiv:</strong> {activeRepairs.data} aktive(r) <code>package_repair_*</code>-Job(s) in der Queue.
+            Heal-Buttons sind blockiert, um doppelte Reparaturen zu vermeiden.
+          </span>
+        </div>
+      )}
+
+      {/* Bestätigungsdialog vor Repair-Ausführung */}
+      <AlertDialog open={!!pendingAction} onOpenChange={(open) => !open && setPendingAction(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <ShieldAlert className="h-4 w-4 text-warning" />
+              {pendingAction ? (ACTION_LABELS[pendingAction.action]?.title ?? pendingAction.action) : ''} bestätigen
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-xs">
+                <p>
+                  Aktion <strong>{pendingAction?.action}</strong> wird für Paket{' '}
+                  <code>{pendingAction?.pkgTitle}</code> ausgeführt.
+                </p>
+                {pendingAction && ACTION_LABELS[pendingAction.action]?.description && (
+                  <p className="text-muted-foreground">{ACTION_LABELS[pendingAction.action].description}</p>
+                )}
+                {pendingAction && ACTION_LABELS[pendingAction.action]?.danger && (
+                  <p className="text-destructive font-medium">
+                    ⚠️ Diese Aktion erzeugt Queue-Jobs und verbraucht KI-Budget. Auto-Repair-Limit wurde bereits erreicht.
+                  </p>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (!pendingAction) return;
+                repairMutation.mutate({ packageId: pendingAction.packageId, action: pendingAction.action });
+                setPendingAction(null);
+              }}
+            >
+              Jetzt ausführen
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Verständlicher Fehler-Dialog */}
+      <AlertDialog open={!!lastError} onOpenChange={(open) => !open && setLastError(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertOctagon className="h-4 w-4 text-destructive" />
+              {lastError?.parsed.title ?? 'Fehler'}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-xs">
+                <p>{lastError?.parsed.description}</p>
+                {lastError?.parsed.details && lastError.parsed.details.length > 0 && (
+                  <ul className="list-disc pl-4 space-y-0.5 text-muted-foreground">
+                    {lastError.parsed.details.slice(0, 5).map((d, i) => <li key={i}>{d}</li>)}
+                  </ul>
+                )}
+                <p className="text-[10px] text-muted-foreground font-mono break-all">
+                  Kategorie: {lastError?.parsed.kind} · Paket: {lastError?.packageId.slice(0, 8)}
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Schließen</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
