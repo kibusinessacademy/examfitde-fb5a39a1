@@ -351,6 +351,32 @@ function ExhaustedPackageRow({ pkg, onRepair, busyId, selected, onToggleSelect, 
 
       {/* Context-sensitive buttons */}
       <div className="flex flex-wrap gap-1.5 pt-1">
+        {/* PRIMARY EXIT — Reset Exhaustion / Reset & Retry.
+            Solange HARD_FAIL_BREAKER aktiv ist, werden alle anderen
+            Repair-Jobs intern verworfen → diese Aktionen sind der einzige Ausweg. */}
+        <Button
+          size="sm"
+          variant="default"
+          className="h-7 text-[11px] gap-1"
+          disabled={disabled}
+          onClick={() => onRepair(pkg.package_id, 'reset_and_retry')}
+          title="HARD_FAIL_BREAKER aufheben und validate_exam_pool neu starten"
+        >
+          {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
+          Exhaustion lösen + Retry
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-7 text-[11px] gap-1"
+          disabled={disabled}
+          onClick={() => onRepair(pkg.package_id, 'reset_exhaustion')}
+          title="Nur den HARD_FAIL_BREAKER-Status aufheben — kein neuer Job"
+        >
+          {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Unlock className="h-3 w-3" />}
+          Exhaustion zurücksetzen
+        </Button>
+
         {/* GATE_PASS: Pool meets all criteria — just finalize the step */}
         {pkg.gate_class === 'PASS' && (
           <Button
