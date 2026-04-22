@@ -151,6 +151,9 @@ export function QueueActionCockpit() {
 
   return (
     <div className="space-y-3">
+      {/* === VALIDATION WARNINGS (Job-Type-Mismatch etc.) === */}
+      <QueueValidationWarnings />
+
       {/* === KONTEXT-HEADER === */}
       <Card className="border-border bg-gradient-to-br from-card to-muted/20">
         <CardContent className="p-3">
