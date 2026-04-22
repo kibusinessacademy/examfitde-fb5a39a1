@@ -1778,7 +1778,106 @@ Deno.serve(async (req) => {
     console.log(`[ExamPool-v5][TARGETED_FILL] blueprints=${bpsList.length}, comps_with_bp=${compsWithBps.size}/${resolvedIds.length}`);
 
     if (bpsList.length === 0) {
-      // No blueprints exist for these competencies — caller must run blueprint generation first
+      // ── Self-Heal Loop v1: auto-escalate to targeted_blueprint_fill ──────────
+      // Determine which resolved competencies actually lack approved blueprints
+      const { data: bpAnyRows } = await sb2.from("question_blueprints")
+        .select("competency_id")
+        .eq("curriculum_id", curriculumId)
+        .eq("status", "approved")
+        .in("competency_id", resolvedIds);
+      const coveredBpComps = new Set((bpAnyRows ?? []).map((r: any) => String(r.competency_id)));
+      const missingBlueprintCompetencyIds = resolvedIds.filter(id => !coveredBpComps.has(String(id)));
+
+      let blueprintRecovery: any = {
+        attempted: false,
+        enqueued: false,
+        reason: "NO_BLUEPRINT_RECOVERY_ATTEMPTED",
+        missing_blueprint_competencies: missingBlueprintCompetencyIds.length,
+      };
+
+      if (missingBlueprintCompetencyIds.length > 0 && continuationDepth < MAX_CONTINUATION_DEPTH) {
+        blueprintRecovery.attempted = true;
+        try {
+          // Active-job dedup
+          const { data: activeBp } = await sb2.from("job_queue")
+            .select("id")
+            .eq("package_id", String(p.package_id ?? packageId ?? ""))
+            .in("job_type", [
+              "package_generate_blueprint_variants",
+              "package_auto_seed_exam_blueprints",
+              "package_validate_blueprints",
+            ])
+            .in("status", ["pending", "queued", "processing", "running", "batch_pending"])
+            .limit(1);
+
+          if ((activeBp ?? []).length > 0) {
+            blueprintRecovery = {
+              ...blueprintRecovery,
+              enqueued: false,
+              reason: "ACTIVE_BLUEPRINT_JOB_EXISTS",
+            };
+          } else {
+            const bpPayload = {
+              triggered_by: "targeted_fill_blueprint_recovery",
+              reason: "missing_approved_blueprints_for_targeted_fill",
+              package_id: String(p.package_id ?? packageId ?? ""),
+              curriculum_id: curriculumId,
+              is_repair: true,
+              mode: "targeted_blueprint_fill",
+              target_competency_ids: missingBlueprintCompetencyIds,
+              continuation_of_targeted_fill: true,
+              continuation_depth: continuationDepth + 1,
+              root_job_id: rootJobId ?? parentJobId ?? null,
+              parent_job_id: parentJobId ?? null,
+              requeue_exam_pool_after_success: true,
+            };
+            const bpMeta = {
+              manual_heal: true,
+              cluster: "targeted_blueprint_fill",
+              continuation_depth: continuationDepth + 1,
+              missing_blueprint_competencies: missingBlueprintCompetencyIds.length,
+              root_job_id: rootJobId ?? parentJobId ?? null,
+              parent_job_id: parentJobId ?? null,
+            };
+            const { error: insErr } = await sb2.from("job_queue").insert({
+              job_type: "package_generate_blueprint_variants",
+              package_id: String(p.package_id ?? packageId ?? ""),
+              status: "pending",
+              priority: 1,
+              max_attempts: 10,
+              run_after: new Date(Date.now() + 10_000).toISOString(),
+              payload: bpPayload,
+              meta: bpMeta,
+            });
+            if (insErr) throw insErr;
+            blueprintRecovery = {
+              ...blueprintRecovery,
+              enqueued: true,
+              reason: "BLUEPRINT_GENERATION_ENQUEUED",
+              continuation_depth_next: continuationDepth + 1,
+            };
+            console.log(`[ExamPool-v5][TARGETED_FILL] BLUEPRINT_RECOVERY enqueued for ${missingBlueprintCompetencyIds.length} comps (depth=${continuationDepth + 1})`);
+          }
+        } catch (e) {
+          blueprintRecovery = {
+            attempted: true,
+            enqueued: false,
+            reason: "BLUEPRINT_RECOVERY_ENQUEUE_FAILED",
+            error: (e as Error)?.message ?? String(e),
+            missing_blueprint_competencies: missingBlueprintCompetencyIds.length,
+          };
+          console.error(`[ExamPool-v5][TARGETED_FILL] BLUEPRINT_RECOVERY_FAILED: ${blueprintRecovery.error}`);
+        }
+      } else if (continuationDepth >= MAX_CONTINUATION_DEPTH) {
+        blueprintRecovery = {
+          attempted: false,
+          enqueued: false,
+          reason: "MAX_CONTINUATION_DEPTH_REACHED",
+          missing_blueprint_competencies: missingBlueprintCompetencyIds.length,
+          continuation_depth: continuationDepth,
+        };
+      }
+
       return json({
         ok: false,
         error: "TARGETED_FILL_NO_BLUEPRINTS",
@@ -1786,7 +1885,10 @@ Deno.serve(async (req) => {
         requested_target_competencies: requestedIds.length,
         resolved_target_competencies: resolvedIds.length,
         competencies_with_blueprints: 0,
-        reason: "Run package_generate_blueprint_variants for these competencies first",
+        missing_blueprint_competencies: missingBlueprintCompetencyIds.length,
+        missing_blueprint_competency_ids: missingBlueprintCompetencyIds.slice(0, 100),
+        blueprint_recovery: blueprintRecovery,
+        reason: "Run blueprint generation before targeted exam-pool fill",
       }, 409);
     }
 
