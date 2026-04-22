@@ -1688,6 +1688,187 @@ Deno.serve(async (req) => {
 
   if (!packageId || !curriculumId) return json({ error: "Missing package_id or curriculum_id" }, 400);
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ── P0 SCOPED REPAIR BRANCH: targeted_competency_fill ──────────────────────
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Triggered by repair payloads that need to fill specific competencies WITHOUT
+  // running full pipeline (step is already 'done'). Strict invariants:
+  //   - target_competency_ids: non-empty UUID[]
+  //   - only blueprints belonging to BOTH curriculum AND target competencies
+  //   - NO markStepDone (this is a repair, not a step finalization)
+  //   - NO silent success: 0 inserts when expected → return failed/no_effect meta
+  const repairMode = (p.mode === "targeted_competency_fill") || p.is_repair === true;
+  const rawTargetIds: unknown = p.target_competency_ids;
+  if (repairMode || (Array.isArray(rawTargetIds) && rawTargetIds.length > 0)) {
+    const SUPABASE_URL2 = Deno.env.get("SUPABASE_URL")!;
+    const SERVICE_ROLE_KEY2 = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const sb2 = createClient(SUPABASE_URL2, SERVICE_ROLE_KEY2);
+
+    // 1. Hard-validate target_competency_ids (UUID[] only, non-empty)
+    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!Array.isArray(rawTargetIds) || rawTargetIds.length === 0) {
+      return json({
+        ok: false,
+        error: "TARGETED_FILL_INVALID_PAYLOAD",
+        reason: "target_competency_ids must be non-empty UUID array",
+        completion_mode: "targeted_competency_fill",
+        requested_target_competencies: 0,
+      }, 400);
+    }
+    const requestedIds = rawTargetIds.map(String);
+    const validIds = requestedIds.filter(id => uuidRe.test(id));
+    if (validIds.length === 0) {
+      return json({
+        ok: false,
+        error: "TARGETED_FILL_INVALID_UUIDS",
+        completion_mode: "targeted_competency_fill",
+        requested_target_competencies: requestedIds.length,
+        resolved_target_competencies: 0,
+      }, 400);
+    }
+
+    // 2. Resolve competencies that actually belong to this curriculum
+    //    competencies has NO direct curriculum_id — join via learning_fields
+    const { data: lfRows } = await sb2.from("learning_fields")
+      .select("id").eq("curriculum_id", curriculumId);
+    const allowedLfIds = new Set((lfRows ?? []).map((r: any) => r.id));
+    const { data: compRows } = await sb2.from("competencies")
+      .select("id, learning_field_id").in("id", validIds);
+    const resolvedComps = (compRows ?? []).filter((c: any) => allowedLfIds.has(c.learning_field_id));
+    const resolvedIds = resolvedComps.map((c: any) => c.id);
+    console.log(`[ExamPool-v5][TARGETED_FILL] requested=${requestedIds.length}, valid=${validIds.length}, resolved=${resolvedIds.length} for curriculum=${curriculumId}`);
+
+    if (resolvedIds.length === 0) {
+      return json({
+        ok: false,
+        error: "TARGETED_FILL_NO_RESOLVED_COMPETENCIES",
+        completion_mode: "targeted_competency_fill",
+        requested_target_competencies: requestedIds.length,
+        resolved_target_competencies: 0,
+        reason: "None of the target competencies belong to this curriculum",
+      }, 400);
+    }
+
+    // 3. Load blueprints scoped to (curriculum, resolved competencies)
+    const { data: targetBps, error: tbpErr } = await sb2.from("question_blueprints")
+      .select("id, max_variations, curriculum_id, learning_field_id, competency_id, name, canonical_statement, cognitive_level, question_template, trap_spec, typical_exam_trap, exam_context_type, typical_errors, estimated_time_seconds, decision_structure, exam_relevance_score")
+      .eq("curriculum_id", curriculumId)
+      .eq("status", "approved")
+      .in("competency_id", resolvedIds);
+    if (tbpErr) throw tbpErr;
+    const bpsList = (targetBps ?? []) as BlueprintInfo[];
+    const compsWithBps = new Set(bpsList.map(b => b.competency_id).filter(Boolean));
+    console.log(`[ExamPool-v5][TARGETED_FILL] blueprints=${bpsList.length}, comps_with_bp=${compsWithBps.size}/${resolvedIds.length}`);
+
+    if (bpsList.length === 0) {
+      // No blueprints exist for these competencies — caller must run blueprint generation first
+      return json({
+        ok: false,
+        error: "TARGETED_FILL_NO_BLUEPRINTS",
+        completion_mode: "targeted_competency_fill",
+        requested_target_competencies: requestedIds.length,
+        resolved_target_competencies: resolvedIds.length,
+        competencies_with_blueprints: 0,
+        reason: "Run package_generate_blueprint_variants for these competencies first",
+      }, 409);
+    }
+
+    // 4. Resolve profession (best-effort, needed for prompt)
+    let professionNameRepair = "Fachkraft";
+    try {
+      const profRes = await resolveProfession(sb2, { certificationId: p.certification_id || null, curriculumId });
+      professionNameRepair = profRes.professionName;
+    } catch (_e) { /* best-effort */ }
+
+    // 5. Generate questions per blueprint (small fixed budget per repair run)
+    const QUESTIONS_PER_BP = Math.min(Number(p.questions_per_blueprint ?? 5), 10);
+    const existingHashes = new Set<string>();
+    const existingNgramSets: Set<string>[] = [];
+    let totalSaved = 0;
+    let totalTraining = 0;
+    let totalGateFailed = 0;
+    let processedBps = 0;
+    const perBpResults: Array<{ bp_id: string; competency_id: string | null; saved: number; training: number; gate_failed: number; error?: string }> = [];
+
+    // Difficulty rotation: fixed deterministic for repair (medium-heavy)
+    const diffRotation: DifficultyKey[] = ["medium", "hard", "medium", "easy", "hard"];
+    const typeRotation: QuestionTypeKey[] = ["best_option", "case_study", "calculation", "error_detection", "compliance_check"];
+    const cogRotation: CognitiveLevelKey[] = ["apply", "analyze", "recall", "decide"];
+
+    const REPAIR_TIME_BUDGET_MS = 40_000;
+    const startMs = Date.now();
+
+    for (let i = 0; i < bpsList.length; i++) {
+      if (Date.now() - startMs > REPAIR_TIME_BUDGET_MS) {
+        console.log(`[ExamPool-v5][TARGETED_FILL] time budget reached after ${processedBps} bps, will requeue`);
+        break;
+      }
+      const bp = bpsList[i];
+      const difficulty = diffRotation[i % diffRotation.length];
+      const questionType = typeRotation[i % typeRotation.length];
+      const cognitiveLevel = cogRotation[i % cogRotation.length];
+      try {
+        const r = await generateTurboQuestions(
+          sb2, bp, QUESTIONS_PER_BP, difficulty, questionType, cognitiveLevel,
+          existingHashes, existingNgramSets, professionNameRepair,
+        );
+        totalSaved += r.saved;
+        totalTraining += r.training;
+        totalGateFailed += r.gateFailed;
+        perBpResults.push({ bp_id: bp.id, competency_id: bp.competency_id ?? null, saved: r.saved, training: r.training, gate_failed: r.gateFailed });
+      } catch (e) {
+        const msg = (e as Error)?.message ?? String(e);
+        console.warn(`[ExamPool-v5][TARGETED_FILL] bp ${bp.id.slice(0,8)} failed: ${msg}`);
+        perBpResults.push({ bp_id: bp.id, competency_id: bp.competency_id ?? null, saved: 0, training: 0, gate_failed: 0, error: msg.slice(0, 200) });
+      }
+      processedBps++;
+    }
+
+    const insertedQuestions = totalSaved + totalTraining + totalGateFailed;
+    const competenciesProcessed = new Set(perBpResults.filter(r => r.saved + r.training + r.gate_failed > 0).map(r => r.competency_id)).size;
+
+    const baseMeta = {
+      completion_mode: "targeted_competency_fill",
+      requested_target_competencies: requestedIds.length,
+      resolved_target_competencies: resolvedIds.length,
+      competencies_with_blueprints: compsWithBps.size,
+      processed_blueprints: processedBps,
+      processed_competencies: competenciesProcessed,
+      inserted_questions: insertedQuestions,
+      saved_exam_approved: totalSaved,
+      saved_training: totalTraining,
+      gate_failed: totalGateFailed,
+      per_bp: perBpResults.slice(0, 50),
+    };
+
+    // 6. NO-OP detection: processed something but produced nothing → fail
+    if (processedBps > 0 && insertedQuestions === 0) {
+      console.error(`[ExamPool-v5][TARGETED_FILL] NO_EFFECT: ${processedBps} bps processed, 0 questions inserted`);
+      return json({
+        ok: false,
+        error: "NO_EFFECT_TARGETED_GENERATION",
+        ...baseMeta,
+      }, 422);
+    }
+
+    if (processedBps === 0) {
+      // Nothing processed at all — likely time budget hit before first BP completed
+      return json({
+        ok: false,
+        retry: true,
+        error: "TARGETED_FILL_NO_PROGRESS",
+        ...baseMeta,
+      }, 409);
+    }
+
+    console.log(`[ExamPool-v5][TARGETED_FILL] DONE: ${insertedQuestions} questions inserted across ${competenciesProcessed} competencies`);
+    return json({
+      ok: true,
+      ...baseMeta,
+    });
+  }
+  // ═══ END SCOPED REPAIR BRANCH ══════════════════════════════════════════════
+
   // ─── SSOT: Load track + is_rebuild for budget computation ───
   const { data: pkgMeta } = await sb.from("course_packages")
     .select("track, is_rebuild").eq("id", packageId).maybeSingle();
