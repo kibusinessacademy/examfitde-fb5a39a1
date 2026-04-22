@@ -1,17 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
-  Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger,
+  Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger,
 } from '@/components/ui/sheet';
 import {
-  AlertOctagon, AlertTriangle, RefreshCw, WifiOff, History, PlayCircle, CheckCircle2,
+  AlertOctagon, AlertTriangle, CheckCircle2, History, Loader2, PlayCircle, RefreshCw, WifiOff, Wrench,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { parseHealError, type ParsedHealError } from './healErrorParser';
 
 // ---------- Types ----------
 interface ValidationWarning {
@@ -43,6 +44,104 @@ interface AuditRow {
   decision: string;
   payload_excerpt: Record<string, unknown> | null;
   validation: Record<string, unknown> | null;
+}
+
+interface RepairPreviewResult {
+  decision?: string;
+  reason?: string;
+  severity?: string | null;
+  strategy?: string | null;
+  job_type?: string | null;
+  mode?: string | null;
+  is_valid?: boolean;
+  duplicate_active_job?: boolean;
+  preview_only?: boolean;
+  validation?: Record<string, unknown> | null;
+  resolver?: {
+    reason?: string;
+    strategy?: string | null;
+    job_type?: string | null;
+    payload?: Record<string, unknown> | null;
+  } | null;
+}
+
+interface RepairExecuteResult {
+  ok?: boolean;
+  error?: string;
+  decision?: string;
+  reason?: string;
+  job_id?: string;
+  job_type?: string | null;
+  mode?: string | null;
+  preview?: RepairPreviewResult | null;
+  validation?: Record<string, unknown> | null;
+}
+
+interface InlineFeedback {
+  tone: 'success' | 'warning' | 'destructive';
+  title: string;
+  description: string;
+  details?: string[];
+}
+
+const INLINE_FEEDBACK_TONE: Record<InlineFeedback['tone'], string> = {
+  success: 'border-success/30 bg-success/10 text-success',
+  warning: 'border-warning/30 bg-warning/10 text-warning',
+  destructive: 'border-destructive/30 bg-destructive/10 text-destructive',
+};
+
+function humanizeRepairReason(reason?: string | null, strategy?: string | null) {
+  switch (reason ?? strategy ?? '') {
+    case 'all_competencies_have_questions':
+    case 'no_action_no_deficit':
+      return 'Für dieses Paket wurde aktuell keine Coverage-Lücke gefunden.';
+    case 'duplicate_active_job':
+    case 'no_action_active_job_exists':
+      return 'Für dieses Paket läuft bereits ein passender Repair-Job oder er ist schon eingereiht.';
+    case 'manual_review_required':
+    case 'recent_no_effect_or_no_progress_history':
+      return 'Die automatische Reparatur ist gesperrt, weil zuletzt kein Fortschritt erreicht wurde. Bitte manuell prüfen.';
+    case 'no_package_or_curriculum':
+      return 'Für dieses Paket fehlt die erforderliche SSOT-Zuordnung zum Curriculum.';
+    case 'no_competencies_in_curriculum':
+      return 'Im zugehörigen Curriculum wurden keine Kompetenzen gefunden.';
+    case 'no_blueprints_yet':
+      return 'Es existieren noch keine Blueprints — zunächst wird ein Blueprint-Seed eingereiht.';
+    case 'admin_only':
+      return 'Diese Reparatur darf nur mit Admin-Rechten ausgeführt werden.';
+    default:
+      if (reason?.startsWith('missing_questions_for_')) {
+        return `Es fehlen noch Fragen in mehreren Kompetenzen — eine gezielte Coverage-Reparatur kann eingereiht werden.`;
+      }
+      return reason ?? strategy ?? 'Unbekannter Reparaturstatus.';
+  }
+}
+
+function buildPreviewFeedback(preview: RepairPreviewResult): InlineFeedback {
+  const decision = preview.decision ?? 'preview_skip';
+  const validationWarning = typeof preview.validation?.warning === 'string' ? preview.validation.warning : null;
+  const details = [
+    preview.strategy ? `Strategie: ${preview.strategy}` : null,
+    preview.job_type ? `Job-Typ: ${preview.job_type}` : null,
+    preview.mode ? `Mode: ${preview.mode}` : null,
+    validationWarning,
+  ].filter(Boolean) as string[];
+
+  if (decision === 'preview_ok') {
+    return {
+      tone: 'success',
+      title: 'Reparatur möglich',
+      description: humanizeRepairReason(preview.reason, preview.strategy),
+      details,
+    };
+  }
+
+  return {
+    tone: decision === 'preview_skip' ? 'warning' : 'destructive',
+    title: 'Reparatur derzeit blockiert',
+    description: humanizeRepairReason(preview.reason, preview.strategy),
+    details,
+  };
 }
 
 const SEVERITY_META: Record<string, { cls: string; icon: typeof AlertTriangle; label: string }> = {
@@ -282,6 +381,9 @@ function Chip({
 
 function DrilldownSheet({ warning }: { warning: ValidationWarning }) {
   const [open, setOpen] = useState(false);
+  const [preview, setPreview] = useState<RepairPreviewResult | null>(null);
+  const [feedback, setFeedback] = useState<InlineFeedback | null>(null);
+  const qc = useQueryClient();
 
   const audit = useQuery({
     queryKey: ['queue-validation-audit', warning.package_id, warning.source_job_id],
@@ -301,28 +403,98 @@ function DrilldownSheet({ warning }: { warning: ValidationWarning }) {
     },
   });
 
-  const dryRun = async () => {
-    if (!warning.package_id) {
-      toast.error('Kein package_id verfügbar');
-      return;
-    }
-    const t = toast.loading('Dry-Run läuft …');
-    try {
+  const activeRepair = useQuery({
+    queryKey: ['package-active-repair', warning.package_id],
+    enabled: open && !!warning.package_id,
+    queryFn: async () => {
+      if (!warning.package_id) return 0;
+      const { count, error } = await supabase
+        .from('job_queue')
+        .select('id', { count: 'exact', head: true })
+        .eq('package_id', warning.package_id)
+        .in('status', ['processing', 'running', 'pending', 'queued'])
+        .like('job_type', 'package_repair_%');
+      if (error) throw error;
+      return count ?? 0;
+    },
+    refetchInterval: 5_000,
+  });
+
+  const hasActiveRepair = (activeRepair.data ?? 0) > 0;
+
+  const dryRun = useMutation({
+    mutationFn: async () => {
+      if (!warning.package_id) throw new Error('Kein package_id verfügbar');
       const { data, error } = await supabase.rpc(
         'admin_dry_run_repair_for_package' as any,
         { _package_id: warning.package_id },
       );
       if (error) throw error;
-      const res = data as any;
-      toast.success(
-        `Dry-Run: ${res?.decision ?? 'unbekannt'}${res?.reason ? ` · ${res.reason}` : ''}`,
-        { id: t },
-      );
+      return (data ?? {}) as RepairPreviewResult;
+    },
+    onSuccess: (res) => {
+      setPreview(res);
+      const nextFeedback = buildPreviewFeedback(res);
+      setFeedback(nextFeedback);
+      toast.success(`Dry-Run: ${res?.decision ?? 'unbekannt'}`);
       audit.refetch();
-    } catch (e: any) {
-      toast.error(`Dry-Run fehlgeschlagen: ${e?.message ?? 'unbekannt'}`, { id: t });
-    }
-  };
+    },
+    onError: (err: unknown) => {
+      const parsed = parseHealError(err);
+      setPreview(null);
+      setFeedback({
+        tone: 'destructive',
+        title: parsed.title,
+        description: parsed.description,
+        details: parsed.details,
+      });
+      toast.error(parsed.title, { description: parsed.description });
+    },
+  });
+
+  const executeRepair = useMutation({
+    mutationFn: async () => {
+      if (!warning.package_id) throw new Error('Kein package_id verfügbar');
+      const { data, error } = await supabase.rpc(
+        'admin_execute_repair_for_package' as any,
+        { _package_id: warning.package_id },
+      );
+      if (error) throw error;
+      return (data ?? {}) as RepairExecuteResult;
+    },
+    onSuccess: (res) => {
+      if (res.ok) {
+        setFeedback({
+          tone: 'success',
+          title: 'Repair-Job eingereiht',
+          description: `Die Reparatur wurde gestartet${res.job_id ? ` (Job ${res.job_id.slice(0, 8)}…)` : ''}.`,
+          details: [res.job_type ? `Job-Typ: ${res.job_type}` : null, res.mode ? `Mode: ${res.mode}` : null].filter(Boolean) as string[],
+        });
+        toast.success('Repair-Job eingereiht');
+      } else {
+        const previewData = res.preview ?? preview;
+        setFeedback(previewData ? buildPreviewFeedback(previewData) : {
+          tone: 'warning',
+          title: 'Reparatur nicht eingereiht',
+          description: humanizeRepairReason(res.reason, preview?.strategy),
+        });
+        toast.warning('Reparatur nicht eingereiht', { description: humanizeRepairReason(res.reason, preview?.strategy) });
+      }
+      qc.invalidateQueries({ queryKey: ['queue-validation-warnings'] });
+      qc.invalidateQueries({ queryKey: ['package-active-repair', warning.package_id] });
+      audit.refetch();
+    },
+    onError: (err: unknown) => {
+      const parsed = parseHealError(err);
+      setFeedback({
+        tone: 'destructive',
+        title: parsed.title,
+        description: parsed.description,
+        details: parsed.details,
+      });
+      toast.error(parsed.title, { description: parsed.description });
+    },
+  });
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -334,6 +506,9 @@ function DrilldownSheet({ warning }: { warning: ValidationWarning }) {
       <SheetContent side="right" className="w-full sm:max-w-xl overflow-y-auto">
         <SheetHeader>
           <SheetTitle className="text-sm">Validation Audit · Drilldown</SheetTitle>
+          <SheetDescription>
+            Vorschau, Diagnose und direkte Reparatur für das betroffene Paket.
+          </SheetDescription>
         </SheetHeader>
 
         <div className="mt-3 space-y-2 text-xs">
@@ -343,9 +518,34 @@ function DrilldownSheet({ warning }: { warning: ValidationWarning }) {
             {warning.mode && <Badge variant="outline">mode: {warning.mode}</Badge>}
           </div>
           <p className="text-muted-foreground">{warning.body}</p>
+          {feedback && (
+            <div className={cn('rounded-md border p-2 space-y-1 text-[11px]', INLINE_FEEDBACK_TONE[feedback.tone])}>
+              <div className="font-semibold">{feedback.title}</div>
+              <div>{feedback.description}</div>
+              {feedback.details && feedback.details.length > 0 && (
+                <ul className="list-disc pl-4 space-y-0.5">
+                  {feedback.details.slice(0, 3).map((detail) => <li key={detail}>{detail}</li>)}
+                </ul>
+              )}
+            </div>
+          )}
+          {hasActiveRepair && (
+            <div className="rounded-md border border-warning/30 bg-warning/10 p-2 text-[11px] text-warning">
+              Für dieses Paket läuft bereits ein Repair-Job — neuer Start ist blockiert, bis der aktuelle Lauf fertig ist.
+            </div>
+          )}
           <div className="flex gap-2">
-            <Button size="sm" onClick={dryRun} className="h-7 text-[11px]">
-              <PlayCircle className="h-3 w-3 mr-1" /> Dry-Run jetzt ausführen
+            <Button size="sm" onClick={() => dryRun.mutate()} disabled={dryRun.isPending || executeRepair.isPending} className="h-7 text-[11px]">
+              {dryRun.isPending ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <PlayCircle className="h-3 w-3 mr-1" />}Dry-Run jetzt ausführen
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => executeRepair.mutate()}
+              disabled={hasActiveRepair || executeRepair.isPending || dryRun.isPending || preview?.decision !== 'preview_ok'}
+              className="h-7 text-[11px]"
+            >
+              {executeRepair.isPending ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Wrench className="h-3 w-3 mr-1" />}Repair jetzt starten
             </Button>
             <Button size="sm" variant="outline" onClick={() => audit.refetch()} className="h-7 text-[11px]">
               <RefreshCw className="h-3 w-3 mr-1" /> Refresh Audit
