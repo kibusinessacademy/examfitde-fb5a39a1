@@ -82095,6 +82095,10 @@ export type Database = {
         }[]
       }
       admin_get_queue_health_score: { Args: never; Returns: Json }
+      admin_has_recent_terminal_notification: {
+        Args: { _job_type: string; _package_id: string; _within?: string }
+        Returns: boolean
+      }
       admin_heal_step_job_coupling: {
         Args: { _step_keys?: string[] }
         Returns: {
@@ -82160,6 +82164,10 @@ export type Database = {
       admin_mark_package_repair: {
         Args: { p_package_id: string; p_reason?: string; p_unmark?: boolean }
         Returns: Json
+      }
+      admin_queue_cluster_weight: {
+        Args: { _cluster: string }
+        Returns: number
       }
       admin_recommend_queue_actions: {
         Args: never
