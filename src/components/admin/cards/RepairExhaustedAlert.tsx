@@ -535,6 +535,11 @@ export function RepairExhaustedAlert() {
   const [collapsed, setCollapsed] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [pendingAction, setPendingAction] = useState<{ packageId: string; action: string; pkgTitle: string } | null>(null);
+  const [lastError, setLastError] = useState<{ packageId: string; parsed: ReturnType<typeof parseHealError> } | null>(null);
+
+  const activeRepairs = useActiveRepairLock();
+  const hasActiveRepair = (activeRepairs.data ?? 0) > 0;
 
   const toggleSelect = (id: string) => {
     setSelectedIds(prev => {
