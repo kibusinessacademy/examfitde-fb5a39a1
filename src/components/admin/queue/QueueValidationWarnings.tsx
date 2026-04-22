@@ -1,17 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
-  Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger,
+  Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger,
 } from '@/components/ui/sheet';
 import {
-  AlertOctagon, AlertTriangle, RefreshCw, WifiOff, History, PlayCircle, CheckCircle2,
+  AlertOctagon, AlertTriangle, CheckCircle2, History, Loader2, PlayCircle, RefreshCw, WifiOff, Wrench,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { parseHealError, type ParsedHealError } from './healErrorParser';
 
 // ---------- Types ----------
 interface ValidationWarning {
@@ -43,6 +44,104 @@ interface AuditRow {
   decision: string;
   payload_excerpt: Record<string, unknown> | null;
   validation: Record<string, unknown> | null;
+}
+
+interface RepairPreviewResult {
+  decision?: string;
+  reason?: string;
+  severity?: string | null;
+  strategy?: string | null;
+  job_type?: string | null;
+  mode?: string | null;
+  is_valid?: boolean;
+  duplicate_active_job?: boolean;
+  preview_only?: boolean;
+  validation?: Record<string, unknown> | null;
+  resolver?: {
+    reason?: string;
+    strategy?: string | null;
+    job_type?: string | null;
+    payload?: Record<string, unknown> | null;
+  } | null;
+}
+
+interface RepairExecuteResult {
+  ok?: boolean;
+  error?: string;
+  decision?: string;
+  reason?: string;
+  job_id?: string;
+  job_type?: string | null;
+  mode?: string | null;
+  preview?: RepairPreviewResult | null;
+  validation?: Record<string, unknown> | null;
+}
+
+interface InlineFeedback {
+  tone: 'success' | 'warning' | 'destructive';
+  title: string;
+  description: string;
+  details?: string[];
+}
+
+const INLINE_FEEDBACK_TONE: Record<InlineFeedback['tone'], string> = {
+  success: 'border-success/30 bg-success/10 text-success',
+  warning: 'border-warning/30 bg-warning/10 text-warning',
+  destructive: 'border-destructive/30 bg-destructive/10 text-destructive',
+};
+
+function humanizeRepairReason(reason?: string | null, strategy?: string | null) {
+  switch (reason ?? strategy ?? '') {
+    case 'all_competencies_have_questions':
+    case 'no_action_no_deficit':
+      return 'Für dieses Paket wurde aktuell keine Coverage-Lücke gefunden.';
+    case 'duplicate_active_job':
+    case 'no_action_active_job_exists':
+      return 'Für dieses Paket läuft bereits ein passender Repair-Job oder er ist schon eingereiht.';
+    case 'manual_review_required':
+    case 'recent_no_effect_or_no_progress_history':
+      return 'Die automatische Reparatur ist gesperrt, weil zuletzt kein Fortschritt erreicht wurde. Bitte manuell prüfen.';
+    case 'no_package_or_curriculum':
+      return 'Für dieses Paket fehlt die erforderliche SSOT-Zuordnung zum Curriculum.';
+    case 'no_competencies_in_curriculum':
+      return 'Im zugehörigen Curriculum wurden keine Kompetenzen gefunden.';
+    case 'no_blueprints_yet':
+      return 'Es existieren noch keine Blueprints — zunächst wird ein Blueprint-Seed eingereiht.';
+    case 'admin_only':
+      return 'Diese Reparatur darf nur mit Admin-Rechten ausgeführt werden.';
+    default:
+      if (reason?.startsWith('missing_questions_for_')) {
+        return `Es fehlen noch Fragen in mehreren Kompetenzen — eine gezielte Coverage-Reparatur kann eingereiht werden.`;
+      }
+      return reason ?? strategy ?? 'Unbekannter Reparaturstatus.';
+  }
+}
+
+function buildPreviewFeedback(preview: RepairPreviewResult): InlineFeedback {
+  const decision = preview.decision ?? 'preview_skip';
+  const validationWarning = typeof preview.validation?.warning === 'string' ? preview.validation.warning : null;
+  const details = [
+    preview.strategy ? `Strategie: ${preview.strategy}` : null,
+    preview.job_type ? `Job-Typ: ${preview.job_type}` : null,
+    preview.mode ? `Mode: ${preview.mode}` : null,
+    validationWarning,
+  ].filter(Boolean) as string[];
+
+  if (decision === 'preview_ok') {
+    return {
+      tone: 'success',
+      title: 'Reparatur möglich',
+      description: humanizeRepairReason(preview.reason, preview.strategy),
+      details,
+    };
+  }
+
+  return {
+    tone: decision === 'preview_skip' ? 'warning' : 'destructive',
+    title: 'Reparatur derzeit blockiert',
+    description: humanizeRepairReason(preview.reason, preview.strategy),
+    details,
+  };
 }
 
 const SEVERITY_META: Record<string, { cls: string; icon: typeof AlertTriangle; label: string }> = {
