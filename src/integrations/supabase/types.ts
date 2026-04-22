@@ -25932,6 +25932,51 @@ export type Database = {
         }
         Relationships: []
       }
+      job_status_transitions: {
+        Row: {
+          attempts: number | null
+          created_at: string
+          error_class: string | null
+          id: number
+          job_id: string
+          job_type: string | null
+          meta: Json | null
+          new_status: string
+          old_status: string | null
+          package_id: string | null
+          reason: string | null
+          trigger_source: string
+        }
+        Insert: {
+          attempts?: number | null
+          created_at?: string
+          error_class?: string | null
+          id?: number
+          job_id: string
+          job_type?: string | null
+          meta?: Json | null
+          new_status: string
+          old_status?: string | null
+          package_id?: string | null
+          reason?: string | null
+          trigger_source?: string
+        }
+        Update: {
+          attempts?: number | null
+          created_at?: string
+          error_class?: string | null
+          id?: number
+          job_id?: string
+          job_type?: string | null
+          meta?: Json | null
+          new_status?: string
+          old_status?: string | null
+          package_id?: string | null
+          reason?: string | null
+          trigger_source?: string
+        }
+        Relationships: []
+      }
       job_type_policies: {
         Row: {
           can_run_when_not_building: boolean
@@ -45304,6 +45349,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      queue_health_snapshots: {
+        Row: {
+          failed_count: number
+          id: number
+          pending_count: number
+          processing_count: number
+          requeue_loop_count: number
+          taken_at: string
+        }
+        Insert: {
+          failed_count: number
+          id?: number
+          pending_count: number
+          processing_count: number
+          requeue_loop_count?: number
+          taken_at?: string
+        }
+        Update: {
+          failed_count?: number
+          id?: number
+          pending_count?: number
+          processing_count?: number
+          requeue_loop_count?: number
+          taken_at?: string
+        }
+        Relationships: []
       }
       rate_limits: {
         Row: {
@@ -74201,6 +74273,21 @@ export type Database = {
         }
         Relationships: []
       }
+      v_failed_jobs_root_causes: {
+        Row: {
+          affected_packages: number | null
+          avg_attempts: number | null
+          error_class: string | null
+          failed_jobs: number | null
+          first_seen_at: string | null
+          job_type: string | null
+          last_run_at: string | null
+          max_attempts_seen: number | null
+          package_ids: string[] | null
+          sample_error: string | null
+        }
+        Relationships: []
+      }
       v_flaky_tests: {
         Row: {
           fail_count: number | null
@@ -83762,6 +83849,7 @@ export type Database = {
       fn_auto_heal_hard_fail_repair_exhausted: { Args: never; Returns: Json }
       fn_auto_heal_materialization_guard: { Args: never; Returns: Json }
       fn_auto_heal_stale_lock_exhausted: { Args: never; Returns: Json }
+      fn_auto_retry_failed_jobs: { Args: { _limit?: number }; Returns: Json }
       fn_auto_unblock_ready_packages: {
         Args: never
         Returns: {
@@ -83808,6 +83896,7 @@ export type Database = {
           signature: string
         }[]
       }
+      fn_check_queue_health_alerts: { Args: never; Returns: Json }
       fn_classify_discovery_state: {
         Args: { p_source_id: string; p_source_type: string }
         Returns: Json
@@ -83820,6 +83909,7 @@ export type Database = {
         Args: { p_hard_fail_reasons: string[]; p_progress_percent?: number }
         Returns: Json
       }
+      fn_classify_job_error: { Args: { _err: string }; Returns: string }
       fn_classify_validate_guard: {
         Args: { p_package_id: string }
         Returns: Json
