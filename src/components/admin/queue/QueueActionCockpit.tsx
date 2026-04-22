@@ -382,6 +382,10 @@ export function QueueActionCockpit() {
         </CardContent>
       </Card>
 
+      {/* === VALIDATION + SYSTEM-HEALTH WARNINGS (nach Aktionen, Action-First Layout) === */}
+      <QueueValidationWarnings />
+      <QueueHealthcheckBanner />
+
       {/* Bestätigungs-Dialog für nicht-safe Aktionen */}
       <AlertDialog
         open={!!confirmAction && !confirmAction.is_safe && !execute.isPending}
