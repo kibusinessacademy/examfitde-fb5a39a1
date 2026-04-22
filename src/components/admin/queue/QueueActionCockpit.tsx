@@ -154,11 +154,20 @@ export function QueueActionCockpit() {
         setDryRunResult(res as ExecuteResult);
         return;
       }
-      const r = res.result;
+      const r = res.result ?? ({} as any);
+      const toCount = (v: unknown): number => {
+        if (typeof v === 'number') return v;
+        if (Array.isArray(v)) return v.length;
+        if (v && typeof v === 'object') return Object.keys(v as object).length;
+        return 0;
+      };
+      const processedCount = toCount(r.processed);
+      const skippedCount = toCount(r.skipped);
+      const errorCount = toCount(r.errors);
       toast({
         title: res.ok ? 'Heilung ausgeführt' : 'Aktion fehlgeschlagen',
         description: res.ok
-          ? `Cluster ${res.cluster}: ${r.processed} verarbeitet, ${r.skipped} übersprungen, ${r.errors} Fehler.`
+          ? `Cluster ${res.cluster}: ${processedCount} verarbeitet, ${skippedCount} übersprungen, ${errorCount} Fehler.`
           : `Aktion ${vars.action.action_key} konnte nicht ausgeführt werden.`,
         variant: res.ok ? 'default' : 'destructive',
       });
