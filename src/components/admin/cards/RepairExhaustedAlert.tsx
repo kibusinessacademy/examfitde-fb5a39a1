@@ -354,7 +354,7 @@ function ExhaustedPackageRow({ pkg, onRepair, busyId, selected, onToggleSelect, 
             size="sm"
             variant="default"
             className="h-7 text-[11px] gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
-            disabled={busy}
+            disabled={disabled}
             onClick={() => onRepair(pkg.package_id, 'heal_gate_pass')}
             title="Gate = PASS → Step auf done setzen"
           >
@@ -368,7 +368,7 @@ function ExhaustedPackageRow({ pkg, onRepair, busyId, selected, onToggleSelect, 
             size="sm"
             variant="destructive"
             className="h-7 text-[11px] gap-1"
-            disabled={busy}
+            disabled={disabled}
             onClick={() => onRepair(pkg.package_id, 'enqueue_exam_generation')}
             title="Exam-Pool-Generierung anstoßen (enqueue generate_exam_pool Step)"
           >
@@ -383,7 +383,7 @@ function ExhaustedPackageRow({ pkg, onRepair, busyId, selected, onToggleSelect, 
             size="sm"
             variant="destructive"
             className="h-7 text-[11px] gap-1"
-            disabled={busy}
+            disabled={disabled}
             onClick={() => onRepair(pkg.package_id, 'force_pool_fill')}
             title="Pool-Fill + Validate-Reset"
           >
@@ -398,7 +398,7 @@ function ExhaustedPackageRow({ pkg, onRepair, busyId, selected, onToggleSelect, 
             size="sm"
             variant="destructive"
             className="h-7 text-[11px] gap-1"
-            disabled={busy}
+            disabled={disabled}
             onClick={() => onRepair(pkg.package_id, 'force_pool_fill')}
             title="Exam-Pool reparieren + Validate-Reset"
           >
@@ -413,7 +413,7 @@ function ExhaustedPackageRow({ pkg, onRepair, busyId, selected, onToggleSelect, 
             size="sm"
             variant="destructive"
             className="h-7 text-[11px] gap-1"
-            disabled={busy}
+            disabled={disabled}
             onClick={() => onRepair(pkg.package_id, 'repair_exam_pool_competency_coverage')}
             title="Fragen für fehlende Kompetenzen generieren"
           >
@@ -428,7 +428,7 @@ function ExhaustedPackageRow({ pkg, onRepair, busyId, selected, onToggleSelect, 
             size="sm"
             variant="destructive"
             className="h-7 text-[11px] gap-1"
-            disabled={busy}
+            disabled={disabled}
             onClick={() => onRepair(pkg.package_id, 'repair_lessons')}
             title="Placeholder-Lektionen neu generieren"
           >
@@ -443,7 +443,7 @@ function ExhaustedPackageRow({ pkg, onRepair, busyId, selected, onToggleSelect, 
             size="sm"
             variant="outline"
             className="h-7 text-[11px] gap-1"
-            disabled={busy}
+            disabled={disabled}
             onClick={() => onRepair(pkg.package_id, 'repair_minichecks')}
             title="MiniChecks für Lektionen ohne Fragen neu generieren"
           >
@@ -458,7 +458,7 @@ function ExhaustedPackageRow({ pkg, onRepair, busyId, selected, onToggleSelect, 
             size="sm"
             variant="outline"
             className="h-7 text-[11px] gap-1"
-            disabled={busy}
+            disabled={disabled}
             onClick={() => onRepair(pkg.package_id, 'repair_lessons')}
             title="5-Schritte-Lektionen für fehlende Kompetenzen regenerieren"
           >
@@ -473,7 +473,7 @@ function ExhaustedPackageRow({ pkg, onRepair, busyId, selected, onToggleSelect, 
             size="sm"
             variant="outline"
             className="h-7 text-[11px] gap-1"
-            disabled={busy}
+            disabled={disabled}
             onClick={() => onRepair(pkg.package_id, 'repair_exam_pool_quality')}
             title="Trap-Verteilung rebalancieren"
           >
@@ -488,7 +488,7 @@ function ExhaustedPackageRow({ pkg, onRepair, busyId, selected, onToggleSelect, 
             size="sm"
             variant="outline"
             className="h-7 text-[11px] gap-1"
-            disabled={busy}
+            disabled={disabled}
             onClick={() => onRepair(pkg.package_id, 'repair_exam_pool_quality')}
             title="Bloom-Taxonomie-Verteilung reparieren"
           >
@@ -503,7 +503,7 @@ function ExhaustedPackageRow({ pkg, onRepair, busyId, selected, onToggleSelect, 
             size="sm"
             variant="outline"
             className="h-7 text-[11px] gap-1"
-            disabled={busy}
+            disabled={disabled}
             onClick={() => onRepair(pkg.package_id, 'retry_validate')}
           >
             {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
