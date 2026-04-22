@@ -394,7 +394,7 @@ export function QueueActionCockpit() {
                       <Button
                         size="sm"
                         variant="ghost"
-                        disabled={execute.isPending}
+                        disabled={execute.isPending || hasActiveRepair}
                         onClick={() => execute.mutate({ action: a, dryRun: true })}
                         className="h-7 px-2 text-[10px] text-muted-foreground hover:text-foreground"
                       >
@@ -404,14 +404,18 @@ export function QueueActionCockpit() {
                       <Button
                         size="sm"
                         variant={isPrimary ? 'default' : 'outline'}
-                        disabled={execute.isPending}
+                        disabled={execute.isPending || hasActiveRepair}
+                        title={
+                          hasActiveRepair
+                            ? `Blockiert — ${activeRepairs.data} Repair-Job(s) laufen noch`
+                            : undefined
+                        }
                         onClick={() => {
-                          // SAFE → direkt heilen.
-                          // MEDIUM/HIGH → Dry-Run-First erzwingen; danach öffnet der
-                          // Dry-Run-Result-Dialog und Operator kann "Trotzdem ausführen".
+                          // Beide Pfade verlangen jetzt einen Bestätigungs-Schritt:
+                          // SAFE → kurzer Confirm-Dialog (safeConfirm)
+                          // MEDIUM/HIGH → Dry-Run-First, dann „Trotzdem ausführen" im Result-Dialog
                           if (a.is_safe) {
-                            setConfirmAction(a);
-                            execute.mutate({ action: a, dryRun: false });
+                            setSafeConfirm(a);
                           } else {
                             setConfirmAction(a);
                             execute.mutate({ action: a, dryRun: true });
