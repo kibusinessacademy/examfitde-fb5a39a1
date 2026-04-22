@@ -53,7 +53,10 @@ export function QueueHealthcheckBanner() {
   if (isLoading || error || !data) return null;
 
   const issues = data.issues ?? [];
-  if (data.status === "ok" && issues.length === 0) return null;
+  // SSOT-Konsistenz: ein "fail"/"warn"-Status ohne Issues ist semantisch leer.
+  // Wir zeigen das Banner nur, wenn es echte Issues gibt — sonst Backend-Drift,
+  // den wir nicht als FAIL · 0 Issues falsch darstellen wollen.
+  if (issues.length === 0) return null;
 
   const isFail = data.status === "fail";
   const wrapperCls = isFail
