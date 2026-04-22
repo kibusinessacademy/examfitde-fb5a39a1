@@ -26,6 +26,8 @@
 - **Placeholder-Guard ist Pflicht**: `fn_guard_variant_placeholder_pollution` (HARD/check_violation) blockt `\{[A-Za-z_]+\}` in `exam_question_variants.question_text/answer_text`. `fn_guard_blueprint_placeholder_soft` auto-deprecated `question_blueprints.question_template`. Bridges müssen `check_violation` per-row tolerieren.
 
 ## Memories
+- [Anon Allowlist & Pentest v2](mem://architektur/sicherheit/anon-allowlist-and-pentest-v2) — Allowlist-Lockdown für anon (REVOKE DML+SELECT, 28-Objekt-Whitelist), `requireAdmin` in admin-control-tower/admin-elite-matrix/admin-ai-assistant, Pentest- + SecDef-Audit-Skripte, GitHub-Workflow alle 6h.
+- [Anon Privilege Lockdown v1](mem://architektur/sicherheit/anon-privilege-lockdown-v1) — Erste Welle: REVOKE EXECUTE auf admin SECDEF Functions, REVOKE SELECT auf v_admin_*.
 - [Wave 15a Placeholder-Guard + Source-Regen](mem://architektur/ops/wave15a-placeholder-guard-und-source-regen-v1) — HARD-Guard auf variants, SOFT-Auto-Deprecate auf blueprints, fn_audit_placeholder_pollution. 36 active polluted variants systemweit rejected, BB Hollow-Done korrigiert, 12 Klasse-A Pakete im Re-Seed.
 - [Wave 14 Generate-Bridge + Trigger-Toleranz](mem://architektur/ops/wave14-generate-bridge-und-trigger-toleranz-v1) — Per-row INSERT in exam_question_variants mit LF-Fallback (blueprint.lf → competency.lf → curriculum-first-lf). Promote-Bridge fängt raise_exception + APPROVAL_REQUIRES_TRAP_TYPE. 426/438 Pakete.
 - [Wave 13c Row-Tolerant Bridge + Drift-Audit v2](mem://architektur/ops/wave13c-row-tolerant-bridge-und-precise-drift-audit-v1) — Per-row Kollisionstoleranz, 4-Regel-Drift-Audit (statt Regex-Sweep). 425/438 Pakete mit exam_questions.
