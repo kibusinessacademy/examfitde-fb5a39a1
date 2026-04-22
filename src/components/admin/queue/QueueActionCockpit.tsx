@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { QueueValidationWarnings } from './QueueValidationWarnings';
 import { QueueHealthcheckBanner } from './QueueHealthcheckBanner';
+import { parseHealError } from './healErrorParser';
 
 type RiskLevel = 'SAFE' | 'LOW' | 'MEDIUM' | 'HIGH';
 
@@ -95,7 +96,25 @@ export function QueueActionCockpit() {
   const qc = useQueryClient();
   const { toast } = useToast();
   const [confirmAction, setConfirmAction] = useState<RecommendedAction | null>(null);
+  const [safeConfirm, setSafeConfirm] = useState<RecommendedAction | null>(null);
   const [dryRunResult, setDryRunResult] = useState<ExecuteResult | null>(null);
+
+  // Live-Indikator: Repair-Jobs aktuell in processing/running.
+  // Solange welche laufen, blockieren wir den Heal-Button (verhindert Doppelläufe & Race-Conditions).
+  const activeRepairs = useQuery({
+    queryKey: ['active-repair-jobs'],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('job_queue')
+        .select('id', { count: 'exact', head: true })
+        .in('status', ['processing', 'running'])
+        .like('job_type', 'package_repair_%');
+      if (error) throw error;
+      return count ?? 0;
+    },
+    refetchInterval: 5_000,
+  });
+  const hasActiveRepair = (activeRepairs.data ?? 0) > 0;
 
   const health = useQuery({
     queryKey: ['queue-health-score'],
@@ -164,21 +183,44 @@ export function QueueActionCockpit() {
       const processedCount = toCount(r.processed);
       const skippedCount = toCount(r.skipped);
       const errorCount = toCount(r.errors);
-      toast({
-        title: res.ok ? 'Heilung ausgeführt' : 'Aktion fehlgeschlagen',
-        description: res.ok
-          ? `Cluster ${res.cluster}: ${processedCount} verarbeitet, ${skippedCount} übersprungen, ${errorCount} Fehler.`
-          : `Aktion ${vars.action.action_key} konnte nicht ausgeführt werden.`,
-        variant: res.ok ? 'default' : 'destructive',
-      });
+
+      // Wenn die RPC zwar HTTP-200 lieferte, aber Jobs Fehler hatten,
+      // zeigen wir die parsed-Diagnose statt einer nichtssagenden „0/Fehler"-Meldung.
+      if (errorCount > 0 || (!res.ok && processedCount === 0)) {
+        const parsed = parseHealError({ result: r });
+        toast({
+          title: parsed.title,
+          description:
+            parsed.description +
+            (parsed.details && parsed.details.length > 0
+              ? `\n• ${parsed.details.slice(0, 3).join('\n• ')}`
+              : ''),
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: res.ok ? 'Heilung ausgeführt' : 'Aktion fehlgeschlagen',
+          description: res.ok
+            ? `Cluster ${res.cluster}: ${processedCount} verarbeitet, ${skippedCount} übersprungen, ${errorCount} Fehler.`
+            : `Aktion ${vars.action.action_key} konnte nicht ausgeführt werden.`,
+          variant: res.ok ? 'default' : 'destructive',
+        });
+      }
       qc.invalidateQueries({ queryKey: ['queue-health-score'] });
       qc.invalidateQueries({ queryKey: ['queue-recommended-actions'] });
       qc.invalidateQueries({ queryKey: ['queue-health'] });
       qc.invalidateQueries({ queryKey: ['queue-counts'] });
+      qc.invalidateQueries({ queryKey: ['active-repair-jobs'] });
       setConfirmAction(null);
+      setSafeConfirm(null);
     },
     onError: (e: Error) => {
-      toast({ title: 'Fehler', description: e.message, variant: 'destructive' });
+      const parsed = parseHealError(e);
+      toast({
+        title: parsed.title,
+        description: parsed.description,
+        variant: 'destructive',
+      });
     },
   });
 
@@ -246,6 +288,17 @@ export function QueueActionCockpit() {
           </div>
         </CardContent>
       </Card>
+
+      {/* === LIVE-LOCK HINWEIS === */}
+      {hasActiveRepair && (
+        <div className="flex items-center gap-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-[11px] text-warning">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          <span>
+            <strong>{activeRepairs.data}</strong> Repair-Job{(activeRepairs.data ?? 0) !== 1 && 's'} läuft gerade —
+            Heal-Aktionen sind blockiert, bis die laufenden Reparaturen abgeschlossen sind.
+          </span>
+        </div>
+      )}
 
       {/* === EMPFOHLENE AKTIONEN === */}
       <Card className="border-primary/30 bg-card">
@@ -352,7 +405,7 @@ export function QueueActionCockpit() {
                       <Button
                         size="sm"
                         variant="ghost"
-                        disabled={execute.isPending}
+                        disabled={execute.isPending || hasActiveRepair}
                         onClick={() => execute.mutate({ action: a, dryRun: true })}
                         className="h-7 px-2 text-[10px] text-muted-foreground hover:text-foreground"
                       >
@@ -362,14 +415,18 @@ export function QueueActionCockpit() {
                       <Button
                         size="sm"
                         variant={isPrimary ? 'default' : 'outline'}
-                        disabled={execute.isPending}
+                        disabled={execute.isPending || hasActiveRepair}
+                        title={
+                          hasActiveRepair
+                            ? `Blockiert — ${activeRepairs.data} Repair-Job(s) laufen noch`
+                            : undefined
+                        }
                         onClick={() => {
-                          // SAFE → direkt heilen.
-                          // MEDIUM/HIGH → Dry-Run-First erzwingen; danach öffnet der
-                          // Dry-Run-Result-Dialog und Operator kann "Trotzdem ausführen".
+                          // Beide Pfade verlangen jetzt einen Bestätigungs-Schritt:
+                          // SAFE → kurzer Confirm-Dialog (safeConfirm)
+                          // MEDIUM/HIGH → Dry-Run-First, dann „Trotzdem ausführen" im Result-Dialog
                           if (a.is_safe) {
-                            setConfirmAction(a);
-                            execute.mutate({ action: a, dryRun: false });
+                            setSafeConfirm(a);
                           } else {
                             setConfirmAction(a);
                             execute.mutate({ action: a, dryRun: true });
@@ -487,6 +544,52 @@ export function QueueActionCockpit() {
                 Trotzdem jetzt ausführen
               </AlertDialogAction>
             )}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* SAFE-Confirm — zweiter Schritt für „Jetzt heilen" auf SAFE-Aktionen.
+          Verhindert versehentliche Klicks; blockiert zusätzlich, falls noch Repair-Jobs laufen. */}
+      <AlertDialog
+        open={!!safeConfirm}
+        onOpenChange={(open) => !open && setSafeConfirm(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-success" />
+              Heilung bestätigen
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-xs">
+                <p>{safeConfirm?.title}</p>
+                <div className="rounded-md border border-border bg-muted/30 p-2 space-y-1">
+                  <div>Cluster: <code className="text-[10px]">{safeConfirm?.cluster}</code></div>
+                  <div>Strategie: <code className="text-[10px]">{safeConfirm?.recommended_strategy}</code></div>
+                  <div>Betrifft: {safeConfirm?.job_count} Job(s) in {safeConfirm?.package_count} Paket(en)</div>
+                </div>
+                {hasActiveRepair && (
+                  <div className="rounded-md border border-warning/40 bg-warning/10 p-2 text-warning">
+                    ⚠️ {activeRepairs.data} Repair-Job(s) laufen aktuell — die Aktion ist gesperrt.
+                  </div>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setSafeConfirm(null)}>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={hasActiveRepair || execute.isPending}
+              onClick={() => {
+                if (safeConfirm) {
+                  const a = safeConfirm;
+                  setConfirmAction(a);
+                  execute.mutate({ action: a, dryRun: false });
+                }
+              }}
+            >
+              Jetzt heilen
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
