@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { QueueValidationWarnings } from './QueueValidationWarnings';
 import { QueueHealthcheckBanner } from './QueueHealthcheckBanner';
+import { parseHealError } from './healErrorParser';
 
 type RiskLevel = 'SAFE' | 'LOW' | 'MEDIUM' | 'HIGH';
 
@@ -95,7 +96,25 @@ export function QueueActionCockpit() {
   const qc = useQueryClient();
   const { toast } = useToast();
   const [confirmAction, setConfirmAction] = useState<RecommendedAction | null>(null);
+  const [safeConfirm, setSafeConfirm] = useState<RecommendedAction | null>(null);
   const [dryRunResult, setDryRunResult] = useState<ExecuteResult | null>(null);
+
+  // Live-Indikator: Repair-Jobs aktuell in processing/running.
+  // Solange welche laufen, blockieren wir den Heal-Button (verhindert Doppelläufe & Race-Conditions).
+  const activeRepairs = useQuery({
+    queryKey: ['active-repair-jobs'],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('job_queue')
+        .select('id', { count: 'exact', head: true })
+        .in('status', ['processing', 'running'])
+        .like('job_type', 'package_repair_%');
+      if (error) throw error;
+      return count ?? 0;
+    },
+    refetchInterval: 5_000,
+  });
+  const hasActiveRepair = (activeRepairs.data ?? 0) > 0;
 
   const health = useQuery({
     queryKey: ['queue-health-score'],
