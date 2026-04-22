@@ -100,6 +100,7 @@ export async function runPackageHealAction(
       p_reset_from_step: resetFromStep,
       p_cancel_active_jobs: cancelActiveJobs,
       p_reason: operatorNote ? `${reason} | note=${operatorNote}` : reason,
+      p_cooldown_minutes: 30,
     });
     if (error) throw new Error(error.message || "admin_manual_heal_package failed");
     resetResult = data;
