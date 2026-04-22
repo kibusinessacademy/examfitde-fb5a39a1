@@ -26,6 +26,7 @@
 - **Placeholder-Guard ist Pflicht**: `fn_guard_variant_placeholder_pollution` (HARD/check_violation) blockt `\{[A-Za-z_]+\}` in `exam_question_variants.question_text/answer_text`. `fn_guard_blueprint_placeholder_soft` auto-deprecated `question_blueprints.question_template`. Bridges müssen `check_violation` per-row tolerieren.
 
 ## Memories
+- [Auto-Retry & Queue Health Audit v1](mem://architektur/ops/auto-retry-and-queue-health-audit-v1) — `fn_auto_retry_failed_jobs` mit Klassen-Cooldowns, `v_failed_jobs_root_causes` View, `fn_check_queue_health_alerts` Stagnations-/REQUEUE_LOOP-Alerts, `job_status_transitions` Audit-Trigger, `QueueHealthDashboard` UI in QueuePage. Cron 2/5min.
 - [Anon Allowlist & Pentest v2](mem://architektur/sicherheit/anon-allowlist-and-pentest-v2) — Allowlist-Lockdown für anon (REVOKE DML+SELECT, 28-Objekt-Whitelist), `requireAdmin` in admin-control-tower/admin-elite-matrix/admin-ai-assistant, Pentest- + SecDef-Audit-Skripte, GitHub-Workflow alle 6h.
 - [Anon Privilege Lockdown v1](mem://architektur/sicherheit/anon-privilege-lockdown-v1) — Erste Welle: REVOKE EXECUTE auf admin SECDEF Functions, REVOKE SELECT auf v_admin_*.
 - [Wave 15a Placeholder-Guard + Source-Regen](mem://architektur/ops/wave15a-placeholder-guard-und-source-regen-v1) — HARD-Guard auf variants, SOFT-Auto-Deprecate auf blueprints, fn_audit_placeholder_pollution. 36 active polluted variants systemweit rejected, BB Hollow-Done korrigiert, 12 Klasse-A Pakete im Re-Seed.
