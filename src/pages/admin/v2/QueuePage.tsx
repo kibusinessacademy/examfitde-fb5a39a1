@@ -286,11 +286,13 @@ export default function QueuePage() {
 
   const StuckJobTypeAlert = lazy(() => import('@/components/admin/queue/StuckJobTypeAlert'));
   const RunnerHealthCard = lazy(() => import('@/components/admin/queue/RunnerHealthCard'));
+  const QueueHealthDashboard = lazy(() => import('@/components/admin/queue/QueueHealthDashboard').then(m => ({ default: m.QueueHealthDashboard })));
 
   return (
     <div className="space-y-4">
       <Suspense fallback={null}><RunnerHealthCard /></Suspense>
       <Suspense fallback={null}><StuckJobTypeAlert /></Suspense>
+      <Suspense fallback={null}><QueueHealthDashboard /></Suspense>
       <div>
         <h1 className="text-xl font-bold text-foreground">Queue</h1>
         <p className="text-xs text-muted-foreground mt-0.5">Operations Queue · Echtdaten (Server-Counts)</p>
