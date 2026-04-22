@@ -176,7 +176,14 @@ export function QueueActionCockpit() {
   const score = health.data?.score ?? null;
   const status = health.data?.status ?? 'attention';
   const statusMeta = STATUS_META[status];
-  const recommended = useMemo(() => actions.data ?? [], [actions.data]);
+  const allActions = useMemo(() => actions.data ?? [], [actions.data]);
+  // SSOT-Filter: nur Aktionen für Cluster, die View ∩ fn_auto_heal_cluster wirklich kennt.
+  // Solange Healthcheck nicht geladen ist, alles zeigen (kein false-negative blocking).
+  const recommended = useMemo(() => {
+    if (allowedClusters.size === 0) return allActions;
+    return allActions.filter((a) => allowedClusters.has(a.cluster));
+  }, [allActions, allowedClusters]);
+  const hiddenByGuard = allActions.length - recommended.length;
 
   return (
     <div className="space-y-3">
