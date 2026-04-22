@@ -289,6 +289,17 @@ export function QueueActionCockpit() {
         </CardContent>
       </Card>
 
+      {/* === LIVE-LOCK HINWEIS === */}
+      {hasActiveRepair && (
+        <div className="flex items-center gap-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-[11px] text-warning">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          <span>
+            <strong>{activeRepairs.data}</strong> Repair-Job{(activeRepairs.data ?? 0) !== 1 && 's'} läuft gerade —
+            Heal-Aktionen sind blockiert, bis die laufenden Reparaturen abgeschlossen sind.
+          </span>
+        </div>
+      )}
+
       {/* === EMPFOHLENE AKTIONEN === */}
       <Card className="border-primary/30 bg-card">
         <CardContent className="p-3 space-y-2">
