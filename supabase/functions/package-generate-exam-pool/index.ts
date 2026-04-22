@@ -1704,6 +1704,23 @@ Deno.serve(async (req) => {
     const SERVICE_ROLE_KEY2 = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const sb2 = createClient(SUPABASE_URL2, SERVICE_ROLE_KEY2);
 
+    // ── P1 Auto-Continuation: depth/lineage tracking ──────────────────────────
+    const continuationDepth = Number(p.continuation_depth ?? 0);
+    const rootJobId = p.root_job_id ? String(p.root_job_id) : null;
+    const parentJobId = p.parent_job_id ? String(p.parent_job_id) : (p.job_id ? String(p.job_id) : null);
+    const MAX_CONTINUATION_DEPTH = 20;
+
+    if (continuationDepth > MAX_CONTINUATION_DEPTH) {
+      console.error(`[ExamPool-v5][TARGETED_FILL] CONTINUATION_DEPTH_EXCEEDED depth=${continuationDepth}`);
+      return json({
+        ok: false,
+        error: "TARGETED_FILL_CONTINUATION_DEPTH_EXCEEDED",
+        completion_mode: "targeted_competency_fill",
+        continuation_depth: continuationDepth,
+        max_continuation_depth: MAX_CONTINUATION_DEPTH,
+      }, 409);
+    }
+
     // 1. Hard-validate target_competency_ids (UUID[] only, non-empty)
     const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!Array.isArray(rawTargetIds) || rawTargetIds.length === 0) {
