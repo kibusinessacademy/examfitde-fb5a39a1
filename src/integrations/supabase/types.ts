@@ -25963,6 +25963,7 @@ export type Database = {
           error_class: string | null
           id: number
           job_id: string
+          job_type: string | null
           package_id: string | null
           package_status: string | null
           reason: string | null
@@ -25976,6 +25977,7 @@ export type Database = {
           error_class?: string | null
           id?: number
           job_id: string
+          job_type?: string | null
           package_id?: string | null
           package_status?: string | null
           reason?: string | null
@@ -25989,6 +25991,7 @@ export type Database = {
           error_class?: string | null
           id?: number
           job_id?: string
+          job_type?: string | null
           package_id?: string | null
           package_status?: string | null
           reason?: string | null
@@ -82082,7 +82085,17 @@ export type Database = {
           _action: string
           _force?: boolean
           _job_ids: string[]
-          _reason: string
+          _reason?: string
+        }
+        Returns: Json
+      }
+      admin_job_action_internal: {
+        Args: {
+          _action: string
+          _force?: boolean
+          _job_id: string
+          _reason?: string
+          _uid?: string
         }
         Returns: Json
       }
