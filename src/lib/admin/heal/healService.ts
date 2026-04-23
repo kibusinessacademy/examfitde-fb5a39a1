@@ -158,22 +158,30 @@ export async function runPackageHealAction(
       step_key: resetFromStep,
     });
   } else {
+    // Map planned enqueuePlan → konkrete job_types für Conflict-Check
+    const plannedJobTypes = (enqueuePlan ?? [])
+      .map((s) => `package_${resolveHealOpsAction(s.action).replace(/^repair_/, "repair_")}`)
+      // best-effort: convert ops action → job_type prefix
+      .map((s) => (s.startsWith("package_") ? s : `package_${s}`));
+
     let lastErr: unknown = null;
     for (let i = 0; i < MAX_HARD_ATTEMPTS; i++) {
       attempts = i + 1;
-      const { data, error } = await (supabase as any).rpc("admin_manual_heal_package", {
+      // v2: Snapshot + Conflict-Check + Verify-Gate in einer Transaktion
+      const { data, error } = await (supabase as any).rpc("admin_manual_heal_package_v2", {
         p_package_id: packageId,
-        p_reset_from_step: resetFromStep,
-        p_cancel_active_jobs: cancelActiveJobs,
+        p_reset_step_keys: [resetFromStep],
         p_reason: operatorNote ? `${reason} | note=${operatorNote}` : reason,
-        p_cooldown_minutes: 30,
+        p_cancel_active_jobs: cancelActiveJobs,
+        p_planned_job_types: plannedJobTypes.length ? plannedJobTypes : null,
+        p_operator: operatorNote ?? null,
       });
       if (!error) {
         resetResult = data;
         lastErr = null;
         break;
       }
-      const msg = error.message || "admin_manual_heal_package failed";
+      const msg = error.message || "admin_manual_heal_package_v2 failed";
       lastErr = error;
 
       // BREAKER: Sofort raus — kein weiterer Retry, Operator muss reviewen.
