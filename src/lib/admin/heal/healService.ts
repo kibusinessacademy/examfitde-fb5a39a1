@@ -238,6 +238,11 @@ export async function runPackageHealAction(
 
   const jobIds = await fetchRecentJobIds(packageId, startedAt);
 
+  // Extract v2 fields if hard-heal returned them
+  const v2Data = (mode === "hard" && resetResult && typeof resetResult === "object")
+    ? (resetResult as Record<string, unknown>)
+    : {};
+
   return {
     ok: true,
     mode,
@@ -249,5 +254,10 @@ export async function runPackageHealAction(
     jobIds,
     status: "ok",
     manualReviewRequired: false,
+    snapshotId: typeof v2Data.snapshot_id === "string" ? v2Data.snapshot_id : undefined,
+    reportId: typeof v2Data.report_id === "string" ? v2Data.report_id : undefined,
+    verifyPassed: typeof v2Data.verify_passed === "boolean" ? v2Data.verify_passed : undefined,
+    jobsCancelled: typeof v2Data.jobs_cancelled === "number" ? v2Data.jobs_cancelled : undefined,
+    conflicts: v2Data.conflicts,
   };
 }
