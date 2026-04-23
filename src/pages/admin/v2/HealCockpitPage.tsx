@@ -33,7 +33,7 @@ export default function HealCockpitPage() {
       </header>
 
       <MorningBriefing />
-      <BlockedPackagesCard detailHrefBuilder={(id) => `/admin/courses/${id}`} />
+      <BlockedPackagesCard detailHrefBuilder={(id) => `/admin/heal-cockpit/package/${id}`} />
       <HealWorklist />
     </div>
   );
