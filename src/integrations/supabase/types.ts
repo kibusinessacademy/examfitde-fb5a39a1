@@ -25098,6 +25098,1355 @@ export type Database = {
           },
         ]
       }
+      heal_snapshots: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          jobs_snapshot: Json
+          package_id: string
+          package_snapshot: Json
+          reason: string
+          rollback_result: Json | null
+          rolled_back_at: string | null
+          rolled_back_by: string | null
+          steps_snapshot: Json
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          jobs_snapshot?: Json
+          package_id: string
+          package_snapshot?: Json
+          reason: string
+          rollback_result?: Json | null
+          rolled_back_at?: string | null
+          rolled_back_by?: string | null
+          steps_snapshot?: Json
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          jobs_snapshot?: Json
+          package_id?: string
+          package_snapshot?: Json
+          reason?: string
+          rollback_result?: Json | null
+          rolled_back_at?: string | null
+          rolled_back_by?: string | null
+          steps_snapshot?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "course_packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_artifact_build_progress"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_auto_publish_false_success"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_block_classification"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_blocked_but_ready"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_blocked_packages"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_blocked_without_reason"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_build_activity_truth"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_building_without_job_or_lease"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_content_factory"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_course_build_progress"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_exam_pool_promotion_blocked"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_finalization_stall"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_hollow_completion"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_integrity_report_mismatch"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_learner_visible_readiness"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_learning_content_deadlock_candidates"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_learning_content_shard_liveness"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_legacy_package_audit"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_missing_step_backbone"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_non_building_recoverable"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_package_baseline_v1"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_package_blockers"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_package_content_depth"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_package_downstream_missing"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_package_effective_state_v1"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_package_qc_matrix"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_package_readiness"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_package_step_readiness"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_phantom_council_approvals"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_pipeline_map"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_publish_eligible_but_stuck"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_recent_building_without_lease"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_seeding_summary"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_ssot_step_drift"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_stalled_builds"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_step_ssot_drift"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_telemetry_integrity"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_telemetry_lineage"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_validate_before_generate_drift"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_validate_exam_pool_fail_classification"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_validate_exam_pool_progress"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_validate_exam_pool_status"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "package_economics"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_auto_test_queue"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_auto_test_queue_v2"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_content_quality_packages"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_course_test_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_effective_track"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_heal_cockpit"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_packages_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_publish_readiness"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_published_course_preview"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_track_compliance"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_track_control"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_upgrade_candidates"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_visible_course_packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_visible_course_packages"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_building_package_eta"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_course_display_ssot"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_course_display_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_full_course_catalog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_latest_course_package"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_learner_visible_exam_simulations"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_auto_publish_blockers"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_invalid_course_titles"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_package_progress_guard"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_progress_drift_smoke"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_reentry_misses"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_shadow_zombies"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_stale_admin_holds"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_build_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_hollow_guard_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_publish_readiness"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_release_classification"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_step_load"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_pipeline_content_integrity"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_pipeline_repair_classification"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_pipeline_stalled_packages"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_pipeline_step_funnel"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_prebuild_adoption_candidates"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_price_recommendation"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_product_page_published_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_product_page_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_profit_forecast"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_scheduler_fairness"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_unit_economics_package"
+            referencedColumns: ["package_id"]
+          },
+        ]
+      }
+      heal_verification_reports: {
+        Row: {
+          blocked_reason_after: string | null
+          blocked_reason_before: string | null
+          conflicts: Json
+          created_at: string
+          created_by: string | null
+          duration_ms: number | null
+          heal_mode: string
+          id: string
+          jobs_cancelled: number
+          package_id: string
+          package_status_after: string | null
+          package_status_before: string | null
+          reason: string
+          recovery_job_types: Json
+          recovery_jobs_planned: number
+          snapshot_id: string | null
+          steps_reset: Json
+          verify_findings: Json
+          verify_passed: boolean
+        }
+        Insert: {
+          blocked_reason_after?: string | null
+          blocked_reason_before?: string | null
+          conflicts?: Json
+          created_at?: string
+          created_by?: string | null
+          duration_ms?: number | null
+          heal_mode: string
+          id?: string
+          jobs_cancelled?: number
+          package_id: string
+          package_status_after?: string | null
+          package_status_before?: string | null
+          reason: string
+          recovery_job_types?: Json
+          recovery_jobs_planned?: number
+          snapshot_id?: string | null
+          steps_reset?: Json
+          verify_findings?: Json
+          verify_passed?: boolean
+        }
+        Update: {
+          blocked_reason_after?: string | null
+          blocked_reason_before?: string | null
+          conflicts?: Json
+          created_at?: string
+          created_by?: string | null
+          duration_ms?: number | null
+          heal_mode?: string
+          id?: string
+          jobs_cancelled?: number
+          package_id?: string
+          package_status_after?: string | null
+          package_status_before?: string | null
+          reason?: string
+          recovery_job_types?: Json
+          recovery_jobs_planned?: number
+          snapshot_id?: string | null
+          steps_reset?: Json
+          verify_findings?: Json
+          verify_passed?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "course_packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_artifact_build_progress"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_auto_publish_false_success"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_block_classification"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_blocked_but_ready"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_blocked_packages"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_blocked_without_reason"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_build_activity_truth"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_building_without_job_or_lease"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_content_factory"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_course_build_progress"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_exam_pool_promotion_blocked"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_finalization_stall"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_hollow_completion"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_integrity_report_mismatch"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_learner_visible_readiness"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_learning_content_deadlock_candidates"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_learning_content_shard_liveness"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_legacy_package_audit"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_missing_step_backbone"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_non_building_recoverable"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_package_baseline_v1"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_package_blockers"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_package_content_depth"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_package_downstream_missing"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_package_effective_state_v1"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_package_qc_matrix"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_package_readiness"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_package_step_readiness"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_phantom_council_approvals"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_pipeline_map"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_publish_eligible_but_stuck"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_recent_building_without_lease"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_seeding_summary"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_ssot_step_drift"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_stalled_builds"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_step_ssot_drift"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_telemetry_integrity"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_telemetry_lineage"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_validate_before_generate_drift"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_validate_exam_pool_fail_classification"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_validate_exam_pool_progress"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_validate_exam_pool_status"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "package_economics"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_auto_test_queue"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_auto_test_queue_v2"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_content_quality_packages"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_course_test_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_effective_track"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_heal_cockpit"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_packages_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_publish_readiness"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_published_course_preview"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_track_compliance"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_track_control"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_upgrade_candidates"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_visible_course_packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_visible_course_packages"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_building_package_eta"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_course_display_ssot"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_course_display_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_full_course_catalog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_latest_course_package"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_learner_visible_exam_simulations"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_auto_publish_blockers"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_invalid_course_titles"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_package_progress_guard"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_progress_drift_smoke"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_reentry_misses"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_shadow_zombies"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_stale_admin_holds"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_build_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_hollow_guard_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_publish_readiness"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_release_classification"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_step_load"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_pipeline_content_integrity"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_pipeline_repair_classification"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_pipeline_stalled_packages"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_pipeline_step_funnel"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_prebuild_adoption_candidates"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_price_recommendation"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_product_page_published_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_product_page_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_profit_forecast"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_scheduler_fairness"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_unit_economics_package"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_snapshot_id_fkey"
+            columns: ["snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "heal_snapshots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       humor_asset_reviews: {
         Row: {
           created_at: string
@@ -82025,6 +83374,14 @@ export type Database = {
         Args: { p_action_id: string }
         Returns: undefined
       }
+      admin_auto_repair_limit_status: {
+        Args: {
+          p_critical_threshold_pct?: number
+          p_package_id?: string
+          p_warn_threshold_pct?: number
+        }
+        Returns: Json
+      }
       admin_block_user: {
         Args: { p_reason?: string; p_until?: string; p_user_id: string }
         Returns: undefined
@@ -82032,6 +83389,10 @@ export type Database = {
       admin_check_action_throttle: {
         Args: { _action: string; _max_per_min?: number; _user_id: string }
         Returns: boolean
+      }
+      admin_check_heal_conflicts: {
+        Args: { p_package_id: string; p_planned_job_types?: string[] }
+        Returns: Json
       }
       admin_clear_job_quarantine: {
         Args: { p_quarantine_id: string }
@@ -82262,6 +83623,17 @@ export type Database = {
             }
             Returns: Json
           }
+      admin_manual_heal_package_v2: {
+        Args: {
+          p_cancel_active_jobs?: boolean
+          p_operator?: string
+          p_package_id: string
+          p_planned_job_types?: string[]
+          p_reason: string
+          p_reset_step_keys: string[]
+        }
+        Returns: Json
+      }
       admin_mark_content_gap: {
         Args: { p_package_id: string; p_reason: string }
         Returns: Json
@@ -82323,6 +83695,14 @@ export type Database = {
         Args: { _package_id: string }
         Returns: Json
       }
+      admin_rollback_heal: {
+        Args: {
+          p_operator?: string
+          p_restore_jobs?: boolean
+          p_snapshot_id: string
+        }
+        Returns: Json
+      }
       admin_smart_heal_bulk: {
         Args: {
           p_action?: string
@@ -82336,6 +83716,17 @@ export type Database = {
           p_package_id: string
           p_reason?: string
           p_take_offline?: boolean
+        }
+        Returns: Json
+      }
+      admin_step_reset_detailed: {
+        Args: {
+          p_allow_regression?: boolean
+          p_clear_exhaustion?: boolean
+          p_operator?: string
+          p_package_id: string
+          p_reason: string
+          p_step_keys: string[]
         }
         Returns: Json
       }
@@ -82353,6 +83744,10 @@ export type Database = {
       }
       admin_validate_repair_job_type: {
         Args: { _job_type: string; _payload: Json }
+        Returns: Json
+      }
+      analyze_package_root_cause: {
+        Args: { p_package_id: string }
         Returns: Json
       }
       append_next_adaptive_question: {
