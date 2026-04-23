@@ -66,6 +66,16 @@ export interface HealResult {
   status?: "ok" | "breaker" | "error";
   /** True wenn der Lauf wegen HARD_FAIL_BREAKER abgebrochen wurde. */
   manualReviewRequired?: boolean;
+  /** Snapshot-ID für manuelles Rollback (nur bei Hard-Heal v2). */
+  snapshotId?: string;
+  /** Verification-Report-ID (nur bei Hard-Heal v2). */
+  reportId?: string;
+  /** True wenn das Verify-Gate erfolgreich war. */
+  verifyPassed?: boolean;
+  /** Anzahl stornierter aktiver Jobs während Hard-Heal. */
+  jobsCancelled?: number;
+  /** Conflict-Check-Ergebnis (Snapshot vor Heal). */
+  conflicts?: unknown;
 }
 
 /**
