@@ -204,7 +204,7 @@ export async function runPackageHealAction(
     if (lastErr) {
       throw new Error(
         (lastErr as { message?: string })?.message ||
-          "admin_manual_heal_package failed",
+          "admin_manual_heal_package_v2 failed",
       );
     }
   }
