@@ -1,24 +1,26 @@
 /**
  * SecurityFindingsClassifier
  * ──────────────────────────
- * UI-Klassifizierung von Linter-/Scanner-Findings in P0–P3.
- *
- * - Lädt Findings clientseitig aus einer JSON-Quelle (Default: Lovable
- *   Security-Scanner Snapshot; alternativ direkt einfügbar via Textarea).
- * - Wendet `classifyAll()` aus `findingClassifier.ts` an.
- * - Zeigt Score, Heuristik-Signale, Reasoning und konkrete Folge-Prüfungen.
+ * UI-Klassifizierung von Linter-/Scanner-Findings in P0–P3 mit:
+ *  - JSON-Upload (File-Picker) inkl. Schema-Validierung
+ *  - Persistente Exceptions (DB-gestützt, "akzeptiert bis Audit vX")
+ *  - Workflow-Verknüpfung (öffnet betroffene .github/workflows/*.yml)
+ *  - Renovate-Empfehlung für „unpinned actions" (P2)
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import {
   AlertCircle,
   CheckCircle2,
   ChevronRight,
+  ExternalLink,
   ListChecks,
+  Pencil,
   Shield,
   ShieldAlert,
   ShieldCheck,
   Upload,
+  Wrench,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +32,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { useToast } from "@/hooks/use-toast";
 import {
   classifyAll,
   summarize,
@@ -37,6 +40,20 @@ import {
   type FindingPriority,
   type RawFinding,
 } from "@/lib/admin/security/findingClassifier";
+import { parseFindingsJson } from "@/lib/admin/security/findingSchema";
+import {
+  listFindingExceptions,
+  indexExceptions,
+  type FindingException,
+} from "@/lib/admin/security/findingExceptionsApi";
+import {
+  loadWorkflowIndex,
+  findRelatedWorkflows,
+  type WorkflowIndex,
+  type RelatedWorkflow,
+} from "@/lib/admin/security/workflowIndex";
+import { FindingExceptionDialog } from "./FindingExceptionDialog";
+import { RenovateRecommendationCard } from "./RenovateRecommendationCard";
 
 const PRIO_META: Record<
   FindingPriority,
@@ -74,7 +91,7 @@ const SAMPLE_PAYLOAD = `[
     "id": "EXAM_INTEGRITY_BYPASS",
     "internal_id": "exam_question_variants_authenticated_read_all",
     "name": "All exam question variants including correct answers readable by any logged-in user",
-    "description": "The 'exam_question_variants' table has policy USING (true) for authenticated. Any registered user can query correct answers.",
+    "description": "The 'exam_question_variants' table has policy USING (true) for authenticated.",
     "level": "error"
   },
   {
@@ -82,40 +99,130 @@ const SAMPLE_PAYLOAD = `[
     "id": "SUPA_security_definer_view",
     "internal_id": "SUPA_security_definer_view",
     "name": "Security Definer View",
-    "level": "error",
-    "ignore": true,
-    "ignore_reason": "service_role-only, no anon/auth grants"
+    "level": "error"
+  },
+  {
+    "scanner_name": "github_actions_audit",
+    "id": "GHA_UNPINNED_ACTION",
+    "internal_id": "ci_yml_unpinned",
+    "name": "Unpinned GitHub Action in ci.yml",
+    "description": "Multiple actions referenced via @v4 instead of full SHA.",
+    "level": "warn"
   }
 ]`;
 
 interface Props {
-  /**
-   * Optional preloaded findings (z. B. vom security--get_scan_results Snapshot).
-   * Falls leer, kann der Operator über die Textarea welche einfügen.
-   */
   initialFindings?: RawFinding[];
 }
 
 export function SecurityFindingsClassifier({ initialFindings = [] }: Props) {
+  const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [raw, setRaw] = useState<string>(
     initialFindings.length ? JSON.stringify(initialFindings, null, 2) : "",
   );
   const [parseError, setParseError] = useState<string | null>(null);
+  const [parseWarnings, setParseWarnings] = useState<string[]>([]);
 
-  const findings = useMemo<ClassifiedFinding[]>(() => {
-    if (!raw.trim()) return [];
+  const [exceptions, setExceptions] = useState<Record<string, FindingException>>({});
+  const [workflowIndex, setWorkflowIndex] = useState<WorkflowIndex | null>(null);
+
+  const [dialogState, setDialogState] = useState<{
+    open: boolean;
+    scannerName: string;
+    internalId: string;
+    findingId?: string;
+    priority?: FindingPriority;
+    existing?: FindingException | null;
+  }>({ open: false, scannerName: "", internalId: "" });
+
+  // Initial laden
+  useEffect(() => {
+    void refreshExceptions();
+    void loadWorkflowIndex().then(setWorkflowIndex);
+  }, []);
+
+  async function refreshExceptions() {
     try {
-      const parsed: unknown = JSON.parse(raw);
-      const arr = Array.isArray(parsed) ? parsed : [parsed];
+      const rows = await listFindingExceptions();
+      setExceptions(indexExceptions(rows));
+    } catch (e) {
+      // RLS verweigert für Nicht-Admins — still fail
+      console.warn("[SecurityFindingsClassifier] Exceptions nicht ladbar:", e);
+    }
+  }
+
+  // Parse + Classify (merged with persistent exceptions)
+  const findings = useMemo<ClassifiedFinding[]>(() => {
+    if (!raw.trim()) {
       setParseError(null);
-      return classifyAll(arr as RawFinding[]);
-    } catch (err) {
-      setParseError(err instanceof Error ? err.message : "Parse error");
+      setParseWarnings([]);
       return [];
     }
-  }, [raw]);
+    const result = parseFindingsJson(raw);
+    setParseError(result.errors[0] ?? null);
+    setParseWarnings(result.warnings);
+    if (!result.ok) return [];
+
+    // Merge persistente Exceptions (UI-Override für ignore/ignore_reason)
+    const merged: RawFinding[] = result.findings.map((f) => {
+      const key = `${f.scanner_name ?? ""}::${f.internal_id ?? f.id ?? ""}`;
+      const ex = exceptions[key];
+      if (ex) {
+        return {
+          ...f,
+          ignore: true,
+          ignore_reason: `[${ex.status}${ex.accepted_until_audit ? ` · bis ${ex.accepted_until_audit}` : ""}] ${ex.reason}`,
+        };
+      }
+      return f as RawFinding;
+    });
+    return classifyAll(merged);
+  }, [raw, exceptions]);
 
   const summary = useMemo(() => summarize(findings), [findings]);
+
+  // P2 unpinned-Hinweis sichtbar?
+  const hasUnpinnedFinding = useMemo(
+    () =>
+      findings.some((f) =>
+        /unpinned|sha[_\s-]?pin|@v\d/i.test(
+          `${f.id ?? ""} ${f.internal_id ?? ""} ${f.name ?? ""} ${f.description ?? ""}`,
+        ),
+      ),
+    [findings],
+  );
+
+  async function handleFileUpload(file: File) {
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "Datei zu groß (>5MB)", variant: "destructive" });
+      return;
+    }
+    try {
+      const text = await file.text();
+      const result = parseFindingsJson(text);
+      if (!result.ok) {
+        toast({
+          title: "Schema-Validierung fehlgeschlagen",
+          description: result.errors.slice(0, 3).join(" · "),
+          variant: "destructive",
+        });
+        return;
+      }
+      setRaw(text);
+      toast({
+        title: `${result.findings.length} Findings importiert`,
+        description: result.warnings.length ? `${result.warnings.length} Warnungen` : undefined,
+      });
+    } catch (e) {
+      toast({
+        title: "Datei nicht lesbar",
+        description: e instanceof Error ? e.message : String(e),
+        variant: "destructive",
+      });
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -123,7 +230,7 @@ export function SecurityFindingsClassifier({ initialFindings = [] }: Props) {
         <title>Findings-Klassifizierung · Admin</title>
         <meta
           name="description"
-          content="Klassifiziert Linter- und Scanner-Findings automatisch nach P0–P3 und schlägt Folge-Prüfungen vor."
+          content="Klassifiziert Linter- und Scanner-Findings nach P0–P3, persistiert Ausnahmen und verknüpft betroffene Workflows."
         />
       </Helmet>
 
@@ -135,20 +242,38 @@ export function SecurityFindingsClassifier({ initialFindings = [] }: Props) {
           <div>
             <h1 className="text-xl font-semibold">Findings-Klassifizierung</h1>
             <p className="text-xs text-muted-foreground">
-              Heuristische P0–P3 Einordnung + empfohlene Folge-Checks.
+              P0–P3 Heuristik · persistente Ausnahmen · Workflow-Verknüpfung · Renovate-Patch.
             </p>
           </div>
         </div>
+        {workflowIndex && (
+          <div className="hidden text-right text-[11px] text-muted-foreground md:block">
+            Workflow-Index: {workflowIndex.summary.total} Files ·{" "}
+            {workflowIndex.summary.unpinnedActions} unpinned ·{" "}
+            {workflowIndex.summary.missingPermissions} ohne perms
+          </div>
+        )}
       </header>
 
       {/* Input */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-sm">
-            <Upload className="h-4 w-4" /> Findings einfügen (JSON)
+            <Upload className="h-4 w-4" /> Findings importieren
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/json,.json"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) void handleFileUpload(f);
+              e.target.value = "";
+            }}
+          />
           <Textarea
             value={raw}
             onChange={(e) => setRaw(e.target.value)}
@@ -157,11 +282,10 @@ export function SecurityFindingsClassifier({ initialFindings = [] }: Props) {
             spellCheck={false}
           />
           <div className="flex flex-wrap items-center gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setRaw(SAMPLE_PAYLOAD)}
-            >
+            <Button size="sm" onClick={() => fileInputRef.current?.click()}>
+              <Upload className="mr-1 h-3.5 w-3.5" /> JSON-Datei hochladen
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => setRaw(SAMPLE_PAYLOAD)}>
               Beispiel laden
             </Button>
             <Button size="sm" variant="ghost" onClick={() => setRaw("")}>
@@ -171,8 +295,18 @@ export function SecurityFindingsClassifier({ initialFindings = [] }: Props) {
               <span className="text-xs text-destructive">⚠ {parseError}</span>
             )}
           </div>
+          {parseWarnings.length > 0 && (
+            <ul className="space-y-0.5 text-[11px] text-amber-600 dark:text-amber-400">
+              {parseWarnings.slice(0, 4).map((w, i) => (
+                <li key={i}>⚠ {w}</li>
+              ))}
+            </ul>
+          )}
         </CardContent>
       </Card>
+
+      {/* Renovate Recommendation — nur wenn relevant */}
+      {hasUnpinnedFinding && <RenovateRecommendationCard />}
 
       {/* Summary */}
       {findings.length > 0 && (
@@ -198,7 +332,7 @@ export function SecurityFindingsClassifier({ initialFindings = [] }: Props) {
 
       {findings.length > 0 && (
         <p className="text-xs text-muted-foreground">
-          {summary.total} Findings · {summary.open} offen · {summary.ignored} ignoriert
+          {summary.total} Findings · {summary.open} offen · {summary.ignored} mit Ausnahme
         </p>
       )}
 
@@ -215,13 +349,16 @@ export function SecurityFindingsClassifier({ initialFindings = [] }: Props) {
               {findings.map((f, idx) => {
                 const meta = PRIO_META[f.priority];
                 const id = `${f.internal_id ?? f.id ?? "f"}-${idx}`;
+                const exKey = `${f.scanner_name ?? ""}::${f.internal_id ?? f.id ?? ""}`;
+                const existing = exceptions[exKey] ?? null;
+                const related: RelatedWorkflow[] = workflowIndex
+                  ? findRelatedWorkflows(workflowIndex, f)
+                  : [];
                 return (
                   <AccordionItem key={id} value={id} className="border-0 px-3">
                     <AccordionTrigger className="py-3 hover:no-underline">
                       <div className="flex flex-1 items-center gap-3 text-left">
-                        <Badge className={`shrink-0 ${meta.tone}`}>
-                          {f.priority}
-                        </Badge>
+                        <Badge className={`shrink-0 ${meta.tone}`}>{f.priority}</Badge>
                         <div className="min-w-0 flex-1">
                           <div className="truncate text-sm font-medium">
                             {f.name ?? f.id ?? f.internal_id ?? "(unbenannt)"}
@@ -232,12 +369,15 @@ export function SecurityFindingsClassifier({ initialFindings = [] }: Props) {
                             </span>
                             <span>·</span>
                             <span>Score {f.score}</span>
-                            {f.ignore && (
+                            {existing && (
                               <>
                                 <span>·</span>
-                                <span className="text-emerald-600 dark:text-emerald-400">
-                                  ignoriert
-                                </span>
+                                <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                                  {existing.status}
+                                  {existing.accepted_until_audit
+                                    ? ` · ${existing.accepted_until_audit}`
+                                    : ""}
+                                </Badge>
                               </>
                             )}
                           </div>
@@ -253,11 +393,7 @@ export function SecurityFindingsClassifier({ initialFindings = [] }: Props) {
                       <div className="flex flex-wrap gap-1.5">
                         {Object.entries(f.signals).map(([k, v]) =>
                           v ? (
-                            <Badge
-                              key={k}
-                              variant="outline"
-                              className="text-[10px] uppercase tracking-wide"
-                            >
+                            <Badge key={k} variant="outline" className="text-[10px] uppercase tracking-wide">
                               {k}
                             </Badge>
                           ) : null,
@@ -267,9 +403,7 @@ export function SecurityFindingsClassifier({ initialFindings = [] }: Props) {
                       {/* Reasoning */}
                       {f.reasoning.length > 0 && (
                         <div>
-                          <div className="mb-1 text-xs font-medium text-muted-foreground">
-                            Heuristik
-                          </div>
+                          <div className="mb-1 text-xs font-medium text-muted-foreground">Heuristik</div>
                           <ul className="space-y-1 text-xs">
                             {f.reasoning.map((r, i) => (
                               <li key={i} className="flex gap-1.5">
@@ -298,12 +432,90 @@ export function SecurityFindingsClassifier({ initialFindings = [] }: Props) {
                         </ul>
                       </div>
 
-                      {f.ignore && f.ignore_reason && (
-                        <div className="rounded-md border border-border bg-muted/50 p-2 text-xs">
-                          <div className="font-medium">Ignored-Begründung</div>
-                          <p className="mt-1 text-muted-foreground">{f.ignore_reason}</p>
+                      {/* Related Workflows */}
+                      {related.length > 0 && (
+                        <div>
+                          <div className="mb-1 text-xs font-medium text-muted-foreground">
+                            Betroffene GitHub-Workflows ({related.length})
+                          </div>
+                          <ul className="space-y-1 text-xs">
+                            {related.slice(0, 12).map((r, i) => (
+                              <li key={i} className="flex items-center gap-1.5">
+                                <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
+                                <code className="font-mono text-[11px]">{r.file}</code>
+                                {r.jobName && (
+                                  <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                                    job: {r.jobName}
+                                  </Badge>
+                                )}
+                                <span className="text-muted-foreground">— {r.reason}</span>
+                              </li>
+                            ))}
+                            {related.length > 12 && (
+                              <li className="text-muted-foreground">
+                                … +{related.length - 12} weitere
+                              </li>
+                            )}
+                          </ul>
                         </div>
                       )}
+
+                      {/* Existing exception display */}
+                      {existing && (
+                        <div className="rounded-md border border-emerald-500/30 bg-emerald-500/5 p-2 text-xs">
+                          <div className="flex items-center justify-between">
+                            <div className="font-medium">Ausnahme aktiv</div>
+                            <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                              {existing.status}
+                            </Badge>
+                          </div>
+                          <p className="mt-1 text-muted-foreground">{existing.reason}</p>
+                          {(existing.accepted_until_audit || existing.accepted_until_date) && (
+                            <p className="mt-1 text-[10px] text-muted-foreground">
+                              gültig bis:{" "}
+                              {existing.accepted_until_audit ?? ""}
+                              {existing.accepted_until_audit && existing.accepted_until_date ? " · " : ""}
+                              {existing.accepted_until_date ?? ""}
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Action: Exception verwalten */}
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        <Button
+                          size="sm"
+                          variant={existing ? "outline" : "default"}
+                          onClick={() =>
+                            setDialogState({
+                              open: true,
+                              scannerName: f.scanner_name ?? "unknown",
+                              internalId: f.internal_id ?? f.id ?? `idx_${idx}`,
+                              findingId: f.id,
+                              priority: f.priority,
+                              existing,
+                            })
+                          }
+                        >
+                          <Pencil className="mr-1 h-3 w-3" />
+                          {existing ? "Ausnahme bearbeiten" : "Als Ausnahme markieren"}
+                        </Button>
+                        {/unpinned|sha[_\s-]?pin|@v\d/i.test(
+                          `${f.id ?? ""} ${f.internal_id ?? ""} ${f.name ?? ""}`,
+                        ) && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              const el = document.querySelector("[data-renovate-card]");
+                              el?.scrollIntoView({ behavior: "smooth", block: "start" });
+                            }}
+                          >
+                            <Wrench className="mr-1 h-3 w-3" />
+                            Renovate-Patch öffnen
+                          </Button>
+                        )}
+                      </div>
                     </AccordionContent>
                   </AccordionItem>
                 );
@@ -316,10 +528,21 @@ export function SecurityFindingsClassifier({ initialFindings = [] }: Props) {
       {findings.length === 0 && !parseError && (
         <Card>
           <CardContent className="p-6 text-center text-sm text-muted-foreground">
-            Füge Scanner-Findings als JSON ein oder klicke „Beispiel laden".
+            Lade eine JSON-Datei hoch, füge Findings ein oder klicke „Beispiel laden".
           </CardContent>
         </Card>
       )}
+
+      <FindingExceptionDialog
+        open={dialogState.open}
+        onOpenChange={(o) => setDialogState((s) => ({ ...s, open: o }))}
+        scannerName={dialogState.scannerName}
+        internalId={dialogState.internalId}
+        findingId={dialogState.findingId}
+        priority={dialogState.priority}
+        existing={dialogState.existing}
+        onSaved={() => void refreshExceptions()}
+      />
     </div>
   );
 }
