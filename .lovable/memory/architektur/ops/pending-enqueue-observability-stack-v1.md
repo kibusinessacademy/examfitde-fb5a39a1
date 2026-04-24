@@ -5,11 +5,14 @@ type: feature
 ---
 
 ## Komponenten
-- **View `v_pending_enqueue_cron_health`**: zeigt für `pending_enqueue_reschedule_minutely` und ähnliche Cron-Jobs Schedule, Last-Run, Lag (>3min @ minutely / >15min @ */5), Heal/Skip/Fail-Counts der letzten Stunde aus `pending_enqueue_reschedule_log`.
-- **Tabelle `pending_enqueue_manual_review`** (admin-RLS): Steps, die wegen Cascade-Trigger-Konflikten wiederholt `reschedule_failed` geloggt haben. Status: open|investigating|resolved|wont_fix. Niemals automatisch geheilt.
-- **Funktion `fn_flag_pending_enqueue_manual_review(min_failures, window_minutes)`**: SECURITY DEFINER, scannt Log nach >=2 Failures in 30min (Default) und legt Review-Eintrag an oder updated counter.
-- **Cron `pending_enqueue_manual_review_flagger`** (`*/5 * * * *`): triggert Flagger-Funktion.
-- **Admin-Route**: `/admin/ops/stuck-steps` mit drei Read-Cards (CronHealth, ManualReview, StuckSteps+Log).
+- **View `v_pending_enqueue_cron_health`**: Schedule, Last-Run, Lag, Heal/Skip/Fail-Counts (1h).
+- **View `v_pending_enqueue_stuck_enriched`**: Stuck-Steps + `fix_prognosis` (eligible_now | awaiting_min_age | blocked_by_active_job | blocked_by_package_status | manual_review_required) + Manual-Review-Status.
+- **View `v_pending_enqueue_audit_export`**: Reschedule-Log + zugehörige `cron_run_id`/`cron_job_id` über LATERAL-Join im 90s-Fenster.
+- **Tabelle `pending_enqueue_manual_review`** (admin-RLS): Cascade-Trigger-Konflikte, niemals auto-geheilt.
+- **RPC `fn_force_reschedule_step(pkg, step)`**: Admin-only, bypasst min_age, schließt offene Manual-Reviews als resolved.
+- **RPC `fn_cancel_pending_enqueue_step(pkg, step, reason)`**: Admin-only, setzt Step → blocked, schließt Manual-Reviews als wont_fix.
+- **RPC `fn_replay_recent_reschedules(window, max)`**: Admin-only, idempotenter Re-Run via min_age=0 + bestehende guards.
+- **Admin-Route**: `/admin/ops/stuck-steps` mit Cards (CronHealth, ReplayAndExport, StuckStepsActionTable, ManualReviewQueue, StuckStepsTable+Log).
 
 ## Heal-Pfad-Trennung (CRITICAL)
 | Status              | Heal-Pfad                                                  |

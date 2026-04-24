@@ -14,7 +14,9 @@ import { Helmet } from "react-helmet-async";
 import { Activity } from "lucide-react";
 import { CronHealthCard } from "@/components/admin/queue/CronHealthCard";
 import { ManualReviewQueueCard } from "@/components/admin/queue/ManualReviewQueueCard";
+import { StuckStepsActionTable } from "@/components/admin/queue/StuckStepsActionTable";
 import { StuckStepsTable } from "@/components/admin/queue/StuckStepsTable";
+import { ReplayAndExportCard } from "@/components/admin/queue/ReplayAndExportCard";
 
 export default function StuckStepsDashboardPage() {
   return (
@@ -28,12 +30,14 @@ export default function StuckStepsDashboardPage() {
         <div>
           <h1 className="text-2xl font-bold">Pending-Enqueue Observability</h1>
           <p className="text-sm text-muted-foreground">
-            Cron-Health · Manual-Review · Live Stuck-Steps. Keine Heal-Aktionen für queued/blocked Pakete.
+            Cron-Health · Manual-Review · Live Stuck-Steps · Operator-Tools. Kein Heal-Pfad für queued/blocked Pakete.
           </p>
         </div>
       </div>
 
       <CronHealthCard />
+      <ReplayAndExportCard />
+      <StuckStepsActionTable />
       <ManualReviewQueueCard />
       <StuckStepsTable />
     </div>
