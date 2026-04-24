@@ -2,8 +2,12 @@
  * findingsImportLog
  * ─────────────────
  * Reiner Client-State (sessionStorage) für reproducible Import/Merge/Undo
- * Test-Runs. Hält ein Append-Log + den AKTIVEN Snapshot. Strikte Reihenfolge:
- * jeder neue Apply ersetzt den Snapshot → Undo restored exakt den letzten Import.
+ * Test-Runs. Jeder Apply ersetzt den Snapshot → Undo restored exakt den letzten Import.
+ *
+ * Szenarien:
+ *  1. Import → (Precheck) → Merge → Undo
+ *  2. Import → (Precheck) → Replace → Undo (Replace optional precheck-bypassed)
+ *  3. Import → Discard ✕ (kein Apply)
  */
 export type ImportMode = "merge" | "replace";
 export type ImportStep = "import" | "apply" | "undo" | "discard" | "precheck";
@@ -66,19 +70,24 @@ export function clearImportLog() {
 }
 
 /**
- * Build a wizard-friendly grouping: pairs each apply with its preceding import
- * and any subsequent undo/discard, so the UI can render scenarios as rows.
+ * Build a wizard-friendly grouping. Each "import" starts a new scenario row.
+ * Subsequent precheck/apply/undo/discard events attach to the current row.
+ * `precheckBypassed` is true when an apply event carries note="precheck_bypassed"
+ * (Replace ohne grünen Gate).
  */
 export interface ScenarioRow {
   id: string;
   startedAt: number;
+  endedAt?: number;
   fileName?: string | null;
   mode?: ImportMode;
   precheckOk?: boolean;
+  precheckBypassed: boolean;
   applied: boolean;
   undone: boolean;
   discarded: boolean;
   diff?: { added: number; changed: number; unchanged: number; ignored: number };
+  importNote?: string;
 }
 
 export function buildScenarios(entries: ImportLogEntry[] = read()): ScenarioRow[] {
@@ -94,12 +103,19 @@ export function buildScenarios(entries: ImportLogEntry[] = read()): ScenarioRow[
         applied: false,
         undone: false,
         discarded: false,
+        precheckBypassed: false,
+        importNote: e.note,
       };
     } else if (cur) {
       if (e.step === "precheck") cur.precheckOk = e.precheckOk;
       if (e.step === "apply") {
         cur.applied = true;
         cur.mode = e.mode;
+        cur.endedAt = e.ts;
+        if (e.note === "precheck_bypassed") cur.precheckBypassed = true;
+        if (typeof e.precheckOk === "boolean" && cur.precheckOk === undefined) {
+          cur.precheckOk = e.precheckOk;
+        }
         cur.diff = {
           added: e.addedCount ?? 0,
           changed: e.changedCount ?? 0,
@@ -107,8 +123,14 @@ export function buildScenarios(entries: ImportLogEntry[] = read()): ScenarioRow[
           ignored: e.ignoredCount ?? 0,
         };
       }
-      if (e.step === "undo") cur.undone = true;
-      if (e.step === "discard") cur.discarded = true;
+      if (e.step === "undo") {
+        cur.undone = true;
+        cur.endedAt = e.ts;
+      }
+      if (e.step === "discard") {
+        cur.discarded = true;
+        cur.endedAt = e.ts;
+      }
     }
   }
   if (cur) rows.push(cur);
