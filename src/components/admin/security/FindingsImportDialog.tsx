@@ -6,7 +6,7 @@
  * Findings. Operator entscheidet "merge" oder "replace".
  */
 import { useCallback, useMemo, useRef, useState } from "react";
-import { CloudUpload, FileText, Plus, Pencil, ShieldCheck, X } from "lucide-react";
+import { CloudUpload, FileText, Plus, Pencil, ShieldCheck, X, ShieldX, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -14,6 +14,8 @@ import { useToast } from "@/hooks/use-toast";
 import { parseFindingsJson, type RawFindingInput } from "@/lib/admin/security/findingSchema";
 import { validateAllFindings, type FindingValidationResult } from "@/lib/admin/security/findingValidator";
 import { mergeFindings, type MergeDiff } from "@/lib/admin/security/findingsMerge";
+import { runPreMergeCheck, type PreMergeResult } from "@/lib/admin/security/preMergeCheck";
+import { appendImportLog } from "@/lib/admin/security/findingsImportLog";
 import type { RawFinding } from "@/lib/admin/security/findingClassifier";
 
 interface Props {
