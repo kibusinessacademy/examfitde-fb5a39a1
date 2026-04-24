@@ -58,6 +58,8 @@ import { FindingExceptionDialog } from "./FindingExceptionDialog";
 import { RenovateRecommendationCard } from "./RenovateRecommendationCard";
 import { FindingsImportDialog } from "./FindingsImportDialog";
 import { ExceptionHistoryTimeline } from "./ExceptionHistoryTimeline";
+import { ImportMergeUndoWizard } from "./ImportMergeUndoWizard";
+import { appendImportLog } from "@/lib/admin/security/findingsImportLog";
 
 const PRIO_META: Record<
   FindingPriority,
@@ -237,9 +239,26 @@ export function SecurityFindingsClassifier({ initialFindings = [] }: Props) {
   function handleUndoImport() {
     if (!undoSnapshot) return;
     setRaw(undoSnapshot.previousRaw);
+    appendImportLog({
+      step: "undo",
+      mode: undoSnapshot.mode,
+      fileName: undoSnapshot.fileName,
+      note: `restored snapshot ts=${undoSnapshot.timestamp}`,
+    });
     toast({
       title: "Import rückgängig gemacht",
       description: `${undoSnapshot.fileName ?? "Letzter Import"} verworfen.`,
+    });
+    setUndoSnapshot(null);
+  }
+
+  function discardUndo() {
+    if (!undoSnapshot) return;
+    appendImportLog({
+      step: "discard",
+      mode: undoSnapshot.mode,
+      fileName: undoSnapshot.fileName,
+      note: "snapshot discarded via ✕",
     });
     setUndoSnapshot(null);
   }
@@ -361,7 +380,7 @@ export function SecurityFindingsClassifier({ initialFindings = [] }: Props) {
             size="sm"
             variant="ghost"
             className="h-7 px-2 text-xs"
-            onClick={() => setUndoSnapshot(null)}
+            onClick={discardUndo}
           >
             ✕
           </Button>
@@ -669,6 +688,9 @@ export function SecurityFindingsClassifier({ initialFindings = [] }: Props) {
           </CardContent>
         </Card>
       )}
+
+      {/* Wizard: Test-Szenarien Import → Merge/Replace → Undo/Discard */}
+      <ImportMergeUndoWizard refreshTick={undoSnapshot?.timestamp ?? 0} />
 
       {findings.length === 0 && !parseError && (
         <Card>

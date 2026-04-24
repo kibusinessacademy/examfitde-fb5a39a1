@@ -6,7 +6,7 @@
  * Findings. Operator entscheidet "merge" oder "replace".
  */
 import { useCallback, useMemo, useRef, useState } from "react";
-import { CloudUpload, FileText, Plus, Pencil, ShieldCheck, X } from "lucide-react";
+import { CloudUpload, FileText, Plus, Pencil, ShieldCheck, X, ShieldX, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -14,6 +14,8 @@ import { useToast } from "@/hooks/use-toast";
 import { parseFindingsJson, type RawFindingInput } from "@/lib/admin/security/findingSchema";
 import { validateAllFindings, type FindingValidationResult } from "@/lib/admin/security/findingValidator";
 import { mergeFindings, type MergeDiff } from "@/lib/admin/security/findingsMerge";
+import { runPreMergeCheck, type PreMergeResult } from "@/lib/admin/security/preMergeCheck";
+import { appendImportLog } from "@/lib/admin/security/findingsImportLog";
 import type { RawFinding } from "@/lib/admin/security/findingClassifier";
 
 interface Props {
@@ -29,6 +31,7 @@ export function FindingsImportDialog({ open, onOpenChange, existing, onApply }: 
 
   const [dragOver, setDragOver] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
+  const [rawText, setRawText] = useState<string>("");
   const [parsed, setParsed] = useState<RawFindingInput[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
   const [validation, setValidation] = useState<{
@@ -37,6 +40,7 @@ export function FindingsImportDialog({ open, onOpenChange, existing, onApply }: 
     warnCount: number;
     cleanCount: number;
   } | null>(null);
+  const [precheck, setPrecheck] = useState<PreMergeResult | null>(null);
 
   const diff: MergeDiff | null = useMemo(() => {
     if (parsed.length === 0) return null;
@@ -45,9 +49,11 @@ export function FindingsImportDialog({ open, onOpenChange, existing, onApply }: 
 
   function reset() {
     setFileName(null);
+    setRawText("");
     setParsed([]);
     setErrors([]);
     setValidation(null);
+    setPrecheck(null);
   }
 
   async function handleFile(file: File) {
@@ -58,16 +64,24 @@ export function FindingsImportDialog({ open, onOpenChange, existing, onApply }: 
     setFileName(file.name);
     try {
       const text = await file.text();
+      setRawText(text);
       const result = parseFindingsJson(text);
+      appendImportLog({
+        step: "import",
+        fileName: file.name,
+        note: result.ok ? `parsed ${result.findings.length}` : `schema_errors=${result.errors.length}`,
+      });
       if (!result.ok) {
         setErrors(result.errors);
         setParsed([]);
         setValidation(null);
+        setPrecheck(null);
         return;
       }
       setErrors([]);
       setParsed(result.findings);
       setValidation(validateAllFindings(result.findings));
+      setPrecheck(null); // user must explicitly run precheck
     } catch (e) {
       setErrors([e instanceof Error ? e.message : String(e)]);
     }
@@ -81,13 +95,47 @@ export function FindingsImportDialog({ open, onOpenChange, existing, onApply }: 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  function runPrecheck() {
+    if (!rawText) return;
+    const r = runPreMergeCheck(rawText);
+    setPrecheck(r);
+    appendImportLog({ step: "precheck", precheckOk: r.ok, fileName, note: `issues=${r.issues.length}` });
+    if (!r.ok) {
+      toast({
+        title: "Pre-Merge-Check FAIL",
+        description: `${r.stats.schemaErrors} schema · ${r.stats.validatorErrors} validator · ${r.stats.lintPatternHits} lint`,
+        variant: "destructive",
+      });
+    } else {
+      toast({ title: "Pre-Merge-Check OK", description: `${r.stats.parsed} findings · ${r.durationMs}ms` });
+    }
+  }
+
   function apply(mode: "merge" | "replace") {
     if (!diff) return;
+    // Hard gate: bei Merge muss precheck explizit OK sein
+    if (mode === "merge" && (!precheck || !precheck.ok)) {
+      toast({
+        title: "Merge blockiert",
+        description: "Pre-Merge-Check (build/lint) muss zuerst grün sein.",
+        variant: "destructive",
+      });
+      return;
+    }
     const out = mode === "merge" ? diff.merged : (parsed as RawFinding[]);
     onApply(out, mode, {
       fileName,
       addedCount: diff.added.length,
       changedCount: diff.changed.length,
+    });
+    appendImportLog({
+      step: "apply",
+      mode,
+      fileName,
+      addedCount: diff.added.length,
+      changedCount: diff.changed.length,
+      unchangedCount: diff.unchanged.length,
+      ignoredCount: diff.ignored.length,
     });
     reset();
     onOpenChange(false);
@@ -232,6 +280,71 @@ export function FindingsImportDialog({ open, onOpenChange, existing, onApply }: 
           </div>
         )}
 
+        {/* Pre-Merge-Check Gate */}
+        {diff && (
+          <div
+            className={`space-y-1.5 rounded-md border p-2 text-xs ${
+              precheck?.ok
+                ? "border-emerald-500/40 bg-emerald-500/5"
+                : precheck && !precheck.ok
+                ? "border-destructive/40 bg-destructive/5"
+                : "border-amber-500/40 bg-amber-500/5"
+            }`}
+          >
+            <div className="flex items-center gap-2 font-medium">
+              {precheck?.ok ? (
+                <ShieldCheck className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+              ) : precheck && !precheck.ok ? (
+                <ShieldX className="h-3.5 w-3.5 text-destructive" />
+              ) : (
+                <ShieldAlert className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+              )}
+              Pre-Merge-Check (build/lint)
+              <Button
+                size="sm"
+                variant="outline"
+                className="ml-auto h-6 px-2 text-[11px]"
+                onClick={runPrecheck}
+                disabled={!rawText}
+              >
+                Jetzt prüfen
+              </Button>
+            </div>
+            {precheck ? (
+              <>
+                <div className="text-[11px] text-muted-foreground">
+                  schema {precheck.stats.schemaErrors}E/{precheck.stats.schemaWarnings}W ·
+                  validator {precheck.stats.validatorErrors}E/{precheck.stats.validatorWarnings}W ·
+                  lint {precheck.stats.lintPatternHits}H · {precheck.durationMs}ms
+                  {precheck.externalCi && (
+                    <> · ext. CI: build={precheck.externalCi.build} lint={precheck.externalCi.lint}</>
+                  )}
+                </div>
+                {precheck.issues.length > 0 && (
+                  <ul className="space-y-0.5 text-[10px]">
+                    {precheck.issues.slice(0, 4).map((i, idx) => (
+                      <li
+                        key={idx}
+                        className={
+                          i.severity === "error"
+                            ? "text-destructive"
+                            : "text-amber-700 dark:text-amber-400"
+                        }
+                      >
+                        · [{i.check}] {i.message}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
+            ) : (
+              <p className="text-[11px] text-muted-foreground">
+                Merge ist blockiert, bis der Pre-Merge-Check grün ist. Replace umgeht den Gate (manuell).
+              </p>
+            )}
+          </div>
+        )}
+
         <DialogFooter className="gap-2 sm:gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Abbrechen
@@ -244,8 +357,9 @@ export function FindingsImportDialog({ open, onOpenChange, existing, onApply }: 
             Ersetzen
           </Button>
           <Button
-            disabled={!diff || (validation?.errorCount ?? 0) > 0}
+            disabled={!diff || (validation?.errorCount ?? 0) > 0 || !precheck?.ok}
             onClick={() => apply("merge")}
+            title={!precheck?.ok ? "Pre-Merge-Check zuerst grün ausführen" : undefined}
           >
             Zusammenführen
           </Button>
