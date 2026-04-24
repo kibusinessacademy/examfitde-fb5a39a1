@@ -147,6 +147,8 @@ export function JobLiveProgressList() {
   const rows = liveQuery.data ?? [];
   const ghostCount = useMemo(() => rows.filter((r) => classifyJob(r).tone === "ghost").length, [rows]);
   const staleCount = useMemo(() => rows.filter((r) => classifyJob(r).tone === "warn").length, [rows]);
+  const pollMs = computePollInterval(rows);
+  const secondsLeft = Math.max(0, Math.ceil((nextRefreshAt - now) / 1000));
 
   return (
     <Card>
@@ -165,6 +167,13 @@ export function JobLiveProgressList() {
               {staleCount} stale HB
             </Badge>
           )}
+          <Badge
+            variant="outline"
+            className="text-[10px] font-mono"
+            title={`Polling-Intervall: ${pollMs / 1000}s`}
+          >
+            ⟳ {secondsLeft}s · {pollMs / 1000}s
+          </Badge>
           <Button
             size="sm"
             variant="ghost"
