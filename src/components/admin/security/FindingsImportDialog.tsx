@@ -31,6 +31,7 @@ export function FindingsImportDialog({ open, onOpenChange, existing, onApply }: 
 
   const [dragOver, setDragOver] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
+  const [rawText, setRawText] = useState<string>("");
   const [parsed, setParsed] = useState<RawFindingInput[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
   const [validation, setValidation] = useState<{
@@ -39,6 +40,7 @@ export function FindingsImportDialog({ open, onOpenChange, existing, onApply }: 
     warnCount: number;
     cleanCount: number;
   } | null>(null);
+  const [precheck, setPrecheck] = useState<PreMergeResult | null>(null);
 
   const diff: MergeDiff | null = useMemo(() => {
     if (parsed.length === 0) return null;
@@ -47,9 +49,11 @@ export function FindingsImportDialog({ open, onOpenChange, existing, onApply }: 
 
   function reset() {
     setFileName(null);
+    setRawText("");
     setParsed([]);
     setErrors([]);
     setValidation(null);
+    setPrecheck(null);
   }
 
   async function handleFile(file: File) {
@@ -60,16 +64,24 @@ export function FindingsImportDialog({ open, onOpenChange, existing, onApply }: 
     setFileName(file.name);
     try {
       const text = await file.text();
+      setRawText(text);
       const result = parseFindingsJson(text);
+      appendImportLog({
+        step: "import",
+        fileName: file.name,
+        note: result.ok ? `parsed ${result.findings.length}` : `schema_errors=${result.errors.length}`,
+      });
       if (!result.ok) {
         setErrors(result.errors);
         setParsed([]);
         setValidation(null);
+        setPrecheck(null);
         return;
       }
       setErrors([]);
       setParsed(result.findings);
       setValidation(validateAllFindings(result.findings));
+      setPrecheck(null); // user must explicitly run precheck
     } catch (e) {
       setErrors([e instanceof Error ? e.message : String(e)]);
     }
@@ -83,13 +95,47 @@ export function FindingsImportDialog({ open, onOpenChange, existing, onApply }: 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  function runPrecheck() {
+    if (!rawText) return;
+    const r = runPreMergeCheck(rawText);
+    setPrecheck(r);
+    appendImportLog({ step: "precheck", precheckOk: r.ok, fileName, note: `issues=${r.issues.length}` });
+    if (!r.ok) {
+      toast({
+        title: "Pre-Merge-Check FAIL",
+        description: `${r.stats.schemaErrors} schema · ${r.stats.validatorErrors} validator · ${r.stats.lintPatternHits} lint`,
+        variant: "destructive",
+      });
+    } else {
+      toast({ title: "Pre-Merge-Check OK", description: `${r.stats.parsed} findings · ${r.durationMs}ms` });
+    }
+  }
+
   function apply(mode: "merge" | "replace") {
     if (!diff) return;
+    // Hard gate: bei Merge muss precheck explizit OK sein
+    if (mode === "merge" && (!precheck || !precheck.ok)) {
+      toast({
+        title: "Merge blockiert",
+        description: "Pre-Merge-Check (build/lint) muss zuerst grün sein.",
+        variant: "destructive",
+      });
+      return;
+    }
     const out = mode === "merge" ? diff.merged : (parsed as RawFinding[]);
     onApply(out, mode, {
       fileName,
       addedCount: diff.added.length,
       changedCount: diff.changed.length,
+    });
+    appendImportLog({
+      step: "apply",
+      mode,
+      fileName,
+      addedCount: diff.added.length,
+      changedCount: diff.changed.length,
+      unchangedCount: diff.unchanged.length,
+      ignoredCount: diff.ignored.length,
     });
     reset();
     onOpenChange(false);
