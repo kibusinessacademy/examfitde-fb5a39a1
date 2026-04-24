@@ -125,18 +125,32 @@ const PREFLIGHT_REGISTRY: Record<string, PreflightFn> = {
     }
   },
 
-  // ── quality_council: council_approved must be true before done ──
+  // ── quality_council: council MUST have actually executed and passed ──
+  // Semantic gate: prevents external code paths from marking quality_council=done
+  // without a real council run. We check the step's own meta (set by package-quality-council)
+  // INSTEAD of course_packages.council_approved — this breaks the chicken/egg with
+  // guard_council_consistency (which requires step=done before council_approved=true).
+  // The DB trigger guard_council_consistency still prevents council_approved=true
+  // without step=done, so the contract remains airtight.
   quality_council: async (sb, ctx) => {
-    const { data: pkg } = await sb
-      .from("course_packages")
-      .select("council_approved")
-      .eq("id", ctx.packageId)
+    const { data: step } = await sb
+      .from("package_steps")
+      .select("meta")
+      .eq("package_id", ctx.packageId)
+      .eq("step_key", "quality_council")
       .maybeSingle();
 
-    if (!pkg?.council_approved) {
+    const meta = (step?.meta ?? {}) as Record<string, any>;
+    const executed = meta.executed === true;
+    const score = typeof meta.score === "number" ? meta.score : -1;
+    const status = meta.status;
+
+    if (!executed || status !== "pass" || score < 85) {
       throw preflightError("PREFLIGHT_QUALITY_COUNCIL", {
-        reason: "council_approved is not true — cannot mark quality_council done",
-        council_approved: pkg?.council_approved ?? null,
+        reason: `council not passed — executed=${executed}, status=${status}, score=${score} (need executed=true, status=pass, score>=85)`,
+        executed,
+        status,
+        score,
       });
     }
   },
