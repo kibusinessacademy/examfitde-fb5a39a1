@@ -380,7 +380,7 @@ export function SecurityFindingsClassifier({ initialFindings = [] }: Props) {
             size="sm"
             variant="ghost"
             className="h-7 px-2 text-xs"
-            onClick={() => setUndoSnapshot(null)}
+            onClick={discardUndo}
           >
             ✕
           </Button>
