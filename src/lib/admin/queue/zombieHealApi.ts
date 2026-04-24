@@ -138,3 +138,59 @@ export async function getIntegrityRunbook(
   if (error) throw new Error(error.message);
   return data as IntegrityRunbook;
 }
+
+/**
+ * Per-job heal result from a targeted batch heal run.
+ */
+export interface TargetedHealResult {
+  job_id: string;
+  ok: boolean;
+  error?: string;
+  step_reset?: boolean;
+  step_reset_count?: number;
+}
+
+/**
+ * Listet die zuletzt betroffenen package_run_integrity_check Jobs
+ * für ein Paket (default: letzte 5 nicht-erfolgreichen).
+ */
+export async function listRecentIntegrityJobs(
+  packageId: string,
+  limit = 5,
+): Promise<Array<{ id: string; status: string; created_at: string; last_error: string | null; locked_by: string | null; attempts: number }>> {
+  const { data, error } = await supabase
+    .from("job_queue")
+    .select("id,status,created_at,last_error,locked_by,attempts")
+    .eq("package_id", packageId)
+    .eq("job_type", "package_run_integrity_check")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw new Error(error.message);
+  return (data ?? []) as any;
+}
+
+/**
+ * Führt Auto-Heal für eine Liste von job_ids sequentiell aus und liefert
+ * pro job_id ein detailliertes Ergebnis zurück (inkl. Fehlertext).
+ */
+export async function healJobsTargeted(
+  jobIds: string[],
+  reason = "runbook_targeted_heal",
+): Promise<TargetedHealResult[]> {
+  const results: TargetedHealResult[] = [];
+  for (const jobId of jobIds) {
+    try {
+      const res = await healZombieLockedJob(jobId, reason);
+      results.push({
+        job_id: jobId,
+        ok: !!res.ok,
+        error: res.ok ? undefined : res.error,
+        step_reset: (res as any).step_reset,
+        step_reset_count: (res as any).step_reset_count,
+      });
+    } catch (e) {
+      results.push({ job_id: jobId, ok: false, error: (e as Error).message });
+    }
+  }
+  return results;
+}
