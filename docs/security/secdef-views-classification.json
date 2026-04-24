@@ -1,0 +1,1784 @@
+[
+  {
+    "view_name": "ops_artifact_build_progress",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_auto_healable_reports",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_auto_publish_false_success",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_batch_complete_drift",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_block_classification",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_blocked_but_ready",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_blocked_packages",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_blocked_without_reason",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_blueprint_coverage_diff",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_build_activity_truth",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_building_without_job_or_lease",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_council_churn_loops",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_curriculum_quality_dashboard",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_drift_finder",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_exam_pool_promotion_blocked",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_finalization_stall",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_ghost_completion_monitor",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_governance_consistency",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_guard_threshold_rejections",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_hard_blocked_reports",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_hollow_completion",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_integrity_contract_violations",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_integrity_gate_drift",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_integrity_report_mismatch",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_job_queue_rollup",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_jobtype_step_map",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_learner_visible_readiness",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_learning_content_deadlock_candidates",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_learning_content_shard_liveness",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_legacy_package_audit",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_missing_step_backbone",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_non_building_recoverable",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_open_forensic_reports",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_orphan_draft_questions",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_orphan_step_audit",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_package_baseline_v1",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_package_blockers",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_package_content_depth",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_package_downstream_missing",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_package_effective_state_v1",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_package_qc_matrix",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_package_readiness",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_package_step_readiness",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_param_set_utilization",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_phantom_council_approvals",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_phantom_done_governance",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_phantom_step_drift",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_pipeline_map",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_pipeline_step_drift",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_publish_eligible_but_stuck",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_queued_step_without_job",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_recovery_impact",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_ssot_step_drift",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_stale_council_sessions",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_stalled_builds",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_step_dag_drift",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_step_done_below_threshold",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_step_finalizability",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_step_mapping_drift",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_step_ssot_drift",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_telemetry_integrity",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_telemetry_lineage",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_validate_before_generate_drift",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_validate_exam_pool_fail_classification",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_validate_exam_pool_progress",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "ops_validate_exam_pool_status",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_admin_auto_test_queue",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_admin_auto_test_queue_v2",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_admin_content_quality_findings",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_admin_content_quality_packages",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_admin_course_test_priority",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_admin_course_test_run_latest",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_admin_effective_track",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_admin_growth_overview",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_admin_heal_cockpit",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_admin_humor_qc",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_admin_morning_briefing",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_admin_packages_ssot",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_admin_publish_readiness",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_admin_published_course_preview",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_admin_queue_job_classification",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_admin_queue_ssot",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_admin_standalone_license_devices",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_admin_standalone_license_events",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_admin_standalone_license_risk",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_admin_standalone_licenses",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_admin_track_compliance",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_admin_track_control",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_admin_upgrade_candidates",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_admin_visible_course_packages",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_audit_finding_trends",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_audit_incidents",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_ops_auto_publish_blockers",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_ops_batch_recovery_backlog",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_ops_batch_recovery_health",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_ops_batch_submit_health",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_ops_course_name_collisions",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_ops_executive_kpis",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_ops_failed_no_start_jobs_24h",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_ops_ghost_completions",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_ops_invalid_course_titles",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_ops_job_claimability",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_ops_job_failure_classification",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_ops_job_failure_summary_24h",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_ops_package_progress_guard",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_ops_progress_drift_smoke",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_ops_qc_backlog",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_ops_qc_backlog_age",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_ops_qc_promotion_funnel",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_ops_redundant_seeding_pending",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_ops_reentry_misses",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_ops_resilience_dashboard",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_ops_shadow_zombies",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_ops_stale_admin_holds",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_ops_step_job_coupling_gaps",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_ops_worker_liveness",
+    "priority": "P2_admin",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "pipeline_deadlock_detection",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_active_job_quarantines",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_batch_canary_kpi",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_beruf_priority",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_berufe_public_safe",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_blueprint_preflight_status",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_blueprint_preflight_summary",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_blueprint_variant_stats",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_building_package_eta",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_compliance_dashboard",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_contract_integrity_summary",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_course_display_ssot",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_data_integrity_audit",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_entitlement_migration_audit",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_exam_promotion_metrics",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_exam_promotion_readiness",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_exam_questions_safe",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_exam_relevant_questions",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_executive_decision_summary",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_experiment_results",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_full_course_catalog",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_homepage_course_catalog",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_humor_delivery_kpi",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_humor_lesson_impact",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_humor_minicheck_impact",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_humor_recovery_impact",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_humor_tutor_impact",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_integrity_check_heartbeat_health",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_latest_business_kpi",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_latest_control_plane_snapshot",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_latest_course_package",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_latest_lesson_content",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_latest_probe_run",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_learner_visible_exam_simulations",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_lesson_throughput_12h",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_llm_batch_overview",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_minicheck_curriculum_drift",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_minicheck_qc_overview",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_mobile_store_purchase_audit",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_org_license_overview",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_orphan_blueprint_audit",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_package_build_priority",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_package_content_shard_progress",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_package_hollow_guard_ssot",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_package_progress_ssot",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_package_publish_readiness",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_package_release_classification",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_package_shard_summary",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_package_step_load",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_pending_enqueue_steps",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_pipeline_canary_qc_promotion",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_pipeline_content_integrity",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_pipeline_error_class",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_pipeline_queue_latency",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_pipeline_repair_classification",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_pipeline_stalled_packages",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_pipeline_step_funnel",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_pipeline_stuck_processing",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_prebuild_adoption_candidates",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_process_health_kpis",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_product_page_published_ssot",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_product_page_ssot",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_provider_cooldown_loss_12h",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_provider_failure_rate_12h",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_provider_routing_health",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_revenue_health",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_runner_cycle_diagnostics",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_runner_health_latest",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_runner_idle_anomaly",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_runner_tick_overflow_alerts",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_runner_tick_overflow_health",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_scheduler_fairness",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_scheduler_summary",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_standalone_artifact_health",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_standalone_license_risk",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_unified_open_alerts",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_user_active_recommendations",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_user_current_readiness",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_user_readiness_trend",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_user_top_gaps",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "v_wave_ops_summary",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  },
+  {
+    "view_name": "work_v_affiliate_sales",
+    "priority": "P3",
+    "anon_grant": "f",
+    "authenticated_grant": "f",
+    "public_grant": "f",
+    "service_role_grant": "f",
+    "reloptions": "\"\""
+  }
+]
