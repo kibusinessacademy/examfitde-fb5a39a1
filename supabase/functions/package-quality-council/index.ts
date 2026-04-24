@@ -39,13 +39,14 @@ Deno.serve(async (req) => {
     // Load package data
     const { data: pkg } = await sb
       .from("course_packages")
-      .select("id, course_id, certification_id, curriculum_id, integrity_report")
+      .select("id, course_id, certification_id, curriculum_id, integrity_report, track")
       .eq("id", packageId)
       .maybeSingle();
 
     if (!pkg) return json({ error: "Package not found" }, 404);
 
     const curriculumId = pkg.curriculum_id;
+    const packageTrack: string = (pkg as any).track || "AUSBILDUNG_VOLL";
 
     // ── FAIL-CLOSED GUARD 1: curriculum_id must exist ──
     if (!curriculumId) {
@@ -150,10 +151,14 @@ Deno.serve(async (req) => {
             detail = `${duplicateRate.toFixed(1)}% (max: ${cfg.max_percent}%)`;
           }
           break;
-        case "min_question_count":
-          passed = totalQuestions >= (cfg.min ?? 500);
-          detail = `${totalQuestions} (min: ${cfg.min})`;
+        case "min_question_count": {
+          // Track-aware threshold: cfg.track_overrides[track] || cfg.min || 500
+          const overrides = (cfg.track_overrides ?? {}) as Record<string, number>;
+          const effectiveMin: number = overrides[packageTrack] ?? cfg.min ?? 500;
+          passed = totalQuestions >= effectiveMin;
+          detail = `${totalQuestions} (min: ${effectiveMin}, track: ${packageTrack})`;
           break;
+        }
         case "difficulty_distribution":
           // Difficulty data not in summary yet — auto-pass (covered by integrity gate)
           passed = true;
@@ -336,19 +341,21 @@ Deno.serve(async (req) => {
 
     console.log(`[QualityCouncil] Package ${packageId.slice(0, 8)}: score=${score} status=${status} badge=${badge} rules=${rulesPassed}/${results.length}`);
 
-    // ── Set council_approved on course_packages BEFORE markStepDone ──
-    // The DB trigger trg_guard_governance_step_finalization requires
-    // council_approved=true before quality_council can transition to done.
-    // Only set when gate passes (not fail) — fail-closed governance.
+    // ── Pre-write step.meta with fresh result so preflight sees current run ──
+    // The preflight assertion for quality_council reads step.meta.{executed,score,status}
+    // to verify the council actually passed. Without this pre-write, the preflight
+    // would still see meta from the previous failed run.
     if (status !== "fail") {
-      const { error: approveErr } = await sb
-        .from("course_packages")
-        .update({ council_approved: true })
-        .eq("id", packageId);
-      if (approveErr) {
-        console.error(`[QualityCouncil] Failed to set council_approved=true: ${approveErr.message}`);
-      } else {
-        console.log(`[QualityCouncil] ✅ council_approved=true set for ${packageId.slice(0, 8)}`);
+      const { error: metaErr } = await sb
+        .from("package_steps")
+        .update({
+          meta: { executed: true, score, status, badge, rules_passed: rulesPassed, rules_failed: rulesFailed, rules_warned: rulesWarned },
+          last_error: null,
+        })
+        .eq("package_id", packageId)
+        .eq("step_key", "quality_council");
+      if (metaErr) {
+        console.error(`[QualityCouncil] Failed to pre-write step.meta: ${metaErr.message}`);
       }
     }
 
@@ -378,6 +385,19 @@ Deno.serve(async (req) => {
           meta: { executed: true, score, status, badge, rules_passed: rulesPassed, rules_failed: rulesFailed, rules_warned: rulesWarned },
         });
         console.log(`[QualityCouncil] ✅ Step quality_council marked DONE for ${packageId.slice(0, 8)}`);
+
+        // ── NOW set council_approved=true on course_packages ──
+        // Order: step=done FIRST (satisfies guard_council_consistency),
+        // then council_approved=true (satisfies downstream auto_publish trigger).
+        const { error: approveErr } = await sb
+          .from("course_packages")
+          .update({ council_approved: true })
+          .eq("id", packageId);
+        if (approveErr) {
+          console.error(`[QualityCouncil] Failed to set council_approved=true: ${approveErr.message}`);
+        } else {
+          console.log(`[QualityCouncil] ✅ council_approved=true set for ${packageId.slice(0, 8)}`);
+        }
       } catch (stepErr) {
         console.error(`[QualityCouncil] ⛔ markStepDone failed for ${packageId.slice(0, 8)}: ${(stepErr as Error).message}`);
       }
