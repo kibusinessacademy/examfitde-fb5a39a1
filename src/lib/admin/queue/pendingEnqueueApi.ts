@@ -127,7 +127,7 @@ export async function updateManualReview(
   }
   const { error } = await supabase
     .from("pending_enqueue_manual_review" as never)
-    .update(update)
+    .update(update as never)
     .eq("id", id);
   if (error) throw error;
 }
