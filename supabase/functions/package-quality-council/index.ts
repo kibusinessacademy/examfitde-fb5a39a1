@@ -151,10 +151,14 @@ Deno.serve(async (req) => {
             detail = `${duplicateRate.toFixed(1)}% (max: ${cfg.max_percent}%)`;
           }
           break;
-        case "min_question_count":
-          passed = totalQuestions >= (cfg.min ?? 500);
-          detail = `${totalQuestions} (min: ${cfg.min})`;
+        case "min_question_count": {
+          // Track-aware threshold: cfg.track_overrides[track] || cfg.min || 500
+          const overrides = (cfg.track_overrides ?? {}) as Record<string, number>;
+          const effectiveMin: number = overrides[packageTrack] ?? cfg.min ?? 500;
+          passed = totalQuestions >= effectiveMin;
+          detail = `${totalQuestions} (min: ${effectiveMin}, track: ${packageTrack})`;
           break;
+        }
         case "difficulty_distribution":
           // Difficulty data not in summary yet — auto-pass (covered by integrity gate)
           passed = true;
