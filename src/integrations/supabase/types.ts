@@ -39456,6 +39456,54 @@ export type Database = {
           },
         ]
       }
+      pending_enqueue_manual_review: {
+        Row: {
+          created_at: string
+          failure_count: number
+          first_failed_at: string
+          id: string
+          last_error: string | null
+          last_failed_at: string
+          package_id: string
+          resolution_note: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          status: string
+          step_key: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          failure_count?: number
+          first_failed_at?: string
+          id?: string
+          last_error?: string | null
+          last_failed_at?: string
+          package_id: string
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+          step_key: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          failure_count?: number
+          first_failed_at?: string
+          id?: string
+          last_error?: string | null
+          last_failed_at?: string
+          package_id?: string
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+          step_key?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       pending_enqueue_reschedule_log: {
         Row: {
           age_seconds: number | null
@@ -80761,6 +80809,24 @@ export type Database = {
         }
         Relationships: []
       }
+      v_pending_enqueue_cron_health: {
+        Row: {
+          active: boolean | null
+          failed_1h: number | null
+          healed_1h: number | null
+          health: string | null
+          jobname: string | null
+          last_end: string | null
+          last_log_at: string | null
+          last_message: string | null
+          last_start: string | null
+          last_status: string | null
+          schedule: string | null
+          seconds_since_last_run: number | null
+          skipped_1h: number | null
+        }
+        Relationships: []
+      }
       v_pending_enqueue_steps: {
         Row: {
           attempts: number | null
@@ -86681,6 +86747,13 @@ export type Database = {
       fn_extract_failure_signature: {
         Args: { p_last_error: string }
         Returns: string
+      }
+      fn_flag_pending_enqueue_manual_review: {
+        Args: { p_min_failures?: number; p_window_minutes?: number }
+        Returns: {
+          details: Json
+          flagged_count: number
+        }[]
       }
       fn_generate_compliance_document: {
         Args: { p_content_md: string; p_doc_type: string; p_title: string }
