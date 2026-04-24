@@ -336,6 +336,38 @@ export function SecurityFindingsClassifier({ initialFindings = [] }: Props) {
         </CardContent>
       </Card>
 
+      {/* Undo-Banner für letzten Import */}
+      {undoSnapshot && (
+        <div className="flex flex-wrap items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/5 p-2 text-xs">
+          <Undo2 className="h-3.5 w-3.5 text-amber-700 dark:text-amber-400" />
+          <span>
+            Letzter Import:{" "}
+            <code className="font-mono">{undoSnapshot.fileName ?? "(textarea)"}</code> ·{" "}
+            <Badge variant="outline" className="h-4 px-1 text-[10px]">
+              {undoSnapshot.mode}
+            </Badge>{" "}
+            · +{undoSnapshot.addedCount} ~{undoSnapshot.changedCount}
+          </span>
+          <Button
+            size="sm"
+            variant="outline"
+            className="ml-auto h-7 px-2 text-xs"
+            onClick={handleUndoImport}
+          >
+            <Undo2 className="mr-1 h-3 w-3" />
+            Rückgängig
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 px-2 text-xs"
+            onClick={() => setUndoSnapshot(null)}
+          >
+            ✕
+          </Button>
+        </div>
+      )}
+
       {/* Renovate Recommendation */}
       {hasUnpinnedFinding && <RenovateRecommendationCard />}
 
