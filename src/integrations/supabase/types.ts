@@ -48414,6 +48414,51 @@ export type Database = {
         }
         Relationships: []
       }
+      security_finding_exceptions: {
+        Row: {
+          accepted_until_audit: string | null
+          accepted_until_date: string | null
+          created_at: string
+          created_by: string | null
+          finding_id: string | null
+          id: string
+          internal_id: string
+          priority: string | null
+          reason: string
+          scanner_name: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          accepted_until_audit?: string | null
+          accepted_until_date?: string | null
+          created_at?: string
+          created_by?: string | null
+          finding_id?: string | null
+          id?: string
+          internal_id: string
+          priority?: string | null
+          reason: string
+          scanner_name: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          accepted_until_audit?: string | null
+          accepted_until_date?: string | null
+          created_at?: string
+          created_by?: string | null
+          finding_id?: string | null
+          id?: string
+          internal_id?: string
+          priority?: string | null
+          reason?: string
+          scanner_name?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       security_otp_challenges: {
         Row: {
           attempts: number
