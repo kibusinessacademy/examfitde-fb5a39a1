@@ -83528,6 +83528,22 @@ export type Database = {
         }
         Returns: undefined
       }
+      admin_detect_zombie_locked_jobs: {
+        Args: { _age_min?: number }
+        Returns: {
+          age_minutes: number
+          attempts: number
+          job_id: string
+          job_type: string
+          last_heartbeat_at: string
+          locked_at: string
+          locked_by: string
+          package_id: string
+          started_at: string
+          status: string
+          zombie_reason: string
+        }[]
+      }
       admin_dismiss_growth_action: {
         Args: { p_action_id: string }
         Returns: undefined
@@ -83597,6 +83613,10 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      admin_get_job_cancel_audit_summary: {
+        Args: { _job_id: string }
+        Returns: Json
+      }
       admin_get_job_timeline: {
         Args: { _job_id?: string; _limit?: number; _package_id?: string }
         Returns: {
@@ -83663,6 +83683,10 @@ export type Database = {
           title: string
         }[]
       }
+      admin_get_run_integrity_runbook: {
+        Args: { _package_id: string }
+        Returns: Json
+      }
       admin_has_recent_terminal_notification: {
         Args: { _job_type: string; _package_id: string; _within?: string }
         Returns: boolean
@@ -83676,6 +83700,10 @@ export type Database = {
           package_id: string
           step_key: string
         }[]
+      }
+      admin_heal_zombie_locked_job: {
+        Args: { _job_id: string; _reason?: string }
+        Returns: Json
       }
       admin_job_action: {
         Args: {
@@ -83744,6 +83772,10 @@ export type Database = {
         Args: { p_package_id: string; p_reason?: string; p_unmark?: boolean }
         Returns: Json
       }
+      admin_mark_requeue_loop_terminal: {
+        Args: { _job_id: string; _reason?: string }
+        Returns: Json
+      }
       admin_queue_cluster_weight: {
         Args: { _cluster: string }
         Returns: number
@@ -83803,6 +83835,10 @@ export type Database = {
           p_restore_jobs?: boolean
           p_snapshot_id: string
         }
+        Returns: Json
+      }
+      admin_safe_requeue_integrity_check: {
+        Args: { _package_id: string; _reason?: string }
         Returns: Json
       }
       admin_smart_heal_bulk: {
@@ -85692,6 +85728,7 @@ export type Database = {
       fn_auto_heal_hard_fail_repair_exhausted: { Args: never; Returns: Json }
       fn_auto_heal_materialization_guard: { Args: never; Returns: Json }
       fn_auto_heal_stale_lock_exhausted: { Args: never; Returns: Json }
+      fn_auto_heal_zombie_locked_jobs: { Args: never; Returns: Json }
       fn_auto_retry_failed_jobs: { Args: { _limit?: number }; Returns: Json }
       fn_auto_unblock_ready_packages: {
         Args: never
