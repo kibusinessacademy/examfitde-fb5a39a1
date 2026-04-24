@@ -48414,6 +48414,63 @@ export type Database = {
         }
         Relationships: []
       }
+      security_finding_exception_history: {
+        Row: {
+          action: string
+          changed_at: string
+          changed_by: string | null
+          id: string
+          internal_id: string
+          new_accepted_until_audit: string | null
+          new_accepted_until_date: string | null
+          new_priority: string | null
+          new_reason: string | null
+          new_status: string | null
+          prev_accepted_until_audit: string | null
+          prev_accepted_until_date: string | null
+          prev_priority: string | null
+          prev_reason: string | null
+          prev_status: string | null
+          scanner_name: string
+        }
+        Insert: {
+          action: string
+          changed_at?: string
+          changed_by?: string | null
+          id?: string
+          internal_id: string
+          new_accepted_until_audit?: string | null
+          new_accepted_until_date?: string | null
+          new_priority?: string | null
+          new_reason?: string | null
+          new_status?: string | null
+          prev_accepted_until_audit?: string | null
+          prev_accepted_until_date?: string | null
+          prev_priority?: string | null
+          prev_reason?: string | null
+          prev_status?: string | null
+          scanner_name: string
+        }
+        Update: {
+          action?: string
+          changed_at?: string
+          changed_by?: string | null
+          id?: string
+          internal_id?: string
+          new_accepted_until_audit?: string | null
+          new_accepted_until_date?: string | null
+          new_priority?: string | null
+          new_reason?: string | null
+          new_status?: string | null
+          prev_accepted_until_audit?: string | null
+          prev_accepted_until_date?: string | null
+          prev_priority?: string | null
+          prev_reason?: string | null
+          prev_status?: string | null
+          scanner_name?: string
+        }
+        Relationships: []
+      }
       security_finding_exceptions: {
         Row: {
           accepted_until_audit: string | null
