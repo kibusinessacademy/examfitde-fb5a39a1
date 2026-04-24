@@ -18,6 +18,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   Ghost,
+  Languages,
   Loader2,
   RefreshCcw,
   ShieldAlert,
@@ -36,6 +37,7 @@ import {
   type IntegrityRunbook,
 } from "@/lib/admin/queue/zombieHealApi";
 import { TargetedJobHealPanel } from "@/components/admin/queue/TargetedJobHealPanel";
+import { useLocale } from "@/lib/admin/queue/i18n";
 
 const ICONS: Record<string, React.ReactNode> = {
   stale_lock: <Ghost className="h-4 w-4" />,
