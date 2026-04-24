@@ -85263,6 +85263,10 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_suggest_repair_action: {
+        Args: { _dry_run?: boolean; _package_id: string }
+        Returns: Json
+      }
       admin_unblock_user: {
         Args: { p_reason?: string; p_user_id: string }
         Returns: undefined
