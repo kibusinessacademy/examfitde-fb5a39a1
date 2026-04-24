@@ -341,19 +341,21 @@ Deno.serve(async (req) => {
 
     console.log(`[QualityCouncil] Package ${packageId.slice(0, 8)}: score=${score} status=${status} badge=${badge} rules=${rulesPassed}/${results.length}`);
 
-    // ── Set council_approved on course_packages BEFORE markStepDone ──
-    // The DB trigger trg_guard_governance_step_finalization requires
-    // council_approved=true before quality_council can transition to done.
-    // Only set when gate passes (not fail) — fail-closed governance.
+    // ── Pre-write step.meta with fresh result so preflight sees current run ──
+    // The preflight assertion for quality_council reads step.meta.{executed,score,status}
+    // to verify the council actually passed. Without this pre-write, the preflight
+    // would still see meta from the previous failed run.
     if (status !== "fail") {
-      const { error: approveErr } = await sb
-        .from("course_packages")
-        .update({ council_approved: true })
-        .eq("id", packageId);
-      if (approveErr) {
-        console.error(`[QualityCouncil] Failed to set council_approved=true: ${approveErr.message}`);
-      } else {
-        console.log(`[QualityCouncil] ✅ council_approved=true set for ${packageId.slice(0, 8)}`);
+      const { error: metaErr } = await sb
+        .from("package_steps")
+        .update({
+          meta: { executed: true, score, status, badge, rules_passed: rulesPassed, rules_failed: rulesFailed, rules_warned: rulesWarned },
+          last_error: null,
+        })
+        .eq("package_id", packageId)
+        .eq("step_key", "quality_council");
+      if (metaErr) {
+        console.error(`[QualityCouncil] Failed to pre-write step.meta: ${metaErr.message}`);
       }
     }
 
