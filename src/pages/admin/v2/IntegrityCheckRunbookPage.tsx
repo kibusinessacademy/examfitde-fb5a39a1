@@ -98,17 +98,25 @@ export default function IntegrityCheckRunbookPage() {
         />
       </Helmet>
 
-      <header className="space-y-1">
-        <h1 className="text-xl font-semibold">Runbook · package_run_integrity_check</h1>
-        <p className="text-xs text-muted-foreground">
-          Erkennt typische Ursachen (Ghost-Finalization, stale Lock, Orphan, REQUEUE-Loop) und
-          bietet je einen geguardeten Heal-Button.
-        </p>
+      <header className="flex items-start justify-between gap-2">
+        <div className="space-y-1">
+          <h1 className="text-xl font-semibold">{t("runbook.title")}</h1>
+          <p className="text-xs text-muted-foreground">{t("runbook.subtitle")}</p>
+        </div>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-7 text-[11px]"
+          onClick={() => setLocale(locale === "de" ? "en" : "de")}
+          title="toggle language"
+        >
+          <Languages className="mr-1 h-3 w-3" /> {locale.toUpperCase()}
+        </Button>
       </header>
 
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Paket auswählen</CardTitle>
+          <CardTitle className="text-sm">{t("runbook.pickPkg")}</CardTitle>
         </CardHeader>
         <CardContent>
           <form
@@ -124,15 +132,13 @@ export default function IntegrityCheckRunbookPage() {
             <Input
               value={pkgInput}
               onChange={(e) => setPkgInput(e.target.value)}
-              placeholder="package_id (UUID)"
+              placeholder={t("runbook.placeholder")}
               className="font-mono text-xs"
             />
-            <Button type="submit" size="sm">
-              Analysieren
-            </Button>
+            <Button type="submit" size="sm">{t("runbook.analyze")}</Button>
             {packageId && (
               <Button type="button" size="sm" variant="ghost" onClick={refresh}>
-                <RefreshCcw className="mr-1 h-3 w-3" /> Refresh
+                <RefreshCcw className="mr-1 h-3 w-3" /> {t("live.refresh")}
               </Button>
             )}
           </form>
