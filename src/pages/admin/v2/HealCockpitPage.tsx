@@ -21,17 +21,25 @@ export default function HealCockpitPage() {
         />
       </Helmet>
 
-      <header className="flex items-center gap-3">
-        <div className="rounded-md bg-primary/10 p-2 text-primary">
-          <Stethoscope className="h-5 w-5" />
+      <header className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-3">
+          <div className="rounded-md bg-primary/10 p-2 text-primary">
+            <Stethoscope className="h-5 w-5" />
+          </div>
+          <div>
+            <h1 className="text-xl font-semibold">Heal-Cockpit</h1>
+            <p className="text-sm text-muted-foreground">
+              Konsolidierte Recovery- und Publish-Steuerung über alle Pakete
+              (v8.2 SSOT)
+            </p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-xl font-semibold">Heal-Cockpit</h1>
-          <p className="text-sm text-muted-foreground">
-            Konsolidierte Recovery- und Publish-Steuerung über alle Pakete
-            (v8.2 SSOT)
-          </p>
-        </div>
+        <Button asChild variant="outline" size="sm">
+          <Link to="/admin/ops/repair-queue">
+            <Wrench className="h-4 w-4 mr-2" />
+            Repair-Queue Dashboard
+          </Link>
+        </Button>
       </header>
 
       <MorningBriefing />
