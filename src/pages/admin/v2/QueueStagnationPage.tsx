@@ -144,6 +144,7 @@ export default function QueueStagnationPage() {
       </div>
 
       <QueueStagnationCard filters={filters} />
+      <JobLiveProgressList />
     </div>
   );
 }
