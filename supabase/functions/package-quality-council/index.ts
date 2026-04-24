@@ -39,13 +39,14 @@ Deno.serve(async (req) => {
     // Load package data
     const { data: pkg } = await sb
       .from("course_packages")
-      .select("id, course_id, certification_id, curriculum_id, integrity_report")
+      .select("id, course_id, certification_id, curriculum_id, integrity_report, track")
       .eq("id", packageId)
       .maybeSingle();
 
     if (!pkg) return json({ error: "Package not found" }, 404);
 
     const curriculumId = pkg.curriculum_id;
+    const packageTrack: string = (pkg as any).track || "AUSBILDUNG_VOLL";
 
     // ── FAIL-CLOSED GUARD 1: curriculum_id must exist ──
     if (!curriculumId) {
