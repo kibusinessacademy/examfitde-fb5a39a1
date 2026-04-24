@@ -185,7 +185,7 @@ export function rowsToCsv(rows: AuditExportRow[]): string {
   };
   return [
     headers.join(","),
-    ...rows.map((r) => headers.map((h) => escape((r as Record<string, unknown>)[h])).join(",")),
+    ...rows.map((r) => headers.map((h) => escape((r as unknown as Record<string, unknown>)[h])).join(",")),
   ].join("\n");
 }
 
