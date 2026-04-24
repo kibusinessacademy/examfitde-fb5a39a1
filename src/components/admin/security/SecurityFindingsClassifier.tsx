@@ -2,18 +2,19 @@
  * SecurityFindingsClassifier
  * ──────────────────────────
  * UI-Klassifizierung von Linter-/Scanner-Findings in P0–P3 mit:
- *  - JSON-Upload (File-Picker) inkl. Schema-Validierung
- *  - Persistente Exceptions (DB-gestützt, "akzeptiert bis Audit vX")
- *  - Workflow-Verknüpfung (öffnet betroffene .github/workflows/*.yml)
- *  - Renovate-Empfehlung für „unpinned actions" (P2)
+ *  - DnD-Upload + Schema-Validation + Merge-Diff (über FindingsImportDialog)
+ *  - Persistente Exceptions (DB) inkl. Timeline + Rollback
+ *  - Workflow-Verknüpfung mit "Jobs öffnen"-Button + Job-Highlight
+ *  - Renovate-Empfehlung (Repo-Profil-Switcher)
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import {
   AlertCircle,
   CheckCircle2,
   ChevronRight,
   ExternalLink,
+  History,
   ListChecks,
   Pencil,
   Shield,
@@ -54,6 +55,8 @@ import {
 } from "@/lib/admin/security/workflowIndex";
 import { FindingExceptionDialog } from "./FindingExceptionDialog";
 import { RenovateRecommendationCard } from "./RenovateRecommendationCard";
+import { FindingsImportDialog } from "./FindingsImportDialog";
+import { ExceptionHistoryTimeline } from "./ExceptionHistoryTimeline";
 
 const PRIO_META: Record<
   FindingPriority,
@@ -117,7 +120,6 @@ interface Props {
 
 export function SecurityFindingsClassifier({ initialFindings = [] }: Props) {
   const { toast } = useToast();
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [raw, setRaw] = useState<string>(
     initialFindings.length ? JSON.stringify(initialFindings, null, 2) : "",
@@ -127,6 +129,9 @@ export function SecurityFindingsClassifier({ initialFindings = [] }: Props) {
 
   const [exceptions, setExceptions] = useState<Record<string, FindingException>>({});
   const [workflowIndex, setWorkflowIndex] = useState<WorkflowIndex | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
+  const [highlightJob, setHighlightJob] = useState<{ file: string; jobName?: string } | null>(null);
+  const [historyKey, setHistoryKey] = useState<{ scanner: string; id: string } | null>(null);
 
   const [dialogState, setDialogState] = useState<{
     open: boolean;
@@ -137,7 +142,6 @@ export function SecurityFindingsClassifier({ initialFindings = [] }: Props) {
     existing?: FindingException | null;
   }>({ open: false, scannerName: "", internalId: "" });
 
-  // Initial laden
   useEffect(() => {
     void refreshExceptions();
     void loadWorkflowIndex().then(setWorkflowIndex);
@@ -148,7 +152,6 @@ export function SecurityFindingsClassifier({ initialFindings = [] }: Props) {
       const rows = await listFindingExceptions();
       setExceptions(indexExceptions(rows));
     } catch (e) {
-      // RLS verweigert für Nicht-Admins — still fail
       console.warn("[SecurityFindingsClassifier] Exceptions nicht ladbar:", e);
     }
   }
@@ -165,7 +168,6 @@ export function SecurityFindingsClassifier({ initialFindings = [] }: Props) {
     setParseWarnings(result.warnings);
     if (!result.ok) return [];
 
-    // Merge persistente Exceptions (UI-Override für ignore/ignore_reason)
     const merged: RawFinding[] = result.findings.map((f) => {
       const key = `${f.scanner_name ?? ""}::${f.internal_id ?? f.id ?? ""}`;
       const ex = exceptions[key];
@@ -183,7 +185,6 @@ export function SecurityFindingsClassifier({ initialFindings = [] }: Props) {
 
   const summary = useMemo(() => summarize(findings), [findings]);
 
-  // P2 unpinned-Hinweis sichtbar?
   const hasUnpinnedFinding = useMemo(
     () =>
       findings.some((f) =>
@@ -194,34 +195,37 @@ export function SecurityFindingsClassifier({ initialFindings = [] }: Props) {
     [findings],
   );
 
-  async function handleFileUpload(file: File) {
-    if (file.size > 5 * 1024 * 1024) {
-      toast({ title: "Datei zu groß (>5MB)", variant: "destructive" });
-      return;
+  // Aktueller Raw-Findings-State (für Merge-Quelle im Dialog)
+  const currentRawFindings: RawFinding[] = useMemo(() => {
+    if (!raw.trim()) return [];
+    const r = parseFindingsJson(raw);
+    return r.ok ? (r.findings as RawFinding[]) : [];
+  }, [raw]);
+
+  function handleApplyImport(merged: RawFinding[]) {
+    setRaw(JSON.stringify(merged, null, 2));
+  }
+
+  // "Jobs öffnen": Datei-URL in neuem Tab + lokales Highlight
+  function openJobs(related: RelatedWorkflow[]) {
+    if (related.length === 0) return;
+    const opened = new Set<string>();
+    for (const r of related) {
+      if (opened.has(r.file)) continue;
+      opened.add(r.file);
+      // Versuch GitHub Web-URL via VITE_GITHUB_REPO; sonst lokaler Pfad
+      const repo =
+        (typeof import.meta !== "undefined" && (import.meta as { env?: Record<string, string> }).env?.VITE_GITHUB_REPO) ||
+        null;
+      const url = repo ? `https://github.com/${repo}/blob/main/${r.file}` : `/${r.file}`;
+      window.open(url, "_blank", "noopener,noreferrer");
     }
-    try {
-      const text = await file.text();
-      const result = parseFindingsJson(text);
-      if (!result.ok) {
-        toast({
-          title: "Schema-Validierung fehlgeschlagen",
-          description: result.errors.slice(0, 3).join(" · "),
-          variant: "destructive",
-        });
-        return;
-      }
-      setRaw(text);
-      toast({
-        title: `${result.findings.length} Findings importiert`,
-        description: result.warnings.length ? `${result.warnings.length} Warnungen` : undefined,
-      });
-    } catch (e) {
-      toast({
-        title: "Datei nicht lesbar",
-        description: e instanceof Error ? e.message : String(e),
-        variant: "destructive",
-      });
-    }
+    const first = related[0];
+    setHighlightJob({ file: first.file, jobName: first.jobName });
+    toast({
+      title: `${opened.size} Workflow${opened.size === 1 ? "" : "s"} geöffnet`,
+      description: first.jobName ? `Job hervorgehoben: ${first.jobName}` : undefined,
+    });
   }
 
   return (
@@ -242,7 +246,7 @@ export function SecurityFindingsClassifier({ initialFindings = [] }: Props) {
           <div>
             <h1 className="text-xl font-semibold">Findings-Klassifizierung</h1>
             <p className="text-xs text-muted-foreground">
-              P0–P3 Heuristik · persistente Ausnahmen · Workflow-Verknüpfung · Renovate-Patch.
+              P0–P3 Heuristik · Exception-Audit · Workflow-Verknüpfung · Renovate.
             </p>
           </div>
         </div>
@@ -263,17 +267,6 @@ export function SecurityFindingsClassifier({ initialFindings = [] }: Props) {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="application/json,.json"
-            className="hidden"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) void handleFileUpload(f);
-              e.target.value = "";
-            }}
-          />
           <Textarea
             value={raw}
             onChange={(e) => setRaw(e.target.value)}
@@ -282,8 +275,8 @@ export function SecurityFindingsClassifier({ initialFindings = [] }: Props) {
             spellCheck={false}
           />
           <div className="flex flex-wrap items-center gap-2">
-            <Button size="sm" onClick={() => fileInputRef.current?.click()}>
-              <Upload className="mr-1 h-3.5 w-3.5" /> JSON-Datei hochladen
+            <Button size="sm" onClick={() => setImportOpen(true)}>
+              <Upload className="mr-1 h-3.5 w-3.5" /> Datei (Drag & Drop)
             </Button>
             <Button size="sm" variant="outline" onClick={() => setRaw(SAMPLE_PAYLOAD)}>
               Beispiel laden
@@ -305,8 +298,32 @@ export function SecurityFindingsClassifier({ initialFindings = [] }: Props) {
         </CardContent>
       </Card>
 
-      {/* Renovate Recommendation — nur wenn relevant */}
+      {/* Renovate Recommendation */}
       {hasUnpinnedFinding && <RenovateRecommendationCard />}
+
+      {/* Job-Highlight Banner */}
+      {highlightJob && (
+        <div className="flex items-center gap-2 rounded-md border border-primary/40 bg-primary/5 p-2 text-xs">
+          <ExternalLink className="h-3.5 w-3.5 text-primary" />
+          <span>
+            Hervorgehoben: <code className="font-mono">{highlightJob.file}</code>
+            {highlightJob.jobName && (
+              <>
+                {" "}
+                · job: <code className="font-mono">{highlightJob.jobName}</code>
+              </>
+            )}
+          </span>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="ml-auto h-6 px-2"
+            onClick={() => setHighlightJob(null)}
+          >
+            ✕
+          </Button>
+        </div>
+      )}
 
       {/* Summary */}
       {findings.length > 0 && (
@@ -354,6 +371,8 @@ export function SecurityFindingsClassifier({ initialFindings = [] }: Props) {
                 const related: RelatedWorkflow[] = workflowIndex
                   ? findRelatedWorkflows(workflowIndex, f)
                   : [];
+                const isHighlightingHere =
+                  highlightJob && related.some((r) => r.file === highlightJob.file);
                 return (
                   <AccordionItem key={id} value={id} className="border-0 px-3">
                     <AccordionTrigger className="py-3 hover:no-underline">
@@ -435,28 +454,55 @@ export function SecurityFindingsClassifier({ initialFindings = [] }: Props) {
                       {/* Related Workflows */}
                       {related.length > 0 && (
                         <div>
-                          <div className="mb-1 text-xs font-medium text-muted-foreground">
-                            Betroffene GitHub-Workflows ({related.length})
+                          <div className="mb-1 flex items-center justify-between">
+                            <div className="text-xs font-medium text-muted-foreground">
+                              Betroffene GitHub-Workflows ({related.length})
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 px-2 text-xs"
+                              onClick={() => openJobs(related)}
+                            >
+                              <ExternalLink className="mr-1 h-3 w-3" />
+                              Jobs öffnen
+                            </Button>
                           </div>
                           <ul className="space-y-1 text-xs">
-                            {related.slice(0, 12).map((r, i) => (
-                              <li key={i} className="flex items-center gap-1.5">
-                                <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
-                                <code className="font-mono text-[11px]">{r.file}</code>
-                                {r.jobName && (
-                                  <Badge variant="outline" className="h-4 px-1 text-[10px]">
-                                    job: {r.jobName}
-                                  </Badge>
-                                )}
-                                <span className="text-muted-foreground">— {r.reason}</span>
-                              </li>
-                            ))}
+                            {related.slice(0, 12).map((r, i) => {
+                              const isHl =
+                                highlightJob &&
+                                highlightJob.file === r.file &&
+                                (highlightJob.jobName ?? null) === (r.jobName ?? null);
+                              return (
+                                <li
+                                  key={i}
+                                  className={`flex items-center gap-1.5 rounded px-1 py-0.5 transition-colors ${
+                                    isHl ? "bg-primary/10 ring-1 ring-primary/40" : ""
+                                  }`}
+                                >
+                                  <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
+                                  <code className="font-mono text-[11px]">{r.file}</code>
+                                  {r.jobName && (
+                                    <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                                      job: {r.jobName}
+                                    </Badge>
+                                  )}
+                                  <span className="text-muted-foreground">— {r.reason}</span>
+                                </li>
+                              );
+                            })}
                             {related.length > 12 && (
                               <li className="text-muted-foreground">
                                 … +{related.length - 12} weitere
                               </li>
                             )}
                           </ul>
+                          {isHighlightingHere && (
+                            <p className="mt-1 text-[10px] text-primary">
+                              ↑ Hervorgehobene Datei stammt aus diesem Finding.
+                            </p>
+                          )}
                         </div>
                       )}
 
@@ -481,7 +527,17 @@ export function SecurityFindingsClassifier({ initialFindings = [] }: Props) {
                         </div>
                       )}
 
-                      {/* Action: Exception verwalten */}
+                      {/* Timeline (lazy: nur wenn ausgeklappt + Button gedrückt) */}
+                      {historyKey?.scanner === (f.scanner_name ?? "unknown") &&
+                        historyKey?.id === (f.internal_id ?? f.id ?? `idx_${idx}`) && (
+                          <ExceptionHistoryTimeline
+                            scannerName={f.scanner_name ?? "unknown"}
+                            internalId={f.internal_id ?? f.id ?? `idx_${idx}`}
+                            onChanged={() => void refreshExceptions()}
+                          />
+                        )}
+
+                      {/* Actions */}
                       <div className="flex flex-wrap gap-2 pt-1">
                         <Button
                           size="sm"
@@ -499,6 +555,25 @@ export function SecurityFindingsClassifier({ initialFindings = [] }: Props) {
                         >
                           <Pencil className="mr-1 h-3 w-3" />
                           {existing ? "Ausnahme bearbeiten" : "Als Ausnahme markieren"}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            const scanner = f.scanner_name ?? "unknown";
+                            const iid = f.internal_id ?? f.id ?? `idx_${idx}`;
+                            setHistoryKey((cur) =>
+                              cur?.scanner === scanner && cur?.id === iid
+                                ? null
+                                : { scanner, id: iid },
+                            );
+                          }}
+                        >
+                          <History className="mr-1 h-3 w-3" />
+                          {historyKey?.scanner === (f.scanner_name ?? "unknown") &&
+                          historyKey?.id === (f.internal_id ?? f.id ?? `idx_${idx}`)
+                            ? "Historie schließen"
+                            : "Historie zeigen"}
                         </Button>
                         {/unpinned|sha[_\s-]?pin|@v\d/i.test(
                           `${f.id ?? ""} ${f.internal_id ?? ""} ${f.name ?? ""}`,
@@ -528,7 +603,7 @@ export function SecurityFindingsClassifier({ initialFindings = [] }: Props) {
       {findings.length === 0 && !parseError && (
         <Card>
           <CardContent className="p-6 text-center text-sm text-muted-foreground">
-            Lade eine JSON-Datei hoch, füge Findings ein oder klicke „Beispiel laden".
+            Lade eine JSON-Datei hoch (Drag & Drop), füge Findings ein oder klicke „Beispiel laden".
           </CardContent>
         </Card>
       )}
@@ -542,6 +617,13 @@ export function SecurityFindingsClassifier({ initialFindings = [] }: Props) {
         priority={dialogState.priority}
         existing={dialogState.existing}
         onSaved={() => void refreshExceptions()}
+      />
+
+      <FindingsImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        existing={currentRawFindings}
+        onApply={handleApplyImport}
       />
     </div>
   );
