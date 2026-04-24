@@ -134,6 +134,8 @@ const KPIPage = lazyRetry(() => import('@/pages/admin/v2/KPIPage'));
 const HealCockpitPage = lazyRetry(() => import('@/pages/admin/v2/HealCockpitPage'));
 const PackageDiagnosticsPage = lazyRetry(() => import('@/pages/admin/v2/PackageDiagnosticsPage'));
 const SecurityFindingsPage = lazyRetry(() => import('@/pages/admin/v2/SecurityFindingsPage'));
+const QueueStagnationPage = lazyRetry(() => import('@/pages/admin/v2/QueueStagnationPage'));
+const BypassAuditPage = lazyRetry(() => import('@/pages/admin/v2/BypassAuditPage'));
 const JobTimelinePage = lazyRetry(() => import('@/pages/admin/v2/JobTimelinePage'));
 
 // ExamFit@work public pages
@@ -358,6 +360,8 @@ const AppRoutes = () => {
           <Route path="heal-cockpit" element={<HealCockpitPage />} />
           <Route path="heal-cockpit/package/:packageId" element={<PackageDiagnosticsPage />} />
           <Route path="security/findings" element={<SecurityFindingsPage />} />
+          <Route path="queue/stagnation" element={<QueueStagnationPage />} />
+          <Route path="audit/bypass" element={<BypassAuditPage />} />
           <Route path="test" element={<TestAreaPage />} />
           <Route path="*" element={<Navigate to="/admin/command" replace />} />
         </Route>
