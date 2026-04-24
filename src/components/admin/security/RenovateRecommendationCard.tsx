@@ -37,7 +37,7 @@ export function RenovateRecommendationCard() {
   };
 
   return (
-    <Card className="border-amber-500/30">
+    <Card className="border-amber-500/30" data-renovate-card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-sm">
           <Wrench className="h-4 w-4 text-amber-600 dark:text-amber-400" />
