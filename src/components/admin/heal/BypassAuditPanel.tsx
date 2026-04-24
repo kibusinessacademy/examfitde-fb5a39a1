@@ -208,24 +208,76 @@ function AdminActionRow({ row }: { row: AdminAction }) {
           </div>
         )}
 
-        {/* Step-Status-Wechsel */}
-        {summary.stepKeys.length > 0 && (
+        {/* Step-Statuswechsel-Timeline (Tabelle) */}
+        {summary.stepTransitions.length > 0 && (
           <div>
-            <div className="mb-1 font-medium text-muted-foreground">Step-Statuswechsel</div>
-            <ul className="space-y-0.5">
-              {summary.stepKeys.map((sk) => (
-                <li key={sk} className="flex items-center gap-1.5 font-mono text-[11px]">
-                  <Badge variant="outline" className="h-4 px-1 text-[10px]">
-                    {sk}
-                  </Badge>
-                  <span className="text-muted-foreground">{summary.stepStatusFromTo}</span>
-                </li>
-              ))}
-            </ul>
+            <div className="mb-1 font-medium text-muted-foreground">
+              Step-Statuswechsel ({summary.stepTransitions.length})
+            </div>
+            <div className="overflow-x-auto rounded-md border border-border">
+              <table className="w-full text-[11px]">
+                <thead className="bg-muted/30 text-left text-muted-foreground">
+                  <tr>
+                    <th className="px-2 py-1 font-medium">Step</th>
+                    <th className="px-2 py-1 font-medium">Von</th>
+                    <th className="px-2 py-1 font-medium">→ Nach</th>
+                    <th className="px-2 py-1 font-medium">Reason</th>
+                    <th className="px-2 py-1 font-medium">Trigger-Gruppen</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {summary.stepTransitions.map((t, i) => (
+                    <tr key={`${t.stepKey}-${i}`} className="align-top">
+                      <td className="px-2 py-1 font-mono">{t.stepKey}</td>
+                      <td className="px-2 py-1">
+                        <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                          {t.from ?? "—"}
+                        </Badge>
+                      </td>
+                      <td className="px-2 py-1">
+                        <Badge
+                          variant="outline"
+                          className={`h-4 px-1 text-[10px] ${
+                            t.to === "done"
+                              ? "border-emerald-500/40 text-emerald-700 dark:text-emerald-400"
+                              : t.to === "failed"
+                              ? "border-destructive/40 text-destructive"
+                              : ""
+                          }`}
+                        >
+                          {t.to}
+                        </Badge>
+                      </td>
+                      <td className="px-2 py-1 text-muted-foreground">
+                        {t.reason ?? summary.reason ?? "—"}
+                      </td>
+                      <td className="px-2 py-1">
+                        {t.triggerGroups && Object.keys(t.triggerGroups).length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {Object.entries(t.triggerGroups).map(([table, triggers]) => (
+                              <Badge
+                                key={table}
+                                variant="outline"
+                                className="h-4 px-1 font-mono text-[9px]"
+                                title={triggers.join(", ")}
+                              >
+                                {table} ({triggers.length})
+                              </Badge>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
-        {/* Bypassed Triggers */}
+        {/* Globale Bypassed Triggers */}
         {summary.triggerGroups && Object.keys(summary.triggerGroups).length > 0 && (
           <div>
             <div className="mb-1 font-medium text-muted-foreground">
@@ -287,11 +339,19 @@ function AdminActionRow({ row }: { row: AdminAction }) {
   );
 }
 
+interface StepTransition {
+  stepKey: string;
+  from: string | null;
+  to: string;
+  reason?: string | null;
+  triggerGroups?: Record<string, string[]> | null;
+}
+
 interface ActionSummary {
   headline: string;
   reason: string | null;
   stepKeys: string[];
-  stepStatusFromTo: string;
+  stepTransitions: StepTransition[];
   triggerCount: number;
   triggerGroups: Record<string, string[]> | null;
   rowsUpdated: number;
@@ -300,6 +360,8 @@ interface ActionSummary {
 
 function summarizeAdminAction(row: AdminAction): ActionSummary {
   const p = (row.payload ?? {}) as Record<string, unknown>;
+  const before = (row.before_state ?? {}) as Record<string, unknown>;
+  const after = (row.after_state ?? {}) as Record<string, unknown>;
   const reason = (p.reason as string) ?? null;
   const stepKeys = Array.isArray(p.step_keys) ? (p.step_keys as string[]) : [];
   const triggerGroups =
@@ -311,6 +373,46 @@ function summarizeAdminAction(row: AdminAction): ActionSummary {
     : 0;
   const rowsUpdated = typeof p.rows_updated === "number" ? p.rows_updated : 0;
   const emergency = p.emergency_bypass === true;
+
+  // Build per-step transitions:
+  //  Source priority:
+  //   1. payload.step_transitions = [{step_key, from, to, reason?, trigger_groups?}, …]
+  //   2. before_state.steps[stepKey].status → after_state.steps[stepKey].status
+  //   3. Fallback: stepKeys → "?" → done
+  const transitions: StepTransition[] = [];
+  const pTransitions = Array.isArray(p.step_transitions)
+    ? (p.step_transitions as Array<Record<string, unknown>>)
+    : null;
+  if (pTransitions && pTransitions.length > 0) {
+    for (const t of pTransitions) {
+      transitions.push({
+        stepKey: String(t.step_key ?? t.stepKey ?? "?"),
+        from: (t.from as string) ?? null,
+        to: String(t.to ?? "done"),
+        reason: (t.reason as string) ?? null,
+        triggerGroups:
+          t.trigger_groups && typeof t.trigger_groups === "object"
+            ? (t.trigger_groups as Record<string, string[]>)
+            : null,
+      });
+    }
+  } else {
+    const beforeSteps = (before.steps ?? before.package_steps) as
+      | Record<string, { status?: string }>
+      | undefined;
+    const afterSteps = (after.steps ?? after.package_steps) as
+      | Record<string, { status?: string }>
+      | undefined;
+    for (const sk of stepKeys) {
+      transitions.push({
+        stepKey: sk,
+        from: beforeSteps?.[sk]?.status ?? null,
+        to: afterSteps?.[sk]?.status ?? (emergency ? "done (bypassed)" : "done"),
+        reason,
+        triggerGroups: triggerGroups,
+      });
+    }
+  }
 
   let severity: "low" | "medium" | "high" = "low";
   if (emergency || triggerCount > 20) severity = "high";
@@ -333,7 +435,7 @@ function summarizeAdminAction(row: AdminAction): ActionSummary {
     headline,
     reason,
     stepKeys,
-    stepStatusFromTo: emergency ? "(triggers bypassed) → done" : "→ done",
+    stepTransitions: transitions,
     triggerCount,
     triggerGroups,
     rowsUpdated,
