@@ -20,6 +20,7 @@ import {
   Shield,
   ShieldAlert,
   ShieldCheck,
+  Undo2,
   Upload,
   Wrench,
 } from "lucide-react";
@@ -133,6 +134,16 @@ export function SecurityFindingsClassifier({ initialFindings = [] }: Props) {
   const [highlightJob, setHighlightJob] = useState<{ file: string; jobName?: string } | null>(null);
   const [historyKey, setHistoryKey] = useState<{ scanner: string; id: string } | null>(null);
 
+  // Undo-Snapshot für den letzten Findings-Import (nur Client-State)
+  const [undoSnapshot, setUndoSnapshot] = useState<{
+    previousRaw: string;
+    mode: "merge" | "replace";
+    fileName: string | null;
+    addedCount: number;
+    changedCount: number;
+    timestamp: number;
+  } | null>(null);
+
   const [dialogState, setDialogState] = useState<{
     open: boolean;
     scannerName: string;
@@ -202,8 +213,35 @@ export function SecurityFindingsClassifier({ initialFindings = [] }: Props) {
     return r.ok ? (r.findings as RawFinding[]) : [];
   }, [raw]);
 
-  function handleApplyImport(merged: RawFinding[]) {
+  function handleApplyImport(
+    merged: RawFinding[],
+    mode: "merge" | "replace",
+    meta: { fileName: string | null; addedCount: number; changedCount: number },
+  ) {
+    // Snapshot des aktuellen Raw-States VOR dem Apply für Undo
+    setUndoSnapshot({
+      previousRaw: raw,
+      mode,
+      fileName: meta.fileName,
+      addedCount: meta.addedCount,
+      changedCount: meta.changedCount,
+      timestamp: Date.now(),
+    });
     setRaw(JSON.stringify(merged, null, 2));
+    toast({
+      title: mode === "merge" ? "Findings zusammengeführt" : "Findings ersetzt",
+      description: `+${meta.addedCount} · ~${meta.changedCount} · Undo verfügbar`,
+    });
+  }
+
+  function handleUndoImport() {
+    if (!undoSnapshot) return;
+    setRaw(undoSnapshot.previousRaw);
+    toast({
+      title: "Import rückgängig gemacht",
+      description: `${undoSnapshot.fileName ?? "Letzter Import"} verworfen.`,
+    });
+    setUndoSnapshot(null);
   }
 
   // "Jobs öffnen": Datei-URL in neuem Tab + lokales Highlight
