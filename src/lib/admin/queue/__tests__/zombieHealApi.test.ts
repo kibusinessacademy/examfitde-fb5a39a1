@@ -150,7 +150,54 @@ describe("healJobsTargeted (Batch / Runbook)", () => {
   it("fängt Exceptions pro job_id ab und schreibt sie ins Ergebnis", async () => {
     rpcMock.mockResolvedValueOnce({ data: null, error: { message: "boom" } });
     const res = await healJobsTargeted(["xyz"], "test");
-    expect(res[0]).toEqual({ job_id: "xyz", ok: false, error: "boom" });
+    expect(res[0]).toMatchObject({ job_id: "xyz", ok: false, error: "boom" });
+  });
+});
+
+describe("computeHealDiff", () => {
+  it("blockt Heal wenn Status nicht eligible ist", async () => {
+    const { computeHealDiff } = await import("../zombieHealApi");
+    const d = computeHealDiff({ id: "j1", status: "done", locked_by: "r1", locked_at: new Date(0).toISOString() });
+    expect(d.has_effective_change).toBe(false);
+    expect(d.reason).toBe("status_not_eligible");
+  });
+  it("blockt Heal wenn Lock zu frisch ist", async () => {
+    const { computeHealDiff } = await import("../zombieHealApi");
+    const d = computeHealDiff({ id: "j2", status: "processing", locked_by: "r1", locked_at: new Date().toISOString() });
+    expect(d.has_effective_change).toBe(false);
+    expect(d.reason).toBe("lock_too_fresh");
+  });
+  it("erlaubt Heal wenn processing + Lock >15min alt", async () => {
+    const { computeHealDiff } = await import("../zombieHealApi");
+    const d = computeHealDiff({
+      id: "j3",
+      status: "processing",
+      locked_by: "r1",
+      locked_at: new Date(Date.now() - 30 * 60_000).toISOString(),
+    });
+    expect(d.has_effective_change).toBe(true);
+    expect(d.next_status).toBe("cancelled");
+    expect(d.step_will_reset).toBe(true);
+  });
+});
+
+describe("exportAuditAsCsv", () => {
+  it("escapes Quotes und Kommas korrekt", async () => {
+    const { exportAuditAsCsv } = await import("../zombieHealApi");
+    const csv = exportAuditAsCsv([
+      {
+        ts: "2026-04-24T00:00:00Z",
+        job_id: "abc",
+        action: "targeted_heal",
+        ok: true,
+        prev_job_status: "processing",
+        new_job_status: "cancelled",
+        reason: 'foo,bar"baz',
+      },
+    ]);
+    const lines = csv.split("\n");
+    expect(lines[0]).toContain("job_id");
+    expect(lines[1]).toContain('"foo,bar""baz"');
   });
 });
 
