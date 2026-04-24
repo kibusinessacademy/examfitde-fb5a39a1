@@ -1,16 +1,9 @@
 /**
  * workflowIndex
  * ─────────────
- * Statischer Index der GitHub-Workflows mit Job-Namen + heuristischer
- * Verknüpfung zu Finding-Kategorien (NO_PERMISSIONS, UNPINNED_ACTION,
- * NO_TIMEOUT). Wird von der Findings-Detailansicht genutzt, um direkt zu
- * den betroffenen Dateien/Jobs zu springen.
- *
- * Die Daten werden vom Skript `scripts/security/build-workflow-index.mjs`
- * generiert und liegen unter `docs/security/workflow-index.json`.
- *
- * Fallback: Wenn die JSON nicht geladen werden kann, geben wir nur das
- * Filename-Mapping aus dem statischen Index unten zurück.
+ * Lädt den vom Skript `scripts/security/build-workflow-index.mjs`
+ * generierten Index `public/security/workflow-index.json` zur Laufzeit
+ * und stellt Helfer zur Verknüpfung von Findings ↔ Workflow-Dateien/Jobs.
  */
 
 export interface WorkflowJob {
@@ -26,11 +19,46 @@ export interface WorkflowEntry {
   unpinnedActionsTotal: number;
 }
 
-import workflowIndexJson from "../../../../docs/security/workflow-index.json";
-
-export const WORKFLOW_INDEX: WorkflowEntry[] = (workflowIndexJson as { workflows: WorkflowEntry[] }).workflows ?? [];
+export interface WorkflowIndex {
+  generated_at: string;
+  workflows: WorkflowEntry[];
+  summary: {
+    total: number;
+    missingPermissions: number;
+    unpinnedActions: number;
+    jobsWithoutTimeout: number;
+  };
+}
 
 const REPO_PATH = ".github/workflows";
+
+let cache: WorkflowIndex | null = null;
+let pending: Promise<WorkflowIndex> | null = null;
+
+export async function loadWorkflowIndex(): Promise<WorkflowIndex> {
+  if (cache) return cache;
+  if (pending) return pending;
+  pending = fetch("/security/workflow-index.json", { cache: "force-cache" })
+    .then((r) => {
+      if (!r.ok) throw new Error(`workflow-index.json HTTP ${r.status}`);
+      return r.json() as Promise<WorkflowIndex>;
+    })
+    .then((data) => {
+      cache = data;
+      return data;
+    })
+    .catch((err) => {
+      // graceful fallback: leerer Index
+      console.warn("[workflowIndex] Konnte workflow-index.json nicht laden:", err);
+      cache = {
+        generated_at: new Date().toISOString(),
+        workflows: [],
+        summary: { total: 0, missingPermissions: 0, unpinnedActions: 0, jobsWithoutTimeout: 0 },
+      };
+      return cache;
+    });
+  return pending;
+}
 
 export interface RelatedWorkflow {
   file: string;
@@ -39,13 +67,10 @@ export interface RelatedWorkflow {
   url: string;
 }
 
-/** Ableiten welche Workflows zu einem Finding passen — heuristisch über IDs/Patterns. */
-export function findRelatedWorkflows(finding: {
-  id?: string;
-  internal_id?: string;
-  name?: string;
-  description?: string;
-}): RelatedWorkflow[] {
+export function findRelatedWorkflows(
+  index: WorkflowIndex,
+  finding: { id?: string; internal_id?: string; name?: string; description?: string },
+): RelatedWorkflow[] {
   const haystack = [finding.id, finding.internal_id, finding.name, finding.description]
     .filter(Boolean)
     .join(" ")
@@ -57,7 +82,7 @@ export function findRelatedWorkflows(finding: {
   const wantsUnpinned = /unpinned|pin[_\s-]?action|sha[_\s-]?pin|@v\d/i.test(haystack);
   const wantsTimeout = /no[_\s-]?timeout|missing\s+timeout|timeout-minutes/i.test(haystack);
 
-  for (const wf of WORKFLOW_INDEX) {
+  for (const wf of index.workflows) {
     if (wantsPermissions && !wf.hasTopLevelPermissions) {
       out.push({
         file: `${REPO_PATH}/${wf.file}`,
@@ -84,10 +109,6 @@ export function findRelatedWorkflows(finding: {
         }
       }
     }
-  }
-
-  // Spezifische Workflow-Erwähnung im Text → direkten Match liefern
-  for (const wf of WORKFLOW_INDEX) {
     if (haystack.includes(wf.file.replace(/\.ya?ml$/, ""))) {
       out.push({
         file: `${REPO_PATH}/${wf.file}`,
@@ -105,16 +126,4 @@ export function findRelatedWorkflows(finding: {
     seen.add(k);
     return true;
   });
-}
-
-/** Aggregierte Stats zur Anzeige im UI. */
-export function workflowStats() {
-  const total = WORKFLOW_INDEX.length;
-  const noPerms = WORKFLOW_INDEX.filter((w) => !w.hasTopLevelPermissions).length;
-  const unpinned = WORKFLOW_INDEX.reduce((s, w) => s + w.unpinnedActionsTotal, 0);
-  const noTimeout = WORKFLOW_INDEX.reduce(
-    (s, w) => s + w.jobs.filter((j) => !j.hasTimeout).length,
-    0,
-  );
-  return { total, noPerms, unpinned, noTimeout };
 }
