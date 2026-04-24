@@ -139,6 +139,7 @@ const BypassAuditPage = lazyRetry(() => import('@/pages/admin/v2/BypassAuditPage
 const IntegrityCheckRunbookPage = lazyRetry(() => import('@/pages/admin/v2/IntegrityCheckRunbookPage'));
 const JobTimelinePage = lazyRetry(() => import('@/pages/admin/v2/JobTimelinePage'));
 const StuckStepsDashboardPage = lazyRetry(() => import('@/pages/admin/v2/StuckStepsDashboardPage'));
+const RepairQueueDashboardPage = lazyRetry(() => import('@/pages/admin/v2/RepairQueueDashboardPage'));
 
 // ExamFit@work public pages
 const WorkHomePage = lazyRetry(() => import('@/pages/work/WorkHomePage'));
@@ -366,6 +367,7 @@ const AppRoutes = () => {
           <Route path="audit/bypass" element={<BypassAuditPage />} />
           <Route path="runbook/integrity-check" element={<IntegrityCheckRunbookPage />} />
           <Route path="ops/stuck-steps" element={<StuckStepsDashboardPage />} />
+          <Route path="ops/repair-queue" element={<RepairQueueDashboardPage />} />
           <Route path="test" element={<TestAreaPage />} />
           <Route path="*" element={<Navigate to="/admin/command" replace />} />
         </Route>
