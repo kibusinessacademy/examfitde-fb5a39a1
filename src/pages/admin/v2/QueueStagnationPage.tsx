@@ -17,6 +17,7 @@ import {
   type QueueCluster,
   type QueueStagnationFilters,
 } from "@/components/admin/queue/QueueStagnationCard";
+import { JobLiveProgressList } from "@/components/admin/queue/JobLiveProgressList";
 
 const CLUSTERS: { value: QueueCluster; label: string }[] = [
   { value: "all", label: "Alle" },
