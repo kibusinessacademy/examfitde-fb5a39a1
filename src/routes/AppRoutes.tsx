@@ -367,6 +367,7 @@ const AppRoutes = () => {
           <Route path="audit/bypass" element={<BypassAuditPage />} />
           <Route path="runbook/integrity-check" element={<IntegrityCheckRunbookPage />} />
           <Route path="ops/stuck-steps" element={<StuckStepsDashboardPage />} />
+          <Route path="ops/repair-queue" element={<RepairQueueDashboardPage />} />
           <Route path="test" element={<TestAreaPage />} />
           <Route path="*" element={<Navigate to="/admin/command" replace />} />
         </Route>
