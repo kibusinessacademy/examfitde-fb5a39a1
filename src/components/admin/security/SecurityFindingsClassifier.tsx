@@ -20,6 +20,7 @@ import {
   Shield,
   ShieldAlert,
   ShieldCheck,
+  Undo2,
   Upload,
   Wrench,
 } from "lucide-react";
@@ -133,6 +134,16 @@ export function SecurityFindingsClassifier({ initialFindings = [] }: Props) {
   const [highlightJob, setHighlightJob] = useState<{ file: string; jobName?: string } | null>(null);
   const [historyKey, setHistoryKey] = useState<{ scanner: string; id: string } | null>(null);
 
+  // Undo-Snapshot für den letzten Findings-Import (nur Client-State)
+  const [undoSnapshot, setUndoSnapshot] = useState<{
+    previousRaw: string;
+    mode: "merge" | "replace";
+    fileName: string | null;
+    addedCount: number;
+    changedCount: number;
+    timestamp: number;
+  } | null>(null);
+
   const [dialogState, setDialogState] = useState<{
     open: boolean;
     scannerName: string;
@@ -202,8 +213,35 @@ export function SecurityFindingsClassifier({ initialFindings = [] }: Props) {
     return r.ok ? (r.findings as RawFinding[]) : [];
   }, [raw]);
 
-  function handleApplyImport(merged: RawFinding[]) {
+  function handleApplyImport(
+    merged: RawFinding[],
+    mode: "merge" | "replace",
+    meta: { fileName: string | null; addedCount: number; changedCount: number },
+  ) {
+    // Snapshot des aktuellen Raw-States VOR dem Apply für Undo
+    setUndoSnapshot({
+      previousRaw: raw,
+      mode,
+      fileName: meta.fileName,
+      addedCount: meta.addedCount,
+      changedCount: meta.changedCount,
+      timestamp: Date.now(),
+    });
     setRaw(JSON.stringify(merged, null, 2));
+    toast({
+      title: mode === "merge" ? "Findings zusammengeführt" : "Findings ersetzt",
+      description: `+${meta.addedCount} · ~${meta.changedCount} · Undo verfügbar`,
+    });
+  }
+
+  function handleUndoImport() {
+    if (!undoSnapshot) return;
+    setRaw(undoSnapshot.previousRaw);
+    toast({
+      title: "Import rückgängig gemacht",
+      description: `${undoSnapshot.fileName ?? "Letzter Import"} verworfen.`,
+    });
+    setUndoSnapshot(null);
   }
 
   // "Jobs öffnen": Datei-URL in neuem Tab + lokales Highlight
@@ -297,6 +335,38 @@ export function SecurityFindingsClassifier({ initialFindings = [] }: Props) {
           )}
         </CardContent>
       </Card>
+
+      {/* Undo-Banner für letzten Import */}
+      {undoSnapshot && (
+        <div className="flex flex-wrap items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/5 p-2 text-xs">
+          <Undo2 className="h-3.5 w-3.5 text-amber-700 dark:text-amber-400" />
+          <span>
+            Letzter Import:{" "}
+            <code className="font-mono">{undoSnapshot.fileName ?? "(textarea)"}</code> ·{" "}
+            <Badge variant="outline" className="h-4 px-1 text-[10px]">
+              {undoSnapshot.mode}
+            </Badge>{" "}
+            · +{undoSnapshot.addedCount} ~{undoSnapshot.changedCount}
+          </span>
+          <Button
+            size="sm"
+            variant="outline"
+            className="ml-auto h-7 px-2 text-xs"
+            onClick={handleUndoImport}
+          >
+            <Undo2 className="mr-1 h-3 w-3" />
+            Rückgängig
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 px-2 text-xs"
+            onClick={() => setUndoSnapshot(null)}
+          >
+            ✕
+          </Button>
+        </div>
+      )}
 
       {/* Renovate Recommendation */}
       {hasUnpinnedFinding && <RenovateRecommendationCard />}

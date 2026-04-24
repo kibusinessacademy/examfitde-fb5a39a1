@@ -20,7 +20,7 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   existing: RawFinding[];
-  onApply: (merged: RawFinding[], mode: "merge" | "replace") => void;
+  onApply: (merged: RawFinding[], mode: "merge" | "replace", meta: { fileName: string | null; addedCount: number; changedCount: number }) => void;
 }
 
 export function FindingsImportDialog({ open, onOpenChange, existing, onApply }: Props) {
@@ -84,12 +84,10 @@ export function FindingsImportDialog({ open, onOpenChange, existing, onApply }: 
   function apply(mode: "merge" | "replace") {
     if (!diff) return;
     const out = mode === "merge" ? diff.merged : (parsed as RawFinding[]);
-    onApply(out, mode);
-    toast({
-      title: mode === "merge" ? "Findings zusammengeführt" : "Findings ersetzt",
-      description: `+${diff.added.length} · ~${diff.changed.length} · =${diff.unchanged.length}${
-        mode === "merge" ? ` · ⊘${diff.ignored.length}` : ""
-      }`,
+    onApply(out, mode, {
+      fileName,
+      addedCount: diff.added.length,
+      changedCount: diff.changed.length,
     });
     reset();
     onOpenChange(false);
