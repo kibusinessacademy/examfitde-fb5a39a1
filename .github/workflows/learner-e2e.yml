@@ -17,6 +17,8 @@ on:
     # Nightly at 02:00 UTC
     - cron: '0 2 * * *'
 
+permissions: read-all
+
 jobs:
   # ── Post-Publish Smoke (fast, every deploy) ──────────
   smoke:

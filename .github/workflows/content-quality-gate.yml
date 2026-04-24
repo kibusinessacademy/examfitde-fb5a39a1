@@ -9,8 +9,11 @@ concurrency:
   group: quality-gate-${{ github.ref }}
   cancel-in-progress: true
 
+permissions: read-all
+
 jobs:
   gate:
+    timeout-minutes: 15
     name: ExamFit Quality Gate
     runs-on: ubuntu-latest
     steps:

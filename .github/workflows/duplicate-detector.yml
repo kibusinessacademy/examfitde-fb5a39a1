@@ -5,8 +5,11 @@ on:
     - cron: "21 1 * * *"
   workflow_dispatch: {}
 
+permissions: read-all
+
 jobs:
   dedupe:
+    timeout-minutes: 15
     name: Exam Question Duplicate Scan
     runs-on: ubuntu-latest
     steps:

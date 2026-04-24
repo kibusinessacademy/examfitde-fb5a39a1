@@ -5,6 +5,8 @@ on:
     - cron: "7 * * * *" # hourly at :07
   workflow_dispatch: {}
 
+permissions: read-all
+
 jobs:
   guard-and-revive:
     runs-on: ubuntu-latest

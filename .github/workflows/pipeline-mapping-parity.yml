@@ -5,8 +5,11 @@ on:
   push:
     branches: [main, master]
 
+permissions: read-all
+
 jobs:
   mapping-parity:
+    timeout-minutes: 15
     runs-on: ubuntu-latest
 
     steps:

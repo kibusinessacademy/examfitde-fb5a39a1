@@ -5,9 +5,12 @@ on:
     tags: ["v*.*.*"]
   workflow_dispatch: {}
 
+permissions: read-all
+
 jobs:
   # 1) TypeScript + Build
   build:
+    timeout-minutes: 15
     name: TypeScript + Build
     runs-on: ubuntu-latest
     steps:
@@ -22,6 +25,7 @@ jobs:
 
   # 2) SSOT Guard
   ssot-guard:
+    timeout-minutes: 15
     name: SSOT Guard
     runs-on: ubuntu-latest
     steps:
@@ -33,6 +37,7 @@ jobs:
 
   # 3) Council Integrity
   council-integrity:
+    timeout-minutes: 15
     name: Council Integrity
     runs-on: ubuntu-latest
     steps:
@@ -48,6 +53,7 @@ jobs:
 
   # 4) RLS Security
   rls-security:
+    timeout-minutes: 15
     name: RLS Security
     runs-on: ubuntu-latest
     steps:
@@ -63,6 +69,7 @@ jobs:
 
   # 5) Published Packages Smoke
   smoke:
+    timeout-minutes: 15
     name: Published Packages Smoke
     runs-on: ubuntu-latest
     steps:
@@ -78,6 +85,7 @@ jobs:
 
   # 6) Final gate — all must pass
   release-gate:
+    timeout-minutes: 15
     name: Release Gate ✓
     needs: [build, ssot-guard, council-integrity, rls-security, smoke]
     runs-on: ubuntu-latest

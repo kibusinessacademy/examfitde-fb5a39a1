@@ -5,8 +5,11 @@ on:
     - cron: "23 */6 * * *" # every 6 hours
   workflow_dispatch: {}
 
+permissions: read-all
+
 jobs:
   security:
+    timeout-minutes: 15
     name: Security Invariants
     runs-on: ubuntu-latest
     steps:

@@ -11,8 +11,11 @@ on:
       - 'src/**'
       - 'supabase/**'
 
+permissions: read-all
+
 jobs:
   ssot-guard:
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
