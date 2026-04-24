@@ -52,6 +52,7 @@ export default function IntegrityCheckRunbookPage() {
   const packageId = params.get("package_id") ?? "";
   const qc = useQueryClient();
   const [busy, setBusy] = useState<string | null>(null);
+  const { t, locale, setLocale } = useLocale();
 
   const runbook = useQuery({
     queryKey: ["integrity-runbook", packageId],
