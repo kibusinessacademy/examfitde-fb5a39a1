@@ -1,0 +1,587 @@
+{
+  "generated_at": "2026-04-24T02:30:06.565Z",
+  "workflows": [
+    {
+      "file": "admin-routing-guard.yml",
+      "hasTopLevelPermissions": true,
+      "jobs": [
+        {
+          "name": "admin-routing-guard",
+          "hasTimeout": true,
+          "unpinnedSteps": 2
+        }
+      ],
+      "unpinnedActionsTotal": 2
+    },
+    {
+      "file": "backup-recovery.yml",
+      "hasTopLevelPermissions": true,
+      "jobs": [
+        {
+          "name": "determine-action",
+          "hasTimeout": true,
+          "unpinnedSteps": 0
+        },
+        {
+          "name": "run-backup",
+          "hasTimeout": true,
+          "unpinnedSteps": 0
+        },
+        {
+          "name": "run-storage-sync",
+          "hasTimeout": true,
+          "unpinnedSteps": 0
+        },
+        {
+          "name": "run-verify",
+          "hasTimeout": true,
+          "unpinnedSteps": 0
+        },
+        {
+          "name": "alert-on-failure",
+          "hasTimeout": true,
+          "unpinnedSteps": 2
+        }
+      ],
+      "unpinnedActionsTotal": 2
+    },
+    {
+      "file": "ci.yml",
+      "hasTopLevelPermissions": true,
+      "jobs": [
+        {
+          "name": "ssot-guard",
+          "hasTimeout": true,
+          "unpinnedSteps": 2
+        },
+        {
+          "name": "typecheck-build",
+          "hasTimeout": true,
+          "unpinnedSteps": 3
+        },
+        {
+          "name": "unit-tests",
+          "hasTimeout": true,
+          "unpinnedSteps": 2
+        },
+        {
+          "name": "bundle-size",
+          "hasTimeout": true,
+          "unpinnedSteps": 3
+        },
+        {
+          "name": "lighthouse",
+          "hasTimeout": true,
+          "unpinnedSteps": 3
+        },
+        {
+          "name": "schema-drift",
+          "hasTimeout": true,
+          "unpinnedSteps": 2
+        },
+        {
+          "name": "security-audit",
+          "hasTimeout": true,
+          "unpinnedSteps": 2
+        },
+        {
+          "name": "published-questions-smoke",
+          "hasTimeout": true,
+          "unpinnedSteps": 1
+        }
+      ],
+      "unpinnedActionsTotal": 18
+    },
+    {
+      "file": "content-quality-gate.yml",
+      "hasTopLevelPermissions": true,
+      "jobs": [
+        {
+          "name": "gate",
+          "hasTimeout": true,
+          "unpinnedSteps": 2
+        }
+      ],
+      "unpinnedActionsTotal": 2
+    },
+    {
+      "file": "cost-token-budget-gate.yml",
+      "hasTopLevelPermissions": true,
+      "jobs": [
+        {
+          "name": "budget",
+          "hasTimeout": true,
+          "unpinnedSteps": 3
+        }
+      ],
+      "unpinnedActionsTotal": 3
+    },
+    {
+      "file": "council-integrity-gate.yml",
+      "hasTopLevelPermissions": true,
+      "jobs": [
+        {
+          "name": "integrity",
+          "hasTimeout": true,
+          "unpinnedSteps": 2
+        }
+      ],
+      "unpinnedActionsTotal": 2
+    },
+    {
+      "file": "dependency-security-audit.yml",
+      "hasTopLevelPermissions": true,
+      "jobs": [
+        {
+          "name": "audit",
+          "hasTimeout": true,
+          "unpinnedSteps": 2
+        },
+        {
+          "name": "bundle",
+          "hasTimeout": true,
+          "unpinnedSteps": 3
+        }
+      ],
+      "unpinnedActionsTotal": 5
+    },
+    {
+      "file": "deploy-smoke-check.yml",
+      "hasTopLevelPermissions": true,
+      "jobs": [
+        {
+          "name": "smoke",
+          "hasTimeout": true,
+          "unpinnedSteps": 0
+        }
+      ],
+      "unpinnedActionsTotal": 0
+    },
+    {
+      "file": "duplicate-detector.yml",
+      "hasTopLevelPermissions": true,
+      "jobs": [
+        {
+          "name": "dedupe",
+          "hasTimeout": true,
+          "unpinnedSteps": 3
+        }
+      ],
+      "unpinnedActionsTotal": 3
+    },
+    {
+      "file": "e2e-full-journey.yml",
+      "hasTopLevelPermissions": true,
+      "jobs": [
+        {
+          "name": "full-journey",
+          "hasTimeout": true,
+          "unpinnedSteps": 4
+        }
+      ],
+      "unpinnedActionsTotal": 4
+    },
+    {
+      "file": "edge-ci.yml",
+      "hasTopLevelPermissions": true,
+      "jobs": [
+        {
+          "name": "edge-ci",
+          "hasTimeout": true,
+          "unpinnedSteps": 2
+        }
+      ],
+      "unpinnedActionsTotal": 2
+    },
+    {
+      "file": "edge-deploy-drift-guard.yml",
+      "hasTopLevelPermissions": true,
+      "jobs": [
+        {
+          "name": "edge-deploy-drift",
+          "hasTimeout": true,
+          "unpinnedSteps": 2
+        }
+      ],
+      "unpinnedActionsTotal": 2
+    },
+    {
+      "file": "edge-deploy-healthcheck.yml",
+      "hasTopLevelPermissions": true,
+      "jobs": [
+        {
+          "name": "post-deploy-health",
+          "hasTimeout": true,
+          "unpinnedSteps": 2
+        }
+      ],
+      "unpinnedActionsTotal": 2
+    },
+    {
+      "file": "export-audit.yml",
+      "hasTopLevelPermissions": true,
+      "jobs": [
+        {
+          "name": "audit",
+          "hasTimeout": true,
+          "unpinnedSteps": 3
+        }
+      ],
+      "unpinnedActionsTotal": 3
+    },
+    {
+      "file": "guard-no-examfirst-default.yml",
+      "hasTopLevelPermissions": true,
+      "jobs": [
+        {
+          "name": "guard",
+          "hasTimeout": true,
+          "unpinnedSteps": 1
+        }
+      ],
+      "unpinnedActionsTotal": 1
+    },
+    {
+      "file": "hourly-system-guard-and-revive.yml",
+      "hasTopLevelPermissions": true,
+      "jobs": [
+        {
+          "name": "guard-and-revive",
+          "hasTimeout": true,
+          "unpinnedSteps": 0
+        }
+      ],
+      "unpinnedActionsTotal": 0
+    },
+    {
+      "file": "job-queue-health-monitor.yml",
+      "hasTopLevelPermissions": true,
+      "jobs": [
+        {
+          "name": "health",
+          "hasTimeout": true,
+          "unpinnedSteps": 2
+        }
+      ],
+      "unpinnedActionsTotal": 2
+    },
+    {
+      "file": "learner-e2e.yml",
+      "hasTopLevelPermissions": true,
+      "jobs": [
+        {
+          "name": "smoke",
+          "hasTimeout": true,
+          "unpinnedSteps": 4
+        },
+        {
+          "name": "full-journey",
+          "hasTimeout": true,
+          "unpinnedSteps": 4
+        },
+        {
+          "name": "nightly",
+          "hasTimeout": true,
+          "unpinnedSteps": 5
+        }
+      ],
+      "unpinnedActionsTotal": 13
+    },
+    {
+      "file": "lf-elite-policy-gate.yml",
+      "hasTopLevelPermissions": true,
+      "jobs": [
+        {
+          "name": "policy",
+          "hasTimeout": true,
+          "unpinnedSteps": 2
+        }
+      ],
+      "unpinnedActionsTotal": 2
+    },
+    {
+      "file": "nightly-pipeline-guards.yml",
+      "hasTopLevelPermissions": true,
+      "jobs": [
+        {
+          "name": "pipeline-guards",
+          "hasTimeout": true,
+          "unpinnedSteps": 2
+        }
+      ],
+      "unpinnedActionsTotal": 2
+    },
+    {
+      "file": "nightly-qa-report.yml",
+      "hasTopLevelPermissions": true,
+      "jobs": [
+        {
+          "name": "qa-logic-suites",
+          "hasTimeout": true,
+          "unpinnedSteps": 3
+        },
+        {
+          "name": "qa-e2e-suites",
+          "hasTimeout": true,
+          "unpinnedSteps": 4
+        }
+      ],
+      "unpinnedActionsTotal": 7
+    },
+    {
+      "file": "nightly-qa.yml",
+      "hasTopLevelPermissions": true,
+      "jobs": [
+        {
+          "name": "nightly-qa",
+          "hasTimeout": true,
+          "unpinnedSteps": 4
+        }
+      ],
+      "unpinnedActionsTotal": 4
+    },
+    {
+      "file": "ops-guard-alerts.yml",
+      "hasTopLevelPermissions": true,
+      "jobs": [
+        {
+          "name": "alerts",
+          "hasTimeout": true,
+          "unpinnedSteps": 1
+        }
+      ],
+      "unpinnedActionsTotal": 1
+    },
+    {
+      "file": "pipeline-mapping-parity.yml",
+      "hasTopLevelPermissions": true,
+      "jobs": [
+        {
+          "name": "mapping-parity",
+          "hasTimeout": true,
+          "unpinnedSteps": 2
+        }
+      ],
+      "unpinnedActionsTotal": 2
+    },
+    {
+      "file": "pr-preview-deploy.yml",
+      "hasTopLevelPermissions": true,
+      "jobs": [
+        {
+          "name": "preview-build",
+          "hasTimeout": true,
+          "unpinnedSteps": 3
+        }
+      ],
+      "unpinnedActionsTotal": 3
+    },
+    {
+      "file": "qa-pr.yml",
+      "hasTopLevelPermissions": true,
+      "jobs": [
+        {
+          "name": "qa-pr",
+          "hasTimeout": true,
+          "unpinnedSteps": 2
+        }
+      ],
+      "unpinnedActionsTotal": 2
+    },
+    {
+      "file": "release-train.yml",
+      "hasTopLevelPermissions": true,
+      "jobs": [
+        {
+          "name": "build",
+          "hasTimeout": true,
+          "unpinnedSteps": 2
+        },
+        {
+          "name": "ssot-guard",
+          "hasTimeout": true,
+          "unpinnedSteps": 2
+        },
+        {
+          "name": "council-integrity",
+          "hasTimeout": true,
+          "unpinnedSteps": 2
+        },
+        {
+          "name": "rls-security",
+          "hasTimeout": true,
+          "unpinnedSteps": 2
+        },
+        {
+          "name": "smoke",
+          "hasTimeout": true,
+          "unpinnedSteps": 2
+        },
+        {
+          "name": "release-gate",
+          "hasTimeout": true,
+          "unpinnedSteps": 0
+        }
+      ],
+      "unpinnedActionsTotal": 10
+    },
+    {
+      "file": "rls-security-regression.yml",
+      "hasTopLevelPermissions": true,
+      "jobs": [
+        {
+          "name": "rls",
+          "hasTimeout": true,
+          "unpinnedSteps": 2
+        }
+      ],
+      "unpinnedActionsTotal": 2
+    },
+    {
+      "file": "schema-drift-detector.yml",
+      "hasTopLevelPermissions": true,
+      "jobs": [
+        {
+          "name": "drift",
+          "hasTimeout": true,
+          "unpinnedSteps": 2
+        }
+      ],
+      "unpinnedActionsTotal": 2
+    },
+    {
+      "file": "schema-drift-guard.yml",
+      "hasTopLevelPermissions": true,
+      "jobs": [
+        {
+          "name": "schema_drift",
+          "hasTimeout": true,
+          "unpinnedSteps": 7
+        }
+      ],
+      "unpinnedActionsTotal": 7
+    },
+    {
+      "file": "security-abuse-simulation.yml",
+      "hasTopLevelPermissions": true,
+      "jobs": [
+        {
+          "name": "abuse",
+          "hasTimeout": true,
+          "unpinnedSteps": 2
+        }
+      ],
+      "unpinnedActionsTotal": 2
+    },
+    {
+      "file": "security-anon-pentest.yml",
+      "hasTopLevelPermissions": true,
+      "jobs": [
+        {
+          "name": "pentest",
+          "hasTimeout": true,
+          "unpinnedSteps": 2
+        }
+      ],
+      "unpinnedActionsTotal": 2
+    },
+    {
+      "file": "security-cleanup.yml",
+      "hasTopLevelPermissions": true,
+      "jobs": [
+        {
+          "name": "cleanup",
+          "hasTimeout": true,
+          "unpinnedSteps": 0
+        }
+      ],
+      "unpinnedActionsTotal": 0
+    },
+    {
+      "file": "security-deep-audit.yml",
+      "hasTopLevelPermissions": true,
+      "jobs": [
+        {
+          "name": "deep",
+          "hasTimeout": true,
+          "unpinnedSteps": 2
+        }
+      ],
+      "unpinnedActionsTotal": 2
+    },
+    {
+      "file": "security-invariants.yml",
+      "hasTopLevelPermissions": true,
+      "jobs": [
+        {
+          "name": "security",
+          "hasTimeout": true,
+          "unpinnedSteps": 2
+        }
+      ],
+      "unpinnedActionsTotal": 2
+    },
+    {
+      "file": "security-regression-pack.yml",
+      "hasTopLevelPermissions": true,
+      "jobs": [
+        {
+          "name": "migration-rls-gate",
+          "hasTimeout": true,
+          "unpinnedSteps": 2
+        },
+        {
+          "name": "view-exposure",
+          "hasTimeout": true,
+          "unpinnedSteps": 2
+        },
+        {
+          "name": "exam-integrity",
+          "hasTimeout": true,
+          "unpinnedSteps": 2
+        },
+        {
+          "name": "rls-smoke",
+          "hasTimeout": true,
+          "unpinnedSteps": 2
+        },
+        {
+          "name": "alert-on-failure",
+          "hasTimeout": true,
+          "unpinnedSteps": 2
+        }
+      ],
+      "unpinnedActionsTotal": 10
+    },
+    {
+      "file": "security-smoke.yml",
+      "hasTopLevelPermissions": true,
+      "jobs": [
+        {
+          "name": "smoke",
+          "hasTimeout": true,
+          "unpinnedSteps": 2
+        }
+      ],
+      "unpinnedActionsTotal": 2
+    },
+    {
+      "file": "ssot-guard.yml",
+      "hasTopLevelPermissions": true,
+      "jobs": [
+        {
+          "name": "ssot-guard",
+          "hasTimeout": true,
+          "unpinnedSteps": 1
+        }
+      ],
+      "unpinnedActionsTotal": 1
+    }
+  ],
+  "summary": {
+    "total": 38,
+    "missingPermissions": 0,
+    "unpinnedActions": 131,
+    "jobsWithoutTimeout": 0
+  }
+}
