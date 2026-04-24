@@ -3,10 +3,12 @@
  * SSOT-aggregated automation hub for blocked-but-fixable packages.
  */
 import { Helmet } from "react-helmet-async";
+import { Link } from "react-router-dom";
 import { MorningBriefing } from "@/components/admin/heal/MorningBriefing";
 import { HealWorklist } from "@/components/admin/heal/HealWorklist";
 import { BlockedPackagesCard } from "@/components/admin/heal/BlockedPackagesCard";
-import { Stethoscope } from "lucide-react";
+import { Stethoscope, Wrench } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export default function HealCockpitPage() {
   return (
