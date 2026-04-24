@@ -2,17 +2,24 @@
  * JobLiveProgressList
  * ───────────────────
  * Live progress per job_id with started_at / heartbeat / locked_by.
- * Highlights ghost-finalization jobs (locked but never started or no
- * heartbeat) with a clear status badge and a one-click heal button.
+ *
+ * v1.2 hardening:
+ *  - Concurrency guard (no overlapping fetches)
+ *  - Polling jitter ±15% (avoid thundering herd)
+ *  - Warning surface after 3+ consecutive refresh failures
+ *  - i18n (de/en)
  */
-import { useEffect, useMemo, useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Activity, AlertTriangle, Ghost, Heart, Loader2, RefreshCcw, ShieldAlert } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  Activity, AlertTriangle, Ghost, Heart, Loader2, RefreshCcw, ShieldAlert, AlertCircle, Languages,
+} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { healZombieLockedJob, markRequeueLoopTerminal } from "@/lib/admin/queue/zombieHealApi";
+import { useLocale } from "@/lib/admin/queue/i18n";
 import { toast } from "sonner";
 
 interface LiveJob {
@@ -29,13 +36,13 @@ interface LiveJob {
   updated_at: string;
 }
 
-function classifyJob(j: LiveJob): {
+function classifyJob(j: LiveJob, t: (k: any) => string): {
   badge: string;
   tone: "ok" | "warn" | "ghost" | "loop";
   label: string;
 } {
   if (j.last_error?.includes("REQUEUE_LOOP_KILLED")) {
-    return { badge: "loop", tone: "loop", label: "REQUEUE-Loop terminal" };
+    return { badge: "loop", tone: "loop", label: t("live.label.loop") };
   }
   if (
     (j.status === "processing" || j.status === "running") &&
@@ -43,15 +50,15 @@ function classifyJob(j: LiveJob): {
     !j.last_heartbeat_at &&
     Date.now() - new Date(j.locked_at).getTime() > 10 * 60_000
   ) {
-    return { badge: "ghost", tone: "ghost", label: "Ghost-Finalization" };
+    return { badge: "ghost", tone: "ghost", label: t("live.label.ghost") };
   }
   if (
     j.last_heartbeat_at &&
     Date.now() - new Date(j.last_heartbeat_at).getTime() > 5 * 60_000
   ) {
-    return { badge: "stale", tone: "warn", label: "Stale Heartbeat" };
+    return { badge: "stale", tone: "warn", label: t("live.label.stale") };
   }
-  return { badge: "ok", tone: "ok", label: "Aktiv" };
+  return { badge: "ok", tone: "ok", label: t("live.label.ok") };
 }
 
 function fmtAge(ts: string | null): string {
@@ -62,13 +69,7 @@ function fmtAge(ts: string | null): string {
   return `${Math.floor(min / 60)}h${min % 60}m`;
 }
 
-/**
- * Smart polling backoff:
- *   - 5s  wenn ≥1 aktiv-laufender Job mit frischem Heartbeat
- *   - 30s wenn nur queued/locked-stale Jobs vorhanden
- *   - 60s wenn idle (keine Jobs)
- */
-function computePollInterval(rows: LiveJob[]): number {
+function basePollInterval(rows: LiveJob[]): number {
   if (rows.length === 0) return 60_000;
   const hasActive = rows.some((r) => {
     if (r.status !== "processing" && r.status !== "running") return false;
@@ -79,15 +80,31 @@ function computePollInterval(rows: LiveJob[]): number {
   return 30_000;
 }
 
+/** ±15% jitter around base — avoids thundering herd against the queue. */
+function withJitter(base: number): number {
+  const factor = 0.85 + Math.random() * 0.3;
+  return Math.round(base * factor);
+}
+
 export function JobLiveProgressList() {
   const qc = useQueryClient();
+  const { t, locale, setLocale } = useLocale();
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [rows, setRows] = useState<LiveJob[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [lastFetchAt, setLastFetchAt] = useState<number>(Date.now());
   const [nextRefreshAt, setNextRefreshAt] = useState<number>(Date.now() + 15_000);
   const [now, setNow] = useState(Date.now());
+  const [failureCount, setFailureCount] = useState(0);
 
-  const liveQuery = useQuery({
-    queryKey: ["job-live-progress"],
-    queryFn: async (): Promise<LiveJob[]> => {
+  const inflightRef = useRef(false);
+  const timerRef = useRef<number | null>(null);
+
+  // Concurrency-guarded fetch
+  const fetchJobs = async () => {
+    if (inflightRef.current) return; // skip overlap
+    inflightRef.current = true;
+    try {
       const { data, error } = await supabase
         .from("job_queue")
         .select(
@@ -97,33 +114,59 @@ export function JobLiveProgressList() {
         .order("locked_at", { ascending: true })
         .limit(50);
       if (error) throw error;
-      return (data ?? []) as LiveJob[];
-    },
-    refetchInterval: (q) => computePollInterval((q.state.data as LiveJob[]) ?? []),
-    staleTime: 4_000,
-  });
+      setRows((data ?? []) as LiveJob[]);
+      setFailureCount(0);
+      setLastFetchAt(Date.now());
+    } catch (e) {
+      setFailureCount((c) => c + 1);
+      // eslint-disable-next-line no-console
+      console.warn("[JobLiveProgressList] refresh failed", e);
+    } finally {
+      inflightRef.current = false;
+      setIsLoading(false);
+    }
+  };
 
-  // Sekundengenauer Countdown bis next refresh
+  // Schedule next fetch with jittered backoff
+  const scheduleNext = () => {
+    if (timerRef.current) window.clearTimeout(timerRef.current);
+    const base = basePollInterval(rows);
+    const wait = withJitter(base);
+    setNextRefreshAt(Date.now() + wait);
+    timerRef.current = window.setTimeout(async () => {
+      await fetchJobs();
+      scheduleNext();
+    }, wait);
+  };
+
+  useEffect(() => {
+    void fetchJobs().then(scheduleNext);
+    return () => {
+      if (timerRef.current) window.clearTimeout(timerRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Recompute next when rows change (active/idle transitions)
+  useEffect(() => {
+    if (!isLoading) scheduleNext();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows.length]);
+
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, []);
 
-  // Sync nextRefreshAt nach jedem Fetch
-  useEffect(() => {
-    if (!liveQuery.dataUpdatedAt) return;
-    const interval = computePollInterval(liveQuery.data ?? []);
-    setNextRefreshAt(liveQuery.dataUpdatedAt + interval);
-  }, [liveQuery.dataUpdatedAt, liveQuery.data]);
-
   const heal = useMutation({
     mutationFn: (jobId: string) => healZombieLockedJob(jobId, "manual_ghost_heal"),
     onSuccess: (res, jobId) => {
       if (res.ok) {
-        toast.success(`Job ${jobId.slice(0, 8)} geheilt${res.step_reset ? " (Step zurückgesetzt)" : ""}`);
+        toast.success(`Job ${jobId.slice(0, 8)} ✓${res.step_reset ? " (step reset)" : ""}`);
         void qc.invalidateQueries({ queryKey: ["job-live-progress"] });
+        void fetchJobs();
       } else {
-        toast.error(`Heal fehlgeschlagen: ${res.error ?? "unknown"}`);
+        toast.error(`Heal: ${res.error ?? "unknown"}`);
       }
     },
     onError: (e) => toast.error((e as Error).message),
@@ -134,43 +177,42 @@ export function JobLiveProgressList() {
     mutationFn: (jobId: string) => markRequeueLoopTerminal(jobId, "requeue_loop_manual"),
     onSuccess: (res, jobId) => {
       if (res.ok) {
-        toast.success(`Job ${jobId.slice(0, 8)} als manual_review_required terminal markiert`);
-        void qc.invalidateQueries({ queryKey: ["job-live-progress"] });
+        toast.success(`Job ${jobId.slice(0, 8)} → manual_review_required`);
+        void fetchJobs();
       } else {
-        toast.error(`Mark fehlgeschlagen: ${res.error ?? "unknown"}`);
+        toast.error(`Mark: ${res.error ?? "unknown"}`);
       }
     },
     onError: (e) => toast.error((e as Error).message),
     onSettled: () => setBusyId(null),
   });
 
-  const rows = liveQuery.data ?? [];
-  const ghostCount = useMemo(() => rows.filter((r) => classifyJob(r).tone === "ghost").length, [rows]);
-  const staleCount = useMemo(() => rows.filter((r) => classifyJob(r).tone === "warn").length, [rows]);
-  const pollMs = computePollInterval(rows);
+  const ghostCount = useMemo(() => rows.filter((r) => classifyJob(r, t).tone === "ghost").length, [rows, t]);
+  const staleCount = useMemo(() => rows.filter((r) => classifyJob(r, t).tone === "warn").length, [rows, t]);
+  const pollMs = basePollInterval(rows);
   const secondsLeft = Math.max(0, Math.ceil((nextRefreshAt - now) / 1000));
 
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-sm">
+        <CardTitle className="flex flex-wrap items-center gap-2 text-sm">
           <Activity className="h-4 w-4 text-primary" />
-          Live-Progress aktive Jobs
-          <Badge variant="outline" className="ml-2 text-[10px]">{rows.length} aktiv</Badge>
+          {t("live.title")}
+          <Badge variant="outline" className="ml-2 text-[10px]">{rows.length} {t("live.active")}</Badge>
           {ghostCount > 0 && (
             <Badge variant="destructive" className="text-[10px]">
-              <Ghost className="mr-1 h-3 w-3" /> {ghostCount} Ghost
+              <Ghost className="mr-1 h-3 w-3" /> {ghostCount} {t("live.ghost")}
             </Badge>
           )}
           {staleCount > 0 && (
             <Badge className="bg-amber-500/20 text-amber-700 text-[10px]">
-              {staleCount} stale HB
+              {staleCount} {t("live.staleHb")}
             </Badge>
           )}
           <Badge
             variant="outline"
             className="text-[10px] font-mono"
-            title={`Polling-Intervall: ${pollMs / 1000}s`}
+            title={`${t("live.pollIntv")}: ${pollMs / 1000}s · last=${new Date(lastFetchAt).toLocaleTimeString()}`}
           >
             ⟳ {secondsLeft}s · {pollMs / 1000}s
           </Badge>
@@ -178,26 +220,43 @@ export function JobLiveProgressList() {
             size="sm"
             variant="ghost"
             className="ml-auto h-6 px-2 text-[11px]"
-            onClick={() => void liveQuery.refetch()}
+            onClick={() => {
+              void fetchJobs().then(scheduleNext);
+            }}
           >
-            <RefreshCcw className="mr-1 h-3 w-3" /> Refresh
+            <RefreshCcw className="mr-1 h-3 w-3" /> {t("live.refresh")}
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-6 px-2 text-[10px]"
+            onClick={() => setLocale(locale === "de" ? "en" : "de")}
+            title="toggle language"
+          >
+            <Languages className="mr-1 h-3 w-3" /> {locale.toUpperCase()}
           </Button>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-1">
-        {liveQuery.isLoading && (
-          <div className="flex items-center gap-2 p-3 text-xs text-muted-foreground">
-            <Loader2 className="h-3 w-3 animate-spin" /> Lade aktive Jobs…
+        {failureCount >= 3 && (
+          <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
+            <AlertCircle className="h-3 w-3" />
+            {t("live.warnRepeated")} ({failureCount}×)
           </div>
         )}
-        {!liveQuery.isLoading && rows.length === 0 && (
+        {isLoading && (
+          <div className="flex items-center gap-2 p-3 text-xs text-muted-foreground">
+            <Loader2 className="h-3 w-3 animate-spin" /> {t("live.loading")}
+          </div>
+        )}
+        {!isLoading && rows.length === 0 && (
           <p className="rounded-md bg-emerald-500/10 p-2 text-xs text-emerald-700 dark:text-emerald-400">
-            Keine aktiven Jobs.
+            {t("live.empty")}
           </p>
         )}
         <ul className="max-h-[60vh] space-y-1 overflow-y-auto">
           {rows.map((j) => {
-            const cls = classifyJob(j);
+            const cls = classifyJob(j, t);
             const isGhost = cls.tone === "ghost";
             const isLoop = cls.tone === "loop";
             return (
@@ -253,7 +312,7 @@ export function JobLiveProgressList() {
                         <Loader2 className="h-3 w-3 animate-spin" />
                       ) : (
                         <>
-                          <AlertTriangle className="mr-1 h-3 w-3" /> Heal
+                          <AlertTriangle className="mr-1 h-3 w-3" /> {t("live.btn.heal")}
                         </>
                       )}
                     </Button>
@@ -269,7 +328,7 @@ export function JobLiveProgressList() {
                         term.mutate(j.id);
                       }}
                     >
-                      Terminal
+                      {t("live.btn.terminal")}
                     </Button>
                   )}
                 </div>

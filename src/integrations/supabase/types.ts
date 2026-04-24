@@ -83691,6 +83691,10 @@ export type Database = {
         Args: { _job_type: string; _package_id: string; _within?: string }
         Returns: boolean
       }
+      admin_heal_jobs_targeted: {
+        Args: { _job_ids: string[]; _reason?: string }
+        Returns: Json
+      }
       admin_heal_step_job_coupling: {
         Args: { _step_keys?: string[] }
         Returns: {
