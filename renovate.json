@@ -1,0 +1,59 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    "helpers:pinGitHubActionDigests",
+    ":semanticCommits",
+    ":dependencyDashboard"
+  ],
+  "timezone": "Europe/Berlin",
+  "schedule": ["before 6am on monday"],
+  "labels": ["dependencies", "renovate"],
+  "prHourlyLimit": 4,
+  "prConcurrentLimit": 8,
+  "rangeStrategy": "bump",
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 6am on monday"]
+  },
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "labels": ["security", "P0"],
+    "schedule": ["at any time"]
+  },
+  "packageRules": [
+    {
+      "description": "Pin GitHub Actions to full SHA (P2 unpinned-actions remediation).",
+      "matchManagers": ["github-actions"],
+      "pinDigests": true,
+      "groupName": "github-actions digests",
+      "schedule": ["before 6am on monday"],
+      "labels": ["github-actions", "P2-unpinned"]
+    },
+    {
+      "description": "Group all minor/patch GH Action upgrades into a single PR per week.",
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["minor", "patch", "digest"],
+      "groupName": "github-actions weekly",
+      "schedule": ["before 6am on monday"]
+    },
+    {
+      "description": "Major bumps land as separate, manually-reviewed PRs.",
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["major"],
+      "labels": ["github-actions", "major-review"],
+      "automerge": false
+    },
+    {
+      "description": "Auto-merge low-risk dev-deps once CI passes.",
+      "matchDepTypes": ["devDependencies"],
+      "matchUpdateTypes": ["patch", "pin", "digest"],
+      "automerge": true,
+      "automergeType": "pr",
+      "platformAutomerge": true
+    }
+  ],
+  "github-actions": {
+    "fileMatch": ["^\\.github/workflows/[^/]+\\.ya?ml$"]
+  }
+}
