@@ -115,11 +115,87 @@ export async function fetchCronHealth(): Promise<CronHealthRow[]> {
 
 export async function fetchStuckSteps(): Promise<StuckStepRow[]> {
   const { data, error } = await supabase
-    .from("v_pending_enqueue_stuck" as never)
+    .from("v_pending_enqueue_stuck_enriched" as never)
     .select("*")
+    .order("age_seconds", { ascending: false })
     .limit(200);
   if (error) throw error;
   return (data ?? []) as StuckStepRow[];
+}
+
+export async function fetchAuditExport(limitRows = 1000): Promise<AuditExportRow[]> {
+  const { data, error } = await supabase
+    .from("v_pending_enqueue_audit_export" as never)
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(limitRows);
+  if (error) throw error;
+  return (data ?? []) as AuditExportRow[];
+}
+
+// ─── Admin RPC wrappers ──────────────────────────────────────────────────
+
+export interface RpcResult { ok: boolean; error?: string; [k: string]: unknown }
+
+export async function forceRescheduleStep(packageId: string, stepKey: string): Promise<RpcResult> {
+  const { data, error } = await supabase.rpc("fn_force_reschedule_step" as never, {
+    p_package_id: packageId, p_step_key: stepKey,
+  } as never);
+  if (error) return { ok: false, error: error.message };
+  return data as RpcResult;
+}
+
+export async function cancelPendingEnqueueStep(
+  packageId: string, stepKey: string, reason: string,
+): Promise<RpcResult> {
+  const { data, error } = await supabase.rpc("fn_cancel_pending_enqueue_step" as never, {
+    p_package_id: packageId, p_step_key: stepKey, p_reason: reason,
+  } as never);
+  if (error) return { ok: false, error: error.message };
+  return data as RpcResult;
+}
+
+export interface ReplayResult extends RpcResult {
+  replay_marker?: string;
+  window_minutes?: number;
+  candidates_in_window?: number;
+  rescheduled?: number;
+  skipped_active?: number;
+  skipped_not_building?: number;
+  ran_at?: string;
+}
+
+export async function replayRecentReschedules(windowMinutes = 5, maxSteps = 100): Promise<ReplayResult> {
+  const { data, error } = await supabase.rpc("fn_replay_recent_reschedules" as never, {
+    p_window_minutes: windowMinutes, p_max_steps: maxSteps,
+  } as never);
+  if (error) return { ok: false, error: error.message };
+  return data as ReplayResult;
+}
+
+// ─── Export helpers ──────────────────────────────────────────────────────
+
+export function rowsToCsv(rows: AuditExportRow[]): string {
+  if (rows.length === 0) return "";
+  const headers = Object.keys(rows[0]);
+  const escape = (v: unknown) => {
+    if (v === null || v === undefined) return "";
+    const s = typeof v === "object" ? JSON.stringify(v) : String(v);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  return [
+    headers.join(","),
+    ...rows.map((r) => headers.map((h) => escape((r as Record<string, unknown>)[h])).join(",")),
+  ].join("\n");
+}
+
+export function downloadFile(filename: string, content: string, mime: string): void {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
 }
 
 export async function fetchRescheduleLog(limit = 50): Promise<RescheduleLogRow[]> {
