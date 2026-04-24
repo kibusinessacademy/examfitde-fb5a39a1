@@ -2,7 +2,7 @@
  * zombieHealApi
  * ─────────────
  * Thin client wrappers for the zombie-locked-job heal RPCs added in migration
- * 20260424_zombie_auto_heal.
+ * 20260424_zombie_auto_heal (+ v1.1 + v1.2 hardening).
  */
 import { supabase } from "@/integrations/supabase/client";
 
@@ -32,7 +32,7 @@ export async function detectZombieLockedJobs(ageMin = 15): Promise<ZombieJob[]> 
 export async function healZombieLockedJob(
   jobId: string,
   reason = "manual_admin_heal",
-): Promise<{ ok: boolean; error?: string; step_reset?: boolean }> {
+): Promise<{ ok: boolean; error?: string; step_reset?: boolean; step_reset_count?: number }> {
   const { data, error } = await supabase.rpc(
     "admin_heal_zombie_locked_job" as any,
     { _job_id: jobId, _reason: reason },
@@ -140,27 +140,36 @@ export async function getIntegrityRunbook(
 }
 
 /**
- * Per-job heal result from a targeted batch heal run.
+ * Per-job heal result — strukturierter failure_code aus dem Backend.
  */
 export interface TargetedHealResult {
   job_id: string;
   ok: boolean;
-  error?: string;
+  failure_code?: string;
+  current_status?: string;
+  locked_at?: string | null;
   step_reset?: boolean;
   step_reset_count?: number;
+  detail?: unknown;
+  /** legacy free-text error, falls Backend keinen failure_code liefert. */
+  error?: string;
 }
 
-/**
- * Listet die zuletzt betroffenen package_run_integrity_check Jobs
- * für ein Paket (default: letzte 5 nicht-erfolgreichen).
- */
+export interface TargetedHealResponse {
+  ok: boolean;
+  total: number;
+  ok_count: number;
+  fail_count: number;
+  results: TargetedHealResult[];
+}
+
 export async function listRecentIntegrityJobs(
   packageId: string,
   limit = 5,
-): Promise<Array<{ id: string; status: string; created_at: string; last_error: string | null; locked_by: string | null; attempts: number }>> {
+): Promise<Array<{ id: string; status: string; created_at: string; last_error: string | null; locked_by: string | null; locked_at: string | null; attempts: number }>> {
   const { data, error } = await supabase
     .from("job_queue")
-    .select("id,status,created_at,last_error,locked_by,attempts")
+    .select("id,status,created_at,last_error,locked_by,locked_at,attempts")
     .eq("package_id", packageId)
     .eq("job_type", "package_run_integrity_check")
     .order("created_at", { ascending: false })
@@ -170,8 +179,24 @@ export async function listRecentIntegrityJobs(
 }
 
 /**
- * Führt Auto-Heal für eine Liste von job_ids sequentiell aus und liefert
- * pro job_id ein detailliertes Ergebnis zurück (inkl. Fehlertext).
+ * NEW: Backend-validierter Targeted Heal.
+ * Re-checked je job_id Eligibility zur Ausführungszeit und liefert strukturierte
+ * per-job Failure-Codes (job_not_found | not_eligible_status | lock_too_fresh | …).
+ */
+export async function healJobsTargetedBackend(
+  jobIds: string[],
+  reason = "runbook_targeted_heal",
+): Promise<TargetedHealResponse> {
+  const { data, error } = await supabase.rpc(
+    "admin_heal_jobs_targeted" as any,
+    { _job_ids: jobIds, _reason: reason },
+  );
+  if (error) throw new Error(error.message);
+  return data as TargetedHealResponse;
+}
+
+/**
+ * Legacy sequenzieller Client-Heal (für Fallback-Tests / Vergleich).
  */
 export async function healJobsTargeted(
   jobIds: string[],
@@ -185,12 +210,149 @@ export async function healJobsTargeted(
         job_id: jobId,
         ok: !!res.ok,
         error: res.ok ? undefined : res.error,
-        step_reset: (res as any).step_reset,
-        step_reset_count: (res as any).step_reset_count,
+        failure_code: res.ok ? undefined : (res.error ?? "heal_rpc_failed"),
+        step_reset: res.step_reset,
+        step_reset_count: res.step_reset_count,
       });
     } catch (e) {
-      results.push({ job_id: jobId, ok: false, error: (e as Error).message });
+      results.push({
+        job_id: jobId,
+        ok: false,
+        failure_code: "client_exception",
+        error: (e as Error).message,
+      });
     }
   }
   return results;
+}
+
+/**
+ * Computes the diff between current job status and the post-heal target status.
+ * Used by the Runbook "What will change" preview to block no-op heals.
+ */
+export interface JobHealDiff {
+  job_id: string;
+  current_status: string;
+  next_status: string;
+  current_locked_by: string | null;
+  next_locked_by: string | null;
+  step_will_reset: boolean;
+  /** false → kein effektiver Diff, Heal sollte blockiert werden. */
+  has_effective_change: boolean;
+  reason?: string;
+}
+
+export function computeHealDiff(job: {
+  id: string;
+  status: string;
+  locked_by: string | null;
+  locked_at: string | null;
+}): JobHealDiff {
+  const eligibleStatus = job.status === "processing" || job.status === "running";
+  const locked = !!job.locked_by;
+  const stale = job.locked_at
+    ? Date.now() - new Date(job.locked_at).getTime() > 15 * 60_000
+    : false;
+
+  if (!eligibleStatus) {
+    return {
+      job_id: job.id,
+      current_status: job.status,
+      next_status: job.status,
+      current_locked_by: job.locked_by,
+      next_locked_by: job.locked_by,
+      step_will_reset: false,
+      has_effective_change: false,
+      reason: "status_not_eligible",
+    };
+  }
+
+  if (!locked || !stale) {
+    return {
+      job_id: job.id,
+      current_status: job.status,
+      next_status: job.status,
+      current_locked_by: job.locked_by,
+      next_locked_by: job.locked_by,
+      step_will_reset: false,
+      has_effective_change: false,
+      reason: "lock_too_fresh",
+    };
+  }
+
+  return {
+    job_id: job.id,
+    current_status: job.status,
+    next_status: "cancelled",
+    current_locked_by: job.locked_by,
+    next_locked_by: null,
+    step_will_reset: true,
+    has_effective_change: true,
+  };
+}
+
+/**
+ * Audit Export — formatiert Heal/Requeue Aktionen als CSV oder JSON.
+ */
+export interface AuditExportRow {
+  job_id: string;
+  action: "safe_requeue" | "targeted_heal";
+  ok: boolean;
+  prev_step_state?: string;
+  new_step_state?: string;
+  prev_job_status?: string;
+  new_job_status?: string;
+  reason: string;
+  failure_code?: string;
+  ts: string;
+}
+
+export function exportAuditAsCsv(rows: AuditExportRow[]): string {
+  const header = [
+    "ts",
+    "action",
+    "ok",
+    "job_id",
+    "prev_job_status",
+    "new_job_status",
+    "prev_step_state",
+    "new_step_state",
+    "reason",
+    "failure_code",
+  ];
+  const escape = (v: unknown) => {
+    if (v === undefined || v === null) return "";
+    const s = String(v);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const lines = [header.join(",")];
+  for (const r of rows) {
+    lines.push(
+      [
+        r.ts,
+        r.action,
+        r.ok,
+        r.job_id,
+        r.prev_job_status,
+        r.new_job_status,
+        r.prev_step_state,
+        r.new_step_state,
+        r.reason,
+        r.failure_code,
+      ].map(escape).join(","),
+    );
+  }
+  return lines.join("\n");
+}
+
+export function downloadBlob(filename: string, content: string, mime: string) {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
