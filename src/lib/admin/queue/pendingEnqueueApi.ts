@@ -35,14 +35,44 @@ export interface CronHealthRow {
   last_log_at: string | null;
 }
 
+export type FixPrognosis =
+  | "eligible_now"
+  | "awaiting_min_age"
+  | "blocked_by_active_job"
+  | "blocked_by_package_status"
+  | "manual_review_required";
+
 export interface StuckStepRow {
   package_id: string;
   step_key: string;
-  status: string;
+  pending_since: string | null;
   age_seconds: number;
   package_status: string | null;
   package_title: string | null;
-  updated_at: string | null;
+  has_active_job: boolean;
+  fix_prognosis: FixPrognosis;
+  manual_review_id: string | null;
+  manual_review_status: ManualReviewStatus | null;
+  manual_review_failure_count: number | null;
+  manual_review_last_error: string | null;
+}
+
+export interface AuditExportRow {
+  log_id: number;
+  created_at: string;
+  package_id: string;
+  package_title: string | null;
+  step_key: string;
+  prev_status: string | null;
+  new_status: string | null;
+  reason: string | null;
+  triggered_by: string | null;
+  age_seconds: number | null;
+  error_message: string | null;
+  cron_run_id: number | null;
+  cron_job_id: number | null;
+  cron_start_time: string | null;
+  cron_run_status: string | null;
 }
 
 export interface RescheduleLogRow {
