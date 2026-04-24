@@ -689,6 +689,9 @@ export function SecurityFindingsClassifier({ initialFindings = [] }: Props) {
         </Card>
       )}
 
+      {/* Wizard: Test-Szenarien Import → Merge/Replace → Undo/Discard */}
+      <ImportMergeUndoWizard refreshTick={undoSnapshot?.timestamp ?? 0} />
+
       {findings.length === 0 && !parseError && (
         <Card>
           <CardContent className="p-6 text-center text-sm text-muted-foreground">
