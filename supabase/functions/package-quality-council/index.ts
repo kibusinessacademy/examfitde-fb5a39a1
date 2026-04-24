@@ -385,6 +385,19 @@ Deno.serve(async (req) => {
           meta: { executed: true, score, status, badge, rules_passed: rulesPassed, rules_failed: rulesFailed, rules_warned: rulesWarned },
         });
         console.log(`[QualityCouncil] ✅ Step quality_council marked DONE for ${packageId.slice(0, 8)}`);
+
+        // ── NOW set council_approved=true on course_packages ──
+        // Order: step=done FIRST (satisfies guard_council_consistency),
+        // then council_approved=true (satisfies downstream auto_publish trigger).
+        const { error: approveErr } = await sb
+          .from("course_packages")
+          .update({ council_approved: true })
+          .eq("id", packageId);
+        if (approveErr) {
+          console.error(`[QualityCouncil] Failed to set council_approved=true: ${approveErr.message}`);
+        } else {
+          console.log(`[QualityCouncil] ✅ council_approved=true set for ${packageId.slice(0, 8)}`);
+        }
       } catch (stepErr) {
         console.error(`[QualityCouncil] ⛔ markStepDone failed for ${packageId.slice(0, 8)}: ${(stepErr as Error).message}`);
       }
