@@ -35,6 +35,7 @@ import {
   safeRequeueIntegrityCheck,
   type IntegrityRunbook,
 } from "@/lib/admin/queue/zombieHealApi";
+import { TargetedJobHealPanel } from "@/components/admin/queue/TargetedJobHealPanel";
 
 const ICONS: Record<string, React.ReactNode> = {
   stale_lock: <Ghost className="h-4 w-4" />,
@@ -220,6 +221,8 @@ export default function IntegrityCheckRunbookPage() {
               ))}
             </CardContent>
           </Card>
+
+          <TargetedJobHealPanel packageId={packageId} />
 
           <Card>
             <CardHeader className="pb-2">
