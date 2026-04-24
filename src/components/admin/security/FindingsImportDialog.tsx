@@ -280,6 +280,71 @@ export function FindingsImportDialog({ open, onOpenChange, existing, onApply }: 
           </div>
         )}
 
+        {/* Pre-Merge-Check Gate */}
+        {diff && (
+          <div
+            className={`space-y-1.5 rounded-md border p-2 text-xs ${
+              precheck?.ok
+                ? "border-emerald-500/40 bg-emerald-500/5"
+                : precheck && !precheck.ok
+                ? "border-destructive/40 bg-destructive/5"
+                : "border-amber-500/40 bg-amber-500/5"
+            }`}
+          >
+            <div className="flex items-center gap-2 font-medium">
+              {precheck?.ok ? (
+                <ShieldCheck className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+              ) : precheck && !precheck.ok ? (
+                <ShieldX className="h-3.5 w-3.5 text-destructive" />
+              ) : (
+                <ShieldAlert className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+              )}
+              Pre-Merge-Check (build/lint)
+              <Button
+                size="sm"
+                variant="outline"
+                className="ml-auto h-6 px-2 text-[11px]"
+                onClick={runPrecheck}
+                disabled={!rawText}
+              >
+                Jetzt prüfen
+              </Button>
+            </div>
+            {precheck ? (
+              <>
+                <div className="text-[11px] text-muted-foreground">
+                  schema {precheck.stats.schemaErrors}E/{precheck.stats.schemaWarnings}W ·
+                  validator {precheck.stats.validatorErrors}E/{precheck.stats.validatorWarnings}W ·
+                  lint {precheck.stats.lintPatternHits}H · {precheck.durationMs}ms
+                  {precheck.externalCi && (
+                    <> · ext. CI: build={precheck.externalCi.build} lint={precheck.externalCi.lint}</>
+                  )}
+                </div>
+                {precheck.issues.length > 0 && (
+                  <ul className="space-y-0.5 text-[10px]">
+                    {precheck.issues.slice(0, 4).map((i, idx) => (
+                      <li
+                        key={idx}
+                        className={
+                          i.severity === "error"
+                            ? "text-destructive"
+                            : "text-amber-700 dark:text-amber-400"
+                        }
+                      >
+                        · [{i.check}] {i.message}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
+            ) : (
+              <p className="text-[11px] text-muted-foreground">
+                Merge ist blockiert, bis der Pre-Merge-Check grün ist. Replace umgeht den Gate (manuell).
+              </p>
+            )}
+          </div>
+        )}
+
         <DialogFooter className="gap-2 sm:gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Abbrechen
@@ -292,8 +357,9 @@ export function FindingsImportDialog({ open, onOpenChange, existing, onApply }: 
             Ersetzen
           </Button>
           <Button
-            disabled={!diff || (validation?.errorCount ?? 0) > 0}
+            disabled={!diff || (validation?.errorCount ?? 0) > 0 || !precheck?.ok}
             onClick={() => apply("merge")}
+            title={!precheck?.ok ? "Pre-Merge-Check zuerst grün ausführen" : undefined}
           >
             Zusammenführen
           </Button>
