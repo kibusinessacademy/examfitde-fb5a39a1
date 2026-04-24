@@ -5,7 +5,7 @@
  * Highlights ghost-finalization jobs (locked but never started or no
  * heartbeat) with a clear status badge and a one-click heal button.
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Activity, AlertTriangle, Ghost, Heart, Loader2, RefreshCcw, ShieldAlert } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -62,9 +62,28 @@ function fmtAge(ts: string | null): string {
   return `${Math.floor(min / 60)}h${min % 60}m`;
 }
 
+/**
+ * Smart polling backoff:
+ *   - 5s  wenn ≥1 aktiv-laufender Job mit frischem Heartbeat
+ *   - 30s wenn nur queued/locked-stale Jobs vorhanden
+ *   - 60s wenn idle (keine Jobs)
+ */
+function computePollInterval(rows: LiveJob[]): number {
+  if (rows.length === 0) return 60_000;
+  const hasActive = rows.some((r) => {
+    if (r.status !== "processing" && r.status !== "running") return false;
+    if (!r.last_heartbeat_at) return false;
+    return Date.now() - new Date(r.last_heartbeat_at).getTime() < 60_000;
+  });
+  if (hasActive) return 5_000;
+  return 30_000;
+}
+
 export function JobLiveProgressList() {
   const qc = useQueryClient();
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [nextRefreshAt, setNextRefreshAt] = useState<number>(Date.now() + 15_000);
+  const [now, setNow] = useState(Date.now());
 
   const liveQuery = useQuery({
     queryKey: ["job-live-progress"],
@@ -80,9 +99,22 @@ export function JobLiveProgressList() {
       if (error) throw error;
       return (data ?? []) as LiveJob[];
     },
-    refetchInterval: 15_000,
-    staleTime: 10_000,
+    refetchInterval: (q) => computePollInterval((q.state.data as LiveJob[]) ?? []),
+    staleTime: 4_000,
   });
+
+  // Sekundengenauer Countdown bis next refresh
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  // Sync nextRefreshAt nach jedem Fetch
+  useEffect(() => {
+    if (!liveQuery.dataUpdatedAt) return;
+    const interval = computePollInterval(liveQuery.data ?? []);
+    setNextRefreshAt(liveQuery.dataUpdatedAt + interval);
+  }, [liveQuery.dataUpdatedAt, liveQuery.data]);
 
   const heal = useMutation({
     mutationFn: (jobId: string) => healZombieLockedJob(jobId, "manual_ghost_heal"),
@@ -115,6 +147,8 @@ export function JobLiveProgressList() {
   const rows = liveQuery.data ?? [];
   const ghostCount = useMemo(() => rows.filter((r) => classifyJob(r).tone === "ghost").length, [rows]);
   const staleCount = useMemo(() => rows.filter((r) => classifyJob(r).tone === "warn").length, [rows]);
+  const pollMs = computePollInterval(rows);
+  const secondsLeft = Math.max(0, Math.ceil((nextRefreshAt - now) / 1000));
 
   return (
     <Card>
@@ -133,6 +167,13 @@ export function JobLiveProgressList() {
               {staleCount} stale HB
             </Badge>
           )}
+          <Badge
+            variant="outline"
+            className="text-[10px] font-mono"
+            title={`Polling-Intervall: ${pollMs / 1000}s`}
+          >
+            ⟳ {secondsLeft}s · {pollMs / 1000}s
+          </Badge>
           <Button
             size="sm"
             variant="ghost"
