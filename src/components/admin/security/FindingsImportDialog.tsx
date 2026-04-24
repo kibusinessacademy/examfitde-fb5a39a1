@@ -122,6 +122,15 @@ export function FindingsImportDialog({ open, onOpenChange, existing, onApply }: 
       });
       return;
     }
+    // Replace umgeht Pre-Check bewusst → laut + protokolliert
+    const precheckBypassed = mode === "replace" && (!precheck || !precheck.ok);
+    if (precheckBypassed) {
+      toast({
+        title: "Replace ohne Pre-Check",
+        description: "Destruktive Operation. Bypass wird im Import-Log erfasst.",
+        variant: "destructive",
+      });
+    }
     const out = mode === "merge" ? diff.merged : (parsed as RawFinding[]);
     onApply(out, mode, {
       fileName,
@@ -136,6 +145,8 @@ export function FindingsImportDialog({ open, onOpenChange, existing, onApply }: 
       changedCount: diff.changed.length,
       unchangedCount: diff.unchanged.length,
       ignoredCount: diff.ignored.length,
+      precheckOk: precheck?.ok,
+      note: precheckBypassed ? "precheck_bypassed" : undefined,
     });
     reset();
     onOpenChange(false);
@@ -350,11 +361,13 @@ export function FindingsImportDialog({ open, onOpenChange, existing, onApply }: 
             Abbrechen
           </Button>
           <Button
-            variant="outline"
+            variant="destructive"
             disabled={!diff}
             onClick={() => apply("replace")}
+            title="Destruktiv: ersetzt alle aktuellen Findings und umgeht den Pre-Merge-Check"
           >
-            Ersetzen
+            <ShieldX className="mr-1 h-3 w-3" />
+            Ersetzen{!precheck?.ok ? " (Bypass)" : ""}
           </Button>
           <Button
             disabled={!diff || (validation?.errorCount ?? 0) > 0 || !precheck?.ok}
