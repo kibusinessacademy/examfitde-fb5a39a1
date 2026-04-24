@@ -5,8 +5,11 @@ on:
     - cron: "15 3 * * *"   # 03:15 UTC daily (04:15 Berlin winter)
   workflow_dispatch: {}
 
+permissions: read-all
+
 jobs:
   alerts:
+    timeout-minutes: 15
     name: Check Ops Guard Alerts
     runs-on: ubuntu-latest
     permissions:

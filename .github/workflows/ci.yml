@@ -5,8 +5,11 @@ on:
   push:
     branches: ["main"]
 
+permissions: read-all
+
 jobs:
   ssot-guard:
+    timeout-minutes: 15
     name: SSOT Guard
     runs-on: ubuntu-latest
     steps:
@@ -17,6 +20,7 @@ jobs:
       - run: node scripts/ssot-guard.mjs
 
   typecheck-build:
+    timeout-minutes: 15
     name: TypeScript + Build
     runs-on: ubuntu-latest
     steps:
@@ -39,6 +43,7 @@ jobs:
           retention-days: 1
 
   unit-tests:
+    timeout-minutes: 15
     name: Vitest Unit Tests
     runs-on: ubuntu-latest
     steps:
@@ -57,6 +62,7 @@ jobs:
           echo "Includes: Nightly Audit, Learner Golden Path, Admin Preview, Edge Contracts" >> $GITHUB_STEP_SUMMARY
 
   bundle-size:
+    timeout-minutes: 15
     name: Bundle Size Monitor
     needs: typecheck-build
     runs-on: ubuntu-latest
@@ -101,6 +107,7 @@ jobs:
             });
 
   lighthouse:
+    timeout-minutes: 15
     name: Lighthouse CI
     needs: typecheck-build
     runs-on: ubuntu-latest
@@ -118,6 +125,7 @@ jobs:
           configPath: .github/lighthouse/lighthouserc.json
 
   schema-drift:
+    timeout-minutes: 15
     name: Schema Drift Check
     runs-on: ubuntu-latest
     steps:
@@ -132,6 +140,7 @@ jobs:
         run: node scripts/schema-drift-check.mjs
 
   security-audit:
+    timeout-minutes: 15
     name: Security Audit
     runs-on: ubuntu-latest
     steps:
@@ -158,6 +167,7 @@ jobs:
           " >> $GITHUB_STEP_SUMMARY
 
   published-questions-smoke:
+    timeout-minutes: 15
     name: Published Packages Smoke Test
     runs-on: ubuntu-latest
     steps:

@@ -8,8 +8,11 @@ on:
     branches: [main]
   workflow_dispatch: {}
 
+permissions: read-all
+
 jobs:
   post-deploy-health:
+    timeout-minutes: 15
     name: Post-Deploy Boot Sanity
     runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}

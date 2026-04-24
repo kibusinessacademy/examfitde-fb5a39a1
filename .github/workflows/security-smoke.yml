@@ -5,8 +5,11 @@ on:
     - cron: "0 * * * *"
   workflow_dispatch: {}
 
+permissions: read-all
+
 jobs:
   smoke:
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     env:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}

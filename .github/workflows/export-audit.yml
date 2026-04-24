@@ -14,8 +14,11 @@ on:
   schedule:
     - cron: "09 4 * * *"
 
+permissions: read-all
+
 jobs:
   audit:
+    timeout-minutes: 15
     name: Export & Audit Quality Score
     runs-on: ubuntu-latest
     steps:

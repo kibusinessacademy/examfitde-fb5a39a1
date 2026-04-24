@@ -5,8 +5,11 @@ on:
     - cron: "17 3 * * *" # nightly 03:17 UTC
   workflow_dispatch: {}
 
+permissions: read-all
+
 jobs:
   drift:
+    timeout-minutes: 15
     name: Schema Drift (Online + Offline)
     runs-on: ubuntu-latest
     steps:

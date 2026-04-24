@@ -26,8 +26,11 @@ on:
           - verify-yesterday
           - verify-spot-check
 
+permissions: read-all
+
 jobs:
   determine-action:
+    timeout-minutes: 15
     name: Determine Action
     runs-on: ubuntu-latest
     outputs:
@@ -51,6 +54,7 @@ jobs:
           fi
 
   run-backup:
+    timeout-minutes: 15
     name: Run DB Backup
     needs: determine-action
     if: startsWith(needs.determine-action.outputs.action, 'backup-')
@@ -92,6 +96,7 @@ jobs:
           echo "✅ $TIER backup completed"
 
   run-storage-sync:
+    timeout-minutes: 15
     name: Run Storage Sync
     needs: determine-action
     if: needs.determine-action.outputs.action == 'storage-sync'
@@ -124,6 +129,7 @@ jobs:
           echo "✅ Storage sync completed"
 
   run-verify:
+    timeout-minutes: 15
     name: Verify Backup
     needs: determine-action
     if: startsWith(needs.determine-action.outputs.action, 'verify-')
@@ -163,6 +169,7 @@ jobs:
           echo "✅ Backup verification passed"
 
   alert-on-failure:
+    timeout-minutes: 15
     name: Alert on Failure
     needs: [run-backup, run-storage-sync, run-verify]
     if: always() && (needs.run-backup.result == 'failure' || needs.run-storage-sync.result == 'failure' || needs.run-verify.result == 'failure')

@@ -10,6 +10,8 @@ on:
         required: false
         default: "true"
 
+permissions: read-all
+
 jobs:
   # ── Unit/Logic Test Suites ──────────────
   qa-logic-suites:

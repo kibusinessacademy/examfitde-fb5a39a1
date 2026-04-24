@@ -9,8 +9,11 @@ on:
     paths:
       - 'supabase/functions/**'
 
+permissions: read-all
+
 jobs:
   edge-deploy-drift:
+    timeout-minutes: 15
     name: Detect undeployed edge function changes
     runs-on: ubuntu-latest
     steps:

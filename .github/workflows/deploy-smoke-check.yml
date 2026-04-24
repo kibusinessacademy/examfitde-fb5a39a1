@@ -10,8 +10,11 @@ on:
     types: [completed]
     branches: [main]
 
+permissions: read-all
+
 jobs:
   smoke:
+    timeout-minutes: 15
     name: Post-Deploy Model Drift Check
     runs-on: ubuntu-latest
     if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
