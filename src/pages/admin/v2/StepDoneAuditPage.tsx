@@ -58,6 +58,7 @@ export default function StepDoneAuditPage() {
   const [stepKey, setStepKey] = useState('');
   const [sourceFn, setSourceFn] = useState('');
   const [blockedOnly, setBlockedOnly] = useState(false);
+  const [drilldown, setDrilldown] = useState<{ packageId: string; reason: string | null } | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['step-done-meta-audit', { packageId, stepKey, sourceFn, blockedOnly }],
@@ -152,6 +153,7 @@ export default function StepDoneAuditPage() {
                   <TableHead>Blocked</TableHead>
                   <TableHead>Source</TableHead>
                   <TableHead>Package</TableHead>
+                  <TableHead className="w-20">Aktion</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -181,6 +183,21 @@ export default function StepDoneAuditPage() {
                     <TableCell className="text-xs font-mono">
                       {r.package_id.slice(0, 8)}…
                     </TableCell>
+                    <TableCell>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        title="Drilldown: integrity_check_history + Notifications für diesen Reason"
+                        onClick={() => setDrilldown({
+                          packageId: r.package_id,
+                          reason: r.blocked
+                            ? (r as AuditRow).step_key
+                            : null,
+                        })}
+                      >
+                        <Search className="w-3 h-3" />
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -188,6 +205,14 @@ export default function StepDoneAuditPage() {
           )}
         </CardContent>
       </Card>
+
+      {drilldown && (
+        <AuditReasonDrilldown
+          packageId={drilldown.packageId}
+          reasonSubstr={drilldown.reason}
+          onClose={() => setDrilldown(null)}
+        />
+      )}
     </div>
   );
 }
