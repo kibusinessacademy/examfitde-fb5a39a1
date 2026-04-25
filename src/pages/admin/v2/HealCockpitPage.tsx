@@ -7,7 +7,8 @@ import { Link } from "react-router-dom";
 import { MorningBriefing } from "@/components/admin/heal/MorningBriefing";
 import { HealWorklist } from "@/components/admin/heal/HealWorklist";
 import { BlockedPackagesCard } from "@/components/admin/heal/BlockedPackagesCard";
-import { Stethoscope, Wrench } from "lucide-react";
+import { HealClusterExplanationPanel } from "@/components/admin/heal/HealClusterExplanationPanel";
+import { Stethoscope, Wrench, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function HealCockpitPage() {
@@ -34,15 +35,24 @@ export default function HealCockpitPage() {
             </p>
           </div>
         </div>
-        <Button asChild variant="outline" size="sm">
-          <Link to="/admin/ops/repair-queue">
-            <Wrench className="h-4 w-4 mr-2" />
-            Repair-Queue Dashboard
-          </Link>
-        </Button>
+        <div className="flex gap-2">
+          <Button asChild variant="outline" size="sm">
+            <Link to="/admin/ops/heal-settings">
+              <Settings className="h-4 w-4 mr-2" />
+              Strategy Settings
+            </Link>
+          </Button>
+          <Button asChild variant="outline" size="sm">
+            <Link to="/admin/ops/repair-queue">
+              <Wrench className="h-4 w-4 mr-2" />
+              Repair-Queue Dashboard
+            </Link>
+          </Button>
+        </div>
       </header>
 
       <MorningBriefing />
+      <HealClusterExplanationPanel />
       <BlockedPackagesCard detailHrefBuilder={(id) => `/admin/heal-cockpit/package/${id}`} />
       <HealWorklist />
     </div>
