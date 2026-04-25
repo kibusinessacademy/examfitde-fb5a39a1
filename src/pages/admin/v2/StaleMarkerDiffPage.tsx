@@ -175,14 +175,40 @@ export default function StaleMarkerDiffPage() {
         title: 'Bulk-Bereinigung abgeschlossen',
         description: `${ok}/${results.length} bereinigt · ${fail} fehlgeschlagen${bulkRefill ? ' · Refill enqueued' : ''}`,
       });
+      // Track all successfully purged ids for live-status panel (last 60 min retention via job query)
+      const okIds = results.filter((r) => r.ok).map((r) => r.id);
+      setTrackedIds((prev) => Array.from(new Set([...okIds, ...prev])).slice(0, 50));
       setSelected(new Set());
       setBulkOpen(false);
       qc.invalidateQueries({ queryKey: ['stale-marker-diff'] });
       qc.invalidateQueries({ queryKey: ['admin'] });
+      qc.invalidateQueries({ queryKey: ['stale-marker-jobs'] });
     },
     onError: (err: Error) => {
       toast({ title: 'Bulk-Fehler', description: err.message, variant: 'destructive' });
     },
+  });
+
+  // Live job-status: zeigt run_integrity_check (und Folge-Jobs) für tracked
+  // package_ids. Wird alle 5s gepollt um schnell Status-Übergänge zu sehen.
+  const { data: liveJobs } = useQuery({
+    enabled: trackedIds.length > 0,
+    queryKey: ['stale-marker-jobs', trackedIds.join(',')],
+    queryFn: async () => {
+      const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+      const { data, error } = await (supabase as any)
+        .from('job_queue')
+        .select(
+          'id,job_type,status,package_id,lane,priority,attempts,created_at,started_at,completed_at,run_after,last_error',
+        )
+        .in('package_id', trackedIds)
+        .gte('created_at', since)
+        .order('created_at', { ascending: false })
+        .limit(200);
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+    refetchInterval: 5_000,
   });
 
   const counts = useMemo(() => {
