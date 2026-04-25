@@ -1,5 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import type { TablesUpdate } from '@/integrations/supabase/types';
+import { updateTable } from '@/integrations/supabase/typedUpdate';
 import { useRealtimeInvalidation } from './useAdminRealtimeInvalidation';
 import { toast } from 'sonner';
 
