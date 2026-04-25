@@ -3,13 +3,14 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { 
   LayoutDashboard, Package, ListChecks, Menu, X, 
-  LogOut, Sparkles, Globe, Play, HeadphonesIcon, BarChart3, Stethoscope
+  LogOut, Sparkles, Globe, Play, HeadphonesIcon, BarChart3, Stethoscope, Gauge
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Badge } from '@/components/ui/badge';
 
-/** SSOT: 8 operative areas */
+/** SSOT: 9 operative areas (Cockpit als Top-Einstieg, Loop D) */
 const NAV_ITEMS = [
+  { to: '/admin/cockpit', label: 'Cockpit', icon: Gauge },
   { to: '/admin/command', label: 'Leitstelle', icon: LayoutDashboard },
   { to: '/admin/studio', label: 'Kurse', icon: Package },
   { to: '/admin/queue', label: 'Queue', icon: ListChecks },
