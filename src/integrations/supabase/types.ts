@@ -83593,6 +83593,51 @@ export type Database = {
           },
         ]
       }
+      v_retry_loop_candidates: {
+        Row: {
+          age_seconds: number | null
+          attempts: number | null
+          guard_condition: string | null
+          involved_function: string | null
+          job_id: string | null
+          job_type: string | null
+          last_error: string | null
+          last_error_code: string | null
+          max_attempts: number | null
+          package_id: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          age_seconds?: never
+          attempts?: number | null
+          guard_condition?: never
+          involved_function?: string | null
+          job_id?: string | null
+          job_type?: string | null
+          last_error?: string | null
+          last_error_code?: string | null
+          max_attempts?: number | null
+          package_id?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          age_seconds?: never
+          attempts?: number | null
+          guard_condition?: never
+          involved_function?: string | null
+          job_id?: string | null
+          job_type?: string | null
+          last_error?: string | null
+          last_error_code?: string | null
+          max_attempts?: number | null
+          package_id?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       v_revenue_cost_ratio: {
         Row: {
           certification_id: string | null
@@ -85152,6 +85197,14 @@ export type Database = {
         Args: { _job_id: string; _reason?: string }
         Returns: Json
       }
+      admin_integrity_report_diff: {
+        Args: {
+          p_package_id: string
+          p_version_a?: number
+          p_version_b?: number
+        }
+        Returns: Json
+      }
       admin_job_action: {
         Args: {
           _action: string
@@ -85255,6 +85308,7 @@ export type Database = {
           step_key: string
         }[]
       }
+      admin_recover_single_job: { Args: { p_job_id: string }; Returns: Json }
       admin_reset_code_lockout: {
         Args: { p_code: string; p_note?: string }
         Returns: undefined
@@ -86816,6 +86870,17 @@ export type Database = {
       detect_ready_curricula_for_factory: {
         Args: { p_limit?: number }
         Returns: Json
+      }
+      detect_retry_loops: {
+        Args: never
+        Returns: {
+          attempts: number
+          guard_condition: string
+          job_id: string
+          job_type: string
+          notified: boolean
+          package_id: string
+        }[]
       }
       detect_seat_misuse: {
         Args: { p_device_threshold?: number; p_hours?: number }
