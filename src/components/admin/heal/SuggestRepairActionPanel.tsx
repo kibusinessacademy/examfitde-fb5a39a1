@@ -206,9 +206,9 @@ export function SuggestRepairActionPanel({ packageId }: Props) {
                   {sug.job_type}
                 </Badge>
               )}
-              {sug?.payload?.mode && (
+              {sug?.payload && typeof (sug.payload as Record<string, unknown>).mode === "string" && (
                 <Badge variant="outline" className="font-mono text-[10px]">
-                  mode: {String(sug.payload.mode)}
+                  mode: {String((sug.payload as Record<string, unknown>).mode)}
                 </Badge>
               )}
             </div>
