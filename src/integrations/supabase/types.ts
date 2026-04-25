@@ -85331,6 +85331,18 @@ export type Database = {
         Args: { p_package_id: string }
         Returns: undefined
       }
+      admin_validate_done_step_meta: {
+        Args: { p_limit?: number }
+        Returns: {
+          finished_at: string
+          meta: Json
+          meta_executed: string
+          meta_ok: string
+          package_id: string
+          status: string
+          step_key: string
+        }[]
+      }
       admin_validate_repair_job_type: {
         Args: { _job_type: string; _payload: Json }
         Returns: Json
@@ -89721,6 +89733,10 @@ export type Database = {
       promote_wave_candidates_to_factory: {
         Args: { p_limit?: number }
         Returns: Json
+      }
+      prune_step_done_meta_audit: {
+        Args: { p_keep_days?: number }
+        Returns: number
       }
       publish_admin_version: {
         Args: {
