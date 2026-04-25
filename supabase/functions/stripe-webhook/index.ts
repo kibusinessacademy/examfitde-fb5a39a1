@@ -807,6 +807,78 @@ Deno.serve(async (req) => {
           orderId: order?.id,
         });
 
+        // ===== FUNNEL: conversion_event + crm_contact upsert (Loop A) =====
+        try {
+          // 1) crm_contact upsert from billing data
+          let contactIdForEvent: string | null = null;
+          if (billingEmail) {
+            const { data: existingContact } = await adminClient
+              .from('crm_contacts')
+              .select('id')
+              .ilike('email', billingEmail)
+              .maybeSingle();
+
+            if (existingContact?.id) {
+              contactIdForEvent = existingContact.id;
+              await adminClient
+                .from('crm_contacts')
+                .update({
+                  lifecycle_stage: 'customer',
+                  user_id: userId,
+                  company: billingCompany || null,
+                  last_contacted_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString(),
+                })
+                .eq('id', existingContact.id);
+            } else {
+              const { data: newContact } = await adminClient
+                .from('crm_contacts')
+                .insert({
+                  email: billingEmail.toLowerCase(),
+                  first_name: (billingName || '').split(' ')[0] || null,
+                  last_name: (billingName || '').split(' ').slice(1).join(' ') || null,
+                  company: billingCompany || null,
+                  lifecycle_stage: 'customer',
+                  lead_source: 'stripe_checkout',
+                  user_id: userId,
+                  last_contacted_at: new Date().toISOString(),
+                })
+                .select('id')
+                .single();
+              contactIdForEvent = newContact?.id ?? null;
+            }
+          }
+
+          // 2) checkout_complete conversion event (SSOT)
+          await adminClient.from('conversion_events').insert({
+            user_id: userId,
+            event_type: 'checkout_complete',
+            contact_id: contactIdForEvent,
+            curriculum_id: meta.curriculum_id || null,
+            metadata: {
+              order_id: order?.id,
+              total_cents: totalPriceCents,
+              currency: 'eur',
+              product_id: productId,
+              stripe_session_id: session.id,
+            },
+          });
+
+          // 3) crm_activity (email/order acknowledgement)
+          if (contactIdForEvent) {
+            await adminClient.from('crm_activities').insert({
+              contact_id: contactIdForEvent,
+              activity_type: 'order_paid',
+              subject: `Order paid: ${product.name}`,
+              body: `Order ${order?.id} | ${(totalPriceCents / 100).toFixed(2)} EUR`,
+            });
+          }
+
+          logStep("Funnel sync complete", { contactId: contactIdForEvent, orderId: order?.id });
+        } catch (funnelErr) {
+          logStep("WARN: funnel sync failed (non-blocking)", { error: String(funnelErr) });
+        }
+
         // ===== REFERRAL CONVERSION =====
         try {
           const { data: refResult } = await adminClient.rpc('convert_referral_on_purchase', {
