@@ -88803,6 +88803,10 @@ export type Database = {
           package_id: string
         }[]
       }
+      fn_autofix_exam_pool_deficit: {
+        Args: { p_package_id: string }
+        Returns: Json
+      }
       fn_build_content_metrics_snapshot: { Args: never; Returns: Json }
       fn_build_growth_metrics_snapshot: { Args: never; Returns: Json }
       fn_build_learning_metrics_snapshot: { Args: never; Returns: Json }
@@ -88970,6 +88974,10 @@ export type Database = {
           source_id: string
           source_type: string
         }[]
+      }
+      fn_diagnose_exam_pool_deficit: {
+        Args: { p_package_id: string }
+        Returns: Json
       }
       fn_drain_conflict_type_backfill: {
         Args: never
@@ -89505,6 +89513,13 @@ export type Database = {
           meta: Json
           reason: string
           status: string
+        }[]
+      }
+      fn_promote_eligible_tier1_to_approved: {
+        Args: { p_curriculum_id: string }
+        Returns: {
+          promoted_count: number
+          skipped_count: number
         }[]
       }
       fn_reap_non_building_pending_jobs: { Args: never; Returns: Json }
