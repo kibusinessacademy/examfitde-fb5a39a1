@@ -17,7 +17,8 @@ import { Switch } from '@/components/ui/switch';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
-import { CheckCircle2, ShieldAlert, Download } from 'lucide-react';
+import { CheckCircle2, ShieldAlert, Download, Search } from 'lucide-react';
+import { AuditReasonDrilldown } from '@/components/admin/heal/AuditReasonDrilldown';
 
 interface AuditRow {
   id: string;

@@ -52,7 +52,7 @@ export function AuditReasonDrilldown({ packageId, reasonSubstr, onClose }: Props
     queryFn: async () => {
       const { data, error } = await supabase.rpc('admin_get_audit_reason_drilldown', {
         p_package_id: packageId,
-        p_reason_substr: reasonSubstr,
+        p_reason_substr: reasonSubstr ?? undefined,
         p_limit: 20,
       });
       if (error) throw error;
