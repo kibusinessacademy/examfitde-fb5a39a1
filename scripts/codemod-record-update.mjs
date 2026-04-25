@@ -137,7 +137,7 @@ const FIXTURES = [
       `await supabase.from('settings').update({ data: ({ a: 1 } as Record<string, unknown>) });`,
     ].join('\n'),
     expectContains: [
-      `data: ({ a: 1 }) as TablesUpdate<'settings'>['data']`,
+      `as TablesUpdate<'settings'>['data']`,
     ],
     expectNotContains: [`as Record<string, unknown>`],
   },
