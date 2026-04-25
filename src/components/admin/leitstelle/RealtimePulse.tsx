@@ -106,8 +106,8 @@ export function RealtimePulse() {
       )
       .forEach((p) => {
         out.push({
-          pkgId: p.id,
-          title: p.title || p.id.slice(0, 8),
+          pkgId: p.package_id,
+          title: p.canonical_title || p.raw_title || p.package_id.slice(0, 8),
           reason: `> 4h building ohne Council-Fortschritt — könnte stallen`,
         });
       });
