@@ -38,6 +38,7 @@ import {
   Target,
   ArrowRight,
 } from 'lucide-react';
+import CrmDealsDrilldown from './CrmDealsDrilldown';
 
 type Health = 'critical' | 'warning' | 'ok' | 'unknown';
 
