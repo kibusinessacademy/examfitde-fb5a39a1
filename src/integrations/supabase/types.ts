@@ -85160,6 +85160,18 @@ export type Database = {
           ts: string
         }[]
       }
+      admin_get_package_block_diagnosis: {
+        Args: { p_package_id: string }
+        Returns: {
+          attempts: number
+          block_detail: string
+          block_type: string
+          last_error: string
+          status: string
+          step_key: string
+          updated_at: string
+        }[]
+      }
       admin_get_queue_health_score: { Args: never; Returns: Json }
       admin_get_queue_validation_audit: {
         Args: {
