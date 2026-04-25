@@ -116,8 +116,31 @@ export default function StaleMarkerDiffPage() {
     });
   }, [data, filter, search]);
 
-  const eligibleIds = filtered.filter((r) => r.drift_class.startsWith('STALE_EXHAUSTION') && (r.active_jobs ?? 0) === 0).map((r) => r.package_id);
+  const eligibleIds = useMemo(
+    () =>
+      filtered
+        .filter((r) => r.drift_class.startsWith('STALE_EXHAUSTION') && (r.active_jobs ?? 0) === 0)
+        .map((r) => r.package_id),
+    [filtered],
+  );
   const selectedEligible = eligibleIds.filter((id) => selected.has(id));
+
+  // Auto-Preselect: alle eligible Pakete automatisch markieren wenn aktiviert.
+  // Re-syncs whenever filter/data changes, ohne manuelle Auswahl zu zerstören
+  // (Wir setzen nur den Snapshot der eligibles).
+  useEffect(() => {
+    if (!autoPreselect) return;
+    setSelected((prev) => {
+      const next = new Set(prev);
+      // Add all currently eligible
+      eligibleIds.forEach((id) => next.add(id));
+      // Remove non-eligible (e.g. nach Refresh, weil active_jobs>0 wurde)
+      Array.from(next).forEach((id) => {
+        if (!eligibleIds.includes(id)) next.delete(id);
+      });
+      return next;
+    });
+  }, [autoPreselect, eligibleIds.join(',')]);
 
   const toggleAll = () => {
     if (selectedEligible.length === eligibleIds.length && eligibleIds.length > 0) {
