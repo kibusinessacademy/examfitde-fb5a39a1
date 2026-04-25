@@ -84,6 +84,9 @@ export default function StaleMarkerDiffPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkRefill, setBulkRefill] = useState(true);
   const [bulkOpen, setBulkOpen] = useState(false);
+  const [autoPreselect, setAutoPreselect] = useState(true);
+  // Tracks recently purged package_ids → for live job status panel
+  const [trackedIds, setTrackedIds] = useState<string[]>([]);
 
   const { data, isLoading, refetch, isFetching } = useQuery({
     queryKey: ['stale-marker-diff'],
