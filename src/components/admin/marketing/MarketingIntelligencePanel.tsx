@@ -309,6 +309,9 @@ export default function MarketingIntelligencePanel() {
         </CardContent>
       </Card>
 
+      {/* Section: CRM Deals Drilldown — pro Deal Orders/Activities/Email-Sequences */}
+      <CrmDealsDrilldown />
+
       {/* Section: Email */}
       <Card>
         <CardHeader className="pb-2">
