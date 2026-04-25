@@ -825,7 +825,9 @@ REGELN für Humor-Nutzung:
       }
     }
 
-    const systemPrompt = modeRules.systemPrompt + rolePrompt + contextPrompt + blueprintContext + humorContext;
+    // Loop C: Strict-RAG citation contract appended last so the model sees the whitelist with full context
+    const citationContract = (validMode !== AI_MODES.EXAM) ? buildCitationContract(allowedSources) : "";
+    const systemPrompt = modeRules.systemPrompt + rolePrompt + contextPrompt + blueprintContext + humorContext + citationContract;
     const aiMessages = [
       { role: "system" as const, content: systemPrompt },
       ...conversationHistory.slice(-10).map((m: any) => ({ role: m.role as "user" | "assistant", content: m.content })),
