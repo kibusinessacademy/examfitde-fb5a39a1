@@ -386,6 +386,11 @@ export default function StaleMarkerDiffPage() {
                             packageTitle={r.title}
                             driftClass={r.drift_class}
                             recommendedAction={r.recommended_action}
+                            onPurged={({ packageId }) =>
+                              setTrackedIds((prev) =>
+                                Array.from(new Set([packageId, ...prev])).slice(0, 50),
+                              )
+                            }
                           />
                         ) : (
                           <span className="text-[10px] text-muted-foreground">n/a</span>
