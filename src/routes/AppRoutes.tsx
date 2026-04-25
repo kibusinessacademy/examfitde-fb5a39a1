@@ -133,17 +133,14 @@ const TestAreaPage = lazyRetry(() => import('@/pages/admin/v2/TestAreaPage'));
 const CourseWorkspace = lazyRetry(() => import('@/pages/admin/CourseWorkspace'));
 const SupportPage = lazyRetry(() => import('@/pages/admin/v2/SupportPage'));
 const KPIPage = lazyRetry(() => import('@/pages/admin/v2/KPIPage'));
-const HealCockpitPage = lazyRetry(() => import('@/pages/admin/v2/HealCockpitPage'));
+// Legacy hubs (HealCockpit, StuckSteps, RepairQueue, Stagnation, RetryLoop, BypassAudit)
+// wurden hart entfernt — Inhalte leben jetzt als Tab-Content im UnifiedQueueCockpit.
+// Alte URLs werden via <Navigate /> auf /admin/queue?tab=… umgeleitet.
 const PackageDiagnosticsPage = lazyRetry(() => import('@/pages/admin/v2/PackageDiagnosticsPage'));
 const SecurityFindingsPage = lazyRetry(() => import('@/pages/admin/v2/SecurityFindingsPage'));
-const QueueStagnationPage = lazyRetry(() => import('@/pages/admin/v2/QueueStagnationPage'));
-const BypassAuditPage = lazyRetry(() => import('@/pages/admin/v2/BypassAuditPage'));
 const IntegrityCheckRunbookPage = lazyRetry(() => import('@/pages/admin/v2/IntegrityCheckRunbookPage'));
 const JobTimelinePage = lazyRetry(() => import('@/pages/admin/v2/JobTimelinePage'));
-const StuckStepsDashboardPage = lazyRetry(() => import('@/pages/admin/v2/StuckStepsDashboardPage'));
-const RepairQueueDashboardPage = lazyRetry(() => import('@/pages/admin/v2/RepairQueueDashboardPage'));
 const StepDoneAuditPage = lazyRetry(() => import('@/pages/admin/v2/StepDoneAuditPage'));
-const RetryLoopDetectorPage = lazyRetry(() => import('@/pages/admin/v2/RetryLoopDetectorPage'));
 const IntegrityReportDiffPage = lazyRetry(() => import('@/pages/admin/v2/IntegrityReportDiffPage'));
 const HealStrategySettingsPage = lazyRetry(() => import('@/pages/admin/v2/HealStrategySettingsPage'));
 const StaleMarkerDiffPage = lazyRetry(() => import('@/pages/admin/v2/StaleMarkerDiffPage'));

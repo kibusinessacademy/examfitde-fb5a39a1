@@ -1,12 +1,7 @@
 /**
- * QueueStagnationPage
- * ───────────────────
- * Filter (job_id, Cluster, Zeitraum) werden in der URL als Query-Parameter
- * gespeichert (?job_id=…&cluster=…&threshold=…&lookback=…), damit Filter
- * über Refreshes/Deep-Links erhalten bleiben.
+ * StagnationTabContent — Inhalt für Queue-Cockpit Tab "Stagnation"
  */
 import { useCallback, useMemo } from "react";
-import { Helmet } from "react-helmet-async";
 import { useSearchParams } from "react-router-dom";
 import { Filter, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -32,7 +27,7 @@ const TIMEFRAMES: { hours: number; label: string }[] = [
   { hours: 72, label: "72h" },
 ];
 
-export default function QueueStagnationPage() {
+export function StagnationTabContent() {
   const [params, setParams] = useSearchParams();
 
   const filters = useMemo<QueueStagnationFilters>(() => {
@@ -51,10 +46,13 @@ export default function QueueStagnationPage() {
   const update = useCallback(
     (patch: Record<string, string>) => {
       const next = new URLSearchParams(params);
+      // Tab-Parameter immer beibehalten
+      const currentTab = next.get("tab");
       for (const [k, v] of Object.entries(patch)) {
         if (!v) next.delete(k);
         else next.set(k, v);
       }
+      if (currentTab) next.set("tab", currentTab);
       setParams(next, { replace: true });
     },
     [params, setParams],
@@ -66,22 +64,15 @@ export default function QueueStagnationPage() {
   if (filters.lookbackHours !== 6) activeFilters.push(`lookback=${filters.lookbackHours}h`);
   if (filters.thresholdMin !== 30) activeFilters.push(`threshold=${filters.thresholdMin}m`);
 
-  return (
-    <div className="container mx-auto max-w-5xl space-y-4 p-4">
-      <Helmet>
-        <title>Queue-Stagnation · Admin</title>
-        <meta
-          name="description"
-          content="Priorisiert stagnierende Failed-Queue-Jobs (≥30 Min identische job_ids) und REQUEUE_LOOP_KILLED-Cluster. Filter werden in der URL gespeichert."
-        />
-      </Helmet>
-      <header className="space-y-1">
-        <h1 className="text-xl font-semibold">Queue-Stagnation & REQUEUE-Loops</h1>
-        <p className="text-xs text-muted-foreground">
-          Identische Failed-Jobs ≥{filters.thresholdMin} Min und terminal markierte Loop-Jobs ({filters.lookbackHours}h-Fenster).
-        </p>
-      </header>
+  const clearFilters = () => {
+    const next = new URLSearchParams();
+    const tab = params.get("tab");
+    if (tab) next.set("tab", tab);
+    setParams(next, { replace: true });
+  };
 
+  return (
+    <div className="space-y-4">
       {/* Filter-Bar */}
       <div className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/20 p-2 text-xs">
         <Filter className="h-3.5 w-3.5 text-muted-foreground" />
@@ -135,7 +126,7 @@ export default function QueueStagnationPage() {
               size="sm"
               variant="ghost"
               className="ml-auto h-6 px-2 text-xs"
-              onClick={() => setParams(new URLSearchParams(), { replace: true })}
+              onClick={clearFilters}
             >
               <X className="mr-1 h-3 w-3" /> Filter zurücksetzen
             </Button>

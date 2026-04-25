@@ -1,21 +1,12 @@
 /**
- * RepairQueueDashboardPage
- * ────────────────────────
- * Per-Kurs/Track Sicht auf den Repair-Queue-Status:
- *   - Approved Questions / Competency-Coverage-Lücke / aktive Jobs
- *   - "Warum stalled?" Diagnose-Spalte (z. B. wrong_repair_route, no_repair_enqueued)
- *   - Aufklappbare Live-Job-Detail-Reihen mit job_type, mode, target_competency_count,
- *     auto_heal_origin, resolved_strategy — exakt die Felder aus dem Verify-Snippet im Brief.
- *
- * Reine Read-only Sicht. Keine Heal-Aktionen — dafür existiert das Heal-Cockpit.
+ * RepairQueueTabContent — Inhalt für Queue-Cockpit Tab "Repair"
+ * Per-Kurs/Track Sicht auf den Repair-Queue-Status.
  */
 import { useMemo, useState } from "react";
-import { Helmet } from "react-helmet-async";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import {
   AlertTriangle,
-  Wrench,
   ChevronDown,
   ChevronRight,
   ExternalLink,
@@ -53,17 +44,17 @@ import {
 const POLL_MS = 30_000;
 
 const STALL_VARIANT: Record<StallReason["kind"], { label: string; cls: string }> = {
-  ok: { label: "OK", cls: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30" },
-  running: { label: "Läuft", cls: "bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/30" },
-  no_repair_enqueued: { label: "Kein Repair", cls: "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30" },
-  wrong_repair_route: { label: "Falsches Repair", cls: "bg-orange-500/15 text-orange-700 dark:text-orange-400 border-orange-500/30" },
-  hard_fail: { label: "HARD FAIL", cls: "bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/30" },
-  exhausted: { label: "Erschöpft", cls: "bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/30" },
-  no_progress: { label: "Kein Fortschritt", cls: "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30" },
+  ok: { label: "OK", cls: "bg-success/10 text-success border-success/30" },
+  running: { label: "Läuft", cls: "bg-primary/10 text-primary border-primary/30" },
+  no_repair_enqueued: { label: "Kein Repair", cls: "bg-warning/10 text-warning border-warning/30" },
+  wrong_repair_route: { label: "Falsches Repair", cls: "bg-warning/10 text-warning border-warning/30" },
+  hard_fail: { label: "HARD FAIL", cls: "bg-destructive/10 text-destructive border-destructive/30" },
+  exhausted: { label: "Erschöpft", cls: "bg-destructive/10 text-destructive border-destructive/30" },
+  no_progress: { label: "Kein Fortschritt", cls: "bg-warning/10 text-warning border-warning/30" },
   unknown: { label: "Unklar", cls: "bg-muted text-muted-foreground border-border" },
 };
 
-export default function RepairQueueDashboardPage() {
+export function RepairQueueTabContent() {
   const [trackFilter, setTrackFilter] = useState<string>("ALL");
   const [search, setSearch] = useState("");
   const [onlyStalled, setOnlyStalled] = useState(true);
@@ -82,7 +73,6 @@ export default function RepairQueueDashboardPage() {
   });
 
   const rows = data ?? [];
-
   const tracks = useMemo(() => {
     const s = new Set<string>();
     rows.forEach((r) => r.track && s.add(r.track));
@@ -116,31 +106,17 @@ export default function RepairQueueDashboardPage() {
   };
 
   return (
-    <div className="container max-w-7xl py-6 space-y-6">
-      <Helmet>
-        <title>Repair-Queue Dashboard · ExamFit Admin</title>
-      </Helmet>
-
-      <header className="flex items-start justify-between gap-4 flex-wrap">
-        <div className="flex items-center gap-3">
-          <Wrench className="h-6 w-6 text-primary" />
-          <div>
-            <h1 className="text-2xl font-bold">Repair-Queue Dashboard</h1>
-            <p className="text-sm text-muted-foreground">
-              Pro Kurs/Track: Approved-Questions, Competency-Coverage, aktive Repair-Jobs — und warum ein Kurs stalled.
-            </p>
-          </div>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => refetch()}
-          disabled={isFetching}
-        >
-          {isFetching ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+    <div className="space-y-5">
+      <div className="flex items-center justify-end">
+        <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
+          {isFetching ? (
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <RefreshCw className="h-4 w-4 mr-2" />
+          )}
           Aktualisieren
         </Button>
-      </header>
+      </div>
 
       {/* KPI strip */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
@@ -198,7 +174,7 @@ export default function RepairQueueDashboardPage() {
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 text-amber-500" />
+            <AlertTriangle className="h-4 w-4 text-warning" />
             Pakete ({rows.length})
           </CardTitle>
         </CardHeader>
@@ -213,7 +189,7 @@ export default function RepairQueueDashboardPage() {
             </div>
           ) : rows.length === 0 ? (
             <div className="px-6 py-12 text-center text-muted-foreground">
-              <CheckCircle2 className="h-8 w-8 mx-auto mb-2 text-emerald-500" />
+              <CheckCircle2 className="h-8 w-8 mx-auto mb-2 text-success" />
               Keine Pakete passen zum Filter — alle gesund.
             </div>
           ) : (
@@ -303,7 +279,7 @@ function RepairRow({
         <TableCell className="text-right tabular-nums">{row.approved_count}</TableCell>
         <TableCell className="text-right tabular-nums">
           {row.missing_competency_coverage > 0 ? (
-            <span className="text-amber-600 dark:text-amber-400 font-semibold">
+            <span className="text-warning font-semibold">
               {row.missing_competency_coverage}
             </span>
           ) : (
@@ -312,9 +288,7 @@ function RepairRow({
         </TableCell>
         <TableCell className="text-right tabular-nums">
           {row.missing_lf_coverage > 0 ? (
-            <span className="text-amber-600 dark:text-amber-400 font-semibold">
-              {row.missing_lf_coverage}
-            </span>
+            <span className="text-warning font-semibold">{row.missing_lf_coverage}</span>
           ) : (
             <span className="text-muted-foreground">0</span>
           )}
@@ -339,7 +313,7 @@ function RepairRow({
         </TableCell>
         <TableCell>
           <Link
-            to={`/admin/heal-cockpit/package/${row.package_id}`}
+            to={`/admin/studio/${row.package_id}`}
             onClick={(e) => e.stopPropagation()}
             className="text-xs text-primary hover:underline inline-flex items-center gap-1"
           >
@@ -380,9 +354,13 @@ function RowDetail({ row }: { row: RepairQueueRow }) {
       </div>
 
       <div>
-        <div className="text-xs font-semibold mb-1">Aktive Repair-Jobs ({row.live_repair_jobs.length})</div>
+        <div className="text-xs font-semibold mb-1">
+          Aktive Repair-Jobs ({row.live_repair_jobs.length})
+        </div>
         {row.live_repair_jobs.length === 0 ? (
-          <div className="text-xs text-muted-foreground italic">Keine aktiven Repair-Jobs in Queue.</div>
+          <div className="text-xs text-muted-foreground italic">
+            Keine aktiven Repair-Jobs in Queue.
+          </div>
         ) : (
           <div className="space-y-1">
             {row.live_repair_jobs.map((j) => (
@@ -396,12 +374,12 @@ function RowDetail({ row }: { row: RepairQueueRow }) {
                 </span>
                 {j.mode && (
                   <span>
-                    mode=<span className="text-emerald-600 dark:text-emerald-400">{j.mode}</span>
+                    mode=<span className="text-success">{j.mode}</span>
                   </span>
                 )}
                 {j.target_competency_count > 0 && (
                   <span>
-                    targets=<span className="text-emerald-600 dark:text-emerald-400">{j.target_competency_count}</span>
+                    targets=<span className="text-success">{j.target_competency_count}</span>
                   </span>
                 )}
                 {j.auto_heal_origin && <span>origin={j.auto_heal_origin}</span>}

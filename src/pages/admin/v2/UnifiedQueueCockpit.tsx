@@ -1,24 +1,23 @@
 /**
- * Unified Queue Cockpit (SSOT v1)
+ * Unified Queue Cockpit (SSOT v2)
  * ───────────────────────────────
- * Ersetzt fragmentierte Admin-Hubs (Heal-Cockpit, Repair-Queue, Stuck-Steps,
- * Stagnation, Retry-Loop-Detector, Bypass-Audit) durch ein einziges Cockpit
- * mit Tabs. Alle Heal-Aktionen laufen über den bestehenden SSOT-Hook
- * `usePackageHealAction` / `runPackageHealAction`.
+ * SSOT-Hub für ALLE operativen Queue-/Heal-/Repair-/Audit-Aktionen.
  *
- * Tabs:
- *   1. Live  — Original QueuePage (Live-Job-Liste + Cockpit-Header)
- *   2. Heal  — HealCockpit-Inhalt (Worklist + Briefing + Cluster)
- *   3. Stuck — Stuck Steps Dashboard
- *   4. Repair — Repair-Queue Dashboard
- *   5. Stagnation — Queue Stagnation
- *   6. Retry-Loops — Retry Loop Detector
- *   7. Audit  — Bypass / Step-Done Audit
+ * Tabs (deep-linkable via ?tab=…):
+ *   1. live      — Original QueuePage (Live-Job-Liste + Cockpit-Header)
+ *   2. heal      — Heal-Worklist + Briefing + Cluster + Blocked Packages
+ *   3. stuck     — Pending-Enqueue Observability
+ *   4. repair    — Per-Kurs Repair-Queue (Coverage + Stall-Diagnose)
+ *   5. stagnation — Stagnation/REQUEUE-Loop Cluster
+ *   6. retry     — Retry-Loop Detector
+ *   7. audit     — Bypass / Force-Done Audit
  *
- * Tab kann via `?tab=` oder URL-Query gesteuert werden — Deep-Linking aus
- * Toasts und Drilldowns bleibt funktional.
+ * v2-Änderungen:
+ *   • Tab-Inhalte werden aus dedizierten Content-Komponenten geladen
+ *     (kein doppelter <Helmet> mehr → kein Race auf classList.add).
+ *   • Header/Card-Pattern via AdminPageHeader vereinheitlicht.
+ *   • Legacy-Pages wurden ersatzlos entfernt — alte Routen redirecten hierher.
  */
-import { Helmet } from "react-helmet-async";
 import { lazy, Suspense, useEffect } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -35,14 +34,40 @@ import {
   Shield,
   Settings,
 } from "lucide-react";
+import { AdminPageHeader } from "@/components/admin/v2/AdminPageHeader";
 
+// Live-Tab kommt aus der bestehenden QueuePage — sie hat kein eigenes Helmet
 const QueueLiveTab = lazy(() => import("@/pages/admin/v2/QueuePage"));
-const HealCockpitTab = lazy(() => import("@/pages/admin/v2/HealCockpitPage"));
-const StuckStepsTab = lazy(() => import("@/pages/admin/v2/StuckStepsDashboardPage"));
-const RepairQueueTab = lazy(() => import("@/pages/admin/v2/RepairQueueDashboardPage"));
-const StagnationTab = lazy(() => import("@/pages/admin/v2/QueueStagnationPage"));
-const RetryLoopTab = lazy(() => import("@/pages/admin/v2/RetryLoopDetectorPage"));
-const BypassAuditTab = lazy(() => import("@/pages/admin/v2/BypassAuditPage"));
+const HealTab = lazy(() =>
+  import("@/components/admin/queue-cockpit/HealCockpitTabContent").then((m) => ({
+    default: m.HealCockpitTabContent,
+  })),
+);
+const StuckTab = lazy(() =>
+  import("@/components/admin/queue-cockpit/StuckStepsTabContent").then((m) => ({
+    default: m.StuckStepsTabContent,
+  })),
+);
+const RepairTab = lazy(() =>
+  import("@/components/admin/queue-cockpit/RepairQueueTabContent").then((m) => ({
+    default: m.RepairQueueTabContent,
+  })),
+);
+const StagnationTab = lazy(() =>
+  import("@/components/admin/queue-cockpit/StagnationTabContent").then((m) => ({
+    default: m.StagnationTabContent,
+  })),
+);
+const RetryTab = lazy(() =>
+  import("@/components/admin/queue-cockpit/RetryLoopTabContent").then((m) => ({
+    default: m.RetryLoopTabContent,
+  })),
+);
+const AuditTab = lazy(() =>
+  import("@/components/admin/queue-cockpit/BypassAuditTabContent").then((m) => ({
+    default: m.BypassAuditTabContent,
+  })),
+);
 
 const TABS = [
   { value: "live", label: "Live", icon: Activity, hint: "Aktive Jobs in Echtzeit" },
@@ -69,45 +94,39 @@ export default function UnifiedQueueCockpit() {
   // Wenn unbekannter Tab → fallback live (idempotent, kein Loop)
   useEffect(() => {
     if (!TABS.some((t) => t.value === tab)) {
-      setParams({ tab: "live" }, { replace: true });
+      const next = new URLSearchParams(params);
+      next.set("tab", "live");
+      setParams(next, { replace: true });
     }
-  }, [tab, setParams]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
+
+  const setTab = (v: string) => {
+    const next = new URLSearchParams(params);
+    next.set("tab", v);
+    // Beim Tab-Wechsel: Tab-spezifische Filter zurücksetzen, andere behalten
+    setParams(next, { replace: true });
+  };
 
   return (
     <div className="space-y-4">
-      <Helmet>
-        <title>Queue Cockpit · Admin</title>
-        <meta
-          name="description"
-          content="Unified Admin Queue Cockpit – Live-Jobs, Heal-Worklist, Stuck-Steps, Repair-Queue, Stagnation, Retry-Loops und Audit in einer Ansicht."
-        />
-      </Helmet>
+      <AdminPageHeader
+        icon={ListChecks}
+        title="Queue Cockpit"
+        description="SSOT für Live-Jobs, Heal, Stuck-Steps, Repair, Stagnation, Retry-Loops & Audit"
+        documentTitle="Queue Cockpit · Admin"
+        metaDescription="Unified Admin Queue Cockpit – Live-Jobs, Heal-Worklist, Stuck-Steps, Repair-Queue, Stagnation, Retry-Loops und Audit in einer Ansicht."
+        actions={
+          <Button asChild variant="outline" size="sm">
+            <Link to="/admin/ops/heal-settings">
+              <Settings className="h-4 w-4 mr-1.5" />
+              Heal-Strategie
+            </Link>
+          </Button>
+        }
+      />
 
-      <header className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-3">
-          <div className="rounded-md bg-primary/10 p-2 text-primary">
-            <ListChecks className="h-5 w-5" />
-          </div>
-          <div>
-            <h1 className="text-xl font-semibold">Queue Cockpit</h1>
-            <p className="text-xs text-muted-foreground">
-              SSOT für Live-Jobs, Heal, Stuck-Steps, Repair, Stagnation, Retry-Loops & Audit
-            </p>
-          </div>
-        </div>
-        <Button asChild variant="outline" size="sm">
-          <Link to="/admin/ops/heal-settings">
-            <Settings className="h-4 w-4 mr-1.5" />
-            Heal-Strategie
-          </Link>
-        </Button>
-      </header>
-
-      <Tabs
-        value={tab}
-        onValueChange={(v) => setParams({ tab: v }, { replace: true })}
-        className="w-full"
-      >
+      <Tabs value={tab} onValueChange={setTab} className="w-full">
         <Card className="p-1">
           <TabsList className="w-full flex flex-wrap h-auto gap-1 bg-transparent p-0">
             {TABS.map((t) => (
@@ -131,17 +150,17 @@ export default function UnifiedQueueCockpit() {
         </TabsContent>
         <TabsContent value="heal" className="mt-4">
           <Suspense fallback={<LoadingFallback />}>
-            <HealCockpitTab />
+            <HealTab />
           </Suspense>
         </TabsContent>
         <TabsContent value="stuck" className="mt-4">
           <Suspense fallback={<LoadingFallback />}>
-            <StuckStepsTab />
+            <StuckTab />
           </Suspense>
         </TabsContent>
         <TabsContent value="repair" className="mt-4">
           <Suspense fallback={<LoadingFallback />}>
-            <RepairQueueTab />
+            <RepairTab />
           </Suspense>
         </TabsContent>
         <TabsContent value="stagnation" className="mt-4">
@@ -151,12 +170,12 @@ export default function UnifiedQueueCockpit() {
         </TabsContent>
         <TabsContent value="retry" className="mt-4">
           <Suspense fallback={<LoadingFallback />}>
-            <RetryLoopTab />
+            <RetryTab />
           </Suspense>
         </TabsContent>
         <TabsContent value="audit" className="mt-4">
           <Suspense fallback={<LoadingFallback />}>
-            <BypassAuditTab />
+            <AuditTab />
           </Suspense>
         </TabsContent>
       </Tabs>
