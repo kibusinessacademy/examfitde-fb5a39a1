@@ -8,10 +8,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BuildPackageCard, type BuildPackageCardBadge } from '@/components/admin/command/BuildPackageCard';
 import {
   Activity, AlertTriangle, CheckCircle2, XCircle, Clock,
-  Package, Zap, Shield, Cpu, ListChecks, TrendingDown,
+  Package, Zap, Shield, Cpu, ListChecks, TrendingDown, LayoutDashboard,
   DollarSign, Users, HeadphonesIcon, Globe, CreditCard, Ticket, Building2, Key, FileText, Server, Target, Link2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { AdminPageHeader } from '@/components/admin/v2/AdminPageHeader';
+import { AdminCardBoundary } from '@/components/admin/v2/AdminCardBoundary';
 import { BlockedPackagesSheet } from '@/components/admin/command/BlockedPackagesSheet';
 import { StuckPackagesSheet } from '@/components/admin/command/StuckPackagesSheet';
 import { BuildingPackagesSheet } from '@/components/admin/command/BuildingPackagesSheet';
@@ -164,17 +166,19 @@ export default function LeitstellePage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-2">
-        <div>
-          <h1 className="text-xl font-bold text-foreground">Leitstelle</h1>
-          <p className="text-xs text-muted-foreground mt-0.5">SSOT-Systemlage · Echtdaten</p>
-        </div>
-        {isFallback && (
-          <Badge variant="outline" className="border-warning/50 text-warning text-[10px] px-1.5 py-0.5">
-            Fallback-Modus
-          </Badge>
-        )}
-      </div>
+      <AdminPageHeader
+        icon={LayoutDashboard}
+        title="Leitstelle"
+        description="SSOT-Systemlage · Echtdaten · Smart-Actions · Realtime-Pulse"
+        documentTitle="Leitstelle · Admin"
+        badges={
+          isFallback ? (
+            <Badge variant="outline" className="border-warning/50 text-warning text-[10px] px-1.5 py-0.5">
+              Fallback-Modus
+            </Badge>
+          ) : null
+        }
+      />
 
       {/* Enterprise Command Tabs */}
       <Tabs defaultValue="overview" className="w-full">
@@ -205,15 +209,19 @@ export default function LeitstellePage() {
         {/* Original Overview Content */}
         <TabsContent value="overview" className="space-y-6">
 
-      {/* ═══ NEW: Smart Next-Best-Action (ROI-priorisiert) ═══ */}
-      <Suspense fallback={null}>
-        <SmartNextBestAction />
-      </Suspense>
+      {/* ═══ Smart Next-Best-Action (ROI-priorisiert) ═══ */}
+      <AdminCardBoundary label="Smart Next-Best-Action">
+        <Suspense fallback={null}>
+          <SmartNextBestAction />
+        </Suspense>
+      </AdminCardBoundary>
 
-      {/* ═══ NEW: Realtime Pulse + Predictive Alerts ═══ */}
-      <Suspense fallback={null}>
-        <RealtimePulse />
-      </Suspense>
+      {/* ═══ Realtime Pulse + Predictive Alerts ═══ */}
+      <AdminCardBoundary label="Realtime Pulse">
+        <Suspense fallback={null}>
+          <RealtimePulse />
+        </Suspense>
+      </AdminCardBoundary>
 
       {/* ═══ SECTION 1: Critical Alerts (always visible, top priority) ═══ */}
       <Suspense fallback={null}>
