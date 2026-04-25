@@ -1,7 +1,7 @@
 // Edge Function: package-publish-readiness
 // Wraps the SECURITY DEFINER RPC `admin_check_publish_readiness` and returns
 // a clean JSON summary suitable for ops dashboards and CI smoke tests.
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { createClient } from 'npm:@supabase/supabase-js@2.45.4';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
