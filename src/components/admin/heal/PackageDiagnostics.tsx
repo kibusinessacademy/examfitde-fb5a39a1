@@ -44,6 +44,7 @@ import {
   type HealSnapshot,
   type AutoRepairLimitStatus,
 } from "@/lib/admin/heal/healDiagnostics";
+import { SuggestRepairActionPanel } from "./SuggestRepairActionPanel";
 
 interface Props {
   packageId: string;
