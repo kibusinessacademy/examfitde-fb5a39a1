@@ -9049,36 +9049,69 @@ export type Database = {
       }
       conversion_events: {
         Row: {
+          anonymous_id: string | null
+          contact_id: string | null
           created_at: string
           curriculum_id: string | null
+          deal_id: string | null
           event_type: string
           id: string
           intent: string | null
+          metadata: Json
+          page_path: string | null
           readiness_score: number | null
           risk_level: string | null
+          session_id: string | null
           user_id: string | null
         }
         Insert: {
+          anonymous_id?: string | null
+          contact_id?: string | null
           created_at?: string
           curriculum_id?: string | null
+          deal_id?: string | null
           event_type: string
           id?: string
           intent?: string | null
+          metadata?: Json
+          page_path?: string | null
           readiness_score?: number | null
           risk_level?: string | null
+          session_id?: string | null
           user_id?: string | null
         }
         Update: {
+          anonymous_id?: string | null
+          contact_id?: string | null
           created_at?: string
           curriculum_id?: string | null
+          deal_id?: string | null
           event_type?: string
           id?: string
           intent?: string | null
+          metadata?: Json
+          page_path?: string | null
           readiness_score?: number | null
           risk_level?: string | null
+          session_id?: string | null
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "conversion_events_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "crm_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversion_events_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "crm_deals"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       council_activity_log: {
         Row: {
@@ -31692,6 +31725,42 @@ export type Database = {
           status?: string
           subject?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      newsletter_doi_tokens: {
+        Row: {
+          confirmed_at: string | null
+          created_at: string
+          curriculum_id: string | null
+          email: string
+          expires_at: string
+          id: string
+          metadata: Json
+          source: string | null
+          token: string
+        }
+        Insert: {
+          confirmed_at?: string | null
+          created_at?: string
+          curriculum_id?: string | null
+          email: string
+          expires_at?: string
+          id?: string
+          metadata?: Json
+          source?: string | null
+          token: string
+        }
+        Update: {
+          confirmed_at?: string | null
+          created_at?: string
+          curriculum_id?: string | null
+          email?: string
+          expires_at?: string
+          id?: string
+          metadata?: Json
+          source?: string | null
+          token?: string
         }
         Relationships: []
       }
@@ -77080,6 +77149,18 @@ export type Database = {
         }
         Relationships: []
       }
+      v_funnel_overview_24h: {
+        Row: {
+          checkout_completes: number | null
+          checkout_starts: number | null
+          hero_cta_clicks: number | null
+          lead_magnet_downloads: number | null
+          pricing_views: number | null
+          quiz_completes: number | null
+          unique_visitors: number | null
+        }
+        Relationships: []
+      }
       v_growth_actions_approved: {
         Row: {
           action_type: Database["public"]["Enums"]["growth_action_type"] | null
@@ -87864,6 +87945,14 @@ export type Database = {
         Args: { p_curriculum_id: string; p_user_id: string }
         Returns: Json
       }
+      confirm_doi_token: {
+        Args: { p_token: string }
+        Returns: {
+          contact_id: string
+          email: string
+          ok: boolean
+        }[]
+      }
       convert_referral_on_purchase: {
         Args: { p_buyer_user_id: string; p_order_id: string }
         Returns: Json
@@ -87960,6 +88049,15 @@ export type Database = {
           p_store_inline?: boolean
         }
         Returns: Json
+      }
+      create_doi_token: {
+        Args: {
+          p_curriculum_id?: string
+          p_email: string
+          p_metadata?: Json
+          p_source?: string
+        }
+        Returns: string
       }
       create_enterprise_account: {
         Args: {
@@ -91902,6 +92000,19 @@ export type Database = {
           p_user_id: string
         }
         Returns: undefined
+      }
+      track_conversion_event_v2: {
+        Args: {
+          p_anonymous_id?: string
+          p_contact_id?: string
+          p_curriculum_id?: string
+          p_event_type: string
+          p_intent?: string
+          p_metadata?: Json
+          p_page_path?: string
+          p_session_id?: string
+        }
+        Returns: string
       }
       trigger_pool_rework: { Args: never; Returns: undefined }
       try_claim_pipeline_lock: {
