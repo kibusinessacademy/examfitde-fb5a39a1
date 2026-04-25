@@ -8,6 +8,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ActionabilityBadge, RecommendedActionButton } from "./RecommendedActionButton";
+import { RefreshIntegrityWithDiffButton } from "./RefreshIntegrityWithDiffButton";
 import type { HealWorklistRow as Row } from "./types";
 import { ACTION_DESCRIPTION, ACTION_LABEL } from "./types";
 import { formatDistanceToNow } from "date-fns";
@@ -67,6 +68,7 @@ export function PackageDrawer({ packageId, rows, onClose, onAction }: Props) {
                   actionability={row.actionability_class}
                   onClick={() => onAction(row)}
                 />
+                <RefreshIntegrityWithDiffButton packageId={row.package_id} />
               </div>
 
               {/* Why this action */}

@@ -143,6 +143,7 @@ const RepairQueueDashboardPage = lazyRetry(() => import('@/pages/admin/v2/Repair
 const StepDoneAuditPage = lazyRetry(() => import('@/pages/admin/v2/StepDoneAuditPage'));
 const RetryLoopDetectorPage = lazyRetry(() => import('@/pages/admin/v2/RetryLoopDetectorPage'));
 const IntegrityReportDiffPage = lazyRetry(() => import('@/pages/admin/v2/IntegrityReportDiffPage'));
+const HealStrategySettingsPage = lazyRetry(() => import('@/pages/admin/v2/HealStrategySettingsPage'));
 
 // ExamFit@work public pages
 const WorkHomePage = lazyRetry(() => import('@/pages/work/WorkHomePage'));
@@ -375,6 +376,7 @@ const AppRoutes = () => {
           <Route path="ops/retry-loops" element={<RetryLoopDetectorPage />} />
           <Route path="ops/integrity-diff" element={<IntegrityReportDiffPage />} />
           <Route path="ops/integrity-diff/:packageId" element={<IntegrityReportDiffPage />} />
+          <Route path="ops/heal-settings" element={<HealStrategySettingsPage />} />
           <Route path="test" element={<TestAreaPage />} />
           <Route path="*" element={<Navigate to="/admin/command" replace />} />
         </Route>

@@ -361,6 +361,30 @@ export type Database = {
         }
         Relationships: []
       }
+      admin_settings: {
+        Row: {
+          description: string | null
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value: Json
+        }
+        Insert: {
+          description?: string | null
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Update: {
+          description?: string | null
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Relationships: []
+      }
       affiliate_payouts: {
         Row: {
           affiliate_id: string
@@ -85080,6 +85104,14 @@ export type Database = {
             }
             Returns: Json
           }
+      admin_get_audit_reason_drilldown: {
+        Args: {
+          p_limit?: number
+          p_package_id: string
+          p_reason_substr?: string
+        }
+        Returns: Json
+      }
       admin_get_failed_root_causes: {
         Args: never
         Returns: {
@@ -85100,6 +85132,10 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      admin_get_integrity_diff: {
+        Args: { p_package_id: string; p_prev_history_id?: string }
+        Returns: Json
       }
       admin_get_job_cancel_audit_summary: {
         Args: { _job_id: string }
@@ -85197,6 +85233,7 @@ export type Database = {
         Args: { _job_id: string; _reason?: string }
         Returns: Json
       }
+      admin_healcheck_cluster_explanation: { Args: never; Returns: Json }
       admin_integrity_report_diff: {
         Args: {
           p_package_id: string
@@ -85309,6 +85346,10 @@ export type Database = {
         }[]
       }
       admin_recover_single_job: { Args: { p_job_id: string }; Returns: Json }
+      admin_refresh_integrity_check_with_diff: {
+        Args: { p_package_id: string }
+        Returns: Json
+      }
       admin_reset_code_lockout: {
         Args: { p_code: string; p_note?: string }
         Returns: undefined
@@ -85340,6 +85381,10 @@ export type Database = {
       }
       admin_safe_requeue_integrity_check: {
         Args: { _package_id: string; _reason?: string }
+        Returns: Json
+      }
+      admin_set_setting: {
+        Args: { p_key: string; p_value: Json }
         Returns: Json
       }
       admin_smart_heal_bulk: {
