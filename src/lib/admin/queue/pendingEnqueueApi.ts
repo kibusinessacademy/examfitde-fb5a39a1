@@ -11,6 +11,8 @@
  *   - public.pending_enqueue_manual_review
  */
 import { supabase } from "@/integrations/supabase/client";
+import type { TablesUpdate } from "@/integrations/supabase/types";
+import { updateTable } from "@/integrations/supabase/typedUpdate";
 
 export type CronHealth =
   | "healthy"
@@ -226,14 +228,11 @@ export async function updateManualReview(
   patch: { status?: ManualReviewStatus; resolution_note?: string },
 ): Promise<void> {
   const { data: userData } = await supabase.auth.getUser();
-  const update: Record<string, unknown> = { ...patch };
+  const update: TablesUpdate<"pending_enqueue_manual_review"> = { ...patch };
   if (patch.status === "resolved" || patch.status === "wont_fix") {
     update.resolved_at = new Date().toISOString();
     update.resolved_by = userData.user?.id ?? null;
   }
-  const { error } = await supabase
-    .from("pending_enqueue_manual_review" as never)
-    .update(update as never)
-    .eq("id", id);
+  const { error } = await updateTable("pending_enqueue_manual_review", id, update);
   if (error) throw error;
 }

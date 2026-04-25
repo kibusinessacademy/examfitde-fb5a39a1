@@ -51976,6 +51976,54 @@ export type Database = {
         }
         Relationships: []
       }
+      step_done_meta_audit: {
+        Row: {
+          block_reason: string | null
+          blocked: boolean
+          created_at: string
+          id: string
+          meta_executed: boolean | null
+          meta_ok: boolean
+          new_meta: Json | null
+          package_id: string
+          prev_meta: Json | null
+          prev_status: string | null
+          source_fn: string | null
+          step_key: string
+          trigger_op: string | null
+        }
+        Insert: {
+          block_reason?: string | null
+          blocked?: boolean
+          created_at?: string
+          id?: string
+          meta_executed?: boolean | null
+          meta_ok: boolean
+          new_meta?: Json | null
+          package_id: string
+          prev_meta?: Json | null
+          prev_status?: string | null
+          source_fn?: string | null
+          step_key: string
+          trigger_op?: string | null
+        }
+        Update: {
+          block_reason?: string | null
+          blocked?: boolean
+          created_at?: string
+          id?: string
+          meta_executed?: boolean | null
+          meta_ok?: boolean
+          new_meta?: Json | null
+          package_id?: string
+          prev_meta?: Json | null
+          prev_status?: string | null
+          source_fn?: string | null
+          step_key?: string
+          trigger_op?: string | null
+        }
+        Relationships: []
+      }
       step_job_mapping: {
         Row: {
           job_types: string[]
@@ -84885,6 +84933,10 @@ export type Database = {
       }
       admin_check_heal_conflicts: {
         Args: { p_package_id: string; p_planned_job_types?: string[] }
+        Returns: Json
+      }
+      admin_check_publish_readiness: {
+        Args: { p_package_id: string }
         Returns: Json
       }
       admin_clear_job_quarantine: {

@@ -17,6 +17,8 @@
     "ci:schema:offline": "node scripts/schema-drift/offline.mjs",
     "ci:schema:online": "node scripts/schema-drift/online.mjs",
     "ci:audit": "npm audit --audit-level=high",
+    "ci:no-record-update": "node scripts/check-record-update.mjs",
+    "codemod:record-update": "node scripts/codemod-record-update.mjs",
     "audit:master": "node scripts/master-platform-audit.mjs",
     "audit:master:full": "node scripts/master-platform-audit.mjs --full",
     "audit:master:json": "node scripts/master-platform-audit.mjs --full --json",
