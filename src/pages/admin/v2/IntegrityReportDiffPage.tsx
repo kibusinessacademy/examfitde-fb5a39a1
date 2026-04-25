@@ -86,8 +86,8 @@ export default function IntegrityReportDiffPage() {
     queryFn: async () => {
       const { data, error } = await supabase.rpc('admin_integrity_report_diff', {
         p_package_id: pkg,
-        p_version_a: vA ? parseInt(vA, 10) : null,
-        p_version_b: vB ? parseInt(vB, 10) : null,
+        p_version_a: vA ? parseInt(vA, 10) : undefined,
+        p_version_b: vB ? parseInt(vB, 10) : undefined,
       });
       if (error) throw error;
       return data as unknown as DiffResult;
