@@ -47,6 +47,7 @@ export function PurgeExhaustionButton({
   variant = 'outline',
   size = 'sm',
   className,
+  onPurged,
 }: Props) {
   const { toast } = useToast();
   const qc = useQueryClient();
