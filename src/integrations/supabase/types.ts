@@ -1078,6 +1078,72 @@ export type Database = {
           },
         ]
       }
+      ai_tutor_audit: {
+        Row: {
+          block_reason: string | null
+          citation_count: number
+          competency_id: string | null
+          created_at: string
+          curriculum_id: string | null
+          decision: string
+          generation_id: string | null
+          id: string
+          lesson_id: string | null
+          metadata: Json
+          mode: string
+          prompt_excerpt: string | null
+          response_excerpt: string | null
+          role: string | null
+          session_id: string | null
+          source_refs: Json
+          user_id: string
+          validator_decision: string | null
+          validator_score: number | null
+        }
+        Insert: {
+          block_reason?: string | null
+          citation_count?: number
+          competency_id?: string | null
+          created_at?: string
+          curriculum_id?: string | null
+          decision: string
+          generation_id?: string | null
+          id?: string
+          lesson_id?: string | null
+          metadata?: Json
+          mode: string
+          prompt_excerpt?: string | null
+          response_excerpt?: string | null
+          role?: string | null
+          session_id?: string | null
+          source_refs?: Json
+          user_id: string
+          validator_decision?: string | null
+          validator_score?: number | null
+        }
+        Update: {
+          block_reason?: string | null
+          citation_count?: number
+          competency_id?: string | null
+          created_at?: string
+          curriculum_id?: string | null
+          decision?: string
+          generation_id?: string | null
+          id?: string
+          lesson_id?: string | null
+          metadata?: Json
+          mode?: string
+          prompt_excerpt?: string | null
+          response_excerpt?: string | null
+          role?: string | null
+          session_id?: string | null
+          source_refs?: Json
+          user_id?: string
+          validator_decision?: string | null
+          validator_score?: number | null
+        }
+        Relationships: []
+      }
       ai_tutor_context_index: {
         Row: {
           created_at: string
@@ -28100,6 +28166,57 @@ export type Database = {
           id?: string
           intent?: string | null
           source?: string | null
+        }
+        Relationships: []
+      }
+      learner_course_grants: {
+        Row: {
+          activated_at: string | null
+          created_at: string
+          curriculum_id: string
+          granted_at: string
+          id: string
+          metadata: Json
+          onboarding_status: string
+          order_id: string | null
+          product_id: string | null
+          source: string
+          source_ref: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          activated_at?: string | null
+          created_at?: string
+          curriculum_id: string
+          granted_at?: string
+          id?: string
+          metadata?: Json
+          onboarding_status?: string
+          order_id?: string | null
+          product_id?: string | null
+          source?: string
+          source_ref?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          activated_at?: string | null
+          created_at?: string
+          curriculum_id?: string
+          granted_at?: string
+          id?: string
+          metadata?: Json
+          onboarding_status?: string
+          order_id?: string | null
+          product_id?: string | null
+          source?: string
+          source_ref?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -75462,6 +75579,16 @@ export type Database = {
           },
         ]
       }
+      v_ai_tutor_audit_kpis: {
+        Row: {
+          avg_citations: number | null
+          avg_validator_score: number | null
+          cnt: number | null
+          day: string | null
+          decision: string | null
+        }
+        Relationships: []
+      }
       v_audit_finding_trends: {
         Row: {
           all_healed: boolean | null
@@ -90689,6 +90816,17 @@ export type Database = {
         Returns: Json
       }
       get_worker_scaling_recommendations: { Args: never; Returns: Json }
+      grant_learner_course_access: {
+        Args: {
+          p_curriculum_id: string
+          p_metadata?: Json
+          p_order_id?: string
+          p_product_id?: string
+          p_source?: string
+          p_user_id: string
+        }
+        Returns: string
+      }
       growth_user_candidates: {
         Args: { p_cutoff: string; p_limit?: number }
         Returns: {
@@ -91155,6 +91293,10 @@ export type Database = {
         Returns: Json
       }
       populate_admin_search_index: { Args: never; Returns: undefined }
+      process_order_paid_fulfillment: {
+        Args: { p_order_id: string }
+        Returns: undefined
+      }
       promote_exam_questions_from_council: {
         Args: { p_curriculum_id: string; p_limit?: number }
         Returns: Json
@@ -92062,6 +92204,31 @@ export type Database = {
       try_claim_pipeline_slot: {
         Args: { p_locked_by?: string; p_package_id: string }
         Returns: boolean
+      }
+      tutor_access_check: {
+        Args: { p_curriculum_id: string; p_daily_limit?: number }
+        Returns: Json
+      }
+      tutor_log_audit: {
+        Args: {
+          p_block_reason: string
+          p_competency_id: string
+          p_curriculum_id: string
+          p_decision: string
+          p_generation_id: string
+          p_lesson_id: string
+          p_metadata?: Json
+          p_mode: string
+          p_prompt_excerpt: string
+          p_response_excerpt: string
+          p_role: string
+          p_session_id: string
+          p_source_refs: Json
+          p_user_id: string
+          p_validator_decision: string
+          p_validator_score: number
+        }
+        Returns: string
       }
       update_admin_auto_heal_status: {
         Args: { p_notes?: string; p_queue_id: string; p_status: string }
