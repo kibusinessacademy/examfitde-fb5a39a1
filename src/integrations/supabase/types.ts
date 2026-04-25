@@ -89721,6 +89721,7 @@ export type Database = {
               trap_type: string
             }[]
           }
+      fn_selftest_status_qc_sync: { Args: never; Returns: Json }
       fn_share_fi_core_questions: { Args: never; Returns: Json }
       fn_share_fi_handbook_chapters: { Args: never; Returns: number }
       fn_should_hollow_quarantine_package: {
