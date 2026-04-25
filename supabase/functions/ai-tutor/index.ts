@@ -942,6 +942,42 @@ REGELN für Humor-Nutzung:
           }).catch(console.error);
         }
 
+        // Loop C: Strict-RAG citation validation + audit (best-effort)
+        if (validMode !== AI_MODES.EXAM && fullResponse) {
+          try {
+            const cit = extractAndValidateCitations(fullResponse, allowedSources);
+            await writeTutorAudit(supabase, {
+              userId: user.id,
+              sessionId: persistentSessionId,
+              curriculumId: (context.curriculumId as string) || null,
+              lessonId: (context.lessonId as string) || null,
+              competencyId: (context.competencyId as string) || null,
+              generationId: generationId || null,
+              mode: validMode,
+              role: effectiveRole,
+              decision: cit.ok
+                ? "allowed"
+                : (cit.reason === "no_sources_block" || cit.reason === "empty_sources_block"
+                    ? "blocked_no_citation"
+                    : "validator_rejected"),
+              blockReason: cit.reason || null,
+              sourceRefs: cit.citations,
+              promptExcerpt: typeof message === "string" ? message : null,
+              responseExcerpt: fullResponse,
+              metadata: {
+                invalid_ids: cit.invalidIds,
+                allowed_counts: {
+                  lessons: allowedSources.lessons.length,
+                  competencies: allowedSources.competencies.length,
+                  blueprints: allowedSources.blueprints.length,
+                },
+              },
+            });
+          } catch (e) {
+            console.warn("[ai-tutor] citation audit failed:", e);
+          }
+        }
+
         if (generationId && validMode !== AI_MODES.EXAM) {
           postValidateTutorResponse(supabase, user.id, message, fullResponse, resolvedContext, generationId, professionName).catch(console.error);
         }
