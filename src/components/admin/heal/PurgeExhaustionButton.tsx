@@ -34,6 +34,9 @@ interface Props {
   variant?: 'default' | 'outline' | 'secondary';
   size?: 'sm' | 'default';
   className?: string;
+  /** Optional callback fired after a successful purge (e.g. to push the
+   * package_id into a parent live-tracking panel). */
+  onPurged?: (info: { packageId: string; refillEnqueued: boolean }) => void;
 }
 
 export function PurgeExhaustionButton({
@@ -44,6 +47,7 @@ export function PurgeExhaustionButton({
   variant = 'outline',
   size = 'sm',
   className,
+  onPurged,
 }: Props) {
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -73,7 +77,9 @@ export function PurgeExhaustionButton({
       });
       qc.invalidateQueries({ queryKey: ['admin'] });
       qc.invalidateQueries({ queryKey: ['stale-marker-diff'] });
+      qc.invalidateQueries({ queryKey: ['stale-marker-jobs'] });
       qc.invalidateQueries({ queryKey: ['package', packageId] });
+      onPurged?.({ packageId, refillEnqueued });
       setOpen(false);
     },
     onError: (err: Error) => {

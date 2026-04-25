@@ -38,6 +38,7 @@ import {
   Target,
   ArrowRight,
 } from 'lucide-react';
+import CrmDealsDrilldown from './CrmDealsDrilldown';
 
 type Health = 'critical' | 'warning' | 'ok' | 'unknown';
 
@@ -307,6 +308,9 @@ export default function MarketingIntelligencePanel() {
           )}
         </CardContent>
       </Card>
+
+      {/* Section: CRM Deals Drilldown — pro Deal Orders/Activities/Email-Sequences */}
+      <CrmDealsDrilldown />
 
       {/* Section: Email */}
       <Card>

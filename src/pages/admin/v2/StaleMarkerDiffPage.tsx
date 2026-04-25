@@ -3,7 +3,7 @@
  * (v_admin_stale_marker_diff). Erlaubt selektive und Bulk-Bereinigung
  * stale Exhaustion-Marker mit optionalem Sofort-Refill.
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
 import {
   Table,
   TableBody,
@@ -83,6 +84,9 @@ export default function StaleMarkerDiffPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkRefill, setBulkRefill] = useState(true);
   const [bulkOpen, setBulkOpen] = useState(false);
+  const [autoPreselect, setAutoPreselect] = useState(true);
+  // Tracks recently purged package_ids → for live job status panel
+  const [trackedIds, setTrackedIds] = useState<string[]>([]);
 
   const { data, isLoading, refetch, isFetching } = useQuery({
     queryKey: ['stale-marker-diff'],
@@ -112,8 +116,31 @@ export default function StaleMarkerDiffPage() {
     });
   }, [data, filter, search]);
 
-  const eligibleIds = filtered.filter((r) => r.drift_class.startsWith('STALE_EXHAUSTION') && (r.active_jobs ?? 0) === 0).map((r) => r.package_id);
+  const eligibleIds = useMemo(
+    () =>
+      filtered
+        .filter((r) => r.drift_class.startsWith('STALE_EXHAUSTION') && (r.active_jobs ?? 0) === 0)
+        .map((r) => r.package_id),
+    [filtered],
+  );
   const selectedEligible = eligibleIds.filter((id) => selected.has(id));
+
+  // Auto-Preselect: alle eligible Pakete automatisch markieren wenn aktiviert.
+  // Re-syncs whenever filter/data changes, ohne manuelle Auswahl zu zerstören
+  // (Wir setzen nur den Snapshot der eligibles).
+  useEffect(() => {
+    if (!autoPreselect) return;
+    setSelected((prev) => {
+      const next = new Set(prev);
+      // Add all currently eligible
+      eligibleIds.forEach((id) => next.add(id));
+      // Remove non-eligible (e.g. nach Refresh, weil active_jobs>0 wurde)
+      Array.from(next).forEach((id) => {
+        if (!eligibleIds.includes(id)) next.delete(id);
+      });
+      return next;
+    });
+  }, [autoPreselect, eligibleIds.join(',')]);
 
   const toggleAll = () => {
     if (selectedEligible.length === eligibleIds.length && eligibleIds.length > 0) {
@@ -148,14 +175,40 @@ export default function StaleMarkerDiffPage() {
         title: 'Bulk-Bereinigung abgeschlossen',
         description: `${ok}/${results.length} bereinigt · ${fail} fehlgeschlagen${bulkRefill ? ' · Refill enqueued' : ''}`,
       });
+      // Track all successfully purged ids for live-status panel (last 60 min retention via job query)
+      const okIds = results.filter((r) => r.ok).map((r) => r.id);
+      setTrackedIds((prev) => Array.from(new Set([...okIds, ...prev])).slice(0, 50));
       setSelected(new Set());
       setBulkOpen(false);
       qc.invalidateQueries({ queryKey: ['stale-marker-diff'] });
       qc.invalidateQueries({ queryKey: ['admin'] });
+      qc.invalidateQueries({ queryKey: ['stale-marker-jobs'] });
     },
     onError: (err: Error) => {
       toast({ title: 'Bulk-Fehler', description: err.message, variant: 'destructive' });
     },
+  });
+
+  // Live job-status: zeigt run_integrity_check (und Folge-Jobs) für tracked
+  // package_ids. Wird alle 5s gepollt um schnell Status-Übergänge zu sehen.
+  const { data: liveJobs } = useQuery({
+    enabled: trackedIds.length > 0,
+    queryKey: ['stale-marker-jobs', trackedIds.join(',')],
+    queryFn: async () => {
+      const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+      const { data, error } = await (supabase as any)
+        .from('job_queue')
+        .select(
+          'id,job_type,status,package_id,lane,priority,attempts,created_at,started_at,completed_at,run_after,last_error',
+        )
+        .in('package_id', trackedIds)
+        .gte('created_at', since)
+        .order('created_at', { ascending: false })
+        .limit(200);
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+    refetchInterval: 5_000,
   });
 
   const counts = useMemo(() => {
@@ -223,6 +276,16 @@ export default function StaleMarkerDiffPage() {
               {isFetching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCcw className="h-3.5 w-3.5" />}
               Reload
             </Button>
+            <div className="flex items-center gap-1.5 ml-2 rounded-md border bg-muted/40 px-2 py-1">
+              <Switch
+                id="auto-preselect"
+                checked={autoPreselect}
+                onCheckedChange={setAutoPreselect}
+              />
+              <Label htmlFor="auto-preselect" className="text-[11px] cursor-pointer">
+                Auto-Preselect ({eligibleIds.length})
+              </Label>
+            </div>
             <div className="ml-auto flex items-center gap-2">
               <span className="text-xs text-muted-foreground">
                 {selectedEligible.length}/{eligibleIds.length} selektiert
@@ -323,6 +386,11 @@ export default function StaleMarkerDiffPage() {
                             packageTitle={r.title}
                             driftClass={r.drift_class}
                             recommendedAction={r.recommended_action}
+                            onPurged={({ packageId }) =>
+                              setTrackedIds((prev) =>
+                                Array.from(new Set([packageId, ...prev])).slice(0, 50),
+                              )
+                            }
                           />
                         ) : (
                           <span className="text-[10px] text-muted-foreground">n/a</span>
@@ -336,6 +404,90 @@ export default function StaleMarkerDiffPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Live Job-Status für tracked Pakete (zuletzt purged) */}
+      {trackedIds.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <RefreshCcw className="h-4 w-4 text-primary" />
+                Live Job-Status (Refill-Tracking)
+                <Badge variant="outline" className="text-[10px]">
+                  {trackedIds.length} tracked · poll 5s
+                </Badge>
+              </CardTitle>
+              <Button size="sm" variant="ghost" onClick={() => setTrackedIds([])}>
+                Tracking leeren
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-[10px]">Paket</TableHead>
+                  <TableHead className="text-[10px]">Job-Type</TableHead>
+                  <TableHead className="text-[10px]">Status</TableHead>
+                  <TableHead className="text-[10px]">Lane</TableHead>
+                  <TableHead className="text-[10px] text-right">Att.</TableHead>
+                  <TableHead className="text-[10px]">Started</TableHead>
+                  <TableHead className="text-[10px]">Completed</TableHead>
+                  <TableHead className="text-[10px]">Last Error</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(liveJobs ?? []).length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="py-6 text-center text-xs text-muted-foreground">
+                      Noch keine Jobs für tracked Pakete sichtbar — Refill startet üblicherweise innerhalb von 30s…
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  (liveJobs ?? []).map((j: any) => {
+                    const tone =
+                      j.status === 'done'
+                        ? 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30'
+                        : j.status === 'processing'
+                          ? 'bg-blue-500/15 text-blue-700 border-blue-500/30'
+                          : j.status === 'failed' || j.status?.startsWith('cancelled')
+                            ? 'bg-destructive/10 text-destructive border-destructive/30'
+                            : j.status === 'pending'
+                              ? 'bg-amber-500/15 text-amber-700 border-amber-500/30'
+                              : 'bg-muted text-muted-foreground';
+                    return (
+                      <TableRow key={j.id}>
+                        <TableCell className="text-[10px] font-mono">
+                          {j.package_id?.slice(0, 8)}…
+                        </TableCell>
+                        <TableCell className="text-[10px]">{j.job_type}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className={`text-[9px] ${tone}`}>
+                            {j.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-[10px]">{j.lane ?? '—'}</TableCell>
+                        <TableCell className="text-[10px] text-right tabular-nums">
+                          {j.attempts ?? 0}
+                        </TableCell>
+                        <TableCell className="text-[10px]">
+                          {j.started_at ? new Date(j.started_at).toLocaleTimeString('de-DE') : '—'}
+                        </TableCell>
+                        <TableCell className="text-[10px]">
+                          {j.completed_at ? new Date(j.completed_at).toLocaleTimeString('de-DE') : '—'}
+                        </TableCell>
+                        <TableCell className="text-[10px] text-destructive max-w-[240px] truncate">
+                          {j.last_error ?? '—'}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
