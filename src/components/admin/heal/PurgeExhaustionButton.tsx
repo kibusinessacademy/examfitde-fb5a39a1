@@ -34,6 +34,9 @@ interface Props {
   variant?: 'default' | 'outline' | 'secondary';
   size?: 'sm' | 'default';
   className?: string;
+  /** Optional callback fired after a successful purge (e.g. to push the
+   * package_id into a parent live-tracking panel). */
+  onPurged?: (info: { packageId: string; refillEnqueued: boolean }) => void;
 }
 
 export function PurgeExhaustionButton({
