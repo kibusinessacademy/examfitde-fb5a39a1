@@ -1,6 +1,6 @@
 import { lazy, Suspense } from 'react';
 import { Link } from 'react-router-dom';
-import { Loader2, Globe, ArrowLeft, BarChart3, FileText, Image, Link2, Settings, Euro, Share2, Search, Target, RefreshCw, Radar, Zap, Rocket, Tag, Music, Laugh } from 'lucide-react';
+import { Loader2, Globe, ArrowLeft, BarChart3, FileText, Image, Link2, Settings, Euro, Share2, Search, Target, RefreshCw, Radar, Zap, Rocket, Tag, Music, Laugh, Activity } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
@@ -22,6 +22,7 @@ const GrowthLoopManager = lazy(() => import('@/components/admin/growth/GrowthLoo
 const PromoCodesPanel = lazy(() => import('@/components/admin/marketing/AdminPromoCodesPanel'));
 const SongsDashboard = lazy(() => import('@/components/admin/songs/SongsDashboard'));
 const HumorQCPage = lazy(() => import('@/pages/admin/v2/HumorQCPage'));
+const MarketingIntelligencePanel = lazy(() => import('@/components/admin/marketing/MarketingIntelligencePanel'));
 
 const Loading = () => (
   <Card><CardContent className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></CardContent></Card>
@@ -99,6 +100,9 @@ export default function GrowthPage() {
           <TabsTrigger value="humor" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg">
             <Laugh className="h-3 w-3" /> Humor QC
           </TabsTrigger>
+          <TabsTrigger value="intel" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg data-[state=active]:text-primary">
+            <Activity className="h-3 w-3" /> Marketing-Intel
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="dashboard" className="mt-4"><Suspense fallback={<Loading />}><GrowthSeoCommandCenter /></Suspense></TabsContent>
@@ -119,6 +123,7 @@ export default function GrowthPage() {
         <TabsContent value="promo" className="mt-4"><Suspense fallback={<Loading />}><PromoCodesPanel /></Suspense></TabsContent>
         <TabsContent value="songs" className="mt-4"><Suspense fallback={<Loading />}><SongsDashboard /></Suspense></TabsContent>
         <TabsContent value="humor" className="mt-4"><Suspense fallback={<Loading />}><HumorQCPage /></Suspense></TabsContent>
+        <TabsContent value="intel" className="mt-4"><Suspense fallback={<Loading />}><MarketingIntelligencePanel /></Suspense></TabsContent>
       </Tabs>
     </div>
   );

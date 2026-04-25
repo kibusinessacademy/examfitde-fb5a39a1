@@ -10,6 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { ActionabilityBadge, RecommendedActionButton } from "./RecommendedActionButton";
 import { RefreshIntegrityWithDiffButton } from "./RefreshIntegrityWithDiffButton";
 import { PackageBlockDiagnosisPanel } from "./PackageBlockDiagnosisPanel";
+import { PurgeExhaustionButton } from "./PurgeExhaustionButton";
 import type { HealWorklistRow as Row } from "./types";
 import { ACTION_DESCRIPTION, ACTION_LABEL } from "./types";
 import { formatDistanceToNow } from "date-fns";
@@ -69,7 +70,13 @@ export function PackageDrawer({ packageId, rows, onClose, onAction }: Props) {
                   actionability={row.actionability_class}
                   onClick={() => onAction(row)}
                 />
-                <RefreshIntegrityWithDiffButton packageId={row.package_id} />
+                <div className="flex flex-wrap gap-2">
+                  <RefreshIntegrityWithDiffButton packageId={row.package_id} />
+                  <PurgeExhaustionButton
+                    packageId={row.package_id}
+                    packageTitle={row.package_title}
+                  />
+                </div>
               </div>
 
               {/* Why this action */}
