@@ -146,6 +146,7 @@ const RetryLoopDetectorPage = lazyRetry(() => import('@/pages/admin/v2/RetryLoop
 const IntegrityReportDiffPage = lazyRetry(() => import('@/pages/admin/v2/IntegrityReportDiffPage'));
 const HealStrategySettingsPage = lazyRetry(() => import('@/pages/admin/v2/HealStrategySettingsPage'));
 const StaleMarkerDiffPage = lazyRetry(() => import('@/pages/admin/v2/StaleMarkerDiffPage'));
+const CockpitPage = lazyRetry(() => import('@/pages/admin/v2/CockpitPage'));
 
 // ExamFit@work public pages
 const WorkHomePage = lazyRetry(() => import('@/pages/work/WorkHomePage'));
@@ -357,7 +358,8 @@ const AppRoutes = () => {
 
         {/* ====== ADMIN V2 (SSOT-only) ====== */}
         <Route path="/admin" element={<AdminV2Layout />}>
-          <Route index element={<Navigate to="command" replace />} />
+          <Route index element={<Navigate to="cockpit" replace />} />
+          <Route path="cockpit" element={<CockpitPage />} />
           <Route path="command" element={<LeitstellePage />} />
           <Route path="studio" element={<KursePage />} />
           <Route path="studio/:packageId" element={<CourseWorkspace />} />

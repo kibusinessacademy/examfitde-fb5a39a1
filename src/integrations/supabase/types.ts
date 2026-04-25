@@ -7265,6 +7265,45 @@ export type Database = {
         }
         Relationships: []
       }
+      cockpit_daily_snapshots: {
+        Row: {
+          created_at: string
+          domain: string
+          id: string
+          primary_kpi: string | null
+          primary_value: number | null
+          reasons: string[] | null
+          score: number | null
+          secondary: Json | null
+          snapshot_date: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          domain: string
+          id?: string
+          primary_kpi?: string | null
+          primary_value?: number | null
+          reasons?: string[] | null
+          score?: number | null
+          secondary?: Json | null
+          snapshot_date?: string
+          status: string
+        }
+        Update: {
+          created_at?: string
+          domain?: string
+          id?: string
+          primary_kpi?: string | null
+          primary_value?: number | null
+          reasons?: string[] | null
+          score?: number | null
+          secondary?: Json | null
+          snapshot_date?: string
+          status?: string
+        }
+        Relationships: []
+      }
       companies: {
         Row: {
           address: Json | null
@@ -90107,6 +90146,7 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      get_cockpit_status: { Args: never; Returns: Json }
       get_cohort_competency_overview: {
         Args: { p_curriculum_id: string; p_organization_id?: string }
         Returns: Json
@@ -91197,6 +91237,7 @@ export type Database = {
         Args: { p_reason: string; p_wave_id: string }
         Returns: Json
       }
+      persist_cockpit_daily_snapshot: { Args: never; Returns: number }
       pick_content_hook: {
         Args: { p_category: string; p_pool_size?: number }
         Returns: {
