@@ -470,3 +470,6 @@ verify_jwt = false
 
 [functions.admin-revenue-funnel-audit]
 verify_jwt = false
+
+[functions.email-sequence-worker]
+verify_jwt = false

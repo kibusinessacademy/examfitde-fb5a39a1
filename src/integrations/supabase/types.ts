@@ -21300,33 +21300,64 @@ export type Database = {
       }
       email_delivery_queue: {
         Row: {
+          attempts: number
+          audience: string | null
+          contact_id: string | null
           created_at: string
           id: string
+          idempotency_key: string | null
+          last_error: string | null
           lead_id: string | null
+          personalization: Json
+          recipient_email: string | null
           scheduled_for: string
+          sent_at: string | null
           sequence_type: string
           status: string
           step_number: number
         }
         Insert: {
+          attempts?: number
+          audience?: string | null
+          contact_id?: string | null
           created_at?: string
           id?: string
+          idempotency_key?: string | null
+          last_error?: string | null
           lead_id?: string | null
+          personalization?: Json
+          recipient_email?: string | null
           scheduled_for: string
+          sent_at?: string | null
           sequence_type: string
           status?: string
           step_number: number
         }
         Update: {
+          attempts?: number
+          audience?: string | null
+          contact_id?: string | null
           created_at?: string
           id?: string
+          idempotency_key?: string | null
+          last_error?: string | null
           lead_id?: string | null
+          personalization?: Json
+          recipient_email?: string | null
           scheduled_for?: string
+          sent_at?: string | null
           sequence_type?: string
           status?: string
           step_number?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "email_delivery_queue_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "crm_contacts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "email_delivery_queue_lead_id_fkey"
             columns: ["lead_id"]
@@ -88311,6 +88342,15 @@ export type Database = {
           p_user_id?: string
         }
         Returns: string
+      }
+      enroll_email_sequence: {
+        Args: {
+          p_audience: string
+          p_contact_id: string
+          p_cta_url?: string
+          p_sequence_type: string
+        }
+        Returns: number
       }
       ensure_lti_learner_identity: {
         Args: {

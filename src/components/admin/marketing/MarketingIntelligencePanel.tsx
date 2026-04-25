@@ -39,6 +39,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import CrmDealsDrilldown from './CrmDealsDrilldown';
+import EmailSequencesPanel from './EmailSequencesPanel';
 
 type Health = 'critical' | 'warning' | 'ok' | 'unknown';
 
@@ -311,6 +312,9 @@ export default function MarketingIntelligencePanel() {
 
       {/* Section: CRM Deals Drilldown — pro Deal Orders/Activities/Email-Sequences */}
       <CrmDealsDrilldown />
+
+      {/* Section: Email Sequences (Loop B) — Live-Versandstatus */}
+      <EmailSequencesPanel />
 
       {/* Section: Email */}
       <Card>
