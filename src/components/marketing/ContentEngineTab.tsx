@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import type { TablesUpdate } from '@/integrations/supabase/types';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -141,7 +142,7 @@ export default function ContentEngineTab() {
   const updateStatus = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
       const now = new Date().toISOString();
-      const updates: Record<string, unknown> = { status, updated_at: now };
+      const updates: TablesUpdate<'content_jobs'> = { status, updated_at: now };
       if (status === 'needs_review') {
         updates.reviewed_at = now;
         updates.reviewed_by = user?.id ?? null;
