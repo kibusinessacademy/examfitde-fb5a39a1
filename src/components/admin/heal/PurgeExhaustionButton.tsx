@@ -77,7 +77,9 @@ export function PurgeExhaustionButton({
       });
       qc.invalidateQueries({ queryKey: ['admin'] });
       qc.invalidateQueries({ queryKey: ['stale-marker-diff'] });
+      qc.invalidateQueries({ queryKey: ['stale-marker-jobs'] });
       qc.invalidateQueries({ queryKey: ['package', packageId] });
+      onPurged?.({ packageId, refillEnqueued });
       setOpen(false);
     },
     onError: (err: Error) => {
