@@ -241,6 +241,7 @@ export function PackageDiagnostics({ packageId }: Props) {
 
           {/* ── Root Cause ── */}
           <TabsContent value="root_cause" className="space-y-3 pt-3">
+            <SuggestRepairActionPanel packageId={packageId} />
             {rootCauseQ.isLoading && <Skeleton className="h-32 w-full" />}
             {rootCauseQ.error && (
               <Alert variant="destructive">
