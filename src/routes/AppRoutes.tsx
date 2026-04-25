@@ -86,6 +86,7 @@ const PruefungsfragenPage = lazyRetry(() => import('@/pages/seo/PruefungsfragenP
 const MuendlichePruefungPage = lazyRetry(() => import('@/pages/seo/MuendlichePruefungPage'));
 const ProbepruefungPage = lazyRetry(() => import('@/pages/seo/ProbepruefungPage'));
 const LernplanPruefungPage = lazyRetry(() => import('@/pages/seo/LernplanPruefungPage'));
+const NewsletterConfirmPage = lazyRetry(() => import('@/pages/NewsletterConfirmPage'));
 
 // IHK + AEVO Pillar-Cluster Pages
 const IHKPruefungsvorbereitungPage = lazyRetry(() => import('@/pages/seo/IHKPruefungsvorbereitungPage'));
@@ -385,6 +386,7 @@ const AppRoutes = () => {
 
         {/* All unknown paths → 404 (admin wildcard already catches /admin/*) */}
         {/* 404 */}
+        <Route path="/newsletter/confirm" element={<NewsletterConfirmPage />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </Suspense>
