@@ -127,6 +127,7 @@ const LeitstellePage = lazyRetry(() => import('@/pages/admin/v2/LeitstellePage')
 const OrgEnterprisePage = lazyRetry(() => import('@/pages/org/OrgEnterprisePage'));
 const KursePage = lazyRetry(() => import('@/pages/admin/v2/KursePage'));
 const QueuePage = lazyRetry(() => import('@/pages/admin/v2/QueuePage'));
+const UnifiedQueueCockpit = lazyRetry(() => import('@/pages/admin/v2/UnifiedQueueCockpit'));
 const GrowthPage = lazyRetry(() => import('@/pages/admin/v2/GrowthPage'));
 const TestAreaPage = lazyRetry(() => import('@/pages/admin/v2/TestAreaPage'));
 const CourseWorkspace = lazyRetry(() => import('@/pages/admin/CourseWorkspace'));
@@ -363,21 +364,24 @@ const AppRoutes = () => {
           <Route path="command" element={<LeitstellePage />} />
           <Route path="studio" element={<KursePage />} />
           <Route path="studio/:packageId" element={<CourseWorkspace />} />
-          <Route path="queue" element={<QueuePage />} />
+          {/* === Unified Queue Cockpit (SSOT) === */}
+          <Route path="queue" element={<UnifiedQueueCockpit />} />
+          {/* Legacy redirects — alte Hubs leiten in Tab des Cockpits */}
+          <Route path="heal-cockpit" element={<Navigate to="/admin/queue?tab=heal" replace />} />
+          <Route path="heal-cockpit/package/:packageId" element={<PackageDiagnosticsPage />} />
+          <Route path="queue/stagnation" element={<Navigate to="/admin/queue?tab=stagnation" replace />} />
+          <Route path="audit/bypass" element={<Navigate to="/admin/queue?tab=audit" replace />} />
+          <Route path="ops/stuck-steps" element={<Navigate to="/admin/queue?tab=stuck" replace />} />
+          <Route path="ops/repair-queue" element={<Navigate to="/admin/queue?tab=repair" replace />} />
+          <Route path="ops/retry-loops" element={<Navigate to="/admin/queue?tab=retry" replace />} />
+
           <Route path="jobs/timeline" element={<JobTimelinePage />} />
           <Route path="growth" element={<GrowthPage />} />
           <Route path="support" element={<SupportPage />} />
           <Route path="kpi" element={<KPIPage />} />
-          <Route path="heal-cockpit" element={<HealCockpitPage />} />
-          <Route path="heal-cockpit/package/:packageId" element={<PackageDiagnosticsPage />} />
           <Route path="security/findings" element={<SecurityFindingsPage />} />
-          <Route path="queue/stagnation" element={<QueueStagnationPage />} />
-          <Route path="audit/bypass" element={<BypassAuditPage />} />
           <Route path="runbook/integrity-check" element={<IntegrityCheckRunbookPage />} />
-          <Route path="ops/stuck-steps" element={<StuckStepsDashboardPage />} />
-          <Route path="ops/repair-queue" element={<RepairQueueDashboardPage />} />
           <Route path="ops/step-done-audit" element={<StepDoneAuditPage />} />
-          <Route path="ops/retry-loops" element={<RetryLoopDetectorPage />} />
           <Route path="ops/integrity-diff" element={<IntegrityReportDiffPage />} />
           <Route path="ops/integrity-diff/:packageId" element={<IntegrityReportDiffPage />} />
           <Route path="ops/heal-settings" element={<HealStrategySettingsPage />} />

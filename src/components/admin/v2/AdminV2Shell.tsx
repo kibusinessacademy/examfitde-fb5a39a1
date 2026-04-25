@@ -8,13 +8,12 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { Badge } from '@/components/ui/badge';
 
-/** SSOT: 9 operative areas (Cockpit als Top-Einstieg, Loop D) */
+/** SSOT: 8 operative areas (Cockpit Top-Einstieg, Queue als Unified Hub) */
 const NAV_ITEMS = [
   { to: '/admin/cockpit', label: 'Cockpit', icon: Gauge },
   { to: '/admin/command', label: 'Leitstelle', icon: LayoutDashboard },
   { to: '/admin/studio', label: 'Kurse', icon: Package },
-  { to: '/admin/queue', label: 'Queue', icon: ListChecks },
-  { to: '/admin/heal-cockpit', label: 'Heal-Cockpit', icon: Stethoscope },
+  { to: '/admin/queue', label: 'Queue & Heal', icon: Stethoscope },
   { to: '/admin/growth', label: 'Growth', icon: Globe },
   { to: '/admin/support', label: 'Support', icon: HeadphonesIcon },
   { to: '/admin/kpi', label: 'KPIs', icon: BarChart3 },

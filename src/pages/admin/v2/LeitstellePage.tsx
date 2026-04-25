@@ -38,6 +38,8 @@ const IntegrationHub = lazy(() => import('@/components/admin/enterprise/Integrat
 const SalesDemoPanel = lazy(() => import('@/components/admin/enterprise/SalesDemoPanel'));
 
 const RepairExhaustedAlert = lazy(() => import('@/components/admin/cards/RepairExhaustedAlert').then(m => ({ default: m.RepairExhaustedAlert })));
+const SmartNextBestAction = lazy(() => import('@/components/admin/leitstelle/SmartNextBestAction').then(m => ({ default: m.SmartNextBestAction })));
+const RealtimePulse = lazy(() => import('@/components/admin/leitstelle/RealtimePulse').then(m => ({ default: m.RealtimePulse })));
 const BlockedPackagesCard = lazy(() => import('@/components/admin/heal/BlockedPackagesCard').then(m => ({ default: m.BlockedPackagesCard })));
 const ExamPoolAuditCard = lazy(() => import('@/components/admin/cards/ExamPoolAuditCard'));
 const BlockedButReadyCard = lazy(() => import('@/components/admin/cards/BlockedButReadyCard'));
@@ -202,6 +204,16 @@ export default function LeitstellePage() {
 
         {/* Original Overview Content */}
         <TabsContent value="overview" className="space-y-6">
+
+      {/* ═══ NEW: Smart Next-Best-Action (ROI-priorisiert) ═══ */}
+      <Suspense fallback={null}>
+        <SmartNextBestAction />
+      </Suspense>
+
+      {/* ═══ NEW: Realtime Pulse + Predictive Alerts ═══ */}
+      <Suspense fallback={null}>
+        <RealtimePulse />
+      </Suspense>
 
       {/* ═══ SECTION 1: Critical Alerts (always visible, top priority) ═══ */}
       <Suspense fallback={null}>
