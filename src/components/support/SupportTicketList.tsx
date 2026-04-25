@@ -1,5 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import type { TablesUpdate } from '@/integrations/supabase/types';
+import { updateTable } from '@/integrations/supabase/typedUpdate';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -62,13 +64,12 @@ export default function SupportTicketList() {
 
   const updateStatus = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      const updates: Record<string, unknown> = { status, updated_at: new Date().toISOString() };
-      if (status === 'resolved') updates.resolved_at = new Date().toISOString();
-      
-      const { error } = await supabase
-        .from('support_tickets')
-        .update(updates as never)
-        .eq('id', id);
+      const updates: TablesUpdate<'support_tickets'> = {
+        status,
+        updated_at: new Date().toISOString(),
+        ...(status === 'resolved' ? { resolved_at: new Date().toISOString() } : {}),
+      };
+      const { error } = await updateTable('support_tickets', id, updates);
       if (error) throw error;
     },
     onSuccess: () => {
