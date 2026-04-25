@@ -586,8 +586,56 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Invalid token' }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    // ── Loop C: Tutor Access Gate (Entitlement + Daily Rate Limit) ──
+    if (context.curriculumId) {
+      try {
+        const { data: gate } = await supabase.rpc("tutor_access_check", {
+          p_curriculum_id: context.curriculumId as string,
+          p_daily_limit: 200,
+        });
+        const allowed = (gate as Record<string, unknown> | null)?.allowed === true;
+        const reason = String((gate as Record<string, unknown> | null)?.reason || "unknown");
+        if (!allowed) {
+          await writeTutorAudit(supabase, {
+            userId: user.id,
+            curriculumId: context.curriculumId as string,
+            lessonId: (context.lessonId as string) || null,
+            competencyId: (context.competencyId as string) || null,
+            mode: validMode,
+            role: validRole,
+            decision: reason === "rate_limit" ? "blocked_rate_limit" : "blocked_no_entitlement",
+            blockReason: reason,
+            promptExcerpt: typeof message === "string" ? message : null,
+            metadata: { gate },
+          });
+          const userMsg = reason === "rate_limit"
+            ? "Tageslimit für KI-Tutor-Anfragen erreicht. Bitte morgen wieder."
+            : "Für dieses Curriculum ist der KI-Tutor nicht freigeschaltet.";
+          return new Response(
+            JSON.stringify({ error: userMsg, code: reason, wasBlocked: true, blockReason: reason }),
+            { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
+      } catch (e) {
+        console.warn("[ai-tutor] tutor_access_check failed (fail-open):", e);
+      }
+    }
+
     // ── SSOT Context Loader (server-side) ──
     const { contextPrompt, resolvedContext, professionName, programType } = await loadSSOTContext(supabase, context);
+
+    // ── Loop C: Strict-RAG allow-list for citation contract ──
+    let allowedSources: AllowedSources = {
+      lessons: [], competencies: [], blueprints: [], miniChecks: [], examSessions: [],
+    };
+    if (context.curriculumId || context.lessonId || context.competencyId) {
+      allowedSources = await loadAllowedSources(supabase, {
+        userId: user.id,
+        curriculumId: (context.curriculumId as string) || null,
+        lessonId: (context.lessonId as string) || null,
+        competencyId: (context.competencyId as string) || null,
+      });
+    }
 
     // ── Persistent Session Management ──
     let persistentSessionId: string | null = null;
