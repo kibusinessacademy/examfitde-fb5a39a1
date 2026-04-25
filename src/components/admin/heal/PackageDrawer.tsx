@@ -68,6 +68,7 @@ export function PackageDrawer({ packageId, rows, onClose, onAction }: Props) {
                   actionability={row.actionability_class}
                   onClick={() => onAction(row)}
                 />
+                <RefreshIntegrityWithDiffButton packageId={row.package_id} />
               </div>
 
               {/* Why this action */}
