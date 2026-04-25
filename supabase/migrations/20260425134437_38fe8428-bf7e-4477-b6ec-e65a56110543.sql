@@ -1,0 +1,1 @@
+ALTER VIEW public.v_funnel_overview_24h SET (security_invoker = true);
