@@ -140,6 +140,7 @@ const IntegrityCheckRunbookPage = lazyRetry(() => import('@/pages/admin/v2/Integ
 const JobTimelinePage = lazyRetry(() => import('@/pages/admin/v2/JobTimelinePage'));
 const StuckStepsDashboardPage = lazyRetry(() => import('@/pages/admin/v2/StuckStepsDashboardPage'));
 const RepairQueueDashboardPage = lazyRetry(() => import('@/pages/admin/v2/RepairQueueDashboardPage'));
+const StepDoneAuditPage = lazyRetry(() => import('@/pages/admin/v2/StepDoneAuditPage'));
 
 // ExamFit@work public pages
 const WorkHomePage = lazyRetry(() => import('@/pages/work/WorkHomePage'));
@@ -368,6 +369,7 @@ const AppRoutes = () => {
           <Route path="runbook/integrity-check" element={<IntegrityCheckRunbookPage />} />
           <Route path="ops/stuck-steps" element={<StuckStepsDashboardPage />} />
           <Route path="ops/repair-queue" element={<RepairQueueDashboardPage />} />
+          <Route path="ops/step-done-audit" element={<StepDoneAuditPage />} />
           <Route path="test" element={<TestAreaPage />} />
           <Route path="*" element={<Navigate to="/admin/command" replace />} />
         </Route>
