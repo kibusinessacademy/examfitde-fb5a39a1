@@ -36,6 +36,7 @@ import FeatureFlagEditor from '@/components/admin/FeatureFlagEditor';
 import { useTrackConfig } from '@/hooks/useTrackConfig';
 import IntegrityReportCard from '@/components/admin/studio/IntegrityReportCard';
 import AutoGapCloserPanel from '@/components/admin/studio/AutoGapCloserPanel';
+import ExamPoolRootCausePanel from '@/components/admin/studio/ExamPoolRootCausePanel';
 import ExportTab from '@/components/admin/studio/ExportTab';
 import { ALL_PIPELINE_STEPS, diagnoseError } from '@/components/admin/studio/workspaceConfig';
 import type { PipelineStepUI } from '@/lib/pipeline-ui-registry';
@@ -513,6 +514,10 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
           {pkg.integrity_report && typeof pkg.integrity_report === 'object' && (
             <IntegrityReportCard report={pkg.integrity_report} curriculumId={(pkg as any)?.curriculum_id} packageId={packageId} />
           )}
+
+          {/* Root-Cause-Diagnose für TOO_FEW_APPROVED & verwandte Pool-Defizite */}
+          <ExamPoolRootCausePanel packageId={packageId} onlyWhenBlocked />
+
 
           {/* Error diagnostics */}
           {failedSteps.length > 0 && (
