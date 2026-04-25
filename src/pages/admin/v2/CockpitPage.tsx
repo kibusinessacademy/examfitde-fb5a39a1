@@ -99,7 +99,7 @@ export default function CockpitPage() {
         .gte("snapshot_date", new Date(Date.now() - 14 * 86400e3).toISOString().slice(0, 10))
         .order("snapshot_date", { ascending: true });
       if (error) throw error;
-      return (data ?? []) as Array<{ snapshot_date: string; domain: Domain; status: CockpitStatus; primary_value: number }>;
+      return (data ?? []) as unknown as Array<{ snapshot_date: string; domain: Domain; status: CockpitStatus; primary_value: number }>;
     },
     staleTime: 5 * 60_000,
   });
