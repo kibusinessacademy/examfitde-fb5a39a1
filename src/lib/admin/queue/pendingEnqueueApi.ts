@@ -11,6 +11,8 @@
  *   - public.pending_enqueue_manual_review
  */
 import { supabase } from "@/integrations/supabase/client";
+import type { TablesUpdate } from "@/integrations/supabase/types";
+import { updateTable } from "@/integrations/supabase/typedUpdate";
 
 export type CronHealth =
   | "healthy"

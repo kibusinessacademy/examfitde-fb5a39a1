@@ -229,7 +229,7 @@ export function useBlogPostMutations() {
 
   const update = useMutation({
     mutationFn: async ({ id, ...updates }: Partial<BlogPost> & { id: string }) => {
-      const mapped: Record<string, unknown> = {};
+      const mapped: TablesUpdate<'blog_articles'> = {};
       if (updates.title !== undefined) mapped.title = updates.title;
       if (updates.slug !== undefined) mapped.slug = updates.slug;
       if (updates.meta_description !== undefined) mapped.meta_description = updates.meta_description;
@@ -239,7 +239,7 @@ export function useBlogPostMutations() {
       if (updates.og_image_url !== undefined) mapped.og_image_url = updates.og_image_url;
       if (updates.canonical_url !== undefined) mapped.canonical_url = updates.canonical_url;
       if (updates.status !== undefined) mapped.status = updates.status === 'review' ? 'draft_generated' : updates.status;
-      const { error } = await supabase.from('blog_articles').update(mapped as any).eq('id', id);
+      const { error } = await updateTable('blog_articles', id, mapped);
       if (error) throw error;
     },
     onSuccess: () => { invalidate(); toast.success('Artikel gespeichert'); },
