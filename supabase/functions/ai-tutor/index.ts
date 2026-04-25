@@ -7,6 +7,14 @@ import { resolveProfession } from "../_shared/profession-resolver.ts";
 import { getTutorOutputFormat, getTutorOutputFormatAcademic, SOURCE_CITATION_RULE, SOURCE_CITATION_RULE_ACADEMIC } from "../_shared/prompt-kit.ts";
 import { loadRecentMiniCheckMistakes, loadRecentExamMistakes, buildErrorContextPrompt, generateSuggestedPrompts } from "../_shared/tutor/context-loader.ts";
 import { findOrCreateSession, saveMessages, loadSessionHistory } from "../_shared/tutor/session-manager.ts";
+import {
+  buildCitationContract,
+  extractAndValidateCitations,
+  loadAllowedSources,
+  stripSourcesBlock,
+  writeTutorAudit,
+  type AllowedSources,
+} from "../_shared/tutor/strict-rag.ts";
 
 /**
  * AI-Tutor – Profession-Aware + Deep Thinking + Post-Validation
