@@ -1,15 +1,12 @@
 // package-repair-hardish-balance
 //
 // Repairs the "hardish" balance gap (hard + apply/analyze/evaluate/create) for a
-// package's exam pool. Strategy in order of preference:
-//   1. PROMOTE: Move existing draft/tier1_passed questions that already match
-//      the hardish profile to status='approved'. This is non-destructive and
-//      requires no LLM call.
-//   2. NO-EFFECT: If no promotable candidates exist, mark the step done with
-//      a clear NO_EFFECT reason and recommend manual seeding or LLM fill.
+// package's exam pool. Strategy:
+//   1. PROMOTE: Move existing draft/tier1_passed questions matching the
+//      hardish profile to status='approved' (no LLM, non-destructive).
+//   2. NO-EFFECT: If no candidates exist, fail step with clear LLM-fill reason.
 //
-// The handler is gated behind admin_settings.heal_strategy_hardish_balance.
-// If the toggle is off when this job is picked up, it exits idempotently.
+// Gated behind admin_settings.heal_strategy_hardish_balance.
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
@@ -34,9 +31,7 @@ interface Payload {
 }
 
 Deno.serve(async (req) => {
-  if (req.method !== "POST") {
-    return json({ error: "method_not_allowed" }, 405);
-  }
+  if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
   const sb = createClient(
     Deno.env.get("SUPABASE_URL")!,
@@ -49,7 +44,6 @@ Deno.serve(async (req) => {
 
   const packageId = payload.package_id;
   const curriculumId = payload.curriculum_id;
-  const jobId = payload.job_id ?? null;
 
   if (!packageId || !curriculumId) {
     return json({ error: "missing_package_or_curriculum" }, 400);
@@ -65,9 +59,13 @@ Deno.serve(async (req) => {
   const enabled = !!(setting?.value as Record<string, unknown> | null)?.["enabled"];
   if (!enabled) {
     console.log(`[hardish-balance] toggle disabled — exiting idempotently`);
-    if (jobId) {
-      await markStepFailed(sb, packageId, STEP_KEY, "HARDISH_HANDLER_DISABLED_BY_SETTING", { jobId });
-    }
+    try {
+      await markStepFailed(sb, {
+        packageId,
+        stepKey: STEP_KEY,
+        err: { message: "HARDISH_HANDLER_DISABLED_BY_SETTING", __meta: { progress_delta: 0 } },
+      });
+    } catch (e) { console.warn(`[hardish-balance] markStepFailed failed: ${(e as Error).message}`); }
     return json({ ok: false, skipped: true, reason: "toggle_disabled" });
   }
 
@@ -82,10 +80,9 @@ Deno.serve(async (req) => {
   }).eq("package_id", packageId).eq("step_key", STEP_KEY).is("started_at", null);
 
   // ── 1. Find promotable hardish candidates ──────────────────────
-  // Existing draft/tier1_passed questions that already meet the hardish profile.
   const { data: candidates, error: candErr } = await sb
     .from("exam_questions")
-    .select("id, status, qc_status, review_state, difficulty, cognitive_level")
+    .select("id")
     .eq("curriculum_id", curriculumId)
     .eq("difficulty", "hard")
     .in("cognitive_level", ["apply", "analyze", "evaluate", "create"])
@@ -95,7 +92,12 @@ Deno.serve(async (req) => {
 
   if (candErr) {
     console.error(`[hardish-balance] candidate query failed: ${candErr.message}`);
-    if (jobId) await markStepFailed(sb, packageId, STEP_KEY, `HARDISH_QUERY_FAIL:${candErr.message}`, { jobId });
+    try {
+      await markStepFailed(sb, {
+        packageId, stepKey: STEP_KEY,
+        err: { message: `HARDISH_QUERY_FAIL:${candErr.message}` },
+      });
+    } catch { /* swallow */ }
     return json({ error: candErr.message }, 500);
   }
 
@@ -103,55 +105,59 @@ Deno.serve(async (req) => {
   console.log(`[hardish-balance] found ${candCount} promotable candidates for ${packageId}`);
 
   if (candCount === 0) {
-    // No-effect: nothing to promote, LLM fill required
     const reason = `HARDISH_NO_PROMOTABLE_QUESTIONS_current=${payload.current_hardish_pct}_target=${payload.target_hardish_pct}_require_llm_fill`;
-    if (jobId) await markStepFailed(sb, packageId, STEP_KEY, reason, { jobId, meta: { progress_delta: 0 } });
+    try {
+      await markStepFailed(sb, {
+        packageId, stepKey: STEP_KEY,
+        err: { message: reason, __meta: { progress_delta: 0, no_progress: true } },
+      });
+    } catch { /* swallow */ }
     return json({
-      ok: false,
-      promoted: 0,
-      reason,
+      ok: false, promoted: 0, reason,
       recommendation: "implement LLM-based difficulty fill or manual seed",
     });
   }
 
   // ── 2. Promote in batch ────────────────────────────────────────
   const ids = candidates!.map((c) => (c as { id: string }).id);
-  const { error: promoteErr, count: promotedCount } = await sb
+  const { error: promoteErr } = await sb
     .from("exam_questions")
     .update({
       status: "approved",
       qc_status: "approved",
       review_state: "approved",
       updated_at: new Date().toISOString(),
-    }, { count: "exact" })
+    })
     .in("id", ids);
 
   if (promoteErr) {
     console.error(`[hardish-balance] promotion failed: ${promoteErr.message}`);
-    if (jobId) await markStepFailed(sb, packageId, STEP_KEY, `HARDISH_PROMOTE_FAIL:${promoteErr.message}`, { jobId });
+    try {
+      await markStepFailed(sb, {
+        packageId, stepKey: STEP_KEY,
+        err: { message: `HARDISH_PROMOTE_FAIL:${promoteErr.message}` },
+      });
+    } catch { /* swallow */ }
     return json({ error: promoteErr.message }, 500);
   }
 
-  console.log(`[hardish-balance] promoted ${promotedCount ?? candCount} questions for ${packageId}`);
+  console.log(`[hardish-balance] promoted ${candCount} questions for ${packageId}`);
 
-  if (jobId) {
-    await markStepDone(sb, packageId, STEP_KEY, {
-      jobId,
-      meta: {
-        ok: "true",
-        executed: true,
-        action: "hardish_promotion",
-        promoted_count: promotedCount ?? candCount,
-        prev_hardish_pct: payload.current_hardish_pct,
-        target_hardish_pct: payload.target_hardish_pct,
-        progress_delta: promotedCount ?? candCount,
-      },
-    });
-  }
+  await markStepDone(sb, {
+    packageId, stepKey: STEP_KEY,
+    meta: {
+      ok: "true",
+      executed: true,
+      action: "hardish_promotion",
+      promoted_count: candCount,
+      prev_hardish_pct: payload.current_hardish_pct,
+      target_hardish_pct: payload.target_hardish_pct,
+      progress_delta: candCount,
+    },
+  });
 
   return json({
-    ok: true,
-    promoted: promotedCount ?? candCount,
+    ok: true, promoted: candCount,
     prev_hardish_pct: payload.current_hardish_pct,
     target_hardish_pct: payload.target_hardish_pct,
   });
