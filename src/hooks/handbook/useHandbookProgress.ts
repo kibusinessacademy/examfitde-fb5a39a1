@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import type { TablesUpdate } from '@/integrations/supabase/types';
 import type { HandbookProgress } from './types';
 import { PROGRESS_FIELDS } from './types';
 
@@ -48,7 +49,7 @@ export function useUpdateHandbookProgress() {
 
       if (existing) {
         // Don't null out an existing completed_at; only set forward
-        const updates: Record<string, string | null> = {};
+        const updates: TablesUpdate<'handbook_progress'> = {};
 
         if (!existing.started_at) {
           updates.started_at = now;

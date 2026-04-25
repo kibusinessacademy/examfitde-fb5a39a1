@@ -11,7 +11,7 @@ import { useMiniCheckMasterySync } from '@/features/mastery/hooks/useMiniCheckMa
 import { useCertificationFromCurriculum } from '@/hooks/useCertificationFromCurriculum';
 import { SurfaceHumorCard } from '@/components/humor/SurfaceHumorCard';
 
-import type { Json } from '@/integrations/supabase/types';
+import type { Json, TablesUpdate } from '@/integrations/supabase/types';
 import type { LessonStatus } from '@/hooks/useCourseProgress';
 
 import LessonHeader from '@/components/lesson/LessonHeader';
@@ -233,7 +233,7 @@ export default function LessonPlayer() {
     setCompleting(true);
     const timeSpent = Math.floor((Date.now() - startTime) / 1000);
 
-    const updateData: Record<string, unknown> = {
+    const updateData: TablesUpdate<'learning_progress'> = {
       completed: true,
       completed_at: new Date().toISOString(),
       time_spent_seconds: (progress.time_spent_seconds || 0) + timeSpent,

@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import type { TablesUpdate } from '@/integrations/supabase/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -25,7 +26,7 @@ export default function CampaignsTab() {
 
   const updateCampaign = useMutation({
     mutationFn: async ({ id, status, stop_reason }: { id: string; status: string; stop_reason?: string }) => {
-      const updates: Record<string, unknown> = { status };
+      const updates: TablesUpdate<'marketing_campaigns'> = { status };
       if (status === 'live') updates.started_at = new Date().toISOString();
       if (status === 'stopped') {
         updates.stopped_at = new Date().toISOString();
