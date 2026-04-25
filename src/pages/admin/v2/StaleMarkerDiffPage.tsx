@@ -276,6 +276,16 @@ export default function StaleMarkerDiffPage() {
               {isFetching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCcw className="h-3.5 w-3.5" />}
               Reload
             </Button>
+            <div className="flex items-center gap-1.5 ml-2 rounded-md border bg-muted/40 px-2 py-1">
+              <Switch
+                id="auto-preselect"
+                checked={autoPreselect}
+                onCheckedChange={setAutoPreselect}
+              />
+              <Label htmlFor="auto-preselect" className="text-[11px] cursor-pointer">
+                Auto-Preselect ({eligibleIds.length})
+              </Label>
+            </div>
             <div className="ml-auto flex items-center gap-2">
               <span className="text-xs text-muted-foreground">
                 {selectedEligible.length}/{eligibleIds.length} selektiert
