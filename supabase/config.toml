@@ -461,3 +461,12 @@ verify_jwt = false
 verify_jwt = false
 
 
+
+[functions.newsletter-doi-request]
+verify_jwt = false
+
+[functions.newsletter-doi-confirm]
+verify_jwt = false
+
+[functions.admin-revenue-funnel-audit]
+verify_jwt = false
