@@ -81,7 +81,7 @@ export default function AIAnalysisAuditPage() {
       </Helmet>
       <AdminPageHeader
         title="KI-Analyse · Audit-Log"
-        subtitle="Wer hat wann welche Seitenanalyse ausgelöst? Inklusive Latenz und Token-Verbrauch."
+        description="Wer hat wann welche Seitenanalyse ausgelöst? Inklusive Latenz und Token-Verbrauch."
         icon={Activity}
       />
 
