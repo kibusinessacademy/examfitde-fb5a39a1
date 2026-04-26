@@ -75192,13 +75192,13 @@ export type Database = {
           attempts: number | null
           cluster: string | null
           created_at: string | null
+          effective_error_text: string | null
+          error: string | null
           error_class: string | null
           has_active_sibling: boolean | null
           has_newer_success: boolean | null
           id: string | null
           is_admin_terminal: boolean | null
-          is_retry_path_terminal: boolean | null
-          is_terminal: boolean | null
           job_type: string | null
           lane: string | null
           last_error: string | null
@@ -75206,11 +75206,9 @@ export type Database = {
           meta: Json | null
           package_id: string | null
           recommended_strategy: string | null
-          retryable: boolean | null
           risk_level: string | null
           safe_to_auto_execute: boolean | null
           status: string | null
-          strategy_scope: string | null
           subcluster: string | null
           updated_at: string | null
         }
