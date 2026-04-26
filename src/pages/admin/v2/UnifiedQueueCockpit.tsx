@@ -74,6 +74,11 @@ const ExplainTab = lazy(() =>
     default: m.IntegrityExplainTabContent,
   })),
 );
+const HealingWizardTab = lazy(() =>
+  import("@/components/admin/queue-cockpit/HealingWizardTabContent").then((m) => ({
+    default: m.HealingWizardTabContent,
+  })),
+);
 
 const TABS = [
   { value: "live", label: "Live", icon: Activity, hint: "Aktive Jobs in Echtzeit" },
@@ -83,6 +88,7 @@ const TABS = [
   { value: "stagnation", label: "Stagnation", icon: ListChecks, hint: "Cooldown-/Backoff-Stagnation" },
   { value: "retry", label: "Retry-Loops", icon: RefreshCcw, hint: "Endlosschleifen-Detektor" },
   { value: "explain", label: "Explain", icon: Search, hint: "Integrity Explain Mode + BP-Audit" },
+  { value: "wizard", label: "Heal-Wizard", icon: Stethoscope, hint: "Geführter Job-Healing Wizard + Timeline + 503-Diagnose + Audit" },
   { value: "audit", label: "Audit", icon: Shield, hint: "Bypass / Force-Done Audit" },
 ] as const;
 
@@ -193,6 +199,11 @@ export default function UnifiedQueueCockpit() {
         <TabsContent value="explain" className="mt-4">
           <Suspense fallback={<LoadingFallback />}>
             <ExplainTab />
+          </Suspense>
+        </TabsContent>
+        <TabsContent value="wizard" className="mt-4">
+          <Suspense fallback={<LoadingFallback />}>
+            <HealingWizardTab />
           </Suspense>
         </TabsContent>
         <TabsContent value="audit" className="mt-4">

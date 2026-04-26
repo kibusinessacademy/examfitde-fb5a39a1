@@ -24820,6 +24820,57 @@ export type Database = {
         }
         Relationships: []
       }
+      force_run_audit_log: {
+        Row: {
+          action: string
+          actor_id: string | null
+          created_at: string
+          duration_ms: number | null
+          edge_function: string | null
+          error_code: string | null
+          error_message: string | null
+          http_status: number | null
+          id: string
+          job_id: string | null
+          package_id: string | null
+          request_payload: Json | null
+          response_payload: Json | null
+          source: string
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          edge_function?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          http_status?: number | null
+          id?: string
+          job_id?: string | null
+          package_id?: string | null
+          request_payload?: Json | null
+          response_payload?: Json | null
+          source?: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          edge_function?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          http_status?: number | null
+          id?: string
+          job_id?: string | null
+          package_id?: string | null
+          request_payload?: Json | null
+          response_payload?: Json | null
+          source?: string
+        }
+        Relationships: []
+      }
       german_certification_master: {
         Row: {
           case_study_required: boolean
@@ -86892,6 +86943,17 @@ export type Database = {
         Args: { p_action_id: string }
         Returns: undefined
       }
+      admin_artifact_consistency_check: {
+        Args: { p_package_id: string }
+        Returns: {
+          actual_count: number
+          artifact_key: string
+          expected_min: number
+          hint: string
+          related_step: string
+          status: string
+        }[]
+      }
       admin_auto_repair_limit_status: {
         Args: {
           p_critical_threshold_pct?: number
@@ -86962,6 +87024,19 @@ export type Database = {
           started_at: string
           status: string
           zombie_reason: string
+        }[]
+      }
+      admin_diagnose_503_summary: {
+        Args: { p_hours?: number }
+        Returns: {
+          affected_packages: number
+          copy_paste_summary: string
+          edge_function: string
+          http_503_count: number
+          job_type: string
+          newest_at: string
+          oldest_at: string
+          sample_error: string
         }[]
       }
       admin_dismiss_growth_action: {
@@ -87048,6 +87123,20 @@ export type Database = {
       admin_get_job_cancel_audit_summary: {
         Args: { _job_id: string }
         Returns: Json
+      }
+      admin_get_job_state_timeline: {
+        Args: { p_package_id: string }
+        Returns: {
+          details: Json
+          event_type: string
+          job_id: string
+          job_type: string
+          occurred_at: string
+          source: string
+          status_from: string
+          status_to: string
+          step_key: string
+        }[]
       }
       admin_get_job_timeline: {
         Args: { _job_id?: string; _limit?: number; _package_id?: string }
@@ -87190,6 +87279,21 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_log_force_run: {
+        Args: {
+          p_action: string
+          p_duration_ms?: number
+          p_edge_function?: string
+          p_error_code?: string
+          p_error_message?: string
+          p_http_status?: number
+          p_job_id?: string
+          p_package_id?: string
+          p_request_payload?: Json
+          p_response_payload?: Json
+        }
+        Returns: string
+      }
       admin_manual_heal_package:
         | {
             Args: {
@@ -87312,6 +87416,17 @@ export type Database = {
       }
       admin_safe_requeue_integrity_check: {
         Args: { _package_id: string; _reason?: string }
+        Returns: Json
+      }
+      admin_safe_step_reset: {
+        Args: {
+          p_cascade_dependent?: boolean
+          p_create_fresh_job?: boolean
+          p_job_type?: string
+          p_package_id: string
+          p_reason: string
+          p_step_key: string
+        }
         Returns: Json
       }
       admin_set_setting: {
