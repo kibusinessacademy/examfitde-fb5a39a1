@@ -94581,6 +94581,14 @@ export type Database = {
         }
         Returns: string
       }
+      fn_enqueue_competency_fill_for_gap_packages: {
+        Args: { p_cooldown_minutes?: number; p_max_per_run?: number }
+        Returns: {
+          action: string
+          package_id: string
+          reason: string
+        }[]
+      }
       fn_exam_question_tier1_eligibility: {
         Args: {
           p_blueprint_id: string

@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import { useAdminPackagesSSOT } from "@/hooks/useAdminPackagesSSOT";
 import { useAdminQueueSSOT } from "@/hooks/useAdminQueueSSOT";
+import { usePublishReadiness } from "@/hooks/usePublishReadiness";
 import { cn } from "@/lib/utils";
 
 type Risk = "low" | "med" | "high";
@@ -64,21 +65,19 @@ const RISK_LABEL: Record<Risk, string> = {
 export function SmartNextBestAction() {
   const { data: packages, isLoading: pkgL } = useAdminPackagesSSOT();
   const { data: jobs, isLoading: jobL } = useAdminQueueSSOT();
+  // Kanonische DB-Regel via View v_admin_publish_readiness (publish_ready + is_published)
+  const { data: readiness, isLoading: readyL } = usePublishReadiness();
 
   const actions = useMemo<NextAction[]>(() => {
-    if (!packages || !jobs) return [];
+    if (!packages || !jobs || !readiness) return [];
     const out: NextAction[] = [];
 
-    // 1) Ready-to-publish: Pakete die release_ok signalisieren aber noch nicht published
-    const readyToPublish = packages.filter(
-      (p) =>
-        !p.is_published &&
-        p.status !== "published" &&
-        !p.is_stuck &&
-        !p.blocked_reason &&
-        !p.has_publish_drift &&
-        p.jobs_failed === 0 &&
-        p.council_approved,
+    // 1) Bereit zur Veröffentlichung — SSOT-Quelle: v_admin_publish_readiness
+    //    publish_ready = true UND is_published = false (siehe View-Definition).
+    //    Frühere Heuristik (council_approved + !is_published + !blocked_reason)
+    //    war approximativ und divergierte von der DB-Wahrheit.
+    const readyToPublish = readiness.filter(
+      (r: any) => r.publish_ready === true && r.is_published !== true,
     );
     if (readyToPublish.length > 0) {
       out.push({
@@ -166,9 +165,9 @@ export function SmartNextBestAction() {
 
     // Top-3 nach Reihenfolge (deterministisch — Priorität bereits oben)
     return out.slice(0, 3);
-  }, [packages, jobs]);
+  }, [packages, jobs, readiness]);
 
-  if (pkgL || jobL) {
+  if (pkgL || jobL || readyL) {
     return (
       <Card className="p-4 space-y-3">
         <Skeleton className="h-5 w-48" />
