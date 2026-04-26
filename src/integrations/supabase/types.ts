@@ -94232,6 +94232,15 @@ export type Database = {
         }
         Returns: Json
       }
+      fn_recover_failed_predecessor_steps: {
+        Args: { _max_recoveries?: number }
+        Returns: {
+          out_blocked_jobs: number
+          out_package_id: string
+          out_recovery_attempt: number
+          out_step_key: string
+        }[]
+      }
       fn_recover_stale_lock_exhausted: { Args: never; Returns: Json }
       fn_release_stale_job_locks: {
         Args: { p_lock_ttl_minutes?: number }
