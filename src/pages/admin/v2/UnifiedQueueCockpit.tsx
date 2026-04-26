@@ -87,18 +87,23 @@ const LoadingFallback = () => (
   </div>
 );
 
-const VALID_TABS = new Set(TABS.map((t) => t.value));
-const DEFAULT_TAB = "live";
+type TabValue = (typeof TABS)[number]["value"];
+const VALID_TABS: ReadonlySet<TabValue> = new Set(TABS.map((t) => t.value));
+const DEFAULT_TAB: TabValue = "live";
+
+function isValidTab(v: string | null | undefined): v is TabValue {
+  return !!v && (VALID_TABS as ReadonlySet<string>).has(v);
+}
 
 export default function UnifiedQueueCockpit() {
   const [params, setParams] = useSearchParams();
   const rawTab = params.get("tab");
-  const tab = rawTab && VALID_TABS.has(rawTab) ? rawTab : DEFAULT_TAB;
+  const tab: TabValue = isValidTab(rawTab) ? rawTab : DEFAULT_TAB;
 
   // Normalisiere ungültige/fehlende Tabs deterministisch auf "live".
   // Idempotent: nur schreiben wenn der URL-Wert wirklich abweicht — kein Loop.
   useEffect(() => {
-    if (rawTab !== DEFAULT_TAB && (!rawTab || !VALID_TABS.has(rawTab))) {
+    if (rawTab !== DEFAULT_TAB && !isValidTab(rawTab)) {
       const next = new URLSearchParams(params);
       next.set("tab", DEFAULT_TAB);
       setParams(next, { replace: true });
@@ -107,9 +112,9 @@ export default function UnifiedQueueCockpit() {
   }, [rawTab]);
 
   const setTab = (v: string) => {
-    if (!VALID_TABS.has(v)) v = DEFAULT_TAB;
+    const safe: TabValue = isValidTab(v) ? v : DEFAULT_TAB;
     const next = new URLSearchParams(params);
-    next.set("tab", v);
+    next.set("tab", safe);
     setParams(next, { replace: true });
   };
 
