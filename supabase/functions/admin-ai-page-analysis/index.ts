@@ -355,42 +355,198 @@ const SNAPSHOT_LOADERS: Record<RouteKey, SnapshotLoader> = {
   // Queue Tabs (?tab=…) — fokussierte Snapshots
   // ──────────────────────────────────────────────
   "admin/queue#live": {
-    description: "Queue Live-Tab: aktuelle Job-Liste mit IDs/Paketkontext, Status-Verteilung, Throughput, Wartezeiten und Laufzeiten.",
-    load: async (sb) => ({
-      // In-flight + pending mit ID, package_id, Zeitstempeln (für Wartezeit/Dauer-Analyse)
-      active_jobs: await safe(
-        sb.from("job_queue")
-          .select("id, job_type, status, package_id, attempts, priority, lane, created_at, scheduled_at, started_at, updated_at, last_heartbeat_at")
-          .in("status", ["pending", "processing"])
-          .order("created_at", { ascending: true })
-          .limit(200),
-      ),
-      // Throughput letzte Stunde inkl. Dauer-Inputs
-      done_last_hour: await safe(
-        sb.from("job_queue")
-          .select("id, job_type, package_id, started_at, completed_at, created_at")
-          .gte("completed_at", new Date(Date.now() - 3600 * 1000).toISOString())
-          .eq("status", "done")
-          .limit(2000),
-      ),
-      // KORREKTE Spaltennamen: 'error' / 'last_error' (nicht error_message) + Severity/Hint
-      failed_recent: await safe(
-        sb.from("job_queue")
-          .select("id, job_type, package_id, status, attempts, created_at, completed_at, error, last_error, last_error_code, last_error_hint, last_error_severity, last_http_status")
-          .eq("status", "failed")
-          .order("completed_at", { ascending: false })
-          .limit(50),
-      ),
-      // Cancelled separat erfassen (häufig fehlinterpretiert als "kein Fortschritt")
-      cancelled_recent: await safe(
-        sb.from("job_queue")
-          .select("id, job_type, package_id, last_error, completed_at")
-          .eq("status", "cancelled")
-          .gte("completed_at", new Date(Date.now() - 3600 * 1000).toISOString())
-          .order("completed_at", { ascending: false })
-          .limit(50),
-      ),
-    }),
+    description: "Queue Live-Tab: aktuelle Job-Liste, Status-Verteilung, Throughput, Wartezeit-/Laufzeit-Perzentile (p50/p95), Job-Type-Hotspots, Liveness-Marker und Paketkontext für Top-Bottlenecks.",
+    load: async (sb) => {
+      const now = Date.now();
+      const oneHourAgo = new Date(now - 3600 * 1000).toISOString();
+      const sixHoursAgo = new Date(now - 6 * 3600 * 1000).toISOString();
+
+      const [activeRes, doneRes, failedRes, cancelledRes] = await Promise.all([
+        safe(
+          sb.from("job_queue")
+            .select("id, job_type, status, package_id, attempts, max_attempts, priority, lane, created_at, scheduled_at, started_at, updated_at, last_heartbeat_at, locked_by")
+            .in("status", ["pending", "processing"])
+            .order("created_at", { ascending: true })
+            .limit(300),
+        ),
+        safe(
+          sb.from("job_queue")
+            .select("id, job_type, package_id, started_at, completed_at, created_at, attempts, lane")
+            .gte("completed_at", oneHourAgo)
+            .eq("status", "done")
+            .limit(2000),
+        ),
+        safe(
+          sb.from("job_queue")
+            .select("id, job_type, package_id, status, attempts, max_attempts, lane, created_at, completed_at, error, last_error, last_error_code, last_error_hint, last_error_severity, last_http_status")
+            .eq("status", "failed")
+            .gte("completed_at", sixHoursAgo)
+            .order("completed_at", { ascending: false })
+            .limit(100),
+        ),
+        safe(
+          sb.from("job_queue")
+            .select("id, job_type, package_id, last_error, last_error_code, completed_at")
+            .eq("status", "cancelled")
+            .gte("completed_at", oneHourAgo)
+            .order("completed_at", { ascending: false })
+            .limit(100),
+        ),
+      ]);
+
+      // ── Aggregations (server-side) — schließt Lücke "Keine Latenz/Durchsatz Metriken"
+      const active = ((activeRes as any)?.data ?? []) as any[];
+      const done = ((doneRes as any)?.data ?? []) as any[];
+      const failed = ((failedRes as any)?.data ?? []) as any[];
+      const cancelled = ((cancelledRes as any)?.data ?? []) as any[];
+
+      const pct = (arr: number[], p: number) => {
+        if (!arr.length) return null;
+        const s = [...arr].sort((a, b) => a - b);
+        const idx = Math.min(s.length - 1, Math.floor((p / 100) * s.length));
+        return Math.round(s[idx]);
+      };
+      const avg = (arr: number[]) => arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : null;
+
+      // Wartezeit (s) für noch wartende Jobs
+      const pendingWaitSec = active
+        .filter((j) => j.status === "pending")
+        .map((j) => Math.max(0, Math.floor((now - new Date(j.created_at).getTime()) / 1000)));
+
+      // Laufzeit (s) für aktuell laufende Jobs
+      const processingRunSec = active
+        .filter((j) => j.status === "processing" && j.started_at)
+        .map((j) => Math.max(0, Math.floor((now - new Date(j.started_at).getTime()) / 1000)));
+
+      // Throughput letzte Stunde — Dauer (started→completed) und Total-Lifecycle (created→completed)
+      const doneDurSec = done
+        .filter((j) => j.started_at && j.completed_at)
+        .map((j) => Math.max(0, Math.floor((new Date(j.completed_at).getTime() - new Date(j.started_at).getTime()) / 1000)));
+      const doneLifecycleSec = done
+        .filter((j) => j.created_at && j.completed_at)
+        .map((j) => Math.max(0, Math.floor((new Date(j.completed_at).getTime() - new Date(j.created_at).getTime()) / 1000)));
+
+      // Status-Verteilung der aktiven Jobs
+      const status_breakdown: Record<string, number> = {};
+      for (const j of active) status_breakdown[j.status] = (status_breakdown[j.status] ?? 0) + 1;
+
+      // Hotspot pro job_type (active + failed)
+      const byType = (rows: any[], extra?: (j: any) => Record<string, number>) => {
+        const out: Record<string, any> = {};
+        for (const j of rows) {
+          const k = j.job_type ?? "unknown";
+          if (!out[k]) out[k] = { count: 0, attempts_sum: 0, attempts_max: 0 };
+          out[k].count += 1;
+          out[k].attempts_sum += j.attempts ?? 0;
+          out[k].attempts_max = Math.max(out[k].attempts_max, j.attempts ?? 0);
+          if (extra) Object.assign(out[k], extra(j));
+        }
+        return out;
+      };
+      const active_by_type = byType(active);
+      const failed_by_type = byType(failed);
+      const done_by_type = byType(done);
+
+      // Liveness-Risiko: Processing-Jobs ohne Heartbeat > 5 min
+      const stale_processing = active.filter((j) =>
+        j.status === "processing" &&
+        j.last_heartbeat_at &&
+        (now - new Date(j.last_heartbeat_at).getTime()) > 5 * 60 * 1000
+      ).map((j) => ({
+        id: j.id, job_type: j.job_type, package_id: j.package_id, attempts: j.attempts,
+        last_heartbeat_age_sec: Math.floor((now - new Date(j.last_heartbeat_at).getTime()) / 1000),
+        locked_by: j.locked_by,
+      }));
+
+      // Top-Hotspots: Jobs mit attempts >= 5 (für Bottleneck-Identifikation)
+      const high_attempt_active = active
+        .filter((j) => (j.attempts ?? 0) >= 5)
+        .sort((a, b) => (b.attempts ?? 0) - (a.attempts ?? 0))
+        .slice(0, 20)
+        .map((j) => ({
+          id: j.id, job_type: j.job_type, package_id: j.package_id,
+          status: j.status, attempts: j.attempts, max_attempts: j.max_attempts,
+          age_sec: Math.floor((now - new Date(j.created_at).getTime()) / 1000),
+          lane: j.lane, priority: j.priority,
+        }));
+
+      // Cancel-Reason-Klassifikation (taxonomie-basiert)
+      const cancel_reasons: Record<string, number> = {};
+      for (const j of cancelled) {
+        const code = (j.last_error_code ?? j.last_error?.split(":")?.[0] ?? "unknown").toString().slice(0, 60);
+        cancel_reasons[code] = (cancel_reasons[code] ?? 0) + 1;
+      }
+
+      // Failure-Klassifikation
+      const failure_codes: Record<string, number> = {};
+      for (const j of failed) {
+        const code = (j.last_error_code ?? "unknown").toString().slice(0, 60);
+        failure_codes[code] = (failure_codes[code] ?? 0) + 1;
+      }
+
+      // Paket-Kontext für Top-5 problematische Pakete (most failed/active jobs)
+      const pkgCounts: Record<string, number> = {};
+      for (const j of [...active, ...failed]) {
+        if (j.package_id) pkgCounts[j.package_id] = (pkgCounts[j.package_id] ?? 0) + 1;
+      }
+      const topPkgIds = Object.entries(pkgCounts).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([id]) => id);
+      const top_packages_context = topPkgIds.length
+        ? await safe(
+          sb.from("course_packages")
+            .select("id, title, status, blocked_reason, updated_at")
+            .in("id", topPkgIds),
+        )
+        : { data: [] };
+
+      return {
+        // Raw (begrenzt) für Evidenz-Zitate der KI
+        active_jobs: active.slice(0, 80),
+        failed_recent: failed.slice(0, 30),
+        cancelled_recent: cancelled.slice(0, 30),
+
+        // Aggregierte Metriken (Lücken-Schließung)
+        metrics: {
+          counts: {
+            active_total: active.length,
+            pending: status_breakdown.pending ?? 0,
+            processing: status_breakdown.processing ?? 0,
+            done_last_hour: done.length,
+            failed_last_6h: failed.length,
+            cancelled_last_hour: cancelled.length,
+          },
+          throughput: {
+            jobs_per_hour: done.length,
+            duration_sec_avg: avg(doneDurSec),
+            duration_sec_p50: pct(doneDurSec, 50),
+            duration_sec_p95: pct(doneDurSec, 95),
+            lifecycle_sec_p50: pct(doneLifecycleSec, 50),
+            lifecycle_sec_p95: pct(doneLifecycleSec, 95),
+          },
+          wait_time: {
+            pending_wait_sec_avg: avg(pendingWaitSec),
+            pending_wait_sec_p50: pct(pendingWaitSec, 50),
+            pending_wait_sec_p95: pct(pendingWaitSec, 95),
+            pending_wait_sec_max: pendingWaitSec.length ? Math.max(...pendingWaitSec) : null,
+          },
+          processing_runtime: {
+            run_sec_avg: avg(processingRunSec),
+            run_sec_p50: pct(processingRunSec, 50),
+            run_sec_p95: pct(processingRunSec, 95),
+            run_sec_max: processingRunSec.length ? Math.max(...processingRunSec) : null,
+          },
+        },
+        hotspots: {
+          active_by_type,
+          failed_by_type,
+          done_by_type,
+          high_attempt_active,
+          stale_processing,
+          failure_codes,
+          cancel_reasons,
+        },
+        package_context: (top_packages_context as any)?.data ?? [],
+      };
+    },
   },
   "admin/queue#heal": {
     description: "Queue Heal-Tab: Heal-Worklist, Auto-Repair-Cluster, blockierte Pakete.",
