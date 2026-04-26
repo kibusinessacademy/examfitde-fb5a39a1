@@ -186,6 +186,9 @@ export default function CockpitPage() {
         {/* Integrity Health — macht generischen INTEGRITY_FAILED Blocker transparent */}
         <IntegrityHealthBanner />
 
+        {/* Publish-Blocker-Cluster — aggregierte Top-Level-Sicht */}
+        <PublishBlockerClustersBanner />
+
         {live.isLoading && (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {[...Array(6)].map((_, i) => (
