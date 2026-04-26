@@ -92285,6 +92285,15 @@ export type Database = {
       }
     }
     Functions: {
+      _admin_recheck_enqueue: {
+        Args: {
+          p_job_type: string
+          p_package_id: string
+          p_payload: Json
+          p_priority: number
+        }
+        Returns: undefined
+      }
       accept_org_license_invite: {
         Args: { p_invite_token: string; p_user_id: string }
         Returns: Json
