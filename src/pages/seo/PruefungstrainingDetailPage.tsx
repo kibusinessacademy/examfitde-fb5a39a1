@@ -8,6 +8,7 @@ import { PRICING } from '@/config/pricing';
 import { useCertificationCatalog, useCertificationSEOPage } from '@/hooks/useCertificationSEO';
 import { usePublishedCertifications } from '@/hooks/usePublishedCertifications';
 import { trackConversion } from '@/lib/seo-tracking';
+import { trackFunnel } from '@/lib/conversionTracking';
 import {
   Target, ArrowRight, CheckCircle2, AlertTriangle, BookOpen, Brain, Clock,
   BarChart3, Shield, Mic, MessageSquare, TrendingUp, ClipboardCheck, Zap,
@@ -60,6 +61,10 @@ const PruefungstrainingDetailPage = () => {
   useEffect(() => {
     if (cert) {
       trackConversion({ event: 'product_view', source: 'product_page', label: cert.slug });
+      // Funnel-Tiefe: page_view (Top-of-Funnel)
+      trackFunnel('page_view', {
+        metadata: { source: 'pruefungstraining_detail', slug: cert.slug, cert_id: cert.id },
+      });
     }
   }, [cert?.slug]);
 
@@ -382,7 +387,16 @@ const PruefungstrainingDetailPage = () => {
                     <Button
                       size="lg"
                       className="w-full gradient-primary text-primary-foreground shadow-glow rounded-xl h-14 text-lg"
-                      onClick={() => trackConversion({ event: 'checkout_start', source: 'product_pricing', label: cert.slug })}
+                      onClick={() => {
+                        trackConversion({ event: 'checkout_start', source: 'product_pricing', label: cert.slug });
+                        // Funnel-Tiefe: add_to_cart vor checkout_start
+                        trackFunnel('add_to_cart', {
+                          metadata: { source: 'product_pricing', slug: cert.slug, cert_id: cert.id, price: PRICING.defaultPrice },
+                        });
+                        trackFunnel('checkout_start', {
+                          metadata: { source: 'product_pricing', slug: cert.slug, cert_id: cert.id },
+                        });
+                      }}
                     >
                       Jetzt Prüfungstraining starten – {PRICING.defaultPrice}
                     </Button>
