@@ -533,12 +533,100 @@ function PackageDetail({ pkg }: { pkg: Pkg }) {
                     <div className="flex items-center justify-between">
                       <code className="font-medium">{a.action}</code>
                       <span className="text-muted-foreground">
-                        {new Date(a.created_at).toLocaleString()}
+                        {a.created_at ? new Date(a.created_at).toLocaleString() : "—"}
                       </span>
                     </div>
                     <p className="text-muted-foreground">{a.scope}</p>
                   </div>
                 ))}
+              </div>
+            </ScrollArea>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <History className="h-4 w-4" /> Blueprint Deprecation Audit
+          </CardTitle>
+          <CardDescription className="text-xs">
+            Welle / Quelle pro betroffener Blueprint-ID — Reaktivierungen markiert.
+            Pro Eintrag kann gezielt zurück- oder erneut deprecated werden.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {bpAudit.isLoading ? (
+            <Skeleton className="h-24" />
+          ) : (bpAudit.data ?? []).length === 0 ? (
+            <p className="text-xs text-muted-foreground">
+              Keine Deprecation-/Reactivation-Events für dieses Paket.
+            </p>
+          ) : (
+            <ScrollArea className="h-72">
+              <div className="space-y-2">
+                {bpAudit.data!.map((row) => {
+                  const isReact = row.action === "reactivated";
+                  const isDepr = row.action === "deprecated";
+                  return (
+                    <div key={row.audit_id} className="border rounded-md p-2 text-xs space-y-1">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <div className="flex items-center gap-2">
+                          <Badge
+                            variant={isReact ? "default" : isDepr ? "destructive" : "secondary"}
+                            className={isReact ? "bg-emerald-600" : ""}
+                          >
+                            {row.action}
+                          </Badge>
+                          <Badge variant="outline">{row.wave}</Badge>
+                          <code className="text-[10px] text-muted-foreground">
+                            {row.blueprint_id.slice(0, 8)}
+                          </code>
+                          <Badge variant="outline" className="text-[10px]">
+                            now: {row.current_status ?? "?"}
+                          </Badge>
+                        </div>
+                        <span className="text-muted-foreground">
+                          {row.performed_at
+                            ? new Date(row.performed_at).toLocaleString()
+                            : "—"}
+                        </span>
+                      </div>
+                      {row.change_reason && (
+                        <p className="text-muted-foreground truncate" title={row.change_reason}>
+                          {row.change_reason}
+                        </p>
+                      )}
+                      <div className="flex gap-1 pt-1">
+                        {row.current_status === "deprecated" ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-6 text-[10px]"
+                            disabled={bpToggle.isPending}
+                            onClick={() =>
+                              bpToggle.mutate({ id: row.blueprint_id, target: "approved" })
+                            }
+                          >
+                            Reaktivieren
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 text-[10px]"
+                            disabled={bpToggle.isPending}
+                            onClick={() =>
+                              bpToggle.mutate({ id: row.blueprint_id, target: "deprecated" })
+                            }
+                          >
+                            Re-Deprecate
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </ScrollArea>
           )}
