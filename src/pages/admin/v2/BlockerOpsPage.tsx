@@ -151,6 +151,53 @@ export default function BlockerOpsPage() {
     refetchInterval: 60_000,
   });
 
+  // ---- Council-deferred packages ----
+  const councilDeferred = useQuery({
+    queryKey: ["council-deferred"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("v_council_deferred_packages" as any)
+        .select("*");
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+    refetchInterval: 60_000,
+  });
+
+  // ---- Queue throughput ----
+  const throughput = useQuery({
+    queryKey: ["queue-throughput"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc(
+        "admin_get_queue_throughput" as any,
+        { p_window_hours: 6 },
+      );
+      if (error) throw error;
+      return data as any;
+    },
+    refetchInterval: 30_000,
+  });
+
+  // ---- Aggressive Reap Now ----
+  const reapNow = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.rpc(
+        "admin_reap_stale_processing_now" as any,
+        { p_max_age_seconds: 300, p_max_cancels: 100 },
+      );
+      if (error) throw error;
+      return data as any;
+    },
+    onSuccess: (res) => {
+      toast.success(
+        `Stale-Reap ausgeführt: ${res?.cancelled ?? 0} cancelled · ${res?.requeued ?? 0} requeued`,
+      );
+      qc.invalidateQueries({ queryKey: ["queue-throughput"] });
+      qc.invalidateQueries({ queryKey: ["reaper-audit"] });
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Stale-Reap fehlgeschlagen"),
+  });
+
   // ---- Counts ----
   const counts = useMemo(() => {
     const c: Record<BlockerKey, number> = {
@@ -316,6 +363,55 @@ export default function BlockerOpsPage() {
           );
         })}
       </div>
+
+      {/* Throughput + Aggressive Reap row */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+        <Card className="p-4 lg:col-span-2">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-semibold">Queue Throughput (6h)</h3>
+            <Badge variant="outline" className="text-[10px]">live</Badge>
+          </div>
+          {throughput.data?.global ? (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+              <div><div className="text-muted-foreground">jobs/h</div><div className="text-lg font-bold tabular-nums">{throughput.data.global.jobs_per_hour ?? 0}</div></div>
+              <div><div className="text-muted-foreground">duration p50</div><div className="text-lg font-bold tabular-nums">{throughput.data.global.duration_p50 ?? 0}s</div></div>
+              <div><div className="text-muted-foreground">duration p95</div><div className="text-lg font-bold tabular-nums">{throughput.data.global.duration_p95 ?? 0}s</div></div>
+              <div><div className="text-muted-foreground">lifecycle p95</div><div className="text-lg font-bold tabular-nums">{throughput.data.global.lifecycle_p95 ?? 0}s</div></div>
+            </div>
+          ) : <Skeleton className="h-12 w-full" />}
+        </Card>
+        <Card className="p-4 border-destructive/40 bg-destructive/5">
+          <h3 className="text-sm font-semibold mb-1">Stale-Processing Reap</h3>
+          <p className="text-[11px] text-muted-foreground mb-2">Räumt processing-Jobs &gt;300s ohne Heartbeat sofort weg.</p>
+          <Button size="sm" variant="destructive" onClick={() => reapNow.mutate()} disabled={reapNow.isPending} className="w-full">
+            <Wand2 className="h-3.5 w-3.5 mr-1.5" /> Reap Now (aggressive)
+          </Button>
+        </Card>
+      </div>
+
+      {/* Council-deferred banner */}
+      {councilDeferred.data && councilDeferred.data.length > 0 && (
+        <Card className="p-4 border-secondary/40 bg-secondary/10">
+          <div className="flex items-start gap-2 mb-2">
+            <Pause className="h-4 w-4 mt-0.5 text-secondary-foreground" />
+            <div>
+              <h3 className="text-sm font-semibold">{councilDeferred.data.length} Paket(e) Council-Deferred (Auto-Skip nach 3× Stale-Fail)</h3>
+              <p className="text-xs text-muted-foreground">Diese Pakete blockieren publish_readiness nicht mehr — Council wurde wegen wiederholter Worker-Liveness-Fehler übersprungen.</p>
+            </div>
+          </div>
+          <div className="space-y-1 max-h-40 overflow-auto">
+            {councilDeferred.data.map((p: any) => (
+              <div key={p.defer_id} className="flex items-center justify-between text-xs py-1 border-t border-border/40 first:border-0">
+                <span className="truncate"><span className="font-mono text-[10px] text-muted-foreground mr-2">{p.package_id.slice(0,8)}</span>{p.package_title}</span>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Badge variant="outline" className="text-[10px]">{p.defer_reason}</Badge>
+                  <Badge variant="secondary" className="text-[10px]">{p.fail_count}× fail</Badge>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       {/* Deferred-resolved alerts */}
       {alerts.data && alerts.data.length > 0 && (
