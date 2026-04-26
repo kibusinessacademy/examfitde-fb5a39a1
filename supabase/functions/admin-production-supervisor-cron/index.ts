@@ -14,21 +14,25 @@ Deno.serve(async (req) => {
   if (cors) return cors;
   const origin = req.headers.get("origin");
 
-  // Accept either internal secret or admin auth
+  // Auth modes accepted (in order):
+  //  1. internal shared secret (manual / scripted invokes)
+  //  2. service_role bearer (admin tooling)
+  //  3. anon bearer (pg_cron — Supabase signs cron calls with the project anon key)
+  //  4. validated admin user
   const internalSecret = req.headers.get("x-internal-secret") ?? "";
   const edgeSecret = Deno.env.get("EDGE_INTERNAL_SHARED_SECRET") || "";
-  const isInternal = edgeSecret && internalSecret && internalSecret === edgeSecret;
+  const authHeader = req.headers.get("authorization") ?? "";
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
 
-  if (!isInternal) {
-    // pg_cron sends anon key — validate as admin or accept service_role
+  const isInternal = edgeSecret && internalSecret && internalSecret === edgeSecret;
+  const isService = serviceKey && authHeader.includes(serviceKey);
+  const isAnonCron = anonKey && authHeader.includes(anonKey);
+
+  if (!isInternal && !isService && !isAnonCron) {
     const auth = await validateAuth(req, true);
     if (auth.error || !auth.isAdmin) {
-      // Also allow service_role calls (pg_cron uses anon key but we accept it)
-      const authHeader = req.headers.get("authorization") ?? "";
-      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-      if (!serviceKey || !authHeader.includes(serviceKey)) {
-        return json(401, { ok: false, error: "Unauthorized" }, origin);
-      }
+      return json(401, { ok: false, error: "Unauthorized" }, origin);
     }
   }
 
