@@ -10,10 +10,17 @@
  * Recovery Lane runs before Generation to unblock finalization.
  */
 
-export type RunnerLane = "control" | "recovery" | "generation";
+/**
+ * RunnerLane includes both code-canonical lanes ("generation") AND
+ * DB-aliased lanes ("build", "marketing") to keep the code-SSOT in sync
+ * with `derive_job_lane()` in Postgres. Without this alias, the runners
+ * would silently ignore jobs that the DB stamps with `lane='build'` or
+ * `lane='marketing'`, causing a "0 processing" stall.
+ */
+export type RunnerLane = "control" | "recovery" | "generation" | "build" | "marketing";
 
-/** Dispatch order: control first, recovery second, generation last */
-export const LANE_DISPATCH_ORDER: RunnerLane[] = ["control", "recovery", "generation"];
+/** Dispatch order: control first, recovery second, generation/build last */
+export const LANE_DISPATCH_ORDER: RunnerLane[] = ["control", "recovery", "generation", "build", "marketing"];
 
 // ── CONTROL LANE ──
 // All jobs that validate, finalize, gate, or enqueue — no LLM calls, fast DB ops.
