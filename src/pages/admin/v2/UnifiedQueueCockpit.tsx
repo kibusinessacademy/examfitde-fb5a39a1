@@ -87,24 +87,34 @@ const LoadingFallback = () => (
   </div>
 );
 
+type TabValue = (typeof TABS)[number]["value"];
+const VALID_TABS: ReadonlySet<TabValue> = new Set(TABS.map((t) => t.value));
+const DEFAULT_TAB: TabValue = "live";
+
+function isValidTab(v: string | null | undefined): v is TabValue {
+  return !!v && (VALID_TABS as ReadonlySet<string>).has(v);
+}
+
 export default function UnifiedQueueCockpit() {
   const [params, setParams] = useSearchParams();
-  const tab = params.get("tab") ?? "live";
+  const rawTab = params.get("tab");
+  const tab: TabValue = isValidTab(rawTab) ? rawTab : DEFAULT_TAB;
 
-  // Wenn unbekannter Tab → fallback live (idempotent, kein Loop)
+  // Normalisiere ungültige/fehlende Tabs deterministisch auf "live".
+  // Idempotent: nur schreiben wenn der URL-Wert wirklich abweicht — kein Loop.
   useEffect(() => {
-    if (!TABS.some((t) => t.value === tab)) {
+    if (rawTab !== DEFAULT_TAB && !isValidTab(rawTab)) {
       const next = new URLSearchParams(params);
-      next.set("tab", "live");
+      next.set("tab", DEFAULT_TAB);
       setParams(next, { replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab]);
+  }, [rawTab]);
 
   const setTab = (v: string) => {
+    const safe: TabValue = isValidTab(v) ? v : DEFAULT_TAB;
     const next = new URLSearchParams(params);
-    next.set("tab", v);
-    // Beim Tab-Wechsel: Tab-spezifische Filter zurücksetzen, andere behalten
+    next.set("tab", safe);
     setParams(next, { replace: true });
   };
 
