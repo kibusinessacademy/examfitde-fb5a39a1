@@ -1479,6 +1479,13 @@ export type Database = {
             foreignKeyName: "ai_tutor_context_index_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_active_vs_cold_backlog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "ai_tutor_context_index_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_action_precondition_check"
             referencedColumns: ["package_id"]
           },
@@ -1704,6 +1711,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_build_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "ai_tutor_context_index_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_coverage_gap"
             referencedColumns: ["package_id"]
           },
           {
@@ -5241,6 +5255,13 @@ export type Database = {
             foreignKeyName: "blueprint_targets_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_active_vs_cold_backlog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "blueprint_targets_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_action_precondition_check"
             referencedColumns: ["package_id"]
           },
@@ -5466,6 +5487,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_build_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "blueprint_targets_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_coverage_gap"
             referencedColumns: ["package_id"]
           },
           {
@@ -10746,6 +10774,13 @@ export type Database = {
             foreignKeyName: "council_sessions_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_active_vs_cold_backlog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "council_sessions_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_action_precondition_check"
             referencedColumns: ["package_id"]
           },
@@ -10971,6 +11006,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_build_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "council_sessions_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_coverage_gap"
             referencedColumns: ["package_id"]
           },
           {
@@ -12107,6 +12149,13 @@ export type Database = {
             foreignKeyName: "course_package_build_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_active_vs_cold_backlog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_build_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_action_precondition_check"
             referencedColumns: ["package_id"]
           },
@@ -12332,6 +12381,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_build_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_build_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_coverage_gap"
             referencedColumns: ["package_id"]
           },
           {
@@ -12767,6 +12823,13 @@ export type Database = {
             foreignKeyName: "course_package_locks_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: true
+            referencedRelation: "v_active_vs_cold_backlog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_locks_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
             referencedRelation: "v_admin_action_precondition_check"
             referencedColumns: ["package_id"]
           },
@@ -12992,6 +13055,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: true
             referencedRelation: "v_package_build_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_locks_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_package_coverage_gap"
             referencedColumns: ["package_id"]
           },
           {
@@ -13442,6 +13512,13 @@ export type Database = {
             foreignKeyName: "course_package_outputs_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_active_vs_cold_backlog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_outputs_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_action_precondition_check"
             referencedColumns: ["package_id"]
           },
@@ -13667,6 +13744,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_build_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_outputs_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_coverage_gap"
             referencedColumns: ["package_id"]
           },
           {
@@ -14117,6 +14201,13 @@ export type Database = {
             foreignKeyName: "course_package_plans_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_active_vs_cold_backlog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_plans_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_action_precondition_check"
             referencedColumns: ["package_id"]
           },
@@ -14342,6 +14433,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_build_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_plans_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_coverage_gap"
             referencedColumns: ["package_id"]
           },
           {
@@ -14804,6 +14902,13 @@ export type Database = {
             foreignKeyName: "course_package_reviews_course_package_id_fkey"
             columns: ["course_package_id"]
             isOneToOne: true
+            referencedRelation: "v_active_vs_cold_backlog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_reviews_course_package_id_fkey"
+            columns: ["course_package_id"]
+            isOneToOne: true
             referencedRelation: "v_admin_action_precondition_check"
             referencedColumns: ["package_id"]
           },
@@ -15029,6 +15134,13 @@ export type Database = {
             columns: ["course_package_id"]
             isOneToOne: true
             referencedRelation: "v_package_build_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_reviews_course_package_id_fkey"
+            columns: ["course_package_id"]
+            isOneToOne: true
+            referencedRelation: "v_package_coverage_gap"
             referencedColumns: ["package_id"]
           },
           {
@@ -16055,6 +16167,13 @@ export type Database = {
             foreignKeyName: "course_regulatory_status_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: true
+            referencedRelation: "v_active_vs_cold_backlog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_regulatory_status_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
             referencedRelation: "v_admin_action_precondition_check"
             referencedColumns: ["package_id"]
           },
@@ -16280,6 +16399,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: true
             referencedRelation: "v_package_build_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_regulatory_status_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_package_coverage_gap"
             referencedColumns: ["package_id"]
           },
           {
@@ -17603,6 +17729,13 @@ export type Database = {
             foreignKeyName: "curriculum_discovery_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_active_vs_cold_backlog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "curriculum_discovery_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_action_precondition_check"
             referencedColumns: ["package_id"]
           },
@@ -17828,6 +17961,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_build_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "curriculum_discovery_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_coverage_gap"
             referencedColumns: ["package_id"]
           },
           {
@@ -21686,6 +21826,13 @@ export type Database = {
             foreignKeyName: "duplicate_detection_log_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_active_vs_cold_backlog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "duplicate_detection_log_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_action_precondition_check"
             referencedColumns: ["package_id"]
           },
@@ -21911,6 +22058,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_build_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "duplicate_detection_log_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_coverage_gap"
             referencedColumns: ["package_id"]
           },
           {
@@ -23213,6 +23367,13 @@ export type Database = {
             foreignKeyName: "exam_blueprints_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_active_vs_cold_backlog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_blueprints_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_action_precondition_check"
             referencedColumns: ["package_id"]
           },
@@ -23438,6 +23599,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_build_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_blueprints_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_coverage_gap"
             referencedColumns: ["package_id"]
           },
           {
@@ -24066,6 +24234,13 @@ export type Database = {
             foreignKeyName: "exam_pool_validation_snapshots_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_active_vs_cold_backlog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_validation_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_action_precondition_check"
             referencedColumns: ["package_id"]
           },
@@ -24291,6 +24466,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_build_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_validation_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_coverage_gap"
             referencedColumns: ["package_id"]
           },
           {
@@ -25292,6 +25474,13 @@ export type Database = {
             foreignKeyName: "exam_questions_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_active_vs_cold_backlog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_questions_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_action_precondition_check"
             referencedColumns: ["package_id"]
           },
@@ -25517,6 +25706,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_build_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_questions_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_coverage_gap"
             referencedColumns: ["package_id"]
           },
           {
@@ -28025,6 +28221,13 @@ export type Database = {
             foreignKeyName: "heal_snapshots_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_active_vs_cold_backlog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_action_precondition_check"
             referencedColumns: ["package_id"]
           },
@@ -28250,6 +28453,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_build_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_coverage_gap"
             referencedColumns: ["package_id"]
           },
           {
@@ -28736,6 +28946,13 @@ export type Database = {
             foreignKeyName: "heal_verification_reports_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_active_vs_cold_backlog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_action_precondition_check"
             referencedColumns: ["package_id"]
           },
@@ -28961,6 +29178,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_build_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_coverage_gap"
             referencedColumns: ["package_id"]
           },
           {
@@ -33863,6 +34087,13 @@ export type Database = {
             foreignKeyName: "minicheck_questions_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_active_vs_cold_backlog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "minicheck_questions_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_action_precondition_check"
             referencedColumns: ["package_id"]
           },
@@ -34088,6 +34319,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_build_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "minicheck_questions_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_coverage_gap"
             referencedColumns: ["package_id"]
           },
           {
@@ -36113,6 +36351,13 @@ export type Database = {
             foreignKeyName: "oral_exam_blueprints_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_active_vs_cold_backlog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "oral_exam_blueprints_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_action_precondition_check"
             referencedColumns: ["package_id"]
           },
@@ -36338,6 +36583,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_build_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "oral_exam_blueprints_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_coverage_gap"
             referencedColumns: ["package_id"]
           },
           {
@@ -36962,6 +37214,13 @@ export type Database = {
             foreignKeyName: "oral_exam_session_templates_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_active_vs_cold_backlog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "oral_exam_session_templates_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_action_precondition_check"
             referencedColumns: ["package_id"]
           },
@@ -37187,6 +37446,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_build_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "oral_exam_session_templates_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_coverage_gap"
             referencedColumns: ["package_id"]
           },
           {
@@ -37774,6 +38040,13 @@ export type Database = {
             foreignKeyName: "oral_exam_sessionsets_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: true
+            referencedRelation: "v_active_vs_cold_backlog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "oral_exam_sessionsets_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
             referencedRelation: "v_admin_action_precondition_check"
             referencedColumns: ["package_id"]
           },
@@ -37999,6 +38272,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: true
             referencedRelation: "v_package_build_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "oral_exam_sessionsets_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_package_coverage_gap"
             referencedColumns: ["package_id"]
           },
           {
@@ -40029,6 +40309,13 @@ export type Database = {
             foreignKeyName: "package_content_shards_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_active_vs_cold_backlog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_content_shards_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_action_precondition_check"
             referencedColumns: ["package_id"]
           },
@@ -40254,6 +40541,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_build_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_content_shards_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_coverage_gap"
             referencedColumns: ["package_id"]
           },
           {
@@ -40740,6 +41034,13 @@ export type Database = {
             foreignKeyName: "package_leases_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: true
+            referencedRelation: "v_active_vs_cold_backlog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_leases_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
             referencedRelation: "v_admin_action_precondition_check"
             referencedColumns: ["package_id"]
           },
@@ -40965,6 +41266,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: true
             referencedRelation: "v_package_build_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_leases_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_package_coverage_gap"
             referencedColumns: ["package_id"]
           },
           {
@@ -41669,6 +41977,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_active_vs_cold_backlog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_action_precondition_check"
             referencedColumns: ["package_id"]
           },
@@ -41894,6 +42209,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_build_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_coverage_gap"
             referencedColumns: ["package_id"]
           },
           {
@@ -42329,6 +42651,13 @@ export type Database = {
             foreignKeyName: "package_tags_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_active_vs_cold_backlog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_tags_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_action_precondition_check"
             referencedColumns: ["package_id"]
           },
@@ -42554,6 +42883,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_build_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_tags_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_coverage_gap"
             referencedColumns: ["package_id"]
           },
           {
@@ -44279,6 +44615,13 @@ export type Database = {
             foreignKeyName: "pipeline_lock_active_package_id_fkey"
             columns: ["active_package_id"]
             isOneToOne: false
+            referencedRelation: "v_active_vs_cold_backlog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "pipeline_lock_active_package_id_fkey"
+            columns: ["active_package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_action_precondition_check"
             referencedColumns: ["package_id"]
           },
@@ -44504,6 +44847,13 @@ export type Database = {
             columns: ["active_package_id"]
             isOneToOne: false
             referencedRelation: "v_package_build_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "pipeline_lock_active_package_id_fkey"
+            columns: ["active_package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_coverage_gap"
             referencedColumns: ["package_id"]
           },
           {
@@ -45363,6 +45713,13 @@ export type Database = {
             foreignKeyName: "premium_upgrade_runs_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_active_vs_cold_backlog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "premium_upgrade_runs_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_action_precondition_check"
             referencedColumns: ["package_id"]
           },
@@ -45588,6 +45945,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_build_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "premium_upgrade_runs_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_coverage_gap"
             referencedColumns: ["package_id"]
           },
           {
@@ -46208,6 +46572,13 @@ export type Database = {
             foreignKeyName: "priority_scores_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: true
+            referencedRelation: "v_active_vs_cold_backlog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "priority_scores_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
             referencedRelation: "v_admin_action_precondition_check"
             referencedColumns: ["package_id"]
           },
@@ -46433,6 +46804,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: true
             referencedRelation: "v_package_build_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "priority_scores_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_package_coverage_gap"
             referencedColumns: ["package_id"]
           },
           {
@@ -47785,6 +48163,13 @@ export type Database = {
             foreignKeyName: "production_quality_snapshots_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_active_vs_cold_backlog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "production_quality_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_action_precondition_check"
             referencedColumns: ["package_id"]
           },
@@ -48010,6 +48395,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_build_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "production_quality_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_coverage_gap"
             referencedColumns: ["package_id"]
           },
           {
@@ -51134,6 +51526,13 @@ export type Database = {
             foreignKeyName: "question_blueprints_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_active_vs_cold_backlog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "question_blueprints_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_action_precondition_check"
             referencedColumns: ["package_id"]
           },
@@ -51359,6 +51758,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_build_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "question_blueprints_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_coverage_gap"
             referencedColumns: ["package_id"]
           },
           {
@@ -56287,6 +56693,13 @@ export type Database = {
             foreignKeyName: "standalone_artifact_versions_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_active_vs_cold_backlog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "standalone_artifact_versions_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_action_precondition_check"
             referencedColumns: ["package_id"]
           },
@@ -56512,6 +56925,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_build_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "standalone_artifact_versions_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_coverage_gap"
             referencedColumns: ["package_id"]
           },
           {
@@ -62973,6 +63393,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_active_vs_cold_backlog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_action_precondition_check"
             referencedColumns: ["package_id"]
           },
@@ -63198,6 +63625,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_build_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_coverage_gap"
             referencedColumns: ["package_id"]
           },
           {
@@ -64776,6 +65210,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_active_vs_cold_backlog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_action_precondition_check"
             referencedColumns: ["package_id"]
           },
@@ -65001,6 +65442,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_build_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_coverage_gap"
             referencedColumns: ["package_id"]
           },
           {
@@ -65714,6 +66162,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_active_vs_cold_backlog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_action_precondition_check"
             referencedColumns: ["package_id"]
           },
@@ -65939,6 +66394,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_build_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_coverage_gap"
             referencedColumns: ["package_id"]
           },
           {
@@ -66535,6 +66997,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_active_vs_cold_backlog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_action_precondition_check"
             referencedColumns: ["package_id"]
           },
@@ -66760,6 +67229,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_build_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_coverage_gap"
             referencedColumns: ["package_id"]
           },
           {
@@ -67195,6 +67671,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_active_vs_cold_backlog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_action_precondition_check"
             referencedColumns: ["package_id"]
           },
@@ -67420,6 +67903,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_build_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_coverage_gap"
             referencedColumns: ["package_id"]
           },
           {
@@ -67864,6 +68354,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_active_vs_cold_backlog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_action_precondition_check"
             referencedColumns: ["package_id"]
           },
@@ -68089,6 +68586,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_build_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_coverage_gap"
             referencedColumns: ["package_id"]
           },
           {
@@ -68665,6 +69169,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_active_vs_cold_backlog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_action_precondition_check"
             referencedColumns: ["package_id"]
           },
@@ -68890,6 +69401,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_build_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_coverage_gap"
             referencedColumns: ["package_id"]
           },
           {
@@ -69548,6 +70066,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_active_vs_cold_backlog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_action_precondition_check"
             referencedColumns: ["package_id"]
           },
@@ -69773,6 +70298,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_build_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_coverage_gap"
             referencedColumns: ["package_id"]
           },
           {
@@ -70342,6 +70874,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_active_vs_cold_backlog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_action_precondition_check"
             referencedColumns: ["package_id"]
           },
@@ -70567,6 +71106,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_build_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_coverage_gap"
             referencedColumns: ["package_id"]
           },
           {
@@ -71492,6 +72038,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_active_vs_cold_backlog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_action_precondition_check"
             referencedColumns: ["package_id"]
           },
@@ -71717,6 +72270,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_build_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_coverage_gap"
             referencedColumns: ["package_id"]
           },
           {
@@ -72262,6 +72822,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_active_vs_cold_backlog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_action_precondition_check"
             referencedColumns: ["package_id"]
           },
@@ -72487,6 +73054,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_build_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_coverage_gap"
             referencedColumns: ["package_id"]
           },
           {
@@ -73162,6 +73736,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_active_vs_cold_backlog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_action_precondition_check"
             referencedColumns: ["package_id"]
           },
@@ -73387,6 +73968,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_build_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_coverage_gap"
             referencedColumns: ["package_id"]
           },
           {
@@ -73891,6 +74479,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_active_vs_cold_backlog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_action_precondition_check"
             referencedColumns: ["package_id"]
           },
@@ -74116,6 +74711,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_build_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_coverage_gap"
             referencedColumns: ["package_id"]
           },
           {
@@ -74547,6 +75149,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_active_vs_cold_backlog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_action_precondition_check"
             referencedColumns: ["package_id"]
           },
@@ -74772,6 +75381,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_build_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_coverage_gap"
             referencedColumns: ["package_id"]
           },
           {
@@ -75291,6 +75907,13 @@ export type Database = {
             foreignKeyName: "council_sessions_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_active_vs_cold_backlog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "council_sessions_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_action_precondition_check"
             referencedColumns: ["package_id"]
           },
@@ -75516,6 +76139,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_build_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "council_sessions_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_coverage_gap"
             referencedColumns: ["package_id"]
           },
           {
@@ -76048,6 +76678,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_active_vs_cold_backlog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_action_precondition_check"
             referencedColumns: ["package_id"]
           },
@@ -76273,6 +76910,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_build_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_coverage_gap"
             referencedColumns: ["package_id"]
           },
           {
@@ -76707,6 +77351,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_active_vs_cold_backlog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_action_precondition_check"
             referencedColumns: ["package_id"]
           },
@@ -76932,6 +77583,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_build_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_coverage_gap"
             referencedColumns: ["package_id"]
           },
           {
@@ -77627,6 +78285,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_active_vs_cold_backlog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_action_precondition_check"
             referencedColumns: ["package_id"]
           },
@@ -77852,6 +78517,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_build_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_coverage_gap"
             referencedColumns: ["package_id"]
           },
           {
@@ -78091,6 +78763,39 @@ export type Database = {
           package_id: string | null
           package_title: string | null
           reason: string | null
+        }
+        Relationships: []
+      }
+      v_active_vs_cold_backlog: {
+        Row: {
+          bucket: string | null
+          build_progress: number | null
+          days_idle: number | null
+          last_progress_at: string | null
+          package_id: string | null
+          status: string | null
+          title: string | null
+          track: Database["public"]["Enums"]["product_track"] | null
+        }
+        Insert: {
+          bucket?: never
+          build_progress?: number | null
+          days_idle?: never
+          last_progress_at?: string | null
+          package_id?: string | null
+          status?: string | null
+          title?: string | null
+          track?: Database["public"]["Enums"]["product_track"] | null
+        }
+        Update: {
+          bucket?: never
+          build_progress?: number | null
+          days_idle?: never
+          last_progress_at?: string | null
+          package_id?: string | null
+          status?: string | null
+          title?: string | null
+          track?: Database["public"]["Enums"]["product_track"] | null
         }
         Relationships: []
       }
@@ -83061,6 +83766,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_active_vs_cold_backlog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_action_precondition_check"
             referencedColumns: ["package_id"]
           },
@@ -83286,6 +83998,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_build_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_coverage_gap"
             referencedColumns: ["package_id"]
           },
           {
@@ -83888,6 +84607,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_active_vs_cold_backlog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_action_precondition_check"
             referencedColumns: ["package_id"]
           },
@@ -84113,6 +84839,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_build_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_coverage_gap"
             referencedColumns: ["package_id"]
           },
           {
@@ -84813,6 +85546,13 @@ export type Database = {
             foreignKeyName: "package_content_shards_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_active_vs_cold_backlog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_content_shards_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_action_precondition_check"
             referencedColumns: ["package_id"]
           },
@@ -85044,6 +85784,13 @@ export type Database = {
             foreignKeyName: "package_content_shards_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_package_coverage_gap"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_content_shards_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_package_hollow_guard_ssot"
             referencedColumns: ["package_id"]
           },
@@ -85146,6 +85893,24 @@ export type Database = {
             referencedColumns: ["package_id"]
           },
         ]
+      }
+      v_package_coverage_gap: {
+        Row: {
+          blocked_reason: string | null
+          build_progress: number | null
+          comps_total: number | null
+          comps_with_q: number | null
+          coverage_pct: number | null
+          gap_pp: number | null
+          gap_severity: string | null
+          last_progress_at: string | null
+          package_id: string | null
+          status: string | null
+          title: string | null
+          track: Database["public"]["Enums"]["product_track"] | null
+          track_min_pct: number | null
+        }
+        Relationships: []
       }
       v_package_hollow_guard_ssot: {
         Row: {
@@ -85556,6 +86321,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_active_vs_cold_backlog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_action_precondition_check"
             referencedColumns: ["package_id"]
           },
@@ -85781,6 +86553,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_build_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_coverage_gap"
             referencedColumns: ["package_id"]
           },
           {
@@ -86384,6 +87163,13 @@ export type Database = {
             foreignKeyName: "package_content_shards_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_active_vs_cold_backlog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_content_shards_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_action_precondition_check"
             referencedColumns: ["package_id"]
           },
@@ -86609,6 +87395,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_build_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_content_shards_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_coverage_gap"
             referencedColumns: ["package_id"]
           },
           {
@@ -87149,6 +87942,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_active_vs_cold_backlog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_action_precondition_check"
             referencedColumns: ["package_id"]
           },
@@ -87374,6 +88174,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_build_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_coverage_gap"
             referencedColumns: ["package_id"]
           },
           {
@@ -87807,6 +88614,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_active_vs_cold_backlog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_action_precondition_check"
             referencedColumns: ["package_id"]
           },
@@ -88032,6 +88846,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_build_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_coverage_gap"
             referencedColumns: ["package_id"]
           },
           {
@@ -88470,6 +89291,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_active_vs_cold_backlog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_action_precondition_check"
             referencedColumns: ["package_id"]
           },
@@ -88695,6 +89523,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_build_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_coverage_gap"
             referencedColumns: ["package_id"]
           },
           {
@@ -90140,6 +90975,13 @@ export type Database = {
             foreignKeyName: "standalone_artifact_versions_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_active_vs_cold_backlog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "standalone_artifact_versions_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_action_precondition_check"
             referencedColumns: ["package_id"]
           },
@@ -90365,6 +91207,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_build_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "standalone_artifact_versions_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_coverage_gap"
             referencedColumns: ["package_id"]
           },
           {
@@ -91013,6 +91862,13 @@ export type Database = {
         Args: { p_reason?: string; p_until?: string; p_user_id: string }
         Returns: undefined
       }
+      admin_cancel_publish_retry_storm: {
+        Args: never
+        Returns: {
+          cancelled_jobs: number
+          package_id: string
+        }[]
+      }
       admin_check_action_throttle: {
         Args: { _action: string; _max_per_min?: number; _user_id: string }
         Returns: boolean
@@ -91490,6 +92346,16 @@ export type Database = {
           p_snapshot_id: string
         }
         Returns: Json
+      }
+      admin_route_blocked_to_correct_lane: {
+        Args: { p_dry_run?: boolean }
+        Returns: {
+          action: string
+          coverage_pct: number
+          package_id: string
+          title: string
+          track_min_pct: number
+        }[]
       }
       admin_safe_requeue_integrity_check: {
         Args: { _package_id: string; _reason?: string }
