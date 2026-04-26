@@ -95121,6 +95121,10 @@ export type Database = {
         }[]
       }
       fn_reap_non_building_pending_jobs: { Args: never; Returns: Json }
+      fn_reap_stale_processing_jobs: {
+        Args: { p_stale_minutes?: number }
+        Returns: Json
+      }
       fn_reap_zombie_processing_jobs: { Args: never; Returns: number }
       fn_rebalance_wip_priority: {
         Args: { p_max_demotions?: number }
@@ -95378,6 +95382,10 @@ export type Database = {
       fn_start_shuttle_session: {
         Args: { p_curriculum_id: string; p_user_id: string }
         Returns: Json
+      }
+      fn_step_already_terminal: {
+        Args: { p_job_type: string; p_package_id: string }
+        Returns: boolean
       }
       fn_submit_shuttle_answer: {
         Args: {
