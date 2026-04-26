@@ -121,21 +121,21 @@ function AnalysisView({ a }: { a: Analysis }) {
             Top-3 nächste Aktionen
           </h4>
           <div className="space-y-2">
-            {a.next_actions.map((n) => (
-              <div key={n.priority} className="rounded-xl border p-3">
+            {nextActions.map((n, idx) => (
+              <div key={n?.priority ?? idx} className="rounded-xl border p-3">
                 <div className="flex items-start gap-3">
                   <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary">
-                    {n.priority}
+                    {n?.priority ?? idx + 1}
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-medium text-sm">{n.title}</span>
-                      <SeverityChip value={n.impact} />
+                      <span className="font-medium text-sm">{n?.title ?? "—"}</span>
+                      {n?.impact && <SeverityChip value={n.impact} />}
                       <span className="text-[10px] text-muted-foreground">Aufwand:</span>
-                      <SeverityChip value={n.effort} />
+                      {n?.effort && <SeverityChip value={n.effort} />}
                     </div>
-                    <div className="mt-1 text-sm text-muted-foreground">{n.outcome}</div>
-                    {n.deeplink_hint && (
+                    {n?.outcome && <div className="mt-1 text-sm text-muted-foreground">{n.outcome}</div>}
+                    {n?.deeplink_hint && (
                       <div className="mt-1 text-[11px] text-muted-foreground/80">→ {n.deeplink_hint}</div>
                     )}
                   </div>
