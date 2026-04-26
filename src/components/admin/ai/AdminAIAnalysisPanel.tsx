@@ -46,6 +46,7 @@ interface HistoryEntry {
   latency_ms: number | null;
   status: string;
   error_message: string | null;
+  user_id?: string | null;
 }
 
 interface Props {
