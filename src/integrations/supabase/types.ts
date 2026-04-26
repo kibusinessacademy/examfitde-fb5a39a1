@@ -80137,6 +80137,21 @@ export type Database = {
           },
         ]
       }
+      v_admin_publish_blocker_clusters: {
+        Row: {
+          empty_integrity_reports: number | null
+          integrity_deferred_count: number | null
+          integrity_failed_count: number | null
+          newest_updated_at: string | null
+          oldest_updated_at: string | null
+          package_count: number | null
+          package_track: string | null
+          primary_blocker: string | null
+          sample_courses: string[] | null
+          track_violation_code: string | null
+        }
+        Relationships: []
+      }
       v_admin_publish_readiness: {
         Row: {
           approved_exam_questions: number | null
@@ -95570,6 +95585,7 @@ export type Database = {
         }[]
       }
       fn_reap_non_building_pending_jobs: { Args: never; Returns: Json }
+      fn_reap_stale_jobs_aggressive: { Args: never; Returns: Json }
       fn_reap_stale_processing_jobs: {
         Args: { p_stale_minutes?: number }
         Returns: Json
