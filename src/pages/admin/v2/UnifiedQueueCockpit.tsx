@@ -201,6 +201,11 @@ export default function UnifiedQueueCockpit() {
             <ExplainTab />
           </Suspense>
         </TabsContent>
+        <TabsContent value="wizard" className="mt-4">
+          <Suspense fallback={<LoadingFallback />}>
+            <HealingWizardTab />
+          </Suspense>
+        </TabsContent>
         <TabsContent value="audit" className="mt-4">
           <Suspense fallback={<LoadingFallback />}>
             <AuditTab />
