@@ -79934,6 +79934,22 @@ export type Database = {
         }
         Relationships: []
       }
+      v_artifact_graph_consistency: {
+        Row: {
+          artifact_id: string | null
+          backfill_possible: boolean | null
+          curriculum_exists: boolean | null
+          curriculum_id: string | null
+          package_exists: boolean | null
+          package_id: string | null
+          package_status: string | null
+          reason: string | null
+          severity: string | null
+          suggested_package_id: string | null
+          table_name: string | null
+        }
+        Relationships: []
+      }
       v_artifact_orphans: {
         Row: {
           artifact_id: string | null
@@ -90940,6 +90956,34 @@ export type Database = {
           status: string
         }[]
       }
+      admin_artifact_orphans_detail: {
+        Args: { p_limit?: number; p_severity?: string; p_table?: string }
+        Returns: {
+          artifact_id: string
+          backfill_possible: boolean
+          curriculum_exists: boolean
+          curriculum_id: string
+          package_exists: boolean
+          package_id: string
+          package_status: string
+          reason: string
+          severity: string
+          suggested_package_id: string
+          table_name: string
+        }[]
+      }
+      admin_artifact_orphans_summary: {
+        Args: never
+        Returns: {
+          cluster_key: string
+          distinct_curricula: number
+          distinct_packages: number
+          orphan_count: number
+          reason: string
+          severity: string
+          table_name: string
+        }[]
+      }
       admin_auto_repair_limit_status: {
         Args: {
           p_critical_threshold_pct?: number
@@ -90947,6 +90991,23 @@ export type Database = {
           p_warn_threshold_pct?: number
         }
         Returns: Json
+      }
+      admin_backfill_chunk_audit: {
+        Args: { p_limit?: number }
+        Returns: {
+          chunk_size: number
+          created_at: string
+          curriculum_id: string
+          duration_ms: number
+          error_message: string
+          id: string
+          meta: Json
+          package_id: string
+          rows_updated: number
+          table_name: string
+          triggers_disabled: string[]
+          triggers_restored: boolean
+        }[]
       }
       admin_block_user: {
         Args: { p_reason?: string; p_until?: string; p_user_id: string }
