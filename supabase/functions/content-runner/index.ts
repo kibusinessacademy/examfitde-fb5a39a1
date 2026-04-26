@@ -1083,9 +1083,11 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
   // we claim per-lane with lane-specific budgets.
   // This prevents the claim→release→reclaim loop.
   // ═══════════════════════════════════════════════════════════════
-  // ── P0 FIX: content-runner ONLY claims "generation" lane ──
-  // job-runner handles control + recovery. This eliminates Split-Brain.
-  const CONTENT_RUNNER_LANES: RunnerLane[] = ["generation"];
+  // ── P0 FIX: content-runner ONLY claims "generation" + "build" ──
+  // job-runner handles control + recovery + marketing. This eliminates Split-Brain.
+  // "build" is the DB-side alias for "generation" (see derive_job_lane()).
+  // Without claiming "build", jobs stamped lane='build' would never be picked up.
+  const CONTENT_RUNNER_LANES: RunnerLane[] = ["generation", "build"];
 
   const rawBudgets = allocateLaneBudgets(CLAIM_LIMIT);
   const laneBudgets = redistributeLaneBudgets(rawBudgets, CONTENT_RUNNER_LANES);
@@ -1093,6 +1095,8 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
     control:    { claimed: 0, dispatched: 0, succeeded: 0, failed: 0, budget_exhausted: 0 },
     recovery:   { claimed: 0, dispatched: 0, succeeded: 0, failed: 0, budget_exhausted: 0 },
     generation: { claimed: 0, dispatched: 0, succeeded: 0, failed: 0, budget_exhausted: 0 },
+    build:      { claimed: 0, dispatched: 0, succeeded: 0, failed: 0, budget_exhausted: 0 },
+    marketing:  { claimed: 0, dispatched: 0, succeeded: 0, failed: 0, budget_exhausted: 0 },
   };
 
   // deno-lint-ignore no-explicit-any
@@ -1433,7 +1437,7 @@ Deno.serve(async (req) => {
       if (orphanPools.length > 0) {
         const msg = `BOOT_GUARD_POOL_MISMATCH: Runner claims pools [${orphanPools.join(", ")}] but DB SSOT only has [${[...knownPools].join(", ")}]. Aborting to prevent silent standstill.`;
         console.error(`[content-runner] 🔴 ${msg}`);
-        await emitRunnerHeartbeat(sb, { runner_name: "content-runner", worker_id: WORKER_ID, lanes: ["generation"], status: "boot_guard_fail", passes: 0, claimed: 0, succeeded: 0, failed: 0, runtime_ms: 0, error_message: msg });
+        await emitRunnerHeartbeat(sb, { runner_name: "content-runner", worker_id: WORKER_ID, lanes: ["generation","build"], status: "boot_guard_fail", passes: 0, claimed: 0, succeeded: 0, failed: 0, runtime_ms: 0, error_message: msg });
         return json({ ok: false, error: "BOOT_GUARD_POOL_MISMATCH", orphan_pools: orphanPools, db_pools: [...knownPools], message: msg }, 500);
       }
       console.log(`[content-runner] ✅ Boot pool guard passed: claiming [${RUNNER_CLAIM_POOLS.join(", ")}], DB has [${[...knownPools].join(", ")}]`);
@@ -1457,7 +1461,7 @@ Deno.serve(async (req) => {
       `[content-runner] 🔴 CIRCUIT_BREAKER: pipeline paused — ${cbStatus.reason} ` +
       `(${Math.round((cbStatus.remainingMs ?? 0) / 1000)}s remaining)`,
     );
-    await emitRunnerHeartbeat(sb, { runner_name: "content-runner", worker_id: WORKER_ID, lanes: ["generation"], status: "circuit_breaker", passes: 0, claimed: 0, succeeded: 0, failed: 0, runtime_ms: 0, error_message: cbStatus.reason });
+    await emitRunnerHeartbeat(sb, { runner_name: "content-runner", worker_id: WORKER_ID, lanes: ["generation","build"], status: "circuit_breaker", passes: 0, claimed: 0, succeeded: 0, failed: 0, runtime_ms: 0, error_message: cbStatus.reason });
     return json({
       ok: false,
       circuit_breaker: true,
@@ -1524,7 +1528,7 @@ Deno.serve(async (req) => {
   await emitRunnerHeartbeat(sb, {
     runner_name: "content-runner",
     worker_id: WORKER_ID,
-    lanes: ["generation"],
+    lanes: ["generation","build"],
     status: "ok",
     passes,
     claimed: totalClaimed,

@@ -347,12 +347,13 @@ Deno.serve(async (req) => {
   // ── 1. Lane-aware claiming (v6.0) ──
   // Claim per-lane with lane-specific budgets to prevent claim→release loops
   const rawBudgets = allocateLaneBudgets(adaptiveConcurrency);
-  const laneBudgets = redistributeLaneBudgets(rawBudgets, ["control", "recovery"]);
+  const laneBudgets = redistributeLaneBudgets(rawBudgets, ["control", "recovery", "marketing"]);
   let jobs: any[] = [];
 
-  // ── P0 FIX: job-runner ONLY claims "control" + "recovery" lanes ──
-  // content-runner handles generation. This eliminates Split-Brain.
-  const JOB_RUNNER_LANES: RunnerLane[] = ["control", "recovery"];
+  // ── P0 FIX: job-runner ONLY claims "control" + "recovery" + "marketing" ──
+  // content-runner handles generation + build (DB alias). This eliminates Split-Brain.
+  // "marketing" is a separate DB lane for post-publish SEO orchestration jobs.
+  const JOB_RUNNER_LANES: RunnerLane[] = ["control", "recovery", "marketing"];
 
   for (const lane of JOB_RUNNER_LANES) {
     const budget = laneBudgets[lane];
@@ -2677,7 +2678,7 @@ Deno.serve(async (req) => {
   await emitRunnerHeartbeat(sb, {
     runner_name: "job-runner",
     worker_id: WORKER_ID,
-    lanes: ["control", "recovery"],
+    lanes: ["control", "recovery", "marketing"],
     status: "ok",
     passes: 1,
     claimed: results.length,

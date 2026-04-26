@@ -87224,6 +87224,14 @@ export type Database = {
         Args: { _job_type: string; _package_id: string; _within?: string }
         Returns: boolean
       }
+      admin_heal_failed_quality_councils: {
+        Args: never
+        Returns: {
+          action: string
+          package_id: string
+          package_title: string
+        }[]
+      }
       admin_heal_jobs_targeted: {
         Args: { _job_ids: string[]; _reason?: string }
         Returns: Json

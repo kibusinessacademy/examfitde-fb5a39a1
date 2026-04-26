@@ -10,10 +10,17 @@
  * Recovery Lane runs before Generation to unblock finalization.
  */
 
-export type RunnerLane = "control" | "recovery" | "generation";
+/**
+ * RunnerLane includes both code-canonical lanes ("generation") AND
+ * DB-aliased lanes ("build", "marketing") to keep the code-SSOT in sync
+ * with `derive_job_lane()` in Postgres. Without this alias, the runners
+ * would silently ignore jobs that the DB stamps with `lane='build'` or
+ * `lane='marketing'`, causing a "0 processing" stall.
+ */
+export type RunnerLane = "control" | "recovery" | "generation" | "build" | "marketing";
 
-/** Dispatch order: control first, recovery second, generation last */
-export const LANE_DISPATCH_ORDER: RunnerLane[] = ["control", "recovery", "generation"];
+/** Dispatch order: control first, recovery second, generation/build last */
+export const LANE_DISPATCH_ORDER: RunnerLane[] = ["control", "recovery", "generation", "build", "marketing"];
 
 // ── CONTROL LANE ──
 // All jobs that validate, finalize, gate, or enqueue — no LLM calls, fast DB ops.
@@ -130,15 +137,35 @@ const GENERATION_JOB_TYPES_LANE = new Set([
   "lesson_generate_content",
 ]);
 
+// ── MARKETING LANE ──
+// Post-publish marketing/SEO orchestration jobs — separate from generation
+// to keep latency-critical lanes uncontended.
+const MARKETING_JOB_TYPES = new Set([
+  "package_auto_generate_seo_suite",
+  "seo_foundation",
+  "seo_audit",
+  "seo_internal_links",
+  "seo_generate",
+  "seo_qc_check",
+  "seo_sitemap_refresh",
+]);
+
 /**
  * Return all known job types for a given lane.
  * Used by lane-aware claiming to scope DB queries per lane.
+ *
+ * NOTE: "build" is a DB-side alias for "generation" (see derive_job_lane()).
+ * Both return the same job-type set so claim_pending_jobs_by_types works
+ * regardless of which lane name the runner asks for.
  */
 export function jobTypesForLane(lane: RunnerLane): string[] {
   switch (lane) {
     case "control": return [...CONTROL_JOB_TYPES];
     case "recovery": return [...RECOVERY_JOB_TYPES];
-    case "generation": return [...GENERATION_JOB_TYPES_LANE];
+    case "generation":
+    case "build":
+      return [...GENERATION_JOB_TYPES_LANE];
+    case "marketing": return [...MARKETING_JOB_TYPES];
   }
 }
 
@@ -148,6 +175,7 @@ export function jobTypesForLane(lane: RunnerLane): string[] {
  */
 export function laneForJobType(jobType: string): RunnerLane {
   if (RECOVERY_JOB_TYPES.has(jobType)) return "recovery";
+  if (MARKETING_JOB_TYPES.has(jobType)) return "marketing";
   if (GENERATION_JOB_TYPES_LANE.has(jobType)) return "generation";
   if (CONTROL_JOB_TYPES.has(jobType)) return "control";
   // Default: unknown jobs go to control (safe — they get dispatched first)
@@ -166,6 +194,8 @@ export function partitionByLane<T extends { job_type: string }>(
     control: [],
     recovery: [],
     generation: [],
+    build: [],
+    marketing: [],
   };
   for (const job of jobs) {
     result[laneForJobType(job.job_type)].push(job);
@@ -174,21 +204,21 @@ export function partitionByLane<T extends { job_type: string }>(
 }
 
 /** Lane-level budget allocation from total claim slots */
-export interface LaneBudget {
-  control: number;
-  recovery: number;
-  generation: number;
-}
+export type LaneBudget = Record<RunnerLane, number>;
 
 /**
  * Allocate dispatch slots per lane from a total budget.
  * Control gets priority, Recovery gets guaranteed minimum, Generation gets rest.
+ *
+ * NOTE: "build" and "marketing" lanes start at 0 — they receive slots only
+ * via redistributeLaneBudgets() when a runner explicitly opts into them.
  */
 export function allocateLaneBudgets(totalSlots: number): LaneBudget {
-  if (totalSlots <= 1) return { control: 1, recovery: 0, generation: 0 };
-  if (totalSlots <= 2) return { control: 1, recovery: 1, generation: 0 };
-  if (totalSlots <= 3) return { control: 1, recovery: 1, generation: 1 };
-  if (totalSlots <= 4) return { control: 1, recovery: 2, generation: 1 };
+  const empty: LaneBudget = { control: 0, recovery: 0, generation: 0, build: 0, marketing: 0 };
+  if (totalSlots <= 1) return { ...empty, control: 1 };
+  if (totalSlots <= 2) return { ...empty, control: 1, recovery: 1 };
+  if (totalSlots <= 3) return { ...empty, control: 1, recovery: 1, generation: 1 };
+  if (totalSlots <= 4) return { ...empty, control: 1, recovery: 2, generation: 1 };
 
   // Recovery lane minimum raised from 1→10 (2026-04-18) to clear stuck-package backlog.
   // Recovery jobs are cheap (heal/reconcile/repair) — safe at high concurrency.
@@ -201,6 +231,8 @@ export function allocateLaneBudgets(totalSlots: number): LaneBudget {
     control: controlSlots,
     recovery: recoverySlots,
     generation: generationSlots,
+    build: 0,
+    marketing: 0,
   };
 }
 
@@ -358,7 +390,7 @@ export function redistributeLaneBudgets(
   const result = { ...base };
 
   // Collect slots from inactive lanes
-  for (const lane of (["control", "recovery", "generation"] as RunnerLane[])) {
+  for (const lane of (["control", "recovery", "generation", "build", "marketing"] as RunnerLane[])) {
     if (!activeSet.has(lane)) {
       freed += result[lane];
       result[lane] = 0;
