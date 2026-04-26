@@ -1,0 +1,1 @@
+GRANT EXECUTE ON FUNCTION public.admin_targeted_blocker_recheck(boolean) TO anon;
