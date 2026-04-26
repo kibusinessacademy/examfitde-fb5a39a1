@@ -151,6 +151,53 @@ export default function BlockerOpsPage() {
     refetchInterval: 60_000,
   });
 
+  // ---- Council-deferred packages ----
+  const councilDeferred = useQuery({
+    queryKey: ["council-deferred"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("v_council_deferred_packages" as any)
+        .select("*");
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+    refetchInterval: 60_000,
+  });
+
+  // ---- Queue throughput ----
+  const throughput = useQuery({
+    queryKey: ["queue-throughput"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc(
+        "admin_get_queue_throughput" as any,
+        { p_window_hours: 6 },
+      );
+      if (error) throw error;
+      return data as any;
+    },
+    refetchInterval: 30_000,
+  });
+
+  // ---- Aggressive Reap Now ----
+  const reapNow = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.rpc(
+        "admin_reap_stale_processing_now" as any,
+        { p_max_age_seconds: 300, p_max_cancels: 100 },
+      );
+      if (error) throw error;
+      return data as any;
+    },
+    onSuccess: (res) => {
+      toast.success(
+        `Stale-Reap ausgeführt: ${res?.cancelled ?? 0} cancelled · ${res?.requeued ?? 0} requeued`,
+      );
+      qc.invalidateQueries({ queryKey: ["queue-throughput"] });
+      qc.invalidateQueries({ queryKey: ["reaper-audit"] });
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Stale-Reap fehlgeschlagen"),
+  });
+
   // ---- Counts ----
   const counts = useMemo(() => {
     const c: Record<BlockerKey, number> = {
