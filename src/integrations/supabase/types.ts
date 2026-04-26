@@ -92285,6 +92285,15 @@ export type Database = {
       }
     }
     Functions: {
+      _admin_recheck_enqueue: {
+        Args: {
+          p_job_type: string
+          p_package_id: string
+          p_payload: Json
+          p_priority: number
+        }
+        Returns: undefined
+      }
       accept_org_license_invite: {
         Args: { p_invite_token: string; p_user_id: string }
         Returns: Json
@@ -92936,6 +92945,18 @@ export type Database = {
       admin_suggest_repair_action: {
         Args: { _dry_run?: boolean; _package_id: string }
         Returns: Json
+      }
+      admin_targeted_blocker_recheck: {
+        Args: { p_execute?: boolean }
+        Returns: {
+          action: string
+          blocker: string
+          course_title: string
+          executed: boolean
+          package_id: string
+          package_track: string
+          reason: string
+        }[]
       }
       admin_unblock_user: {
         Args: { p_reason?: string; p_user_id: string }
