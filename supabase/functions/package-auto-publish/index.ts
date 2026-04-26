@@ -425,14 +425,60 @@ Deno.serve(async (req) => {
 
     return json({ ok: true, badge, integrity_score: integrityReport?.score ?? 100, excellence: excellenceList });
   } catch (e: unknown) {
-    const msg = (e as Error)?.message ?? String(e);
+    const err = e as { message?: string; code?: string; details?: string };
+    const msg = err?.message ?? String(e);
+    const pgCode = err?.code ?? "";
     console.error(`[auto-publish] FATAL:`, e);
-    // Persist error for observability
+
+    // ── Terminal classification ──
+    // P0001 = raise_exception from a DB trigger (e.g. coverage_gap, hollow_publish_guard).
+    // These are CONTENT defects, NOT transient errors. Returning 500 makes the job_queue
+    // retry up to 25× (HTTP 500 storm). Classify as terminal → 422 + park step into a
+    // distinct state so the dispatcher routes to targeted_competency_fill / repair lanes.
+    const isCoverageGap = /COVERAGE_GAP_BELOW_TRACK_THRESHOLD/i.test(msg);
+    const isHollowGuard = /HOLLOW_PUBLISH|MISSING_ARTIFACTS/i.test(msg);
+    const isCausalityFail = /HARD_FAIL_NO_CURRICULUM|CAUSALITY/i.test(msg);
+    const isTerminal = pgCode === "P0001" || isCoverageGap || isHollowGuard || isCausalityFail;
+
+    const blockReason = isCoverageGap
+      ? "coverage_gap"
+      : isHollowGuard
+        ? "hollow_artifacts"
+        : isCausalityFail
+          ? "causality_fail"
+          : isTerminal
+            ? "publish_guard_terminal"
+            : null;
+
     try {
       await sb.from("package_steps").update({
-        last_error: `auto-publish crash: ${msg.slice(0, 2000)}`,
+        last_error: `auto-publish ${isTerminal ? "TERMINAL" : "crash"}: ${msg.slice(0, 2000)}`,
+        ...(isTerminal ? { status: "failed" } : {}),
       }).eq("package_id", packageId).eq("step_key", "auto_publish");
+
+      if (isTerminal && blockReason) {
+        // Park package: clear job queue retries, set blocked_reason for cockpit routing.
+        await sb.from("course_packages").update({
+          blocked_reason: blockReason,
+          stuck_reason: msg.slice(0, 500),
+        }).eq("id", packageId);
+
+        // Cancel any pending auto_publish jobs for this package to break the retry storm.
+        await sb.from("job_queue").update({
+          status: "cancelled",
+          last_error: `terminal_publish_guard:${blockReason}`,
+        }).eq("package_id", packageId)
+          .eq("job_type", "package_auto_publish")
+          .eq("status", "pending");
+      }
     } catch (_) { /* best-effort */ }
-    return json({ error: msg }, 500);
+
+    // 422 for terminal content defects → job_queue treats as non-retryable.
+    return json({
+      ok: false,
+      terminal: isTerminal,
+      block_reason: blockReason,
+      error: msg,
+    }, isTerminal ? 422 : 500);
   }
 });
