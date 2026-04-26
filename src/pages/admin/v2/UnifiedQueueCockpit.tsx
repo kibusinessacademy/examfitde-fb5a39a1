@@ -33,6 +33,7 @@ import {
   RefreshCcw,
   Shield,
   Settings,
+  Search,
 } from "lucide-react";
 import { AdminPageHeader } from "@/components/admin/v2/AdminPageHeader";
 
@@ -68,6 +69,11 @@ const AuditTab = lazy(() =>
     default: m.BypassAuditTabContent,
   })),
 );
+const ExplainTab = lazy(() =>
+  import("@/components/admin/queue-cockpit/IntegrityExplainTabContent").then((m) => ({
+    default: m.IntegrityExplainTabContent,
+  })),
+);
 
 const TABS = [
   { value: "live", label: "Live", icon: Activity, hint: "Aktive Jobs in Echtzeit" },
@@ -76,6 +82,7 @@ const TABS = [
   { value: "repair", label: "Repair", icon: Wrench, hint: "Geplante Reparatur-Jobs" },
   { value: "stagnation", label: "Stagnation", icon: ListChecks, hint: "Cooldown-/Backoff-Stagnation" },
   { value: "retry", label: "Retry-Loops", icon: RefreshCcw, hint: "Endlosschleifen-Detektor" },
+  { value: "explain", label: "Explain", icon: Search, hint: "Integrity Explain Mode + BP-Audit" },
   { value: "audit", label: "Audit", icon: Shield, hint: "Bypass / Force-Done Audit" },
 ] as const;
 
@@ -181,6 +188,11 @@ export default function UnifiedQueueCockpit() {
         <TabsContent value="retry" className="mt-4">
           <Suspense fallback={<LoadingFallback />}>
             <RetryTab />
+          </Suspense>
+        </TabsContent>
+        <TabsContent value="explain" className="mt-4">
+          <Suspense fallback={<LoadingFallback />}>
+            <ExplainTab />
           </Suspense>
         </TabsContent>
         <TabsContent value="audit" className="mt-4">
