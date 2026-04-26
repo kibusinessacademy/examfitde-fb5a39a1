@@ -1,6 +1,6 @@
 ---
-name: Admin AI Page Analysis Panel v2
-description: Auto-mounted KI-Qualitätsanalyse je Admin-Seite/Tab. SSOT-Snapshot pro route_key (inkl. multi-segment Pfade & Queue-Tabs), 4-Block-Output via Tool-Calling, Diff-View letzte vs. vorletzte, Audit-Log unter /admin/ops/ai-analysis-audit.
+name: Admin AI Page Analysis Panel v2.1
+description: Auto-mounted KI-Qualitätsanalyse je Admin-Seite/Tab. SSOT-Snapshot pro route_key (inkl. multi-segment Pfade & Queue-Tabs), 4-Block-Output via Tool-Calling, Diff-View letzte vs. vorletzte, Audit-Log unter /admin/ops/ai-analysis-audit. Queue-Snapshots nutzen kanonische job_queue-Spalten (error/last_error, NICHT error_message) und liefern id+package_id+Zeitstempel für Wartezeit-/Dauer-Analyse.
 type: feature
 ---
 
