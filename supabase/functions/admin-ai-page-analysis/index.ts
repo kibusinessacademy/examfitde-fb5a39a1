@@ -392,6 +392,7 @@ const SNAPSHOT_LOADERS: Record<RouteKey, SnapshotLoader> = {
       ),
     }),
   },
+};
 
 /** Default snapshot for unmapped routes — uses sane fallback (status counts). */
 const DEFAULT_LOADER: SnapshotLoader = {
