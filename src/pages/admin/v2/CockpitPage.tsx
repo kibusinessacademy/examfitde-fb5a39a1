@@ -20,6 +20,7 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { IntegrityHealthBanner } from "@/components/admin/cockpit/IntegrityHealthBanner";
+import { PublishBlockerClustersBanner } from "@/components/admin/cockpit/PublishBlockerClustersBanner";
 
 type CockpitStatus = "green" | "yellow" | "red" | "grey";
 type Domain = "seo" | "funnel" | "crm" | "revenue" | "learning" | "pipeline";
@@ -184,6 +185,9 @@ export default function CockpitPage() {
 
         {/* Integrity Health — macht generischen INTEGRITY_FAILED Blocker transparent */}
         <IntegrityHealthBanner />
+
+        {/* Publish-Blocker-Cluster — aggregierte Top-Level-Sicht */}
+        <PublishBlockerClustersBanner />
 
         {live.isLoading && (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
