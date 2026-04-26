@@ -161,23 +161,70 @@ const SNAPSHOT_LOADERS: Record<RouteKey, SnapshotLoader> = {
   },
   "admin/growth": {
     description: "Growth & SEO: Konversionsfunnel, organischer Traffic, Pillar-Cluster, CTR.",
-    load: async (sb) => ({
-      conversion_events_24h: await safe(
+    load: async (sb) => {
+      const since24h = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+      const since7d = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
+
+      const events24hRes = await safe(
         sb
           .from("conversion_events")
-          .select("event_name, created_at")
-          .gte("created_at", new Date(Date.now() - 24 * 3600 * 1000).toISOString())
-          .limit(2000),
-      ),
-      published_packages: await safe(
+          .select("event_type, page_path, curriculum_id, created_at")
+          .gte("created_at", since24h)
+          .limit(5000),
+      );
+
+      // Aggregate funnel counts by event_type (24h)
+      const funnel_24h_by_type: Record<string, number> = {};
+      const events24hRows = (events24hRes as any)?.data ?? [];
+      for (const r of events24hRows) {
+        const k = (r as any).event_type ?? "unknown";
+        funnel_24h_by_type[k] = (funnel_24h_by_type[k] ?? 0) + 1;
+      }
+
+      const events7dRes = await safe(
         sb
-          .from("course_packages")
-          .select("id,title,published_at")
-          .eq("is_published", true)
-          .order("published_at", { ascending: false })
-          .limit(20),
-      ),
-    }),
+          .from("conversion_events")
+          .select("event_type, created_at")
+          .gte("created_at", since7d)
+          .limit(20000),
+      );
+      const funnel_7d_by_type: Record<string, number> = {};
+      const events7dRows = (events7dRes as any)?.data ?? [];
+      for (const r of events7dRows) {
+        const k = (r as any).event_type ?? "unknown";
+        funnel_7d_by_type[k] = (funnel_7d_by_type[k] ?? 0) + 1;
+      }
+
+      return {
+        conversion_events_recent: await safe(
+          sb
+            .from("conversion_events")
+            .select("event_type, page_path, curriculum_id, created_at")
+            .gte("created_at", since24h)
+            .order("created_at", { ascending: false })
+            .limit(50),
+        ),
+        funnel_24h_by_type,
+        funnel_7d_by_type,
+        funnel_24h_total: events24hRows.length,
+        funnel_7d_total: events7dRows.length,
+        published_packages: await safe(
+          sb
+            .from("course_packages")
+            .select("id,title,published_at,is_published,curriculum_id")
+            .eq("is_published", true)
+            .order("published_at", { ascending: false })
+            .limit(30),
+        ),
+        seo_pages_status: await safe(
+          sb
+            .from("seo_content_pages" as any)
+            .select("id,slug,page_type,status,package_id,curriculum_id,updated_at")
+            .order("updated_at", { ascending: false })
+            .limit(50),
+        ),
+      };
+    },
   },
   "admin/support": {
     description: "Support: Tickets, kritische Lerner-Cases, SLA-Verletzungen.",
