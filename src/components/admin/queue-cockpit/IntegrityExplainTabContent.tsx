@@ -80,6 +80,17 @@ type AuditMarker = {
   created_at: string | null;
 };
 
+type BpAuditRow = {
+  audit_id: string;
+  blueprint_id: string;
+  action: string;
+  wave: string;
+  change_reason: string | null;
+  performed_by: string | null;
+  performed_at: string | null;
+  current_status: string | null;
+};
+
 async function fetchIntegrityPackages(): Promise<Pkg[]> {
   const { data, error } = await supabase
     .from("course_packages")
@@ -217,6 +228,43 @@ async function fetchAuditMarkers(packageId: string): Promise<AuditMarker[]> {
   });
 }
 
+async function fetchBlueprintAudit(packageId: string): Promise<BpAuditRow[]> {
+  const { data, error } = await supabase
+    .from("v_blueprint_audit_per_package" as never)
+    .select(
+      "audit_id, blueprint_id, action, wave, change_reason, performed_by, performed_at, current_status",
+    )
+    .eq("package_id", packageId)
+    .order("performed_at", { ascending: false })
+    .limit(200);
+  if (error) throw error;
+  return (data ?? []) as unknown as BpAuditRow[];
+}
+
+async function reDeprecateBlueprint(blueprintId: string): Promise<void> {
+  const { error } = await supabase
+    .from("question_blueprints")
+    .update({
+      status: "deprecated",
+      deprecated_at: new Date().toISOString(),
+      change_reason: `ROLLBACK_${new Date().toISOString().slice(0, 10)}: revert via Explain Mode`,
+    })
+    .eq("id", blueprintId);
+  if (error) throw error;
+}
+
+async function reactivateBlueprint(blueprintId: string): Promise<void> {
+  const { error } = await supabase
+    .from("question_blueprints")
+    .update({
+      status: "approved",
+      approved_at: new Date().toISOString(),
+      change_reason: `MANUAL_REACTIVATE_${new Date().toISOString().slice(0, 10)}: Explain Mode`,
+    })
+    .eq("id", blueprintId);
+  if (error) throw error;
+}
+
 async function enqueueRepair(params: {
   package_id: string;
   curriculum_id: string;
@@ -298,6 +346,10 @@ function PackageDetail({ pkg }: { pkg: Pkg }) {
     queryKey: ["explain-audit", pkg.id],
     queryFn: () => fetchAuditMarkers(pkg.id),
   });
+  const bpAudit = useQuery({
+    queryKey: ["explain-bp-audit", pkg.id],
+    queryFn: () => fetchBlueprintAudit(pkg.id),
+  });
 
   const reTrigger = useMutation({
     mutationFn: (job_type: string) =>
@@ -320,8 +372,20 @@ function PackageDetail({ pkg }: { pkg: Pkg }) {
       toast.warning("WAVE-Revival zurückgenommen", { description: pkg.title });
       qc.invalidateQueries({ queryKey: ["explain-diag", pkg.id] });
       qc.invalidateQueries({ queryKey: ["explain-audit", pkg.id] });
+      qc.invalidateQueries({ queryKey: ["explain-bp-audit", pkg.id] });
     },
     onError: (e) => toast.error("Rollback fehlgeschlagen", { description: String(e) }),
+  });
+
+  const bpToggle = useMutation({
+    mutationFn: ({ id, target }: { id: string; target: "approved" | "deprecated" }) =>
+      target === "approved" ? reactivateBlueprint(id) : reDeprecateBlueprint(id),
+    onSuccess: (_, vars) => {
+      toast.success(`Blueprint → ${vars.target}`);
+      qc.invalidateQueries({ queryKey: ["explain-diag", pkg.id] });
+      qc.invalidateQueries({ queryKey: ["explain-bp-audit", pkg.id] });
+    },
+    onError: (e) => toast.error("BP-Toggle fehlgeschlagen", { description: String(e) }),
   });
 
   if (diag.isLoading) return <Skeleton className="h-96" />;
@@ -469,12 +533,100 @@ function PackageDetail({ pkg }: { pkg: Pkg }) {
                     <div className="flex items-center justify-between">
                       <code className="font-medium">{a.action}</code>
                       <span className="text-muted-foreground">
-                        {new Date(a.created_at).toLocaleString()}
+                        {a.created_at ? new Date(a.created_at).toLocaleString() : "—"}
                       </span>
                     </div>
                     <p className="text-muted-foreground">{a.scope}</p>
                   </div>
                 ))}
+              </div>
+            </ScrollArea>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <History className="h-4 w-4" /> Blueprint Deprecation Audit
+          </CardTitle>
+          <CardDescription className="text-xs">
+            Welle / Quelle pro betroffener Blueprint-ID — Reaktivierungen markiert.
+            Pro Eintrag kann gezielt zurück- oder erneut deprecated werden.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {bpAudit.isLoading ? (
+            <Skeleton className="h-24" />
+          ) : (bpAudit.data ?? []).length === 0 ? (
+            <p className="text-xs text-muted-foreground">
+              Keine Deprecation-/Reactivation-Events für dieses Paket.
+            </p>
+          ) : (
+            <ScrollArea className="h-72">
+              <div className="space-y-2">
+                {bpAudit.data!.map((row) => {
+                  const isReact = row.action === "reactivated";
+                  const isDepr = row.action === "deprecated";
+                  return (
+                    <div key={row.audit_id} className="border rounded-md p-2 text-xs space-y-1">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <div className="flex items-center gap-2">
+                          <Badge
+                            variant={isReact ? "default" : isDepr ? "destructive" : "secondary"}
+                            className={isReact ? "bg-emerald-600" : ""}
+                          >
+                            {row.action}
+                          </Badge>
+                          <Badge variant="outline">{row.wave}</Badge>
+                          <code className="text-[10px] text-muted-foreground">
+                            {row.blueprint_id.slice(0, 8)}
+                          </code>
+                          <Badge variant="outline" className="text-[10px]">
+                            now: {row.current_status ?? "?"}
+                          </Badge>
+                        </div>
+                        <span className="text-muted-foreground">
+                          {row.performed_at
+                            ? new Date(row.performed_at).toLocaleString()
+                            : "—"}
+                        </span>
+                      </div>
+                      {row.change_reason && (
+                        <p className="text-muted-foreground truncate" title={row.change_reason}>
+                          {row.change_reason}
+                        </p>
+                      )}
+                      <div className="flex gap-1 pt-1">
+                        {row.current_status === "deprecated" ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-6 text-[10px]"
+                            disabled={bpToggle.isPending}
+                            onClick={() =>
+                              bpToggle.mutate({ id: row.blueprint_id, target: "approved" })
+                            }
+                          >
+                            Reaktivieren
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 text-[10px]"
+                            disabled={bpToggle.isPending}
+                            onClick={() =>
+                              bpToggle.mutate({ id: row.blueprint_id, target: "deprecated" })
+                            }
+                          >
+                            Re-Deprecate
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </ScrollArea>
           )}
