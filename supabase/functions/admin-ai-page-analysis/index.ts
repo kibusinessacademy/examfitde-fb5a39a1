@@ -330,7 +330,6 @@ const ANALYSIS_TOOL = {
               evidence: { type: "string", description: "Konkrete Zahl/Feld aus dem Snapshot." },
             },
             required: ["title", "detail"],
-            additionalProperties: false,
           },
         },
         gaps: {
@@ -342,7 +341,6 @@ const ANALYSIS_TOOL = {
               detail: { type: "string" },
             },
             required: ["title", "detail"],
-            additionalProperties: false,
           },
         },
         optimizations: {
@@ -356,7 +354,6 @@ const ANALYSIS_TOOL = {
               effort: { type: "string", enum: ["low", "medium", "high"] },
             },
             required: ["title", "detail", "impact", "effort"],
-            additionalProperties: false,
           },
         },
         cross_system: {
@@ -369,17 +366,15 @@ const ANALYSIS_TOOL = {
               affected_areas: { type: "array", items: { type: "string" } },
             },
             required: ["title", "detail"],
-            additionalProperties: false,
           },
         },
         next_actions: {
           type: "array",
-          minItems: 3,
-          maxItems: 3,
+          description: "Genau 3 priorisierte Folge-Aktionen.",
           items: {
             type: "object",
             properties: {
-              priority: { type: "integer", enum: [1, 2, 3] },
+              priority: { type: "integer", description: "1 = höchste, 3 = niedrigste." },
               title: { type: "string" },
               outcome: { type: "string", description: "Was wird messbar besser." },
               impact: { type: "string", enum: ["low", "medium", "high"] },
@@ -387,12 +382,10 @@ const ANALYSIS_TOOL = {
               deeplink_hint: { type: "string", description: "Optional: passende Admin-Route." },
             },
             required: ["priority", "title", "outcome", "impact", "effort"],
-            additionalProperties: false,
           },
         },
       },
       required: ["summary", "bottlenecks", "gaps", "optimizations", "cross_system", "next_actions"],
-      additionalProperties: false,
     },
   },
 };
