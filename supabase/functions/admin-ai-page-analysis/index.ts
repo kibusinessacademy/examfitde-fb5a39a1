@@ -18,13 +18,36 @@ const PRO_ROUTES: ReadonlySet<RouteKey> = new Set([
   "admin/cockpit",
   "admin/command",
   "admin/queue",
+  "admin/queue#heal",
+  "admin/queue#repair",
+  "admin/queue#stagnation",
+  "admin/queue#retry",
+  "admin/queue#audit",
   "admin/package-diagnostics",
   "admin/heal-strategy",
-  "admin/integrity-runbook",
-  "admin/integrity-diff",
+  "admin/ops/heal-settings",
+  "admin/runbook/integrity-check",
+  "admin/ops/integrity-diff",
   "admin/growth",
   "admin/kpi",
 ]);
+
+/** Normalize route_key with synonyms so old & new paths share a snapshot loader. */
+function canonicalRouteKey(rk: string): string {
+  const synonyms: Record<string, string> = {
+    "admin/security/findings": "admin/security-findings",
+    "admin/runbook/integrity-check": "admin/integrity-runbook",
+    "admin/ops/integrity-diff": "admin/integrity-diff",
+    "admin/ops/heal-settings": "admin/heal-strategy",
+    "admin/ops/step-done-audit": "admin/step-done-audit",
+    "admin/ops/stale-marker-diff": "admin/stale-marker-diff",
+    "admin/jobs/timeline": "admin/job-timeline",
+  };
+  // Strip tab marker for synonym lookup, then re-attach
+  const [base, tab] = rk.split("#");
+  const mapped = synonyms[base] ?? base;
+  return tab ? `${mapped}#${tab}` : mapped;
+}
 
 interface SnapshotLoader {
   description: string;
@@ -280,6 +303,95 @@ const SNAPSHOT_LOADERS: Record<RouteKey, SnapshotLoader> = {
     description: "Humor-QC: didaktische Tonalität.",
     load: async (_sb) => ({ note: "Humor-QC-Daten werden in der Page geladen." }),
   },
+
+  // ──────────────────────────────────────────────
+  // Queue Tabs (?tab=…) — fokussierte Snapshots
+  // ──────────────────────────────────────────────
+  "admin/queue#live": {
+    description: "Queue Live-Tab: aktuelle Job-Liste, Status-Verteilung, Throughput letzte Stunde.",
+    load: async (sb) => ({
+      pending_by_type: await safe(
+        sb.from("job_queue").select("job_type, status")
+          .in("status", ["pending", "processing"]).limit(2000),
+      ),
+      done_last_hour: await safe(
+        sb.from("job_queue").select("job_type, completed_at")
+          .gte("completed_at", new Date(Date.now() - 3600 * 1000).toISOString())
+          .eq("status", "done").limit(2000),
+      ),
+      failed_recent: await safe(
+        sb.from("job_queue").select("job_type, error_message, created_at")
+          .eq("status", "failed").order("created_at", { ascending: false }).limit(50),
+      ),
+    }),
+  },
+  "admin/queue#heal": {
+    description: "Queue Heal-Tab: Heal-Worklist, Auto-Repair-Cluster, blockierte Pakete.",
+    load: async (sb) => ({
+      heal_log_recent: await safe(
+        sb.from("system_heal_log" as any).select("heal_type, created_at, payload")
+          .order("created_at", { ascending: false }).limit(50),
+      ),
+      blocked_packages: await safe(
+        sb.from("course_packages").select("id,title,status,blocked_reason,updated_at")
+          .eq("status", "blocked").limit(50),
+      ),
+    }),
+  },
+  "admin/queue#stuck": {
+    description: "Queue Stuck-Tab: Pending-Enqueue Observability, Steps ohne Job.",
+    load: async (sb) => ({
+      pending_enqueue: await safe(
+        sb.from("package_steps" as any).select("package_id, step_key, status, updated_at")
+          .eq("status", "pending_enqueue").limit(100),
+      ),
+      stuck_processing: await safe(
+        sb.from("job_queue").select("id, job_type, status, attempts, updated_at")
+          .eq("status", "processing")
+          .lt("updated_at", new Date(Date.now() - 10 * 60 * 1000).toISOString()).limit(50),
+      ),
+    }),
+  },
+  "admin/queue#repair": {
+    description: "Queue Repair-Tab: Per-Kurs Coverage- und Stall-Diagnose.",
+    load: async (sb) => ({
+      coverage_gaps: await safe(
+        sb.from("v_package_coverage_gap" as any).select("*").limit(50),
+      ),
+      packages_in_repair: await safe(
+        sb.from("course_packages").select("id,title,status,blocked_reason")
+          .in("status", ["blocked", "building"]).limit(50),
+      ),
+    }),
+  },
+  "admin/queue#stagnation": {
+    description: "Queue Stagnation-Tab: REQUEUE-Loops, Pakete ohne Fortschritt.",
+    load: async (sb) => ({
+      stalled_packages: await safe(
+        sb.from("course_packages").select("id,title,status,updated_at")
+          .lt("updated_at", new Date(Date.now() - 6 * 3600 * 1000).toISOString())
+          .in("status", ["building", "blocked"]).limit(50),
+      ),
+    }),
+  },
+  "admin/queue#retry": {
+    description: "Queue Retry-Tab: Jobs mit hohen Retry-Zählern.",
+    load: async (sb) => ({
+      high_retry_jobs: await safe(
+        sb.from("job_queue").select("id, job_type, status, attempts, error_message")
+          .gte("attempts", 3).order("attempts", { ascending: false }).limit(50),
+      ),
+    }),
+  },
+  "admin/queue#audit": {
+    description: "Queue Audit-Tab: Bypass/Force-Done Operationen.",
+    load: async (sb) => ({
+      recent_admin_actions: await safe(
+        sb.from("admin_actions").select("id, action, scope, created_at, payload")
+          .order("created_at", { ascending: false }).limit(50),
+      ),
+    }),
+  },
 };
 
 /** Default snapshot for unmapped routes — uses sane fallback (status counts). */
@@ -440,7 +552,7 @@ Deno.serve(async (req) => {
   if (action === "history") {
     const { data, error } = await sb
       .from("admin_ai_analysis_log")
-      .select("id, route_key, route_path, model, analysis, markdown, created_at, latency_ms, status, error_message")
+      .select("id, route_key, route_path, model, analysis, markdown, created_at, latency_ms, status, error_message, user_id")
       .eq("route_key", routeKey)
       .order("created_at", { ascending: false })
       .limit(5);
@@ -454,16 +566,45 @@ Deno.serve(async (req) => {
     });
   }
 
+  // Audit endpoint — global access trail across all route_keys (admin only via RLS)
+  if (action === "audit") {
+    const limit = Math.min(Number(body?.limit) || 200, 500);
+    const { data, error } = await sb
+      .from("admin_ai_analysis_log")
+      .select("id, route_key, route_path, model, latency_ms, status, error_message, created_at, user_id, tokens_in, tokens_out")
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (error) {
+      return new Response(JSON.stringify({ error: error.message }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const userIds = Array.from(new Set((data ?? []).map((r: any) => r.user_id).filter(Boolean)));
+    let emailMap: Record<string, string> = {};
+    if (userIds.length > 0) {
+      const { data: profs } = await sb
+        .from("profiles")
+        .select("user_id, email")
+        .in("user_id", userIds as string[]);
+      emailMap = Object.fromEntries((profs ?? []).map((p: any) => [p.user_id, p.email ?? "—"]));
+    }
+    const enriched = (data ?? []).map((r: any) => ({ ...r, user_email: emailMap[r.user_id] ?? null }));
+    return new Response(JSON.stringify({ audit: enriched }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   if (!routeKey) {
     return new Response(JSON.stringify({ error: "route_key required" }), {
       status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
-  const loader = SNAPSHOT_LOADERS[routeKey] ?? DEFAULT_LOADER;
+  const canonicalKey = canonicalRouteKey(routeKey);
+  const loader = SNAPSHOT_LOADERS[canonicalKey] ?? DEFAULT_LOADER;
 
   // Auto-routing
-  const model = PRO_ROUTES.has(routeKey) ? "google/gemini-2.5-pro" : "google/gemini-2.5-flash";
+  const model = PRO_ROUTES.has(canonicalKey) ? "google/gemini-2.5-pro" : "google/gemini-2.5-flash";
 
   const startMs = Date.now();
   let snapshot: Record<string, unknown>;

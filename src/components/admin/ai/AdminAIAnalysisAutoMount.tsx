@@ -10,43 +10,49 @@ import AdminAIAnalysisPanel from "./AdminAIAnalysisPanel";
 function deriveRouteKey(pathname: string, search: string): { key: string; label: string } | null {
   if (!pathname.startsWith("/admin")) return null;
 
-  // Normalize: strip trailing slash, get first 3 segments
   const clean = pathname.replace(/\/+$/, "");
-  const parts = clean.split("/").filter(Boolean); // ["admin", "<area>", "<sub?>"]
+  const parts = clean.split("/").filter(Boolean); // ["admin", "<area>", "<sub?>", ...]
 
   const area = parts[1];
   const sub = parts[2];
+  const sub2 = parts[3];
 
   if (!area) return { key: "admin/cockpit", label: "Admin (Root)" };
 
   const params = new URLSearchParams(search);
   const tab = params.get("tab");
 
-  // Known top-level admin areas
-  const AREA_LABEL: Record<string, string> = {
-    cockpit: "Cockpit",
-    command: "Leitstelle",
-    studio: "Kurse & Pakete",
-    queue: "Queue & Heal",
-    growth: "Growth",
-    support: "Support",
-    kpi: "KPIs",
-    test: "Test-Area",
-    "package-diagnostics": "Package-Diagnose",
-    "heal-strategy": "Heal-Strategien",
-    "security-findings": "Security",
-    "integrity-runbook": "Integrity Runbook",
-    "integrity-diff": "Integrity Diff",
-    "job-timeline": "Job-Timeline",
-    "step-done-audit": "Step-Done-Audit",
-    "stale-marker-diff": "Stale-Marker-Diff",
-    "humor-qc": "Humor-QC",
+  // Friendly labels per (sub-)area
+  const PATH_LABEL: Record<string, string> = {
+    "admin/cockpit": "Cockpit",
+    "admin/command": "Leitstelle",
+    "admin/studio": "Kurse & Pakete",
+    "admin/queue": "Queue & Heal",
+    "admin/growth": "Growth",
+    "admin/support": "Support",
+    "admin/kpi": "KPIs",
+    "admin/test": "Test-Area",
+    "admin/jobs/timeline": "Job-Timeline",
+    "admin/security/findings": "Security Findings",
+    "admin/runbook/integrity-check": "Integrity Runbook",
+    "admin/ops/integrity-diff": "Integrity Diff",
+    "admin/ops/heal-settings": "Heal-Strategien",
+    "admin/ops/step-done-audit": "Step-Done-Audit",
+    "admin/ops/stale-marker-diff": "Stale-Marker-Diff",
+    "admin/ops/ai-analysis-audit": "KI-Analyse Audit",
+    "admin/heal-cockpit": "Heal-Cockpit",
   };
 
-  const baseKey = `admin/${area}`;
-  const key = tab ? `${baseKey}#${tab}` : sub ? `${baseKey}/${sub}` : baseKey;
+  // Build the longest matching base path (admin/area[/sub[/sub2]])
+  const candidates = [
+    sub2 ? `admin/${area}/${sub}/${sub2}` : null,
+    sub ? `admin/${area}/${sub}` : null,
+    `admin/${area}`,
+  ].filter(Boolean) as string[];
 
-  const label = (AREA_LABEL[area] || area) + (tab ? ` · ${tab}` : sub ? ` · ${sub}` : "");
+  const baseKey = candidates.find((c) => PATH_LABEL[c]) ?? `admin/${area}`;
+  const key = tab ? `${baseKey}#${tab}` : baseKey;
+  const label = (PATH_LABEL[baseKey] ?? area) + (tab ? ` · ${tab}` : "");
   return { key, label };
 }
 

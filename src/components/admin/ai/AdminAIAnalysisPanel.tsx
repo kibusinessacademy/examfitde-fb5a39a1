@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
-import { Sparkles, Copy, Check, Loader2, AlertCircle, Clock, ChevronDown, ChevronUp } from "lucide-react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { Sparkles, Copy, Check, Loader2, AlertCircle, Clock, ChevronDown, ChevronUp, GitCompare, Plus, Minus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -46,6 +46,7 @@ interface HistoryEntry {
   latency_ms: number | null;
   status: string;
   error_message: string | null;
+  user_id?: string | null;
 }
 
 interface Props {
@@ -209,6 +210,70 @@ function AnalysisView({ a }: { a: Analysis }) {
   );
 }
 
+/**
+ * Compute diff between two analyses (latest vs previous).
+ * Compares titles within each section + next_actions to surface added / removed items.
+ */
+type DiffBlock = { added: string[]; removed: string[] };
+type AnalysisDiff = {
+  bottlenecks: DiffBlock;
+  gaps: DiffBlock;
+  optimizations: DiffBlock;
+  cross_system: DiffBlock;
+  next_actions: DiffBlock;
+  summaryChanged: boolean;
+};
+
+function diffArray(prev: { title: string }[] | undefined, curr: { title: string }[] | undefined): DiffBlock {
+  const p = new Set((prev ?? []).map((x) => x.title));
+  const c = new Set((curr ?? []).map((x) => x.title));
+  return {
+    added: [...c].filter((t) => !p.has(t)),
+    removed: [...p].filter((t) => !c.has(t)),
+  };
+}
+
+function computeDiff(prev: Analysis, curr: Analysis): AnalysisDiff {
+  return {
+    bottlenecks: diffArray(prev.bottlenecks, curr.bottlenecks),
+    gaps: diffArray(prev.gaps, curr.gaps),
+    optimizations: diffArray(prev.optimizations, curr.optimizations),
+    cross_system: diffArray(prev.cross_system, curr.cross_system),
+    next_actions: diffArray(prev.next_actions, curr.next_actions),
+    summaryChanged: (prev.summary || "").trim() !== (curr.summary || "").trim(),
+  };
+}
+
+function diffIsEmpty(d: AnalysisDiff): boolean {
+  return (
+    !d.summaryChanged &&
+    [d.bottlenecks, d.gaps, d.optimizations, d.cross_system, d.next_actions].every(
+      (b) => b.added.length === 0 && b.removed.length === 0,
+    )
+  );
+}
+
+function DiffSection({ label, diff }: { label: string; diff: DiffBlock }) {
+  if (diff.added.length === 0 && diff.removed.length === 0) return null;
+  return (
+    <div className="rounded-lg border p-2.5 text-xs">
+      <div className="mb-1 font-semibold">{label}</div>
+      {diff.added.map((t) => (
+        <div key={`+${t}`} className="flex items-start gap-1 text-emerald-600 dark:text-emerald-400">
+          <Plus className="h-3 w-3 mt-0.5 shrink-0" />
+          <span>{t}</span>
+        </div>
+      ))}
+      {diff.removed.map((t) => (
+        <div key={`-${t}`} className="flex items-start gap-1 text-rose-600 dark:text-rose-400">
+          <Minus className="h-3 w-3 mt-0.5 shrink-0" />
+          <span>{t}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function AdminAIAnalysisPanel({ routeKey, routePath, visibleHints, variant = "inline", title }: Props) {
   const [open, setOpen] = useState(false);
   const [running, setRunning] = useState(false);
@@ -222,7 +287,17 @@ export function AdminAIAnalysisPanel({ routeKey, routePath, visibleHints, varian
   } | null>(null);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [diffOpen, setDiffOpen] = useState(false);
   const { toast } = useToast();
+
+  /** Diff between latest two successful analyses for this route. */
+  const diff = useMemo<{ d: AnalysisDiff; prev: HistoryEntry; curr: HistoryEntry } | null>(() => {
+    const success = history.filter((h) => h.status !== "error" && h.analysis?.summary);
+    if (success.length < 2) return null;
+    const [curr, prev] = success;
+    return { d: computeDiff(prev.analysis as Analysis, curr.analysis as Analysis), prev, curr };
+  }, [history]);
+
 
   const loadHistory = useCallback(async () => {
     const { data, error } = await supabase.functions.invoke("admin-ai-page-analysis", {
@@ -323,6 +398,45 @@ export function AdminAIAnalysisPanel({ routeKey, routePath, visibleHints, varian
           )}
 
           {current && <AnalysisView a={current.analysis} />}
+
+          {diff && (
+            <div className="border-t pt-3">
+              <button
+                onClick={() => setDiffOpen((v) => !v)}
+                className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground"
+              >
+                <GitCompare className="h-3.5 w-3.5" />
+                Diff: aktuelle vs. vorletzte Analyse{diffIsEmpty(diff.d) ? " (keine Änderungen)" : ""}
+                {diffOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+              </button>
+              {diffOpen && (
+                <div className="mt-2 space-y-2">
+                  <div className="text-[11px] text-muted-foreground">
+                    {new Date(diff.prev.created_at).toLocaleString("de-DE")} → {new Date(diff.curr.created_at).toLocaleString("de-DE")}
+                  </div>
+                  {diff.d.summaryChanged && (
+                    <div className="rounded-lg border p-2.5 text-xs">
+                      <div className="font-semibold mb-1">Zusammenfassung geändert</div>
+                      <div className="text-rose-600 dark:text-rose-400 line-clamp-2">− {diff.prev.analysis?.summary}</div>
+                      <div className="text-emerald-600 dark:text-emerald-400 line-clamp-2">+ {diff.curr.analysis?.summary}</div>
+                    </div>
+                  )}
+                  <div className="grid gap-2 md:grid-cols-2">
+                    <DiffSection label="Engpässe" diff={diff.d.bottlenecks} />
+                    <DiffSection label="Lücken" diff={diff.d.gaps} />
+                    <DiffSection label="Optimierungen" diff={diff.d.optimizations} />
+                    <DiffSection label="Cross-System" diff={diff.d.cross_system} />
+                    <DiffSection label="Top-3 Aktionen" diff={diff.d.next_actions} />
+                  </div>
+                  {diffIsEmpty(diff.d) && (
+                    <div className="text-xs text-muted-foreground">
+                      Keine Titel-Änderungen zwischen den letzten beiden Analysen.
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="border-t pt-3">
             <button
