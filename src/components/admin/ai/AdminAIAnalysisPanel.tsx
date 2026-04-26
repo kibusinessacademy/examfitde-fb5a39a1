@@ -1,9 +1,30 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, Component, ReactNode } from "react";
 import { Sparkles, Copy, Check, Loader2, AlertCircle, Clock, ChevronDown, ChevronUp, GitCompare, Plus, Minus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+
+// Inline ErrorBoundary so a malformed analysis payload never kills the whole page.
+class AnalysisErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  state = { error: null as Error | null };
+  static getDerivedStateFromError(error: Error) { return { error }; }
+  componentDidCatch(error: Error) { console.error("[AdminAIAnalysisPanel] render error:", error); }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+          <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+          <div>
+            <div className="font-medium">Analyse-Anzeige fehlgeschlagen</div>
+            <div className="text-xs opacity-80">{this.state.error.message}</div>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 type Severity = "low" | "medium" | "high";
 
