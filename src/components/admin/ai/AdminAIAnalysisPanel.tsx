@@ -1,9 +1,30 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, Component, ReactNode } from "react";
 import { Sparkles, Copy, Check, Loader2, AlertCircle, Clock, ChevronDown, ChevronUp, GitCompare, Plus, Minus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+
+// Inline ErrorBoundary so a malformed analysis payload never kills the whole page.
+class AnalysisErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  state = { error: null as Error | null };
+  static getDerivedStateFromError(error: Error) { return { error }; }
+  componentDidCatch(error: Error) { console.error("[AdminAIAnalysisPanel] render error:", error); }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+          <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+          <div>
+            <div className="font-medium">Analyse-Anzeige fehlgeschlagen</div>
+            <div className="text-xs opacity-80">{this.state.error.message}</div>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 type Severity = "low" | "medium" | "high";
 
@@ -95,35 +116,47 @@ function SeverityChip({ value }: { value: Severity }) {
   );
 }
 
+function safeArr<T>(v: unknown): T[] {
+  return Array.isArray(v) ? (v as T[]) : [];
+}
+
 function AnalysisView({ a }: { a: Analysis }) {
+  // Defensive: server can return partial / null / non-array fields. Guard everything.
+  const bottlenecks = safeArr<AnalysisItem>(a?.bottlenecks);
+  const gaps = safeArr<AnalysisItem>(a?.gaps);
+  const optimizations = safeArr<OptItem>(a?.optimizations);
+  const cross = safeArr<CrossItem>(a?.cross_system);
+  const nextActions = safeArr<NextAction>(a?.next_actions);
+  const summary = typeof a?.summary === "string" ? a.summary : "";
+
   return (
     <div className="space-y-5">
-      {a.summary && (
-        <div className="rounded-xl border bg-muted/40 p-3 text-sm leading-relaxed">{a.summary}</div>
+      {summary && (
+        <div className="rounded-xl border bg-muted/40 p-3 text-sm leading-relaxed">{summary}</div>
       )}
 
-      {a.next_actions?.length > 0 && (
+      {nextActions.length > 0 && (
         <section>
           <h4 className="mb-2 text-sm font-semibold flex items-center gap-2">
             <Sparkles className="h-3.5 w-3.5 text-primary" />
             Top-3 nächste Aktionen
           </h4>
           <div className="space-y-2">
-            {a.next_actions.map((n) => (
-              <div key={n.priority} className="rounded-xl border p-3">
+            {nextActions.map((n, idx) => (
+              <div key={n?.priority ?? idx} className="rounded-xl border p-3">
                 <div className="flex items-start gap-3">
                   <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary">
-                    {n.priority}
+                    {n?.priority ?? idx + 1}
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-medium text-sm">{n.title}</span>
-                      <SeverityChip value={n.impact} />
+                      <span className="font-medium text-sm">{n?.title ?? "—"}</span>
+                      {n?.impact && <SeverityChip value={n.impact} />}
                       <span className="text-[10px] text-muted-foreground">Aufwand:</span>
-                      <SeverityChip value={n.effort} />
+                      {n?.effort && <SeverityChip value={n.effort} />}
                     </div>
-                    <div className="mt-1 text-sm text-muted-foreground">{n.outcome}</div>
-                    {n.deeplink_hint && (
+                    {n?.outcome && <div className="mt-1 text-sm text-muted-foreground">{n.outcome}</div>}
+                    {n?.deeplink_hint && (
                       <div className="mt-1 text-[11px] text-muted-foreground/80">→ {n.deeplink_hint}</div>
                     )}
                   </div>
@@ -135,15 +168,15 @@ function AnalysisView({ a }: { a: Analysis }) {
       )}
 
       <div className="grid gap-4 md:grid-cols-2">
-        {a.bottlenecks?.length > 0 && (
+        {bottlenecks.length > 0 && (
           <section>
             <h4 className="mb-2 text-sm font-semibold">Engpässe</h4>
             <ul className="space-y-2">
-              {a.bottlenecks.map((b, i) => (
+              {bottlenecks.map((b, i) => (
                 <li key={i} className="rounded-lg border p-2.5 text-sm">
-                  <div className="font-medium">{b.title}</div>
-                  <div className="text-muted-foreground">{b.detail}</div>
-                  {b.evidence && (
+                  <div className="font-medium">{b?.title ?? "—"}</div>
+                  {b?.detail && <div className="text-muted-foreground">{b.detail}</div>}
+                  {b?.evidence && (
                     <div className="mt-1 text-[11px] text-muted-foreground/80">Evidenz: {b.evidence}</div>
                   )}
                 </li>
@@ -152,51 +185,51 @@ function AnalysisView({ a }: { a: Analysis }) {
           </section>
         )}
 
-        {a.gaps?.length > 0 && (
+        {gaps.length > 0 && (
           <section>
             <h4 className="mb-2 text-sm font-semibold">Lücken</h4>
             <ul className="space-y-2">
-              {a.gaps.map((g, i) => (
+              {gaps.map((g, i) => (
                 <li key={i} className="rounded-lg border p-2.5 text-sm">
-                  <div className="font-medium">{g.title}</div>
-                  <div className="text-muted-foreground">{g.detail}</div>
+                  <div className="font-medium">{g?.title ?? "—"}</div>
+                  {g?.detail && <div className="text-muted-foreground">{g.detail}</div>}
                 </li>
               ))}
             </ul>
           </section>
         )}
 
-        {a.optimizations?.length > 0 && (
+        {optimizations.length > 0 && (
           <section>
             <h4 className="mb-2 text-sm font-semibold">Optimierungen</h4>
             <ul className="space-y-2">
-              {a.optimizations.map((o, i) => (
+              {optimizations.map((o, i) => (
                 <li key={i} className="rounded-lg border p-2.5 text-sm">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium">{o.title}</span>
-                    <SeverityChip value={o.impact} />
+                    <span className="font-medium">{o?.title ?? "—"}</span>
+                    {o?.impact && <SeverityChip value={o.impact} />}
                     <span className="text-[10px] text-muted-foreground">Aufwand:</span>
-                    <SeverityChip value={o.effort} />
+                    {o?.effort && <SeverityChip value={o.effort} />}
                   </div>
-                  <div className="text-muted-foreground">{o.detail}</div>
+                  {o?.detail && <div className="text-muted-foreground">{o.detail}</div>}
                 </li>
               ))}
             </ul>
           </section>
         )}
 
-        {a.cross_system?.length > 0 && (
+        {cross.length > 0 && (
           <section>
             <h4 className="mb-2 text-sm font-semibold">Cross-System</h4>
             <ul className="space-y-2">
-              {a.cross_system.map((c, i) => (
+              {cross.map((c, i) => (
                 <li key={i} className="rounded-lg border p-2.5 text-sm">
-                  <div className="font-medium">{c.title}</div>
-                  <div className="text-muted-foreground">{c.detail}</div>
-                  {c.affected_areas && c.affected_areas.length > 0 && (
+                  <div className="font-medium">{c?.title ?? "—"}</div>
+                  {c?.detail && <div className="text-muted-foreground">{c.detail}</div>}
+                  {Array.isArray(c?.affected_areas) && c.affected_areas.length > 0 && (
                     <div className="mt-1 flex flex-wrap gap-1">
-                      {c.affected_areas.map((a) => (
-                        <Badge key={a} variant="outline" className="text-[10px]">{a}</Badge>
+                      {c.affected_areas.map((area) => (
+                        <Badge key={area} variant="outline" className="text-[10px]">{area}</Badge>
                       ))}
                     </div>
                   )}
@@ -397,7 +430,11 @@ export function AdminAIAnalysisPanel({ routeKey, routePath, visibleHints, varian
             </div>
           )}
 
-          {current && <AnalysisView a={current.analysis} />}
+          {current && (
+            <AnalysisErrorBoundary>
+              <AnalysisView a={current.analysis} />
+            </AnalysisErrorBoundary>
+          )}
 
           {diff && (
             <div className="border-t pt-3">
