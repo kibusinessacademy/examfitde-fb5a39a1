@@ -430,7 +430,11 @@ export function AdminAIAnalysisPanel({ routeKey, routePath, visibleHints, varian
             </div>
           )}
 
-          {current && <AnalysisView a={current.analysis} />}
+          {current && (
+            <AnalysisErrorBoundary>
+              <AnalysisView a={current.analysis} />
+            </AnalysisErrorBoundary>
+          )}
 
           {diff && (
             <div className="border-t pt-3">
