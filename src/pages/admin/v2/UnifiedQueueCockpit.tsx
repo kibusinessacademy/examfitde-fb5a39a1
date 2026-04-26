@@ -88,6 +88,7 @@ const TABS = [
   { value: "stagnation", label: "Stagnation", icon: ListChecks, hint: "Cooldown-/Backoff-Stagnation" },
   { value: "retry", label: "Retry-Loops", icon: RefreshCcw, hint: "Endlosschleifen-Detektor" },
   { value: "explain", label: "Explain", icon: Search, hint: "Integrity Explain Mode + BP-Audit" },
+  { value: "wizard", label: "Heal-Wizard", icon: Stethoscope, hint: "Geführter Job-Healing Wizard + Timeline + 503-Diagnose + Audit" },
   { value: "audit", label: "Audit", icon: Shield, hint: "Bypass / Force-Done Audit" },
 ] as const;
 
