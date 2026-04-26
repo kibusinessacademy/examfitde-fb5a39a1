@@ -308,20 +308,40 @@ const SNAPSHOT_LOADERS: Record<RouteKey, SnapshotLoader> = {
   // Queue Tabs (?tab=…) — fokussierte Snapshots
   // ──────────────────────────────────────────────
   "admin/queue#live": {
-    description: "Queue Live-Tab: aktuelle Job-Liste, Status-Verteilung, Throughput letzte Stunde.",
+    description: "Queue Live-Tab: aktuelle Job-Liste mit IDs/Paketkontext, Status-Verteilung, Throughput, Wartezeiten und Laufzeiten.",
     load: async (sb) => ({
-      pending_by_type: await safe(
-        sb.from("job_queue").select("job_type, status")
-          .in("status", ["pending", "processing"]).limit(2000),
+      // In-flight + pending mit ID, package_id, Zeitstempeln (für Wartezeit/Dauer-Analyse)
+      active_jobs: await safe(
+        sb.from("job_queue")
+          .select("id, job_type, status, package_id, attempts, priority, lane, created_at, scheduled_at, started_at, updated_at, last_heartbeat_at")
+          .in("status", ["pending", "processing"])
+          .order("created_at", { ascending: true })
+          .limit(200),
       ),
+      // Throughput letzte Stunde inkl. Dauer-Inputs
       done_last_hour: await safe(
-        sb.from("job_queue").select("job_type, completed_at")
+        sb.from("job_queue")
+          .select("id, job_type, package_id, started_at, completed_at, created_at")
           .gte("completed_at", new Date(Date.now() - 3600 * 1000).toISOString())
-          .eq("status", "done").limit(2000),
+          .eq("status", "done")
+          .limit(2000),
       ),
+      // KORREKTE Spaltennamen: 'error' / 'last_error' (nicht error_message) + Severity/Hint
       failed_recent: await safe(
-        sb.from("job_queue").select("job_type, error_message, created_at")
-          .eq("status", "failed").order("created_at", { ascending: false }).limit(50),
+        sb.from("job_queue")
+          .select("id, job_type, package_id, status, attempts, created_at, completed_at, error, last_error, last_error_code, last_error_hint, last_error_severity, last_http_status")
+          .eq("status", "failed")
+          .order("completed_at", { ascending: false })
+          .limit(50),
+      ),
+      // Cancelled separat erfassen (häufig fehlinterpretiert als "kein Fortschritt")
+      cancelled_recent: await safe(
+        sb.from("job_queue")
+          .select("id, job_type, package_id, last_error, completed_at")
+          .eq("status", "cancelled")
+          .gte("completed_at", new Date(Date.now() - 3600 * 1000).toISOString())
+          .order("completed_at", { ascending: false })
+          .limit(50),
       ),
     }),
   },
@@ -339,16 +359,19 @@ const SNAPSHOT_LOADERS: Record<RouteKey, SnapshotLoader> = {
     }),
   },
   "admin/queue#stuck": {
-    description: "Queue Stuck-Tab: Pending-Enqueue Observability, Steps ohne Job.",
+    description: "Queue Stuck-Tab: Pending-Enqueue Observability, Steps ohne Job, hängende Processing-Jobs mit Heartbeat.",
     load: async (sb) => ({
       pending_enqueue: await safe(
         sb.from("package_steps" as any).select("package_id, step_key, status, updated_at")
           .eq("status", "pending_enqueue").limit(100),
       ),
       stuck_processing: await safe(
-        sb.from("job_queue").select("id, job_type, status, attempts, updated_at")
+        sb.from("job_queue")
+          .select("id, job_type, package_id, status, attempts, lane, started_at, updated_at, last_heartbeat_at, locked_by, last_error")
           .eq("status", "processing")
-          .lt("updated_at", new Date(Date.now() - 10 * 60 * 1000).toISOString()).limit(50),
+          .lt("updated_at", new Date(Date.now() - 10 * 60 * 1000).toISOString())
+          .order("started_at", { ascending: true })
+          .limit(50),
       ),
     }),
   },
@@ -375,11 +398,14 @@ const SNAPSHOT_LOADERS: Record<RouteKey, SnapshotLoader> = {
     }),
   },
   "admin/queue#retry": {
-    description: "Queue Retry-Tab: Jobs mit hohen Retry-Zählern.",
+    description: "Queue Retry-Tab: Jobs mit hohen Retry-Zählern inkl. Fehler-Kontext und Paketbezug.",
     load: async (sb) => ({
       high_retry_jobs: await safe(
-        sb.from("job_queue").select("id, job_type, status, attempts, error_message")
-          .gte("attempts", 3).order("attempts", { ascending: false }).limit(50),
+        sb.from("job_queue")
+          .select("id, job_type, package_id, status, attempts, max_attempts, last_error, last_error_code, last_error_severity, last_http_status, rate_limited_until, updated_at")
+          .gte("attempts", 3)
+          .order("attempts", { ascending: false })
+          .limit(50),
       ),
     }),
   },
