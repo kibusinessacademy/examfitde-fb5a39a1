@@ -228,6 +228,43 @@ async function fetchAuditMarkers(packageId: string): Promise<AuditMarker[]> {
   });
 }
 
+async function fetchBlueprintAudit(packageId: string): Promise<BpAuditRow[]> {
+  const { data, error } = await supabase
+    .from("v_blueprint_audit_per_package" as never)
+    .select(
+      "audit_id, blueprint_id, action, wave, change_reason, performed_by, performed_at, current_status",
+    )
+    .eq("package_id", packageId)
+    .order("performed_at", { ascending: false })
+    .limit(200);
+  if (error) throw error;
+  return (data ?? []) as unknown as BpAuditRow[];
+}
+
+async function reDeprecateBlueprint(blueprintId: string): Promise<void> {
+  const { error } = await supabase
+    .from("question_blueprints")
+    .update({
+      status: "deprecated",
+      deprecated_at: new Date().toISOString(),
+      change_reason: `ROLLBACK_${new Date().toISOString().slice(0, 10)}: revert via Explain Mode`,
+    })
+    .eq("id", blueprintId);
+  if (error) throw error;
+}
+
+async function reactivateBlueprint(blueprintId: string): Promise<void> {
+  const { error } = await supabase
+    .from("question_blueprints")
+    .update({
+      status: "approved",
+      approved_at: new Date().toISOString(),
+      change_reason: `MANUAL_REACTIVATE_${new Date().toISOString().slice(0, 10)}: Explain Mode`,
+    })
+    .eq("id", blueprintId);
+  if (error) throw error;
+}
+
 async function enqueueRepair(params: {
   package_id: string;
   curriculum_id: string;
