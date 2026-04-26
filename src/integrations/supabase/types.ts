@@ -94208,6 +94208,16 @@ export type Database = {
       fn_reconcile_seed_blueprints_causality: { Args: never; Returns: Json }
       fn_reconcile_stale_integrity_reports: { Args: never; Returns: Json }
       fn_reconcile_stale_qgf_packages: { Args: never; Returns: Json }
+      fn_reconcile_step_status_from_jobs: {
+        Args: { _max_rows?: number }
+        Returns: {
+          new_status: string
+          old_status: string
+          package_id: string
+          source_job_id: string
+          step_key: string
+        }[]
+      }
       fn_record_integrity_run_and_check_progress: {
         Args: {
           p_curriculum_id: string
@@ -94221,6 +94231,15 @@ export type Database = {
           p_window?: number
         }
         Returns: Json
+      }
+      fn_recover_failed_predecessor_steps: {
+        Args: { _max_recoveries?: number }
+        Returns: {
+          out_blocked_jobs: number
+          out_package_id: string
+          out_recovery_attempt: number
+          out_step_key: string
+        }[]
       }
       fn_recover_stale_lock_exhausted: { Args: never; Returns: Json }
       fn_release_stale_job_locks: {
