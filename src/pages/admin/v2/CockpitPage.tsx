@@ -20,6 +20,7 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { IntegrityHealthBanner } from "@/components/admin/cockpit/IntegrityHealthBanner";
+import { PublishBlockerClustersBanner } from "@/components/admin/cockpit/PublishBlockerClustersBanner";
 
 type CockpitStatus = "green" | "yellow" | "red" | "grey";
 type Domain = "seo" | "funnel" | "crm" | "revenue" | "learning" | "pipeline";
