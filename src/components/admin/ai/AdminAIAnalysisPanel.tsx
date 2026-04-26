@@ -95,14 +95,26 @@ function SeverityChip({ value }: { value: Severity }) {
   );
 }
 
+function safeArr<T>(v: unknown): T[] {
+  return Array.isArray(v) ? (v as T[]) : [];
+}
+
 function AnalysisView({ a }: { a: Analysis }) {
+  // Defensive: server can return partial / null / non-array fields. Guard everything.
+  const bottlenecks = safeArr<AnalysisItem>(a?.bottlenecks);
+  const gaps = safeArr<AnalysisItem>(a?.gaps);
+  const optimizations = safeArr<OptItem>(a?.optimizations);
+  const cross = safeArr<CrossItem>(a?.cross_system);
+  const nextActions = safeArr<NextAction>(a?.next_actions);
+  const summary = typeof a?.summary === "string" ? a.summary : "";
+
   return (
     <div className="space-y-5">
-      {a.summary && (
-        <div className="rounded-xl border bg-muted/40 p-3 text-sm leading-relaxed">{a.summary}</div>
+      {summary && (
+        <div className="rounded-xl border bg-muted/40 p-3 text-sm leading-relaxed">{summary}</div>
       )}
 
-      {a.next_actions?.length > 0 && (
+      {nextActions.length > 0 && (
         <section>
           <h4 className="mb-2 text-sm font-semibold flex items-center gap-2">
             <Sparkles className="h-3.5 w-3.5 text-primary" />
