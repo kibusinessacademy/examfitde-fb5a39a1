@@ -18,6 +18,8 @@ import {
 import { QueueValidationWarnings } from './QueueValidationWarnings';
 import { QueueHealthcheckBanner } from './QueueHealthcheckBanner';
 import { parseHealError } from './healErrorParser';
+import { useRealtimeQueueRefresh } from '@/hooks/useRealtimeQueueRefresh';
+import { RefreshCw, Radio } from 'lucide-react';
 
 type RiskLevel = 'SAFE' | 'LOW' | 'MEDIUM' | 'HIGH';
 
