@@ -328,6 +328,7 @@ export default function QueuePage() {
       {/* === RUNNER HEALTH (Infrastruktur-Signal) === */}
       <Suspense fallback={null}><RunnerHealthCard /></Suspense>
       <Suspense fallback={null}><StuckJobTypeAlert /></Suspense>
+      <Suspense fallback={null}><ArtifactOrphansCard /></Suspense>
 
       {/* === DRILLDOWN: Operations-Detail-Layer === */}
       <details className="group rounded-xl border border-border bg-card/50">
