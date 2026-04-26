@@ -18,13 +18,36 @@ const PRO_ROUTES: ReadonlySet<RouteKey> = new Set([
   "admin/cockpit",
   "admin/command",
   "admin/queue",
+  "admin/queue#heal",
+  "admin/queue#repair",
+  "admin/queue#stagnation",
+  "admin/queue#retry",
+  "admin/queue#audit",
   "admin/package-diagnostics",
   "admin/heal-strategy",
-  "admin/integrity-runbook",
-  "admin/integrity-diff",
+  "admin/ops/heal-settings",
+  "admin/runbook/integrity-check",
+  "admin/ops/integrity-diff",
   "admin/growth",
   "admin/kpi",
 ]);
+
+/** Normalize route_key with synonyms so old & new paths share a snapshot loader. */
+function canonicalRouteKey(rk: string): string {
+  const synonyms: Record<string, string> = {
+    "admin/security/findings": "admin/security-findings",
+    "admin/runbook/integrity-check": "admin/integrity-runbook",
+    "admin/ops/integrity-diff": "admin/integrity-diff",
+    "admin/ops/heal-settings": "admin/heal-strategy",
+    "admin/ops/step-done-audit": "admin/step-done-audit",
+    "admin/ops/stale-marker-diff": "admin/stale-marker-diff",
+    "admin/jobs/timeline": "admin/job-timeline",
+  };
+  // Strip tab marker for synonym lookup, then re-attach
+  const [base, tab] = rk.split("#");
+  const mapped = synonyms[base] ?? base;
+  return tab ? `${mapped}#${tab}` : mapped;
+}
 
 interface SnapshotLoader {
   description: string;
