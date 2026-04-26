@@ -1437,7 +1437,7 @@ Deno.serve(async (req) => {
       if (orphanPools.length > 0) {
         const msg = `BOOT_GUARD_POOL_MISMATCH: Runner claims pools [${orphanPools.join(", ")}] but DB SSOT only has [${[...knownPools].join(", ")}]. Aborting to prevent silent standstill.`;
         console.error(`[content-runner] 🔴 ${msg}`);
-        await emitRunnerHeartbeat(sb, { runner_name: "content-runner", worker_id: WORKER_ID, lanes: ["generation"], status: "boot_guard_fail", passes: 0, claimed: 0, succeeded: 0, failed: 0, runtime_ms: 0, error_message: msg });
+        await emitRunnerHeartbeat(sb, { runner_name: "content-runner", worker_id: WORKER_ID, lanes: ["generation","build"], status: "boot_guard_fail", passes: 0, claimed: 0, succeeded: 0, failed: 0, runtime_ms: 0, error_message: msg });
         return json({ ok: false, error: "BOOT_GUARD_POOL_MISMATCH", orphan_pools: orphanPools, db_pools: [...knownPools], message: msg }, 500);
       }
       console.log(`[content-runner] ✅ Boot pool guard passed: claiming [${RUNNER_CLAIM_POOLS.join(", ")}], DB has [${[...knownPools].join(", ")}]`);
@@ -1461,7 +1461,7 @@ Deno.serve(async (req) => {
       `[content-runner] 🔴 CIRCUIT_BREAKER: pipeline paused — ${cbStatus.reason} ` +
       `(${Math.round((cbStatus.remainingMs ?? 0) / 1000)}s remaining)`,
     );
-    await emitRunnerHeartbeat(sb, { runner_name: "content-runner", worker_id: WORKER_ID, lanes: ["generation"], status: "circuit_breaker", passes: 0, claimed: 0, succeeded: 0, failed: 0, runtime_ms: 0, error_message: cbStatus.reason });
+    await emitRunnerHeartbeat(sb, { runner_name: "content-runner", worker_id: WORKER_ID, lanes: ["generation","build"], status: "circuit_breaker", passes: 0, claimed: 0, succeeded: 0, failed: 0, runtime_ms: 0, error_message: cbStatus.reason });
     return json({
       ok: false,
       circuit_breaker: true,
@@ -1528,7 +1528,7 @@ Deno.serve(async (req) => {
   await emitRunnerHeartbeat(sb, {
     runner_name: "content-runner",
     worker_id: WORKER_ID,
-    lanes: ["generation"],
+    lanes: ["generation","build"],
     status: "ok",
     passes,
     claimed: totalClaimed,
