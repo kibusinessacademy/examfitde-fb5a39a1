@@ -223,13 +223,6 @@ const SNAPSHOT_LOADERS: Record<RouteKey, SnapshotLoader> = {
             .order("updated_at", { ascending: false })
             .limit(50),
         ),
-        pillar_clusters: await safe(
-          sb
-            .from("seo_pillar_clusters" as any)
-            .select("id,title,status,curriculum_id,updated_at")
-            .order("updated_at", { ascending: false })
-            .limit(30),
-        ),
       };
     },
   },
