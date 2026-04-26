@@ -71,6 +71,72 @@ export type Database = {
         }
         Relationships: []
       }
+      admin_ai_analysis_log: {
+        Row: {
+          analysis: Json
+          bottlenecks: Json | null
+          created_at: string
+          cross_system: Json | null
+          error_message: string | null
+          gaps: Json | null
+          id: string
+          latency_ms: number | null
+          markdown: string | null
+          model: string
+          next_actions: Json | null
+          optimizations: Json | null
+          route_key: string
+          route_path: string | null
+          snapshot: Json
+          status: string
+          tokens_in: number | null
+          tokens_out: number | null
+          user_id: string | null
+        }
+        Insert: {
+          analysis?: Json
+          bottlenecks?: Json | null
+          created_at?: string
+          cross_system?: Json | null
+          error_message?: string | null
+          gaps?: Json | null
+          id?: string
+          latency_ms?: number | null
+          markdown?: string | null
+          model: string
+          next_actions?: Json | null
+          optimizations?: Json | null
+          route_key: string
+          route_path?: string | null
+          snapshot?: Json
+          status?: string
+          tokens_in?: number | null
+          tokens_out?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          analysis?: Json
+          bottlenecks?: Json | null
+          created_at?: string
+          cross_system?: Json | null
+          error_message?: string | null
+          gaps?: Json | null
+          id?: string
+          latency_ms?: number | null
+          markdown?: string | null
+          model?: string
+          next_actions?: Json | null
+          optimizations?: Json | null
+          route_key?: string
+          route_path?: string | null
+          snapshot?: Json
+          status?: string
+          tokens_in?: number | null
+          tokens_out?: number | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       admin_course_auto_heal_queue: {
         Row: {
           created_at: string
