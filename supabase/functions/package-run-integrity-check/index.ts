@@ -1302,7 +1302,30 @@ Deno.serve(async (req) => {
     // this as transient retry (deferred) or hard fail (no_curriculum) without crashing.
     const gMetrics: any = (gate as any).metrics ?? {};
     if (gMetrics.deferred === true) {
-      console.log(`[integrity-check] pkg=${packageId.slice(0, 8)} DEFERRED reason=${gMetrics.deferReason} — returning transient retry`);
+      console.log(`[integrity-check] pkg=${packageId.slice(0, 8)} DEFERRED reason=${gMetrics.deferReason} — writing minimal report + returning transient retry`);
+      // Persist a minimal integrity_report so cockpit can distinguish DEFERRED vs FAILED vs NEVER_CHECKED.
+      // integrity_passed stays false, but report is no longer NULL.
+      try {
+        await sb.from("course_packages").update({
+          integrity_report: {
+            ok: false,
+            executed: false,
+            deferred: true,
+            reason_code: "INTEGRITY_DEFERRED",
+            gate_class: "deferral",
+            defer_reason: gMetrics.deferReason ?? "WAITING_FOR_MATERIALIZATION",
+            deferred_at: new Date().toISOString(),
+            metrics: {
+              total_approved: gMetrics.totalApproved ?? null,
+              approved_expected: gMetrics.approvedCountExpected ?? null,
+            },
+          },
+          integrity_passed: false,
+          updated_at: new Date().toISOString(),
+        }).eq("id", packageId);
+      } catch (e) {
+        console.warn(`[integrity-check] DEFERRED: failed to write minimal report: ${(e as Error)?.message}`);
+      }
       return json({
         ok: false,
         retry: true,
@@ -1315,6 +1338,23 @@ Deno.serve(async (req) => {
     }
     if (gMetrics.noCurriculum === true) {
       console.log(`[integrity-check] pkg=${packageId.slice(0, 8)} NO_CURRICULUM — hard fail (no curriculum_id resolved)`);
+      try {
+        await sb.from("course_packages").update({
+          integrity_report: {
+            ok: false,
+            executed: true,
+            deferred: false,
+            reason_code: "NO_CURRICULUM",
+            gate_class: "configuration",
+            hard_fails: gate.hardFails,
+            checked_at: new Date().toISOString(),
+          },
+          integrity_passed: false,
+          updated_at: new Date().toISOString(),
+        }).eq("id", packageId);
+      } catch (e) {
+        console.warn(`[integrity-check] NO_CURRICULUM: failed to write report: ${(e as Error)?.message}`);
+      }
       return json({
         ok: false,
         retry: false,
