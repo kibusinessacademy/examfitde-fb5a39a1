@@ -552,7 +552,7 @@ Deno.serve(async (req) => {
   if (action === "history") {
     const { data, error } = await sb
       .from("admin_ai_analysis_log")
-      .select("id, route_key, route_path, model, analysis, markdown, created_at, latency_ms, status, error_message")
+      .select("id, route_key, route_path, model, analysis, markdown, created_at, latency_ms, status, error_message, user_id")
       .eq("route_key", routeKey)
       .order("created_at", { ascending: false })
       .limit(5);
@@ -566,16 +566,45 @@ Deno.serve(async (req) => {
     });
   }
 
+  // Audit endpoint — global access trail across all route_keys (admin only via RLS)
+  if (action === "audit") {
+    const limit = Math.min(Number(body?.limit) || 200, 500);
+    const { data, error } = await sb
+      .from("admin_ai_analysis_log")
+      .select("id, route_key, route_path, model, latency_ms, status, error_message, created_at, user_id, tokens_in, tokens_out")
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (error) {
+      return new Response(JSON.stringify({ error: error.message }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const userIds = Array.from(new Set((data ?? []).map((r: any) => r.user_id).filter(Boolean)));
+    let emailMap: Record<string, string> = {};
+    if (userIds.length > 0) {
+      const { data: profs } = await sb
+        .from("profiles")
+        .select("user_id, email")
+        .in("user_id", userIds as string[]);
+      emailMap = Object.fromEntries((profs ?? []).map((p: any) => [p.user_id, p.email ?? "—"]));
+    }
+    const enriched = (data ?? []).map((r: any) => ({ ...r, user_email: emailMap[r.user_id] ?? null }));
+    return new Response(JSON.stringify({ audit: enriched }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   if (!routeKey) {
     return new Response(JSON.stringify({ error: "route_key required" }), {
       status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
-  const loader = SNAPSHOT_LOADERS[routeKey] ?? DEFAULT_LOADER;
+  const canonicalKey = canonicalRouteKey(routeKey);
+  const loader = SNAPSHOT_LOADERS[canonicalKey] ?? DEFAULT_LOADER;
 
   // Auto-routing
-  const model = PRO_ROUTES.has(routeKey) ? "google/gemini-2.5-pro" : "google/gemini-2.5-flash";
+  const model = PRO_ROUTES.has(canonicalKey) ? "google/gemini-2.5-pro" : "google/gemini-2.5-flash";
 
   const startMs = Date.now();
   let snapshot: Record<string, unknown>;
