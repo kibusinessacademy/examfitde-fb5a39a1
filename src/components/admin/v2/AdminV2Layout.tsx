@@ -3,6 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Loader2 } from 'lucide-react';
 import AdminV2Shell from './AdminV2Shell';
 import AdminErrorBoundary from './AdminErrorBoundary';
+import AdminAIAnalysisAutoMount from '@/components/admin/ai/AdminAIAnalysisAutoMount';
 
 export default function AdminV2Layout() {
   const { user, loading, isAdmin } = useAuth();
@@ -22,6 +23,7 @@ export default function AdminV2Layout() {
   return (
     <AdminV2Shell>
       <AdminErrorBoundary resetKey={location.pathname}>
+        <AdminAIAnalysisAutoMount />
         <Outlet />
       </AdminErrorBoundary>
     </AdminV2Shell>
