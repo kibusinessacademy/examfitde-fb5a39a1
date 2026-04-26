@@ -18,6 +18,8 @@ import {
 import { QueueValidationWarnings } from './QueueValidationWarnings';
 import { QueueHealthcheckBanner } from './QueueHealthcheckBanner';
 import { parseHealError } from './healErrorParser';
+import { useRealtimeQueueRefresh } from '@/hooks/useRealtimeQueueRefresh';
+import { RefreshCw, Radio } from 'lucide-react';
 
 type RiskLevel = 'SAFE' | 'LOW' | 'MEDIUM' | 'HIGH';
 
@@ -98,6 +100,10 @@ export function QueueActionCockpit() {
   const [confirmAction, setConfirmAction] = useState<RecommendedAction | null>(null);
   const [safeConfirm, setSafeConfirm] = useState<RecommendedAction | null>(null);
   const [dryRunResult, setDryRunResult] = useState<ExecuteResult | null>(null);
+
+  // Live-Refresh (Realtime auf job_queue) verhindert Phantom-Cluster
+  // wie UNCLASSIFIED_EMPTY, die durch veraltete React-Query-Caches entstehen.
+  useRealtimeQueueRefresh();
 
   // Live-Indikator: Repair-Jobs aktuell in processing/running.
   // Solange welche laufen, blockieren wir den Heal-Button (verhindert Doppelläufe & Race-Conditions).
@@ -230,11 +236,15 @@ export function QueueActionCockpit() {
   const allActions = useMemo(() => actions.data ?? [], [actions.data]);
   // SSOT-Filter: nur Aktionen für Cluster, die View ∩ fn_auto_heal_cluster wirklich kennt.
   // Solange Healthcheck nicht geladen ist, alles zeigen (kein false-negative blocking).
+  // Phantom-Schutz: Aktionen mit job_count<=0 werden ausgefiltert (vermeidet
+  // veraltete UI nach Heal-Aktionen, falls Realtime/Refetch noch nicht durchschlug).
   const recommended = useMemo(() => {
-    if (allowedClusters.size === 0) return allActions;
-    return allActions.filter((a) => allowedClusters.has(a.cluster));
+    const live = allActions.filter((a) => (a.job_count ?? 0) > 0);
+    if (allowedClusters.size === 0) return live;
+    return live.filter((a) => allowedClusters.has(a.cluster));
   }, [allActions, allowedClusters]);
-  const hiddenByGuard = allActions.length - recommended.length;
+  const hiddenByGuard = allActions.filter((a) => (a.job_count ?? 0) > 0).length - recommended.length;
+  const phantomFiltered = allActions.length - allActions.filter((a) => (a.job_count ?? 0) > 0).length;
 
   return (
     <div className="space-y-3">
@@ -309,6 +319,13 @@ export function QueueActionCockpit() {
               <h3 className="text-xs font-semibold text-foreground uppercase tracking-wide">
                 Empfohlene Aktionen
               </h3>
+              <span
+                className="inline-flex items-center gap-1 text-[9px] text-success"
+                title="Live-Refresh aktiv (Realtime auf job_queue)"
+              >
+                <Radio className="h-2.5 w-2.5 animate-pulse" />
+                LIVE
+              </span>
             </div>
             <div className="flex items-center gap-2 text-[10px] text-muted-foreground tabular-nums">
               <span>{recommended.length} Cluster</span>
@@ -317,6 +334,29 @@ export function QueueActionCockpit() {
                   {hiddenByGuard} ausgeblendet (SSOT-Guard)
                 </Badge>
               )}
+              {phantomFiltered > 0 && (
+                <Badge
+                  variant="outline"
+                  className="h-4 px-1.5 text-[9px] border-muted text-muted-foreground"
+                  title="Cluster mit job_count=0 wurden als Phantom verworfen"
+                >
+                  {phantomFiltered} Phantom verworfen
+                </Badge>
+              )}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-5 w-5"
+                title="Sofort neu laden"
+                onClick={() => {
+                  qc.invalidateQueries({ queryKey: ['queue-recommended-actions'] });
+                  qc.invalidateQueries({ queryKey: ['queue-health-score'] });
+                  qc.invalidateQueries({ queryKey: ['queue-system-healthcheck-allowed-clusters'] });
+                  qc.invalidateQueries({ queryKey: ['active-repair-jobs'] });
+                }}
+              >
+                <RefreshCw className="h-3 w-3" />
+              </Button>
             </div>
           </div>
 

@@ -15,6 +15,7 @@ import {
   RotateCcw, Loader2, ArrowRight, ChevronDown
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useRealtimeQueueRefresh } from '@/hooks/useRealtimeQueueRefresh';
 
 function stripPrefix(title: string | null | undefined): string {
   return (title || '').replace(/^ExamFit\s*–\s*/i, '');
@@ -210,6 +211,10 @@ export default function QueuePage() {
   const { data: counts } = useAdminQueueCounts();
   const { data: jobs, isLoading, error } = useAdminQueueSSOT(statusFilter, search);
 
+  // Live-Refresh: Realtime auf job_queue invalidiert Counts/SSOT-Listen
+  // sofort bei Statusänderungen — verhindert Phantom-Cluster im Cockpit.
+  useRealtimeQueueRefresh({ extraKeys: [['queue-counts'], ['admin-queue-ssot', statusFilter, search]] });
+
   const actionMutation = useMutation({
     mutationFn: async ({ jobId, action }: { jobId: string; action: string }) => {
       if (action === 'retry') return runAdminOpsAction('requeue_failed_jobs', { job_ids: [jobId] });
@@ -218,12 +223,36 @@ export default function QueuePage() {
       if (action === 'cancel') return runAdminOpsAction('cancel_zombie_packages', { job_ids: [jobId] });
       if (action === 'force_run') {
         const { data: { session } } = await supabase.auth.getSession();
-        const { data, error } = await supabase.functions.invoke('admin-ops-actions', {
-          body: { action: 'force_run_job', job_id: jobId },
-          headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {},
-        });
-        if (error) throw error;
-        return data;
+        // Cold-Start-Resilienz: Edge-Functions liefern bei Kaltstart sporadisch
+        // 503 / "Failed to send a request". Wir retryen den Aufruf bis zu 3×
+        // mit exponentiellem Backoff (250ms / 1s / 3s).
+        const delays = [250, 1000, 3000];
+        let lastErr: unknown = null;
+        for (let attempt = 0; attempt < delays.length; attempt++) {
+          try {
+            const { data, error } = await supabase.functions.invoke('admin-ops-actions', {
+              body: { action: 'force_run_job', job_id: jobId },
+              headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {},
+            });
+            if (error) {
+              const msg = (error as Error).message || '';
+              const transient =
+                /failed to send|fetch|network|503|non-2xx/i.test(msg);
+              if (transient && attempt < delays.length - 1) {
+                await new Promise((r) => setTimeout(r, delays[attempt]));
+                lastErr = error;
+                continue;
+              }
+              throw error;
+            }
+            return data;
+          } catch (e) {
+            lastErr = e;
+            if (attempt >= delays.length - 1) throw e;
+            await new Promise((r) => setTimeout(r, delays[attempt]));
+          }
+        }
+        throw lastErr ?? new Error('force_run_job failed after retries');
       }
       return null;
     },
