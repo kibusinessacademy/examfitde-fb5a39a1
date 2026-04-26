@@ -147,15 +147,15 @@ function AnalysisView({ a }: { a: Analysis }) {
       )}
 
       <div className="grid gap-4 md:grid-cols-2">
-        {a.bottlenecks?.length > 0 && (
+        {bottlenecks.length > 0 && (
           <section>
             <h4 className="mb-2 text-sm font-semibold">Engpässe</h4>
             <ul className="space-y-2">
-              {a.bottlenecks.map((b, i) => (
+              {bottlenecks.map((b, i) => (
                 <li key={i} className="rounded-lg border p-2.5 text-sm">
-                  <div className="font-medium">{b.title}</div>
-                  <div className="text-muted-foreground">{b.detail}</div>
-                  {b.evidence && (
+                  <div className="font-medium">{b?.title ?? "—"}</div>
+                  {b?.detail && <div className="text-muted-foreground">{b.detail}</div>}
+                  {b?.evidence && (
                     <div className="mt-1 text-[11px] text-muted-foreground/80">Evidenz: {b.evidence}</div>
                   )}
                 </li>
@@ -164,51 +164,51 @@ function AnalysisView({ a }: { a: Analysis }) {
           </section>
         )}
 
-        {a.gaps?.length > 0 && (
+        {gaps.length > 0 && (
           <section>
             <h4 className="mb-2 text-sm font-semibold">Lücken</h4>
             <ul className="space-y-2">
-              {a.gaps.map((g, i) => (
+              {gaps.map((g, i) => (
                 <li key={i} className="rounded-lg border p-2.5 text-sm">
-                  <div className="font-medium">{g.title}</div>
-                  <div className="text-muted-foreground">{g.detail}</div>
+                  <div className="font-medium">{g?.title ?? "—"}</div>
+                  {g?.detail && <div className="text-muted-foreground">{g.detail}</div>}
                 </li>
               ))}
             </ul>
           </section>
         )}
 
-        {a.optimizations?.length > 0 && (
+        {optimizations.length > 0 && (
           <section>
             <h4 className="mb-2 text-sm font-semibold">Optimierungen</h4>
             <ul className="space-y-2">
-              {a.optimizations.map((o, i) => (
+              {optimizations.map((o, i) => (
                 <li key={i} className="rounded-lg border p-2.5 text-sm">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium">{o.title}</span>
-                    <SeverityChip value={o.impact} />
+                    <span className="font-medium">{o?.title ?? "—"}</span>
+                    {o?.impact && <SeverityChip value={o.impact} />}
                     <span className="text-[10px] text-muted-foreground">Aufwand:</span>
-                    <SeverityChip value={o.effort} />
+                    {o?.effort && <SeverityChip value={o.effort} />}
                   </div>
-                  <div className="text-muted-foreground">{o.detail}</div>
+                  {o?.detail && <div className="text-muted-foreground">{o.detail}</div>}
                 </li>
               ))}
             </ul>
           </section>
         )}
 
-        {a.cross_system?.length > 0 && (
+        {cross.length > 0 && (
           <section>
             <h4 className="mb-2 text-sm font-semibold">Cross-System</h4>
             <ul className="space-y-2">
-              {a.cross_system.map((c, i) => (
+              {cross.map((c, i) => (
                 <li key={i} className="rounded-lg border p-2.5 text-sm">
-                  <div className="font-medium">{c.title}</div>
-                  <div className="text-muted-foreground">{c.detail}</div>
-                  {c.affected_areas && c.affected_areas.length > 0 && (
+                  <div className="font-medium">{c?.title ?? "—"}</div>
+                  {c?.detail && <div className="text-muted-foreground">{c.detail}</div>}
+                  {Array.isArray(c?.affected_areas) && c.affected_areas.length > 0 && (
                     <div className="mt-1 flex flex-wrap gap-1">
-                      {c.affected_areas.map((a) => (
-                        <Badge key={a} variant="outline" className="text-[10px]">{a}</Badge>
+                      {c.affected_areas.map((area) => (
+                        <Badge key={area} variant="outline" className="text-[10px]">{area}</Badge>
                       ))}
                     </div>
                   )}
