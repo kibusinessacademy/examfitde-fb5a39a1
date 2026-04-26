@@ -2459,6 +2459,42 @@ export type Database = {
         }
         Relationships: []
       }
+      artifact_orphan_cleanup_log: {
+        Row: {
+          artifact_id: string
+          curriculum_id: string | null
+          deleted_at: string
+          deleted_by: string
+          id: string
+          package_id: string | null
+          payload: Json | null
+          reason: string
+          table_name: string
+        }
+        Insert: {
+          artifact_id: string
+          curriculum_id?: string | null
+          deleted_at?: string
+          deleted_by?: string
+          id?: string
+          package_id?: string | null
+          payload?: Json | null
+          reason: string
+          table_name: string
+        }
+        Update: {
+          artifact_id?: string
+          curriculum_id?: string | null
+          deleted_at?: string
+          deleted_by?: string
+          id?: string
+          package_id?: string | null
+          payload?: Json | null
+          reason?: string
+          table_name?: string
+        }
+        Relationships: []
+      }
       asset_optimization_scores: {
         Row: {
           asset_id: string
@@ -3315,6 +3351,51 @@ export type Database = {
           status?: string
           tags?: string[] | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      backfill_chunk_audit: {
+        Row: {
+          chunk_size: number | null
+          created_at: string
+          curriculum_id: string | null
+          duration_ms: number | null
+          error_message: string | null
+          id: string
+          meta: Json | null
+          package_id: string | null
+          rows_updated: number
+          table_name: string
+          triggers_disabled: string[] | null
+          triggers_restored: boolean
+        }
+        Insert: {
+          chunk_size?: number | null
+          created_at?: string
+          curriculum_id?: string | null
+          duration_ms?: number | null
+          error_message?: string | null
+          id?: string
+          meta?: Json | null
+          package_id?: string | null
+          rows_updated?: number
+          table_name: string
+          triggers_disabled?: string[] | null
+          triggers_restored?: boolean
+        }
+        Update: {
+          chunk_size?: number | null
+          created_at?: string
+          curriculum_id?: string | null
+          duration_ms?: number | null
+          error_message?: string | null
+          id?: string
+          meta?: Json | null
+          package_id?: string | null
+          rows_updated?: number
+          table_name?: string
+          triggers_disabled?: string[] | null
+          triggers_restored?: boolean
         }
         Relationships: []
       }
@@ -79853,6 +79934,27 @@ export type Database = {
         }
         Relationships: []
       }
+      v_artifact_orphans: {
+        Row: {
+          artifact_id: string | null
+          curriculum_id: string | null
+          package_id: string | null
+          reason: string | null
+          table_name: string | null
+        }
+        Relationships: []
+      }
+      v_artifact_orphans_summary: {
+        Row: {
+          cluster_key: string | null
+          distinct_curricula: number | null
+          distinct_packages: number | null
+          orphan_count: number | null
+          reason: string | null
+          table_name: string | null
+        }
+        Relationships: []
+      }
       v_audit_finding_trends: {
         Row: {
           all_healed: boolean | null
@@ -90859,6 +90961,13 @@ export type Database = {
       admin_check_publish_readiness: {
         Args: { p_package_id: string }
         Returns: Json
+      }
+      admin_cleanup_artifact_orphans: {
+        Args: { p_dry_run?: boolean; p_max?: number; p_table?: string }
+        Returns: {
+          deleted_count: number
+          table_name: string
+        }[]
       }
       admin_clear_job_quarantine: {
         Args: { p_quarantine_id: string }
