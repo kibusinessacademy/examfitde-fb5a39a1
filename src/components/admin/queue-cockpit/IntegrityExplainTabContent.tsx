@@ -346,6 +346,10 @@ function PackageDetail({ pkg }: { pkg: Pkg }) {
     queryKey: ["explain-audit", pkg.id],
     queryFn: () => fetchAuditMarkers(pkg.id),
   });
+  const bpAudit = useQuery({
+    queryKey: ["explain-bp-audit", pkg.id],
+    queryFn: () => fetchBlueprintAudit(pkg.id),
+  });
 
   const reTrigger = useMutation({
     mutationFn: (job_type: string) =>
@@ -368,8 +372,20 @@ function PackageDetail({ pkg }: { pkg: Pkg }) {
       toast.warning("WAVE-Revival zurückgenommen", { description: pkg.title });
       qc.invalidateQueries({ queryKey: ["explain-diag", pkg.id] });
       qc.invalidateQueries({ queryKey: ["explain-audit", pkg.id] });
+      qc.invalidateQueries({ queryKey: ["explain-bp-audit", pkg.id] });
     },
     onError: (e) => toast.error("Rollback fehlgeschlagen", { description: String(e) }),
+  });
+
+  const bpToggle = useMutation({
+    mutationFn: ({ id, target }: { id: string; target: "approved" | "deprecated" }) =>
+      target === "approved" ? reactivateBlueprint(id) : reDeprecateBlueprint(id),
+    onSuccess: (_, vars) => {
+      toast.success(`Blueprint → ${vars.target}`);
+      qc.invalidateQueries({ queryKey: ["explain-diag", pkg.id] });
+      qc.invalidateQueries({ queryKey: ["explain-bp-audit", pkg.id] });
+    },
+    onError: (e) => toast.error("BP-Toggle fehlgeschlagen", { description: String(e) }),
   });
 
   if (diag.isLoading) return <Skeleton className="h-96" />;
