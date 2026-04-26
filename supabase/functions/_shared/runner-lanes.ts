@@ -390,7 +390,7 @@ export function redistributeLaneBudgets(
   const result = { ...base };
 
   // Collect slots from inactive lanes
-  for (const lane of (["control", "recovery", "generation"] as RunnerLane[])) {
+  for (const lane of (["control", "recovery", "generation", "build", "marketing"] as RunnerLane[])) {
     if (!activeSet.has(lane)) {
       freed += result[lane];
       result[lane] = 0;
