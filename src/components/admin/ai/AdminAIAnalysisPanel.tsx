@@ -286,7 +286,17 @@ export function AdminAIAnalysisPanel({ routeKey, routePath, visibleHints, varian
   } | null>(null);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [diffOpen, setDiffOpen] = useState(false);
   const { toast } = useToast();
+
+  /** Diff between latest two successful analyses for this route. */
+  const diff = useMemo<{ d: AnalysisDiff; prev: HistoryEntry; curr: HistoryEntry } | null>(() => {
+    const success = history.filter((h) => h.status !== "error" && h.analysis?.summary);
+    if (success.length < 2) return null;
+    const [curr, prev] = success;
+    return { d: computeDiff(prev.analysis as Analysis, curr.analysis as Analysis), prev, curr };
+  }, [history]);
+
 
   const loadHistory = useCallback(async () => {
     const { data, error } = await supabase.functions.invoke("admin-ai-page-analysis", {
