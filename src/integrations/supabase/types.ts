@@ -91227,6 +91227,21 @@ export type Database = {
         Args: { _job_id: string; _reason?: string }
         Returns: Json
       }
+      admin_minicheck_backfill_chunk: {
+        Args: {
+          p_curriculum_id: string
+          p_limit?: number
+          p_package_id: string
+        }
+        Returns: number
+      }
+      admin_minicheck_pending_curricula: {
+        Args: never
+        Returns: {
+          curriculum_id: string
+          missing: number
+        }[]
+      }
       admin_purge_stale_exhaustion: {
         Args: { p_package_id?: string; p_trigger_refill?: boolean }
         Returns: {
