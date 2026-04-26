@@ -398,6 +398,45 @@ export function AdminAIAnalysisPanel({ routeKey, routePath, visibleHints, varian
 
           {current && <AnalysisView a={current.analysis} />}
 
+          {diff && (
+            <div className="border-t pt-3">
+              <button
+                onClick={() => setDiffOpen((v) => !v)}
+                className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground"
+              >
+                <GitCompare className="h-3.5 w-3.5" />
+                Diff: aktuelle vs. vorletzte Analyse{diffIsEmpty(diff.d) ? " (keine Änderungen)" : ""}
+                {diffOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+              </button>
+              {diffOpen && (
+                <div className="mt-2 space-y-2">
+                  <div className="text-[11px] text-muted-foreground">
+                    {new Date(diff.prev.created_at).toLocaleString("de-DE")} → {new Date(diff.curr.created_at).toLocaleString("de-DE")}
+                  </div>
+                  {diff.d.summaryChanged && (
+                    <div className="rounded-lg border p-2.5 text-xs">
+                      <div className="font-semibold mb-1">Zusammenfassung geändert</div>
+                      <div className="text-rose-600 dark:text-rose-400 line-clamp-2">− {diff.prev.analysis?.summary}</div>
+                      <div className="text-emerald-600 dark:text-emerald-400 line-clamp-2">+ {diff.curr.analysis?.summary}</div>
+                    </div>
+                  )}
+                  <div className="grid gap-2 md:grid-cols-2">
+                    <DiffSection label="Engpässe" diff={diff.d.bottlenecks} />
+                    <DiffSection label="Lücken" diff={diff.d.gaps} />
+                    <DiffSection label="Optimierungen" diff={diff.d.optimizations} />
+                    <DiffSection label="Cross-System" diff={diff.d.cross_system} />
+                    <DiffSection label="Top-3 Aktionen" diff={diff.d.next_actions} />
+                  </div>
+                  {diffIsEmpty(diff.d) && (
+                    <div className="text-xs text-muted-foreground">
+                      Keine Titel-Änderungen zwischen den letzten beiden Analysen.
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="border-t pt-3">
             <button
               onClick={() => setHistoryOpen((v) => !v)}
