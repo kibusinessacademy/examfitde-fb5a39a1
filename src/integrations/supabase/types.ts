@@ -92937,6 +92937,18 @@ export type Database = {
         Args: { _dry_run?: boolean; _package_id: string }
         Returns: Json
       }
+      admin_targeted_blocker_recheck: {
+        Args: { p_execute?: boolean }
+        Returns: {
+          action: string
+          blocker: string
+          course_title: string
+          executed: boolean
+          package_id: string
+          package_track: string
+          reason: string
+        }[]
+      }
       admin_unblock_user: {
         Args: { p_reason?: string; p_user_id: string }
         Returns: undefined
