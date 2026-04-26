@@ -15,6 +15,7 @@ import {
   RotateCcw, Loader2, ArrowRight, ChevronDown
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useRealtimeQueueRefresh } from '@/hooks/useRealtimeQueueRefresh';
 
 function stripPrefix(title: string | null | undefined): string {
   return (title || '').replace(/^ExamFit\s*–\s*/i, '');
