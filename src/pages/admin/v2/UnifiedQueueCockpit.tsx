@@ -74,6 +74,11 @@ const ExplainTab = lazy(() =>
     default: m.IntegrityExplainTabContent,
   })),
 );
+const HealingWizardTab = lazy(() =>
+  import("@/components/admin/queue-cockpit/HealingWizardTabContent").then((m) => ({
+    default: m.HealingWizardTabContent,
+  })),
+);
 
 const TABS = [
   { value: "live", label: "Live", icon: Activity, hint: "Aktive Jobs in Echtzeit" },
