@@ -236,11 +236,15 @@ export function QueueActionCockpit() {
   const allActions = useMemo(() => actions.data ?? [], [actions.data]);
   // SSOT-Filter: nur Aktionen für Cluster, die View ∩ fn_auto_heal_cluster wirklich kennt.
   // Solange Healthcheck nicht geladen ist, alles zeigen (kein false-negative blocking).
+  // Phantom-Schutz: Aktionen mit job_count<=0 werden ausgefiltert (vermeidet
+  // veraltete UI nach Heal-Aktionen, falls Realtime/Refetch noch nicht durchschlug).
   const recommended = useMemo(() => {
-    if (allowedClusters.size === 0) return allActions;
-    return allActions.filter((a) => allowedClusters.has(a.cluster));
+    const live = allActions.filter((a) => (a.job_count ?? 0) > 0);
+    if (allowedClusters.size === 0) return live;
+    return live.filter((a) => allowedClusters.has(a.cluster));
   }, [allActions, allowedClusters]);
-  const hiddenByGuard = allActions.length - recommended.length;
+  const hiddenByGuard = allActions.filter((a) => (a.job_count ?? 0) > 0).length - recommended.length;
+  const phantomFiltered = allActions.length - allActions.filter((a) => (a.job_count ?? 0) > 0).length;
 
   return (
     <div className="space-y-3">
