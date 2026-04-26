@@ -137,15 +137,35 @@ const GENERATION_JOB_TYPES_LANE = new Set([
   "lesson_generate_content",
 ]);
 
+// ── MARKETING LANE ──
+// Post-publish marketing/SEO orchestration jobs — separate from generation
+// to keep latency-critical lanes uncontended.
+const MARKETING_JOB_TYPES = new Set([
+  "package_auto_generate_seo_suite",
+  "seo_foundation",
+  "seo_audit",
+  "seo_internal_links",
+  "seo_generate",
+  "seo_qc_check",
+  "seo_sitemap_refresh",
+]);
+
 /**
  * Return all known job types for a given lane.
  * Used by lane-aware claiming to scope DB queries per lane.
+ *
+ * NOTE: "build" is a DB-side alias for "generation" (see derive_job_lane()).
+ * Both return the same job-type set so claim_pending_jobs_by_types works
+ * regardless of which lane name the runner asks for.
  */
 export function jobTypesForLane(lane: RunnerLane): string[] {
   switch (lane) {
     case "control": return [...CONTROL_JOB_TYPES];
     case "recovery": return [...RECOVERY_JOB_TYPES];
-    case "generation": return [...GENERATION_JOB_TYPES_LANE];
+    case "generation":
+    case "build":
+      return [...GENERATION_JOB_TYPES_LANE];
+    case "marketing": return [...MARKETING_JOB_TYPES];
   }
 }
 
@@ -155,6 +175,7 @@ export function jobTypesForLane(lane: RunnerLane): string[] {
  */
 export function laneForJobType(jobType: string): RunnerLane {
   if (RECOVERY_JOB_TYPES.has(jobType)) return "recovery";
+  if (MARKETING_JOB_TYPES.has(jobType)) return "marketing";
   if (GENERATION_JOB_TYPES_LANE.has(jobType)) return "generation";
   if (CONTROL_JOB_TYPES.has(jobType)) return "control";
   // Default: unknown jobs go to control (safe — they get dispatched first)
@@ -173,6 +194,8 @@ export function partitionByLane<T extends { job_type: string }>(
     control: [],
     recovery: [],
     generation: [],
+    build: [],
+    marketing: [],
   };
   for (const job of jobs) {
     result[laneForJobType(job.job_type)].push(job);
