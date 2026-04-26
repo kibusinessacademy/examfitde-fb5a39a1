@@ -209,6 +209,70 @@ function AnalysisView({ a }: { a: Analysis }) {
   );
 }
 
+/**
+ * Compute diff between two analyses (latest vs previous).
+ * Compares titles within each section + next_actions to surface added / removed items.
+ */
+type DiffBlock = { added: string[]; removed: string[] };
+type AnalysisDiff = {
+  bottlenecks: DiffBlock;
+  gaps: DiffBlock;
+  optimizations: DiffBlock;
+  cross_system: DiffBlock;
+  next_actions: DiffBlock;
+  summaryChanged: boolean;
+};
+
+function diffArray(prev: { title: string }[] | undefined, curr: { title: string }[] | undefined): DiffBlock {
+  const p = new Set((prev ?? []).map((x) => x.title));
+  const c = new Set((curr ?? []).map((x) => x.title));
+  return {
+    added: [...c].filter((t) => !p.has(t)),
+    removed: [...p].filter((t) => !c.has(t)),
+  };
+}
+
+function computeDiff(prev: Analysis, curr: Analysis): AnalysisDiff {
+  return {
+    bottlenecks: diffArray(prev.bottlenecks, curr.bottlenecks),
+    gaps: diffArray(prev.gaps, curr.gaps),
+    optimizations: diffArray(prev.optimizations, curr.optimizations),
+    cross_system: diffArray(prev.cross_system, curr.cross_system),
+    next_actions: diffArray(prev.next_actions, curr.next_actions),
+    summaryChanged: (prev.summary || "").trim() !== (curr.summary || "").trim(),
+  };
+}
+
+function diffIsEmpty(d: AnalysisDiff): boolean {
+  return (
+    !d.summaryChanged &&
+    [d.bottlenecks, d.gaps, d.optimizations, d.cross_system, d.next_actions].every(
+      (b) => b.added.length === 0 && b.removed.length === 0,
+    )
+  );
+}
+
+function DiffSection({ label, diff }: { label: string; diff: DiffBlock }) {
+  if (diff.added.length === 0 && diff.removed.length === 0) return null;
+  return (
+    <div className="rounded-lg border p-2.5 text-xs">
+      <div className="mb-1 font-semibold">{label}</div>
+      {diff.added.map((t) => (
+        <div key={`+${t}`} className="flex items-start gap-1 text-emerald-600 dark:text-emerald-400">
+          <Plus className="h-3 w-3 mt-0.5 shrink-0" />
+          <span>{t}</span>
+        </div>
+      ))}
+      {diff.removed.map((t) => (
+        <div key={`-${t}`} className="flex items-start gap-1 text-rose-600 dark:text-rose-400">
+          <Minus className="h-3 w-3 mt-0.5 shrink-0" />
+          <span>{t}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function AdminAIAnalysisPanel({ routeKey, routePath, visibleHints, variant = "inline", title }: Props) {
   const [open, setOpen] = useState(false);
   const [running, setRunning] = useState(false);
