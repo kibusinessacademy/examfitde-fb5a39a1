@@ -101,6 +101,10 @@ export function QueueActionCockpit() {
   const [safeConfirm, setSafeConfirm] = useState<RecommendedAction | null>(null);
   const [dryRunResult, setDryRunResult] = useState<ExecuteResult | null>(null);
 
+  // Live-Refresh (Realtime auf job_queue) verhindert Phantom-Cluster
+  // wie UNCLASSIFIED_EMPTY, die durch veraltete React-Query-Caches entstehen.
+  useRealtimeQueueRefresh();
+
   // Live-Indikator: Repair-Jobs aktuell in processing/running.
   // Solange welche laufen, blockieren wir den Heal-Button (verhindert Doppelläufe & Race-Conditions).
   const activeRepairs = useQuery({
