@@ -29,7 +29,10 @@ export type FunnelEventType =
   | "doi_confirmed"
   | "b2b_form_submit"
   | "course_open"
-  | "exam_attempt";
+  | "exam_attempt"
+  // ── Funnel-Tiefen-Events ──
+  | "page_view"
+  | "add_to_cart";
 
 const ANON_KEY = "ef_anon_id";
 const SESSION_KEY = "ef_session_id";
