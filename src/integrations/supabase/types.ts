@@ -10303,6 +10303,45 @@ export type Database = {
           },
         ]
       }
+      council_defer_log: {
+        Row: {
+          cleared_at: string | null
+          curriculum_id: string | null
+          defer_reason: string
+          deferred_at: string
+          deferred_by: string
+          error_codes: string[]
+          fail_count: number
+          id: string
+          meta: Json
+          package_id: string
+        }
+        Insert: {
+          cleared_at?: string | null
+          curriculum_id?: string | null
+          defer_reason: string
+          deferred_at?: string
+          deferred_by?: string
+          error_codes?: string[]
+          fail_count: number
+          id?: string
+          meta?: Json
+          package_id: string
+        }
+        Update: {
+          cleared_at?: string | null
+          curriculum_id?: string | null
+          defer_reason?: string
+          deferred_at?: string
+          deferred_by?: string
+          error_codes?: string[]
+          fail_count?: number
+          id?: string
+          meta?: Json
+          package_id?: string
+        }
+        Relationships: []
+      }
       council_escalations: {
         Row: {
           created_at: string
@@ -81023,6 +81062,8 @@ export type Database = {
           approved_minicheck_questions: number | null
           auto_publish_status: string | null
           build_progress: number | null
+          council_defer_reason: string | null
+          council_deferred: boolean | null
           course_id: string | null
           course_status: Database["public"]["Enums"]["course_status"] | null
           course_title: string | null
@@ -82698,6 +82739,22 @@ export type Database = {
           exam_pool_cost_eur: number | null
           package_id: string | null
           question_count: number | null
+        }
+        Relationships: []
+      }
+      v_council_deferred_packages: {
+        Row: {
+          cleared_at: string | null
+          curriculum_id: string | null
+          defer_id: string | null
+          defer_reason: string | null
+          deferred_at: string | null
+          error_codes: string[] | null
+          fail_count: number | null
+          is_published: boolean | null
+          package_id: string | null
+          package_status: string | null
+          package_title: string | null
         }
         Relationships: []
       }
@@ -92856,6 +92913,16 @@ export type Database = {
         }
         Relationships: []
       }
+      v_studio_status_distribution: {
+        Row: {
+          oldest_updated_at: string | null
+          published_count: number | null
+          stale_count: number | null
+          status: string | null
+          total: number | null
+        }
+        Relationships: []
+      }
       v_unified_open_alerts: {
         Row: {
           created_at: string | null
@@ -93609,6 +93676,10 @@ export type Database = {
         }[]
       }
       admin_get_queue_health_score: { Args: never; Returns: Json }
+      admin_get_queue_throughput: {
+        Args: { p_window_hours?: number }
+        Returns: Json
+      }
       admin_get_queue_validation_audit: {
         Args: {
           _limit?: number
@@ -93816,6 +93887,10 @@ export type Database = {
         Returns: number
       }
       admin_queue_system_healthcheck: { Args: never; Returns: Json }
+      admin_reap_stale_processing_now: {
+        Args: { p_max_age_seconds?: number; p_max_cancels?: number }
+        Returns: Json
+      }
       admin_recommend_queue_actions: {
         Args: never
         Returns: {
