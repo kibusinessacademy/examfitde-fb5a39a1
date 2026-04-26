@@ -317,6 +317,7 @@ export default function QueuePage() {
   const RunnerHealthCard = lazy(() => import('@/components/admin/queue/RunnerHealthCard'));
   const QueueActionCockpit = lazy(() => import('@/components/admin/queue/QueueActionCockpit').then(m => ({ default: m.QueueActionCockpit })));
   const QueueHealthDashboard = lazy(() => import('@/components/admin/queue/QueueHealthDashboard').then(m => ({ default: m.QueueHealthDashboard })));
+  const ArtifactOrphansCard = lazy(() => import('@/components/admin/queue/ArtifactOrphansCard'));
 
   return (
     <div className="space-y-4">
@@ -327,6 +328,7 @@ export default function QueuePage() {
       {/* === RUNNER HEALTH (Infrastruktur-Signal) === */}
       <Suspense fallback={null}><RunnerHealthCard /></Suspense>
       <Suspense fallback={null}><StuckJobTypeAlert /></Suspense>
+      <Suspense fallback={null}><ArtifactOrphansCard /></Suspense>
 
       {/* === DRILLDOWN: Operations-Detail-Layer === */}
       <details className="group rounded-xl border border-border bg-card/50">
