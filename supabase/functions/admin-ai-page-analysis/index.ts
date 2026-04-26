@@ -303,7 +303,95 @@ const SNAPSHOT_LOADERS: Record<RouteKey, SnapshotLoader> = {
     description: "Humor-QC: didaktische Tonalität.",
     load: async (_sb) => ({ note: "Humor-QC-Daten werden in der Page geladen." }),
   },
-};
+
+  // ──────────────────────────────────────────────
+  // Queue Tabs (?tab=…) — fokussierte Snapshots
+  // ──────────────────────────────────────────────
+  "admin/queue#live": {
+    description: "Queue Live-Tab: aktuelle Job-Liste, Status-Verteilung, Throughput letzte Stunde.",
+    load: async (sb) => ({
+      pending_by_type: await safe(
+        sb.from("job_queue").select("job_type, status")
+          .in("status", ["pending", "processing"]).limit(2000),
+      ),
+      done_last_hour: await safe(
+        sb.from("job_queue").select("job_type, completed_at")
+          .gte("completed_at", new Date(Date.now() - 3600 * 1000).toISOString())
+          .eq("status", "done").limit(2000),
+      ),
+      failed_recent: await safe(
+        sb.from("job_queue").select("job_type, error_message, created_at")
+          .eq("status", "failed").order("created_at", { ascending: false }).limit(50),
+      ),
+    }),
+  },
+  "admin/queue#heal": {
+    description: "Queue Heal-Tab: Heal-Worklist, Auto-Repair-Cluster, blockierte Pakete.",
+    load: async (sb) => ({
+      heal_log_recent: await safe(
+        sb.from("system_heal_log" as any).select("heal_type, created_at, payload")
+          .order("created_at", { ascending: false }).limit(50),
+      ),
+      blocked_packages: await safe(
+        sb.from("course_packages").select("id,title,status,blocked_reason,updated_at")
+          .eq("status", "blocked").limit(50),
+      ),
+    }),
+  },
+  "admin/queue#stuck": {
+    description: "Queue Stuck-Tab: Pending-Enqueue Observability, Steps ohne Job.",
+    load: async (sb) => ({
+      pending_enqueue: await safe(
+        sb.from("package_steps" as any).select("package_id, step_key, status, updated_at")
+          .eq("status", "pending_enqueue").limit(100),
+      ),
+      stuck_processing: await safe(
+        sb.from("job_queue").select("id, job_type, status, attempts, updated_at")
+          .eq("status", "processing")
+          .lt("updated_at", new Date(Date.now() - 10 * 60 * 1000).toISOString()).limit(50),
+      ),
+    }),
+  },
+  "admin/queue#repair": {
+    description: "Queue Repair-Tab: Per-Kurs Coverage- und Stall-Diagnose.",
+    load: async (sb) => ({
+      coverage_gaps: await safe(
+        sb.from("v_package_coverage_gap" as any).select("*").limit(50),
+      ),
+      packages_in_repair: await safe(
+        sb.from("course_packages").select("id,title,status,blocked_reason")
+          .in("status", ["blocked", "building"]).limit(50),
+      ),
+    }),
+  },
+  "admin/queue#stagnation": {
+    description: "Queue Stagnation-Tab: REQUEUE-Loops, Pakete ohne Fortschritt.",
+    load: async (sb) => ({
+      stalled_packages: await safe(
+        sb.from("course_packages").select("id,title,status,updated_at")
+          .lt("updated_at", new Date(Date.now() - 6 * 3600 * 1000).toISOString())
+          .in("status", ["building", "blocked"]).limit(50),
+      ),
+    }),
+  },
+  "admin/queue#retry": {
+    description: "Queue Retry-Tab: Jobs mit hohen Retry-Zählern.",
+    load: async (sb) => ({
+      high_retry_jobs: await safe(
+        sb.from("job_queue").select("id, job_type, status, attempts, error_message")
+          .gte("attempts", 3).order("attempts", { ascending: false }).limit(50),
+      ),
+    }),
+  },
+  "admin/queue#audit": {
+    description: "Queue Audit-Tab: Bypass/Force-Done Operationen.",
+    load: async (sb) => ({
+      recent_admin_actions: await safe(
+        sb.from("admin_actions").select("id, action, scope, created_at, payload")
+          .order("created_at", { ascending: false }).limit(50),
+      ),
+    }),
+  },
 
 /** Default snapshot for unmapped routes — uses sane fallback (status counts). */
 const DEFAULT_LOADER: SnapshotLoader = {
