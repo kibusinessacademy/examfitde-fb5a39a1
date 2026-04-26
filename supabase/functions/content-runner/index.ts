@@ -1083,9 +1083,11 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
   // we claim per-lane with lane-specific budgets.
   // This prevents the claim→release→reclaim loop.
   // ═══════════════════════════════════════════════════════════════
-  // ── P0 FIX: content-runner ONLY claims "generation" lane ──
-  // job-runner handles control + recovery. This eliminates Split-Brain.
-  const CONTENT_RUNNER_LANES: RunnerLane[] = ["generation"];
+  // ── P0 FIX: content-runner ONLY claims "generation" + "build" ──
+  // job-runner handles control + recovery + marketing. This eliminates Split-Brain.
+  // "build" is the DB-side alias for "generation" (see derive_job_lane()).
+  // Without claiming "build", jobs stamped lane='build' would never be picked up.
+  const CONTENT_RUNNER_LANES: RunnerLane[] = ["generation", "build"];
 
   const rawBudgets = allocateLaneBudgets(CLAIM_LIMIT);
   const laneBudgets = redistributeLaneBudgets(rawBudgets, CONTENT_RUNNER_LANES);
@@ -1093,6 +1095,8 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
     control:    { claimed: 0, dispatched: 0, succeeded: 0, failed: 0, budget_exhausted: 0 },
     recovery:   { claimed: 0, dispatched: 0, succeeded: 0, failed: 0, budget_exhausted: 0 },
     generation: { claimed: 0, dispatched: 0, succeeded: 0, failed: 0, budget_exhausted: 0 },
+    build:      { claimed: 0, dispatched: 0, succeeded: 0, failed: 0, budget_exhausted: 0 },
+    marketing:  { claimed: 0, dispatched: 0, succeeded: 0, failed: 0, budget_exhausted: 0 },
   };
 
   // deno-lint-ignore no-explicit-any
