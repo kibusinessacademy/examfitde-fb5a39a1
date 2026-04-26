@@ -2678,7 +2678,7 @@ Deno.serve(async (req) => {
   await emitRunnerHeartbeat(sb, {
     runner_name: "job-runner",
     worker_id: WORKER_ID,
-    lanes: ["control", "recovery"],
+    lanes: ["control", "recovery", "marketing"],
     status: "ok",
     passes: 1,
     claimed: results.length,
