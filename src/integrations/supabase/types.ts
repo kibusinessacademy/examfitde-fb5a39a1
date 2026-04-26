@@ -79940,6 +79940,7 @@ export type Database = {
           curriculum_id: string | null
           package_id: string | null
           reason: string | null
+          severity: string | null
           table_name: string | null
         }
         Relationships: []
@@ -79951,6 +79952,7 @@ export type Database = {
           distinct_packages: number | null
           orphan_count: number | null
           reason: string | null
+          severity: string | null
           table_name: string | null
         }
         Relationships: []
