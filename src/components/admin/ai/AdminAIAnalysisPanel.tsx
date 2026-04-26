@@ -1,0 +1,370 @@
+import { useState, useEffect, useCallback } from "react";
+import { Sparkles, Copy, Check, Loader2, AlertCircle, Clock, ChevronDown, ChevronUp } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+
+type Severity = "low" | "medium" | "high";
+
+interface AnalysisItem {
+  title: string;
+  detail: string;
+  evidence?: string;
+}
+interface OptItem extends AnalysisItem {
+  impact: Severity;
+  effort: Severity;
+}
+interface CrossItem extends AnalysisItem {
+  affected_areas?: string[];
+}
+interface NextAction {
+  priority: 1 | 2 | 3;
+  title: string;
+  outcome: string;
+  impact: Severity;
+  effort: Severity;
+  deeplink_hint?: string;
+}
+interface Analysis {
+  summary: string;
+  bottlenecks: AnalysisItem[];
+  gaps: AnalysisItem[];
+  optimizations: OptItem[];
+  cross_system: CrossItem[];
+  next_actions: NextAction[];
+}
+
+interface HistoryEntry {
+  id: string;
+  route_key: string;
+  model: string;
+  analysis: Analysis | null;
+  markdown: string | null;
+  created_at: string;
+  latency_ms: number | null;
+  status: string;
+  error_message: string | null;
+}
+
+interface Props {
+  routeKey: string;
+  routePath?: string;
+  /** Optional: short, redacted hint about what is currently visible (e.g. active filter/tab). */
+  visibleHints?: string;
+  /** Visual position. Default: inline panel. */
+  variant?: "inline" | "compact";
+  /** Override title shown at the top */
+  title?: string;
+}
+
+const SEVERITY_COLOR: Record<Severity, string> = {
+  low: "bg-muted text-muted-foreground",
+  medium: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
+  high: "bg-destructive/15 text-destructive",
+};
+
+function CopyButton({ text, label }: { text: string; label: string }) {
+  const [copied, setCopied] = useState(false);
+  const { toast } = useToast();
+  const onClick = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      toast({ title: "Kopiert", description: `${label} in Zwischenablage.` });
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      toast({ title: "Kopieren fehlgeschlagen", variant: "destructive" });
+    }
+  };
+  return (
+    <Button size="sm" variant="outline" onClick={onClick} className="gap-1.5">
+      {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+      {label}
+    </Button>
+  );
+}
+
+function SeverityChip({ value }: { value: Severity }) {
+  return (
+    <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${SEVERITY_COLOR[value]}`}>
+      {value}
+    </span>
+  );
+}
+
+function AnalysisView({ a }: { a: Analysis }) {
+  return (
+    <div className="space-y-5">
+      {a.summary && (
+        <div className="rounded-xl border bg-muted/40 p-3 text-sm leading-relaxed">{a.summary}</div>
+      )}
+
+      {a.next_actions?.length > 0 && (
+        <section>
+          <h4 className="mb-2 text-sm font-semibold flex items-center gap-2">
+            <Sparkles className="h-3.5 w-3.5 text-primary" />
+            Top-3 nächste Aktionen
+          </h4>
+          <div className="space-y-2">
+            {a.next_actions.map((n) => (
+              <div key={n.priority} className="rounded-xl border p-3">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary">
+                    {n.priority}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-medium text-sm">{n.title}</span>
+                      <SeverityChip value={n.impact} />
+                      <span className="text-[10px] text-muted-foreground">Aufwand:</span>
+                      <SeverityChip value={n.effort} />
+                    </div>
+                    <div className="mt-1 text-sm text-muted-foreground">{n.outcome}</div>
+                    {n.deeplink_hint && (
+                      <div className="mt-1 text-[11px] text-muted-foreground/80">→ {n.deeplink_hint}</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <div className="grid gap-4 md:grid-cols-2">
+        {a.bottlenecks?.length > 0 && (
+          <section>
+            <h4 className="mb-2 text-sm font-semibold">Engpässe</h4>
+            <ul className="space-y-2">
+              {a.bottlenecks.map((b, i) => (
+                <li key={i} className="rounded-lg border p-2.5 text-sm">
+                  <div className="font-medium">{b.title}</div>
+                  <div className="text-muted-foreground">{b.detail}</div>
+                  {b.evidence && (
+                    <div className="mt-1 text-[11px] text-muted-foreground/80">Evidenz: {b.evidence}</div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {a.gaps?.length > 0 && (
+          <section>
+            <h4 className="mb-2 text-sm font-semibold">Lücken</h4>
+            <ul className="space-y-2">
+              {a.gaps.map((g, i) => (
+                <li key={i} className="rounded-lg border p-2.5 text-sm">
+                  <div className="font-medium">{g.title}</div>
+                  <div className="text-muted-foreground">{g.detail}</div>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {a.optimizations?.length > 0 && (
+          <section>
+            <h4 className="mb-2 text-sm font-semibold">Optimierungen</h4>
+            <ul className="space-y-2">
+              {a.optimizations.map((o, i) => (
+                <li key={i} className="rounded-lg border p-2.5 text-sm">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium">{o.title}</span>
+                    <SeverityChip value={o.impact} />
+                    <span className="text-[10px] text-muted-foreground">Aufwand:</span>
+                    <SeverityChip value={o.effort} />
+                  </div>
+                  <div className="text-muted-foreground">{o.detail}</div>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {a.cross_system?.length > 0 && (
+          <section>
+            <h4 className="mb-2 text-sm font-semibold">Cross-System</h4>
+            <ul className="space-y-2">
+              {a.cross_system.map((c, i) => (
+                <li key={i} className="rounded-lg border p-2.5 text-sm">
+                  <div className="font-medium">{c.title}</div>
+                  <div className="text-muted-foreground">{c.detail}</div>
+                  {c.affected_areas && c.affected_areas.length > 0 && (
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {c.affected_areas.map((a) => (
+                        <Badge key={a} variant="outline" className="text-[10px]">{a}</Badge>
+                      ))}
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export function AdminAIAnalysisPanel({ routeKey, routePath, visibleHints, variant = "inline", title }: Props) {
+  const [open, setOpen] = useState(false);
+  const [running, setRunning] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [current, setCurrent] = useState<{
+    analysis: Analysis;
+    markdown: string;
+    model: string;
+    latencyMs: number;
+    createdAt: string;
+  } | null>(null);
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const { toast } = useToast();
+
+  const loadHistory = useCallback(async () => {
+    const { data, error } = await supabase.functions.invoke("admin-ai-page-analysis", {
+      body: { action: "history", route_key: routeKey },
+    });
+    if (error) return;
+    if (data?.history) setHistory(data.history as HistoryEntry[]);
+  }, [routeKey]);
+
+  useEffect(() => {
+    if (open) void loadHistory();
+  }, [open, loadHistory]);
+
+  const runAnalysis = async () => {
+    setRunning(true);
+    setError(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("admin-ai-page-analysis", {
+        body: {
+          action: "analyze",
+          route_key: routeKey,
+          route_path: routePath ?? window.location.pathname,
+          visible_hints: visibleHints,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      setCurrent({
+        analysis: data.analysis,
+        markdown: data.markdown,
+        model: data.model,
+        latencyMs: data.latency_ms,
+        createdAt: data.created_at ?? new Date().toISOString(),
+      });
+      toast({ title: "Analyse fertig", description: `Modell: ${data.model}` });
+      void loadHistory();
+    } catch (e: any) {
+      const msg = e?.message ?? "Unbekannter Fehler";
+      setError(msg);
+      toast({ title: "Analyse fehlgeschlagen", description: msg, variant: "destructive" });
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  const headerLabel = title ?? "KI-Qualitätsanalyse";
+
+  return (
+    <div className="rounded-2xl border bg-card">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/15">
+            <Sparkles className="h-3.5 w-3.5 text-primary" />
+          </div>
+          <div className="min-w-0">
+            <div className="text-sm font-semibold truncate">{headerLabel}</div>
+            <div className="text-[11px] text-muted-foreground truncate">
+              Seitenspezifisch · Live-Snapshot · Auto-Modell
+            </div>
+          </div>
+        </div>
+        {open ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+      </button>
+
+      {open && (
+        <div className="border-t px-4 py-4 space-y-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button onClick={runAnalysis} disabled={running} size="sm" className="gap-1.5">
+              {running ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+              {running ? "Analysiere…" : current ? "Neu analysieren" : "Analyse starten"}
+            </Button>
+            {current && (
+              <>
+                <CopyButton text={current.markdown} label="Markdown" />
+                <CopyButton text={JSON.stringify(current.analysis, null, 2)} label="JSON" />
+                <span className="text-[11px] text-muted-foreground">
+                  {current.model} · {current.latencyMs}ms · {new Date(current.createdAt).toLocaleTimeString("de-DE")}
+                </span>
+              </>
+            )}
+          </div>
+
+          {error && (
+            <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+              <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          {!current && !running && !error && (
+            <div className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
+              Klicke „Analyse starten" — die KI lädt einen frischen Server-Snapshot dieser Seite und liefert
+              eine 4-Block-Analyse: Engpässe · Lücken · Optimierungen · Cross-System + 3 priorisierte Aktionen.
+            </div>
+          )}
+
+          {current && <AnalysisView a={current.analysis} />}
+
+          <div className="border-t pt-3">
+            <button
+              onClick={() => setHistoryOpen((v) => !v)}
+              className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground"
+            >
+              <Clock className="h-3.5 w-3.5" />
+              Verlauf ({history.length})
+              {historyOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+            </button>
+            {historyOpen && (
+              <div className="mt-2 space-y-2">
+                {history.length === 0 && (
+                  <div className="text-xs text-muted-foreground">Noch keine Analyse für diese Seite.</div>
+                )}
+                {history.map((h) => (
+                  <div key={h.id} className="rounded-lg border p-2.5 text-xs">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-mono text-[10px] text-muted-foreground">
+                        {new Date(h.created_at).toLocaleString("de-DE")} · {h.model}
+                      </span>
+                      <div className="flex gap-1.5">
+                        {h.markdown && <CopyButton text={h.markdown} label="MD" />}
+                        {h.analysis && (
+                          <CopyButton text={JSON.stringify(h.analysis, null, 2)} label="JSON" />
+                        )}
+                      </div>
+                    </div>
+                    {h.status === "error" ? (
+                      <div className="mt-1 text-destructive">{h.error_message}</div>
+                    ) : (
+                      <div className="mt-1 text-muted-foreground line-clamp-2">{h.analysis?.summary}</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default AdminAIAnalysisPanel;
