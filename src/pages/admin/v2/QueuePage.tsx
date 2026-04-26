@@ -211,6 +211,10 @@ export default function QueuePage() {
   const { data: counts } = useAdminQueueCounts();
   const { data: jobs, isLoading, error } = useAdminQueueSSOT(statusFilter, search);
 
+  // Live-Refresh: Realtime auf job_queue invalidiert Counts/SSOT-Listen
+  // sofort bei Statusänderungen — verhindert Phantom-Cluster im Cockpit.
+  useRealtimeQueueRefresh({ extraKeys: [['queue-counts'], ['admin-queue-ssot', statusFilter, search]] });
+
   const actionMutation = useMutation({
     mutationFn: async ({ jobId, action }: { jobId: string; action: string }) => {
       if (action === 'retry') return runAdminOpsAction('requeue_failed_jobs', { job_ids: [jobId] });
