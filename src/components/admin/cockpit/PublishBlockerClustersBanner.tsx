@@ -88,10 +88,16 @@ export function PublishBlockerClustersBanner() {
             Aggregierte Sicht auf alle building/publish_ready/published Pakete
           </p>
         </div>
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-2 flex-wrap items-center">
           <Badge variant="outline">Blocked: {totalBlocked}</Badge>
           <Badge variant="outline">Empty Reports: {totalEmpty}</Badge>
           <Badge variant="outline">Deferred: {totalDeferred}</Badge>
+          <a
+            href="/admin/ops/blocker-ops"
+            className="text-xs text-primary hover:underline ml-2"
+          >
+            Steuerstand öffnen →
+          </a>
         </div>
       </div>
 
