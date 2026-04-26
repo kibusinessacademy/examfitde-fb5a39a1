@@ -80,6 +80,17 @@ type AuditMarker = {
   created_at: string | null;
 };
 
+type BpAuditRow = {
+  audit_id: string;
+  blueprint_id: string;
+  action: string;
+  wave: string;
+  change_reason: string | null;
+  performed_by: string | null;
+  performed_at: string | null;
+  current_status: string | null;
+};
+
 async function fetchIntegrityPackages(): Promise<Pkg[]> {
   const { data, error } = await supabase
     .from("course_packages")
