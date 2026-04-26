@@ -73,11 +73,11 @@ type Diagnosis = {
 };
 
 type AuditMarker = {
-  id: number;
+  id: string | number;
   action: string;
-  scope: string;
+  scope: string | null;
   payload: Record<string, unknown>;
-  created_at: string;
+  created_at: string | null;
 };
 
 async function fetchIntegrityPackages(): Promise<Pkg[]> {
