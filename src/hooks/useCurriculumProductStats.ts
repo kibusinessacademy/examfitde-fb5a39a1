@@ -28,8 +28,8 @@ export function useCurriculumProductStats(curriculumId: string | null) {
           .select('id, title, certification_id')
           .eq('id', curriculumId)
           .single(),
-        supabase
-          .from('learning_fields')
+        (supabase
+          .from('learning_fields') as any)
           .select('id, competencies(id, exam_questions(id))')
           .eq('curriculum_id', curriculumId),
         supabase
