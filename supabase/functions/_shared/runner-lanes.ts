@@ -204,21 +204,21 @@ export function partitionByLane<T extends { job_type: string }>(
 }
 
 /** Lane-level budget allocation from total claim slots */
-export interface LaneBudget {
-  control: number;
-  recovery: number;
-  generation: number;
-}
+export type LaneBudget = Record<RunnerLane, number>;
 
 /**
  * Allocate dispatch slots per lane from a total budget.
  * Control gets priority, Recovery gets guaranteed minimum, Generation gets rest.
+ *
+ * NOTE: "build" and "marketing" lanes start at 0 — they receive slots only
+ * via redistributeLaneBudgets() when a runner explicitly opts into them.
  */
 export function allocateLaneBudgets(totalSlots: number): LaneBudget {
-  if (totalSlots <= 1) return { control: 1, recovery: 0, generation: 0 };
-  if (totalSlots <= 2) return { control: 1, recovery: 1, generation: 0 };
-  if (totalSlots <= 3) return { control: 1, recovery: 1, generation: 1 };
-  if (totalSlots <= 4) return { control: 1, recovery: 2, generation: 1 };
+  const empty: LaneBudget = { control: 0, recovery: 0, generation: 0, build: 0, marketing: 0 };
+  if (totalSlots <= 1) return { ...empty, control: 1 };
+  if (totalSlots <= 2) return { ...empty, control: 1, recovery: 1 };
+  if (totalSlots <= 3) return { ...empty, control: 1, recovery: 1, generation: 1 };
+  if (totalSlots <= 4) return { ...empty, control: 1, recovery: 2, generation: 1 };
 
   // Recovery lane minimum raised from 1→10 (2026-04-18) to clear stuck-package backlog.
   // Recovery jobs are cheap (heal/reconcile/repair) — safe at high concurrency.
@@ -231,6 +231,8 @@ export function allocateLaneBudgets(totalSlots: number): LaneBudget {
     control: controlSlots,
     recovery: recoverySlots,
     generation: generationSlots,
+    build: 0,
+    marketing: 0,
   };
 }
 
