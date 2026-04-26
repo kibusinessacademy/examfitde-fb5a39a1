@@ -1893,31 +1893,46 @@ Deno.serve(async (req) => {
     );
     if (metadataRepairSignals.length > 0 && !isAlreadyPublished) {
       try {
-        // Check for existing active rebalance job to avoid duplicates
-        const { data: existingJob } = await sb
-          .from("job_queue")
-          .select("id, status")
+        // ── PRE-FLIGHT GUARD: skip if exam_rebalance step is not part of the
+        // canonical 29-step SSOT for this package. Otherwise we generate a
+        // phantom job that the edge function will idempotent-skip — creating
+        // unnecessary 503/cold-start noise and inflating the queue.
+        const { data: rebalanceStep } = await sb
+          .from("package_steps")
+          .select("id")
           .eq("package_id", packageId)
-          .eq("job_type", "package_exam_rebalance")
-          .in("status", ["pending", "queued", "processing"])
-          .limit(1)
+          .eq("step_key", "exam_rebalance")
           .maybeSingle();
 
-        if (!existingJob) {
-          await enqueueJob(sb, {
-            job_type: "package_exam_rebalance",
-            package_id: packageId,
-            priority: 15,
-            max_attempts: 3,
-            payload: {
-              package_id: packageId,
-              auto_triggered: true,
-              trigger_signals: metadataRepairSignals,
-            },
-          });
-          console.log(`[integrity-check] AUTO-ENQUEUE: package_exam_rebalance for ${packageId.slice(0, 8)} (${metadataRepairSignals.length} signals: ${metadataRepairSignals.slice(0, 3).join(", ")})`);
+        if (!rebalanceStep) {
+          console.log(`[integrity-check] SKIP_AUTO_ENQUEUE: exam_rebalance step not in backbone for ${packageId.slice(0, 8)} — phantom-loop guard`);
         } else {
-          console.log(`[integrity-check] DEDUP: rebalance already active for ${packageId.slice(0, 8)} (${existingJob.status})`);
+          // Check for existing active rebalance job to avoid duplicates
+          const { data: existingJob } = await sb
+            .from("job_queue")
+            .select("id, status")
+            .eq("package_id", packageId)
+            .eq("job_type", "package_exam_rebalance")
+            .in("status", ["pending", "queued", "processing"])
+            .limit(1)
+            .maybeSingle();
+
+          if (!existingJob) {
+            await enqueueJob(sb, {
+              job_type: "package_exam_rebalance",
+              package_id: packageId,
+              priority: 15,
+              max_attempts: 3,
+              payload: {
+                package_id: packageId,
+                auto_triggered: true,
+                trigger_signals: metadataRepairSignals,
+              },
+            });
+            console.log(`[integrity-check] AUTO-ENQUEUE: package_exam_rebalance for ${packageId.slice(0, 8)} (${metadataRepairSignals.length} signals: ${metadataRepairSignals.slice(0, 3).join(", ")})`);
+          } else {
+            console.log(`[integrity-check] DEDUP: rebalance already active for ${packageId.slice(0, 8)} (${existingJob.status})`);
+          }
         }
       } catch (enqErr) {
         console.warn(`[integrity-check] Auto-enqueue rebalancer failed: ${(enqErr as Error).message}`);
