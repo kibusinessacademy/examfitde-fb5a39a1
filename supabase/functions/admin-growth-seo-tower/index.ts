@@ -201,44 +201,49 @@ async function computeGrowthIntel(sb: SB) {
   };
 }
 
-/* ── Publish Readiness (Business Impact) ── */
+/* ── Publish Readiness (Business Impact) ──
+ * SSOT: v_admin_publish_readiness liefert kanonische publish_ready (Track-spezifisch:
+ * approved_exam_questions ≥ Track-Min UND tutor_index_items > 0 UND integrity_passed
+ * UND quality_council_status='done', plus Track-spezifische Pflichtartefakte).
+ * "Bereit zur Veröffentlichung" = publish_ready = true UND is_published = false.
+ * Frühere Heuristik (status='done' / status='quality_gate_failed') hat falsche Zahlen
+ * geliefert weil diese Statuswerte gar nicht existieren — daher die Drift im Cockpit.
+ */
 async function computePublishReadiness(sb: SB) {
-  // Packages that are done but not published (SEO opportunity cost)
-  const readyPackages = await safeFrom(sb, "course_packages", "id, title, status, track, integrity_passed, updated_at", {
-    filters: { status: "done" },
-    limit: 50,
-  });
+  const { data: readiness, error: readErr } = await sb
+    .from("v_admin_publish_readiness")
+    .select("package_id, curriculum_title, package_track, integrity_passed, primary_blocker, publish_ready, is_published, package_status")
+    .limit(500);
 
-  // Packages blocked from publishing
-  const blockedPackages = await safeFrom(sb, "course_packages", "id, title, status, blocked_reason, track, updated_at", {
-    filters: { status: "quality_gate_failed" },
-    limit: 50,
-  });
+  if (readErr) {
+    console.error("publish-readiness view error", readErr);
+  }
 
-  // Published courses that could have SEO pages
-  const publishedPackages = await safeCount(sb, "course_packages", { status: "published" });
+  const all = (readiness ?? []) as any[];
+  const ready = all.filter(r => r.publish_ready === true && r.is_published !== true);
+  const blocked = all.filter(r => r.publish_ready !== true && r.is_published !== true && r.primary_blocker);
+  const publishedTotal = all.filter(r => r.is_published === true).length;
 
-  // Content pages per published course (rough SEO coverage)
   const coursesMissingLanding = await safeFrom(sb, "courses", "id, title, slug, status", {
     filters: { status: "active" },
     limit: 200,
   });
 
   return {
-    ready_to_publish: readyPackages.length,
-    blocked_packages: blockedPackages.length,
-    published_total: publishedPackages,
-    ready_packages: readyPackages.slice(0, 10).map(p => ({
-      id: p.id,
-      title: p.title,
-      track: p.track,
+    ready_to_publish: ready.length,
+    blocked_packages: blocked.length,
+    published_total: publishedTotal,
+    ready_packages: ready.slice(0, 10).map(p => ({
+      id: p.package_id,
+      title: p.curriculum_title,
+      track: p.package_track,
       integrity_passed: p.integrity_passed,
     })),
-    blocked_details: blockedPackages.slice(0, 10).map(p => ({
-      id: p.id,
-      title: p.title,
-      reason: p.blocked_reason,
-      track: p.track,
+    blocked_details: blocked.slice(0, 10).map(p => ({
+      id: p.package_id,
+      title: p.curriculum_title,
+      reason: p.primary_blocker,
+      track: p.package_track,
     })),
     active_courses: coursesMissingLanding.length,
   };
