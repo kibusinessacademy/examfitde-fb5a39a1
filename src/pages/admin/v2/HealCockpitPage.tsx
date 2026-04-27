@@ -45,6 +45,8 @@ import {
 } from "@/components/admin/heal/cards/BlockerCountsCard";
 import { RecoverActionsCard } from "@/components/admin/heal/cards/RecoverActionsCard";
 import { TargetedHealCard } from "@/components/admin/heal/cards/TargetedHealCard";
+import { QueueDrainCard } from "@/components/admin/heal/cards/QueueDrainCard";
+import { BlockedPackagesCard } from "@/components/admin/heal/cards/BlockedPackagesCard";
 import { TriageCards } from "@/components/admin/heal/cards/TriageCards";
 import { TargetedRecheckCard } from "@/components/admin/heal/cards/TargetedRecheckCard";
 import { DrillDownCard } from "@/components/admin/heal/cards/DrillDownCard";
@@ -202,24 +204,26 @@ export default function HealCockpitPage() {
               tone="destructive"
             />
           </AccordionTrigger>
-          <AccordionContent className="pb-4">
+          <AccordionContent className="pb-4 space-y-3">
             <RecoverActionsCard />
+            <QueueDrainCard />
           </AccordionContent>
         </AccordionItem>
 
-        {/* 3 — Targeted Heal (Hotloop + Hollow) */}
+        {/* 3 — Targeted Heal (Hotloop + Hollow + Blocked) */}
         <AccordionItem value={SECTIONS.targeted} className="border rounded-lg bg-card px-4 border-warning/30">
           <AccordionTrigger className="hover:no-underline">
             <SectionTitle
               icon={Stethoscope}
               step={3}
               title="Targeted Heal"
-              hint="Promote-Hotloop · Hollow-Published — nachhaltige Bulk-Heilung"
+              hint="Promote-Hotloop · Hollow-Published · Blocked-Packages — nachhaltige Bulk-Heilung"
               tone="destructive"
             />
           </AccordionTrigger>
-          <AccordionContent className="pb-4">
+          <AccordionContent className="pb-4 space-y-3">
             <TargetedHealCard />
+            <BlockedPackagesCard />
           </AccordionContent>
         </AccordionItem>
 
