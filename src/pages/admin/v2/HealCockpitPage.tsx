@@ -45,6 +45,7 @@ import {
 } from "@/components/admin/heal/cards/BlockerCountsCard";
 import { RecoverActionsCard } from "@/components/admin/heal/cards/RecoverActionsCard";
 import { TargetedHealCard } from "@/components/admin/heal/cards/TargetedHealCard";
+import { StuckPatternsCard } from "@/components/admin/heal/cards/StuckPatternsCard";
 import { QueueDrainCard } from "@/components/admin/heal/cards/QueueDrainCard";
 import { BlockedPackagesCard } from "@/components/admin/heal/cards/BlockedPackagesCard";
 import { TriageCards } from "@/components/admin/heal/cards/TriageCards";
@@ -124,6 +125,7 @@ const SECTIONS = {
   live: "live",
   recover: "recover",
   targeted: "targeted",
+  stuck: "stuck_patterns",
   triage: "triage",
   recheck: "recheck",
   drilldown: "drilldown",
@@ -133,7 +135,7 @@ const SECTIONS = {
   queue: "queue",
 } as const;
 
-const DEFAULT_OPEN = ["live", "recover", "targeted"];
+const DEFAULT_OPEN = ["live", "recover", "targeted", "stuck_patterns"];
 
 export default function HealCockpitPage() {
   const qc = useQueryClient();
@@ -224,6 +226,21 @@ export default function HealCockpitPage() {
           <AccordionContent className="pb-4 space-y-3">
             <TargetedHealCard />
             <BlockedPackagesCard />
+          </AccordionContent>
+        </AccordionItem>
+
+        {/* 3b — Stuck-Patterns Dashboard */}
+        <AccordionItem value={SECTIONS.stuck} className="border rounded-lg bg-card px-4 border-primary/30">
+          <AccordionTrigger className="hover:no-underline">
+            <SectionTitle
+              icon={Crosshair}
+              step={3}
+              title="Stuck-Patterns Dashboard"
+              hint="Hidden Drafts · Queued-without-Jobs · Reentry-Guard — priorisiert pro Track"
+            />
+          </AccordionTrigger>
+          <AccordionContent className="pb-4 space-y-3">
+            <StuckPatternsCard />
           </AccordionContent>
         </AccordionItem>
 
