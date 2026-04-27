@@ -175,9 +175,9 @@ describe("QueueDrainCard — Backlog & Stale-Locks", () => {
       });
     });
 
-    // Preview-Badge erscheint
+    // Preview-Badge erscheint mit Job-Type-Breakdown
     await waitFor(() => {
-      expect(within(card).getByText(/42/)).toBeInTheDocument();
+      expect(within(card).getByText(/package_generate_exam_pool:30/)).toBeInTheDocument();
     });
 
     // Execute klicken
