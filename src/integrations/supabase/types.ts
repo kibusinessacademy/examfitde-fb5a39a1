@@ -94154,6 +94154,29 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_get_blocked_packages_split: {
+        Args: never
+        Returns: {
+          oldest_blocked_at: string
+          package_track: string
+          packages: number
+          primary_blocker: string
+          sample_package_ids: string[]
+        }[]
+      }
+      admin_get_failed_clusters: {
+        Args: { p_window_hours?: number }
+        Returns: {
+          error_class: string
+          job_type: string
+          jobs: number
+          last_error_code: string
+          newest_failed_at: string
+          oldest_failed_at: string
+          packages: number
+          sample_error: string
+        }[]
+      }
       admin_get_failed_root_causes: {
         Args: never
         Returns: {
@@ -94174,6 +94197,20 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      admin_get_hollow_published_packages: {
+        Args: never
+        Returns: {
+          course_title: string
+          hard_fail_reasons: Json
+          integrity_passed: boolean
+          is_published: boolean
+          package_id: string
+          package_status: string
+          package_track: string
+          primary_blocker: string
+          updated_at: string
+        }[]
       }
       admin_get_integrity_diff: {
         Args: { p_package_id: string; p_prev_history_id?: string }
@@ -94427,6 +94464,14 @@ export type Database = {
           curriculum_id: string
           missing: number
         }[]
+      }
+      admin_normalize_track_steps: {
+        Args: {
+          p_dry_run?: boolean
+          p_max_packages?: number
+          p_tracks?: string[]
+        }
+        Returns: Json
       }
       admin_ops_queue_overview: { Args: never; Returns: Json }
       admin_purge_stale_exhaustion: {
