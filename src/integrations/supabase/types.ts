@@ -94234,6 +94234,10 @@ export type Database = {
         Args: { p_window_hours?: number }
         Returns: Json
       }
+      admin_get_queue_throughput_v2: {
+        Args: { p_window_hours?: number }
+        Returns: Json
+      }
       admin_get_queue_validation_audit: {
         Args: {
           _limit?: number
@@ -94435,6 +94439,14 @@ export type Database = {
           steps_cleared: number
           title: string
         }[]
+      }
+      admin_quarantine_hotloop_jobs: {
+        Args: {
+          p_attempt_threshold?: number
+          p_dry_run?: boolean
+          p_job_types?: string[]
+        }
+        Returns: Json
       }
       admin_queue_cluster_weight: {
         Args: { _cluster: string }
