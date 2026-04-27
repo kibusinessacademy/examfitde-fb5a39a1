@@ -126,7 +126,6 @@ const AdminV2Layout = lazyRetry(() => import('@/components/admin/v2/AdminV2Layou
 const LeitstellePage = lazyRetry(() => import('@/pages/admin/v2/LeitstellePage'));
 const OrgEnterprisePage = lazyRetry(() => import('@/pages/org/OrgEnterprisePage'));
 const KursePage = lazyRetry(() => import('@/pages/admin/v2/KursePage'));
-const QueuePage = lazyRetry(() => import('@/pages/admin/v2/QueuePage'));
 const GrowthPage = lazyRetry(() => import('@/pages/admin/v2/GrowthPage'));
 const TestAreaPage = lazyRetry(() => import('@/pages/admin/v2/TestAreaPage'));
 const CourseWorkspace = lazyRetry(() => import('@/pages/admin/CourseWorkspace'));
