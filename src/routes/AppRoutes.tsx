@@ -126,27 +126,23 @@ const AdminV2Layout = lazyRetry(() => import('@/components/admin/v2/AdminV2Layou
 const LeitstellePage = lazyRetry(() => import('@/pages/admin/v2/LeitstellePage'));
 const OrgEnterprisePage = lazyRetry(() => import('@/pages/org/OrgEnterprisePage'));
 const KursePage = lazyRetry(() => import('@/pages/admin/v2/KursePage'));
-const QueuePage = lazyRetry(() => import('@/pages/admin/v2/QueuePage'));
-const UnifiedQueueCockpit = lazyRetry(() => import('@/pages/admin/v2/UnifiedQueueCockpit'));
 const GrowthPage = lazyRetry(() => import('@/pages/admin/v2/GrowthPage'));
 const TestAreaPage = lazyRetry(() => import('@/pages/admin/v2/TestAreaPage'));
 const CourseWorkspace = lazyRetry(() => import('@/pages/admin/CourseWorkspace'));
 const SupportPage = lazyRetry(() => import('@/pages/admin/v2/SupportPage'));
 const KPIPage = lazyRetry(() => import('@/pages/admin/v2/KPIPage'));
-// Legacy hubs (HealCockpit, StuckSteps, RepairQueue, Stagnation, RetryLoop, BypassAudit)
-// wurden hart entfernt — Inhalte leben jetzt als Tab-Content im UnifiedQueueCockpit.
-// Alte URLs werden via <Navigate /> auf /admin/queue?tab=… umgeleitet.
+// Heal-Hub: konsolidiert Queue, BlockerOps und HealStrategy. Alle alten URLs
+// (queue, ops/blocker-ops, ops/heal-settings, …) werden via <Navigate /> umgeleitet.
 const PackageDiagnosticsPage = lazyRetry(() => import('@/pages/admin/v2/PackageDiagnosticsPage'));
 const SecurityFindingsPage = lazyRetry(() => import('@/pages/admin/v2/SecurityFindingsPage'));
 const IntegrityCheckRunbookPage = lazyRetry(() => import('@/pages/admin/v2/IntegrityCheckRunbookPage'));
 const JobTimelinePage = lazyRetry(() => import('@/pages/admin/v2/JobTimelinePage'));
 const StepDoneAuditPage = lazyRetry(() => import('@/pages/admin/v2/StepDoneAuditPage'));
 const IntegrityReportDiffPage = lazyRetry(() => import('@/pages/admin/v2/IntegrityReportDiffPage'));
-const HealStrategySettingsPage = lazyRetry(() => import('@/pages/admin/v2/HealStrategySettingsPage'));
 const StaleMarkerDiffPage = lazyRetry(() => import('@/pages/admin/v2/StaleMarkerDiffPage'));
 const CockpitPage = lazyRetry(() => import('@/pages/admin/v2/CockpitPage'));
 const AIAnalysisAuditPage = lazyRetry(() => import('@/pages/admin/v2/AIAnalysisAuditPage'));
-const BlockerOpsPage = lazyRetry(() => import('@/pages/admin/v2/BlockerOpsPage'));
+const HealCockpitPage = lazyRetry(() => import('@/pages/admin/v2/HealCockpitPage'));
 
 // ExamFit@work public pages
 const WorkHomePage = lazyRetry(() => import('@/pages/work/WorkHomePage'));
@@ -363,16 +359,19 @@ const AppRoutes = () => {
           <Route path="command" element={<LeitstellePage />} />
           <Route path="studio" element={<KursePage />} />
           <Route path="studio/:packageId" element={<CourseWorkspace />} />
-          {/* === Unified Queue Cockpit (SSOT) === */}
-          <Route path="queue" element={<UnifiedQueueCockpit />} />
-          {/* Legacy redirects — alte Hubs leiten in Tab des Cockpits */}
-          <Route path="heal-cockpit" element={<Navigate to="/admin/queue?tab=heal" replace />} />
+          {/* === Heal Cockpit (SSOT — konsolidiert Queue + BlockerOps + HealStrategy) === */}
+          <Route path="heal" element={<HealCockpitPage />} />
+          {/* Legacy redirects — alle alten Heal-/Queue-Hubs landen im Heal Cockpit */}
+          <Route path="queue" element={<Navigate to="/admin/heal?queue_tab=live" replace />} />
+          <Route path="heal-cockpit" element={<Navigate to="/admin/heal?queue_tab=heal" replace />} />
           <Route path="heal-cockpit/package/:packageId" element={<PackageDiagnosticsPage />} />
-          <Route path="queue/stagnation" element={<Navigate to="/admin/queue?tab=stagnation" replace />} />
-          <Route path="audit/bypass" element={<Navigate to="/admin/queue?tab=audit" replace />} />
-          <Route path="ops/stuck-steps" element={<Navigate to="/admin/queue?tab=stuck" replace />} />
-          <Route path="ops/repair-queue" element={<Navigate to="/admin/queue?tab=repair" replace />} />
-          <Route path="ops/retry-loops" element={<Navigate to="/admin/queue?tab=retry" replace />} />
+          <Route path="queue/stagnation" element={<Navigate to="/admin/heal?queue_tab=stagnation" replace />} />
+          <Route path="audit/bypass" element={<Navigate to="/admin/heal?queue_tab=audit" replace />} />
+          <Route path="ops/stuck-steps" element={<Navigate to="/admin/heal?queue_tab=stuck" replace />} />
+          <Route path="ops/repair-queue" element={<Navigate to="/admin/heal?queue_tab=repair" replace />} />
+          <Route path="ops/retry-loops" element={<Navigate to="/admin/heal?queue_tab=retry" replace />} />
+          <Route path="ops/blocker-ops" element={<Navigate to="/admin/heal" replace />} />
+          <Route path="ops/heal-settings" element={<Navigate to="/admin/heal" replace />} />
 
           <Route path="jobs/timeline" element={<JobTimelinePage />} />
           <Route path="growth" element={<GrowthPage />} />
@@ -383,11 +382,9 @@ const AppRoutes = () => {
           <Route path="ops/step-done-audit" element={<StepDoneAuditPage />} />
           <Route path="ops/integrity-diff" element={<IntegrityReportDiffPage />} />
           <Route path="ops/integrity-diff/:packageId" element={<IntegrityReportDiffPage />} />
-          <Route path="ops/heal-settings" element={<HealStrategySettingsPage />} />
           <Route path="ops/stale-marker-diff" element={<StaleMarkerDiffPage />} />
           <Route path="test" element={<TestAreaPage />} />
           <Route path="ops/ai-analysis-audit" element={<AIAnalysisAuditPage />} />
-          <Route path="ops/blocker-ops" element={<BlockerOpsPage />} />
           <Route path="*" element={<Navigate to="/admin/command" replace />} />
         </Route>
 
