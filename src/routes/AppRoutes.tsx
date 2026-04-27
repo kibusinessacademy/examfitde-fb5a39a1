@@ -385,11 +385,9 @@ const AppRoutes = () => {
           <Route path="ops/step-done-audit" element={<StepDoneAuditPage />} />
           <Route path="ops/integrity-diff" element={<IntegrityReportDiffPage />} />
           <Route path="ops/integrity-diff/:packageId" element={<IntegrityReportDiffPage />} />
-          <Route path="ops/heal-settings" element={<HealStrategySettingsPage />} />
           <Route path="ops/stale-marker-diff" element={<StaleMarkerDiffPage />} />
           <Route path="test" element={<TestAreaPage />} />
           <Route path="ops/ai-analysis-audit" element={<AIAnalysisAuditPage />} />
-          <Route path="ops/blocker-ops" element={<BlockerOpsPage />} />
           <Route path="*" element={<Navigate to="/admin/command" replace />} />
         </Route>
 
