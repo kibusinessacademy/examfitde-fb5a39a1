@@ -44,6 +44,7 @@ import {
   BlockerCountsCard, type BlockerKey,
 } from "@/components/admin/heal/cards/BlockerCountsCard";
 import { RecoverActionsCard } from "@/components/admin/heal/cards/RecoverActionsCard";
+import { TargetedHealCard } from "@/components/admin/heal/cards/TargetedHealCard";
 import { TriageCards } from "@/components/admin/heal/cards/TriageCards";
 import { TargetedRecheckCard } from "@/components/admin/heal/cards/TargetedRecheckCard";
 import { DrillDownCard } from "@/components/admin/heal/cards/DrillDownCard";
