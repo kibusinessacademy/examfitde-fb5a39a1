@@ -395,3 +395,77 @@ export function TargetedHealCard() {
     </Card>
   );
 }
+
+function BlockedReasonRow({
+  row,
+  preview,
+  onDryRun,
+  onExecute,
+}: {
+  row: BlockedDiagRow;
+  preview: unknown;
+  onDryRun: () => void | Promise<void>;
+  onExecute: () => void | Promise<void>;
+}) {
+  const [busy, setBusy] = useState<"dry" | "exec" | null>(null);
+  return (
+    <div className="rounded border border-border bg-muted/10 p-2 space-y-1.5">
+      <div className="flex items-center gap-2">
+        <Badge variant="outline" className="text-[10px] font-mono">
+          {row.reason_class}
+        </Badge>
+        <Badge variant="secondary" className="tabular-nums text-[10px]">
+          {row.package_count} pkg
+        </Badge>
+        {row.dominant_step ? (
+          <span className="text-[10px] text-muted-foreground">→ {row.dominant_step}</span>
+        ) : null}
+      </div>
+      {row.sample_titles?.length ? (
+        <div className="text-[10px] text-muted-foreground truncate">
+          {row.sample_titles.slice(0, 3).join(" · ")}
+        </div>
+      ) : null}
+      <div className="flex gap-1.5">
+        <Button
+          size="sm"
+          variant="outline"
+          className="text-[10px] h-7"
+          disabled={busy !== null}
+          onClick={async () => {
+            setBusy("dry");
+            try {
+              await onDryRun();
+            } finally {
+              setBusy(null);
+            }
+          }}
+        >
+          <Eye className="h-3 w-3 mr-1" /> Dry-Run
+        </Button>
+        <Button
+          size="sm"
+          variant="destructive"
+          className="text-[10px] h-7"
+          disabled={!preview || busy !== null}
+          onClick={async () => {
+            setBusy("exec");
+            try {
+              await onExecute();
+            } finally {
+              setBusy(null);
+            }
+          }}
+        >
+          <Play className="h-3 w-3 mr-1" /> Unblock
+        </Button>
+      </div>
+      {preview != null ? (
+        <pre className="text-[10px] bg-muted/30 rounded p-1.5 max-h-24 overflow-auto">
+          {JSON.stringify(preview, null, 2)}
+        </pre>
+      ) : null}
+    </div>
+  );
+}
+
