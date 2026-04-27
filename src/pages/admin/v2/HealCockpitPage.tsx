@@ -207,12 +207,28 @@ export default function HealCockpitPage() {
           </AccordionContent>
         </AccordionItem>
 
-        {/* 3 — Triage */}
+        {/* 3 — Targeted Heal (Hotloop + Hollow) */}
+        <AccordionItem value={SECTIONS.targeted} className="border rounded-lg bg-card px-4 border-warning/30">
+          <AccordionTrigger className="hover:no-underline">
+            <SectionTitle
+              icon={Stethoscope}
+              step={3}
+              title="Targeted Heal"
+              hint="Promote-Hotloop · Hollow-Published — nachhaltige Bulk-Heilung"
+              tone="destructive"
+            />
+          </AccordionTrigger>
+          <AccordionContent className="pb-4">
+            <TargetedHealCard />
+          </AccordionContent>
+        </AccordionItem>
+
+        {/* 4 — Triage */}
         <AccordionItem value={SECTIONS.triage} className="border rounded-lg bg-card px-4">
           <AccordionTrigger className="hover:no-underline">
             <SectionTitle
               icon={Crosshair}
-              step={3}
+              step={4}
               title="Triage"
               hint="Failed-Cluster · Blocker-Split · Hollow · Track-Normalize"
             />
