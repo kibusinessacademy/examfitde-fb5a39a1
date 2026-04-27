@@ -399,30 +399,59 @@ export default function BlockerOpsPage() {
         })}
       </div>
 
-      {/* Throughput + Aggressive Reap row */}
+      {/* Throughput v2 + Reap + Hot-Loop row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-        <Card className="p-4 lg:col-span-2">
+        <Card className="p-4">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-sm font-semibold">Queue Throughput (6h)</h3>
-            <Badge variant="outline" className="text-[10px]">live</Badge>
+            <Badge variant="outline" className="text-[10px]">live · v2</Badge>
           </div>
-          {throughput.data?.global ? (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-              <div><div className="text-muted-foreground">jobs/h</div><div className="text-lg font-bold tabular-nums">{throughput.data.global.jobs_per_hour ?? 0}</div></div>
-              <div><div className="text-muted-foreground">duration p50</div><div className="text-lg font-bold tabular-nums">{throughput.data.global.duration_p50 ?? 0}s</div></div>
-              <div><div className="text-muted-foreground">duration p95</div><div className="text-lg font-bold tabular-nums">{throughput.data.global.duration_p95 ?? 0}s</div></div>
-              <div><div className="text-muted-foreground">lifecycle p95</div><div className="text-lg font-bold tabular-nums">{throughput.data.global.lifecycle_p95 ?? 0}s</div></div>
+          {throughput.data ? (
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div><div className="text-muted-foreground">jobs/h</div><div className="text-lg font-bold tabular-nums">{throughput.data.jobs_per_hour ?? 0}</div></div>
+              <div><div className="text-muted-foreground">done (6h)</div><div className="text-lg font-bold tabular-nums">{throughput.data.completed_total ?? 0}</div></div>
+              <div><div className="text-muted-foreground">duration p50</div><div className="text-lg font-bold tabular-nums">{throughput.data.duration_p50_sec ?? 0}s</div></div>
+              <div><div className="text-muted-foreground">duration p95</div><div className="text-lg font-bold tabular-nums">{throughput.data.duration_p95_sec ?? 0}s</div></div>
+              <div><div className="text-muted-foreground">pending wait p50</div><div className="text-lg font-bold tabular-nums">{Math.round((throughput.data.pending_wait_p50_sec ?? 0) / 60)}m</div></div>
+              <div><div className="text-muted-foreground">pending wait p95</div><div className={cn("text-lg font-bold tabular-nums", (throughput.data.pending_wait_p95_sec ?? 0) > 3600 && "text-destructive")}>{Math.round((throughput.data.pending_wait_p95_sec ?? 0) / 60)}m</div></div>
+              <div><div className="text-muted-foreground">lifecycle p95</div><div className="text-lg font-bold tabular-nums">{throughput.data.lifecycle_p95_sec ?? 0}s</div></div>
+              <div><div className="text-muted-foreground">oldest processing</div><div className={cn("text-lg font-bold tabular-nums", (throughput.data.processing_oldest_sec ?? 0) > 600 && "text-destructive")}>{Math.round((throughput.data.processing_oldest_sec ?? 0))}s</div></div>
             </div>
-          ) : <Skeleton className="h-12 w-full" />}
+          ) : <Skeleton className="h-24 w-full" />}
         </Card>
         <Card className="p-4 border-destructive/40 bg-destructive/5">
           <h3 className="text-sm font-semibold mb-1">Stale-Processing Reap</h3>
-          <p className="text-[11px] text-muted-foreground mb-2">Räumt processing-Jobs &gt;300s ohne Heartbeat sofort weg.</p>
+          <p className="text-[11px] text-muted-foreground mb-2">Räumt processing-Jobs &gt;300s ohne Heartbeat sofort weg. Requeue solange attempts &lt; max, sonst terminal.</p>
           <Button size="sm" variant="destructive" onClick={() => reapNow.mutate()} disabled={reapNow.isPending} className="w-full">
             <Wand2 className="h-3.5 w-3.5 mr-1.5" /> Reap Now (aggressive)
           </Button>
         </Card>
+        <Card className="p-4 border-warning/40 bg-warning/5">
+          <h3 className="text-sm font-semibold mb-1">Hot-Loop Quarantäne</h3>
+          <p className="text-[11px] text-muted-foreground mb-2">Cancelt Jobs mit attempts ≥ Threshold und deferred zugehörige steps, damit Atomic-Trigger keine neuen Jobs nachlegen.</p>
+          <div className="flex items-center gap-2 mb-2">
+            <Label htmlFor="hotloop-threshold" className="text-[11px] text-muted-foreground">attempts ≥</Label>
+            <Input
+              id="hotloop-threshold"
+              type="number"
+              min={3}
+              max={50}
+              value={hotloopThreshold}
+              onChange={(e) => setHotloopThreshold(Math.max(3, Number(e.target.value) || 10))}
+              className="h-7 w-16 text-xs"
+            />
+          </div>
+          <div className="flex gap-1.5">
+            <Button size="sm" variant="outline" onClick={() => hotloopDryRun.mutate()} disabled={hotloopDryRun.isPending} className="flex-1 text-xs">
+              Dry-Run
+            </Button>
+            <Button size="sm" variant="destructive" onClick={() => hotloopExecute.mutate()} disabled={hotloopExecute.isPending} className="flex-1 text-xs">
+              <ShieldAlert className="h-3 w-3 mr-1" /> Execute
+            </Button>
+          </div>
+        </Card>
       </div>
+
 
       {/* Council-deferred banner */}
       {councilDeferred.data && councilDeferred.data.length > 0 && (
