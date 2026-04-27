@@ -436,7 +436,7 @@ export default function BlockerOpsPage() {
         </Card>
         <Card className="p-4 border-warning/40 bg-warning/5">
           <h3 className="text-sm font-semibold mb-1">Hot-Loop Quarantäne</h3>
-          <p className="text-[11px] text-muted-foreground mb-2">Cancelt Jobs mit attempts ≥ Threshold und deferred zugehörige steps, damit Atomic-Trigger keine neuen Jobs nachlegen.</p>
+          <p className="text-[11px] text-muted-foreground mb-2">Cancelt Jobs mit attempts ≥ Threshold (nur in Whitelist) und auto-defert zugehörige steps via meta-Marker, damit Atomic-Trigger keine neuen Jobs nachlegen.</p>
           <div className="flex items-center gap-2 mb-2">
             <Label htmlFor="hotloop-threshold" className="text-[11px] text-muted-foreground">attempts ≥</Label>
             <Input
@@ -447,6 +447,17 @@ export default function BlockerOpsPage() {
               value={hotloopThreshold}
               onChange={(e) => setHotloopThreshold(Math.max(3, Number(e.target.value) || 10))}
               className="h-7 w-16 text-xs"
+            />
+          </div>
+          <div className="mb-2">
+            <Label htmlFor="hotloop-types" className="text-[11px] text-muted-foreground">Job-Typen Whitelist (komma-getrennt, leer = alle ⚠️)</Label>
+            <Input
+              id="hotloop-types"
+              type="text"
+              value={hotloopJobTypes}
+              onChange={(e) => setHotloopJobTypes(e.target.value)}
+              placeholder="package_promote_blueprint_variants,package_auto_publish"
+              className="h-7 text-[11px] mt-1 font-mono"
             />
           </div>
           <div className="flex gap-1.5">
