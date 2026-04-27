@@ -61,6 +61,7 @@ export function TargetedHealCard() {
   const qc = useQueryClient();
   const [hotloopPreview, setHotloopPreview] = useState<unknown>(null);
   const [hollowPreview, setHollowPreview] = useState<unknown>(null);
+  const [blockedPreview, setBlockedPreview] = useState<Record<string, unknown>>({});
 
   const diag = useQuery({
     queryKey: ["targeted-heal-diagnosis"],
@@ -70,6 +71,19 @@ export function TargetedHealCard() {
         .select("*");
       if (error) throw error;
       return (data as unknown as DiagRow[]) ?? [];
+    },
+    refetchInterval: 30_000,
+  });
+
+  const blockedDiag = useQuery({
+    queryKey: ["targeted-heal-blocked-diag"],
+    queryFn: async (): Promise<BlockedDiagRow[]> => {
+      const { data, error } = await supabase
+        .from("v_admin_blocked_packages_diagnosis" as never)
+        .select("*")
+        .order("package_count", { ascending: false } as never);
+      if (error) throw error;
+      return (data as unknown as BlockedDiagRow[]) ?? [];
     },
     refetchInterval: 30_000,
   });
