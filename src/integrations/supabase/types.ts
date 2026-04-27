@@ -94576,6 +94576,14 @@ export type Database = {
         Args: { _package_id: string }
         Returns: Json
       }
+      admin_resume_council_deferred: {
+        Args: { p_dry_run?: boolean; p_max_packages?: number }
+        Returns: Json
+      }
+      admin_resume_single_council_deferred: {
+        Args: { p_package_id: string }
+        Returns: Json
+      }
       admin_rollback_heal: {
         Args: {
           p_operator?: string
