@@ -164,12 +164,12 @@ export default function BlockerOpsPage() {
     refetchInterval: 60_000,
   });
 
-  // ---- Queue throughput ----
+  // ---- Queue throughput v2 (jobs/h, duration p50/p95, lifecycle, pending wait) ----
   const throughput = useQuery({
-    queryKey: ["queue-throughput"],
+    queryKey: ["queue-throughput-v2"],
     queryFn: async () => {
       const { data, error } = await supabase.rpc(
-        "admin_get_queue_throughput" as any,
+        "admin_get_queue_throughput_v2" as any,
         { p_window_hours: 6 },
       );
       if (error) throw error;
@@ -190,12 +190,47 @@ export default function BlockerOpsPage() {
     },
     onSuccess: (res) => {
       toast.success(
-        `Stale-Reap ausgeführt: ${res?.cancelled ?? 0} cancelled · ${res?.requeued ?? 0} requeued`,
+        `Stale-Reap ausgeführt: ${res?.failed_terminal ?? 0} terminal · ${res?.requeued ?? 0} requeued`,
       );
-      qc.invalidateQueries({ queryKey: ["queue-throughput"] });
+      qc.invalidateQueries({ queryKey: ["queue-throughput-v2"] });
       qc.invalidateQueries({ queryKey: ["reaper-audit"] });
     },
     onError: (e: any) => toast.error(e?.message ?? "Stale-Reap fehlgeschlagen"),
+  });
+
+  // ---- Hot-Loop Quarantäne (attempts >= 10) ----
+  const [hotloopThreshold, setHotloopThreshold] = useState<number>(10);
+  const hotloopDryRun = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.rpc(
+        "admin_quarantine_hotloop_jobs" as any,
+        { p_attempt_threshold: hotloopThreshold, p_dry_run: true, p_job_types: null },
+      );
+      if (error) throw error;
+      return data as any;
+    },
+    onSuccess: (res) => {
+      const byType = res?.by_type ? Object.entries(res.by_type).map(([k,v]) => `${k}:${v}`).join(" · ") : "—";
+      toast.message(`Dry-Run: ${res?.candidate_count ?? 0} Kandidaten`, { description: byType });
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Dry-Run fehlgeschlagen"),
+  });
+  const hotloopExecute = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.rpc(
+        "admin_quarantine_hotloop_jobs" as any,
+        { p_attempt_threshold: hotloopThreshold, p_dry_run: false, p_job_types: null },
+      );
+      if (error) throw error;
+      return data as any;
+    },
+    onSuccess: (res) => {
+      toast.success(
+        `Hot-Loop quarantäniert: ${res?.cancelled ?? 0} Jobs cancelled · ${res?.steps_deferred ?? 0} Steps deferred`,
+      );
+      qc.invalidateQueries({ queryKey: ["queue-throughput-v2"] });
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Quarantäne fehlgeschlagen"),
   });
 
   // ---- Counts ----
