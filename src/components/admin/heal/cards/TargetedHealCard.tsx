@@ -19,13 +19,24 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { AlertTriangle, Activity, Eye, Play, RefreshCw, Stethoscope } from "lucide-react";
+import { AlertTriangle, Activity, Eye, Play, RefreshCw, Stethoscope, Lock } from "lucide-react";
 
 type DiagRow = {
   kind: "PROMOTE_HOTLOOP" | "HOLLOW_PUBLISHED" | "STALE_REAPED_RESIDUE";
   packages: number;
   jobs: number;
   max_attempts: number;
+};
+
+type BlockedDiagRow = {
+  reason_class: string;
+  package_count: number;
+  oldest_blocked_at: string | null;
+  newest_blocked_at: string | null;
+  package_ids: string[];
+  sample_titles: string[];
+  dominant_step: string | null;
+  sample_error: string | null;
 };
 
 const KIND_META: Record<DiagRow["kind"], { label: string; tone: "warn" | "danger" | "info"; help: string }> = {
