@@ -199,12 +199,20 @@ export default function BlockerOpsPage() {
   });
 
   // ---- Hot-Loop Quarantäne (attempts >= 10) ----
+  // Default: nur die zwei bekannten Hotloop-Typen, damit legitime
+  // High-Attempt Repair-/Integrity-Jobs nicht versehentlich abgewürgt werden.
+  const HOTLOOP_DEFAULT_TYPES = "package_promote_blueprint_variants,package_auto_publish";
   const [hotloopThreshold, setHotloopThreshold] = useState<number>(10);
+  const [hotloopJobTypes, setHotloopJobTypes] = useState<string>(HOTLOOP_DEFAULT_TYPES);
+  const parseJobTypes = (s: string): string[] | null => {
+    const arr = s.split(",").map((t) => t.trim()).filter(Boolean);
+    return arr.length > 0 ? arr : null;
+  };
   const hotloopDryRun = useMutation({
     mutationFn: async () => {
       const { data, error } = await supabase.rpc(
         "admin_quarantine_hotloop_jobs" as any,
-        { p_attempt_threshold: hotloopThreshold, p_dry_run: true, p_job_types: null },
+        { p_attempt_threshold: hotloopThreshold, p_dry_run: true, p_job_types: parseJobTypes(hotloopJobTypes) },
       );
       if (error) throw error;
       return data as any;
@@ -219,7 +227,7 @@ export default function BlockerOpsPage() {
     mutationFn: async () => {
       const { data, error } = await supabase.rpc(
         "admin_quarantine_hotloop_jobs" as any,
-        { p_attempt_threshold: hotloopThreshold, p_dry_run: false, p_job_types: null },
+        { p_attempt_threshold: hotloopThreshold, p_dry_run: false, p_job_types: parseJobTypes(hotloopJobTypes) },
       );
       if (error) throw error;
       return data as any;
@@ -428,7 +436,7 @@ export default function BlockerOpsPage() {
         </Card>
         <Card className="p-4 border-warning/40 bg-warning/5">
           <h3 className="text-sm font-semibold mb-1">Hot-Loop Quarantäne</h3>
-          <p className="text-[11px] text-muted-foreground mb-2">Cancelt Jobs mit attempts ≥ Threshold und deferred zugehörige steps, damit Atomic-Trigger keine neuen Jobs nachlegen.</p>
+          <p className="text-[11px] text-muted-foreground mb-2">Cancelt Jobs mit attempts ≥ Threshold (nur in Whitelist) und auto-defert zugehörige steps via meta-Marker, damit Atomic-Trigger keine neuen Jobs nachlegen.</p>
           <div className="flex items-center gap-2 mb-2">
             <Label htmlFor="hotloop-threshold" className="text-[11px] text-muted-foreground">attempts ≥</Label>
             <Input
@@ -439,6 +447,17 @@ export default function BlockerOpsPage() {
               value={hotloopThreshold}
               onChange={(e) => setHotloopThreshold(Math.max(3, Number(e.target.value) || 10))}
               className="h-7 w-16 text-xs"
+            />
+          </div>
+          <div className="mb-2">
+            <Label htmlFor="hotloop-types" className="text-[11px] text-muted-foreground">Job-Typen Whitelist (komma-getrennt, leer = alle ⚠️)</Label>
+            <Input
+              id="hotloop-types"
+              type="text"
+              value={hotloopJobTypes}
+              onChange={(e) => setHotloopJobTypes(e.target.value)}
+              placeholder="package_promote_blueprint_variants,package_auto_publish"
+              className="h-7 text-[11px] mt-1 font-mono"
             />
           </div>
           <div className="flex gap-1.5">
