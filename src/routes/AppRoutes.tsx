@@ -131,9 +131,8 @@ const TestAreaPage = lazyRetry(() => import('@/pages/admin/v2/TestAreaPage'));
 const CourseWorkspace = lazyRetry(() => import('@/pages/admin/CourseWorkspace'));
 const SupportPage = lazyRetry(() => import('@/pages/admin/v2/SupportPage'));
 const KPIPage = lazyRetry(() => import('@/pages/admin/v2/KPIPage'));
-// Legacy hubs (HealCockpit, StuckSteps, RepairQueue, Stagnation, RetryLoop, BypassAudit)
-// wurden hart entfernt — Inhalte leben jetzt als Tab-Content im UnifiedQueueCockpit.
-// Alte URLs werden via <Navigate /> auf /admin/queue?tab=… umgeleitet.
+// Heal-Hub: konsolidiert Queue, BlockerOps und HealStrategy. Alle alten URLs
+// (queue, ops/blocker-ops, ops/heal-settings, …) werden via <Navigate /> umgeleitet.
 const PackageDiagnosticsPage = lazyRetry(() => import('@/pages/admin/v2/PackageDiagnosticsPage'));
 const SecurityFindingsPage = lazyRetry(() => import('@/pages/admin/v2/SecurityFindingsPage'));
 const IntegrityCheckRunbookPage = lazyRetry(() => import('@/pages/admin/v2/IntegrityCheckRunbookPage'));
