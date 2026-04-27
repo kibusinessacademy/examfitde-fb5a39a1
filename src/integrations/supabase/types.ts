@@ -81970,6 +81970,15 @@ export type Database = {
         }
         Relationships: []
       }
+      v_admin_targeted_heal_diagnosis: {
+        Row: {
+          jobs: number | null
+          kind: string | null
+          max_attempts: number | null
+          packages: number | null
+        }
+        Relationships: []
+      }
       v_admin_track_compliance: {
         Row: {
           approved_exam_questions: number | null
@@ -94011,6 +94020,10 @@ export type Database = {
         Args: { p_reason?: string; p_until?: string; p_user_id: string }
         Returns: undefined
       }
+      admin_bulk_depublish_hollow: {
+        Args: { p_dry_run?: boolean; p_max_packages?: number }
+        Returns: Json
+      }
       admin_cancel_publish_retry_storm: {
         Args: never
         Returns: {
@@ -94551,6 +94564,14 @@ export type Database = {
             }
             Returns: Json
           }
+      admin_resolve_promote_hotloop: {
+        Args: {
+          p_attempt_threshold?: number
+          p_dry_run?: boolean
+          p_max_packages?: number
+        }
+        Returns: Json
+      }
       admin_resolve_repair_strategy_for_package: {
         Args: { _package_id: string }
         Returns: Json
