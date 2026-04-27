@@ -164,8 +164,22 @@ export function TargetedHealCard() {
     onError: (e: Error) => toast({ title: "Execute fehlgeschlagen", description: e.message, variant: "destructive" }),
   });
 
+  // Generic bulk-unblock action factory keyed by reason_class
+  const runBlockedHeal = async (reasonClass: string, dryRun: boolean) => {
+    const { data, error } = await supabase.rpc("admin_unblock_packages_by_reason" as never, {
+      p_reason_class: reasonClass,
+      p_max_packages: 25,
+      p_dry_run: dryRun,
+    } as never);
+    if (error) throw error;
+    return data;
+  };
+
   const rows = diag.data ?? [];
-  const totalPkgs = rows.reduce((s, r) => s + (r.packages ?? 0), 0);
+  const blockedRows = blockedDiag.data ?? [];
+  const totalPkgs =
+    rows.reduce((s, r) => s + (r.packages ?? 0), 0) +
+    blockedRows.reduce((s, r) => s + (r.package_count ?? 0), 0);
 
   return (
     <Card className="border-warning/40">
