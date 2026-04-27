@@ -199,12 +199,20 @@ export default function BlockerOpsPage() {
   });
 
   // ---- Hot-Loop Quarantäne (attempts >= 10) ----
+  // Default: nur die zwei bekannten Hotloop-Typen, damit legitime
+  // High-Attempt Repair-/Integrity-Jobs nicht versehentlich abgewürgt werden.
+  const HOTLOOP_DEFAULT_TYPES = "package_promote_blueprint_variants,package_auto_publish";
   const [hotloopThreshold, setHotloopThreshold] = useState<number>(10);
+  const [hotloopJobTypes, setHotloopJobTypes] = useState<string>(HOTLOOP_DEFAULT_TYPES);
+  const parseJobTypes = (s: string): string[] | null => {
+    const arr = s.split(",").map((t) => t.trim()).filter(Boolean);
+    return arr.length > 0 ? arr : null;
+  };
   const hotloopDryRun = useMutation({
     mutationFn: async () => {
       const { data, error } = await supabase.rpc(
         "admin_quarantine_hotloop_jobs" as any,
-        { p_attempt_threshold: hotloopThreshold, p_dry_run: true, p_job_types: null },
+        { p_attempt_threshold: hotloopThreshold, p_dry_run: true, p_job_types: parseJobTypes(hotloopJobTypes) },
       );
       if (error) throw error;
       return data as any;
@@ -219,7 +227,7 @@ export default function BlockerOpsPage() {
     mutationFn: async () => {
       const { data, error } = await supabase.rpc(
         "admin_quarantine_hotloop_jobs" as any,
-        { p_attempt_threshold: hotloopThreshold, p_dry_run: false, p_job_types: null },
+        { p_attempt_threshold: hotloopThreshold, p_dry_run: false, p_job_types: parseJobTypes(hotloopJobTypes) },
       );
       if (error) throw error;
       return data as any;
