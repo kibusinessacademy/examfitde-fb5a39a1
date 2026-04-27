@@ -307,11 +307,86 @@ export function TargetedHealCard() {
           ) : null}
         </div>
 
+        {/* Action 3 — Blocked-Packages Bulk-Heal nach Reason-Klasse */}
+        <div className="rounded-md border border-warning/30 p-3 space-y-2">
+          <div className="flex items-center gap-2">
+            <Lock className="h-3.5 w-3.5 text-warning" />
+            <div className="text-xs font-semibold">Blocked-Packages — Bulk-Heal nach Grund</div>
+            <Badge variant="outline" className="ml-auto tabular-nums text-[10px]">
+              {blockedRows.reduce((s, r) => s + (r.package_count ?? 0), 0)} blocked
+            </Badge>
+          </div>
+          <div className="text-[11px] text-muted-foreground">
+            Aggregiert aus <code>v_admin_blocked_packages_diagnosis</code> — pro Klasse Dry-Run + Execute.
+            Cleart <code>blocked_reason</code> + setzt sicheren Folge-Status (Invariante hält Status &amp; Reason
+            gekoppelt).
+          </div>
+
+          {blockedDiag.isLoading ? (
+            <Skeleton className="h-12 w-full" />
+          ) : blockedRows.length === 0 ? (
+            <div className="text-[11px] text-muted-foreground italic py-2">
+              ✓ Keine blockierten Pakete — System sauber.
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {blockedRows.map((row) => (
+                <BlockedReasonRow
+                  key={row.reason_class}
+                  row={row}
+                  preview={blockedPreview[row.reason_class]}
+                  onDryRun={async () => {
+                    try {
+                      const res = await runBlockedHeal(row.reason_class, true);
+                      setBlockedPreview((p) => ({ ...p, [row.reason_class]: res }));
+                      toast({
+                        title: `Dry-Run · ${row.reason_class}`,
+                        description: `Kandidaten ermittelt — Execute aktiv.`,
+                      });
+                    } catch (e) {
+                      toast({
+                        title: "Dry-Run fehlgeschlagen",
+                        description: (e as Error).message,
+                        variant: "destructive",
+                      });
+                    }
+                  }}
+                  onExecute={async () => {
+                    try {
+                      const res = await runBlockedHeal(row.reason_class, false);
+                      const r = res as { unblocked?: number; steps_reset?: number };
+                      toast({
+                        title: `Unblocked · ${row.reason_class}`,
+                        description: `${r.unblocked ?? 0} Pakete · ${r.steps_reset ?? 0} Steps reset`,
+                      });
+                      setBlockedPreview((p) => {
+                        const { [row.reason_class]: _omit, ...rest } = p;
+                        return rest;
+                      });
+                      qc.invalidateQueries({ queryKey: ["targeted-heal-blocked-diag"] });
+                      qc.invalidateQueries({ queryKey: ["targeted-heal-diagnosis"] });
+                    } catch (e) {
+                      toast({
+                        title: "Execute fehlgeschlagen",
+                        description: (e as Error).message,
+                        variant: "destructive",
+                      });
+                    }
+                  }}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
         <div className="flex items-center justify-end">
           <Button
             size="sm"
             variant="ghost"
-            onClick={() => qc.invalidateQueries({ queryKey: ["targeted-heal-diagnosis"] })}
+            onClick={() => {
+              qc.invalidateQueries({ queryKey: ["targeted-heal-diagnosis"] });
+              qc.invalidateQueries({ queryKey: ["targeted-heal-blocked-diag"] });
+            }}
           >
             <RefreshCw className="h-3 w-3 mr-1" /> Diagnose aktualisieren
           </Button>
