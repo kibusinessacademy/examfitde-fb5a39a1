@@ -121,6 +121,7 @@ const LoadingFallback = () => (
 const SECTIONS = {
   live: "live",
   recover: "recover",
+  targeted: "targeted",
   triage: "triage",
   recheck: "recheck",
   drilldown: "drilldown",
@@ -130,7 +131,7 @@ const SECTIONS = {
   queue: "queue",
 } as const;
 
-const DEFAULT_OPEN = ["live", "recover"];
+const DEFAULT_OPEN = ["live", "recover", "targeted"];
 
 export default function HealCockpitPage() {
   const qc = useQueryClient();
