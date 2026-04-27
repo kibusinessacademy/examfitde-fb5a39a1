@@ -80480,6 +80480,19 @@ export type Database = {
           },
         ]
       }
+      v_admin_blocked_packages_diagnosis: {
+        Row: {
+          dominant_step: string | null
+          newest_blocked_at: string | null
+          oldest_blocked_at: string | null
+          package_count: number | null
+          package_ids: string[] | null
+          reason_class: string | null
+          sample_error: string | null
+          sample_titles: string[] | null
+        }
+        Relationships: []
+      }
       v_admin_blocked_packages_split: {
         Row: {
           active_jobs: number | null
@@ -94115,6 +94128,15 @@ export type Database = {
         Args: { p_action_id: string }
         Returns: undefined
       }
+      admin_drain_queue_backlog: {
+        Args: {
+          p_dry_run?: boolean
+          p_max_boost?: number
+          p_min_age_seconds?: number
+          p_target_priority?: number
+        }
+        Returns: Json
+      }
       admin_dry_run_repair_for_package: {
         Args: { _package_id: string }
         Returns: Json
@@ -94547,6 +94569,14 @@ export type Database = {
         Args: { p_package_id: string }
         Returns: Json
       }
+      admin_release_stale_locks: {
+        Args: {
+          p_dry_run?: boolean
+          p_max_release?: number
+          p_stale_seconds?: number
+        }
+        Returns: Json
+      }
       admin_reset_code_lockout: {
         Args: { p_code: string; p_note?: string }
         Returns: undefined
@@ -94663,6 +94693,14 @@ export type Database = {
           package_track: string
           reason: string
         }[]
+      }
+      admin_unblock_packages_by_reason: {
+        Args: {
+          p_dry_run?: boolean
+          p_max_packages?: number
+          p_reason_class: string
+        }
+        Returns: Json
       }
       admin_unblock_user: {
         Args: { p_reason?: string; p_user_id: string }
