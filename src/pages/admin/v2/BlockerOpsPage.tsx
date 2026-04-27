@@ -471,6 +471,8 @@ export default function BlockerOpsPage() {
         </Card>
       </div>
 
+      {/* === TRIAGE: Failed-Cluster · Blocker-Split · Hollow-Published · Track-Normalize === */}
+      <TriageRow />
 
       {/* Council-deferred banner */}
       {councilDeferred.data && councilDeferred.data.length > 0 && (
