@@ -47,9 +47,14 @@ export default function AEVOSchriftlichePage() {
               <p className="text-xl text-muted-foreground mb-8 max-w-2xl">
                 80 Fragen in 180 Minuten – Fallaufgaben zu allen 4 Handlungsfeldern. So bereitest du dich optimal vor.
               </p>
-              <Button size="lg" className="gradient-primary text-primary-foreground shadow-glow" asChild>
-                <Link to="/pruefungstraining/aevo">AEVO-MC-Training starten <ArrowRight className="ml-2 h-5 w-5" /></Link>
-              </Button>
+              <div className="flex flex-wrap gap-3 items-center">
+                <Button size="lg" className="gradient-primary text-primary-foreground shadow-glow" asChild>
+                  <Link to="/pruefungstraining/aevo">AEVO-MC-Training starten <ArrowRight className="ml-2 h-5 w-5" /></Link>
+                </Button>
+                <Button size="lg" variant="outline" asChild>
+                  <Link to="/quiz/aevo-pruefungsreife">Gratis-Selbsttest (2 Min)</Link>
+                </Button>
+              </div>
             </div>
           </div>
         </section>
