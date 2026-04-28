@@ -3,7 +3,7 @@
  * - Anonymer Attempt (anonymous_id), kein Shadow-State: alles in DB
  * - Tracking SSOT via emitFunnelEvent (FUNNEL_EVENTS.*)
  * - Mapping über quizBundleMap (Klon-sicher, harte UI-Fehler bei fehlendem Mapping)
- * - E-Mail-Capture optional, am Ende; lead_capture nach RPC
+ * - E-Mail-Capture optional, am Ende; lead_capture_submitted nach RPC
  */
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -66,7 +66,8 @@ export function LeadQuizRunner({ slug }: Props) {
 
   const total = quiz?.questions.length ?? 0;
   const current = quiz?.questions[step];
-  const progress = total > 0 ? Math.round((step / total) * 100) : 0;
+  // Progress: aktuelle Frage zählt mit (step+1), damit User auf Frage 1 nicht 0% sieht.
+  const progress = total > 0 ? Math.round(((step + 1) / total) * 100) : 0;
 
   async function ensureAttempt(): Promise<string | null> {
     if (attemptId || !quiz) return attemptId;
@@ -317,7 +318,7 @@ export function LeadQuizRunner({ slug }: Props) {
           </Card>
         )}
 
-        {/* Folge-CTAs: Simulation + Bundle, hervorgehoben nach quiz_complete */}
+        {/* Folge-CTAs: Simulation + Bundle, hervorgehoben nach quiz_completed */}
         {mapping && (
           <div className="grid sm:grid-cols-2 gap-3">
             <Card className="border-primary/40 ring-1 ring-primary/20">

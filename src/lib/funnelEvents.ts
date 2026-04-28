@@ -1,27 +1,26 @@
 /**
- * Funnel Events SSOT (Loop A — Quiz/Lead-Magnet)
+ * Funnel Events SSOT v2 (Loop A — Quiz/Lead-Magnet)
  * --------------------------------------------------------------
- * Zentrale, typisierte Event-Konstanten für den Quiz-Funnel.
- * Niemals Strings im UI hardcoden — immer FUNNEL_EVENTS.* nutzen.
+ * Zentrale, typisierte Event-Konstanten. Niemals Strings im UI hardcoden.
  *
- * Mapping zur DB-SSOT (`conversion_events.v2` event_type):
+ * Kanonische Namen (1:1, kein Mapping/Übersetzung):
  *   LEAD_MAGNET_VIEW       -> 'lead_magnet_view'
- *   QUIZ_STARTED           -> 'quiz_start'
- *   QUIZ_COMPLETED         -> 'quiz_complete'
- *   LEAD_CAPTURE_SUBMITTED -> 'lead_capture'
- *   LERNPLAN_VIEWED        -> 'lernplan_view'
- *   BUNDLE_CTA_CLICKED     -> 'hero_cta_click' (intent='bundle')
+ *   QUIZ_STARTED           -> 'quiz_started'
+ *   QUIZ_COMPLETED         -> 'quiz_completed'
+ *   LEAD_CAPTURE_SUBMITTED -> 'lead_capture_submitted'
+ *   LERNPLAN_VIEWED        -> 'lernplan_viewed'
+ *   BUNDLE_CTA_CLICKED     -> 'bundle_cta_clicked'
  */
 import type { FunnelEventType } from "./conversionTracking";
 import { trackFunnel } from "./conversionTracking";
 
 export const FUNNEL_EVENTS = {
   LEAD_MAGNET_VIEW: "lead_magnet_view",
-  QUIZ_STARTED: "quiz_start",
-  QUIZ_COMPLETED: "quiz_complete",
-  LEAD_CAPTURE_SUBMITTED: "lead_capture",
-  LERNPLAN_VIEWED: "lernplan_view",
-  BUNDLE_CTA_CLICKED: "hero_cta_click",
+  QUIZ_STARTED: "quiz_started",
+  QUIZ_COMPLETED: "quiz_completed",
+  LEAD_CAPTURE_SUBMITTED: "lead_capture_submitted",
+  LERNPLAN_VIEWED: "lernplan_viewed",
+  BUNDLE_CTA_CLICKED: "bundle_cta_clicked",
 } as const satisfies Record<string, FunnelEventType>;
 
 export type FunnelEventKey = keyof typeof FUNNEL_EVENTS;
@@ -42,16 +41,17 @@ export interface FunnelEventPayload {
 
 /**
  * Typed funnel-event emitter. Use this everywhere instead of trackFunnel directly.
+ * BUNDLE_CTA_CLICKED wird als eigenständiges Event geschrieben — NICHT auf
+ * hero_cta_click gemappt (Auswertung sonst verwässert).
  */
 export function emitFunnelEvent(
   key: FunnelEventKey,
   payload: FunnelEventPayload = {}
 ): Promise<void> {
   const { curriculum_id, ...metadata } = payload;
-  const intent = key === "BUNDLE_CTA_CLICKED" ? "bundle" : null;
   return trackFunnel(FUNNEL_EVENTS[key], {
     curriculum_id: curriculum_id ?? null,
-    intent,
+    intent: key === "BUNDLE_CTA_CLICKED" ? "bundle" : null,
     metadata,
   });
 }
