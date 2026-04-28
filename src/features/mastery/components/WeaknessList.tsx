@@ -27,9 +27,9 @@ export function WeaknessList({
 }: WeaknessListProps) {
   if (isLoading) {
     return (
-      <Card className={cn("border-border", className)}>
+      <Card variant="raised" className={className}>
         <CardContent className="p-6">
-          <div className="h-24 animate-pulse rounded-lg bg-muted" />
+          <div className="h-24 animate-pulse rounded-lg bg-surface-sunken" />
         </CardContent>
       </Card>
     );
@@ -38,26 +38,27 @@ export function WeaknessList({
   if (!items.length) return null;
 
   return (
-    <Card className={cn("border-border", className)}>
+    <Card variant="raised" className={className}>
       <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-base font-display">
-          <AlertTriangle className="h-5 w-5 text-amber-500" />
+        <CardTitle className="flex items-center gap-2 text-base font-display text-text-primary">
+          <AlertTriangle className="h-5 w-5 text-warning" />
           Schwächste Bereiche
         </CardTitle>
       </CardHeader>
       <CardContent className="p-5 pt-0 space-y-2.5">
         {items.slice(0, maxItems).map((item) => {
           const scorePct = Math.round((item.score ?? 0) * 100);
+          const critical = scorePct < 50;
           return (
             <div
               key={item.competency_id}
-              className="flex items-center gap-3 rounded-lg border border-border p-3"
+              className="flex items-center gap-3 rounded-lg border border-border-subtle bg-surface-sunken p-3 transition-colors duration-base ease-out-expo hover:border-border-strong hover:bg-surface"
             >
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium truncate">
+                <div className="text-sm font-medium truncate text-text-primary">
                   {item.competency_title}
                 </div>
-                <div className="text-xs text-muted-foreground">
+                <div className="text-xs text-text-tertiary">
                   {item.learning_field_title}
                   {item.attempts > 0 && ` · ${item.attempts} Versuch${item.attempts > 1 ? "e" : ""}`}
                 </div>
@@ -67,12 +68,15 @@ export function WeaknessList({
                   value={scorePct}
                   className={cn(
                     "w-16 h-2",
-                    scorePct < 50
-                      ? "[&>div]:bg-rose-500"
-                      : "[&>div]:bg-amber-500"
+                    critical ? "[&>div]:bg-destructive" : "[&>div]:bg-warning",
                   )}
                 />
-                <span className="text-xs font-medium w-8 text-right">
+                <span
+                  className={cn(
+                    "text-xs font-semibold w-9 text-right tabular-nums",
+                    critical ? "text-destructive" : "text-warning",
+                  )}
+                >
                   {scorePct}%
                 </span>
               </div>
