@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useCheckout, useShopProducts, useCalculatePrice } from '@/hooks/useShop';
 import { useCurriculumProductStats } from '@/hooks/useCurriculumProductStats';
+import { useTrackGrowthEvent } from '@/hooks/useTrackGrowthEvent';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { SITE_URL, seoTitle } from '@/lib/seo';
@@ -25,6 +26,7 @@ export default function ShopPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { track } = useTrackGrowthEvent();
   const [selectedCurriculumId, setSelectedCurriculumId] = useState<string | null>(
     searchParams.get('curriculum') || null
   );
