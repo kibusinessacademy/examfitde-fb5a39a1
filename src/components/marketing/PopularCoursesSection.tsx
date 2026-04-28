@@ -13,10 +13,10 @@ const categoryIcon: Record<CourseCategory, typeof GraduationCap> = {
 };
 
 const categoryColor: Record<CourseCategory, string> = {
-  ausbildung: 'bg-primary/10 text-primary',
-  studium: 'bg-blue-500/10 text-blue-500',
-  fortbildung: 'bg-accent/10 text-accent',
-  zertifizierung: 'bg-emerald-500/10 text-emerald-500',
+  ausbildung: 'bg-petrol-100 text-petrol-700',
+  studium: 'bg-info-bg-subtle text-info',
+  fortbildung: 'bg-mint-100 text-petrol-800',
+  zertifizierung: 'bg-success-bg-subtle text-success',
 };
 
 export function PopularCoursesSection() {
@@ -43,7 +43,7 @@ export function PopularCoursesSection() {
               <Link
                 key={course.packageId}
                 to={getBerufUrl(course.slug)}
-                className="glass-card rounded-xl p-4 group hover:border-primary/30 transition-all duration-300 flex flex-col"
+                className="rounded-xl p-4 group flex flex-col bg-surface-raised border border-border-subtle shadow-elev-1 hover:shadow-elev-2 hover:border-petrol-300 transition-all duration-base"
               >
                 <div className="flex items-center gap-2 mb-2">
                   <div className={`p-1.5 rounded-lg ${categoryColor[course.category]}`}>

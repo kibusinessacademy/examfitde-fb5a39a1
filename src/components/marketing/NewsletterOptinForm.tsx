@@ -54,7 +54,7 @@ export function NewsletterOptinForm({
   if (done) {
     return (
       <div className={className}>
-        <p className="flex items-center gap-2 text-sm text-green-600">
+        <p className="flex items-center gap-2 text-sm text-success">
           <CheckCircle2 className="w-4 h-4" />
           Bitte bestätige deine E-Mail. Wir haben dir einen Link geschickt.
         </p>
@@ -74,12 +74,12 @@ export function NewsletterOptinForm({
           disabled={busy}
           aria-label="E-Mail-Adresse für Newsletter"
         />
-        <Button type="submit" disabled={busy} className="shrink-0">
+        <Button type="submit" variant="petrol" disabled={busy} className="shrink-0">
           {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : "Anmelden"}
         </Button>
       </div>
-      {err && <p className="text-xs text-red-600 mt-1">{err}</p>}
-      <p className="text-[11px] text-muted-foreground mt-1">
+      {err && <p className="text-xs text-danger mt-1">{err}</p>}
+      <p className="text-[11px] text-text-tertiary mt-1">
         Du erhältst eine Bestätigungs-Mail. Abmeldung jederzeit möglich.
       </p>
     </form>

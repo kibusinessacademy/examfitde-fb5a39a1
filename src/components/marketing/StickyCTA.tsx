@@ -68,15 +68,16 @@ export function StickyCTA() {
   return (
     <div className="fixed bottom-0 inset-x-0 z-50 p-3 sm:p-4 animate-fade-in">
       <div className="container mx-auto max-w-2xl">
-        <div className="glass-strong rounded-2xl px-4 py-3 flex items-center justify-between gap-3 shadow-lg border border-primary/20">
+        <div className="rounded-2xl px-4 py-3 flex items-center justify-between gap-3 shadow-elev-3 border border-petrol-200 bg-surface-raised/95 backdrop-blur-md">
           <div className="flex items-center gap-3 min-w-0">
-            <span className="text-sm font-semibold whitespace-nowrap">Prüfungstraining finden</span>
-            <span className="text-xs text-muted-foreground hidden sm:inline">· Beruf suchen & starten</span>
+            <span className="text-sm font-semibold whitespace-nowrap text-text-primary">Prüfungstraining finden</span>
+            <span className="text-xs text-text-secondary hidden sm:inline">· Beruf suchen & starten</span>
           </div>
           <div className="flex items-center gap-2">
             <Button
+              variant="petrol"
               size="sm"
-              className="gradient-primary text-primary-foreground rounded-xl h-9 px-4 text-sm group whitespace-nowrap"
+              className="rounded-xl h-9 px-4 text-sm group whitespace-nowrap"
               onClick={() => {
                 scrollToFinder();
                 trackConversion({ event: 'cta_click', source: 'sticky_cta', label: 'clicked' });
@@ -90,7 +91,7 @@ export function StickyCTA() {
                 setDismissed(true);
                 trackConversion({ event: 'cta_click', source: 'sticky_cta', label: 'dismissed' });
               }}
-              className="p-1.5 rounded-lg hover:bg-muted/50 text-muted-foreground"
+              className="p-1.5 rounded-lg hover:bg-surface-hover text-text-secondary transition-colors duration-base"
               aria-label="Schließen"
             >
               <X className="h-4 w-4" />

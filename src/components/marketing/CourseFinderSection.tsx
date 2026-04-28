@@ -17,10 +17,10 @@ const CATEGORY_FILTERS: { value: CourseCategory | 'all'; label: string; icon: ty
 ];
 
 const categoryColor: Record<CourseCategory, string> = {
-  ausbildung: 'bg-primary/10 text-primary',
-  studium: 'bg-blue-500/10 text-blue-500',
-  fortbildung: 'bg-accent/10 text-accent',
-  zertifizierung: 'bg-emerald-500/10 text-emerald-500',
+  ausbildung: 'bg-petrol-100 text-petrol-700',
+  studium: 'bg-info-bg-subtle text-info',
+  fortbildung: 'bg-mint-100 text-petrol-800',
+  zertifizierung: 'bg-success-bg-subtle text-success',
 };
 
 const categoryIcon: Record<CourseCategory, typeof GraduationCap> = {
@@ -170,7 +170,7 @@ export function CourseFinderSection() {
         {isLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="glass-card rounded-xl p-5 animate-pulse h-40" />
+              <div key={i} className="rounded-xl p-5 animate-pulse h-40 bg-surface-sunken border border-border-subtle" />
             ))}
           </div>
         ) : filtered.length === 0 ? (
@@ -240,7 +240,7 @@ function CourseCard({ course }: { course: CatalogCourseItem }) {
   return (
     <Link
       to={getBerufUrl(course.slug)}
-      className="glass-card rounded-xl p-5 group hover:border-primary/30 transition-all duration-300 flex flex-col"
+      className="rounded-xl p-5 group flex flex-col bg-surface-raised border border-border-subtle shadow-elev-1 hover:shadow-elev-2 hover:border-petrol-300 transition-all duration-base"
       onClick={() => trackConversion({ event: 'course_card_click', source: 'homepage_finder', label: course.slug })}
     >
       {/* Header: category + kammer */}

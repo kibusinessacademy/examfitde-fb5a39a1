@@ -48,25 +48,25 @@ export function Testimonials() {
           {BENEFITS.map((b) => (
             <div
               key={b.title}
-              className="glass-card rounded-2xl p-6 flex flex-col gap-3 hover:border-primary/30 transition-colors text-center"
+              className="rounded-2xl p-6 flex flex-col gap-3 text-center bg-surface-raised border border-border-subtle shadow-elev-1 hover:shadow-elev-2 hover:border-petrol-300 transition-all duration-base"
             >
-              <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-muted/50 mx-auto">
-                <b.icon className="h-6 w-6 text-primary" />
+              <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-petrol-100 mx-auto">
+                <b.icon className="h-6 w-6 text-petrol-600" />
               </div>
-              <h3 className="text-base font-semibold">{b.title}</h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">{b.description}</p>
+              <h3 className="text-base font-display font-semibold text-text-primary">{b.title}</h3>
+              <p className="text-sm text-text-secondary leading-relaxed">{b.description}</p>
             </div>
           ))}
         </div>
 
         {/* Product facts */}
-        <div className="glass-card rounded-2xl p-5 sm:p-6 max-w-2xl mx-auto">
-          <h3 className="text-sm font-semibold mb-4 text-center">So nutzen Azubis ExamFit</h3>
+        <div className="rounded-2xl p-5 sm:p-6 max-w-2xl mx-auto bg-surface-raised border border-border-subtle shadow-elev-1">
+          <h3 className="text-sm font-display font-semibold mb-4 text-center text-text-primary">So nutzen Azubis ExamFit</h3>
           <div className="grid gap-2.5">
             {PRODUCT_FACTS.map((fact) => (
               <div key={fact} className="flex items-start gap-2.5">
-                <Target className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
-                <span className="text-sm text-muted-foreground">{fact}</span>
+                <Target className="h-4 w-4 text-petrol-600 flex-shrink-0 mt-0.5" />
+                <span className="text-sm text-text-secondary">{fact}</span>
               </div>
             ))}
           </div>
