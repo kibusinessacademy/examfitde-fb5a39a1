@@ -147,9 +147,8 @@ export default function SEOLayout() {
             <div>
               <h4 className="font-semibold mb-4">Produkte</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><Link to="/lernkurse" className="hover:text-foreground">Lernkurse</Link></li>
-                <li><Link to="/pruefungstrainer" className="hover:text-foreground">Prüfungstrainer</Link></li>
-                <li><Link to="/bundle" className="hover:text-foreground">Komplett-Bundles</Link></li>
+                <li><Link to="/bundle" className="hover:text-foreground">Komplett-Bundle</Link></li>
+                <li><Link to="/berufe" className="hover:text-foreground">Berufe</Link></li>
                 <li><Link to="/preise" className="hover:text-foreground">Preise</Link></li>
               </ul>
             </div>
