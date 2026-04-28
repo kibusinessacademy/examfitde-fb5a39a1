@@ -46,6 +46,7 @@ import {
 import { RecoverActionsCard } from "@/components/admin/heal/cards/RecoverActionsCard";
 import { TargetedHealCard } from "@/components/admin/heal/cards/TargetedHealCard";
 import { StuckPatternsCard } from "@/components/admin/heal/cards/StuckPatternsCard";
+import { HealStatusCard } from "@/components/admin/heal/cards/HealStatusCard";
 import { QueueDrainCard } from "@/components/admin/heal/cards/QueueDrainCard";
 import { BlockedPackagesCard } from "@/components/admin/heal/cards/BlockedPackagesCard";
 import { TriageCards } from "@/components/admin/heal/cards/TriageCards";
