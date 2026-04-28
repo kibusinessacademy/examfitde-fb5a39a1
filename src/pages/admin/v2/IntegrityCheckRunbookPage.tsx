@@ -184,7 +184,7 @@ export default function IntegrityCheckRunbookPage() {
             </CardHeader>
             <CardContent className="space-y-2">
               {causes.length === 0 && (
-                <p className="rounded-md bg-emerald-500/10 p-2 text-xs text-emerald-700 dark:text-emerald-400">
+                <p className="rounded-md border border-success-border bg-success-bg-subtle p-2 text-xs text-success">
                   Keine bekannten Failure-Patterns für dieses Paket erkannt.
                 </p>
               )}
@@ -193,14 +193,14 @@ export default function IntegrityCheckRunbookPage() {
                   key={`${c.kind}-${i}`}
                   className={`rounded-md border p-3 ${
                     c.severity === "high"
-                      ? "border-destructive/50 bg-destructive/5"
-                      : "border-amber-500/40 bg-amber-500/5"
+                      ? "border-destructive-border bg-destructive-bg-subtle"
+                      : "border-warning-border bg-warning-bg-subtle"
                   }`}
                 >
                   <div className="flex items-center gap-2">
                     {ICONS[c.kind] ?? <AlertTriangle className="h-4 w-4" />}
-                    <strong className="text-sm">{c.title}</strong>
-                    <Badge variant="outline" className="ml-1 text-[10px] uppercase">
+                    <strong className="text-sm text-text-primary">{c.title}</strong>
+                    <Badge variant={c.severity === "high" ? "danger" : "warning"} size="sm" className="ml-1 uppercase">
                       {c.severity}
                     </Badge>
                     <Button
@@ -222,8 +222,8 @@ export default function IntegrityCheckRunbookPage() {
                       )}
                     </Button>
                   </div>
-                  <p className="mt-1 text-xs text-muted-foreground">{c.detail}</p>
-                  <p className="mt-1 font-mono text-[10px] text-muted-foreground">
+                  <p className="mt-1 text-xs text-text-secondary">{c.detail}</p>
+                  <p className="mt-1 font-mono text-[10px] text-text-tertiary">
                     action={c.heal_action} · target={c.heal_target?.slice(0, 12)}…
                   </p>
                 </div>
@@ -253,7 +253,9 @@ function Flag({ label, on }: { label: string; on?: boolean }) {
   return (
     <div
       className={`flex items-center justify-between rounded-md p-2 ${
-        on ? "bg-destructive/10 text-destructive" : "bg-muted text-muted-foreground"
+        on
+          ? "border border-destructive-border bg-destructive-bg-subtle text-destructive"
+          : "border border-border-subtle bg-surface-sunken text-text-tertiary"
       }`}
     >
       <span>{label}</span>
