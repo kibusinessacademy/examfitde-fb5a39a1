@@ -133,15 +133,13 @@ export function LeadQuizRunner({ slug }: Props) {
       setCompleted(true);
 
       if (aid) {
-        await (supabase as any)
-          .from("quiz_attempts")
-          .update({
-            answers: detailed,
-            score: sc,
-            passed: ps,
-            completed_at: new Date().toISOString(),
-          })
-          .eq("id", aid);
+        await (supabase as any).rpc("submit_quiz_attempt", {
+          p_attempt_id: aid,
+          p_anonymous_id: getAnonymousId(),
+          p_answers: detailed,
+          p_score: sc,
+          p_passed: ps,
+        });
       }
 
       trackFunnel("quiz_complete", {
