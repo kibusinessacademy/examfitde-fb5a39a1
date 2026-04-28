@@ -279,9 +279,9 @@ export default function ExamTrainer() {
             <Progress value={progressPercent} className="h-2" />
           </div>
 
-          <Card className="glass-card border-border/50">
+          <Card variant="raised">
             <CardContent className="p-6 md:p-8">
-              <p className="text-lg md:text-xl font-medium text-foreground mb-6 leading-relaxed">
+              <p className="text-lg md:text-xl font-medium text-text-primary mb-6 leading-relaxed">
                 {currentQuestion.question_text}
               </p>
 
@@ -297,19 +297,19 @@ export default function ExamTrainer() {
                       onClick={() => handleAnswer(idx)}
                       disabled={step === 'feedback' || isSubmittingAnswer}
                       className={cn(
-                        "w-full p-4 rounded-xl border text-left transition-all",
+                        "w-full p-4 rounded-xl border text-left transition-all duration-base",
                         "flex items-center gap-4",
-                        !showResult && !isSelected && "border-border bg-muted/30 hover:border-primary/50 hover:bg-muted/50",
-                        !showResult && isSelected && "border-primary bg-primary/10",
-                        showResult && isCorrect && "border-green-500 bg-green-500/10",
-                        showResult && isSelected && !isCorrect && "border-red-500 bg-red-500/10",
+                        !showResult && !isSelected && "border-border-subtle bg-surface-sunken hover:border-petrol-300 hover:bg-surface-hover/50",
+                        !showResult && isSelected && "border-petrol-500 bg-petrol-50",
+                        showResult && isCorrect && "border-success bg-success-bg-subtle",
+                        showResult && isSelected && !isCorrect && "border-danger bg-danger-bg-subtle",
                       )}
                     >
                       <div className={cn(
                         "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 font-medium",
-                        !showResult && "bg-muted text-muted-foreground",
-                        showResult && isCorrect && "bg-green-500 text-white",
-                        showResult && isSelected && !isCorrect && "bg-red-500 text-white",
+                        !showResult && "bg-surface-sunken text-text-secondary border border-border-subtle",
+                        showResult && isCorrect && "bg-success text-petrol-50",
+                        showResult && isSelected && !isCorrect && "bg-danger text-petrol-50",
                       )}>
                         {showResult && isCorrect ? (
                           <CheckCircle className="h-5 w-5" />
@@ -319,31 +319,31 @@ export default function ExamTrainer() {
                           String.fromCharCode(65 + idx)
                         )}
                       </div>
-                      <span className="text-foreground">{option}</span>
+                      <span className="text-text-primary">{option}</span>
                     </button>
                   );
                 })}
               </div>
 
               {isSubmittingAnswer && (
-                <div className="mt-6 p-4 rounded-xl bg-muted/30 border border-border animate-pulse">
+                <div className="mt-6 p-4 rounded-xl bg-surface-sunken border border-border-subtle animate-pulse">
                   <div className="flex items-center gap-2">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span className="text-sm text-muted-foreground">Antwort wird ausgewertet...</span>
+                    <Loader2 className="h-4 w-4 animate-spin text-petrol-600" />
+                    <span className="text-sm text-text-secondary">Antwort wird ausgewertet...</span>
                   </div>
                 </div>
               )}
 
               {step === 'feedback' && answerResult && (
-                <div className="mt-6 p-4 rounded-xl bg-muted/30 border border-border animate-fade-in">
-                  <p className="text-sm font-medium text-foreground mb-2">
+                <div className="mt-6 p-4 rounded-xl bg-surface-sunken border border-border-subtle animate-fade-in">
+                  <p className="text-sm font-medium mb-2">
                     {answerResult.is_correct ? (
-                      <span className="text-green-500">✓ Richtig!</span>
+                      <span className="text-success">✓ Richtig!</span>
                     ) : (
-                      <span className="text-red-500">✗ Leider falsch</span>
+                      <span className="text-danger">✗ Leider falsch</span>
                     )}
                   </p>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-text-secondary">
                     {answerResult.explanation}
                   </p>
                 </div>
@@ -353,8 +353,9 @@ export default function ExamTrainer() {
 
           {step === 'feedback' && (
             <Button
+              variant="petrol"
               onClick={nextQuestion}
-              className="w-full gradient-primary text-primary-foreground shadow-glow"
+              className="w-full"
             >
               {currentIndex + 1 >= questions.length ? 'Ergebnis anzeigen' : 'Nächste Frage'}
               <ChevronRight className="h-4 w-4 ml-2" />
