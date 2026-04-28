@@ -99,17 +99,17 @@ export function AITutorChat({
   };
 
   return (
-    <Card className={cn("glass-card flex flex-col h-full overflow-hidden", className)}>
+    <Card variant="raised" className={cn("flex flex-col h-full overflow-hidden", className)} data-density="comfortable">
       {/* Header */}
       <CardHeader className={cn("pb-3 flex-shrink-0 bg-gradient-to-r", modeConfig.gradient)}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
-              <Sparkles className="h-5 w-5 text-primary" />
+            <div className="w-9 h-9 rounded-xl bg-petrol-100 flex items-center justify-center">
+              <Sparkles className="h-5 w-5 text-petrol-600" />
             </div>
             <div>
-              <CardTitle className="text-base">{title}</CardTitle>
-              <p className="text-xs text-muted-foreground">{modeConfig.description}</p>
+              <CardTitle className="text-base font-display">{title}</CardTitle>
+              <p className="text-xs text-text-secondary">{modeConfig.description}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -132,10 +132,10 @@ export function AITutorChat({
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
-            className="mx-4 mb-2 p-2.5 rounded-xl bg-destructive/10 border border-destructive/30 flex items-start gap-2"
+            className="mx-4 mb-2 p-2.5 rounded-xl bg-danger-bg-subtle border border-danger/20 flex items-start gap-2"
           >
-            <AlertTriangle className="h-4 w-4 text-destructive flex-shrink-0 mt-0.5" />
-            <p className="text-xs text-destructive">
+            <AlertTriangle className="h-4 w-4 text-danger flex-shrink-0 mt-0.5" />
+            <p className="text-xs text-danger">
               Im Prüfungsmodus ist keine inhaltliche Hilfe verfügbar. Der Tutor kann nur bei technischen Fragen helfen.
             </p>
           </motion.div>
