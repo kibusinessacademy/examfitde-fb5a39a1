@@ -20,23 +20,21 @@ const FEATURE_NAMES: Record<PaywallProps['feature'], string> = {
   oral_trainer: 'Mündlicher Prüfungstrainer',
 };
 
+// Bundle-only Strategie: Jedes gesperrte Feature führt zum gleichen Bundle (24,90 €).
+// Die Feature-Keys bleiben als Capability-Identifier in URLs/Routen erhalten,
+// aber kaufbar ist ausschließlich 'bundle'.
+const BUNDLE_OPTION = {
+  key: 'bundle',
+  price: PRICING.defaultPrice,
+  label: '🎁 Komplett-Bundle',
+  recommended: true,
+} as const;
+
 const FEATURE_PRODUCTS: Record<PaywallProps['feature'], { key: string; price: string; label: string; recommended?: boolean }[]> = {
-  learning_course: [
-    { key: 'learning_course', price: '19 €', label: '📚 Lerninhaltekurs' },
-    { key: 'bundle', price: PRICING.defaultPrice, label: '🎁 Komplett-Bundle', recommended: true },
-  ],
-  exam_trainer: [
-    { key: 'exam_trainer', price: PRICING.defaultPrice, label: '🎯 Prüfungstrainer' },
-    { key: 'bundle', price: PRICING.defaultPrice, label: '🎁 Komplett-Bundle', recommended: true },
-  ],
-  ai_tutor: [
-    { key: 'exam_trainer', price: PRICING.defaultPrice, label: '🎯 Prüfungstrainer' },
-    { key: 'bundle', price: PRICING.defaultPrice, label: '🎁 Komplett-Bundle', recommended: true },
-  ],
-  oral_trainer: [
-    { key: 'exam_trainer', price: PRICING.defaultPrice, label: '🎯 Prüfungstrainer' },
-    { key: 'bundle', price: PRICING.defaultPrice, label: '🎁 Komplett-Bundle', recommended: true },
-  ],
+  learning_course: [BUNDLE_OPTION],
+  exam_trainer: [BUNDLE_OPTION],
+  ai_tutor: [BUNDLE_OPTION],
+  oral_trainer: [BUNDLE_OPTION],
 };
 
 export function Paywall({ feature, curriculumId, curriculumTitle, isLoading }: PaywallProps) {
