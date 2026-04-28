@@ -49,9 +49,34 @@ export function LeadQuizRunner({ slug }: Props) {
   const [leadSubmitting, setLeadSubmitting] = useState(false);
   const [leadDone, setLeadDone] = useState(false);
   const [leadError, setLeadError] = useState<string | null>(null);
+  const [serverMappingError, setServerMappingError] = useState<string | null>(null);
 
   const startedRef = useRef(false);
   const viewTrackedRef = useRef(false);
+
+  // Server-seitige Mapping-Validierung: blockt UI hart bei Fehlkonfiguration
+  useEffect(() => {
+    if (!slug) return;
+    let cancelled = false;
+    (async () => {
+      const { data, error: err } = await (supabase as any).rpc(
+        "validate_quiz_mapping",
+        { p_quiz_slug: slug }
+      );
+      if (cancelled) return;
+      if (err) {
+        console.warn("[validate_quiz_mapping] failed:", err);
+        return; // Tolerant: bei RPC-Fehler nicht blockieren (Frontend-Mapping greift)
+      }
+      const result = data as { ok: boolean; error?: string };
+      if (result && !result.ok) {
+        setServerMappingError(result.error ?? "mapping_invalid");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [slug]);
 
   useEffect(() => {
     if (quiz && !viewTrackedRef.current) {
@@ -60,6 +85,7 @@ export function LeadQuizRunner({ slug }: Props) {
         curriculum_id: quiz.curriculum_id,
         quiz_slug: quiz.slug,
         source: "quiz",
+        cta_location: "quiz_page",
       });
     }
   }, [quiz?.id]);
