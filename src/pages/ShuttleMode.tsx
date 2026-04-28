@@ -69,25 +69,35 @@ export default function ShuttleModePage() {
   // No curriculum fallback
   if (!curriculumId) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center px-4">
-          <Zap className="h-12 w-12 text-primary mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-foreground mb-2">Shuttle Mode</h2>
-          <p className="text-muted-foreground mb-4">Wähle einen Kurs, um zu starten.</p>
-          <Button onClick={handleExit} variant="outline">Zum Dashboard</Button>
+      <div
+        data-density="comfortable"
+        className="min-h-screen bg-background flex items-center justify-center"
+      >
+        <div className="text-center px-4 max-w-sm">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-mint-100 dark:bg-mint-900/40 shadow-elev-1">
+            <Zap className="h-8 w-8 text-petrol-600 dark:text-mint-300" />
+          </div>
+          <h2 className="text-xl font-bold text-text-primary mb-2 font-display">Shuttle Mode</h2>
+          <p className="text-text-secondary mb-4">Wähle einen Kurs, um zu starten.</p>
+          <Button onClick={handleExit} variant="outline">
+            Zum Dashboard
+          </Button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div data-density="comfortable" className="min-h-screen bg-background flex flex-col">
       {/* Header (only during active session) */}
       {!showEntry && phase !== 'idle' && phase !== 'ended' && (
         <>
           <ShuttleHeader stats={stats} onEnd={endSession} onBack={handleExit} />
           {stats.questions_answered > 0 && (
-            <Progress value={stats.accuracy} className="h-1 rounded-none" />
+            <Progress
+              value={stats.accuracy}
+              className="h-1 rounded-none [&>div]:bg-mint-500 transition-all duration-base ease-out-expo"
+            />
           )}
         </>
       )}
@@ -106,9 +116,9 @@ export default function ShuttleModePage() {
 
         {/* Loading */}
         {phase === 'loading' && (
-          <div className="flex flex-col items-center gap-3">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <p className="text-sm text-muted-foreground">Laden...</p>
+          <div className="flex flex-col items-center gap-3 animate-fade-in">
+            <Loader2 className="h-8 w-8 animate-spin text-petrol-600 dark:text-mint-400" />
+            <p className="text-sm text-text-secondary">Laden...</p>
           </div>
         )}
 
@@ -143,11 +153,15 @@ export default function ShuttleModePage() {
 
         {/* Error */}
         {phase === 'error' && (
-          <div className="text-center px-4">
-            <p className="text-muted-foreground mb-4">Keine Fragen verfügbar.</p>
+          <div className="text-center px-4 max-w-sm animate-fade-in">
+            <p className="text-text-secondary mb-4">Keine Fragen verfügbar.</p>
             <div className="flex flex-col gap-2">
-              <Button onClick={handleRestart} variant="outline">Erneut versuchen</Button>
-              <Button onClick={handleExit} variant="ghost">Zurück</Button>
+              <Button onClick={handleRestart} variant="outline">
+                Erneut versuchen
+              </Button>
+              <Button onClick={handleExit} variant="ghost">
+                Zurück
+              </Button>
             </div>
           </div>
         )}
@@ -155,12 +169,12 @@ export default function ShuttleModePage() {
 
       {/* Footer with end button during active session */}
       {!showEntry && (phase === 'question' || phase === 'feedback') && (
-        <footer className="px-4 py-3 border-t bg-card/50 backdrop-blur-sm">
+        <footer className="px-4 py-3 border-t border-border-subtle bg-surface/80 backdrop-blur-md">
           <Button
             onClick={endSession}
             variant="ghost"
             size="sm"
-            className="w-full text-muted-foreground"
+            className="w-full text-text-tertiary hover:text-text-primary"
           >
             Session beenden ({stats.questions_answered} Fragen · +{stats.xp_earned} XP)
           </Button>
