@@ -33,6 +33,30 @@ export const QUIZ_BUNDLE_MAP: Record<string, QuizBundleMapping> = {
     simulationRoute: "/pruefungstraining/aevo",
     pillarLabel: "AEVO",
   },
+  "bilanzbuchhalter-pruefungsreife": {
+    curriculumId: "235168bb-87b6-43be-a91a-d46bddc9cb02",
+    bundleSlug: "bilanzbuchhalter-ihk",
+    bundleTitle: "Bilanzbuchhalter Komplett-Bundle",
+    lernplanSlug: "bilanzbuchhalter-pruefungsreife",
+    simulationRoute: "/pruefungstraining/fachwirt/bilanzbuchhalter",
+    pillarLabel: "Bilanzbuchhalter",
+  },
+  "wirtschaftsfachwirt-pruefungsreife": {
+    curriculumId: "1962472c-e2cc-4e38-974e-64036e6c9f4e",
+    bundleSlug: "wirtschaftsfachwirt-ihk",
+    bundleTitle: "Wirtschaftsfachwirt Komplett-Bundle",
+    lernplanSlug: "wirtschaftsfachwirt-pruefungsreife",
+    simulationRoute: "/pruefungstraining/fachwirt/wirtschaftsfachwirt",
+    pillarLabel: "Wirtschaftsfachwirt",
+  },
+  "fiae-pruefungsreife": {
+    curriculumId: "a8a6340d-fd50-445f-a55b-7d5a6c72e2e1",
+    bundleSlug: "fachinformatiker-anwendungsentwicklung",
+    bundleTitle: "Fachinformatiker AE Komplett-Bundle",
+    lernplanSlug: "fiae-pruefungsreife",
+    simulationRoute: "/pruefungstraining/fachinformatiker-ae",
+    pillarLabel: "Fachinformatiker AE",
+  },
 };
 
 export function getQuizBundleMapping(

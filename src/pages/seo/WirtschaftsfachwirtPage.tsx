@@ -9,6 +9,7 @@ import {
   ArrowRight, Award, BookOpen, Brain, Calculator, CheckCircle2,
   Clock, FileText, MessageSquare, Target, TrendingUp, Users, Zap,
 } from 'lucide-react';
+import { QuizCTA } from '@/components/quiz/QuizCTA';
 
 /* ── Exam Structure from WFachwPrV ── */
 const TEIL_1 = [
@@ -101,6 +102,9 @@ export default function WirtschaftsfachwirtPage() {
                 <Link to="#pruefungsstruktur">Prüfungsaufbau ansehen</Link>
               </Button>
             </div>
+            <div className="flex justify-center pt-2">
+              <QuizCTA quizSlug="wirtschaftsfachwirt-pruefungsreife" cluster="wfw_cluster" location="hero" variant="outline" label="Gratis: 5-Fragen-Selbsttest starten" />
+            </div>
             <p className="text-sm text-muted-foreground">Ab 149 € · Kein Abo · Sofortiger Zugang</p>
           </div>
         </section>
@@ -122,6 +126,15 @@ export default function WirtschaftsfachwirtPage() {
                 </Card>
               ))}
             </div>
+          </div>
+        </section>
+
+        {/* Quiz Mid-CTA */}
+        <section className="py-8">
+          <div className="container max-w-4xl">
+            <QuizCTA quizSlug="wirtschaftsfachwirt-pruefungsreife" cluster="wfw_cluster" location="mid"
+              label="Bist du schon Wirtschaftsfachwirt-prüfungsreif?"
+              subtitle="2-Minuten-Selbsttest · sofortiges Ergebnis · persönlicher 6-Wochen-Lernplan." />
           </div>
         </section>
 
@@ -296,6 +309,11 @@ export default function WirtschaftsfachwirtPage() {
             </div>
           </div>
         </section>
+
+        {/* Footer Quiz CTA */}
+        <QuizCTA quizSlug="wirtschaftsfachwirt-pruefungsreife" cluster="wfw_cluster" location="footer"
+          label="Noch unsicher, ob du startklar bist?"
+          subtitle="Mache den 5-Fragen-Selbsttest und erhalte deinen 6-Wochen-Lernplan – kostenlos und ohne Registrierung." />
       </div>
     </>
   );

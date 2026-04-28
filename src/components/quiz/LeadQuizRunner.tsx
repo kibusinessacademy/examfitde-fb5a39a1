@@ -142,18 +142,36 @@ export function LeadQuizRunner({ slug }: Props) {
     try {
       const aid = (await ensureAttempt()) ?? attemptId;
 
+      // Scoring: bevorzugt Self-Assessment-Score (0..maxPerQ), sonst binär is_correct.
+      const hasScores = quiz.questions.some((q) =>
+        q.options.some((o) => typeof (o as any).score === "number")
+      );
       let totalWeight = 0;
       let gainedWeight = 0;
       const detailed = quiz.questions.map((q) => {
         const sel = finalAnswers[q.id];
         const opt = q.options.find((o) => o.key === sel);
-        const isCorrect = !!opt?.is_correct;
+        const maxOptScore = Math.max(
+          0,
+          ...q.options.map((o) => (typeof (o as any).score === "number" ? (o as any).score : 0))
+        );
+        let qShare = 0;
+        let isCorrect = false;
+        if (hasScores && maxOptScore > 0) {
+          const s = typeof (opt as any)?.score === "number" ? (opt as any).score : 0;
+          qShare = s / maxOptScore;
+          isCorrect = s === maxOptScore;
+        } else {
+          isCorrect = !!opt?.is_correct;
+          qShare = isCorrect ? 1 : 0;
+        }
         totalWeight += q.weight;
-        if (isCorrect) gainedWeight += q.weight;
+        gainedWeight += q.weight * qShare;
         return {
           question_id: q.id,
           selected_key: sel,
           is_correct: isCorrect,
+          score: typeof (opt as any)?.score === "number" ? (opt as any).score : null,
           weight: q.weight,
           topic_tag: q.topic_tag,
         };

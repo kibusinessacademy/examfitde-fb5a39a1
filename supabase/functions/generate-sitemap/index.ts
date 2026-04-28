@@ -155,6 +155,9 @@ Sitemap: ${FUNCTIONS_URL_BASE}?type=index
         { loc: `${SITE_URL}/pruefungstraining/aevo`, lastmod: today, changefreq: "weekly", priority: 0.8 },
         // Lead-Magnet Quizzes (Funnel Phase 1) — Lernplan-Seiten bleiben noindex
         { loc: `${SITE_URL}/quiz/aevo-pruefungsreife`, lastmod: today, changefreq: "monthly", priority: 0.7 },
+        { loc: `${SITE_URL}/quiz/bilanzbuchhalter-pruefungsreife`, lastmod: today, changefreq: "monthly", priority: 0.7 },
+        { loc: `${SITE_URL}/quiz/wirtschaftsfachwirt-pruefungsreife`, lastmod: today, changefreq: "monthly", priority: 0.7 },
+        { loc: `${SITE_URL}/quiz/fiae-pruefungsreife`, lastmod: today, changefreq: "monthly", priority: 0.7 },
       ];
       return xmlResponse(toSitemapXML(pages), headers);
     }

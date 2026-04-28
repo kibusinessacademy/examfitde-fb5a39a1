@@ -14,6 +14,7 @@ import {
   Award,
   Briefcase,
 } from 'lucide-react';
+import { QuizCTA } from '@/components/quiz/QuizCTA';
 
 const FAQS = [
   { question: 'Welche Fortbildungsprüfungen werden unterstützt?', answer: 'ExamFit deckt IHK-Fortbildungsprüfungen ab: Fachwirt, Betriebswirt, Bilanzbuchhalter, Meister und weitere. Die Inhalte passen sich automatisch an deine gewählte Prüfung an.' },
@@ -132,6 +133,11 @@ export default function FortbildungLandingPage() {
             </Link>
           </div>
         </section>
+
+        {/* Footer Quiz CTA — Bilanzbuchhalter */}
+        <QuizCTA quizSlug="bilanzbuchhalter-pruefungsreife" cluster="bibu_cluster" location="footer"
+          label="Bilanzbuchhalter: Wie weit bist du wirklich?"
+          subtitle="Mache den 5-Fragen-Selbsttest und erhalte deinen persönlichen 6-Wochen-Lernplan – kostenlos." />
       </div>
     </>
   );

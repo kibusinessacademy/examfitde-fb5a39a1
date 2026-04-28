@@ -8,7 +8,10 @@ import { supabase } from "@/integrations/supabase/client";
 export interface QuizOption {
   key: string;
   label: string;
+  /** Binärer Korrektheits-Marker (klassische MC-Quizzes, z. B. AEVO) */
   is_correct: boolean;
+  /** Optionaler Self-Assessment-Score 0..N (z. B. 0–4). Hat Vorrang vor is_correct. */
+  score?: number;
   explanation?: string;
 }
 

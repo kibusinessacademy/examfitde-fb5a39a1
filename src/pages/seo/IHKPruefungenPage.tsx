@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { ArrowRight, BookOpen, Target, Award, CheckCircle, Building2, Users, Brain } from 'lucide-react';
+import { QuizCTA } from '@/components/quiz/QuizCTA';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -237,6 +238,11 @@ export default function IHKPruefungenPage() {
             </div>
           </div>
         </section>
+
+        {/* Footer Quiz CTA — Fachinformatiker AE */}
+        <QuizCTA quizSlug="fiae-pruefungsreife" cluster="fiae_cluster" location="footer"
+          label="Fachinformatiker AE: Bist du schon prüfungsreif?"
+          subtitle="5-Fragen-Selbsttest · 2 Minuten · persönlicher 8-Wochen-Lernplan – kostenlos." />
       </div>
     </>
   );
