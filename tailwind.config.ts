@@ -34,6 +34,8 @@ export default {
         destructive: {
           DEFAULT: "hsl(var(--destructive))",
           foreground: "hsl(var(--destructive-foreground))",
+          "bg-subtle": "hsl(var(--destructive-bg-subtle))",
+          "border": "hsl(var(--destructive-border))",
         },
         muted: {
           DEFAULT: "hsl(var(--muted))",
@@ -46,14 +48,20 @@ export default {
         success: {
           DEFAULT: "hsl(var(--success))",
           foreground: "hsl(var(--success-foreground))",
+          "bg-subtle": "hsl(var(--success-bg-subtle))",
+          "border": "hsl(var(--success-border))",
         },
         warning: {
           DEFAULT: "hsl(var(--warning))",
           foreground: "hsl(var(--warning-foreground))",
+          "bg-subtle": "hsl(var(--warning-bg-subtle))",
+          "border": "hsl(var(--warning-border))",
         },
         info: {
           DEFAULT: "hsl(var(--info))",
           foreground: "hsl(var(--info-foreground))",
+          "bg-subtle": "hsl(var(--info-bg-subtle))",
+          "border": "hsl(var(--info-border))",
         },
         popover: {
           DEFAULT: "hsl(var(--popover))",
@@ -63,6 +71,25 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        // ── Text Hierarchy v2 ──
+        text: {
+          primary: "hsl(var(--text-primary))",
+          secondary: "hsl(var(--text-secondary))",
+          tertiary: "hsl(var(--text-tertiary))",
+          quaternary: "hsl(var(--text-quaternary))",
+          "on-petrol": "hsl(var(--text-on-petrol))",
+        },
+        // ── Surface Hierarchy v2 ──
+        surface: {
+          sunken: "hsl(var(--surface-sunken))",
+          DEFAULT: "hsl(var(--surface-default))",
+          raised: "hsl(var(--surface-raised))",
+          overlay: "hsl(var(--surface-overlay))",
+        },
+        // ── Border Hierarchy v2 ──
+        "border-subtle": "hsl(var(--border-subtle))",
+        "border-strong": "hsl(var(--border-strong))",
+        "border-focus": "hsl(var(--border-focus))",
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",
@@ -139,10 +166,23 @@ export default {
         "scale-in": "scale-in 0.2s ease-out",
         "pulse-subtle": "pulse-subtle 2s ease-in-out infinite",
       },
+      transitionTimingFunction: {
+        "out-expo": "cubic-bezier(0.22, 1, 0.36, 1)",
+        "spring": "cubic-bezier(0.34, 1.56, 0.64, 1)",
+      },
+      transitionDuration: {
+        instant: "80ms",
+        base: "220ms",
+      },
       boxShadow: {
         glow: "var(--shadow-glow)",
         "glow-sm": "0 0 10px hsl(168 64% 50% / 0.2)",
         "glow-lg": "0 0 40px hsl(168 64% 50% / 0.3)",
+        // ── Elevation system v2 (cool-tinted, not dirty-black) ──
+        "elev-1": "0 1px 2px 0 hsl(215 30% 20% / 0.04), 0 1px 3px 0 hsl(215 30% 20% / 0.06)",
+        "elev-2": "0 2px 4px -1px hsl(215 30% 20% / 0.06), 0 4px 8px -2px hsl(215 30% 20% / 0.08)",
+        "elev-3": "0 4px 8px -2px hsl(215 30% 20% / 0.08), 0 12px 24px -6px hsl(215 30% 20% / 0.10)",
+        "elev-4": "0 8px 16px -4px hsl(215 30% 20% / 0.10), 0 24px 48px -12px hsl(215 30% 20% / 0.14)",
       },
     },
   },
