@@ -26,6 +26,14 @@ interface Props {
   slug: string;
 }
 
+// Mapping: quiz_slug → bundle_slug für Bundle-CTA & Simulation
+const QUIZ_TO_BUNDLE: Record<string, { bundleSlug: string; bundleTitle: string }> = {
+  "aevo-pruefungsreife": {
+    bundleSlug: "ausbildereignungspruefung-aevo",
+    bundleTitle: "AEVO Komplett-Bundle",
+  },
+};
+
 type AnswerState = Record<string, string>; // questionId → optionKey
 
 export function LeadQuizRunner({ slug }: Props) {
