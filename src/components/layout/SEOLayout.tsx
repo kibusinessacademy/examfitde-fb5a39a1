@@ -7,9 +7,7 @@ import { useState } from 'react';
 
 const navigation = [
   { name: 'IHK-Prüfungen', href: '/ihk-pruefungen', icon: Home },
-  { name: 'Lernkurse', href: '/lernkurse', icon: BookOpen },
-  { name: 'Prüfungstrainer', href: '/pruefungstrainer', icon: Target },
-  { name: 'Bundles', href: '/bundle', icon: Award },
+  { name: 'Komplett-Bundle', href: '/bundle', icon: Award },
   { name: 'Berufe', href: '/berufe', icon: GraduationCap },
   { name: 'Unternehmen', href: '/unternehmen', icon: Building2 },
   { name: 'Preise', href: '/preise', icon: CreditCard },
