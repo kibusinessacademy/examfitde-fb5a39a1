@@ -271,7 +271,7 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
         transition={{ duration: 0.4, delay: 0.05 }}
         className="mb-6"
       >
-        <Card className="overflow-hidden rounded-2xl border-primary/15 bg-gradient-to-br from-primary/10 via-background to-background shadow-lg">
+        <Card variant="raised" className="overflow-hidden rounded-2xl border-petrol-200 bg-gradient-to-br from-petrol-50 via-surface-raised to-surface-raised">
           <CardContent className="p-5 sm:p-6">
             <div className="grid gap-3 sm:grid-cols-3">
               {[
