@@ -14,6 +14,7 @@ import {
   Award,
   Briefcase,
 } from 'lucide-react';
+import { QuizCTA } from '@/components/quiz/QuizCTA';
 
 const FAQS = [
   { question: 'Welche Fortbildungsprüfungen werden unterstützt?', answer: 'ExamFit deckt IHK-Fortbildungsprüfungen ab: Fachwirt, Betriebswirt, Bilanzbuchhalter, Meister und weitere. Die Inhalte passen sich automatisch an deine gewählte Prüfung an.' },
