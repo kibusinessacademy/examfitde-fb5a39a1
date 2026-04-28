@@ -295,10 +295,11 @@ const AppRoutes = () => {
           <Route path="/ihk-pruefungen/:slug" element={<BerufDetailPage />} />
           <Route path="/berufe" element={<BerufePage />} />
           <Route path="/berufe/:slug" element={<BerufDetailPage />} />
-          <Route path="/lernkurse" element={<LernkurseListPage />} />
-          <Route path="/lernkurse/:slug" element={<LernkursDetailPage />} />
-          <Route path="/pruefungstrainer" element={<PruefungstrainerListPage />} />
-          <Route path="/pruefungstrainer/:slug" element={<PruefungstrainerDetailPage />} />
+          {/* Bundle-only Strategie: Legacy-Produktrouten redirecten dauerhaft auf /bundle. */}
+          <Route path="/lernkurse" element={<LegacyProductRedirect />} />
+          <Route path="/lernkurse/:slug" element={<LegacyProductRedirect />} />
+          <Route path="/pruefungstrainer" element={<LegacyProductRedirect />} />
+          <Route path="/pruefungstrainer/:slug" element={<LegacyProductRedirect />} />
           <Route path="/bundle" element={<BundleListPage />} />
           <Route path="/bundle/:slug" element={<BundleDetailPage />} />
           <Route path="/unternehmen" element={<UnternehmenPage />} />
