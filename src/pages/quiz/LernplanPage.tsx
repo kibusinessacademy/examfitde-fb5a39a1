@@ -1,21 +1,23 @@
 /**
  * LernplanPage — Personalisierter Lernplan basierend auf Quiz-Attempt.
- * Phase 2: Web-Seite mit Druck-CSS (PDF folgt in Phase 2.5).
- * Liest den Attempt (RLS erlaubt eigenen anonymen Versuch via owner-update-policy nicht für SELECT —
- * deshalb ziehen wir Topic-Schwächen aus den answers via attempts-Owner-Select wenn user_id matched,
- * sonst leiten wir den Plan aus den localStorage-Antworten ab — hier KISS:
- * Wir laden Quiz + zeigen Score/Plan auf Basis der URL-Params + Attempt (öffentlich-anon select fällt
- * unter quiz_attempts_owner_select; für anon owner_id NULL — daher kein direkter SELECT, Plan wird
- * aus generischen Topic-Tags + Score-Bereich abgeleitet).
+ * Phase 2: Web-Seite mit Druck-CSS + Phase 2.5 PDF-Download via Edge Function.
  */
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { SEOHead } from "@/components/seo/SEOHead";
 import { SITE_URL } from "@/lib/seo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { trackFunnel } from "@/lib/conversionTracking";
-import { CheckCircle2, Printer, ShoppingCart, FileDown } from "lucide-react";
+import { emitFunnelEvent } from "@/lib/funnelEvents";
+import { getQuizBundleMapping } from "@/lib/quizBundleMap";
+import {
+  CheckCircle2,
+  Printer,
+  ShoppingCart,
+  FileDown,
+  AlertCircle,
+  RefreshCw,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Link } from "react-router-dom";
@@ -23,10 +25,9 @@ import { useLeadQuiz } from "@/hooks/useLeadQuiz";
 
 const PLAN_BY_SLUG: Record<
   string,
-  { weeks: { week: number; focus: string; tasks: string[] }[]; bundleSlug?: string }
+  { weeks: { week: number; focus: string; tasks: string[] }[] }
 > = {
   "aevo-pruefungsreife": {
-    bundleSlug: "ausbildereignungspruefung-aevo",
     weeks: [
       {
         week: 1,
@@ -76,44 +77,40 @@ export default function LernplanPage() {
   const { toast } = useToast();
 
   const plan = useMemo(() => (slug ? PLAN_BY_SLUG[slug] : undefined), [slug]);
+  const mapping = useMemo(() => getQuizBundleMapping(slug), [slug]);
 
-  /**
-   * PDF-Download — Phase 2.5 Roadmap-Stub.
-   * Wenn die Edge Function `lernplan-pdf` existiert, wird sie aufgerufen.
-   * Sie soll: HTML→PDF (Puppeteer/Chromium oder serverless renderer),
-   * Bytes als application/pdf zurückgeben.
-   * Bis dahin: Toast mit Hinweis auf Druck-Workflow.
-   */
+  const [pdfState, setPdfState] = useState<"idle" | "loading" | "error">("idle");
+  const [pdfAttempts, setPdfAttempts] = useState(0);
+
   async function handleDownloadPdf() {
     if (!slug) return;
+    setPdfState("loading");
     try {
       const { data, error } = await supabase.functions.invoke("lernplan-pdf", {
         body: { slug, attempt_id: attemptId },
       });
-      if (error || !data) throw error ?? new Error("no_data");
-      // Erwartet: { url: string } oder Blob
+      if (error) throw error;
       const url = (data as any)?.url;
-      if (url) {
-        window.open(url, "_blank");
-      } else {
-        toast({
-          title: "PDF noch in Vorbereitung",
-          description: 'Bitte nutze vorerst „Drucken / als PDF speichern".',
-        });
-      }
-    } catch {
+      if (!url) throw new Error("no_url");
+      window.open(url, "_blank", "noopener,noreferrer");
+      setPdfState("idle");
       toast({
-        title: "PDF-Download kommt bald",
-        description: 'Phase 2.5: bitte vorerst „Drucken / als PDF speichern" verwenden.',
+        title: "Lernplan geöffnet",
+        description: "Über das Browser-Druckdialog als PDF speichern.",
       });
+    } catch (err) {
+      console.warn("[lernplan-pdf] failed:", err);
+      setPdfState("error");
+      setPdfAttempts((n) => n + 1);
     }
   }
 
   useEffect(() => {
     if (slug) {
-      trackFunnel("lernplan_view", {
+      emitFunnelEvent("LERNPLAN_VIEWED", {
         curriculum_id: quiz?.curriculum_id ?? null,
-        metadata: { lernplan_slug: slug, attempt_id: attemptId },
+        lernplan_slug: slug,
+        attempt_id: attemptId,
       });
     }
   }, [slug, quiz?.curriculum_id, attemptId]);
@@ -155,23 +152,71 @@ export default function LernplanPage() {
             Schritt-für-Schritt zur Prüfungsreife. Du kannst diesen Plan ausdrucken
             oder als PDF speichern.
           </p>
+
+          {!mapping && (
+            <div className="mt-4 flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive no-print">
+              <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+              <span>
+                Konfigurationsfehler: Für dieses Quiz ist kein Bundle-Mapping
+                hinterlegt. Bitte den Support kontaktieren.
+              </span>
+            </div>
+          )}
+
           <div className="flex flex-wrap gap-3 mt-4 no-print">
             <Button onClick={() => window.print()} variant="outline">
               <Printer className="mr-2 h-4 w-4" /> Drucken / als PDF speichern
             </Button>
-            <Button onClick={handleDownloadPdf} variant="outline" disabled>
-              <FileDown className="mr-2 h-4 w-4" /> PDF herunterladen
-              <span className="ml-2 text-xs text-muted-foreground">(in Kürze)</span>
+            <Button
+              onClick={handleDownloadPdf}
+              variant="outline"
+              disabled={pdfState === "loading"}
+            >
+              {pdfState === "loading" ? (
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                  Wird erzeugt…
+                </>
+              ) : pdfState === "error" ? (
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4" /> Erneut versuchen
+                  {pdfAttempts > 1 && (
+                    <span className="ml-2 text-xs text-muted-foreground">
+                      ({pdfAttempts}×)
+                    </span>
+                  )}
+                </>
+              ) : (
+                <>
+                  <FileDown className="mr-2 h-4 w-4" /> PDF herunterladen
+                </>
+              )}
             </Button>
-            {plan.bundleSlug && (
-              <Button asChild>
-                <Link to={`/bundle/${plan.bundleSlug}`}>
+            {mapping && (
+              <Button
+                asChild
+                onClick={() =>
+                  emitFunnelEvent("BUNDLE_CTA_CLICKED", {
+                    curriculum_id: quiz?.curriculum_id ?? null,
+                    bundle_slug: mapping.bundleSlug,
+                    cta_location: "lernplan_header",
+                  })
+                }
+              >
+                <Link to={`/bundle/${mapping.bundleSlug}`}>
                   <ShoppingCart className="mr-2 h-4 w-4" />
                   Komplett-Bundle (24,90 €)
                 </Link>
               </Button>
             )}
           </div>
+
+          {pdfState === "error" && (
+            <p className="mt-2 text-xs text-destructive no-print">
+              PDF konnte nicht erstellt werden. Bitte erneut versuchen oder den
+              Druck-Button nutzen.
+            </p>
+          )}
         </header>
 
         <div className="space-y-4">
@@ -199,7 +244,7 @@ export default function LernplanPage() {
           ))}
         </div>
 
-        {plan.bundleSlug && (
+        {mapping && (
           <Card className="mt-8 bg-primary/5 border-primary/20 no-print">
             <CardContent className="py-6 text-center">
               <h2 className="text-xl font-bold mb-2">
@@ -208,8 +253,18 @@ export default function LernplanPage() {
               <p className="text-muted-foreground mb-4">
                 Lernkurs, Prüfungstrainer & AI-Tutor für 24,90 € — alles, was du brauchst.
               </p>
-              <Button asChild size="lg">
-                <Link to={`/bundle/${plan.bundleSlug}`}>Bundle ansehen</Link>
+              <Button
+                asChild
+                size="lg"
+                onClick={() =>
+                  emitFunnelEvent("BUNDLE_CTA_CLICKED", {
+                    curriculum_id: quiz?.curriculum_id ?? null,
+                    bundle_slug: mapping.bundleSlug,
+                    cta_location: "lernplan_footer",
+                  })
+                }
+              >
+                <Link to={`/bundle/${mapping.bundleSlug}`}>Bundle ansehen</Link>
               </Button>
             </CardContent>
           </Card>
