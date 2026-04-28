@@ -18,7 +18,6 @@ interface RunRequest {
   product_keys?: string[]; // defaults to all 3
   skip_stripe?: boolean;   // skip live Stripe session creation
   cleanup_only?: boolean;  // only delete test grants, no test
-  internal_secret: string; // EDGE_INTERNAL_SHARED_SECRET
 }
 
 interface ComboResult {
@@ -44,18 +43,37 @@ Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req.headers.get("origin"));
 
   try {
-    const body = await req.json() as RunRequest;
-    const expectedSecret = Deno.env.get("EDGE_INTERNAL_SHARED_SECRET");
-    if (!expectedSecret || body.internal_secret !== expectedSecret) {
-      return new Response(JSON.stringify({ error: "unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const body = (await req.json().catch(() => ({}))) as RunRequest;
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const admin = createClient(supabaseUrl, serviceKey);
+
+    // Caller must be admin (check via JWT)
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "missing bearer" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const callerClient = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: callerData } = await callerClient.auth.getUser();
+    if (!callerData?.user) {
+      return new Response(JSON.stringify({ error: "invalid token" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const { data: isAdmin } = await admin.rpc("has_role", {
+      _user_id: callerData.user.id, _role: "admin",
+    });
+    if (!isAdmin) {
+      return new Response(JSON.stringify({ error: "admin required" }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     const e2eEmail = Deno.env.get("E2E_TEST_USER_EMAIL")!;
     const e2ePass = Deno.env.get("E2E_TEST_USER_PASSWORD")!;
 
