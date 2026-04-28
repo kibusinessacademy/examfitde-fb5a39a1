@@ -1,44 +1,41 @@
 /**
  * LeadQuizRunner — Generischer DB-getriebener Quiz-Runner.
  * - Anonymer Attempt (anonymous_id), kein Shadow-State: alles in DB
- * - Tracking SSOT: lead_magnet_view (Mount), quiz_start (1. Antwort), quiz_complete (Submit)
- * - E-Mail-Capture optional, am Ende; lead_capture-Event nach RPC
- * - Anschluss: redirect → /lernplan/:slug?attempt=...&token=...
+ * - Tracking SSOT via emitFunnelEvent (FUNNEL_EVENTS.*)
+ * - Mapping über quizBundleMap (Klon-sicher, harte UI-Fehler bei fehlendem Mapping)
+ * - E-Mail-Capture optional, am Ende; lead_capture nach RPC
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import {
-  trackFunnel,
-  getAnonymousId,
-  getSessionId,
-} from "@/lib/conversionTracking";
+import { getAnonymousId, getSessionId } from "@/lib/conversionTracking";
+import { emitFunnelEvent } from "@/lib/funnelEvents";
+import { getQuizBundleMapping } from "@/lib/quizBundleMap";
 import { useLeadQuiz } from "@/hooks/useLeadQuiz";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { CheckCircle2, AlertCircle, ArrowRight, GraduationCap, Mic } from "lucide-react";
+import {
+  CheckCircle2,
+  AlertCircle,
+  ArrowRight,
+  GraduationCap,
+  Mic,
+} from "lucide-react";
 import { Link } from "react-router-dom";
 
 interface Props {
   slug: string;
 }
 
-// Mapping: quiz_slug → bundle_slug für Bundle-CTA & Simulation
-const QUIZ_TO_BUNDLE: Record<string, { bundleSlug: string; bundleTitle: string }> = {
-  "aevo-pruefungsreife": {
-    bundleSlug: "ausbildereignungspruefung-aevo",
-    bundleTitle: "AEVO Komplett-Bundle",
-  },
-};
-
-type AnswerState = Record<string, string>; // questionId → optionKey
+type AnswerState = Record<string, string>;
 
 export function LeadQuizRunner({ slug }: Props) {
   const { data: quiz, loading, error } = useLeadQuiz(slug);
   const navigate = useNavigate();
+  const mapping = getQuizBundleMapping(slug);
 
   const [answers, setAnswers] = useState<AnswerState>({});
   const [step, setStep] = useState(0);
@@ -54,13 +51,15 @@ export function LeadQuizRunner({ slug }: Props) {
   const [leadError, setLeadError] = useState<string | null>(null);
 
   const startedRef = useRef(false);
+  const viewTrackedRef = useRef(false);
 
-  // Track lead_magnet_view on mount once quiz loaded
   useEffect(() => {
-    if (quiz) {
-      trackFunnel("lead_magnet_view", {
+    if (quiz && !viewTrackedRef.current) {
+      viewTrackedRef.current = true;
+      emitFunnelEvent("LEAD_MAGNET_VIEW", {
         curriculum_id: quiz.curriculum_id,
-        metadata: { quiz_slug: quiz.slug, type: "quiz" },
+        quiz_slug: quiz.slug,
+        source: "quiz",
       });
     }
   }, [quiz?.id]);
@@ -96,14 +95,13 @@ export function LeadQuizRunner({ slug }: Props) {
 
     if (!startedRef.current) {
       startedRef.current = true;
-      trackFunnel("quiz_start", {
+      emitFunnelEvent("QUIZ_STARTED", {
         curriculum_id: quiz?.curriculum_id ?? null,
-        metadata: { quiz_slug: slug },
+        quiz_slug: slug,
       });
       await ensureAttempt();
     }
 
-    // Fortsetzen oder Submit
     if (step + 1 < total) {
       setStep((s) => s + 1);
     } else {
@@ -117,7 +115,6 @@ export function LeadQuizRunner({ slug }: Props) {
     try {
       const aid = (await ensureAttempt()) ?? attemptId;
 
-      // Score berechnen
       let totalWeight = 0;
       let gainedWeight = 0;
       const detailed = quiz.questions.map((q) => {
@@ -150,14 +147,12 @@ export function LeadQuizRunner({ slug }: Props) {
         });
       }
 
-      trackFunnel("quiz_complete", {
+      emitFunnelEvent("QUIZ_COMPLETED", {
         curriculum_id: quiz.curriculum_id,
-        metadata: {
-          quiz_slug: slug,
-          score: sc,
-          passed: ps,
-          attempt_id: aid,
-        },
+        quiz_slug: slug,
+        score: sc,
+        passed: ps,
+        attempt_id: aid,
       });
     } finally {
       setSubmitting(false);
@@ -178,7 +173,12 @@ export function LeadQuizRunner({ slug }: Props) {
         p_metadata: { score, passed },
       });
       if (err) throw err;
-      const result = data as { ok: boolean; error?: string; doi_token?: string; lernplan_slug?: string };
+      const result = data as {
+        ok: boolean;
+        error?: string;
+        doi_token?: string;
+        lernplan_slug?: string;
+      };
       if (!result?.ok) {
         setLeadError(
           result?.error === "invalid_email"
@@ -188,16 +188,13 @@ export function LeadQuizRunner({ slug }: Props) {
         return;
       }
       setLeadDone(true);
-      trackFunnel("lead_capture", {
+      emitFunnelEvent("LEAD_CAPTURE_SUBMITTED", {
         curriculum_id: quiz.curriculum_id,
-        metadata: {
-          source: "quiz",
-          quiz_slug: slug,
-          marketing_consent: consent,
-          attempt_id: attemptId,
-        },
+        quiz_slug: slug,
+        marketing_consent: consent,
+        attempt_id: attemptId,
+        source: "quiz",
       });
-      // Direkt zum Lernplan
       const planSlug = result.lernplan_slug ?? slug;
       navigate(
         `/lernplan/${encodeURIComponent(planSlug)}?attempt=${encodeURIComponent(
@@ -234,7 +231,6 @@ export function LeadQuizRunner({ slug }: Props) {
   // Ergebnis-Phase
   if (completed) {
     const pct = Math.round((score ?? 0) * 100);
-    const bundle = QUIZ_TO_BUNDLE[slug];
     return (
       <div className="max-w-2xl mx-auto space-y-4">
         <Card>
@@ -258,7 +254,9 @@ export function LeadQuizRunner({ slug }: Props) {
             {!leadDone && (
               <form onSubmit={handleLeadSubmit} className="space-y-3">
                 <label className="block">
-                  <span className="text-sm font-medium">E-Mail für deinen Lernplan</span>
+                  <span className="text-sm font-medium">
+                    E-Mail für deinen Lernplan
+                  </span>
                   <Input
                     type="email"
                     required
@@ -275,21 +273,25 @@ export function LeadQuizRunner({ slug }: Props) {
                     className="mt-0.5"
                   />
                   <span>
-                    Ich möchte zusätzlich Lerntipps & Prüfungs-Reminder per E-Mail erhalten
-                    (jederzeit abbestellbar).
+                    Ich möchte zusätzlich Lerntipps & Prüfungs-Reminder per E-Mail
+                    erhalten (jederzeit abbestellbar).
                   </span>
                 </label>
                 {leadError && (
                   <p className="text-sm text-destructive">{leadError}</p>
                 )}
                 <Button type="submit" disabled={leadSubmitting} className="w-full">
-                  {leadSubmitting ? "Wird erstellt…" : (
-                    <>Lernplan ansehen <ArrowRight className="ml-2 h-4 w-4" /></>
+                  {leadSubmitting ? (
+                    "Wird erstellt…"
+                  ) : (
+                    <>
+                      Lernplan freischalten <ArrowRight className="ml-2 h-4 w-4" />
+                    </>
                   )}
                 </Button>
                 <p className="text-xs text-muted-foreground">
-                  Mit Klick erklärst du dich mit der Speicherung deiner E-Mail-Adresse zur
-                  Übermittlung des Lernplans einverstanden.
+                  Mit Klick erklärst du dich mit der Speicherung deiner E-Mail-Adresse
+                  zur Übermittlung des Lernplans einverstanden.
                 </p>
               </form>
             )}
@@ -302,43 +304,68 @@ export function LeadQuizRunner({ slug }: Props) {
           </CardContent>
         </Card>
 
-        {/* Folge-CTAs: Lernplan + Simulation + Bundle */}
-        <div className="grid sm:grid-cols-2 gap-3">
-          <Card className="border-primary/30">
-            <CardContent className="p-4 space-y-2">
-              <div className="flex items-center gap-2 font-semibold">
-                <GraduationCap className="h-5 w-5 text-primary" />
-                Mündliche Prüfungssimulation
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Trainiere mit dem AI-Tutor unter realen Prüfungsbedingungen.
-              </p>
-              <Button variant="outline" size="sm" asChild className="w-full">
-                <Link to="/pruefungstraining/aevo">
-                  <Mic className="mr-2 h-4 w-4" /> Simulation starten
-                </Link>
-              </Button>
+        {/* Mapping-Fehler hart sichtbar */}
+        {!mapping && (
+          <Card className="border-destructive/40">
+            <CardContent className="py-4 flex items-start gap-2 text-sm text-destructive">
+              <AlertCircle className="h-5 w-5 shrink-0" />
+              <span>
+                Konfigurationsfehler: Für dieses Quiz ist kein Bundle hinterlegt.
+                Folge-CTAs sind deaktiviert. Bitte den Support kontaktieren.
+              </span>
             </CardContent>
           </Card>
+        )}
 
-          {bundle && (
-            <Card className="border-primary/30 bg-primary/5">
+        {/* Folge-CTAs: Simulation + Bundle, hervorgehoben nach quiz_complete */}
+        {mapping && (
+          <div className="grid sm:grid-cols-2 gap-3">
+            <Card className="border-primary/40 ring-1 ring-primary/20">
               <CardContent className="p-4 space-y-2">
                 <div className="flex items-center gap-2 font-semibold">
-                  🎁 {bundle.bundleTitle}
+                  <GraduationCap className="h-5 w-5 text-primary" />
+                  Mündliche Prüfungssimulation
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Trainiere mit dem AI-Tutor unter realen Prüfungsbedingungen.
+                </p>
+                <Button variant="default" size="sm" asChild className="w-full">
+                  <Link to={mapping.simulationRoute}>
+                    <Mic className="mr-2 h-4 w-4" /> Simulation starten
+                  </Link>
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card className="border-primary/40 bg-primary/5 ring-1 ring-primary/30">
+              <CardContent className="p-4 space-y-2">
+                <div className="flex items-center gap-2 font-semibold">
+                  🎁 {mapping.bundleTitle}
                 </div>
                 <p className="text-sm text-muted-foreground">
                   Lernkurs + Trainer + AI-Tutor — alles für 24,90 €.
                 </p>
-                <Button size="sm" asChild className="w-full">
-                  <Link to={`/bundle/${bundle.bundleSlug}`}>
+                <Button
+                  size="sm"
+                  asChild
+                  className="w-full"
+                  onClick={() =>
+                    emitFunnelEvent("BUNDLE_CTA_CLICKED", {
+                      curriculum_id: quiz.curriculum_id,
+                      bundle_slug: mapping.bundleSlug,
+                      quiz_slug: slug,
+                      cta_location: "quiz_result",
+                    })
+                  }
+                >
+                  <Link to={`/bundle/${mapping.bundleSlug}`}>
                     Bundle ansehen <ArrowRight className="ml-2 h-4 w-4" />
                   </Link>
                 </Button>
               </CardContent>
             </Card>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -364,7 +391,9 @@ export function LeadQuizRunner({ slug }: Props) {
             onClick={() => handleAnswer(opt.key)}
             className="w-full text-left rounded-lg border border-border bg-card hover:bg-accent hover:border-primary/50 transition px-4 py-3 disabled:opacity-50"
           >
-            <span className="font-medium mr-2 text-primary">{opt.key.toUpperCase()}.</span>
+            <span className="font-medium mr-2 text-primary">
+              {opt.key.toUpperCase()}.
+            </span>
             {opt.label}
           </button>
         ))}
