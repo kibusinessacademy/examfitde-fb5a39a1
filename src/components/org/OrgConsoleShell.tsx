@@ -59,8 +59,8 @@ export default function OrgConsoleShell({ children }: OrgConsoleShellProps) {
 
   const orgs = data?.orgs || [];
   const selected = data?.selected;
-  const managementRoles = ['OWNER', 'MANAGER', 'IT_ADMIN', 'BILLING', 'SCHOOL_ADMIN', 'IHK_ADMIN', 'HWK_ADMIN', 'INSTRUCTOR'];
-  const accessibleOrgs = orgs.filter(o => managementRoles.includes(o.my_role));
+  const managementRoles = ['OWNER', 'ADMIN', 'MANAGER', 'IT_ADMIN', 'BILLING', 'SCHOOL_ADMIN', 'IHK_ADMIN', 'HWK_ADMIN', 'INSTRUCTOR'];
+  const accessibleOrgs = orgs.filter(o => managementRoles.includes((o.my_role || '').toUpperCase()));
 
   if (accessibleOrgs.length === 0) {
     return <Navigate to="/" replace />;
