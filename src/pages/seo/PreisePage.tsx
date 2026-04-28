@@ -13,8 +13,8 @@ const faqs = [
     answer: 'Nein. Du zahlst einmal und hast 12 Monate Zugang. Keine automatische Verlängerung, keine Kündigung nötig.',
   },
   {
-    question: 'Was ist der Unterschied zwischen Ausbildung und Studium?',
-    answer: 'Der Prüfungstrainer ist identisch – Inhalte und Didaktik passen sich automatisch an. Im Studium liegt der Fokus auf Fallanalysen, Transferaufgaben und akademischer Klausurvorbereitung.',
+    question: 'Was ist im Preis enthalten?',
+    answer: 'Alle Module: Lernkurs, Prüfungstrainer, mündliche Prüfungssimulation und KI-Tutor — in einem einzigen Bundle. Es gibt keine Einzelprodukte und keine Add-ons.',
   },
   {
     question: 'Können duale Studenten über den Betrieb lizenziert werden?',
