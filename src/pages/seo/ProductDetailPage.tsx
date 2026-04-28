@@ -214,22 +214,7 @@ function ProductDetailPageComponent({ productType }: ProductDetailPageProps) {
           </div>
         </section>
 
-        {productType !== 'bundle' && (
-          <section className="py-16 bg-muted/30">
-            <div className="container max-w-3xl text-center">
-              <Badge variant="outline" className="mb-4">Tipp</Badge>
-              <h2 className="text-2xl md:text-3xl font-display font-bold mb-4">
-                Spare {PRODUCT_PRICES.lernkurs + PRODUCT_PRICES.pruefungstrainer - PRODUCT_PRICES.bundle}€ mit dem Bundle
-              </h2>
-              <p className="text-muted-foreground mb-6">
-                Hol dir Lernkurs + Prüfungstrainer + mündliche Prüfungssimulation in einem Paket.
-              </p>
-              <Button size="lg" variant="outline" asChild>
-                <Link to={`/bundle/${slug}`}>Zum Bundle <ArrowRight className="ml-2 h-5 w-5" /></Link>
-              </Button>
-            </div>
-          </section>
-        )}
+        {/* Bundle-only Strategie: Cross-Sell-Block entfernt — es gibt keine Einzelprodukte mehr. */}
 
         <section className="py-20 bg-gradient-to-br from-primary/10 via-transparent to-accent/10">
           <div className="container text-center">
