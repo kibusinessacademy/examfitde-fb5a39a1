@@ -129,7 +129,10 @@ export default function ShopPage() {
           <div className="max-w-md mx-auto px-4 pt-6">
             <Select
               value={selectedCurriculumId || ''}
-              onValueChange={setSelectedCurriculumId}
+              onValueChange={(v) => {
+                setSelectedCurriculumId(v);
+                track('product_select', { curriculumId: v });
+              }}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Beruf auswählen..." />
