@@ -8,6 +8,7 @@
  * Primärer Funnel: SEO-Seite → Quiz → Ergebnis → Lernplan/Simulation/Bundle.
  * Daher KEIN direkter Bundle-Push auf den Cluster-Seiten — Quiz first.
  */
+import { useEffect, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { ArrowRight, Sparkles, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,8 @@ interface Props {
   subtitle?: string;
   /** Visueller Stil */
   variant?: "primary" | "outline";
+  /** Track-Source-Cluster (z. B. "aevo_cluster", "ihk_cluster") */
+  cluster?: string;
 }
 
 export function AEVOQuizCTA({
@@ -34,16 +37,30 @@ export function AEVOQuizCTA({
   label,
   subtitle,
   variant = "primary",
+  cluster = "aevo_cluster",
 }: Props) {
   const loc = useLocation();
   const sourcePage = loc.pathname;
+  const impressionFired = useRef(false);
 
-  const handleClick = () => {
-    // SSOT-konformer Event-Name (LEAD_MAGNET_VIEW). Differenzierung über metadata.cta_location.
+  // Impression: LEAD_MAGNET_VIEW (einmal pro Mount/Slot)
+  useEffect(() => {
+    if (impressionFired.current) return;
+    impressionFired.current = true;
     emitFunnelEvent("LEAD_MAGNET_VIEW", {
       quiz_slug: quizSlug,
       cta_location: location,
-      source: "aevo_cluster",
+      source: cluster,
+      source_page: sourcePage,
+    });
+  }, [quizSlug, location, cluster, sourcePage]);
+
+  // Klick: distinktes quiz_cta_clicked Event
+  const handleClick = () => {
+    emitFunnelEvent("QUIZ_CTA_CLICKED", {
+      quiz_slug: quizSlug,
+      cta_location: location,
+      source: cluster,
       source_page: sourcePage,
     });
   };
