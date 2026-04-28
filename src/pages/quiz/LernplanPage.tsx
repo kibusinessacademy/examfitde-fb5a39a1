@@ -73,8 +73,41 @@ export default function LernplanPage() {
   const [params] = useSearchParams();
   const attemptId = params.get("attempt");
   const { data: quiz } = useLeadQuiz(slug);
+  const { toast } = useToast();
 
   const plan = useMemo(() => (slug ? PLAN_BY_SLUG[slug] : undefined), [slug]);
+
+  /**
+   * PDF-Download — Phase 2.5 Roadmap-Stub.
+   * Wenn die Edge Function `lernplan-pdf` existiert, wird sie aufgerufen.
+   * Sie soll: HTML→PDF (Puppeteer/Chromium oder serverless renderer),
+   * Bytes als application/pdf zurückgeben.
+   * Bis dahin: Toast mit Hinweis auf Druck-Workflow.
+   */
+  async function handleDownloadPdf() {
+    if (!slug) return;
+    try {
+      const { data, error } = await supabase.functions.invoke("lernplan-pdf", {
+        body: { slug, attempt_id: attemptId },
+      });
+      if (error || !data) throw error ?? new Error("no_data");
+      // Erwartet: { url: string } oder Blob
+      const url = (data as any)?.url;
+      if (url) {
+        window.open(url, "_blank");
+      } else {
+        toast({
+          title: "PDF noch in Vorbereitung",
+          description: "Bitte nutze vorerst „Drucken / als PDF speichern".",
+        });
+      }
+    } catch {
+      toast({
+        title: "PDF-Download kommt bald",
+        description: "Phase 2.5: bitte vorerst „Drucken / als PDF speichern" verwenden.",
+      });
+    }
+  }
 
   useEffect(() => {
     if (slug) {
