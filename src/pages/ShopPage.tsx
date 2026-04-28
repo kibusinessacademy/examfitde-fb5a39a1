@@ -51,13 +51,16 @@ export default function ShopPage() {
     }
   }, [curricula, selectedCurriculumId]);
 
-  // Sync from URL ?curriculum=... (e.g. coming from cards/SEO links)
+  // Sync from URL ?curriculum=... — only set if the id actually exists in the
+  // (frozen) curricula list so the Select trigger label always matches an option.
   useEffect(() => {
     const fromUrl = searchParams.get('curriculum');
-    if (fromUrl && fromUrl !== selectedCurriculumId) {
+    if (!fromUrl || !curricula?.length) return;
+    const exists = curricula.some(c => c.id === fromUrl);
+    if (exists && fromUrl !== selectedCurriculumId) {
       setSelectedCurriculumId(fromUrl);
     }
-  }, [searchParams, selectedCurriculumId]);
+  }, [searchParams, curricula, selectedCurriculumId]);
 
   const { data: stats } = useCurriculumProductStats(selectedCurriculumId);
   const { data: products } = useShopProducts();
