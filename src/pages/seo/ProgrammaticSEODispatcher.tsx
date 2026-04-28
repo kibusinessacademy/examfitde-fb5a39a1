@@ -25,6 +25,10 @@ const SEO_SUFFIXES = [
 const RESERVED_SLUGS = new Set([
   'work', 'berufski', 'shop', 'auth', 'admin', 'dashboard',
   'installieren', 'purchase-success',
+  // App-Bereiche, die nicht als SEO-Slug missverstanden werden dürfen
+  'org', 'orgs', 'organization', 'personas', 'preise', 'berufe',
+  'heatmap', 'exam-trainer', 'exam', 'training', 'shuttle',
+  'ai-tutor', 'tutor', 'profile', 'settings',
 ]);
 
 /**
