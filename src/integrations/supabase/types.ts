@@ -82545,6 +82545,17 @@ export type Database = {
         }
         Relationships: []
       }
+      v_admin_sales_funnel_per_curriculum: {
+        Row: {
+          curriculum_id: string | null
+          event_count: number | null
+          event_type: string | null
+          last_event_at: string | null
+          median_step_latency_ms: number | null
+          sessions: number | null
+        }
+        Relationships: []
+      }
       v_admin_stale_marker_diff: {
         Row: {
           active_jobs: number | null
