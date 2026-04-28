@@ -15,7 +15,9 @@ import { SITE_URL } from "@/lib/seo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { trackFunnel } from "@/lib/conversionTracking";
-import { CheckCircle2, Printer, ShoppingCart } from "lucide-react";
+import { CheckCircle2, Printer, ShoppingCart, FileDown } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import { Link } from "react-router-dom";
 import { useLeadQuiz } from "@/hooks/useLeadQuiz";
 
@@ -120,9 +122,13 @@ export default function LernplanPage() {
             Schritt-für-Schritt zur Prüfungsreife. Du kannst diesen Plan ausdrucken
             oder als PDF speichern.
           </p>
-          <div className="flex gap-3 mt-4 no-print">
+          <div className="flex flex-wrap gap-3 mt-4 no-print">
             <Button onClick={() => window.print()} variant="outline">
               <Printer className="mr-2 h-4 w-4" /> Drucken / als PDF speichern
+            </Button>
+            <Button onClick={handleDownloadPdf} variant="outline" disabled>
+              <FileDown className="mr-2 h-4 w-4" /> PDF herunterladen
+              <span className="ml-2 text-xs text-muted-foreground">(in Kürze)</span>
             </Button>
             {plan.bundleSlug && (
               <Button asChild>
