@@ -169,9 +169,9 @@ export default function PruefungsreifeCheck() {
   const currentQuestion = QUESTIONS[current];
 
   const colorMap: Record<ResultLevel, string> = {
-    green: 'text-success border-success/30 bg-success/5',
-    yellow: 'text-warning border-warning/30 bg-warning/5',
-    red: 'text-destructive border-destructive/30 bg-destructive/5',
+    green: 'text-success border-success/30 bg-success-bg-subtle',
+    yellow: 'text-warning border-warning/30 bg-warning-bg-subtle',
+    red: 'text-danger border-danger/30 bg-danger-bg-subtle',
   };
 
   return (
@@ -185,7 +185,7 @@ export default function PruefungsreifeCheck() {
       <div className="min-h-screen flex items-center justify-center px-4 py-16">
         <div className="w-full max-w-xl">
           {!showResult ? (
-            <div className="glass-card rounded-2xl p-6 sm:p-8">
+            <div className="rounded-2xl p-6 sm:p-8 bg-surface-raised border border-border-subtle shadow-elev-2">
               {/* Progress */}
               <div className="flex items-center justify-between mb-4">
                 <span className="text-xs text-muted-foreground font-medium">
@@ -224,7 +224,7 @@ export default function PruefungsreifeCheck() {
               </div>
             </div>
           ) : (
-            <div className={`glass-card rounded-2xl p-6 sm:p-8 border-2 ${colorMap[result.level]}`}>
+            <div className={`rounded-2xl p-6 sm:p-8 border-2 shadow-elev-2 ${colorMap[result.level]}`}>
               {/* Header */}
               <div className="text-center mb-6">
                 <ResultIcon className={`h-12 w-12 mx-auto mb-3 ${colorMap[result.level].split(' ')[0]}`} />
@@ -265,8 +265,9 @@ export default function PruefungsreifeCheck() {
               <div className="flex flex-col gap-3">
                 <Link to="/shop">
                   <Button
+                    variant="petrol"
                     size="lg"
-                    className="w-full gradient-primary text-primary-foreground rounded-xl h-14 text-lg group"
+                    className="w-full rounded-xl h-14 text-lg group"
                     onClick={() => trackConversion({ event: 'cta_click', source: 'pruefungscheck_result', label: 'shop_click' })}
                   >
                     Jetzt gezielt trainieren
