@@ -101428,6 +101428,16 @@ export type Database = {
         }
         Returns: Json
       }
+      submit_quiz_attempt: {
+        Args: {
+          p_anonymous_id: string
+          p_answers: Json
+          p_attempt_id: string
+          p_passed: boolean
+          p_score: number
+        }
+        Returns: Json
+      }
       submit_quiz_lead: {
         Args: {
           p_attempt_id: string
