@@ -246,6 +246,21 @@ export default function HealCockpitPage() {
           </AccordionContent>
         </AccordionItem>
 
+        {/* 3c — Heal-Status pro Kurs/Track + Per-Step-Retry + Auto-Heal-Plan */}
+        <AccordionItem value={SECTIONS.heal_status} className="border rounded-lg bg-card px-4 border-primary/30">
+          <AccordionTrigger className="hover:no-underline">
+            <SectionTitle
+              icon={Heart}
+              step={3}
+              title="Heal-Status pro Kurs/Track"
+              hint="Vorher/Geheilt/Fehlgeschlagen · Per-Step-Retry · Auto-Heal-Plan mit Job-Block-Check"
+            />
+          </AccordionTrigger>
+          <AccordionContent className="pb-4 space-y-3">
+            <HealStatusCard />
+          </AccordionContent>
+        </AccordionItem>
+
         {/* 4 — Triage */}
         <AccordionItem value={SECTIONS.triage} className="border rounded-lg bg-card px-4">
           <AccordionTrigger className="hover:no-underline">
