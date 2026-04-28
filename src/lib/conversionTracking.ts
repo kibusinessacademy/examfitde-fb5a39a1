@@ -32,6 +32,7 @@ export type FunnelEventType =
   | "lead_capture_submitted"
   | "lernplan_viewed"
   | "bundle_cta_clicked"
+  | "quiz_cta_clicked"
   // Legacy-Aliase (DB akzeptiert weiterhin, aber nicht mehr emittieren)
   | "quiz_start"
   | "lead_capture"
