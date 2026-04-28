@@ -43,7 +43,9 @@ interface ProductDetailPageProps {
 function ProductDetailPageComponent({ productType }: ProductDetailPageProps) {
   const { slug } = useParams<{ slug: string }>();
   const beruf = useSingleBeruf(slug || '');
-  const product = useCurriculumProductBySlug(slug || '', productType);
+  // Bundle-only Strategie: Alle Produkt-URLs werden auf 'bundle' normalisiert.
+  const effectiveType = 'bundle' as const;
+  const product = useCurriculumProductBySlug(slug || '', effectiveType);
 
   if (!beruf) {
     return (
@@ -56,9 +58,9 @@ function ProductDetailPageComponent({ productType }: ProductDetailPageProps) {
     );
   }
 
-  const seo = SEO_TEMPLATES[productType](beruf.title);
-  const price = PRODUCT_PRICES[productType];
-  const info = productInfo[productType];
+  const seo = SEO_TEMPLATES[effectiveType](beruf.title);
+  const price = PRODUCT_PRICES[effectiveType];
+  const info = productInfo[effectiveType];
   const Icon = info.icon;
 
   const structuredData = generateProductSchema({
