@@ -69,6 +69,14 @@ Deno.serve(async (req) => {
     if (!product_key || !curriculum_id || !quantity || quantity < 1) {
       throw new Error("Missing required fields: product_key, curriculum_id, quantity");
     }
+
+    // Bundle-only hardening: legacy product keys are deactivated.
+    // One curriculum = one bundle = one purchase path.
+    if (product_key !== 'bundle') {
+      logStep("Rejected non-bundle product_key", { product_key });
+      throw new Error(`Only 'bundle' is purchasable. Received: ${product_key}`);
+    }
+
     logStep("Request parsed", { product_key, curriculum_id, quantity, buyer_is_licensee });
 
     // Get product and price from DB
