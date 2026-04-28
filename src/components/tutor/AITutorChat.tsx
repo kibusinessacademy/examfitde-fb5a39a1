@@ -12,6 +12,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useAITutor, AI_MODES, type AIMode, type ChatMessage } from '@/hooks/useAITutor';
 import { motion, AnimatePresence } from 'framer-motion';
+import { StructuredTutorAnswer } from './StructuredTutorAnswer';
 
 interface AITutorChatProps {
   mode: AIMode;
@@ -242,9 +243,13 @@ function MessageBubble({ message }: { message: ChatMessage }) {
             ? "bg-danger-bg-subtle border border-danger/20 text-text-primary rounded-bl-md"
             : "bg-surface-sunken text-text-primary rounded-bl-md"
       )}>
-        <div className="text-sm prose prose-sm dark:prose-invert max-w-none [&>p]:mb-1.5 [&>p:last-child]:mb-0">
-          <ReactMarkdown>{message.content}</ReactMarkdown>
-        </div>
+        {isUser || message.wasBlocked ? (
+          <div className="text-sm prose prose-sm dark:prose-invert max-w-none [&>p]:mb-1.5 [&>p:last-child]:mb-0">
+            <ReactMarkdown>{message.content}</ReactMarkdown>
+          </div>
+        ) : (
+          <StructuredTutorAnswer content={message.content} />
+        )}
         <p className={cn(
           "text-[10px] mt-1.5 opacity-60 tabular-nums",
           isUser ? "text-right" : "text-left"

@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useCheckout, useShopProducts, useCalculatePrice } from '@/hooks/useShop';
 import { useCurriculumProductStats } from '@/hooks/useCurriculumProductStats';
+import { useTrackGrowthEvent } from '@/hooks/useTrackGrowthEvent';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { SITE_URL, seoTitle } from '@/lib/seo';
@@ -25,6 +26,7 @@ export default function ShopPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { track } = useTrackGrowthEvent();
   const [selectedCurriculumId, setSelectedCurriculumId] = useState<string | null>(
     searchParams.get('curriculum') || null
   );
@@ -51,13 +53,16 @@ export default function ShopPage() {
     }
   }, [curricula, selectedCurriculumId]);
 
-  // Sync from URL ?curriculum=... (e.g. coming from cards/SEO links)
+  // Sync from URL ?curriculum=... — only set if the id actually exists in the
+  // (frozen) curricula list so the Select trigger label always matches an option.
   useEffect(() => {
     const fromUrl = searchParams.get('curriculum');
-    if (fromUrl && fromUrl !== selectedCurriculumId) {
+    if (!fromUrl || !curricula?.length) return;
+    const exists = curricula.some(c => c.id === fromUrl);
+    if (exists && fromUrl !== selectedCurriculumId) {
       setSelectedCurriculumId(fromUrl);
     }
-  }, [searchParams, selectedCurriculumId]);
+  }, [searchParams, curricula, selectedCurriculumId]);
 
   const { data: stats } = useCurriculumProductStats(selectedCurriculumId);
   const { data: products } = useShopProducts();
@@ -77,6 +82,14 @@ export default function ShopPage() {
     return () => obs.disconnect();
   }, []);
 
+  // Funnel tracking: shop_view (once on mount) + product_view when curriculum stats load
+  useEffect(() => { track('shop_view'); }, [track]);
+  useEffect(() => {
+    if (selectedCurriculumId) {
+      track('product_view', { curriculumId: selectedCurriculumId });
+    }
+  }, [selectedCurriculumId, track]);
+
   const priceDisplay = priceData ? formatEur(priceData.total_price_cents) : PRICING.defaultPrice;
 
   const cleanTitle = (stats?.title || '')
@@ -84,6 +97,7 @@ export default function ShopPage() {
     .replace(/^Modulhandbuch\s+/i, '');
 
   const handleBuy = async () => {
+    track('checkout_start', { curriculumId: selectedCurriculumId, product_key: mainProduct?.product_key });
     if (!user) {
       toast.error('Bitte melde dich an');
       navigate('/auth');
@@ -115,7 +129,10 @@ export default function ShopPage() {
           <div className="max-w-md mx-auto px-4 pt-6">
             <Select
               value={selectedCurriculumId || ''}
-              onValueChange={setSelectedCurriculumId}
+              onValueChange={(v) => {
+                setSelectedCurriculumId(v);
+                track('product_select', { curriculumId: v });
+              }}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Beruf auswählen..." />
