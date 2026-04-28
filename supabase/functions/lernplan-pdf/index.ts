@@ -69,6 +69,44 @@ const PLANS: Record<
       },
     ],
   },
+  "bilanzbuchhalter-pruefungsreife": {
+    title: "Bilanzbuchhalter IHK – 6-Wochen-Lernplan zur Prüfungsreife",
+    bundleSlug: "bilanzbuchhalter-ihk",
+    weeks: [
+      { week: 1, focus: "Steuerrecht (ESt, KSt, USt)", tasks: ["Lernkarten ESt/KSt (90 Min)", "20 USt-Aufgaben aus Trainer", "Mini-Check Vorsteuerabzug"] },
+      { week: 2, focus: "HGB-Bilanzierung & Jahresabschluss", tasks: ["Bilanz/GuV-Schema selbst zeichnen", "Anhang-Pflichtangaben üben", "Bewertung Vermögen/Schulden"] },
+      { week: 3, focus: "IFRS vs. HGB", tasks: ["Top-10 Unterschiede HGB↔IFRS lernen", "IAS 16 Sachanlagen Übung", "Konsolidierung Grundlagen"] },
+      { week: 4, focus: "Kosten- & Leistungsrechnung", tasks: ["BAB ausfüllen + analysieren", "Deckungsbeitragsrechnung üben", "Plan-Kostenrechnung"] },
+      { week: 5, focus: "Berichterstattung & Analyse", tasks: ["Kennzahlensystem (DuPont) anwenden", "Cashflow-Rechnung erstellen", "Lagebericht-Pflichtinhalte"] },
+      { week: 6, focus: "Prüfungssimulation", tasks: ["Komplette Klausur unter Zeitdruck", "Mündliches Fachgespräch simulieren", "Schwächen aus Trainer abarbeiten"] },
+    ],
+  },
+  "wirtschaftsfachwirt-pruefungsreife": {
+    title: "Wirtschaftsfachwirt IHK – 6-Wochen-Lernplan zur Prüfungsreife",
+    bundleSlug: "wirtschaftsfachwirt-ihk",
+    weeks: [
+      { week: 1, focus: "VWL & BWL Grundlagen", tasks: ["Markt/Preis/Wettbewerb wiederholen", "Rechtsformen vergleichen", "Existenzgründung-Mini-Case"] },
+      { week: 2, focus: "Rechnungswesen", tasks: ["FiBu-Buchungssätze (30 Stk.)", "KLR Vollkosten vs. Teilkosten", "BWA-Auswertung üben"] },
+      { week: 3, focus: "Recht & Steuern", tasks: ["BGB/HGB Top-Themen", "Arbeitsvertrag/Kündigung", "Steuerarten-Überblick"] },
+      { week: 4, focus: "Unternehmensführung & Controlling", tasks: ["Investitionsrechnung üben", "Controlling-Instrumente anwenden", "Organisationsformen"] },
+      { week: 5, focus: "Marketing/Vertrieb + Führung", tasks: ["Marketing-Mix Case", "Konfliktmanagement Rollenspiel", "Mitarbeitergespräch simulieren"] },
+      { week: 6, focus: "Prüfungssimulation Teil 1 + Teil 2", tasks: ["330-Min-Klausur Teil 1", "Situationsbezogenes Fachgespräch (30+30)", "AI-Tutor mündlich"] },
+    ],
+  },
+  "fiae-pruefungsreife": {
+    title: "Fachinformatiker AE – 8-Wochen-Lernplan zur Prüfungsreife",
+    bundleSlug: "fachinformatiker-anwendungsentwicklung",
+    weeks: [
+      { week: 1, focus: "IT-System einrichten (Teil 1)", tasks: ["Hardware/OS-Komponenten wiederholen", "Netzwerk-Basics (OSI, TCP/IP)", "Mini-Case Systemkonfiguration"] },
+      { week: 2, focus: "Anwendungsentwicklung Grundlagen", tasks: ["OOP-Konzepte üben", "Algorithmen & Datenstrukturen", "UML-Diagramme zeichnen"] },
+      { week: 3, focus: "Datenbanken & SQL", tasks: ["ERM erstellen", "Normalformen 1NF–3NF", "20 SQL-Aufgaben (Joins, Subqueries)"] },
+      { week: 4, focus: "Software-Architektur & Patterns", tasks: ["Schichtenarchitektur", "Top-5 Patterns (MVC, Singleton…)", "API-Design Mini-Case"] },
+      { week: 5, focus: "IT-Sicherheit & Datenschutz", tasks: ["Authentifizierung/Autorisierung", "DSGVO-Pflichten", "Verschlüsselung Symm./Asymm."] },
+      { week: 6, focus: "WiSo", tasks: ["Vertragsrecht (BGB)", "Arbeits-/Sozialrecht", "Tarif- & Mitbestimmungsrecht"] },
+      { week: 7, focus: "Projektarbeit-Vorbereitung", tasks: ["Projekt-Antrag-Vorlage", "Dokumentationsstruktur", "Präsentation 15 Min üben"] },
+      { week: 8, focus: "Prüfungssimulation", tasks: ["Teil-1- & Teil-2-Klausur", "Fachgespräch simulieren", "Schwächen-Drill mit Trainer"] },
+    ],
+  },
 };
 
 function buildPdf(slug: string, plan: typeof PLANS[string]): string {
