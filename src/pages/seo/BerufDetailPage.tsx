@@ -268,8 +268,8 @@ export default function BerufDetailPage() {
               Bereit für die {title} {kammerLabel}-Prüfung?
             </h2>
             <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-              Starte jetzt mit dem Komplett-Bundle und spare {PRODUCT_PRICES.lernkurs + PRODUCT_PRICES.pruefungstrainer - PRODUCT_PRICES.bundle}€.
-              Einmalzahlung, 12 Monate Zugang.
+              Starte jetzt mit dem Komplett-Bundle für nur {PRODUCT_PRICES.bundle}€.
+              Einmalzahlung, 12 Monate Zugang, kein Abo.
             </p>
             <Button size="lg" className="shadow-glow" asChild>
               <Link to={`/bundle/${slug}`}>
