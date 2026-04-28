@@ -255,6 +255,30 @@ export function LeadQuizRunner({ slug }: Props) {
     );
   }
 
+  // Harte Mapping-Validierung: Client-Mapping ODER Server-Validate fehlgeschlagen
+  // → Quiz blockieren statt fehlerhaftes Lead-Capture zuzulassen.
+  if (!mapping || serverMappingError) {
+    return (
+      <Card className="max-w-2xl mx-auto border-destructive/40">
+        <CardContent className="py-10 text-center flex flex-col items-center gap-3">
+          <AlertCircle className="h-7 w-7 text-destructive" />
+          <h2 className="text-lg font-semibold">Quiz vorübergehend nicht verfügbar</h2>
+          <p className="text-sm text-muted-foreground max-w-md">
+            Konfigurationsfehler:{" "}
+            {!mapping
+              ? "Für dieses Quiz ist im Frontend kein Bundle-Mapping hinterlegt."
+              : `Server meldet "${serverMappingError}".`}{" "}
+            Bitte den Support kontaktieren — wir lassen dich keinen unvollständigen
+            Funnel durchlaufen.
+          </p>
+          <code className="text-xs bg-muted px-2 py-1 rounded">
+            quiz_slug = {slug}
+          </code>
+        </CardContent>
+      </Card>
+    );
+  }
+
   // Ergebnis-Phase
   if (completed) {
     const pct = Math.round((score ?? 0) * 100);
