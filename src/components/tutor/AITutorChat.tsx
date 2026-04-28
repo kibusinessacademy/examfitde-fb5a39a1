@@ -226,27 +226,27 @@ function MessageBubble({ message }: { message: ChatMessage }) {
     <div className={cn("flex gap-2.5", isUser ? "flex-row-reverse" : "flex-row")}>
       <div className={cn(
         "w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5",
-        isUser ? "bg-primary" : "bg-primary/10"
+        isUser ? "bg-petrol-600" : "bg-petrol-100"
       )}>
         {isUser ? (
-          <User className="h-3.5 w-3.5 text-primary-foreground" />
+          <User className="h-3.5 w-3.5 text-petrol-50" />
         ) : (
-          <Bot className="h-3.5 w-3.5 text-primary" />
+          <Bot className="h-3.5 w-3.5 text-petrol-600" />
         )}
       </div>
       <div className={cn(
         "rounded-2xl px-4 py-2.5 max-w-[80%]",
         isUser 
-          ? "bg-primary text-primary-foreground rounded-br-md" 
+          ? "bg-petrol-600 text-petrol-50 rounded-br-md" 
           : message.wasBlocked
-            ? "bg-destructive/10 border border-destructive/30 text-foreground rounded-bl-md"
-            : "bg-muted text-foreground rounded-bl-md"
+            ? "bg-danger-bg-subtle border border-danger/20 text-text-primary rounded-bl-md"
+            : "bg-surface-sunken text-text-primary rounded-bl-md"
       )}>
         <div className="text-sm prose prose-sm dark:prose-invert max-w-none [&>p]:mb-1.5 [&>p:last-child]:mb-0">
           <ReactMarkdown>{message.content}</ReactMarkdown>
         </div>
         <p className={cn(
-          "text-[10px] mt-1.5 opacity-60",
+          "text-[10px] mt-1.5 opacity-60 tabular-nums",
           isUser ? "text-right" : "text-left"
         )}>
           {message.timestamp.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
