@@ -155,4 +155,30 @@ d("Funnel E2E — anonymer Quiz → Result → Lernplan-Lock", () => {
     expect((data as any)?.ok).toBe(false);
     expect((data as any)?.error).toBe("invalid_email");
   });
+
+  it("Step 7a: validate_quiz_mapping bestätigt aktives Mapping", async () => {
+    const { data, error } = await (client as any).rpc("validate_quiz_mapping", {
+      p_quiz_slug: QUIZ_SLUG,
+    });
+    expect(error).toBeNull();
+    expect((data as any)?.ok).toBe(true);
+    expect((data as any)?.curriculum_id).toMatch(/^[0-9a-f-]{36}$/);
+  });
+
+  it("Step 7b: validate_quiz_mapping liefert quiz_not_found für unbekannten Slug", async () => {
+    const { data, error } = await (client as any).rpc("validate_quiz_mapping", {
+      p_quiz_slug: "does-not-exist-xyz",
+    });
+    expect(error).toBeNull();
+    expect((data as any)?.ok).toBe(false);
+    expect((data as any)?.error).toBe("quiz_not_found");
+  });
+
+  it("Step 7c: validate_quiz_mapping verweigert leeren Slug", async () => {
+    const { data } = await (client as any).rpc("validate_quiz_mapping", {
+      p_quiz_slug: "",
+    });
+    expect((data as any)?.ok).toBe(false);
+    expect((data as any)?.error).toBe("missing_slug");
+  });
 });
