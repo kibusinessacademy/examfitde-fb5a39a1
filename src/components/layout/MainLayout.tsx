@@ -11,8 +11,7 @@ import { useNativeApp } from '@/hooks/useNativeApp';
 
 const NAV_ITEMS = [
   { to: '/berufe', label: 'Berufe' },
-  { to: '/lernkurse', label: 'Lernkurse' },
-  { to: '/pruefungstrainer', label: 'Prüfungstrainer' },
+  { to: '/bundle', label: 'Komplett-Bundle' },
   { to: '/wissen', label: 'Wissen' },
   { to: '/preise', label: 'Preise' },
 ] as const;
