@@ -31388,6 +31388,108 @@ export type Database = {
         }
         Relationships: []
       }
+      lead_quizzes: {
+        Row: {
+          created_at: string
+          curriculum_id: string | null
+          description: string | null
+          id: string
+          is_active: boolean
+          lernplan_slug: string | null
+          metadata: Json
+          pass_threshold: number
+          slug: string
+          subtitle: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          curriculum_id?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          lernplan_slug?: string | null
+          metadata?: Json
+          pass_threshold?: number
+          slug: string
+          subtitle?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          curriculum_id?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          lernplan_slug?: string | null
+          metadata?: Json
+          pass_threshold?: number
+          slug?: string
+          subtitle?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_quizzes_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_quizzes_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "lead_quizzes_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "lead_quizzes_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "lead_quizzes_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_qc_backlog"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "lead_quizzes_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_qc_backlog_age"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "lead_quizzes_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "lead_quizzes_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
+        ]
+      }
       leads: {
         Row: {
           created_at: string
@@ -53665,6 +53767,272 @@ export type Database = {
           validation?: Json | null
         }
         Relationships: []
+      }
+      quiz_attempts: {
+        Row: {
+          anonymous_id: string | null
+          answers: Json
+          completed_at: string | null
+          curriculum_id: string | null
+          id: string
+          metadata: Json
+          passed: boolean | null
+          quiz_id: string
+          score: number | null
+          session_id: string | null
+          started_at: string
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          anonymous_id?: string | null
+          answers?: Json
+          completed_at?: string | null
+          curriculum_id?: string | null
+          id?: string
+          metadata?: Json
+          passed?: boolean | null
+          quiz_id: string
+          score?: number | null
+          session_id?: string | null
+          started_at?: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          anonymous_id?: string | null
+          answers?: Json
+          completed_at?: string | null
+          curriculum_id?: string | null
+          id?: string
+          metadata?: Json
+          passed?: boolean | null
+          quiz_id?: string
+          score?: number | null
+          session_id?: string | null
+          started_at?: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_attempts_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quiz_attempts_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "quiz_attempts_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "quiz_attempts_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "quiz_attempts_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_qc_backlog"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "quiz_attempts_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_qc_backlog_age"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "quiz_attempts_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "quiz_attempts_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "quiz_attempts_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "lead_quizzes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quiz_leads: {
+        Row: {
+          attempt_id: string | null
+          created_at: string
+          curriculum_id: string | null
+          doi_confirmed_at: string | null
+          doi_token: string | null
+          email: string
+          id: string
+          marketing_consent: boolean
+          metadata: Json
+          quiz_id: string
+          source: string
+        }
+        Insert: {
+          attempt_id?: string | null
+          created_at?: string
+          curriculum_id?: string | null
+          doi_confirmed_at?: string | null
+          doi_token?: string | null
+          email: string
+          id?: string
+          marketing_consent?: boolean
+          metadata?: Json
+          quiz_id: string
+          source?: string
+        }
+        Update: {
+          attempt_id?: string | null
+          created_at?: string
+          curriculum_id?: string | null
+          doi_confirmed_at?: string | null
+          doi_token?: string | null
+          email?: string
+          id?: string
+          marketing_consent?: boolean
+          metadata?: Json
+          quiz_id?: string
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_leads_attempt_id_fkey"
+            columns: ["attempt_id"]
+            isOneToOne: false
+            referencedRelation: "quiz_attempts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quiz_leads_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quiz_leads_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "quiz_leads_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "quiz_leads_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "quiz_leads_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_qc_backlog"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "quiz_leads_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_qc_backlog_age"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "quiz_leads_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "quiz_leads_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "quiz_leads_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "lead_quizzes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quiz_questions: {
+        Row: {
+          created_at: string
+          id: string
+          options: Json
+          position: number
+          question_text: string
+          quiz_id: string
+          topic_tag: string | null
+          weight: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          options: Json
+          position: number
+          question_text: string
+          quiz_id: string
+          topic_tag?: string | null
+          weight?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          options?: Json
+          position?: number
+          question_text?: string
+          quiz_id?: string
+          topic_tag?: string | null
+          weight?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_questions_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "lead_quizzes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       rate_limits: {
         Row: {
@@ -101057,6 +101425,16 @@ export type Database = {
           p_lesson_id?: string
           p_question_id: string
           p_session_id?: string
+        }
+        Returns: Json
+      }
+      submit_quiz_lead: {
+        Args: {
+          p_attempt_id: string
+          p_email: string
+          p_marketing_consent?: boolean
+          p_metadata?: Json
+          p_quiz_slug: string
         }
         Returns: Json
       }
