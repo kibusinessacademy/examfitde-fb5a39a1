@@ -98,13 +98,13 @@ export default function LernplanPage() {
       } else {
         toast({
           title: "PDF noch in Vorbereitung",
-          description: "Bitte nutze vorerst „Drucken / als PDF speichern".",
+          description: 'Bitte nutze vorerst „Drucken / als PDF speichern".',
         });
       }
     } catch {
       toast({
         title: "PDF-Download kommt bald",
-        description: "Phase 2.5: bitte vorerst „Drucken / als PDF speichern" verwenden.",
+        description: 'Phase 2.5: bitte vorerst „Drucken / als PDF speichern" verwenden.',
       });
     }
   }
