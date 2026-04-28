@@ -25,6 +25,11 @@ export type FunnelEventType =
   | "checkout_complete"
   | "lead_magnet_download"
   | "quiz_complete"
+  // ── Quiz/Lead-Magnet Funnel ──
+  | "lead_magnet_view"
+  | "quiz_start"
+  | "lead_capture"
+  | "lernplan_view"
   | "optin_submit"
   | "doi_confirmed"
   | "b2b_form_submit"

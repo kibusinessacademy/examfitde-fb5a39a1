@@ -77,6 +77,8 @@ const PersonaLandingHubPage = lazyRetry(() => import('@/pages/landing/PersonaLan
 import ProgrammaticSEODispatcher from '@/pages/seo/ProgrammaticSEODispatcher';
 const EnterpriseDemoPage = lazyRetry(() => import('@/pages/seo/EnterpriseDemoPage'));
 const PruefungsreifeCheck = lazyRetry(() => import('@/components/marketing/PruefungsreifeCheck'));
+const LeadQuizPage = lazyRetry(() => import('@/pages/quiz/LeadQuizPage'));
+const LernplanPage = lazyRetry(() => import('@/pages/quiz/LernplanPage'));
 const BlogIndexPage = lazyRetry(() => import('@/pages/seo/BlogIndexPage'));
 const BlogArticlePage = lazyRetry(() => import('@/pages/seo/BlogArticlePage'));
 const PruefungsfragenPage = lazyRetry(() => import('@/pages/seo/PruefungsfragenPage'));
@@ -189,6 +191,8 @@ const AppRoutes = () => {
         <Route path="/auth/reset-password" element={<ResetPassword />} />
         <Route path="/installieren" element={<InstallPage />} />
         <Route path="/pruefungsreife-check" element={<PruefungsreifeCheck />} />
+        <Route path="/quiz/:slug" element={<LeadQuizPage />} />
+        <Route path="/lernplan/:slug" element={<LernplanPage />} />
         
         {/* Purchase Success (standalone) */}
         <Route path="/purchase-success" element={<PurchaseSuccessPage />} />
