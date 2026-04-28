@@ -219,25 +219,25 @@ export default function OrgPerformancePanel({ organizationId, onNavigateToInterv
 
 function PerformanceRow({ row }: { row: OrgPerformanceRow }) {
   return (
-    <TableRow>
-      <TableCell className="font-medium">{row.display_name}</TableCell>
-      <TableCell className="text-sm text-muted-foreground">{row.product_title || "–"}</TableCell>
+    <TableRow className="border-border-subtle hover:bg-surface-hover/50 transition-colors">
+      <TableCell className="font-medium text-text-primary">{row.display_name}</TableCell>
+      <TableCell className="text-sm text-text-secondary">{row.product_title || "–"}</TableCell>
       <TableCell>
         <ReadinessBar value={row.readiness_score} size="sm" />
       </TableCell>
       <TableCell>
         <RiskBadge verdict={riskToVerdict(row.risk_level)} />
       </TableCell>
-      <TableCell className="tabular-nums">{Math.round(row.progress_pct)}%</TableCell>
-      <TableCell className="tabular-nums">{Math.round(row.last_exam_score)}%</TableCell>
+      <TableCell className="tabular-nums text-text-primary">{Math.round(row.progress_pct)}%</TableCell>
+      <TableCell className="tabular-nums text-text-primary">{Math.round(row.last_exam_score)}%</TableCell>
       <TableCell className="tabular-nums text-sm">
         {row.inactive_days > 14 ? (
-          <span className="text-destructive font-medium">{row.inactive_days}d</span>
+          <span className="text-danger font-semibold">{row.inactive_days}d</span>
         ) : (
-          `${row.inactive_days}d`
+          <span className="text-text-secondary">{row.inactive_days}d</span>
         )}
       </TableCell>
-      <TableCell className="text-sm text-muted-foreground">{formatDate(row.last_activity_at)}</TableCell>
+      <TableCell className="text-sm text-text-tertiary">{formatDate(row.last_activity_at)}</TableCell>
     </TableRow>
   );
 }
@@ -251,17 +251,21 @@ function KpiCard({ icon, label, value, highlight, subtitle, onClick }: {
   onClick?: () => void;
 }) {
   return (
-    <Card className={onClick ? 'cursor-pointer hover:border-primary/40 transition-colors' : ''} onClick={onClick}>
+    <Card
+      variant={onClick ? "interactive" : "raised"}
+      className={onClick ? 'cursor-pointer' : ''}
+      onClick={onClick}
+    >
       <CardHeader className="pb-2">
-        <CardDescription className="flex items-center gap-1.5">
+        <CardDescription className="flex items-center gap-1.5 text-text-secondary font-medium">
           {icon}
           {label}
         </CardDescription>
-        <CardTitle className={`text-3xl ${highlight ? 'text-destructive' : ''}`}>
+        <CardTitle className={`text-3xl font-display tabular-nums ${highlight ? 'text-danger' : 'text-text-primary'}`}>
           {value}
         </CardTitle>
         {subtitle && (
-          <p className="text-xs text-destructive font-medium">{subtitle}</p>
+          <p className="text-xs text-danger font-medium">{subtitle}</p>
         )}
       </CardHeader>
     </Card>
