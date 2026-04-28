@@ -230,7 +230,7 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
   );
 
   return (
-    <div className="min-h-[70vh] mx-auto w-full max-w-md px-4 pb-28 pt-2 sm:max-w-2xl sm:px-6 lg:max-w-5xl">
+    <div className="min-h-[70vh] mx-auto w-full max-w-md px-4 pb-28 pt-2 sm:max-w-2xl sm:px-6 lg:max-w-5xl" data-density="comfortable">
       {/* ─── Hero ─── */}
       <motion.div
         initial={{ opacity: 0, y: 16 }}
