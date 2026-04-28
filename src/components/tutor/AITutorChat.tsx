@@ -50,14 +50,14 @@ const MODE_CONFIG = {
 function TypingIndicator() {
   return (
     <div className="flex items-center gap-2 px-4 py-3">
-      <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-        <Bot className="h-4 w-4 text-primary" />
+      <div className="w-7 h-7 rounded-full bg-petrol-100 flex items-center justify-center flex-shrink-0">
+        <Bot className="h-4 w-4 text-petrol-600" />
       </div>
-      <div className="flex gap-1 items-center px-3 py-2 rounded-xl bg-muted">
+      <div className="flex gap-1 items-center px-3 py-2 rounded-xl bg-surface-sunken">
         {[0, 1, 2].map(i => (
           <motion.div
             key={i}
-            className="w-2 h-2 rounded-full bg-muted-foreground/40"
+            className="w-2 h-2 rounded-full bg-text-tertiary"
             animate={{ y: [0, -4, 0] }}
             transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.15 }}
           />
