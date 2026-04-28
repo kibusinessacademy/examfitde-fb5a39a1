@@ -97,6 +97,18 @@ const AEVOSchriftlichePage = lazyRetry(() => import('@/pages/seo/AEVOSchriftlich
 const AEVOPraktischePage = lazyRetry(() => import('@/pages/seo/AEVOPraktischePage'));
 const AEVOFachgespraechPage = lazyRetry(() => import('@/pages/seo/AEVOFachgespraechPage'));
 
+// Bilanzbuchhalter Pillar-Cluster
+const BilanzbuchhalterPruefungsvorbereitungPage = lazyRetry(() => import('@/pages/seo/BilanzbuchhalterPruefungsvorbereitungPage'));
+const BilanzbuchhalterBuchhaltungPage = lazyRetry(() => import('@/pages/seo/BilanzbuchhalterBuchhaltungPage'));
+const BilanzbuchhalterJahresabschlussPage = lazyRetry(() => import('@/pages/seo/BilanzbuchhalterJahresabschlussPage'));
+const BilanzbuchhalterSteuernPage = lazyRetry(() => import('@/pages/seo/BilanzbuchhalterSteuernPage'));
+
+// FIAE Pillar-Cluster
+const FIAEPruefungsvorbereitungPage = lazyRetry(() => import('@/pages/seo/FIAEPruefungsvorbereitungPage'));
+const FIAEAnwendungsentwicklungPage = lazyRetry(() => import('@/pages/seo/FIAEAnwendungsentwicklungPage'));
+const FIAEWiSoPage = lazyRetry(() => import('@/pages/seo/FIAEWiSoPage'));
+const FIAEProjektarbeitPage = lazyRetry(() => import('@/pages/seo/FIAEProjektarbeitPage'));
+
 // Studium Pillar-Cluster Pages
 const StudiumPruefungsvorbereitungPage = lazyRetry(() => import('@/pages/seo/StudiumPruefungsvorbereitungPage'));
 const KlausurtrainingStudiumPage = lazyRetry(() => import('@/pages/seo/KlausurtrainingStudiumPage'));
@@ -262,6 +274,18 @@ const AppRoutes = () => {
           <Route path="/aevo-schriftliche-pruefung" element={<AEVOSchriftlichePage />} />
           <Route path="/aevo-praktische-pruefung" element={<AEVOPraktischePage />} />
           <Route path="/aevo-fachgespraech" element={<AEVOFachgespraechPage />} />
+
+          {/* Bilanzbuchhalter Pillar-Cluster */}
+          <Route path="/bilanzbuchhalter-pruefungsvorbereitung" element={<BilanzbuchhalterPruefungsvorbereitungPage />} />
+          <Route path="/bilanzbuchhalter-buchhaltung" element={<BilanzbuchhalterBuchhaltungPage />} />
+          <Route path="/bilanzbuchhalter-jahresabschluss" element={<BilanzbuchhalterJahresabschlussPage />} />
+          <Route path="/bilanzbuchhalter-steuern" element={<BilanzbuchhalterSteuernPage />} />
+
+          {/* Fachinformatiker AE Pillar-Cluster */}
+          <Route path="/fachinformatiker-ae-pruefungsvorbereitung" element={<FIAEPruefungsvorbereitungPage />} />
+          <Route path="/fiae-anwendungsentwicklung" element={<FIAEAnwendungsentwicklungPage />} />
+          <Route path="/fiae-wiso" element={<FIAEWiSoPage />} />
+          <Route path="/fiae-projektarbeit" element={<FIAEProjektarbeitPage />} />
 
           {/* Studium Pillar-Cluster */}
           <Route path="/studium-pruefungsvorbereitung" element={<StudiumPruefungsvorbereitungPage />} />

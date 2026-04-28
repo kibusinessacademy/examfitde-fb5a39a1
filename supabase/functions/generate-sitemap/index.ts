@@ -158,6 +158,16 @@ Sitemap: ${FUNCTIONS_URL_BASE}?type=index
         { loc: `${SITE_URL}/quiz/bilanzbuchhalter-pruefungsreife`, lastmod: today, changefreq: "monthly", priority: 0.7 },
         { loc: `${SITE_URL}/quiz/wirtschaftsfachwirt-pruefungsreife`, lastmod: today, changefreq: "monthly", priority: 0.7 },
         { loc: `${SITE_URL}/quiz/fiae-pruefungsreife`, lastmod: today, changefreq: "monthly", priority: 0.7 },
+        // Bilanzbuchhalter SEO Pillar-Cluster
+        { loc: `${SITE_URL}/bilanzbuchhalter-pruefungsvorbereitung`, lastmod: today, changefreq: "weekly", priority: 0.85 },
+        { loc: `${SITE_URL}/bilanzbuchhalter-buchhaltung`, lastmod: today, changefreq: "monthly", priority: 0.7 },
+        { loc: `${SITE_URL}/bilanzbuchhalter-jahresabschluss`, lastmod: today, changefreq: "monthly", priority: 0.7 },
+        { loc: `${SITE_URL}/bilanzbuchhalter-steuern`, lastmod: today, changefreq: "monthly", priority: 0.7 },
+        // Fachinformatiker AE SEO Pillar-Cluster
+        { loc: `${SITE_URL}/fachinformatiker-ae-pruefungsvorbereitung`, lastmod: today, changefreq: "weekly", priority: 0.85 },
+        { loc: `${SITE_URL}/fiae-anwendungsentwicklung`, lastmod: today, changefreq: "monthly", priority: 0.7 },
+        { loc: `${SITE_URL}/fiae-wiso`, lastmod: today, changefreq: "monthly", priority: 0.7 },
+        { loc: `${SITE_URL}/fiae-projektarbeit`, lastmod: today, changefreq: "monthly", priority: 0.7 },
       ];
       return xmlResponse(toSitemapXML(pages), headers);
     }
