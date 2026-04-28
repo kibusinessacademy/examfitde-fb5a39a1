@@ -8,7 +8,7 @@
  *  - Bei Fehlern strukturierte JSON-Antwort, damit Frontend Retry zeigen kann.
  */
 // @ts-ignore esm.sh
-import { jsPDF } from "https://esm.sh/jspdf@2.5.2";
+import { jsPDF } from "https://esm.sh/jspdf@2.5.1";
 
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",

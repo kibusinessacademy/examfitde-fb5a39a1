@@ -16,6 +16,7 @@ import { trackFunnel } from "./conversionTracking";
 
 export const FUNNEL_EVENTS = {
   LEAD_MAGNET_VIEW: "lead_magnet_view",
+  QUIZ_CTA_CLICKED: "quiz_cta_clicked",
   QUIZ_STARTED: "quiz_started",
   QUIZ_COMPLETED: "quiz_completed",
   LEAD_CAPTURE_SUBMITTED: "lead_capture_submitted",
