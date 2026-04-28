@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Loader2, Users, UserPlus, UserMinus } from "lucide-react";
+import { Loader2, Users, UserPlus, UserMinus, Key, CheckCircle2, CircleSlash, Layers } from "lucide-react";
 import { useOrgDashboardOverview, useOrgLicenseList, useOrgSeatMembers, useAssignOrgSeat, useRevokeOrgSeat } from "@/hooks/useOrgDashboard";
 import { toast } from "sonner";
 import { useState } from "react";
@@ -51,51 +51,58 @@ export default function OrgSeatManagementPanel({ organizationId }: Props) {
 
   if (loadingOverview || loadingLicenses || loadingMembers) {
     return (
-      <div className="flex justify-center py-16">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div data-density="comfortable" className="flex justify-center py-16">
+        <Loader2 className="h-8 w-8 animate-spin text-petrol-600" />
       </div>
     );
   }
 
+  const usedSeats = overview?.used_seats ?? 0;
+  const totalSeats = overview?.total_seats ?? 0;
+  const utilizationPct = totalSeats > 0 ? Math.round((usedSeats / totalSeats) * 100) : 0;
+
   return (
-    <div className="space-y-6">
+    <div data-density="comfortable" className="space-y-6">
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Aktive Seats</CardDescription>
-            <CardTitle className="text-3xl">{overview?.used_seats ?? 0}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Freie Seats</CardDescription>
-            <CardTitle className="text-3xl">{overview?.available_seats ?? 0}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Gesamt Seats</CardDescription>
-            <CardTitle className="text-3xl">{overview?.total_seats ?? 0}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Aktive Lizenzen</CardDescription>
-            <CardTitle className="text-3xl">{overview?.total_active_licenses ?? 0}</CardTitle>
-          </CardHeader>
-        </Card>
+        <SeatKpiCard
+          icon={<CheckCircle2 className="h-4 w-4 text-success" />}
+          label="Aktive Seats"
+          value={usedSeats}
+          accent="text-text-primary"
+          subtitle={totalSeats > 0 ? `${utilizationPct}% Auslastung` : undefined}
+        />
+        <SeatKpiCard
+          icon={<CircleSlash className="h-4 w-4 text-petrol-600 dark:text-mint-400" />}
+          label="Freie Seats"
+          value={overview?.available_seats ?? 0}
+          accent="text-petrol-700 dark:text-mint-400"
+        />
+        <SeatKpiCard
+          icon={<Layers className="h-4 w-4 text-text-tertiary" />}
+          label="Gesamt Seats"
+          value={totalSeats}
+          accent="text-text-primary"
+        />
+        <SeatKpiCard
+          icon={<Key className="h-4 w-4 text-petrol-600 dark:text-mint-400" />}
+          label="Aktive Lizenzen"
+          value={overview?.total_active_licenses ?? 0}
+          accent="text-text-primary"
+        />
       </div>
 
       {/* Seat Assignment */}
       {activeLicenses.length > 0 && (
-        <Card>
+        <Card variant="raised">
           <CardHeader className="pb-3">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <UserPlus className="h-5 w-5" />
+            <CardTitle className="text-lg flex items-center gap-2 font-display text-text-primary">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-mint-100 dark:bg-petrol-900/40">
+                <UserPlus className="h-4 w-4 text-petrol-600 dark:text-mint-400" />
+              </div>
               Seat zuweisen
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="text-text-secondary">
               Weisen Sie einem Lernenden einen Seat zu.
             </CardDescription>
           </CardHeader>
@@ -117,13 +124,14 @@ export default function OrgSeatManagementPanel({ organizationId }: Props) {
                 placeholder="User-ID (UUID)"
                 value={assignUserId}
                 onChange={(e) => setAssignUserId(e.target.value)}
-                className="sm:w-[280px]"
+                className="sm:w-[280px] font-mono text-xs"
               />
               <Button
+                variant="petrol"
                 onClick={handleAssign}
                 disabled={assignSeat.isPending || !selectedLicense || !assignUserId.trim()}
               >
-                {assignSeat.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <UserPlus className="h-4 w-4 mr-1" />}
+                {assignSeat.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <UserPlus className="h-4 w-4 mr-1.5" />}
                 Zuweisen
               </Button>
             </div>
@@ -132,37 +140,42 @@ export default function OrgSeatManagementPanel({ organizationId }: Props) {
       )}
 
       {/* Licenses */}
-      <Card>
+      <Card variant="raised">
         <CardHeader className="pb-3">
-          <CardTitle className="text-lg">Lizenzen</CardTitle>
-          <CardDescription>{activeLicenses.length} aktive Lizenzen</CardDescription>
+          <CardTitle className="text-lg font-display text-text-primary">Lizenzen</CardTitle>
+          <CardDescription className="text-text-secondary tabular-nums">{activeLicenses.length} aktive Lizenzen</CardDescription>
         </CardHeader>
         <CardContent>
           {activeLicenses.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-8 text-center">Keine aktiven Lizenzen.</p>
+            <div className="py-10 text-center">
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-surface-sunken">
+                <Key className="h-5 w-5 text-text-tertiary" />
+              </div>
+              <p className="text-sm text-text-secondary">Keine aktiven Lizenzen.</p>
+            </div>
           ) : (
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>Produkt</TableHead>
-                  <TableHead>Seats</TableHead>
-                  <TableHead>Gültig bis</TableHead>
-                  <TableHead>Status</TableHead>
+                <TableRow className="border-border-subtle">
+                  <TableHead className="text-text-tertiary font-medium">Produkt</TableHead>
+                  <TableHead className="text-text-tertiary font-medium">Seats</TableHead>
+                  <TableHead className="text-text-tertiary font-medium">Gültig bis</TableHead>
+                  <TableHead className="text-text-tertiary font-medium">Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {activeLicenses.map(l => (
-                  <TableRow key={l.license_id}>
-                    <TableCell className="font-medium">{l.product_title || "–"}</TableCell>
-                    <TableCell>
+                  <TableRow key={l.license_id} className="border-border-subtle hover:bg-surface-hover/50 transition-colors">
+                    <TableCell className="font-medium text-text-primary">{l.product_title || "–"}</TableCell>
+                    <TableCell className="tabular-nums text-text-primary">
                       {l.seats_used} / {l.seats_total}
-                      <span className="text-muted-foreground ml-1">({l.seats_available} frei)</span>
+                      <span className="text-text-tertiary ml-1">({l.seats_available} frei)</span>
                     </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
+                    <TableCell className="text-sm text-text-secondary tabular-nums">
                       {l.valid_until ? new Date(l.valid_until).toLocaleDateString("de-DE") : "∞"}
                     </TableCell>
                     <TableCell>
-                      <Badge className="bg-green-100 text-green-800">{l.status}</Badge>
+                      <Badge className="bg-success-bg-subtle text-success border-0 capitalize">{l.status}</Badge>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -173,38 +186,45 @@ export default function OrgSeatManagementPanel({ organizationId }: Props) {
       </Card>
 
       {/* Members */}
-      <Card>
+      <Card variant="raised">
         <CardHeader className="pb-3">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Users className="h-5 w-5" />
+          <CardTitle className="text-lg flex items-center gap-2 font-display text-text-primary">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-petrol-50 dark:bg-petrol-900/30">
+              <Users className="h-4 w-4 text-petrol-600 dark:text-mint-400" />
+            </div>
             Zugewiesene Lernende
           </CardTitle>
-          <CardDescription>{activeMembers.length} aktive Seats</CardDescription>
+          <CardDescription className="text-text-secondary tabular-nums">{activeMembers.length} aktive Seats</CardDescription>
         </CardHeader>
         <CardContent>
           {activeMembers.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-8 text-center">Noch keine Seats vergeben.</p>
+            <div className="py-10 text-center">
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-mint-100 dark:bg-petrol-900/40">
+                <Users className="h-5 w-5 text-petrol-600 dark:text-mint-400" />
+              </div>
+              <p className="text-sm text-text-secondary">Noch keine Seats vergeben.</p>
+            </div>
           ) : (
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>User</TableHead>
-                  <TableHead>Produkt</TableHead>
-                  <TableHead>Zugewiesen am</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Aktion</TableHead>
+                <TableRow className="border-border-subtle">
+                  <TableHead className="text-text-tertiary font-medium">User</TableHead>
+                  <TableHead className="text-text-tertiary font-medium">Produkt</TableHead>
+                  <TableHead className="text-text-tertiary font-medium">Zugewiesen am</TableHead>
+                  <TableHead className="text-text-tertiary font-medium">Status</TableHead>
+                  <TableHead className="text-text-tertiary font-medium">Aktion</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {activeMembers.map(m => (
-                  <TableRow key={m.seat_id}>
-                    <TableCell className="font-mono text-xs">{m.user_id?.slice(0, 8)}…</TableCell>
-                    <TableCell>{m.product_title || "–"}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
+                  <TableRow key={m.seat_id} className="border-border-subtle hover:bg-surface-hover/50 transition-colors">
+                    <TableCell className="font-mono text-xs text-text-secondary">{m.user_id?.slice(0, 8)}…</TableCell>
+                    <TableCell className="text-text-primary">{m.product_title || "–"}</TableCell>
+                    <TableCell className="text-sm text-text-secondary tabular-nums">
                       {new Date(m.claimed_at).toLocaleDateString("de-DE")}
                     </TableCell>
                     <TableCell>
-                      <Badge className="bg-green-100 text-green-800">aktiv</Badge>
+                      <Badge className="bg-success-bg-subtle text-success border-0">aktiv</Badge>
                     </TableCell>
                     <TableCell>
                       <Button
@@ -212,7 +232,7 @@ export default function OrgSeatManagementPanel({ organizationId }: Props) {
                         size="sm"
                         onClick={() => handleRevoke(m.license_id, m.user_id)}
                         disabled={revokeSeat.isPending}
-                        className="text-destructive hover:text-destructive"
+                        className="text-danger hover:text-danger hover:bg-danger-bg-subtle"
                       >
                         <UserMinus className="h-4 w-4 mr-1" />
                         Entziehen
@@ -226,5 +246,30 @@ export default function OrgSeatManagementPanel({ organizationId }: Props) {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+function SeatKpiCard({ icon, label, value, accent, subtitle }: {
+  icon: React.ReactNode;
+  label: string;
+  value: number;
+  accent: string;
+  subtitle?: string;
+}) {
+  return (
+    <Card variant="raised" className="hover:shadow-elev-2 transition-shadow duration-base">
+      <CardHeader className="pb-2">
+        <CardDescription className="flex items-center gap-1.5 text-text-secondary font-medium">
+          {icon}
+          {label}
+        </CardDescription>
+        <CardTitle className={`text-3xl font-display tabular-nums ${accent}`}>
+          {value}
+        </CardTitle>
+        {subtitle && (
+          <p className="text-xs text-text-tertiary tabular-nums">{subtitle}</p>
+        )}
+      </CardHeader>
+    </Card>
   );
 }
