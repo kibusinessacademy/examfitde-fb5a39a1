@@ -426,6 +426,17 @@ export default function ExamTrainer() {
           </CardContent>
         </Card>
       )}
+
+      {/* AI Tutor Panel — appears once a curriculum is selected (Loop C, Strict-RAG) */}
+      {selectedCurriculumId && step !== 'select' && (
+        <TutorPanel
+          mode={AI_MODES.LEARNING}
+          sessionId={sessionId}
+          sessionType="practice"
+          masteryCurriculumId={selectedCurriculumId}
+          masteryUserId={user?.id}
+        />
+      )}
     </div>
   );
 }
