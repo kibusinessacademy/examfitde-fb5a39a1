@@ -47,6 +47,7 @@ const BerufePage = lazyRetry(() => import('@/pages/seo/BerufePage'));
 const BerufDetailPage = lazyRetry(() => import('@/pages/seo/BerufDetailPage'));
 const UnternehmenPage = lazyRetry(() => import('@/pages/seo/UnternehmenPage'));
 const PartnerDashboardPage = lazyRetry(() => import('@/pages/partner/PartnerDashboardPage'));
+const PreisePage = lazyRetry(() => import('@/pages/seo/PreisePage'));
 const LegacyProductRedirect = lazyRetry(() => import('@/pages/seo/LegacyProductRedirect'));
 const BundleListPage = lazyRetry(() => import('@/pages/seo/ProductListPage').then(m => ({ default: m.BundleListPage })));
 const BundleDetailPage = lazyRetry(() => import('@/pages/seo/ProductDetailPage').then(m => ({ default: m.BundleDetailPage })));
