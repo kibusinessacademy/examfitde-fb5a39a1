@@ -16,6 +16,8 @@ import {
 import { cn } from '@/lib/utils';
 import TrainerStartPage from '@/components/exam/TrainerStartPage';
 import type { TrainerStartPayload } from '@/types/trainer';
+import { TutorPanel } from '@/components/tutor/TutorPanel';
+import { AI_MODES } from '@/hooks/useAITutor';
 
 interface Question {
   id: string;
@@ -423,6 +425,17 @@ export default function ExamTrainer() {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* AI Tutor Panel — appears once a curriculum is selected (Loop C, Strict-RAG) */}
+      {selectedCurriculumId && step !== 'select' && (
+        <TutorPanel
+          mode={AI_MODES.LEARNING}
+          sessionId={sessionId}
+          sessionType="practice"
+          masteryCurriculumId={selectedCurriculumId}
+          masteryUserId={user?.id}
+        />
       )}
     </div>
   );
