@@ -16,6 +16,8 @@ import {
 import { cn } from '@/lib/utils';
 import TrainerStartPage from '@/components/exam/TrainerStartPage';
 import type { TrainerStartPayload } from '@/types/trainer';
+import { TutorPanel } from '@/components/tutor/TutorPanel';
+import { AI_MODES } from '@/hooks/useAITutor';
 
 interface Question {
   id: string;
