@@ -309,7 +309,6 @@ export default function WirtschaftsfachwirtPage() {
             </div>
           </div>
         </section>
-        </section>
 
         {/* Footer Quiz CTA */}
         <QuizCTA quizSlug="wirtschaftsfachwirt-pruefungsreife" cluster="wfw_cluster" location="footer"
