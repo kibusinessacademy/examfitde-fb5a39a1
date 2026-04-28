@@ -42,10 +42,12 @@ function getSessionId(): string {
   return v;
 }
 
-interface TrackOpts {
+// Backwards-compat: existing callers pass a flat metadata object as the 2nd arg.
+// New callers may pass { curriculumId, metadata } or simply additional metadata keys.
+type TrackOpts = Record<string, unknown> & {
   curriculumId?: string | null;
   metadata?: Record<string, unknown>;
-}
+};
 
 /**
  * Tracking hook for growth/conversion/funnel events.
@@ -63,15 +65,17 @@ export function useTrackGrowthEvent() {
       const sinceLastMs = lastStepAt.current ? now - lastStepAt.current : null;
       lastStepAt.current = now;
 
+      const { curriculumId, metadata: nestedMeta, ...flatMeta } = opts;
       const payload: any = {
         user_id: user?.id ?? null,
         anonymous_id: user ? null : getAnonId(),
         session_id: getSessionId(),
         event_type: eventType,
-        curriculum_id: opts.curriculumId ?? null,
+        curriculum_id: curriculumId ?? null,
         page_path: typeof window !== 'undefined' ? window.location.pathname : null,
         metadata: {
-          ...(opts.metadata ?? {}),
+          ...flatMeta,
+          ...(nestedMeta ?? {}),
           since_last_step_ms: sinceLastMs,
           ts_client: now,
         },
