@@ -101074,19 +101074,14 @@ export type Database = {
         Args: { p_locked_by?: string; p_package_id: string }
         Returns: boolean
       }
-      tutor_access_check:
-        | {
-            Args: { p_curriculum_id: string; p_daily_limit?: number }
-            Returns: Json
-          }
-        | {
-            Args: {
-              p_curriculum_id: string
-              p_daily_limit?: number
-              p_user_id?: string
-            }
-            Returns: Json
-          }
+      tutor_access_check: {
+        Args: {
+          p_curriculum_id: string
+          p_daily_limit?: number
+          p_user_id?: string
+        }
+        Returns: Json
+      }
       tutor_log_audit: {
         Args: {
           p_block_reason: string

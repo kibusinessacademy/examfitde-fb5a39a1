@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS public.tutor_access_check(uuid, integer);
