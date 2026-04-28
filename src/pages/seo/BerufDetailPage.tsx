@@ -55,7 +55,7 @@ export default function BerufDetailPage() {
     },
     {
       question: `Was kostet die ${kammerLabel}-Prüfungsvorbereitung für ${title}?`,
-      answer: `Der Lernkurs kostet ${PRODUCT_PRICES.lernkurs}€, der Prüfungstrainer ${PRODUCT_PRICES.pruefungstrainer}€. Das Komplett-Bundle gibt es für nur ${PRODUCT_PRICES.bundle}€ – du sparst also ${PRODUCT_PRICES.lernkurs + PRODUCT_PRICES.pruefungstrainer - PRODUCT_PRICES.bundle}€.`,
+      answer: `Die komplette Prüfungsvorbereitung kostet einmalig ${PRODUCT_PRICES.bundle}€ – inklusive Lernkurs, Prüfungstrainer und mündlicher Prüfungssimulation. 12 Monate Zugang, kein Abo.`,
     },
     {
       question: `Wann findet die ${kammerLabel}-Prüfung für ${title} statt?`,
@@ -63,7 +63,7 @@ export default function BerufDetailPage() {
     },
     {
       question: `Wie bereite ich mich am besten auf die ${kammerLabel}-Prüfung vor?`,
-      answer: `ExamFit bietet eine strukturierte Vorbereitung: Erst lernst du mit dem Lernkurs alle Inhalte, dann übst du mit dem Prüfungstrainer echte Prüfungsfragen, und schließlich simulierst du die mündliche Prüfung mit unserem KI-Trainer.`,
+      answer: `ExamFit bietet eine strukturierte Vorbereitung in einem einzigen Bundle: Du lernst alle Inhalte mit den Lernmodulen, übst mit echten Prüfungsfragen im Prüfungstrainer und simulierst die mündliche Prüfung mit unserem KI-Trainer.`,
     },
   ];
 
@@ -149,66 +149,47 @@ export default function BerufDetailPage() {
                 </div>
               </div>
 
-              {/* Produkt-CTA Sidebar */}
+              {/* Produkt-CTA Sidebar — Bundle-only (24,90 €) */}
               <div className="lg:col-span-1">
                 <Card className="glass-card sticky top-24">
                   <CardHeader>
                     <CardTitle>Jetzt Prüfung vorbereiten</CardTitle>
                     <CardDescription>
-                      Wähle dein Produkt und starte sofort mit dem Lernen
+                      Alles in einem Paket — Lernkurs, Prüfungstrainer & mündliche Simulation
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <Link to={`/lernkurse/${slug}`} className="block">
-                      <div className="p-4 rounded-lg border border-border hover:border-primary/50 transition-colors">
-                        <div className="flex justify-between items-start mb-2">
-                          <div className="flex items-center gap-2">
-                            <BookOpen className="h-5 w-5 text-primary" />
-                            <span className="font-semibold">Lernkurs</span>
-                          </div>
-                          <span className="font-bold">{PRODUCT_PRICES.lernkurs}€</span>
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          Verstehe alle Lernfelder mit verständlichen Erklärungen
-                        </p>
-                      </div>
-                    </Link>
-
-                    <Link to={`/pruefungstrainer/${slug}`} className="block">
-                      <div className="p-4 rounded-lg border border-border hover:border-primary/50 transition-colors">
-                        <div className="flex justify-between items-start mb-2">
-                          <div className="flex items-center gap-2">
-                            <Target className="h-5 w-5 text-accent" />
-                            <span className="font-semibold">Prüfungstrainer</span>
-                          </div>
-                          <span className="font-bold">{PRODUCT_PRICES.pruefungstrainer}€</span>
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          Trainiere mit echten IHK-Prüfungsfragen
-                        </p>
-                      </div>
-                    </Link>
-
                     <Link to={`/bundle/${slug}`} className="block">
-                      <div className="p-4 rounded-lg border-2 border-primary bg-primary/5 hover:bg-primary/10 transition-colors relative">
-                        <Badge className="absolute -top-2 right-2 bg-primary">
-                          Empfohlen
-                        </Badge>
-                        <div className="flex justify-between items-start mb-2">
+                      <div className="p-5 rounded-lg border-2 border-primary bg-primary/5 hover:bg-primary/10 transition-colors">
+                        <div className="flex justify-between items-center mb-3">
                           <div className="flex items-center gap-2">
                             <Award className="h-5 w-5 text-success" />
                             <span className="font-semibold">Komplett-Bundle</span>
                           </div>
-                          <div className="text-right">
-                            <span className="font-bold text-lg">{PRODUCT_PRICES.bundle}€</span>
-                            <div className="text-xs text-muted-foreground line-through">
-                              {PRODUCT_PRICES.lernkurs + PRODUCT_PRICES.pruefungstrainer}€
-                            </div>
-                          </div>
+                          <span className="font-bold text-2xl">{PRODUCT_PRICES.bundle}€</span>
                         </div>
-                        <p className="text-sm text-muted-foreground">
-                          Lernen + Üben + mündliche Prüfungssimulation
-                        </p>
+                        <ul className="space-y-2 text-sm text-muted-foreground">
+                          <li className="flex items-start gap-2">
+                            <CheckCircle className="h-4 w-4 text-success mt-0.5 flex-shrink-0" />
+                            <span>Strukturierter Lernkurs nach Rahmenplan</span>
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <CheckCircle className="h-4 w-4 text-success mt-0.5 flex-shrink-0" />
+                            <span>Prüfungstrainer mit echten IHK-Fragen</span>
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <CheckCircle className="h-4 w-4 text-success mt-0.5 flex-shrink-0" />
+                            <span>KI-gestützte mündliche Prüfungssimulation</span>
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <CheckCircle className="h-4 w-4 text-success mt-0.5 flex-shrink-0" />
+                            <span>12 Monate Zugang, einmalig zahlen</span>
+                          </li>
+                        </ul>
+                        <Button className="w-full mt-4" size="sm">
+                          Jetzt für {PRODUCT_PRICES.bundle}€ starten
+                          <ArrowRight className="ml-2 h-4 w-4" />
+                        </Button>
                       </div>
                     </Link>
                   </CardContent>
@@ -287,8 +268,8 @@ export default function BerufDetailPage() {
               Bereit für die {title} {kammerLabel}-Prüfung?
             </h2>
             <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-              Starte jetzt mit dem Komplett-Bundle und spare {PRODUCT_PRICES.lernkurs + PRODUCT_PRICES.pruefungstrainer - PRODUCT_PRICES.bundle}€.
-              Einmalzahlung, 12 Monate Zugang.
+              Starte jetzt mit dem Komplett-Bundle für nur {PRODUCT_PRICES.bundle}€.
+              Einmalzahlung, 12 Monate Zugang, kein Abo.
             </p>
             <Button size="lg" className="shadow-glow" asChild>
               <Link to={`/bundle/${slug}`}>

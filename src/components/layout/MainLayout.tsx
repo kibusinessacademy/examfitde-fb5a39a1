@@ -11,8 +11,7 @@ import { useNativeApp } from '@/hooks/useNativeApp';
 
 const NAV_ITEMS = [
   { to: '/berufe', label: 'Berufe' },
-  { to: '/lernkurse', label: 'Lernkurse' },
-  { to: '/pruefungstrainer', label: 'Prüfungstrainer' },
+  { to: '/bundle', label: 'Komplett-Bundle' },
   { to: '/wissen', label: 'Wissen' },
   { to: '/preise', label: 'Preise' },
 ] as const;
@@ -185,9 +184,8 @@ export default function MainLayout() {
             <div>
               <h4 className="font-semibold text-sm mb-4">Produkte</h4>
               <nav className="flex flex-col gap-2 text-sm text-muted-foreground">
-                <Link to="/lernkurse" className="hover:text-foreground transition-colors">Lernkurse</Link>
-                <Link to="/pruefungstrainer" className="hover:text-foreground transition-colors">Prüfungstrainer</Link>
-                <Link to="/bundle" className="hover:text-foreground transition-colors">Bundles</Link>
+                <Link to="/bundle" className="hover:text-foreground transition-colors">Komplett-Bundle</Link>
+                <Link to="/berufe" className="hover:text-foreground transition-colors">Berufe</Link>
                 <Link to="/preise" className="hover:text-foreground transition-colors">Preise</Link>
               </nav>
             </div>

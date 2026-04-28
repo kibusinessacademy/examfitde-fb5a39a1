@@ -108,14 +108,17 @@ export function useSingleBeruf(slug: string) {
   return berufe?.find(b => b.slug === slug);
 }
 
-export function useCurriculumProductBySlug(slug: string, productKey?: string) {
+/**
+ * Bundle-only Strategie: productKey-Parameter wird ignoriert/normalisiert auf 'bundle'.
+ * Es gibt nur ein kaufbares Produkt — alle Slugs sollen zum Bundle aufgelöst werden.
+ */
+export function useCurriculumProductBySlug(slug: string, _productKey?: string) {
   const { data: products } = useCurriculumProducts();
-  
+
   if (!products) return undefined;
 
   return products.find(p => {
     const matchesSlug = p.slug === slug || generateSlug(p.title) === slug;
-    if (!productKey) return matchesSlug;
-    return matchesSlug && p.product_key === productKey;
+    return matchesSlug && p.product_key === 'bundle';
   });
 }

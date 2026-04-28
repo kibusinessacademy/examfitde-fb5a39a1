@@ -8,75 +8,33 @@ import { Breadcrumbs } from '@/components/seo/Breadcrumbs';
 import { useSingleBeruf, useCurriculumProductBySlug } from '@/hooks/useSEOPages';
 import { SEO_TEMPLATES, SITE_URL, PRODUCT_PRICES, generateProductSchema } from '@/lib/seo';
 
+// Bundle-only Strategie: Es gibt nur ein kaufbares Produkt — das Bundle (24,90 €).
+// Der Typ behält die Legacy-Werte als Aliase, damit alte Imports nicht brechen,
+// aber alle führen intern zur Bundle-Variante.
 type ProductType = 'lernkurs' | 'pruefungstrainer' | 'bundle';
 
-const productInfo: Record<ProductType, {
-  icon: typeof BookOpen;
-  color: string;
-  features: string[];
-  benefits: string[];
-  cta: string;
-  label: string;
-  listLabel: string;
-}> = {
-  lernkurs: {
-    icon: BookOpen,
-    color: 'primary',
-    features: [
-      'Alle Lernfelder strukturiert erklärt',
-      'Verständliche Schritt-für-Schritt-Anleitungen',
-      'KI-Tutor für deine Fragen',
-      'Fortschrittstracking',
-      '12 Monate unbegrenzter Zugang',
-    ],
-    benefits: [
-      'Verstehe komplexe Themen endlich',
-      'Lerne in deinem eigenen Tempo',
-      'Nie wieder Lücken im Prüfungswissen',
-    ],
-    cta: 'Lernkurs kaufen',
-    label: 'Lernkurs',
-    listLabel: 'Lernkurse',
-  },
-  pruefungstrainer: {
-    icon: Target,
-    color: 'accent',
-    features: [
-      'Prüfungsrelevante Fragen nach IHK-Standards',
-      'Adaptiver Lernalgorithmus',
-      'Automatische Schwächenanalyse',
-      'Prüfungssimulation unter Zeitdruck',
-      '12 Monate unbegrenzter Zugang',
-    ],
-    benefits: [
-      'Keine bösen Überraschungen in der Prüfung',
-      'Lerne aus deinen Fehlern',
-      'Gehe selbstsicher in die Prüfung',
-    ],
-    cta: 'Prüfungstrainer kaufen',
-    label: 'Prüfungstrainer',
-    listLabel: 'Prüfungstrainer',
-  },
+const productInfo = {
   bundle: {
     icon: Award,
     color: 'success',
     features: [
-      'Lernkurs + Prüfungstrainer inklusive',
+      'Lernkurs nach Rahmenplan',
+      'Prüfungstrainer mit echten IHK-Fragen',
       'Mündliche Prüfungssimulation',
-      'KI-Prüfer mit Echtzeit-Feedback',
+      'KI-Tutor mit Echtzeit-Feedback',
       'Prüfungsangst-Management',
       '12 Monate unbegrenzter Zugang',
     ],
     benefits: [
       'Komplett-Paket für maximale Sicherheit',
       'Mündliche Prüfung perfekt vorbereitet',
-      'Spare 9€ gegenüber Einzelkauf',
+      'Einmalzahlung, kein Abo',
     ],
     cta: 'Bundle kaufen',
     label: 'Komplett-Bundle',
     listLabel: 'Bundles',
   },
-};
+} as const;
 
 interface ProductDetailPageProps {
   productType: ProductType;
@@ -85,7 +43,9 @@ interface ProductDetailPageProps {
 function ProductDetailPageComponent({ productType }: ProductDetailPageProps) {
   const { slug } = useParams<{ slug: string }>();
   const beruf = useSingleBeruf(slug || '');
-  const product = useCurriculumProductBySlug(slug || '', productType);
+  // Bundle-only Strategie: Alle Produkt-URLs werden auf 'bundle' normalisiert.
+  const effectiveType = 'bundle' as const;
+  const product = useCurriculumProductBySlug(slug || '', effectiveType);
 
   if (!beruf) {
     return (
@@ -98,9 +58,9 @@ function ProductDetailPageComponent({ productType }: ProductDetailPageProps) {
     );
   }
 
-  const seo = SEO_TEMPLATES[productType](beruf.title);
-  const price = PRODUCT_PRICES[productType];
-  const info = productInfo[productType];
+  const seo = SEO_TEMPLATES[effectiveType](beruf.title);
+  const price = PRODUCT_PRICES[effectiveType];
+  const info = productInfo[effectiveType];
   const Icon = info.icon;
 
   const structuredData = generateProductSchema({
@@ -150,11 +110,7 @@ function ProductDetailPageComponent({ productType }: ProductDetailPageProps) {
 
                 <div className="flex items-end gap-4 mb-6">
                   <span className="text-5xl font-bold">{price}€</span>
-                  {productType === 'bundle' && (
-                    <span className="text-lg text-muted-foreground line-through mb-1">
-                      {PRODUCT_PRICES.lernkurs + PRODUCT_PRICES.pruefungstrainer}€
-                    </span>
-                  )}
+                  <span className="text-base text-muted-foreground mb-2">einmalig · 12 Monate Zugang</span>
                 </div>
                 
                 <div className="flex flex-wrap gap-3 mb-8">
@@ -258,22 +214,7 @@ function ProductDetailPageComponent({ productType }: ProductDetailPageProps) {
           </div>
         </section>
 
-        {productType !== 'bundle' && (
-          <section className="py-16 bg-muted/30">
-            <div className="container max-w-3xl text-center">
-              <Badge variant="outline" className="mb-4">Tipp</Badge>
-              <h2 className="text-2xl md:text-3xl font-display font-bold mb-4">
-                Spare {PRODUCT_PRICES.lernkurs + PRODUCT_PRICES.pruefungstrainer - PRODUCT_PRICES.bundle}€ mit dem Bundle
-              </h2>
-              <p className="text-muted-foreground mb-6">
-                Hol dir Lernkurs + Prüfungstrainer + mündliche Prüfungssimulation in einem Paket.
-              </p>
-              <Button size="lg" variant="outline" asChild>
-                <Link to={`/bundle/${slug}`}>Zum Bundle <ArrowRight className="ml-2 h-5 w-5" /></Link>
-              </Button>
-            </div>
-          </section>
-        )}
+        {/* Bundle-only Strategie: Cross-Sell-Block entfernt — es gibt keine Einzelprodukte mehr. */}
 
         <section className="py-20 bg-gradient-to-br from-primary/10 via-transparent to-accent/10">
           <div className="container text-center">

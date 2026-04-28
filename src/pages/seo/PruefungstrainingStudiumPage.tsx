@@ -66,7 +66,7 @@ export default function PruefungstrainingStudiumPage() {
     <>
       <SEOHead
         title={seoTitle('Klausurtraining fürs Studium – Prüfungsvorbereitung für Studierende & Hochschulen')}
-        description="Gezielte Klausurvorbereitung im Studium: Transferaufgaben, KI-Prüfungscoach und messbarer Lernfortschritt. Für Einzelpersonen ab 39,90 € und Hochschulen ab 35,96 €/Platz."
+        description="Gezielte Klausurvorbereitung im Studium: Transferaufgaben, KI-Prüfungscoach und messbarer Lernfortschritt. Komplett-Bundle für 24,90 € einmalig."
         canonical={`${SITE_URL}/pruefungstraining-studium`}
         structuredData={[generateBreadcrumbSchema(breadcrumbs), generateFAQSchema(FAQS)]}
       />

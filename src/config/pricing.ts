@@ -34,75 +34,39 @@ export interface B2BTeamTier {
   stripePriceId: string;
 }
 
+// Bundle-only SSOT: Es gibt nur EIN kaufbares Produkt — das Bundle zu 24,90 €.
+// Die Kategorie-Struktur bleibt erhalten, damit bestehende Imports nicht brechen,
+// aber alle Kategorien zeigen auf denselben Preis (24,90 €).
+const BUNDLE_PRICE_CENTS = 2490;
+const BUNDLE_PRICE_DISPLAY = '24,90 €';
+const BUNDLE_STRIPE_PRODUCT_ID = 'prod_UJIqaKAx185ofq';
+const BUNDLE_STRIPE_PRICE_ID = 'price_1TKgFDDxqdaWCpJ6cquKeCog';
+
+const BUNDLE_B2B_TIERS = [
+  { seats: 5, totalCents: 12450, totalDisplay: '124,50 €/Jahr', perSeatCents: 2490, perSeatDisplay: '24,90 €/Jahr', stripeProductId: BUNDLE_STRIPE_PRODUCT_ID, stripePriceId: BUNDLE_STRIPE_PRICE_ID },
+  { seats: 10, totalCents: 22900, totalDisplay: '229 €/Jahr', perSeatCents: 2290, perSeatDisplay: '22,90 €/Jahr', stripeProductId: BUNDLE_STRIPE_PRODUCT_ID, stripePriceId: BUNDLE_STRIPE_PRICE_ID },
+  { seats: 25, totalCents: 52450, totalDisplay: '524,50 €/Jahr', perSeatCents: 2098, perSeatDisplay: '20,98 €/Jahr', stripeProductId: BUNDLE_STRIPE_PRODUCT_ID, stripePriceId: BUNDLE_STRIPE_PRICE_ID },
+] as const;
+
+const BUNDLE_CATEGORY: CategoryPricing = {
+  label: 'Bundle',
+  tagline: 'Bestehe deine Prüfung sicher — alles in einem Paket',
+  priceCents: BUNDLE_PRICE_CENTS,
+  priceDisplay: BUNDLE_PRICE_DISPLAY,
+  stripeProductId: BUNDLE_STRIPE_PRODUCT_ID,
+  stripePriceId: BUNDLE_STRIPE_PRICE_ID,
+  access: '12 Monate',
+  b2b: {
+    pricePerSeatDisplay: BUNDLE_PRICE_DISPLAY,
+    tiers: BUNDLE_B2B_TIERS,
+  },
+};
+
 export const PRICING_CATEGORIES: Record<PricingCategory, CategoryPricing> = {
-  ausbildung: {
-    label: 'Ausbildung',
-    tagline: 'Bestehe deine IHK-Abschlussprüfung sicher',
-    priceCents: 2990,
-    priceDisplay: '29,90 €',
-    stripeProductId: 'prod_UJIqaKAx185ofq',
-    stripePriceId: 'price_1TKgFDDxqdaWCpJ6cquKeCog',
-    access: '12 Monate',
-    b2b: {
-      pricePerSeatDisplay: '39 €',
-      tiers: [
-        { seats: 5, totalCents: 14900, totalDisplay: '149 €/Jahr', perSeatCents: 2980, perSeatDisplay: '29,80 €/Jahr', stripeProductId: 'prod_UJJJMKF3JXiJl4', stripePriceId: 'price_1TKggjDxqdaWCpJ6yxAXNuOI' },
-        { seats: 10, totalCents: 27900, totalDisplay: '279 €/Jahr', perSeatCents: 2790, perSeatDisplay: '27,90 €/Jahr', stripeProductId: 'prod_UJJJMKF3JXiJl4', stripePriceId: 'price_1TKggpDxqdaWCpJ6w2gtCyVi' },
-        { seats: 25, totalCents: 64900, totalDisplay: '649 €/Jahr', perSeatCents: 2596, perSeatDisplay: '25,96 €/Jahr', stripeProductId: 'prod_UJJJMKF3JXiJl4', stripePriceId: 'price_1TKggtDxqdaWCpJ6zimlOVL0' },
-      ] as const,
-    },
-  },
-  studium: {
-    label: 'Studium',
-    tagline: 'Bestehe deine Klausuren & Prüfungen effizient',
-    priceCents: 3990,
-    priceDisplay: '39,90 €',
-    stripeProductId: 'prod_UJIqjVdABzAGp4',
-    stripePriceId: 'price_1TKgFEDxqdaWCpJ6cW3P1l3T',
-    access: '12 Monate',
-    b2b: {
-      pricePerSeatDisplay: '49 €',
-      tiers: [
-        { seats: 5, totalCents: 19900, totalDisplay: '199 €/Jahr', perSeatCents: 3980, perSeatDisplay: '39,80 €/Jahr', stripeProductId: 'prod_UJJJZI03sRtqaB', stripePriceId: 'price_1TKggvDxqdaWCpJ63Jo0sMuk' },
-        { seats: 10, totalCents: 37900, totalDisplay: '379 €/Jahr', perSeatCents: 3790, perSeatDisplay: '37,90 €/Jahr', stripeProductId: 'prod_UJJJZI03sRtqaB', stripePriceId: 'price_1TKgh1DxqdaWCpJ6zUzoeVor' },
-        { seats: 25, totalCents: 89900, totalDisplay: '899 €/Jahr', perSeatCents: 3596, perSeatDisplay: '35,96 €/Jahr', stripeProductId: 'prod_UJJJZI03sRtqaB', stripePriceId: 'price_1TKgh2DxqdaWCpJ6d7laYYTJ' },
-      ] as const,
-    },
-  },
-  zertifizierung: {
-    label: 'Zertifizierung',
-    tagline: 'Bestehe deine Zertifizierung beim ersten Versuch',
-    priceCents: 4990,
-    priceDisplay: '49,90 €',
-    stripeProductId: 'prod_UJIqM3J1DzNajW',
-    stripePriceId: 'price_1TKgFGDxqdaWCpJ6lUWDo5LR',
-    access: '12 Monate',
-    b2b: {
-      pricePerSeatDisplay: '59 €',
-      tiers: [
-        { seats: 5, totalCents: 24900, totalDisplay: '249 €/Jahr', perSeatCents: 4980, perSeatDisplay: '49,80 €/Jahr', stripeProductId: 'prod_UJJJMCaQBaHe3V', stripePriceId: 'price_1TKggvDxqdaWCpJ6TXVKDj4I' },
-        { seats: 10, totalCents: 47900, totalDisplay: '479 €/Jahr', perSeatCents: 4790, perSeatDisplay: '47,90 €/Jahr', stripeProductId: 'prod_UJJJMCaQBaHe3V', stripePriceId: 'price_1TKgh2DxqdaWCpJ6MBkODaB5' },
-        { seats: 25, totalCents: 114900, totalDisplay: '1.149 €/Jahr', perSeatCents: 4596, perSeatDisplay: '45,96 €/Jahr', stripeProductId: 'prod_UJJJMCaQBaHe3V', stripePriceId: 'price_1TKgh4DxqdaWCpJ63wKN2X6G' },
-      ] as const,
-    },
-  },
-  weiterbildung: {
-    label: 'Fort-/Weiterbildung',
-    tagline: 'Sichere dir deinen nächsten Karriereschritt',
-    priceCents: 5990,
-    priceDisplay: '59,90 €',
-    stripeProductId: 'prod_UJIq9m2R4Kr1Gl',
-    stripePriceId: 'price_1TKgFHDxqdaWCpJ67SfmQl10',
-    access: '12 Monate',
-    b2b: {
-      pricePerSeatDisplay: '69 €',
-      tiers: [
-        { seats: 5, totalCents: 29900, totalDisplay: '299 €/Jahr', perSeatCents: 5980, perSeatDisplay: '59,80 €/Jahr', stripeProductId: 'prod_UJJJOdGKo0p39X', stripePriceId: 'price_1TKggwDxqdaWCpJ6ktZucksn' },
-        { seats: 10, totalCents: 57900, totalDisplay: '579 €/Jahr', perSeatCents: 5790, perSeatDisplay: '57,90 €/Jahr', stripeProductId: 'prod_UJJJOdGKo0p39X', stripePriceId: 'price_1TKgh4DxqdaWCpJ6vlbodQIt' },
-        { seats: 25, totalCents: 124900, totalDisplay: '1.249 €/Jahr', perSeatCents: 4996, perSeatDisplay: '49,96 €/Jahr', stripeProductId: 'prod_UJJJOdGKo0p39X', stripePriceId: 'price_1TKgh5DxqdaWCpJ6xSt0Ptme' },
-      ] as const,
-    },
-  },
+  ausbildung: { ...BUNDLE_CATEGORY, label: 'Ausbildung', tagline: 'Bestehe deine IHK-Abschlussprüfung sicher' },
+  studium: { ...BUNDLE_CATEGORY, label: 'Studium', tagline: 'Bestehe deine Klausuren & Prüfungen effizient' },
+  zertifizierung: { ...BUNDLE_CATEGORY, label: 'Zertifizierung', tagline: 'Bestehe deine Zertifizierung beim ersten Versuch' },
+  weiterbildung: { ...BUNDLE_CATEGORY, label: 'Fort-/Weiterbildung', tagline: 'Sichere dir deinen nächsten Karriereschritt' },
 } as const;
 
 /** Helper: resolve price by category */
@@ -126,55 +90,56 @@ export const PRICING_DEFAULTS = {
 
 /**
  * @deprecated Use PRICING_CATEGORIES instead. Kept for backward compatibility.
+ * Bundle-only SSOT: alle Werte zeigen jetzt auf 24,90 €.
  */
 export const PRICING = {
   individual: {
     ausbildung: {
-      priceDisplay: '29,90 €',
-      priceCents: 2990,
-      stripePriceId: 'price_1TKgFDDxqdaWCpJ6cquKeCog',
-      productId: 'prod_UJIqaKAx185ofq',
+      priceDisplay: BUNDLE_PRICE_DISPLAY,
+      priceCents: BUNDLE_PRICE_CENTS,
+      stripePriceId: BUNDLE_STRIPE_PRICE_ID,
+      productId: BUNDLE_STRIPE_PRODUCT_ID,
       access: '12 Monate',
-      label: 'Einzellizenz Ausbildung',
+      label: 'Bundle',
     },
     studium: {
-      priceDisplay: '39,90 €',
-      priceCents: 3990,
-      stripePriceId: 'price_1TKgFEDxqdaWCpJ6cW3P1l3T',
-      productId: 'prod_UJIqjVdABzAGp4',
+      priceDisplay: BUNDLE_PRICE_DISPLAY,
+      priceCents: BUNDLE_PRICE_CENTS,
+      stripePriceId: BUNDLE_STRIPE_PRICE_ID,
+      productId: BUNDLE_STRIPE_PRODUCT_ID,
       access: '12 Monate',
-      label: 'Einzellizenz Studium',
+      label: 'Bundle',
     },
     zertifizierung: {
-      priceDisplay: '49,90 €',
-      priceCents: 4990,
-      stripePriceId: 'price_1TKgFGDxqdaWCpJ6lUWDo5LR',
-      productId: 'prod_UJIqM3J1DzNajW',
+      priceDisplay: BUNDLE_PRICE_DISPLAY,
+      priceCents: BUNDLE_PRICE_CENTS,
+      stripePriceId: BUNDLE_STRIPE_PRICE_ID,
+      productId: BUNDLE_STRIPE_PRODUCT_ID,
       access: '12 Monate',
-      label: 'Einzellizenz Zertifizierung',
+      label: 'Bundle',
     },
     weiterbildung: {
-      priceDisplay: '59,90 €',
-      priceCents: 5990,
-      stripePriceId: 'price_1TKgFHDxqdaWCpJ67SfmQl10',
-      productId: 'prod_UJIq9m2R4Kr1Gl',
+      priceDisplay: BUNDLE_PRICE_DISPLAY,
+      priceCents: BUNDLE_PRICE_CENTS,
+      stripePriceId: BUNDLE_STRIPE_PRICE_ID,
+      productId: BUNDLE_STRIPE_PRODUCT_ID,
       access: '12 Monate',
-      label: 'Einzellizenz Fort-/Weiterbildung',
+      label: 'Bundle',
     },
   },
   b2b: {
     tiers: [
-      { seats: 5, unitPriceCents: 2980, unitPriceDisplay: '29,80 €', name: 'Team 5' },
-      { seats: 10, unitPriceCents: 2790, unitPriceDisplay: '27,90 €', name: 'Team 10' },
-      { seats: 25, unitPriceCents: 2596, unitPriceDisplay: '25,96 €', name: 'Team 25' },
+      { seats: 5, unitPriceCents: 2490, unitPriceDisplay: BUNDLE_PRICE_DISPLAY, name: 'Team 5' },
+      { seats: 10, unitPriceCents: 2290, unitPriceDisplay: '22,90 €', name: 'Team 10' },
+      { seats: 25, unitPriceCents: 2098, unitPriceDisplay: '20,98 €', name: 'Team 25' },
     ] as const,
   },
-  defaultPrice: '29,90 €',
+  defaultPrice: BUNDLE_PRICE_DISPLAY,
   defaultAccess: '12 Monate',
   noSubscription: 'Kein Abo',
   anchor: {
     ihkRange: '300–1.000 €',
-    examFit: '29,90 €',
+    examFit: BUNDLE_PRICE_DISPLAY,
   },
 } as const;
 

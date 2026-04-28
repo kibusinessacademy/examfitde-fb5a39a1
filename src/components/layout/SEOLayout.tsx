@@ -7,9 +7,7 @@ import { useState } from 'react';
 
 const navigation = [
   { name: 'IHK-Prüfungen', href: '/ihk-pruefungen', icon: Home },
-  { name: 'Lernkurse', href: '/lernkurse', icon: BookOpen },
-  { name: 'Prüfungstrainer', href: '/pruefungstrainer', icon: Target },
-  { name: 'Bundles', href: '/bundle', icon: Award },
+  { name: 'Komplett-Bundle', href: '/bundle', icon: Award },
   { name: 'Berufe', href: '/berufe', icon: GraduationCap },
   { name: 'Unternehmen', href: '/unternehmen', icon: Building2 },
   { name: 'Preise', href: '/preise', icon: CreditCard },
@@ -149,9 +147,8 @@ export default function SEOLayout() {
             <div>
               <h4 className="font-semibold mb-4">Produkte</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><Link to="/lernkurse" className="hover:text-foreground">Lernkurse</Link></li>
-                <li><Link to="/pruefungstrainer" className="hover:text-foreground">Prüfungstrainer</Link></li>
-                <li><Link to="/bundle" className="hover:text-foreground">Komplett-Bundles</Link></li>
+                <li><Link to="/bundle" className="hover:text-foreground">Komplett-Bundle</Link></li>
+                <li><Link to="/berufe" className="hover:text-foreground">Berufe</Link></li>
                 <li><Link to="/preise" className="hover:text-foreground">Preise</Link></li>
               </ul>
             </div>
