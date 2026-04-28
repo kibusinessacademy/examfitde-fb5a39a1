@@ -95096,6 +95096,10 @@ export type Database = {
         Args: { _package_id: string }
         Returns: Json
       }
+      admin_e2e_run_bundle_check: {
+        Args: { p_limit?: number; p_test_user_id?: string }
+        Returns: Json
+      }
       admin_execute_recommended_action: {
         Args: { _action_key: string; _dry_run?: boolean; _max_jobs?: number }
         Returns: Json

@@ -41,6 +41,7 @@ import {
 import CrmDealsDrilldown from './CrmDealsDrilldown';
 import EmailSequencesPanel from './EmailSequencesPanel';
 import SalesFunnelCard from './SalesFunnelCard';
+import E2EBundleCheckCard from './E2EBundleCheckCard';
 
 type Health = 'critical' | 'warning' | 'ok' | 'unknown';
 
@@ -313,6 +314,9 @@ export default function MarketingIntelligencePanel() {
 
       {/* Section: Sales Funnel pro Curriculum (30d) — Schritte + Latenz */}
       <SalesFunnelCard />
+
+      {/* Section: E2E Produkttest (Bundle-only, DB-only) */}
+      <E2EBundleCheckCard />
 
       {/* Section: CRM Deals Drilldown — pro Deal Orders/Activities/Email-Sequences */}
       <CrmDealsDrilldown />
