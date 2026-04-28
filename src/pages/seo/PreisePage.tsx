@@ -36,8 +36,8 @@ export default function PreisePage() {
   return (
     <>
       <SEOHead
-        title="Preise – Prüfungstraining für Ausbildung & Studium | ExamFit"
-        description={`ExamFit Prüfungstraining: Ausbildung ab ${PRICING.defaultPrice}, Studium ab ${PRICING.defaultPrice}. Einmalzahlung, ${PRICING.defaultAccess} Zugang, ${PRICING.noSubscription}. Team-Lizenzen für Betriebe & Hochschulen.`}
+        title={`Preise – Komplette Prüfungsvorbereitung für ${PRICING.defaultPrice} | ExamFit`}
+        description={`ExamFit Komplett-Bundle: ${PRICING.defaultPrice} einmalig, ${PRICING.defaultAccess} Zugang, ${PRICING.noSubscription}. Lernkurs, Prüfungstrainer und mündliche Prüfungssimulation in einem Paket. Team-Lizenzen für Betriebe & Hochschulen.`}
         canonical={`${SITE_URL}/preise`}
         structuredData={structuredData}
       />
