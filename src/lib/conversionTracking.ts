@@ -25,8 +25,14 @@ export type FunnelEventType =
   | "checkout_complete"
   | "lead_magnet_download"
   | "quiz_complete"
-  // ── Quiz/Lead-Magnet Funnel ──
+  // ── Quiz/Lead-Magnet Funnel SSOT v2 (kanonisch) ──
   | "lead_magnet_view"
+  | "quiz_started"
+  | "quiz_completed"
+  | "lead_capture_submitted"
+  | "lernplan_viewed"
+  | "bundle_cta_clicked"
+  // Legacy-Aliase (DB akzeptiert weiterhin, aber nicht mehr emittieren)
   | "quiz_start"
   | "lead_capture"
   | "lernplan_view"
