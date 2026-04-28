@@ -529,7 +529,7 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
 
           {/* ─── Mobile Summary (visible only on small screens) ─── */}
           <div className="lg:hidden">
-            <Card className="rounded-2xl border-accent/20 bg-gradient-to-br from-primary/10 via-card to-card shadow-lg">
+            <Card variant="raised" className="rounded-2xl border-petrol-200 bg-gradient-to-br from-petrol-50 via-surface-raised to-surface-raised">
               <CardHeader className="pb-2">
                 <CardTitle className="text-xl">3. Training starten</CardTitle>
               </CardHeader>
