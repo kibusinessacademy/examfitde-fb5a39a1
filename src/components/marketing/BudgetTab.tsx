@@ -49,10 +49,10 @@ export default function BudgetTab() {
   return (
     <div className="space-y-6">
       <div className="grid gap-4 md:grid-cols-3">
-        <Card className={pending.length > 0 ? 'border-orange-400' : ''}>
+        <Card className={pending.length > 0 ? 'border-warning/40' : ''}>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground flex items-center gap-2">
-              {pending.length > 0 && <AlertTriangle className="h-4 w-4 text-orange-500" />}
+            <CardTitle className="text-sm text-text-secondary flex items-center gap-2">
+              {pending.length > 0 && <AlertTriangle className="h-4 w-4 text-warning" />}
               Offene Anträge
             </CardTitle>
           </CardHeader>

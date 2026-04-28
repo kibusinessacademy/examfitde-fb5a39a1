@@ -142,8 +142,8 @@ export default function StrategyTab() {
               </TableCell>
               <TableCell>
                 {plan.validation_score != null 
-                  ? <span className={plan.validation_score >= 70 ? 'text-green-600' : 'text-orange-500'}>{plan.validation_score}%</span>
-                  : <span className="text-muted-foreground">–</span>}
+                  ? <span className={plan.validation_score >= 70 ? 'text-success tabular-nums' : 'text-warning tabular-nums'}>{plan.validation_score}%</span>
+                  : <span className="text-text-tertiary">–</span>}
               </TableCell>
               <TableCell>
                 {plan.approved_at
