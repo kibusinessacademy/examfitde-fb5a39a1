@@ -293,6 +293,46 @@ export default function BlogArticlePage() {
             </div>
           ) : null}
 
+          {/* Inline link suggestions (Weiterlesen) */}
+          {linkSuggestions && linkSuggestions.length > 0 && (
+            <aside className="mt-10 p-5 rounded-xl border border-border bg-muted/30" aria-label="Weiterlesen">
+              <h2 className="text-sm font-semibold text-muted-foreground mb-3 uppercase tracking-wide">Weiterlesen</h2>
+              <ul className="space-y-2">
+                {linkSuggestions.map((s: any) => (
+                  <li key={s.target_url}>
+                    <Link to={s.target_url} className="text-primary hover:underline">
+                      {s.anchor_text || s.target_title || s.target_url}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </aside>
+          )}
+
+          {/* Related articles (interne Backlinks) */}
+          {relatedArticles && relatedArticles.length > 0 && (
+            <section className="mt-12" aria-label="Verwandte Artikel">
+              <h2 className="text-2xl font-bold text-foreground mb-6">Verwandte Artikel</h2>
+              <div className="grid gap-4 md:grid-cols-3">
+                {relatedArticles.map((r: any) => (
+                  <Link
+                    key={r.slug}
+                    to={`/blog/${r.slug}`}
+                    className="block p-4 rounded-lg border border-border bg-card hover:border-primary/40 transition-colors"
+                  >
+                    <h3 className="text-base font-semibold text-foreground mb-2 line-clamp-2">{r.title}</h3>
+                    {r.short_answer && (
+                      <p className="text-sm text-muted-foreground line-clamp-3">{r.short_answer}</p>
+                    )}
+                    {r.reading_time_min && (
+                      <p className="mt-2 text-xs text-muted-foreground">{r.reading_time_min} Min. Lesezeit</p>
+                    )}
+                  </Link>
+                ))}
+              </div>
+            </section>
+          )}
+
           {/* CTA Block */}
           <div className="mt-12 p-6 rounded-xl bg-primary/5 border border-primary/20 text-center">
             <p className="text-lg font-semibold text-foreground mb-2">
