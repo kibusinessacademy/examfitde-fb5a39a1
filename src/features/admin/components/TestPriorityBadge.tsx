@@ -1,3 +1,5 @@
+import { Badge } from "@/components/ui/badge";
+
 type Props = {
   priority: "critical" | "warning" | "healthy";
 };
@@ -5,14 +7,10 @@ type Props = {
 export function TestPriorityBadge({ priority }: Props) {
   const cfg =
     priority === "critical"
-      ? { label: "🔴 kritisch", cls: "border-destructive/30 bg-destructive/10 text-destructive" }
+      ? { label: "🔴 kritisch", variant: "danger" as const }
       : priority === "warning"
-      ? { label: "🟡 aufmerksam", cls: "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300" }
-      : { label: "🟢 stabil", cls: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" };
+      ? { label: "🟡 aufmerksam", variant: "warning" as const }
+      : { label: "🟢 stabil", variant: "success" as const };
 
-  return (
-    <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${cfg.cls}`}>
-      {cfg.label}
-    </span>
-  );
+  return <Badge variant={cfg.variant}>{cfg.label}</Badge>;
 }
