@@ -21,13 +21,13 @@ const THEMEN = [
 ];
 
 const FEHLER = [
-  { title: 'USt-Sachverhalte verwechseln', desc: 'Innergemeinschaftliche Lieferung vs. Ausfuhr vs. Reverse-Charge – ohne klares Schema werden hier reihenweise Punkte verschenkt.' },
+  { title: 'USt-Sachverhalte verwechseln', desc: 'Innergemeinschaftliche Lieferung vs. Ausfuhr vs. Reverse-Charge – ohne klares Schema werden hier reihenweise Punkte liegen gelassen.' },
   { title: 'AfA-Methoden nicht sicher anwenden', desc: 'Gerade Halbjahres-/Restwert-Themen werden in Klausuren bewusst trickreich gestellt.' },
   { title: 'Belegfluss nicht buchen können', desc: 'Wer nur Konten auswendig kennt, scheitert an „echten" Geschäftsvorfällen mit mehreren Schritten.' },
 ];
 
 const FAQS = [
-  { question: 'Wie viele Punkte gibt der Bereich Buchhaltung in der Prüfung?', answer: 'Der schriftliche Teil zu Geschäftsvorfällen / Buchführung umfasst typischerweise 100 Punkte und dauert 180 Minuten. Er ist die Grundlage für Jahresabschluss und Steuern.' },
+  { question: 'Welche Rolle spielt die Buchhaltung in der Prüfung?', answer: 'Der schriftliche Teil zu Geschäftsvorfällen und Buchführung ist eine zentrale Grundlage für Jahresabschluss und Steuern. Genaue Punkte und Bearbeitungszeit ergeben sich aus der aktuellen Prüfungsverordnung deiner IHK.' },
   { question: 'Welcher Kontenrahmen wird geprüft?', answer: 'Die IHK-Prüfung verwendet primär den IKR (Industriekontenrahmen). SKR03/SKR04 werden in der Praxis genutzt, in der Klausur wird ein Kontenplan i. d. R. mitgegeben.' },
   { question: 'Reicht es, nur die Buchungssätze zu üben?', answer: 'Nein – die Klausur prüft komplette Geschäftsvorfälle inklusive USt, Abschreibungen und teilweise Folgewirkungen auf den Jahresabschluss. Ohne integriertes Üben bleibt es Stückwerk.' },
 ];

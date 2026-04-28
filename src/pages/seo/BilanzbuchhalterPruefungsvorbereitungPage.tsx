@@ -27,8 +27,8 @@ const PRUEFUNGSTEILE = [
 ];
 
 const FAQS = [
-  { question: 'Wie ist die Bilanzbuchhalter-Prüfung aufgebaut?', answer: 'Die IHK-Prüfung besteht aus 5 schriftlichen Teilen (zu den Handlungsbereichen 1–5) sowie einer mündlichen Prüfung (situationsbezogenes Fachgespräch ca. 30 Min.). Jeder schriftliche Teil dauert i. d. R. 180–240 Min.' },
-  { question: 'Welche Bestehensgrenze gilt?', answer: 'Mindestens „ausreichend" (50 Punkte) in jedem Prüfungsteil. Schwächen in einem Teil (max. 1) können durch eine mündliche Ergänzungsprüfung ausgeglichen werden.' },
+  { question: 'Wie ist die Bilanzbuchhalter-Prüfung aufgebaut?', answer: 'Die IHK-Prüfung umfasst mehrere schriftliche Teile zu den Handlungsbereichen sowie ein mündliches situationsbezogenes Fachgespräch. Genaue Anzahl, Dauer und Inhalte ergeben sich aus der aktuellen Prüfungsverordnung deiner zuständigen IHK.' },
+  { question: 'Welche Bestehensgrenze gilt?', answer: 'Jeder Prüfungsteil muss mindestens mit „ausreichend" bestanden werden. Unter bestimmten Voraussetzungen ist eine mündliche Ergänzungsprüfung möglich – Details regelt die Prüfungsverordnung deiner IHK.' },
   { question: 'Wie lange dauert die Vorbereitung realistisch?', answer: 'Mit ~10 h/Woche solider Vorbereitung benötigen die meisten Kandidat*innen 6–9 Monate. Mit unserem Lernplan, der nach dem Selbsttest individuell angepasst wird, lässt sich das oft auf 4–6 Monate verkürzen.' },
   { question: 'Was kostet die Vorbereitung bei ExamFit?', answer: `Das Bilanzbuchhalter-Komplett-Bundle kostet ${PRICING.defaultPrice} einmalig (${PRICING.noSubscription.toLowerCase()}) für ${PRICING.defaultAccess} Zugang – inklusive aller 5 Handlungsbereiche, mündlicher Prüfungssimulation und KI-Coach.` },
   { question: 'Sind IFRS wirklich prüfungsrelevant?', answer: 'Ja. Handlungsbereich 5 (Berichterstattung nach IFRS) wird seit der Reform regelmäßig schriftlich geprüft – häufig in Verbindung mit HGB-Vergleichsfragen. Wer IFRS unterschätzt, scheitert oft an diesem Teil.' },
@@ -36,7 +36,7 @@ const FAQS = [
 
 const TYPISCHE_FEHLER = [
   { title: 'IFRS unterschätzen', desc: 'Viele Kandidat*innen bereiten sich nur auf HGB vor und brechen am Tag der IFRS-Klausur ein.' },
-  { title: 'Steuerrecht zu kurz lernen', desc: 'Ertragsteuern und USt sind sehr formelnah – ohne strukturierte Wiederholung sind 50 Punkte hier kaum zu erreichen.' },
+  { title: 'Steuerrecht zu kurz lernen', desc: 'Ertragsteuern und USt sind sehr formelnah – ohne strukturierte Wiederholung lässt sich der Teil kaum sicher bestehen.' },
   { title: 'Fallaufgaben nicht trainieren', desc: 'Die Klausuren bestehen fast vollständig aus offenen Fallaufgaben – reines Auswendiglernen reicht nicht. Nur Probeklausuren bringen Routine.' },
   { title: 'Mündliche Prüfung zu spät anfassen', desc: 'Das situationsbezogene Fachgespräch entscheidet über Notenschnitt und Belobigung – wer erst eine Woche vorher übt, verschenkt es.' },
 ];
@@ -166,10 +166,10 @@ export default function BilanzbuchhalterPruefungsvorbereitungPage() {
             <h2 className="text-2xl font-display font-bold mb-6">Bilanzbuchhalter-Prüfung auf einen Blick</h2>
             <div className="grid sm:grid-cols-2 gap-4">
               {[
-                { icon: Clock, label: 'Schriftlich', value: '5 Klausuren · je 180–240 Min.' },
-                { icon: BookOpen, label: 'Mündlich', value: 'Situationsbezogenes Fachgespräch ~30 Min.' },
-                { icon: Target, label: 'Bestehen', value: '50 Punkte je Teil (mind. „ausreichend")' },
-                { icon: FileText, label: 'Grundlage', value: 'Verordnung Geprüfter Bilanzbuchhalter (DIHK)' },
+                { icon: Clock, label: 'Schriftlich', value: 'Mehrere Klausuren zu den Handlungsbereichen' },
+                { icon: BookOpen, label: 'Mündlich', value: 'Situationsbezogenes Fachgespräch' },
+                { icon: Target, label: 'Bestehen', value: 'Jeder Teil mindestens „ausreichend"' },
+                { icon: FileText, label: 'Grundlage', value: 'Aktuelle Prüfungsverordnung der IHK' },
               ].map(s => (
                 <div key={s.label} className="flex items-center gap-3 p-4 rounded-lg border border-border bg-card">
                   <s.icon className="h-5 w-5 text-primary flex-shrink-0" />

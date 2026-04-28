@@ -148,10 +148,10 @@ export default function FIAEPruefungsvorbereitungPage() {
             <h2 className="text-2xl font-display font-bold mb-6">FIAE-Prüfung auf einen Blick</h2>
             <div className="grid sm:grid-cols-2 gap-4">
               {[
-                { icon: Clock, label: 'GA1 Anwendungsentwicklung', value: '90 Min. · ungebundene Aufgaben' },
-                { icon: Clock, label: 'GA2 WiSo', value: '60 Min. · MC + offen' },
-                { icon: Briefcase, label: 'Projekt + Fachgespräch', value: '~30 h · 15+15 Min.' },
-                { icon: Target, label: 'Bestehen', value: '50 Punkte je Bereich' },
+                { icon: Clock, label: 'GA1 Anwendungsentwicklung', value: 'Ungebundene Aufgaben (OOP, SQL, Schnittstellen)' },
+                { icon: Clock, label: 'GA2 WiSo', value: 'Mischung aus gebundenen und offenen Aufgaben' },
+                { icon: Briefcase, label: 'Projekt + Fachgespräch', value: 'Betriebliches Projekt mit Doku, Präsentation und Fachgespräch' },
+                { icon: Target, label: 'Bestehen', value: 'Jeder Prüfungsteil mindestens „ausreichend"' },
               ].map(s => (
                 <div key={s.label} className="flex items-center gap-3 p-4 rounded-lg border border-border bg-card">
                   <s.icon className="h-5 w-5 text-primary flex-shrink-0" />
