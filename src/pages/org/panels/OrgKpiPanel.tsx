@@ -5,7 +5,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Users, Receipt, Wallet } from "lucide-react";
 
 function fmtEur(cents: number) {
   return new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format((cents ?? 0) / 100);
@@ -62,19 +62,19 @@ export default function OrgKpiPanel({ organizationId, entities }: Props) {
   const effectiveScope = data?.privacy?.effective_scope ?? scope;
 
   return (
-    <div className="space-y-4">
+    <div data-density="comfortable" className="space-y-5">
       {/* Filters */}
-      <Card>
+      <Card variant="raised">
         <CardHeader className="pb-3">
-          <CardTitle className="text-lg">KPI-Auswertung</CardTitle>
-          <CardDescription>
-            Aggregierte Kennzahlen. IDENTIFIED wird ohne Admin-Freigabe automatisch downgraded.
+          <CardTitle className="text-lg font-display text-text-primary">KPI-Auswertung</CardTitle>
+          <CardDescription className="text-text-secondary">
+            Aggregierte Kennzahlen. <span className="font-medium text-text-primary">IDENTIFIED</span> wird ohne Admin-Freigabe automatisch downgraded.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Zeitraum</label>
+              <label className="text-xs font-medium text-text-tertiary mb-1.5 block">Zeitraum</label>
               <Select value={mode} onValueChange={(v: any) => setMode(v)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -87,7 +87,7 @@ export default function OrgKpiPanel({ organizationId, entities }: Props) {
 
             {mode === "calendar_year" && (
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Jahr</label>
+                <label className="text-xs font-medium text-text-tertiary mb-1.5 block">Jahr</label>
                 <Input type="number" value={year} onChange={(e) => setYear(parseInt(e.target.value || "0", 10))} />
               </div>
             )}
@@ -95,18 +95,18 @@ export default function OrgKpiPanel({ organizationId, entities }: Props) {
             {mode === "range" && (
               <>
                 <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">Start</label>
+                  <label className="text-xs font-medium text-text-tertiary mb-1.5 block">Start</label>
                   <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
                 </div>
                 <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">Ende</label>
+                  <label className="text-xs font-medium text-text-tertiary mb-1.5 block">Ende</label>
                   <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
                 </div>
               </>
             )}
 
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Einheit</label>
+              <label className="text-xs font-medium text-text-tertiary mb-1.5 block">Einheit</label>
               <Select value={entityId} onValueChange={setEntityId}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -118,7 +118,7 @@ export default function OrgKpiPanel({ organizationId, entities }: Props) {
             </div>
 
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Scope</label>
+              <label className="text-xs font-medium text-text-tertiary mb-1.5 block">Scope</label>
               <Select value={scope} onValueChange={(v: any) => setScope(v)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -128,14 +128,14 @@ export default function OrgKpiPanel({ organizationId, entities }: Props) {
                 </SelectContent>
               </Select>
               {effectiveScope !== scope && (
-                <Badge variant="secondary" className="mt-1 text-xs">
+                <Badge variant="secondary" className="mt-1.5 text-xs">
                   Effektiv: {effectiveScope}
                 </Badge>
               )}
             </div>
           </div>
 
-          <div className="flex justify-end mt-3">
+          <div className="flex justify-end mt-4">
             <Button variant="outline" size="sm" onClick={load} disabled={loading}>
               <RefreshCw className={`h-4 w-4 mr-1.5 ${loading ? "animate-spin" : ""}`} />
               Aktualisieren
@@ -146,68 +146,77 @@ export default function OrgKpiPanel({ organizationId, entities }: Props) {
 
       {/* KPI Cards */}
       <div className="grid gap-4 sm:grid-cols-3">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Seats & Lizenzen</CardDescription>
+        <Card variant="raised" className="hover:shadow-elev-2 transition-shadow duration-base">
+          <CardHeader className="pb-2 flex-row items-center gap-2 space-y-0">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-petrol-50 dark:bg-petrol-900/30">
+              <Users className="h-4 w-4 text-petrol-600 dark:text-mint-400" />
+            </div>
+            <CardDescription className="text-text-secondary font-medium">Seats & Lizenzen</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-1 text-sm">
+          <CardContent className="space-y-1.5 text-sm pt-2">
             <div className="flex justify-between">
-              <span>Expiring (30d)</span>
-              <span className="font-semibold">{data?.seats?.expiring_within_30_days ?? 0}</span>
+              <span className="text-text-secondary">Expiring (30d)</span>
+              <span className="font-semibold text-text-primary tabular-nums">{data?.seats?.expiring_within_30_days ?? 0}</span>
             </div>
             <div className="flex justify-between">
-              <span>Expired</span>
-              <span className="font-semibold">{data?.seats?.expired ?? 0}</span>
+              <span className="text-text-secondary">Expired</span>
+              <span className="font-semibold text-text-primary tabular-nums">{data?.seats?.expired ?? 0}</span>
             </div>
             {data?.seats?.counts && Object.entries(data.seats.counts).map(([k, v]) => (
               <div key={k} className="flex justify-between">
-                <span>{k}</span>
-                <span className="font-semibold">{String(v)}</span>
+                <span className="text-text-secondary">{k}</span>
+                <span className="font-semibold text-text-primary tabular-nums">{String(v)}</span>
               </div>
             ))}
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Umsatz (Orders)</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-1 text-sm">
-            <div className="flex justify-between">
-              <span>Anzahl</span>
-              <span className="font-semibold">{data?.billing?.orders_count ?? 0}</span>
+        <Card variant="raised" className="hover:shadow-elev-2 transition-shadow duration-base">
+          <CardHeader className="pb-2 flex-row items-center gap-2 space-y-0">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-mint-100 dark:bg-mint-900/30">
+              <Receipt className="h-4 w-4 text-petrol-700 dark:text-mint-400" />
             </div>
+            <CardDescription className="text-text-secondary font-medium">Umsatz (Orders)</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-1.5 text-sm pt-2">
             <div className="flex justify-between">
-              <span>Summe</span>
-              <span className="font-semibold">{fmtEur(data?.billing?.orders_gross_cents ?? 0)}</span>
+              <span className="text-text-secondary">Anzahl</span>
+              <span className="font-semibold text-text-primary tabular-nums">{data?.billing?.orders_count ?? 0}</span>
+            </div>
+            <div className="flex justify-between items-baseline">
+              <span className="text-text-secondary">Summe</span>
+              <span className="font-display text-lg font-semibold text-petrol-700 dark:text-mint-400 tabular-nums">{fmtEur(data?.billing?.orders_gross_cents ?? 0)}</span>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Rechnungen & Zahlungen</CardDescription>
+        <Card variant="raised" className="hover:shadow-elev-2 transition-shadow duration-base">
+          <CardHeader className="pb-2 flex-row items-center gap-2 space-y-0">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-petrol-50 dark:bg-petrol-900/30">
+              <Wallet className="h-4 w-4 text-petrol-600 dark:text-mint-400" />
+            </div>
+            <CardDescription className="text-text-secondary font-medium">Rechnungen & Zahlungen</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-1 text-sm">
+          <CardContent className="space-y-1.5 text-sm pt-2">
             <div className="flex justify-between">
-              <span>Invoices</span>
-              <span className="font-semibold">{data?.billing?.invoices_count ?? 0}</span>
+              <span className="text-text-secondary">Invoices</span>
+              <span className="font-semibold text-text-primary tabular-nums">{data?.billing?.invoices_count ?? 0}</span>
             </div>
             <div className="flex justify-between">
-              <span>Offen</span>
-              <span className="font-semibold">{data?.billing?.invoices_open_count ?? 0}</span>
+              <span className="text-text-secondary">Offen</span>
+              <span className="font-semibold text-warning tabular-nums">{data?.billing?.invoices_open_count ?? 0}</span>
             </div>
-            <div className="flex justify-between">
-              <span>Bezahlt</span>
-              <span className="font-semibold">{fmtEur(data?.billing?.payments_paid_cents ?? 0)}</span>
+            <div className="flex justify-between items-baseline">
+              <span className="text-text-secondary">Bezahlt</span>
+              <span className="font-display text-base font-semibold text-success tabular-nums">{fmtEur(data?.billing?.payments_paid_cents ?? 0)}</span>
             </div>
           </CardContent>
         </Card>
       </div>
 
       {data?.period && (
-        <p className="text-xs text-muted-foreground">
-          Zeitraum: {data.period.start_date} bis {data.period.end_date_exclusive} (exklusiv)
+        <p className="text-xs text-text-tertiary tabular-nums">
+          Zeitraum: {data.period.start_date} bis {data.period.end_date_exclusive} <span className="text-text-quaternary">(exklusiv)</span>
         </p>
       )}
     </div>
