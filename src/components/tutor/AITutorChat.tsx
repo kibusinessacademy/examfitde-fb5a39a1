@@ -28,22 +28,22 @@ const MODE_CONFIG = {
     icon: BookOpen,
     label: 'Lernmodus',
     description: 'Volle Tutor-Unterstützung',
-    color: 'bg-green-500/10 text-green-600 border-green-500/30',
-    gradient: 'from-green-500/5 to-transparent',
+    color: 'bg-success-bg-subtle text-success border-success/20',
+    gradient: 'from-success-bg-subtle to-transparent',
   },
   [AI_MODES.PRACTICE]: {
     icon: Target,
     label: 'Übungsmodus',
     description: 'Feedback nach Antwort',
-    color: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/30',
-    gradient: 'from-yellow-500/5 to-transparent',
+    color: 'bg-warning-bg-subtle text-warning border-warning/20',
+    gradient: 'from-warning-bg-subtle to-transparent',
   },
   [AI_MODES.EXAM]: {
     icon: Clock,
     label: 'Prüfungsmodus',
     description: 'Nur technische Hilfe',
-    color: 'bg-red-500/10 text-red-600 border-red-500/30',
-    gradient: 'from-red-500/5 to-transparent',
+    color: 'bg-danger-bg-subtle text-danger border-danger/20',
+    gradient: 'from-danger-bg-subtle to-transparent',
   },
 };
 
