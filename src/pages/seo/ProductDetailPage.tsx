@@ -110,11 +110,7 @@ function ProductDetailPageComponent({ productType }: ProductDetailPageProps) {
 
                 <div className="flex items-end gap-4 mb-6">
                   <span className="text-5xl font-bold">{price}€</span>
-                  {productType === 'bundle' && (
-                    <span className="text-lg text-muted-foreground line-through mb-1">
-                      {PRODUCT_PRICES.lernkurs + PRODUCT_PRICES.pruefungstrainer}€
-                    </span>
-                  )}
+                  <span className="text-base text-muted-foreground mb-2">einmalig · 12 Monate Zugang</span>
                 </div>
                 
                 <div className="flex flex-wrap gap-3 mb-8">
