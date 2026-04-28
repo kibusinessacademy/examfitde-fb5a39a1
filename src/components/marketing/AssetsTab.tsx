@@ -65,12 +65,12 @@ export default function AssetsTab() {
               </TableCell>
               <TableCell>
                 {a.legal_check_passed
-                  ? <ShieldCheck className="h-4 w-4 text-green-600" />
-                  : <ShieldAlert className="h-4 w-4 text-orange-500" />}
+                  ? <ShieldCheck className="h-4 w-4 text-success" />
+                  : <ShieldAlert className="h-4 w-4 text-warning" />}
               </TableCell>
               <TableCell>
                 {a.validation_score != null
-                  ? <span className={a.validation_score >= 70 ? 'text-green-600 font-bold' : 'text-orange-500'}>{a.validation_score}%</span>
+                  ? <span className={a.validation_score >= 70 ? 'text-success font-bold tabular-nums' : 'text-warning tabular-nums'}>{a.validation_score}%</span>
                   : '–'}
               </TableCell>
             </TableRow>
