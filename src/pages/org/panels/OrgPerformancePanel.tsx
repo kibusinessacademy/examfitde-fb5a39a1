@@ -74,8 +74,8 @@ export default function OrgPerformancePanel({ organizationId, onNavigateToInterv
 
   if (loadingSummary || loadingRows) {
     return (
-      <div className="flex justify-center py-16">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div data-density="comfortable" className="flex justify-center py-16">
+        <Loader2 className="h-8 w-8 animate-spin text-petrol-600" />
       </div>
     );
   }
@@ -84,32 +84,32 @@ export default function OrgPerformancePanel({ organizationId, onNavigateToInterv
   const criticalInterventions = (interventionSummary?.critical_count ?? 0) + (interventionSummary?.high_count ?? 0);
 
   return (
-    <div className="space-y-6">
+    <div data-density="comfortable" className="space-y-6">
       {/* KPI Cards – now includes intervention count */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <KpiCard
-          icon={<Users className="h-4 w-4 text-muted-foreground" />}
+          icon={<Users className="h-4 w-4 text-petrol-600 dark:text-mint-400" />}
           label="Aktive Lernende"
           value={summary?.total_learners ?? 0}
         />
         <KpiCard
-          icon={<TrendingUp className="h-4 w-4 text-muted-foreground" />}
+          icon={<TrendingUp className="h-4 w-4 text-petrol-600 dark:text-mint-400" />}
           label="Ø Prüfungsreife"
           value={`${Math.round(summary?.avg_readiness ?? 0)}%`}
         />
         <KpiCard
-          icon={<AlertTriangle className="h-4 w-4 text-destructive" />}
+          icon={<AlertTriangle className="h-4 w-4 text-danger" />}
           label="High Risk"
           value={summary?.high_risk_count ?? 0}
           highlight={!!summary?.high_risk_count}
         />
         <KpiCard
-          icon={<Activity className="h-4 w-4 text-muted-foreground" />}
+          icon={<Activity className="h-4 w-4 text-text-tertiary" />}
           label="Inaktiv (>14d)"
           value={summary?.inactive_count ?? 0}
         />
         <KpiCard
-          icon={<ShieldAlert className="h-4 w-4 text-destructive" />}
+          icon={<ShieldAlert className="h-4 w-4 text-danger" />}
           label="Offene Interventionen"
           value={openInterventions}
           highlight={criticalInterventions > 0}
@@ -120,18 +120,20 @@ export default function OrgPerformancePanel({ organizationId, onNavigateToInterv
 
       {/* Critical Cases with explanations + one-click actions */}
       {criticalRows.length > 0 && (
-        <Card className="border-destructive/30">
+        <Card variant="raised" className="border-danger/30 bg-danger-bg-subtle/30">
           <CardHeader className="pb-3">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-destructive" />
-              Kritische Fälle ({criticalRows.length})
+            <CardTitle className="text-lg flex items-center gap-2 font-display text-text-primary">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-danger-bg-subtle">
+                <AlertTriangle className="h-4 w-4 text-danger" />
+              </div>
+              Kritische Fälle <span className="text-text-tertiary tabular-nums font-normal">({criticalRows.length})</span>
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="text-text-secondary">
               Lernende mit hohem Risiko oder längerer Inaktivität – Klick für Details
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="divide-y">
+            <div className="divide-y divide-border-subtle">
               {criticalRows.slice(0, 8).map(row => (
                 <div key={`${row.user_id}-${row.product_id}`}>
                   <CriticalCaseRow row={row} onClickRow={handleCriticalRowClick} />
@@ -140,7 +142,7 @@ export default function OrgPerformancePanel({ organizationId, onNavigateToInterv
               ))}
             </div>
             {criticalRows.length > 8 && (
-              <Button variant="ghost" size="sm" className="w-full mt-2 text-muted-foreground" onClick={onNavigateToInterventions}>
+              <Button variant="ghost" size="sm" className="w-full mt-2 text-text-tertiary" onClick={onNavigateToInterventions}>
                 + {criticalRows.length - 8} weitere kritische Fälle
               </Button>
             )}
@@ -160,7 +162,7 @@ export default function OrgPerformancePanel({ organizationId, onNavigateToInterv
           value={productId ?? "all"}
           onValueChange={(v) => setProductId(v === "all" ? undefined : v)}
         >
-          <SelectTrigger className="w-[260px]">
+          <SelectTrigger className="w-full sm:w-[260px]">
             <SelectValue placeholder="Alle Produkte" />
           </SelectTrigger>
           <SelectContent>
@@ -173,28 +175,33 @@ export default function OrgPerformancePanel({ organizationId, onNavigateToInterv
       </div>
 
       {/* Performance Table */}
-      <Card>
+      <Card variant="raised">
         <CardHeader className="pb-3">
-          <CardTitle className="text-lg">Lernende im Überblick</CardTitle>
-          <CardDescription>{filteredRows.length} Lernende</CardDescription>
+          <CardTitle className="text-lg font-display text-text-primary">Lernende im Überblick</CardTitle>
+          <CardDescription className="text-text-secondary tabular-nums">{filteredRows.length} Lernende</CardDescription>
         </CardHeader>
         <CardContent>
           {filteredRows.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-8 text-center">
-              Noch keine Lernenden mit zugewiesenem Seat.
-            </p>
+            <div className="py-10 text-center">
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-mint-100 dark:bg-petrol-900/40">
+                <Users className="h-5 w-5 text-petrol-600 dark:text-mint-400" />
+              </div>
+              <p className="text-sm text-text-secondary">
+                Noch keine Lernenden mit zugewiesenem Seat.
+              </p>
+            </div>
           ) : (
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>Lernender</TableHead>
-                  <TableHead>Produkt</TableHead>
-                  <TableHead className="min-w-[180px]">Prüfungsreife</TableHead>
-                  <TableHead>Risiko</TableHead>
-                  <TableHead>Fortschritt</TableHead>
-                  <TableHead>Letzte Prüfung</TableHead>
-                  <TableHead>Inaktiv</TableHead>
-                  <TableHead>Letzte Aktivität</TableHead>
+                <TableRow className="border-border-subtle">
+                  <TableHead className="text-text-tertiary font-medium">Lernender</TableHead>
+                  <TableHead className="text-text-tertiary font-medium">Produkt</TableHead>
+                  <TableHead className="text-text-tertiary font-medium min-w-[180px]">Prüfungsreife</TableHead>
+                  <TableHead className="text-text-tertiary font-medium">Risiko</TableHead>
+                  <TableHead className="text-text-tertiary font-medium">Fortschritt</TableHead>
+                  <TableHead className="text-text-tertiary font-medium">Letzte Prüfung</TableHead>
+                  <TableHead className="text-text-tertiary font-medium">Inaktiv</TableHead>
+                  <TableHead className="text-text-tertiary font-medium">Letzte Aktivität</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
