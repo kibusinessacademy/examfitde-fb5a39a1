@@ -1,4 +1,4 @@
-// Bootstrap entrypoint — clears legacy SW/cache artifacts before mounting the app.
+// Bootstrap entrypoint — clears legacy SW/cache artifacts before mounting the app. (rev 2)
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
