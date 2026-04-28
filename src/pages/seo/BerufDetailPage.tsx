@@ -55,7 +55,7 @@ export default function BerufDetailPage() {
     },
     {
       question: `Was kostet die ${kammerLabel}-Prüfungsvorbereitung für ${title}?`,
-      answer: `Der Lernkurs kostet ${PRODUCT_PRICES.lernkurs}€, der Prüfungstrainer ${PRODUCT_PRICES.pruefungstrainer}€. Das Komplett-Bundle gibt es für nur ${PRODUCT_PRICES.bundle}€ – du sparst also ${PRODUCT_PRICES.lernkurs + PRODUCT_PRICES.pruefungstrainer - PRODUCT_PRICES.bundle}€.`,
+      answer: `Die komplette Prüfungsvorbereitung kostet einmalig ${PRODUCT_PRICES.bundle}€ – inklusive Lernkurs, Prüfungstrainer und mündlicher Prüfungssimulation. 12 Monate Zugang, kein Abo.`,
     },
     {
       question: `Wann findet die ${kammerLabel}-Prüfung für ${title} statt?`,
@@ -63,7 +63,7 @@ export default function BerufDetailPage() {
     },
     {
       question: `Wie bereite ich mich am besten auf die ${kammerLabel}-Prüfung vor?`,
-      answer: `ExamFit bietet eine strukturierte Vorbereitung: Erst lernst du mit dem Lernkurs alle Inhalte, dann übst du mit dem Prüfungstrainer echte Prüfungsfragen, und schließlich simulierst du die mündliche Prüfung mit unserem KI-Trainer.`,
+      answer: `ExamFit bietet eine strukturierte Vorbereitung in einem einzigen Bundle: Du lernst alle Inhalte mit den Lernmodulen, übst mit echten Prüfungsfragen im Prüfungstrainer und simulierst die mündliche Prüfung mit unserem KI-Trainer.`,
     },
   ];
 
