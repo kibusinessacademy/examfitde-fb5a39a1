@@ -83,15 +83,17 @@ d("Funnel E2E — anonymer Quiz → Result → Lernplan-Lock", () => {
     expect(m!.curriculumId).toMatch(/^[0-9a-f-]{36}$/);
   });
 
-  it("Step 5a: Lernplan-PDF Edge Function erreichbar", async () => {
+  it("Step 5a: Lernplan-PDF Edge Function liefert echtes PDF (data:application/pdf)", async () => {
     const { data, error } = await client.functions.invoke("lernplan-pdf", {
       body: { slug: QUIZ_SLUG, attempt_id: attemptId ?? null },
     });
-    // Function darf fehlschlagen wenn nicht deployt — dann Test überspringen
     if (error && /not found|404/i.test(String(error.message ?? error))) return;
     expect(error).toBeNull();
-    expect((data as any)?.ok).toBe(true);
-    expect(typeof (data as any)?.url).toBe("string");
+    const payload = data as any;
+    expect(payload?.ok).toBe(true);
+    expect(typeof payload?.url).toBe("string");
+    expect(payload.url.startsWith("data:application/pdf")).toBe(true);
+    expect(payload?.mime).toBe("application/pdf");
   });
 
   it("Step 5b: quiz_leads bleibt für anon UNLESBAR (Lernplan ohne Lead gesperrt)", async () => {
