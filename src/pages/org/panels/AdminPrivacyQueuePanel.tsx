@@ -206,7 +206,7 @@ export default function AdminPrivacyQueuePanel() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDecisionOpen(false)}>Abbrechen</Button>
-            <Button onClick={submitDecision} disabled={saving}>{saving ? "Speichern…" : "Bestätigen"}</Button>
+            <Button variant="petrol" onClick={submitDecision} disabled={saving}>{saving ? "Speichern…" : "Bestätigen"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
