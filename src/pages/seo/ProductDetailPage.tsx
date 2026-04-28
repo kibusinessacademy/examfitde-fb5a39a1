@@ -8,75 +8,33 @@ import { Breadcrumbs } from '@/components/seo/Breadcrumbs';
 import { useSingleBeruf, useCurriculumProductBySlug } from '@/hooks/useSEOPages';
 import { SEO_TEMPLATES, SITE_URL, PRODUCT_PRICES, generateProductSchema } from '@/lib/seo';
 
+// Bundle-only Strategie: Es gibt nur ein kaufbares Produkt — das Bundle (24,90 €).
+// Der Typ behält die Legacy-Werte als Aliase, damit alte Imports nicht brechen,
+// aber alle führen intern zur Bundle-Variante.
 type ProductType = 'lernkurs' | 'pruefungstrainer' | 'bundle';
 
-const productInfo: Record<ProductType, {
-  icon: typeof BookOpen;
-  color: string;
-  features: string[];
-  benefits: string[];
-  cta: string;
-  label: string;
-  listLabel: string;
-}> = {
-  lernkurs: {
-    icon: BookOpen,
-    color: 'primary',
-    features: [
-      'Alle Lernfelder strukturiert erklärt',
-      'Verständliche Schritt-für-Schritt-Anleitungen',
-      'KI-Tutor für deine Fragen',
-      'Fortschrittstracking',
-      '12 Monate unbegrenzter Zugang',
-    ],
-    benefits: [
-      'Verstehe komplexe Themen endlich',
-      'Lerne in deinem eigenen Tempo',
-      'Nie wieder Lücken im Prüfungswissen',
-    ],
-    cta: 'Lernkurs kaufen',
-    label: 'Lernkurs',
-    listLabel: 'Lernkurse',
-  },
-  pruefungstrainer: {
-    icon: Target,
-    color: 'accent',
-    features: [
-      'Prüfungsrelevante Fragen nach IHK-Standards',
-      'Adaptiver Lernalgorithmus',
-      'Automatische Schwächenanalyse',
-      'Prüfungssimulation unter Zeitdruck',
-      '12 Monate unbegrenzter Zugang',
-    ],
-    benefits: [
-      'Keine bösen Überraschungen in der Prüfung',
-      'Lerne aus deinen Fehlern',
-      'Gehe selbstsicher in die Prüfung',
-    ],
-    cta: 'Prüfungstrainer kaufen',
-    label: 'Prüfungstrainer',
-    listLabel: 'Prüfungstrainer',
-  },
+const productInfo = {
   bundle: {
     icon: Award,
     color: 'success',
     features: [
-      'Lernkurs + Prüfungstrainer inklusive',
+      'Lernkurs nach Rahmenplan',
+      'Prüfungstrainer mit echten IHK-Fragen',
       'Mündliche Prüfungssimulation',
-      'KI-Prüfer mit Echtzeit-Feedback',
+      'KI-Tutor mit Echtzeit-Feedback',
       'Prüfungsangst-Management',
       '12 Monate unbegrenzter Zugang',
     ],
     benefits: [
       'Komplett-Paket für maximale Sicherheit',
       'Mündliche Prüfung perfekt vorbereitet',
-      'Spare 9€ gegenüber Einzelkauf',
+      'Einmalzahlung, kein Abo',
     ],
     cta: 'Bundle kaufen',
     label: 'Komplett-Bundle',
     listLabel: 'Bundles',
   },
-};
+} as const;
 
 interface ProductDetailPageProps {
   productType: ProductType;
