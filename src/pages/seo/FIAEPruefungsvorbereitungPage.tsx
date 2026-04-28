@@ -15,7 +15,7 @@ const CLUSTER = 'fiae_cluster';
 const PRUEFUNGSTEILE = [
   { icon: Code2, title: 'GA1 – Anwendungsentwicklung', desc: 'Entwicklung & Umsetzung von Algorithmen, OOP, Schnittstellen, SQL, Sicherheitsaspekte.', href: '/fiae-anwendungsentwicklung' },
   { icon: Database, title: 'GA2 – Wirtschafts- und Sozialkunde', desc: 'Vertragsrecht, Arbeitsrecht, Datenschutz, Wirtschaftliches Handeln im Betrieb.', href: '/fiae-wiso' },
-  { icon: Briefcase, title: 'Betriebliches Projekt + Fachgespräch', desc: 'Projektantrag, Dokumentation (~30 Std.), Präsentation 15 Min. + Fachgespräch 15 Min.', href: '/fiae-projektarbeit' },
+  { icon: Briefcase, title: 'Betriebliches Projekt + Fachgespräch', desc: 'Projektantrag, Dokumentation, Präsentation und Fachgespräch — Bearbeitungszeit gemäß aktueller IHK-Verordnung.', href: '/fiae-projektarbeit' },
 ];
 
 const HANDLUNGSFELDER = [
