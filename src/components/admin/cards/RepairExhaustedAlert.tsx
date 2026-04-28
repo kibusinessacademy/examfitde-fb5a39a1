@@ -108,15 +108,15 @@ const CATEGORY_LABELS: Record<ErrorCategory, string> = {
 };
 
 const CATEGORY_COLORS: Record<ErrorCategory, string> = {
-  EXAM_POOL: 'bg-red-900/40 text-red-300 border-red-700/50',
-  COMPETENCY: 'bg-orange-900/40 text-orange-300 border-orange-700/50',
-  MINICHECK: 'bg-yellow-900/40 text-yellow-300 border-yellow-700/50',
-  TRAP: 'bg-purple-900/40 text-purple-300 border-purple-700/50',
-  BLOOM: 'bg-blue-900/40 text-blue-300 border-blue-700/50',
-  LESSON_QUALITY: 'bg-amber-900/40 text-amber-300 border-amber-700/50',
-  GENERATION_NEVER_RAN: 'bg-slate-700/40 text-slate-300 border-slate-600/50',
-  REPAIR_EXHAUSTED: 'bg-red-900/60 text-red-200 border-red-600/50',
-  OTHER: 'bg-muted text-muted-foreground border-border',
+  EXAM_POOL: 'border-destructive-border bg-destructive-bg-subtle text-destructive',
+  COMPETENCY: 'border-warning-border bg-warning-bg-subtle text-warning',
+  MINICHECK: 'border-warning-border bg-warning-bg-subtle text-warning',
+  TRAP: 'border-petrol-300 bg-petrol-50 text-petrol-700 dark:bg-petrol-900 dark:text-petrol-200',
+  BLOOM: 'border-info-border bg-info-bg-subtle text-info',
+  LESSON_QUALITY: 'border-warning-border bg-warning-bg-subtle text-warning',
+  GENERATION_NEVER_RAN: 'border-border-subtle bg-surface-sunken text-text-secondary',
+  REPAIR_EXHAUSTED: 'border-destructive-border bg-destructive-bg-subtle text-destructive',
+  OTHER: 'border-border-subtle bg-surface-sunken text-text-tertiary',
 };
 
 /* ── Helpers ── */
@@ -288,7 +288,7 @@ function ExhaustedPackageRow({ pkg, onRepair, busyId, selected, onToggleSelect, 
   const isGenNeverRan = hasCategory(pkg, 'GENERATION_NEVER_RAN');
 
   return (
-    <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 space-y-2">
+    <div className="rounded-lg border border-destructive-border bg-destructive-bg-subtle p-3 space-y-2">
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-start gap-2 min-w-0 flex-1">
           {onToggleSelect && (
@@ -321,7 +321,7 @@ function ExhaustedPackageRow({ pkg, onRepair, busyId, selected, onToggleSelect, 
 
       {/* GATE_PASS indicator */}
       {pkg.gate_class === 'PASS' && (
-        <div className="text-[11px] font-semibold text-emerald-400">
+        <div className="text-[11px] font-semibold text-success">
           GATE_PASS
         </div>
       )}
@@ -382,7 +382,7 @@ function ExhaustedPackageRow({ pkg, onRepair, busyId, selected, onToggleSelect, 
           <Button
             size="sm"
             variant="default"
-            className="h-7 text-[11px] gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+            className="h-7 text-[11px] gap-1 bg-success text-success-foreground hover:bg-success/90"
             disabled={disabled}
             onClick={() => onRepair(pkg.package_id, 'heal_gate_pass')}
             title="Gate = PASS → Step auf done setzen"
