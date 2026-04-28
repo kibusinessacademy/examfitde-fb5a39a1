@@ -239,13 +239,13 @@ export default function ExamTrainer() {
 
       {/* Loading Step */}
       {step === 'loading' && (
-        <Card className="glass-card border-border/50 max-w-2xl mx-auto">
+        <Card variant="raised" className="max-w-2xl mx-auto" data-density="comfortable">
           <CardContent className="py-16 text-center">
-            <Sparkles className="h-16 w-16 text-primary mx-auto mb-6 animate-pulse" />
-            <h3 className="text-xl font-display font-bold text-foreground mb-2">
+            <Sparkles className="h-16 w-16 text-petrol-600 mx-auto mb-6 animate-pulse" />
+            <h3 className="text-xl font-display font-bold text-text-primary mb-2">
               Fragen werden geladen...
             </h3>
-            <p className="text-muted-foreground">
+            <p className="text-text-secondary">
               Wir stellen dir Prüfungsfragen für {selectedBerufName || 'dein Training'} zusammen.
             </p>
           </CardContent>
@@ -257,20 +257,20 @@ export default function ExamTrainer() {
         <div className="space-y-6 max-w-2xl mx-auto">
           <div className="space-y-2">
             <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">
+              <span className="text-text-secondary tabular-nums">
                 Frage {currentIndex + 1} von {questions.length}
               </span>
               <div className="flex items-center gap-3">
                 {stats.streak > 0 && (
-                  <div className="flex items-center gap-1 text-orange-500">
+                  <div className="flex items-center gap-1 text-warning">
                     <Flame className="h-4 w-4" />
-                    <span className="font-medium">{stats.streak}</span>
+                    <span className="font-medium tabular-nums">{stats.streak}</span>
                   </div>
                 )}
                 <Badge variant="outline" className={cn(
-                  adaptiveDifficulty === 'easy' && "text-green-500 border-green-500/30",
-                  adaptiveDifficulty === 'medium' && "text-yellow-500 border-yellow-500/30",
-                  adaptiveDifficulty === 'hard' && "text-red-500 border-red-500/30",
+                  adaptiveDifficulty === 'easy' && "text-success border-success/30 bg-success-bg-subtle",
+                  adaptiveDifficulty === 'medium' && "text-warning border-warning/30 bg-warning-bg-subtle",
+                  adaptiveDifficulty === 'hard' && "text-danger border-danger/30 bg-danger-bg-subtle",
                 )}>
                   {adaptiveDifficulty === 'easy' ? 'Leicht' : adaptiveDifficulty === 'medium' ? 'Mittel' : 'Schwer'}
                 </Badge>
