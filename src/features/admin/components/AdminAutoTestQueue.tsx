@@ -1,9 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 import { getAdminAutoTestQueue } from "@/features/admin/api/adminAutoTestQueueApi";
 import { TestPriorityBadge } from "@/features/admin/components/TestPriorityBadge";
 import { TestPriorityReasons } from "@/features/admin/components/TestPriorityReasons";
 import { CourseTestStatusBadge } from "@/features/admin/components/CourseTestStatusBadge";
+import { cn } from "@/lib/utils";
 
 type PreviewMode = "standard" | "premium" | "adaptive";
 
@@ -37,34 +40,45 @@ export function AdminAutoTestQueue({
   };
 
   if (isLoading) {
-    return <div className="rounded-2xl border p-4 text-muted-foreground">Lade Auto-Test-Queue…</div>;
+    return (
+      <Card variant="flat" className="rounded-2xl p-4 text-text-secondary">
+        Lade Auto-Test-Queue…
+      </Card>
+    );
   }
 
   if (error) {
-    return <div className="rounded-2xl border border-destructive/30 p-4 text-destructive">Fehler beim Laden der Auto-Test-Queue.</div>;
+    return (
+      <Card
+        variant="flat"
+        className="rounded-2xl border-destructive-border bg-destructive-bg-subtle p-4 text-destructive"
+      >
+        Fehler beim Laden der Auto-Test-Queue.
+      </Card>
+    );
   }
 
   return (
-    <div className="rounded-2xl border bg-card p-5 space-y-4">
+    <Card variant="default" className="rounded-2xl p-5 space-y-4">
       <div>
-        <div className="text-lg font-semibold">Heutige Test-Priorität</div>
-        <div className="text-sm text-muted-foreground">
+        <div className="text-lg font-semibold text-text-primary">Heutige Test-Priorität</div>
+        <div className="text-sm text-text-secondary">
           Diese Kurse solltest du zuerst aus Learner-Sicht testen.
         </div>
       </div>
 
       <div className="space-y-3">
         {data.map((item, idx) => (
-          <div key={item.package_id} className="rounded-xl border p-4 space-y-3">
+          <Card key={item.package_id} variant="raised" className="rounded-xl p-4 space-y-3">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <div className="text-xs text-muted-foreground">#{idx + 1}</div>
-                <div className="font-medium truncate">{item.title}</div>
-                <div className="text-xs text-muted-foreground">
+                <div className="text-xs text-text-tertiary">#{idx + 1}</div>
+                <div className="font-medium truncate text-text-primary">{item.title}</div>
+                <div className="text-xs text-text-tertiary">
                   Score: {item.queue_score} · {new Date(item.updated_at).toLocaleDateString("de-DE")}
                 </div>
                 {item.latest_qa_at && (
-                  <div className="text-[10px] text-muted-foreground mt-0.5">
+                  <div className="text-[10px] text-text-quaternary mt-0.5">
                     Letzter QA-Run: {new Date(item.latest_qa_at).toLocaleString("de-DE")}
                   </div>
                 )}
@@ -72,9 +86,9 @@ export function AdminAutoTestQueue({
               <div className="flex flex-col items-end gap-1 shrink-0">
                 <TestPriorityBadge priority={item.test_priority} />
                 <CourseTestStatusBadge status={item.latest_qa_status} />
-                <span className="rounded-full border px-2 py-0.5 text-[10px] text-muted-foreground">
+                <Badge variant="muted" size="sm">
                   {freshnessLabel[item.qa_freshness_bucket] ?? item.qa_freshness_bucket}
-                </span>
+                </Badge>
               </div>
             </div>
 
@@ -83,36 +97,48 @@ export function AdminAutoTestQueue({
             {item.latest_qa_issue_codes && item.latest_qa_issue_codes.length > 0 && (
               <div className="flex flex-wrap gap-1.5">
                 {item.latest_qa_issue_codes.map((code) => (
-                  <span
-                    key={code}
-                    className="rounded-full border border-destructive/20 bg-destructive/5 px-2 py-0.5 text-[10px] text-destructive"
-                  >
+                  <Badge key={code} variant="danger" size="sm">
                     QA: {code}
-                  </span>
+                  </Badge>
                 ))}
               </div>
             )}
 
             {item.latest_qa_notes && (
-              <div className="rounded-lg border p-2 text-xs text-muted-foreground">
+              <div className="rounded-lg border border-border-subtle bg-surface-sunken p-2 text-xs text-text-secondary">
                 {item.latest_qa_notes}
               </div>
             )}
 
             {item.never_tested && (
-              <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-1.5 text-xs text-amber-700 dark:text-amber-300">
+              <div className="rounded-lg border border-warning-border bg-warning-bg-subtle px-3 py-1.5 text-xs text-warning">
                 Noch nie getestet — hoher manueller QA-Wert.
               </div>
             )}
 
             <div className="grid grid-cols-3 gap-1.5 text-xs">
-              <div className={`rounded-lg border p-2 ${item.approved_questions < 40 ? "border-destructive/30 text-destructive" : ""}`}>
+              <div
+                className={cn(
+                  "rounded-lg border border-border-subtle p-2 text-text-secondary",
+                  item.approved_questions < 40 && "border-destructive-border bg-destructive-bg-subtle text-destructive",
+                )}
+              >
                 Fragen: {item.approved_questions}
               </div>
-              <div className={`rounded-lg border p-2 ${item.lessons_count === 0 ? "border-destructive/30 text-destructive" : ""}`}>
+              <div
+                className={cn(
+                  "rounded-lg border border-border-subtle p-2 text-text-secondary",
+                  item.lessons_count === 0 && "border-destructive-border bg-destructive-bg-subtle text-destructive",
+                )}
+              >
                 Lessons: {item.lessons_count}
               </div>
-              <div className={`rounded-lg border p-2 ${item.tutor_index_count === 0 ? "border-amber-500/30 text-amber-700 dark:text-amber-300" : ""}`}>
+              <div
+                className={cn(
+                  "rounded-lg border border-border-subtle p-2 text-text-secondary",
+                  item.tutor_index_count === 0 && "border-warning-border bg-warning-bg-subtle text-warning",
+                )}
+              >
                 Tutor: {item.tutor_index_count}
               </div>
             </div>
@@ -131,15 +157,15 @@ export function AdminAutoTestQueue({
                 Adaptive
               </Button>
             </div>
-          </div>
+          </Card>
         ))}
 
         {data.length === 0 && (
-          <div className="rounded-xl border p-4 text-sm text-muted-foreground">
+          <Card variant="sunken" className="rounded-xl p-4 text-sm text-text-secondary">
             Keine Kurse in der Auto-Test-Queue.
-          </div>
+          </Card>
         )}
       </div>
-    </div>
+    </Card>
   );
 }
