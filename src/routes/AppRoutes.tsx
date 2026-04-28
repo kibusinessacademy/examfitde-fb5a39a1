@@ -213,6 +213,7 @@ const AppRoutes = () => {
         <Route path="/enterprise-demo" element={<EnterpriseDemoPage />} />
 
         {/* Enterprise Customer Console (IT-Leiter) */}
+        <Route path="/org" element={<Navigate to="/org/enterprise" replace />} />
         <Route path="/org/enterprise" element={<OrgEnterprisePage />} />
 
         {/* SEO Routes */}
