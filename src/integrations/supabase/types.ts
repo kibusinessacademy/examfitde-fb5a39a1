@@ -95097,6 +95097,14 @@ export type Database = {
         Returns: Json
       }
       admin_e2e_run_bundle_check:
+        | {
+            Args: {
+              p_limit?: number
+              p_offset?: number
+              p_test_user_id?: string
+            }
+            Returns: Json
+          }
         | { Args: { p_limit?: number; p_test_user_id?: string }; Returns: Json }
         | {
             Args: {
