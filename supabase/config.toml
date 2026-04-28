@@ -473,3 +473,6 @@ verify_jwt = false
 
 [functions.email-sequence-worker]
 verify_jwt = false
+
+[functions.e2e-product-test-runner]
+verify_jwt = false
