@@ -150,13 +150,13 @@ export function AITutorChat({
                 animate={{ scale: 1, opacity: 1 }}
                 className="text-center py-10"
               >
-                <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
-                  <Bot className="h-8 w-8 text-primary" />
+                <div className="w-16 h-16 rounded-2xl bg-petrol-100 flex items-center justify-center mx-auto mb-4">
+                  <Bot className="h-8 w-8 text-petrol-600" />
                 </div>
-                <p className="text-sm font-medium mb-1">
+                <p className="text-sm font-medium mb-1 text-text-primary">
                   {mode === AI_MODES.EXAM ? 'Nur technische Fragen möglich' : 'Hallo! Wie kann ich dir helfen?'}
                 </p>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-text-secondary">
                   {mode === AI_MODES.EXAM ? '' : 'Stelle eine Frage oder wähle einen Vorschlag unten.'}
                 </p>
               </motion.div>
@@ -192,7 +192,7 @@ export function AITutorChat({
                 key={idx}
                 onClick={() => { setInput(''); sendMessage(prompt); }}
                 disabled={isLoading}
-                className="text-xs px-3 py-2 rounded-xl border border-primary/20 bg-primary/5 hover:bg-primary/10 text-foreground hover:text-primary transition-colors disabled:opacity-50"
+                className="text-xs px-3 py-2 rounded-xl border border-petrol-200 bg-petrol-50 hover:bg-petrol-100 text-text-primary hover:text-petrol-700 transition-colors duration-base disabled:opacity-50"
               >
                 {prompt}
               </button>
@@ -201,16 +201,16 @@ export function AITutorChat({
         )}
 
         {/* Input */}
-        <form onSubmit={handleSubmit} className="p-3 border-t bg-background/50 backdrop-blur-sm flex gap-2">
+        <form onSubmit={handleSubmit} className="p-3 border-t border-border-subtle bg-surface-raised/50 backdrop-blur-sm flex gap-2">
           <Input
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder={mode === AI_MODES.EXAM ? "Technische Frage stellen…" : "Frage stellen…"}
             disabled={isLoading}
-            className="flex-1 rounded-xl border-border/50 bg-muted/50 focus:bg-background"
+            className="flex-1 rounded-xl border-border-subtle bg-surface-sunken focus:bg-surface-raised"
           />
-          <Button type="submit" size="icon" disabled={isLoading || !input.trim()} className="rounded-xl h-10 w-10 gradient-primary text-primary-foreground">
+          <Button type="submit" variant="petrol" size="icon" disabled={isLoading || !input.trim()} className="rounded-xl h-10 w-10">
             {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           </Button>
         </form>
