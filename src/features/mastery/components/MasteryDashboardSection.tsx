@@ -26,16 +26,13 @@ export function MasteryDashboardSection({ curriculumId }: MasteryDashboardSectio
   });
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <div data-density="comfortable" className="grid grid-cols-1 lg:grid-cols-2 gap-4">
       <ReadinessCard
         readiness={readiness ?? null}
         isLoading={readinessLoading}
         curriculumId={curriculumId}
       />
-      <WeaknessList
-        items={weaknesses as WeaknessRow[]}
-        isLoading={weaknessLoading}
-      />
+      <WeaknessList items={weaknesses as WeaknessRow[]} isLoading={weaknessLoading} />
     </div>
   );
 }
