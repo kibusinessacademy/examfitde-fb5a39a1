@@ -211,7 +211,8 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
       <Button
         onClick={handleStart}
         disabled={!canStart}
-        className="mt-4 w-full h-12 text-base gradient-primary text-primary-foreground shadow-glow"
+        variant="petrol"
+        className="mt-4 w-full h-12 text-base"
         aria-label="Training starten"
       >
         <Sparkles className="h-5 w-5 mr-2" />
