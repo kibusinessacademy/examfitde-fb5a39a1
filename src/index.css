@@ -38,6 +38,24 @@
     --muted: 210 40% 96%;
     --muted-foreground: 215 16% 35%;
 
+    /* ── Text Hierarchy v2 (Light) ── */
+    --text-primary: 222 47% 11%;
+    --text-secondary: 215 20% 28%;
+    --text-tertiary: 215 16% 45%;
+    --text-quaternary: 215 14% 60%;
+    --text-on-petrol: 0 0% 100%;
+
+    /* ── Surface Hierarchy v2 (Light) ── */
+    --surface-sunken: 210 40% 95%;
+    --surface-default: 0 0% 100%;
+    --surface-raised: 0 0% 100%;
+    --surface-overlay: 0 0% 100%;
+
+    /* ── Border Hierarchy v2 (Light) ── */
+    --border-subtle: 220 14% 94%;
+    --border-strong: 220 13% 82%;
+    --border-focus: 168 64% 45%;
+
     /* Accent: Mint - Progress & Success highlights */
     --accent: 168 64% 50%;
     --accent-foreground: 222 47% 11%;
@@ -45,24 +63,46 @@
     /* Success: Passed/Mastered */
     --success: 142 76% 36%;
     --success-foreground: 0 0% 100%;
+    --success-bg-subtle: 142 60% 94%;
+    --success-border: 142 50% 78%;
 
     /* Warning: Needs Review */
     --warning: 38 92% 50%;
     --warning-foreground: 222 47% 11%;
+    --warning-bg-subtle: 38 92% 94%;
+    --warning-border: 38 80% 75%;
 
     /* Destructive: Errors only */
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
+    --destructive-bg-subtle: 0 80% 96%;
+    --destructive-border: 0 70% 85%;
 
     /* Info: Neutral information */
     --info: 189 94% 37%;
     --info-foreground: 0 0% 100%;
+    --info-bg-subtle: 189 80% 94%;
+    --info-border: 189 70% 78%;
 
     --border: 220 13% 91%;
     --input: 220 13% 91%;
-    --ring: 181 61% 15%;
+    --ring: 168 64% 45%;
 
     --radius: 0.75rem;
+
+    /* ── Motion v2 ── (durations + easings) */
+    --motion-instant: 80ms;
+    --motion-fast: 150ms;
+    --motion-base: 220ms;
+    --motion-slow: 380ms;
+    --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+    --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+    --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+    /* ── Density Modes ── (overridden via [data-density="dense"]) */
+    --density-row: 2.75rem;
+    --density-card-pad: 1.25rem;
+    --density-section-gap: 1.5rem;
 
     /* Sidebar - Petrol themed */
     --sidebar-background: 181 64% 12%;
@@ -109,6 +149,24 @@
     --muted: 222 47% 11%;
     --muted-foreground: 215 16% 55%;
 
+    /* ── Text Hierarchy v2 (Dark) ── */
+    --text-primary: 220 13% 95%;
+    --text-secondary: 220 13% 80%;
+    --text-tertiary: 215 14% 62%;
+    --text-quaternary: 215 12% 48%;
+    --text-on-petrol: 0 0% 100%;
+
+    /* ── Surface Hierarchy v2 (Dark) ── */
+    --surface-sunken: 222 60% 4%;
+    --surface-default: 181 64% 12%;
+    --surface-raised: 181 50% 16%;
+    --surface-overlay: 181 50% 18%;
+
+    /* ── Border Hierarchy v2 (Dark) ── */
+    --border-subtle: 181 50% 18%;
+    --border-strong: 181 40% 28%;
+    --border-focus: 168 64% 55%;
+
     /* Accent: Mint stays vibrant */
     --accent: 168 64% 50%;
     --accent-foreground: 222 47% 11%;
@@ -116,22 +174,30 @@
     /* Success */
     --success: 142 71% 45%;
     --success-foreground: 222 47% 11%;
+    --success-bg-subtle: 142 50% 14%;
+    --success-border: 142 40% 28%;
 
     /* Warning */
     --warning: 38 92% 50%;
     --warning-foreground: 222 47% 11%;
+    --warning-bg-subtle: 38 60% 14%;
+    --warning-border: 38 50% 30%;
 
     /* Destructive */
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
+    --destructive-bg-subtle: 0 50% 16%;
+    --destructive-border: 0 45% 32%;
 
     /* Info */
     --info: 189 94% 43%;
     --info-foreground: 222 47% 11%;
+    --info-bg-subtle: 189 60% 14%;
+    --info-border: 189 50% 28%;
 
     --border: 181 50% 20%;
     --input: 181 50% 20%;
-    --ring: 168 64% 50%;
+    --ring: 168 64% 55%;
 
     /* Sidebar Dark */
     --sidebar-background: 222 84% 4%;
@@ -308,16 +374,31 @@
   color-scheme: dark;
 }
 
-/* Smooth color transitions for theme switching */
-*, *::before, *::after {
-  transition-property: background-color, border-color;
-  transition-duration: 150ms;
-  transition-timing-function: ease-in-out;
+/* Theme switch transitions: ONLY on root, not every element.
+   This avoids fighting per-component hover/focus transitions and keeps
+   interactions crisp. */
+html {
+  transition: background-color var(--motion-base, 220ms) var(--ease-in-out, ease-in-out),
+              color var(--motion-base, 220ms) var(--ease-in-out, ease-in-out);
 }
 
 /* Disable transitions on page load */
 .no-transitions *, .no-transitions *::before, .no-transitions *::after {
   transition: none !important;
+}
+
+/* ── Density Modes ──
+   Apply to a section root: data-density="dense" (admin) or "comfortable" (default)
+   Components opt-in by reading these vars. */
+[data-density="dense"] {
+  --density-row: 2.25rem;
+  --density-card-pad: 0.875rem;
+  --density-section-gap: 1rem;
+}
+[data-density="comfortable"] {
+  --density-row: 3rem;
+  --density-card-pad: 1.5rem;
+  --density-section-gap: 2rem;
 }
 
 /* Mobile Native App Styles */
