@@ -101862,6 +101862,7 @@ export type Database = {
         Args: { p_package_id: string }
         Returns: Json
       }
+      validate_quiz_mapping: { Args: { p_quiz_slug: string }; Returns: Json }
       verify_evidence_pack_integrity: {
         Args: { p_pack_id: string }
         Returns: Json
