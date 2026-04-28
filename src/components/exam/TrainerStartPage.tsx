@@ -238,7 +238,7 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
         transition={{ duration: 0.35 }}
         className="mb-5"
       >
-        <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-sm text-primary">
+        <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-petrol-200 bg-petrol-50 px-3 py-1 text-sm text-petrol-700">
           <GraduationCap className="h-4 w-4" />
           {t('trainerTitle')}
         </div>
