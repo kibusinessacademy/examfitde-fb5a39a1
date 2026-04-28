@@ -23,13 +23,13 @@ const THEMEN = [
 const FEHLER = [
   { title: 'Antrag zu vage', desc: 'Ohne messbare Ziele und Stundenplanung gibt es Auflagen oder Ablehnung.' },
   { title: 'Doku zu code-lastig', desc: 'Die IHK will Entscheidungen sehen, nicht Listings – Code-Auszüge sparsam einsetzen.' },
-  { title: 'Präsentation zu breit', desc: '15 Minuten reichen nur für 1–2 Kern­entscheidungen mit echter Tiefe.' },
+  { title: 'Präsentation zu breit', desc: 'Die kurze Präsentationszeit reicht nur für 1–2 Kern­entscheidungen mit echter Tiefe – Fokus statt Vollständigkeit.' },
   { title: 'Fachgespräch nicht geübt', desc: 'Wer Entscheidungen nicht spontan begründen kann, verschenkt die beste Note.' },
 ];
 
 const FAQS = [
-  { question: 'Wie viele Stunden hat das betriebliche Projekt?', answer: 'Aktuell ca. 30 Stunden Bearbeitungszeit. Genaue Vorgaben über die zuständige IHK – immer prüfen, ob aktuelle Verordnung gilt.' },
-  { question: 'Wann muss der Projektantrag eingereicht werden?', answer: 'Typischerweise 6–8 Wochen vor Prüfungsbeginn – exakte Frist über die IHK. Wer zu spät einreicht, verschiebt automatisch um einen Termin.' },
+  { question: 'Wie viele Stunden hat das betriebliche Projekt?', answer: 'Die exakte Bearbeitungszeit regelt die aktuelle Prüfungsverordnung deiner zuständigen IHK – bitte dort vor Antragsstellung prüfen.' },
+  { question: 'Wann muss der Projektantrag eingereicht werden?', answer: 'Die exakte Frist gibt deine zuständige IHK vor – meist mehrere Wochen vor Prüfungsbeginn. Wer zu spät einreicht, verschiebt automatisch um einen Termin.' },
   { question: 'Darf KI / Copilot im Projekt eingesetzt werden?', answer: 'Ja, aber transparent. Eingesetzte Tools müssen in der Doku benannt werden und du musst sämtliche Code-Entscheidungen im Fachgespräch selbst erklären können.' },
   { question: 'Wie wichtig ist die Wirtschaftlichkeitsbetrachtung?', answer: 'Sehr wichtig – sie ist Pflichtbestandteil und entscheidet oft, ob die Note „gut" oder „sehr gut" wird.' },
 ];

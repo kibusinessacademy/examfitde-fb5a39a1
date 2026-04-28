@@ -20,14 +20,14 @@ const THEMEN = [
 ];
 
 const FEHLER = [
-  { title: 'IFRS auf den letzten Drücker lernen', desc: 'IFRS-Aufgaben sind formelnah und prüfen Verständnis – ohne 4–6 Wochen gezieltes Training fehlen die Punkte.' },
+  { title: 'IFRS auf den letzten Drücker lernen', desc: 'IFRS-Aufgaben sind formelnah und prüfen Verständnis – ohne mehrere Wochen gezieltes Training fehlt es schnell an Routine.' },
   { title: 'GewSt-Hinzurechnungen vergessen', desc: 'Gerade § 8 Nr. 1 GewStG (Finanzierungsanteile) wird gerne übersehen.' },
   { title: 'IKS als Theorie abtun', desc: 'IKS-Fragen kommen häufig im mündlichen Fachgespräch und im 4. Handlungsbereich.' },
 ];
 
 const FAQS = [
   { question: 'Welche Steuergesetze sind in der Klausur erlaubt?', answer: 'Üblicherweise EStG, KStG, GewStG, UStG, AO inklusive Durchführungsverordnungen – jeweils unkommentierte Textausgaben. Genaue Liste über die IHK-Einladung.' },
-  { question: 'Wie viele Punkte bringt der IFRS-Teil?', answer: 'Der Handlungsbereich 5 (Berichterstattung nach IFRS) wird i. d. R. mit 100 Punkten / 180 Min. geprüft – also gleichwertig zu den anderen Klausuren.' },
+  { question: 'Welche Rolle spielt der IFRS-Teil?', answer: 'Die Berichterstattung nach IFRS (Handlungsbereich 5) ist regelmäßig Bestandteil der schriftlichen Prüfung und gewichtet vergleichbar zu den anderen Klausuren. Exakte Punkte und Bearbeitungszeit regelt die aktuelle Prüfungsverordnung deiner IHK.' },
   { question: 'Brauche ich Steuerberater-Niveau?', answer: 'Nein – aber ein sicheres Anwenderniveau auf das in der Verordnung benannte Stoffgebiet. Spezialfälle (z. B. Umwandlungssteuerrecht) sind nicht Pflicht.' },
 ];
 

@@ -21,13 +21,13 @@ const THEMEN = [
 ];
 
 const FEHLER = [
-  { title: 'Pseudocode unsauber', desc: 'Wer keinen klaren Stil verwendet (Einrückung, Klammern, Variablennamen), verliert leicht 5–10 Punkte.' },
+  { title: 'Pseudocode unsauber', desc: 'Wer keinen klaren Stil verwendet (Einrückung, Klammern, Variablennamen), verschenkt leicht wertvolle Punkte.' },
   { title: 'SQL-JOINs nicht beherrschen', desc: 'INNER vs. LEFT JOIN bei mehreren Tabellen ist Pflichtstoff – kommt fast immer dran.' },
   { title: 'Sicherheits­fragen abtun', desc: 'Themen wie SQL-Injection und sichere Passwort­speicherung werden regelmäßig geprüft.' },
 ];
 
 const FAQS = [
-  { question: 'Wie viel Zeit habe ich in GA1?', answer: '90 Minuten für mehrere ungebundene Aufgaben, häufig kombinierte Sachverhalte mit OOP, SQL und Schnittstellen.' },
+  { question: 'Was wird in GA1 geprüft?', answer: 'Mehrere ungebundene Aufgaben, häufig kombinierte Sachverhalte aus OOP, SQL und Schnittstellen. Genaue Bearbeitungszeit und Aufgabenanzahl regelt die aktuelle Prüfungsverordnung deiner IHK.' },
   { question: 'Welche Programmiersprache nehme ich am besten?', answer: 'Die Sprache, die du im Betrieb sicher beherrschst – Java, C#, Python und PHP sind alle gleichwertig akzeptiert. Pseudocode ist ebenfalls erlaubt.' },
   { question: 'Sind Frameworks erlaubt?', answer: 'In der Klausur soll der Algorithmus im Vordergrund stehen – Framework-spezifische Lösungen sind erlaubt, müssen aber selbst erklärt werden können.' },
 ];

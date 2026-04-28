@@ -23,11 +23,11 @@ const THEMEN = [
 const FEHLER = [
   { title: 'WiSo „mit links" lernen', desc: 'Viele unterschätzen GA2 – Fehlpunkte hier kosten am Ende ganze Notenstufen.' },
   { title: 'Fallaufgaben ohne Begründung', desc: 'Antworten ohne Bezug zum Sachverhalt geben kaum Punkte – immer Norm + Sachverhalt + Schluss.' },
-  { title: 'Datenschutz unterschätzen', desc: 'DSGVO-Themen werden in jeder Prüfung geprüft – mindestens 5–8 Punkte sicherbar.' },
+  { title: 'Datenschutz unterschätzen', desc: 'DSGVO-Themen werden regelmäßig geprüft – ein verlässlicher Punktebringer mit überschaubarem Lernaufwand.' },
 ];
 
 const FAQS = [
-  { question: 'Wie ist GA2 aufgebaut?', answer: 'Ungefähr 60 Minuten Bearbeitungszeit – Mischung aus gebundenen (MC) und ungebundenen (offenen) Aufgaben.' },
+  { question: 'Wie ist GA2 aufgebaut?', answer: 'Mischung aus gebundenen (MC) und ungebundenen (offenen) Aufgaben. Genaue Bearbeitungszeit regelt die aktuelle Prüfungsverordnung deiner IHK.' },
   { question: 'Welche Themen kommen am häufigsten?', answer: 'Arbeitsrecht, Vertragsrecht, Datenschutz und Grundlagen wirtschaftlichen Handelns sind in jeder Prüfung vertreten.' },
   { question: 'Reicht es, ein Buch durchzuarbeiten?', answer: 'Nein – ohne aktive Fall-Übungen bleibt das Wissen passiv. Genau deshalb arbeitet unser Lernplan mit Übungsfällen pro Themenblock.' },
 ];
