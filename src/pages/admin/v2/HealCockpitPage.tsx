@@ -127,6 +127,7 @@ const SECTIONS = {
   recover: "recover",
   targeted: "targeted",
   stuck: "stuck_patterns",
+  heal_status: "heal_status",
   triage: "triage",
   recheck: "recheck",
   drilldown: "drilldown",
@@ -136,7 +137,7 @@ const SECTIONS = {
   queue: "queue",
 } as const;
 
-const DEFAULT_OPEN = ["live", "recover", "targeted", "stuck_patterns"];
+const DEFAULT_OPEN = ["live", "recover", "targeted", "stuck_patterns", "heal_status"];
 
 export default function HealCockpitPage() {
   const qc = useQueryClient();
