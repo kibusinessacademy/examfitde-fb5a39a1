@@ -152,8 +152,8 @@ export function useHasOrgAccess() {
       if (!user) return { hasAccess: false, orgs: [] as OrgListItem[] };
       const data = await getOrgConsoleContext();
       const orgs = (data?.orgs || []) as OrgListItem[];
-      const managementRoles = ['OWNER', 'MANAGER', 'IT_ADMIN', 'BILLING', 'SCHOOL_ADMIN', 'IHK_ADMIN', 'HWK_ADMIN', 'INSTRUCTOR'];
-      const accessibleOrgs = orgs.filter(o => managementRoles.includes(o.my_role));
+      const managementRoles = ['OWNER', 'ADMIN', 'MANAGER', 'IT_ADMIN', 'BILLING', 'SCHOOL_ADMIN', 'IHK_ADMIN', 'HWK_ADMIN', 'INSTRUCTOR'];
+      const accessibleOrgs = orgs.filter(o => managementRoles.includes((o.my_role || '').toUpperCase()));
       return { hasAccess: accessibleOrgs.length > 0, orgs: accessibleOrgs };
     },
     enabled: !!user,
