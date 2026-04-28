@@ -91,12 +91,19 @@ export default function AdminPrivacyQueuePanel() {
     downloadCsv(`privacy_requests_${status}.csv`, toCsv(rows));
   }
 
+  const statusBadge = (s: string) => {
+    if (s === "APPROVED") return "bg-success-bg-subtle text-success border border-success/20";
+    if (s === "REQUESTED") return "bg-warning-bg-subtle text-warning border border-warning/20";
+    if (s === "DENIED") return "bg-danger-bg-subtle text-danger border border-danger/20";
+    return "bg-surface-sunken text-text-muted border border-border-subtle";
+  };
+
   return (
-    <div className="space-y-4">
-      <Card>
+    <div className="space-y-4" data-density="comfortable">
+      <Card variant="raised">
         <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-lg">Admin: Privacy-Anfragen</CardTitle>
+          <div className="flex items-center justify-between gap-3">
+            <CardTitle className="text-lg font-display">Admin: Privacy-Anfragen</CardTitle>
             <div className="flex gap-2">
               <Select value={status} onValueChange={setStatus}>
                 <SelectTrigger className="w-[180px]">
@@ -116,13 +123,13 @@ export default function AdminPrivacyQueuePanel() {
           </div>
         </CardHeader>
         <CardContent>
-          {error && <p className="text-sm text-destructive mb-3">{error}</p>}
+          {error && <p className="text-sm text-danger mb-3">{error}</p>}
           {loading ? (
             <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-petrol-600" />
             </div>
           ) : requests.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Keine Anfragen mit Status „{status}".</p>
+            <p className="text-sm text-text-muted">Keine Anfragen mit Status „{status}".</p>
           ) : (
             <Table>
               <TableHeader>
@@ -138,19 +145,15 @@ export default function AdminPrivacyQueuePanel() {
               <TableBody>
                 {requests.map((r) => (
                   <TableRow key={r.organization_id}>
-                    <TableCell className="font-medium">{r.org_name ?? r.organization_id.slice(0, 8)}</TableCell>
-                    <TableCell className="text-xs">{r.org_type ?? "–"}</TableCell>
+                    <TableCell className="font-medium text-text-primary">{r.org_name ?? r.organization_id.slice(0, 8)}</TableCell>
+                    <TableCell className="text-xs text-text-muted">{r.org_type ?? "–"}</TableCell>
                     <TableCell>
-                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                        r.status === "APPROVED" ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" :
-                        r.status === "REQUESTED" ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400" :
-                        "bg-muted text-muted-foreground"
-                      }`}>
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusBadge(r.status)}`}>
                         {r.status}
                       </span>
                     </TableCell>
-                    <TableCell className="text-xs">{r.requested_at ? new Date(r.requested_at).toLocaleDateString("de-DE") : "–"}</TableCell>
-                    <TableCell className="text-xs">{r.approved_until ? new Date(r.approved_until).toLocaleDateString("de-DE") : "–"}</TableCell>
+                    <TableCell className="text-xs tabular-nums text-text-secondary">{r.requested_at ? new Date(r.requested_at).toLocaleDateString("de-DE") : "–"}</TableCell>
+                    <TableCell className="text-xs tabular-nums text-text-secondary">{r.approved_until ? new Date(r.approved_until).toLocaleDateString("de-DE") : "–"}</TableCell>
                     <TableCell>
                       <Button variant="outline" size="sm" onClick={() => openDecision(r)}>
                         Entscheiden
