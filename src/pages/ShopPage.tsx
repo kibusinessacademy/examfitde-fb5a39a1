@@ -51,6 +51,14 @@ export default function ShopPage() {
     }
   }, [curricula, selectedCurriculumId]);
 
+  // Sync from URL ?curriculum=... (e.g. coming from cards/SEO links)
+  useEffect(() => {
+    const fromUrl = searchParams.get('curriculum');
+    if (fromUrl && fromUrl !== selectedCurriculumId) {
+      setSelectedCurriculumId(fromUrl);
+    }
+  }, [searchParams, selectedCurriculumId]);
+
   const { data: stats } = useCurriculumProductStats(selectedCurriculumId);
   const { data: products } = useShopProducts();
   const mainProduct = products?.find(p => p.product_key === 'bundle') || products?.[0];
