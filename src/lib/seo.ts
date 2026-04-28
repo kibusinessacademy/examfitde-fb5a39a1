@@ -464,19 +464,26 @@ export const SEO_TEMPLATES = {
   }),
 };
 
-// Product pricing — single product
+// Product pricing — Bundle-only SSOT (24,90 €)
+// Es gibt nur EIN kaufbares Produkt: bundle.
+// Legacy-Keys (lernkurs, pruefungstrainer) bleiben als Aliase für 24,90 € erhalten,
+// damit alte Importe nicht brechen — sie repräsentieren KEINE separat kaufbaren Produkte.
 export const PRODUCT_PRICES = {
-  pruefungstraining: 39,
-  // Legacy keys kept for backward compatibility
-  lernkurs: 39,
-  pruefungstrainer: 39,
-  bundle: 39,
+  pruefungstraining: 24.9,
+  bundle: 24.9,
+  // Legacy aliases — point to the single bundle price.
+  lernkurs: 24.9,
+  pruefungstrainer: 24.9,
 } as const;
 
-// URL structure helpers
+export const PRODUCT_PRICE_DISPLAY = '24,90 €';
+
+// URL structure helpers — Bundle-only.
+// Optional product-Parameter wird ignoriert/normalisiert auf '/bundle/:slug'.
 export function getBerufUrl(slug: string, product?: 'lernkurs' | 'pruefungstrainer' | 'bundle') {
   if (!product) return `/berufe/${slug}`;
-  return `/${product === 'bundle' ? 'bundle' : product}/${slug}`;
+  // Single-product strategy: alle Produkt-URLs führen zum Bundle.
+  return `/bundle/${slug}`;
 }
 
 export function getIHKPruefungUrl(slug: string) {
