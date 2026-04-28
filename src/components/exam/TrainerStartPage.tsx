@@ -540,7 +540,7 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
 
         {/* ─── Desktop Summary (right column, hidden on mobile) ─── */}
         <div className="hidden lg:block">
-          <Card className="sticky top-4 rounded-2xl border-accent/20 bg-gradient-to-br from-primary/10 via-card to-card shadow-lg">
+          <Card variant="raised" className="sticky top-4 rounded-2xl border-petrol-200 bg-gradient-to-br from-petrol-50 via-surface-raised to-surface-raised">
             <CardHeader>
               <CardTitle className="text-xl">3. Training starten</CardTitle>
               <CardDescription>
