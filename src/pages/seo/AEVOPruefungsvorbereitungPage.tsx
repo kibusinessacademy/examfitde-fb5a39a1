@@ -69,10 +69,10 @@ export default function AEVOPruefungsvorbereitungPage() {
               </p>
               <div className="flex flex-wrap gap-4">
                 <Button size="lg" className="gradient-primary text-primary-foreground shadow-glow h-14 px-8 text-lg" asChild>
-                  <Link to="/pruefungstraining/aevo">AEVO-Training starten <ArrowRight className="ml-2 h-5 w-5" /></Link>
+                  <Link to="/quiz/aevo-pruefungsreife">Gratis: Bin ich prüfungsreif? <ArrowRight className="ml-2 h-5 w-5" /></Link>
                 </Button>
                 <Button size="lg" variant="outline" className="h-14 px-8" asChild>
-                  <Link to="/aevo-schriftliche-pruefung">Schriftliche Prüfung üben</Link>
+                  <Link to="/pruefungstraining/aevo">AEVO-Training starten</Link>
                 </Button>
               </div>
             </div>
