@@ -7,6 +7,8 @@ import MiniCheckPlayer from '@/components/lesson/MiniCheckPlayer';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Loader2, ArrowLeft, Zap, Target } from 'lucide-react';
+import { TutorPanel } from '@/components/tutor/TutorPanel';
+import { AI_MODES } from '@/hooks/useAITutor';
 
 interface Competency {
   id: string;
