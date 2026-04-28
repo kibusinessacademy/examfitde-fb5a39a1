@@ -208,6 +208,14 @@ export default function DrillSession() {
           onCompleted={handleCompleted}
         />
       </div>
+
+      {/* AI Tutor Panel — Loop C, Strict-RAG with curriculum context */}
+      <TutorPanel
+        mode={AI_MODES.PRACTICE}
+        sessionType="practice"
+        masteryCurriculumId={curriculumId ?? undefined}
+        masteryUserId={user?.id}
+      />
     </div>
   );
 }
