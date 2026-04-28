@@ -19,11 +19,20 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { CheckCircle2, AlertCircle, ArrowRight } from "lucide-react";
+import { CheckCircle2, AlertCircle, ArrowRight, GraduationCap, Mic } from "lucide-react";
+import { Link } from "react-router-dom";
 
 interface Props {
   slug: string;
 }
+
+// Mapping: quiz_slug → bundle_slug für Bundle-CTA & Simulation
+const QUIZ_TO_BUNDLE: Record<string, { bundleSlug: string; bundleTitle: string }> = {
+  "aevo-pruefungsreife": {
+    bundleSlug: "ausbildereignungspruefung-aevo",
+    bundleTitle: "AEVO Komplett-Bundle",
+  },
+};
 
 type AnswerState = Record<string, string>; // questionId → optionKey
 
@@ -132,15 +141,13 @@ export function LeadQuizRunner({ slug }: Props) {
       setCompleted(true);
 
       if (aid) {
-        await (supabase as any)
-          .from("quiz_attempts")
-          .update({
-            answers: detailed,
-            score: sc,
-            passed: ps,
-            completed_at: new Date().toISOString(),
-          })
-          .eq("id", aid);
+        await (supabase as any).rpc("submit_quiz_attempt", {
+          p_attempt_id: aid,
+          p_anonymous_id: getAnonymousId(),
+          p_answers: detailed,
+          p_score: sc,
+          p_passed: ps,
+        });
       }
 
       trackFunnel("quiz_complete", {
@@ -227,68 +234,112 @@ export function LeadQuizRunner({ slug }: Props) {
   // Ergebnis-Phase
   if (completed) {
     const pct = Math.round((score ?? 0) * 100);
+    const bundle = QUIZ_TO_BUNDLE[slug];
     return (
-      <Card className="max-w-2xl mx-auto">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            {passed ? (
-              <CheckCircle2 className="h-6 w-6 text-primary" />
-            ) : (
-              <AlertCircle className="h-6 w-6 text-amber-500" />
-            )}
-            Dein Ergebnis: {pct} %
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-foreground">
-            {passed
-              ? "Stark! Du bist auf einem prüfungsreifen Niveau. Mit dem persönlichen Lernplan schließt du gezielt die letzten Lücken."
-              : "Es gibt klare Lücken — gar nicht schlimm. Hol dir jetzt deinen persönlichen Lernplan, der genau auf deine schwachen Themen zugeschnitten ist."}
-          </p>
-          {leadDone ? (
-            <p className="text-muted-foreground text-sm">
-              Lernplan wird geöffnet…
-            </p>
-          ) : (
-            <form onSubmit={handleLeadSubmit} className="space-y-3">
-              <label className="block">
-                <span className="text-sm font-medium">E-Mail für deinen Lernplan</span>
-                <Input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="dein.name@example.com"
-                  className="mt-1"
-                />
-              </label>
-              <label className="flex items-start gap-2 text-sm text-muted-foreground">
-                <Checkbox
-                  checked={consent}
-                  onCheckedChange={(v) => setConsent(!!v)}
-                  className="mt-0.5"
-                />
-                <span>
-                  Ich möchte zusätzlich Lerntipps & Prüfungs-Reminder per E-Mail erhalten
-                  (jederzeit abbestellbar).
-                </span>
-              </label>
-              {leadError && (
-                <p className="text-sm text-destructive">{leadError}</p>
+      <div className="max-w-2xl mx-auto space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              {passed ? (
+                <CheckCircle2 className="h-6 w-6 text-primary" />
+              ) : (
+                <AlertCircle className="h-6 w-6 text-amber-500" />
               )}
-              <Button type="submit" disabled={leadSubmitting} className="w-full">
-                {leadSubmitting ? "Wird erstellt…" : (
-                  <>Lernplan ansehen <ArrowRight className="ml-2 h-4 w-4" /></>
+              Dein Ergebnis: {pct} %
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-foreground">
+              {passed
+                ? "Stark! Du bist auf einem prüfungsreifen Niveau. Mit dem persönlichen Lernplan schließt du gezielt die letzten Lücken."
+                : "Es gibt klare Lücken — gar nicht schlimm. Hol dir jetzt deinen persönlichen Lernplan, der genau auf deine schwachen Themen zugeschnitten ist."}
+            </p>
+
+            {!leadDone && (
+              <form onSubmit={handleLeadSubmit} className="space-y-3">
+                <label className="block">
+                  <span className="text-sm font-medium">E-Mail für deinen Lernplan</span>
+                  <Input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="dein.name@example.com"
+                    className="mt-1"
+                  />
+                </label>
+                <label className="flex items-start gap-2 text-sm text-muted-foreground">
+                  <Checkbox
+                    checked={consent}
+                    onCheckedChange={(v) => setConsent(!!v)}
+                    className="mt-0.5"
+                  />
+                  <span>
+                    Ich möchte zusätzlich Lerntipps & Prüfungs-Reminder per E-Mail erhalten
+                    (jederzeit abbestellbar).
+                  </span>
+                </label>
+                {leadError && (
+                  <p className="text-sm text-destructive">{leadError}</p>
                 )}
-              </Button>
-              <p className="text-xs text-muted-foreground">
-                Mit Klick erklärst du dich mit der Speicherung deiner E-Mail-Adresse zur
-                Übermittlung des Lernplans einverstanden.
+                <Button type="submit" disabled={leadSubmitting} className="w-full">
+                  {leadSubmitting ? "Wird erstellt…" : (
+                    <>Lernplan ansehen <ArrowRight className="ml-2 h-4 w-4" /></>
+                  )}
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  Mit Klick erklärst du dich mit der Speicherung deiner E-Mail-Adresse zur
+                  Übermittlung des Lernplans einverstanden.
+                </p>
+              </form>
+            )}
+
+            {leadDone && (
+              <div className="rounded-lg bg-primary/10 border border-primary/20 p-4 text-sm">
+                ✓ Lernplan wird geöffnet…
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Folge-CTAs: Lernplan + Simulation + Bundle */}
+        <div className="grid sm:grid-cols-2 gap-3">
+          <Card className="border-primary/30">
+            <CardContent className="p-4 space-y-2">
+              <div className="flex items-center gap-2 font-semibold">
+                <GraduationCap className="h-5 w-5 text-primary" />
+                Mündliche Prüfungssimulation
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Trainiere mit dem AI-Tutor unter realen Prüfungsbedingungen.
               </p>
-            </form>
+              <Button variant="outline" size="sm" asChild className="w-full">
+                <Link to="/pruefungstraining/aevo">
+                  <Mic className="mr-2 h-4 w-4" /> Simulation starten
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+
+          {bundle && (
+            <Card className="border-primary/30 bg-primary/5">
+              <CardContent className="p-4 space-y-2">
+                <div className="flex items-center gap-2 font-semibold">
+                  🎁 {bundle.bundleTitle}
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Lernkurs + Trainer + AI-Tutor — alles für 24,90 €.
+                </p>
+                <Button size="sm" asChild className="w-full">
+                  <Link to={`/bundle/${bundle.bundleSlug}`}>
+                    Bundle ansehen <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
+                </Button>
+              </CardContent>
+            </Card>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     );
   }
 

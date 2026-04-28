@@ -15,7 +15,9 @@ import { SITE_URL } from "@/lib/seo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { trackFunnel } from "@/lib/conversionTracking";
-import { CheckCircle2, Printer, ShoppingCart } from "lucide-react";
+import { CheckCircle2, Printer, ShoppingCart, FileDown } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import { Link } from "react-router-dom";
 import { useLeadQuiz } from "@/hooks/useLeadQuiz";
 
@@ -71,8 +73,41 @@ export default function LernplanPage() {
   const [params] = useSearchParams();
   const attemptId = params.get("attempt");
   const { data: quiz } = useLeadQuiz(slug);
+  const { toast } = useToast();
 
   const plan = useMemo(() => (slug ? PLAN_BY_SLUG[slug] : undefined), [slug]);
+
+  /**
+   * PDF-Download — Phase 2.5 Roadmap-Stub.
+   * Wenn die Edge Function `lernplan-pdf` existiert, wird sie aufgerufen.
+   * Sie soll: HTML→PDF (Puppeteer/Chromium oder serverless renderer),
+   * Bytes als application/pdf zurückgeben.
+   * Bis dahin: Toast mit Hinweis auf Druck-Workflow.
+   */
+  async function handleDownloadPdf() {
+    if (!slug) return;
+    try {
+      const { data, error } = await supabase.functions.invoke("lernplan-pdf", {
+        body: { slug, attempt_id: attemptId },
+      });
+      if (error || !data) throw error ?? new Error("no_data");
+      // Erwartet: { url: string } oder Blob
+      const url = (data as any)?.url;
+      if (url) {
+        window.open(url, "_blank");
+      } else {
+        toast({
+          title: "PDF noch in Vorbereitung",
+          description: 'Bitte nutze vorerst „Drucken / als PDF speichern".',
+        });
+      }
+    } catch {
+      toast({
+        title: "PDF-Download kommt bald",
+        description: 'Phase 2.5: bitte vorerst „Drucken / als PDF speichern" verwenden.',
+      });
+    }
+  }
 
   useEffect(() => {
     if (slug) {
@@ -120,9 +155,13 @@ export default function LernplanPage() {
             Schritt-für-Schritt zur Prüfungsreife. Du kannst diesen Plan ausdrucken
             oder als PDF speichern.
           </p>
-          <div className="flex gap-3 mt-4 no-print">
+          <div className="flex flex-wrap gap-3 mt-4 no-print">
             <Button onClick={() => window.print()} variant="outline">
               <Printer className="mr-2 h-4 w-4" /> Drucken / als PDF speichern
+            </Button>
+            <Button onClick={handleDownloadPdf} variant="outline" disabled>
+              <FileDown className="mr-2 h-4 w-4" /> PDF herunterladen
+              <span className="ml-2 text-xs text-muted-foreground">(in Kürze)</span>
             </Button>
             {plan.bundleSlug && (
               <Button asChild>
