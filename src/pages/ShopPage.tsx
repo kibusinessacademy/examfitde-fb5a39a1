@@ -82,6 +82,14 @@ export default function ShopPage() {
     return () => obs.disconnect();
   }, []);
 
+  // Funnel tracking: shop_view (once on mount) + product_view when curriculum stats load
+  useEffect(() => { track('shop_view'); }, [track]);
+  useEffect(() => {
+    if (selectedCurriculumId) {
+      track('product_view', { curriculumId: selectedCurriculumId });
+    }
+  }, [selectedCurriculumId, track]);
+
   const priceDisplay = priceData ? formatEur(priceData.total_price_cents) : PRICING.defaultPrice;
 
   const cleanTitle = (stats?.title || '')
@@ -89,6 +97,7 @@ export default function ShopPage() {
     .replace(/^Modulhandbuch\s+/i, '');
 
   const handleBuy = async () => {
+    track('checkout_start', { curriculumId: selectedCurriculumId, product_key: mainProduct?.product_key });
     if (!user) {
       toast.error('Bitte melde dich an');
       navigate('/auth');
