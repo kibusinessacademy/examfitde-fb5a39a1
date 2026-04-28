@@ -65,15 +65,16 @@ type Row = {
   last_step_update: string | null;
 };
 
-const DRIFT_VARIANT: Record<string, { label: string; tone: string }> = {
-  STALE_EXHAUSTION_PUBLISHED: { label: 'Stale (published)', tone: 'bg-amber-500/15 text-amber-700 border-amber-500/30' },
-  STALE_EXHAUSTION_NO_OPEN_STEPS: { label: 'Stale (no steps)', tone: 'bg-amber-500/15 text-amber-700 border-amber-500/30' },
-  GHOST_PUBLISHED_FLAG_MISMATCH: { label: 'Ghost published', tone: 'bg-purple-500/15 text-purple-700 border-purple-500/30' },
-  ORPHAN_BUILDING_NO_PROGRESS: { label: 'Orphan building', tone: 'bg-blue-500/15 text-blue-700 border-blue-500/30' },
-  GHOST_BLOCKED_NO_FAILURE: { label: 'Ghost blocked', tone: 'bg-pink-500/15 text-pink-700 border-pink-500/30' },
-  PARKED_AWAITING_PREREQ: { label: 'Parked', tone: 'bg-slate-500/15 text-slate-700 border-slate-500/30' },
-  EXHAUSTED_BUT_STILL_RUNNING: { label: 'Exhausted+running', tone: 'bg-red-500/15 text-red-700 border-red-500/30' },
-  CLEAN: { label: 'Clean', tone: 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30' },
+type DriftVariant = "warning" | "info" | "danger" | "success" | "muted" | "petrol";
+const DRIFT_VARIANT: Record<string, { label: string; variant: DriftVariant }> = {
+  STALE_EXHAUSTION_PUBLISHED: { label: 'Stale (published)', variant: 'warning' },
+  STALE_EXHAUSTION_NO_OPEN_STEPS: { label: 'Stale (no steps)', variant: 'warning' },
+  GHOST_PUBLISHED_FLAG_MISMATCH: { label: 'Ghost published', variant: 'petrol' },
+  ORPHAN_BUILDING_NO_PROGRESS: { label: 'Orphan building', variant: 'info' },
+  GHOST_BLOCKED_NO_FAILURE: { label: 'Ghost blocked', variant: 'danger' },
+  PARKED_AWAITING_PREREQ: { label: 'Parked', variant: 'muted' },
+  EXHAUSTED_BUT_STILL_RUNNING: { label: 'Exhausted+running', variant: 'danger' },
+  CLEAN: { label: 'Clean', variant: 'success' },
 };
 
 export default function StaleMarkerDiffPage() {
@@ -228,8 +229,8 @@ export default function StaleMarkerDiffPage() {
         <Link to="/admin/command" className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 mb-1">
           <ArrowLeft className="h-3 w-3" /> Leitstelle
         </Link>
-        <h1 className="text-xl font-bold flex items-center gap-2">
-          <AlertTriangle className="h-5 w-5 text-amber-500" />
+        <h1 className="text-xl font-bold flex items-center gap-2 text-text-primary">
+          <AlertTriangle className="h-5 w-5 text-warning" />
           Stale Marker Diff
         </h1>
         <p className="text-xs text-muted-foreground mt-0.5">
@@ -240,11 +241,11 @@ export default function StaleMarkerDiffPage() {
 
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
-        <Card><CardContent className="p-3"><div className="text-xs text-muted-foreground">Gesamt</div><div className="text-2xl font-bold">{counts.total}</div></CardContent></Card>
-        <Card><CardContent className="p-3"><div className="text-xs text-muted-foreground">Stale Exhaustion</div><div className="text-2xl font-bold text-amber-600">{counts.stale}</div></CardContent></Card>
-        <Card><CardContent className="p-3"><div className="text-xs text-muted-foreground">Ghost</div><div className="text-2xl font-bold text-purple-600">{counts.ghost}</div></CardContent></Card>
-        <Card><CardContent className="p-3"><div className="text-xs text-muted-foreground">Orphan Building</div><div className="text-2xl font-bold text-blue-600">{counts.orphan}</div></CardContent></Card>
-        <Card><CardContent className="p-3"><div className="text-xs text-muted-foreground">Clean</div><div className="text-2xl font-bold text-emerald-600">{counts.clean}</div></CardContent></Card>
+        <Card><CardContent className="p-3"><div className="text-xs text-text-tertiary">Gesamt</div><div className="text-2xl font-bold text-text-primary">{counts.total}</div></CardContent></Card>
+        <Card><CardContent className="p-3"><div className="text-xs text-text-tertiary">Stale Exhaustion</div><div className="text-2xl font-bold text-warning">{counts.stale}</div></CardContent></Card>
+        <Card><CardContent className="p-3"><div className="text-xs text-text-tertiary">Ghost</div><div className="text-2xl font-bold text-petrol-600">{counts.ghost}</div></CardContent></Card>
+        <Card><CardContent className="p-3"><div className="text-xs text-text-tertiary">Orphan Building</div><div className="text-2xl font-bold text-info">{counts.orphan}</div></CardContent></Card>
+        <Card><CardContent className="p-3"><div className="text-xs text-text-tertiary">Clean</div><div className="text-2xl font-bold text-success">{counts.clean}</div></CardContent></Card>
       </div>
 
       {/* Controls */}
@@ -354,9 +355,9 @@ export default function StaleMarkerDiffPage() {
                 {filtered.map((r) => {
                   const isStale = r.drift_class.startsWith('STALE_EXHAUSTION');
                   const isEligible = isStale && (r.active_jobs ?? 0) === 0;
-                  const variant = DRIFT_VARIANT[r.drift_class] ?? { label: r.drift_class, tone: 'bg-muted text-muted-foreground' };
+                  const variant = DRIFT_VARIANT[r.drift_class] ?? { label: r.drift_class, variant: 'muted' as DriftVariant };
                   return (
-                    <TableRow key={r.package_id} className={selected.has(r.package_id) ? 'bg-primary/5' : ''}>
+                    <TableRow key={r.package_id} className={selected.has(r.package_id) ? 'bg-surface-sunken' : ''}>
                       <TableCell>
                         <Checkbox
                           checked={selected.has(r.package_id)}
@@ -369,11 +370,11 @@ export default function StaleMarkerDiffPage() {
                         />
                       </TableCell>
                       <TableCell className="max-w-[260px]">
-                        <div className="font-medium text-xs truncate">{r.title ?? '—'}</div>
-                        <div className="font-mono text-[10px] text-muted-foreground">{r.package_id.slice(0, 8)}… · {r.pkg_status}{r.is_published ? ' · pub' : ''}</div>
+                        <div className="font-medium text-xs truncate text-text-primary">{r.title ?? '—'}</div>
+                        <div className="font-mono text-[10px] text-text-tertiary">{r.package_id.slice(0, 8)}… · {r.pkg_status}{r.is_published ? ' · pub' : ''}</div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className={`text-[10px] ${variant.tone}`}>{variant.label}</Badge>
+                        <Badge variant={variant.variant} size="sm">{variant.label}</Badge>
                       </TableCell>
                       <TableCell className="text-right text-xs">{r.exhaustion_markers ?? 0}</TableCell>
                       <TableCell className="text-right text-xs">{r.open_steps ?? 0}</TableCell>
