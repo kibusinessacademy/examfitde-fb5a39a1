@@ -101075,7 +101075,11 @@ export type Database = {
         Returns: boolean
       }
       tutor_access_check: {
-        Args: { p_curriculum_id: string; p_daily_limit?: number }
+        Args: {
+          p_curriculum_id: string
+          p_daily_limit?: number
+          p_user_id?: string
+        }
         Returns: Json
       }
       tutor_log_audit: {

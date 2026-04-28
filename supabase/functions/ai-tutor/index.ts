@@ -589,10 +589,13 @@ Deno.serve(async (req) => {
     // ── Loop C: Tutor Access Gate (Entitlement + Daily Rate Limit) ──
     if (context.curriculumId) {
       try {
-        const { data: gate } = await supabase.rpc("tutor_access_check", {
+        console.log("[ai-tutor] gate_check user.id=", user.id, "curriculum=", context.curriculumId);
+        const { data: gate, error: gateErr } = await supabase.rpc("tutor_access_check", {
           p_curriculum_id: context.curriculumId as string,
           p_daily_limit: 200,
+          p_user_id: user.id,
         });
+        console.log("[ai-tutor] gate_result=", JSON.stringify(gate), "err=", gateErr?.message);
         const allowed = (gate as Record<string, unknown> | null)?.allowed === true;
         const reason = String((gate as Record<string, unknown> | null)?.reason || "unknown");
         if (!allowed) {
