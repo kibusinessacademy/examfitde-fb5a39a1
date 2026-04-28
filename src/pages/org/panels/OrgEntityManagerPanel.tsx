@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Download, Plus, Pencil } from "lucide-react";
+import { Download, Plus, Pencil, Building2, CheckCircle2 } from "lucide-react";
 
 type Entity = {
   id: string;
@@ -164,25 +164,30 @@ export default function OrgEntityManagerPanel(props: { organizationId: string; m
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      <div data-density="comfortable" className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-petrol-200 border-t-petrol-600" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
-      <Card>
+    <div data-density="comfortable" className="space-y-4">
+      <Card variant="raised">
         <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-lg">Einheiten / Tochtergesellschaften</CardTitle>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <CardTitle className="text-lg flex items-center gap-2 font-display text-text-primary">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-petrol-50 dark:bg-petrol-900/30">
+                <Building2 className="h-4 w-4 text-petrol-600 dark:text-mint-400" />
+              </div>
+              Einheiten / Tochtergesellschaften
+            </CardTitle>
             <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={exportCsv}>
-                <Download className="h-4 w-4 mr-1" /> CSV
+                <Download className="h-4 w-4 mr-1.5" /> CSV
               </Button>
               {canManage && (
-                <Button size="sm" onClick={openNew}>
-                  <Plus className="h-4 w-4 mr-1" /> Neue Einheit
+                <Button variant="petrol" size="sm" onClick={openNew}>
+                  <Plus className="h-4 w-4 mr-1.5" /> Neue Einheit
                 </Button>
               )}
             </div>
@@ -190,38 +195,45 @@ export default function OrgEntityManagerPanel(props: { organizationId: string; m
         </CardHeader>
         <CardContent>
           {entities.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Keine Einheiten vorhanden.</p>
+            <div className="py-10 text-center">
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-mint-100 dark:bg-petrol-900/40">
+                <Building2 className="h-5 w-5 text-petrol-600 dark:text-mint-400" />
+              </div>
+              <p className="text-sm text-text-secondary">Keine Einheiten vorhanden.</p>
+            </div>
           ) : (
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>Code</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>USt-ID</TableHead>
-                  <TableHead>Standard</TableHead>
-                  <TableHead>Kontierung</TableHead>
+                <TableRow className="border-border-subtle">
+                  <TableHead className="text-text-tertiary font-medium">Code</TableHead>
+                  <TableHead className="text-text-tertiary font-medium">Name</TableHead>
+                  <TableHead className="text-text-tertiary font-medium">USt-ID</TableHead>
+                  <TableHead className="text-text-tertiary font-medium">Standard</TableHead>
+                  <TableHead className="text-text-tertiary font-medium">Kontierung</TableHead>
                   <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {entities.map((e) => (
-                  <TableRow key={e.id}>
-                    <TableCell className="font-mono text-xs">{e.entity_code}</TableCell>
-                    <TableCell>{e.display_name}</TableCell>
-                    <TableCell className="text-xs">{e.vat_id ?? "–"}</TableCell>
-                    <TableCell>{e.is_default ? "✓" : ""}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
+                  <TableRow key={e.id} className="border-border-subtle hover:bg-surface-hover/50 transition-colors">
+                    <TableCell className="font-mono text-xs text-text-secondary">{e.entity_code}</TableCell>
+                    <TableCell className="font-medium text-text-primary">{e.display_name}</TableCell>
+                    <TableCell className="text-xs text-text-secondary font-mono">{e.vat_id ?? "–"}</TableCell>
+                    <TableCell>
+                      {e.is_default ? <CheckCircle2 className="h-4 w-4 text-success" /> : <span className="text-text-quaternary">–</span>}
+                    </TableCell>
+                    <TableCell className="text-xs text-text-tertiary font-mono">
                       {e.accounting_defaults?.default_cost_center ?? "–"}
                     </TableCell>
                     <TableCell>
-                      <div className="flex gap-1">
+                      <div className="flex gap-1 justify-end">
                         {canManage && (
-                          <Button variant="ghost" size="icon" onClick={() => openEdit(e)}>
+                          <Button variant="ghost" size="icon" onClick={() => openEdit(e)} className="text-text-tertiary hover:text-petrol-600 dark:hover:text-mint-400">
                             <Pencil className="h-3.5 w-3.5" />
                           </Button>
                         )}
                         {canBilling && (
-                          <Button variant="ghost" size="sm" onClick={() => openDefaults(e)}>
+                          <Button variant="ghost" size="sm" onClick={() => openDefaults(e)} className="text-petrol-600 dark:text-mint-400 hover:bg-petrol-50 dark:hover:bg-petrol-900/30">
                             Kontierung
                           </Button>
                         )}
