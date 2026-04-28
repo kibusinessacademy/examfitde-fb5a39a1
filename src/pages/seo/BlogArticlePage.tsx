@@ -29,6 +29,54 @@ export default function BlogArticlePage() {
     },
   });
 
+  // Related articles by topic_cluster / article_type (interne Backlinks)
+  const articleTopicCluster = (article as any)?.topic_cluster as string | null | undefined;
+  const articleType = (article as any)?.article_type as string | null | undefined;
+  const { data: relatedArticles } = useQuery({
+    queryKey: ['blog-related', slug, articleTopicCluster, articleType],
+    enabled: !!slug && !!article,
+    queryFn: async () => {
+      let q = supabase
+        .from('blog_articles')
+        .select('slug, title, short_answer, reading_time_min, article_type, topic_cluster')
+        .eq('status', 'published')
+        .neq('slug', slug!)
+        .limit(3);
+      if (articleTopicCluster) q = q.eq('topic_cluster', articleTopicCluster);
+      const { data } = await q;
+      if (data && data.length >= 2) return data;
+      // Fallback: gleicher article_type
+      if (articleType) {
+        const { data: d2 } = await supabase
+          .from('blog_articles')
+          .select('slug, title, short_answer, reading_time_min, article_type, topic_cluster')
+          .eq('status', 'published')
+          .eq('article_type', articleType)
+          .neq('slug', slug!)
+          .limit(3);
+        return d2 || [];
+      }
+      return data || [];
+    },
+  });
+
+  // Inline link-suggestions aus seo_internal_link_suggestions (active, höchste Prio)
+  const { data: linkSuggestions } = useQuery({
+    queryKey: ['blog-link-suggestions', slug],
+    enabled: !!slug,
+    queryFn: async () => {
+      const path = `/blog/${slug}`;
+      const { data } = await supabase
+        .from('seo_internal_link_suggestions')
+        .select('target_url, target_title, anchor_text, priority')
+        .eq('status', 'active')
+        .or(`source_url.eq.${path},source_url.ilike.%${slug}%`)
+        .order('priority', { ascending: false })
+        .limit(5);
+      return data || [];
+    },
+  });
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
