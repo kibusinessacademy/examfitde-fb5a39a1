@@ -366,44 +366,44 @@ export default function ExamTrainer() {
 
       {/* Results Step */}
       {step === 'results' && (
-        <Card className="glass-card border-border/50 max-w-2xl mx-auto">
+        <Card variant="raised" className="max-w-2xl mx-auto" data-density="comfortable">
           <CardContent className="py-12 text-center">
             <div className={cn(
-              "w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6",
-              scorePercent >= 80 ? "gradient-primary shadow-glow" :
-              scorePercent >= 50 ? "bg-yellow-500" : "bg-red-500"
+              "w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 shadow-elev-3",
+              scorePercent >= 80 ? "bg-petrol-600" :
+              scorePercent >= 50 ? "bg-warning" : "bg-danger"
             )}>
-              <Trophy className="h-12 w-12 text-white" />
+              <Trophy className="h-12 w-12 text-petrol-50" />
             </div>
 
-            <h3 className="text-2xl font-display font-bold text-foreground mb-2">
+            <h3 className="text-2xl font-display font-bold text-text-primary mb-2">
               {scorePercent >= 80 ? 'Hervorragend!' :
                scorePercent >= 50 ? 'Gut gemacht!' : 'Weiter üben!'}
             </h3>
 
-            <p className="text-muted-foreground mb-8">
+            <p className="text-text-secondary mb-8 tabular-nums">
               Du hast {stats.correct} von {questions.length} Fragen richtig beantwortet.
             </p>
 
             <div className="grid grid-cols-3 gap-4 mb-8">
-              <div className="p-4 rounded-xl bg-muted/30">
-                <p className="text-3xl font-bold text-green-500">{stats.correct}</p>
-                <p className="text-sm text-muted-foreground">Richtig</p>
+              <div className="p-4 rounded-xl bg-success-bg-subtle border border-success/20">
+                <p className="text-3xl font-display font-bold text-success tabular-nums">{stats.correct}</p>
+                <p className="text-sm text-text-secondary">Richtig</p>
               </div>
-              <div className="p-4 rounded-xl bg-muted/30">
-                <p className="text-3xl font-bold text-red-500">{stats.incorrect}</p>
-                <p className="text-sm text-muted-foreground">Falsch</p>
+              <div className="p-4 rounded-xl bg-danger-bg-subtle border border-danger/20">
+                <p className="text-3xl font-display font-bold text-danger tabular-nums">{stats.incorrect}</p>
+                <p className="text-sm text-text-secondary">Falsch</p>
               </div>
-              <div className="p-4 rounded-xl bg-muted/30">
-                <p className="text-3xl font-bold text-orange-500">{stats.maxStreak}</p>
-                <p className="text-sm text-muted-foreground">Beste Serie</p>
+              <div className="p-4 rounded-xl bg-warning-bg-subtle border border-warning/20">
+                <p className="text-3xl font-display font-bold text-warning tabular-nums">{stats.maxStreak}</p>
+                <p className="text-sm text-text-secondary">Beste Serie</p>
               </div>
             </div>
 
             <div className="max-w-md mx-auto mb-8">
               <div className="flex justify-between text-sm mb-2">
-                <span className="text-muted-foreground">Dein Ergebnis</span>
-                <span className="font-medium text-foreground">{Math.round(scorePercent)}%</span>
+                <span className="text-text-secondary">Dein Ergebnis</span>
+                <span className="font-medium text-text-primary tabular-nums">{Math.round(scorePercent)}%</span>
               </div>
               <Progress value={scorePercent} className="h-3" />
             </div>
@@ -414,8 +414,8 @@ export default function ExamTrainer() {
                 Neues Training
               </Button>
               <Button
+                variant="petrol"
                 onClick={() => startLearningSession(selectedCurriculumId)}
-                className="gradient-primary text-primary-foreground"
               >
                 <Sparkles className="h-4 w-4 mr-2" />
                 Nochmal trainieren
