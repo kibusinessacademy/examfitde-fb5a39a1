@@ -90,55 +90,56 @@ export const PRICING_DEFAULTS = {
 
 /**
  * @deprecated Use PRICING_CATEGORIES instead. Kept for backward compatibility.
+ * Bundle-only SSOT: alle Werte zeigen jetzt auf 24,90 €.
  */
 export const PRICING = {
   individual: {
     ausbildung: {
-      priceDisplay: '29,90 €',
-      priceCents: 2990,
-      stripePriceId: 'price_1TKgFDDxqdaWCpJ6cquKeCog',
-      productId: 'prod_UJIqaKAx185ofq',
+      priceDisplay: BUNDLE_PRICE_DISPLAY,
+      priceCents: BUNDLE_PRICE_CENTS,
+      stripePriceId: BUNDLE_STRIPE_PRICE_ID,
+      productId: BUNDLE_STRIPE_PRODUCT_ID,
       access: '12 Monate',
-      label: 'Einzellizenz Ausbildung',
+      label: 'Bundle',
     },
     studium: {
-      priceDisplay: '39,90 €',
-      priceCents: 3990,
-      stripePriceId: 'price_1TKgFEDxqdaWCpJ6cW3P1l3T',
-      productId: 'prod_UJIqjVdABzAGp4',
+      priceDisplay: BUNDLE_PRICE_DISPLAY,
+      priceCents: BUNDLE_PRICE_CENTS,
+      stripePriceId: BUNDLE_STRIPE_PRICE_ID,
+      productId: BUNDLE_STRIPE_PRODUCT_ID,
       access: '12 Monate',
-      label: 'Einzellizenz Studium',
+      label: 'Bundle',
     },
     zertifizierung: {
-      priceDisplay: '49,90 €',
-      priceCents: 4990,
-      stripePriceId: 'price_1TKgFGDxqdaWCpJ6lUWDo5LR',
-      productId: 'prod_UJIqM3J1DzNajW',
+      priceDisplay: BUNDLE_PRICE_DISPLAY,
+      priceCents: BUNDLE_PRICE_CENTS,
+      stripePriceId: BUNDLE_STRIPE_PRICE_ID,
+      productId: BUNDLE_STRIPE_PRODUCT_ID,
       access: '12 Monate',
-      label: 'Einzellizenz Zertifizierung',
+      label: 'Bundle',
     },
     weiterbildung: {
-      priceDisplay: '59,90 €',
-      priceCents: 5990,
-      stripePriceId: 'price_1TKgFHDxqdaWCpJ67SfmQl10',
-      productId: 'prod_UJIq9m2R4Kr1Gl',
+      priceDisplay: BUNDLE_PRICE_DISPLAY,
+      priceCents: BUNDLE_PRICE_CENTS,
+      stripePriceId: BUNDLE_STRIPE_PRICE_ID,
+      productId: BUNDLE_STRIPE_PRODUCT_ID,
       access: '12 Monate',
-      label: 'Einzellizenz Fort-/Weiterbildung',
+      label: 'Bundle',
     },
   },
   b2b: {
     tiers: [
-      { seats: 5, unitPriceCents: 2980, unitPriceDisplay: '29,80 €', name: 'Team 5' },
-      { seats: 10, unitPriceCents: 2790, unitPriceDisplay: '27,90 €', name: 'Team 10' },
-      { seats: 25, unitPriceCents: 2596, unitPriceDisplay: '25,96 €', name: 'Team 25' },
+      { seats: 5, unitPriceCents: 2490, unitPriceDisplay: BUNDLE_PRICE_DISPLAY, name: 'Team 5' },
+      { seats: 10, unitPriceCents: 2290, unitPriceDisplay: '22,90 €', name: 'Team 10' },
+      { seats: 25, unitPriceCents: 2098, unitPriceDisplay: '20,98 €', name: 'Team 25' },
     ] as const,
   },
-  defaultPrice: '29,90 €',
+  defaultPrice: BUNDLE_PRICE_DISPLAY,
   defaultAccess: '12 Monate',
   noSubscription: 'Kein Abo',
   anchor: {
     ihkRange: '300–1.000 €',
-    examFit: '29,90 €',
+    examFit: BUNDLE_PRICE_DISPLAY,
   },
 } as const;
 
