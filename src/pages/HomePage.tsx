@@ -70,7 +70,7 @@ export default function HomePage() {
     <>
       <SEOHead
         title={seoTitle("IHK-Prüfung bestehen: Prüfungstraining für Ausbildung & Beruf")}
-        description="Finde dein Prüfungstraining für die IHK-Abschlussprüfung. Suche nach Beruf, trainiere schriftliche und mündliche Prüfungssituationen mit KI-Coach. Ab 29,90 € einmalig."
+        description="Finde dein Prüfungstraining für die IHK-Abschlussprüfung. Suche nach Beruf, trainiere schriftliche und mündliche Prüfungssituationen mit KI-Coach. Komplett-Bundle für 24,90 € einmalig."
         canonical={`${SITE_URL}/`}
         type="website"
         structuredData={[
