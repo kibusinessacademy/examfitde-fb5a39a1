@@ -50,7 +50,7 @@ export default function AffiliatesTab() {
         </Card>
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Ausstehend</CardTitle></CardHeader>
-          <CardContent><div className="text-2xl font-bold text-orange-500">{(pendingPayouts || 0).toFixed(2)}€</div></CardContent>
+          <CardContent><div className="text-2xl font-display font-bold text-warning tabular-nums">{(pendingPayouts || 0).toFixed(2)}€</div></CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Bewerbungen</CardTitle></CardHeader>
@@ -90,7 +90,7 @@ export default function AffiliatesTab() {
                   </TableCell>
                   <TableCell>{affiliate.commission_rate}%</TableCell>
                   <TableCell>{(affiliate.total_earnings || 0).toFixed(2)}€</TableCell>
-                  <TableCell className="text-orange-500">{(affiliate.pending_payout || 0).toFixed(2)}€</TableCell>
+                  <TableCell className="text-warning tabular-nums">{(affiliate.pending_payout || 0).toFixed(2)}€</TableCell>
                   <TableCell className="text-right">
                     <Button variant="ghost" size="icon"><Edit className="h-4 w-4" /></Button>
                   </TableCell>

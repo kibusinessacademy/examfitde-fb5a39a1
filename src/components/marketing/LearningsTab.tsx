@@ -6,12 +6,12 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Lightbulb } from 'lucide-react';
 
 const impactColors: Record<string, string> = {
-  product: 'bg-blue-100 text-blue-800',
-  pricing: 'bg-green-100 text-green-800',
-  messaging: 'bg-purple-100 text-purple-800',
-  channel: 'bg-orange-100 text-orange-800',
-  targeting: 'bg-pink-100 text-pink-800',
-  didactics: 'bg-yellow-100 text-yellow-800',
+  product: 'bg-info-bg-subtle text-info',
+  pricing: 'bg-success-bg-subtle text-success',
+  messaging: 'bg-petrol-100 text-petrol-700',
+  channel: 'bg-warning-bg-subtle text-warning',
+  targeting: 'bg-mint-100 text-petrol-800',
+  didactics: 'bg-warning-bg-subtle text-warning',
 };
 
 export default function LearningsTab() {

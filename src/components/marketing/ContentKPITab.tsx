@@ -158,7 +158,7 @@ export default function ContentKPITab() {
         </Card>
         <Card>
           <CardContent className="pt-4 pb-3 px-4 flex items-center gap-3">
-            <Clock className="h-5 w-5 text-amber-500" />
+            <Clock className="h-5 w-5 text-warning" />
             <div>
               <div className="text-xs text-muted-foreground">Approval Backlog</div>
               <div className="text-xl font-bold">{pipelineStats?.approvalBacklog || 0}</div>
@@ -167,7 +167,7 @@ export default function ContentKPITab() {
         </Card>
         <Card>
           <CardContent className="pt-4 pb-3 px-4 flex items-center gap-3">
-            <CheckCircle2 className="h-5 w-5 text-green-600" />
+            <CheckCircle2 className="h-5 w-5 text-success" />
             <div>
               <div className="text-xs text-muted-foreground">Publish Backlog</div>
               <div className="text-xl font-bold">{pipelineStats?.publishBacklog || 0}</div>
@@ -179,19 +179,19 @@ export default function ContentKPITab() {
       {/* Performance KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
         {[
-          { label: 'Views', value: contentStats?.totalViews?.toLocaleString() || '0', icon: Eye, color: 'text-blue-600' },
-          { label: 'Likes', value: contentStats?.totalLikes?.toLocaleString() || '0', icon: ThumbsUp, color: 'text-pink-600' },
-          { label: 'Shares', value: contentStats?.totalShares?.toLocaleString() || '0', icon: Share2, color: 'text-purple-600' },
-          { label: 'Conversions', value: contentStats?.totalConversions?.toLocaleString() || '0', icon: Target, color: 'text-green-600' },
-          { label: 'Revenue', value: `${(contentStats?.totalRevenue || 0).toFixed(2)}€`, icon: DollarSign, color: 'text-emerald-600' },
-          { label: '€/Content', value: `${(contentStats?.revenuePerContent || 0).toFixed(2)}€`, icon: DollarSign, color: 'text-emerald-500' },
+          { label: 'Views', value: contentStats?.totalViews?.toLocaleString() || '0', icon: Eye, color: 'text-info' },
+          { label: 'Likes', value: contentStats?.totalLikes?.toLocaleString() || '0', icon: ThumbsUp, color: 'text-petrol-600' },
+          { label: 'Shares', value: contentStats?.totalShares?.toLocaleString() || '0', icon: Share2, color: 'text-petrol-700' },
+          { label: 'Conversions', value: contentStats?.totalConversions?.toLocaleString() || '0', icon: Target, color: 'text-success' },
+          { label: 'Revenue', value: `${(contentStats?.totalRevenue || 0).toFixed(2)}€`, icon: DollarSign, color: 'text-success' },
+          { label: '€/Content', value: `${(contentStats?.revenuePerContent || 0).toFixed(2)}€`, icon: DollarSign, color: 'text-success' },
         ].map((kpi) => (
           <Card key={kpi.label}>
             <CardContent className="pt-4 pb-3 px-4 flex items-center gap-3">
               <kpi.icon className={`h-5 w-5 ${kpi.color}`} />
               <div>
-                <div className="text-xs text-muted-foreground">{kpi.label}</div>
-                <div className={`text-xl font-bold ${kpi.color}`}>{kpi.value}</div>
+                <div className="text-xs text-text-secondary">{kpi.label}</div>
+                <div className={`text-xl font-display font-bold tabular-nums ${kpi.color}`}>{kpi.value}</div>
               </div>
             </CardContent>
           </Card>
@@ -212,8 +212,8 @@ export default function ContentKPITab() {
             {[
               { value: contentStats?.totalViews?.toLocaleString() || '0', label: 'Views', sub: '' },
               { value: contentStats?.totalClicks?.toLocaleString() || '0', label: 'Clicks', sub: `${contentStats?.avgCTR?.toFixed(1) || 0}% CTR` },
-              { value: contentStats?.totalConversions?.toLocaleString() || '0', label: 'Conversions', sub: `${contentStats?.avgConversionRate?.toFixed(1) || 0}% CR`, color: 'text-green-600' },
-              { value: `${(contentStats?.totalRevenue || 0).toFixed(2)}€`, label: 'Revenue', sub: '', color: 'text-emerald-600' },
+              { value: contentStats?.totalConversions?.toLocaleString() || '0', label: 'Conversions', sub: `${contentStats?.avgConversionRate?.toFixed(1) || 0}% CR`, color: 'text-success' },
+              { value: `${(contentStats?.totalRevenue || 0).toFixed(2)}€`, label: 'Revenue', sub: '', color: 'text-success' },
             ].map((step, i, arr) => (
               <div key={step.label} className="flex items-center gap-4">
                 <div className="text-center">
@@ -281,7 +281,7 @@ export default function ContentKPITab() {
                   <TableCell className="text-right font-medium">{item.views?.toLocaleString()}</TableCell>
                   <TableCell className="text-right">{item.likes?.toLocaleString()}</TableCell>
                   <TableCell className="text-right">{item.shares?.toLocaleString()}</TableCell>
-                  <TableCell className="text-right text-green-600">{item.conversions}</TableCell>
+                  <TableCell className="text-right text-success tabular-nums">{item.conversions}</TableCell>
                   <TableCell className="text-right">{(item.revenue_eur || 0).toFixed(2)}€</TableCell>
                 </TableRow>
               ))}

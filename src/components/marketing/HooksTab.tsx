@@ -11,11 +11,11 @@ import { Plus, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 
 const categoryColors: Record<string, string> = {
-  reichweite: 'bg-blue-100 text-blue-800',
-  vertrauen: 'bg-amber-100 text-amber-800',
-  conversion: 'bg-green-100 text-green-800',
-  provokation: 'bg-red-100 text-red-800',
-  neugier: 'bg-purple-100 text-purple-800',
+  reichweite: 'bg-info-bg-subtle text-info',
+  vertrauen: 'bg-warning-bg-subtle text-warning',
+  conversion: 'bg-success-bg-subtle text-success',
+  provokation: 'bg-danger-bg-subtle text-danger',
+  neugier: 'bg-petrol-100 text-petrol-700',
 };
 
 export default function HooksTab() {
