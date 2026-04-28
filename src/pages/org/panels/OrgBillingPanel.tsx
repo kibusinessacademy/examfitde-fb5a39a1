@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ChevronLeft, ChevronRight, FileText } from "lucide-react";
+import { ChevronLeft, ChevronRight, FileText, Receipt } from "lucide-react";
 
 function fmtEur(cents: number) {
   return new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format((cents ?? 0) / 100);
@@ -89,20 +89,35 @@ export default function OrgBillingPanel({ organizationId, entities, myRole }: Pr
   const billingAccounts = data?.billing_accounts ?? [];
   const paging = data?.paging ?? {};
 
+  const statusBadgeClass = (status: string) => {
+    switch (status) {
+      case "PAID": return "bg-success-bg-subtle text-success border-0";
+      case "OVERDUE": return "bg-danger-bg-subtle text-danger border-0";
+      case "SENT": return "bg-info-bg-subtle text-info border-0";
+      case "DRAFT": return "bg-surface-sunken text-text-secondary border border-border-subtle";
+      default: return "";
+    }
+  };
+
   return (
-    <div className="space-y-4">
+    <div data-density="comfortable" className="space-y-5">
       {/* Filters */}
-      <Card>
+      <Card variant="raised">
         <CardHeader className="pb-3">
-          <CardTitle className="text-lg">Rechnungen & Billing</CardTitle>
-          <CardDescription>
+          <CardTitle className="text-lg flex items-center gap-2 font-display text-text-primary">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-petrol-50 dark:bg-petrol-900/30">
+              <Receipt className="h-4 w-4 text-petrol-600 dark:text-mint-400" />
+            </div>
+            Rechnungen & Billing
+          </CardTitle>
+          <CardDescription className="text-text-secondary tabular-nums">
             {billingAccounts.length} Billing-Account(s) · Seite {page}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid gap-3 sm:grid-cols-3">
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Einheit</label>
+              <label className="text-xs font-medium text-text-tertiary mb-1.5 block">Einheit</label>
               <Select value={entityId} onValueChange={(v) => { setEntityId(v); setPage(1); }}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -113,7 +128,7 @@ export default function OrgBillingPanel({ organizationId, entities, myRole }: Pr
               </Select>
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Status</label>
+              <label className="text-xs font-medium text-text-tertiary mb-1.5 block">Status</label>
               <Select value={invoiceStatus} onValueChange={(v) => { setInvoiceStatus(v); setPage(1); }}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -130,38 +145,40 @@ export default function OrgBillingPanel({ organizationId, entities, myRole }: Pr
       </Card>
 
       {/* Invoices Table */}
-      <Card>
-        <CardContent className="pt-4">
+      <Card variant="raised">
+        <CardContent className="pt-5">
           {invoices.length === 0 ? (
-            <div className="py-8 text-center text-sm text-muted-foreground">
-              <FileText className="mx-auto h-8 w-8 mb-2 text-muted-foreground/50" />
-              Keine Rechnungen gefunden.
+            <div className="py-10 text-center">
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-surface-sunken">
+                <FileText className="h-5 w-5 text-text-tertiary" />
+              </div>
+              <p className="text-sm text-text-secondary">Keine Rechnungen gefunden.</p>
             </div>
           ) : (
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>Nr.</TableHead>
-                  <TableHead>Datum</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Betrag</TableHead>
-                  {canBilling && <TableHead className="text-right">Kontierung</TableHead>}
+                <TableRow className="border-border-subtle">
+                  <TableHead className="text-text-tertiary font-medium">Nr.</TableHead>
+                  <TableHead className="text-text-tertiary font-medium">Datum</TableHead>
+                  <TableHead className="text-text-tertiary font-medium">Status</TableHead>
+                  <TableHead className="text-text-tertiary font-medium text-right">Betrag</TableHead>
+                  {canBilling && <TableHead className="text-text-tertiary font-medium text-right">Kontierung</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {invoices.map((inv: any) => (
-                  <TableRow key={inv.id}>
-                    <TableCell className="font-mono text-xs">{inv.invoice_number ?? inv.id.slice(0, 8)}</TableCell>
-                    <TableCell className="text-sm">{inv.issue_date ?? "–"}</TableCell>
+                  <TableRow key={inv.id} className="border-border-subtle hover:bg-surface-hover/50 transition-colors">
+                    <TableCell className="font-mono text-xs text-text-secondary">{inv.invoice_number ?? inv.id.slice(0, 8)}</TableCell>
+                    <TableCell className="text-sm text-text-secondary tabular-nums">{inv.issue_date ?? "–"}</TableCell>
                     <TableCell>
-                      <Badge variant={inv.status === "PAID" ? "default" : "secondary"}>
+                      <Badge className={statusBadgeClass(inv.status)}>
                         {inv.status}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right font-medium">{fmtEur(inv.total_gross_cents ?? 0)}</TableCell>
+                    <TableCell className="text-right font-display font-semibold text-text-primary tabular-nums">{fmtEur(inv.total_gross_cents ?? 0)}</TableCell>
                     {canBilling && (
                       <TableCell className="text-right">
-                        <Button variant="ghost" size="sm" onClick={() => openCoding(inv)}>
+                        <Button variant="ghost" size="sm" onClick={() => openCoding(inv)} className="text-petrol-600 dark:text-mint-400 hover:bg-petrol-50 dark:hover:bg-petrol-900/30">
                           Kontierung
                         </Button>
                       </TableCell>
@@ -173,11 +190,11 @@ export default function OrgBillingPanel({ organizationId, entities, myRole }: Pr
           )}
 
           {/* Paging */}
-          <div className="flex items-center justify-end gap-2 mt-3">
+          <div className="flex items-center justify-end gap-2 mt-4">
             <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <span className="text-xs text-muted-foreground">Seite {page}</span>
+            <span className="text-xs text-text-tertiary tabular-nums">Seite {page}</span>
             <Button variant="outline" size="sm" disabled={(paging.returned ?? 0) < 20} onClick={() => setPage(p => p + 1)}>
               <ChevronRight className="h-4 w-4" />
             </Button>
