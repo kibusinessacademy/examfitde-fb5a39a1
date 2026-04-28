@@ -1,14 +1,15 @@
 /**
- * lernplan-pdf — Generates a printable HTML response for a lernplan slug.
+ * lernplan-pdf — generiert ECHTES PDF (application/pdf) für einen Lernplan.
  *
- * Phase 2.5: Server-side renders deterministic HTML with print-styles.
- * The browser triggers `window.print()` to save as PDF — keeps zero new
- * dependencies (no Puppeteer). Endpoint is verify_jwt = false (anon allowed).
- *
- * Returns JSON { url: <data-url> } so the existing frontend `data.url`
- * branch in LernplanPage continues to work without changes.
+ * Phase 2.5 final:
+ *  - Server-side rendering via jspdf (esm.sh) — kein Headless-Browser nötig
+ *  - Liefert { ok, url }  mit data:application/pdf;base64,…
+ *  - verify_jwt = false (anon erlaubt)
+ *  - Bei Fehlern strukturierte JSON-Antwort, damit Frontend Retry zeigen kann.
  */
-// Lokale CORS-Headers — kein SDK-Import (in Edge-Runtime nicht verlässlich verfügbar).
+// @ts-ignore esm.sh
+import { jsPDF } from "https://esm.sh/jspdf@2.5.2";
+
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -22,9 +23,13 @@ interface PlanWeek {
   tasks: string[];
 }
 
-const PLANS: Record<string, { title: string; weeks: PlanWeek[] }> = {
+const PLANS: Record<
+  string,
+  { title: string; bundleSlug: string; weeks: PlanWeek[] }
+> = {
   "aevo-pruefungsreife": {
-    title: "AEVO – Dein 4-Wochen-Lernplan zur Prüfungsreife",
+    title: "AEVO – 4-Wochen-Lernplan zur Prüfungsreife",
+    bundleSlug: "ausbildereignungspruefung-aevo",
     weeks: [
       {
         week: 1,
@@ -37,7 +42,7 @@ const PLANS: Record<string, { title: string; weeks: PlanWeek[] }> = {
       },
       {
         week: 2,
-        focus: "Handlungsfeld 1 & 2: Voraussetzungen prüfen, Ausbildung vorbereiten",
+        focus: "Handlungsfeld 1 & 2: Voraussetzungen, Vorbereitung",
         tasks: [
           "Ausbildungsplan-Vorlage selbst erstellen",
           "Eignung Ausbilder/Betrieb wiederholen",
@@ -46,7 +51,7 @@ const PLANS: Record<string, { title: string; weeks: PlanWeek[] }> = {
       },
       {
         week: 3,
-        focus: "Handlungsfeld 3: Ausbildung durchführen — Methodik",
+        focus: "Handlungsfeld 3: Durchführung — Methodik",
         tasks: [
           "Vier-Stufen-Methode in eigenen Worten erklären",
           "Lehrgespräch vs. Lernauftrag vergleichen",
@@ -58,7 +63,7 @@ const PLANS: Record<string, { title: string; weeks: PlanWeek[] }> = {
         focus: "Prüfungssimulation",
         tasks: [
           "Schriftliche Probeprüfung (180 Min) komplett",
-          "Praktische Präsentation üben (15 Min) + Fachgespräch (15 Min)",
+          "Praktische Präsentation üben + Fachgespräch",
           "AI-Tutor: 3 mündliche Prüfungssimulationen",
         ],
       },
@@ -66,53 +71,96 @@ const PLANS: Record<string, { title: string; weeks: PlanWeek[] }> = {
   },
 };
 
-function renderHtml(slug: string, plan: { title: string; weeks: PlanWeek[] }): string {
-  const weeksHtml = plan.weeks
-    .map(
-      (w) => `
-        <section class="week">
-          <h2>Woche ${w.week}: ${escapeHtml(w.focus)}</h2>
-          <ul>${w.tasks.map((t) => `<li>${escapeHtml(t)}</li>`).join("")}</ul>
-        </section>`
-    )
-    .join("");
+function buildPdf(slug: string, plan: typeof PLANS[string]): string {
+  const doc = new jsPDF({ unit: "pt", format: "a4" });
+  const pageW = doc.internal.pageSize.getWidth();
+  const margin = 48;
+  let y = margin;
 
-  return `<!doctype html>
-<html lang="de">
-<head>
-  <meta charset="utf-8" />
-  <title>${escapeHtml(plan.title)}</title>
-  <style>
-    @page { size: A4; margin: 18mm; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; color: #0f172a; line-height: 1.5; }
-    h1 { font-size: 22pt; margin: 0 0 4pt 0; color: #0d9488; }
-    h2 { font-size: 13pt; margin: 0 0 6pt 0; color: #134e4a; }
-    .meta { color: #64748b; font-size: 10pt; margin-bottom: 16pt; }
-    .week { border: 1pt solid #cbd5e1; border-radius: 6pt; padding: 10pt 12pt; margin-bottom: 8pt; break-inside: avoid; }
-    ul { margin: 4pt 0 0 18pt; padding: 0; }
-    li { margin-bottom: 3pt; }
-    footer { margin-top: 16pt; color: #64748b; font-size: 9pt; text-align: center; }
-    .cta { margin-top: 14pt; padding: 10pt 12pt; background: #f0fdfa; border: 1pt solid #5eead4; border-radius: 6pt; }
-  </style>
-</head>
-<body onload="window.print()">
-  <h1>${escapeHtml(plan.title)}</h1>
-  <p class="meta">Slug: ${escapeHtml(slug)} · Erzeugt am ${new Date().toLocaleDateString("de-DE")}</p>
-  ${weeksHtml}
-  <div class="cta">
-    <strong>Jetzt umsetzen mit dem Komplett-Bundle (24,90 €):</strong>
-    Lernkurs · Prüfungstrainer · AI-Tutor · Mündliche Simulation.<br />
-    https://examfit.de/bundle/ausbildereignungspruefung-aevo
-  </div>
-  <footer>© ExamFit · Dein persönlicher Lernplan</footer>
-</body>
-</html>`;
-}
+  // Header
+  doc.setTextColor(13, 148, 136); // teal-600
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(20);
+  doc.text(plan.title, margin, y);
+  y += 24;
 
-function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']/g, (c) =>
-    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!)
+  doc.setTextColor(100, 116, 139);
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  doc.text(
+    `Erzeugt am ${new Date().toLocaleDateString("de-DE")} · ExamFit`,
+    margin,
+    y
   );
+  y += 24;
+
+  // Wochen
+  for (const w of plan.weeks) {
+    if (y > 720) {
+      doc.addPage();
+      y = margin;
+    }
+    doc.setDrawColor(203, 213, 225);
+    doc.setFillColor(248, 250, 252);
+    doc.roundedRect(margin, y, pageW - 2 * margin, 24, 4, 4, "FD");
+
+    doc.setTextColor(19, 78, 74);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.text(`Woche ${w.week}: ${w.focus}`, margin + 10, y + 16);
+    y += 36;
+
+    doc.setTextColor(15, 23, 42);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(11);
+    for (const t of w.tasks) {
+      if (y > 760) {
+        doc.addPage();
+        y = margin;
+      }
+      const lines = doc.splitTextToSize(`•  ${t}`, pageW - 2 * margin - 14);
+      doc.text(lines, margin + 14, y);
+      y += lines.length * 14 + 2;
+    }
+    y += 10;
+  }
+
+  // CTA-Box
+  if (y > 700) {
+    doc.addPage();
+    y = margin;
+  }
+  doc.setFillColor(240, 253, 250);
+  doc.setDrawColor(94, 234, 212);
+  doc.roundedRect(margin, y, pageW - 2 * margin, 60, 6, 6, "FD");
+  doc.setTextColor(13, 148, 136);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  doc.text("Komplett-Bundle (24,90 €)", margin + 12, y + 18);
+  doc.setTextColor(15, 23, 42);
+  doc.setFont("helvetica", "normal");
+  doc.text(
+    "Lernkurs · Prüfungstrainer · AI-Tutor · mündliche Simulation",
+    margin + 12,
+    y + 34
+  );
+  doc.setTextColor(13, 148, 136);
+  doc.text(`https://examfit.de/bundle/${plan.bundleSlug}`, margin + 12, y + 50);
+
+  // Footer
+  const pageH = doc.internal.pageSize.getHeight();
+  doc.setTextColor(100, 116, 139);
+  doc.setFontSize(8);
+  doc.text(
+    `© ExamFit · Persönlicher Lernplan · slug=${slug}`,
+    margin,
+    pageH - 24
+  );
+
+  // Datauri
+  const base64 = doc.output("datauristring");
+  // jsPDF gibt vollen "data:application/pdf;filename=…;base64,…" zurück
+  return base64;
 }
 
 Deno.serve(async (req: Request) => {
@@ -133,16 +181,22 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const html = renderHtml(slug, plan);
-    const dataUrl = `data:text/html;charset=utf-8;base64,${btoa(unescape(encodeURIComponent(html)))}`;
+    const dataUrl = buildPdf(slug, plan);
 
-    return new Response(JSON.stringify({ ok: true, url: dataUrl }), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  } catch (err) {
     return new Response(
-      JSON.stringify({ ok: false, error: (err as Error).message ?? "render_failed" }),
+      JSON.stringify({ ok: true, url: dataUrl, mime: "application/pdf" }),
+      {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
+    );
+  } catch (err) {
+    console.error("[lernplan-pdf] failed:", err);
+    return new Response(
+      JSON.stringify({
+        ok: false,
+        error: (err as Error).message ?? "render_failed",
+      }),
       {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

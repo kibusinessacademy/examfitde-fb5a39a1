@@ -83,15 +83,17 @@ d("Funnel E2E — anonymer Quiz → Result → Lernplan-Lock", () => {
     expect(m!.curriculumId).toMatch(/^[0-9a-f-]{36}$/);
   });
 
-  it("Step 5a: Lernplan-PDF Edge Function erreichbar", async () => {
+  it("Step 5a: Lernplan-PDF Edge Function liefert echtes PDF (data:application/pdf)", async () => {
     const { data, error } = await client.functions.invoke("lernplan-pdf", {
       body: { slug: QUIZ_SLUG, attempt_id: attemptId ?? null },
     });
-    // Function darf fehlschlagen wenn nicht deployt — dann Test überspringen
     if (error && /not found|404/i.test(String(error.message ?? error))) return;
     expect(error).toBeNull();
-    expect((data as any)?.ok).toBe(true);
-    expect(typeof (data as any)?.url).toBe("string");
+    const payload = data as any;
+    expect(payload?.ok).toBe(true);
+    expect(typeof payload?.url).toBe("string");
+    expect(payload.url.startsWith("data:application/pdf")).toBe(true);
+    expect(payload?.mime).toBe("application/pdf");
   });
 
   it("Step 5b: quiz_leads bleibt für anon UNLESBAR (Lernplan ohne Lead gesperrt)", async () => {
@@ -152,5 +154,31 @@ d("Funnel E2E — anonymer Quiz → Result → Lernplan-Lock", () => {
     });
     expect((data as any)?.ok).toBe(false);
     expect((data as any)?.error).toBe("invalid_email");
+  });
+
+  it("Step 7a: validate_quiz_mapping bestätigt aktives Mapping", async () => {
+    const { data, error } = await (client as any).rpc("validate_quiz_mapping", {
+      p_quiz_slug: QUIZ_SLUG,
+    });
+    expect(error).toBeNull();
+    expect((data as any)?.ok).toBe(true);
+    expect((data as any)?.curriculum_id).toMatch(/^[0-9a-f-]{36}$/);
+  });
+
+  it("Step 7b: validate_quiz_mapping liefert quiz_not_found für unbekannten Slug", async () => {
+    const { data, error } = await (client as any).rpc("validate_quiz_mapping", {
+      p_quiz_slug: "does-not-exist-xyz",
+    });
+    expect(error).toBeNull();
+    expect((data as any)?.ok).toBe(false);
+    expect((data as any)?.error).toBe("quiz_not_found");
+  });
+
+  it("Step 7c: validate_quiz_mapping verweigert leeren Slug", async () => {
+    const { data } = await (client as any).rpc("validate_quiz_mapping", {
+      p_quiz_slug: "",
+    });
+    expect((data as any)?.ok).toBe(false);
+    expect((data as any)?.error).toBe("missing_slug");
   });
 });

@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { Breadcrumbs } from '@/components/seo/Breadcrumbs';
 import { SEOInternalLinks } from '@/components/seo/SEOInternalLinks';
+import { AEVOQuizCTA } from '@/components/quiz/AEVOQuizCTA';
 import { generateBreadcrumbSchema, generateFAQSchema, SITE_URL } from '@/lib/seo';
 
 const METHODEN = [
@@ -57,9 +58,7 @@ export default function AEVOPraktischePage() {
                 <Button size="lg" className="gradient-primary text-primary-foreground shadow-glow" asChild>
                   <Link to="/pruefungstraining/aevo">AEVO-Training starten <ArrowRight className="ml-2 h-5 w-5" /></Link>
                 </Button>
-                <Button size="lg" variant="outline" asChild>
-                  <Link to="/quiz/aevo-pruefungsreife">Gratis-Selbsttest (2 Min)</Link>
-                </Button>
+                <AEVOQuizCTA location="hero" variant="outline" label="Gratis-Selbsttest (2 Min)" />
               </div>
             </div>
           </div>
@@ -81,6 +80,17 @@ export default function AEVOPraktischePage() {
                 </CardContent>
               </Card>
             ))}
+          </div>
+        </section>
+
+        {/* Mid-Funnel Quiz-CTA */}
+        <section className="py-10">
+          <div className="container max-w-4xl">
+            <AEVOQuizCTA
+              location="mid"
+              label="Welche Unterweisungsmethode passt zu deinem Thema?"
+              subtitle="Der 5-Fragen-Selbsttest zeigt dir Stärken & Lücken — inklusive 4-Wochen-Lernplan."
+            />
           </div>
         </section>
 
@@ -143,14 +153,11 @@ export default function AEVOPraktischePage() {
           </div>
         </section>
 
-        <section className="py-20 bg-gradient-to-br from-primary/10 via-transparent to-accent/10">
-          <div className="container text-center max-w-3xl space-y-6">
-            <h2 className="text-3xl font-display font-bold">AEVO-Präsentation souverän meistern</h2>
-            <Button size="lg" className="gradient-primary text-primary-foreground shadow-glow h-14 px-8 text-lg" asChild>
-              <Link to="/pruefungstraining/aevo">Jetzt AEVO-Training starten <ArrowRight className="ml-2 h-5 w-5" /></Link>
-            </Button>
-          </div>
-        </section>
+        <AEVOQuizCTA
+          location="footer"
+          label="AEVO-Präsentation souverän meistern"
+          subtitle="Mache den Selbsttest und erhalte deinen persönlichen Lernplan zur praktischen Prüfung."
+        />
       </div>
     </>
   );

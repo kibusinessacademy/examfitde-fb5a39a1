@@ -7,6 +7,7 @@ import { SEOHead } from '@/components/seo/SEOHead';
 import { Breadcrumbs } from '@/components/seo/Breadcrumbs';
 import { SEOInternalLinks } from '@/components/seo/SEOInternalLinks';
 import { SEOQuizWidget } from '@/components/seo/SEOQuizWidget';
+import { AEVOQuizCTA } from '@/components/quiz/AEVOQuizCTA';
 import { generateBreadcrumbSchema, generateFAQSchema, SITE_URL } from '@/lib/seo';
 import { PRICING } from '@/config/pricing';
 
@@ -68,9 +69,7 @@ export default function AEVOPruefungsvorbereitungPage() {
                 praktische Präsentation und Fachgespräch – mit KI-gestütztem Training.
               </p>
               <div className="flex flex-wrap gap-4">
-                <Button size="lg" className="gradient-primary text-primary-foreground shadow-glow h-14 px-8 text-lg" asChild>
-                  <Link to="/quiz/aevo-pruefungsreife">Gratis: Bin ich prüfungsreif? <ArrowRight className="ml-2 h-5 w-5" /></Link>
-                </Button>
+                <AEVOQuizCTA location="hero" />
                 <Button size="lg" variant="outline" className="h-14 px-8" asChild>
                   <Link to="/pruefungstraining/aevo">AEVO-Training starten</Link>
                 </Button>
@@ -101,6 +100,13 @@ export default function AEVOPruefungsvorbereitungPage() {
                 </Link>
               ))}
             </div>
+          </div>
+        </section>
+
+        {/* Mid-Funnel Quiz-CTA */}
+        <section className="py-10">
+          <div className="container max-w-4xl">
+            <AEVOQuizCTA location="mid" />
           </div>
         </section>
 
@@ -201,16 +207,12 @@ export default function AEVOPruefungsvorbereitungPage() {
           </div>
         </section>
 
-        {/* CTA */}
-        <section className="py-20 bg-gradient-to-br from-primary/10 via-transparent to-accent/10">
-          <div className="container text-center max-w-3xl space-y-6">
-            <h2 className="text-3xl font-display font-bold">Bereit für den Ausbilderschein?</h2>
-            <p className="text-xl text-muted-foreground">Starte jetzt mit dem AEVO-Training – nur {PRICING.defaultPrice}.</p>
-            <Button size="lg" className="gradient-primary text-primary-foreground shadow-glow h-14 px-8 text-lg" asChild>
-              <Link to="/pruefungstraining/aevo">AEVO-Training starten <ArrowRight className="ml-2 h-5 w-5" /></Link>
-            </Button>
-          </div>
-        </section>
+        {/* Footer CTA — Quiz-First, NICHT direkt Bundle */}
+        <AEVOQuizCTA
+          location="footer"
+          label="Bereit für den Ausbilderschein?"
+          subtitle={`Starte mit dem 5-Fragen-Selbsttest, erhalte deinen Lernplan und entscheide danach, ob du das Komplett-Bundle (${PRICING.defaultPrice}) brauchst.`}
+        />
       </div>
     </>
   );

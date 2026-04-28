@@ -188,7 +188,7 @@ export default function LernplanPage() {
                 </>
               ) : (
                 <>
-                  <FileDown className="mr-2 h-4 w-4" /> Druckversion öffnen
+                  <FileDown className="mr-2 h-4 w-4" /> PDF herunterladen
                 </>
               )}
             </Button>
