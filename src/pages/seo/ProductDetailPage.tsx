@@ -9,9 +9,9 @@ import { useSingleBeruf, useCurriculumProductBySlug } from '@/hooks/useSEOPages'
 import { SEO_TEMPLATES, SITE_URL, PRODUCT_PRICES, generateProductSchema } from '@/lib/seo';
 
 // Bundle-only Strategie: Es gibt nur ein kaufbares Produkt — das Bundle (24,90 €).
-// Der Typ behält die Legacy-Werte als Aliase, damit alte Imports nicht brechen,
-// aber alle führen intern zur Bundle-Variante.
-type ProductType = 'lernkurs' | 'pruefungstrainer' | 'bundle';
+// Legacy-Routen (/lernkurse, /pruefungstrainer) werden via LegacyProductRedirect auf
+// /bundle/:slug umgeleitet — siehe AppRoutes.tsx und LegacyProductRedirect.tsx.
+type ProductType = 'bundle';
 
 const productInfo = {
   bundle: {
@@ -67,8 +67,8 @@ function ProductDetailPageComponent({ productType }: ProductDetailPageProps) {
     name: `${beruf.title} ${info.label}`,
     description: seo.description,
     price,
-    url: `${SITE_URL}/${productType}/${slug}`,
-    sku: `${productType}-${slug}`,
+    url: `${SITE_URL}/bundle/${slug}`,
+    sku: `bundle-${slug}`,
     ratingValue: 4.9,
     reviewCount: 127,
   });
@@ -78,7 +78,7 @@ function ProductDetailPageComponent({ productType }: ProductDetailPageProps) {
       <SEOHead
         title={product?.seo_title || seo.title}
         description={product?.seo_description || seo.description}
-        canonical={`${SITE_URL}/${productType}/${slug}`}
+        canonical={`${SITE_URL}/bundle/${slug}`}
         type="product"
         structuredData={structuredData}
       />
@@ -89,7 +89,7 @@ function ProductDetailPageComponent({ productType }: ProductDetailPageProps) {
           <div className="container relative z-10">
             <Breadcrumbs
               items={[
-                { label: info.listLabel, href: `/${productType === 'bundle' ? 'bundle' : productType + 's'}` },
+                { label: info.listLabel, href: '/bundle' },
                 { label: beruf.title },
               ]}
               className="mb-8"
@@ -232,15 +232,10 @@ function ProductDetailPageComponent({ productType }: ProductDetailPageProps) {
   );
 }
 
-// Named exports – all redirect to shop (single-product strategy)
-export function LernkursDetailPage() {
-  return <ProductDetailPageComponent productType="bundle" />;
-}
-
-export function PruefungstrainerDetailPage() {
-  return <ProductDetailPageComponent productType="bundle" />;
-}
-
+// Bundle-only: Es gibt nur noch einen kaufbaren Produkt-Detail-Export.
+// Legacy-Named-Exports wurden entfernt — alle Legacy-Routen werden in AppRoutes.tsx
+// über LegacyProductRedirect direkt auf /bundle/:slug umgeleitet, ohne diese Komponente
+// jemals zu rendern.
 export function BundleDetailPage() {
   return <ProductDetailPageComponent productType="bundle" />;
 }
