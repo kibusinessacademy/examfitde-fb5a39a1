@@ -592,6 +592,7 @@ Deno.serve(async (req) => {
         const { data: gate } = await supabase.rpc("tutor_access_check", {
           p_curriculum_id: context.curriculumId as string,
           p_daily_limit: 200,
+          p_user_id: user.id,
         });
         const allowed = (gate as Record<string, unknown> | null)?.allowed === true;
         const reason = String((gate as Record<string, unknown> | null)?.reason || "unknown");
