@@ -40,6 +40,7 @@ import {
 } from 'lucide-react';
 import CrmDealsDrilldown from './CrmDealsDrilldown';
 import EmailSequencesPanel from './EmailSequencesPanel';
+import SalesFunnelCard from './SalesFunnelCard';
 
 type Health = 'critical' | 'warning' | 'ok' | 'unknown';
 
@@ -309,6 +310,9 @@ export default function MarketingIntelligencePanel() {
           )}
         </CardContent>
       </Card>
+
+      {/* Section: Sales Funnel pro Curriculum (30d) — Schritte + Latenz */}
+      <SalesFunnelCard />
 
       {/* Section: CRM Deals Drilldown — pro Deal Orders/Activities/Email-Sequences */}
       <CrmDealsDrilldown />
