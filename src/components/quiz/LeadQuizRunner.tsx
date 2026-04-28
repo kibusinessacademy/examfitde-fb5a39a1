@@ -19,7 +19,8 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { CheckCircle2, AlertCircle, ArrowRight } from "lucide-react";
+import { CheckCircle2, AlertCircle, ArrowRight, GraduationCap, Mic } from "lucide-react";
+import { Link } from "react-router-dom";
 
 interface Props {
   slug: string;
