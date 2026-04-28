@@ -50,29 +50,34 @@ Deno.serve(async (req) => {
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const admin = createClient(supabaseUrl, serviceKey);
 
-    // Caller must be admin (check via JWT)
+    // Auth: either admin user JWT, OR service-role key in apikey header (for ops/CI)
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return new Response(JSON.stringify({ error: "missing bearer" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    const apiKey = req.headers.get("apikey") ?? req.headers.get("x-service-role");
+    const isServiceRole = !!apiKey && apiKey === serviceKey;
+
+    if (!isServiceRole) {
+      if (!authHeader?.startsWith("Bearer ")) {
+        return new Response(JSON.stringify({ error: "missing bearer or service-role" }), {
+          status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const callerClient = createClient(supabaseUrl, anonKey, {
+        global: { headers: { Authorization: authHeader } },
       });
-    }
-    const callerClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: callerData } = await callerClient.auth.getUser();
-    if (!callerData?.user) {
-      return new Response(JSON.stringify({ error: "invalid token" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      const { data: callerData } = await callerClient.auth.getUser();
+      if (!callerData?.user) {
+        return new Response(JSON.stringify({ error: "invalid token" }), {
+          status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const { data: isAdmin } = await admin.rpc("has_role", {
+        _user_id: callerData.user.id, _role: "admin",
       });
-    }
-    const { data: isAdmin } = await admin.rpc("has_role", {
-      _user_id: callerData.user.id, _role: "admin",
-    });
-    if (!isAdmin) {
-      return new Response(JSON.stringify({ error: "admin required" }), {
-        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      if (!isAdmin) {
+        return new Response(JSON.stringify({ error: "admin required" }), {
+          status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
     const e2eEmail = Deno.env.get("E2E_TEST_USER_EMAIL")!;
     const e2ePass = Deno.env.get("E2E_TEST_USER_PASSWORD")!;
