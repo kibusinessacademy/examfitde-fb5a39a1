@@ -3,7 +3,8 @@ import { getOrgConsoleContext } from "@/lib/orgApi";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Building2 } from "lucide-react";
+import { Building2, Shield } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import OrgKpiPanel from "@/pages/org/panels/OrgKpiPanel";
 import OrgBillingPanel from "@/pages/org/panels/OrgBillingPanel";
 import OrgSeatManagementPanel from "@/pages/org/panels/OrgSeatManagementPanel";
@@ -44,38 +45,56 @@ export default function OrgConsolePage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      <div data-density="comfortable" className="flex items-center justify-center py-20">
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-petrol-200 border-t-petrol-600" />
       </div>
     );
   }
 
   if (orgs.length === 0) {
     return (
-      <Card className="max-w-2xl mx-auto">
-        <CardContent className="py-12 text-center">
-          <Building2 className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-          <p className="text-muted-foreground">Keine Organisation zugewiesen.</p>
-        </CardContent>
-      </Card>
+      <div data-density="comfortable" className="max-w-2xl mx-auto">
+        <Card variant="sunken">
+          <CardContent className="py-12 text-center">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-mint-100 dark:bg-petrol-900/40">
+              <Building2 className="h-7 w-7 text-petrol-600 dark:text-mint-400" />
+            </div>
+            <p className="text-text-secondary">Keine Organisation zugewiesen.</p>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
+  const privacyStatus = selected?.privacy_access?.status ?? "NONE";
+  const privacyVariant = privacyStatus === "GRANTED" ? "default" : privacyStatus === "PENDING" ? "secondary" : "outline";
+
   return (
-    <div className="space-y-6">
+    <div data-density="comfortable" className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">{selected?.org?.name ?? "Org Console"}</h1>
-          <p className="text-sm text-muted-foreground">
-            Rolle: <span className="font-medium">{selected?.my_role ?? "–"}</span>
-            {" · "}Privacy: <span className="font-medium">{selected?.privacy_access?.status ?? "NONE"}</span>
-          </p>
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 pb-4 border-b border-border-subtle">
+        <div className="flex items-start gap-3">
+          <div className="hidden sm:flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-petrol-50 dark:bg-petrol-900/30">
+            <Building2 className="h-5 w-5 text-petrol-600 dark:text-mint-400" />
+          </div>
+          <div className="space-y-1.5">
+            <h1 className="text-2xl font-display font-semibold tracking-tight text-text-primary leading-tight">
+              {selected?.org?.name ?? "Org Console"}
+            </h1>
+            <div className="flex flex-wrap items-center gap-2 text-sm text-text-secondary">
+              <Badge variant="outline" className="font-medium">{selected?.my_role ?? "–"}</Badge>
+              <span className="text-text-quaternary">·</span>
+              <span className="inline-flex items-center gap-1.5">
+                <Shield className="h-3.5 w-3.5 text-text-tertiary" />
+                <Badge variant={privacyVariant as any} className="font-medium">{privacyStatus}</Badge>
+              </span>
+            </div>
+          </div>
         </div>
 
         {orgs.length > 1 && (
           <Select value={orgId ?? undefined} onValueChange={(v) => setOrgId(v)}>
-            <SelectTrigger className="w-[280px]">
+            <SelectTrigger className="w-full sm:w-[280px]">
               <SelectValue placeholder="Organisation wählen" />
             </SelectTrigger>
             <SelectContent>
@@ -92,7 +111,7 @@ export default function OrgConsolePage() {
       {/* Tabs */}
       {selected?.org?.id && (
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList>
+          <TabsList className="flex-wrap h-auto">
             <TabsTrigger value="kpis">KPIs</TabsTrigger>
             <TabsTrigger value="billing">Rechnungen</TabsTrigger>
             <TabsTrigger value="seats">Learner & Lizenzen</TabsTrigger>
