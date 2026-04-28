@@ -239,13 +239,13 @@ export default function ExamTrainer() {
 
       {/* Loading Step */}
       {step === 'loading' && (
-        <Card className="glass-card border-border/50 max-w-2xl mx-auto">
+        <Card variant="raised" className="max-w-2xl mx-auto" data-density="comfortable">
           <CardContent className="py-16 text-center">
-            <Sparkles className="h-16 w-16 text-primary mx-auto mb-6 animate-pulse" />
-            <h3 className="text-xl font-display font-bold text-foreground mb-2">
+            <Sparkles className="h-16 w-16 text-petrol-600 mx-auto mb-6 animate-pulse" />
+            <h3 className="text-xl font-display font-bold text-text-primary mb-2">
               Fragen werden geladen...
             </h3>
-            <p className="text-muted-foreground">
+            <p className="text-text-secondary">
               Wir stellen dir Prüfungsfragen für {selectedBerufName || 'dein Training'} zusammen.
             </p>
           </CardContent>
@@ -257,20 +257,20 @@ export default function ExamTrainer() {
         <div className="space-y-6 max-w-2xl mx-auto">
           <div className="space-y-2">
             <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">
+              <span className="text-text-secondary tabular-nums">
                 Frage {currentIndex + 1} von {questions.length}
               </span>
               <div className="flex items-center gap-3">
                 {stats.streak > 0 && (
-                  <div className="flex items-center gap-1 text-orange-500">
+                  <div className="flex items-center gap-1 text-warning">
                     <Flame className="h-4 w-4" />
-                    <span className="font-medium">{stats.streak}</span>
+                    <span className="font-medium tabular-nums">{stats.streak}</span>
                   </div>
                 )}
                 <Badge variant="outline" className={cn(
-                  adaptiveDifficulty === 'easy' && "text-green-500 border-green-500/30",
-                  adaptiveDifficulty === 'medium' && "text-yellow-500 border-yellow-500/30",
-                  adaptiveDifficulty === 'hard' && "text-red-500 border-red-500/30",
+                  adaptiveDifficulty === 'easy' && "text-success border-success/30 bg-success-bg-subtle",
+                  adaptiveDifficulty === 'medium' && "text-warning border-warning/30 bg-warning-bg-subtle",
+                  adaptiveDifficulty === 'hard' && "text-danger border-danger/30 bg-danger-bg-subtle",
                 )}>
                   {adaptiveDifficulty === 'easy' ? 'Leicht' : adaptiveDifficulty === 'medium' ? 'Mittel' : 'Schwer'}
                 </Badge>
@@ -279,9 +279,9 @@ export default function ExamTrainer() {
             <Progress value={progressPercent} className="h-2" />
           </div>
 
-          <Card className="glass-card border-border/50">
+          <Card variant="raised">
             <CardContent className="p-6 md:p-8">
-              <p className="text-lg md:text-xl font-medium text-foreground mb-6 leading-relaxed">
+              <p className="text-lg md:text-xl font-medium text-text-primary mb-6 leading-relaxed">
                 {currentQuestion.question_text}
               </p>
 
@@ -297,19 +297,19 @@ export default function ExamTrainer() {
                       onClick={() => handleAnswer(idx)}
                       disabled={step === 'feedback' || isSubmittingAnswer}
                       className={cn(
-                        "w-full p-4 rounded-xl border text-left transition-all",
+                        "w-full p-4 rounded-xl border text-left transition-all duration-base",
                         "flex items-center gap-4",
-                        !showResult && !isSelected && "border-border bg-muted/30 hover:border-primary/50 hover:bg-muted/50",
-                        !showResult && isSelected && "border-primary bg-primary/10",
-                        showResult && isCorrect && "border-green-500 bg-green-500/10",
-                        showResult && isSelected && !isCorrect && "border-red-500 bg-red-500/10",
+                        !showResult && !isSelected && "border-border-subtle bg-surface-sunken hover:border-petrol-300 hover:bg-surface-hover/50",
+                        !showResult && isSelected && "border-petrol-500 bg-petrol-50",
+                        showResult && isCorrect && "border-success bg-success-bg-subtle",
+                        showResult && isSelected && !isCorrect && "border-danger bg-danger-bg-subtle",
                       )}
                     >
                       <div className={cn(
                         "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 font-medium",
-                        !showResult && "bg-muted text-muted-foreground",
-                        showResult && isCorrect && "bg-green-500 text-white",
-                        showResult && isSelected && !isCorrect && "bg-red-500 text-white",
+                        !showResult && "bg-surface-sunken text-text-secondary border border-border-subtle",
+                        showResult && isCorrect && "bg-success text-petrol-50",
+                        showResult && isSelected && !isCorrect && "bg-danger text-petrol-50",
                       )}>
                         {showResult && isCorrect ? (
                           <CheckCircle className="h-5 w-5" />
@@ -319,31 +319,31 @@ export default function ExamTrainer() {
                           String.fromCharCode(65 + idx)
                         )}
                       </div>
-                      <span className="text-foreground">{option}</span>
+                      <span className="text-text-primary">{option}</span>
                     </button>
                   );
                 })}
               </div>
 
               {isSubmittingAnswer && (
-                <div className="mt-6 p-4 rounded-xl bg-muted/30 border border-border animate-pulse">
+                <div className="mt-6 p-4 rounded-xl bg-surface-sunken border border-border-subtle animate-pulse">
                   <div className="flex items-center gap-2">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span className="text-sm text-muted-foreground">Antwort wird ausgewertet...</span>
+                    <Loader2 className="h-4 w-4 animate-spin text-petrol-600" />
+                    <span className="text-sm text-text-secondary">Antwort wird ausgewertet...</span>
                   </div>
                 </div>
               )}
 
               {step === 'feedback' && answerResult && (
-                <div className="mt-6 p-4 rounded-xl bg-muted/30 border border-border animate-fade-in">
-                  <p className="text-sm font-medium text-foreground mb-2">
+                <div className="mt-6 p-4 rounded-xl bg-surface-sunken border border-border-subtle animate-fade-in">
+                  <p className="text-sm font-medium mb-2">
                     {answerResult.is_correct ? (
-                      <span className="text-green-500">✓ Richtig!</span>
+                      <span className="text-success">✓ Richtig!</span>
                     ) : (
-                      <span className="text-red-500">✗ Leider falsch</span>
+                      <span className="text-danger">✗ Leider falsch</span>
                     )}
                   </p>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-text-secondary">
                     {answerResult.explanation}
                   </p>
                 </div>
@@ -353,8 +353,9 @@ export default function ExamTrainer() {
 
           {step === 'feedback' && (
             <Button
+              variant="petrol"
               onClick={nextQuestion}
-              className="w-full gradient-primary text-primary-foreground shadow-glow"
+              className="w-full"
             >
               {currentIndex + 1 >= questions.length ? 'Ergebnis anzeigen' : 'Nächste Frage'}
               <ChevronRight className="h-4 w-4 ml-2" />
@@ -365,44 +366,44 @@ export default function ExamTrainer() {
 
       {/* Results Step */}
       {step === 'results' && (
-        <Card className="glass-card border-border/50 max-w-2xl mx-auto">
+        <Card variant="raised" className="max-w-2xl mx-auto" data-density="comfortable">
           <CardContent className="py-12 text-center">
             <div className={cn(
-              "w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6",
-              scorePercent >= 80 ? "gradient-primary shadow-glow" :
-              scorePercent >= 50 ? "bg-yellow-500" : "bg-red-500"
+              "w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 shadow-elev-3",
+              scorePercent >= 80 ? "bg-petrol-600" :
+              scorePercent >= 50 ? "bg-warning" : "bg-danger"
             )}>
-              <Trophy className="h-12 w-12 text-white" />
+              <Trophy className="h-12 w-12 text-petrol-50" />
             </div>
 
-            <h3 className="text-2xl font-display font-bold text-foreground mb-2">
+            <h3 className="text-2xl font-display font-bold text-text-primary mb-2">
               {scorePercent >= 80 ? 'Hervorragend!' :
                scorePercent >= 50 ? 'Gut gemacht!' : 'Weiter üben!'}
             </h3>
 
-            <p className="text-muted-foreground mb-8">
+            <p className="text-text-secondary mb-8 tabular-nums">
               Du hast {stats.correct} von {questions.length} Fragen richtig beantwortet.
             </p>
 
             <div className="grid grid-cols-3 gap-4 mb-8">
-              <div className="p-4 rounded-xl bg-muted/30">
-                <p className="text-3xl font-bold text-green-500">{stats.correct}</p>
-                <p className="text-sm text-muted-foreground">Richtig</p>
+              <div className="p-4 rounded-xl bg-success-bg-subtle border border-success/20">
+                <p className="text-3xl font-display font-bold text-success tabular-nums">{stats.correct}</p>
+                <p className="text-sm text-text-secondary">Richtig</p>
               </div>
-              <div className="p-4 rounded-xl bg-muted/30">
-                <p className="text-3xl font-bold text-red-500">{stats.incorrect}</p>
-                <p className="text-sm text-muted-foreground">Falsch</p>
+              <div className="p-4 rounded-xl bg-danger-bg-subtle border border-danger/20">
+                <p className="text-3xl font-display font-bold text-danger tabular-nums">{stats.incorrect}</p>
+                <p className="text-sm text-text-secondary">Falsch</p>
               </div>
-              <div className="p-4 rounded-xl bg-muted/30">
-                <p className="text-3xl font-bold text-orange-500">{stats.maxStreak}</p>
-                <p className="text-sm text-muted-foreground">Beste Serie</p>
+              <div className="p-4 rounded-xl bg-warning-bg-subtle border border-warning/20">
+                <p className="text-3xl font-display font-bold text-warning tabular-nums">{stats.maxStreak}</p>
+                <p className="text-sm text-text-secondary">Beste Serie</p>
               </div>
             </div>
 
             <div className="max-w-md mx-auto mb-8">
               <div className="flex justify-between text-sm mb-2">
-                <span className="text-muted-foreground">Dein Ergebnis</span>
-                <span className="font-medium text-foreground">{Math.round(scorePercent)}%</span>
+                <span className="text-text-secondary">Dein Ergebnis</span>
+                <span className="font-medium text-text-primary tabular-nums">{Math.round(scorePercent)}%</span>
               </div>
               <Progress value={scorePercent} className="h-3" />
             </div>
@@ -413,8 +414,8 @@ export default function ExamTrainer() {
                 Neues Training
               </Button>
               <Button
+                variant="petrol"
                 onClick={() => startLearningSession(selectedCurriculumId)}
-                className="gradient-primary text-primary-foreground"
               >
                 <Sparkles className="h-4 w-4 mr-2" />
                 Nochmal trainieren

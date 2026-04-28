@@ -33,19 +33,20 @@ export function TutorPanel({
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
       <SheetTrigger asChild>
         <Button
+          variant="petrol"
           size="icon"
           className={cn(
-            "fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg z-50",
-            "bg-primary hover:bg-primary/90",
+            "fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-elev-3 hover:shadow-elev-4 z-50 transition-shadow duration-base",
             className
           )}
+          aria-label="AI-Tutor öffnen"
         >
           <Bot className="h-6 w-6" />
         </Button>
       </SheetTrigger>
       <SheetContent 
         side="right" 
-        className="w-full sm:w-[400px] p-0 flex flex-col"
+        className="w-full sm:w-[400px] p-0 flex flex-col bg-surface-raised"
       >
         <div className="absolute top-4 right-4 z-10">
           <Button 

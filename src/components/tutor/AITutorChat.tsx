@@ -28,36 +28,36 @@ const MODE_CONFIG = {
     icon: BookOpen,
     label: 'Lernmodus',
     description: 'Volle Tutor-Unterstützung',
-    color: 'bg-green-500/10 text-green-600 border-green-500/30',
-    gradient: 'from-green-500/5 to-transparent',
+    color: 'bg-success-bg-subtle text-success border-success/20',
+    gradient: 'from-success-bg-subtle to-transparent',
   },
   [AI_MODES.PRACTICE]: {
     icon: Target,
     label: 'Übungsmodus',
     description: 'Feedback nach Antwort',
-    color: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/30',
-    gradient: 'from-yellow-500/5 to-transparent',
+    color: 'bg-warning-bg-subtle text-warning border-warning/20',
+    gradient: 'from-warning-bg-subtle to-transparent',
   },
   [AI_MODES.EXAM]: {
     icon: Clock,
     label: 'Prüfungsmodus',
     description: 'Nur technische Hilfe',
-    color: 'bg-red-500/10 text-red-600 border-red-500/30',
-    gradient: 'from-red-500/5 to-transparent',
+    color: 'bg-danger-bg-subtle text-danger border-danger/20',
+    gradient: 'from-danger-bg-subtle to-transparent',
   },
 };
 
 function TypingIndicator() {
   return (
     <div className="flex items-center gap-2 px-4 py-3">
-      <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-        <Bot className="h-4 w-4 text-primary" />
+      <div className="w-7 h-7 rounded-full bg-petrol-100 flex items-center justify-center flex-shrink-0">
+        <Bot className="h-4 w-4 text-petrol-600" />
       </div>
-      <div className="flex gap-1 items-center px-3 py-2 rounded-xl bg-muted">
+      <div className="flex gap-1 items-center px-3 py-2 rounded-xl bg-surface-sunken">
         {[0, 1, 2].map(i => (
           <motion.div
             key={i}
-            className="w-2 h-2 rounded-full bg-muted-foreground/40"
+            className="w-2 h-2 rounded-full bg-text-tertiary"
             animate={{ y: [0, -4, 0] }}
             transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.15 }}
           />
@@ -99,17 +99,17 @@ export function AITutorChat({
   };
 
   return (
-    <Card className={cn("glass-card flex flex-col h-full overflow-hidden", className)}>
+    <Card variant="raised" className={cn("flex flex-col h-full overflow-hidden", className)} data-density="comfortable">
       {/* Header */}
       <CardHeader className={cn("pb-3 flex-shrink-0 bg-gradient-to-r", modeConfig.gradient)}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
-              <Sparkles className="h-5 w-5 text-primary" />
+            <div className="w-9 h-9 rounded-xl bg-petrol-100 flex items-center justify-center">
+              <Sparkles className="h-5 w-5 text-petrol-600" />
             </div>
             <div>
-              <CardTitle className="text-base">{title}</CardTitle>
-              <p className="text-xs text-muted-foreground">{modeConfig.description}</p>
+              <CardTitle className="text-base font-display">{title}</CardTitle>
+              <p className="text-xs text-text-secondary">{modeConfig.description}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -132,10 +132,10 @@ export function AITutorChat({
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
-            className="mx-4 mb-2 p-2.5 rounded-xl bg-destructive/10 border border-destructive/30 flex items-start gap-2"
+            className="mx-4 mb-2 p-2.5 rounded-xl bg-danger-bg-subtle border border-danger/20 flex items-start gap-2"
           >
-            <AlertTriangle className="h-4 w-4 text-destructive flex-shrink-0 mt-0.5" />
-            <p className="text-xs text-destructive">
+            <AlertTriangle className="h-4 w-4 text-danger flex-shrink-0 mt-0.5" />
+            <p className="text-xs text-danger">
               Im Prüfungsmodus ist keine inhaltliche Hilfe verfügbar. Der Tutor kann nur bei technischen Fragen helfen.
             </p>
           </motion.div>
@@ -150,13 +150,13 @@ export function AITutorChat({
                 animate={{ scale: 1, opacity: 1 }}
                 className="text-center py-10"
               >
-                <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
-                  <Bot className="h-8 w-8 text-primary" />
+                <div className="w-16 h-16 rounded-2xl bg-petrol-100 flex items-center justify-center mx-auto mb-4">
+                  <Bot className="h-8 w-8 text-petrol-600" />
                 </div>
-                <p className="text-sm font-medium mb-1">
+                <p className="text-sm font-medium mb-1 text-text-primary">
                   {mode === AI_MODES.EXAM ? 'Nur technische Fragen möglich' : 'Hallo! Wie kann ich dir helfen?'}
                 </p>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-text-secondary">
                   {mode === AI_MODES.EXAM ? '' : 'Stelle eine Frage oder wähle einen Vorschlag unten.'}
                 </p>
               </motion.div>
@@ -192,7 +192,7 @@ export function AITutorChat({
                 key={idx}
                 onClick={() => { setInput(''); sendMessage(prompt); }}
                 disabled={isLoading}
-                className="text-xs px-3 py-2 rounded-xl border border-primary/20 bg-primary/5 hover:bg-primary/10 text-foreground hover:text-primary transition-colors disabled:opacity-50"
+                className="text-xs px-3 py-2 rounded-xl border border-petrol-200 bg-petrol-50 hover:bg-petrol-100 text-text-primary hover:text-petrol-700 transition-colors duration-base disabled:opacity-50"
               >
                 {prompt}
               </button>
@@ -201,16 +201,16 @@ export function AITutorChat({
         )}
 
         {/* Input */}
-        <form onSubmit={handleSubmit} className="p-3 border-t bg-background/50 backdrop-blur-sm flex gap-2">
+        <form onSubmit={handleSubmit} className="p-3 border-t border-border-subtle bg-surface-raised/50 backdrop-blur-sm flex gap-2">
           <Input
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder={mode === AI_MODES.EXAM ? "Technische Frage stellen…" : "Frage stellen…"}
             disabled={isLoading}
-            className="flex-1 rounded-xl border-border/50 bg-muted/50 focus:bg-background"
+            className="flex-1 rounded-xl border-border-subtle bg-surface-sunken focus:bg-surface-raised"
           />
-          <Button type="submit" size="icon" disabled={isLoading || !input.trim()} className="rounded-xl h-10 w-10 gradient-primary text-primary-foreground">
+          <Button type="submit" variant="petrol" size="icon" disabled={isLoading || !input.trim()} className="rounded-xl h-10 w-10">
             {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           </Button>
         </form>
@@ -226,27 +226,27 @@ function MessageBubble({ message }: { message: ChatMessage }) {
     <div className={cn("flex gap-2.5", isUser ? "flex-row-reverse" : "flex-row")}>
       <div className={cn(
         "w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5",
-        isUser ? "bg-primary" : "bg-primary/10"
+        isUser ? "bg-petrol-600" : "bg-petrol-100"
       )}>
         {isUser ? (
-          <User className="h-3.5 w-3.5 text-primary-foreground" />
+          <User className="h-3.5 w-3.5 text-petrol-50" />
         ) : (
-          <Bot className="h-3.5 w-3.5 text-primary" />
+          <Bot className="h-3.5 w-3.5 text-petrol-600" />
         )}
       </div>
       <div className={cn(
         "rounded-2xl px-4 py-2.5 max-w-[80%]",
         isUser 
-          ? "bg-primary text-primary-foreground rounded-br-md" 
+          ? "bg-petrol-600 text-petrol-50 rounded-br-md" 
           : message.wasBlocked
-            ? "bg-destructive/10 border border-destructive/30 text-foreground rounded-bl-md"
-            : "bg-muted text-foreground rounded-bl-md"
+            ? "bg-danger-bg-subtle border border-danger/20 text-text-primary rounded-bl-md"
+            : "bg-surface-sunken text-text-primary rounded-bl-md"
       )}>
         <div className="text-sm prose prose-sm dark:prose-invert max-w-none [&>p]:mb-1.5 [&>p:last-child]:mb-0">
           <ReactMarkdown>{message.content}</ReactMarkdown>
         </div>
         <p className={cn(
-          "text-[10px] mt-1.5 opacity-60",
+          "text-[10px] mt-1.5 opacity-60 tabular-nums",
           isUser ? "text-right" : "text-left"
         )}>
           {message.timestamp.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}

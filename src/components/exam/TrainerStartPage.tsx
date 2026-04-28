@@ -211,7 +211,8 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
       <Button
         onClick={handleStart}
         disabled={!canStart}
-        className="mt-4 w-full h-12 text-base gradient-primary text-primary-foreground shadow-glow"
+        variant="petrol"
+        className="mt-4 w-full h-12 text-base"
         aria-label="Training starten"
       >
         <Sparkles className="h-5 w-5 mr-2" />
@@ -229,7 +230,7 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
   );
 
   return (
-    <div className="min-h-[70vh] mx-auto w-full max-w-md px-4 pb-28 pt-2 sm:max-w-2xl sm:px-6 lg:max-w-5xl">
+    <div className="min-h-[70vh] mx-auto w-full max-w-md px-4 pb-28 pt-2 sm:max-w-2xl sm:px-6 lg:max-w-5xl" data-density="comfortable">
       {/* ─── Hero ─── */}
       <motion.div
         initial={{ opacity: 0, y: 16 }}
@@ -237,7 +238,7 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
         transition={{ duration: 0.35 }}
         className="mb-5"
       >
-        <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-sm text-primary">
+        <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-petrol-200 bg-petrol-50 px-3 py-1 text-sm text-petrol-700">
           <GraduationCap className="h-4 w-4" />
           {t('trainerTitle')}
         </div>
@@ -270,7 +271,7 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
         transition={{ duration: 0.4, delay: 0.05 }}
         className="mb-6"
       >
-        <Card className="overflow-hidden rounded-2xl border-primary/15 bg-gradient-to-br from-primary/10 via-background to-background shadow-lg">
+        <Card variant="raised" className="overflow-hidden rounded-2xl border-petrol-200 bg-gradient-to-br from-petrol-50 via-surface-raised to-surface-raised">
           <CardContent className="p-5 sm:p-6">
             <div className="grid gap-3 sm:grid-cols-3">
               {[
@@ -528,7 +529,7 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
 
           {/* ─── Mobile Summary (visible only on small screens) ─── */}
           <div className="lg:hidden">
-            <Card className="rounded-2xl border-accent/20 bg-gradient-to-br from-primary/10 via-card to-card shadow-lg">
+            <Card variant="raised" className="rounded-2xl border-petrol-200 bg-gradient-to-br from-petrol-50 via-surface-raised to-surface-raised">
               <CardHeader className="pb-2">
                 <CardTitle className="text-xl">3. Training starten</CardTitle>
               </CardHeader>
@@ -539,7 +540,7 @@ export default function TrainerStartPage({ onStart }: TrainerStartPageProps) {
 
         {/* ─── Desktop Summary (right column, hidden on mobile) ─── */}
         <div className="hidden lg:block">
-          <Card className="sticky top-4 rounded-2xl border-accent/20 bg-gradient-to-br from-primary/10 via-card to-card shadow-lg">
+          <Card variant="raised" className="sticky top-4 rounded-2xl border-petrol-200 bg-gradient-to-br from-petrol-50 via-surface-raised to-surface-raised">
             <CardHeader>
               <CardTitle className="text-xl">3. Training starten</CardTitle>
               <CardDescription>
