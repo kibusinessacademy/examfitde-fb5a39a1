@@ -202,6 +202,26 @@ export default function HealCockpitPage() {
           </AccordionContent>
         </AccordionItem>
 
+        {/* 1b — Diagnostik (Lane-Health, Cancel-Reasons, Pending-Age, Blocked-Detail) */}
+        <AccordionItem value={SECTIONS.diagnostics} className="border rounded-lg bg-card px-4 border-primary/30">
+          <AccordionTrigger className="hover:no-underline">
+            <SectionTitle
+              icon={AlertTriangle}
+              step={1}
+              title="Diagnostik"
+              hint="Lane-Health · Cancel-Reasons 24h · Pending-Age · Blocked-Ursachen"
+            />
+          </AccordionTrigger>
+          <AccordionContent className="pb-4 space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <LaneHealthCard />
+              <PendingAgeHistogramCard />
+            </div>
+            <CancelReasonBreakdownCard />
+            <BlockedReasonDetailCard />
+          </AccordionContent>
+        </AccordionItem>
+
         {/* 2 — Recover */}
         <AccordionItem value={SECTIONS.recover} className="border rounded-lg bg-card px-4">
           <AccordionTrigger className="hover:no-underline">
