@@ -96035,9 +96035,10 @@ export type Database = {
         Args: { p_execute?: boolean }
         Returns: {
           action: string
+          attempted: boolean
           blocker: string
           course_title: string
-          executed: boolean
+          job_inserted: boolean
           package_id: string
           package_track: string
           reason: string

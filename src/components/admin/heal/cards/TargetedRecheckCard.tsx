@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { CheckCircle2, Clock, Play } from "lucide-react";
+import { CheckCircle2, Clock, Play, MinusCircle, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 
 interface RecheckRow {
@@ -21,7 +21,8 @@ interface RecheckRow {
   blocker: string;
   action: string;
   reason: string;
-  executed: boolean;
+  attempted: boolean;
+  job_inserted: boolean;
 }
 
 export function TargetedRecheckCard() {
@@ -137,7 +138,7 @@ export function TargetedRecheckCard() {
                 <TableHead className="text-xs">Blocker</TableHead>
                 <TableHead className="text-xs">Action</TableHead>
                 <TableHead className="text-xs">Reason</TableHead>
-                <TableHead className="text-xs">Executed</TableHead>
+                <TableHead className="text-xs">Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -151,10 +152,18 @@ export function TargetedRecheckCard() {
                   <TableCell className="text-[10px] font-mono">{r.action}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">{r.reason}</TableCell>
                   <TableCell>
-                    {r.executed ? (
-                      <CheckCircle2 className="h-3.5 w-3.5 text-success" />
+                    {!r.attempted ? (
+                      <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+                        <MinusCircle className="h-3.5 w-3.5" /> skipped
+                      </span>
+                    ) : r.job_inserted ? (
+                      <span className="inline-flex items-center gap-1 text-[10px] text-success">
+                        <CheckCircle2 className="h-3.5 w-3.5" /> job inserted
+                      </span>
                     ) : (
-                      <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="inline-flex items-center gap-1 text-[10px] text-secondary-foreground">
+                        <ShieldAlert className="h-3.5 w-3.5" /> active/blocked
+                      </span>
                     )}
                   </TableCell>
                 </TableRow>
