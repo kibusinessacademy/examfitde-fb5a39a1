@@ -95980,6 +95980,21 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_requeue_stale_control_jobs: {
+        Args: {
+          p_dry_run?: boolean
+          p_limit?: number
+          p_min_age_minutes?: number
+        }
+        Returns: {
+          action: string
+          job_id: string
+          job_type: string
+          new_status: string
+          old_status: string
+          package_id: string
+        }[]
+      }
       admin_reset_code_lockout: {
         Args: { p_code: string; p_note?: string }
         Returns: undefined
