@@ -40,6 +40,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import { AdminPageHeader } from "@/components/admin/v2/AdminPageHeader";
 
 import { ThroughputCard } from "@/components/admin/heal/cards/ThroughputCard";
+import { LaneHealthCard } from "@/components/admin/heal/cards/LaneHealthCard";
+import { CancelReasonBreakdownCard } from "@/components/admin/heal/cards/CancelReasonBreakdownCard";
+import { PendingAgeHistogramCard } from "@/components/admin/heal/cards/PendingAgeHistogramCard";
+import { BlockedReasonDetailCard } from "@/components/admin/heal/cards/BlockedReasonDetailCard";
 import {
   BlockerCountsCard, type BlockerKey,
 } from "@/components/admin/heal/cards/BlockerCountsCard";
@@ -124,6 +128,7 @@ const LoadingFallback = () => (
 
 const SECTIONS = {
   live: "live",
+  diagnostics: "diagnostics",
   recover: "recover",
   targeted: "targeted",
   stuck: "stuck_patterns",
@@ -137,7 +142,7 @@ const SECTIONS = {
   queue: "queue",
 } as const;
 
-const DEFAULT_OPEN = ["live", "recover", "targeted", "stuck_patterns", "heal_status"];
+const DEFAULT_OPEN = ["live", "diagnostics", "recover", "targeted", "stuck_patterns", "heal_status"];
 
 export default function HealCockpitPage() {
   const qc = useQueryClient();
