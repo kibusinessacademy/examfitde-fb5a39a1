@@ -275,6 +275,41 @@ function validate(routes) {
   const errors = [];
   for (const r of routes) {
     if (r.status === "stub") continue;
+
+    // Dynamic blog routes — DB-driven, different validation profile.
+    if (r.kind === "blog") {
+      if (!r.slug) errors.push(`${r.path}: blog missing slug`);
+      if (!r.title || r.title.length < 20 || r.title.length > 75)
+        errors.push(`${r.path}: blog title length ${r.title?.length} out of 20-75`);
+      if (!r.description || r.description.length < 70 || r.description.length > 165)
+        errors.push(`${r.path}: blog description ${r.description?.length} out of 70-165`);
+      if (!r.contentText || r.contentText.length < 1200)
+        errors.push(`${r.path}: blog contentText ${r.contentText?.length} <1200`);
+      if (!r.jsonLd || r.jsonLd.length === 0)
+        errors.push(`${r.path}: blog missing jsonLd`);
+      const lower = (r.contentText || "").toLowerCase();
+      for (const claim of FORBIDDEN) {
+        if (lower.includes(claim))
+          errors.push(`${r.path}: blog forbidden claim "${claim}"`);
+      }
+      continue;
+    }
+
+    // Dynamic product routes
+    if (r.kind === "product") {
+      if (!r.slug) errors.push(`${r.path}: product missing slug`);
+      if (!r.title || r.title.length < 20 || r.title.length > 75)
+        errors.push(`${r.path}: product title ${r.title?.length} out of 20-75`);
+      if (!r.description || r.description.length < 70 || r.description.length > 165)
+        errors.push(`${r.path}: product description ${r.description?.length} out of 70-165`);
+      if (!r.intro || r.intro.length < 80)
+        errors.push(`${r.path}: product intro <80`);
+      if (!r.jsonLd || r.jsonLd.length === 0)
+        errors.push(`${r.path}: product missing jsonLd`);
+      continue;
+    }
+
+    // SSOT route validation (unchanged)
     if (!r.h1) errors.push(`${r.path}: missing h1`);
     if (!r.title || r.title.length < 30 || r.title.length > 60)
       errors.push(`${r.path}: title length ${r.title?.length} out of 30-60`);
@@ -301,8 +336,9 @@ function validate(routes) {
     }
   }
   if (errors.length > 0) {
-    console.error("[seo-prerender] Validation errors:");
-    for (const e of errors) console.error(" - " + e);
+    console.error(`[seo-prerender] Validation errors (${errors.length}):`);
+    for (const e of errors.slice(0, 50)) console.error(" - " + e);
+    if (errors.length > 50) console.error(` ... and ${errors.length - 50} more`);
     throw new Error(`SEO validation failed: ${errors.length} issue(s)`);
   }
 }
