@@ -10,7 +10,7 @@
  *   1. Bulk-Promote queued→building (mit WIP-Cap-Guardrail + Skip-Reasons)
  *   2. Per-Paket Atomic-Trigger Nudge
  */
-import { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -18,10 +18,11 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Progress } from "@/components/ui/progress";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { Activity, AlertTriangle, Eye, Play, RefreshCw, Zap, Layers } from "lucide-react";
+import { Activity, AlertTriangle, Eye, Play, RefreshCw, Zap, Layers, Repeat, Square, CheckCircle2 } from "lucide-react";
 
 type PatternRow = {
   pattern_key: "HIDDEN_DRAFTS" | "QUEUED_NO_JOBS" | "REENTRY_GUARD_LOCKED";
@@ -61,6 +62,20 @@ export function StuckPatternsCard() {
   const [bulkPreview, setBulkPreview] = useState<unknown>(null);
   const [maxPackages, setMaxPackages] = useState<number>(10);
   const [wipCap, setWipCap] = useState<number>(65);
+
+  // ── Auto-Loop State ─────────────────────────────────────────────
+  const [loopRunning, setLoopRunning] = useState(false);
+  const [loopIntervalSec, setLoopIntervalSec] = useState<number>(120); // 2 min
+  const [loopMaxAttempts, setLoopMaxAttempts] = useState<number>(20);
+  const [loopAttempts, setLoopAttempts] = useState<number>(0);
+  const [loopPromotedTotal, setLoopPromotedTotal] = useState<number>(0);
+  const [loopLastRunAt, setLoopLastRunAt] = useState<number | null>(null);
+  const [loopNextRunAt, setLoopNextRunAt] = useState<number | null>(null);
+  const [loopStopReason, setLoopStopReason] = useState<string | null>(null);
+  const [loopBaselineQueued, setLoopBaselineQueued] = useState<number | null>(null);
+  const noProgressStreak = useRef(0);
+  const lastQueuedSeen = useRef<number | null>(null);
+  const [, forceTick] = useState(0); // re-render for countdown
 
   const overview = useQuery({
     queryKey: ["stuck-patterns-overview"],
@@ -109,12 +124,88 @@ export function StuckPatternsCard() {
           description: `${r.promoted ?? 0} promoted · ${r.nudged ?? 0} step-nudges · ${r.processed ?? 0} processed`,
         });
         setBulkPreview(null);
+        if (loopRunning) {
+          setLoopPromotedTotal((t) => t + (r.promoted ?? 0));
+        }
         qc.invalidateQueries({ queryKey: ["stuck-patterns-overview"] });
         qc.invalidateQueries({ queryKey: ["stuck-patterns-per-package"] });
       }
     },
-    onError: (e: Error) => toast({ title: "Bulk-Heal fehlgeschlagen", description: e.message, variant: "destructive" }),
+    onError: (e: Error) => {
+      if (loopRunning) {
+        setLoopRunning(false);
+        setLoopStopReason(`RPC-Fehler: ${e.message}`);
+      }
+      toast({ title: "Bulk-Heal fehlgeschlagen", description: e.message, variant: "destructive" });
+    },
   });
+
+  // ── Auto-Loop Effect ────────────────────────────────────────────
+  useEffect(() => {
+    if (!loopRunning) return;
+    const tick = setInterval(() => {
+      forceTick((n) => n + 1);
+      const now = Date.now();
+      if (loopNextRunAt != null && now >= loopNextRunAt && !bulkPromote.isPending) {
+        const ovRows = (overview.data ?? []) as PatternRow[];
+        const queuedNow = ovRows.find((r) => r.pattern_key === "QUEUED_NO_JOBS")?.package_count ?? 0;
+
+        if (queuedNow === 0) {
+          setLoopRunning(false);
+          setLoopStopReason("Ziel erreicht: 0 Pakete in QUEUED_NO_JOBS.");
+          return;
+        }
+        if (loopAttempts >= loopMaxAttempts) {
+          setLoopRunning(false);
+          setLoopStopReason(`Max-Versuche erreicht (${loopMaxAttempts}).`);
+          return;
+        }
+        if (lastQueuedSeen.current != null && queuedNow >= lastQueuedSeen.current) {
+          noProgressStreak.current += 1;
+        } else {
+          noProgressStreak.current = 0;
+        }
+        if (noProgressStreak.current >= 2) {
+          setLoopRunning(false);
+          setLoopStopReason("Kein Fortschritt in 2 Runden — vermutlich WIP-Cap oder Worker-Block.");
+          return;
+        }
+        lastQueuedSeen.current = queuedNow;
+
+        setLoopAttempts((a) => a + 1);
+        setLoopLastRunAt(now);
+        setLoopNextRunAt(now + loopIntervalSec * 1000);
+        bulkPromote.mutate(false);
+      }
+    }, 1000);
+    return () => clearInterval(tick);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loopRunning, loopNextRunAt, loopAttempts, loopMaxAttempts, loopIntervalSec, overview.data]);
+
+  function startLoop() {
+    const ovRows = (overview.data ?? []) as PatternRow[];
+    const baseline = ovRows.find((r) => r.pattern_key === "QUEUED_NO_JOBS")?.package_count ?? 0;
+    if (baseline === 0) {
+      toast({ title: "Nichts zu tun", description: "QUEUED_NO_JOBS ist bereits 0." });
+      return;
+    }
+    setLoopBaselineQueued(baseline);
+    setLoopAttempts(0);
+    setLoopPromotedTotal(0);
+    setLoopStopReason(null);
+    lastQueuedSeen.current = baseline;
+    noProgressStreak.current = 0;
+    const now = Date.now();
+    setLoopLastRunAt(null);
+    setLoopNextRunAt(now);
+    setLoopRunning(true);
+    toast({ title: "Auto-Loop gestartet", description: `Baseline: ${baseline} pkg · alle ${loopIntervalSec}s · max ${loopMaxAttempts}×` });
+  }
+
+  function stopLoop() {
+    setLoopRunning(false);
+    setLoopStopReason("Manuell gestoppt.");
+  }
 
   const nudge = useMutation({
     mutationFn: async (vars: { packageId: string; dryRun: boolean }) => {
@@ -263,6 +354,27 @@ export function StuckPatternsCard() {
           ) : null}
         </div>
 
+        {/* ── Auto-Loop ─────────────────────────────────────────── */}
+        <AutoLoopPanel
+          loopRunning={loopRunning}
+          loopIntervalSec={loopIntervalSec}
+          setLoopIntervalSec={setLoopIntervalSec}
+          loopMaxAttempts={loopMaxAttempts}
+          setLoopMaxAttempts={setLoopMaxAttempts}
+          loopAttempts={loopAttempts}
+          loopPromotedTotal={loopPromotedTotal}
+          loopBaselineQueued={loopBaselineQueued}
+          loopNextRunAt={loopNextRunAt}
+          loopLastRunAt={loopLastRunAt}
+          loopStopReason={loopStopReason}
+          currentQueued={
+            (overview.data ?? []).find((r) => r.pattern_key === "QUEUED_NO_JOBS")?.package_count ?? 0
+          }
+          bulkBusy={bulkPromote.isPending}
+          onStart={startLoop}
+          onStop={stopLoop}
+        />
+
         {/* Per-Package List */}
         <div className="rounded-md border border-border p-3 space-y-2">
           <div className="flex items-center gap-2 flex-wrap">
@@ -377,6 +489,164 @@ function PackageRow({
           </span>
         ) : null}
       </div>
+    </div>
+  );
+}
+
+function AutoLoopPanel({
+  loopRunning,
+  loopIntervalSec,
+  setLoopIntervalSec,
+  loopMaxAttempts,
+  setLoopMaxAttempts,
+  loopAttempts,
+  loopPromotedTotal,
+  loopBaselineQueued,
+  loopNextRunAt,
+  loopLastRunAt,
+  loopStopReason,
+  currentQueued,
+  bulkBusy,
+  onStart,
+  onStop,
+}: {
+  loopRunning: boolean;
+  loopIntervalSec: number;
+  setLoopIntervalSec: (n: number) => void;
+  loopMaxAttempts: number;
+  setLoopMaxAttempts: (n: number) => void;
+  loopAttempts: number;
+  loopPromotedTotal: number;
+  loopBaselineQueued: number | null;
+  loopNextRunAt: number | null;
+  loopLastRunAt: number | null;
+  loopStopReason: string | null;
+  currentQueued: number;
+  bulkBusy: boolean;
+  onStart: () => void;
+  onStop: () => void;
+}) {
+  const now = Date.now();
+  const secondsLeft =
+    loopRunning && loopNextRunAt != null ? Math.max(0, Math.ceil((loopNextRunAt - now) / 1000)) : 0;
+  const reduction =
+    loopBaselineQueued != null && loopBaselineQueued > 0
+      ? Math.max(0, loopBaselineQueued - currentQueued)
+      : 0;
+  const reductionPct =
+    loopBaselineQueued != null && loopBaselineQueued > 0
+      ? Math.min(100, Math.round((reduction / loopBaselineQueued) * 100))
+      : 0;
+  const attemptsPct = Math.min(100, Math.round((loopAttempts / Math.max(1, loopMaxAttempts)) * 100));
+
+  return (
+    <div className="rounded-md border border-primary/30 p-3 space-y-2 bg-primary/5">
+      <div className="flex items-center gap-2 flex-wrap">
+        <Repeat className={`h-3.5 w-3.5 ${loopRunning ? "text-primary animate-pulse" : "text-muted-foreground"}`} />
+        <div className="text-xs font-semibold">Auto-Loop: Bulk-Promote bis QUEUED_NO_JOBS = 0</div>
+        {loopRunning ? (
+          <Badge variant="default" className="text-[10px] ml-auto">LÄUFT</Badge>
+        ) : loopStopReason ? (
+          <Badge variant="outline" className="text-[10px] ml-auto">GESTOPPT</Badge>
+        ) : (
+          <Badge variant="secondary" className="text-[10px] ml-auto">BEREIT</Badge>
+        )}
+      </div>
+      <div className="text-[11px] text-muted-foreground">
+        Triggert <code>admin_bulk_promote_queued_to_building</code> in festen Intervallen, bis das Ziel
+        erreicht ist, kein Fortschritt mehr stattfindet (2 Runden in Folge), Max-Versuche überschritten oder ein RPC-Fehler auftritt.
+      </div>
+
+      <div className="flex flex-wrap items-end gap-2">
+        <div>
+          <label className="text-[10px] text-muted-foreground block">Intervall (Sek.)</label>
+          <Input
+            type="number"
+            min={30}
+            max={900}
+            value={loopIntervalSec}
+            disabled={loopRunning}
+            onChange={(e) => setLoopIntervalSec(Math.max(30, Math.min(900, Number(e.target.value) || 120)))}
+            className="h-8 w-24 text-xs"
+          />
+        </div>
+        <div>
+          <label className="text-[10px] text-muted-foreground block">Max Versuche</label>
+          <Input
+            type="number"
+            min={1}
+            max={100}
+            value={loopMaxAttempts}
+            disabled={loopRunning}
+            onChange={(e) => setLoopMaxAttempts(Math.max(1, Math.min(100, Number(e.target.value) || 20)))}
+            className="h-8 w-24 text-xs"
+          />
+        </div>
+        {!loopRunning ? (
+          <Button size="sm" variant="default" onClick={onStart} disabled={bulkBusy}>
+            <Play className="h-3 w-3 mr-1" /> Auto-Loop starten
+          </Button>
+        ) : (
+          <Button size="sm" variant="destructive" onClick={onStop}>
+            <Square className="h-3 w-3 mr-1" /> Stop
+          </Button>
+        )}
+      </div>
+
+      {(loopRunning || loopBaselineQueued != null) && (
+        <div className="space-y-2 pt-1">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-[11px]">
+            <Stat label="Baseline" value={loopBaselineQueued ?? "—"} />
+            <Stat label="Aktuell" value={currentQueued} />
+            <Stat label="Reduktion" value={`-${reduction} (${reductionPct}%)`} highlight={reduction > 0} />
+            <Stat label="Promoted Σ" value={loopPromotedTotal} />
+          </div>
+          <div className="space-y-1">
+            <div className="flex justify-between text-[10px] text-muted-foreground">
+              <span>Versuche: {loopAttempts} / {loopMaxAttempts}</span>
+              <span>
+                {bulkBusy
+                  ? "RPC läuft…"
+                  : loopRunning
+                  ? `Nächster Run in ${secondsLeft}s`
+                  : loopLastRunAt
+                  ? `Letzter Run: ${new Date(loopLastRunAt).toLocaleTimeString()}`
+                  : ""}
+              </span>
+            </div>
+            <Progress value={attemptsPct} className="h-1.5" />
+            {loopRunning && !bulkBusy && (
+              <Progress
+                value={Math.max(0, 100 - Math.round((secondsLeft / Math.max(1, loopIntervalSec)) * 100))}
+                className="h-1"
+              />
+            )}
+          </div>
+        </div>
+      )}
+
+      {loopStopReason && !loopRunning && (
+        <Alert>
+          <CheckCircle2 className="h-4 w-4" />
+          <AlertDescription className="text-[11px]">
+            <strong>Loop beendet:</strong> {loopStopReason}
+            {loopBaselineQueued != null && (
+              <span className="block mt-0.5 text-muted-foreground">
+                {loopBaselineQueued} → {currentQueued} ({loopAttempts} Versuche · {loopPromotedTotal} promoted)
+              </span>
+            )}
+          </AlertDescription>
+        </Alert>
+      )}
+    </div>
+  );
+}
+
+function Stat({ label, value, highlight }: { label: string; value: React.ReactNode; highlight?: boolean }) {
+  return (
+    <div className="rounded border border-border bg-background/50 px-2 py-1.5">
+      <div className="text-[9px] text-muted-foreground uppercase tracking-wide">{label}</div>
+      <div className={`text-sm font-semibold tabular-nums ${highlight ? "text-primary" : ""}`}>{value}</div>
     </div>
   );
 }
