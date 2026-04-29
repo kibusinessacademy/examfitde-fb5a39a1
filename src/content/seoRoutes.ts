@@ -320,7 +320,7 @@ const live: SeoRoute[] = [
       { q: "Gibt es eine kostenlose Variante?", a: "Ja, Selbsttest und Basis-Lernplan sind dauerhaft kostenlos." },
       { q: "Kann ich monatlich kündigen?", a: "Ja, monatliche Tarife sind jederzeit zum Monatsende kündbar." },
       { q: "Was kostet ein Betriebs-Sitz?", a: "Abhängig von Volumen, ab ca. 12 € pro Sitz pro Monat. Detailpreise auf Anfrage." },
-      { q: "Bekomme ich eine Rechnung?", a: "Ja, jede Bestellung erzeugt automatisch eine Rechnung mit ausgewiesener MwSt." },
+      { q: "Bekomme ich eine Rechnung?", a: "Ja, jede Bestellung erzeugt automatisch eine Rechnung mit ausgewiesener Umsatzsteuer (sofern umsatzsteuerlich anwendbar)." },
       { q: "Was ist im Einmalkauf enthalten?", a: "12 Monate Vollzugriff auf eine spezifische Prüfung inkl. KI-Tutor und Simulationen." },
       { q: "Gibt es Bildungsrabatte?", a: "Ja, für anerkannte Bildungseinrichtungen und gemeinnützige Träger." },
     ],
