@@ -101611,6 +101611,7 @@ export type Database = {
         Args: { p_content: Json; p_step?: string }
         Returns: boolean
       }
+      is_tail_step_job_type: { Args: { p_job_type: string }; Returns: boolean }
       is_user_blocked: { Args: { p_user: string }; Returns: boolean }
       job_maintenance: { Args: never; Returns: Json }
       job_recovery_worker: { Args: never; Returns: Json }
@@ -101862,6 +101863,10 @@ export type Database = {
       ops_reap_duplicate_jobs: { Args: never; Returns: Json }
       ops_reap_failed_orphan_jobs: { Args: never; Returns: Json }
       ops_run_integrity_checks: { Args: never; Returns: Json }
+      package_has_approved_artifacts: {
+        Args: { p_package_id: string }
+        Returns: boolean
+      }
       package_lessons_realness: {
         Args: { p_package_id: string }
         Returns: Json
