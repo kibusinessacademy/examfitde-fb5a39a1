@@ -4,6 +4,12 @@ import path from "path";
 import { componentTagger } from "lovable-tagger";
 import { VitePWA } from "vite-plugin-pwa";
 
+// SEO Prerender plugin parked: needs a build runner that can bundle the
+// TS-SSOT (src/content/seoRoutes.ts) without esbuild peer-dep. Will be
+// re-enabled in the next iteration via a pre-build script that emits
+// dist/sitemaps/*.xml + per-route HTML shells from src/content/seoRoutes.ts.
+
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   server: {
