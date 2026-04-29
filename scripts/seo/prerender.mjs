@@ -1,27 +1,18 @@
 /**
- * SEO Prerender + Sitemap Build Script
+ * SEO Prerender + Sitemap Build Script (pure JS, no TS syntax)
  * --------------------------------------------------------------
- * Runs after `vite build` (hooked from vite.config.ts).
+ * Invoked from vite.config.ts after `vite build`.
+ * Reads routes from globalThis.__SEO_ROUTES__ (populated by the plugin).
  *
- * For each LIVE route in src/content/seoRoutes.ts:
+ * For each LIVE route:
  *   1. Reads dist/index.html
- *   2. Injects: <title>, <meta description>, <link canonical>, JSON-LD
- *   3. Injects above-the-fold body content (H1 + intro + key facts + FAQ)
- *      inside <div id="root">, BEFORE React hydrates
+ *   2. Injects <title>, <meta description>, <link canonical>, JSON-LD into <head>
+ *   3. Injects above-the-fold body content into <div id="root">
  *   4. Writes to dist/<path>/index.html
  *
  * Also writes:
- *   dist/sitemap.xml                    (index)
- *   dist/sitemaps/static.xml
- *   dist/sitemaps/products.xml
- *   dist/sitemaps/blog.xml
- *   dist/sitemaps/content.xml
- *
- * Hydration safety:
- *   The injected HTML is a static <noscript>+SSR-style block. React will
- *   replace #root contents on mount; the prerendered block does not need
- *   to exactly match React output (it lives inside a wrapper div that
- *   React will overwrite). Crawlers see the content; users see React.
+ *   dist/sitemap.xml                    (index, examfit.de origin)
+ *   dist/sitemaps/{static,products,blog,content}.xml
  */
 
 import fs from "node:fs";
@@ -32,24 +23,17 @@ const SITE = "https://examfit.de";
 const DIST = path.resolve(process.cwd(), "dist");
 const TODAY = new Date().toISOString().slice(0, 10);
 
-// Use a tsx-loader-free approach: compile-and-import the SSOT via a tiny shim.
-// We re-use Vite's TS handling by writing a JSON-cache of the SSOT first.
-// Simpler alternative: use `tsx` API. We rely on dynamic import with the .ts
-// file, which Node 20+ supports through --experimental-strip-types when run
-// via the Vite plugin (the plugin will set NODE_OPTIONS).
 async function loadRoutes() {
-  // The Vite plugin loads routes by transforming TS via esbuild and passes
-  // them in via globalThis. See vite.config.ts.
-  const fromGlobal = (globalThis as any).__SEO_ROUTES__;
+  const fromGlobal = globalThis.__SEO_ROUTES__;
   if (Array.isArray(fromGlobal)) return fromGlobal;
   throw new Error(
     "[seo-prerender] No routes provided via globalThis.__SEO_ROUTES__. " +
-    "This script must be invoked from the Vite plugin in vite.config.ts."
+      "This script must be invoked from the Vite plugin in vite.config.ts."
   );
 }
 
-function escapeHtml(s: string): string {
-  return s
+function escapeHtml(s) {
+  return String(s)
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
@@ -57,8 +41,8 @@ function escapeHtml(s: string): string {
     .replace(/'/g, "&#039;");
 }
 
-function escapeXml(s: string): string {
-  return s
+function escapeXml(s) {
+  return String(s)
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
@@ -66,24 +50,20 @@ function escapeXml(s: string): string {
     .replace(/'/g, "&apos;");
 }
 
-function renderAboveTheFold(route: any): string {
+function renderAboveTheFold(route) {
   const facts = (route.keyFacts || [])
     .map(
-      (k: any) =>
+      (k) =>
         `<li><strong>${escapeHtml(k.label)}:</strong> ${escapeHtml(k.value)}</li>`
     )
     .join("");
   const faq = (route.faq || [])
     .map(
-      (f: any) =>
-        `<details><summary>${escapeHtml(f.q)}</summary><p>${escapeHtml(
-          f.a
-        )}</p></details>`
+      (f) =>
+        `<details><summary>${escapeHtml(f.q)}</summary><p>${escapeHtml(f.a)}</p></details>`
     )
     .join("");
 
-  // Wrapped in a <div id="prerender-content"> that React's mount on #root
-  // will overwrite. Crawlers without JS read it as-is.
   return `
 <div id="prerender-content">
   <header>
@@ -92,28 +72,17 @@ function renderAboveTheFold(route: any): string {
   <section aria-label="Einführung">
     <p>${escapeHtml(route.intro)}</p>
   </section>
-  ${
-    facts
-      ? `<section aria-label="Eckdaten"><h2>Eckdaten</h2><ul>${facts}</ul></section>`
-      : ""
-  }
-  ${
-    faq
-      ? `<section aria-label="Häufige Fragen"><h2>Häufige Fragen</h2>${faq}</section>`
-      : ""
-  }
+  ${facts ? `<section aria-label="Eckdaten"><h2>Eckdaten</h2><ul>${facts}</ul></section>` : ""}
+  ${faq ? `<section aria-label="Häufige Fragen"><h2>Häufige Fragen</h2>${faq}</section>` : ""}
 </div>`.trim();
 }
 
-function injectHead(html: string, route: any): string {
+function injectHead(html, route) {
   const canonical = `${SITE}${route.path === "/" ? "" : route.path}`;
   const jsonLd = (route.jsonLd || [])
     .map(
-      (obj: any) =>
-        `<script type="application/ld+json">${JSON.stringify(obj).replace(
-          /</g,
-          "\\u003c"
-        )}</script>`
+      (obj) =>
+        `<script type="application/ld+json">${JSON.stringify(obj).replace(/</g, "\\u003c")}</script>`
     )
     .join("\n    ");
 
@@ -129,31 +98,28 @@ function injectHead(html: string, route: any): string {
     jsonLd,
   ].join("\n    ");
 
-  // Strip the dev <title> if present, then inject before </head>.
   const stripped = html.replace(/<title>[\s\S]*?<\/title>\s*/i, "");
   return stripped.replace(/<\/head>/i, `    ${headInjection}\n  </head>`);
 }
 
-function injectBody(html: string, route: any): string {
+function injectBody(html, route) {
   const overlay = renderAboveTheFold(route);
-  // Insert inside <div id="root">…</div>. The dist index.html has an empty
-  // root div; we replace it with one that contains the prerender-content.
   return html.replace(
     /<div id="root">\s*<\/div>/,
     `<div id="root">${overlay}</div>`
   );
 }
 
-function ensureDir(dir: string) {
+function ensureDir(dir) {
   fs.mkdirSync(dir, { recursive: true });
 }
 
-function writeRouteHtml(route: any, baseHtml: string) {
+function writeRouteHtml(route, baseHtml) {
   const html = injectBody(injectHead(baseHtml, route), route);
 
-  let outPath: string;
+  let outPath;
   if (route.path === "/") {
-    outPath = path.join(DIST, "index.html"); // overwrite root
+    outPath = path.join(DIST, "index.html");
   } else {
     const dir = path.join(DIST, route.path.replace(/^\//, ""));
     ensureDir(dir);
@@ -162,16 +128,11 @@ function writeRouteHtml(route: any, baseHtml: string) {
   fs.writeFileSync(outPath, html, "utf8");
 }
 
-function buildSitemaps(routes: any[]) {
-  const groups: Record<string, any[]> = {
-    static: [],
-    products: [],
-    blog: [],
-    content: [],
-  };
+function buildSitemaps(routes) {
+  const groups = { static: [], products: [], blog: [], content: [] };
   for (const r of routes) {
     if (r.status === "stub") continue;
-    groups[r.sitemapGroup].push(r);
+    if (groups[r.sitemapGroup]) groups[r.sitemapGroup].push(r);
   }
 
   ensureDir(path.join(DIST, "sitemaps"));
@@ -196,14 +157,9 @@ function buildSitemaps(routes: any[]) {
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${urls}
 </urlset>`;
-    fs.writeFileSync(
-      path.join(DIST, "sitemaps", `${group}.xml`),
-      xml,
-      "utf8"
-    );
+    fs.writeFileSync(path.join(DIST, "sitemaps", `${group}.xml`), xml, "utf8");
   }
 
-  // Sitemap index → all on examfit.de
   const subSitemaps = Object.entries(groups)
     .filter(([, items]) => items.length > 0)
     .map(
@@ -221,18 +177,14 @@ ${subSitemaps}
   fs.writeFileSync(path.join(DIST, "sitemap.xml"), indexXml, "utf8");
 }
 
-function validate(routes: any[]) {
-  const errors: string[] = [];
+function validate(routes) {
+  const errors = [];
   for (const r of routes) {
     if (r.status === "stub") continue;
     if (!r.h1) errors.push(`${r.path}: missing h1`);
     if (!r.title || r.title.length < 30 || r.title.length > 70)
       errors.push(`${r.path}: title length ${r.title?.length} out of 30-70`);
-    if (
-      !r.description ||
-      r.description.length < 70 ||
-      r.description.length > 170
-    )
+    if (!r.description || r.description.length < 70 || r.description.length > 170)
       errors.push(
         `${r.path}: description length ${r.description?.length} out of 70-170`
       );
@@ -259,7 +211,7 @@ export async function runSeoPrerender() {
   }
   const baseHtml = fs.readFileSync(path.join(DIST, "index.html"), "utf8");
   const routes = await loadRoutes();
-  const live = routes.filter((r: any) => r.status !== "stub");
+  const live = routes.filter((r) => r.status !== "stub");
 
   validate(routes);
 
@@ -274,7 +226,6 @@ export async function runSeoPrerender() {
   );
 }
 
-// Allow direct invocation for debugging:
 if (import.meta.url === pathToFileURL(process.argv[1] || "").href) {
   runSeoPrerender().catch((e) => {
     console.error(e);
