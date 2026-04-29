@@ -52,8 +52,8 @@ export default function BilanzbuchhalterPruefungsvorbereitungPage() {
   return (
     <>
       <SEOHead
-        title="Bilanzbuchhalter IHK Prüfungsvorbereitung – sicher bestehen"
-        description="Komplette Vorbereitung auf die IHK-Bilanzbuchhalter-Prüfung: Buchhaltung, Jahresabschluss, Steuern, IFRS und mündliches Fachgespräch. Mit Selbsttest, Lernplan und KI-Coach."
+        title="Bilanzbuchhalter IHK – Prüfungsvorbereitung"
+        description="Komplette IHK-Bilanzbuchhalter-Vorbereitung: Buchhaltung, Jahresabschluss, Steuern, IFRS und mündliches Fachgespräch. Selbsttest, Lernplan und KI-Coach."
         canonical={`${SITE_URL}/bilanzbuchhalter-pruefungsvorbereitung`}
         structuredData={[generateBreadcrumbSchema(breadcrumbs), generateFAQSchema(FAQS)]}
       />

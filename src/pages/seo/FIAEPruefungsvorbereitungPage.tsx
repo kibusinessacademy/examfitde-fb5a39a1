@@ -52,7 +52,7 @@ export default function FIAEPruefungsvorbereitungPage() {
     <>
       <SEOHead
         title="Fachinformatiker AE Prüfungsvorbereitung – AP2"
-        description="Komplette Vorbereitung auf die IHK-Abschlussprüfung Teil 2 (FIAE): GA1 Anwendungsentwicklung, GA2 WiSo, betriebliches Projekt + Fachgespräch. Mit Selbsttest, Lernplan und KI-Coach."
+        description="IHK-Abschlussprüfung Teil 2 (FIAE) komplett: GA1 Anwendungsentwicklung, GA2 WiSo, betriebliches Projekt & Fachgespräch. Selbsttest, Lernplan, KI-Coach."
         canonical={`${SITE_URL}/fachinformatiker-ae-pruefungsvorbereitung`}
         structuredData={[generateBreadcrumbSchema(breadcrumbs), generateFAQSchema(FAQS)]}
       />
