@@ -533,14 +533,14 @@ const live: SeoRoute[] = [
     keyFacts: [
       { label: "Projektantrag", value: "Vorlagen + 10 angenommene Beispiele" },
       { label: "Dokumentation", value: "Strukturvorlage mit Bewertungsraster" },
-      { label: "Präsentation", value: "Template + Bewertungsraster der DIHK" },
+      { label: "Präsentation", value: "Template + an DIHK-Anforderungen orientierte Bewertungskriterien" },
       { label: "Fachgespräch", value: "KI-Simulator mit typischen Folgefragen" },
-      { label: "Bewertung", value: "DIHK-Bewertungsraster mit Beispielen" },
+      { label: "Bewertung", value: "An DIHK-Anforderungen orientierte Bewertungskriterien mit Beispielen" },
     ],
     faq: [
       { q: "Wie lang sollte die Projektarbeit dauern?", a: "Übliche Vorgabe: 70-80 Stunden. Verbindlich ist die Vorgabe deiner zuständigen IHK." },
       { q: "Was passiert, wenn der Antrag abgelehnt wird?", a: "Du kannst nachbessern und erneut einreichen. ExamFit zeigt typische Ablehnungsgründe und Best Practices." },
-      { q: "Wie wird die Doku bewertet?", a: "Nach dem DIHK-Bewertungsraster: fachliche Tiefe, Methodenwahl, Dokumentationsqualität, wirtschaftliche Aspekte." },
+      { q: "Wie wird die Doku bewertet?", a: "An den DIHK-Bewertungskriterien orientiert: fachliche Tiefe, Methodenwahl, Dokumentationsqualität, wirtschaftliche Aspekte." },
       { q: "Wie lang ist die Präsentation?", a: "Typisch 15 Minuten Präsentation + 15 Minuten Fachgespräch. Verbindlich ist die Vorgabe deiner IHK." },
       { q: "Wie übe ich das Fachgespräch?", a: "Im KI-Simulator stellt der Tutor typische Folgefragen aus deinem Projektthema und gibt Feedback." },
       { q: "Welche Projektthemen sind typisch?", a: "Webanwendungen, Backend-Services, Datenbankoptimierung, Automatisierung. Vorlagen und Beispiele in der Plattform." },
