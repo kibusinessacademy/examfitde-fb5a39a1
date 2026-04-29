@@ -177,25 +177,67 @@ ${subSitemaps}
   fs.writeFileSync(path.join(DIST, "sitemap.xml"), indexXml, "utf8");
 }
 
+// Forbidden claim substrings (kept in sync with scripts/seo/quality-gate.mjs)
+const FORBIDDEN = [
+  "originalfragen",
+  "originalformat",
+  "original-punktebewertung",
+  "originalbewertung",
+  "offizielle ihk-fragen",
+  "echte ihk-fragen",
+  "garantiert bestehen",
+  "garantierte bestehensquote",
+  "bestehensgarantie",
+  "100% bestehen",
+  "100 % bestehen",
+  "über 50.000",
+  "ueber 50.000",
+  "über 50000",
+  "50.000 auszubildende",
+  "über 300",
+  "ueber 300",
+  "über 500",
+  "ueber 500",
+  "über 1.000",
+  "ueber 1.000",
+  "über 1000",
+  "ueber 1000",
+];
+
+function combinedVisibleText(r) {
+  const facts = (r.keyFacts || []).map((f) => `${f.label}: ${f.value}`).join(" ");
+  const faq = (r.faq || []).map((f) => `${f.q} ${f.a}`).join(" ");
+  return [r.h1, r.intro, facts, faq].join("\n");
+}
+
 function validate(routes) {
   const errors = [];
   for (const r of routes) {
     if (r.status === "stub") continue;
     if (!r.h1) errors.push(`${r.path}: missing h1`);
-    if (!r.title || r.title.length < 30 || r.title.length > 70)
-      errors.push(`${r.path}: title length ${r.title?.length} out of 30-70`);
-    if (!r.description || r.description.length < 70 || r.description.length > 170)
+    if (!r.title || r.title.length < 30 || r.title.length > 60)
+      errors.push(`${r.path}: title length ${r.title?.length} out of 30-60`);
+    if (!r.description || r.description.length < 70 || r.description.length > 160)
       errors.push(
-        `${r.path}: description length ${r.description?.length} out of 70-170`
+        `${r.path}: description length ${r.description?.length} out of 70-160`
       );
-    if (!r.intro || r.intro.length < 400)
-      errors.push(`${r.path}: intro shorter than 400 chars (${r.intro?.length})`);
-    if ((r.keyFacts || []).length < 5)
-      errors.push(`${r.path}: <5 keyFacts (${r.keyFacts?.length})`);
-    if ((r.faq || []).length < 6)
-      errors.push(`${r.path}: <6 faq entries (${r.faq?.length})`);
+    if (!r.intro || r.intro.length < 500)
+      errors.push(`${r.path}: intro shorter than 500 chars (${r.intro?.length})`);
+    if ((r.keyFacts || []).length < 4)
+      errors.push(`${r.path}: <4 keyFacts (${r.keyFacts?.length})`);
+    if ((r.faq || []).length < 4)
+      errors.push(`${r.path}: <4 faq entries (${r.faq?.length})`);
     if (!r.jsonLd || r.jsonLd.length === 0)
       errors.push(`${r.path}: missing jsonLd`);
+
+    const visible = combinedVisibleText(r);
+    if (visible.length < 1200)
+      errors.push(`${r.path}: visible text ${visible.length} chars (<1200)`);
+    const lower = visible.toLowerCase();
+    for (const claim of FORBIDDEN) {
+      if (lower.includes(claim))
+        errors.push(`${r.path}: forbidden claim "${claim}"`);
+    }
   }
   if (errors.length > 0) {
     console.error("[seo-prerender] Validation errors:");
