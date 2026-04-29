@@ -1,12 +1,21 @@
 # ExamFit.de Robots.txt
-# Optimized for Google, Bing, AI Search
+# Realistic, documented bot allowlist
+# Last reviewed: 2026-04-29
 
-User-agent: Googlebot
+# ───── Default ─────
+User-agent: *
 Allow: /
 Disallow: /admin
 Disallow: /admin-v2
 Disallow: /api/
+Disallow: /*.json$
 Disallow: /auth/reset-password
+
+# ───── Classic search ─────
+User-agent: Googlebot
+Allow: /
+Disallow: /admin
+Disallow: /admin-v2
 
 User-agent: Googlebot-Image
 Allow: /
@@ -16,6 +25,16 @@ Allow: /
 Disallow: /admin
 Disallow: /admin-v2
 
+User-agent: Slurp
+Allow: /
+
+User-agent: DuckDuckBot
+Allow: /
+
+User-agent: Yandex
+Allow: /
+
+# ───── Social previews ─────
 User-agent: Twitterbot
 Allow: /
 
@@ -25,53 +44,8 @@ Allow: /
 User-agent: LinkedInBot
 Allow: /
 
-User-agent: Slurp
-Allow: /
-Disallow: /admin
-Disallow: /admin-v2
-
-User-agent: DuckDuckBot
-Allow: /
-Disallow: /admin
-Disallow: /admin-v2
-
-User-agent: Yandex
-Allow: /
-Disallow: /admin
-Disallow: /admin-v2
-
-User-agent: *
-Allow: /
-Disallow: /admin
-Disallow: /admin-v2
-Disallow: /api/
-Disallow: /*.json$
-Disallow: /auth/reset-password
-
-# Sitemaps (split index)
-Sitemap: https://examfit.de/sitemap.xml
-
-# AI Model Access
-Allow: /llms.txt
-Allow: /llms-full.txt
-
-# RSS Feed
-Allow: /feed.xml
-
-# IndexNow verification
-Allow: /examfit2026.txt
-
-# Crawl-delay for less aggressive bots
-User-agent: AhrefsBot
-Crawl-delay: 10
-
-User-agent: SemrushBot
-Crawl-delay: 10
-
-User-agent: MJ12bot
-Crawl-delay: 10
-
-# AI crawlers – explicitly allowed
+# ───── OpenAI ─────
+# GPTBot = training; OAI-SearchBot = ChatGPT search/discovery; ChatGPT-User = on-demand fetch
 User-agent: GPTBot
 Allow: /
 Disallow: /admin
@@ -85,60 +59,73 @@ Disallow: /admin-v2
 User-agent: ChatGPT-User
 Allow: /
 
-User-agent: Google-Extended
+# ───── Anthropic ─────
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-User
 Allow: /
 
 User-agent: anthropic-ai
 Allow: /
 
-User-agent: ClaudeBot
-Allow: /
-
+# ───── Perplexity ─────
 User-agent: PerplexityBot
 Allow: /
 
-User-agent: Bytespider
-Allow: /
-Crawl-delay: 5
-
-User-agent: CCBot
+# ───── Google AI (Gemini ist primär Googlebot + Google-Extended) ─────
+User-agent: Google-Extended
 Allow: /
 
-User-agent: DeepSeekBot
-Allow: /
-
-User-agent: Applebot-Extended
-Allow: /
-
-User-agent: YouBot
-Allow: /
-
-# Google Gemini / extended Google AI training
 User-agent: Google-CloudVertexBot
 Allow: /
 
-# xAI / Grok
-User-agent: Grok
-Allow: /
-Disallow: /admin
-Disallow: /admin-v2
-
+# ───── xAI / Grok (Doku unvollständig — Best-effort) ─────
 User-agent: xAI-Bot
 Allow: /
-Disallow: /admin
-Disallow: /admin-v2
 
-# Meta AI
+User-agent: Grok
+Allow: /
+
+# ───── Weitere AI-Crawler (best effort) ─────
+User-agent: Applebot-Extended
+Allow: /
+
 User-agent: Meta-ExternalAgent
 Allow: /
 
 User-agent: FacebookBot
 Allow: /
 
-# Cohere
 User-agent: cohere-ai
 Allow: /
 
-# Mistral
 User-agent: MistralAI-User
 Allow: /
+
+User-agent: YouBot
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+User-agent: Bytespider
+Allow: /
+Crawl-delay: 5
+
+# ───── SEO-Tools (rate-limited) ─────
+User-agent: AhrefsBot
+Crawl-delay: 10
+
+User-agent: SemrushBot
+Crawl-delay: 10
+
+User-agent: MJ12bot
+Crawl-delay: 10
+
+# ───── Sitemap & AI manifests ─────
+Sitemap: https://examfit.de/sitemap.xml
+
+# AI discovery files (no User-agent scoping required, listed for clarity)
+# https://examfit.de/llms.txt
+# https://examfit.de/llms-full.txt
