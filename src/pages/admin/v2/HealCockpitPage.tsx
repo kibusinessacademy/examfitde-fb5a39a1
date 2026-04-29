@@ -40,6 +40,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import { AdminPageHeader } from "@/components/admin/v2/AdminPageHeader";
 
 import { ThroughputCard } from "@/components/admin/heal/cards/ThroughputCard";
+import { LaneHealthCard } from "@/components/admin/heal/cards/LaneHealthCard";
+import { CancelReasonBreakdownCard } from "@/components/admin/heal/cards/CancelReasonBreakdownCard";
+import { PendingAgeHistogramCard } from "@/components/admin/heal/cards/PendingAgeHistogramCard";
+import { BlockedReasonDetailCard } from "@/components/admin/heal/cards/BlockedReasonDetailCard";
 import {
   BlockerCountsCard, type BlockerKey,
 } from "@/components/admin/heal/cards/BlockerCountsCard";
@@ -124,6 +128,7 @@ const LoadingFallback = () => (
 
 const SECTIONS = {
   live: "live",
+  diagnostics: "diagnostics",
   recover: "recover",
   targeted: "targeted",
   stuck: "stuck_patterns",
@@ -137,7 +142,7 @@ const SECTIONS = {
   queue: "queue",
 } as const;
 
-const DEFAULT_OPEN = ["live", "recover", "targeted", "stuck_patterns", "heal_status"];
+const DEFAULT_OPEN = ["live", "diagnostics", "recover", "targeted", "stuck_patterns", "heal_status"];
 
 export default function HealCockpitPage() {
   const qc = useQueryClient();
@@ -194,6 +199,26 @@ export default function HealCockpitPage() {
           <AccordionContent className="pb-4 space-y-3">
             <ThroughputCard windowHours={6} />
             <BlockerCountsCard filter={filter} onFilterChange={setFilter} />
+          </AccordionContent>
+        </AccordionItem>
+
+        {/* 1b — Diagnostik (Lane-Health, Cancel-Reasons, Pending-Age, Blocked-Detail) */}
+        <AccordionItem value={SECTIONS.diagnostics} className="border rounded-lg bg-card px-4 border-primary/30">
+          <AccordionTrigger className="hover:no-underline">
+            <SectionTitle
+              icon={AlertTriangle}
+              step={1}
+              title="Diagnostik"
+              hint="Lane-Health · Cancel-Reasons 24h · Pending-Age · Blocked-Ursachen"
+            />
+          </AccordionTrigger>
+          <AccordionContent className="pb-4 space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <LaneHealthCard />
+              <PendingAgeHistogramCard />
+            </div>
+            <CancelReasonBreakdownCard />
+            <BlockedReasonDetailCard />
           </AccordionContent>
         </AccordionItem>
 

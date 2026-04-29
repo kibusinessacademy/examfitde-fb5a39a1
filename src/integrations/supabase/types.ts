@@ -82350,6 +82350,18 @@ export type Database = {
         }
         Relationships: []
       }
+      v_admin_lane_health: {
+        Row: {
+          done_6h: number | null
+          lane: string | null
+          last_done_at: string | null
+          oldest_pending_sec: number | null
+          pending_cnt: number | null
+          processing_cnt: number | null
+          queued_cnt: number | null
+        }
+        Relationships: []
+      }
       v_admin_morning_briefing: {
         Row: {
           completed_repairs_24h: number | null
@@ -95530,6 +95542,17 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_get_blocked_packages_detail: {
+        Args: never
+        Returns: {
+          blocked_at: string
+          failed_jobs_24h: number
+          last_error: string
+          last_step: string
+          package_id: string
+          title: string
+        }[]
+      }
       admin_get_blocked_packages_split: {
         Args: never
         Returns: {
@@ -95538,6 +95561,15 @@ export type Database = {
           packages: number
           primary_blocker: string
           sample_package_ids: string[]
+        }[]
+      }
+      admin_get_cancel_reason_breakdown: {
+        Args: { p_hours?: number }
+        Returns: {
+          cnt: number
+          job_type: string
+          pct: number
+          reason_code: string
         }[]
       }
       admin_get_failed_clusters: {
@@ -95630,6 +95662,24 @@ export type Database = {
           ts: string
         }[]
       }
+      admin_get_lane_health: {
+        Args: never
+        Returns: {
+          done_6h: number | null
+          lane: string | null
+          last_done_at: string | null
+          oldest_pending_sec: number | null
+          pending_cnt: number | null
+          processing_cnt: number | null
+          queued_cnt: number | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "v_admin_lane_health"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       admin_get_package_block_diagnosis: {
         Args: { p_package_id: string }
         Returns: {
@@ -95640,6 +95690,14 @@ export type Database = {
           status: string
           step_key: string
           updated_at: string
+        }[]
+      }
+      admin_get_pending_age_histogram: {
+        Args: never
+        Returns: {
+          bucket: string
+          cnt: number
+          oldest_sec: number
         }[]
       }
       admin_get_queue_health_score: { Args: never; Returns: Json }
