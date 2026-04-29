@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useState } from 'react';
+import { TopicMapNav } from '@/components/seo/TopicMapNav';
 
 const navigation = [
   { name: 'IHK-Prüfungen', href: '/ihk-pruefungen', icon: Home },
