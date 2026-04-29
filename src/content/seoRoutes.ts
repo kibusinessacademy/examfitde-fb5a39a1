@@ -242,7 +242,7 @@ const live: SeoRoute[] = [
   // 6. Pruefungstraining Betriebe
   {
     path: "/pruefungstraining-betriebe",
-    title: "Prüfungstraining für Betriebe – Azubis durchbringen | ExamFit",
+    title: "Prüfungstraining für Betriebe – IHK Azubis | ExamFit",
     description:
       "ExamFit für Ausbildungsbetriebe: einheitliches Prüfungstraining für alle Azubis, Reporting, Lernfortschritt pro Lehrjahr, faire Preise pro Sitz.",
     h1: "Prüfungstraining für Ausbildungsbetriebe",
@@ -272,7 +272,7 @@ const live: SeoRoute[] = [
   // 7. Pruefungstraining Institutionen
   {
     path: "/pruefungstraining-institutionen",
-    title: "Prüfungstraining für Bildungsträger & Berufsschulen | ExamFit",
+    title: "Prüfungstraining für Bildungsträger | ExamFit",
     description:
       "ExamFit für Berufsschulen, Bildungsträger und Kammern: Lehrer-Cockpit, Klassenverwaltung, Lernfortschritt pro Schüler, faire Volumen-Preise.",
     h1: "Prüfungstraining für Bildungsträger & Berufsschulen",
@@ -332,7 +332,7 @@ const live: SeoRoute[] = [
   // 9-12: Bilanzbuchhalter Cluster (4 Pages)
   {
     path: "/bilanzbuchhalter-pruefungsvorbereitung",
-    title: "Bilanzbuchhalter Prüfungsvorbereitung – komplett online | ExamFit",
+    title: "Bilanzbuchhalter Prüfungsvorbereitung | ExamFit",
     description:
       "Strukturierte Online-Vorbereitung für die IHK-Bilanzbuchhalter-Prüfung: Lernplan, Übungsklausuren, KI-Tutor mit Quellen, alle Handlungsbereiche.",
     h1: "Bilanzbuchhalter Prüfungsvorbereitung",
@@ -387,7 +387,7 @@ const live: SeoRoute[] = [
   },
   {
     path: "/bilanzbuchhalter-jahresabschluss",
-    title: "Bilanzbuchhalter: Jahresabschluss – Handlungsbereich 2 | ExamFit",
+    title: "Bilanzbuchhalter: Jahresabschluss (HB 2) | ExamFit",
     description:
       "Handlungsbereich 2 der Bilanzbuchhalter-Prüfung: Jahresabschluss erstellen und auswerten, Bilanzanalyse, IFRS-Grundlagen, Übungen + Klausuren.",
     h1: "Bilanzbuchhalter: Jahresabschluss",
