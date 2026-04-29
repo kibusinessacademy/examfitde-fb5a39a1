@@ -1,13 +1,41 @@
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
+import { spawnSync } from "node:child_process";
 import { componentTagger } from "lovable-tagger";
 import { VitePWA } from "vite-plugin-pwa";
 
-// SEO Prerender plugin parked: needs a build runner that can bundle the
-// TS-SSOT (src/content/seoRoutes.ts) without esbuild peer-dep. Will be
-// re-enabled in the next iteration via a pre-build script that emits
-// dist/sitemaps/*.xml + per-route HTML shells from src/content/seoRoutes.ts.
+/**
+ * SEO Prerender Plugin
+ * --------------------------------------------------------------
+ * After Vite finishes writing dist/, run scripts/seo/run-prerender.mjs in a
+ * Node 22 subprocess (--experimental-strip-types), which:
+ *   1. Loads SSOT (src/content/seoRoutes.ts)
+ *   2. Validates live routes (Quality Gate)
+ *   3. Writes per-route HTML shells into dist/<path>/index.html
+ *   4. Writes dist/sitemap.xml + dist/sitemaps/{static,products,blog,content}.xml
+ *   5. Re-validates the on-disk HTML
+ * The whole build aborts on any validation failure.
+ */
+function seoPrerenderPlugin(): Plugin {
+  return {
+    name: "examfit-seo-prerender",
+    apply: "build",
+    enforce: "post",
+    closeBundle() {
+      const result = spawnSync(
+        process.execPath,
+        ["--experimental-strip-types", "scripts/seo/run-prerender.mjs"],
+        { stdio: "inherit", cwd: process.cwd() },
+      );
+      if (result.status !== 0) {
+        throw new Error(
+          `[examfit-seo-prerender] subprocess exited with code ${result.status}`,
+        );
+      }
+    },
+  };
+}
 
 
 // https://vitejs.dev/config/
@@ -65,7 +93,8 @@ export default defineConfig(({ mode }) => ({
         navigateFallbackDenylist: [/^\/~oauth/],
         runtimeCaching: []
       }
-    })
+    }),
+    seoPrerenderPlugin(),
   ].filter(Boolean),
   resolve: {
     alias: {

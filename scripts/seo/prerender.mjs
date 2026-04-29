@@ -177,30 +177,107 @@ ${subSitemaps}
   fs.writeFileSync(path.join(DIST, "sitemap.xml"), indexXml, "utf8");
 }
 
+// Forbidden claim substrings (kept in sync with scripts/seo/quality-gate.mjs)
+const FORBIDDEN = [
+  "originalfragen",
+  "originalformat",
+  "original-punktebewertung",
+  "originalbewertung",
+  "offizielle ihk-fragen",
+  "echte ihk-fragen",
+  "garantiert bestehen",
+  "garantierte bestehensquote",
+  "bestehensgarantie",
+  "100% bestehen",
+  "100 % bestehen",
+  "über 50.000",
+  "ueber 50.000",
+  "über 50000",
+  "50.000 auszubildende",
+  "über 300",
+  "ueber 300",
+  "über 500",
+  "ueber 500",
+  "über 1.000",
+  "ueber 1.000",
+  "über 1000",
+  "ueber 1000",
+];
+
+function combinedVisibleText(r) {
+  const facts = (r.keyFacts || []).map((f) => `${f.label}: ${f.value}`).join(" ");
+  const faq = (r.faq || []).map((f) => `${f.q} ${f.a}`).join(" ");
+  return [r.h1, r.intro, facts, faq].join("\n");
+}
+
 function validate(routes) {
   const errors = [];
   for (const r of routes) {
     if (r.status === "stub") continue;
     if (!r.h1) errors.push(`${r.path}: missing h1`);
-    if (!r.title || r.title.length < 30 || r.title.length > 70)
-      errors.push(`${r.path}: title length ${r.title?.length} out of 30-70`);
-    if (!r.description || r.description.length < 70 || r.description.length > 170)
+    if (!r.title || r.title.length < 30 || r.title.length > 60)
+      errors.push(`${r.path}: title length ${r.title?.length} out of 30-60`);
+    if (!r.description || r.description.length < 70 || r.description.length > 160)
       errors.push(
-        `${r.path}: description length ${r.description?.length} out of 70-170`
+        `${r.path}: description length ${r.description?.length} out of 70-160`
       );
-    if (!r.intro || r.intro.length < 400)
-      errors.push(`${r.path}: intro shorter than 400 chars (${r.intro?.length})`);
-    if ((r.keyFacts || []).length < 5)
-      errors.push(`${r.path}: <5 keyFacts (${r.keyFacts?.length})`);
-    if ((r.faq || []).length < 6)
-      errors.push(`${r.path}: <6 faq entries (${r.faq?.length})`);
+    if (!r.intro || r.intro.length < 500)
+      errors.push(`${r.path}: intro shorter than 500 chars (${r.intro?.length})`);
+    if ((r.keyFacts || []).length < 4)
+      errors.push(`${r.path}: <4 keyFacts (${r.keyFacts?.length})`);
+    if ((r.faq || []).length < 4)
+      errors.push(`${r.path}: <4 faq entries (${r.faq?.length})`);
     if (!r.jsonLd || r.jsonLd.length === 0)
       errors.push(`${r.path}: missing jsonLd`);
+
+    const visible = combinedVisibleText(r);
+    if (visible.length < 1200)
+      errors.push(`${r.path}: visible text ${visible.length} chars (<1200)`);
+    const lower = visible.toLowerCase();
+    for (const claim of FORBIDDEN) {
+      if (lower.includes(claim))
+        errors.push(`${r.path}: forbidden claim "${claim}"`);
+    }
   }
   if (errors.length > 0) {
     console.error("[seo-prerender] Validation errors:");
     for (const e of errors) console.error(" - " + e);
     throw new Error(`SEO validation failed: ${errors.length} issue(s)`);
+  }
+}
+
+function postValidateHtml(routes) {
+  const errors = [];
+  for (const r of routes) {
+    if (r.status === "stub") continue;
+    const file =
+      r.path === "/"
+        ? path.join(DIST, "index.html")
+        : path.join(DIST, r.path.replace(/^\//, ""), "index.html");
+    if (!fs.existsSync(file)) {
+      errors.push(`${r.path}: file not written (${file})`);
+      continue;
+    }
+    const html = fs.readFileSync(file, "utf8");
+    if (!/<h1[\s>]/i.test(html)) errors.push(`${r.path}: no <h1> in HTML`);
+    if (!/<link\s+rel="canonical"/i.test(html))
+      errors.push(`${r.path}: no canonical`);
+    if (!/<script[^>]+application\/ld\+json/i.test(html))
+      errors.push(`${r.path}: no JSON-LD`);
+    // Strip scripts+styles, then strip tags → visible text proxy
+    const visible = html
+      .replace(/<script[\s\S]*?<\/script>/gi, "")
+      .replace(/<style[\s\S]*?<\/style>/gi, "")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (visible.length < 1200)
+      errors.push(`${r.path}: rendered visible text ${visible.length} <1200`);
+  }
+  if (errors.length > 0) {
+    console.error("[seo-prerender] Post-HTML validation errors:");
+    for (const e of errors) console.error(" - " + e);
+    throw new Error(`SEO post-HTML validation failed: ${errors.length} issue(s)`);
   }
 }
 
@@ -213,13 +290,19 @@ export async function runSeoPrerender() {
   const routes = await loadRoutes();
   const live = routes.filter((r) => r.status !== "stub");
 
+  // Step 2: validate live route SSOT before any HTML is written
   validate(routes);
 
+  // Steps 3-4: build + inject per-route HTML
   for (const route of live) {
     writeRouteHtml(route, baseHtml);
   }
 
+  // Steps 5-6: write sitemap.xml + sitemaps/*.xml
   buildSitemaps(routes);
+
+  // Step 7: validate generated HTML on disk
+  postValidateHtml(live);
 
   console.log(
     `[seo-prerender] Wrote ${live.length} route HTMLs and sitemap index to dist/`
