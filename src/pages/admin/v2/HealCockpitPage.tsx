@@ -256,7 +256,7 @@ export default function HealCockpitPage() {
         </AccordionItem>
 
         {/* 3 — Pakete heilen */}
-        <AccordionItem value={SECTIONS.packages} className="border rounded-lg bg-card px-4 border-primary/30">
+        <AccordionItem value={SECTIONS.packages} data-section="packages" className="border rounded-lg bg-card px-4 border-primary/30">
           <AccordionTrigger className="hover:no-underline">
             <SectionTitle
               icon={Stethoscope}
