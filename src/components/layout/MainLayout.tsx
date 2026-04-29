@@ -33,8 +33,8 @@ export default function MainLayout() {
       <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Link to="/" className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-primary text-primary-foreground">
+            <Link to="/" aria-label="ExamFit Startseite" className="flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-primary text-primary-foreground" aria-hidden="true">
                 <GraduationCap className="h-5 w-5" />
               </div>
               <span className="font-display font-bold text-lg text-foreground hidden sm:inline">
