@@ -51,6 +51,55 @@ function escapeXml(s) {
 }
 
 function renderAboveTheFold(route) {
+  // Blog/product routes provide pre-rendered HTML content directly.
+  if (route.kind === "blog") {
+    const breadcrumb = `
+  <nav aria-label="Breadcrumb">
+    <ol>
+      <li><a href="/">Start</a></li>
+      <li><a href="/blog">Blog</a></li>
+      <li>${escapeHtml(route.h1)}</li>
+    </ol>
+  </nav>`;
+    const heroImg = route.heroImage
+      ? `<img src="${escapeHtml(route.heroImage)}" alt="${escapeHtml(route.heroImageAlt || route.h1)}" loading="eager" />`
+      : "";
+    const faq = (route.faq || [])
+      .map(
+        (f) =>
+          `<details><summary>${escapeHtml(f.q)}</summary><p>${escapeHtml(f.a)}</p></details>`
+      )
+      .join("");
+    return `
+<div id="prerender-content">
+  ${breadcrumb}
+  <article>
+    <header>
+      <h1>${escapeHtml(route.h1)}</h1>
+      ${heroImg}
+    </header>
+    ${route.contentHtml || ""}
+    ${faq ? `<section aria-label="Häufige Fragen"><h2>Häufige Fragen</h2>${faq}</section>` : ""}
+  </article>
+</div>`.trim();
+  }
+
+  if (route.kind === "product") {
+    return `
+<div id="prerender-content">
+  <nav aria-label="Breadcrumb">
+    <ol>
+      <li><a href="/">Start</a></li>
+      <li><a href="/pruefungstraining">Prüfungstraining</a></li>
+      <li>${escapeHtml(route.h1)}</li>
+    </ol>
+  </nav>
+  <header><h1>${escapeHtml(route.h1)}</h1></header>
+  <section aria-label="Einführung"><p>${escapeHtml(route.intro)}</p></section>
+</div>`.trim();
+  }
+
+  // Default: SSOT routes with keyFacts + faq
   const facts = (route.keyFacts || [])
     .map(
       (k) =>
