@@ -69,7 +69,7 @@ function buildRecommendation(lanes: LaneRow[]): Recommendation {
         `Worker leben (processing>0), aber Jobs werden gefiltert weil vorgelagerte Tail-Steps ` +
         `(meist package_run_integrity_check oder package_quality_council) failed/queued sind. ` +
         `→ Sektion „Pakete heilen" → „Heal-Status pro Kurs" → Per-Step-Retry auf der roten Zeile.`,
-      action: { label: "Zu „Pakete heilen"", targetSelector: '[data-section="packages"]' },
+      action: { label: 'Zu „Pakete heilen“', targetSelector: '[data-section="packages"]' },
     };
   }
 
