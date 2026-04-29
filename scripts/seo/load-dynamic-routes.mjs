@@ -13,15 +13,41 @@
  * static SSOT prerender keeps working. Logs warnings instead.
  */
 
+import fs from "node:fs";
+import path from "node:path";
+
+// Read SUPABASE_URL / KEY from process.env first; if missing (CI build runners
+// can scrub them), fall back to parsing project root .env so the build still
+// produces a complete sitemap.
+function readEnvFallback() {
+  try {
+    const envPath = path.resolve(process.cwd(), ".env");
+    if (!fs.existsSync(envPath)) return {};
+    const out = {};
+    for (const line of fs.readFileSync(envPath, "utf8").split("\n")) {
+      const m = line.match(/^([A-Z0-9_]+)=("?)([^"]*)\2\s*$/);
+      if (m) out[m[1]] = m[3];
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+const _envFile = readEnvFallback();
 const SITE = "https://examfit.de";
 const SUPABASE_URL =
   process.env.SUPABASE_URL ||
   process.env.VITE_SUPABASE_URL ||
+  _envFile.SUPABASE_URL ||
+  _envFile.VITE_SUPABASE_URL ||
   "";
 const SUPABASE_KEY =
   process.env.SUPABASE_PUBLISHABLE_KEY ||
   process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+  _envFile.SUPABASE_PUBLISHABLE_KEY ||
+  _envFile.VITE_SUPABASE_PUBLISHABLE_KEY ||
   "";
+
 
 function clamp(s, min, max) {
   if (!s) return s;
