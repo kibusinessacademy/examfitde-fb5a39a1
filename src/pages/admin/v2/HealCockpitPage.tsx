@@ -216,6 +216,7 @@ export default function HealCockpitPage() {
       />
 
       <AlertsBanner />
+      <NextActionCard />
 
       <Accordion type="multiple" defaultValue={DEFAULT_OPEN} className="space-y-2">
         {/* 1 — Pulse */}
