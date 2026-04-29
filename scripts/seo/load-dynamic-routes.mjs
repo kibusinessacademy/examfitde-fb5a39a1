@@ -193,12 +193,13 @@ export async function loadBlogRoutes() {
     const title = clamp(r.title, 1, 60);
     const description = r.meta_description
       ? clamp(r.meta_description, 70, 160)
-      : null;
-    if (!description) continue; // skip articles without meta description
+      : `Prüfungsvorbereitung & Tipps zum Thema „${r.title}". Lerne effizient mit ExamFit.`.slice(0, 160);
 
+    // Content body is best-effort: used only if hosting later honors per-route HTML.
+    // For sitemap-only mode (current Lovable hosting), we still emit the route
+    // even when contentMd is missing — Googlebot will JS-render the page.
     const contentHtml = mdToHtml(r.content_md || "");
     const contentText = htmlToText(contentHtml);
-    if (contentText.length < 1200) continue; // not enough body to prerender
 
     const faqArr = Array.isArray(r.faq_json) ? r.faq_json : [];
     const faq = faqArr
