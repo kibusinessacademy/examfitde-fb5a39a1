@@ -82352,9 +82352,9 @@ export type Database = {
       }
       v_admin_lane_health: {
         Row: {
-          done_6h: number | null
+          completed_6h: number | null
           lane: string | null
-          last_done_at: string | null
+          last_completed_at: string | null
           oldest_pending_sec: number | null
           pending_cnt: number | null
           processing_cnt: number | null
@@ -95665,9 +95665,9 @@ export type Database = {
       admin_get_lane_health: {
         Args: never
         Returns: {
-          done_6h: number | null
+          completed_6h: number | null
           lane: string | null
-          last_done_at: string | null
+          last_completed_at: string | null
           oldest_pending_sec: number | null
           pending_cnt: number | null
           processing_cnt: number | null
@@ -95993,6 +95993,8 @@ export type Database = {
           new_status: string
           old_status: string
           package_id: string
+          required_step: string
+          required_step_status: string
         }[]
       }
       admin_reset_code_lockout: {
