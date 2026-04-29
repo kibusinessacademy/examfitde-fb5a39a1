@@ -384,25 +384,43 @@ export async function runSeoPrerender() {
     return;
   }
   const baseHtml = fs.readFileSync(path.join(DIST, "index.html"), "utf8");
-  const routes = await loadRoutes();
-  const live = routes.filter((r) => r.status !== "stub");
+  const ssotRoutes = await loadRoutes();
 
-  // Step 2: validate live route SSOT before any HTML is written
-  validate(routes);
+  // Step 1b: load DB-driven routes (blog + product). Failures are logged but
+  // never block the SSOT prerender — they just produce zero dynamic routes.
+  let dynamicRoutes = [];
+  try {
+    const mod = await import(
+      pathToFileURL(path.resolve(process.cwd(), "scripts/seo/load-dynamic-routes.mjs")).href
+    );
+    const { blog, products } = await mod.loadDynamicRoutes();
+    dynamicRoutes = [...blog, ...products];
+  } catch (e) {
+    console.warn("[seo-prerender] dynamic route loader failed:", e.message);
+  }
+
+  const allRoutes = [...ssotRoutes, ...dynamicRoutes];
+  const live = allRoutes.filter((r) => r.status !== "stub");
+
+  // Step 2: validate ALL live routes before any HTML is written
+  validate(allRoutes);
 
   // Steps 3-4: build + inject per-route HTML
   for (const route of live) {
     writeRouteHtml(route, baseHtml);
   }
 
-  // Steps 5-6: write sitemap.xml + sitemaps/*.xml
-  buildSitemaps(routes);
+  // Steps 5-6: write sitemap.xml + sitemaps/*.xml — covers SSOT + dynamic
+  buildSitemaps(allRoutes);
 
   // Step 7: validate generated HTML on disk
   postValidateHtml(live);
 
+  const ssotCount = ssotRoutes.filter((r) => r.status !== "stub").length;
+  const blogCount = dynamicRoutes.filter((r) => r.kind === "blog").length;
+  const productCount = dynamicRoutes.filter((r) => r.kind === "product").length;
   console.log(
-    `[seo-prerender] Wrote ${live.length} route HTMLs and sitemap index to dist/`
+    `[seo-prerender] Wrote ${live.length} route HTMLs (SSOT: ${ssotCount}, blog: ${blogCount}, product: ${productCount}) and sitemap index to dist/`
   );
 }
 
