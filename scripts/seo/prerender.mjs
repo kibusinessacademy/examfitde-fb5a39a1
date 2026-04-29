@@ -78,7 +78,8 @@ function renderAboveTheFold(route) {
 }
 
 function injectHead(html, route) {
-  const canonical = `${SITE}${route.path === "/" ? "" : route.path}`;
+  // Apex with trailing slash for homepage to match sitemap/llms.txt
+  const canonical = `${SITE}${route.path === "/" ? "/" : route.path}`;
   const jsonLd = (route.jsonLd || [])
     .map(
       (obj) =>
