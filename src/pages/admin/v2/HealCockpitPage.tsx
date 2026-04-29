@@ -193,7 +193,7 @@ export default function HealCockpitPage() {
         documentTitle="Heal Cockpit · Admin"
         metaDescription="Konsolidierter Steuerstand für Stale-Reaper, Hot-Loop-Quarantäne, Targeted Recheck, Track-Normalize, Heal-Strategien und Live-Queue."
         actions={
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap" data-quick-reap>
             <QuickReapButton
               lane="control"
               label="Reap Control-Lane"
