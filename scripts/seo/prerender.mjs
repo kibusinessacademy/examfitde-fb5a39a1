@@ -246,6 +246,41 @@ function validate(routes) {
   }
 }
 
+function postValidateHtml(routes) {
+  const errors = [];
+  for (const r of routes) {
+    if (r.status === "stub") continue;
+    const file =
+      r.path === "/"
+        ? path.join(DIST, "index.html")
+        : path.join(DIST, r.path.replace(/^\//, ""), "index.html");
+    if (!fs.existsSync(file)) {
+      errors.push(`${r.path}: file not written (${file})`);
+      continue;
+    }
+    const html = fs.readFileSync(file, "utf8");
+    if (!/<h1[\s>]/i.test(html)) errors.push(`${r.path}: no <h1> in HTML`);
+    if (!/<link\s+rel="canonical"/i.test(html))
+      errors.push(`${r.path}: no canonical`);
+    if (!/<script[^>]+application\/ld\+json/i.test(html))
+      errors.push(`${r.path}: no JSON-LD`);
+    // Strip scripts+styles, then strip tags → visible text proxy
+    const visible = html
+      .replace(/<script[\s\S]*?<\/script>/gi, "")
+      .replace(/<style[\s\S]*?<\/style>/gi, "")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (visible.length < 1200)
+      errors.push(`${r.path}: rendered visible text ${visible.length} <1200`);
+  }
+  if (errors.length > 0) {
+    console.error("[seo-prerender] Post-HTML validation errors:");
+    for (const e of errors) console.error(" - " + e);
+    throw new Error(`SEO post-HTML validation failed: ${errors.length} issue(s)`);
+  }
+}
+
 export async function runSeoPrerender() {
   if (!fs.existsSync(DIST)) {
     console.warn(`[seo-prerender] dist/ not found, skipping`);
@@ -255,13 +290,19 @@ export async function runSeoPrerender() {
   const routes = await loadRoutes();
   const live = routes.filter((r) => r.status !== "stub");
 
+  // Step 2: validate live route SSOT before any HTML is written
   validate(routes);
 
+  // Steps 3-4: build + inject per-route HTML
   for (const route of live) {
     writeRouteHtml(route, baseHtml);
   }
 
+  // Steps 5-6: write sitemap.xml + sitemaps/*.xml
   buildSitemaps(routes);
+
+  // Step 7: validate generated HTML on disk
+  postValidateHtml(live);
 
   console.log(
     `[seo-prerender] Wrote ${live.length} route HTMLs and sitemap index to dist/`
