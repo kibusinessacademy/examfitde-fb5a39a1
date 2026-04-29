@@ -276,6 +276,23 @@ export async function loadBlogRoutes() {
       priority: 0.6,
     });
   }
+
+  // Soft quality-gate (warning-only, never fails build):
+  const warnings = [];
+  for (const route of routes) {
+    if (!route.title || route.title.length < 30 || route.title.length > 60)
+      warnings.push(`title length ${route.title?.length}: ${route.path}`);
+    if (!route.description || route.description.length < 70 || route.description.length > 160)
+      warnings.push(`desc length ${route.description?.length}: ${route.path}`);
+    if (route.contentText && route.contentText.length > 0 && route.contentText.length < 600)
+      warnings.push(`body <600 chars: ${route.path}`);
+  }
+  if (warnings.length > 0) {
+    console.warn(`[seo-dynamic][quality] ${warnings.length} blog routes with soft warnings:`);
+    for (const w of warnings.slice(0, 20)) console.warn(`  - ${w}`);
+    if (warnings.length > 20) console.warn(`  ... and ${warnings.length - 20} more`);
+  }
+
   return routes;
 }
 
