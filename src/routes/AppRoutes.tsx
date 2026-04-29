@@ -153,6 +153,7 @@ const IntegrityReportDiffPage = lazyRetry(() => import('@/pages/admin/v2/Integri
 const StaleMarkerDiffPage = lazyRetry(() => import('@/pages/admin/v2/StaleMarkerDiffPage'));
 const CockpitPage = lazyRetry(() => import('@/pages/admin/v2/CockpitPage'));
 const AIAnalysisAuditPage = lazyRetry(() => import('@/pages/admin/v2/AIAnalysisAuditPage'));
+const SEOTestPage = lazyRetry(() => import('@/pages/admin/v2/SEOTestPage'));
 const HealCockpitPage = lazyRetry(() => import('@/pages/admin/v2/HealCockpitPage'));
 
 // ExamFit@work public pages
@@ -412,6 +413,7 @@ const AppRoutes = () => {
           <Route path="ops/stale-marker-diff" element={<StaleMarkerDiffPage />} />
           <Route path="test" element={<TestAreaPage />} />
           <Route path="ops/ai-analysis-audit" element={<AIAnalysisAuditPage />} />
+          <Route path="ops/seo-test" element={<SEOTestPage />} />
           <Route path="*" element={<Navigate to="/admin/command" replace />} />
         </Route>
 
