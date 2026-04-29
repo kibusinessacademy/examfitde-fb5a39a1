@@ -63,6 +63,20 @@ export function StuckPatternsCard() {
   const [maxPackages, setMaxPackages] = useState<number>(10);
   const [wipCap, setWipCap] = useState<number>(65);
 
+  // ── Auto-Loop State ─────────────────────────────────────────────
+  const [loopRunning, setLoopRunning] = useState(false);
+  const [loopIntervalSec, setLoopIntervalSec] = useState<number>(120); // 2 min
+  const [loopMaxAttempts, setLoopMaxAttempts] = useState<number>(20);
+  const [loopAttempts, setLoopAttempts] = useState<number>(0);
+  const [loopPromotedTotal, setLoopPromotedTotal] = useState<number>(0);
+  const [loopLastRunAt, setLoopLastRunAt] = useState<number | null>(null);
+  const [loopNextRunAt, setLoopNextRunAt] = useState<number | null>(null);
+  const [loopStopReason, setLoopStopReason] = useState<string | null>(null);
+  const [loopBaselineQueued, setLoopBaselineQueued] = useState<number | null>(null);
+  const noProgressStreak = useRef(0);
+  const lastQueuedSeen = useRef<number | null>(null);
+  const [, forceTick] = useState(0); // re-render for countdown
+
   const overview = useQuery({
     queryKey: ["stuck-patterns-overview"],
     queryFn: async (): Promise<PatternRow[]> => {
