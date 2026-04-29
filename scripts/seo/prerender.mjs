@@ -142,7 +142,7 @@ function buildSitemaps(routes) {
     if (items.length === 0) continue;
     const urls = items
       .map((r) => {
-        const loc = `${SITE}${r.path === "/" ? "" : r.path}`;
+        const loc = `${SITE}${r.path === "/" ? "/" : r.path}`;
         const lastmod = r.lastmod || TODAY;
         const changefreq = r.changefreq || "weekly";
         const priority = (r.priority ?? 0.5).toFixed(1);
