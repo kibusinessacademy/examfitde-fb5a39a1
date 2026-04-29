@@ -95228,7 +95228,7 @@ export type Database = {
           p_payload: Json
           p_priority: number
         }
-        Returns: undefined
+        Returns: string
       }
       accept_org_license_invite: {
         Args: { p_invite_token: string; p_user_id: string }
