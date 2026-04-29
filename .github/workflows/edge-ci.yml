@@ -71,9 +71,9 @@ jobs:
           fi
           echo "✅ No direct package_steps done writes outside SSOT"
 
-      - name: No-Gemini-in-Learning-Content Guard
+      - name: No-Nano-in-Learning-Content Guard
         run: |
-          node scripts/guards/no-gemini-learning-content-guard.mjs
+          node scripts/guards/no-nano-learning-content-guard.mjs
 
       - name: No-Raw-Step-Insert Guard
         run: |
