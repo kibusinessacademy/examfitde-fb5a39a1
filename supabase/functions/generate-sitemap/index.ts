@@ -193,11 +193,13 @@ Sitemap: ${FUNCTIONS_URL_BASE}?type=index
     // ── Blog articles ──
     if (action === "blog") {
       const urls: SitemapURL[] = [];
-      const { data: articles } = await sb.from("blog_articles")
-        .select("slug, title, updated_at, hero_image_url, hero_image_alt, published_at, noindex")
+      // NOTE: blog_articles has NO noindex column → do not select it (PostgREST would 400 the whole query → 0 URLs).
+      const { data: articles, error: articlesErr } = await sb.from("blog_articles")
+        .select("slug, title, updated_at, hero_image_url, hero_image_alt, published_at")
         .eq("status", "published").order("published_at", { ascending: false }).limit(500);
+      if (articlesErr) console.error("[generate-sitemap] blog_articles query error:", articlesErr);
       for (const a of articles || []) {
-        if (a.noindex || !a.slug) continue;
+        if (!a.slug) continue;
         const images: SitemapURL["images"] = [];
         if (a.hero_image_url) images.push({
           loc: a.hero_image_url.startsWith("http") ? a.hero_image_url : `${SITE_URL}${a.hero_image_url}`,
