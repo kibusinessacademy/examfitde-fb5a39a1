@@ -46,6 +46,46 @@ export function buildProductSEO(product: ProductPageSSOT): ProductSEOOutput {
     });
   }
 
+  // Course schema — bessere LLM-Sichtbarkeit (Perplexity, ChatGPT, Claude
+  // bevorzugen Course/EducationalOccupationalProgram für Lerninhalte)
+  schemas.push({
+    '@type': 'Course',
+    name: product.canonicalTitle,
+    description: product.seo.metaDescription,
+    url: product.seo.canonicalUrl,
+    provider: {
+      '@type': 'EducationalOrganization',
+      name: 'ExamFit',
+      sameAs: SITE_URL,
+    },
+    inLanguage: 'de-DE',
+    educationalLevel: product.kammer ? `IHK / ${product.kammer}` : 'Berufliche Bildung',
+    educationalCredentialAwarded: product.berufDisplayName ?? product.canonicalTitle,
+    about: [
+      product.berufDisplayName,
+      product.kammer,
+      ...(product.keywordSecondary ?? []).slice(0, 5),
+    ].filter(Boolean),
+    audience: {
+      '@type': 'EducationalAudience',
+      educationalRole: product.personaProfile ?? 'Prüfungskandidat',
+    },
+    hasCourseInstance: {
+      '@type': 'CourseInstance',
+      courseMode: 'online',
+      courseWorkload: `P${product.pricing.accessDurationMonths ?? 6}M`,
+      inLanguage: 'de-DE',
+    },
+    offers: {
+      '@type': 'Offer',
+      price: product.pricing.amount,
+      priceCurrency: product.pricing.currency,
+      availability: 'https://schema.org/InStock',
+      url: product.seo.canonicalUrl,
+      category: 'Online Course',
+    },
+  });
+
   // FAQ schema
   if (product.faqItems.length > 0) {
     if (product.seo.schemaFaqJson) {
