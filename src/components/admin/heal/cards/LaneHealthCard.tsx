@@ -65,26 +65,39 @@ export function LaneHealthCard() {
           {(q.data ?? [])
             .sort((a, b) => (b.pending_cnt + b.processing_cnt) - (a.pending_cnt + a.processing_cnt))
             .map((row) => {
-              const stalled = row.pending_cnt > 0 && row.completed_6h === 0;
+              // Differenziertes Stillstand-Signal:
+              // - workerStalled: pending > 0, NICHTS processing, 0 completed in 6h
+              //   → echter Worker-Pickup-Ausfall
+              // - dagBacklog: pending > 0, processing > 0 (Worker leben), aber 0 completed
+              //   → Jobs werden vom Claim-RPC ausgefiltert (DAG-Prereqs nicht erfüllt)
+              const noCompletions = row.pending_cnt > 0 && row.completed_6h === 0;
+              const workerStalled = noCompletions && row.processing_cnt === 0;
+              const dagBacklog = noCompletions && row.processing_cnt > 0;
               const slow = (row.oldest_pending_sec ?? 0) > 3600;
+              const critical = workerStalled || dagBacklog;
               return (
                 <div
                   key={row.lane}
                   className={cn(
                     "rounded-md border p-3 text-xs",
-                    stalled && "border-destructive/50 bg-destructive/5",
-                    !stalled && slow && "border-warning/50 bg-warning/5",
+                    critical && "border-destructive/50 bg-destructive/5",
+                    !critical && slow && "border-warning/50 bg-warning/5",
                   )}
                 >
                   <div className="flex items-center justify-between mb-1">
                     <div className="flex items-center gap-2">
                       <span className="font-mono font-semibold">{row.lane}</span>
-                      {stalled && (
+                      {workerStalled && (
                         <Badge variant="destructive" className="text-[10px]">
                           <AlertTriangle className="h-3 w-3 mr-1" /> Worker-Stillstand
                         </Badge>
                       )}
-                      {!stalled && slow && (
+                      {dagBacklog && (
+                        <Badge variant="destructive" className="text-[10px]" title="Jobs werden vom Claim-RPC ausgefiltert: DAG-Prereqs nicht erfüllt (vorgelagerte Tail-Steps queued/failed). Heal via Stuck-Patterns Bulk-Promote oder Per-Step-Retry.">
+                          <AlertTriangle className="h-3 w-3 mr-1" /> DAG-Backlog
+                        </Badge>
+                      )}
+                      {!critical && slow && (
                         <Badge variant="outline" className="text-[10px] border-warning text-warning-foreground">
                           slow drain
                         </Badge>
