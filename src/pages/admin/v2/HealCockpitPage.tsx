@@ -65,6 +65,7 @@ import { AutoSelectorCard } from "@/components/admin/heal/cards/AutoSelectorCard
 import { ReaperGovernanceCard } from "@/components/admin/heal/cards/ReaperGovernanceCard";
 import { HealStrategyCard } from "@/components/admin/heal/cards/HealStrategyCard";
 import { AlertsBanner } from "@/components/admin/heal/cards/AlertsBanner";
+import { NextActionCard } from "@/components/admin/heal/cards/NextActionCard";
 
 // Queue-Detail-Tabs (lazy — schwer)
 const QueueLiveTab = lazy(() => import("@/pages/admin/v2/QueuePage"));
@@ -192,7 +193,7 @@ export default function HealCockpitPage() {
         documentTitle="Heal Cockpit · Admin"
         metaDescription="Konsolidierter Steuerstand für Stale-Reaper, Hot-Loop-Quarantäne, Targeted Recheck, Track-Normalize, Heal-Strategien und Live-Queue."
         actions={
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap" data-quick-reap>
             <QuickReapButton
               lane="control"
               label="Reap Control-Lane"
@@ -215,6 +216,7 @@ export default function HealCockpitPage() {
       />
 
       <AlertsBanner />
+      <NextActionCard />
 
       <Accordion type="multiple" defaultValue={DEFAULT_OPEN} className="space-y-2">
         {/* 1 — Pulse */}
@@ -254,7 +256,7 @@ export default function HealCockpitPage() {
         </AccordionItem>
 
         {/* 3 — Pakete heilen */}
-        <AccordionItem value={SECTIONS.packages} className="border rounded-lg bg-card px-4 border-primary/30">
+        <AccordionItem value={SECTIONS.packages} data-section="packages" className="border rounded-lg bg-card px-4 border-primary/30">
           <AccordionTrigger className="hover:no-underline">
             <SectionTitle
               icon={Stethoscope}
