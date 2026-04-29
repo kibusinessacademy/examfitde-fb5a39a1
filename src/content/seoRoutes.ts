@@ -224,7 +224,7 @@ const live: SeoRoute[] = [
       { label: "Mündlich", value: "Fachgesprächs-Simulator mit Folgefragen" },
       { label: "Lernplan", value: "4 Wochen, adaptiv pro Handlungsfeld" },
       { label: "Free-Tier", value: "Selbsttest und Basis-Lernplan kostenlos" },
-      { label: "Mobile", value: "PWA – läuft auch unterwegs" },
+      { label: "Mobile", value: "Im Browser nutzbar – Desktop und Smartphone" },
     ],
     faq: [
       { q: "Für welche Ausbildungsberufe ist das Training?", a: "Für alle dualen Ausbildungsberufe mit DIHK-Rahmenstoffplan – kaufmännisch, gewerblich-technisch und IT." },
