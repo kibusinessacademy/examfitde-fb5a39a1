@@ -140,9 +140,10 @@ export function QualityCouncilDriftCard() {
     onSuccess: (data) => {
       const enqueued = data.filter((r) => r.action === "qc_job_enqueued").length;
       const adoption = data.filter((r) => r.action === "qc_job_enqueued_for_adoption").length;
-      const skipped = data.filter((r) => r.action.startsWith("skip")).length;
+      const skippedCurr = data.filter((r) => r.action === "skip_missing_curriculum_id").length;
+      const skipped = data.filter((r) => r.action.startsWith("skip") && r.action !== "skip_missing_curriculum_id").length;
       toast.success(
-        `Repair: ${enqueued} QC-Jobs enqueued · ${adoption} Adoption-Jobs · ${skipped} übersprungen`,
+        `Repair: ${enqueued} QC enqueued · ${adoption} Adoption · ${skippedCurr} skip(curr=NULL) · ${skipped} other-skip`,
       );
       setDryRunResult(null);
       qc.invalidateQueries({ queryKey: ["admin-qc-drift-summary"] });
