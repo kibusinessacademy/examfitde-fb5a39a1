@@ -302,19 +302,19 @@ const live: SeoRoute[] = [
   // 8. Preise
   {
     path: "/preise",
-    title: "Preise – ExamFit Tarife für Azubis, Betriebe & Bildungsträger",
+    title: "Preise – ExamFit Tarife im Überblick",
     description:
-      "Transparente Preise: kostenloser Selbsttest, Einzeltarife ab 19 €/Monat, Betriebs-Bundles pro Sitz, Bildungsträger-Lizenzen mit Volumenrabatt.",
+      "Transparente Preise: kostenloser Selbsttest, Einzeltarife ab 19 €/Monat, Betriebs-Bundles pro Sitz, Bildungsträger-Konditionen auf Anfrage.",
     h1: "ExamFit-Preise",
     intro:
-      "ExamFit bietet drei Tarif-Segmente: (1) Privat für einzelne Auszubildende und Fortbildungsteilnehmer ab 19 € pro Monat (oder Einmalkauf je Prüfung), (2) Betriebs-Bundles pro Sitz für Ausbildungsbetriebe mit Reporting, (3) Institutions-Lizenzen mit Volumenrabatt, SSO und API-Zugang. Alle Preise verstehen sich zzgl. MwSt., Rechnungen werden automatisch erzeugt. Der Selbsttest und Basis-Lernplan sind dauerhaft kostenlos.",
+      "ExamFit bietet drei Tarif-Segmente: (1) Privat für einzelne Auszubildende und Fortbildungsteilnehmer ab 19 € pro Monat (oder Einmalkauf je Prüfung), (2) Betriebs-Bundles pro Sitz für Ausbildungsbetriebe mit Reporting, (3) Institutions-Konditionen mit individueller Abstimmung für Berufsschulen und Bildungsträger. Alle Preise verstehen sich zzgl. Umsatzsteuer (sofern anwendbar), Rechnungen werden automatisch erzeugt. Der Selbsttest und Basis-Lernplan sind dauerhaft kostenlos.",
     keyFacts: [
       { label: "Free", value: "Selbsttest + Basis-Lernplan – dauerhaft kostenlos" },
       { label: "Privat", value: "Ab 19 € / Monat, monatlich kündbar" },
       { label: "Einmalkauf", value: "Pro Prüfung, gültig 12 Monate" },
       { label: "Betriebe", value: "Pro Sitz, ab 5 Sitzen, mit Reporting" },
-      { label: "Institutionen", value: "Volumenrabatt + SSO + API" },
-      { label: "Zahlung", value: "SEPA, Kreditkarte, Rechnung (B2B)" },
+      { label: "Institutionen", value: "Konditionen auf Anfrage" },
+      { label: "Zahlung", value: "SEPA, Kreditkarte, Rechnung" },
     ],
     faq: [
       { q: "Gibt es eine kostenlose Variante?", a: "Ja, Selbsttest und Basis-Lernplan sind dauerhaft kostenlos." },
