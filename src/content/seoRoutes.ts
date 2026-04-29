@@ -43,8 +43,8 @@ export interface SeoRoute {
   faq: FaqEntry[];
   jsonLd?: Record<string, unknown>[];
   sitemapGroup: SitemapGroup;
-  /** 'live' = goes to prerender + sitemap; 'stub' = skipped (content TBD) */
-  status: "live" | "stub";
+  /** 'live' = goes to prerender + sitemap; 'stub' = skipped (content TBD). Defaults to 'live'. */
+  status?: "live" | "stub";
   /** ISO date for sitemap lastmod; defaults to today at build time when omitted */
   lastmod?: string;
   changefreq?: "daily" | "weekly" | "monthly" | "yearly";
