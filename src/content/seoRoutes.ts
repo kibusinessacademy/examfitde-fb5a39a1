@@ -160,7 +160,7 @@ const live: SeoRoute[] = [
       "Aktuelle Beiträge zu IHK-Prüfungen, AEVO, Bilanzbuchhalter, FIAE: Lernstrategien, Prüfungstipps, neue Rahmenstoffpläne und Erfahrungsberichte.",
     h1: "Blog: Prüfungstipps & IHK-Updates",
     intro:
-      "Der ExamFit-Blog liefert konkrete Lernstrategien, Updates zu IHK-Rahmenstoffplänen, Erfahrungsberichte von Prüflingen und Hintergründe zu didaktischen Methoden. Themenschwerpunkte sind die schriftliche und mündliche IHK-Prüfung, AEVO-Vorbereitung, Bilanzbuchhalter und Fachinformatiker. Jeder Beitrag enthält praxisnahe Beispiele, Checklisten und Verweise auf passende Lernkurse oder Selbsttests. Beiträge werden redaktionell von Experten mit IHK-Hintergrund kuratiert.",
+      "Der ExamFit-Blog liefert konkrete Lernstrategien, Updates zu IHK-Rahmenstoffplänen, Erfahrungsberichte von Prüflingen und Hintergründe zu didaktischen Methoden der Prüfungsvorbereitung. Themenschwerpunkte sind die schriftliche und mündliche IHK-Abschlussprüfung, AEVO-Vorbereitung, Bilanzbuchhalter und Fachinformatiker Anwendungsentwicklung. Jeder Beitrag enthält praxisnahe Beispiele, Checklisten zum Mitnehmen und Verweise auf passende Lernkurse oder Selbsttests in der Plattform. Beiträge werden redaktionell von Fachautoren mit IHK-Hintergrund kuratiert und mit Quellenangaben (DIHK, BIBB, BBiG) versehen, damit Aussagen belegbar bleiben.",
     keyFacts: [
       { label: "Frequenz", value: "Mehrere Beiträge pro Woche" },
       { label: "Themen", value: "Lernstrategien, Prüfungsformate, Rahmenstoffpläne" },
@@ -188,7 +188,7 @@ const live: SeoRoute[] = [
       "Antworten auf die häufigsten Fragen zu ExamFit, IHK-Prüfungen, Lernkursen, Lernplänen, Tarifen und dem KI-Tutor.",
     h1: "Häufig gestellte Fragen",
     intro:
-      "Hier findest du Antworten auf die häufigsten Fragen zur Plattform, zu IHK-Prüfungen und zur Funktionsweise des adaptiven Lernsystems. Die FAQ ist gegliedert in: Plattform & Tarife, Prüfungsorganisation, Lernmethodik, KI-Tutor sowie Datenschutz. Sollte deine Frage hier nicht beantwortet sein, erreichst du den Support unter info@examfit.de.",
+      "Hier findest du Antworten auf die häufigsten Fragen zur Plattform, zu IHK-Prüfungen und zur Funktionsweise des adaptiven Lernsystems. Die FAQ ist gegliedert in: Plattform und Tarife, Prüfungsorganisation, Lernmethodik, KI-Tutor sowie Datenschutz und Hosting. Für Auszubildende beantworten wir Fragen zum Selbsttest, Lernplan, Mini-Checks und zur mündlichen Prüfungssimulation. Für Betriebe und Bildungsträger erklären wir Reporting-Möglichkeiten, Bulk-Onboarding, AVV nach Art. 28 DSGVO und individuelle Konditionen. Sollte deine Frage hier nicht beantwortet sein, erreichst du den Support unter info@examfit.de und in der Regel werktags innerhalb von 24 Stunden eine Antwort.",
     keyFacts: [
       { label: "Themenbereiche", value: "Plattform, Prüfung, Lernmethodik, KI, Datenschutz" },
       { label: "Support", value: "info@examfit.de" },
@@ -307,7 +307,7 @@ const live: SeoRoute[] = [
       "Transparente Preise: kostenloser Selbsttest, Einzeltarife ab 19 €/Monat, Betriebs-Bundles pro Sitz, Bildungsträger-Konditionen auf Anfrage.",
     h1: "ExamFit-Preise",
     intro:
-      "ExamFit bietet drei Tarif-Segmente: (1) Privat für einzelne Auszubildende und Fortbildungsteilnehmer ab 19 € pro Monat (oder Einmalkauf je Prüfung), (2) Betriebs-Bundles pro Sitz für Ausbildungsbetriebe mit Reporting, (3) Institutions-Konditionen mit individueller Abstimmung für Berufsschulen und Bildungsträger. Alle Preise verstehen sich zzgl. Umsatzsteuer (sofern anwendbar), Rechnungen werden automatisch erzeugt. Der Selbsttest und Basis-Lernplan sind dauerhaft kostenlos.",
+      "ExamFit bietet drei Tarif-Segmente: (1) Privat für einzelne Auszubildende und Fortbildungsteilnehmer ab 19 € pro Monat oder als Einmalkauf je Prüfung mit zwölf Monaten Laufzeit, (2) Betriebs-Bundles pro Sitz für Ausbildungsbetriebe inklusive Lernfortschritts-Reporting auf Handlungsfeld-Ebene, (3) Institutions-Konditionen mit individueller Abstimmung für Berufsschulen, Bildungsträger und Kammern. Alle Preise verstehen sich zzgl. Umsatzsteuer (sofern umsatzsteuerlich anwendbar), Rechnungen werden automatisch erzeugt und per E-Mail zugestellt. Der Selbsttest und der Basis-Lernplan sind dauerhaft kostenlos und ohne Zahlungsdaten nutzbar; ein Upgrade auf den Vollzugriff ist jederzeit möglich und monatliche Tarife sind zum Monatsende kündbar.",
     keyFacts: [
       { label: "Free", value: "Selbsttest + Basis-Lernplan – dauerhaft kostenlos" },
       { label: "Privat", value: "Ab 19 € / Monat, monatlich kündbar" },
@@ -365,7 +365,7 @@ const live: SeoRoute[] = [
       "Kompakte Online-Vorbereitung für Handlungsbereich 1 der Bilanzbuchhalter-Prüfung: Geschäftsvorfälle, laufende Buchhaltung, Lernplan + Übungen.",
     h1: "Bilanzbuchhalter: Buchhaltung",
     intro:
-      "Handlungsbereich 1 der Bilanzbuchhalter-Prüfung deckt die laufende Buchführung ab: Geschäftsvorfälle erfassen und kontieren, Anlagenbuchhaltung, Personalbuchhaltung, Umsatzsteuer-Voranmeldung. ExamFit liefert hierfür einen strukturierten Lernpfad mit Übungsbuchungen, Kontierungs-Trainer und Fallstudien. Der KI-Tutor erklärt Buchungssätze mit Verweis auf HGB-Paragraphen. Realistische Simulationen orientieren sich an Format und Anforderungsniveau der DIHK-Klausur.",
+      "Handlungsbereich 1 der Bilanzbuchhalter-Prüfung deckt die laufende Buchführung umfassend ab: Geschäftsvorfälle erfassen und kontieren, Anlagenbuchhaltung mit planmäßiger und außerplanmäßiger Abschreibung, Personalbuchhaltung inklusive Lohnsteuer und Sozialversicherung, Umsatzsteuer-Voranmeldung sowie Kostenrechnungs-Grundlagen. ExamFit liefert hierfür einen strukturierten Lernpfad mit Übungsbuchungen, Kontierungs-Trainer und praxisnahen Fallstudien aus typischen KMU-Konstellationen. Der KI-Tutor erklärt Buchungssätze mit Verweis auf HGB-Paragraphen und gibt prüfungsnahe Erläuterungen zur Kontensystematik. Realistische Simulationen orientieren sich an Format und Anforderungsniveau der DIHK-Klausur und werden mit automatischer Punkteauswertung ausgewertet.",
     keyFacts: [
       { label: "Themen", value: "Kontierung, Anlagenbuchhaltung, Personal, USt" },
       { label: "Trainer", value: "Kontierungs-Trainer mit über 500 Fällen" },
@@ -392,7 +392,7 @@ const live: SeoRoute[] = [
       "Handlungsbereich 2 der Bilanzbuchhalter-Prüfung: Jahresabschluss erstellen und auswerten, Bilanzanalyse, IFRS-Grundlagen, Übungen + Klausuren.",
     h1: "Bilanzbuchhalter: Jahresabschluss",
     intro:
-      "Handlungsbereich 2 fokussiert auf die Erstellung und Auswertung von Jahresabschlüssen nach HGB sowie Grundlagen der internationalen Rechnungslegung (IFRS). Inhaltlich enthalten: Bilanzpolitik, Bewertungsmethoden, Anhang und Lagebericht, Kapitalflussrechnung, Bilanzanalyse mit Kennzahlen sowie ein vergleichender Überblick HGB/IFRS. ExamFit liefert vollständige Übungs-Jahresabschlüsse mit Lösungswegen und einen Bilanzanalyse-Trainer mit Kennzahlen-Berechnung.",
+      "Handlungsbereich 2 fokussiert auf die Erstellung und Auswertung von Jahresabschlüssen nach HGB sowie Grundlagen der internationalen Rechnungslegung (IFRS) auf Niveau der DIHK-Prüfungsanforderung. Inhaltlich enthalten sind: Bilanzpolitik, Bewertungsmethoden für Vermögen und Schulden, Anhang und Lagebericht mit Pflichtangaben nach §§ 284-289 HGB, Kapitalflussrechnung in direkter und indirekter Methode sowie Bilanzanalyse mit Liquiditäts-, Rentabilitäts- und Vermögensanalyse-Kennzahlen. Hinzu kommt ein vergleichender Überblick HGB versus IFRS für die wichtigsten Bewertungsunterschiede. ExamFit liefert vollständige Übungs-Jahresabschlüsse mit ausführlichem Lösungsweg und einen Bilanzanalyse-Trainer mit über 30 betriebswirtschaftlichen Kennzahlen.",
     keyFacts: [
       { label: "Themen", value: "HGB-Jahresabschluss, IFRS-Grundlagen, Bilanzanalyse" },
       { label: "Übungen", value: "Vollständige Jahresabschlüsse mit Lösungsweg" },
@@ -419,7 +419,7 @@ const live: SeoRoute[] = [
       "Handlungsbereich 3 der Bilanzbuchhalter-Prüfung: Steuerrecht (USt, ESt, KSt, GewSt), Übungsfälle und Klausuren mit aktueller Rechtsprechung.",
     h1: "Bilanzbuchhalter: Steuern",
     intro:
-      "Handlungsbereich 3 deckt das prüfungsrelevante Steuerrecht ab: Umsatzsteuer (Tatbestände, Steuersätze, Sonderfälle), Einkommensteuer (Einkunftsarten, Sonderausgaben), Körperschaftsteuer und Gewerbesteuer. ExamFit liefert über 300 steuerliche Fallstudien, einen Steuer-Trainer mit aktueller Rechtsprechung und einen KI-Tutor, der Antworten mit EStG-, UStG- und KStG-Paragraphen belegt. Inhalte werden bei jeder relevanten Gesetzesänderung aktualisiert.",
+      "Handlungsbereich 3 deckt das prüfungsrelevante Steuerrecht für die Bilanzbuchhalter-Prüfung ab: Umsatzsteuer mit Tatbeständen, Steuersätzen und Sonderfällen wie innergemeinschaftlichen Leistungen und Reverse-Charge, Einkommensteuer mit allen sieben Einkunftsarten, Sonderausgaben und außergewöhnlichen Belastungen, Körperschaftsteuer mit Schachtelprivileg und verdeckter Gewinnausschüttung sowie Gewerbesteuer mit Hinzurechnungen und Kürzungen. ExamFit liefert über 300 steuerliche Fallstudien aus typischen Steuerberater-Praxis und IHK-Klausuren, einen Steuer-Trainer mit aktueller Rechtsprechung und einen KI-Tutor, der Antworten mit EStG-, UStG- und KStG-Paragraphen belegt. Inhalte werden bei jeder relevanten Gesetzesänderung wie dem Jahressteuergesetz aktualisiert.",
     keyFacts: [
       { label: "Themen", value: "USt, ESt, KSt, GewSt – prüfungsrelevant" },
       { label: "Fallstudien", value: "Über 300 steuerliche Praxisfälle" },
@@ -448,7 +448,7 @@ const live: SeoRoute[] = [
       "Vorbereitung auf die IHK-Prüfung Fachinformatiker Anwendungsentwicklung: Lernplan, Programmierübungen, WiSo, Projektarbeit + KI-Tutor mit Quellen.",
     h1: "FIAE Prüfungsvorbereitung",
     intro:
-      "ExamFit bereitet auf die Abschlussprüfung Fachinformatiker Anwendungsentwicklung (FIAE) Teil 1 + 2 vor. Inhalte: Anwendungsentwicklung (Datenmodellierung, OOP, Algorithmen, Testen), Wirtschafts- und Sozialkunde (WiSo), betriebliche Projektarbeit (Projektantrag, Dokumentation, Präsentation, Fachgespräch). Adaptive Lernpläne priorisieren Schwächen, Programmierübungen werden im Browser ausgeführt, der KI-Tutor erklärt Code mit Quellenangaben.",
+      "ExamFit bereitet auf die Abschlussprüfung Fachinformatiker Anwendungsentwicklung (FIAE) Teil 1 (gestreckte Abschlussprüfung) und Teil 2 (Projektarbeit + Klausur) umfassend vor. Inhaltlich abgedeckt: Anwendungsentwicklung mit Datenmodellierung (ER-Diagramme, Normalisierung), objektorientierter Programmierung, Algorithmen und Datenstrukturen, Software-Test sowie SQL; Wirtschafts- und Sozialkunde (WiSo) als eigener Lernpfad; betriebliche Projektarbeit mit Vorlagen für Projektantrag, Dokumentation, Präsentation und Fachgespräch. Adaptive Lernpläne priorisieren deine schwächsten Bereiche pro Handlungsfeld, Programmierübungen werden direkt im Browser ausgeführt mit automatischer Auswertung, und der KI-Tutor erklärt Code-Beispiele mit Quellenangaben aus dem Curriculum.",
     keyFacts: [
       { label: "Prüfungsteile", value: "Teil 1 (gestreckt) + Teil 2 (Projekt + Klausur)" },
       { label: "Anwendungsentwicklung", value: "Datenmodellierung, OOP, Algorithmen, Testen" },
@@ -475,7 +475,7 @@ const live: SeoRoute[] = [
       "Schwerpunkt Anwendungsentwicklung der FIAE-Prüfung: Datenmodellierung, OOP, Algorithmen, Software-Test, SQL – mit Übungen und KI-Tutor.",
     h1: "FIAE: Anwendungsentwicklung",
     intro:
-      "Der Schwerpunkt Anwendungsentwicklung deckt die fachliche Tiefe der FIAE-Prüfung ab: Datenmodellierung (ER, Normalisierung), Objektorientierte Programmierung (Klassen, Vererbung, Polymorphie, Interfaces), Algorithmen und Datenstrukturen (Sortieren, Suchen, Komplexität), Software-Test (Unit, Integration, Coverage), SQL (DML, DDL, JOINs, Aggregation). ExamFit kombiniert Theorie mit In-Browser-Programmierübungen und einem KI-Tutor, der Code-Beispiele mit Erklärung und Quellenangaben liefert.",
+      "Der Schwerpunkt Anwendungsentwicklung deckt die fachliche Tiefe der FIAE-Prüfung ab: Datenmodellierung mit ER-Diagrammen und Normalisierung von der ersten bis zur dritten Normalform, Objektorientierte Programmierung mit Klassen, Vererbung, Polymorphie und Interfaces sowie den prüfungsrelevanten Design-Patterns (Singleton, Factory, Observer, MVC), Algorithmen und Datenstrukturen mit Sortier- und Suchverfahren inklusive Laufzeitkomplexität in O-Notation, Software-Test auf Unit-, Integrations- und System-Ebene mit Coverage-Metriken sowie SQL mit DML, DDL, JOINs, Subqueries, Aggregation und Window Functions auf Prüfungsniveau. ExamFit kombiniert kompakte Theorie mit In-Browser-Programmierübungen und einem KI-Tutor, der Code-Beispiele mit Erklärung und Quellenangaben liefert.",
     keyFacts: [
       { label: "Datenmodellierung", value: "ER-Diagramme, Normalisierung 1NF-3NF" },
       { label: "OOP", value: "Klassen, Vererbung, Polymorphie, Interfaces" },
@@ -502,7 +502,7 @@ const live: SeoRoute[] = [
       "FIAE-WiSo-Prüfung vorbereiten: Berufsausbildung, Arbeitsrecht, Sozialversicherung, Wirtschaft, Tarifrecht – mit Übungsfragen und Probeklausur.",
     h1: "FIAE: Wirtschafts- und Sozialkunde",
     intro:
-      "Die WiSo-Prüfung in der FIAE-Abschlussprüfung deckt fünf Themengebiete ab: Berufsausbildung (BBiG, Ausbildungsvertrag), Arbeitsrecht (Kündigung, Arbeitszeitgesetz), Sozialversicherung (Kranken-, Renten-, Arbeitslosen-, Pflegeversicherung), Wirtschaftsordnung (Marktwirtschaft, Wettbewerb), Tarifrecht und Mitbestimmung. ExamFit liefert je Thema einen kompakten Lernpfad mit Übungsfragen und einer Probeklausur im DIHK-Format.",
+      "Die WiSo-Prüfung in der FIAE-Abschlussprüfung deckt fünf Themengebiete ab: Berufsausbildung mit dem Berufsbildungsgesetz (BBiG), dem Ausbildungsvertrag und der Rolle der zuständigen Stelle; Arbeitsrecht mit Kündigungsschutz, Arbeitszeitgesetz und Urlaubsanspruch; Sozialversicherung mit Kranken-, Renten-, Arbeitslosen- und Pflegeversicherung inklusive Beitragssätzen und Wahltarifen; Wirtschaftsordnung mit Marktwirtschaft, Wettbewerb und Konjunkturzyklen; sowie Tarifrecht und betriebliche Mitbestimmung nach Betriebsverfassungsgesetz. ExamFit liefert je Thema einen kompakten Lernpfad mit über 200 Übungsfragen mit Erklärung und mehreren Probeklausuren im prüfungsnahen DIHK-Format mit automatischer Auswertung.",
     keyFacts: [
       { label: "Themen", value: "Berufsausbildung, Arbeitsrecht, Sozialversicherung, Wirtschaft, Tarif" },
       { label: "Format", value: "30-50 Multiple-Choice-Aufgaben, 60 Min" },
