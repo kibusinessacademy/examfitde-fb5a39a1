@@ -65,6 +65,7 @@ import { AutoSelectorCard } from "@/components/admin/heal/cards/AutoSelectorCard
 import { ReaperGovernanceCard } from "@/components/admin/heal/cards/ReaperGovernanceCard";
 import { HealStrategyCard } from "@/components/admin/heal/cards/HealStrategyCard";
 import { AlertsBanner } from "@/components/admin/heal/cards/AlertsBanner";
+import { NextActionCard } from "@/components/admin/heal/cards/NextActionCard";
 
 // Queue-Detail-Tabs (lazy — schwer)
 const QueueLiveTab = lazy(() => import("@/pages/admin/v2/QueuePage"));
