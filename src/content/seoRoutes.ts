@@ -247,7 +247,7 @@ const live: SeoRoute[] = [
       "ExamFit für Ausbildungsbetriebe: einheitliches Prüfungstraining für alle Azubis, Reporting, Lernfortschritt pro Lehrjahr, faire Preise pro Sitz.",
     h1: "Prüfungstraining für Ausbildungsbetriebe",
     intro:
-      "ExamFit hilft Ausbildungsbetrieben, ihre Bestehensquote bei IHK-Abschlussprüfungen messbar zu steigern. Das Betriebs-Bundle gibt jedem Azubi einen Sitzplatz, einheitliche Lernkurse und persönliche Lernpläne, während der Ausbilder im Reporting den Lernfortschritt pro Lehrjahr und Handlungsfeld sieht. So erkennst du frühzeitig, welche Azubis Risiken zeigen und in welchen Bereichen Schulungsbedarf besteht. Onboarding pro Cohort dauert typisch unter 30 Minuten, alle Azubis können sofort loslegen.",
+      "ExamFit unterstützt Ausbildungsbetriebe dabei, ihre Auszubildenden strukturiert auf die IHK-Abschlussprüfung vorzubereiten. Das Betriebs-Bundle gibt jedem Azubi einen Sitzplatz, einheitliche Lernkurse und persönliche Lernpläne, während der Ausbilder im Reporting den Lernfortschritt pro Lehrjahr und Handlungsfeld sieht. So erkennst du frühzeitig, welche Azubis Risiken zeigen und in welchen Bereichen Schulungsbedarf besteht. Onboarding erfolgt über Bulk-Invite per E-Mail, alle Azubis können nach Annahme der Einladung sofort loslegen. Inhalte sind synchron mit dem DIHK-Rahmenstoffplan, das Hosting erfolgt DSGVO-konform in Frankfurt.",
     keyFacts: [
       { label: "Lizenzmodell", value: "Pro Sitz, monatlich oder jährlich" },
       { label: "Reporting", value: "Lernfortschritt pro Azubi & Handlungsfeld" },
