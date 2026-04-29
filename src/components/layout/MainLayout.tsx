@@ -1,5 +1,6 @@
 import { Outlet } from 'react-router-dom';
 import { ShareEventOrchestrator } from '@/components/share/ShareEventOrchestrator';
+import { TopicMapNav } from '@/components/seo/TopicMapNav';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
