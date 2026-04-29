@@ -1,6 +1,7 @@
 # Project Memory
 
 ## Core
+- **DATENINTEGRITÄT SSOT — JEDER package_*-Job MUSS curriculum_id im payload haben.** `assert_job_payload` blockt sonst hart. Repair-RPCs MÜSSEN curriculum_id aus course_packages lesen UND bei NULL skippen (kein blinder enqueue). Cluster F (curriculum_id IS NULL) hat IMMER höchste Priorität in Diagnose-Views.
 - Frontend never calculates mastery logic; didactic calculations remain strictly server-side.
 - All internal/public tables must enforce strict RLS policies, filtering by `user_id` and `curriculum_id`.
 - TypeScript codebase enforces `strictNullChecks`; `!` assertions are strictly forbidden, use explicit guards.

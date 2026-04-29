@@ -82875,6 +82875,7 @@ export type Database = {
       v_admin_qc_step_drift: {
         Row: {
           cluster: string | null
+          curriculum_id: string | null
           heal_eligible: boolean | null
           package_id: string | null
           pkg_status: string | null
@@ -82888,6 +82889,62 @@ export type Database = {
           title: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_qc_backlog"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_qc_backlog_age"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
           {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
@@ -96419,27 +96476,22 @@ export type Database = {
         }[]
       }
       admin_get_qc_step_drift_detail: {
-        Args: { p_cluster?: string; p_limit?: number }
+        Args: { p_cluster: string; p_limit?: number }
         Returns: {
-          cluster: string | null
-          heal_eligible: boolean | null
-          package_id: string | null
-          pkg_status: string | null
-          qc_active: number | null
-          qc_cancelled: number | null
-          qc_completed: number | null
-          qc_failed: number | null
-          qc_total: number | null
-          step_age_sec: number | null
-          step_updated_at: string | null
-          title: string | null
+          cluster: string
+          curriculum_id: string
+          heal_eligible: boolean
+          package_id: string
+          pkg_status: string
+          qc_active: number
+          qc_cancelled: number
+          qc_completed: number
+          qc_failed: number
+          qc_total: number
+          step_age_sec: number
+          step_updated_at: string
+          title: string
         }[]
-        SetofOptions: {
-          from: "*"
-          to: "v_admin_qc_step_drift"
-          isOneToOne: false
-          isSetofReturn: true
-        }
       }
       admin_get_qc_step_drift_summary: {
         Args: never
