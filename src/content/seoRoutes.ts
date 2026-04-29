@@ -425,7 +425,7 @@ const live: SeoRoute[] = [
       { label: "Fallstudien", value: "Über 300 steuerliche Praxisfälle" },
       { label: "Aktualität", value: "Synchron mit Gesetzesänderungen" },
       { label: "Tutor", value: "Antworten mit EStG/UStG/KStG-Bezug" },
-      { label: "Probeklausuren", value: "Im DIHK-Originalformat" },
+      { label: "Probeklausuren", value: "Im prüfungsnahen DIHK-Format" },
     ],
     faq: [
       { q: "Welche Steuerarten werden behandelt?", a: "USt, ESt, KSt und GewSt im prüfungsrelevanten Umfang." },
