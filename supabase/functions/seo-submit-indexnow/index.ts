@@ -21,7 +21,19 @@ interface SubmissionResult {
   error?: string;
 }
 
-async function submitToIndexNow(urls: string[]): Promise<{ ok: boolean; status: number; body?: string }> {
+function normalizeToApex(url: string): string {
+  try {
+    const u = new URL(url);
+    u.protocol = "https:";
+    u.host = "examfit.de"; // strip www. and any other host variants
+    return u.toString();
+  } catch {
+    return url;
+  }
+}
+
+async function submitToIndexNow(rawUrls: string[]): Promise<{ ok: boolean; status: number; body?: string }> {
+  const urls = Array.from(new Set(rawUrls.map(normalizeToApex).filter(u => u.startsWith("https://examfit.de/"))));
   if (urls.length === 0) return { ok: true, status: 200 };
 
   const payload = {

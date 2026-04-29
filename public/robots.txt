@@ -1,6 +1,9 @@
 # ExamFit.de Robots.txt
 # Realistic, documented bot allowlist
 # Last reviewed: 2026-04-29
+#
+# Canonical host: examfit.de (apex). www.examfit.de is a 301 redirect.
+# All canonicals, sitemaps, IndexNow submissions and llms.txt point to apex only.
 
 # ───── Default ─────
 User-agent: *
@@ -123,9 +126,13 @@ Crawl-delay: 10
 User-agent: MJ12bot
 Crawl-delay: 10
 
+# ───── Host preference (Yandex) ─────
+Host: examfit.de
+
 # ───── Sitemap & AI manifests ─────
 Sitemap: https://examfit.de/sitemap.xml
 
 # AI discovery files (no User-agent scoping required, listed for clarity)
 # https://examfit.de/llms.txt
 # https://examfit.de/llms-full.txt
+# https://examfit.de/examfit-indexnow-key-2026.txt
