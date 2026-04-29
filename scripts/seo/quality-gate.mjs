@@ -26,6 +26,15 @@
 import { resolve, dirname } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
+// Guardrail: --experimental-strip-types requires Node >= 22.
+const major = Number(process.versions.node.split(".")[0]);
+if (Number.isFinite(major) && major < 22) {
+  console.error(
+    `[quality-gate] Node ${process.versions.node} too old; need Node >= 22 (uses --experimental-strip-types).`,
+  );
+  process.exit(2);
+}
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SSOT_URL = pathToFileURL(
   resolve(__dirname, "../../src/content/seoRoutes.ts"),
