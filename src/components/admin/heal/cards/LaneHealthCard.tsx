@@ -1,7 +1,8 @@
 /**
  * LaneHealthCard — pro Lane (control/build/recovery): pending/processing,
- * letzter done-Timestamp, done in 6h, ältester Pending. Erkennt Worker-Stillstände
- * (Lane mit Pending > 0, aber done_6h = 0) → kritisch markiert.
+ * letzter completed-Timestamp, completed in 6h, ältester Pending.
+ * SSOT: job_queue.status='completed' (NICHT 'done'). Erkennt Worker-Stillstände
+ * (Lane mit Pending > 0, aber completed_6h = 0) → kritisch markiert.
  */
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,8 +17,8 @@ interface LaneRow {
   pending_cnt: number;
   processing_cnt: number;
   queued_cnt: number;
-  last_done_at: string | null;
-  done_6h: number;
+  last_completed_at: string | null;
+  completed_6h: number;
   oldest_pending_sec: number | null;
 }
 
@@ -64,7 +65,7 @@ export function LaneHealthCard() {
           {(q.data ?? [])
             .sort((a, b) => (b.pending_cnt + b.processing_cnt) - (a.pending_cnt + a.processing_cnt))
             .map((row) => {
-              const stalled = row.pending_cnt > 0 && row.done_6h === 0;
+              const stalled = row.pending_cnt > 0 && row.completed_6h === 0;
               const slow = (row.oldest_pending_sec ?? 0) > 3600;
               return (
                 <div
@@ -90,7 +91,7 @@ export function LaneHealthCard() {
                       )}
                     </div>
                     <span className="text-muted-foreground">
-                      last done: {fmtAgo(row.last_done_at)} · 6h: {row.done_6h}
+                      last completed: {fmtAgo(row.last_completed_at)} · completed_6h: {row.completed_6h}
                     </span>
                   </div>
                   <div className="grid grid-cols-4 gap-2">
