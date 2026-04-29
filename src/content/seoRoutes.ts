@@ -194,7 +194,7 @@ const live: SeoRoute[] = [
       { label: "Support", value: "info@examfit.de" },
       { label: "Antwortzeit", value: "Werktags innerhalb 24 Stunden" },
       { label: "Sprachen", value: "Deutsch" },
-      { label: "Wissensbasis", value: "Über 200 beantwortete Fragen" },
+      { label: "Wissensbasis", value: "Umfangreiche Wissensbasis" },
     ],
     faq: [
       { q: "Wie starte ich mit ExamFit?", a: "Mache den kostenlosen Selbsttest – danach erhältst du einen 4-Wochen-Lernplan." },
@@ -368,13 +368,13 @@ const live: SeoRoute[] = [
       "Handlungsbereich 1 der Bilanzbuchhalter-Prüfung deckt die laufende Buchführung umfassend ab: Geschäftsvorfälle erfassen und kontieren, Anlagenbuchhaltung mit planmäßiger und außerplanmäßiger Abschreibung, Personalbuchhaltung inklusive Lohnsteuer und Sozialversicherung, Umsatzsteuer-Voranmeldung sowie Kostenrechnungs-Grundlagen. ExamFit liefert hierfür einen strukturierten Lernpfad mit Übungsbuchungen, Kontierungs-Trainer und praxisnahen Fallstudien aus typischen KMU-Konstellationen. Der KI-Tutor erklärt Buchungssätze mit Verweis auf HGB-Paragraphen und gibt prüfungsnahe Erläuterungen zur Kontensystematik. Realistische Simulationen orientieren sich an Format und Anforderungsniveau der DIHK-Klausur und werden mit automatischer Punkteauswertung ausgewertet.",
     keyFacts: [
       { label: "Themen", value: "Kontierung, Anlagenbuchhaltung, Personal, USt" },
-      { label: "Trainer", value: "Kontierungs-Trainer mit über 500 Fällen" },
+      { label: "Trainer", value: "Kontierungs-Trainer mit umfangreichem Fallpool" },
       { label: "Fallstudien", value: "Praxisnahe Geschäftsvorfälle aus KMU" },
       { label: "Tutor", value: "Erklärt Buchungssätze mit HGB-Bezug" },
       { label: "Klausurformat", value: "An DIHK-Aufgabenstil orientiert" },
     ],
     faq: [
-      { q: "Wie viele Übungsbuchungen sind enthalten?", a: "Über 500 kontierte Geschäftsvorfälle aus typischen KMU-Konstellationen." },
+      { q: "Wie viele Übungsbuchungen sind enthalten?", a: "Umfangreicher Pool kontierter Geschäftsvorfälle aus typischen KMU-Konstellationen." },
       { q: "Werden auch internationale Standards behandelt?", a: "Schwerpunkt ist HGB; IFRS wird in Handlungsbereich 2 vertiefend behandelt." },
       { q: "Ist die Anlagenbuchhaltung enthalten?", a: "Ja, inklusive Abschreibungsmethoden und außerplanmäßiger Abschreibung." },
       { q: "Wie lange dauert dieser Bereich?", a: "Empfohlen 4-6 Wochen, abhängig von Vorkenntnissen." },
@@ -392,17 +392,17 @@ const live: SeoRoute[] = [
       "Handlungsbereich 2 der Bilanzbuchhalter-Prüfung: Jahresabschluss erstellen und auswerten, Bilanzanalyse, IFRS-Grundlagen, Übungen + Klausuren.",
     h1: "Bilanzbuchhalter: Jahresabschluss",
     intro:
-      "Handlungsbereich 2 fokussiert auf die Erstellung und Auswertung von Jahresabschlüssen nach HGB sowie Grundlagen der internationalen Rechnungslegung (IFRS) auf Niveau der DIHK-Prüfungsanforderung. Inhaltlich enthalten sind: Bilanzpolitik, Bewertungsmethoden für Vermögen und Schulden, Anhang und Lagebericht mit Pflichtangaben nach §§ 284-289 HGB, Kapitalflussrechnung in direkter und indirekter Methode sowie Bilanzanalyse mit Liquiditäts-, Rentabilitäts- und Vermögensanalyse-Kennzahlen. Hinzu kommt ein vergleichender Überblick HGB versus IFRS für die wichtigsten Bewertungsunterschiede. ExamFit liefert vollständige Übungs-Jahresabschlüsse mit ausführlichem Lösungsweg und einen Bilanzanalyse-Trainer mit über 30 betriebswirtschaftlichen Kennzahlen.",
+      "Handlungsbereich 2 fokussiert auf die Erstellung und Auswertung von Jahresabschlüssen nach HGB sowie Grundlagen der internationalen Rechnungslegung (IFRS) auf Niveau der DIHK-Prüfungsanforderung. Inhaltlich enthalten sind: Bilanzpolitik, Bewertungsmethoden für Vermögen und Schulden, Anhang und Lagebericht mit Pflichtangaben nach §§ 284-289 HGB, Kapitalflussrechnung in direkter und indirekter Methode sowie Bilanzanalyse mit Liquiditäts-, Rentabilitäts- und Vermögensanalyse-Kennzahlen. Hinzu kommt ein vergleichender Überblick HGB versus IFRS für die wichtigsten Bewertungsunterschiede. ExamFit liefert vollständige Übungs-Jahresabschlüsse mit ausführlichem Lösungsweg und einen Bilanzanalyse-Trainer mit den prüfungsrelevanten betriebswirtschaftlichen Kennzahlen.",
     keyFacts: [
       { label: "Themen", value: "HGB-Jahresabschluss, IFRS-Grundlagen, Bilanzanalyse" },
       { label: "Übungen", value: "Vollständige Jahresabschlüsse mit Lösungsweg" },
-      { label: "Kennzahlen", value: "Trainer mit über 30 betriebswirtschaftlichen Kennzahlen" },
+      { label: "Kennzahlen", value: "Trainer mit den prüfungsrelevanten BWL-Kennzahlen" },
       { label: "IFRS", value: "Vergleichender Überblick HGB/IFRS" },
       { label: "Klausuren", value: "Drei Probeklausuren im prüfungsnahen DIHK-Format" },
     ],
     faq: [
       { q: "Wie tief geht IFRS?", a: "Auf Niveau der DIHK-Prüfungsanforderung – Vergleich HGB/IFRS, keine Vollzertifizierung." },
-      { q: "Welche Kennzahlen werden behandelt?", a: "Über 30 Kennzahlen aus Liquiditäts-, Rentabilitäts- und Vermögensanalyse." },
+      { q: "Welche Kennzahlen werden behandelt?", a: "Die prüfungsrelevanten Kennzahlen aus Liquiditäts-, Rentabilitäts- und Vermögensanalyse." },
       { q: "Sind Anhang und Lagebericht enthalten?", a: "Ja, mit Pflichtangaben nach §§ 284-289 HGB." },
       { q: "Wie übe ich die Kapitalflussrechnung?", a: "Im Trainer mit direkter und indirekter Methode, jeweils mit Beispielfällen." },
       { q: "Reicht das für die mittlere Schwierigkeit der Klausur?", a: "Ja, der Inhalt deckt das DIHK-Anforderungsniveau vollständig ab." },
@@ -419,10 +419,10 @@ const live: SeoRoute[] = [
       "Handlungsbereich 3 der Bilanzbuchhalter-Prüfung: Steuerrecht (USt, ESt, KSt, GewSt), Übungsfälle und Klausuren mit aktueller Rechtsprechung.",
     h1: "Bilanzbuchhalter: Steuern",
     intro:
-      "Handlungsbereich 3 deckt das prüfungsrelevante Steuerrecht für die Bilanzbuchhalter-Prüfung ab: Umsatzsteuer mit Tatbeständen, Steuersätzen und Sonderfällen wie innergemeinschaftlichen Leistungen und Reverse-Charge, Einkommensteuer mit allen sieben Einkunftsarten, Sonderausgaben und außergewöhnlichen Belastungen, Körperschaftsteuer mit Schachtelprivileg und verdeckter Gewinnausschüttung sowie Gewerbesteuer mit Hinzurechnungen und Kürzungen. ExamFit liefert über 300 steuerliche Fallstudien aus typischen Steuerberater-Praxis und IHK-Klausuren, einen Steuer-Trainer mit aktueller Rechtsprechung und einen KI-Tutor, der Antworten mit EStG-, UStG- und KStG-Paragraphen belegt. Inhalte werden bei jeder relevanten Gesetzesänderung wie dem Jahressteuergesetz aktualisiert.",
+      "Handlungsbereich 3 deckt das prüfungsrelevante Steuerrecht für die Bilanzbuchhalter-Prüfung ab: Umsatzsteuer mit Tatbeständen, Steuersätzen und Sonderfällen wie innergemeinschaftlichen Leistungen und Reverse-Charge, Einkommensteuer mit allen sieben Einkunftsarten, Sonderausgaben und außergewöhnlichen Belastungen, Körperschaftsteuer mit Schachtelprivileg und verdeckter Gewinnausschüttung sowie Gewerbesteuer mit Hinzurechnungen und Kürzungen. ExamFit liefert einen wachsenden Pool steuerlicher Fallstudien aus typischen Steuerberater-Praxis und IHK-Klausuren, einen Steuer-Trainer mit aktueller Rechtsprechung und einen KI-Tutor, der Antworten mit EStG-, UStG- und KStG-Paragraphen belegt. Inhalte werden bei jeder relevanten Gesetzesänderung wie dem Jahressteuergesetz aktualisiert.",
     keyFacts: [
       { label: "Themen", value: "USt, ESt, KSt, GewSt – prüfungsrelevant" },
-      { label: "Fallstudien", value: "Über 300 steuerliche Praxisfälle" },
+      { label: "Fallstudien", value: "Wachsender Pool steuerlicher Praxisfälle" },
       { label: "Aktualität", value: "Synchron mit Gesetzesänderungen" },
       { label: "Tutor", value: "Antworten mit EStG/UStG/KStG-Bezug" },
       { label: "Probeklausuren", value: "Im prüfungsnahen DIHK-Format" },
@@ -432,7 +432,7 @@ const live: SeoRoute[] = [
       { q: "Wie aktuell ist das Steuerrecht?", a: "Inhalte werden bei jeder relevanten Gesetzesänderung (z. B. Jahressteuergesetz) aktualisiert." },
       { q: "Werden auch Doppelbesteuerungsabkommen behandelt?", a: "Grundlagen ja, Vertiefung ist nicht prüfungsrelevant." },
       { q: "Gibt es einen Umsatzsteuer-Trainer?", a: "Ja, mit Sonderfällen wie innergemeinschaftlichen Leistungen und Reverse-Charge." },
-      { q: "Wie übe ich Einkommensteuer?", a: "Mit über 100 Fallstudien aus den sieben Einkunftsarten und der Veranlagungspraxis." },
+      { q: "Wie übe ich Einkommensteuer?", a: "Mit zahlreichen Fallstudien aus den sieben Einkunftsarten und der Veranlagungspraxis." },
       { q: "Sind die Fälle aus der Praxis?", a: "Ja, basierend auf typischen Konstellationen aus Steuerberaterkanzleien und IHK-Klausuren." },
     ],
     sitemapGroup: "content",
@@ -502,11 +502,11 @@ const live: SeoRoute[] = [
       "FIAE-WiSo-Prüfung vorbereiten: Berufsausbildung, Arbeitsrecht, Sozialversicherung, Wirtschaft, Tarifrecht – mit Übungsfragen und Probeklausur.",
     h1: "FIAE: Wirtschafts- und Sozialkunde",
     intro:
-      "Die WiSo-Prüfung in der FIAE-Abschlussprüfung deckt fünf Themengebiete ab: Berufsausbildung mit dem Berufsbildungsgesetz (BBiG), dem Ausbildungsvertrag und der Rolle der zuständigen Stelle; Arbeitsrecht mit Kündigungsschutz, Arbeitszeitgesetz und Urlaubsanspruch; Sozialversicherung mit Kranken-, Renten-, Arbeitslosen- und Pflegeversicherung inklusive Beitragssätzen und Wahltarifen; Wirtschaftsordnung mit Marktwirtschaft, Wettbewerb und Konjunkturzyklen; sowie Tarifrecht und betriebliche Mitbestimmung nach Betriebsverfassungsgesetz. ExamFit liefert je Thema einen kompakten Lernpfad mit über 200 Übungsfragen mit Erklärung und mehreren Probeklausuren im prüfungsnahen DIHK-Format mit automatischer Auswertung.",
+      "Die WiSo-Prüfung in der FIAE-Abschlussprüfung deckt fünf Themengebiete ab: Berufsausbildung mit dem Berufsbildungsgesetz (BBiG), dem Ausbildungsvertrag und der Rolle der zuständigen Stelle; Arbeitsrecht mit Kündigungsschutz, Arbeitszeitgesetz und Urlaubsanspruch; Sozialversicherung mit Kranken-, Renten-, Arbeitslosen- und Pflegeversicherung inklusive Beitragssätzen und Wahltarifen; Wirtschaftsordnung mit Marktwirtschaft, Wettbewerb und Konjunkturzyklen; sowie Tarifrecht und betriebliche Mitbestimmung nach Betriebsverfassungsgesetz. ExamFit liefert je Thema einen kompakten Lernpfad mit umfangreichem Übungsfragen-Pool mit Erklärung und mehreren Probeklausuren im prüfungsnahen DIHK-Format mit automatischer Auswertung.",
     keyFacts: [
       { label: "Themen", value: "Berufsausbildung, Arbeitsrecht, Sozialversicherung, Wirtschaft, Tarif" },
       { label: "Format", value: "30-50 Multiple-Choice-Aufgaben, 60 Min" },
-      { label: "Übungen", value: "Über 200 Übungsfragen mit Erklärung" },
+      { label: "Übungen", value: "Umfangreicher Übungsfragen-Pool mit Erklärung" },
       { label: "Probeklausur", value: "Im prüfungsnahen DIHK-Format" },
       { label: "Aktualität", value: "Synchron mit BBiG- und Sozialgesetzbuch-Änderungen" },
     ],
