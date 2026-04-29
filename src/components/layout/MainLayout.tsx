@@ -33,8 +33,8 @@ export default function MainLayout() {
       <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Link to="/" className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-primary text-primary-foreground">
+            <Link to="/" aria-label="ExamFit Startseite" className="flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-primary text-primary-foreground" aria-hidden="true">
                 <GraduationCap className="h-5 w-5" />
               </div>
               <span className="font-display font-bold text-lg text-foreground hidden sm:inline">
@@ -184,7 +184,7 @@ export default function MainLayout() {
 
             {/* Produkte */}
             <div>
-              <h4 className="font-semibold text-sm mb-4">Produkte</h4>
+              <h2 className="font-semibold text-sm mb-4">Produkte</h2>
               <nav className="flex flex-col gap-2 text-sm text-muted-foreground">
                 <Link to="/bundle" className="hover:text-foreground transition-colors">Komplett-Bundle</Link>
                 <Link to="/berufe" className="hover:text-foreground transition-colors">Berufe</Link>
@@ -194,7 +194,7 @@ export default function MainLayout() {
 
             {/* Ressourcen */}
             <div>
-              <h4 className="font-semibold text-sm mb-4">Ressourcen</h4>
+              <h2 className="font-semibold text-sm mb-4">Ressourcen</h2>
               <nav className="flex flex-col gap-2 text-sm text-muted-foreground">
                 <Link to="/berufe" className="hover:text-foreground transition-colors">Alle Berufe</Link>
                 <Link to="/ihk-pruefungen" className="hover:text-foreground transition-colors">IHK-Prüfungen</Link>
@@ -205,7 +205,7 @@ export default function MainLayout() {
 
             {/* Rechtliches */}
             <div>
-              <h4 className="font-semibold text-sm mb-4">Rechtliches</h4>
+              <h2 className="font-semibold text-sm mb-4">Rechtliches</h2>
               <nav className="flex flex-col gap-2 text-sm text-muted-foreground">
                 <Link to="/impressum" className="hover:text-foreground transition-colors">Impressum</Link>
                 <Link to="/datenschutz" className="hover:text-foreground transition-colors">Datenschutz</Link>
@@ -218,7 +218,7 @@ export default function MainLayout() {
 
           {/* IHK/HWK Disclaimer */}
           <div className="pt-6 text-center">
-            <p className="text-xs text-muted-foreground/70">
+            <p className="text-xs text-muted-foreground">
               ExamFit ist ein unabhängiger Anbieter. Es besteht keine Verbindung, Partnerschaft 
               oder Zusammenarbeit mit der Industrie- und Handelskammer (IHK) oder Handwerkskammer (HWK).
             </p>

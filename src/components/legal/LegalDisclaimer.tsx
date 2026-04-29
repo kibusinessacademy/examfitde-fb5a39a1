@@ -25,7 +25,7 @@ export function LegalDisclaimer({ className = '' }: { className?: string }) {
  */
 export function LegalDisclaimerCompact({ className = '' }: { className?: string }) {
   return (
-    <p className={`text-xs text-muted-foreground/70 ${className}`}>
+    <p className={`text-xs text-muted-foreground ${className}`}>
       ExamFit ist unabhängig und nicht mit IHK oder HWK verbunden.
     </p>
   );
