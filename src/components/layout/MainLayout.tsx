@@ -218,7 +218,7 @@ export default function MainLayout() {
 
           {/* IHK/HWK Disclaimer */}
           <div className="pt-6 text-center">
-            <p className="text-xs text-muted-foreground/70">
+            <p className="text-xs text-muted-foreground">
               ExamFit ist ein unabhängiger Anbieter. Es besteht keine Verbindung, Partnerschaft 
               oder Zusammenarbeit mit der Industrie- und Handelskammer (IHK) oder Handwerkskammer (HWK).
             </p>
