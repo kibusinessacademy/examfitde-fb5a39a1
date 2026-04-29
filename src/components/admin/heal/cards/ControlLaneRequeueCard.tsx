@@ -20,7 +20,9 @@ interface Row {
   package_id: string;
   old_status: string;
   new_status: string;
-  action: string;
+  required_step: string | null;
+  required_step_status: string | null;
+  action: string; // 'dry_run' | 'requeued' | 'skipped_prereq_not_done'
 }
 
 export function ControlLaneRequeueCard() {
@@ -78,7 +80,11 @@ export function ControlLaneRequeueCard() {
       <p className="text-xs text-muted-foreground mb-3">
         Setzt alte hängende Control-Lane-Jobs (pending/queued ≥ N Minuten) zurück auf pending mit
         gelöschtem Lock und Audit-Eintrag in <code className="font-mono">meta.admin_requeued_at</code>.
-        Behebt Worker-Stillstand auf der Control-Lane.
+        <strong className="block mt-1">Vorbedingungs-Schutz:</strong> Jobs deren erforderlicher
+        Pipeline-Step (z.B. <code className="font-mono">quality_council</code>) noch nicht
+        <code className="font-mono"> done</code>/<code className="font-mono">skipped</code> ist,
+        werden als <code className="font-mono">skipped_prereq_not_done</code> gemeldet und
+        NICHT requeued.
       </p>
 
       <div className="grid grid-cols-2 gap-3 mb-3">
@@ -117,10 +123,16 @@ export function ControlLaneRequeueCard() {
           size="sm"
           variant="destructive"
           onClick={() => execute.mutate()}
-          disabled={execute.isPending || !dryRunResult || dryRunResult.length === 0}
+          disabled={
+            execute.isPending ||
+            !dryRunResult ||
+            dryRunResult.filter((r) => r.action !== "skipped_prereq_not_done").length === 0
+          }
         >
           <Play className="h-3 w-3 mr-1" />
-          {execute.isPending ? "Requeue…" : `Execute (${dryRunResult?.length ?? 0})`}
+          {execute.isPending
+            ? "Requeue…"
+            : `Execute (${dryRunResult?.filter((r) => r.action !== "skipped_prereq_not_done").length ?? 0})`}
         </Button>
       </div>
 
@@ -129,14 +141,43 @@ export function ControlLaneRequeueCard() {
           {dryRunResult.length === 0 ? (
             <p className="text-muted-foreground py-2">Keine Stale-Jobs gefunden ✓</p>
           ) : (
-            dryRunResult.map((r) => (
-              <div key={r.job_id} className="flex items-center justify-between rounded border p-1.5 font-mono">
-                <span className="truncate">{r.job_type}</span>
-                <span className="text-muted-foreground text-[10px] shrink-0 ml-2">
-                  {r.job_id.slice(0, 8)}
-                </span>
-              </div>
-            ))
+            <>
+              {(() => {
+                const skipped = dryRunResult.filter((r) => r.action === "skipped_prereq_not_done").length;
+                const actionable = dryRunResult.length - skipped;
+                return (
+                  <div className="text-[11px] text-muted-foreground mb-2 flex gap-3">
+                    <span><strong className="text-foreground">{actionable}</strong> requeue-fähig</span>
+                    {skipped > 0 && (
+                      <span className="text-warning-foreground">
+                        <strong>{skipped}</strong> blockiert (Vorbedingung offen)
+                      </span>
+                    )}
+                  </div>
+                );
+              })()}
+              {dryRunResult.map((r) => {
+                const blocked = r.action === "skipped_prereq_not_done";
+                return (
+                  <div
+                    key={r.job_id}
+                    className={`flex items-center justify-between rounded border p-1.5 font-mono ${
+                      blocked ? "border-warning/50 bg-warning/5" : ""
+                    }`}
+                  >
+                    <span className="truncate flex-1">{r.job_type}</span>
+                    {r.required_step && (
+                      <span className="text-[10px] text-muted-foreground shrink-0 ml-2">
+                        prereq: {r.required_step}={r.required_step_status ?? "missing"}
+                      </span>
+                    )}
+                    <span className="text-muted-foreground text-[10px] shrink-0 ml-2">
+                      {r.job_id.slice(0, 8)}
+                    </span>
+                  </div>
+                );
+              })}
+            </>
           )}
         </div>
       )}
