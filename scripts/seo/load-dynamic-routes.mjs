@@ -13,15 +13,41 @@
  * static SSOT prerender keeps working. Logs warnings instead.
  */
 
+import fs from "node:fs";
+import path from "node:path";
+
+// Read SUPABASE_URL / KEY from process.env first; if missing (CI build runners
+// can scrub them), fall back to parsing project root .env so the build still
+// produces a complete sitemap.
+function readEnvFallback() {
+  try {
+    const envPath = path.resolve(process.cwd(), ".env");
+    if (!fs.existsSync(envPath)) return {};
+    const out = {};
+    for (const line of fs.readFileSync(envPath, "utf8").split("\n")) {
+      const m = line.match(/^([A-Z0-9_]+)=("?)([^"]*)\2\s*$/);
+      if (m) out[m[1]] = m[3];
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+const _envFile = readEnvFallback();
 const SITE = "https://examfit.de";
 const SUPABASE_URL =
   process.env.SUPABASE_URL ||
   process.env.VITE_SUPABASE_URL ||
+  _envFile.SUPABASE_URL ||
+  _envFile.VITE_SUPABASE_URL ||
   "";
 const SUPABASE_KEY =
   process.env.SUPABASE_PUBLISHABLE_KEY ||
   process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+  _envFile.SUPABASE_PUBLISHABLE_KEY ||
+  _envFile.VITE_SUPABASE_PUBLISHABLE_KEY ||
   "";
+
 
 function clamp(s, min, max) {
   if (!s) return s;
@@ -167,12 +193,13 @@ export async function loadBlogRoutes() {
     const title = clamp(r.title, 1, 60);
     const description = r.meta_description
       ? clamp(r.meta_description, 70, 160)
-      : null;
-    if (!description) continue; // skip articles without meta description
+      : `Prüfungsvorbereitung & Tipps zum Thema „${r.title}". Lerne effizient mit ExamFit.`.slice(0, 160);
 
+    // Content body is best-effort: used only if hosting later honors per-route HTML.
+    // For sitemap-only mode (current Lovable hosting), we still emit the route
+    // even when contentMd is missing — Googlebot will JS-render the page.
     const contentHtml = mdToHtml(r.content_md || "");
     const contentText = htmlToText(contentHtml);
-    if (contentText.length < 1200) continue; // not enough body to prerender
 
     const faqArr = Array.isArray(r.faq_json) ? r.faq_json : [];
     const faq = faqArr
@@ -249,6 +276,23 @@ export async function loadBlogRoutes() {
       priority: 0.6,
     });
   }
+
+  // Soft quality-gate (warning-only, never fails build):
+  const warnings = [];
+  for (const route of routes) {
+    if (!route.title || route.title.length < 30 || route.title.length > 60)
+      warnings.push(`title length ${route.title?.length}: ${route.path}`);
+    if (!route.description || route.description.length < 70 || route.description.length > 160)
+      warnings.push(`desc length ${route.description?.length}: ${route.path}`);
+    if (route.contentText && route.contentText.length > 0 && route.contentText.length < 600)
+      warnings.push(`body <600 chars: ${route.path}`);
+  }
+  if (warnings.length > 0) {
+    console.warn(`[seo-dynamic][quality] ${warnings.length} blog routes with soft warnings:`);
+    for (const w of warnings.slice(0, 20)) console.warn(`  - ${w}`);
+    if (warnings.length > 20) console.warn(`  ... and ${warnings.length - 20} more`);
+  }
+
   return routes;
 }
 
