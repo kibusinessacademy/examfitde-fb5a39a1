@@ -10,7 +10,7 @@
  *   1. Bulk-Promote queued→building (mit WIP-Cap-Guardrail + Skip-Reasons)
  *   2. Per-Paket Atomic-Trigger Nudge
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
