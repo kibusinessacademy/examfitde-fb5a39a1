@@ -354,6 +354,27 @@ export function StuckPatternsCard() {
           ) : null}
         </div>
 
+        {/* ── Auto-Loop ─────────────────────────────────────────── */}
+        <AutoLoopPanel
+          loopRunning={loopRunning}
+          loopIntervalSec={loopIntervalSec}
+          setLoopIntervalSec={setLoopIntervalSec}
+          loopMaxAttempts={loopMaxAttempts}
+          setLoopMaxAttempts={setLoopMaxAttempts}
+          loopAttempts={loopAttempts}
+          loopPromotedTotal={loopPromotedTotal}
+          loopBaselineQueued={loopBaselineQueued}
+          loopNextRunAt={loopNextRunAt}
+          loopLastRunAt={loopLastRunAt}
+          loopStopReason={loopStopReason}
+          currentQueued={
+            (overview.data ?? []).find((r) => r.pattern_key === "QUEUED_NO_JOBS")?.package_count ?? 0
+          }
+          bulkBusy={bulkPromote.isPending}
+          onStart={startLoop}
+          onStop={stopLoop}
+        />
+
         {/* Per-Package List */}
         <div className="rounded-md border border-border p-3 space-y-2">
           <div className="flex items-center gap-2 flex-wrap">
