@@ -97259,10 +97259,19 @@ export type Database = {
         Returns: number
       }
       admin_queue_system_healthcheck: { Args: never; Returns: Json }
-      admin_reap_stale_processing_now: {
-        Args: { p_max_age_seconds?: number; p_max_cancels?: number }
-        Returns: Json
-      }
+      admin_reap_stale_processing_now:
+        | {
+            Args: { p_max_age_seconds?: number; p_max_cancels?: number }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_lane?: string
+              p_max_age_seconds?: number
+              p_max_cancels?: number
+            }
+            Returns: Json
+          }
       admin_recommend_queue_actions: {
         Args: never
         Returns: {
