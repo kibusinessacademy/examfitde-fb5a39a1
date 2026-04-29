@@ -95,9 +95,9 @@ const live: SeoRoute[] = [
   // 1. Home
   {
     path: "/",
-    title: "ExamFit – KI-Prüfungstraining für IHK, AEVO, Fachwirt, Meister",
+    title: "ExamFit – KI-Prüfungstraining für IHK & AEVO",
     description:
-      "Bestehe deine IHK-, AEVO-, Bilanzbuchhalter- oder FIAE-Prüfung mit adaptivem Lernplan, echten Prüfungssimulationen und KI-Tutor mit Quellenangaben.",
+      "Bestehe IHK-, AEVO-, Bilanzbuchhalter- oder FIAE-Prüfung mit adaptivem Lernplan, prüfungsnahen Simulationen und KI-Tutor mit Quellenangaben.",
     h1: "Bestehe deine Prüfung – mit System statt Glück",
     intro:
       "ExamFit ist ein adaptives Prüfungstrainings-System für IHK-Abschlussprüfungen, Fachwirt-, Meister-, AEVO-, Bilanzbuchhalter- und Fachinformatiker-Prüfungen. Die Plattform analysiert in einem kostenlosen Selbsttest deine Schwachstellen und erstellt einen 4-Wochen-Lernplan, der Lernkurse, Übungsfragen, Mini-Checks und einen KI-Tutor mit Quellenangaben kombiniert. Am Ende stehen realistische Prüfungssimulationen mit Readiness-Score, der dir eine fundierte Einschätzung deines Vorbereitungsstands gibt. Kein generisches Lernmaterial, sondern passgenaue Vorbereitung auf deine Prüfung – schriftlich, praktisch oder mündliches Fachgespräch. ExamFit unterstützt Auszubildende, Fortbildungsteilnehmer und angehende Ausbilder bei der strukturierten Prüfungsvorbereitung mit prüfungsnahen Aufgabenformaten.",
