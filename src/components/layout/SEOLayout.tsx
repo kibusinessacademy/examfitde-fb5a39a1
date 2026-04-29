@@ -147,7 +147,7 @@ export default function SEOLayout() {
 
             {/* Products */}
             <div>
-              <h4 className="font-semibold mb-4">Produkte</h4>
+              <h2 className="font-semibold mb-4">Produkte</h2>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li><Link to="/bundle" className="hover:text-foreground">Komplett-Bundle</Link></li>
                 <li><Link to="/berufe" className="hover:text-foreground">Berufe</Link></li>
@@ -157,7 +157,7 @@ export default function SEOLayout() {
 
             {/* Resources */}
             <div>
-              <h4 className="font-semibold mb-4">Ressourcen</h4>
+              <h2 className="font-semibold mb-4">Ressourcen</h2>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li><Link to="/ihk-pruefungen" className="hover:text-foreground">IHK-Prüfungen</Link></li>
                 <li><Link to="/berufe" className="hover:text-foreground">Berufe</Link></li>
@@ -168,7 +168,7 @@ export default function SEOLayout() {
 
             {/* Legal */}
             <div>
-              <h4 className="font-semibold mb-4">Rechtliches</h4>
+              <h2 className="font-semibold mb-4">Rechtliches</h2>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li><Link to="/impressum" className="hover:text-foreground">Impressum</Link></li>
                 <li><Link to="/datenschutz" className="hover:text-foreground">Datenschutz</Link></li>
@@ -181,7 +181,7 @@ export default function SEOLayout() {
 
           {/* IHK/HWK Disclaimer */}
           <div className="border-t border-border mt-8 pt-8">
-            <p className="text-xs text-muted-foreground/70 text-center mb-6">
+            <p className="text-xs text-muted-foreground text-center mb-6">
               ExamFit ist ein unabhängiger Anbieter. Es besteht keine Verbindung, Partnerschaft 
               oder Zusammenarbeit mit der Industrie- und Handelskammer (IHK) oder Handwerkskammer (HWK).
             </p>
