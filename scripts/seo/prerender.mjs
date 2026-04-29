@@ -196,37 +196,18 @@ function buildSitemaps(routes) {
     if (groups[r.sitemapGroup]) groups[r.sitemapGroup].push(r);
   }
 
-  ensureDir(path.join(DIST, "sitemaps"));
-
-  for (const [group, items] of Object.entries(groups)) {
-    if (items.length === 0) continue;
-    const urls = items
-      .map((r) => {
-        const loc = `${SITE}${r.path === "/" ? "/" : r.path}`;
-        const lastmod = r.lastmod || TODAY;
-        const changefreq = r.changefreq || "weekly";
-        const priority = (r.priority ?? 0.5).toFixed(1);
-        return `  <url>
-    <loc>${escapeXml(loc)}</loc>
-    <lastmod>${lastmod}</lastmod>
-    <changefreq>${changefreq}</changefreq>
-    <priority>${priority}</priority>
-  </url>`;
-      })
-      .join("\n");
-    const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${urls}
-</urlset>`;
-    fs.writeFileSync(path.join(DIST, "sitemaps", `${group}.xml`), xml, "utf8");
-  }
-
-  const subSitemaps = Object.entries(groups)
-    .filter(([, items]) => items.length > 0)
+  // ── Sitemap-Strategy: SSOT is Edge Function `generate-sitemap` ──
+  // Static dist/sitemaps/*.xml stubs are NO LONGER written, because they would
+  // shadow the Edge Function on Lovable Hosting and only contain hub URLs (≤3 each).
+  // The Edge Function queries the DB live and returns 118 blog + 28 product URLs.
+  // dist/sitemap.xml is a thin index pointing to the Function endpoints.
+  const SUPABASE_FN = "https://ubdvvvsiryenhrfmqsvw.supabase.co/functions/v1/generate-sitemap";
+  const subTypes = ["static", "berufe", "blog", "landing", "products", "content"];
+  const subSitemaps = subTypes
     .map(
-      ([group]) =>
+      (t) =>
         `  <sitemap>
-    <loc>${SITE}/sitemaps/${group}.xml</loc>
+    <loc>${SUPABASE_FN}?type=${t}</loc>
     <lastmod>${TODAY}</lastmod>
   </sitemap>`
     )
@@ -236,6 +217,14 @@ ${urls}
 ${subSitemaps}
 </sitemapindex>`;
   fs.writeFileSync(path.join(DIST, "sitemap.xml"), indexXml, "utf8");
+
+  // Defensive: remove any pre-existing dist/sitemaps/*.xml stubs from earlier builds.
+  const stubDir = path.join(DIST, "sitemaps");
+  if (fs.existsSync(stubDir)) {
+    for (const f of fs.readdirSync(stubDir)) {
+      if (f.endsWith(".xml")) fs.unlinkSync(path.join(stubDir, f));
+    }
+  }
 }
 
 // Forbidden claim substrings (kept in sync with scripts/seo/quality-gate.mjs)
