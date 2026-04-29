@@ -78,7 +78,8 @@ function renderAboveTheFold(route) {
 }
 
 function injectHead(html, route) {
-  const canonical = `${SITE}${route.path === "/" ? "" : route.path}`;
+  // Apex with trailing slash for homepage to match sitemap/llms.txt
+  const canonical = `${SITE}${route.path === "/" ? "/" : route.path}`;
   const jsonLd = (route.jsonLd || [])
     .map(
       (obj) =>
@@ -98,7 +99,18 @@ function injectHead(html, route) {
     jsonLd,
   ].join("\n    ");
 
-  const stripped = html.replace(/<title>[\s\S]*?<\/title>\s*/i, "");
+  // Strip duplicates that the static index.html might already contain.
+  // The prerender is the source of truth for per-route SEO tags.
+  let stripped = html
+    .replace(/<title>[\s\S]*?<\/title>\s*/gi, "")
+    .replace(/<meta\s+name=["']description["'][^>]*>\s*/gi, "")
+    .replace(/<meta\s+name=["']title["'][^>]*>\s*/gi, "")
+    .replace(/<link\s+rel=["']canonical["'][^>]*>\s*/gi, "")
+    .replace(/<meta\s+property=["']og:title["'][^>]*>\s*/gi, "")
+    .replace(/<meta\s+property=["']og:description["'][^>]*>\s*/gi, "")
+    .replace(/<meta\s+property=["']og:url["'][^>]*>\s*/gi, "")
+    .replace(/<meta\s+property=["']og:type["'][^>]*>\s*/gi, "")
+    .replace(/<meta\s+name=["']twitter:card["'][^>]*>\s*/gi, "");
   return stripped.replace(/<\/head>/i, `    ${headInjection}\n  </head>`);
 }
 
@@ -141,7 +153,7 @@ function buildSitemaps(routes) {
     if (items.length === 0) continue;
     const urls = items
       .map((r) => {
-        const loc = `${SITE}${r.path === "/" ? "" : r.path}`;
+        const loc = `${SITE}${r.path === "/" ? "/" : r.path}`;
         const lastmod = r.lastmod || TODAY;
         const changefreq = r.changefreq || "weekly";
         const priority = (r.priority ?? 0.5).toFixed(1);
