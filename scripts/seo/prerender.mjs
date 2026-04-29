@@ -51,6 +51,55 @@ function escapeXml(s) {
 }
 
 function renderAboveTheFold(route) {
+  // Blog/product routes provide pre-rendered HTML content directly.
+  if (route.kind === "blog") {
+    const breadcrumb = `
+  <nav aria-label="Breadcrumb">
+    <ol>
+      <li><a href="/">Start</a></li>
+      <li><a href="/blog">Blog</a></li>
+      <li>${escapeHtml(route.h1)}</li>
+    </ol>
+  </nav>`;
+    const heroImg = route.heroImage
+      ? `<img src="${escapeHtml(route.heroImage)}" alt="${escapeHtml(route.heroImageAlt || route.h1)}" loading="eager" />`
+      : "";
+    const faq = (route.faq || [])
+      .map(
+        (f) =>
+          `<details><summary>${escapeHtml(f.q)}</summary><p>${escapeHtml(f.a)}</p></details>`
+      )
+      .join("");
+    return `
+<div id="prerender-content">
+  ${breadcrumb}
+  <article>
+    <header>
+      <h1>${escapeHtml(route.h1)}</h1>
+      ${heroImg}
+    </header>
+    ${route.contentHtml || ""}
+    ${faq ? `<section aria-label="Häufige Fragen"><h2>Häufige Fragen</h2>${faq}</section>` : ""}
+  </article>
+</div>`.trim();
+  }
+
+  if (route.kind === "product") {
+    return `
+<div id="prerender-content">
+  <nav aria-label="Breadcrumb">
+    <ol>
+      <li><a href="/">Start</a></li>
+      <li><a href="/pruefungstraining">Prüfungstraining</a></li>
+      <li>${escapeHtml(route.h1)}</li>
+    </ol>
+  </nav>
+  <header><h1>${escapeHtml(route.h1)}</h1></header>
+  <section aria-label="Einführung"><p>${escapeHtml(route.intro)}</p></section>
+</div>`.trim();
+  }
+
+  // Default: SSOT routes with keyFacts + faq
   const facts = (route.keyFacts || [])
     .map(
       (k) =>
@@ -226,6 +275,41 @@ function validate(routes) {
   const errors = [];
   for (const r of routes) {
     if (r.status === "stub") continue;
+
+    // Dynamic blog routes — DB-driven, different validation profile.
+    if (r.kind === "blog") {
+      if (!r.slug) errors.push(`${r.path}: blog missing slug`);
+      if (!r.title || r.title.length < 20 || r.title.length > 75)
+        errors.push(`${r.path}: blog title length ${r.title?.length} out of 20-75`);
+      if (!r.description || r.description.length < 70 || r.description.length > 165)
+        errors.push(`${r.path}: blog description ${r.description?.length} out of 70-165`);
+      if (!r.contentText || r.contentText.length < 1200)
+        errors.push(`${r.path}: blog contentText ${r.contentText?.length} <1200`);
+      if (!r.jsonLd || r.jsonLd.length === 0)
+        errors.push(`${r.path}: blog missing jsonLd`);
+      const lower = (r.contentText || "").toLowerCase();
+      for (const claim of FORBIDDEN) {
+        if (lower.includes(claim))
+          errors.push(`${r.path}: blog forbidden claim "${claim}"`);
+      }
+      continue;
+    }
+
+    // Dynamic product routes
+    if (r.kind === "product") {
+      if (!r.slug) errors.push(`${r.path}: product missing slug`);
+      if (!r.title || r.title.length < 20 || r.title.length > 75)
+        errors.push(`${r.path}: product title ${r.title?.length} out of 20-75`);
+      if (!r.description || r.description.length < 70 || r.description.length > 165)
+        errors.push(`${r.path}: product description ${r.description?.length} out of 70-165`);
+      if (!r.intro || r.intro.length < 80)
+        errors.push(`${r.path}: product intro <80`);
+      if (!r.jsonLd || r.jsonLd.length === 0)
+        errors.push(`${r.path}: product missing jsonLd`);
+      continue;
+    }
+
+    // SSOT route validation (unchanged)
     if (!r.h1) errors.push(`${r.path}: missing h1`);
     if (!r.title || r.title.length < 30 || r.title.length > 60)
       errors.push(`${r.path}: title length ${r.title?.length} out of 30-60`);
@@ -252,8 +336,9 @@ function validate(routes) {
     }
   }
   if (errors.length > 0) {
-    console.error("[seo-prerender] Validation errors:");
-    for (const e of errors) console.error(" - " + e);
+    console.error(`[seo-prerender] Validation errors (${errors.length}):`);
+    for (const e of errors.slice(0, 50)) console.error(" - " + e);
+    if (errors.length > 50) console.error(` ... and ${errors.length - 50} more`);
     throw new Error(`SEO validation failed: ${errors.length} issue(s)`);
   }
 }
@@ -299,25 +384,43 @@ export async function runSeoPrerender() {
     return;
   }
   const baseHtml = fs.readFileSync(path.join(DIST, "index.html"), "utf8");
-  const routes = await loadRoutes();
-  const live = routes.filter((r) => r.status !== "stub");
+  const ssotRoutes = await loadRoutes();
 
-  // Step 2: validate live route SSOT before any HTML is written
-  validate(routes);
+  // Step 1b: load DB-driven routes (blog + product). Failures are logged but
+  // never block the SSOT prerender — they just produce zero dynamic routes.
+  let dynamicRoutes = [];
+  try {
+    const mod = await import(
+      pathToFileURL(path.resolve(process.cwd(), "scripts/seo/load-dynamic-routes.mjs")).href
+    );
+    const { blog, products } = await mod.loadDynamicRoutes();
+    dynamicRoutes = [...blog, ...products];
+  } catch (e) {
+    console.warn("[seo-prerender] dynamic route loader failed:", e.message);
+  }
+
+  const allRoutes = [...ssotRoutes, ...dynamicRoutes];
+  const live = allRoutes.filter((r) => r.status !== "stub");
+
+  // Step 2: validate ALL live routes before any HTML is written
+  validate(allRoutes);
 
   // Steps 3-4: build + inject per-route HTML
   for (const route of live) {
     writeRouteHtml(route, baseHtml);
   }
 
-  // Steps 5-6: write sitemap.xml + sitemaps/*.xml
-  buildSitemaps(routes);
+  // Steps 5-6: write sitemap.xml + sitemaps/*.xml — covers SSOT + dynamic
+  buildSitemaps(allRoutes);
 
   // Step 7: validate generated HTML on disk
   postValidateHtml(live);
 
+  const ssotCount = ssotRoutes.filter((r) => r.status !== "stub").length;
+  const blogCount = dynamicRoutes.filter((r) => r.kind === "blog").length;
+  const productCount = dynamicRoutes.filter((r) => r.kind === "product").length;
   console.log(
-    `[seo-prerender] Wrote ${live.length} route HTMLs and sitemap index to dist/`
+    `[seo-prerender] Wrote ${live.length} route HTMLs (SSOT: ${ssotCount}, blog: ${blogCount}, product: ${productCount}) and sitemap index to dist/`
   );
 }
 
