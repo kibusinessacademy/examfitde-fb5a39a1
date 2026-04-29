@@ -97090,6 +97090,14 @@ export type Database = {
         Args: { _job_ids: string[]; _reason?: string }
         Returns: Json
       }
+      admin_heal_pending_enqueue_drift: {
+        Args: {
+          p_dry_run?: boolean
+          p_package_ids: string[]
+          p_reason?: string
+        }
+        Returns: Json
+      }
       admin_heal_step_job_coupling: {
         Args: { _step_keys?: string[] }
         Returns: {
