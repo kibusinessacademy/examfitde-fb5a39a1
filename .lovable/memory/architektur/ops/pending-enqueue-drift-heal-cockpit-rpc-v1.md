@@ -31,8 +31,10 @@ Tail-Steps (`repair_exam_pool_quality`, `run_integrity_check`, `quality_council`
 **Skip-Reasons (sichtbar im Result):**
 - `archived`, `status_not_building_or_blocked`, `no_approved_questions`, `active_jobs_exist`, `no_recent_cancelled_loop`
 
-## AuthZ
-- `has_role(auth.uid(), 'admin')` ODER `current_setting('role')='service_role'` ODER session_user in (`postgres`,`supabase_admin`)
+## AuthZ (strikt — 2026-04-29 gehärtet)
+- NUR `has_role(auth.uid(),'admin')` ODER `request.jwt.claim.role='service_role'`
+- KEIN `session_user`-Fallback in produktiven Admin-RPCs (Privilege-Escalation-Risiko)
+- Für ad-hoc Tool-Kontext-Heilungen: einmaliger DO-Block / Migration mit Audit-Tag `trigger_source='one_time_sql_bypass'`
 - `EXECUTE` für `authenticated`, `service_role`
 
 ## Bewusste Architektur-Entscheidungen
