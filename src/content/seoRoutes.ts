@@ -114,7 +114,7 @@ const live: SeoRoute[] = [
       { q: "Was kostet ExamFit?", a: "Der Selbsttest und Basis-Lernplan sind kostenlos. Vollzugriff auf Lernkurse und Simulationen ab 19 € pro Monat oder als Einmalkauf je Prüfung." },
       { q: "Wie funktioniert der KI-Tutor?", a: "Der Tutor nutzt Strict-RAG: Antworten basieren ausschließlich auf belegten Quellen aus dem Curriculum. Bei fehlender Quelle gibt er eine klare Refusal-Antwort statt zu raten." },
       { q: "Wie wird der Lernplan erstellt?", a: "Nach dem Selbsttest analysiert ExamFit deine Schwachstellen pro Handlungsfeld und priorisiert die Lerninhalte für die nächsten 4 Wochen automatisch." },
-      { q: "Gibt es echte Prüfungssimulationen?", a: "Ja – mit den Originalformaten der jeweiligen Prüfung (schriftlich + mündlich), inklusive Zeitlimit und Punkteauswertung." },
+      { q: "Gibt es realistische Prüfungssimulationen?", a: "Ja – mit prüfungsnahen Aufgabenformaten der jeweiligen Prüfung (schriftlich + mündlich), inklusive Zeitlimit und Punkteauswertung. Originalprüfungen der IHK sind urheberrechtlich geschützt; ExamFit bildet Format, Struktur und Anforderungsniveau nach." },
       { q: "Funktioniert ExamFit auch für Betriebe?", a: "Ja, ExamFit bietet Bundles für Ausbildungsbetriebe und Fortbildungsanbieter mit Mitarbeiter-Onboarding und Reporting." },
     ],
     sitemapGroup: "static",
