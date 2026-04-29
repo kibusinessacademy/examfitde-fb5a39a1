@@ -112,3 +112,33 @@ Allow: /
 
 User-agent: YouBot
 Allow: /
+
+# Google Gemini / extended Google AI training
+User-agent: Google-CloudVertexBot
+Allow: /
+
+# xAI / Grok
+User-agent: Grok
+Allow: /
+Disallow: /admin
+Disallow: /admin-v2
+
+User-agent: xAI-Bot
+Allow: /
+Disallow: /admin
+Disallow: /admin-v2
+
+# Meta AI
+User-agent: Meta-ExternalAgent
+Allow: /
+
+User-agent: FacebookBot
+Allow: /
+
+# Cohere
+User-agent: cohere-ai
+Allow: /
+
+# Mistral
+User-agent: MistralAI-User
+Allow: /

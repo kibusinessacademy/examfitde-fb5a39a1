@@ -18,7 +18,10 @@ import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
  */
 
 const SITE_URL = "https://examfit.de";
-const FUNCTIONS_URL_BASE = `${SITE_URL}/functions/v1/generate-sitemap`;
+// Sitemap-Index sub-loc URLs MUST point to a publicly resolvable origin.
+// Custom domain `examfit.de` does NOT proxy /functions/v1/*, so use Supabase project origin.
+const SUPABASE_PROJECT_REF = "ubdvvvsiryenhrfmqsvw";
+const FUNCTIONS_URL_BASE = `https://${SUPABASE_PROJECT_REF}.supabase.co/functions/v1/generate-sitemap`;
 const INDEXNOW_KEY = "examfit-indexnow-key-2026";
 
 interface SitemapURL {
