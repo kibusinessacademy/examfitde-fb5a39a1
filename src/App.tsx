@@ -13,6 +13,7 @@ import { OfflineIndicator } from "@/components/pwa/OfflineIndicator";
 import { InstallPrompt } from "@/components/pwa/InstallPrompt";
 import { NativeTabBar } from "@/components/native/NativeTabBar";
 import { useNativeApp } from "@/hooks/useNativeApp";
+import { useTrailingSlashNormalizer } from "@/hooks/useTrailingSlashNormalizer";
 import AppRoutes from "@/routes/AppRoutes";
 
 const queryClient = new QueryClient({
@@ -82,6 +83,7 @@ function AppChrome() {
   const showNativeTabBar = isNative && !isAdminRoute;
 
   usePointerLockRecovery();
+  useTrailingSlashNormalizer();
 
   // Detect partner referral params on landing
   useEffect(() => {
