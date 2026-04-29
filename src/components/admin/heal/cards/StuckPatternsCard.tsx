@@ -124,12 +124,88 @@ export function StuckPatternsCard() {
           description: `${r.promoted ?? 0} promoted · ${r.nudged ?? 0} step-nudges · ${r.processed ?? 0} processed`,
         });
         setBulkPreview(null);
+        if (loopRunning) {
+          setLoopPromotedTotal((t) => t + (r.promoted ?? 0));
+        }
         qc.invalidateQueries({ queryKey: ["stuck-patterns-overview"] });
         qc.invalidateQueries({ queryKey: ["stuck-patterns-per-package"] });
       }
     },
-    onError: (e: Error) => toast({ title: "Bulk-Heal fehlgeschlagen", description: e.message, variant: "destructive" }),
+    onError: (e: Error) => {
+      if (loopRunning) {
+        setLoopRunning(false);
+        setLoopStopReason(`RPC-Fehler: ${e.message}`);
+      }
+      toast({ title: "Bulk-Heal fehlgeschlagen", description: e.message, variant: "destructive" });
+    },
   });
+
+  // ── Auto-Loop Effect ────────────────────────────────────────────
+  useEffect(() => {
+    if (!loopRunning) return;
+    const tick = setInterval(() => {
+      forceTick((n) => n + 1);
+      const now = Date.now();
+      if (loopNextRunAt != null && now >= loopNextRunAt && !bulkPromote.isPending) {
+        const ovRows = (overview.data ?? []) as PatternRow[];
+        const queuedNow = ovRows.find((r) => r.pattern_key === "QUEUED_NO_JOBS")?.package_count ?? 0;
+
+        if (queuedNow === 0) {
+          setLoopRunning(false);
+          setLoopStopReason("Ziel erreicht: 0 Pakete in QUEUED_NO_JOBS.");
+          return;
+        }
+        if (loopAttempts >= loopMaxAttempts) {
+          setLoopRunning(false);
+          setLoopStopReason(`Max-Versuche erreicht (${loopMaxAttempts}).`);
+          return;
+        }
+        if (lastQueuedSeen.current != null && queuedNow >= lastQueuedSeen.current) {
+          noProgressStreak.current += 1;
+        } else {
+          noProgressStreak.current = 0;
+        }
+        if (noProgressStreak.current >= 2) {
+          setLoopRunning(false);
+          setLoopStopReason("Kein Fortschritt in 2 Runden — vermutlich WIP-Cap oder Worker-Block.");
+          return;
+        }
+        lastQueuedSeen.current = queuedNow;
+
+        setLoopAttempts((a) => a + 1);
+        setLoopLastRunAt(now);
+        setLoopNextRunAt(now + loopIntervalSec * 1000);
+        bulkPromote.mutate(false);
+      }
+    }, 1000);
+    return () => clearInterval(tick);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loopRunning, loopNextRunAt, loopAttempts, loopMaxAttempts, loopIntervalSec, overview.data]);
+
+  function startLoop() {
+    const ovRows = (overview.data ?? []) as PatternRow[];
+    const baseline = ovRows.find((r) => r.pattern_key === "QUEUED_NO_JOBS")?.package_count ?? 0;
+    if (baseline === 0) {
+      toast({ title: "Nichts zu tun", description: "QUEUED_NO_JOBS ist bereits 0." });
+      return;
+    }
+    setLoopBaselineQueued(baseline);
+    setLoopAttempts(0);
+    setLoopPromotedTotal(0);
+    setLoopStopReason(null);
+    lastQueuedSeen.current = baseline;
+    noProgressStreak.current = 0;
+    const now = Date.now();
+    setLoopLastRunAt(null);
+    setLoopNextRunAt(now);
+    setLoopRunning(true);
+    toast({ title: "Auto-Loop gestartet", description: `Baseline: ${baseline} pkg · alle ${loopIntervalSec}s · max ${loopMaxAttempts}×` });
+  }
+
+  function stopLoop() {
+    setLoopRunning(false);
+    setLoopStopReason("Manuell gestoppt.");
+  }
 
   const nudge = useMutation({
     mutationFn: async (vars: { packageId: string; dryRun: boolean }) => {
