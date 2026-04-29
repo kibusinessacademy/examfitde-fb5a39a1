@@ -10,7 +10,7 @@
  *   1. Bulk-Promote queued→building (mit WIP-Cap-Guardrail + Skip-Reasons)
  *   2. Per-Paket Atomic-Trigger Nudge
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -18,10 +18,11 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Progress } from "@/components/ui/progress";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { Activity, AlertTriangle, Eye, Play, RefreshCw, Zap, Layers } from "lucide-react";
+import { Activity, AlertTriangle, Eye, Play, RefreshCw, Zap, Layers, Repeat, Square, CheckCircle2 } from "lucide-react";
 
 type PatternRow = {
   pattern_key: "HIDDEN_DRAFTS" | "QUEUED_NO_JOBS" | "REENTRY_GUARD_LOCKED";
