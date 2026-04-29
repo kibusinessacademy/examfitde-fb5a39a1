@@ -26,22 +26,48 @@
 import { resolve, dirname } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
+// Guardrail: --experimental-strip-types requires Node >= 22.
+const major = Number(process.versions.node.split(".")[0]);
+if (Number.isFinite(major) && major < 22) {
+  console.error(
+    `[quality-gate] Node ${process.versions.node} too old; need Node >= 22 (uses --experimental-strip-types).`,
+  );
+  process.exit(2);
+}
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SSOT_URL = pathToFileURL(
   resolve(__dirname, "../../src/content/seoRoutes.ts"),
 ).href;
 
-// Forbidden claim substrings (lowercase)
+// Forbidden claim substrings (lowercase, matched against combined visible text)
 const FORBIDDEN = [
+  // Originality / IP claims
   "originalfragen",
   "originalformat",
+  "original-punktebewertung",
+  "originalbewertung",
+  "offizielle ihk-fragen",
+  "echte ihk-fragen",
+  // Pass guarantees
   "garantiert bestehen",
   "garantierte bestehensquote",
+  "bestehensgarantie",
   "100% bestehen",
+  "100 % bestehen",
+  // Hard unverified user / volume numbers
   "über 50.000",
   "ueber 50.000",
   "über 50000",
   "50.000 auszubildende",
+  "über 300",
+  "ueber 300",
+  "über 500",
+  "ueber 500",
+  "über 1.000",
+  "ueber 1.000",
+  "über 1000",
+  "ueber 1000",
 ];
 
 const len = (s) => (s || "").trim().length;
