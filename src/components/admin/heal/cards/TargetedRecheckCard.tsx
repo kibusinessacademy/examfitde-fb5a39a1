@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { CheckCircle2, Clock, Play } from "lucide-react";
+import { CheckCircle2, Clock, Play, MinusCircle, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 
 interface RecheckRow {
@@ -21,7 +21,8 @@ interface RecheckRow {
   blocker: string;
   action: string;
   reason: string;
-  executed: boolean;
+  attempted: boolean;
+  job_inserted: boolean;
 }
 
 export function TargetedRecheckCard() {
