@@ -68,7 +68,7 @@ export function GrowthBrandFooter({
 
   // Full variant
   return (
-    <footer className="mt-10 pt-8 border-t border-border/40 space-y-4">
+    <footer className="mt-10 pt-8 border-t border-border/40 space-y-6">
       <div className="flex items-center gap-3">
         <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
           <span className="text-primary-foreground text-sm font-bold">E</span>
@@ -78,6 +78,46 @@ export function GrowthBrandFooter({
           <p className="text-xs text-muted-foreground">Intelligentes Prüfungstraining · examfit.de</p>
         </div>
       </div>
+
+      {/* Topic-Map: siteweite Pillar-Verlinkung für Crawlability + LLM-Discovery */}
+      <nav aria-label="Themen-Übersicht" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 text-xs">
+        <div>
+          <p className="font-semibold text-foreground mb-2">IHK-Prüfungen</p>
+          <ul className="space-y-1 text-muted-foreground">
+            <li><Link to="/ihk-pruefungsvorbereitung" className="hover:text-foreground hover:underline">IHK-Vorbereitung</Link></li>
+            <li><Link to="/ihk-pruefungsfragen" className="hover:text-foreground hover:underline">Prüfungsfragen</Link></li>
+            <li><Link to="/ihk-fachgespraech" className="hover:text-foreground hover:underline">Fachgespräch</Link></li>
+            <li><Link to="/ihk-probepruefung" className="hover:text-foreground hover:underline">Probeprüfung</Link></li>
+          </ul>
+        </div>
+        <div>
+          <p className="font-semibold text-foreground mb-2">AEVO</p>
+          <ul className="space-y-1 text-muted-foreground">
+            <li><Link to="/aevo-pruefungsvorbereitung" className="hover:text-foreground hover:underline">AEVO-Vorbereitung</Link></li>
+            <li><Link to="/aevo-schriftliche-pruefung" className="hover:text-foreground hover:underline">Schriftlich</Link></li>
+            <li><Link to="/aevo-praktische-pruefung" className="hover:text-foreground hover:underline">Praktisch</Link></li>
+            <li><Link to="/aevo-fachgespraech" className="hover:text-foreground hover:underline">Fachgespräch</Link></li>
+          </ul>
+        </div>
+        <div>
+          <p className="font-semibold text-foreground mb-2">Mündliche Prüfung & Methoden</p>
+          <ul className="space-y-1 text-muted-foreground">
+            <li><Link to="/muendliche-pruefung" className="hover:text-foreground hover:underline">Mündliche Prüfung</Link></li>
+            <li><Link to="/lernplan-pruefung" className="hover:text-foreground hover:underline">Lernplan</Link></li>
+            <li><Link to="/pruefungsfehler" className="hover:text-foreground hover:underline">Häufige Fehler</Link></li>
+            <li><Link to="/themen" className="hover:text-foreground hover:underline font-medium">Alle Themen →</Link></li>
+          </ul>
+        </div>
+        <div>
+          <p className="font-semibold text-foreground mb-2">Berufe & Cluster</p>
+          <ul className="space-y-1 text-muted-foreground">
+            <li><Link to="/bilanzbuchhalter-pruefungsvorbereitung" className="hover:text-foreground hover:underline">Bilanzbuchhalter</Link></li>
+            <li><Link to="/fachinformatiker-ae-pruefungsvorbereitung" className="hover:text-foreground hover:underline">Fachinformatiker AE</Link></li>
+            <li><Link to="/ausbildung" className="hover:text-foreground hover:underline">Alle Ausbildungen</Link></li>
+            <li><Link to="/berufe" className="hover:text-foreground hover:underline">Berufe-Übersicht</Link></li>
+          </ul>
+        </div>
+      </nav>
       <p className="text-xs text-muted-foreground leading-relaxed">
         Bereitgestellt von {BRAND.name} – dem KI-gestützten Prüfungstrainings-System für IHK-Abschlussprüfungen.
         Alle Inhalte basieren auf prüfungsnahen Fragen und werden redaktionell geprüft.
