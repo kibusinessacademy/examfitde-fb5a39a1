@@ -42,7 +42,7 @@ export default function FIAEAnwendungsentwicklungPage() {
   return (
     <>
       <SEOHead
-        title="FIAE GA1 Anwendungsentwicklung – Prüfungsvorbereitung | ExamFit"
+        title="FIAE GA1 Anwendungsentwicklung – Vorbereitung"
         description="GA1 Anwendungsentwicklung der FIAE-Abschlussprüfung Teil 2: OOP, SQL, Schnittstellen, IT-Sicherheit und QA – strukturiert vorbereitet."
         canonical={`${SITE_URL}/fiae-anwendungsentwicklung`}
         structuredData={[generateBreadcrumbSchema(breadcrumbs), generateFAQSchema(FAQS)]}

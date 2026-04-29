@@ -42,7 +42,7 @@ export default function FIAEWiSoPage() {
   return (
     <>
       <SEOHead
-        title="FIAE GA2 Wirtschafts- und Sozialkunde – Prüfungsvorbereitung | ExamFit"
+        title="FIAE GA2 WiSo – Prüfungsvorbereitung"
         description="WiSo (GA2) für die FIAE-Abschlussprüfung Teil 2: Vertragsrecht, Arbeitsrecht, SV, DSGVO und wirtschaftliches Handeln – fallorientiert vorbereitet."
         canonical={`${SITE_URL}/fiae-wiso`}
         structuredData={[generateBreadcrumbSchema(breadcrumbs), generateFAQSchema(FAQS)]}

@@ -41,7 +41,7 @@ export default function BilanzbuchhalterJahresabschlussPage() {
   return (
     <>
       <SEOHead
-        title="Bilanzbuchhalter Jahresabschluss – HGB, Bilanz, GuV, Bilanzanalyse | ExamFit"
+        title="Bilanzbuchhalter Jahresabschluss – HGB, Bilanz, GuV"
         description="Jahresabschluss nach HGB für die Bilanzbuchhalter-Prüfung: Bewertung, Bilanz, GuV, Anhang, Lagebericht und Bilanzanalyse mit Kennzahlen."
         canonical={`${SITE_URL}/bilanzbuchhalter-jahresabschluss`}
         structuredData={[generateBreadcrumbSchema(breadcrumbs), generateFAQSchema(FAQS)]}

@@ -42,7 +42,7 @@ export default function BilanzbuchhalterBuchhaltungPage() {
   return (
     <>
       <SEOHead
-        title="Bilanzbuchhalter Buchhaltung & Geschäftsvorfälle – IHK-Vorbereitung | ExamFit"
+        title="Bilanzbuchhalter Buchhaltung & Geschäftsvorfälle"
         description="Buchhaltung, Umsatzsteuer, Anlagenbuchhaltung, Lohn & Rückstellungen – der erste Handlungsbereich der Bilanzbuchhalter-Prüfung sicher vorbereitet."
         canonical={`${SITE_URL}/bilanzbuchhalter-buchhaltung`}
         structuredData={[generateBreadcrumbSchema(breadcrumbs), generateFAQSchema(FAQS)]}

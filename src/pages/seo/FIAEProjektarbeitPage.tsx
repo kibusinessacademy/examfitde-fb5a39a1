@@ -44,7 +44,7 @@ export default function FIAEProjektarbeitPage() {
   return (
     <>
       <SEOHead
-        title="FIAE Projektarbeit & Fachgespräch – Antrag, Doku, Präsentation | ExamFit"
+        title="FIAE Projektarbeit & Fachgespräch"
         description="FIAE-Abschlussprojekt sicher durchziehen: Projektantrag, Dokumentation, Präsentation und Fachgespräch – mit typischen Fehlerquellen und Coaching-Tipps."
         canonical={`${SITE_URL}/fiae-projektarbeit`}
         structuredData={[generateBreadcrumbSchema(breadcrumbs), generateFAQSchema(FAQS)]}
