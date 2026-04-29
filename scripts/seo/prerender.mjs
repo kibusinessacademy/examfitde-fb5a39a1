@@ -386,8 +386,12 @@ export async function runSeoPrerender() {
   const baseHtml = fs.readFileSync(path.join(DIST, "index.html"), "utf8");
   const ssotRoutes = await loadRoutes();
 
-  // Step 1b: load DB-driven routes (blog + product). Failures are logged but
-  // never block the SSOT prerender — they just produce zero dynamic routes.
+  // Step 1b: load DB-driven routes (blog + product) FOR SITEMAP ONLY.
+  // Lovable Hosting serves the SPA fallback (root index.html) for every path
+  // and ignores dist/<route>/index.html, so per-route HTML for these routes
+  // would never be served. The sitemap.xml IS served as a static file though,
+  // so listing all blog/product URLs lets Googlebot discover + JS-render them.
+  // See mem://architektur/seo/hosting-spa-fallback-blocks-prerender-v1.
   let dynamicRoutes = [];
   try {
     const mod = await import(
@@ -399,28 +403,26 @@ export async function runSeoPrerender() {
     console.warn("[seo-prerender] dynamic route loader failed:", e.message);
   }
 
-  const allRoutes = [...ssotRoutes, ...dynamicRoutes];
-  const live = allRoutes.filter((r) => r.status !== "stub");
+  const live = ssotRoutes.filter((r) => r.status !== "stub");
 
-  // Step 2: validate ALL live routes before any HTML is written
-  validate(allRoutes);
+  // Step 2: validate SSOT routes only (dynamic ones are sitemap-only)
+  validate(ssotRoutes);
 
-  // Steps 3-4: build + inject per-route HTML
+  // Steps 3-4: build + inject per-route HTML — SSOT routes only
   for (const route of live) {
     writeRouteHtml(route, baseHtml);
   }
 
-  // Steps 5-6: write sitemap.xml + sitemaps/*.xml — covers SSOT + dynamic
-  buildSitemaps(allRoutes);
+  // Steps 5-6: sitemap covers SSOT + dynamic blog/product so crawlers discover them
+  buildSitemaps([...ssotRoutes, ...dynamicRoutes]);
 
-  // Step 7: validate generated HTML on disk
+  // Step 7: validate generated HTML on disk (SSOT only — dynamic not written)
   postValidateHtml(live);
 
-  const ssotCount = ssotRoutes.filter((r) => r.status !== "stub").length;
   const blogCount = dynamicRoutes.filter((r) => r.kind === "blog").length;
   const productCount = dynamicRoutes.filter((r) => r.kind === "product").length;
   console.log(
-    `[seo-prerender] Wrote ${live.length} route HTMLs (SSOT: ${ssotCount}, blog: ${blogCount}, product: ${productCount}) and sitemap index to dist/`
+    `[seo-prerender] Wrote ${live.length} SSOT route HTMLs; sitemap includes ${blogCount} blog + ${productCount} product URLs (sitemap-only, hosting blocks per-route HTML)`
   );
 }
 
