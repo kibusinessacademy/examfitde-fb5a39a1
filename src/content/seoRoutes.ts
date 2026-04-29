@@ -174,7 +174,6 @@ const live: SeoRoute[] = [
       { q: "Kann ich den Blog abonnieren?", a: "Über den Newsletter (Anmeldung im Footer) bekommst du wöchentliche Highlights." },
       { q: "Wer schreibt die Artikel?", a: "Eine Redaktion mit IHK-Prüfern, Ausbildern und Fachjournalisten." },
       { q: "Werden Originalquellen verlinkt?", a: "Ja, jeder fachliche Beitrag enthält Quellenangaben (DIHK, BIBB, Berufsbildungsgesetz)." },
-      { q: "Gibt es einen RSS-Feed?", a: "Ja, unter examfit.de/feed.xml." },
     ],
     sitemapGroup: "blog",
     priority: 0.7,
