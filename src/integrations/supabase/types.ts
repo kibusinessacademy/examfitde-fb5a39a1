@@ -96737,7 +96737,6 @@ export type Database = {
           cluster: string
           detail: string
           package_id: string
-          title: string
         }[]
       }
       admin_requeue_stale_control_jobs: {
