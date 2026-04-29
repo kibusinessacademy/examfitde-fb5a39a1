@@ -58,6 +58,7 @@ interface RepairRow {
 }
 
 const CLUSTER_LABEL: Record<string, string> = {
+  F_missing_curriculum_id: "F · curriculum_id fehlt (SSOT-Block)",
   A_queued_no_qc_job: "A · queued, kein QC-Job",
   A_building_no_qc_job: "A · building, kein QC-Job",
   A_other_no_qc_job: "A · sonstige, kein QC-Job",
@@ -68,6 +69,7 @@ const CLUSTER_LABEL: Record<string, string> = {
 };
 
 const CLUSTER_HINT: Record<string, string> = {
+  F_missing_curriculum_id: "→ Datenintegrität: curriculum_id Backfill nötig",
   A_queued_no_qc_job: "→ Bulk-Promote queued→building",
   A_building_no_qc_job: "→ heilbar: QC-Job enqueuen",
   A_other_no_qc_job: "→ manuell prüfen (planning/blocked/archived)",
