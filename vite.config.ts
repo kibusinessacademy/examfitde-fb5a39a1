@@ -93,7 +93,8 @@ export default defineConfig(({ mode }) => ({
         navigateFallbackDenylist: [/^\/~oauth/],
         runtimeCaching: []
       }
-    })
+    }),
+    seoPrerenderPlugin(),
   ].filter(Boolean),
   resolve: {
     alias: {
