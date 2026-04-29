@@ -99,7 +99,18 @@ function injectHead(html, route) {
     jsonLd,
   ].join("\n    ");
 
-  const stripped = html.replace(/<title>[\s\S]*?<\/title>\s*/i, "");
+  // Strip duplicates that the static index.html might already contain.
+  // The prerender is the source of truth for per-route SEO tags.
+  let stripped = html
+    .replace(/<title>[\s\S]*?<\/title>\s*/gi, "")
+    .replace(/<meta\s+name=["']description["'][^>]*>\s*/gi, "")
+    .replace(/<meta\s+name=["']title["'][^>]*>\s*/gi, "")
+    .replace(/<link\s+rel=["']canonical["'][^>]*>\s*/gi, "")
+    .replace(/<meta\s+property=["']og:title["'][^>]*>\s*/gi, "")
+    .replace(/<meta\s+property=["']og:description["'][^>]*>\s*/gi, "")
+    .replace(/<meta\s+property=["']og:url["'][^>]*>\s*/gi, "")
+    .replace(/<meta\s+property=["']og:type["'][^>]*>\s*/gi, "")
+    .replace(/<meta\s+name=["']twitter:card["'][^>]*>\s*/gi, "");
   return stripped.replace(/<\/head>/i, `    ${headInjection}\n  </head>`);
 }
 
