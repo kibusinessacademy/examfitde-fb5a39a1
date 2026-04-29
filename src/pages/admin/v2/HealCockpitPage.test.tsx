@@ -62,31 +62,27 @@ describe("HealCockpitPage", () => {
     expect(screen.getByText("Heal Cockpit")).toBeInTheDocument();
   });
 
-  it("renders all 9 accordion sections in the recommended order", () => {
+  it("renders the 4 top-level sections (v3 declutter)", () => {
     renderPage();
-    const expected = [
-      "Live Pulse",
-      "Recover Actions",
-      "Triage",
-      "Targeted Blocker Recheck",
-      "Drill-down",
-      "Exam-Pool Auto-Selector",
-      "Reaper Governance",
-      "Heal-Strategien",
-      "Queue Detail-Tabs",
-    ];
+    const expected = ["Pulse", "Quick Recover", "Pakete heilen", "Erweitert"];
     for (const title of expected) {
       expect(screen.getByText(title)).toBeInTheDocument();
     }
   });
 
-  it("opens Live Pulse and Recover by default", () => {
+  it("opens Pulse and Quick Recover by default", () => {
     renderPage();
-    // Live Pulse cards
+    // Pulse cards
     expect(screen.getByText(/Queue Throughput/i)).toBeInTheDocument();
     // Recover cards
     expect(screen.getByText("Stale-Processing Reap")).toBeInTheDocument();
     expect(screen.getByText("Hot-Loop Quarantäne")).toBeInTheDocument();
+  });
+
+  it("exposes lane-aware quick reap buttons in the page header", () => {
+    renderPage();
+    expect(screen.getByRole("button", { name: /Reap Control-Lane/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Reap All/i })).toBeInTheDocument();
   });
 
   it("renders the 4 publish-blocker count buttons", () => {

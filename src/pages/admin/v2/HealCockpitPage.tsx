@@ -3,27 +3,24 @@
  *
  * Single Pane of Glass für ALLE Heal-/Recovery-/Repair-Funktionen.
  *
- * Konsolidiert ehemals separate Seiten:
- *   • /admin/queue            (UnifiedQueueCockpit Tabs: Live, Heal, Stuck, Repair, Stagnation, Retry, Wizard, Audit, Explain)
- *   • /admin/ops/blocker-ops  (Throughput, Reap, Hot-Loop, Triage, Recheck, Drill-down, Auto-Selector, Reaper)
- *   • /admin/ops/heal-settings (Auto-Repair Strategy Toggles)
+ * v3 Layout (entrümpelt 2026-04-29):
+ *   • Sticky Quick-Action-Bar oben (Reap Control + Reap All + Refresh)
+ *   • 4 Top-Level-Gruppen statt 12 Sections:
+ *       1. Pulse (default-open) — Throughput, Lane-Health, Blocker-Counts
+ *       2. Quick Recover (default-open) — Stale-Reap (lane-aware), Hot-Loop
+ *       3. Pakete heilen — Targeted, Stuck-Patterns, Heal-Status, Blocked
+ *       4. Erweitert (collapsed) — Triage, Recheck, Drill-down, Selector,
+ *          Reaper, Strategien, Queue-Detail-Tabs
  *
- * Layout-Pattern: Accordion mit empfohlener Bedienreihenfolge (Top → Bottom).
- * Default-Open: live + recover (häufigste Use-Cases).
- *
- * Empfohlene Bedienung (top-down im Accordion):
- *   1. Live Pulse        → Throughput + Blocker Counts checken
- *   2. Recover           → Reap Now → Hot-Loop Dry-Run → Execute
- *   3. Triage            → Failed-Cluster, Blocker-Split, Hollow → Track-Normalize
- *   4. Targeted Recheck  → Dry-Run der 4 Blocker-Klassen → Execute
- *   5. Drill-down        → Pakete pro Blocker inspizieren
- *   6. Auto-Selector     → Per-Paket Repair-Recommendation
- *   7. Reaper            → Config + Manual Run + Audit
- *   8. Strategien        → Auto-Repair Toggles
- *   9. Queue-Detail-Tabs → Live-Jobs, Stuck, Repair, Stagnation, Retry, Wizard, Audit
+ * Empfohlene Bedienung:
+ *   1. Pulse-Bar oben checken → grün/gelb/rot pro Lane sichtbar
+ *   2. Bei Stillstand: "Reap Control-Lane" oder Quick-Recover-Sektion
+ *   3. Pakete heilen → Stuck-Patterns Bulk-Promote oder Per-Step-Retry
+ *   4. Erweitert nur bei Spezial-Workflows öffnen
  */
 import { lazy, Suspense, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Accordion, AccordionContent, AccordionItem, AccordionTrigger,
 } from "@/components/ui/accordion";
@@ -33,10 +30,16 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader,
+  AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   Activity, AlertTriangle, Crosshair, Filter, Heart, ListChecks,
-  RefreshCw, Settings, Shield, Stethoscope, Wand2, Wrench,
+  RefreshCw, Settings, Shield, Stethoscope, Wand2, Wrench, Zap,
 } from "lucide-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import { AdminPageHeader } from "@/components/admin/v2/AdminPageHeader";
 
 import { ThroughputCard } from "@/components/admin/heal/cards/ThroughputCard";
@@ -128,28 +131,21 @@ const LoadingFallback = () => (
   </div>
 );
 
+// 4 Hauptgruppen statt 12 Sections
 const SECTIONS = {
-  live: "live",
-  diagnostics: "diagnostics",
+  pulse: "pulse",
   recover: "recover",
-  targeted: "targeted",
-  stuck: "stuck_patterns",
-  heal_status: "heal_status",
-  triage: "triage",
-  recheck: "recheck",
-  drilldown: "drilldown",
-  selector: "selector",
-  reaper: "reaper",
-  strategy: "strategy",
-  queue: "queue",
+  packages: "packages",
+  advanced: "advanced",
 } as const;
 
-const DEFAULT_OPEN = ["live", "diagnostics", "recover", "targeted", "stuck_patterns", "heal_status"];
+const DEFAULT_OPEN = ["pulse", "recover"];
 
 export default function HealCockpitPage() {
   const qc = useQueryClient();
   const [params, setParams] = useSearchParams();
   const [filter, setFilter] = useState<BlockerKey | "ALL">("ALL");
+  const [advancedTab, setAdvancedTab] = useState<string>("triage");
 
   const rawSubtab = params.get("queue_tab");
   const queueSubtab: QueueSubTab =
@@ -161,79 +157,93 @@ export default function HealCockpitPage() {
     setParams(next, { replace: true });
   };
 
-  const refreshAll = () => {
-    qc.invalidateQueries();
-  };
+  const refreshAll = () => qc.invalidateQueries();
+
+  // Quick-Action: Reap pro Lane (mit Bestätigung via AlertDialog)
+  const reapLane = useMutation({
+    mutationFn: async (lane: "control" | "all") => {
+      const { data, error } = await supabase.rpc(
+        "admin_reap_stale_processing_now" as any,
+        {
+          p_max_age_seconds: 300,
+          p_max_cancels: 100,
+          p_lane: lane === "all" ? null : lane,
+        },
+      );
+      if (error) throw error;
+      return { lane, res: data as any };
+    },
+    onSuccess: ({ lane, res }) => {
+      toast.success(
+        `Reap (${lane}): ${res?.failed_terminal ?? 0} terminal · ${res?.requeued ?? 0} requeued`,
+      );
+      qc.invalidateQueries({ queryKey: ["admin-lane-health"] });
+      qc.invalidateQueries({ queryKey: ["queue-throughput-v2"] });
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Reap fehlgeschlagen"),
+  });
 
   return (
     <div className="space-y-4 max-w-[1500px] mx-auto pb-12">
       <AdminPageHeader
         icon={Heart}
         title="Heal Cockpit"
-        description="SSOT-Hub für alle Recovery-, Repair-, Reaper- und Queue-Heal-Funktionen"
+        description="Pulse → Recover → Pakete heilen. Erweiterte Tools sind eingeklappt."
         documentTitle="Heal Cockpit · Admin"
         metaDescription="Konsolidierter Steuerstand für Stale-Reaper, Hot-Loop-Quarantäne, Targeted Recheck, Track-Normalize, Heal-Strategien und Live-Queue."
         actions={
-          <Button variant="outline" size="sm" onClick={refreshAll}>
-            <RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Refresh All
-          </Button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <QuickReapButton
+              lane="control"
+              label="Reap Control-Lane"
+              variant="destructive"
+              pending={reapLane.isPending}
+              onConfirm={() => reapLane.mutate("control")}
+            />
+            <QuickReapButton
+              lane="all"
+              label="Reap All"
+              variant="outline"
+              pending={reapLane.isPending}
+              onConfirm={() => reapLane.mutate("all")}
+            />
+            <Button variant="outline" size="sm" onClick={refreshAll}>
+              <RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Refresh
+            </Button>
+          </div>
         }
       />
 
-      {/* Top-of-page alerts (always visible) */}
       <AlertsBanner />
 
-      <Accordion
-        type="multiple"
-        defaultValue={DEFAULT_OPEN}
-        className="space-y-2"
-      >
-        {/* 1 — Live Pulse */}
-        <AccordionItem value={SECTIONS.live} className="border rounded-lg bg-card px-4">
+      <Accordion type="multiple" defaultValue={DEFAULT_OPEN} className="space-y-2">
+        {/* 1 — Pulse */}
+        <AccordionItem value={SECTIONS.pulse} className="border rounded-lg bg-card px-4">
           <AccordionTrigger className="hover:no-underline">
             <SectionTitle
               icon={Activity}
               step={1}
-              title="Live Pulse"
-              hint="Throughput v2 · Publish-Blocker Counts"
-            />
-          </AccordionTrigger>
-          <AccordionContent className="pb-4 space-y-3">
-            <ThroughputCard windowHours={6} />
-            <BlockerCountsCard filter={filter} onFilterChange={setFilter} />
-          </AccordionContent>
-        </AccordionItem>
-
-        {/* 1b — Diagnostik (Lane-Health, Cancel-Reasons, Pending-Age, Blocked-Detail) */}
-        <AccordionItem value={SECTIONS.diagnostics} className="border rounded-lg bg-card px-4 border-primary/30">
-          <AccordionTrigger className="hover:no-underline">
-            <SectionTitle
-              icon={AlertTriangle}
-              step={1}
-              title="Diagnostik"
-              hint="Lane-Health · Cancel-Reasons 24h · Pending-Age · Blocked-Ursachen"
+              title="Pulse"
+              hint="Throughput · Lane-Health · Blocker-Counts — was läuft, was steht?"
             />
           </AccordionTrigger>
           <AccordionContent className="pb-4 space-y-3">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <LaneHealthCard />
-              <PendingAgeHistogramCard />
+              <ThroughputCard windowHours={6} />
             </div>
-            <ControlLaneRequeueCard />
-            <QualityCouncilDriftCard />
-            <CancelReasonBreakdownCard />
-            <BlockedReasonDetailCard />
+            <BlockerCountsCard filter={filter} onFilterChange={setFilter} />
           </AccordionContent>
         </AccordionItem>
 
-        {/* 2 — Recover */}
-        <AccordionItem value={SECTIONS.recover} className="border rounded-lg bg-card px-4">
+        {/* 2 — Quick Recover */}
+        <AccordionItem value={SECTIONS.recover} className="border rounded-lg bg-card px-4 border-destructive/30">
           <AccordionTrigger className="hover:no-underline">
             <SectionTitle
-              icon={Wand2}
+              icon={Zap}
               step={2}
-              title="Recover Actions"
-              hint="Stale-Reap · Hot-Loop Quarantäne (mit Whitelist)"
+              title="Quick Recover"
+              hint="Stale-Reap (lane-aware mit Bestätigung) · Hot-Loop Quarantäne · Drain"
               tone="destructive"
             />
           </AccordionTrigger>
@@ -243,158 +253,39 @@ export default function HealCockpitPage() {
           </AccordionContent>
         </AccordionItem>
 
-        {/* 3 — Targeted Heal (Hotloop + Hollow + Blocked) */}
-        <AccordionItem value={SECTIONS.targeted} className="border rounded-lg bg-card px-4 border-warning/30">
+        {/* 3 — Pakete heilen */}
+        <AccordionItem value={SECTIONS.packages} className="border rounded-lg bg-card px-4 border-primary/30">
           <AccordionTrigger className="hover:no-underline">
             <SectionTitle
               icon={Stethoscope}
               step={3}
-              title="Targeted Heal"
-              hint="Promote-Hotloop · Hollow-Published · Blocked-Packages — nachhaltige Bulk-Heilung"
-              tone="destructive"
+              title="Pakete heilen"
+              hint="Stuck-Patterns · Heal-Status pro Kurs · Targeted-Heal · Blocked-Packages"
             />
           </AccordionTrigger>
           <AccordionContent className="pb-4 space-y-3">
+            <StuckPatternsCard />
+            <HealStatusCard />
             <TargetedHealCard />
             <BlockedPackagesCard />
           </AccordionContent>
         </AccordionItem>
 
-        {/* 3b — Stuck-Patterns Dashboard */}
-        <AccordionItem value={SECTIONS.stuck} className="border rounded-lg bg-card px-4 border-primary/30">
-          <AccordionTrigger className="hover:no-underline">
-            <SectionTitle
-              icon={Crosshair}
-              step={3}
-              title="Stuck-Patterns Dashboard"
-              hint="Hidden Drafts · Queued-without-Jobs · Reentry-Guard — priorisiert pro Track"
-            />
-          </AccordionTrigger>
-          <AccordionContent className="pb-4 space-y-3">
-            <StuckPatternsCard />
-          </AccordionContent>
-        </AccordionItem>
-
-        {/* 3c — Heal-Status pro Kurs/Track + Per-Step-Retry + Auto-Heal-Plan */}
-        <AccordionItem value={SECTIONS.heal_status} className="border rounded-lg bg-card px-4 border-primary/30">
-          <AccordionTrigger className="hover:no-underline">
-            <SectionTitle
-              icon={Heart}
-              step={3}
-              title="Heal-Status pro Kurs/Track"
-              hint="Vorher/Geheilt/Fehlgeschlagen · Per-Step-Retry · Auto-Heal-Plan mit Job-Block-Check"
-            />
-          </AccordionTrigger>
-          <AccordionContent className="pb-4 space-y-3">
-            <HealStatusCard />
-          </AccordionContent>
-        </AccordionItem>
-
-        {/* 4 — Triage */}
-        <AccordionItem value={SECTIONS.triage} className="border rounded-lg bg-card px-4">
-          <AccordionTrigger className="hover:no-underline">
-            <SectionTitle
-              icon={Crosshair}
-              step={4}
-              title="Triage"
-              hint="Failed-Cluster · Blocker-Split · Hollow · Track-Normalize"
-            />
-          </AccordionTrigger>
-          <AccordionContent className="pb-4">
-            <TriageCards />
-          </AccordionContent>
-        </AccordionItem>
-
-        {/* 4 — Targeted Recheck */}
-        <AccordionItem value={SECTIONS.recheck} className="border rounded-lg bg-card px-4">
-          <AccordionTrigger className="hover:no-underline">
-            <SectionTitle
-              icon={Stethoscope}
-              step={4}
-              title="Targeted Blocker Recheck"
-              hint="Cause-aware Re-Enqueue · 4 Blocker-Klassen · Before/After Snapshot"
-            />
-          </AccordionTrigger>
-          <AccordionContent className="pb-4">
-            <TargetedRecheckCard />
-          </AccordionContent>
-        </AccordionItem>
-
-        {/* 5 — Drill-down */}
-        <AccordionItem value={SECTIONS.drilldown} className="border rounded-lg bg-card px-4">
-          <AccordionTrigger className="hover:no-underline">
-            <SectionTitle
-              icon={Filter}
-              step={5}
-              title="Drill-down"
-              hint={filter === "ALL" ? "Alle blockierten Pakete" : `Filter: ${filter}`}
-            />
-          </AccordionTrigger>
-          <AccordionContent className="pb-4">
-            <DrillDownCard filter={filter} onResetFilter={() => setFilter("ALL")} />
-          </AccordionContent>
-        </AccordionItem>
-
-        {/* 6 — Auto-Selector */}
-        <AccordionItem value={SECTIONS.selector} className="border rounded-lg bg-card px-4">
-          <AccordionTrigger className="hover:no-underline">
-            <SectionTitle
-              icon={Wand2}
-              step={6}
-              title="Exam-Pool Auto-Selector"
-              hint="Per-Paket Repair-Recommendation"
-            />
-          </AccordionTrigger>
-          <AccordionContent className="pb-4">
-            <AutoSelectorCard />
-          </AccordionContent>
-        </AccordionItem>
-
-        {/* 7 — Reaper Governance */}
-        <AccordionItem value={SECTIONS.reaper} className="border rounded-lg bg-card px-4">
+        {/* 4 — Erweitert (collapsed) */}
+        <AccordionItem value={SECTIONS.advanced} className="border rounded-lg bg-card px-4">
           <AccordionTrigger className="hover:no-underline">
             <SectionTitle
               icon={Settings}
-              step={7}
-              title="Reaper Governance"
-              hint="Config · Manual Run · Audit-Log"
+              step={4}
+              title="Erweitert"
+              hint="Diagnostik-Detail · Triage · Recheck · Drill-down · Auto-Selector · Reaper · Strategien · Queue-Tabs"
             />
           </AccordionTrigger>
           <AccordionContent className="pb-4">
-            <ReaperGovernanceCard />
-          </AccordionContent>
-        </AccordionItem>
-
-        {/* 8 — Strategien */}
-        <AccordionItem value={SECTIONS.strategy} className="border rounded-lg bg-card px-4">
-          <AccordionTrigger className="hover:no-underline">
-            <SectionTitle
-              icon={Shield}
-              step={8}
-              title="Heal-Strategien"
-              hint="Auto-Repair Toggles für Integrity-Reasons"
-            />
-          </AccordionTrigger>
-          <AccordionContent className="pb-4">
-            <HealStrategyCard />
-          </AccordionContent>
-        </AccordionItem>
-
-        {/* 9 — Queue Detail Tabs */}
-        <AccordionItem value={SECTIONS.queue} className="border rounded-lg bg-card px-4">
-          <AccordionTrigger className="hover:no-underline">
-            <SectionTitle
-              icon={ListChecks}
-              step={9}
-              title="Queue Detail-Tabs"
-              hint="Live-Jobs · Heal-Worklist · Wizard · Stuck · Repair · Stagnation · Retry · Audit · Explain"
-            />
-          </AccordionTrigger>
-          <AccordionContent className="pb-4">
-            <Tabs value={queueSubtab} onValueChange={setQueueSubtab} className="w-full">
-              <Card className="p-1">
+            <Tabs value={advancedTab} onValueChange={setAdvancedTab} className="w-full">
+              <Card className="p-1 mb-4">
                 <TabsList className="w-full flex flex-wrap h-auto gap-1 bg-transparent p-0">
-                  {QUEUE_SUBTABS.map((t) => (
+                  {ADVANCED_TABS.map((t) => (
                     <TabsTrigger
                       key={t.value}
                       value={t.value}
@@ -408,38 +299,157 @@ export default function HealCockpitPage() {
                 </TabsList>
               </Card>
 
-              <TabsContent value="live" className="mt-4">
-                <Suspense fallback={<LoadingFallback />}><QueueLiveTab /></Suspense>
+              <TabsContent value="diagnostics" className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <PendingAgeHistogramCard />
+                  <CancelReasonBreakdownCard />
+                </div>
+                <ControlLaneRequeueCard />
+                <QualityCouncilDriftCard />
+                <BlockedReasonDetailCard />
               </TabsContent>
-              <TabsContent value="heal" className="mt-4">
-                <Suspense fallback={<LoadingFallback />}><HealTab /></Suspense>
+
+              <TabsContent value="triage">
+                <TriageCards />
               </TabsContent>
-              <TabsContent value="wizard" className="mt-4">
-                <Suspense fallback={<LoadingFallback />}><HealingWizardTab /></Suspense>
+
+              <TabsContent value="recheck">
+                <TargetedRecheckCard />
               </TabsContent>
-              <TabsContent value="stuck" className="mt-4">
-                <Suspense fallback={<LoadingFallback />}><StuckTab /></Suspense>
+
+              <TabsContent value="drilldown">
+                <DrillDownCard filter={filter} onResetFilter={() => setFilter("ALL")} />
               </TabsContent>
-              <TabsContent value="repair" className="mt-4">
-                <Suspense fallback={<LoadingFallback />}><RepairTab /></Suspense>
+
+              <TabsContent value="selector">
+                <AutoSelectorCard />
               </TabsContent>
-              <TabsContent value="stagnation" className="mt-4">
-                <Suspense fallback={<LoadingFallback />}><StagnationTab /></Suspense>
+
+              <TabsContent value="reaper">
+                <ReaperGovernanceCard />
               </TabsContent>
-              <TabsContent value="retry" className="mt-4">
-                <Suspense fallback={<LoadingFallback />}><RetryTab /></Suspense>
+
+              <TabsContent value="strategy">
+                <HealStrategyCard />
               </TabsContent>
-              <TabsContent value="explain" className="mt-4">
-                <Suspense fallback={<LoadingFallback />}><ExplainTab /></Suspense>
-              </TabsContent>
-              <TabsContent value="audit" className="mt-4">
-                <Suspense fallback={<LoadingFallback />}><AuditTab /></Suspense>
+
+              <TabsContent value="queue">
+                <Tabs value={queueSubtab} onValueChange={setQueueSubtab} className="w-full">
+                  <Card className="p-1">
+                    <TabsList className="w-full flex flex-wrap h-auto gap-1 bg-transparent p-0">
+                      {QUEUE_SUBTABS.map((t) => (
+                        <TabsTrigger
+                          key={t.value}
+                          value={t.value}
+                          title={t.hint}
+                          className="flex-1 min-w-[7rem] gap-1.5 data-[state=active]:bg-primary/10 data-[state=active]:text-primary"
+                        >
+                          <t.icon className="h-3.5 w-3.5" />
+                          {t.label}
+                        </TabsTrigger>
+                      ))}
+                    </TabsList>
+                  </Card>
+                  <TabsContent value="live" className="mt-4">
+                    <Suspense fallback={<LoadingFallback />}><QueueLiveTab /></Suspense>
+                  </TabsContent>
+                  <TabsContent value="heal" className="mt-4">
+                    <Suspense fallback={<LoadingFallback />}><HealTab /></Suspense>
+                  </TabsContent>
+                  <TabsContent value="wizard" className="mt-4">
+                    <Suspense fallback={<LoadingFallback />}><HealingWizardTab /></Suspense>
+                  </TabsContent>
+                  <TabsContent value="stuck" className="mt-4">
+                    <Suspense fallback={<LoadingFallback />}><StuckTab /></Suspense>
+                  </TabsContent>
+                  <TabsContent value="repair" className="mt-4">
+                    <Suspense fallback={<LoadingFallback />}><RepairTab /></Suspense>
+                  </TabsContent>
+                  <TabsContent value="stagnation" className="mt-4">
+                    <Suspense fallback={<LoadingFallback />}><StagnationTab /></Suspense>
+                  </TabsContent>
+                  <TabsContent value="retry" className="mt-4">
+                    <Suspense fallback={<LoadingFallback />}><RetryTab /></Suspense>
+                  </TabsContent>
+                  <TabsContent value="explain" className="mt-4">
+                    <Suspense fallback={<LoadingFallback />}><ExplainTab /></Suspense>
+                  </TabsContent>
+                  <TabsContent value="audit" className="mt-4">
+                    <Suspense fallback={<LoadingFallback />}><AuditTab /></Suspense>
+                  </TabsContent>
+                </Tabs>
               </TabsContent>
             </Tabs>
           </AccordionContent>
         </AccordionItem>
       </Accordion>
     </div>
+  );
+}
+
+const ADVANCED_TABS = [
+  { value: "diagnostics", label: "Diagnostik", icon: AlertTriangle, hint: "Pending-Age, Cancel-Reasons, Council-Drift, Blocked-Detail" },
+  { value: "triage", label: "Triage", icon: Crosshair, hint: "Failed-Cluster, Hollow, Track-Normalize" },
+  { value: "recheck", label: "Recheck", icon: Stethoscope, hint: "Targeted Blocker Recheck" },
+  { value: "drilldown", label: "Drill-down", icon: Filter, hint: "Pakete pro Blocker" },
+  { value: "selector", label: "Selector", icon: Wand2, hint: "Exam-Pool Auto-Selector" },
+  { value: "reaper", label: "Reaper", icon: Settings, hint: "Reaper-Governance + Audit" },
+  { value: "strategy", label: "Strategien", icon: Shield, hint: "Auto-Repair Toggles" },
+  { value: "queue", label: "Queue-Tabs", icon: ListChecks, hint: "Live/Heal/Stuck/Repair/Stagnation/Retry/Audit/Explain" },
+] as const;
+
+function QuickReapButton({
+  lane,
+  label,
+  variant,
+  pending,
+  onConfirm,
+}: {
+  lane: "control" | "all";
+  label: string;
+  variant: "destructive" | "outline";
+  pending: boolean;
+  onConfirm: () => void;
+}) {
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button size="sm" variant={variant} disabled={pending}>
+          <Zap className="h-3.5 w-3.5 mr-1.5" /> {label}
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle className="flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5 text-destructive" />
+            Stale-Reap für{" "}
+            <span className="font-mono">{lane === "all" ? "alle Lanes" : lane}</span> ausführen?
+          </AlertDialogTitle>
+          <AlertDialogDescription className="space-y-2 text-sm">
+            <span className="block">
+              Cancelt bis zu <strong>100 processing-Jobs</strong>{" "}
+              {lane === "all" ? "in allen Lanes" : `in Lane ${lane}`} ohne Heartbeat &gt; 5min.
+            </span>
+            <span className="block text-muted-foreground">
+              Jobs mit attempts &lt; max werden requeued (run_after +60s), sonst terminal-failed.
+              Audit in <span className="font-mono">admin_actions</span>.
+            </span>
+            {lane === "control" && (
+              <span className="block rounded border border-destructive/40 bg-destructive/10 p-2 text-[11px]">
+                ⚠️ Control-Lane: Council / Auto-Publish / Promote. Tail-Step-Defer-Trigger fängt
+                blockierte Pakete idR auf.
+              </span>
+            )}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+          <AlertDialogAction onClick={onConfirm} className="bg-destructive hover:bg-destructive/90">
+            Reap ausführen
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
 
