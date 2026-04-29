@@ -41,7 +41,7 @@ export default function BilanzbuchhalterSteuernPage() {
   return (
     <>
       <SEOHead
-        title="Bilanzbuchhalter Steuerrecht & IFRS – ESt, KSt, GewSt, USt, IFRS | ExamFit"
+        title="Bilanzbuchhalter Steuerrecht & IFRS"
         description="Steuerrecht und internationale Rechnungslegung für die Bilanzbuchhalter-Prüfung: ESt, KSt, GewSt, USt, IFRS 15/16, IAS 36 und internes Kontrollsystem."
         canonical={`${SITE_URL}/bilanzbuchhalter-steuern`}
         structuredData={[generateBreadcrumbSchema(breadcrumbs), generateFAQSchema(FAQS)]}
