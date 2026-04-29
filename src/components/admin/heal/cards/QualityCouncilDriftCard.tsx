@@ -137,10 +137,10 @@ export function QualityCouncilDriftCard() {
     },
     onSuccess: (data) => {
       const enqueued = data.filter((r) => r.action === "qc_job_enqueued").length;
-      const stepDone = data.filter((r) => r.action === "step_set_done").length;
+      const adoption = data.filter((r) => r.action === "qc_job_enqueued_for_adoption").length;
       const skipped = data.filter((r) => r.action.startsWith("skip")).length;
       toast.success(
-        `Repair: ${enqueued} QC-Jobs enqueued · ${stepDone} Steps→done · ${skipped} übersprungen`,
+        `Repair: ${enqueued} QC-Jobs enqueued · ${adoption} Adoption-Jobs · ${skipped} übersprungen`,
       );
       setDryRunResult(null);
       qc.invalidateQueries({ queryKey: ["admin-qc-drift-summary"] });
