@@ -184,7 +184,7 @@ export default function MainLayout() {
 
             {/* Produkte */}
             <div>
-              <h4 className="font-semibold text-sm mb-4">Produkte</h4>
+              <h2 className="font-semibold text-sm mb-4">Produkte</h2>
               <nav className="flex flex-col gap-2 text-sm text-muted-foreground">
                 <Link to="/bundle" className="hover:text-foreground transition-colors">Komplett-Bundle</Link>
                 <Link to="/berufe" className="hover:text-foreground transition-colors">Berufe</Link>
@@ -194,7 +194,7 @@ export default function MainLayout() {
 
             {/* Ressourcen */}
             <div>
-              <h4 className="font-semibold text-sm mb-4">Ressourcen</h4>
+              <h2 className="font-semibold text-sm mb-4">Ressourcen</h2>
               <nav className="flex flex-col gap-2 text-sm text-muted-foreground">
                 <Link to="/berufe" className="hover:text-foreground transition-colors">Alle Berufe</Link>
                 <Link to="/ihk-pruefungen" className="hover:text-foreground transition-colors">IHK-Prüfungen</Link>
@@ -205,7 +205,7 @@ export default function MainLayout() {
 
             {/* Rechtliches */}
             <div>
-              <h4 className="font-semibold text-sm mb-4">Rechtliches</h4>
+              <h2 className="font-semibold text-sm mb-4">Rechtliches</h2>
               <nav className="flex flex-col gap-2 text-sm text-muted-foreground">
                 <Link to="/impressum" className="hover:text-foreground transition-colors">Impressum</Link>
                 <Link to="/datenschutz" className="hover:text-foreground transition-colors">Datenschutz</Link>
