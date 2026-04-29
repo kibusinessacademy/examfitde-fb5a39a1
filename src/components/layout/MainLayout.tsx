@@ -1,5 +1,6 @@
 import { Outlet } from 'react-router-dom';
 import { ShareEventOrchestrator } from '@/components/share/ShareEventOrchestrator';
+import { TopicMapNav } from '@/components/seo/TopicMapNav';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -166,6 +167,7 @@ export default function MainLayout() {
       {!isNative && (
       <footer className="border-t border-border mt-20 bg-muted/30">
         <div className="container mx-auto px-4 py-12">
+          <TopicMapNav />
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-8">
             {/* Brand */}
             <div className="col-span-2 md:col-span-1">

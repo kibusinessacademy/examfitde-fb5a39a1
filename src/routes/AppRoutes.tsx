@@ -86,6 +86,7 @@ const MuendlichePruefungPage = lazyRetry(() => import('@/pages/seo/MuendlichePru
 const ProbepruefungPage = lazyRetry(() => import('@/pages/seo/ProbepruefungPage'));
 const LernplanPruefungPage = lazyRetry(() => import('@/pages/seo/LernplanPruefungPage'));
 const NewsletterConfirmPage = lazyRetry(() => import('@/pages/NewsletterConfirmPage'));
+const ThemenHubPage = lazyRetry(() => import('@/pages/seo/ThemenHubPage'));
 
 // IHK + AEVO Pillar-Cluster Pages
 const IHKPruefungsvorbereitungPage = lazyRetry(() => import('@/pages/seo/IHKPruefungsvorbereitungPage'));
@@ -263,6 +264,9 @@ const AppRoutes = () => {
           <Route path="/muendliche-pruefung" element={<MuendlichePruefungPage />} />
           <Route path="/probepruefung" element={<ProbepruefungPage />} />
           <Route path="/lernplan-pruefung" element={<LernplanPruefungPage />} />
+
+          {/* Topic-Map Hub */}
+          <Route path="/themen" element={<ThemenHubPage />} />
 
           {/* IHK Pillar-Cluster */}
           <Route path="/ihk-pruefungsvorbereitung" element={<IHKPruefungsvorbereitungPage />} />

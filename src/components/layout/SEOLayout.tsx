@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useState } from 'react';
+import { TopicMapNav } from '@/components/seo/TopicMapNav';
 
 const navigation = [
   { name: 'IHK-Prüfungen', href: '/ihk-pruefungen', icon: Home },
@@ -129,6 +130,7 @@ export default function SEOLayout() {
       {/* Footer */}
       <footer className="border-t border-border bg-card/50">
         <div className="container py-12">
+          <TopicMapNav />
           <div className="grid md:grid-cols-4 gap-8">
             {/* Brand */}
             <div>

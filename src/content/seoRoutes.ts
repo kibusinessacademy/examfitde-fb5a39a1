@@ -53,13 +53,18 @@ export interface SeoRoute {
 
 const SITE = "https://examfit.de";
 
+// Konsolidiert mit dem EducationalOrganization-Knoten in index.html (#organization)
+// via @id-Verlinkung — vermeidet Duplikate und stärkt die Knowledge-Graph-Entität.
 const orgJsonLd = {
   "@context": "https://schema.org",
   "@type": "Organization",
+  "@id": `${SITE}/#organization`,
   name: "ExamFit",
   url: SITE,
   logo: `${SITE}/pwa-512x512.png`,
-  sameAs: [],
+  sameAs: [
+    "https://www.linkedin.com/company/examfit",
+  ],
 };
 
 function faqJsonLd(faq: FaqEntry[]) {
