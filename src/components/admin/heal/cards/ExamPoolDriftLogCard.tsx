@@ -145,6 +145,24 @@ export function ExamPoolDriftLogCard() {
           <CardTitle className="flex items-center gap-2">
             <Activity className="h-4 w-4" />
             Exam-Pool Drift-Log (7 Tage)
+            {liveActive ? (
+              <span
+                className="inline-flex items-center gap-1 text-xs font-normal text-success"
+                title={
+                  lastEventAt
+                    ? `Letztes Live-Event: ${new Date(lastEventAt).toLocaleTimeString("de-DE")}`
+                    : "Realtime aktiv"
+                }
+              >
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-success" />
+                </span>
+                LIVE
+              </span>
+            ) : (
+              <span className="text-xs font-normal text-muted-foreground">Polling 30s</span>
+            )}
           </CardTitle>
           <Button variant="ghost" size="sm" onClick={() => runs.refetch()}>
             <RefreshCw className="h-4 w-4 mr-1" /> Refresh
