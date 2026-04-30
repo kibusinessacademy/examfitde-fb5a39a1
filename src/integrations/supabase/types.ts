@@ -34383,6 +34383,83 @@ export type Database = {
         }
         Relationships: []
       }
+      llm_visibility_probes: {
+        Row: {
+          brand_mentioned: boolean
+          citation_found: boolean
+          citations: string[]
+          competitor_mentions: string[]
+          error: string | null
+          id: string
+          model: string
+          probed_at: string
+          query_id: string | null
+          query_text: string
+          response_text: string | null
+          visibility_score: number
+        }
+        Insert: {
+          brand_mentioned?: boolean
+          citation_found?: boolean
+          citations?: string[]
+          competitor_mentions?: string[]
+          error?: string | null
+          id?: string
+          model: string
+          probed_at?: string
+          query_id?: string | null
+          query_text: string
+          response_text?: string | null
+          visibility_score?: number
+        }
+        Update: {
+          brand_mentioned?: boolean
+          citation_found?: boolean
+          citations?: string[]
+          competitor_mentions?: string[]
+          error?: string | null
+          id?: string
+          model?: string
+          probed_at?: string
+          query_id?: string | null
+          query_text?: string
+          response_text?: string | null
+          visibility_score?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "llm_visibility_probes_query_id_fkey"
+            columns: ["query_id"]
+            isOneToOne: false
+            referencedRelation: "llm_visibility_queries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      llm_visibility_queries: {
+        Row: {
+          created_at: string
+          id: string
+          intent_category: string
+          is_active: boolean
+          query_text: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          intent_category?: string
+          is_active?: boolean
+          query_text: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          intent_category?: string
+          is_active?: boolean
+          query_text?: string
+        }
+        Relationships: []
+      }
       lti_deployments: {
         Row: {
           created_at: string
@@ -90538,6 +90615,19 @@ export type Database = {
           status?: string | null
           submitted_at?: string | null
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      v_llm_visibility_score: {
+        Row: {
+          avg_visibility_score: number | null
+          brand_mentions: number | null
+          citation_rate_pct: number | null
+          citations: number | null
+          last_probe_at: string | null
+          mention_rate_pct: number | null
+          model: string | null
+          probes_total: number | null
         }
         Relationships: []
       }
