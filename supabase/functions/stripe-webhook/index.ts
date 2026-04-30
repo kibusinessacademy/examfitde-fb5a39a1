@@ -16,6 +16,77 @@ function generateInviteCode(): string {
   return result;
 }
 
+/**
+ * SSOT funnel-event emitter for stripe-webhook.
+ * - kanonischer event_type 'checkout_complete' (NICHT 'checkout_completed')
+ * - resolves package_id + persona aus product_id (über curriculum_id)
+ * - schreibt package_id/persona/source_page als first-class metadata-Keys,
+ *   damit v_funnel_integrity_check tracking_completeness korrekt zählt.
+ *
+ * Idempotent durch session_id im metadata + upstream stripe_event_log.
+ */
+async function emitCheckoutCompleteEvent(
+  adminClient: any,
+  args: {
+    user_id?: string | null;
+    contact_id?: string | null;
+    curriculum_id?: string | null;
+    product_id?: string | null;
+    session_id: string;
+    flow: string;
+    extra?: Record<string, unknown>;
+  },
+) {
+  let packageId: string | null = null;
+  let persona: string | null = null;
+  let curriculumId = args.curriculum_id ?? null;
+
+  try {
+    if (args.product_id && !curriculumId) {
+      const { data: prod } = await adminClient
+        .from('products')
+        .select('curriculum_id')
+        .eq('id', args.product_id)
+        .maybeSingle();
+      curriculumId = prod?.curriculum_id ?? null;
+    }
+    if (curriculumId) {
+      const { data: pkg } = await adminClient
+        .from('course_packages')
+        .select('id, persona_profile')
+        .eq('curriculum_id', curriculumId)
+        .eq('status', 'published')
+        .order('published_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      packageId = pkg?.id ?? null;
+      persona = pkg?.persona_profile
+        ? String(pkg.persona_profile).toLowerCase().split('_')[0]
+        : null;
+    }
+  } catch (resolveErr) {
+    console.warn('[stripe-webhook] package_id resolve failed', resolveErr);
+  }
+
+  await adminClient.from('conversion_events').insert({
+    user_id: args.user_id ?? null,
+    contact_id: args.contact_id ?? null,
+    curriculum_id: curriculumId,
+    event_type: 'checkout_complete',
+    metadata: {
+      ...(args.extra ?? {}),
+      product_id: args.product_id ?? null,
+      package_id: packageId,
+      persona,
+      source_page: '/checkout/success',
+      stripe_session_id: args.session_id,
+      session_id: args.session_id,
+      flow: args.flow,
+    },
+  });
+}
+
+
 Deno.serve(async (req) => {
   const corsResponse = handleCorsPreflightRequest(req);
   if (corsResponse) return corsResponse;
@@ -203,19 +274,18 @@ Deno.serve(async (req) => {
               }
             }
 
-            // Track conversion
-            await adminClient.from('conversion_events').insert({
+            // Track conversion (SSOT — kanonisch checkout_complete + package_id)
+            await emitCheckoutCompleteEvent(adminClient, {
               user_id: userId,
-              event_type: 'checkout_completed',
-              metadata: {
-                session_id: session.id,
-                flow: 'b2b_subscription',
+              session_id: session.id,
+              flow: 'b2b_subscription',
+              extra: {
                 category,
                 seats,
                 subscription_id: subscriptionId,
                 amount_total: session.amount_total,
               },
-            }).then(() => {});
+            });
           }
         } catch (b2bSubErr) {
           logStep("ERROR: B2B subscription fulfillment failed", { error: String(b2bSubErr) });
@@ -276,19 +346,18 @@ Deno.serve(async (req) => {
               }
             }
 
-            // Track checkout_completed event
-            await adminClient.from('conversion_events').insert({
+            // Track checkout_complete event (SSOT)
+            await emitCheckoutCompleteEvent(adminClient, {
               user_id: userId,
-              event_type: 'checkout_completed',
-              metadata: {
-                product_id: productId,
-                session_id: session.id,
-                flow,
+              product_id: productId,
+              session_id: session.id,
+              flow,
+              extra: {
                 experiment_key: meta.experiment_key,
                 variant_key: meta.variant_key,
                 amount_total: session.amount_total,
               },
-            }).then(() => {});
+            });
 
           } else if (flow === 'pricing_plan') {
             const audienceType = meta.audience_type || 'b2c';
@@ -324,17 +393,16 @@ Deno.serve(async (req) => {
                 logStep("B2C pricing_plan entitlement created", { userId, productId, validUntil: validUntil.toISOString() });
               }
 
-              await adminClient.from('conversion_events').insert({
+              await emitCheckoutCompleteEvent(adminClient, {
                 user_id: userId,
-                event_type: 'checkout_completed',
-                metadata: {
-                  product_id: productId,
-                  session_id: session.id,
-                  flow: 'pricing_plan_b2c',
+                product_id: productId,
+                session_id: session.id,
+                flow: 'pricing_plan_b2c',
+                extra: {
                   plan_key: meta.plan_key,
                   amount_total: session.amount_total,
                 },
-              }).then(() => {});
+              });
 
             } else {
             // ── B2B: Create org + license + seats ──
@@ -427,20 +495,19 @@ Deno.serve(async (req) => {
               }
             }
 
-            // Track checkout_completed event
-            await adminClient.from('conversion_events').insert({
+            // Track checkout_complete event (SSOT)
+            await emitCheckoutCompleteEvent(adminClient, {
               user_id: userId,
-              event_type: 'checkout_completed',
-              metadata: {
-                product_id: productId,
-                session_id: session.id,
-                flow,
+              product_id: productId,
+              session_id: session.id,
+              flow,
+              extra: {
                 plan_key: meta.plan_key,
                 seat_count: meta.seat_count,
                 audience_type: meta.audience_type,
                 amount_total: session.amount_total,
               },
-            }).then(() => {});
+            });
             } // end B2B else
           }
 
@@ -849,18 +916,18 @@ Deno.serve(async (req) => {
             }
           }
 
-          // 2) checkout_complete conversion event (SSOT)
-          await adminClient.from('conversion_events').insert({
+          // 2) checkout_complete conversion event (SSOT, package_id/persona first-class)
+          await emitCheckoutCompleteEvent(adminClient, {
             user_id: userId,
-            event_type: 'checkout_complete',
             contact_id: contactIdForEvent,
             curriculum_id: meta.curriculum_id || null,
-            metadata: {
+            product_id: productId,
+            session_id: session.id,
+            flow: 'create-product-checkout',
+            extra: {
               order_id: order?.id,
               total_cents: totalPriceCents,
               currency: 'eur',
-              product_id: productId,
-              stripe_session_id: session.id,
             },
           });
 

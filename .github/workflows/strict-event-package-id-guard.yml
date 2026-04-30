@@ -1,0 +1,26 @@
+name: Strict Event package_id Guard
+
+on:
+  push:
+    paths:
+      - 'src/**/*.ts'
+      - 'src/**/*.tsx'
+      - 'supabase/functions/**/*.ts'
+      - 'scripts/guards/strict-event-package-id-guard.mjs'
+  pull_request:
+    paths:
+      - 'src/**/*.ts'
+      - 'src/**/*.tsx'
+      - 'supabase/functions/**/*.ts'
+      - 'scripts/guards/strict-event-package-id-guard.mjs'
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Run strict-event package_id guard
+        run: node scripts/guards/strict-event-package-id-guard.mjs

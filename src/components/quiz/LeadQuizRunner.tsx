@@ -83,6 +83,10 @@ export function LeadQuizRunner({ slug }: Props) {
       viewTrackedRef.current = true;
       emitFunnelEvent("LEAD_MAGNET_VIEW", {
         curriculum_id: quiz.curriculum_id,
+        package_id: mapping?.packageId ?? null,
+        persona: mapping?.persona ?? null,
+        source_page:
+          typeof window !== "undefined" ? window.location.pathname : null,
         quiz_slug: quiz.slug,
         source: "quiz",
         cta_location: "quiz_page",
@@ -124,6 +128,10 @@ export function LeadQuizRunner({ slug }: Props) {
       startedRef.current = true;
       emitFunnelEvent("QUIZ_STARTED", {
         curriculum_id: quiz?.curriculum_id ?? null,
+        package_id: mapping?.packageId ?? null,
+        persona: mapping?.persona ?? null,
+        source_page:
+          typeof window !== "undefined" ? window.location.pathname : null,
         quiz_slug: slug,
       });
       await ensureAttempt();
@@ -194,6 +202,10 @@ export function LeadQuizRunner({ slug }: Props) {
 
       emitFunnelEvent("QUIZ_COMPLETED", {
         curriculum_id: quiz.curriculum_id,
+        package_id: mapping?.packageId ?? null,
+        persona: mapping?.persona ?? null,
+        source_page:
+          typeof window !== "undefined" ? window.location.pathname : null,
         quiz_slug: slug,
         score: sc,
         passed: ps,
@@ -235,6 +247,10 @@ export function LeadQuizRunner({ slug }: Props) {
       setLeadDone(true);
       emitFunnelEvent("LEAD_CAPTURE_SUBMITTED", {
         curriculum_id: quiz.curriculum_id,
+        package_id: mapping?.packageId ?? null,
+        persona: mapping?.persona ?? null,
+        source_page:
+          typeof window !== "undefined" ? window.location.pathname : null,
         quiz_slug: slug,
         marketing_consent: consent,
         attempt_id: attemptId,
