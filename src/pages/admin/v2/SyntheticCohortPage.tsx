@@ -4,7 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Play, Users, AlertTriangle, CheckCircle2, FileSearch } from "lucide-react";
+import { Loader2, Play, Users, AlertTriangle, CheckCircle2, FileSearch, RotateCw, Bug, Sparkles } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -53,9 +55,37 @@ interface FindingRow {
   suggested_fix: string | null;
 }
 
+interface DebugRow {
+  package_id: string;
+  package_label: string | null;
+  persona_key: string;
+  total_lessons: number | null;
+  total_questions: number | null;
+  simulated_questions: number | null;
+  correct_count: number | null;
+  avg_response_ms: number | null;
+  didactic_score: number | null;
+  step_score: number | null;
+  ihk_score: number | null;
+  question_score: number | null;
+  flagged_for_llm: boolean;
+}
+
+interface LlmCandidateRow {
+  package_id: string;
+  package_label: string | null;
+  avg_didactic: number;
+  avg_step: number;
+  avg_ihk: number;
+  avg_question: number;
+  trigger_reason: string;
+}
+
 export default function SyntheticCohortPage() {
   const qc = useQueryClient();
   const [selectedRun, setSelectedRun] = useState<string | null>(null);
+  const [debugMode, setDebugMode] = useState(false);
+  const [onlyFlagged, setOnlyFlagged] = useState(true);
 
   const personasQ = useQuery({
     queryKey: ["synth-personas"],
