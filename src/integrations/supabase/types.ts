@@ -104703,8 +104703,49 @@ export type Database = {
       }
       sync_schema_contracts: { Args: never; Returns: Json }
       synth_finalize_run: { Args: { p_run_id: string }; Returns: Json }
+      synth_get_debug_table: {
+        Args: { p_run_id: string }
+        Returns: {
+          avg_response_ms: number
+          correct_count: number
+          didactic_score: number
+          flagged_for_llm: boolean
+          ihk_score: number
+          package_id: string
+          package_label: string
+          persona_key: string
+          question_score: number
+          simulated_questions: number
+          step_score: number
+          total_lessons: number
+          total_questions: number
+        }[]
+      }
+      synth_get_llm_candidates: {
+        Args: {
+          p_didactic_threshold?: number
+          p_ihk_threshold?: number
+          p_limit?: number
+          p_question_threshold?: number
+          p_run_id: string
+          p_step_threshold?: number
+        }
+        Returns: {
+          avg_didactic: number
+          avg_ihk: number
+          avg_question: number
+          avg_step: number
+          package_id: string
+          package_label: string
+          trigger_reason: string
+        }[]
+      }
       synth_get_run_summary: { Args: { p_run_id: string }; Returns: Json }
       synth_list_runs: { Args: { p_limit?: number }; Returns: Json }
+      synth_rerun_heuristic: {
+        Args: { p_only_flagged?: boolean; p_run_id: string }
+        Returns: Json
+      }
       synth_run_heuristic: {
         Args: { p_package_id: string; p_run_id: string }
         Returns: Json
