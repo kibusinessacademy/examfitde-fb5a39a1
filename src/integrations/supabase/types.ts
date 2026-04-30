@@ -82821,6 +82821,69 @@ export type Database = {
           },
         ]
       }
+      v_admin_exam_pool_drift_log: {
+        Row: {
+          already_done_or_running: number | null
+          candidates_json: Json | null
+          cooldown_minutes: number | null
+          cooldown_skips: number | null
+          dry_run: boolean | null
+          duration_ms: number | null
+          healed: number | null
+          healed_ids: Json | null
+          max_per_run: number | null
+          nudged: number | null
+          nudged_ids: Json | null
+          result_status: string | null
+          run_at: string | null
+          run_id: string | null
+          skip_details_json: Json | null
+          skipped: number | null
+          total_candidates: number | null
+          update_failed: number | null
+        }
+        Insert: {
+          already_done_or_running?: never
+          candidates_json?: never
+          cooldown_minutes?: never
+          cooldown_skips?: never
+          dry_run?: never
+          duration_ms?: number | null
+          healed?: never
+          healed_ids?: never
+          max_per_run?: never
+          nudged?: never
+          nudged_ids?: never
+          result_status?: string | null
+          run_at?: string | null
+          run_id?: string | null
+          skip_details_json?: never
+          skipped?: never
+          total_candidates?: never
+          update_failed?: never
+        }
+        Update: {
+          already_done_or_running?: never
+          candidates_json?: never
+          cooldown_minutes?: never
+          cooldown_skips?: never
+          dry_run?: never
+          duration_ms?: number | null
+          healed?: never
+          healed_ids?: never
+          max_per_run?: never
+          nudged?: never
+          nudged_ids?: never
+          result_status?: string | null
+          run_at?: string | null
+          run_id?: string | null
+          skip_details_json?: never
+          skipped?: never
+          total_candidates?: never
+          update_failed?: never
+        }
+        Relationships: []
+      }
       v_admin_growth_overview: {
         Row: {
           seo_draft: number | null
@@ -101374,6 +101437,21 @@ export type Database = {
           recommended_lessons: Json
           score_percent: number
           total_count: number
+        }[]
+      }
+      get_exam_pool_drift_log_for_package: {
+        Args: { p_package_id: string }
+        Returns: {
+          approved_q: number
+          in_cooldown: boolean
+          result_status: string
+          run_at: string
+          skip_reason: string
+          step_status: string
+          was_candidate: boolean
+          was_healed: boolean
+          was_nudged: boolean
+          was_skipped: boolean
         }[]
       }
       get_exam_pool_gap_report: {
