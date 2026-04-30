@@ -333,7 +333,15 @@ export function HealStatusCard() {
                     </div>
                   </div>
                   {p.last_reason && (
-                    <div className="mt-1.5 text-[10px] italic text-muted-foreground border-l-2 border-warning/40 pl-2">
+                    <div
+                      className={`mt-1.5 text-[10px] italic border-l-2 pl-2 ${
+                        isStale(p.last_heal_at)
+                          ? "text-muted-foreground/50 border-muted/40"
+                          : "text-muted-foreground border-warning/40"
+                      }`}
+                      title={isStale(p.last_heal_at) ? "Historischer Eintrag (>24h alt)" : undefined}
+                    >
+                      {isStale(p.last_heal_at) && <span className="not-italic mr-1">📜</span>}
                       Grund: {p.last_reason}
                     </div>
                   )}
