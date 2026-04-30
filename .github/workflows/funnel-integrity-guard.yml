@@ -1,0 +1,48 @@
+name: Funnel Integrity Regression Guard
+
+# Verifiziert nach jeder Migration & stündlich, dass das Conversion-Tracking
+# (lead_magnet_view → checkout_complete) nicht driftet:
+#   - tracking_completeness (package_id-Coverage)
+#   - funnel_continuity     (Pflicht-Events vorhanden)
+#   - attribution_quality   (persona/source_page-Coverage)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "supabase/migrations/**"
+      - "scripts/funnel-integrity-check.mjs"
+      - ".github/workflows/funnel-integrity-guard.yml"
+      - "src/lib/conversionTracking.ts"
+      - "src/lib/funnelEvents.ts"
+      - "src/hooks/useTrackGrowthEvent.ts"
+      - "supabase/functions/track-funnel-event/**"
+  pull_request:
+    paths:
+      - "supabase/migrations/**"
+      - "scripts/funnel-integrity-check.mjs"
+      - "src/lib/conversionTracking.ts"
+      - "src/lib/funnelEvents.ts"
+      - "src/hooks/useTrackGrowthEvent.ts"
+      - "supabase/functions/track-funnel-event/**"
+  schedule:
+    # stündlich, 19. Minute (Versatz zu pricing-guard)
+    - cron: "19 * * * *"
+  workflow_dispatch:
+
+jobs:
+  funnel-integrity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Run Funnel Integrity Check
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: node scripts/funnel-integrity-check.mjs
