@@ -59,7 +59,7 @@ type TrackOpts = Record<string, unknown> & {
 };
 
 const PACKAGE_REQUIRED: ReadonlySet<GrowthEventType> = new Set([
-  'lead_magnet_view',
+  // lead_magnet_view bewusst optional → unmatched-Drop messbar.
   'quiz_started',
   'quiz_completed',
   'lead_capture_submitted',
