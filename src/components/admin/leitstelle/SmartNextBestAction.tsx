@@ -76,8 +76,14 @@ export function SmartNextBestAction() {
     //    publish_ready = true UND is_published = false (siehe View-Definition).
     //    Frühere Heuristik (council_approved + !is_published + !blocked_reason)
     //    war approximativ und divergierte von der DB-Wahrheit.
+    // SSOT-Härtung: View-Field is_published kann gegen course_packages.status driften.
+    // Wir schließen Pakete deren package_status bereits 'published' ist explizit aus,
+    // damit Phantom-Counts (44 published-Pakete in „ready"-Liste) nicht mehr auftauchen.
     const readyToPublish = readiness.filter(
-      (r: any) => r.publish_ready === true && r.is_published !== true,
+      (r: any) =>
+        r.publish_ready === true &&
+        r.is_published !== true &&
+        r.package_status !== "published",
     );
     if (readyToPublish.length > 0) {
       out.push({
