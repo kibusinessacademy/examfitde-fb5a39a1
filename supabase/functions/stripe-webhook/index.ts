@@ -916,18 +916,18 @@ Deno.serve(async (req) => {
             }
           }
 
-          // 2) checkout_complete conversion event (SSOT)
-          await adminClient.from('conversion_events').insert({
+          // 2) checkout_complete conversion event (SSOT, package_id/persona first-class)
+          await emitCheckoutCompleteEvent(adminClient, {
             user_id: userId,
-            event_type: 'checkout_complete',
             contact_id: contactIdForEvent,
             curriculum_id: meta.curriculum_id || null,
-            metadata: {
+            product_id: productId,
+            session_id: session.id,
+            flow: 'create-product-checkout',
+            extra: {
               order_id: order?.id,
               total_cents: totalPriceCents,
               currency: 'eur',
-              product_id: productId,
-              stripe_session_id: session.id,
             },
           });
 
