@@ -88,7 +88,7 @@ export default function SyntheticCohortPage() {
         p_run_id: selectedRun,
       });
       if (error) throw error;
-      return data as {
+      return (data as unknown) as {
         run: RunRow;
         packages: PackageRow[];
         top_findings: FindingRow[];
