@@ -393,17 +393,16 @@ Deno.serve(async (req) => {
                 logStep("B2C pricing_plan entitlement created", { userId, productId, validUntil: validUntil.toISOString() });
               }
 
-              await adminClient.from('conversion_events').insert({
+              await emitCheckoutCompleteEvent(adminClient, {
                 user_id: userId,
-                event_type: 'checkout_completed',
-                metadata: {
-                  product_id: productId,
-                  session_id: session.id,
-                  flow: 'pricing_plan_b2c',
+                product_id: productId,
+                session_id: session.id,
+                flow: 'pricing_plan_b2c',
+                extra: {
                   plan_key: meta.plan_key,
                   amount_total: session.amount_total,
                 },
-              }).then(() => {});
+              });
 
             } else {
             // ── B2B: Create org + license + seats ──
