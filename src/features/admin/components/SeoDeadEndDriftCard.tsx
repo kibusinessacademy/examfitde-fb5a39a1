@@ -301,6 +301,11 @@ export function SeoDeadEndDriftCard() {
                       <Badge variant="warning" className="text-[10px]">
                         {REASON_LABEL[row.drift_reason] ?? row.drift_reason}
                       </Badge>
+                      {REASON_RECOMMENDATION[row.drift_reason] && (
+                        <div className="text-[10px] text-muted-foreground mt-1 leading-tight">
+                          → {REASON_RECOMMENDATION[row.drift_reason]}
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell className="text-right space-x-1">
                       {row.source_table === "seo_content_pages" && row.package_id && (
@@ -325,6 +330,14 @@ export function SeoDeadEndDriftCard() {
                       )}
                       {row.source_table === "certification_seo_pages" && (
                         <>
+                          <Button
+                            size="sm"
+                            variant="success"
+                            onClick={() => loadSuggestions(row)}
+                            title="Auto-Match-Vorschläge anzeigen"
+                          >
+                            Auto-Match
+                          </Button>
                           <Button
                             size="sm"
                             variant="info"
