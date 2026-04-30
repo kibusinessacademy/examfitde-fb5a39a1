@@ -1,22 +1,58 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
+export type SeoCategoryKey =
+  | 'ausbildung'
+  | 'fachwirt'
+  | 'meister'
+  | 'sachkunde'
+  | 'projektmanagement';
+
+export type SeoMappingSource =
+  | 'meta_override'
+  | 'id_chain'
+  | 'catalog_slug'
+  | 'slug_base'
+  | 'unmatched';
+
 export interface CertificationSeoMapping {
+  seo_page_id: string;
   seo_slug: string;
-  title: string;
-  category_key: 'ausbildung' | 'fachwirt' | 'meister' | 'sachkunde' | 'projektmanagement';
+  seo_title: string | null;
+  seo_is_published: boolean | null;
+  product_slug_override: string | null;
+  certification_catalog_id: string | null;
+  catalog_slug: string | null;
+  catalog_title: string | null;
+  category_segment: SeoCategoryKey;
   canonical_url_path: string;
-  product_slug: string | null;
+  package_id: string | null;
+  package_canonical_slug: string | null;
+  package_title: string | null;
   product_url_path: string | null;
-  product_package_id: string | null;
-  /** 'id_chain' | 'catalog_slug' | 'slug_base' | 'unmatched' */
-  mapping_source: string;
+  mapping_source: SeoMappingSource;
 }
 
 /**
- * Mapping SEO-Landingpage-Slug → kanonische Kategorie-URL + (optional) Kursprodukt-URL.
- * Quelle: v_certification_seo_with_product / get_certification_seo_with_product RPC.
+ * Buy-CTA mit prefilled Filter wenn kein Produkt verlinkt ist.
+ * - product_url_path vorhanden → direkt zum Training
+ * - sonst /shop?ref=<slug>&category=<segment>&q=<title>
  */
+export function buildBuyCtaUrl(m: Pick<
+  CertificationSeoMapping,
+  'product_url_path' | 'seo_slug' | 'category_segment' | 'catalog_title' | 'seo_title'
+>): string {
+  if (m.product_url_path) return m.product_url_path;
+  const params = new URLSearchParams({
+    ref: m.seo_slug,
+    category: m.category_segment,
+  });
+  const q = (m.catalog_title ?? m.seo_title ?? '').trim();
+  if (q) params.set('q', q);
+  return `/shop?${params.toString()}`;
+}
+
+/** Mapping für einzelne SEO-Page via RPC. */
 export function useCertificationSeoMapping(slug: string | undefined) {
   return useQuery({
     queryKey: ['cert-seo-mapping', slug],
@@ -34,16 +70,14 @@ export function useCertificationSeoMapping(slug: string | undefined) {
   });
 }
 
-/**
- * Bulk-Variante: alle Mappings auf einmal (für Cockpit-Listen).
- */
+/** Bulk-Mapping für Cockpit-Listen. */
 export function useAllCertificationSeoMappings() {
   return useQuery({
     queryKey: ['cert-seo-mapping-all'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('v_certification_seo_with_product' as any)
-        .select('seo_slug, title, category_key, canonical_url_path, product_slug, product_url_path, product_package_id, mapping_source');
+        .select('*');
       if (error) throw error;
       return (data ?? []) as unknown as CertificationSeoMapping[];
     },
