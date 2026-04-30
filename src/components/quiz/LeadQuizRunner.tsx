@@ -247,6 +247,10 @@ export function LeadQuizRunner({ slug }: Props) {
       setLeadDone(true);
       emitFunnelEvent("LEAD_CAPTURE_SUBMITTED", {
         curriculum_id: quiz.curriculum_id,
+        package_id: mapping?.packageId ?? null,
+        persona: mapping?.persona ?? null,
+        source_page:
+          typeof window !== "undefined" ? window.location.pathname : null,
         quiz_slug: slug,
         marketing_consent: consent,
         attempt_id: attemptId,
