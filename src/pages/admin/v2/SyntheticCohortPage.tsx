@@ -4,7 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Play, Users, AlertTriangle, CheckCircle2, FileSearch } from "lucide-react";
+import { Loader2, Play, Users, AlertTriangle, CheckCircle2, FileSearch, RotateCw, Bug, Sparkles } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -53,9 +55,37 @@ interface FindingRow {
   suggested_fix: string | null;
 }
 
+interface DebugRow {
+  package_id: string;
+  package_label: string | null;
+  persona_key: string;
+  total_lessons: number | null;
+  total_questions: number | null;
+  simulated_questions: number | null;
+  correct_count: number | null;
+  avg_response_ms: number | null;
+  didactic_score: number | null;
+  step_score: number | null;
+  ihk_score: number | null;
+  question_score: number | null;
+  flagged_for_llm: boolean;
+}
+
+interface LlmCandidateRow {
+  package_id: string;
+  package_label: string | null;
+  avg_didactic: number;
+  avg_step: number;
+  avg_ihk: number;
+  avg_question: number;
+  trigger_reason: string;
+}
+
 export default function SyntheticCohortPage() {
   const qc = useQueryClient();
   const [selectedRun, setSelectedRun] = useState<string | null>(null);
+  const [debugMode, setDebugMode] = useState(false);
+  const [onlyFlagged, setOnlyFlagged] = useState(true);
 
   const personasQ = useQuery({
     queryKey: ["synth-personas"],
@@ -113,6 +143,72 @@ export default function SyntheticCohortPage() {
       qc.invalidateQueries({ queryKey: ["synth-runs"] });
     },
     onError: (e: Error) => toast.error(`Run fehlgeschlagen: ${e.message}`),
+  });
+
+  // Re-Run Heuristik (nach Schema-Drift-Fix)
+  const rerunMut = useMutation({
+    mutationFn: async (vars: { runId: string; onlyFlagged: boolean }) => {
+      const { data, error } = await supabase.rpc("synth_rerun_heuristic", {
+        p_run_id: vars.runId,
+        p_only_flagged: vars.onlyFlagged,
+      });
+      if (error) throw error;
+      return data as { ok: boolean; rerun_packages?: number; avg_didactic_score?: number; total_findings?: number; error?: string };
+    },
+    onSuccess: (data) => {
+      if (!data?.ok) { toast.error(`Re-Run abgebrochen: ${data?.error ?? "unknown"}`); return; }
+      toast.success(`Re-Run: ${data.rerun_packages} Pakete · Ø ${data.avg_didactic_score?.toFixed(1) ?? "—"} · ${data.total_findings} Findings`);
+      qc.invalidateQueries({ queryKey: ["synth-runs"] });
+      qc.invalidateQueries({ queryKey: ["synth-summary", selectedRun] });
+      qc.invalidateQueries({ queryKey: ["synth-debug", selectedRun] });
+      qc.invalidateQueries({ queryKey: ["synth-llm-candidates", selectedRun] });
+    },
+    onError: (e: Error) => toast.error(`Re-Run fehlgeschlagen: ${e.message}`),
+  });
+
+  // Gezielter LLM-Review nur für niedrige-Score-Pakete
+  const llmTriggerMut = useMutation({
+    mutationFn: async (vars: { runId: string; packageIds: string[] }) => {
+      const { data, error } = await supabase.functions.invoke("synthetic-cohort-runner", {
+        body: {
+          run_id: vars.runId,
+          package_ids: vars.packageIds,
+          mode: "heuristic_with_llm_gate",
+          max_llm_calls: Math.min(vars.packageIds.length, 20),
+        },
+      });
+      if (error) throw error;
+      return data as { llm_calls?: number; packages_processed?: number };
+    },
+    onSuccess: (data) => {
+      toast.success(`LLM-Review: ${data.packages_processed ?? 0} Pakete · ${data.llm_calls ?? 0} Calls`);
+      qc.invalidateQueries({ queryKey: ["synth-summary", selectedRun] });
+    },
+    onError: (e: Error) => toast.error(`LLM-Trigger fehlgeschlagen: ${e.message}`),
+  });
+
+  // Debug-Tabelle (lazy)
+  const debugQ = useQuery({
+    queryKey: ["synth-debug", selectedRun],
+    queryFn: async (): Promise<DebugRow[]> => {
+      if (!selectedRun) return [];
+      const { data, error } = await supabase.rpc("synth_get_debug_table", { p_run_id: selectedRun });
+      if (error) throw error;
+      return ((data as unknown) as DebugRow[]) ?? [];
+    },
+    enabled: !!selectedRun && debugMode,
+  });
+
+  // LLM-Kandidaten (niedrige Scores)
+  const llmCandidatesQ = useQuery({
+    queryKey: ["synth-llm-candidates", selectedRun],
+    queryFn: async (): Promise<LlmCandidateRow[]> => {
+      if (!selectedRun) return [];
+      const { data, error } = await supabase.rpc("synth_get_llm_candidates", { p_run_id: selectedRun });
+      if (error) throw error;
+      return ((data as unknown) as LlmCandidateRow[]) ?? [];
+    },
+    enabled: !!selectedRun,
   });
 
   return (
@@ -230,6 +326,151 @@ export default function SyntheticCohortPage() {
       {/* Detail: Paket-Ranking + Findings */}
       {selectedRun && summaryQ.data && (
         <>
+          {/* Aktionen: Re-Run, Debug-Toggle, LLM-Trigger */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <RotateCw className="h-5 w-5" /> Run-Aktionen
+              </CardTitle>
+              <CardDescription>
+                Heuristik nach einem Fix wiederholen, Roh-Werte inspizieren oder gezielt LLM-Review starten.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2">
+                <Switch id="only-flagged" checked={onlyFlagged} onCheckedChange={setOnlyFlagged} />
+                <Label htmlFor="only-flagged" className="text-sm">Nur geflaggte Pakete</Label>
+              </div>
+              <Button
+                size="sm"
+                variant="default"
+                disabled={rerunMut.isPending}
+                onClick={() => rerunMut.mutate({ runId: selectedRun, onlyFlagged })}
+                className="gap-2"
+              >
+                {rerunMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCw className="h-4 w-4" />}
+                Heuristik erneut ausführen
+              </Button>
+
+              <div className="flex items-center gap-2 ml-2">
+                <Switch id="debug-mode" checked={debugMode} onCheckedChange={setDebugMode} />
+                <Label htmlFor="debug-mode" className="text-sm flex items-center gap-1">
+                  <Bug className="h-3 w-3" /> Debug-Tabelle
+                </Label>
+              </div>
+
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={llmTriggerMut.isPending || !llmCandidatesQ.data?.length}
+                onClick={() => llmTriggerMut.mutate({
+                  runId: selectedRun,
+                  packageIds: (llmCandidatesQ.data ?? []).map(c => c.package_id),
+                })}
+                className="gap-2 ml-auto"
+              >
+                {llmTriggerMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                LLM-Review für {llmCandidatesQ.data?.length ?? 0} Kandidaten
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* LLM-Kandidaten (niedrige Scores) */}
+          {llmCandidatesQ.data && llmCandidatesQ.data.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Sparkles className="h-5 w-5" /> LLM-Review-Kandidaten
+                </CardTitle>
+                <CardDescription>
+                  Pakete mit niedrigen Scores (didactic&lt;70, step&lt;70, ihk&lt;60, question&lt;60). Werden gezielt vom LLM tiefer geprüft.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Paket</TableHead>
+                      <TableHead>Grund</TableHead>
+                      <TableHead className="text-right">Didaktik</TableHead>
+                      <TableHead className="text-right">Step</TableHead>
+                      <TableHead className="text-right">IHK</TableHead>
+                      <TableHead className="text-right">Frage-Pool</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {llmCandidatesQ.data.map(c => (
+                      <TableRow key={c.package_id}>
+                        <TableCell className="font-medium">{c.package_label ?? c.package_id.slice(0, 8)}</TableCell>
+                        <TableCell><Badge variant="outline" className="text-xs">{c.trigger_reason}</Badge></TableCell>
+                        <TableCell className="text-right font-mono"><ScorePill value={c.avg_didactic} /></TableCell>
+                        <TableCell className="text-right font-mono"><ScorePill value={c.avg_step} /></TableCell>
+                        <TableCell className="text-right font-mono"><ScorePill value={c.avg_ihk} /></TableCell>
+                        <TableCell className="text-right font-mono"><ScorePill value={c.avg_question} /></TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Debug-Tabelle */}
+          {debugMode && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Bug className="h-5 w-5" /> Debug — berechnete Roh-Werte pro Session
+                </CardTitle>
+                <CardDescription>
+                  Hilft Schema-Drifts zu erkennen: erwartete Lesson-/Frage-Zahlen vs. simulierte Werte.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="overflow-x-auto">
+                {debugQ.isLoading ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Paket</TableHead>
+                        <TableHead>Persona</TableHead>
+                        <TableHead className="text-right">Lessons</TableHead>
+                        <TableHead className="text-right">Q (approved)</TableHead>
+                        <TableHead className="text-right">Q sim.</TableHead>
+                        <TableHead className="text-right">Correct</TableHead>
+                        <TableHead className="text-right">RT ms</TableHead>
+                        <TableHead className="text-right">Did</TableHead>
+                        <TableHead className="text-right">Step</TableHead>
+                        <TableHead className="text-right">IHK</TableHead>
+                        <TableHead className="text-right">Q-Score</TableHead>
+                        <TableHead>LLM</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(debugQ.data ?? []).map((d, i) => (
+                        <TableRow key={`${d.package_id}-${d.persona_key}-${i}`}>
+                          <TableCell className="font-medium text-xs">{d.package_label ?? d.package_id.slice(0, 8)}</TableCell>
+                          <TableCell className="text-xs font-mono">{d.persona_key}</TableCell>
+                          <TableCell className="text-right font-mono text-xs">{d.total_lessons ?? "—"}</TableCell>
+                          <TableCell className="text-right font-mono text-xs">{d.total_questions ?? "—"}</TableCell>
+                          <TableCell className="text-right font-mono text-xs">{d.simulated_questions ?? "—"}</TableCell>
+                          <TableCell className="text-right font-mono text-xs">{d.correct_count ?? "—"}</TableCell>
+                          <TableCell className="text-right font-mono text-xs">{d.avg_response_ms ?? "—"}</TableCell>
+                          <TableCell className="text-right font-mono text-xs"><ScorePill value={d.didactic_score} /></TableCell>
+                          <TableCell className="text-right font-mono text-xs"><ScorePill value={d.step_score} /></TableCell>
+                          <TableCell className="text-right font-mono text-xs"><ScorePill value={d.ihk_score} /></TableCell>
+                          <TableCell className="text-right font-mono text-xs"><ScorePill value={d.question_score} /></TableCell>
+                          <TableCell>{d.flagged_for_llm && <Badge variant="outline" className="text-xs">LLM</Badge>}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           <Card>
             <CardHeader>
               <CardTitle>Paket-Ranking (schwächste zuerst)</CardTitle>

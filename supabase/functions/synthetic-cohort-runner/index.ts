@@ -19,6 +19,7 @@ interface StartBody {
   persona_keys?: string[];
   mode?: "heuristic_only" | "heuristic_with_llm_gate" | "llm_full";
   max_llm_calls?: number; // Cost-Cap
+  run_id?: string; // wenn gesetzt: kein neuer Run, nur LLM-Review für package_ids im existierenden Run
 }
 
 Deno.serve(async (req) => {
@@ -42,45 +43,61 @@ Deno.serve(async (req) => {
     const mode = body.mode ?? "heuristic_with_llm_gate";
     const maxLlmCalls = body.max_llm_calls ?? 10;
 
-    // 1) Run starten
-    const { data: runIdData, error: startErr } = await userClient.rpc("synth_start_run", {
-      p_package_ids: body.package_ids ?? null,
-      p_persona_keys: body.persona_keys ?? null,
-      p_mode: mode,
-    });
-    if (startErr) throw startErr;
-    const runId = runIdData as string;
-    console.log(`[synth] Run started: ${runId} (mode=${mode})`);
+    let runId: string;
+    const isRetargetedLlm = !!body.run_id && Array.isArray(body.package_ids) && body.package_ids.length > 0;
 
-    // 2) Run-Header lesen, um package_ids zu bekommen
-    const { data: runRow, error: runErr } = await admin
-      .from("synth_cohort_runs")
-      .select("package_ids")
-      .eq("id", runId)
-      .single();
-    if (runErr) throw runErr;
+    if (isRetargetedLlm) {
+      runId = body.run_id!;
+      console.log(`[synth] Retargeted LLM-Review on existing run=${runId} for ${body.package_ids!.length} pkgs`);
+    } else {
+      const { data: runIdData, error: startErr } = await userClient.rpc("synth_start_run", {
+        p_package_ids: body.package_ids ?? null,
+        p_persona_keys: body.persona_keys ?? null,
+        p_mode: mode,
+      });
+      if (startErr) throw startErr;
+      runId = runIdData as string;
+      console.log(`[synth] Run started: ${runId} (mode=${mode})`);
+    }
 
-    const pkgIds: string[] = (runRow?.package_ids as string[]) ?? [];
+    // 2) Run-Header lesen — bei retarget: nur die übergebenen pkgs nutzen
+    let pkgIds: string[];
+    if (isRetargetedLlm) {
+      pkgIds = body.package_ids!;
+    } else {
+      const { data: runRow, error: runErr } = await admin
+        .from("synth_cohort_runs")
+        .select("package_ids")
+        .eq("id", runId)
+        .single();
+      if (runErr) throw runErr;
+      pkgIds = (runRow?.package_ids as string[]) ?? [];
+    }
     console.log(`[synth] Processing ${pkgIds.length} packages`);
 
-    // 3) Pro Paket Heuristik laufen lassen
+    // 3) Heuristik nur wenn KEIN retarget (sonst sind Sessions schon da)
     let llmCalls = 0;
     const llmTargets: Array<{ pkg: string; flagged: boolean }> = [];
 
-    for (const pkgId of pkgIds) {
-      const { data: hRes, error: hErr } = await userClient.rpc("synth_run_heuristic", {
-        p_run_id: runId,
-        p_package_id: pkgId,
-      });
-      if (hErr) {
-        console.error(`[synth] Heuristik-Fehler pkg=${pkgId}:`, hErr.message);
-        continue;
+    if (!isRetargetedLlm) {
+      for (const pkgId of pkgIds) {
+        const { data: hRes, error: hErr } = await userClient.rpc("synth_run_heuristic", {
+          p_run_id: runId,
+          p_package_id: pkgId,
+        });
+        if (hErr) {
+          console.error(`[synth] Heuristik-Fehler pkg=${pkgId}:`, hErr.message);
+          continue;
+        }
+        const flagged = (hRes as { flagged_for_llm_review?: boolean })?.flagged_for_llm_review;
+        llmTargets.push({ pkg: pkgId, flagged: !!flagged });
       }
-      const flagged = (hRes as { flagged_for_llm_review?: boolean })?.flagged_for_llm_review;
-      llmTargets.push({ pkg: pkgId, flagged: !!flagged });
+    } else {
+      // Bei retarget: alle übergebenen pkgs als "flagged" behandeln (Admin hat bewusst getriggert)
+      for (const pkgId of pkgIds) llmTargets.push({ pkg: pkgId, flagged: true });
     }
 
-    // 4) LLM-Reviewer für geflaggte Pakete (nur wenn mode != heuristic_only und Key da)
+    // 4) LLM-Reviewer für geflaggte Pakete
     if (mode !== "heuristic_only" && LOVABLE_API_KEY) {
       const flaggedPkgs = llmTargets.filter((t) => t.flagged).slice(0, maxLlmCalls);
       console.log(`[synth] LLM review for ${flaggedPkgs.length} flagged packages`);
@@ -94,25 +111,28 @@ Deno.serve(async (req) => {
         }
       }
 
-      // llm_calls counter
       await admin
         .from("synth_cohort_runs")
         .update({ llm_calls: llmCalls })
         .eq("id", runId);
     }
 
-    // 5) Run finalisieren
-    const { data: finRes, error: finErr } = await userClient.rpc("synth_finalize_run", {
-      p_run_id: runId,
-    });
-    if (finErr) throw finErr;
+    // 5) Run finalisieren — bei retarget NICHT (Run ist schon completed; nur llm_calls aktualisieren)
+    let avgScore: number | undefined;
+    if (!isRetargetedLlm) {
+      const { data: finRes, error: finErr } = await userClient.rpc("synth_finalize_run", {
+        p_run_id: runId,
+      });
+      if (finErr) throw finErr;
+      avgScore = (finRes as { avg_didactic_score?: number })?.avg_didactic_score;
+    }
 
     return json({
       ok: true,
       run_id: runId,
       packages_processed: pkgIds.length,
       llm_calls: llmCalls,
-      avg_didactic_score: (finRes as { avg_didactic_score?: number })?.avg_didactic_score,
+      avg_didactic_score: avgScore,
     });
   } catch (e) {
     console.error("[synth] Error:", e);
