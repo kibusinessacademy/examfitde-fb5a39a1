@@ -97545,6 +97545,14 @@ export type Database = {
         Args: { _job_type: string; _package_id: string; _within?: string }
         Returns: boolean
       }
+      admin_heal_exam_pool_too_small: {
+        Args: {
+          p_dry_run?: boolean
+          p_force_chain_reset?: boolean
+          p_package_id: string
+        }
+        Returns: Json
+      }
       admin_heal_failed_quality_councils: {
         Args: never
         Returns: {
