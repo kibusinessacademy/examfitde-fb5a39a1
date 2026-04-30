@@ -108,12 +108,20 @@ const CertificationSEOPage = () => {
               </p>
               <div className="flex flex-wrap gap-4">
                 <Button size="lg" asChild>
-                  <Link to={productUrl}>Prüfungstraining starten <ArrowRight className="ml-2 h-5 w-5" /></Link>
+                  <Link to={productUrl}>
+                    {hasProduct ? 'Prüfungstraining starten' : 'Verfügbare Trainings ansehen'}{' '}
+                    <ArrowRight className="ml-2 h-5 w-5" />
+                  </Link>
                 </Button>
                 <Button size="lg" variant="outline" asChild>
                   <Link to={`/${category.key}`}>Alle {category.label}</Link>
                 </Button>
               </div>
+              {!hasProduct && (
+                <p className="mt-3 text-xs text-muted-foreground">
+                  Hinweis: Für „{displayTitle}" ist aktuell noch kein dediziertes Trainingspaket verfügbar.
+                </p>
+              )}
             </div>
           </div>
         </section>
