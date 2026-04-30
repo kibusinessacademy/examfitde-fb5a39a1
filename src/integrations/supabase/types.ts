@@ -98891,6 +98891,20 @@ export type Database = {
         }
         Relationships: []
       }
+      v_seo_dead_end_drift: {
+        Row: {
+          auto_repairable: boolean | null
+          curriculum_id: string | null
+          drift_reason: string | null
+          package_id: string | null
+          page_type: string | null
+          seo_id: string | null
+          slug: string | null
+          source_table: string | null
+          status: string | null
+        }
+        Relationships: []
+      }
       v_standalone_artifact_health: {
         Row: {
           any_validation_passed: boolean | null
@@ -100796,6 +100810,10 @@ export type Database = {
         Returns: Json
       }
       admin_heal_playbook_run: { Args: { p_dry_run?: boolean }; Returns: Json }
+      admin_heal_seo_dead_ends: {
+        Args: { p_unpublish_unfixable?: boolean }
+        Returns: Json
+      }
       admin_heal_stale_drafts: { Args: { p_package_id: string }; Returns: Json }
       admin_heal_step_job_coupling: {
         Args: { _step_keys?: string[] }
