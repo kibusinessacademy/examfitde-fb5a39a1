@@ -150,7 +150,7 @@ async function runLlmReview(admin: ReturnType<typeof createClient>, runId: strin
 
   const prompt = `Du bist ein Senior Learning Consultant für IHK-Prüfungsvorbereitung.
 
-Bewerte die didaktische Qualität dieser Lesson-Sequenz (Einstieg → Anwenden → Mini-Check) für das Paket "${pkg.label}".
+Bewerte die didaktische Qualität dieser Lesson-Sequenz (Einstieg → Anwenden → Mini-Check) für das Paket "${pkg.title}".
 
 Lessons:
 ${lessons.map((l) => `[${l!.step_type}] ${l!.title}\n${(l!.content ?? "").slice(0, 600)}`).join("\n\n---\n\n")}
