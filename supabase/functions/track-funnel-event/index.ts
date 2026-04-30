@@ -22,9 +22,11 @@ const ALLOWED_EVENTS = new Set([
   "lead_magnet_view", "quiz_started", "quiz_completed", "lead_capture_submitted", "lead_capture_view",
 ]);
 
-// Pflichtfeld package_id für diese Events (siehe Growth-Memo)
+// Pflichtfeld package_id für diese Events (siehe Growth-Memo).
+// HINWEIS: lead_magnet_view bewusst NICHT pflichtig — wir wollen den
+// unmatched-Drop messen (mapping_source='unmatched' bei SEO-Pages ohne Paket).
 const PACKAGE_REQUIRED_EVENTS = new Set([
-  "lead_magnet_view", "quiz_started", "quiz_completed", "lead_capture_submitted",
+  "quiz_started", "quiz_completed", "lead_capture_submitted",
 ]);
 
 function json(body: unknown, status = 200) {
