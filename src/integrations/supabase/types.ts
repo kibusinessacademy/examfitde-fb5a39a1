@@ -97065,6 +97065,15 @@ export type Database = {
         Args: { p_dry_run?: boolean; p_max_packages?: number }
         Returns: Json
       }
+      admin_bulk_promote_content_deficient_packages: {
+        Args: {
+          p_dry_run?: boolean
+          p_max_packages?: number
+          p_min_approved?: number
+          p_wip_cap?: number
+        }
+        Returns: Json
+      }
       admin_bulk_promote_queued_to_building: {
         Args: {
           p_dry_run?: boolean
