@@ -97510,6 +97510,58 @@ export type Database = {
         }
         Relationships: []
       }
+      v_system_intents_kpi: {
+        Row: {
+          avg_processing_seconds: number | null
+          claimed_open: number | null
+          consumed: number | null
+          consumed_last_hour: number | null
+          created_last_hour: number | null
+          intent_type: string | null
+          last_consumed_at: string | null
+          last_created_at: string | null
+          pending: number | null
+          source: string | null
+          stuck_claimed: number | null
+        }
+        Relationships: []
+      }
+      v_system_intents_stuck_claimed: {
+        Row: {
+          claimed_at: string | null
+          claimed_by: string | null
+          id: string | null
+          intent_type: string | null
+          package_id: string | null
+          payload: Json | null
+          signature: string | null
+          source: string | null
+          stuck_minutes: number | null
+        }
+        Insert: {
+          claimed_at?: string | null
+          claimed_by?: string | null
+          id?: string | null
+          intent_type?: string | null
+          package_id?: string | null
+          payload?: Json | null
+          signature?: string | null
+          source?: string | null
+          stuck_minutes?: never
+        }
+        Update: {
+          claimed_at?: string | null
+          claimed_by?: string | null
+          id?: string | null
+          intent_type?: string | null
+          package_id?: string | null
+          payload?: Json | null
+          signature?: string | null
+          source?: string | null
+          stuck_minutes?: never
+        }
+        Relationships: []
+      }
       v_track_step_drift_packages: {
         Row: {
           package_id: string | null
@@ -100394,6 +100446,10 @@ export type Database = {
       create_weakness_assignments_from_exam: {
         Args: { p_session_id: string }
         Returns: number
+      }
+      cron_record_tick_intent: {
+        Args: { p_intent_type: string; p_source: string }
+        Returns: Json
       }
       current_integrity_report_version_num: { Args: never; Returns: number }
       default_asset_plan_for_channel: {

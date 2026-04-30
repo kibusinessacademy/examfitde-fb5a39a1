@@ -58,6 +58,7 @@ import { StuckPatternsCard } from "@/components/admin/heal/cards/StuckPatternsCa
 import { HealStatusCard } from "@/components/admin/heal/cards/HealStatusCard";
 import { ExamPoolDriftLogCard } from "@/components/admin/heal/cards/ExamPoolDriftLogCard";
 import { StaleDraftsCard } from "@/components/admin/heal/cards/StaleDraftsCard";
+import { SystemIntentsKpiCard } from "@/components/admin/heal/cards/SystemIntentsKpiCard";
 import { QueueDrainCard } from "@/components/admin/heal/cards/QueueDrainCard";
 import { BlockedPackagesCard } from "@/components/admin/heal/cards/BlockedPackagesCard";
 import { TriageCards } from "@/components/admin/heal/cards/TriageCards";
@@ -268,6 +269,7 @@ export default function HealCockpitPage() {
             />
           </AccordionTrigger>
           <AccordionContent className="pb-4 space-y-3">
+            <SystemIntentsKpiCard />
             <StuckPatternsCard />
             <HealStatusCard />
             <StaleDraftsCard />
