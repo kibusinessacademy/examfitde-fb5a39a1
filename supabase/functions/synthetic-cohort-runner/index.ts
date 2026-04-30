@@ -19,6 +19,7 @@ interface StartBody {
   persona_keys?: string[];
   mode?: "heuristic_only" | "heuristic_with_llm_gate" | "llm_full";
   max_llm_calls?: number; // Cost-Cap
+  run_id?: string; // wenn gesetzt: kein neuer Run, nur LLM-Review für package_ids im existierenden Run
 }
 
 Deno.serve(async (req) => {
@@ -42,33 +43,45 @@ Deno.serve(async (req) => {
     const mode = body.mode ?? "heuristic_with_llm_gate";
     const maxLlmCalls = body.max_llm_calls ?? 10;
 
-    // 1) Run starten
-    const { data: runIdData, error: startErr } = await userClient.rpc("synth_start_run", {
-      p_package_ids: body.package_ids ?? null,
-      p_persona_keys: body.persona_keys ?? null,
-      p_mode: mode,
-    });
-    if (startErr) throw startErr;
-    const runId = runIdData as string;
-    console.log(`[synth] Run started: ${runId} (mode=${mode})`);
+    let runId: string;
+    const isRetargetedLlm = !!body.run_id && Array.isArray(body.package_ids) && body.package_ids.length > 0;
 
-    // 2) Run-Header lesen, um package_ids zu bekommen
-    const { data: runRow, error: runErr } = await admin
-      .from("synth_cohort_runs")
-      .select("package_ids")
-      .eq("id", runId)
-      .single();
-    if (runErr) throw runErr;
+    if (isRetargetedLlm) {
+      runId = body.run_id!;
+      console.log(`[synth] Retargeted LLM-Review on existing run=${runId} for ${body.package_ids!.length} pkgs`);
+    } else {
+      const { data: runIdData, error: startErr } = await userClient.rpc("synth_start_run", {
+        p_package_ids: body.package_ids ?? null,
+        p_persona_keys: body.persona_keys ?? null,
+        p_mode: mode,
+      });
+      if (startErr) throw startErr;
+      runId = runIdData as string;
+      console.log(`[synth] Run started: ${runId} (mode=${mode})`);
+    }
 
-    const pkgIds: string[] = (runRow?.package_ids as string[]) ?? [];
+    // 2) Run-Header lesen — bei retarget: nur die übergebenen pkgs nutzen
+    let pkgIds: string[];
+    if (isRetargetedLlm) {
+      pkgIds = body.package_ids!;
+    } else {
+      const { data: runRow, error: runErr } = await admin
+        .from("synth_cohort_runs")
+        .select("package_ids")
+        .eq("id", runId)
+        .single();
+      if (runErr) throw runErr;
+      pkgIds = (runRow?.package_ids as string[]) ?? [];
+    }
     console.log(`[synth] Processing ${pkgIds.length} packages`);
 
-    // 3) Pro Paket Heuristik laufen lassen
+    // 3) Heuristik nur wenn KEIN retarget (sonst sind Sessions schon da)
     let llmCalls = 0;
     const llmTargets: Array<{ pkg: string; flagged: boolean }> = [];
 
-    for (const pkgId of pkgIds) {
-      const { data: hRes, error: hErr } = await userClient.rpc("synth_run_heuristic", {
+    if (!isRetargetedLlm) {
+      for (const pkgId of pkgIds) {
+        const { data: hRes, error: hErr } = await userClient.rpc("synth_run_heuristic", {
         p_run_id: runId,
         p_package_id: pkgId,
       });
