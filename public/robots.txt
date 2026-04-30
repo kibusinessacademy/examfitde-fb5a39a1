@@ -12,13 +12,26 @@ Disallow: /admin
 Disallow: /admin-v2
 Disallow: /api/
 Disallow: /*.json$
-Disallow: /auth/reset-password
+Disallow: /auth
+Disallow: /dashboard
+Disallow: /account
+Disallow: /checkout
+Disallow: /success
+Disallow: /org/
+Disallow: /partner/
 
 # ───── Classic search ─────
 User-agent: Googlebot
 Allow: /
 Disallow: /admin
 Disallow: /admin-v2
+Disallow: /auth
+Disallow: /dashboard
+Disallow: /account
+Disallow: /checkout
+Disallow: /success
+Disallow: /org/
+Disallow: /partner/
 
 User-agent: Googlebot-Image
 Allow: /
@@ -27,6 +40,13 @@ User-agent: Bingbot
 Allow: /
 Disallow: /admin
 Disallow: /admin-v2
+Disallow: /auth
+Disallow: /dashboard
+Disallow: /account
+Disallow: /checkout
+Disallow: /success
+Disallow: /org/
+Disallow: /partner/
 
 User-agent: Slurp
 Allow: /
