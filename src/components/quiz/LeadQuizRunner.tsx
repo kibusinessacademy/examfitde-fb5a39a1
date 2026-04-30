@@ -83,6 +83,10 @@ export function LeadQuizRunner({ slug }: Props) {
       viewTrackedRef.current = true;
       emitFunnelEvent("LEAD_MAGNET_VIEW", {
         curriculum_id: quiz.curriculum_id,
+        package_id: mapping?.packageId ?? null,
+        persona: mapping?.persona ?? null,
+        source_page:
+          typeof window !== "undefined" ? window.location.pathname : null,
         quiz_slug: quiz.slug,
         source: "quiz",
         cta_location: "quiz_page",
