@@ -61,6 +61,7 @@ const WissenAllePage = lazyRetry(() => import('@/pages/seo/WissenAllePage'));
 const SearchPage = lazyRetry(() => import('@/pages/seo/SearchPage'));
 const CertificationCategoryPage = lazyRetry(() => import('@/pages/seo/CertificationCategoryPage'));
 const CertificationSEOPage = lazyRetry(() => import('@/pages/seo/CertificationSEOPage'));
+const PruefungSlugRedirect = lazyRetry(() => import('@/pages/seo/PruefungSlugRedirect'));
 const PruefungstrainingHub = lazyRetry(() => import('@/pages/seo/PruefungstrainingHub'));
 const PruefungstrainingDetailPage = lazyRetry(() => import('@/pages/seo/PruefungstrainingDetailPage'));
 const KarrierePage = lazyRetry(() => import('@/pages/seo/KarrierePage'));
@@ -250,6 +251,8 @@ const AppRoutes = () => {
           <Route path="/sachkunde/:slug" element={<CertificationSEOPage />} />
           <Route path="/projektmanagement" element={<CertificationCategoryPage />} />
           <Route path="/projektmanagement/:slug" element={<CertificationSEOPage />} />
+          {/* Cockpit-/Marketing-URL: leitet auf kanonische Kategorie-URL weiter */}
+          <Route path="/pruefung/:slug" element={<PruefungSlugRedirect />} />
           <Route path="/produkt/:slug" element={<ProductLandingPage />} />
           <Route path="/landing/:landingType/:slug" element={<DynamicProductLandingPage />} />
 
