@@ -126,8 +126,8 @@ Deno.serve(async (req) => {
 async function runLlmReview(admin: ReturnType<typeof createClient>, runId: string, packageId: string) {
   // Hole package + course + ein paar Lessons als Sample
   const { data: pkg } = await admin
-    .from("curriculum_packages")
-    .select("id, label, course_id")
+    .from("course_packages")
+    .select("id, title, course_id")
     .eq("id", packageId)
     .single();
   if (!pkg) return;
