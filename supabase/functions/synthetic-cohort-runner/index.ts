@@ -132,7 +132,7 @@ Deno.serve(async (req) => {
       run_id: runId,
       packages_processed: pkgIds.length,
       llm_calls: llmCalls,
-      avg_didactic_score: (finRes as { avg_didactic_score?: number })?.avg_didactic_score,
+      avg_didactic_score: avgScore,
     });
   } catch (e) {
     console.error("[synth] Error:", e);
