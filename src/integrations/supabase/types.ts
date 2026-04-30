@@ -60805,6 +60805,270 @@ export type Database = {
           },
         ]
       }
+      synth_cohort_runs: {
+        Row: {
+          avg_didactic_score: number | null
+          completed_at: string | null
+          error_message: string | null
+          id: string
+          llm_calls: number
+          metadata: Json
+          mode: string
+          package_ids: string[]
+          packages_completed: number
+          packages_total: number
+          packages_with_findings: number
+          persona_keys: string[]
+          started_at: string
+          status: string
+          total_findings: number
+          triggered_by: string | null
+        }
+        Insert: {
+          avg_didactic_score?: number | null
+          completed_at?: string | null
+          error_message?: string | null
+          id?: string
+          llm_calls?: number
+          metadata?: Json
+          mode?: string
+          package_ids?: string[]
+          packages_completed?: number
+          packages_total?: number
+          packages_with_findings?: number
+          persona_keys?: string[]
+          started_at?: string
+          status?: string
+          total_findings?: number
+          triggered_by?: string | null
+        }
+        Update: {
+          avg_didactic_score?: number | null
+          completed_at?: string | null
+          error_message?: string | null
+          id?: string
+          llm_calls?: number
+          metadata?: Json
+          mode?: string
+          package_ids?: string[]
+          packages_completed?: number
+          packages_total?: number
+          packages_with_findings?: number
+          persona_keys?: string[]
+          started_at?: string
+          status?: string
+          total_findings?: number
+          triggered_by?: string | null
+        }
+        Relationships: []
+      }
+      synth_didactic_findings: {
+        Row: {
+          competency_id: string | null
+          created_at: string
+          detail: string
+          detected_by: string
+          evidence: Json
+          finding_type: string
+          id: string
+          lesson_id: string | null
+          package_id: string
+          persona_key: string | null
+          run_id: string
+          severity: string
+          suggested_fix: string | null
+        }
+        Insert: {
+          competency_id?: string | null
+          created_at?: string
+          detail: string
+          detected_by: string
+          evidence?: Json
+          finding_type: string
+          id?: string
+          lesson_id?: string | null
+          package_id: string
+          persona_key?: string | null
+          run_id: string
+          severity: string
+          suggested_fix?: string | null
+        }
+        Update: {
+          competency_id?: string | null
+          created_at?: string
+          detail?: string
+          detected_by?: string
+          evidence?: Json
+          finding_type?: string
+          id?: string
+          lesson_id?: string | null
+          package_id?: string
+          persona_key?: string | null
+          run_id?: string
+          severity?: string
+          suggested_fix?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "synth_didactic_findings_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "synth_cohort_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      synth_mastery_calibration: {
+        Row: {
+          applied: boolean
+          confidence: number | null
+          created_at: string
+          current_value: number | null
+          evidence: Json
+          id: string
+          parameter_name: string
+          rationale: string
+          recommended_value: number | null
+          run_id: string
+        }
+        Insert: {
+          applied?: boolean
+          confidence?: number | null
+          created_at?: string
+          current_value?: number | null
+          evidence?: Json
+          id?: string
+          parameter_name: string
+          rationale: string
+          recommended_value?: number | null
+          run_id: string
+        }
+        Update: {
+          applied?: boolean
+          confidence?: number | null
+          created_at?: string
+          current_value?: number | null
+          evidence?: Json
+          id?: string
+          parameter_name?: string
+          rationale?: string
+          recommended_value?: number | null
+          run_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "synth_mastery_calibration_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "synth_cohort_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      synth_personas: {
+        Row: {
+          active: boolean
+          completion_rate: number
+          created_at: string
+          description: string | null
+          display_name: string
+          hint_usage_rate: number
+          id: string
+          metadata: Json
+          persona_key: string
+          response_speed_factor: number
+          retry_rate: number
+          target_accuracy: number
+        }
+        Insert: {
+          active?: boolean
+          completion_rate?: number
+          created_at?: string
+          description?: string | null
+          display_name: string
+          hint_usage_rate?: number
+          id?: string
+          metadata?: Json
+          persona_key: string
+          response_speed_factor?: number
+          retry_rate?: number
+          target_accuracy: number
+        }
+        Update: {
+          active?: boolean
+          completion_rate?: number
+          created_at?: string
+          description?: string | null
+          display_name?: string
+          hint_usage_rate?: number
+          id?: string
+          metadata?: Json
+          persona_key?: string
+          response_speed_factor?: number
+          retry_rate?: number
+          target_accuracy?: number
+        }
+        Relationships: []
+      }
+      synth_session_results: {
+        Row: {
+          created_at: string
+          didactic_score: number | null
+          flagged_for_llm_review: boolean
+          id: string
+          ihk_coverage_score: number | null
+          llm_reviewed: boolean
+          package_id: string
+          persona_key: string
+          question_quality_score: number | null
+          raw_metrics: Json
+          run_id: string
+          simulated_accuracy: number | null
+          simulated_completion_rate: number | null
+          step_completeness_score: number | null
+        }
+        Insert: {
+          created_at?: string
+          didactic_score?: number | null
+          flagged_for_llm_review?: boolean
+          id?: string
+          ihk_coverage_score?: number | null
+          llm_reviewed?: boolean
+          package_id: string
+          persona_key: string
+          question_quality_score?: number | null
+          raw_metrics?: Json
+          run_id: string
+          simulated_accuracy?: number | null
+          simulated_completion_rate?: number | null
+          step_completeness_score?: number | null
+        }
+        Update: {
+          created_at?: string
+          didactic_score?: number | null
+          flagged_for_llm_review?: boolean
+          id?: string
+          ihk_coverage_score?: number | null
+          llm_reviewed?: boolean
+          package_id?: string
+          persona_key?: string
+          question_quality_score?: number | null
+          raw_metrics?: Json
+          run_id?: string
+          simulated_accuracy?: number | null
+          simulated_completion_rate?: number | null
+          step_completeness_score?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "synth_session_results_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "synth_cohort_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       synthetic_test_results: {
         Row: {
           avg_discrimination: number | null
@@ -104438,6 +104702,22 @@ export type Database = {
         Returns: Json
       }
       sync_schema_contracts: { Args: never; Returns: Json }
+      synth_finalize_run: { Args: { p_run_id: string }; Returns: Json }
+      synth_get_run_summary: { Args: { p_run_id: string }; Returns: Json }
+      synth_list_runs: { Args: { p_limit?: number }; Returns: Json }
+      synth_run_heuristic: {
+        Args: { p_package_id: string; p_run_id: string }
+        Returns: Json
+      }
+      synth_seed_personas: { Args: never; Returns: Json }
+      synth_start_run: {
+        Args: {
+          p_mode?: string
+          p_package_ids?: string[]
+          p_persona_keys?: string[]
+        }
+        Returns: string
+      }
       system_intent_claim_next: {
         Args: { p_intent_types?: string[]; p_worker_id: string }
         Returns: {
