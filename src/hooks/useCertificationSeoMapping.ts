@@ -9,6 +9,8 @@ export interface CertificationSeoMapping {
   product_slug: string | null;
   product_url_path: string | null;
   product_package_id: string | null;
+  /** 'id_chain' | 'catalog_slug' | 'slug_base' | 'unmatched' */
+  mapping_source: string;
 }
 
 /**
@@ -41,7 +43,7 @@ export function useAllCertificationSeoMappings() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('v_certification_seo_with_product' as any)
-        .select('seo_slug, title, category_key, canonical_url_path, product_slug, product_url_path, product_package_id');
+        .select('seo_slug, title, category_key, canonical_url_path, product_slug, product_url_path, product_package_id, mapping_source');
       if (error) throw error;
       return (data ?? []) as unknown as CertificationSeoMapping[];
     },
