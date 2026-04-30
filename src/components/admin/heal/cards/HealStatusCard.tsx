@@ -85,6 +85,13 @@ function fmt(ts: string | null): string {
   return new Date(ts).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" });
 }
 
+const STALE_LOG_CUTOFF_MS = 24 * 60 * 60 * 1000;
+
+function isStale(ts: string | null): boolean {
+  if (!ts) return false;
+  return Date.now() - new Date(ts).getTime() > STALE_LOG_CUTOFF_MS;
+}
+
 export function HealStatusCard() {
   const qc = useQueryClient();
   const [trackFilter, setTrackFilter] = useState<string>("ALL");
@@ -326,7 +333,15 @@ export function HealStatusCard() {
                     </div>
                   </div>
                   {p.last_reason && (
-                    <div className="mt-1.5 text-[10px] italic text-muted-foreground border-l-2 border-warning/40 pl-2">
+                    <div
+                      className={`mt-1.5 text-[10px] italic border-l-2 pl-2 ${
+                        isStale(p.last_heal_at)
+                          ? "text-muted-foreground/50 border-muted/40"
+                          : "text-muted-foreground border-warning/40"
+                      }`}
+                      title={isStale(p.last_heal_at) ? "Historischer Eintrag (>24h alt)" : undefined}
+                    >
+                      {isStale(p.last_heal_at) && <span className="not-italic mr-1">📜</span>}
                       Grund: {p.last_reason}
                     </div>
                   )}
