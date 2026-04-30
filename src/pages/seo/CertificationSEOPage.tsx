@@ -126,9 +126,14 @@ const CertificationSEOPage = () => {
                 Strukturiertes Prüfungstraining mit prüfungsnahen Fragen, realistischer Simulation und persönlichem KI-Prüfungscoach.
               </p>
               <div className="flex flex-wrap gap-4">
-                <Button size="lg" asChild>
+                <Button size="lg" asChild onClick={() => track('cta_click', {
+                  packageId: mapping?.package_id ?? null,
+                  sourcePage: sourceUrl,
+                  cta_id: 'hero_primary',
+                  cta_label: hasProduct ? 'simulate_exam' : 'browse_trainings',
+                })}>
                   <Link to={productUrl}>
-                    {hasProduct ? 'Prüfungstraining starten' : 'Verfügbare Trainings ansehen'}{' '}
+                    {hasProduct ? '👉 Jetzt Prüfung simulieren' : 'Verfügbare Trainings ansehen'}{' '}
                     <ArrowRight className="ml-2 h-5 w-5" />
                   </Link>
                 </Button>
