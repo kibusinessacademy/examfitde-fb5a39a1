@@ -28,6 +28,10 @@ export type FunnelEventKey = keyof typeof FUNNEL_EVENTS;
 
 export interface FunnelEventPayload {
   curriculum_id?: string | null;
+  /** SSOT: Pflicht für quiz_*, lead_capture_submitted, checkout_complete. */
+  package_id?: string | null;
+  persona?: string | null;
+  source_page?: string | null;
   quiz_slug?: string;
   lernplan_slug?: string;
   bundle_slug?: string;
@@ -44,14 +48,21 @@ export interface FunnelEventPayload {
  * Typed funnel-event emitter. Use this everywhere instead of trackFunnel directly.
  * BUNDLE_CTA_CLICKED wird als eigenständiges Event geschrieben — NICHT auf
  * hero_cta_click gemappt (Auswertung sonst verwässert).
+ *
+ * package_id/persona/source_page werden als Top-Level-Felder an die RPC
+ * übergeben — Server validiert serverseitig + merged in metadata (kanonische
+ * Position). Strict events ohne package_id werden vom Server zurückgewiesen.
  */
 export function emitFunnelEvent(
   key: FunnelEventKey,
   payload: FunnelEventPayload = {}
 ): Promise<void> {
-  const { curriculum_id, ...metadata } = payload;
+  const { curriculum_id, package_id, persona, source_page, ...metadata } = payload;
   return trackFunnel(FUNNEL_EVENTS[key], {
     curriculum_id: curriculum_id ?? null,
+    package_id: package_id ?? null,
+    persona: persona ?? null,
+    source_page: source_page ?? null,
     intent: key === "BUNDLE_CTA_CLICKED" ? "bundle" : null,
     metadata,
   });
