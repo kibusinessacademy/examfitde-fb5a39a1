@@ -274,19 +274,18 @@ Deno.serve(async (req) => {
               }
             }
 
-            // Track conversion
-            await adminClient.from('conversion_events').insert({
+            // Track conversion (SSOT — kanonisch checkout_complete + package_id)
+            await emitCheckoutCompleteEvent(adminClient, {
               user_id: userId,
-              event_type: 'checkout_completed',
-              metadata: {
-                session_id: session.id,
-                flow: 'b2b_subscription',
+              session_id: session.id,
+              flow: 'b2b_subscription',
+              extra: {
                 category,
                 seats,
                 subscription_id: subscriptionId,
                 amount_total: session.amount_total,
               },
-            }).then(() => {});
+            });
           }
         } catch (b2bSubErr) {
           logStep("ERROR: B2B subscription fulfillment failed", { error: String(b2bSubErr) });
