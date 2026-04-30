@@ -1,8 +1,10 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Loader2, Globe, ArrowLeft, BarChart3, FileText, Image, Link2, Settings, Euro, Share2, Search, Target, RefreshCw, Radar, Zap, Rocket, Tag, Music, Laugh, Activity } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
+const GrowthDashboardOverview = lazy(() => import('@/components/admin/growth/GrowthDashboardOverview'));
 
 const GrowthSeoCommandCenter = lazy(() => import('@/components/admin/command/GrowthSeoCommandCenter'));
 const BlogPostEditor = lazy(() => import('@/components/admin/growth/BlogPostEditor'));
@@ -34,6 +36,7 @@ const Loading = () => (
 );
 
 export default function GrowthPage() {
+  const [tab, setTab] = useState('dashboard');
   return (
     <div className="space-y-4">
       <div>
@@ -49,7 +52,7 @@ export default function GrowthPage() {
         </p>
       </div>
 
-      <Tabs defaultValue="dashboard" className="w-full">
+      <Tabs value={tab} onValueChange={setTab} className="w-full">
         <TabsList className="flex flex-wrap h-auto gap-1 bg-muted/50 p-1 rounded-xl">
           <TabsTrigger value="dashboard" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg">
             <BarChart3 className="h-3 w-3" /> Dashboard
@@ -111,6 +114,7 @@ export default function GrowthPage() {
         </TabsList>
 
         <TabsContent value="dashboard" className="mt-4 space-y-4">
+          <Suspense fallback={<Loading />}><GrowthDashboardOverview onTabSwitch={setTab} /></Suspense>
           <Suspense fallback={<Loading />}><PlatformIntegrityCard /></Suspense>
           <Suspense fallback={<Loading />}><FunnelIntegrityCard /></Suspense>
           <Suspense fallback={<Loading />}><GrowthSeoCommandCenter /></Suspense>

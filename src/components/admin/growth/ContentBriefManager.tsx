@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Plus, FileText, Target, Zap, CheckCircle, Clock } from 'lucide-react';
+import { Plus, FileText, Target, Zap, CheckCircle, Clock, Sparkles, Send, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface ContentBrief {
@@ -38,6 +38,7 @@ const STATUS_MAP: Record<string, { label: string; color: string; icon: React.Rea
 
 export default function ContentBriefManager() {
   const qc = useQueryClient();
+  const [aiBusy, setAiBusy] = useState<string | null>(null);
   const { data: briefs = [], isLoading } = useQuery({
     queryKey: ['seo-content-briefs'],
     queryFn: async () => {
@@ -46,6 +47,36 @@ export default function ContentBriefManager() {
       return (data || []) as unknown as ContentBrief[];
     },
   });
+
+  async function generateAi(briefId: string) {
+    setAiBusy(briefId);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-seo-brief', { body: { brief_id: briefId } });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      toast.success(`Brief generiert: ${(data as any)?.summary?.h1 ?? ''}`);
+      qc.invalidateQueries({ queryKey: ['seo-content-briefs'] });
+    } catch (e: any) {
+      toast.error(`AI-Generation fehlgeschlagen: ${e.message}`);
+    } finally {
+      setAiBusy(null);
+    }
+  }
+
+  async function markReady(briefId: string) {
+    setAiBusy(briefId);
+    try {
+      const { data, error } = await supabase.rpc('admin_seo_brief_to_queue' as any, { p_brief_id: briefId });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error + ((data as any).hint ? ` — ${(data as any).hint}` : ''));
+      toast.success('Brief in Pipeline geschoben (ready_for_content)');
+      qc.invalidateQueries({ queryKey: ['seo-content-briefs'] });
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setAiBusy(null);
+    }
+  }
 
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState<Record<string, any>>({});
@@ -152,24 +183,35 @@ export default function ContentBriefManager() {
         )}
         {briefs.map(b => {
           const st = STATUS_MAP[b.status] || STATUS_MAP.draft;
+          const isBusy = aiBusy === b.id;
           return (
             <Card key={b.id} className="hover:border-primary/30 transition-colors">
               <CardContent className="pt-3 pb-3">
                 <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <div className="flex items-center gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-medium text-sm">{b.title}</span>
                       <Badge variant="outline" className={`text-[10px] ${st.color}`}>{st.label}</Badge>
                       <Badge variant="secondary" className="text-[10px]">{b.content_type}</Badge>
                       {b.persona && <Badge variant="outline" className="text-[10px]">{b.persona}</Badge>}
                     </div>
-                    <div className="text-[10px] text-muted-foreground mt-1 flex gap-3">
+                    <div className="text-[10px] text-muted-foreground mt-1 flex gap-3 flex-wrap">
                       {b.primary_angle && <span>Angle: {b.primary_angle}</span>}
                       <span>{b.target_word_count} Wörter</span>
                       {b.target_publish_date && <span>Ziel: {new Date(b.target_publish_date).toLocaleDateString('de')}</span>}
                     </div>
                   </div>
-                  <Target className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1"
+                      disabled={isBusy} onClick={() => generateAi(b.id)} title="Mit AI Brief-Inhalt generieren">
+                      {isBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />} AI Brief
+                    </Button>
+                    <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1"
+                      disabled={isBusy || b.status === 'ready_for_content' || b.status === 'published'}
+                      onClick={() => markReady(b.id)} title="In Pipeline schieben">
+                      <Send className="h-3 w-3" /> Ready
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
