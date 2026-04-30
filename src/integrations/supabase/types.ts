@@ -97522,6 +97522,17 @@ export type Database = {
           },
         ]
       }
+      v_pricing_integrity_check: {
+        Row: {
+          checked_at: string | null
+          duplicate_product_cases: number | null
+          manual_review_cases: number | null
+          published_without_price: number | null
+          status: string | null
+          total_published_packages: number | null
+        }
+        Relationships: []
+      }
       v_pricing_merge_candidates: {
         Row: {
           canonical_product_id: string | null
