@@ -24,11 +24,11 @@ export function LlmVisibilityCard() {
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['llm-visibility-score'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('v_llm_visibility_score' as any)
+      const { data, error } = await (supabase as any)
+        .from('v_llm_visibility_score')
         .select('*');
       if (error) throw error;
-      return (data ?? []) as ScoreRow[];
+      return ((data ?? []) as unknown) as ScoreRow[];
     },
     refetchInterval: 30_000,
   });
