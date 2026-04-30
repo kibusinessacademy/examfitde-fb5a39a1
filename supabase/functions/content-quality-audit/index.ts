@@ -1,4 +1,4 @@
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { runContentAudit, type AuditInput } from "../_shared/content-audit-engine.ts";
 import type { ContentAuditResult } from "../_shared/content-audit-types.ts";
 import { normalizeTrack } from "../_shared/audit-profiles.ts";
