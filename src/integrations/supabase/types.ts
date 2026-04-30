@@ -97911,17 +97911,28 @@ export type Database = {
         }
         Returns: Json
       }
-      admin_step_reset_detailed: {
-        Args: {
-          p_allow_regression?: boolean
-          p_clear_exhaustion?: boolean
-          p_operator?: string
-          p_package_id: string
-          p_reason: string
-          p_step_keys: string[]
-        }
-        Returns: Json
-      }
+      admin_step_reset_detailed:
+        | {
+            Args: {
+              p_allow_regression?: boolean
+              p_clear_exhaustion?: boolean
+              p_operator?: string
+              p_package_id: string
+              p_reason: string
+              p_step_keys: string[]
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_nudge_atomic?: boolean
+              p_package_id: string
+              p_reason: string
+              p_source?: string
+              p_step_keys: string[]
+            }
+            Returns: Json
+          }
       admin_suggest_repair_action: {
         Args: { _dry_run?: boolean; _package_id: string }
         Returns: Json
