@@ -101201,6 +101201,17 @@ export type Database = {
         Args: { p_product_slug: string; p_seo_id: string }
         Returns: Json
       }
+      admin_seo_suggest_product_matches: {
+        Args: { p_limit?: number; p_seo_id: string }
+        Returns: {
+          canonical_slug: string
+          match_reason: string
+          match_score: number
+          package_id: string
+          package_status: string
+          package_title: string
+        }[]
+      }
       admin_set_setting: {
         Args: { p_key: string; p_value: Json }
         Returns: Json

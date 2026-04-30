@@ -54,10 +54,20 @@ interface DriftRow {
   auto_repairable: boolean;
 }
 
+interface MatchSuggestion {
+  package_id: string;
+  package_title: string;
+  package_status: string;
+  canonical_slug: string;
+  match_score: number;
+  match_reason: "strong_match" | "likely_match" | "weak_match" | "no_match";
+}
+
 type DialogState =
   | { kind: "none" }
   | { kind: "override"; row: DriftRow; value: string }
-  | { kind: "createPackage"; row: DriftRow; curriculumId: string; title: string; track: string };
+  | { kind: "createPackage"; row: DriftRow; curriculumId: string; title: string; track: string }
+  | { kind: "suggest"; row: DriftRow; loading: boolean; suggestions: MatchSuggestion[] };
 
 const REASON_LABEL: Record<string, string> = {
   package_not_published: "Paket nicht published",
@@ -65,6 +75,20 @@ const REASON_LABEL: Record<string, string> = {
   missing_package_id: "package_id fehlt",
   package_not_found: "Paket existiert nicht",
   missing_curriculum_id_repairable: "curriculum_id fehlt (auto)",
+};
+
+const REASON_RECOMMENDATION: Record<string, string> = {
+  package_not_published: "Quality prüfen, dann republish",
+  unmatched_no_product: "Override setzen, falls ähnliches Produkt existiert",
+  missing_package_id: "Manuelle Prüfung — kein Paket verknüpft",
+  package_not_found: "Auf Entwurf setzen — Paket existiert nicht mehr",
+  missing_curriculum_id_repairable: "Auto-Heal verfügbar",
+};
+
+const MATCH_VARIANT: Record<string, "success" | "info" | "warning"> = {
+  strong_match: "success",
+  likely_match: "info",
+  weak_match: "warning",
 };
 
 export function SeoDeadEndDriftCard() {
@@ -178,6 +202,25 @@ export function SeoDeadEndDriftCard() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const loadSuggestions = async (row: DriftRow) => {
+    setDialog({ kind: "suggest", row, loading: true, suggestions: [] });
+    const { data, error } = await supabase.rpc(
+      "admin_seo_suggest_product_matches" as never,
+      { p_seo_id: row.seo_id, p_limit: 5 } as never,
+    );
+    if (error) {
+      toast.error(error.message);
+      setDialog({ kind: "none" });
+      return;
+    }
+    setDialog({
+      kind: "suggest",
+      row,
+      loading: false,
+      suggestions: (data ?? []) as MatchSuggestion[],
+    });
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -258,6 +301,11 @@ export function SeoDeadEndDriftCard() {
                       <Badge variant="warning" className="text-[10px]">
                         {REASON_LABEL[row.drift_reason] ?? row.drift_reason}
                       </Badge>
+                      {REASON_RECOMMENDATION[row.drift_reason] && (
+                        <div className="text-[10px] text-muted-foreground mt-1 leading-tight">
+                          → {REASON_RECOMMENDATION[row.drift_reason]}
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell className="text-right space-x-1">
                       {row.source_table === "seo_content_pages" && row.package_id && (
@@ -282,6 +330,14 @@ export function SeoDeadEndDriftCard() {
                       )}
                       {row.source_table === "certification_seo_pages" && (
                         <>
+                          <Button
+                            size="sm"
+                            variant="success"
+                            onClick={() => loadSuggestions(row)}
+                            title="Auto-Match-Vorschläge anzeigen"
+                          >
+                            Auto-Match
+                          </Button>
                           <Button
                             size="sm"
                             variant="info"
@@ -431,6 +487,84 @@ export function SeoDeadEndDriftCard() {
             >
               {createPkg.isPending && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
               Anlegen
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: Auto-Match-Vorschläge */}
+      <Dialog
+        open={dialog.kind === "suggest"}
+        onOpenChange={(open) => !open && setDialog({ kind: "none" })}
+      >
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Auto-Match-Vorschläge</DialogTitle>
+            <DialogDescription>
+              Trigram-basierte Top-Kandidaten. Klick auf „Übernehmen" setzt den Slug-Override sofort.
+            </DialogDescription>
+          </DialogHeader>
+          {dialog.kind === "suggest" && (
+            <div className="space-y-3">
+              <div className="text-xs text-muted-foreground font-mono break-all">
+                {dialog.row.slug}
+              </div>
+              {dialog.loading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : dialog.suggestions.length === 0 ? (
+                <div className="text-sm text-muted-foreground py-6 text-center border rounded-md">
+                  Keine ähnlichen Pakete gefunden — bitte „+ Paket" anlegen oder manuell prüfen.
+                </div>
+              ) : (
+                <div className="rounded-md border divide-y">
+                  {dialog.suggestions.map((s) => (
+                    <div
+                      key={s.package_id}
+                      className="flex items-center justify-between gap-3 p-3"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge
+                            variant={MATCH_VARIANT[s.match_reason] ?? "outline"}
+                            className="text-[10px]"
+                          >
+                            {s.match_reason} · {(s.match_score * 100).toFixed(0)}%
+                          </Badge>
+                          <Badge variant="outline" className="text-[10px]">
+                            {s.package_status}
+                          </Badge>
+                        </div>
+                        <div className="text-sm font-medium truncate mt-1">
+                          {s.package_title}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground font-mono truncate">
+                          {s.canonical_slug}
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="success"
+                        disabled={setOverride.isPending}
+                        onClick={() =>
+                          setOverride.mutate({
+                            seoId: dialog.row.seo_id,
+                            slug: s.canonical_slug,
+                          })
+                        }
+                      >
+                        Übernehmen
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialog({ kind: "none" })}>
+              Schließen
             </Button>
           </DialogFooter>
         </DialogContent>
