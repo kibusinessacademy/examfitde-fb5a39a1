@@ -1,54 +1,66 @@
 ---
-name: E2E Pipeline Integrity Guard v1
-description: v_package_e2e_integrity (per Paket Produkt→Pricing→SEO→Funnel + heal_flags + auto_healable). v_platform_integrity um e2e_pipeline_status erweitert. fn_e2e_integrity_guard(dry_run) heilt SEO-Drafts, klassifiziert sichere Pricing-Lücken, alerts nur Rest. Cron e2e-integrity-guard-hourly (Min 17). CI scripts/e2e-integrity-check.mjs.
+name: E2E Pipeline Integrity Guard v2 (mapping-based)
+description: v_package_e2e_integrity bewertet READINESS via Mappings (has_active_price, has_published_seo_page, has_funnel_tracking_mapping) — NICHT via Traffic. Traffic-Spalten bleiben info-only. auto_healable enthält NIE Funnel/Traffic. v_platform_integrity um e2e_pipeline_status erweitert. fn_e2e_integrity_guard heilt SEO-Drafts, alertet nur echte Blocker (manual_pricing/duplicate_product/seo_missing). Funnel-Mapping fehlt → soft-log only. Cron e2e-integrity-guard-hourly Min 17 + CI scripts/e2e-integrity-check.mjs.
 type: feature
 ---
 
-# E2E Pipeline Integrity Guard v1 — 2026-04-30
+# E2E Pipeline Integrity Guard v2 — 2026-04-30
 
-## Architektur
+## Zentrale Architektur-Regel
+**Traffic ≠ Readiness.** E2E-Status misst, ob ein Paket vollständig **verkauft & getrackt werden kann**, nicht ob es Besucher hatte.
+
+## Readiness-Booleans (pro Paket)
+- `has_product` — ≥1 nicht-archiviertes Produkt für die Zertifizierung
+- `has_active_price` — aktiver `product_prices`-Eintrag
+- `has_published_seo_page` — `seo_content_pages.status='published'`
+- `has_funnel_tracking_mapping` — Proxy: published SEO-Page (TODO: spätere Tabelle `package_funnel_mappings`)
+
+## Ampel
+| Status | Regel |
+|---|---|
+| **red** | `!has_active_price` ODER `!has_published_seo_page` |
+| **yellow** | `!has_funnel_tracking_mapping` ODER `product_count > 1` ODER (nur SEO-Draft, kein published) |
+| **green** | alles vorhanden, exakt 1 Produkt |
+
+## Info-only (NICHT in e2e_status)
+- `funnel_traffic_events_7d`
+- `funnel_traffic_distinct_strict_7d`
+
+## auto_healable (deckt NIE Funnel/Traffic)
 ```
-cron 17 * * * *  →  fn_e2e_integrity_guard(false)
-                       ├─ scan v_package_e2e_integrity (e2e_status<>'green')
-                       ├─ AUTO-HEAL: SEO drafts → published
-                       ├─ CLASSIFY: pricing_create (1 product + tier high) → log only
-                       ├─ ALERT: manual_pricing | manual_duplicate_product
-                       │         | manual_seo_missing | manual_funnel_mapping
-                       │         → admin_notifications (category='e2e_integrity')
-                       └─ summary → auto_heal_log action_type='e2e_guard_run_summary'
-
-CI (Min 23, 6min nach DB-Cron) → scripts/e2e-integrity-check.mjs
-   → fail nur bei e2e_pipeline_status='red' (= manuelle Fälle nach Auto-Heal)
+(active_price OR (1 product + tier confidence=high))
+AND (seo_published OR seo_draft_exists)
+AND product_count <= 1
 ```
 
-## Heal-Matrix
+## Heal-Matrix (fn_e2e_integrity_guard)
 | Drift | Pfad |
 |---|---|
-| `seo_publish_drafts` (drafts vorhanden) | **AUTO** publish |
-| `pricing_create` (1 Produkt + tier confidence=high) | **SAFE** — log pending_admin (admin tool wendet an) |
-| `manual_pricing` (mehrdeutig / unknown tier) | **ALERT** |
-| `manual_duplicate_product` (>1 Produkt/Cert) | **ALERT** |
+| `seo_publish_drafts` | **AUTO** publish |
+| `pricing_create` (1 Produkt + tier high) | **SAFE** — log pending_admin |
+| `manual_pricing` (mehrdeutig) | **ALERT** admin_notifications |
+| `manual_duplicate_product` | **ALERT** |
 | `manual_seo_missing` (kein draft, kein published) | **ALERT** |
-| `manual_funnel_mapping` (0 Events 7d mit pkg_id) | **ALERT** (Code/Mapping-Entscheidung) |
+| `manual_funnel_mapping` | **SOFT-LOG only** (Code/Mapping-Entscheidung, kein Alert-Spam) |
 
 ## Master-Status
 `platform_status = worst(pricing, funnel, seo_publish, e2e_pipeline)`.
 `e2e_pipeline_status = red` ⇔ ≥1 Paket red **und** nicht auto_healable.
 
-## Baseline (2026-04-30, Live-Run)
+## Baseline v2 (2026-04-30, Live)
 ```
-platform=red  e2e=red  red=29  yellow=0  green=16  auto_healable=0  manual=29
-seo_healed=0  pricing_safe=0  alerts=29
+e2e_pipeline_status=green  red=0  yellow=0  green=29  alerts=0
 ```
-Alle 29 manuelle Alerts = `manual_funnel_mapping` (Live-Traffic-Leak, bekannt — Tracking-SSOT-Konsolidierung in 24h-Beobachtung).
+(`platform_status=red` separat wegen Tracking-Completeness 0% in v_funnel_integrity_check — das ist Traffic-Qualität, nicht E2E-Readiness.)
 
 ## Komponenten
-- View `public.v_package_e2e_integrity` (security_invoker, authenticated/service_role)
-- View `public.v_platform_integrity` erweitert: `e2e_pipeline_status`, `e2e_red_count`, `e2e_yellow_count`, `e2e_green_count`, `e2e_auto_healable_count`, `e2e_manual_count`
-- RPC `public.fn_e2e_integrity_guard(p_dry_run boolean)` → service_role only
-- Cron `e2e-integrity-guard-hourly` (DB pg_cron, Min 17)
-- CI `.github/workflows/e2e-integrity-guard.yml` (Min 23, +PR/push migrations)
-- Smoke `scripts/e2e-integrity-check.mjs`
+- View `public.v_package_e2e_integrity` (security_invoker)
+- View `public.v_platform_integrity` mit `e2e_pipeline_status` + Counts
+- RPC `public.fn_e2e_integrity_guard(p_dry_run)` — service_role only
+- Cron `e2e-integrity-guard-hourly` (Min 17)
+- CI `.github/workflows/e2e-integrity-guard.yml` (Min 23) + `scripts/e2e-integrity-check.mjs`
 
-## Regel
-Du musst nicht überwachen — Alert nur bei nicht-heilbaren Fällen oder wenn nach Auto-Heal weiterhin red.
+## Migration v1 → v2 (Architektur-Fix)
+- v1 nutzte `events_7d > 0` als Funnel-Gate → jedes Paket ohne Live-Traffic war rot. **FALSCH**.
+- v2: Mapping (published SEO-Page) als Readiness-Proxy. Traffic separat als Info-Spalte.
+- v1-Alerts (29 false-positive `manual_funnel_mapping`) per UPDATE `is_read=true` abgeräumt.
