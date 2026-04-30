@@ -491,6 +491,84 @@ export function SeoDeadEndDriftCard() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Dialog: Auto-Match-Vorschläge */}
+      <Dialog
+        open={dialog.kind === "suggest"}
+        onOpenChange={(open) => !open && setDialog({ kind: "none" })}
+      >
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Auto-Match-Vorschläge</DialogTitle>
+            <DialogDescription>
+              Trigram-basierte Top-Kandidaten. Klick auf „Übernehmen" setzt den Slug-Override sofort.
+            </DialogDescription>
+          </DialogHeader>
+          {dialog.kind === "suggest" && (
+            <div className="space-y-3">
+              <div className="text-xs text-muted-foreground font-mono break-all">
+                {dialog.row.slug}
+              </div>
+              {dialog.loading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : dialog.suggestions.length === 0 ? (
+                <div className="text-sm text-muted-foreground py-6 text-center border rounded-md">
+                  Keine ähnlichen Pakete gefunden — bitte „+ Paket" anlegen oder manuell prüfen.
+                </div>
+              ) : (
+                <div className="rounded-md border divide-y">
+                  {dialog.suggestions.map((s) => (
+                    <div
+                      key={s.package_id}
+                      className="flex items-center justify-between gap-3 p-3"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge
+                            variant={MATCH_VARIANT[s.match_reason] ?? "outline"}
+                            className="text-[10px]"
+                          >
+                            {s.match_reason} · {(s.match_score * 100).toFixed(0)}%
+                          </Badge>
+                          <Badge variant="outline" className="text-[10px]">
+                            {s.package_status}
+                          </Badge>
+                        </div>
+                        <div className="text-sm font-medium truncate mt-1">
+                          {s.package_title}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground font-mono truncate">
+                          {s.canonical_slug}
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="success"
+                        disabled={setOverride.isPending}
+                        onClick={() =>
+                          setOverride.mutate({
+                            seoId: dialog.row.seo_id,
+                            slug: s.canonical_slug,
+                          })
+                        }
+                      >
+                        Übernehmen
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialog({ kind: "none" })}>
+              Schließen
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
