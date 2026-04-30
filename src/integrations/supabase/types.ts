@@ -18113,6 +18113,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "curricula_certification_id_fkey"
+            columns: ["certification_id"]
+            isOneToOne: false
+            referencedRelation: "v_pricing_backfill_dryrun"
+            referencedColumns: ["certification_id"]
+          },
+          {
             foreignKeyName: "curricula_program_id_fkey"
             columns: ["program_id"]
             isOneToOne: false
@@ -49617,6 +49624,13 @@ export type Database = {
             referencedRelation: "certifications"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "product_landing_profiles_certification_id_fkey"
+            columns: ["certification_id"]
+            isOneToOne: false
+            referencedRelation: "v_pricing_backfill_dryrun"
+            referencedColumns: ["certification_id"]
+          },
         ]
       }
       product_module_configs: {
@@ -49666,6 +49680,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "certifications"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_module_configs_certification_id_fkey"
+            columns: ["certification_id"]
+            isOneToOne: true
+            referencedRelation: "v_pricing_backfill_dryrun"
+            referencedColumns: ["certification_id"]
           },
         ]
       }
@@ -49994,6 +50015,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "certifications"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_pricing_configs_certification_id_fkey"
+            columns: ["certification_id"]
+            isOneToOne: true
+            referencedRelation: "v_pricing_backfill_dryrun"
+            referencedColumns: ["certification_id"]
           },
         ]
       }
@@ -100298,6 +100326,19 @@ export type Database = {
         Returns: Json
       }
       admin_ops_queue_overview: { Args: never; Returns: Json }
+      admin_pricing_backfill_apply: {
+        Args: { p_dry_run?: boolean; p_package_ids: string[] }
+        Returns: {
+          action: string
+          amount_cents: number
+          message: string
+          package_id: string
+          package_title: string
+          price_id: string
+          status: string
+          tier_key: string
+        }[]
+      }
       admin_pricing_backfill_preview: {
         Args: never
         Returns: {
