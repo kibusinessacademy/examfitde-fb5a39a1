@@ -20,6 +20,7 @@ const ContentBriefManager = lazy(() => import('@/components/admin/growth/Content
 const InternalLinkManager = lazy(() => import('@/components/admin/growth/InternalLinkManager'));
 const RefreshQueueManager = lazy(() => import('@/components/admin/growth/RefreshQueueManager'));
 const SEOAuditManager = lazy(() => import('@/components/admin/growth/SEOAuditManager'));
+const LlmVisibilityCard = lazy(() => import('@/features/admin/components/LlmVisibilityCard').then(m => ({ default: m.LlmVisibilityCard })));
 const SEODiscoveryManager = lazy(() => import('@/components/admin/growth/SEODiscoveryManager'));
 const GrowthLoopManager = lazy(() => import('@/components/admin/growth/GrowthLoopManager'));
 const PromoCodesPanel = lazy(() => import('@/components/admin/marketing/AdminPromoCodesPanel'));
@@ -119,7 +120,10 @@ export default function GrowthPage() {
         <TabsContent value="blog" className="mt-4"><Suspense fallback={<Loading />}><BlogPostEditor /></Suspense></TabsContent>
         <TabsContent value="pages" className="mt-4"><Suspense fallback={<Loading />}><ContentPageEditor /></Suspense></TabsContent>
         <TabsContent value="links" className="mt-4"><Suspense fallback={<Loading />}><InternalLinkManager /></Suspense></TabsContent>
-        <TabsContent value="audit" className="mt-4"><Suspense fallback={<Loading />}><SEOAuditManager /></Suspense></TabsContent>
+        <TabsContent value="audit" className="mt-4 space-y-4">
+          <Suspense fallback={<Loading />}><LlmVisibilityCard /></Suspense>
+          <Suspense fallback={<Loading />}><SEOAuditManager /></Suspense>
+        </TabsContent>
         <TabsContent value="refresh" className="mt-4"><Suspense fallback={<Loading />}><RefreshQueueManager /></Suspense></TabsContent>
         <TabsContent value="discovery" className="mt-4"><Suspense fallback={<Loading />}><SEODiscoveryManager /></Suspense></TabsContent>
         <TabsContent value="seo" className="mt-4"><Suspense fallback={<Loading />}><SEOSettingsManager /></Suspense></TabsContent>

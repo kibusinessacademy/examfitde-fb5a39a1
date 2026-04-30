@@ -25,3 +25,38 @@
 
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
+
+# ── noindex Header für geschützte Routen ──
+# Wirksam nur auf Hostings, die _headers respektieren (Vercel/Netlify/CF Pages).
+# Auf Lovable Hosting ohne Wirkung — dort greift RouteNoindex.tsx (JS-Meta).
+/dashboard
+  X-Robots-Tag: noindex, nofollow, noarchive
+/dashboard/*
+  X-Robots-Tag: noindex, nofollow, noarchive
+/account
+  X-Robots-Tag: noindex, nofollow, noarchive
+/account/*
+  X-Robots-Tag: noindex, nofollow, noarchive
+/checkout
+  X-Robots-Tag: noindex, nofollow, noarchive
+/checkout/*
+  X-Robots-Tag: noindex, nofollow, noarchive
+/auth
+  X-Robots-Tag: noindex, nofollow, noarchive
+/auth/*
+  X-Robots-Tag: noindex, nofollow, noarchive
+/purchase-success
+  X-Robots-Tag: noindex, nofollow, noarchive
+/success
+  X-Robots-Tag: noindex, nofollow, noarchive
+/org/*
+  X-Robots-Tag: noindex, nofollow, noarchive
+/admin
+  X-Robots-Tag: noindex, nofollow, noarchive
+/admin/*
+  X-Robots-Tag: noindex, nofollow, noarchive
+/admin-v2
+  X-Robots-Tag: noindex, nofollow, noarchive
+/admin-v2/*
+  X-Robots-Tag: noindex, nofollow, noarchive
+
