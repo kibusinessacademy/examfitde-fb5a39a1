@@ -1,7 +1,9 @@
+import { useEffect } from 'react';
 import { useParams, useLocation, Link } from 'react-router-dom';
 import DOMPurify from 'dompurify';
 import { useCertificationSEOPage } from '@/hooks/useCertificationSEO';
-import { useCertificationSeoMapping } from '@/hooks/useCertificationSeoMapping';
+import { useCertificationSeoMapping, buildBuyCtaUrl } from '@/hooks/useCertificationSeoMapping';
+import { useTrackGrowthEvent } from '@/hooks/useTrackGrowthEvent';
 import { Loader2, ArrowRight, BookOpen, Target, Brain, CheckCircle2, Award } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
