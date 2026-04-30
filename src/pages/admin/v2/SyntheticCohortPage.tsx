@@ -145,6 +145,72 @@ export default function SyntheticCohortPage() {
     onError: (e: Error) => toast.error(`Run fehlgeschlagen: ${e.message}`),
   });
 
+  // Re-Run Heuristik (nach Schema-Drift-Fix)
+  const rerunMut = useMutation({
+    mutationFn: async (vars: { runId: string; onlyFlagged: boolean }) => {
+      const { data, error } = await supabase.rpc("synth_rerun_heuristic", {
+        p_run_id: vars.runId,
+        p_only_flagged: vars.onlyFlagged,
+      });
+      if (error) throw error;
+      return data as { ok: boolean; rerun_packages?: number; avg_didactic_score?: number; total_findings?: number; error?: string };
+    },
+    onSuccess: (data) => {
+      if (!data?.ok) { toast.error(`Re-Run abgebrochen: ${data?.error ?? "unknown"}`); return; }
+      toast.success(`Re-Run: ${data.rerun_packages} Pakete · Ø ${data.avg_didactic_score?.toFixed(1) ?? "—"} · ${data.total_findings} Findings`);
+      qc.invalidateQueries({ queryKey: ["synth-runs"] });
+      qc.invalidateQueries({ queryKey: ["synth-summary", selectedRun] });
+      qc.invalidateQueries({ queryKey: ["synth-debug", selectedRun] });
+      qc.invalidateQueries({ queryKey: ["synth-llm-candidates", selectedRun] });
+    },
+    onError: (e: Error) => toast.error(`Re-Run fehlgeschlagen: ${e.message}`),
+  });
+
+  // Gezielter LLM-Review nur für niedrige-Score-Pakete
+  const llmTriggerMut = useMutation({
+    mutationFn: async (vars: { runId: string; packageIds: string[] }) => {
+      const { data, error } = await supabase.functions.invoke("synthetic-cohort-runner", {
+        body: {
+          run_id: vars.runId,
+          package_ids: vars.packageIds,
+          mode: "heuristic_with_llm_gate",
+          max_llm_calls: Math.min(vars.packageIds.length, 20),
+        },
+      });
+      if (error) throw error;
+      return data as { llm_calls?: number; packages_processed?: number };
+    },
+    onSuccess: (data) => {
+      toast.success(`LLM-Review: ${data.packages_processed ?? 0} Pakete · ${data.llm_calls ?? 0} Calls`);
+      qc.invalidateQueries({ queryKey: ["synth-summary", selectedRun] });
+    },
+    onError: (e: Error) => toast.error(`LLM-Trigger fehlgeschlagen: ${e.message}`),
+  });
+
+  // Debug-Tabelle (lazy)
+  const debugQ = useQuery({
+    queryKey: ["synth-debug", selectedRun],
+    queryFn: async (): Promise<DebugRow[]> => {
+      if (!selectedRun) return [];
+      const { data, error } = await supabase.rpc("synth_get_debug_table", { p_run_id: selectedRun });
+      if (error) throw error;
+      return ((data as unknown) as DebugRow[]) ?? [];
+    },
+    enabled: !!selectedRun && debugMode,
+  });
+
+  // LLM-Kandidaten (niedrige Scores)
+  const llmCandidatesQ = useQuery({
+    queryKey: ["synth-llm-candidates", selectedRun],
+    queryFn: async (): Promise<LlmCandidateRow[]> => {
+      if (!selectedRun) return [];
+      const { data, error } = await supabase.rpc("synth_get_llm_candidates", { p_run_id: selectedRun });
+      if (error) throw error;
+      return ((data as unknown) as LlmCandidateRow[]) ?? [];
+    },
+    enabled: !!selectedRun,
+  });
+
   return (
     <div className="container mx-auto py-6 space-y-6 max-w-7xl">
       <div className="flex items-start justify-between gap-4">
