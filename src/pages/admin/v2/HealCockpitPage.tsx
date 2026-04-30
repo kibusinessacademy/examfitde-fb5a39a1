@@ -57,6 +57,7 @@ import { TargetedHealCard } from "@/components/admin/heal/cards/TargetedHealCard
 import { StuckPatternsCard } from "@/components/admin/heal/cards/StuckPatternsCard";
 import { HealStatusCard } from "@/components/admin/heal/cards/HealStatusCard";
 import { ExamPoolDriftLogCard } from "@/components/admin/heal/cards/ExamPoolDriftLogCard";
+import { StaleDraftsCard } from "@/components/admin/heal/cards/StaleDraftsCard";
 import { QueueDrainCard } from "@/components/admin/heal/cards/QueueDrainCard";
 import { BlockedPackagesCard } from "@/components/admin/heal/cards/BlockedPackagesCard";
 import { TriageCards } from "@/components/admin/heal/cards/TriageCards";
@@ -269,6 +270,7 @@ export default function HealCockpitPage() {
           <AccordionContent className="pb-4 space-y-3">
             <StuckPatternsCard />
             <HealStatusCard />
+            <StaleDraftsCard />
             <ExamPoolDriftLogCard />
             <TargetedHealCard />
             <BlockedPackagesCard />
