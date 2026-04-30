@@ -93575,10 +93575,14 @@ export type Database = {
           certification_id: string | null
           certification_title: string | null
           checked_at: string | null
-          distinct_strict_events_7d: number | null
           e2e_status: string | null
-          funnel_events_7d: number | null
-          funnel_status: string | null
+          funnel_mapping_status: string | null
+          funnel_traffic_distinct_strict_7d: number | null
+          funnel_traffic_events_7d: number | null
+          has_active_price: boolean | null
+          has_funnel_tracking_mapping: boolean | null
+          has_product: boolean | null
+          has_published_seo_page: boolean | null
           heal_flags: Json | null
           package_id: string | null
           package_title: string | null
