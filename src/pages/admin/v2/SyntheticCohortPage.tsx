@@ -75,7 +75,7 @@ export default function SyntheticCohortPage() {
     queryFn: async (): Promise<RunRow[]> => {
       const { data, error } = await supabase.rpc("synth_list_runs", { p_limit: 20 });
       if (error) throw error;
-      return (data as RunRow[]) ?? [];
+      return ((data as unknown) as RunRow[]) ?? [];
     },
     refetchInterval: 5000,
   });
