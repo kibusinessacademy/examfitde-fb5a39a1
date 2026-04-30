@@ -100341,16 +100341,23 @@ export type Database = {
       }
       admin_ops_queue_overview: { Args: never; Returns: Json }
       admin_pricing_backfill_apply: {
-        Args: { p_dry_run?: boolean; p_package_ids: string[] }
+        Args: {
+          p_actions?: string[]
+          p_confidence?: string[]
+          p_dry_run?: boolean
+          p_tiers?: string[]
+        }
         Returns: {
-          action: string
-          amount_cents: number
-          message: string
+          action_needed: string
+          applied: boolean
+          confidence: string
+          existing_product_id: string
           package_id: string
           package_title: string
-          price_id: string
-          status: string
-          tier_key: string
+          skip_reason: string
+          suggested_price_cents: number
+          suggested_tier: string
+          would_create_price: boolean
         }[]
       }
       admin_pricing_backfill_preview: {
