@@ -156,6 +156,7 @@ const CockpitPage = lazyRetry(() => import('@/pages/admin/v2/CockpitPage'));
 const AIAnalysisAuditPage = lazyRetry(() => import('@/pages/admin/v2/AIAnalysisAuditPage'));
 const SEOTestPage = lazyRetry(() => import('@/pages/admin/v2/SEOTestPage'));
 const HealCockpitPage = lazyRetry(() => import('@/pages/admin/v2/HealCockpitPage'));
+const SyntheticCohortPage = lazyRetry(() => import('@/pages/admin/v2/SyntheticCohortPage'));
 
 // ExamFit@work public pages
 const WorkHomePage = lazyRetry(() => import('@/pages/work/WorkHomePage'));
