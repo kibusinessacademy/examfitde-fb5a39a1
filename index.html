@@ -27,13 +27,16 @@
     <meta name="language" content="German" />
     <meta name="content-language" content="de-DE" />
 
-    <!-- Static canonical fallback for non-JS crawlers (apex with trailing slash for homepage) -->
-    <!-- React SEOHead overrides this per-route; this is the SSR-less default. -->
-    <link rel="canonical" href="https://examfit.de/" />
+    <!--
+      KEIN statischer Canonical / hreflang im SPA-Shell!
+      Lovable Hosting liefert index.html als Fallback für ALLE Routen aus.
+      Ein statischer canonical=https://examfit.de/ würde damit auf jeder Route
+      identisch erscheinen → Duplicate-Content-Cluster für Crawler ohne JS.
+      Per-Route canonical/hreflang wird via @/components/seo/SEOHead gesetzt.
+      Geschützte Routen werden via @/components/seo/RouteNoindex auf
+      noindex,nofollow gesetzt + Canonical entfernt.
+    -->
 
-    <!-- hreflang for German market targeting -->
-    <link rel="alternate" hreflang="de" href="https://examfit.de/" />
-    <link rel="alternate" hreflang="x-default" href="https://examfit.de/" />
 
     <!-- Theme & PWA -->
     <meta name="theme-color" content="#0F3D3E" media="(prefers-color-scheme: light)" />
