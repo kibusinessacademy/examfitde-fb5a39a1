@@ -267,6 +267,38 @@ export function SeoDeadEndDriftCard() {
           <Badge variant="warning">Paket unpublished: {counts.contentPkgUnpublished}</Badge>
           <Badge variant="warning">Cert ohne Produkt: {counts.certUnmatched}</Badge>
         </div>
+        {counts.certUnmatched > 0 && (
+          <div className="mt-3 flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/30 p-2">
+            <span className="text-xs text-muted-foreground">
+              Batch Auto-Match (Score ≥ 70 %, max 25 / Lauf):
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => batchApply.mutate({ dryRun: true })}
+              disabled={batchApply.isPending}
+            >
+              {batchApply.isPending && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
+              Dry-Run
+            </Button>
+            <Button
+              size="sm"
+              variant="success"
+              onClick={() => {
+                if (
+                  window.confirm(
+                    "Alle Top-1-Matches mit Score ≥ 70 % automatisch als Override übernehmen?\n\nJede Übernahme wird im Audit-Log protokolliert.",
+                  )
+                ) {
+                  batchApply.mutate({ dryRun: false });
+                }
+              }}
+              disabled={batchApply.isPending}
+            >
+              Apply Strong (≥70 %)
+            </Button>
+          </div>
+        )}
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="relative">
