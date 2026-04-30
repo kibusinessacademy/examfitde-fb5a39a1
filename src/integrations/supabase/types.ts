@@ -101188,6 +101188,10 @@ export type Database = {
           slug: string
         }[]
       }
+      admin_seo_batch_apply_strong_matches: {
+        Args: { p_dry_run?: boolean; p_limit?: number; p_min_score?: number }
+        Returns: Json
+      }
       admin_seo_create_draft_package: {
         Args: { p_curriculum_id: string; p_title: string; p_track?: string }
         Returns: Json

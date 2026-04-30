@@ -221,6 +221,29 @@ export function SeoDeadEndDriftCard() {
     });
   };
 
+  const batchApply = useMutation({
+    mutationFn: async (vars: { dryRun: boolean }) => {
+      const { data, error } = await supabase.rpc(
+        "admin_seo_batch_apply_strong_matches" as never,
+        { p_min_score: 0.7, p_limit: 25, p_dry_run: vars.dryRun } as never,
+      );
+      if (error) throw error;
+      return data as {
+        ok: boolean;
+        dry_run: boolean;
+        applied_count: number;
+        skipped_count: number;
+      };
+    },
+    onSuccess: (res) => {
+      const verb = res.dry_run ? "Vorschau" : "Übernommen";
+      toast.success(
+        `${verb}: ${res.applied_count} starke Matches · ${res.skipped_count} übersprungen`,
+      );
+      if (!res.dry_run) invalidate();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
   return (
     <Card>
       <CardHeader>
@@ -244,6 +267,38 @@ export function SeoDeadEndDriftCard() {
           <Badge variant="warning">Paket unpublished: {counts.contentPkgUnpublished}</Badge>
           <Badge variant="warning">Cert ohne Produkt: {counts.certUnmatched}</Badge>
         </div>
+        {counts.certUnmatched > 0 && (
+          <div className="mt-3 flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/30 p-2">
+            <span className="text-xs text-muted-foreground">
+              Batch Auto-Match (Score ≥ 70 %, max 25 / Lauf):
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => batchApply.mutate({ dryRun: true })}
+              disabled={batchApply.isPending}
+            >
+              {batchApply.isPending && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
+              Dry-Run
+            </Button>
+            <Button
+              size="sm"
+              variant="success"
+              onClick={() => {
+                if (
+                  window.confirm(
+                    "Alle Top-1-Matches mit Score ≥ 70 % automatisch als Override übernehmen?\n\nJede Übernahme wird im Audit-Log protokolliert.",
+                  )
+                ) {
+                  batchApply.mutate({ dryRun: false });
+                }
+              }}
+              disabled={batchApply.isPending}
+            >
+              Apply Strong (≥70 %)
+            </Button>
+          </div>
+        )}
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="relative">
