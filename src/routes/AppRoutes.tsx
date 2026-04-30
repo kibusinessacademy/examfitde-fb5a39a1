@@ -23,6 +23,7 @@ import MainLayout from '@/components/layout/MainLayout';
 import SEOLayout from '@/components/layout/SEOLayout';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import WorkGonePage from '@/components/work/WorkGonePage';
+import { RouteNoindex } from '@/components/seo/RouteNoindex';
 
 // Lazy Loaded Pages
 import AuthHomeRoute from '@/components/auth/AuthHomeRoute';
@@ -201,6 +202,7 @@ const LoadingFallback = () => (
 const AppRoutes = () => {
   return (
     <Suspense fallback={<LoadingFallback />}>
+      <RouteNoindex />
       <Routes>
         {/* Public Routes */}
         <Route path="/auth" element={<Auth />} />
