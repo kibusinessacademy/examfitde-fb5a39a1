@@ -82,18 +82,22 @@ Deno.serve(async (req) => {
     if (!isRetargetedLlm) {
       for (const pkgId of pkgIds) {
         const { data: hRes, error: hErr } = await userClient.rpc("synth_run_heuristic", {
-        p_run_id: runId,
-        p_package_id: pkgId,
-      });
-      if (hErr) {
-        console.error(`[synth] Heuristik-Fehler pkg=${pkgId}:`, hErr.message);
-        continue;
+          p_run_id: runId,
+          p_package_id: pkgId,
+        });
+        if (hErr) {
+          console.error(`[synth] Heuristik-Fehler pkg=${pkgId}:`, hErr.message);
+          continue;
+        }
+        const flagged = (hRes as { flagged_for_llm_review?: boolean })?.flagged_for_llm_review;
+        llmTargets.push({ pkg: pkgId, flagged: !!flagged });
       }
-      const flagged = (hRes as { flagged_for_llm_review?: boolean })?.flagged_for_llm_review;
-      llmTargets.push({ pkg: pkgId, flagged: !!flagged });
+    } else {
+      // Bei retarget: alle übergebenen pkgs als "flagged" behandeln (Admin hat bewusst getriggert)
+      for (const pkgId of pkgIds) llmTargets.push({ pkg: pkgId, flagged: true });
     }
 
-    // 4) LLM-Reviewer für geflaggte Pakete (nur wenn mode != heuristic_only und Key da)
+    // 4) LLM-Reviewer für geflaggte Pakete
     if (mode !== "heuristic_only" && LOVABLE_API_KEY) {
       const flaggedPkgs = llmTargets.filter((t) => t.flagged).slice(0, maxLlmCalls);
       console.log(`[synth] LLM review for ${flaggedPkgs.length} flagged packages`);
@@ -107,18 +111,21 @@ Deno.serve(async (req) => {
         }
       }
 
-      // llm_calls counter
       await admin
         .from("synth_cohort_runs")
         .update({ llm_calls: llmCalls })
         .eq("id", runId);
     }
 
-    // 5) Run finalisieren
-    const { data: finRes, error: finErr } = await userClient.rpc("synth_finalize_run", {
-      p_run_id: runId,
-    });
-    if (finErr) throw finErr;
+    // 5) Run finalisieren — bei retarget NICHT (Run ist schon completed; nur llm_calls aktualisieren)
+    let avgScore: number | undefined;
+    if (!isRetargetedLlm) {
+      const { data: finRes, error: finErr } = await userClient.rpc("synth_finalize_run", {
+        p_run_id: runId,
+      });
+      if (finErr) throw finErr;
+      avgScore = (finRes as { avg_didactic_score?: number })?.avg_didactic_score;
+    }
 
     return json({
       ok: true,
