@@ -47,7 +47,22 @@ const CertificationSEOPage = () => {
   const { pathname } = useLocation();
   const { data: page, isLoading } = useCertificationSEOPage(slug || '');
   const { data: mapping } = useCertificationSeoMapping(slug);
+  const { track } = useTrackGrowthEvent();
   const category = getCategoryFromPath(pathname);
+
+  // SSOT v2: paketgebundenes lead_magnet_view (auch wenn package_id noch fehlt → loggen mit null,
+  // damit wir den Drop sichtbar machen). Triggers nur wenn slug vorhanden.
+  useEffect(() => {
+    if (!slug) return;
+    track('lead_magnet_view', {
+      packageId: mapping?.package_id ?? null,
+      sourcePage: mapping?.canonical_url_path ?? `/${category.key}/${slug}`,
+      persona: null,
+      mapping_source: mapping?.mapping_source ?? 'unknown',
+      seo_slug: slug,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slug, mapping?.package_id]);
 
   if (isLoading) {
     return (
@@ -72,8 +87,10 @@ const CertificationSEOPage = () => {
   // Kanonische URL kommt aus dem Mapping (Kategorie-Pfad), Fallback = aktueller Pfad.
   const canonicalPath = mapping?.canonical_url_path ?? `/${category.key}/${slug}`;
   const sourceUrl = canonicalPath;
-  // Buy-CTA: nur wenn echtes Kursprodukt existiert, sonst Shop-Übersicht.
-  const productUrl = mapping?.product_url_path ?? `/shop?ref=${encodeURIComponent(slug || '')}`;
+  // Buy-CTA mit Filter-Pass-through: bei fehlendem Produkt /shop?ref=&category=&q=
+  const productUrl = mapping
+    ? buildBuyCtaUrl(mapping)
+    : `/shop?ref=${encodeURIComponent(slug || '')}&category=${category.key}`;
   const hasProduct = !!mapping?.product_url_path;
 
   const breadcrumbItems = [
