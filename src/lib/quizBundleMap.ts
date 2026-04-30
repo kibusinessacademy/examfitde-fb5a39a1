@@ -12,6 +12,16 @@
 export interface QuizBundleMapping {
   /** stabile UUID des curriculums (curricula.id) */
   curriculumId: string;
+  /**
+   * Stabile UUID des published course_packages.id.
+   * SSOT-Pflicht für strict funnel events (quiz_started/completed,
+   * lead_capture_submitted, checkout_complete).
+   * `null` = kein published Package — strict events können nicht emittiert
+   * werden, Funnel-Guard wird das als unmatched zählen.
+   */
+  packageId: string | null;
+  /** Persona-Slug für conversion_events (azubi/fachwirt/...). */
+  persona: string;
   /** SEO-Slug der Bundle-Detailseite (/bundle/:slug) */
   bundleSlug: string;
   /** Anzeige-Titel des Bundles (für CTA) */
@@ -27,6 +37,9 @@ export interface QuizBundleMapping {
 export const QUIZ_BUNDLE_MAP: Record<string, QuizBundleMapping> = {
   "aevo-pruefungsreife": {
     curriculumId: "c2e41dc3-0fdb-4906-a694-485d0ddea180",
+    // No published course_package yet — Funnel-Guard reports as unmatched.
+    packageId: null,
+    persona: "fachwirt",
     bundleSlug: "ausbildereignungspruefung-aevo",
     bundleTitle: "AEVO Komplett-Bundle",
     lernplanSlug: "aevo-pruefungsreife",
@@ -35,6 +48,8 @@ export const QUIZ_BUNDLE_MAP: Record<string, QuizBundleMapping> = {
   },
   "bilanzbuchhalter-pruefungsreife": {
     curriculumId: "235168bb-87b6-43be-a91a-d46bddc9cb02",
+    packageId: "eef4bbe6-6c92-4969-941e-af471e86d67f",
+    persona: "fachwirt",
     bundleSlug: "bilanzbuchhalter-ihk",
     bundleTitle: "Bilanzbuchhalter Komplett-Bundle",
     lernplanSlug: "bilanzbuchhalter-pruefungsreife",
@@ -43,6 +58,8 @@ export const QUIZ_BUNDLE_MAP: Record<string, QuizBundleMapping> = {
   },
   "wirtschaftsfachwirt-pruefungsreife": {
     curriculumId: "1962472c-e2cc-4e38-974e-64036e6c9f4e",
+    packageId: null,
+    persona: "fachwirt",
     bundleSlug: "wirtschaftsfachwirt-ihk",
     bundleTitle: "Wirtschaftsfachwirt Komplett-Bundle",
     lernplanSlug: "wirtschaftsfachwirt-pruefungsreife",
@@ -51,6 +68,8 @@ export const QUIZ_BUNDLE_MAP: Record<string, QuizBundleMapping> = {
   },
   "fiae-pruefungsreife": {
     curriculumId: "a8a6340d-fd50-445f-a55b-7d5a6c72e2e1",
+    packageId: "24c3793c-30b0-43a7-bd5d-cfed0c40542d",
+    persona: "azubi",
     bundleSlug: "fachinformatiker-anwendungsentwicklung",
     bundleTitle: "Fachinformatiker AE Komplett-Bundle",
     lernplanSlug: "fiae-pruefungsreife",
