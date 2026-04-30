@@ -289,6 +289,14 @@ Sitemap: ${FUNCTIONS_URL_BASE}?type=index
         if (!c.slug) continue;
         urls.push({ loc: `${SITE_URL}/pruefungstraining/${c.slug}`, lastmod: (c.updated_at || "").split("T")[0] || today, changefreq: "weekly", priority: 0.7 });
       }
+      // SEO-Landingpages: ausschließlich kanonische Kategorie-URL aus SSOT-Mapping.
+      // /pruefung/:slug ist nur Redirect und gehört NICHT in die Sitemap.
+      const { data: seoMap } = await sb.from("v_certification_seo_with_product")
+        .select("canonical_url_path").limit(500);
+      for (const m of seoMap || []) {
+        if (!m.canonical_url_path) continue;
+        urls.push({ loc: `${SITE_URL}${m.canonical_url_path}`, lastmod: today, changefreq: "weekly", priority: 0.75 });
+      }
       return xmlResponse(toSitemapXML(urls), headers);
     }
 
