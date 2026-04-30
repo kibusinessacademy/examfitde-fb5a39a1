@@ -6,8 +6,8 @@
  * - JSON-Detail per Klick
  * - Drilldown pro Package-ID (Input)
  */
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -60,9 +60,12 @@ function statusBadge(s: string | null) {
 }
 
 export function ExamPoolDriftLogCard() {
+  const qc = useQueryClient();
   const [detail, setDetail] = useState<DriftRun | null>(null);
   const [pkgId, setPkgId] = useState("");
   const [drilldownPkg, setDrilldownPkg] = useState<string | null>(null);
+  const [liveActive, setLiveActive] = useState(false);
+  const [lastEventAt, setLastEventAt] = useState<number | null>(null);
 
   const runs = useQuery({
     queryKey: ["exam-pool-drift-log"],
@@ -75,8 +78,40 @@ export function ExamPoolDriftLogCard() {
       if (error) throw error;
       return (data ?? []) as unknown as DriftRun[];
     },
-    refetchInterval: 60_000,
+    // Fallback-Polling als Backup falls Realtime ausfällt
+    refetchInterval: 30_000,
   });
+
+  // Realtime-Subscription auf auto_heal_log für drift_detection-Inserts
+  useEffect(() => {
+    const channel = supabase
+      .channel("exam-pool-drift-log-live")
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "auto_heal_log",
+          filter: "action_type=eq.exam_pool_drift_detection",
+        },
+        () => {
+          setLastEventAt(Date.now());
+          // Sofortige Invalidierung — neuer Lauf wird sichtbar
+          qc.invalidateQueries({ queryKey: ["exam-pool-drift-log"] });
+          if (drilldownPkg) {
+            qc.invalidateQueries({ queryKey: ["exam-pool-drift-drilldown", drilldownPkg] });
+          }
+        },
+      )
+      .subscribe((status) => {
+        setLiveActive(status === "SUBSCRIBED");
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [qc, drilldownPkg]);
+
 
   const drilldown = useQuery({
     queryKey: ["exam-pool-drift-drilldown", drilldownPkg],
@@ -110,6 +145,24 @@ export function ExamPoolDriftLogCard() {
           <CardTitle className="flex items-center gap-2">
             <Activity className="h-4 w-4" />
             Exam-Pool Drift-Log (7 Tage)
+            {liveActive ? (
+              <span
+                className="inline-flex items-center gap-1 text-xs font-normal text-success"
+                title={
+                  lastEventAt
+                    ? `Letztes Live-Event: ${new Date(lastEventAt).toLocaleTimeString("de-DE")}`
+                    : "Realtime aktiv"
+                }
+              >
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-success" />
+                </span>
+                LIVE
+              </span>
+            ) : (
+              <span className="text-xs font-normal text-muted-foreground">Polling 30s</span>
+            )}
           </CardTitle>
           <Button variant="ghost" size="sm" onClick={() => runs.refetch()}>
             <RefreshCw className="h-4 w-4 mr-1" /> Refresh
