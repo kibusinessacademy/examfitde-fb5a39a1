@@ -21,6 +21,7 @@ const InternalLinkManager = lazy(() => import('@/components/admin/growth/Interna
 const RefreshQueueManager = lazy(() => import('@/components/admin/growth/RefreshQueueManager'));
 const SEOAuditManager = lazy(() => import('@/components/admin/growth/SEOAuditManager'));
 const LlmVisibilityCard = lazy(() => import('@/features/admin/components/LlmVisibilityCard').then(m => ({ default: m.LlmVisibilityCard })));
+const SeoDeadEndDriftCard = lazy(() => import('@/features/admin/components/SeoDeadEndDriftCard').then(m => ({ default: m.SeoDeadEndDriftCard })));
 const SEODiscoveryManager = lazy(() => import('@/components/admin/growth/SEODiscoveryManager'));
 const GrowthLoopManager = lazy(() => import('@/components/admin/growth/GrowthLoopManager'));
 const PromoCodesPanel = lazy(() => import('@/components/admin/marketing/AdminPromoCodesPanel'));
@@ -121,6 +122,7 @@ export default function GrowthPage() {
         <TabsContent value="pages" className="mt-4"><Suspense fallback={<Loading />}><ContentPageEditor /></Suspense></TabsContent>
         <TabsContent value="links" className="mt-4"><Suspense fallback={<Loading />}><InternalLinkManager /></Suspense></TabsContent>
         <TabsContent value="audit" className="mt-4 space-y-4">
+          <Suspense fallback={<Loading />}><SeoDeadEndDriftCard /></Suspense>
           <Suspense fallback={<Loading />}><LlmVisibilityCard /></Suspense>
           <Suspense fallback={<Loading />}><SEOAuditManager /></Suspense>
         </TabsContent>
