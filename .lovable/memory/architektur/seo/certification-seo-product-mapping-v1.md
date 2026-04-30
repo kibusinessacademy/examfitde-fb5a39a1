@@ -24,11 +24,11 @@ type: feature
 - Initialer Backfill (2026-04-30): 31 SEO-Pages auto-published
 
 ## Tracking SSOT (paketgebunden)
-- Hook: `useTrackGrowthEvent` v2
-- Authed: direkter `conversion_events` insert
-- **Anon: Edge Function `track-funnel-event`** (RLS verbietet anon-insert direkt → war Wurzel des 80% Funnel-Drops)
-- Pflicht-Events mit `package_id`: `lead_magnet_view`, `quiz_started`, `quiz_completed`, `lead_capture_submitted`
-- Persona-/source_page-Felder als first-class
+- Hook: `useTrackGrowthEvent` v2.1 — **immer via Edge Function** (authed + anon), kein direkter client-insert mehr.
+- Edge Function `track-funnel-event`: schreibt first-class `user_id|anonymous_id|session_id|curriculum_id|page_path` + `metadata.{package_id,persona,source_page,...}`. CORS `*`. Loggt insert errors.
+- `package_id` ist (noch) keine Spalte in `conversion_events` → liegt in metadata.
+- Strikte `package_id` Pflicht NUR für `quiz_started|quiz_completed|lead_capture_submitted`. `lead_magnet_view` darf `null` sein, damit unmatched-Drop messbar ist (`metadata.mapping_source`).
+- Persona-/source_page-Felder als first-class metadata.
 
 ## Buy-CTA
 `buildBuyCtaUrl(mapping)`:
