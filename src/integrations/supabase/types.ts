@@ -101188,6 +101188,19 @@ export type Database = {
           slug: string
         }[]
       }
+      admin_seo_create_draft_package: {
+        Args: { p_curriculum_id: string; p_title: string; p_track?: string }
+        Returns: Json
+      }
+      admin_seo_republish_package: {
+        Args: { p_package_id: string }
+        Returns: Json
+      }
+      admin_seo_set_page_draft: { Args: { p_seo_id: string }; Returns: Json }
+      admin_seo_set_product_override: {
+        Args: { p_product_slug: string; p_seo_id: string }
+        Returns: Json
+      }
       admin_set_setting: {
         Args: { p_key: string; p_value: Json }
         Returns: Json
