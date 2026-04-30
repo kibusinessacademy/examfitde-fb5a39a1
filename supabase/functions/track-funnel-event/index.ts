@@ -73,6 +73,9 @@ Deno.serve(async (req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
+  // First-class columns confirmed in conversion_events:
+  // user_id, anonymous_id, session_id, curriculum_id, event_type, page_path, metadata.
+  // package_id bleibt (noch) in metadata, da keine Spalte existiert.
   const payload: Record<string, unknown> = {
     user_id: userId,
     anonymous_id: userId ? null : anonymousId,
@@ -89,14 +92,14 @@ Deno.serve(async (req) => {
     },
   };
 
-  // Try to add package_id as first-class column if it exists; ignore error otherwise.
-  const insertWithPkg = { ...payload, package_id: packageId };
-  let { error } = await sb.from("conversion_events").insert(insertWithPkg as any);
-  if (error && /column .*package_id/i.test(error.message)) {
-    // Fallback: column doesn't exist yet — write without first-class column.
-    ({ error } = await sb.from("conversion_events").insert(payload as any));
+  const { error } = await sb.from("conversion_events").insert(payload as any);
+  if (error) {
+    console.error("track-funnel-event insert failed", {
+      event_type: eventType,
+      package_id: packageId,
+      error: error.message,
+    });
+    return json({ error: "insert_failed", detail: error.message }, 500);
   }
-
-  if (error) return json({ error: "insert_failed", detail: error.message }, 500);
   return json({ ok: true });
 });
