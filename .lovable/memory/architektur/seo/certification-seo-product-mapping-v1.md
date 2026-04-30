@@ -1,38 +1,39 @@
 ---
-name: SEO-Page → Product Mapping (ID-first SSOT)
-description: Mapping certification_seo_pages → kanonische Kategorie-URL + Kursprodukt via ID-Kette, mit Slug-Fallbacks und Redirect-Route.
+name: SEO ↔ Product Mapping v2 (override + auto-publish + tracking SSOT)
+description: meta_override Top-Source, Auto-Publish-Trigger seo_content_pages, paketgebundene Funnel-Events via track-funnel-event Edge Function (anon-fähig).
 type: feature
 ---
 
-# SEO ↔ Product Mapping SSOT
+# SEO ↔ Product Mapping v2
 
-## URL-Konvention
-- **Kanonisch**: `/<category>/<seo-slug>` (z.B. `/fachwirt/fachwirt-einkauf-ihk-pruefung`).
-  Kategorie aus `certification_catalog.catalog_type`:
-  `Fortbildung_IHK→fachwirt`, `Meister→meister`, `Branchenzertifikat→sachkunde`,
-  Slug-Präfix `(itil|prince2|psm|pspo|scrum)→projektmanagement`, sonst `ausbildung`.
-- **Redirect-only**: `/pruefung/:slug` → `<Navigate replace>` auf kanonische URL.
-  Nicht in Sitemap, nicht in internen Links.
+## Match-Priorität (View v_certification_seo_with_product)
+1. `meta_override` — `certification_seo_pages.product_slug_override` → SSOT-View canonical_slug
+2. `id_chain` — catalog.linked_certification_id → course_packages.certification_id
+3. `catalog_slug` — catalog.slug → certifications.slug → course_packages
+4. `slug_base` — Regex `<base>-pruefung` ↔ `<base>-<uuid8>`
+5. `unmatched`
 
-## Mapping-Quelle (SSOT)
-View `v_certification_seo_with_product` mit `mapping_source`-Audit-Spalte.
+`product_slug_override` (text, nullable) auf `certification_seo_pages` für gezielte manuelle Mappings.
 
-**Match-Priorität (ID-first)**:
-1. `id_chain` — `seo.certification_catalog_id → catalog.linked_certification_id → course_packages.certification_id` (sobald `linked_certification_id` befüllt wird, Top-Source)
-2. `catalog_slug` — `catalog.slug → certifications.slug → course_packages.certification_id`
-3. `slug_base` — Regex `<base>-pruefung` ↔ `<base>-<uuid8>` (Notfall)
-4. `unmatched` — kein Produkt → CTA fällt auf `/shop?ref=<slug>`
+## Auto-Publish (Growth-Kopplung)
+- Trigger `trg_seo_pages_auto_publish_on_package` AFTER INSERT/UPDATE OF status, integrity_passed ON course_packages
+- Bedingung: `status='published' AND integrity_passed=true`
+- Wirkung: `seo_content_pages.status='draft' → 'published'` für betroffenes Paket
+- Audit: `auto_heal_log.action_type='auto_publish_seo_pages_v1'`
+- Manuell: `admin_publish_eligible_seo_pages(p_package_id uuid DEFAULT NULL)` (admin-gated)
+- Initialer Backfill (2026-04-30): 31 SEO-Pages auto-published
 
-Helper-RPC: `get_certification_seo_with_product(p_slug text)` (SECURITY DEFINER, anon+authenticated).
+## Tracking SSOT (paketgebunden)
+- Hook: `useTrackGrowthEvent` v2
+- Authed: direkter `conversion_events` insert
+- **Anon: Edge Function `track-funnel-event`** (RLS verbietet anon-insert direkt → war Wurzel des 80% Funnel-Drops)
+- Pflicht-Events mit `package_id`: `lead_magnet_view`, `quiz_started`, `quiz_completed`, `lead_capture_submitted`
+- Persona-/source_page-Felder als first-class
 
-## Wo verwendet
-- Frontend: `useCertificationSeoMapping` (Hook), `CertificationSEOPage` (canonical + Buy-CTA),
-  `PruefungSlugRedirect` (Route `/pruefung/:slug`).
-- Cockpit: `ContentPageEditor` zeigt + öffnet die kanonische URL (kein `/pruefung/...` mehr).
-- Sitemap: `generate-sitemap?action=berufe` nimmt nur `canonical_url_path` aus der View.
+## Buy-CTA
+`buildBuyCtaUrl(mapping)`:
+- product vorhanden → `/pruefungstraining/<canonical_slug>`
+- sonst `/shop?ref=<seo_slug>&category=<segment>&q=<title>`
 
-## Aktuelle Match-Quote (April 2026)
-3/42 (`catalog_slug`-Treffer: betriebswirt-ihk, bilanzbuchhalter-ihk, prince2-foundation).
-39/42 unmatched = Daten-Gap (course_packages für diese Berufe fehlen). Mapping wird automatisch
-über alle 4 Quellen aufholen, sobald entweder `linked_certification_id` befüllt oder neue Pakete
-publiziert werden.
+## Aktuelle Match-Quote
+3/42 `id_chain` (Backfill linked_certification_id 313/313 eindeutig durchgeführt), 39/42 unmatched = course_packages-Datenlücke.

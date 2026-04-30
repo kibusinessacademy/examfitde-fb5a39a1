@@ -7654,6 +7654,7 @@ export type Database = {
           meta_description: string | null
           meta_title: string | null
           page_type: string
+          product_slug_override: string | null
           published_at: string | null
           quality_score: number | null
           slug: string
@@ -7672,6 +7673,7 @@ export type Database = {
           meta_description?: string | null
           meta_title?: string | null
           page_type: string
+          product_slug_override?: string | null
           published_at?: string | null
           quality_score?: number | null
           slug: string
@@ -7690,6 +7692,7 @@ export type Database = {
           meta_description?: string | null
           meta_title?: string | null
           page_type?: string
+          product_slug_override?: string | null
           published_at?: string | null
           quality_score?: number | null
           slug?: string
@@ -86891,18 +86894,37 @@ export type Database = {
       v_certification_seo_with_product: {
         Row: {
           canonical_url_path: string | null
-          catalog_type: string | null
-          category_key: string | null
-          id: string | null
+          catalog_slug: string | null
+          catalog_title: string | null
+          category_segment: string | null
+          certification_catalog_id: string | null
           mapping_source: string | null
-          product_package_id: string | null
-          product_slug: string | null
+          package_canonical_slug: string | null
+          package_id: string | null
+          package_title: string | null
+          product_slug_override: string | null
           product_url_path: string | null
+          seo_is_published: boolean | null
+          seo_page_id: string | null
           seo_slug: string | null
-          title: string | null
-          track: string | null
+          seo_title: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "certification_seo_pages_certification_catalog_id_fkey"
+            columns: ["certification_catalog_id"]
+            isOneToOne: false
+            referencedRelation: "certification_catalog"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "certification_seo_pages_certification_catalog_id_fkey"
+            columns: ["certification_catalog_id"]
+            isOneToOne: false
+            referencedRelation: "v_revenue_cost_ratio"
+            referencedColumns: ["certification_id"]
+          },
+        ]
       }
       v_competency_heatmap: {
         Row: {
@@ -99016,6 +99038,13 @@ export type Database = {
         Returns: Json
       }
       admin_ops_queue_overview: { Args: never; Returns: Json }
+      admin_publish_eligible_seo_pages: {
+        Args: { p_package_id?: string }
+        Returns: {
+          eligible_packages: number
+          published_count: number
+        }[]
+      }
       admin_purge_stale_exhaustion: {
         Args: { p_package_id?: string; p_trigger_refill?: boolean }
         Returns: {
@@ -102594,15 +102623,28 @@ export type Database = {
       get_certification_seo_with_product: {
         Args: { p_slug: string }
         Returns: {
-          canonical_url_path: string
-          category_key: string
-          mapping_source: string
-          product_package_id: string
-          product_slug: string
-          product_url_path: string
-          seo_slug: string
-          title: string
+          canonical_url_path: string | null
+          catalog_slug: string | null
+          catalog_title: string | null
+          category_segment: string | null
+          certification_catalog_id: string | null
+          mapping_source: string | null
+          package_canonical_slug: string | null
+          package_id: string | null
+          package_title: string | null
+          product_slug_override: string | null
+          product_url_path: string | null
+          seo_is_published: boolean | null
+          seo_page_id: string | null
+          seo_slug: string | null
+          seo_title: string | null
         }[]
+        SetofOptions: {
+          from: "*"
+          to: "v_certification_seo_with_product"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       get_churn_predictions_admin: {
         Args: never

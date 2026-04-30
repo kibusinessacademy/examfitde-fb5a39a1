@@ -1,7 +1,9 @@
+import { useEffect } from 'react';
 import { useParams, useLocation, Link } from 'react-router-dom';
 import DOMPurify from 'dompurify';
 import { useCertificationSEOPage } from '@/hooks/useCertificationSEO';
-import { useCertificationSeoMapping } from '@/hooks/useCertificationSeoMapping';
+import { useCertificationSeoMapping, buildBuyCtaUrl } from '@/hooks/useCertificationSeoMapping';
+import { useTrackGrowthEvent } from '@/hooks/useTrackGrowthEvent';
 import { Loader2, ArrowRight, BookOpen, Target, Brain, CheckCircle2, Award } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -45,7 +47,22 @@ const CertificationSEOPage = () => {
   const { pathname } = useLocation();
   const { data: page, isLoading } = useCertificationSEOPage(slug || '');
   const { data: mapping } = useCertificationSeoMapping(slug);
+  const { track } = useTrackGrowthEvent();
   const category = getCategoryFromPath(pathname);
+
+  // SSOT v2: paketgebundenes lead_magnet_view (auch wenn package_id noch fehlt → loggen mit null,
+  // damit wir den Drop sichtbar machen). Triggers nur wenn slug vorhanden.
+  useEffect(() => {
+    if (!slug) return;
+    track('lead_magnet_view', {
+      packageId: mapping?.package_id ?? null,
+      sourcePage: mapping?.canonical_url_path ?? `/${category.key}/${slug}`,
+      persona: null,
+      mapping_source: mapping?.mapping_source ?? 'unknown',
+      seo_slug: slug,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slug, mapping?.package_id]);
 
   if (isLoading) {
     return (
@@ -70,8 +87,10 @@ const CertificationSEOPage = () => {
   // Kanonische URL kommt aus dem Mapping (Kategorie-Pfad), Fallback = aktueller Pfad.
   const canonicalPath = mapping?.canonical_url_path ?? `/${category.key}/${slug}`;
   const sourceUrl = canonicalPath;
-  // Buy-CTA: nur wenn echtes Kursprodukt existiert, sonst Shop-Übersicht.
-  const productUrl = mapping?.product_url_path ?? `/shop?ref=${encodeURIComponent(slug || '')}`;
+  // Buy-CTA mit Filter-Pass-through: bei fehlendem Produkt /shop?ref=&category=&q=
+  const productUrl = mapping
+    ? buildBuyCtaUrl(mapping)
+    : `/shop?ref=${encodeURIComponent(slug || '')}&category=${category.key}`;
   const hasProduct = !!mapping?.product_url_path;
 
   const breadcrumbItems = [
@@ -107,9 +126,14 @@ const CertificationSEOPage = () => {
                 Strukturiertes Prüfungstraining mit prüfungsnahen Fragen, realistischer Simulation und persönlichem KI-Prüfungscoach.
               </p>
               <div className="flex flex-wrap gap-4">
-                <Button size="lg" asChild>
+                <Button size="lg" asChild onClick={() => track('cta_click', {
+                  packageId: mapping?.package_id ?? null,
+                  sourcePage: sourceUrl,
+                  cta_id: 'hero_primary',
+                  cta_label: hasProduct ? 'simulate_exam' : 'browse_trainings',
+                })}>
                   <Link to={productUrl}>
-                    {hasProduct ? 'Prüfungstraining starten' : 'Verfügbare Trainings ansehen'}{' '}
+                    {hasProduct ? '👉 Jetzt Prüfung simulieren' : 'Verfügbare Trainings ansehen'}{' '}
                     <ArrowRight className="ml-2 h-5 w-5" />
                   </Link>
                 </Button>
@@ -246,8 +270,16 @@ const CertificationSEOPage = () => {
             <p className="text-muted-foreground mb-8 max-w-xl mx-auto">
               {PRICING.defaultPrice} einmalig • {PRICING.defaultAccess} Zugang • {PRICING.noSubscription}
             </p>
-            <Button size="lg" asChild>
-              <Link to={productUrl}>Jetzt {displayTitle} Training starten <ArrowRight className="ml-2 h-5 w-5" /></Link>
+            <Button size="lg" asChild onClick={() => track('cta_click', {
+              packageId: mapping?.package_id ?? null,
+              sourcePage: sourceUrl,
+              cta_id: 'final_cta',
+              cta_label: hasProduct ? 'simulate_exam' : 'browse_trainings',
+            })}>
+              <Link to={productUrl}>
+                {hasProduct ? `👉 Jetzt ${displayTitle} simulieren` : `Trainings für ${displayTitle} ansehen`}
+                <ArrowRight className="ml-2 h-5 w-5" />
+              </Link>
             </Button>
           </div>
         </section>
