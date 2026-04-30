@@ -100617,6 +100617,17 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_seo_backfill_missing_pages: {
+        Args: { p_dry_run?: boolean }
+        Returns: {
+          action: string
+          package_id: string
+          package_title: string
+          page_id: string
+          persona_type: string
+          slug: string
+        }[]
+      }
       admin_set_setting: {
         Args: { p_key: string; p_value: Json }
         Returns: Json
@@ -103288,6 +103299,7 @@ export type Database = {
         Args: { p_curriculum_id: string }
         Returns: Json
       }
+      fn_platform_auto_heal: { Args: { p_dry_run?: boolean }; Returns: Json }
       fn_populate_fi_lf_equivalence: { Args: never; Returns: Json }
       fn_prebuild_auto_seed_exam_blueprints: {
         Args: { p_package_id: string }
@@ -106279,19 +106291,36 @@ export type Database = {
         }
         Returns: undefined
       }
-      track_conversion_event_v2: {
-        Args: {
-          p_anonymous_id?: string
-          p_contact_id?: string
-          p_curriculum_id?: string
-          p_event_type: string
-          p_intent?: string
-          p_metadata?: Json
-          p_page_path?: string
-          p_session_id?: string
-        }
-        Returns: string
-      }
+      track_conversion_event_v2:
+        | {
+            Args: {
+              p_anonymous_id?: string
+              p_contact_id?: string
+              p_curriculum_id?: string
+              p_event_type: string
+              p_intent?: string
+              p_metadata?: Json
+              p_page_path?: string
+              p_session_id?: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_anonymous_id?: string
+              p_contact_id?: string
+              p_curriculum_id?: string
+              p_event_type: string
+              p_intent?: string
+              p_metadata?: Json
+              p_package_id?: string
+              p_page_path?: string
+              p_persona?: string
+              p_session_id?: string
+              p_source_page?: string
+            }
+            Returns: string
+          }
       trigger_pool_rework: { Args: never; Returns: undefined }
       try_claim_pipeline_lock: {
         Args: { p_locked_by: string; p_package_id: string }
