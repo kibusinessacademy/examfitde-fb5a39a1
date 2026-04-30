@@ -104,41 +104,15 @@ export function useTrackGrowthEvent() {
         ts_client: now,
       };
 
-      // Authenticated → direkter RLS-konformer Insert.
-      if (user) {
-        const payload: any = {
-          user_id: user.id,
-          anonymous_id: null,
-          session_id: getSessionId(),
-          event_type: eventType,
-          curriculum_id: curriculumId ?? null,
-          page_path: pagePath,
-          metadata: {
-            ...metadata,
-            package_id: packageId ?? null,
-            persona: persona ?? null,
-            source_page: sourcePage ?? null,
-          },
-        };
-        // Best-effort first-class column.
-        const withPkg = { ...payload, package_id: packageId ?? null };
-        supabase
-          .from('conversion_events')
-          .insert(withPkg as any)
-          .then((res: any) => {
-            if (res?.error && /column .*package_id/i.test(res.error.message ?? '')) {
-              return supabase.from('conversion_events').insert(payload as any).then(() => {});
-            }
-          });
-        return;
-      }
-
-      // Anonymous → edge function (anon insert per RLS unmöglich).
+      // Unified path: nutze Edge Function für authed UND anon.
+      // Grund: vermeidet RLS-Edgecases + identische Validierung serverseitig.
+      // package_id ist (noch) keine Spalte in conversion_events → in metadata.
       supabase.functions
         .invoke('track-funnel-event', {
           body: {
             event_type: eventType,
-            anonymous_id: getAnonId(),
+            user_id: user?.id ?? null,
+            anonymous_id: user ? null : getAnonId(),
             session_id: getSessionId(),
             curriculum_id: curriculumId ?? null,
             package_id: packageId ?? null,
