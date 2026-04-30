@@ -89362,6 +89362,29 @@ export type Database = {
         }
         Relationships: []
       }
+      v_funnel_integrity_check: {
+        Row: {
+          attribution_quality_status: string | null
+          checked_at: string | null
+          events_total_7d: number | null
+          funnel_continuity_status: string | null
+          persona_coverage_pct: number | null
+          s1_lead_magnet: number | null
+          s2_quiz_started: number | null
+          s3_quiz_completed: number | null
+          s4_lead_capture: number | null
+          s5_checkout: number | null
+          source_coverage_pct: number | null
+          status: string | null
+          strict_events_total: number | null
+          strict_events_with_pkg: number | null
+          tracking_completeness_pct: number | null
+          tracking_completeness_status: string | null
+          with_persona_total: number | null
+          with_source_total: number | null
+        }
+        Relationships: []
+      }
       v_funnel_overview_24h: {
         Row: {
           checkout_completes: number | null
@@ -97399,6 +97422,24 @@ export type Database = {
           job_type: string | null
           max_stale_seconds: number | null
           stuck_jobs: number | null
+        }
+        Relationships: []
+      }
+      v_platform_integrity: {
+        Row: {
+          attribution_quality_status: string | null
+          checked_at: string | null
+          events_total_7d: number | null
+          funnel_continuity_status: string | null
+          funnel_status: string | null
+          platform_status: string | null
+          pricing_status: string | null
+          published_without_price: number | null
+          published_without_seo_page: number | null
+          seo_publish_status: string | null
+          total_published_packages: number | null
+          tracking_completeness_pct: number | null
+          tracking_completeness_status: string | null
         }
         Relationships: []
       }

@@ -13,6 +13,8 @@ const SocialMediaManager = lazy(() => import('@/components/admin/growth/SocialMe
 const SEOSettingsManager = lazy(() => import('@/components/admin/growth/SEOSettingsManager'));
 const PricingManager = lazy(() => import('@/components/admin/growth/PricingManager'));
 const PricingIntegrityCard = lazy(() => import('@/components/admin/growth/PricingIntegrityCard'));
+const FunnelIntegrityCard = lazy(() => import('@/components/admin/growth/FunnelIntegrityCard'));
+const PlatformIntegrityCard = lazy(() => import('@/components/admin/growth/PlatformIntegrityCard'));
 const KeywordStrategyManager = lazy(() => import('@/components/admin/growth/KeywordStrategyManager'));
 const ContentBriefManager = lazy(() => import('@/components/admin/growth/ContentBriefManager'));
 const InternalLinkManager = lazy(() => import('@/components/admin/growth/InternalLinkManager'));
@@ -106,7 +108,11 @@ export default function GrowthPage() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="dashboard" className="mt-4"><Suspense fallback={<Loading />}><GrowthSeoCommandCenter /></Suspense></TabsContent>
+        <TabsContent value="dashboard" className="mt-4 space-y-4">
+          <Suspense fallback={<Loading />}><PlatformIntegrityCard /></Suspense>
+          <Suspense fallback={<Loading />}><FunnelIntegrityCard /></Suspense>
+          <Suspense fallback={<Loading />}><GrowthSeoCommandCenter /></Suspense>
+        </TabsContent>
         <TabsContent value="growth" className="mt-4"><Suspense fallback={<Loading />}><GrowthLoopManager /></Suspense></TabsContent>
         <TabsContent value="keywords" className="mt-4"><Suspense fallback={<Loading />}><KeywordStrategyManager /></Suspense></TabsContent>
         <TabsContent value="briefs" className="mt-4"><Suspense fallback={<Loading />}><ContentBriefManager /></Suspense></TabsContent>
