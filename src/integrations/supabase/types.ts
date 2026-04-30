@@ -99949,10 +99949,19 @@ export type Database = {
         Returns: string
       }
       fn_derive_exam_part: { Args: { p_blueprint_id: string }; Returns: string }
-      fn_detect_and_heal_exam_pool_enqueue_drift: {
-        Args: { p_dry_run?: boolean; p_max_per_run?: number }
-        Returns: Json
-      }
+      fn_detect_and_heal_exam_pool_enqueue_drift:
+        | {
+            Args: { p_dry_run?: boolean; p_max_per_run?: number }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_cooldown_minutes?: number
+              p_dry_run?: boolean
+              p_max_per_run?: number
+            }
+            Returns: Json
+          }
       fn_detect_content_gaps: { Args: { p_cluster_id?: string }; Returns: Json }
       fn_detect_keyword_cannibalization: { Args: never; Returns: Json }
       fn_detect_publish_recovery_eligible: {
