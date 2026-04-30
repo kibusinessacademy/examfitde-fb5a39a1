@@ -202,6 +202,25 @@ export function SeoDeadEndDriftCard() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const loadSuggestions = async (row: DriftRow) => {
+    setDialog({ kind: "suggest", row, loading: true, suggestions: [] });
+    const { data, error } = await supabase.rpc(
+      "admin_seo_suggest_product_matches" as never,
+      { p_seo_id: row.seo_id, p_limit: 5 } as never,
+    );
+    if (error) {
+      toast.error(error.message);
+      setDialog({ kind: "none" });
+      return;
+    }
+    setDialog({
+      kind: "suggest",
+      row,
+      loading: false,
+      suggestions: (data ?? []) as MatchSuggestion[],
+    });
+  };
+
   return (
     <Card>
       <CardHeader>
