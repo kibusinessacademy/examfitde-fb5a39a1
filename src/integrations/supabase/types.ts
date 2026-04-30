@@ -97467,10 +97467,10 @@ export type Database = {
       v_pricing_backfill_dryrun: {
         Row: {
           action_needed: string | null
-          cert_product_id: string | null
           certification_id: string | null
           certification_title: string | null
           confidence: string | null
+          existing_active_price_cents: number | null
           existing_active_price_id: string | null
           existing_product_id: string | null
           forced_price_cents: number | null
@@ -97479,6 +97479,7 @@ export type Database = {
           package_id: string | null
           package_status: string | null
           package_title: string | null
+          product_count: number | null
           reason: string | null
           suggested_price_cents: number | null
           suggested_tier: string | null
