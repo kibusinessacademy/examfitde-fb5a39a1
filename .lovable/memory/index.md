@@ -72,3 +72,4 @@
 - [D+ Phase 2: LF-Coverage Repair Function](mem://architektur/pipeline/dplus-phase2-lf-coverage-repair-v1) — package-repair-exam-pool-lf-coverage.
 - [Integrity-Check Defer + Sample-Guard (Phase 2c)](mem://architektur/ops/integrity-check-defer-and-sample-guard-v1) — ratio-Reasons skip bei sample<min, defer bei WAITING.
 - [Upstream Auto-Skip nicht-applicable Steps](mem://architektur/ops/upstream-auto-skip-package-steps-v1) — BEFORE-Trigger schreibt nicht-applicable queued Steps direkt zu skipped.
+- [E2E Pipeline Integrity Guard](mem://architektur/marketing/e2e-pipeline-integrity-guard-v1) — v_package_e2e_integrity (per Paket Produkt→Pricing→SEO→Funnel + heal_flags + auto_healable), v_platform_integrity um e2e_pipeline_status erweitert, fn_e2e_integrity_guard heilt SEO-Drafts und routet Rest an admin_notifications. Cron Min 17 + CI scripts/e2e-integrity-check.mjs.
