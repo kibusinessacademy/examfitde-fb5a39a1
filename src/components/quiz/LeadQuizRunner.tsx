@@ -202,6 +202,10 @@ export function LeadQuizRunner({ slug }: Props) {
 
       emitFunnelEvent("QUIZ_COMPLETED", {
         curriculum_id: quiz.curriculum_id,
+        package_id: mapping?.packageId ?? null,
+        persona: mapping?.persona ?? null,
+        source_page:
+          typeof window !== "undefined" ? window.location.pathname : null,
         quiz_slug: slug,
         score: sc,
         passed: ps,
