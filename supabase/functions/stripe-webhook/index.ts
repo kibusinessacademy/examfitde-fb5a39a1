@@ -495,20 +495,19 @@ Deno.serve(async (req) => {
               }
             }
 
-            // Track checkout_completed event
-            await adminClient.from('conversion_events').insert({
+            // Track checkout_complete event (SSOT)
+            await emitCheckoutCompleteEvent(adminClient, {
               user_id: userId,
-              event_type: 'checkout_completed',
-              metadata: {
-                product_id: productId,
-                session_id: session.id,
-                flow,
+              product_id: productId,
+              session_id: session.id,
+              flow,
+              extra: {
                 plan_key: meta.plan_key,
                 seat_count: meta.seat_count,
                 audience_type: meta.audience_type,
                 amount_total: session.amount_total,
               },
-            }).then(() => {});
+            });
             } // end B2B else
           }
 
