@@ -85,6 +85,13 @@ function fmt(ts: string | null): string {
   return new Date(ts).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" });
 }
 
+const STALE_LOG_CUTOFF_MS = 24 * 60 * 60 * 1000;
+
+function isStale(ts: string | null): boolean {
+  if (!ts) return false;
+  return Date.now() - new Date(ts).getTime() > STALE_LOG_CUTOFF_MS;
+}
+
 export function HealStatusCard() {
   const qc = useQueryClient();
   const [trackFilter, setTrackFilter] = useState<string>("ALL");
