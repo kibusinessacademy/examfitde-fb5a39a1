@@ -80,10 +80,27 @@ export interface TrackOptions {
   curriculum_id?: string | null;
   intent?: string | null;
   contact_id?: string | null;
+  /** SSOT: paketgebundene Events benötigen das. Strict events erzwingen es serverseitig. */
+  package_id?: string | null;
+  /** Persona-Kontext (azubi/betrieb/umschulung …) */
+  persona?: string | null;
+  /** Quelle (z.B. canonical SEO-Pfad) */
+  source_page?: string | null;
 }
+
+const STRICT_EVENTS: ReadonlySet<FunnelEventType> = new Set([
+  "quiz_started",
+  "quiz_completed",
+  "lead_capture_submitted",
+  "checkout_complete",
+]);
 
 /**
  * Fire a funnel event. Never throws.
+ *
+ * Strict events (quiz_started, quiz_completed, lead_capture_submitted,
+ * checkout_complete) require package_id — server raises 22023 otherwise
+ * (no silent drift).
  */
 export async function trackFunnel(
   eventType: FunnelEventType,
@@ -92,6 +109,11 @@ export async function trackFunnel(
   try {
     const page_path =
       typeof window !== "undefined" ? window.location.pathname : null;
+
+    if (STRICT_EVENTS.has(eventType) && !opts.package_id && import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
+      console.warn(`[trackFunnel] ${eventType} requires package_id — server will reject`);
+    }
 
     await supabase.rpc("track_conversion_event_v2" as any, {
       p_event_type: eventType,
@@ -102,6 +124,9 @@ export async function trackFunnel(
       p_curriculum_id: opts.curriculum_id ?? null,
       p_intent: opts.intent ?? null,
       p_contact_id: opts.contact_id ?? null,
+      p_package_id: opts.package_id ?? null,
+      p_persona: opts.persona ?? null,
+      p_source_page: opts.source_page ?? page_path,
     });
   } catch (err) {
     // Tracking must never break the app
