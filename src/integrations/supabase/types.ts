@@ -61515,6 +61515,51 @@ export type Database = {
         }
         Relationships: []
       }
+      system_intents: {
+        Row: {
+          claimed_at: string | null
+          claimed_by: string | null
+          consumed_at: string | null
+          created_at: string
+          id: string
+          intent_type: string
+          package_id: string | null
+          payload: Json
+          priority: number
+          result: Json | null
+          signature: string
+          source: string | null
+        }
+        Insert: {
+          claimed_at?: string | null
+          claimed_by?: string | null
+          consumed_at?: string | null
+          created_at?: string
+          id?: string
+          intent_type: string
+          package_id?: string | null
+          payload?: Json
+          priority?: number
+          result?: Json | null
+          signature: string
+          source?: string | null
+        }
+        Update: {
+          claimed_at?: string | null
+          claimed_by?: string | null
+          consumed_at?: string | null
+          created_at?: string
+          id?: string
+          intent_type?: string
+          package_id?: string | null
+          payload?: Json
+          priority?: number
+          result?: Json | null
+          signature?: string
+          source?: string | null
+        }
+        Relationships: []
+      }
       system_optimization_reports: {
         Row: {
           created_at: string
@@ -100837,6 +100882,16 @@ export type Database = {
         }[]
       }
       fn_check_queue_health_alerts: { Args: never; Returns: Json }
+      fn_check_repair_no_progress_and_block: {
+        Args: {
+          p_action_type?: string
+          p_min_runs?: number
+          p_package_id: string
+          p_step_key?: string
+          p_window?: string
+        }
+        Returns: Json
+      }
       fn_classify_discovery_state: {
         Args: { p_source_id: string; p_source_type: string }
         Returns: Json
@@ -104309,6 +104364,43 @@ export type Database = {
         Returns: Json
       }
       sync_schema_contracts: { Args: never; Returns: Json }
+      system_intent_claim_next: {
+        Args: { p_intent_types?: string[]; p_worker_id: string }
+        Returns: {
+          claimed_at: string | null
+          claimed_by: string | null
+          consumed_at: string | null
+          created_at: string
+          id: string
+          intent_type: string
+          package_id: string | null
+          payload: Json
+          priority: number
+          result: Json | null
+          signature: string
+          source: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "system_intents"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      system_intent_complete: {
+        Args: { p_intent_id: string; p_result?: Json }
+        Returns: undefined
+      }
+      system_intent_record: {
+        Args: {
+          p_intent_type: string
+          p_package_id?: string
+          p_payload?: Json
+          p_priority?: number
+          p_source?: string
+        }
+        Returns: Json
+      }
       table_exists: { Args: { p_table: string }; Returns: boolean }
       track_conversion_event: {
         Args: {
