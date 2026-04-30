@@ -99843,6 +99843,7 @@ export type Database = {
           table_name: string
         }[]
       }
+      admin_cleanup_smoke_conversion_events: { Args: never; Returns: number }
       admin_clear_job_quarantine: {
         Args: { p_quarantine_id: string }
         Returns: boolean
