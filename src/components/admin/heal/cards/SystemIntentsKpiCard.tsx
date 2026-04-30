@@ -26,8 +26,8 @@ export function SystemIntentsKpiCard() {
   const { data, isLoading } = useQuery({
     queryKey: ["v_system_intents_kpi"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("v_system_intents_kpi" as any)
+      const { data, error } = await (supabase as any)
+        .from("v_system_intents_kpi")
         .select("*");
       if (error) throw error;
       return (data ?? []) as IntentKpiRow[];
