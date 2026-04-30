@@ -98126,6 +98126,24 @@ export type Database = {
         Args: { p_dry_run?: boolean; p_max_packages?: number }
         Returns: Json
       }
+      admin_bulk_heal_no_step_history: {
+        Args: {
+          p_dry_run?: boolean
+          p_min_approved?: number
+          p_package_ids?: string[]
+        }
+        Returns: {
+          action: string
+          active_jobs: number
+          approved_q: number
+          next_status: string
+          next_step: string
+          notes: string
+          package_id: string
+          prev_blocked_reason: string
+          prev_status: string
+        }[]
+      }
       admin_bulk_promote_content_deficient_packages: {
         Args: {
           p_dry_run?: boolean
