@@ -97522,6 +97522,20 @@ export type Database = {
           },
         ]
       }
+      v_pricing_merge_candidates: {
+        Row: {
+          canonical_product_id: string | null
+          canonical_title: string | null
+          certification_id: string | null
+          duplicate_product_id: string | null
+          duplicate_slug: string | null
+          duplicate_title: string | null
+          priced_products: number | null
+          total_products: number | null
+          unpriced_drafts: number | null
+        }
+        Relationships: []
+      }
       v_process_health_kpis: {
         Row: {
           force_steps_done_7d: number | null
@@ -100344,6 +100358,16 @@ export type Database = {
         Returns: {
           rows: Json
           summary: Json
+        }[]
+      }
+      admin_pricing_merge_duplicates: {
+        Args: { p_dry_run?: boolean }
+        Returns: {
+          action: string
+          canonical_product_id: string
+          certification_id: string
+          duplicate_product_id: string
+          duplicate_title: string
         }[]
       }
       admin_publish_eligible_seo_pages: {
