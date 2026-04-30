@@ -1,0 +1,38 @@
+name: Pricing Integrity Regression Guard
+
+# Verifiziert nach jeder Migration & Push auf main, dass keine Pricing-Drift
+# besteht (alle published Packages haben genau 1 aktiven Preis, keine Duplikate,
+# keine manuellen Review-Fälle).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "supabase/migrations/**"
+      - "scripts/pricing-integrity-check.mjs"
+      - ".github/workflows/pricing-integrity-guard.yml"
+  pull_request:
+    paths:
+      - "supabase/migrations/**"
+      - "scripts/pricing-integrity-check.mjs"
+  schedule:
+    # Hourly safety net — drift-detection independent of migrations.
+    - cron: "23 * * * *"
+  workflow_dispatch:
+
+jobs:
+  pricing-integrity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Run Pricing Integrity Check
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: node scripts/pricing-integrity-check.mjs
