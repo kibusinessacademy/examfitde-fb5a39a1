@@ -128,6 +128,10 @@ export function LeadQuizRunner({ slug }: Props) {
       startedRef.current = true;
       emitFunnelEvent("QUIZ_STARTED", {
         curriculum_id: quiz?.curriculum_id ?? null,
+        package_id: mapping?.packageId ?? null,
+        persona: mapping?.persona ?? null,
+        source_page:
+          typeof window !== "undefined" ? window.location.pathname : null,
         quiz_slug: slug,
       });
       await ensureAttempt();
