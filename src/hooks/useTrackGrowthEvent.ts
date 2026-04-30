@@ -2,7 +2,7 @@ import { useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 
-type GrowthEventType =
+export type GrowthEventType =
   | 'paywall_view'
   | 'cta_click'
   | 'checkout_started'
@@ -11,13 +11,18 @@ type GrowthEventType =
   | 'pricing_hero_view'
   | 'pricing_hero_primary_click'
   | 'pricing_hero_secondary_click'
-  // v3 funnel granularity
   | 'shop_view'
   | 'product_search'
   | 'product_filter'
   | 'product_view'
   | 'product_select'
-  | 'checkout_start';
+  | 'checkout_start'
+  // SSOT v2 paketgebundene Funnel-Events
+  | 'lead_magnet_view'
+  | 'lead_capture_view'
+  | 'quiz_started'
+  | 'quiz_completed'
+  | 'lead_capture_submitted';
 
 const ANON_KEY = 'examfit_anon_id';
 const SESS_KEY = 'examfit_session_id';
@@ -42,21 +47,32 @@ function getSessionId(): string {
   return v;
 }
 
-// Backwards-compat: existing callers pass a flat metadata object as the 2nd arg.
-// New callers may pass { curriculumId, metadata } or simply additional metadata keys.
 type TrackOpts = Record<string, unknown> & {
   curriculumId?: string | null;
+  /** SSOT: paketgebundene Events benötigen das. */
+  packageId?: string | null;
+  /** Persona-Kontext (azubi/betrieb/institution …) */
+  persona?: string | null;
+  /** Quelle (z.B. canonical SEO-Pfad) */
+  sourcePage?: string | null;
   metadata?: Record<string, unknown>;
 };
 
+const PACKAGE_REQUIRED: ReadonlySet<GrowthEventType> = new Set([
+  'lead_magnet_view',
+  'quiz_started',
+  'quiz_completed',
+  'lead_capture_submitted',
+]);
+
 /**
- * Tracking hook for growth/conversion/funnel events.
- * Writes to conversion_events. Anonymous-friendly (uses anon_id + session_id).
- * Fire-and-forget: never blocks UI.
+ * Tracking hook — SSOT v2.
+ * - authed users: direkter insert in conversion_events
+ * - anonymous users: edge function track-funnel-event (RLS-bypass via service-role)
+ * - paketgebundene Events erzwingen package_id (warning in dev, server validates)
  */
 export function useTrackGrowthEvent() {
   const { user } = useAuth();
-  // Track the previous step's timestamp per session for client-side latency metadata.
   const lastStepAt = useRef<number | null>(null);
 
   const track = useCallback(
@@ -65,30 +81,73 @@ export function useTrackGrowthEvent() {
       const sinceLastMs = lastStepAt.current ? now - lastStepAt.current : null;
       lastStepAt.current = now;
 
-      const { curriculumId, metadata: nestedMeta, ...flatMeta } = opts;
-      const payload: any = {
-        user_id: user?.id ?? null,
-        anonymous_id: user ? null : getAnonId(),
-        session_id: getSessionId(),
-        event_type: eventType,
-        curriculum_id: curriculumId ?? null,
-        page_path: typeof window !== 'undefined' ? window.location.pathname : null,
-        metadata: {
-          ...flatMeta,
-          ...(nestedMeta ?? {}),
-          since_last_step_ms: sinceLastMs,
-          ts_client: now,
-        },
+      const {
+        curriculumId,
+        packageId,
+        persona,
+        sourcePage,
+        metadata: nestedMeta,
+        ...flatMeta
+      } = opts;
+
+      if (PACKAGE_REQUIRED.has(eventType) && !packageId && import.meta.env.DEV) {
+        // dev hint — server enforces 400
+        // eslint-disable-next-line no-console
+        console.warn(`[track] ${eventType} requires packageId`);
+      }
+
+      const pagePath = typeof window !== 'undefined' ? window.location.pathname : null;
+      const metadata = {
+        ...flatMeta,
+        ...(nestedMeta ?? {}),
+        since_last_step_ms: sinceLastMs,
+        ts_client: now,
       };
 
-      // Only authenticated users may insert under current RLS;
-      // for anon, fall through silently (the page-level analytics view will still
-      // capture authed sessions, which is what the admin funnel view shows).
-      if (!user) return;
+      // Authenticated → direkter RLS-konformer Insert.
+      if (user) {
+        const payload: any = {
+          user_id: user.id,
+          anonymous_id: null,
+          session_id: getSessionId(),
+          event_type: eventType,
+          curriculum_id: curriculumId ?? null,
+          page_path: pagePath,
+          metadata: {
+            ...metadata,
+            package_id: packageId ?? null,
+            persona: persona ?? null,
+            source_page: sourcePage ?? null,
+          },
+        };
+        // Best-effort first-class column.
+        const withPkg = { ...payload, package_id: packageId ?? null };
+        supabase
+          .from('conversion_events')
+          .insert(withPkg as any)
+          .then((res: any) => {
+            if (res?.error && /column .*package_id/i.test(res.error.message ?? '')) {
+              return supabase.from('conversion_events').insert(payload as any).then(() => {});
+            }
+          });
+        return;
+      }
 
-      supabase
-        .from('conversion_events')
-        .insert(payload as any)
+      // Anonymous → edge function (anon insert per RLS unmöglich).
+      supabase.functions
+        .invoke('track-funnel-event', {
+          body: {
+            event_type: eventType,
+            anonymous_id: getAnonId(),
+            session_id: getSessionId(),
+            curriculum_id: curriculumId ?? null,
+            package_id: packageId ?? null,
+            persona: persona ?? null,
+            source_page: sourcePage ?? null,
+            page_path: pagePath,
+            metadata,
+          },
+        })
         .then(() => {});
     },
     [user]
