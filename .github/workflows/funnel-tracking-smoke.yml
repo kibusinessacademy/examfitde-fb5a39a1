@@ -1,0 +1,43 @@
+name: Funnel Tracking Smoke Test
+
+# Verifiziert nach jedem Push, dass Funnel-Tracking nicht umgangen werden kann:
+# - RPC track_conversion_event_v2 erzwingt package_id für strict events
+# - Edge Function track-funnel-event erzwingt package_id ebenfalls
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "supabase/migrations/**"
+      - "supabase/functions/track-funnel-event/**"
+      - "src/lib/conversionTracking.ts"
+      - "src/lib/funnelEvents.ts"
+      - "src/hooks/useTrackGrowthEvent.ts"
+      - "scripts/funnel-tracking-smoke.mjs"
+      - ".github/workflows/funnel-tracking-smoke.yml"
+  pull_request:
+    paths:
+      - "supabase/migrations/**"
+      - "supabase/functions/track-funnel-event/**"
+      - "src/lib/conversionTracking.ts"
+      - "src/lib/funnelEvents.ts"
+      - "src/hooks/useTrackGrowthEvent.ts"
+  schedule:
+    - cron: "47 * * * *"
+  workflow_dispatch:
+
+jobs:
+  funnel-tracking-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Run Funnel Tracking Smoke
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: node scripts/funnel-tracking-smoke.mjs
