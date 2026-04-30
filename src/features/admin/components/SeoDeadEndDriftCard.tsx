@@ -54,10 +54,20 @@ interface DriftRow {
   auto_repairable: boolean;
 }
 
+interface MatchSuggestion {
+  package_id: string;
+  package_title: string;
+  package_status: string;
+  canonical_slug: string;
+  match_score: number;
+  match_reason: "strong_match" | "likely_match" | "weak_match" | "no_match";
+}
+
 type DialogState =
   | { kind: "none" }
   | { kind: "override"; row: DriftRow; value: string }
-  | { kind: "createPackage"; row: DriftRow; curriculumId: string; title: string; track: string };
+  | { kind: "createPackage"; row: DriftRow; curriculumId: string; title: string; track: string }
+  | { kind: "suggest"; row: DriftRow; loading: boolean; suggestions: MatchSuggestion[] };
 
 const REASON_LABEL: Record<string, string> = {
   package_not_published: "Paket nicht published",
@@ -65,6 +75,20 @@ const REASON_LABEL: Record<string, string> = {
   missing_package_id: "package_id fehlt",
   package_not_found: "Paket existiert nicht",
   missing_curriculum_id_repairable: "curriculum_id fehlt (auto)",
+};
+
+const REASON_RECOMMENDATION: Record<string, string> = {
+  package_not_published: "Quality prüfen, dann republish",
+  unmatched_no_product: "Override setzen, falls ähnliches Produkt existiert",
+  missing_package_id: "Manuelle Prüfung — kein Paket verknüpft",
+  package_not_found: "Auf Entwurf setzen — Paket existiert nicht mehr",
+  missing_curriculum_id_repairable: "Auto-Heal verfügbar",
+};
+
+const MATCH_VARIANT: Record<string, "success" | "info" | "warning"> = {
+  strong_match: "success",
+  likely_match: "info",
+  weak_match: "warning",
 };
 
 export function SeoDeadEndDriftCard() {
