@@ -1,6 +1,7 @@
 import { useParams, useLocation, Link } from 'react-router-dom';
 import DOMPurify from 'dompurify';
 import { useCertificationSEOPage } from '@/hooks/useCertificationSEO';
+import { useCertificationSeoMapping } from '@/hooks/useCertificationSeoMapping';
 import { Loader2, ArrowRight, BookOpen, Target, Brain, CheckCircle2, Award } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -43,6 +44,7 @@ const CertificationSEOPage = () => {
   const { slug } = useParams<{ slug: string }>();
   const { pathname } = useLocation();
   const { data: page, isLoading } = useCertificationSEOPage(slug || '');
+  const { data: mapping } = useCertificationSeoMapping(slug);
   const category = getCategoryFromPath(pathname);
 
   if (isLoading) {
@@ -65,8 +67,12 @@ const CertificationSEOPage = () => {
 
   const displayTitle = page.title;
   const faqs = GENERIC_FAQS(displayTitle);
-  const sourceUrl = `/${category.key}/${slug}`;
-  const productUrl = `/pruefungstraining/${slug}`;
+  // Kanonische URL kommt aus dem Mapping (Kategorie-Pfad), Fallback = aktueller Pfad.
+  const canonicalPath = mapping?.canonical_url_path ?? `/${category.key}/${slug}`;
+  const sourceUrl = canonicalPath;
+  // Buy-CTA: nur wenn echtes Kursprodukt existiert, sonst Shop-Übersicht.
+  const productUrl = mapping?.product_url_path ?? `/shop?ref=${encodeURIComponent(slug || '')}`;
+  const hasProduct = !!mapping?.product_url_path;
 
   const breadcrumbItems = [
     { name: 'Start', url: SITE_URL },
@@ -102,12 +108,20 @@ const CertificationSEOPage = () => {
               </p>
               <div className="flex flex-wrap gap-4">
                 <Button size="lg" asChild>
-                  <Link to={productUrl}>Prüfungstraining starten <ArrowRight className="ml-2 h-5 w-5" /></Link>
+                  <Link to={productUrl}>
+                    {hasProduct ? 'Prüfungstraining starten' : 'Verfügbare Trainings ansehen'}{' '}
+                    <ArrowRight className="ml-2 h-5 w-5" />
+                  </Link>
                 </Button>
                 <Button size="lg" variant="outline" asChild>
                   <Link to={`/${category.key}`}>Alle {category.label}</Link>
                 </Button>
               </div>
+              {!hasProduct && (
+                <p className="mt-3 text-xs text-muted-foreground">
+                  Hinweis: Für „{displayTitle}" ist aktuell noch kein dediziertes Trainingspaket verfügbar.
+                </p>
+              )}
             </div>
           </div>
         </section>

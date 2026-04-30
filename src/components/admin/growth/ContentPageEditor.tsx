@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useContentPages, useContentPageMutations, type ContentPage } from '@/hooks/useContentStudio';
+import { useAllCertificationSeoMappings } from '@/hooks/useCertificationSeoMapping';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -136,10 +137,18 @@ const sourceColors: Record<string, string> = {
 
 export default function ContentPageEditor() {
   const { data: pages, isLoading } = useContentPages();
+  const { data: seoMappings } = useAllCertificationSeoMappings();
   const { create, update, publish, remove } = useContentPageMutations();
   const [search, setSearch] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [sourceFilter, setSourceFilter] = useState<string>('all');
+
+  // Map seo_slug → kanonische URL für Open-Link.
+  const mappingBySlug = useMemo(() => {
+    const m = new Map<string, string>();
+    (seoMappings || []).forEach(x => m.set(x.seo_slug, x.canonical_url_path));
+    return m;
+  }, [seoMappings]);
 
   if (isLoading) return <Skeleton className="h-60" />;
 
@@ -230,7 +239,9 @@ export default function ContentPageEditor() {
                     )}
                   </div>
                   <div className="flex items-center gap-2 mt-0.5">
-                    <p className="text-[10px] text-muted-foreground ml-5">/{page.slug}</p>
+                    <p className="text-[10px] text-muted-foreground ml-5">
+                      {isSeo ? (mappingBySlug.get(page.slug) ?? `/ausbildung/${page.slug}`) : `/${page.slug}`}
+                    </p>
                     {page._word_count != null && (
                       <span className="text-[9px] text-muted-foreground">{page._word_count} Wörter</span>
                     )}
@@ -238,7 +249,11 @@ export default function ContentPageEditor() {
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   {isSeo && (
-                    <a href={`/pruefung/${page.slug}`} target="_blank" rel="noopener noreferrer">
+                    <a
+                      href={mappingBySlug.get(page.slug) ?? `/ausbildung/${page.slug}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
                       <Button variant="ghost" size="icon" className="h-7 w-7" title="Live ansehen"><ExternalLink className="h-3 w-3" /></Button>
                     </a>
                   )}
