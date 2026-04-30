@@ -221,6 +221,29 @@ export function SeoDeadEndDriftCard() {
     });
   };
 
+  const batchApply = useMutation({
+    mutationFn: async (vars: { dryRun: boolean }) => {
+      const { data, error } = await supabase.rpc(
+        "admin_seo_batch_apply_strong_matches" as never,
+        { p_min_score: 0.7, p_limit: 25, p_dry_run: vars.dryRun } as never,
+      );
+      if (error) throw error;
+      return data as {
+        ok: boolean;
+        dry_run: boolean;
+        applied_count: number;
+        skipped_count: number;
+      };
+    },
+    onSuccess: (res) => {
+      const verb = res.dry_run ? "Vorschau" : "Übernommen";
+      toast.success(
+        `${verb}: ${res.applied_count} starke Matches · ${res.skipped_count} übersprungen`,
+      );
+      if (!res.dry_run) invalidate();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
   return (
     <Card>
       <CardHeader>
