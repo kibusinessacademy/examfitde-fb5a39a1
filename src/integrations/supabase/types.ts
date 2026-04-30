@@ -58538,6 +58538,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "seo_generation_jobs_result_doc_id_fkey"
+            columns: ["result_doc_id"]
+            isOneToOne: false
+            referencedRelation: "v_seo_refresh_candidates"
+            referencedColumns: ["content_id"]
+          },
+          {
             foreignKeyName: "seo_generation_jobs_template_key_fkey"
             columns: ["template_key"]
             isOneToOne: false
@@ -98905,6 +98912,89 @@ export type Database = {
         }
         Relationships: []
       }
+      v_seo_growth_overview: {
+        Row: {
+          active_clusters: number | null
+          audits_health: string | null
+          avg_opportunity: number | null
+          avg_score: number | null
+          briefs_health: string | null
+          clustered_keywords: number | null
+          clusters_with_pillar: number | null
+          completed_last_7d: number | null
+          computed_at: string | null
+          critical_audits: number | null
+          draft_briefs: number | null
+          draft_pages: number | null
+          healthy_audits: number | null
+          in_progress_refreshes: number | null
+          keywords_health: string | null
+          mapped_keywords: number | null
+          pending_refreshes: number | null
+          published_briefs: number | null
+          published_pages: number | null
+          ready_briefs: number | null
+          refresh_health: string | null
+          total_audits: number | null
+          total_briefs: number | null
+          total_clusters: number | null
+          total_keywords: number | null
+          total_pages: number | null
+          warning_audits: number | null
+        }
+        Relationships: []
+      }
+      v_seo_page_conversion: {
+        Row: {
+          checkout_starts_90d: number | null
+          conversion_rate_pct: number | null
+          leads_90d: number | null
+          page_id: string | null
+          page_kind: string | null
+          page_path: string | null
+          paid_orders_90d: number | null
+          performance_tier: string | null
+          published_at: string | null
+          revenue_eur_90d: number | null
+          slug: string | null
+          title: string | null
+          unique_visitors_90d: number | null
+          views_90d: number | null
+        }
+        Relationships: []
+      }
+      v_seo_recent_activity: {
+        Row: {
+          action_type: string | null
+          activity_kind: string | null
+          created_at: string | null
+          id: string | null
+          metadata: Json | null
+          target_id: string | null
+          target_type: string | null
+        }
+        Relationships: []
+      }
+      v_seo_refresh_candidates: {
+        Row: {
+          age_days: number | null
+          audited_at: string | null
+          content_id: string | null
+          content_type: string | null
+          content_url: string | null
+          overall_score: number | null
+          paid_orders_90d: number | null
+          performance_tier: string | null
+          published_at: string | null
+          refresh_reason: string | null
+          refresh_risk_score: number | null
+          refresh_score: number | null
+          slug: string | null
+          title: string | null
+          views_90d: number | null
+        }
+        Relationships: []
+      }
       v_standalone_artifact_health: {
         Row: {
           any_validation_passed: boolean | null
@@ -101192,8 +101282,14 @@ export type Database = {
         Args: { p_dry_run?: boolean; p_limit?: number; p_min_score?: number }
         Returns: Json
       }
+      admin_seo_brief_to_queue: { Args: { p_brief_id: string }; Returns: Json }
+      admin_seo_compute_overview: { Args: never; Returns: Json }
       admin_seo_create_draft_package: {
         Args: { p_curriculum_id: string; p_title: string; p_track?: string }
+        Returns: Json
+      }
+      admin_seo_enqueue_refresh_top_n: {
+        Args: { p_limit?: number }
         Returns: Json
       }
       admin_seo_republish_package: {
