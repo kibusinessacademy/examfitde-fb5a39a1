@@ -76,7 +76,15 @@ Deno.serve(async (req) => {
         .insert({
           event_type: "checkout_complete",
           contact_id: contact?.id ?? null,
-          metadata: { simulation: true, tag, order_id: order?.id },
+          // smoke_test=true → v_funnel_integrity_check ignoriert dieses Event.
+          // package_id absichtlich null (Audit-Simulation, keine echte Conversion).
+          metadata: {
+            simulation: true,
+            smoke_test: true,
+            tag,
+            order_id: order?.id,
+            package_id: null,
+          },
         })
         .select("id")
         .single();
