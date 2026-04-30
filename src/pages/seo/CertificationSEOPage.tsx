@@ -270,8 +270,16 @@ const CertificationSEOPage = () => {
             <p className="text-muted-foreground mb-8 max-w-xl mx-auto">
               {PRICING.defaultPrice} einmalig • {PRICING.defaultAccess} Zugang • {PRICING.noSubscription}
             </p>
-            <Button size="lg" asChild>
-              <Link to={productUrl}>Jetzt {displayTitle} Training starten <ArrowRight className="ml-2 h-5 w-5" /></Link>
+            <Button size="lg" asChild onClick={() => track('cta_click', {
+              packageId: mapping?.package_id ?? null,
+              sourcePage: sourceUrl,
+              cta_id: 'final_cta',
+              cta_label: hasProduct ? 'simulate_exam' : 'browse_trainings',
+            })}>
+              <Link to={productUrl}>
+                {hasProduct ? `👉 Jetzt ${displayTitle} simulieren` : `Trainings für ${displayTitle} ansehen`}
+                <ArrowRight className="ml-2 h-5 w-5" />
+              </Link>
             </Button>
           </div>
         </section>
