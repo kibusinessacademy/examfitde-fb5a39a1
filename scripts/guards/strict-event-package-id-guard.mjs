@@ -82,6 +82,8 @@ function isCompliant(file, hit) {
   if (COMPLIANT_HELPERS.some((h) => w.includes(h))) return true;
   // Akzeptiere package_id, packageId oder p_package_id im Fenster
   if (/\bp(_|ackage)_?[Ii]d\b/.test(w)) return true;
+  // Audit-/Smoke-Events sind exempt (Guard-View ignoriert sie ohnehin).
+  if (/smoke_test\s*:\s*true/.test(w) || /simulation\s*:\s*true/.test(w)) return true;
   return false;
 }
 
