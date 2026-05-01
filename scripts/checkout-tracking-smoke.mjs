@@ -80,9 +80,11 @@ async function main() {
 
   for (const k of Object.keys(buckets)) {
     const rows = buckets[k];
-    const withPkg = rows.filter(
-      (r) => r.metadata?.package_id && /^[0-9a-f-]{36}$/i.test(r.metadata.package_id),
-    ).length;
+    const withPkg = rows.filter((r) => {
+      // Top-level package_id (generated column) bevorzugt, metadata als Fallback.
+      const pid = r.package_id ?? r.metadata?.package_id;
+      return pid && /^[0-9a-f-]{36}$/i.test(pid);
+    }).length;
     INFO(`${k.padEnd(20)}: total=${rows.length}  with_package_id=${withPkg}`);
   }
 
