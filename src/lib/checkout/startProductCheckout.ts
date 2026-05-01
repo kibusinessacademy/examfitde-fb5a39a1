@@ -1,25 +1,51 @@
 /**
  * Product Checkout Launcher (B2C Einmalkauf)
- * 
- * Calls create-product-checkout edge function and redirects to Stripe.
+ *
+ * SSOT-konform: Tracking läuft komplett server-seitig in `create-product-checkout`
+ * (schreibt `checkout_started` in `conversion_events`), damit der Stripe-Redirect
+ * nichts verliert. Der Client liefert nur den Tracking-Kontext (anon/session/source).
+ *
+ * Kein Schreiben mehr in `tracking_events` aus dem Browser.
  */
 import { supabase } from "@/integrations/supabase/client";
-import { TrackingEvents } from "@/lib/tracking/track";
+import { getAnonymousId, getSessionId } from "@/lib/conversionTracking";
 
 export interface CheckoutResult {
   ok: boolean;
   checkout_url?: string;
   order_id?: string;
+  package_id?: string | null;
+  persona?: string | null;
+  product_id?: string | null;
+  price_id?: string | null;
+  stripe_price_id?: string | null;
   error?: string;
   already_entitled?: boolean;
 }
 
-export async function startProductCheckout(productSlug: string): Promise<CheckoutResult> {
-  // Track checkout start
-  await TrackingEvents.checkoutStarted(productSlug);
+export interface CheckoutContext {
+  /** Free-form source label, e.g. "persona_landing", "dynamic_landing", "shop_card". */
+  source?: string;
+  /** Optional persona override (azubi, betrieb, umschulung …). Server falls back to package.persona_profile. */
+  persona_type?: string | null;
+}
+
+export async function startProductCheckout(
+  productSlug: string,
+  ctx: CheckoutContext = {},
+): Promise<CheckoutResult> {
+  const sourcePage =
+    typeof window !== "undefined" ? window.location.pathname : null;
 
   const { data, error } = await supabase.functions.invoke("create-product-checkout", {
-    body: { product_slug: productSlug },
+    body: {
+      product_slug: productSlug,
+      anonymous_id: getAnonymousId(),
+      session_id: getSessionId(),
+      source: ctx.source ?? "startProductCheckout",
+      persona_type: ctx.persona_type ?? null,
+      source_page: sourcePage,
+    },
   });
 
   if (error) {
@@ -33,7 +59,7 @@ export async function startProductCheckout(productSlug: string): Promise<Checkou
   }
 
   if (result.ok && result.checkout_url) {
-    // Redirect to Stripe
+    // Redirect to Stripe — Tracking ist bereits server-seitig persistiert.
     window.location.href = result.checkout_url;
   }
 
