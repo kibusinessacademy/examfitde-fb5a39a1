@@ -38,7 +38,10 @@ export default function PersonaLandingPage({ personaType }: PersonaLandingProps)
   const [seoContent, setSeoContent] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [leadGateOpen, setLeadGateOpen] = useState(false);
-  const { hasRecentAttempt } = useLeadGate({ enabled: !!certData });
+  const { hasRecentAttempt, resolvedCurriculumId, resolveReason } = useLeadGate({
+    productSlug: slug,
+    enabled: !!certData,
+  });
 
   useEffect(() => {
     let mounted = true;
@@ -375,6 +378,8 @@ export default function PersonaLandingPage({ personaType }: PersonaLandingProps)
         open={leadGateOpen}
         onOpenChange={setLeadGateOpen}
         productSlug={slug}
+        curriculumId={resolvedCurriculumId}
+        resolveReason={resolveReason}
         persona={(config as any)?.persona ?? null}
         diagnoseHref={`/pruefungsreife-check?source=persona_landing&slug=${encodeURIComponent(slug)}`}
         onSkipToCheckout={() => proceedCheckout()}

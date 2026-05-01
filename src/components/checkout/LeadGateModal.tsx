@@ -29,6 +29,8 @@ export interface LeadGateModalProps {
   onSkipToCheckout: () => void;
   /** Optional source label, e.g. "persona_landing". */
   source?: string;
+  /** Diagnostic: how was the curriculum_id resolved (or why not). */
+  resolveReason?: string | null;
 }
 
 export function LeadGateModal({
