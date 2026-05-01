@@ -71,6 +71,7 @@ import { AlertsBanner } from "@/components/admin/heal/cards/AlertsBanner";
 import { NextActionCard } from "@/components/admin/heal/cards/NextActionCard";
 import { HealKpiHeroCard } from "@/components/admin/heal/cards/HealKpiHeroCard";
 import { RecurringPatternsCard } from "@/components/admin/heal/cards/RecurringPatternsCard";
+import { PermanentFixBacklogCard } from "@/components/admin/heal/cards/PermanentFixBacklogCard";
 
 // Queue-Detail-Tabs (lazy — schwer)
 const QueueLiveTab = lazy(() => import("@/pages/admin/v2/QueuePage"));
