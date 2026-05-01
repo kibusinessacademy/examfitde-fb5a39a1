@@ -40,5 +40,10 @@ export default defineConfig({
       testMatch: /uat\..*\.spec\.ts/,
       timeout: 120_000,
     },
+    {
+      name: 'stripe-smoke',
+      testMatch: /stripe-smoke-.*\.spec\.ts/,
+      timeout: 180_000,
+    },
   ],
 });
