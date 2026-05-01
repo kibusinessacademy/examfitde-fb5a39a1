@@ -112,12 +112,24 @@ function buildCheckoutEvent(f: CheckoutFixture) {
   };
 }
 
-function buildRefundEvent(paymentIntentId: string, chargeId: string, amount: number) {
-  return {
+// Build a charge.refunded event whose shape matches what the stripe-webhook
+// refund handler reads 1:1:
+//   - charge.amount_refunded             → refundAmount
+//   - charge.payment_intent (string)     → paymentIntentId
+//   - charge.refunds.data[0].id          → refundId (anchor for fn_revoke_grant_on_refund)
+// Returns both the event and the refundId so the smoke can assert on it.
+function buildRefundEvent(
+  paymentIntentId: string,
+  chargeId: string,
+  amount: number,
+): { event: Record<string, unknown>; refundId: string } {
+  const refundId = fakeId("re");
+  const nowSec = Math.floor(Date.now() / 1000);
+  const event = {
     id: fakeId("evt"),
     object: "event",
     api_version: "2023-10-16",
-    created: Math.floor(Date.now() / 1000),
+    created: nowSec,
     livemode: false,
     type: "charge.refunded",
     data: {
@@ -125,25 +137,36 @@ function buildRefundEvent(paymentIntentId: string, chargeId: string, amount: num
         id: chargeId,
         object: "charge",
         amount,
-        amount_refunded: amount,
+        amount_captured: amount,
+        amount_refunded: amount, // ← read by handler
         currency: "eur",
-        payment_intent: paymentIntentId,
-        refunded: true,
+        paid: true,
+        captured: true,
+        status: "succeeded",
+        payment_intent: paymentIntentId, // ← read by handler (string form)
+        refunded: true,                  // full refund flag for handler logic
+        created: nowSec - 60,
         refunds: {
           object: "list",
+          has_more: false,
+          total_count: 1,
+          url: `/v1/charges/${chargeId}/refunds`,
           data: [{
-            id: fakeId("re"),
+            id: refundId,                // ← read by handler
             object: "refund",
             amount,
             charge: chargeId,
+            currency: "eur",
             payment_intent: paymentIntentId,
             reason: "requested_by_customer",
             status: "succeeded",
+            created: nowSec,
           }],
         },
       },
     },
   };
+  return { event, refundId };
 }
 
 async function postSignedEvent(
