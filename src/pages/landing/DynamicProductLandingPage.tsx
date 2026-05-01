@@ -103,7 +103,10 @@ export default function DynamicProductLandingPage() {
   const [loading, setLoading] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [leadGateOpen, setLeadGateOpen] = useState(false);
-  const { hasRecentAttempt } = useLeadGate({ enabled: !loading && !!data });
+  const { hasRecentAttempt, resolvedCurriculumId, resolveReason } = useLeadGate({
+    productSlug: slug,
+    enabled: !loading && !!data,
+  });
 
   // ── Tracking: landing_view ──
   useEffect(() => {
@@ -445,6 +448,8 @@ export default function DynamicProductLandingPage() {
         open={leadGateOpen}
         onOpenChange={setLeadGateOpen}
         productSlug={slug}
+        curriculumId={resolvedCurriculumId}
+        resolveReason={resolveReason}
         diagnoseHref={`/pruefungsreife-check?source=dynamic_product_landing&slug=${encodeURIComponent(slug)}`}
         onSkipToCheckout={() => proceedCheckout()}
         source="dynamic_product_landing"
