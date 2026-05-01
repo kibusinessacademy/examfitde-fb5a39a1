@@ -96,8 +96,12 @@ async function main() {
     const required = ["package_id", "product_id", "price_id", "source"];
     let missing = 0;
     for (const r of started) {
+      // Top-level package_id (generated column) zählt als erfüllt.
+      const hasPkg = r.package_id || r.metadata?.package_id;
       for (const k of required) {
-        if (!r.metadata?.[k]) {
+        if (k === "package_id") {
+          if (!hasPkg) { missing++; break; }
+        } else if (!r.metadata?.[k]) {
           missing++;
           break;
         }
