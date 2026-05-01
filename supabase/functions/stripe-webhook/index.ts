@@ -462,7 +462,7 @@ Deno.serve(async (req) => {
                 .from('products')
                 .select('id, title')
                 .eq('curriculum_id', meta.curriculum_id)
-                .eq('status', 'published')
+                .in('status', ['active', 'published'])
                 .order('updated_at', { ascending: false })
                 .limit(1)
                 .maybeSingle();
