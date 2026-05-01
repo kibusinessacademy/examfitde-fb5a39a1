@@ -81,7 +81,7 @@ Anzeige- und Interaktionsschicht. Darf NIE: Business-Regeln entscheiden, Pipelin
 Jede Migration: Prüfquery oder Test-RPC. Pflichttests: Syntax, Security-Grants, Idempotenz, keine Duplikate, keine aktiven Jobs in Paused-State, Artifact Truth, DAG-Konsistenz.
 
 ## 19. Lovable-Arbeitsweise
-Vor JEDER Änderung: (1) Annahmen auflisten, (2) DB-/Code-Realität prüfen, (3) Patch minimal bauen, (4) Guards ergänzen, (5) Tests/Prüfqueries liefern, (6) KEINE erfundenen Tabellen/Spalten/RPCs/Statuswerte.
+Vor JEDER Änderung: (1) Annahmen auflisten, (2) **Schema-Realitäts-Check zuerst** — tatsächliche Spaltenstruktur/-namen/-typen/Enums gegen Live-DB prüfen (siehe Regel 11), (3) **Mismatches & Schema-Drifts aktiv vermeiden** — Abweichungen Annahme↔Code↔Memory↔DB sofort konsolidieren, (4) DB-/Code-Realität insgesamt prüfen, (5) Patch minimal, (6) Guards ergänzen, (7) Tests/Prüfqueries, (8) KEINE erfundenen Tabellen/Spalten/RPCs/Statuswerte.
 
 ## 20. Goldene Regel
 **Guard vor Repair. Artifact vor Status. Fail-Fast vor Retry. SSOT vor UI. Prüfungslogik vor Content.**
