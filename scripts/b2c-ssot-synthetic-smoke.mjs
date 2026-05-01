@@ -60,7 +60,7 @@ if (!userId) {
 INFO("test_user_id =", userId);
 
 const [productId, productTitle, curriculumId] = one(
-  "SELECT id, title, curriculum_id::text FROM products WHERE curriculum_id IS NOT NULL AND status='published' ORDER BY updated_at DESC LIMIT 1",
+  "SELECT id, title, curriculum_id::text FROM products WHERE curriculum_id IS NOT NULL AND status='active' AND title IS NOT NULL ORDER BY updated_at DESC LIMIT 1",
 );
 if (!productId) {
   FAIL("kein published product mit curriculum_id vorhanden");
