@@ -434,120 +434,122 @@ Deno.serve(async (req) => {
           logStep("ERROR: B2B subscription fulfillment failed", { error: String(b2bSubErr) });
         }
       } else if (meta.checkout_source === 'create-payment') {
-        // ── NEW: Product-based payment fulfillment (B2C paywall + B2B pricing plan) ──
+        // ── B2C/B2B Product-Checkout fulfillment (SSOT via orders → trigger) ──
         try {
           const userId = meta.user_id;
-          const productId = meta.product_id;
-          const flow = meta.flow; // 'paywall_variant' or 'pricing_plan'
+          const rawProductId = meta.product_id;
+          const flow = meta.flow; // 'paywall_variant' | 'pricing_plan'
 
-          if (!userId || !productId) {
+          if (!userId || !rawProductId) {
             logStep("SKIP create-payment fulfillment (missing user_id/product_id)", { meta });
-          } else if (flow === 'paywall_variant') {
-            // ── B2C: Create personal entitlement ──
-            logStep("Fulfilling B2C paywall_variant purchase", { userId, productId });
+          } else {
+            // ── product_id Resolver+Validator (Loop C v2 Bug 1 Schutz) ──
+            // Validiert gegen products-Tabelle. Falls meta.product_id nicht in
+            // products existiert, versuchen via meta.curriculum_id zu resolven.
+            let productId: string | null = null;
+            let productTitle: string | null = null;
 
-            const durationDays = 365;
-            const validUntil = new Date();
-            validUntil.setDate(validUntil.getDate() + durationDays);
-
-            // Idempotency: check existing entitlement for this session
-            const { data: existingEnt } = await adminClient
-              .from('entitlements')
-              .select('id')
-              .eq('user_id', userId)
-              .eq('product_id', productId)
-              .eq('source_type', 'stripe')
-              .eq('source_ref', session.id)
+            const { data: byId } = await adminClient
+              .from('products')
+              .select('id, title')
+              .eq('id', rawProductId)
               .maybeSingle();
-
-            if (existingEnt) {
-              logStep("Entitlement already exists (idempotent)", { id: existingEnt.id });
-            } else {
-              await adminClient.from('entitlements').insert({
-                user_id: userId,
-                product_id: productId,
-                source_type: 'stripe',
-                source_ref: session.id,
-                valid_from: new Date().toISOString(),
-                valid_until: validUntil.toISOString(),
-              });
-              logStep("B2C entitlement created", { userId, productId, validUntil: validUntil.toISOString() });
-            }
-
-            // Record experiment conversion
-            if (meta.experiment_key && meta.variant_key) {
-              try {
-                await adminClient.rpc('record_experiment_conversion' as any, {
-                  p_user_id: userId,
-                  p_experiment_key: meta.experiment_key,
-                  p_variant_key: meta.variant_key,
-                  p_conversion_value_cents: parseInt(meta.price_cents || session.amount_total?.toString() || '0'),
-                });
-                logStep("Experiment conversion recorded");
-              } catch (convErr) {
-                logStep("WARN: Could not record experiment conversion", { error: String(convErr) });
+            if (byId?.id) {
+              productId = byId.id;
+              productTitle = byId.title ?? null;
+            } else if (meta.curriculum_id) {
+              const { data: byCurr } = await adminClient
+                .from('products')
+                .select('id, title')
+                .eq('curriculum_id', meta.curriculum_id)
+                .eq('status', 'published')
+                .order('updated_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+              if (byCurr?.id) {
+                productId = byCurr.id;
+                productTitle = byCurr.title ?? null;
+                logStep("product_id resolved via curriculum_id", { rawProductId, resolvedProductId: productId });
               }
             }
 
-            // Track checkout_complete event (SSOT)
-            await emitCheckoutCompleteEvent(adminClient, {
-              user_id: userId,
-              product_id: productId,
-              session_id: session.id,
-              flow,
-              extra: {
-                experiment_key: meta.experiment_key,
-                variant_key: meta.variant_key,
-                amount_total: session.amount_total,
-              },
-            });
+            if (!productId) {
+              logStep("ERROR: product_id konnte nicht in products-Tabelle resolved werden", {
+                rawProductId,
+                curriculumId: meta.curriculum_id,
+              });
+              return new Response(JSON.stringify({ received: true, error: "unknown_product_id" }), { status: 200 });
+            }
 
-          } else if (flow === 'pricing_plan') {
-            const audienceType = meta.audience_type || 'b2c';
+            const audienceType = (meta.audience_type || 'b2c').toLowerCase();
             const seatCount = parseInt(meta.seat_count || '1');
-            const durationDays = parseInt(meta.duration_days || '365');
-            const validUntil = new Date();
-            validUntil.setDate(validUntil.getDate() + durationDays);
+            const isB2cFlow =
+              flow === 'paywall_variant' ||
+              (flow === 'pricing_plan' && (audienceType === 'b2c' || seatCount <= 1));
 
-            if (audienceType === 'b2c' || seatCount <= 1) {
-              // ── B2C pricing_plan: Create personal entitlement (no org) ──
-              logStep("Fulfilling B2C pricing_plan purchase", { userId, productId, planKey: meta.plan_key });
+            if (isB2cFlow) {
+              // ── B2C SSOT: Order anlegen → Trigger erzeugt invoice/payment/ledger/grant/entitlement ──
+              logStep("Fulfilling B2C purchase via SSOT order pipeline", {
+                userId,
+                productId,
+                flow,
+                audienceType,
+              });
 
-              const { data: existingEnt } = await adminClient
-                .from('entitlements')
-                .select('id')
-                .eq('user_id', userId)
-                .eq('product_id', productId)
-                .eq('source_type', 'stripe')
-                .eq('source_ref', session.id)
-                .maybeSingle();
+              const { orderId, created } = await ensureB2cOrderForSession(adminClient, stripe, {
+                session,
+                user_id: userId,
+                product_id: productId,
+                description: productTitle ?? `Produkt ${productId}`,
+                quantity: 1,
+              });
 
-              if (existingEnt) {
-                logStep("Entitlement already exists (idempotent)", { id: existingEnt.id });
+              if (!orderId) {
+                logStep("ERROR: ensureB2cOrderForSession lieferte keine orderId");
               } else {
-                await adminClient.from('entitlements').insert({
-                  user_id: userId,
-                  product_id: productId,
-                  source_type: 'stripe',
-                  source_ref: session.id,
-                  valid_from: new Date().toISOString(),
-                  valid_until: validUntil.toISOString(),
-                });
-                logStep("B2C pricing_plan entitlement created", { userId, productId, validUntil: validUntil.toISOString() });
+                logStep(created ? "B2C order created (SSOT)" : "B2C order existed (idempotent)", { orderId });
+              }
+
+              // Experiment-Conversion bleibt hier (nicht über Trigger)
+              if (meta.experiment_key && meta.variant_key) {
+                try {
+                  await adminClient.rpc('record_experiment_conversion' as any, {
+                    p_user_id: userId,
+                    p_experiment_key: meta.experiment_key,
+                    p_variant_key: meta.variant_key,
+                    p_conversion_value_cents: parseInt(meta.price_cents || session.amount_total?.toString() || '0'),
+                  });
+                  logStep("Experiment conversion recorded");
+                } catch (convErr) {
+                  logStep("WARN: Could not record experiment conversion", { error: String(convErr) });
+                }
               }
 
               await emitCheckoutCompleteEvent(adminClient, {
                 user_id: userId,
                 product_id: productId,
                 session_id: session.id,
-                flow: 'pricing_plan_b2c',
+                flow: flow === 'paywall_variant' ? 'paywall_variant' : 'pricing_plan_b2c',
                 extra: {
-                  plan_key: meta.plan_key,
+                  order_id: orderId,
+                  experiment_key: meta.experiment_key ?? null,
+                  variant_key: meta.variant_key ?? null,
+                  plan_key: meta.plan_key ?? null,
                   amount_total: session.amount_total,
                 },
               });
 
-            } else {
+            } else if (flow === 'pricing_plan') {
+              // ── B2B pricing_plan: weiterhin org_license-Pfad (Sprint-2-Refactor) ──
+              const durationDays = parseInt(meta.duration_days || '365');
+              const validUntil = new Date();
+              validUntil.setDate(validUntil.getDate() + durationDays);
+              logStep("Fulfilling B2B pricing_plan purchase (legacy org_license pfad)", {
+                userId,
+                productId,
+                planKey: meta.plan_key,
+              });
+              {
             // ── B2B: Create org + license + seats ──
             logStep("Fulfilling B2B pricing_plan purchase", { userId, productId, planKey: meta.plan_key });
 
