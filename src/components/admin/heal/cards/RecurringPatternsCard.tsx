@@ -16,12 +16,17 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Brain, CheckCircle2, ChevronDown, ExternalLink, Flame,
-  Loader2, Sparkles, TrendingUp, X,
+  Loader2, Play, Sparkles, TrendingUp, Wrench, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
   Collapsible, CollapsibleContent, CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader,
+  AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Link } from "react-router-dom";
 
 type NextBestAction = {
@@ -164,6 +169,59 @@ export function RecurringPatternsCard({ limit = 10 }: { limit?: number }) {
       toast.error("Konnte nicht verworfen werden", { description: e.message }),
   });
 
+  const applyMutation = useMutation({
+    mutationFn: async ({ id }: { id: string }) => {
+      const { data, error } = await supabase.rpc(
+        "admin_heal_apply_recommendation" as never,
+        { p_recommendation_id: id } as never,
+      );
+      if (error) throw error;
+      const d = data as { error?: string; ok?: boolean; executed?: number; failed?: number; steps?: unknown[] };
+      if (d?.error) throw new Error(d.error);
+      return d as { ok: boolean; executed: number; failed: number; steps: unknown[] };
+    },
+    onSuccess: (res) => {
+      const failed = res.failed ?? 0;
+      if (failed > 0) {
+        toast.warning("Heal-Plan teilweise ausgeführt", {
+          description: `${res.executed} ok · ${failed} fehlgeschlagen`,
+        });
+      } else {
+        toast.success("Heal-Plan ausgeführt", {
+          description: `${res.executed} Schritt(e) erfolgreich`,
+        });
+      }
+      qc.invalidateQueries({ queryKey: ["heal-recurring-patterns"] });
+    },
+    onError: (e: Error) =>
+      toast.error("Heal-Plan konnte nicht ausgeführt werden", { description: e.message }),
+  });
+
+  const createTaskMutation = useMutation({
+    mutationFn: async ({ id, priority }: { id: string; priority?: string }) => {
+      const { data, error } = await supabase.rpc(
+        "admin_create_permanent_fix_task" as never,
+        { p_recommendation_id: id, p_priority: priority ?? "medium" } as never,
+      );
+      if (error) throw error;
+      const d = data as { error?: string; ok?: boolean; task_id?: string; reused?: boolean };
+      if (d?.error) throw new Error(d.error);
+      return d;
+    },
+    onSuccess: (res) => {
+      toast.success(
+        res.reused
+          ? "Vorhandene Permanent-Fix-Aufgabe geöffnet"
+          : "Permanent-Fix als Aufgabe gespeichert",
+        { description: "Sichtbar im Backlog oben im Heal-Hub." },
+      );
+      qc.invalidateQueries({ queryKey: ["heal-permanent-fix-tasks"] });
+    },
+    onError: (e: Error) =>
+      toast.error("Aufgabe konnte nicht erstellt werden", { description: e.message }),
+  });
+
+
   return (
     <Card className="border-amber-500/30">
       <CardHeader className="pb-2">
@@ -216,9 +274,25 @@ export function RecurringPatternsCard({ limit = 10 }: { limit?: number }) {
                 p.active_recommendation_id &&
                 dismissMutation.mutate({ id: p.active_recommendation_id, reason })
               }
+              onApply={() =>
+                p.active_recommendation_id &&
+                applyMutation.mutate({ id: p.active_recommendation_id })
+              }
+              onCreateTask={(priority) =>
+                p.active_recommendation_id &&
+                createTaskMutation.mutate({ id: p.active_recommendation_id, priority })
+              }
               isAnalyzing={
                 aiMutation.isPending &&
                 aiMutation.variables?.pattern_key === p.pattern_key
+              }
+              isApplying={
+                applyMutation.isPending &&
+                applyMutation.variables?.id === p.active_recommendation_id
+              }
+              isCreatingTask={
+                createTaskMutation.isPending &&
+                createTaskMutation.variables?.id === p.active_recommendation_id
               }
             />
           ))
@@ -229,13 +303,18 @@ export function RecurringPatternsCard({ limit = 10 }: { limit?: number }) {
 }
 
 function PatternRow({
-  p, onAnalyze, onResolve, onDismiss, isAnalyzing,
+  p, onAnalyze, onResolve, onDismiss, onApply, onCreateTask,
+  isAnalyzing, isApplying, isCreatingTask,
 }: {
   p: NextBestAction;
   onAnalyze: (force?: boolean) => void;
   onResolve: (note?: string) => void;
   onDismiss: (reason?: string) => void;
+  onApply: () => void;
+  onCreateTask: (priority?: string) => void;
   isAnalyzing: boolean;
+  isApplying: boolean;
+  isCreatingTask: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const tone = severityTone(p.severity_score);
@@ -325,12 +404,62 @@ function PatternRow({
               <div className="flex items-start gap-2 border-t pt-2">
                 <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
                 <div className="space-y-1 min-w-0 flex-1">
-                  <div className="text-xs font-medium text-muted-foreground">Permanent-Fix-Vorschlag</div>
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="text-xs font-medium text-muted-foreground">Permanent-Fix-Vorschlag</div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs"
+                      disabled={isCreatingTask}
+                      onClick={() => onCreateTask("medium")}
+                    >
+                      {isCreatingTask ? (
+                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                      ) : (
+                        <Wrench className="h-3 w-3 mr-1" />
+                      )}
+                      In Backlog speichern
+                    </Button>
+                  </div>
                   <div className="text-xs">{p.recommendation_permanent_fix}</div>
                 </div>
               </div>
             )}
-            <div className="flex items-center gap-2 pt-1 border-t">
+            <div className="flex items-center gap-2 pt-1 border-t flex-wrap">
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="default"
+                    className="h-7 text-xs gap-1"
+                    disabled={isApplying}
+                  >
+                    {isApplying ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Play className="h-3 w-3" />
+                    )}
+                    Heal-Plan jetzt ausführen
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Heal-Plan ausführen?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Der KI-vorgeschlagene Heal-Plan wird sofort ausgeführt. Mögliche Aktionen:
+                      soft_reentry, hard_heal, mark_content_gap, force_depublish_rebuild.
+                      Destruktive Schritte (Depublish + Rebuild) werden direkt angewendet, wenn die KI sie vorgeschlagen hat.
+                      Audit-Eintrag in <code>auto_heal_log</code> wird geschrieben.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => onApply()}>
+                      Ja, ausführen
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
               <Button
                 size="sm"
                 variant="outline"
