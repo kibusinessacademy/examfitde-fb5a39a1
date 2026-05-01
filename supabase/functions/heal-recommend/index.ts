@@ -185,6 +185,7 @@ Deno.serve(async (req) => {
   }
 
   try {
+    console.log("[heal-recommend] start");
     const authHeader = req.headers.get("Authorization") ?? "";
     if (!authHeader.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "missing_auth" }), {
@@ -201,19 +202,22 @@ Deno.serve(async (req) => {
 
     const { data: userData, error: userErr } = await userClient.auth.getUser();
     if (userErr || !userData?.user) {
+      console.error("[heal-recommend] auth failed", userErr);
       return new Response(JSON.stringify({ error: "invalid_token" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
     const uid = userData.user.id;
+    console.log("[heal-recommend] uid=", uid);
 
     const { data: hasAdmin, error: roleErr } = await userClient.rpc(
       "has_role",
       { _user_id: uid, _role: "admin" },
     );
     if (roleErr || !hasAdmin) {
-      return new Response(JSON.stringify({ error: "forbidden" }), {
+      console.error("[heal-recommend] role check failed", { roleErr, hasAdmin });
+      return new Response(JSON.stringify({ error: "forbidden", detail: roleErr?.message ?? "no_admin" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -223,6 +227,7 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const pattern_key: string | undefined = body?.pattern_key;
     const force: boolean = !!body?.force;
+    console.log("[heal-recommend] pattern_key=", pattern_key, "force=", force);
     if (!pattern_key || typeof pattern_key !== "string") {
       return new Response(JSON.stringify({ error: "pattern_key_required" }), {
         status: 400,
@@ -230,16 +235,20 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 3) Signal-Bundle laden (User-RPC, definer hardended)
+    // 3) Signal-Bundle laden (User-RPC, definer hardened)
     const { data: bundle, error: sigErr } = await userClient.rpc(
       "admin_heal_pattern_signal_bundle",
       { p_pattern_key: pattern_key },
     );
-    if (sigErr) throw sigErr;
+    if (sigErr) {
+      console.error("[heal-recommend] signal bundle error", sigErr);
+      throw sigErr;
+    }
+    console.log("[heal-recommend] bundle=", JSON.stringify(bundle)?.slice(0, 300));
     const signal = bundle as SignalBundle;
-    if (!signal || signal.error) {
+    if (!signal || (signal as any).error) {
       return new Response(
-        JSON.stringify({ error: "pattern_not_found" }),
+        JSON.stringify({ error: "pattern_not_found", detail: (signal as any)?.error }),
         {
           status: 404,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
