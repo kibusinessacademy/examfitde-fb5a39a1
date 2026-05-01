@@ -278,6 +278,7 @@ export default function HealCockpitPage() {
             <RecurringPatternsCard limit={10} />
             <PermanentFixBacklogCard />
             <CourseHealPlansCard />
+            <ExamPoolQuarantineCard />
             <SystemIntentsKpiCard />
             <StuckPatternsCard />
             <HealStatusCard />
