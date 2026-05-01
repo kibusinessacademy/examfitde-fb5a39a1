@@ -50436,6 +50436,48 @@ export type Database = {
         }
         Relationships: []
       }
+      pricing_tier_stripe_map: {
+        Row: {
+          amount_cents: number
+          billing_type: string
+          created_at: string
+          currency: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          stripe_price_id: string
+          stripe_product_id: string
+          tier_label: string
+          updated_at: string
+        }
+        Insert: {
+          amount_cents: number
+          billing_type?: string
+          created_at?: string
+          currency: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          stripe_price_id: string
+          stripe_product_id: string
+          tier_label: string
+          updated_at?: string
+        }
+        Update: {
+          amount_cents?: number
+          billing_type?: string
+          created_at?: string
+          currency?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          stripe_price_id?: string
+          stripe_product_id?: string
+          tier_label?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       priority_score_rules: {
         Row: {
           created_at: string
@@ -63374,6 +63416,51 @@ export type Database = {
           processed_at?: string | null
           received_at?: string
           stripe_event_id?: string
+        }
+        Relationships: []
+      }
+      stripe_price_sync_audit: {
+        Row: {
+          action: string
+          after_stripe_price_id: string | null
+          amount_cents: number | null
+          before_stripe_price_id: string | null
+          created_at: string
+          currency: string | null
+          id: string
+          metadata: Json | null
+          product_price_id: string
+          reason: string | null
+          trigger_source: string
+          triggered_by: string | null
+        }
+        Insert: {
+          action: string
+          after_stripe_price_id?: string | null
+          amount_cents?: number | null
+          before_stripe_price_id?: string | null
+          created_at?: string
+          currency?: string | null
+          id?: string
+          metadata?: Json | null
+          product_price_id: string
+          reason?: string | null
+          trigger_source?: string
+          triggered_by?: string | null
+        }
+        Update: {
+          action?: string
+          after_stripe_price_id?: string | null
+          amount_cents?: number | null
+          before_stripe_price_id?: string | null
+          created_at?: string
+          currency?: string | null
+          id?: string
+          metadata?: Json | null
+          product_price_id?: string
+          reason?: string | null
+          trigger_source?: string
+          triggered_by?: string | null
         }
         Relationships: []
       }
@@ -102378,6 +102465,31 @@ export type Database = {
         }
         Relationships: []
       }
+      v_stripe_price_sync_preview: {
+        Row: {
+          access_months: number | null
+          action_needed: string | null
+          amount_cents: number | null
+          billing_type: string | null
+          currency: string | null
+          current_stripe_price_id: string | null
+          product_id: string | null
+          product_price_id: string | null
+          product_title: string | null
+          reason: string | null
+          suggested_stripe_price_id: string | null
+          suggested_tier_label: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_prices_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_studio_status_distribution: {
         Row: {
           oldest_updated_at: string | null
@@ -104032,6 +104144,14 @@ export type Database = {
             }
             Returns: Json
           }
+      admin_stripe_price_sync_apply: {
+        Args: { p_dry_run?: boolean }
+        Returns: {
+          action: string
+          count_rows: number
+          detail: Json
+        }[]
+      }
       admin_suggest_repair_action: {
         Args: { _dry_run?: boolean; _package_id: string }
         Returns: Json
