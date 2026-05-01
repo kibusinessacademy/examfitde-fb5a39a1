@@ -102444,6 +102444,10 @@ export type Database = {
             }
             Returns: Json
           }
+      admin_get_active_heal_plan: {
+        Args: { p_package_id: string }
+        Returns: Json
+      }
       admin_get_audit_reason_drilldown: {
         Args: {
           p_limit?: number
