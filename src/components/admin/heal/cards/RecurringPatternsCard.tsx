@@ -169,6 +169,21 @@ export function RecurringPatternsCard({ limit = 10 }: { limit?: number }) {
       <CardContent className="space-y-2">
         {isLoading ? (
           <Skeleton className="h-32 w-full" />
+        ) : queryError ? (
+          <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm space-y-2">
+            <div className="font-medium text-destructive">
+              Pattern konnten nicht geladen werden
+            </div>
+            <div className="text-xs text-muted-foreground font-mono break-all">
+              {(queryError as Error).message}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              Hinweis: Diese Karte erfordert Admin-Rechte (RPC <code>admin_heal_next_best_action</code>).
+            </div>
+            <Button size="sm" variant="outline" onClick={() => refetch()}>
+              Erneut versuchen
+            </Button>
+          </div>
         ) : !data || data.length === 0 ? (
           <div className="text-sm text-muted-foreground py-6 text-center">
             ✓ Keine wiederkehrenden Cluster über Schwellwert.
