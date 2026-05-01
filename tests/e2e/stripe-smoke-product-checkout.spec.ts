@@ -141,7 +141,7 @@ test.describe('Stripe Smoke — create-product-checkout', () => {
     // 5a) order_items → product_id muss zur products-Tabelle resolven
     const { data: items, error: itemsErr } = await admin
       .from('order_items')
-      .select('id, product_id, quantity, unit_amount_cents')
+      .select('id, product_id, quantity, unit_amount_gross_cents')
       .eq('order_id', orderId);
     expect(itemsErr).toBeNull();
     expect(items?.length, 'order_items ≥1').toBeGreaterThanOrEqual(1);
@@ -189,16 +189,16 @@ test.describe('Stripe Smoke — create-product-checkout', () => {
     // 5c) Entitlement-Setup vollständig (alle has_*-Flags=true, valid_until in Zukunft)
     const { data: ents } = await admin
       .from('entitlements')
-      .select('source, has_quiz, has_simulation, has_coach, has_oral, valid_until')
+      .select('source, has_learning_course, has_exam_trainer, has_ai_tutor, has_oral_trainer, valid_until')
       .eq('user_id', buyerId)
-      .order('granted_at', { ascending: false })
+      .order('created_at', { ascending: false })
       .limit(5);
     const fresh = (ents || []).find(
       (e: any) =>
-        e.has_quiz === true &&
-        e.has_simulation === true &&
-        e.has_coach === true &&
-        e.has_oral === true &&
+        e.has_learning_course === true &&
+        e.has_exam_trainer === true &&
+        e.has_ai_tutor === true &&
+        e.has_oral_trainer === true &&
         new Date(e.valid_until) > new Date(),
     );
     expect(fresh, 'mindestens ein vollständiges aktives Entitlement muss vorhanden sein').toBeTruthy();
