@@ -67,18 +67,23 @@ function severityTone(score: number): "ok" | "warn" | "bad" {
 
 export function RecurringPatternsCard({ limit = 10 }: { limit?: number }) {
   const qc = useQueryClient();
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error: queryError, refetch } = useQuery({
     queryKey: ["heal-recurring-patterns", limit],
     queryFn: async (): Promise<NextBestAction[]> => {
       const { data, error } = await supabase.rpc(
         "admin_heal_next_best_action" as never,
         { p_limit: limit } as never,
       );
-      if (error) throw error;
+      if (error) {
+        console.error("[RecurringPatternsCard] RPC error:", error);
+        throw error;
+      }
+      console.info("[RecurringPatternsCard] loaded", (data as unknown[] | null)?.length ?? 0, "patterns");
       return (data ?? []) as unknown as NextBestAction[];
     },
     refetchInterval: 60_000,
     staleTime: 30_000,
+    retry: 1,
   });
 
   const aiMutation = useMutation({
