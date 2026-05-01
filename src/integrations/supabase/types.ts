@@ -30005,6 +30005,57 @@ export type Database = {
         }
         Relationships: []
       }
+      gdpr_deletion_requests: {
+        Row: {
+          cancelled_at: string | null
+          completed_at: string | null
+          confirmation_token: string | null
+          confirmed_at: string | null
+          created_at: string
+          id: string
+          metadata: Json
+          reason: string | null
+          rejection_reason: string | null
+          requested_at: string
+          scheduled_deletion_at: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cancelled_at?: string | null
+          completed_at?: string | null
+          confirmation_token?: string | null
+          confirmed_at?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          reason?: string | null
+          rejection_reason?: string | null
+          requested_at?: string
+          scheduled_deletion_at?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cancelled_at?: string | null
+          completed_at?: string | null
+          confirmation_token?: string | null
+          confirmed_at?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          reason?: string | null
+          rejection_reason?: string | null
+          requested_at?: string
+          scheduled_deletion_at?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       german_certification_master: {
         Row: {
           case_study_required: boolean
@@ -104752,6 +104803,7 @@ export type Database = {
         }[]
       }
       can_worker_claim: { Args: { p_job_type: string }; Returns: boolean }
+      cancel_gdpr_deletion: { Args: { p_request_id: string }; Returns: Json }
       cancel_jobs_for_package: {
         Args: {
           p_job_type?: string
@@ -107284,6 +107336,14 @@ export type Database = {
         Args: { p_backoff_seconds: number; p_job_id: string; p_reason: string }
         Returns: undefined
       }
+      fn_revoke_grant_on_refund: {
+        Args: {
+          p_reason?: string
+          p_refund_id: string
+          p_stripe_payment_intent_id: string
+        }
+        Returns: Json
+      }
       fn_route_materialization_block: {
         Args: { p_job_id: string; p_last_error: string }
         Returns: boolean
@@ -108540,6 +108600,7 @@ export type Database = {
       }
       get_unified_leitstelle_feed: { Args: { p_limit?: number }; Returns: Json }
       get_unified_leitstelle_snapshot: { Args: never; Returns: Json }
+      get_user_account_summary: { Args: never; Returns: Json }
       get_user_dashboard_stats: { Args: never; Returns: Json }
       get_user_entitlements_current: {
         Args: { p_curriculum_id?: string; p_user_id: string }
@@ -109469,6 +109530,7 @@ export type Database = {
           package_id: string
         }[]
       }
+      request_gdpr_deletion: { Args: { p_reason?: string }; Returns: Json }
       requeue_failed_jobs: { Args: never; Returns: number }
       requeue_integrity_mismatch_safely: {
         Args: {
