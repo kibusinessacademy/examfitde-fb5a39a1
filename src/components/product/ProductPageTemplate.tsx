@@ -25,6 +25,12 @@ interface Props {
   onFaqExpand?: (question: string) => void;
   onRelatedCourseClick?: (slug: string) => void;
   isCheckoutLoading?: boolean;
+  /** Optional persona-context (Routing-/Copy-Layer, NICHT Produktwahrheit). */
+  personaContext?: ProductPersonaContext | null;
+  /** Optionaler Canonical-Override (z.B. /pruefungstraining/:slug/:persona). */
+  canonicalOverride?: string;
+  /** Optionaler Persona-CTA-Handler (Diagnose/Quiz). */
+  onPersonaCtaClick?: () => void;
 }
 
 export function ProductPageTemplate({
@@ -33,11 +39,24 @@ export function ProductPageTemplate({
   onFaqExpand,
   onRelatedCourseClick,
   isCheckoutLoading = false,
+  personaContext = null,
+  canonicalOverride,
+  onPersonaCtaClick,
 }: Props) {
   const [showStickyBar, setShowStickyBar] = useState(false);
   const heroRef = useRef<HTMLDivElement>(null);
 
   const seo = buildProductSEO(product);
+  const canonical = canonicalOverride ?? seo.canonical;
+  const seoTitle = personaContext
+    ? `${product.canonicalTitle} ${personaContext.seoTitleSuffix} | ExamFit`.slice(0, 60)
+    : seo.title;
+  const seoDescription = personaContext
+    ? personaContext.seoDescription(
+        product.canonicalTitle,
+        Number(product.pricing.amount).toFixed(0),
+      )
+    : seo.description;
 
   // Sticky bar visibility: show when hero leaves viewport
   useEffect(() => {
@@ -58,9 +77,9 @@ export function ProductPageTemplate({
   return (
     <>
       <SEOHead
-        title={seo.title}
-        description={seo.description}
-        canonical={seo.canonical}
+        title={seoTitle}
+        description={seoDescription}
+        canonical={canonical}
         type="product"
         image={seo.ogImage || undefined}
         structuredData={seo.structuredData}
@@ -70,6 +89,14 @@ export function ProductPageTemplate({
       />
 
       <article className="min-h-screen">
+        {personaContext && (
+          <ProductPersonaBand
+            context={personaContext}
+            productName={product.canonicalTitle}
+            onCtaClick={onPersonaCtaClick}
+          />
+        )}
+
         <div ref={heroRef}>
           <ProductHeroSection
             product={product}
