@@ -36,6 +36,16 @@ const ResetPassword = lazyRetry(() => import('@/pages/auth/ResetPassword'));
 const NotFound = lazyRetry(() => import('@/pages/NotFound'));
 const InstallPage = lazyRetry(() => import('@/pages/InstallPage'));
 
+// /app — Account/Verwaltungsbereich (separat von /dashboard Lern-Hub)
+const AppLayout = lazyRetry(() => import('@/pages/app/AppLayout'));
+const AppOverviewPage = lazyRetry(() => import('@/pages/app/AppOverviewPage'));
+const AppCoursesPage = lazyRetry(() => import('@/pages/app/AppCoursesPage'));
+const AppInvoicesPage = lazyRetry(() => import('@/pages/app/AppInvoicesPage'));
+const AppDownloadsPage = lazyRetry(() => import('@/pages/app/AppDownloadsPage'));
+const AppLicensesPage = lazyRetry(() => import('@/pages/app/AppLicensesPage'));
+const AppProfilePage = lazyRetry(() => import('@/pages/app/AppProfilePage'));
+const AppGdprPage = lazyRetry(() => import('@/pages/app/AppGdprPage'));
+
 // SEO Pages
 const IHKPruefungenPage = lazyRetry(() => import('@/pages/seo/IHKPruefungenPage'));
 const PruefungstrainingAzubisPage = lazyRetry(() => import('@/pages/seo/PruefungstrainingAzubisPage'));
@@ -394,6 +404,19 @@ const AppRoutes = () => {
             <Route path="/diagnostic/:curriculumId" element={<DiagnosticTest />} />
             <Route path="/handbuch" element={<HandbookPage />} />
             <Route path="/handbuch/:chapterKey" element={<HandbookChapterPage />} />
+          </Route>
+        </Route>
+
+        {/* ====== /app — Account-Bereich (Protected) ====== */}
+        <Route element={<ProtectedRoute />}>
+          <Route path="/app" element={<AppLayout />}>
+            <Route index element={<AppOverviewPage />} />
+            <Route path="meine-kurse" element={<AppCoursesPage />} />
+            <Route path="rechnungen" element={<AppInvoicesPage />} />
+            <Route path="downloads" element={<AppDownloadsPage />} />
+            <Route path="lizenzen" element={<AppLicensesPage />} />
+            <Route path="profil" element={<AppProfilePage />} />
+            <Route path="dsgvo" element={<AppGdprPage />} />
           </Route>
         </Route>
 
