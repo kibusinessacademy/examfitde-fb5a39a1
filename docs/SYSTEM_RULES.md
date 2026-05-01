@@ -360,13 +360,47 @@ Lovable muss vor jeder technischen Änderung so arbeiten:
 
 ---
 
-## 20. Goldene Regel
+## 21. Identity & Naming Regel (Canonical Identity Contract)
+
+Jede Entität braucht **drei Identitäten**:
+- **UUID** = `*_id` für Maschinen/Joins
+- **Stabiler Key** = `*_key` / `*_type` für Systemlogik (immutable nach Vergabe)
+- **Lesbarer Name** = `*_name` / `title` für Menschen/Admin
+
+**Pflichtfelder pro Ebene:**
+
+| Ebene | UUID | Key | Name | Bezug |
+|---|---|---|---|---|
+| Package | `id` | `package_key` (immutable) | `title` | `certification_id`, `product_id` |
+| Job | `id` | `job_type` (in `ops_job_type_registry`) | `job_name` | `package_id`, `correlation_id`, `root_job_id`, `parent_job_id` |
+| Step | `id` | `step_key` | `step_name` | `package_id`, `artifact_type` |
+
+**Verboten:**
+- Logs nur mit UUID ohne `*_name`
+- Jobs ohne `package_id`, wenn `ops_job_type_registry.requires_package_id = true`
+- Async-Jobs ohne `correlation_id` / `root_job_id`
+- Freie `job_type`-Werte ohne Registry-Eintrag (Drift mit `KNOWN_JOB_TYPES` + `_shared/job-map.ts` ist verboten)
+- `title` als Join-Key
+- `slug` als einzige Wahrheit (slug darf sich ändern, `package_key` nicht)
+- `package_key` ändern nach Vergabe (DB-Trigger `trg_guard_package_key_immutable` blockt)
+
+**Pflicht:**
+- Jeder neue `job_type` zuerst in `ops_job_type_registry` mit `job_name`, `lane`, `requires_package_id`, `is_governance` registrieren
+- Producer setzen `correlation_id` und `root_job_id` beim Enqueue (Producer-Helper folgt; Phase 3 Guard ist warn-only bis 7 Tage Grace)
+- Audit-Logs: `action_type`, `target_type`, `target_id`, `result_status` Pflicht; `metadata` für `package_key`/`job_name`-Snapshot
+
+**Enforcement:** `scripts/guards/canonical-identity-contract-guard.mjs` (5 Sub-Guards, warn-only). CI: `.github/workflows/canonical-identity-guard.yml`. Hard-Block-Umstieg nach 7-Tage-Beobachtung mit Drift-Report.
+
+---
+
+## 22. Goldene Regel
 
 > **Guard vor Repair.**
 > **Artifact vor Status.**
 > **Fail-Fast vor Retry.**
 > **SSOT vor UI.**
 > **Prüfungslogik vor Content.**
+> **Identity vor Logs (UUID + Key + Name immer zusammen).**
 
 ---
 
