@@ -4,7 +4,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { handleCorsPreflightRequest } from "../_shared/cors.ts";
 
 const logStep = (step: string, details?: Record<string, unknown>) => {
-  console.log(`[STRIPE-WEBHOOK] ${step}`, details ? JSON.stringify(details) : '');
+  // Structured single-line JSON for easy log filtering (handler branch, event type, db effects)
+  const payload = { tag: 'stripe-webhook', step, ts: new Date().toISOString(), ...(details || {}) };
+  console.log(JSON.stringify(payload));
 };
 
 function generateInviteCode(): string {
