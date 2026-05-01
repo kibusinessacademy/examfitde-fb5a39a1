@@ -819,6 +819,27 @@ Deno.serve(async (req) => {
 
           logStep("Invoice created", { invoiceNumber });
 
+          // 4b) Invoice items mirror (Loop B SSOT for /app/rechnungen)
+          if (dbInvoice?.id) {
+            const itemNet = Math.round(unitPriceCents / (1 + taxRate / 100));
+            const itemTax = unitPriceCents - itemNet;
+            const { error: itemErr } = await adminClient
+              .from('invoice_items')
+              .upsert({
+                invoice_id: dbInvoice.id,
+                order_id: order.id,
+                product_id: productId,
+                description: `${product.name} (${quantity}x)`,
+                quantity,
+                unit_price_cents: unitPriceCents,
+                tax_rate: taxRate,
+                tax_amount_cents: itemTax * quantity,
+                total_cents: unitPriceCents * quantity,
+              }, { onConflict: 'invoice_id,product_id', ignoreDuplicates: false });
+            if (itemErr) logStep("WARN: invoice_items upsert failed", { error: String(itemErr) });
+            else logStep("Invoice items mirrored", { invoiceId: dbInvoice.id });
+          }
+
           // 5) Ledger entries (SSOT)
           const ledgerEntries = [
             {
@@ -968,79 +989,140 @@ Deno.serve(async (req) => {
       } // end not work brand
     } // end checkout.session.completed (ExamFit)
 
-    // ========== charge.refunded ==========
-    if (event.type === "charge.refunded") {
-      const charge = event.data.object as Stripe.Charge;
-      const refundAmount = charge.amount_refunded;
-      const paymentIntentId = typeof charge.payment_intent === 'string'
-        ? charge.payment_intent : charge.payment_intent?.id;
+    // ========== charge.refunded / refund.updated (Loop B: idempotent + revoke grants) ==========
+    if (event.type === "charge.refunded" || event.type === "refund.updated") {
+      let charge: Stripe.Charge | null = null;
+      let refundId: string | null = null;
+      let refundAmount = 0;
+      let paymentIntentId: string | null = null;
 
-      logStep("Processing charge.refunded", { chargeId: charge.id, refundAmount, paymentIntentId });
-
-      // Find order via payment_intent
-      const { data: existingPayment } = await adminClient
-        .from('payments')
-        .select('id, order_id, amount_cents')
-        .eq('stripe_payment_intent_id', paymentIntentId)
-        .maybeSingle();
-
-      if (existingPayment) {
-        const isFullRefund = refundAmount >= existingPayment.amount_cents;
-
-        // Update payment status
-        await adminClient.from('payments').update({
-          payment_status: isFullRefund ? 'refunded' : 'partial_refund',
-        }).eq('id', existingPayment.id);
-
-        // Update order status
-        await adminClient.from('orders').update({
-          status: isFullRefund ? 'refunded' : 'partially_refunded',
-        }).eq('id', existingPayment.order_id);
-
-        // Calculate tax portion of refund
-        const taxRate = 19.00;
-        const refundTax = Math.round(refundAmount - refundAmount / (1 + taxRate / 100));
-
-        // Write refund ledger entries (negative)
-        await adminClient.from('ledger_entries').insert([
-          {
-            event_type: 'refund',
-            order_id: existingPayment.order_id,
-            payment_id: existingPayment.id,
-            account: 'refunds',
-            amount_cents: -refundAmount,
-            currency: 'eur',
-            tax_rate: taxRate,
-            description: `Refund: ${charge.id}`,
-            stripe_event_id: event.id,
-          },
-          {
-            event_type: 'refund',
-            order_id: existingPayment.order_id,
-            payment_id: existingPayment.id,
-            account: 'revenue',
-            amount_cents: -refundAmount,
-            currency: 'eur',
-            tax_rate: taxRate,
-            description: `Revenue reversal: ${charge.id}`,
-            stripe_event_id: event.id + '_rev',
-          },
-          {
-            event_type: 'refund',
-            order_id: existingPayment.order_id,
-            payment_id: existingPayment.id,
-            account: 'tax_payable',
-            amount_cents: -refundTax,
-            currency: 'eur',
-            tax_rate: taxRate,
-            description: `Tax reversal: ${charge.id}`,
-            stripe_event_id: event.id + '_tax',
-          },
-        ]);
-
-        logStep("Refund ledger entries written", { refundAmount, isFullRefund });
+      if (event.type === "charge.refunded") {
+        charge = event.data.object as Stripe.Charge;
+        refundAmount = charge.amount_refunded;
+        paymentIntentId = typeof charge.payment_intent === 'string'
+          ? charge.payment_intent : charge.payment_intent?.id || null;
+        // Use latest refund as anchor
+        refundId = charge.refunds?.data?.[0]?.id || charge.id;
       } else {
-        logStep("WARN: No payment found for refund PI", { paymentIntentId });
+        // refund.updated
+        const refund = event.data.object as Stripe.Refund;
+        if (refund.status !== 'succeeded') {
+          logStep("Skip refund.updated (not succeeded)", { refundId: refund.id, status: refund.status });
+        } else {
+          refundId = refund.id;
+          refundAmount = refund.amount;
+          paymentIntentId = typeof refund.payment_intent === 'string'
+            ? refund.payment_intent : refund.payment_intent?.id || null;
+        }
+      }
+
+      if (paymentIntentId && refundId) {
+        logStep("Processing refund event", { eventType: event.type, refundId, refundAmount, paymentIntentId });
+
+        // Idempotency: check if ledger entry for this event already exists
+        const { data: existingLedger } = await adminClient
+          .from('ledger_entries')
+          .select('id')
+          .eq('stripe_event_id', event.id)
+          .eq('event_type', 'refund')
+          .eq('account', 'refunds')
+          .maybeSingle();
+
+        if (existingLedger) {
+          logStep("Skip refund: already processed", { eventId: event.id });
+        } else {
+          const { data: existingPayment } = await adminClient
+            .from('payments')
+            .select('id, order_id, amount_cents')
+            .eq('stripe_payment_intent_id', paymentIntentId)
+            .maybeSingle();
+
+          if (existingPayment) {
+            const isFullRefund = refundAmount >= existingPayment.amount_cents;
+
+            await adminClient.from('payments').update({
+              payment_status: isFullRefund ? 'refunded' : 'partial_refund',
+            }).eq('id', existingPayment.id);
+
+            await adminClient.from('orders').update({
+              status: isFullRefund ? 'refunded' : 'partially_refunded',
+            }).eq('id', existingPayment.order_id);
+
+            const taxRate = 19.00;
+            const refundTax = Math.round(refundAmount - refundAmount / (1 + taxRate / 100));
+
+            // Idempotent ledger insert (UNIQUE on stripe_event_id, account, event_type)
+            const { error: ledgerErr } = await adminClient.from('ledger_entries').insert([
+              {
+                event_type: 'refund',
+                order_id: existingPayment.order_id,
+                payment_id: existingPayment.id,
+                account: 'refunds',
+                amount_cents: -refundAmount,
+                currency: 'eur',
+                tax_rate: taxRate,
+                description: `Refund: ${refundId}`,
+                stripe_event_id: event.id,
+              },
+              {
+                event_type: 'refund',
+                order_id: existingPayment.order_id,
+                payment_id: existingPayment.id,
+                account: 'revenue',
+                amount_cents: -refundAmount,
+                currency: 'eur',
+                tax_rate: taxRate,
+                description: `Revenue reversal: ${refundId}`,
+                stripe_event_id: event.id,
+              },
+              {
+                event_type: 'refund',
+                order_id: existingPayment.order_id,
+                payment_id: existingPayment.id,
+                account: 'tax_payable',
+                amount_cents: -refundTax,
+                currency: 'eur',
+                tax_rate: taxRate,
+                description: `Tax reversal: ${refundId}`,
+                stripe_event_id: event.id,
+              },
+            ]);
+            if (ledgerErr) {
+              logStep("WARN: refund ledger insert failed (likely duplicate)", { error: String(ledgerErr) });
+            } else {
+              logStep("Refund ledger entries written", { refundAmount, isFullRefund });
+            }
+
+            // CRITICAL: Revoke grants/entitlements via SSOT helper
+            // Only on full refund — partial refunds keep access (configurable later)
+            if (isFullRefund) {
+              const { data: revokeResult, error: revokeErr } = await adminClient.rpc(
+                'fn_revoke_grant_on_refund',
+                {
+                  p_stripe_payment_intent_id: paymentIntentId,
+                  p_refund_id: refundId,
+                  p_reason: 'stripe_refund',
+                }
+              );
+              if (revokeErr) {
+                logStep("ERROR: fn_revoke_grant_on_refund failed", { error: String(revokeErr) });
+              } else {
+                logStep("Grants revoked via SSOT", { result: revokeResult });
+              }
+            } else {
+              logStep("Partial refund — grants kept", { refundAmount, total: existingPayment.amount_cents });
+            }
+
+            // Mark invoice as void if full refund
+            if (isFullRefund) {
+              await adminClient.from('invoices')
+                .update({ status: 'void' })
+                .eq('order_id', existingPayment.order_id);
+            }
+          } else {
+            logStep("WARN: No payment found for refund PI", { paymentIntentId });
+          }
+        }
       }
     }
 
@@ -1372,6 +1454,47 @@ Deno.serve(async (req) => {
           }
         } catch (subErr) {
           logStep("WARN: invoice.paid subscription handling failed", { error: String(subErr) });
+        }
+      } else {
+        // Loop B: Non-subscription invoice.paid → mirror Stripe invoice into invoices table (best-effort, idempotent via UNIQUE on stripe_invoice_id)
+        try {
+          const stripeInvoiceId = invoice.id as string;
+          const hostedUrl = (invoice.hosted_invoice_url as string) || null;
+          const pdfUrl = (invoice.invoice_pdf as string) || hostedUrl;
+
+          // Find matching order via payment_intent or charge
+          const piId = typeof invoice.payment_intent === 'string'
+            ? invoice.payment_intent : invoice.payment_intent?.id;
+          let orderId: string | null = null;
+          if (piId) {
+            const { data: ord } = await adminClient
+              .from('orders')
+              .select('id')
+              .eq('stripe_payment_intent_id', piId)
+              .maybeSingle();
+            orderId = ord?.id || null;
+          }
+
+          if (!orderId) {
+            logStep("Skip invoice.paid mirror: no matching order", { stripeInvoiceId, piId });
+          } else {
+            // Update existing invoice row (created during checkout.session.completed) with PDF URL + paid status
+            const { error: upErr } = await adminClient
+              .from('invoices')
+              .update({
+                pdf_url: pdfUrl,
+                stripe_invoice_id: stripeInvoiceId,
+                status: 'paid',
+              })
+              .eq('order_id', orderId);
+            if (upErr) {
+              logStep("WARN: invoice mirror update failed", { error: String(upErr) });
+            } else {
+              logStep("Invoice mirrored from Stripe", { stripeInvoiceId, orderId, pdfUrl });
+            }
+          }
+        } catch (mirrorErr) {
+          logStep("WARN: invoice.paid mirror failed (non-blocking)", { error: String(mirrorErr) });
         }
       }
     }
