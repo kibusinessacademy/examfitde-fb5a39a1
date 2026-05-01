@@ -404,12 +404,62 @@ function PatternRow({
               <div className="flex items-start gap-2 border-t pt-2">
                 <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
                 <div className="space-y-1 min-w-0 flex-1">
-                  <div className="text-xs font-medium text-muted-foreground">Permanent-Fix-Vorschlag</div>
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="text-xs font-medium text-muted-foreground">Permanent-Fix-Vorschlag</div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs"
+                      disabled={isCreatingTask}
+                      onClick={() => onCreateTask("medium")}
+                    >
+                      {isCreatingTask ? (
+                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                      ) : (
+                        <Wrench className="h-3 w-3 mr-1" />
+                      )}
+                      In Backlog speichern
+                    </Button>
+                  </div>
                   <div className="text-xs">{p.recommendation_permanent_fix}</div>
                 </div>
               </div>
             )}
-            <div className="flex items-center gap-2 pt-1 border-t">
+            <div className="flex items-center gap-2 pt-1 border-t flex-wrap">
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="default"
+                    className="h-7 text-xs gap-1"
+                    disabled={isApplying}
+                  >
+                    {isApplying ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Play className="h-3 w-3" />
+                    )}
+                    Heal-Plan jetzt ausführen
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Heal-Plan ausführen?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Der KI-vorgeschlagene Heal-Plan wird sofort ausgeführt. Mögliche Aktionen:
+                      soft_reentry, hard_heal, mark_content_gap, force_depublish_rebuild.
+                      Destruktive Schritte (Depublish + Rebuild) werden direkt angewendet, wenn die KI sie vorgeschlagen hat.
+                      Audit-Eintrag in <code>auto_heal_log</code> wird geschrieben.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => onApply()}>
+                      Ja, ausführen
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
               <Button
                 size="sm"
                 variant="outline"
