@@ -29203,6 +29203,9 @@ export type Database = {
       }
       heal_pattern_recommendations: {
         Row: {
+          applied_at: string | null
+          applied_by: string | null
+          apply_result: Json | null
           cluster: string
           completion_tokens: number | null
           confidence: number | null
@@ -29228,6 +29231,9 @@ export type Database = {
           valid_until: string
         }
         Insert: {
+          applied_at?: string | null
+          applied_by?: string | null
+          apply_result?: Json | null
           cluster: string
           completion_tokens?: number | null
           confidence?: number | null
@@ -29253,6 +29259,9 @@ export type Database = {
           valid_until?: string
         }
         Update: {
+          applied_at?: string | null
+          applied_by?: string | null
+          apply_result?: Json | null
           cluster?: string
           completion_tokens?: number | null
           confidence?: number | null
@@ -29278,6 +29287,78 @@ export type Database = {
           valid_until?: string
         }
         Relationships: []
+      }
+      heal_permanent_fix_tasks: {
+        Row: {
+          assigned_to: string | null
+          cluster: string
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string
+          created_by: string
+          description: string
+          id: string
+          notes: string | null
+          package_id: string | null
+          pattern_key: string
+          priority: string
+          recommendation_id: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          cluster: string
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          created_by?: string
+          description: string
+          id?: string
+          notes?: string | null
+          package_id?: string | null
+          pattern_key: string
+          priority?: string
+          recommendation_id?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          cluster?: string
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string
+          id?: string
+          notes?: string | null
+          package_id?: string | null
+          pattern_key?: string
+          priority?: string
+          recommendation_id?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "heal_permanent_fix_tasks_recommendation_id_fkey"
+            columns: ["recommendation_id"]
+            isOneToOne: false
+            referencedRelation: "heal_pattern_recommendations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "heal_permanent_fix_tasks_recommendation_id_fkey"
+            columns: ["recommendation_id"]
+            isOneToOne: false
+            referencedRelation: "v_heal_recurring_patterns"
+            referencedColumns: ["active_recommendation_id"]
+          },
+        ]
       }
       heal_snapshots: {
         Row: {
@@ -100659,6 +100740,10 @@ export type Database = {
               out_step_key: string
             }[]
           }
+      admin_create_permanent_fix_task: {
+        Args: { p_priority?: string; p_recommendation_id: string }
+        Returns: Json
+      }
       admin_decide_security_review: {
         Args: {
           p_block_until?: string
@@ -101010,6 +101095,10 @@ export type Database = {
         Args: { _job_type: string; _package_id: string; _within?: string }
         Returns: boolean
       }
+      admin_heal_apply_recommendation: {
+        Args: { p_recommendation_id: string }
+        Returns: Json
+      }
       admin_heal_exam_pool_too_small: {
         Args: {
           p_dry_run?: boolean
@@ -101136,6 +101225,26 @@ export type Database = {
           _uid?: string
         }
         Returns: Json
+      }
+      admin_list_permanent_fix_tasks: {
+        Args: { p_limit?: number; p_status_filter?: string[] }
+        Returns: {
+          age_hours: number
+          cluster: string
+          completed_at: string
+          created_at: string
+          description: string
+          id: string
+          notes: string
+          package_id: string
+          package_title: string
+          pattern_key: string
+          priority: string
+          recommendation_id: string
+          status: string
+          title: string
+          updated_at: string
+        }[]
       }
       admin_log_force_run: {
         Args: {
@@ -101571,6 +101680,15 @@ export type Database = {
       admin_unseal_package_for_regen: {
         Args: { p_package_id: string }
         Returns: undefined
+      }
+      admin_update_permanent_fix_task: {
+        Args: {
+          p_notes?: string
+          p_priority?: string
+          p_status?: string
+          p_task_id: string
+        }
+        Returns: Json
       }
       admin_validate_done_step_meta: {
         Args: { p_limit?: number }
