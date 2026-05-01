@@ -29201,6 +29201,84 @@ export type Database = {
           },
         ]
       }
+      heal_pattern_recommendations: {
+        Row: {
+          cluster: string
+          completion_tokens: number | null
+          confidence: number | null
+          created_at: string
+          heal_plan: Json | null
+          id: string
+          model: string | null
+          package_id: string | null
+          pattern_key: string
+          permanent_fix_suggestion: string | null
+          prompt_tokens: number | null
+          recurrence_24h: number
+          recurrence_7d: number
+          resolved_at: string | null
+          resolved_by: string | null
+          resolved_note: string | null
+          root_cause: string | null
+          severity_score: number
+          status: string
+          target_id: string
+          target_type: string | null
+          updated_at: string
+          valid_until: string
+        }
+        Insert: {
+          cluster: string
+          completion_tokens?: number | null
+          confidence?: number | null
+          created_at?: string
+          heal_plan?: Json | null
+          id?: string
+          model?: string | null
+          package_id?: string | null
+          pattern_key: string
+          permanent_fix_suggestion?: string | null
+          prompt_tokens?: number | null
+          recurrence_24h?: number
+          recurrence_7d?: number
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolved_note?: string | null
+          root_cause?: string | null
+          severity_score?: number
+          status?: string
+          target_id: string
+          target_type?: string | null
+          updated_at?: string
+          valid_until?: string
+        }
+        Update: {
+          cluster?: string
+          completion_tokens?: number | null
+          confidence?: number | null
+          created_at?: string
+          heal_plan?: Json | null
+          id?: string
+          model?: string | null
+          package_id?: string | null
+          pattern_key?: string
+          permanent_fix_suggestion?: string | null
+          prompt_tokens?: number | null
+          recurrence_24h?: number
+          recurrence_7d?: number
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolved_note?: string | null
+          root_cause?: string | null
+          severity_score?: number
+          status?: string
+          target_id?: string
+          target_type?: string | null
+          updated_at?: string
+          valid_until?: string
+        }
+        Relationships: []
+      }
       heal_snapshots: {
         Row: {
           created_at: string
@@ -89861,6 +89939,75 @@ export type Database = {
         }
         Relationships: []
       }
+      v_heal_kpi_overview: {
+        Row: {
+          active_pattern_count: number | null
+          auto_24h: number | null
+          auto_heal_quote_pct: number | null
+          avg_duration_ms: number | null
+          computed_at: string | null
+          escalating_count: number | null
+          failed_24h: number | null
+          high_severity_count: number | null
+          manual_24h: number | null
+          skipped_24h: number | null
+          success_24h: number | null
+          success_rate_pct: number | null
+          top_clusters_24h: Json | null
+          total_events_24h: number | null
+        }
+        Relationships: []
+      }
+      v_heal_pattern_root_cause_signals: {
+        Row: {
+          blocked_reason: string | null
+          cluster: string | null
+          dominant_error: string | null
+          escalation_rate_pct: number | null
+          failed_steps: Json | null
+          package_id: string | null
+          package_last_error: string | null
+          package_status: string | null
+          package_title: string | null
+          package_track: Database["public"]["Enums"]["product_track"] | null
+          pattern_key: string | null
+          recent_heal_attempts: Json | null
+          recurrence_24h: number | null
+          recurrence_7d: number | null
+          severity_score: number | null
+        }
+        Relationships: []
+      }
+      v_heal_recurring_patterns: {
+        Row: {
+          active_recommendation_id: string | null
+          blocked_reason: string | null
+          cluster: string | null
+          dominant_error: string | null
+          escalation_rate_pct: number | null
+          failed_24h: number | null
+          first_seen: string | null
+          last_seen: string | null
+          package_id: string | null
+          package_last_error: string | null
+          package_status: string | null
+          package_title: string | null
+          package_track: Database["public"]["Enums"]["product_track"] | null
+          pattern_key: string | null
+          recommendation_confidence: number | null
+          recommendation_created_at: string | null
+          recommendation_permanent_fix: string | null
+          recommendation_root_cause: string | null
+          recommendation_valid_until: string | null
+          recurrence_1h: number | null
+          recurrence_24h: number | null
+          recurrence_7d: number | null
+          severity_score: number | null
+          target_id: string | null
+          target_type: string | null
+        }
+        Relationships: []
+      }
       v_hidden_hollow_ssot: {
         Row: {
           approved: number | null
@@ -100889,6 +101036,40 @@ export type Database = {
       }
       admin_heal_jobs_targeted: {
         Args: { _job_ids: string[]; _reason?: string }
+        Returns: Json
+      }
+      admin_heal_next_best_action: {
+        Args: { p_limit?: number }
+        Returns: {
+          active_recommendation_id: string
+          blocked_reason: string
+          cluster: string
+          dominant_error: string
+          escalation_rate_pct: number
+          has_active_recommendation: boolean
+          package_id: string
+          package_last_error: string
+          package_status: string
+          package_title: string
+          pattern_key: string
+          prior_heal_attempts: number
+          recommendation_confidence: number
+          recommendation_permanent_fix: string
+          recommendation_root_cause: string
+          recurrence_24h: number
+          severity_score: number
+        }[]
+      }
+      admin_heal_pattern_dismiss: {
+        Args: { p_pattern_id: string; p_reason?: string }
+        Returns: Json
+      }
+      admin_heal_pattern_mark_resolved: {
+        Args: { p_note?: string; p_pattern_id: string }
+        Returns: Json
+      }
+      admin_heal_pattern_signal_bundle: {
+        Args: { p_pattern_key: string }
         Returns: Json
       }
       admin_heal_pending_enqueue_drift: {
