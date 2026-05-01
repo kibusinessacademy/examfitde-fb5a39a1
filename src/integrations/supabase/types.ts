@@ -104057,6 +104057,24 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_seed_missing_product_prices: {
+        Args: { p_apply?: boolean }
+        Returns: {
+          action: string
+          classifier_confidence: string
+          classifier_reason: string
+          mapped_stripe_price_id: string
+          package_id: string
+          package_title: string
+          product_id: string
+          product_status: string
+          product_title: string
+          reason: string
+          suggested_amount_cents: number
+          suggested_tier: string
+          tier_label: string
+        }[]
+      }
       admin_seo_backfill_missing_pages: {
         Args: { p_dry_run?: boolean }
         Returns: {
