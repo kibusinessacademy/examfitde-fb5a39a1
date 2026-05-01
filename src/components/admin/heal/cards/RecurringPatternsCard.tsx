@@ -274,9 +274,25 @@ export function RecurringPatternsCard({ limit = 10 }: { limit?: number }) {
                 p.active_recommendation_id &&
                 dismissMutation.mutate({ id: p.active_recommendation_id, reason })
               }
+              onApply={() =>
+                p.active_recommendation_id &&
+                applyMutation.mutate({ id: p.active_recommendation_id })
+              }
+              onCreateTask={(priority) =>
+                p.active_recommendation_id &&
+                createTaskMutation.mutate({ id: p.active_recommendation_id, priority })
+              }
               isAnalyzing={
                 aiMutation.isPending &&
                 aiMutation.variables?.pattern_key === p.pattern_key
+              }
+              isApplying={
+                applyMutation.isPending &&
+                applyMutation.variables?.id === p.active_recommendation_id
+              }
+              isCreatingTask={
+                createTaskMutation.isPending &&
+                createTaskMutation.variables?.id === p.active_recommendation_id
               }
             />
           ))
