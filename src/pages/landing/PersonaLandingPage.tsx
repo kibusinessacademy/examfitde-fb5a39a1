@@ -12,6 +12,8 @@ import { Badge } from "@/components/ui/badge";
 import { ConversionCard } from "@/features/conversion/components/ConversionCard";
 import { TrackingEvents } from "@/lib/tracking/track";
 import { startProductCheckout } from "@/lib/checkout/startProductCheckout";
+import { LeadGateModal } from "@/components/checkout/LeadGateModal";
+import { useLeadGate } from "@/hooks/useLeadGate";
 import { toast } from "sonner";
 import {
   Target, ArrowRight, CheckCircle, Clock, Shield, Zap,
@@ -35,6 +37,8 @@ export default function PersonaLandingPage({ personaType }: PersonaLandingProps)
   const [certData, setCertData] = useState<any>(null);
   const [seoContent, setSeoContent] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [leadGateOpen, setLeadGateOpen] = useState(false);
+  const { hasRecentAttempt } = useLeadGate({ enabled: !!certData });
 
   useEffect(() => {
     let mounted = true;
@@ -142,7 +146,7 @@ export default function PersonaLandingPage({ personaType }: PersonaLandingProps)
     generateBreadcrumbSchema(breadcrumbItems),
   ];
 
-  const handleCheckout = async () => {
+  const proceedCheckout = async () => {
     if (checkoutLoading) return;
     setCheckoutLoading(true);
     try {
@@ -162,6 +166,16 @@ export default function PersonaLandingPage({ personaType }: PersonaLandingProps)
     } finally {
       setCheckoutLoading(false);
     }
+  };
+
+  const handleCheckout = async () => {
+    if (checkoutLoading) return;
+    // Soft-Nudge: User ohne recent quiz_attempt → Modal vorschalten.
+    if (!hasRecentAttempt) {
+      setLeadGateOpen(true);
+      return;
+    }
+    await proceedCheckout();
   };
 
   const activeModules = certData.modules
