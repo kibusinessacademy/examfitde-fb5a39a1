@@ -370,7 +370,7 @@ Deno.serve(async (req) => {
                     user_id: userId,
                     role: 'owner',
                     status: 'active',
-                  }).then(() => {}).catch(() => {}); // idempotent via unique constraint
+                  }); // idempotent via unique constraint
                   logStep("Organization created for B2B sub", { orgId, orgName });
                 }
               }
@@ -604,7 +604,7 @@ Deno.serve(async (req) => {
                       user_id: userId,
                       role: 'owner',
                       status: 'active',
-                    }).then(() => {}).catch(() => {});
+                    });
                     logStep("Organization created", { orgId, orgName });
                   }
                 }
