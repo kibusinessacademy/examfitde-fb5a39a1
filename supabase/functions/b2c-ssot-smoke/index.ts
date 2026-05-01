@@ -55,6 +55,21 @@ Deno.serve(async (req) => {
 
   const failures: string[] = [];
   const log = (...m: unknown[]) => console.log("[b2c-ssot-smoke]", ...m);
+  const mode: "single" | "bundle" | "refund" = body.mode ?? "single";
+
+  // ============================================================
+  // MODE: bundle — mehrere products in 1 Order
+  // ============================================================
+  if (mode === "bundle") {
+    return await runBundleMode(sb, body, log);
+  }
+
+  // ============================================================
+  // MODE: refund — single-Order paid, dann fn_revoke_grant_on_refund
+  // ============================================================
+  if (mode === "refund") {
+    return await runRefundMode(sb, body, log);
+  }
 
   // 1. Resolve User + Product
   let userId: string | null = body.user_id ?? null;
