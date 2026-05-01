@@ -3,8 +3,8 @@
  * gezeigt werden muss. Hard-Block ist NICHT Ziel: User darf jederzeit
  * weiterkaufen ("skip_to_checkout").
  *
- * Kriterium "darf direkt kaufen": es existiert ein quiz_attempt für das
- * passende curriculum_id (anonym oder authed) innerhalb der letzten 30 Tage.
+ * Kriterium "darf direkt kaufen": es existiert ein quiz_attempt in den letzten
+ * 30 Tagen, optional gefiltert auf curriculum_id (wenn bekannt).
  *
  * SSOT: Wir prüfen nur quiz_attempts. Keine Parallel-Tabelle.
  */
@@ -21,14 +21,22 @@ export interface LeadGateState {
   hasRecentAttempt: boolean;
 }
 
-export function useLeadGate(curriculumId: string | null | undefined): LeadGateState {
+export interface LeadGateOptions {
+  /** Optional: schränkt den Recency-Check auf ein curriculum_id ein. */
+  curriculumId?: string | null;
+  /** Master-Switch — ermöglicht das Deaktivieren des Hooks. */
+  enabled?: boolean;
+}
+
+export function useLeadGate(options: LeadGateOptions = {}): LeadGateState {
+  const { curriculumId = null, enabled = true } = options;
   const { user } = useAuth();
-  const [loading, setLoading] = useState<boolean>(Boolean(curriculumId));
+  const [loading, setLoading] = useState<boolean>(enabled);
   const [hasRecentAttempt, setHasRecentAttempt] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    if (!curriculumId) {
+    if (!enabled) {
       setLoading(false);
       setHasRecentAttempt(false);
       return;
@@ -42,8 +50,9 @@ export function useLeadGate(curriculumId: string | null | undefined): LeadGateSt
       let q = (supabase as any)
         .from("quiz_attempts")
         .select("id", { head: true, count: "exact" })
-        .eq("curriculum_id", curriculumId)
         .gte("started_at", since);
+
+      if (curriculumId) q = q.eq("curriculum_id", curriculumId);
 
       if (user) {
         q = q.eq("user_id", user.id);
@@ -71,7 +80,8 @@ export function useLeadGate(curriculumId: string | null | undefined): LeadGateSt
     return () => {
       cancelled = true;
     };
-  }, [curriculumId, user?.id]);
+  }, [curriculumId, enabled, user?.id]);
 
   return { loading, hasRecentAttempt };
 }
+
