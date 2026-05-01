@@ -371,6 +371,15 @@ export default function PersonaLandingPage({ personaType }: PersonaLandingProps)
           </div>
         </nav>
       </div>
+      <LeadGateModal
+        open={leadGateOpen}
+        onOpenChange={setLeadGateOpen}
+        productSlug={slug}
+        persona={(config as any)?.persona ?? null}
+        diagnoseHref={`/pruefungsreife-check?source=persona_landing&slug=${encodeURIComponent(slug)}`}
+        onSkipToCheckout={() => proceedCheckout()}
+        source="persona_landing"
+      />
     </>
   );
 }
