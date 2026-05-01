@@ -51,10 +51,10 @@ let failures = 0;
 
 // 1. Test-User + Test-Product holen (real, keine fakes)
 const [userId] = one(
-  "SELECT id FROM auth.users WHERE email LIKE '%@%' ORDER BY created_at DESC LIMIT 1",
+  "SELECT user_id FROM profiles WHERE user_id IS NOT NULL ORDER BY created_at DESC LIMIT 1",
 );
 if (!userId) {
-  FAIL("kein User in auth.users vorhanden — Smoke abgebrochen");
+  FAIL("kein User in profiles vorhanden — Smoke abgebrochen");
   process.exit(1);
 }
 INFO("test_user_id =", userId);
