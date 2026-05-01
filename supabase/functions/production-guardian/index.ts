@@ -175,17 +175,31 @@ Deno.serve(async (req) => {
       const fr = failResult as Record<string, unknown> | null;
       const applied = fr?.applied === true;
 
-      // Structured log for forensics — always log
+      // Structured log for forensics — log applied always, skipped only 1×/h per pkg (noise-killer)
       try {
-        await sb.from("auto_heal_log").insert({
-          action_type: "guardian_stale_fail",
-          target_type: "course_package",
-          target_id: bPkg.id,
-          trigger_source: "production-guardian",
-          result_status: applied ? "applied" : "skipped",
-          result_detail: JSON.stringify(fr),
-          metadata: fr,
-        });
+        let shouldLog = applied;
+        if (!applied) {
+          const oneHourAgo = new Date(Date.now() - 60 * 60_000).toISOString();
+          const { count } = await sb
+            .from("auto_heal_log")
+            .select("id", { count: "exact", head: true })
+            .eq("action_type", "guardian_stale_fail")
+            .eq("target_id", bPkg.id)
+            .eq("result_status", "skipped")
+            .gte("created_at", oneHourAgo);
+          shouldLog = (count ?? 0) === 0;
+        }
+        if (shouldLog) {
+          await sb.from("auto_heal_log").insert({
+            action_type: "guardian_stale_fail",
+            target_type: "course_package",
+            target_id: bPkg.id,
+            trigger_source: "production-guardian",
+            result_status: applied ? "applied" : "skipped",
+            result_detail: JSON.stringify(fr),
+            metadata: { ...(fr ?? {}), dedup: applied ? "none" : "1h_per_pkg" },
+          });
+        }
       } catch (_e) { /* non-critical */ }
 
       if (applied) {
@@ -759,15 +773,40 @@ Deno.serve(async (req) => {
           warnings.push(`G1: SHADOW_STALLED — ${pkg.title} (${pkg.active_jobs} jobs, ${Math.round(pkg.minutes_since_real_progress)}min no progress)`);
         }
 
-        await sb.from("auto_heal_log").insert({
-          action_type: "progress_guard_shadow_stalled",
-          target_type: "course_package",
-          target_id: pkg.package_id,
-          trigger_source: "production-guardian",
-          result_status: "detected",
-          result_detail: `SHADOW_STALLED: ${pkg.active_jobs} jobs, ${Math.round(pkg.minutes_since_real_progress)}min`,
-          metadata: pkg,
-        });
+        // NOISE-KILLER: log only 1×/60min per pkg + trigger auto-heal RPC
+        const sixtyMinAgo2 = new Date(Date.now() - 60 * 60_000).toISOString();
+        const { count: recentLogCount } = await sb
+          .from("auto_heal_log")
+          .select("id", { count: "exact", head: true })
+          .eq("action_type", "progress_guard_shadow_stalled")
+          .eq("target_id", pkg.package_id)
+          .gte("created_at", sixtyMinAgo2);
+
+        if ((recentLogCount ?? 0) === 0) {
+          await sb.from("auto_heal_log").insert({
+            action_type: "progress_guard_shadow_stalled",
+            target_type: "course_package",
+            target_id: pkg.package_id,
+            trigger_source: "production-guardian",
+            result_status: "detected",
+            result_detail: `SHADOW_STALLED: ${pkg.active_jobs} jobs, ${Math.round(pkg.minutes_since_real_progress)}min`,
+            metadata: { ...pkg, dedup: "60min_per_pkg" },
+          });
+        }
+
+        // AUTO-HEAL: trigger RPC (it has its own attempt cap + escalation)
+        try {
+          const { data: healResult } = await sb.rpc(
+            "guardian_heal_shadow_stalled",
+            { p_package_id: pkg.package_id },
+          );
+          const action = (healResult as { action?: string } | null)?.action;
+          if (action && action !== "skip") {
+            actions.push(`G1-heal: ${pkg.package_id.slice(0, 8)} → ${action}`);
+          }
+        } catch (e) {
+          console.error("[Guardian] G1 auto-heal error:", (e as Error).message);
+        }
       }
 
       // Log SLOWING as info (no P0)

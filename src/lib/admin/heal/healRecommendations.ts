@@ -46,6 +46,8 @@ export interface HealRecommendation {
   rationale: string;
   /** True if hard heal was forced by loop/stuck conditions even though soft would have sufficed semantically. */
   forcedHard: boolean;
+  /** Optional: marks that this came from a per-course AI plan rather than rule-based heuristics. */
+  source?: "rule_based" | "ai_plan";
 }
 
 const HARD_BLOCK_TOKENS = [
