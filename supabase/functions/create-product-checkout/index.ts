@@ -80,6 +80,36 @@ Deno.serve(async (req) => {
     }
     logStep("Product loaded", { id: product.id, title: product.title });
 
+    // ── Resolve package_id + persona (SSOT: product → curriculum → published package) ──
+    let resolvedPackageId: string | null = null;
+    let resolvedPersona: string | null = null;
+    let resolvedCurriculumId: string | null = null;
+    try {
+      const { data: prodWithCur } = await adminClient
+        .from('products')
+        .select('curriculum_id')
+        .eq('id', product.id)
+        .maybeSingle();
+      resolvedCurriculumId = prodWithCur?.curriculum_id ?? null;
+      if (resolvedCurriculumId) {
+        const { data: pkg } = await adminClient
+          .from('course_packages')
+          .select('id, persona_profile')
+          .eq('curriculum_id', resolvedCurriculumId)
+          .eq('status', 'published')
+          .order('published_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        resolvedPackageId = pkg?.id ?? null;
+        resolvedPersona = pkg?.persona_profile
+          ? String(pkg.persona_profile).toLowerCase().split('_')[0]
+          : null;
+      }
+    } catch (resolveErr) {
+      logStep("package_id resolve failed (non-fatal)", { error: String(resolveErr) });
+    }
+    logStep("Package resolved", { packageId: resolvedPackageId, persona: resolvedPersona });
+
     // ── Load active price ──
     const { data: price, error: priceError } = await adminClient
       .from("product_prices")
@@ -142,6 +172,47 @@ Deno.serve(async (req) => {
     }
     logStep("Order created", { orderId: order.id });
 
+    // ── SSOT: checkout_started event in conversion_events ──
+    // Server-side write damit Tracking nicht durch Stripe-Redirect verloren geht.
+    // metadata.package_id ist Pflicht (SSOT-Strict-Event-Konvention für Funnel).
+    try {
+      const clientAnonId = typeof body.anonymous_id === 'string' ? String(body.anonymous_id).slice(0, 80) : null;
+      const clientSessionId = typeof body.session_id === 'string' ? String(body.session_id).slice(0, 80) : null;
+      const clientSource = typeof body.source === 'string' ? String(body.source).slice(0, 200) : null;
+      const clientPersonaType = typeof body.persona_type === 'string' ? String(body.persona_type).slice(0, 50) : null;
+      const clientSourcePage = typeof body.source_page === 'string' ? String(body.source_page).slice(0, 500) : null;
+
+      await adminClient.from('conversion_events').insert({
+        user_id: user.id,
+        anonymous_id: clientAnonId,
+        session_id: clientSessionId,
+        curriculum_id: resolvedCurriculumId,
+        event_type: 'checkout_started',
+        page_path: clientSourcePage,
+        metadata: {
+          package_id: resolvedPackageId,
+          persona: resolvedPersona,
+          persona_type: clientPersonaType ?? resolvedPersona,
+          source: clientSource ?? 'create-product-checkout',
+          source_page: clientSourcePage,
+          product_id: product.id,
+          product_slug: product.slug,
+          price_id: price.id,
+          stripe_price_id: price.stripe_price_id ?? null,
+          amount_cents: price.amount_cents,
+          currency: price.currency,
+          order_id: order.id,
+          flow: 'paywall_variant',
+          ts_server: new Date().toISOString(),
+        },
+      });
+      logStep("checkout_started emitted", { packageId: resolvedPackageId, orderId: order.id });
+    } catch (trackErr) {
+      // Tracking darf Checkout NIE blockieren.
+      logStep("checkout_started insert failed (non-fatal)", { error: String(trackErr) });
+    }
+
+
     // ── Stripe Checkout Session ──
     const stripe = new Stripe(stripeKey, { apiVersion: "2023-10-16" });
 
@@ -174,6 +245,8 @@ Deno.serve(async (req) => {
         product_id: product.id,
         user_id: user.id,
         product_slug: product.slug,
+        package_id: resolvedPackageId ?? '',
+        persona: resolvedPersona ?? '',
         flow: "paywall_variant",
         checkout_source: "create-payment",
         access_months: String(price.access_months),
@@ -193,6 +266,11 @@ Deno.serve(async (req) => {
       ok: true,
       checkout_url: session.url,
       order_id: order.id,
+      package_id: resolvedPackageId,
+      persona: resolvedPersona,
+      product_id: product.id,
+      price_id: price.id,
+      stripe_price_id: price.stripe_price_id ?? null,
     }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
