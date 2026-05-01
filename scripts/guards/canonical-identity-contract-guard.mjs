@@ -150,19 +150,19 @@ async function guard4() {
 
 // ── Guard 5: log_identity_guard ──
 async function guard5() {
-  // auto_heal_log letzte 24h
+  // auto_heal_log letzte 24h — Schema: action_type, target_id, target_type, result_status (kein reason_code)
   const since = new Date(Date.now() - 24 * 3600_000).toISOString();
   let rows;
   try {
     rows = await rest(
-      `auto_heal_log?select=id,action_type,target_id,target_type,reason_code,result_status,created_at&created_at=gte.${since}&limit=5000`,
+      `auto_heal_log?select=id,action_type,target_id,target_type,result_status,created_at&created_at=gte.${since}&limit=5000`,
     );
   } catch (e) {
     OK("log_identity_guard", `skip (auto_heal_log nicht lesbar via key: ${e.message.slice(0, 60)})`);
     return;
   }
   const missing = rows.filter(
-    (r) => !r.action_type || !r.target_type || (!r.reason_code && !r.result_status),
+    (r) => !r.action_type || !r.target_type || !r.result_status,
   );
   if (missing.length > 0) {
     ADD(
