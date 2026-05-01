@@ -1,0 +1,52 @@
+name: SQL Discipline Guard
+
+on:
+  push:
+    paths:
+      - 'supabase/migrations/**'
+      - 'supabase/functions/**'
+      - 'src/**/*.ts'
+      - 'src/**/*.tsx'
+      - 'scripts/guards/sql-discipline-guard.mjs'
+      - 'docs/SYSTEM_RULES.md'
+  pull_request:
+    paths:
+      - 'supabase/migrations/**'
+      - 'supabase/functions/**'
+      - 'src/**/*.ts'
+      - 'src/**/*.tsx'
+      - 'scripts/guards/sql-discipline-guard.mjs'
+      - 'docs/SYSTEM_RULES.md'
+
+jobs:
+  guard:
+    name: Hard-Block SQL Anti-Patterns
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run SQL discipline guard (hard-block)
+        run: node scripts/guards/sql-discipline-guard.mjs
+
+      - name: Quick rg sanity sweep (defense in depth)
+        if: always()
+        run: |
+          set -e
+          echo "::group::rg sweep for forbidden patterns"
+          # Direkter rg-Pass — falls Guard-Script umgangen wird, fängt das hier.
+          # Ignoriert SQL-Kommentare und Allow-Marker grob.
+          MATCHES=$(grep -RInE "COUNT\(\)|SELECT[[:space:]]+INTO|RETURNING[[:space:]]+INTO" \
+            --include="*.sql" --include="*.ts" --include="*.tsx" \
+            supabase/migrations supabase/functions src 2>/dev/null \
+            | grep -v "lovable-sql-allow" \
+            | grep -v "^[^:]*:[[:space:]]*--" || true)
+          if [ -n "$MATCHES" ]; then
+            echo "❌ Forbidden patterns detected by rg sweep:"
+            echo "$MATCHES"
+            exit 1
+          fi
+          echo "✅ rg sweep clean"
+          echo "::endgroup::"
