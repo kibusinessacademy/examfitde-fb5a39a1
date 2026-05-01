@@ -8,9 +8,11 @@ on:
   push:
     paths:
       - 'supabase/functions/stripe-webhook/**'
+      - 'supabase/functions/stripe-webhook-smoke/**'
       - 'supabase/functions/create-product-checkout/**'
       - 'supabase/functions/b2c-ssot-smoke/**'
       - 'scripts/b2c-ssot-server-smoke.mjs'
+      - 'scripts/stripe-webhook-smoke.mjs'
       - '.github/workflows/b2c-ssot-server-smoke.yml'
   workflow_dispatch:
   schedule:
@@ -19,13 +21,20 @@ on:
 jobs:
   smoke:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - name: Run B2C SSOT Server-Smoke
+      - name: Stripe-Webhook Signed-Event Smoke (handler-level, fast-fail)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SMOKE_MODE: 'both'
+          SMOKE_CLEANUP: 'true'
+        run: node scripts/stripe-webhook-smoke.mjs
+      - name: Run B2C SSOT Server-Smoke (DB pipeline, single+bundle+refund)
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
