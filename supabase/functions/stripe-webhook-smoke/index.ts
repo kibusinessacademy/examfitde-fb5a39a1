@@ -112,12 +112,24 @@ function buildCheckoutEvent(f: CheckoutFixture) {
   };
 }
 
-function buildRefundEvent(paymentIntentId: string, chargeId: string, amount: number) {
-  return {
+// Build a charge.refunded event whose shape matches what the stripe-webhook
+// refund handler reads 1:1:
+//   - charge.amount_refunded             → refundAmount
+//   - charge.payment_intent (string)     → paymentIntentId
+//   - charge.refunds.data[0].id          → refundId (anchor for fn_revoke_grant_on_refund)
+// Returns both the event and the refundId so the smoke can assert on it.
+function buildRefundEvent(
+  paymentIntentId: string,
+  chargeId: string,
+  amount: number,
+): { event: Record<string, unknown>; refundId: string } {
+  const refundId = fakeId("re");
+  const nowSec = Math.floor(Date.now() / 1000);
+  const event = {
     id: fakeId("evt"),
     object: "event",
     api_version: "2023-10-16",
-    created: Math.floor(Date.now() / 1000),
+    created: nowSec,
     livemode: false,
     type: "charge.refunded",
     data: {
@@ -125,25 +137,36 @@ function buildRefundEvent(paymentIntentId: string, chargeId: string, amount: num
         id: chargeId,
         object: "charge",
         amount,
-        amount_refunded: amount,
+        amount_captured: amount,
+        amount_refunded: amount, // ← read by handler
         currency: "eur",
-        payment_intent: paymentIntentId,
-        refunded: true,
+        paid: true,
+        captured: true,
+        status: "succeeded",
+        payment_intent: paymentIntentId, // ← read by handler (string form)
+        refunded: true,                  // full refund flag for handler logic
+        created: nowSec - 60,
         refunds: {
           object: "list",
+          has_more: false,
+          total_count: 1,
+          url: `/v1/charges/${chargeId}/refunds`,
           data: [{
-            id: fakeId("re"),
+            id: refundId,                // ← read by handler
             object: "refund",
             amount,
             charge: chargeId,
+            currency: "eur",
             payment_intent: paymentIntentId,
             reason: "requested_by_customer",
             status: "succeeded",
+            created: nowSec,
           }],
         },
       },
     },
   };
+  return { event, refundId };
 }
 
 async function postSignedEvent(
@@ -207,10 +230,60 @@ async function verifyRefundEffects(
   paymentIntentId: string,
   userId: string,
   curriculumId: string,
+  refundId: string,
+  refundAmount: number,
 ): Promise<{ ok: boolean; checks: Record<string, unknown>; failures: string[] }> {
   const failures: string[] = [];
   const checks: Record<string, unknown> = {};
 
+  // 1) payments.payment_status → 'refunded' (full refund path)
+  const { data: payments } = await admin
+    .from("payments")
+    .select("id, order_id, amount_cents, payment_status")
+    .eq("stripe_payment_intent_id", paymentIntentId)
+    .limit(1);
+  const payment = payments?.[0];
+  checks.payment = payment ?? null;
+  if (!payment) failures.push("payment_missing");
+  else if (payment.payment_status !== "refunded") failures.push(`payment_status=${payment.payment_status}`);
+
+  // 2) orders.status → 'refunded' (full refund)
+  if (payment) {
+    const { data: orders } = await admin
+      .from("orders")
+      .select("id, status")
+      .eq("id", payment.order_id)
+      .limit(1);
+    checks.order = orders?.[0] ?? null;
+    if (orders?.[0]?.status !== "refunded") failures.push(`order_status=${orders?.[0]?.status}`);
+
+    // 3) invoices.status → 'void' on full refund
+    const { data: invs } = await admin
+      .from("invoices")
+      .select("id, status")
+      .eq("order_id", payment.order_id)
+      .limit(1);
+    checks.invoice = invs?.[0] ?? null;
+    if (invs?.[0] && invs[0].status !== "void") failures.push(`invoice_status=${invs[0].status}`);
+
+    // 4) ledger_entries: refunds + revenue + tax_payable rows for this refund event
+    const { data: ledger } = await admin
+      .from("ledger_entries")
+      .select("account, amount_cents, event_type")
+      .eq("order_id", payment.order_id)
+      .eq("event_type", "refund");
+    checks.ledger = ledger ?? [];
+    const accounts = new Set((ledger || []).map((l: any) => l.account));
+    for (const acc of ["refunds", "revenue", "tax_payable"]) {
+      if (!accounts.has(acc)) failures.push(`ledger_missing:${acc}`);
+    }
+    const refundsRow = (ledger || []).find((l: any) => l.account === "refunds");
+    if (refundsRow && refundsRow.amount_cents !== -refundAmount) {
+      failures.push(`ledger_refunds_amount=${refundsRow.amount_cents} expected=${-refundAmount}`);
+    }
+  }
+
+  // 5) learner_course_grants.status → 'refunded'
   const { data: grants } = await admin
     .from("learner_course_grants")
     .select("id, status")
@@ -220,9 +293,10 @@ async function verifyRefundEffects(
   checks.grant = grants?.[0] ?? null;
   if (grants?.[0]?.status !== "refunded") failures.push(`grant_status=${grants?.[0]?.status}`);
 
+  // 6) entitlements.valid_until ≤ now (revoked)
   const { data: ents } = await admin
     .from("entitlements")
-    .select("id, valid_until")
+    .select("id, valid_until, has_exam_first, has_ai_tutor")
     .eq("user_id", userId)
     .eq("curriculum_id", curriculumId)
     .limit(1);
@@ -231,15 +305,19 @@ async function verifyRefundEffects(
     failures.push("entitlement_not_revoked");
   }
 
+  // 7) admin_actions audit row (soft — depends on fn_revoke_grant_on_refund impl)
   const { data: audit } = await admin
     .from("admin_actions")
-    .select("id, action_type")
+    .select("id, action_type, metadata, created_at")
     .eq("action_type", "grant_revoked_on_refund")
-    .like("metadata->>payment_intent_id", paymentIntentId)
-    .limit(1);
-  checks.audit = audit?.[0] ?? null;
-  // Audit row not strictly required (depends on fn impl) — soft-check
-  if (!audit?.[0]) checks.audit_warning = "no admin_actions row found (soft)";
+    .order("created_at", { ascending: false })
+    .limit(10);
+  const matchedAudit = (audit || []).find((a: any) =>
+    a?.metadata?.payment_intent_id === paymentIntentId ||
+    a?.metadata?.refund_id === refundId
+  );
+  checks.audit = matchedAudit ?? null;
+  if (!matchedAudit) checks.audit_warning = "no admin_actions row found (soft)";
 
   return { ok: failures.length === 0, checks, failures };
 }
@@ -318,13 +396,18 @@ Deno.serve(async (req) => {
     }
 
     if (mode === "refund" || mode === "both") {
-      // For refund we re-use the same payment_intent so the existing grant gets revoked
+      // Re-use the same payment_intent so the existing grant gets revoked
       const chargeId = fakeId("ch");
-      const refundEvent = buildRefundEvent(fixture.paymentIntentId, chargeId, fixture.amountTotal);
+      const { event: refundEvent, refundId } = buildRefundEvent(
+        fixture.paymentIntentId, chargeId, fixture.amountTotal,
+      );
       const post = await postSignedEvent(webhookUrl, testSecret, refundEvent);
       await new Promise((r) => setTimeout(r, 1500));
-      const verify = await verifyRefundEffects(admin, fixture.paymentIntentId, fixture.userId, fixture.curriculumId);
-      results.push({ mode: "refund", http: post.http, webhook_response: post.body.slice(0, 500), ...verify });
+      const verify = await verifyRefundEffects(
+        admin, fixture.paymentIntentId, fixture.userId, fixture.curriculumId,
+        refundId, fixture.amountTotal,
+      );
+      results.push({ mode: "refund", http: post.http, webhook_response: post.body.slice(0, 500), refund_id: refundId, ...verify });
     }
 
     if (doCleanup) {
