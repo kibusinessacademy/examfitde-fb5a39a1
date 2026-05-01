@@ -7,12 +7,15 @@ on:
 
 permissions: read-all
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   abuse:
     timeout-minutes: 15
     runs-on: ubuntu-latest
     env:
-      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL || secrets.VITE_SUPABASE_URL }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       TEST_USER_JWT: ${{ secrets.TEST_USER_JWT }}
       ADMIN_TEST_JWT: ${{ secrets.ADMIN_TEST_JWT }}
@@ -22,4 +25,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-      - run: node scripts/security/abuse-simulation.mjs
+      - name: Verify required secrets
+        run: |
+          missing=0
+          [ -z "${SUPABASE_URL:-}" ] && { echo "::error::Missing SUPABASE_URL (or VITE_SUPABASE_URL)"; missing=1; }
+          [ -z "${SUPABASE_SERVICE_ROLE_KEY:-}" ] && { echo "::error::Missing SUPABASE_SERVICE_ROLE_KEY"; missing=1; }
+          [ -z "${TEST_USER_JWT:-}" ] && { echo "::warning::TEST_USER_JWT missing — JWT-based abuse checks will be skipped"; }
+          [ -z "${ADMIN_TEST_JWT:-}" ] && { echo "::warning::ADMIN_TEST_JWT missing — admin abuse checks will be skipped"; }
+          [ "$missing" = "1" ] && exit 1
+          echo "✅ Required secrets present"
+      - run: |
+          set -x
+          node scripts/security/abuse-simulation.mjs

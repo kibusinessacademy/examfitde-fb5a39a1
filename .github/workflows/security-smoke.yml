@@ -7,17 +7,30 @@ on:
 
 permissions: read-all
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   smoke:
     timeout-minutes: 15
     runs-on: ubuntu-latest
     env:
-      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL || secrets.VITE_SUPABASE_URL }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-      VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+      VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY || secrets.SUPABASE_ANON_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-      - run: node scripts/security/smoke.mjs
+      - name: Verify required secrets
+        run: |
+          missing=0
+          [ -z "${SUPABASE_URL:-}" ] && { echo "::error::Missing SUPABASE_URL (or VITE_SUPABASE_URL)"; missing=1; }
+          [ -z "${SUPABASE_SERVICE_ROLE_KEY:-}" ] && { echo "::error::Missing SUPABASE_SERVICE_ROLE_KEY"; missing=1; }
+          [ -z "${VITE_SUPABASE_PUBLISHABLE_KEY:-}" ] && { echo "::error::Missing VITE_SUPABASE_PUBLISHABLE_KEY (or SUPABASE_ANON_KEY)"; missing=1; }
+          [ "$missing" = "1" ] && exit 1
+          echo "✅ Secrets present"
+      - run: |
+          set -x
+          node scripts/security/smoke.mjs
