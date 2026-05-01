@@ -245,6 +245,8 @@ Deno.serve(async (req) => {
         product_id: product.id,
         user_id: user.id,
         product_slug: product.slug,
+        package_id: resolvedPackageId ?? '',
+        persona: resolvedPersona ?? '',
         flow: "paywall_variant",
         checkout_source: "create-payment",
         access_months: String(price.access_months),
