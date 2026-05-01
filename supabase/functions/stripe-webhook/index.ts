@@ -86,6 +86,133 @@ async function emitCheckoutCompleteEvent(
   });
 }
 
+/**
+ * SSOT B2C order writer — replaces direct entitlement inserts.
+ * Inserts orders (status='paid') + order_items. The DB trigger
+ * trg_orders_paid_grant fires process_order_paid_fulfillment which
+ * creates: invoice + invoice_items + payment + ledger_entries +
+ * learner_course_grant + entitlement (Loop C bridge).
+ *
+ * Idempotent via UNIQUE on stripe_checkout_session_id.
+ * Stripe fee + PDF URL are passed through orders columns.
+ */
+async function ensureB2cOrderForSession(
+  adminClient: any,
+  stripe: Stripe,
+  args: {
+    session: Stripe.Checkout.Session;
+    user_id: string;
+    product_id: string;
+    description: string;
+    quantity?: number;
+  },
+): Promise<{ orderId: string | null; created: boolean }> {
+  const session = args.session;
+  const quantity = args.quantity ?? 1;
+
+  // idempotency: existing order?
+  const { data: existing } = await adminClient
+    .from('orders')
+    .select('id')
+    .eq('stripe_checkout_session_id', session.id)
+    .maybeSingle();
+  if (existing?.id) {
+    return { orderId: existing.id, created: false };
+  }
+
+  const totalCents = session.amount_total ?? 0;
+  const taxRate = 19.0;
+  const subtotalCents = Math.round(totalCents / (1 + taxRate / 100));
+  const taxCents = totalCents - subtotalCents;
+  const unitGross = quantity > 0 ? Math.round(totalCents / quantity) : totalCents;
+  const unitNet = quantity > 0 ? Math.round(subtotalCents / quantity) : subtotalCents;
+  const unitTax = unitGross - unitNet;
+
+  // Stripe fee + invoice metadata
+  let feeCents = 0;
+  let stripeInvoiceId: string | null = null;
+  let stripeInvoicePdfUrl: string | null = null;
+  const stripePaymentIntentId =
+    typeof session.payment_intent === 'string'
+      ? session.payment_intent
+      : session.payment_intent?.id ?? null;
+  const stripeCustomerId =
+    typeof session.customer === 'string'
+      ? session.customer
+      : session.customer?.id ?? null;
+
+  if (stripePaymentIntentId) {
+    try {
+      const pi = await stripe.paymentIntents.retrieve(stripePaymentIntentId, {
+        expand: ['latest_charge.balance_transaction'],
+      });
+      const charge = pi.latest_charge as Stripe.Charge | undefined;
+      const bt = charge?.balance_transaction as Stripe.BalanceTransaction | undefined;
+      feeCents = bt?.fee ?? 0;
+    } catch (e) {
+      console.warn('[ensureB2cOrderForSession] fee fetch failed', String(e));
+    }
+  }
+  if (session.invoice) {
+    try {
+      const invId =
+        typeof session.invoice === 'string' ? session.invoice : session.invoice.id;
+      const inv = await stripe.invoices.retrieve(invId);
+      stripeInvoiceId = inv.id;
+      stripeInvoicePdfUrl = inv.invoice_pdf || inv.hosted_invoice_url || null;
+    } catch (e) {
+      console.warn('[ensureB2cOrderForSession] invoice fetch failed', String(e));
+    }
+  }
+
+  const billing = session.customer_details;
+  const billingAddress = (billing?.address as unknown as Record<string, string> | null) ?? null;
+
+  // INSERT order with status='pending' first to avoid trigger firing before order_items exist
+  const { data: order, error: orderErr } = await adminClient
+    .from('orders')
+    .insert({
+      buyer_user_id: args.user_id,
+      billing_email: billing?.email ?? null,
+      billing_name: billing?.name ?? null,
+      billing_address: billingAddress,
+      currency: (session.currency || 'eur').toLowerCase(),
+      country: billingAddress?.country ?? 'DE',
+      tax_mode: 'gross',
+      subtotal_cents: subtotalCents,
+      tax_cents: taxCents,
+      total_cents: totalCents,
+      status: 'pending',
+      stripe_checkout_session_id: session.id,
+      stripe_payment_intent_id: stripePaymentIntentId,
+      stripe_fee_cents: feeCents,
+      stripe_invoice_id: stripeInvoiceId,
+      stripe_invoice_pdf_url: stripeInvoicePdfUrl,
+      stripe_customer_id: stripeCustomerId,
+    })
+    .select('id')
+    .single();
+  if (orderErr || !order) {
+    console.error('[ensureB2cOrderForSession] order insert failed', orderErr);
+    return { orderId: null, created: false };
+  }
+
+  await adminClient.from('order_items').insert({
+    order_id: order.id,
+    product_id: args.product_id,
+    description: args.description,
+    quantity,
+    unit_amount_net_cents: unitNet,
+    unit_amount_gross_cents: unitGross,
+    tax_rate: taxRate,
+    tax_amount_cents: unitTax * quantity,
+  });
+
+  // flip status to 'paid' → triggers process_order_paid_fulfillment
+  await adminClient.from('orders').update({ status: 'paid' }).eq('id', order.id);
+  return { orderId: order.id, created: true };
+}
+
 
 Deno.serve(async (req) => {
   const corsResponse = handleCorsPreflightRequest(req);
