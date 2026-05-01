@@ -105611,6 +105611,57 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      claim_pending_jobs_v5: {
+        Args: { p_limit?: number; p_worker_id: string; p_worker_pool?: string }
+        Returns: {
+          attempts: number
+          batch_cursor: Json | null
+          completed_at: string | null
+          correlation_id: string | null
+          cost_estimate_eur: number | null
+          created_at: string
+          error: string | null
+          estimated_tokens: number | null
+          fallback_count: number | null
+          id: string
+          idempotency_key: string | null
+          job_name: string | null
+          job_type: string
+          lane: string | null
+          last_error: string | null
+          last_error_code: string | null
+          last_error_hint: string | null
+          last_error_severity: string | null
+          last_heartbeat_at: string | null
+          last_http_status: number | null
+          liveness_status: string
+          locked_at: string | null
+          locked_by: string | null
+          max_attempts: number
+          meta: Json
+          original_provider: string | null
+          package_id: string | null
+          parent_job_id: string | null
+          payload: Json
+          priority: number
+          provider: string | null
+          rate_limited_until: string | null
+          result: Json | null
+          root_job_id: string | null
+          run_after: string | null
+          scheduled_at: string | null
+          started_at: string | null
+          status: string
+          updated_at: string
+          worker_pool: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "job_queue"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       claim_pipeline_slot: { Args: { p_package_id: string }; Returns: boolean }
       claim_provider_slot: { Args: { p_provider: string }; Returns: boolean }
       claim_qualification_fetch_jobs: {
@@ -106433,6 +106484,17 @@ export type Database = {
       fn_auto_heal_stale_lock_exhausted: { Args: never; Returns: Json }
       fn_auto_heal_zombie_locked_jobs: { Args: never; Returns: Json }
       fn_auto_retry_failed_jobs: { Args: { _limit?: number }; Returns: Json }
+      fn_auto_scaler_decide: {
+        Args: never
+        Returns: {
+          decision: string
+          pending: number
+          pool: string
+          processing: number
+          recommended_workers: number
+          unique_pkgs: number
+        }[]
+      }
       fn_auto_unblock_ready_packages: {
         Args: never
         Returns: {
@@ -106635,6 +106697,15 @@ export type Database = {
           drift_status: string
           source_id: string
           source_type: string
+        }[]
+      }
+      fn_detect_tail_step_enqueue_drift: {
+        Args: never
+        Returns: {
+          action: string
+          job_id: string
+          package_id: string
+          step_key: string
         }[]
       }
       fn_diagnose_exam_pool_deficit: {
