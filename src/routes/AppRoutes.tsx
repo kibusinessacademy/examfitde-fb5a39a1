@@ -82,6 +82,7 @@ const EnterpriseDemoPage = lazyRetry(() => import('@/pages/seo/EnterpriseDemoPag
 const PruefungsreifeCheck = lazyRetry(() => import('@/components/marketing/PruefungsreifeCheck'));
 const LeadQuizPage = lazyRetry(() => import('@/pages/quiz/LeadQuizPage'));
 const LernplanPage = lazyRetry(() => import('@/pages/quiz/LernplanPage'));
+const QuizResultPage = lazyRetry(() => import('@/pages/quiz/QuizResultPage'));
 const BlogIndexPage = lazyRetry(() => import('@/pages/seo/BlogIndexPage'));
 const BlogArticlePage = lazyRetry(() => import('@/pages/seo/BlogArticlePage'));
 const PruefungsfragenPage = lazyRetry(() => import('@/pages/seo/PruefungsfragenPage'));
@@ -212,6 +213,7 @@ const AppRoutes = () => {
         <Route path="/pruefungsreife-check" element={<PruefungsreifeCheck />} />
         <Route path="/quiz/:slug" element={<LeadQuizPage />} />
         <Route path="/lernplan/:slug" element={<LernplanPage />} />
+        <Route path="/pruefungsreife-ergebnis/:attemptId" element={<QuizResultPage />} />
         
         {/* Purchase Success (standalone) */}
         <Route path="/purchase-success" element={<PurchaseSuccessPage />} />

@@ -10,6 +10,8 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { TrackingEvents } from "@/lib/tracking/track";
 import { startProductCheckout } from "@/lib/checkout/startProductCheckout";
+import { LeadGateModal } from "@/components/checkout/LeadGateModal";
+import { useLeadGate } from "@/hooks/useLeadGate";
 import { toast } from "sonner";
 import {
   ArrowRight,
@@ -100,6 +102,8 @@ export default function DynamicProductLandingPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [leadGateOpen, setLeadGateOpen] = useState(false);
+  const { hasRecentAttempt } = useLeadGate({ enabled: !loading && !!data });
 
   // ── Tracking: landing_view ──
   useEffect(() => {
@@ -175,7 +179,7 @@ export default function DynamicProductLandingPage() {
   const painPoints = data.profile?.target_pain_points ?? [];
   const faqs = (data.profile?.faq_seed ?? []) as Array<{ question: string; answer: string }>;
 
-  const handlePrimaryCta = async () => {
+  const proceedCheckout = async () => {
     if (checkoutLoading) return;
     setCheckoutLoading(true);
     try {
@@ -192,6 +196,15 @@ export default function DynamicProductLandingPage() {
     } finally {
       setCheckoutLoading(false);
     }
+  };
+
+  const handlePrimaryCta = async () => {
+    if (checkoutLoading) return;
+    if (!hasRecentAttempt) {
+      setLeadGateOpen(true);
+      return;
+    }
+    await proceedCheckout();
   };
 
   const handleSecondaryCta = () => {
@@ -428,6 +441,14 @@ export default function DynamicProductLandingPage() {
           </div>
         </section>
       </div>
+      <LeadGateModal
+        open={leadGateOpen}
+        onOpenChange={setLeadGateOpen}
+        productSlug={slug}
+        diagnoseHref={`/pruefungsreife-check?source=dynamic_product_landing&slug=${encodeURIComponent(slug)}`}
+        onSkipToCheckout={() => proceedCheckout()}
+        source="dynamic_product_landing"
+      />
     </>
   );
 }

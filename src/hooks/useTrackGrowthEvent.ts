@@ -23,7 +23,14 @@ export type GrowthEventType =
   | 'lead_capture_view'
   | 'quiz_started'
   | 'quiz_completed'
-  | 'lead_capture_submitted';
+  | 'lead_capture_submitted'
+  // Lead-Gate Soft-Nudge vor Checkout
+  | 'lead_gate_shown'
+  | 'lead_gate_start_diagnosis'
+  | 'lead_gate_skip_to_checkout'
+  // Diagnose-Ergebnis-Seite
+  | 'quiz_result_viewed'
+  | 'result_cta_clicked';
 
 const ANON_KEY = 'examfit_anon_id';
 const SESS_KEY = 'examfit_session_id';
