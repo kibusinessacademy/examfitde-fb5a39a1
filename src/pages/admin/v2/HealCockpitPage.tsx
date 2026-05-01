@@ -69,6 +69,8 @@ import { ReaperGovernanceCard } from "@/components/admin/heal/cards/ReaperGovern
 import { HealStrategyCard } from "@/components/admin/heal/cards/HealStrategyCard";
 import { AlertsBanner } from "@/components/admin/heal/cards/AlertsBanner";
 import { NextActionCard } from "@/components/admin/heal/cards/NextActionCard";
+import { HealKpiHeroCard } from "@/components/admin/heal/cards/HealKpiHeroCard";
+import { RecurringPatternsCard } from "@/components/admin/heal/cards/RecurringPatternsCard";
 
 // Queue-Detail-Tabs (lazy — schwer)
 const QueueLiveTab = lazy(() => import("@/pages/admin/v2/QueuePage"));
@@ -219,6 +221,7 @@ export default function HealCockpitPage() {
       />
 
       <AlertsBanner />
+      <HealKpiHeroCard />
       <NextActionCard />
 
       <Accordion type="multiple" defaultValue={DEFAULT_OPEN} className="space-y-2">
@@ -269,6 +272,7 @@ export default function HealCockpitPage() {
             />
           </AccordionTrigger>
           <AccordionContent className="pb-4 space-y-3">
+            <RecurringPatternsCard limit={10} />
             <SystemIntentsKpiCard />
             <StuckPatternsCard />
             <HealStatusCard />
