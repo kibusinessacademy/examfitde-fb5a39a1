@@ -80,6 +80,36 @@ Deno.serve(async (req) => {
     }
     logStep("Product loaded", { id: product.id, title: product.title });
 
+    // ── Resolve package_id + persona (SSOT: product → curriculum → published package) ──
+    let resolvedPackageId: string | null = null;
+    let resolvedPersona: string | null = null;
+    let resolvedCurriculumId: string | null = null;
+    try {
+      const { data: prodWithCur } = await adminClient
+        .from('products')
+        .select('curriculum_id')
+        .eq('id', product.id)
+        .maybeSingle();
+      resolvedCurriculumId = prodWithCur?.curriculum_id ?? null;
+      if (resolvedCurriculumId) {
+        const { data: pkg } = await adminClient
+          .from('course_packages')
+          .select('id, persona_profile')
+          .eq('curriculum_id', resolvedCurriculumId)
+          .eq('status', 'published')
+          .order('published_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        resolvedPackageId = pkg?.id ?? null;
+        resolvedPersona = pkg?.persona_profile
+          ? String(pkg.persona_profile).toLowerCase().split('_')[0]
+          : null;
+      }
+    } catch (resolveErr) {
+      logStep("package_id resolve failed (non-fatal)", { error: String(resolveErr) });
+    }
+    logStep("Package resolved", { packageId: resolvedPackageId, persona: resolvedPersona });
+
     // ── Load active price ──
     const { data: price, error: priceError } = await adminClient
       .from("product_prices")
