@@ -141,7 +141,7 @@ test.describe('Stripe Smoke — create-product-checkout', () => {
     // 5a) order_items → product_id muss zur products-Tabelle resolven
     const { data: items, error: itemsErr } = await admin
       .from('order_items')
-      .select('id, product_id, quantity, unit_amount_cents')
+      .select('id, product_id, quantity, unit_amount_gross_cents')
       .eq('order_id', orderId);
     expect(itemsErr).toBeNull();
     expect(items?.length, 'order_items ≥1').toBeGreaterThanOrEqual(1);
