@@ -110,14 +110,30 @@ async function ensureB2cOrderForSession(
   const session = args.session;
   const quantity = args.quantity ?? 1;
 
-  // idempotency: existing order?
-  const { data: existing } = await adminClient
+  // idempotency layer 1: existing order by session id
+  const { data: existingBySession } = await adminClient
     .from('orders')
     .select('id')
     .eq('stripe_checkout_session_id', session.id)
     .maybeSingle();
-  if (existing?.id) {
-    return { orderId: existing.id, created: false };
+  if (existingBySession?.id) {
+    return { orderId: existingBySession.id, created: false };
+  }
+
+  // idempotency layer 2: existing order by payment_intent (covers retries / flows without stable session id)
+  const piEarly =
+    typeof session.payment_intent === 'string'
+      ? session.payment_intent
+      : session.payment_intent?.id ?? null;
+  if (piEarly) {
+    const { data: existingByPI } = await adminClient
+      .from('orders')
+      .select('id')
+      .eq('stripe_payment_intent_id', piEarly)
+      .maybeSingle();
+    if (existingByPI?.id) {
+      return { orderId: existingByPI.id, created: false };
+    }
   }
 
   const totalCents = session.amount_total ?? 0;
