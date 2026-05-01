@@ -72,6 +72,7 @@ import { NextActionCard } from "@/components/admin/heal/cards/NextActionCard";
 import { HealKpiHeroCard } from "@/components/admin/heal/cards/HealKpiHeroCard";
 import { RecurringPatternsCard } from "@/components/admin/heal/cards/RecurringPatternsCard";
 import { PermanentFixBacklogCard } from "@/components/admin/heal/cards/PermanentFixBacklogCard";
+import { CourseHealPlansCard } from "@/components/admin/heal/cards/CourseHealPlansCard";
 
 // Queue-Detail-Tabs (lazy — schwer)
 const QueueLiveTab = lazy(() => import("@/pages/admin/v2/QueuePage"));
@@ -275,6 +276,7 @@ export default function HealCockpitPage() {
           <AccordionContent className="pb-4 space-y-3">
             <RecurringPatternsCard limit={10} />
             <PermanentFixBacklogCard />
+            <CourseHealPlansCard />
             <SystemIntentsKpiCard />
             <StuckPatternsCard />
             <HealStatusCard />
