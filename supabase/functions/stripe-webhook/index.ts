@@ -1105,6 +1105,7 @@ Deno.serve(async (req) => {
         } // end product ok
         } // end existingPackage check
         } // end ExamFit metadata present
+        } // end else (userId/productId present)
         } catch (examFitErr) {
           logStep("WARN: ExamFit handler error (non-blocking)", { error: String(examFitErr) });
         }
