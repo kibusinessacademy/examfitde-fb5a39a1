@@ -66,62 +66,64 @@ if (!productId) {
 }
 INFO("test_product_id =", productId, "|", productTitle);
 
-// 2. Synthetic Order anlegen (status pending → paid via separater INSERT statt UPDATE)
-//    Da wir UPDATE nicht via psql ausführen können, nutzen wir den Trigger-Pfad
-//    "INSERT direct as paid" — der Trigger feuert AFTER INSERT bei NEW.status='paid'
-//    UND bei UPDATE-Transition. Wir prüfen INSERT-Pfad.
+// 2. Synthetic Order: pending → items → paid (Trigger feuert auf UPDATE)
+//    Wir packen alles in EINE psql-Transaktion (heredoc), damit pending+items
+//    atomar landen, BEVOR der Trigger via status='paid' UPDATE feuert.
 const sessionId = `cs_test_synthetic_${randomUUID()}`;
 const piId = `pi_test_synthetic_${randomUUID()}`;
+const stripeInvoiceId = `in_test_synthetic_${randomUUID().slice(0, 8)}`;
 const totalCents = 4900;
 const subtotal = Math.round(totalCents / 1.19);
 const tax = totalCents - subtotal;
 
 INFO("creating synthetic order, session=", sessionId);
 
-const insertOrder = `
-INSERT INTO orders (
-  buyer_user_id, billing_email, billing_name,
-  currency, country, tax_mode,
-  subtotal_cents, tax_cents, total_cents,
-  status,
-  stripe_checkout_session_id, stripe_payment_intent_id,
-  stripe_fee_cents, stripe_invoice_id, stripe_invoice_pdf_url, stripe_customer_id
-) VALUES (
-  '${userId}', 'smoke@test.local', 'Smoke Test',
-  'eur', 'DE', 'gross',
-  ${subtotal}, ${tax}, ${totalCents},
-  'paid',
-  '${sessionId}', '${piId}',
-  150, 'in_test_synthetic', 'https://invoice.test/pdf', 'cus_test_synthetic'
-) RETURNING id;
+const safeTitle = (productTitle ?? "Smoke Product").replace(/'/g, "''");
+
+const txScript = `
+BEGIN;
+WITH new_order AS (
+  INSERT INTO orders (
+    buyer_user_id, billing_email, billing_name,
+    currency, country, tax_mode,
+    subtotal_cents, tax_cents, total_cents,
+    status,
+    stripe_checkout_session_id, stripe_payment_intent_id,
+    stripe_fee_cents, stripe_invoice_id, stripe_invoice_pdf_url, stripe_customer_id
+  ) VALUES (
+    '${userId}', 'smoke@test.local', 'Smoke Test',
+    'eur', 'DE', 'gross',
+    ${subtotal}, ${tax}, ${totalCents},
+    'pending',
+    '${sessionId}', '${piId}',
+    150, '${stripeInvoiceId}', 'https://invoice.test/pdf', 'cus_test_synthetic'
+  ) RETURNING id
+), new_item AS (
+  INSERT INTO order_items (
+    order_id, product_id, description, quantity,
+    unit_amount_net_cents, unit_amount_gross_cents, tax_rate, tax_amount_cents
+  )
+  SELECT id, '${productId}', '${safeTitle}', 1, ${subtotal}, ${totalCents}, 19.0, ${tax}
+  FROM new_order
+  RETURNING order_id
+)
+UPDATE orders SET status='paid' WHERE id=(SELECT id FROM new_order) RETURNING id;
+COMMIT;
 `;
 
-const [orderId] = one(insertOrder);
-if (!orderId) {
-  FAIL("order insert failed");
+let orderId;
+try {
+  const out = execSync(`psql -t -A -c ${JSON.stringify(txScript.replace(/\s+/g, " ").trim())}`, { encoding: "utf8" });
+  orderId = out.trim().split("\n").filter(Boolean)[0];
+} catch (e) {
+  FAIL("transaction failed:", e.stderr ?? e.message);
   process.exit(1);
 }
-OK("order created:", orderId);
-
-// 3. order_items (Trigger feuert ohne items, schreibt aber invoice_items=0
-//    — Items sind für invoice_items + grants nötig)
-const insertItem = `
-INSERT INTO order_items (
-  order_id, product_id, description, quantity,
-  unit_amount_net_cents, unit_amount_gross_cents, tax_rate, tax_amount_cents
-) VALUES (
-  '${orderId}', '${productId}', '${productTitle?.replace(/'/g, "''") ?? "Smoke Product"}', 1,
-  ${Math.round(subtotal)}, ${totalCents}, 19.0, ${tax}
-);
-`;
-sql(insertItem);
-OK("order_item created");
-
-// 4. Trigger nudgen: gleiches Status-Update muss self-heal idempotent funktionieren
-//    psql kann das nicht — wir prüfen direkt was nach INSERT da ist.
-//    Bei INSERT mit status='paid' feuert AFTER INSERT trigger trg_orders_paid_grant.
-
-// Brief delay (Trigger ist sync, aber AFTER STATEMENT in PG kann minimal verzögern)
+if (!orderId) {
+  FAIL("no order_id returned from transaction");
+  process.exit(1);
+}
+OK("order created + items + paid (atomic):", orderId);
 
 // 5. Verifizieren aller 6 Artefakte
 const checks = [
