@@ -274,6 +274,7 @@ export default function HealCockpitPage() {
           </AccordionTrigger>
           <AccordionContent className="pb-4 space-y-3">
             <RecurringPatternsCard limit={10} />
+            <PermanentFixBacklogCard />
             <SystemIntentsKpiCard />
             <StuckPatternsCard />
             <HealStatusCard />
