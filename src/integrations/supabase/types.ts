@@ -87216,6 +87216,768 @@ export type Database = {
         }
         Relationships: []
       }
+      v_admin_exam_pool_paused: {
+        Row: {
+          active_jobs: number | null
+          cancelled_jobs_6h: number | null
+          constraint_overrides: Json | null
+          current_stage: string | null
+          fail_count_6h: number | null
+          last_fail_at: string | null
+          last_job_activity: string | null
+          last_stage_change_at: string | null
+          model_override: string | null
+          open_backlog_task_id: string | null
+          package_id: string | null
+          package_status: string | null
+          package_title: string | null
+          state_updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "course_packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_artifact_build_progress"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_auto_publish_false_success"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_block_classification"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_blocked_but_ready"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_blocked_packages"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_blocked_without_reason"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_build_activity_truth"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_building_without_job_or_lease"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_content_factory"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_course_build_progress"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_exam_pool_promotion_blocked"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_finalization_stall"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_hollow_completion"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_integrity_report_mismatch"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_learner_visible_readiness"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_learning_content_deadlock_candidates"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_learning_content_shard_liveness"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_legacy_package_audit"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_missing_step_backbone"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_non_building_recoverable"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_package_baseline_v1"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_package_blockers"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_package_content_depth"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_package_downstream_missing"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_package_effective_state_v1"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_package_qc_matrix"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_package_readiness"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_package_step_readiness"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_phantom_council_approvals"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_pipeline_map"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_publish_eligible_but_stuck"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_recent_building_without_lease"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_seeding_summary"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_ssot_step_drift"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_stalled_builds"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_step_ssot_drift"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_telemetry_integrity"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_telemetry_lineage"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_validate_before_generate_drift"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_validate_exam_pool_fail_classification"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_validate_exam_pool_progress"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_validate_exam_pool_status"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "package_economics"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_active_vs_cold_backlog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_admin_action_precondition_check"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_admin_auto_test_queue"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_admin_auto_test_queue_v2"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_admin_blocked_packages_split"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_admin_blocker_dashboard"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_admin_content_quality_packages"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_admin_course_test_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_admin_deferred_resolved_alerts"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_admin_effective_track"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_admin_heal_cockpit"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_admin_heal_status_per_package"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_admin_integrity_blocker_details"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_admin_packages_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_admin_publish_readiness"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_admin_publish_readiness_effective"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_admin_published_course_preview"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_admin_stale_drafts_detection"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_admin_stale_marker_diff"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_admin_stuck_patterns_by_track"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_admin_track_compliance"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_admin_track_control"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_admin_upgrade_candidates"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_admin_visible_course_packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_admin_visible_course_packages"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_blueprint_audit_per_package"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_building_package_eta"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_course_display_ssot"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_course_display_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_full_course_catalog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_hidden_hollow_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_homepage_course_catalog"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_idle_building_packages"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_latest_course_package"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_learner_visible_exam_simulations"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_ops_auto_publish_blockers"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_ops_invalid_course_titles"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_ops_package_progress_guard"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_ops_progress_drift_smoke"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_ops_reentry_misses"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_ops_shadow_zombies"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_ops_stale_admin_holds"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_package_build_priority"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_package_coverage_gap"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_package_e2e_integrity"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_package_hollow_guard_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_package_publish_readiness"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_package_release_classification"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_package_step_load"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_pipeline_content_integrity"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_pipeline_repair_classification"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_pipeline_stalled_packages"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_pipeline_step_funnel"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_prebuild_adoption_candidates"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_price_recommendation"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_pricing_backfill_dryrun"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_product_page_published_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_product_page_ssot"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_profit_forecast"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_scheduler_fairness"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_track_step_drift_packages"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_unit_economics_package"
+            referencedColumns: ["package_id"]
+          },
+        ]
+      }
       v_admin_growth_overview: {
         Row: {
           seo_draft: number | null
@@ -102404,6 +103166,15 @@ export type Database = {
             }
             Returns: Json
           }
+      admin_exam_pool_cancel_all: {
+        Args: { p_package_id: string }
+        Returns: Json
+      }
+      admin_exam_pool_quarantine: {
+        Args: { p_package_id: string; p_reason?: string }
+        Returns: Json
+      }
+      admin_exam_pool_restart: { Args: { p_package_id: string }; Returns: Json }
       admin_execute_recommended_action: {
         Args: { _action_key: string; _dry_run?: boolean; _max_jobs?: number }
         Returns: Json
@@ -103252,6 +104023,7 @@ export type Database = {
           reason: string
         }[]
       }
+      admin_test_heal_v3_invariants: { Args: never; Returns: Json }
       admin_unblock_packages_by_reason: {
         Args: {
           p_dry_run?: boolean
@@ -105493,6 +106265,7 @@ export type Database = {
         Args: { p_package_id: string }
         Returns: Json
       }
+      fn_exam_pool_stagnation_alert: { Args: never; Returns: Json }
       fn_exam_question_tier1_eligibility: {
         Args: {
           p_blueprint_id: string
