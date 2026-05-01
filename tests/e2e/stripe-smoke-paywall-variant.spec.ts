@@ -32,33 +32,50 @@ const admin = createClient(SUPABASE_URL, SERVICE_KEY, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
+/**
+ * Fülle das Stripe Hosted Checkout Form.
+ * Stripe rendert die Karten-Inputs je nach Variante:
+ *  - direkt im DOM (input[name="cardNumber"])
+ *  - in iframes (input[name="cardnumber"] innerhalb von iframe[title*="card number"])
+ * Wir versuchen DOM-direkt; fallen sonst per Frame-Locator zurück.
+ */
 async function fillStripeCheckout(page: Page) {
-  // Stripe Checkout läuft auf checkout.stripe.com — eigener Origin, eigene iframes erlaubt.
   await page.waitForURL(/checkout\.stripe\.com/, { timeout: 30_000 });
 
-  // Email (falls Stripe danach fragt — guest-checkout-Pfad)
+  // Optional: Email (guest-checkout)
   const emailField = page.locator('input[type="email"]').first();
   if (await emailField.isVisible({ timeout: 3_000 }).catch(() => false)) {
     await emailField.fill(process.env.E2E_EMAIL || 'smoke_with_entitlement@examfit.test');
   }
 
-  // Karten-Felder (Stripe rendert direkt im DOM, nicht in iframes auf der Hosted-Page)
-  await page.locator('input[name="cardNumber"]').fill('4242 4242 4242 4242');
-  await page.locator('input[name="cardExpiry"]').fill('12 / 34');
-  await page.locator('input[name="cardCvc"]').fill('123');
+  // 1) DOM-direkt versuchen (aktuelle Stripe-Hosted-Page)
+  const directNumber = page.locator('input[name="cardNumber"]');
+  const useDirect = await directNumber.isVisible({ timeout: 4_000 }).catch(() => false);
+
+  if (useDirect) {
+    await directNumber.fill('4242 4242 4242 4242');
+    await page.locator('input[name="cardExpiry"]').fill('12 / 34');
+    await page.locator('input[name="cardCvc"]').fill('123');
+  } else {
+    // 2) iframe-Fallback (klassische Stripe Elements)
+    const numberFrame = page.frameLocator('iframe[title*="card number" i], iframe[name*="card-number" i]').first();
+    const expiryFrame = page.frameLocator('iframe[title*="expiration" i], iframe[name*="card-expiry" i]').first();
+    const cvcFrame    = page.frameLocator('iframe[title*="CVC" i], iframe[title*="security code" i], iframe[name*="card-cvc" i]').first();
+    await numberFrame.locator('input[name="cardnumber"], input[autocomplete="cc-number"]').fill('4242 4242 4242 4242');
+    await expiryFrame.locator('input[name="exp-date"], input[autocomplete="cc-exp"]').fill('12 / 34');
+    await cvcFrame.locator('input[name="cvc"], input[autocomplete="cc-csc"]').fill('123');
+  }
 
   const nameField = page.locator('input[name="billingName"]');
   if (await nameField.isVisible({ timeout: 2_000 }).catch(() => false)) {
     await nameField.fill('ExamFit Smoke Test');
   }
 
-  // Land (DE) wenn vorhanden
   const country = page.locator('select[name="billingCountry"]');
   if (await country.isVisible({ timeout: 1_000 }).catch(() => false)) {
     await country.selectOption('DE');
   }
 
-  // Submit
   await page.locator('button[type="submit"]').click();
 }
 
@@ -98,7 +115,7 @@ test.describe('Stripe Smoke — paywall_variant', () => {
     // 6) Artefakt-Verifikation
     const { data: order, error: orderErr } = await admin
       .from('orders')
-      .select('id, status, buyer_user_id, total_amount_cents, currency, stripe_checkout_session_id')
+      .select('id, status, buyer_user_id, total_cents, currency, stripe_checkout_session_id')
       .eq('stripe_checkout_session_id', sessionId!)
       .maybeSingle();
     expect(orderErr).toBeNull();

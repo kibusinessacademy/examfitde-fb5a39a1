@@ -1,6 +1,13 @@
 name: stripe-smoke-b2c
 
 on:
+  push:
+    paths:
+      - 'tests/e2e/stripe-smoke-*.spec.ts'
+      - 'scripts/stripe-smoke.sh'
+      - '.github/workflows/stripe-smoke-b2c.yml'
+      - 'supabase/functions/stripe-webhook/**'
+      - 'supabase/functions/create-product-checkout/**'
   workflow_dispatch:
     inputs:
       base_url:
