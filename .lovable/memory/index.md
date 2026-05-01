@@ -1,6 +1,8 @@
 # Project Memory
 
 ## Core
+SQL-Disziplin (CI Hard-Block via sql-discipline-guard): NIEMALS COUNT(), SELECT INTO ohne *, RETURNING INTO ohne *, SECURITY DEFINER ohne REVOKE+GRANT, GRANT...authenticated auf admin_*/v_admin_*. Vor jeder Migration: Schema introspecten, Annahmen listen, Invariant-RPC am Ende. Siehe mem://architektur/ops/system-rules-v1 + docs/SYSTEM_RULES.md.
+Pipeline-Invariants: Idempotenz+Dedup, Artifact-Truth>Status, Fail-Fast statt Silent-Heal, Strict-Logging (action_type/target_id/result/reason/before/after), Guard>Repair, Backlog-Pflicht, kein Cross-Layer-Leak, Admin-Aktionen atomar, keine freien Status-Strings.
 - **DATENINTEGRITÄT SSOT — JEDER package_*-Job MUSS curriculum_id im payload haben.** `assert_job_payload` blockt sonst hart. Repair-RPCs MÜSSEN curriculum_id aus course_packages lesen UND bei NULL skippen (kein blinder enqueue). Cluster F (curriculum_id IS NULL) hat IMMER höchste Priorität in Diagnose-Views.
 - Frontend never calculates mastery logic; didactic calculations remain strictly server-side.
 - All internal/public tables must enforce strict RLS policies, filtering by `user_id` and `curriculum_id`.
@@ -27,6 +29,7 @@
 - **Placeholder-Guard ist Pflicht**: `fn_guard_variant_placeholder_pollution` (HARD/check_violation) blockt `\{[A-Za-z_]+\}` in `exam_question_variants.question_text/answer_text`. `fn_guard_blueprint_placeholder_soft` auto-deprecated `question_blueprints.question_template`. Bridges müssen `check_violation` per-row tolerieren.
 
 ## Memories
+- [System Rules v1 (SQL + Pipeline + Observability)](mem://architektur/ops/system-rules-v1) — 15 Pipeline-Invariants + SQL-Phasen-Workflow + verbotene Pattern. Enforced via scripts/guards/sql-discipline-guard.mjs (Baseline-aware Hard-Block, 1708 Tech-Debt-Entries eingefroren) + .github/workflows/sql-discipline-guard.yml. Repo-SSOT: docs/SYSTEM_RULES.md. Baseline-Update: `node scripts/guards/sql-discipline-guard.mjs --update-baseline`.
 - [Heal Pattern-Detection v1](mem://architektur/ops/heal-pattern-detection-v1) — v_heal_recurring_patterns (cluster×target, severity 0-100, escalation_rate), v_heal_kpi_overview (24h KPIs+top3), heal_pattern_recommendations Tabelle, Edge `heal-recommend` (Gemini Flash, Tool-Call, 24h Cache), HealKpiHeroCard im Hero + RecurringPatternsCard in Sektion 3.
 - [Tail-Chain Trigger-Deadlock Fix v1](mem://architektur/ops/tail-chain-trigger-deadlock-fix-v1) — fn_trg_job_complete_reconcile_step setzt Producer-Evidence (executed/ok) + Lifecycle (started_at/attempts/finished_at) für Governance- und Non-Governance-Steps. Behebt 24h Worker-Stillstand. Migrationen: F-1, F-1.1, F-1.2, F-1.3.
 - [Idle-Building Auto-Heal v1](mem://architektur/ops/idle-building-auto-heal-v1) — `v_idle_building_packages` (building, no active job, >5min cooldown) + `admin_heal_idle_building_packages(dry_run, threshold_h=6, max=10)` nudged ältesten offenen Step + Cron `idle-building-auto-heal` */30min. Verhindert WIP-Verschwendung durch building-Pakete ohne aktive Jobs.

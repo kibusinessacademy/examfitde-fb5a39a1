@@ -25,6 +25,7 @@ const guards = [
   "completion-helper-guard.mjs",
   "no-legacy-org-members-guard.mjs",
   "trigger-function-parity-guard.mjs",
+  "sql-discipline-guard.mjs",
 ];
 
 function run(entry) {

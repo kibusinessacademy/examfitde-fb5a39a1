@@ -1,0 +1,57 @@
+name: SQL Discipline Guard
+
+on:
+  push:
+    paths:
+      - 'supabase/migrations/**'
+      - 'supabase/functions/**'
+      - 'src/**/*.ts'
+      - 'src/**/*.tsx'
+      - 'scripts/guards/sql-discipline-guard.mjs'
+      - 'docs/SYSTEM_RULES.md'
+  pull_request:
+    paths:
+      - 'supabase/migrations/**'
+      - 'supabase/functions/**'
+      - 'src/**/*.ts'
+      - 'src/**/*.tsx'
+      - 'scripts/guards/sql-discipline-guard.mjs'
+      - 'docs/SYSTEM_RULES.md'
+
+jobs:
+  guard:
+    name: Hard-Block SQL Anti-Patterns
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run SQL discipline guard (hard-block)
+        run: node scripts/guards/sql-discipline-guard.mjs
+
+      - name: New-files-only rg sanity sweep (defense in depth)
+        if: github.event_name == 'pull_request'
+        run: |
+          set -e
+          echo "::group::rg sweep on PR-changed files only"
+          # Nur in geänderten Files prüfen — Baseline bleibt unangetastet.
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          CHANGED=$(git diff --name-only --diff-filter=AM "$BASE_SHA" "$HEAD_SHA" -- \
+            'supabase/migrations/**' 'supabase/functions/**' 'src/**/*.ts' 'src/**/*.tsx' || true)
+          if [ -z "$CHANGED" ]; then
+            echo "No relevant files changed."
+            exit 0
+          fi
+          MATCHES=$(echo "$CHANGED" | xargs -r grep -InE "COUNT\(\)|SELECT[[:space:]]+INTO|RETURNING[[:space:]]+INTO" 2>/dev/null \
+            | grep -v "lovable-sql-allow" \
+            | grep -v ":[[:space:]]*--" || true)
+          if [ -n "$MATCHES" ]; then
+            echo "❌ Forbidden patterns in changed files:"
+            echo "$MATCHES"
+            exit 1
+          fi
+          echo "✅ rg sweep clean on changed files"
+          echo "::endgroup::"
