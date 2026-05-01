@@ -42342,15 +42342,8 @@ export type Database = {
             foreignKeyName: "order_items_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
-            referencedRelation: "store_products"
+            referencedRelation: "products"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "order_items_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "v_level_pricing"
-            referencedColumns: ["product_id"]
           },
         ]
       }
