@@ -47,7 +47,15 @@ Nur deterministische, dokumentierte Fixes. Darf: DAG-konformes Enqueue, stale Lo
 `heal_permanent_fix_tasks` Pflichtfelder: `pattern_key`, `cluster`, `package_id`, `priority`, `title`, `description`, `recommendation`, `status`. Dedup ist Pflicht.
 
 ## 11. SQL-Regeln (CI Hard-Block)
-Vor jeder Migration: Schema, Spalten, Enum/Check, Duplikate, echte `job_type`/`step_key` prüfen.
+**Schema-Realitäts-Check ZUERST (Pflicht vor jeder Migration):**
+1. Tatsächliche Spaltenstruktur via `information_schema.columns` / Live-DB prüfen — nie aus Erinnerung, `types.ts` oder älteren Migrationen ableiten.
+2. Exakte Spaltennamen, Typen, Casing, NULLability, Defaults verifizieren.
+3. Enum-/Check-Constraints (`pg_enum`, `check_constraints`) prüfen, nur existierende Werte nutzen.
+4. Duplikate / Unique-Konflikte vor `UNIQUE`/`ON CONFLICT` prüfen.
+5. Echte `job_type`/`step_key`/`status`/`action_type` gegen Live-Enums prüfen.
+6. **Mismatch-Verbot**: Bei Abweichung Annahme↔DB STOPP, dokumentieren, neu planen.
+7. **Schema-Drift-Verbot**: keine parallelen Wahrheiten (z. B. `price_cents` vs `amount_cents`) — sofort konsolidieren.
+
 **Verboten:** `COUNT()`, `SELECT INTO` ohne `*`, `RETURNING INTO` ohne `*`, freie Statuswerte ohne Constraint, `SECURITY DEFINER` ohne `REVOKE/GRANT`, `GRANT … TO authenticated` auf `admin_*`/`v_admin_*`.
 **Pflicht:** `COUNT(*)`, `SELECT * INTO`, `RETURNING * INTO`, `REVOKE ALL FROM PUBLIC` + `GRANT EXECUTE TO service_role`, Admin-RPC mit `has_role(auth.uid(),'admin')`.
 
