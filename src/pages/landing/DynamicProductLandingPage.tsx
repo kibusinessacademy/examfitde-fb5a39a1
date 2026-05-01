@@ -10,6 +10,8 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { TrackingEvents } from "@/lib/tracking/track";
 import { startProductCheckout } from "@/lib/checkout/startProductCheckout";
+import { LeadGateModal } from "@/components/checkout/LeadGateModal";
+import { useLeadGate } from "@/hooks/useLeadGate";
 import { toast } from "sonner";
 import {
   ArrowRight,
