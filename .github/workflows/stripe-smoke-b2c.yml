@@ -26,13 +26,14 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - run: bunx playwright install --with-deps chromium
-      - name: Run Pfad 1 — paywall_variant
+      - name: Run B2C Smokes (Pfad 1 paywall_variant + Pfad 2 product-checkout)
         env:
           BASE_URL: ${{ inputs.base_url || 'https://examfitde.lovable.app' }}
           E2E_EMAIL: ${{ secrets.E2E_EMAIL }}
           E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          PRODUCT_SLUG: ${{ vars.STRIPE_SMOKE_PRODUCT_SLUG || 'automatenfachmann-frau-c0ca4ef0' }}
         run: bunx playwright test --project=stripe-smoke
       - if: always()
         uses: actions/upload-artifact@v4
