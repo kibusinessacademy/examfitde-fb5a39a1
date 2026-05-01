@@ -335,13 +335,14 @@ Deno.serve(async (req) => {
     );
   } catch (e) {
     const msg = e instanceof Error ? e.message : "unknown_error";
+    const stack = e instanceof Error ? e.stack : null;
     const status = msg === "rate_limited"
       ? 429
       : msg === "payment_required"
       ? 402
       : 500;
-    console.error("heal-recommend error:", msg);
-    return new Response(JSON.stringify({ error: msg }), {
+    console.error("heal-recommend error:", msg, stack, JSON.stringify(e));
+    return new Response(JSON.stringify({ error: msg, detail: String(e) }), {
       status,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
