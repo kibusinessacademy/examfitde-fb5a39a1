@@ -549,112 +549,93 @@ Deno.serve(async (req) => {
                 productId,
                 planKey: meta.plan_key,
               });
-              {
-            // ── B2B: Create org + license + seats ──
-            logStep("Fulfilling B2B pricing_plan purchase", { userId, productId, planKey: meta.plan_key });
-
-
-
-
-            // Idempotency: check existing license for this session
-            const { data: existingLic } = await adminClient
-              .from('org_licenses')
-              .select('id')
-              .eq('source_ref', session.id)
-              .maybeSingle();
-
-            if (existingLic) {
-              logStep("Org license already exists (idempotent)", { id: existingLic.id });
-            } else {
-              // Find or create organization
-              let orgId: string | null = null;
-              const orgName = meta.org_name || 'Organisation';
-
-              // Check if user already owns an org
-              const { data: existingMembership } = await adminClient
-                .from('org_memberships')
-                .select('org_id')
-                .eq('user_id', userId)
-                .eq('role', 'owner')
-                .eq('status', 'active')
-                .limit(1)
+              // Idempotency: check existing license for this session
+              const { data: existingLic } = await adminClient
+                .from('org_licenses')
+                .select('id')
+                .eq('source_ref', session.id)
                 .maybeSingle();
 
-              if (existingMembership) {
-                orgId = existingMembership.org_id;
-                logStep("Using existing org", { orgId });
+              if (existingLic) {
+                logStep("Org license already exists (idempotent)", { id: existingLic.id });
               } else {
-                // Create new org
-                const { data: newOrg } = await adminClient
-                  .from('organizations')
-                  .insert({
-                    name: orgName,
-                    org_type: 'company',
-                  })
-                  .select('id')
-                  .single();
+                let orgId: string | null = null;
+                const orgName = meta.org_name || 'Organisation';
 
-                if (newOrg) {
-                  orgId = newOrg.id;
-                  // Add buyer as owner (idempotent via unique constraint)
-                  await adminClient.from('org_memberships').insert({
-                    org_id: orgId,
-                    user_id: userId,
-                    role: 'owner',
-                    status: 'active',
-                  }).then(() => {}).catch(() => {});
-                  logStep("Organization created", { orgId, orgName });
+                const { data: existingMembership } = await adminClient
+                  .from('org_memberships')
+                  .select('org_id')
+                  .eq('user_id', userId)
+                  .eq('role', 'owner')
+                  .eq('status', 'active')
+                  .limit(1)
+                  .maybeSingle();
+
+                if (existingMembership) {
+                  orgId = existingMembership.org_id;
+                  logStep("Using existing org", { orgId });
+                } else {
+                  const { data: newOrg } = await adminClient
+                    .from('organizations')
+                    .insert({ name: orgName, org_type: 'company' })
+                    .select('id')
+                    .single();
+                  if (newOrg) {
+                    orgId = newOrg.id;
+                    await adminClient.from('org_memberships').insert({
+                      org_id: orgId,
+                      user_id: userId,
+                      role: 'owner',
+                      status: 'active',
+                    }).then(() => {}).catch(() => {});
+                    logStep("Organization created", { orgId, orgName });
+                  }
+                }
+
+                if (orgId) {
+                  const { data: newLicense } = await adminClient
+                    .from('org_licenses')
+                    .insert({
+                      org_id: orgId,
+                      product_id: productId,
+                      seat_count: seatCount,
+                      seats_used: 0,
+                      starts_at: new Date().toISOString(),
+                      ends_at: validUntil.toISOString(),
+                      status: 'active',
+                      source_type: 'stripe',
+                      source_ref: session.id,
+                    })
+                    .select('id')
+                    .single();
+
+                  if (newLicense) {
+                    logStep("Org license created", { licenseId: newLicense.id, seatCount });
+                    await adminClient.from('org_license_seats').insert({
+                      license_id: newLicense.id,
+                      user_id: userId,
+                      claimed_at: new Date().toISOString(),
+                    });
+                    logStep("Buyer auto-assigned first seat");
+                  }
                 }
               }
 
-              if (orgId) {
-                // Create org_license
-                const { data: newLicense } = await adminClient
-                  .from('org_licenses')
-                  .insert({
-                    org_id: orgId,
-                    product_id: productId,
-                    seat_count: seatCount,
-                    seats_used: 0,
-                    starts_at: new Date().toISOString(),
-                    ends_at: validUntil.toISOString(),
-                    status: 'active',
-                    source_type: 'stripe',
-                    source_ref: session.id,
-                  })
-                  .select('id')
-                  .single();
-
-                if (newLicense) {
-                  logStep("Org license created", { licenseId: newLicense.id, seatCount });
-
-                  // Auto-assign first seat to buyer
-                  await adminClient.from('org_license_seats').insert({
-                    license_id: newLicense.id,
-                    user_id: userId,
-                    claimed_at: new Date().toISOString(),
-                  });
-                  // Trigger will sync seats_used
-                  logStep("Buyer auto-assigned first seat");
-                }
-              }
-            }
-
-            // Track checkout_complete event (SSOT)
-            await emitCheckoutCompleteEvent(adminClient, {
-              user_id: userId,
-              product_id: productId,
-              session_id: session.id,
-              flow,
-              extra: {
-                plan_key: meta.plan_key,
-                seat_count: meta.seat_count,
-                audience_type: meta.audience_type,
-                amount_total: session.amount_total,
-              },
-            });
-            } // end B2B else
-          }
+              await emitCheckoutCompleteEvent(adminClient, {
+                user_id: userId,
+                product_id: productId,
+                session_id: session.id,
+                flow,
+                extra: {
+                  plan_key: meta.plan_key,
+                  seat_count: meta.seat_count,
+                  audience_type: meta.audience_type,
+                  amount_total: session.amount_total,
+                },
+              });
+              } // end B2B-Block
+            } // end else if (flow === 'pricing_plan')
+          } // end if (userId && productId)
 
           // ── PARTNER COMMISSION: resolve attribution & create commission ──
           try {
