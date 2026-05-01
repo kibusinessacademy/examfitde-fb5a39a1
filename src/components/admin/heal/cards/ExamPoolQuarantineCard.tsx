@@ -88,7 +88,7 @@ export function ExamPoolQuarantineCard() {
   const quarantineMutation = useMutation({
     mutationFn: async (pkgId: string) => {
       const reason = window.prompt("Quarantäne-Begründung (optional):") ?? "manual_quarantine";
-      const { data, error } = await supabase.rpc("admin_exam_pool_quarantine" as never, { p_package_id: pkgId, p_reason: reason });
+      const { data, error } = await supabase.rpc("admin_exam_pool_quarantine" as never, { p_package_id: pkgId, p_reason: reason } as never);
       if (error) throw error;
       return data;
     },
