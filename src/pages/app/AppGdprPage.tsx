@@ -39,7 +39,7 @@ export default function AppGdprPage() {
   const requestDeletion = async () => {
     setBusy('request');
     try {
-      const { error } = await supabase.rpc('request_gdpr_deletion', { p_reason: reason || null });
+      const { error } = await supabase.rpc('request_gdpr_deletion', { p_reason: reason || undefined });
       if (error) throw error;
       toast({ title: 'Antrag gestellt', description: 'Du erhältst eine E-Mail zur Bestätigung.' });
       setReason('');
