@@ -103708,6 +103708,26 @@ export type Database = {
           ts: string
         }[]
       }
+      admin_get_lane_health: {
+        Args: never
+        Returns: {
+          completed_6h: number | null
+          dispatched_recent_5m: number | null
+          lane: string | null
+          last_completed_at: string | null
+          last_worker_activity_at: string | null
+          oldest_pending_sec: number | null
+          pending_cnt: number | null
+          processing_cnt: number | null
+          queued_cnt: number | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "v_admin_lane_health"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       admin_get_package_block_diagnosis: {
         Args: { p_package_id: string }
         Returns: {
