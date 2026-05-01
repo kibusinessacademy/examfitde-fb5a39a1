@@ -264,7 +264,7 @@ Deno.serve(async (req) => {
     try {
       event = await stripe.webhooks.constructEventAsync(body, signature, webhookSecret);
     } catch (errLive) {
-      // If a test secret is configured, try it as fallback (smoke / staging only)
+      // If a test secret is configured (smoke/staging only), try it as fallback
       if (webhookTestSecret) {
         try {
           event = await stripe.webhooks.constructEventAsync(body, signature, webhookTestSecret);
