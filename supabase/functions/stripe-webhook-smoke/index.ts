@@ -396,13 +396,18 @@ Deno.serve(async (req) => {
     }
 
     if (mode === "refund" || mode === "both") {
-      // For refund we re-use the same payment_intent so the existing grant gets revoked
+      // Re-use the same payment_intent so the existing grant gets revoked
       const chargeId = fakeId("ch");
-      const refundEvent = buildRefundEvent(fixture.paymentIntentId, chargeId, fixture.amountTotal);
+      const { event: refundEvent, refundId } = buildRefundEvent(
+        fixture.paymentIntentId, chargeId, fixture.amountTotal,
+      );
       const post = await postSignedEvent(webhookUrl, testSecret, refundEvent);
       await new Promise((r) => setTimeout(r, 1500));
-      const verify = await verifyRefundEffects(admin, fixture.paymentIntentId, fixture.userId, fixture.curriculumId);
-      results.push({ mode: "refund", http: post.http, webhook_response: post.body.slice(0, 500), ...verify });
+      const verify = await verifyRefundEffects(
+        admin, fixture.paymentIntentId, fixture.userId, fixture.curriculumId,
+        refundId, fixture.amountTotal,
+      );
+      results.push({ mode: "refund", http: post.http, webhook_response: post.body.slice(0, 500), refund_id: refundId, ...verify });
     }
 
     if (doCleanup) {
