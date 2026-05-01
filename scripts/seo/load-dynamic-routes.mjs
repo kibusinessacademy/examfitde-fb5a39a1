@@ -275,6 +275,52 @@ export async function loadBlogRoutes() {
       changefreq: "weekly",
       priority: 0.6,
     });
+
+    // Persona-Einstiegspfade — 3 URLs pro published Produkt (Routing-Layer SSOT).
+    const PRODUCT_PERSONA_DEFS = [
+      { key: "azubi", label: "für Azubis", suffix: "für Azubis" },
+      { key: "betrieb", label: "für Ausbildungsbetriebe", suffix: "für Ausbildungsbetriebe" },
+      { key: "institution", label: "für Berufsschulen & Kammern", suffix: "für Bildungsinstitutionen" },
+    ];
+    for (const p of PRODUCT_PERSONA_DEFS) {
+      const personaPath = `${path}/${p.key}`;
+      const personaCanonical = `${SITE}${personaPath}`;
+      const personaTitle = clamp(`${r.canonical_title} ${p.suffix} | ExamFit`, 1, 60);
+      const personaDesc = clamp(
+        `${r.canonical_title} ${p.label}: Diagnose-Check, prüfungsnahe Inhalte und KI-Coach mit Quellen. Jetzt kostenlos starten.`,
+        70,
+        160,
+      );
+      routes.push({
+        kind: "product_persona",
+        path: personaPath,
+        slug: r.canonical_slug,
+        persona: p.key,
+        title: personaTitle,
+        description: personaDesc,
+        h1: `${titleBase} ${p.suffix}`,
+        intro:
+          r.product_intro ||
+          r.hero_subline ||
+          `${r.canonical_title} ${p.label} — Diagnose-Check, prüfungsnahe Inhalte und KI-Coach.`,
+        jsonLd: [
+          {
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            itemListElement: [
+              { "@type": "ListItem", position: 1, name: "Start", item: `${SITE}/` },
+              { "@type": "ListItem", position: 2, name: "Prüfungstraining", item: `${SITE}/pruefungstraining` },
+              { "@type": "ListItem", position: 3, name: r.canonical_title, item: `${SITE}${path}` },
+              { "@type": "ListItem", position: 4, name: p.label, item: personaCanonical },
+            ],
+          },
+        ],
+        lastmod: (r.updated_at || r.published_at || new Date().toISOString()).slice(0, 10),
+        sitemapGroup: "products",
+        changefreq: "weekly",
+        priority: 0.7,
+      });
+    }
   }
 
   // Soft quality-gate (warning-only, never fails build):
