@@ -61,8 +61,10 @@ async function main() {
   let failures = 0;
 
   // 1. Letzte 7 Tage: pro event_type Counts + package_id-Coverage
+  // SSOT: top-level package_id (generated column) ist bevorzugter Lesepfad,
+  // metadata.package_id bleibt als Fallback (Backwards-Kompatibilität).
   const ev = await restGet(
-    "conversion_events?select=event_type,metadata,created_at&event_type=in.(checkout_started,checkout_complete,checkout_start,checkout_completed)&created_at=gte." +
+    "conversion_events?select=event_type,package_id,metadata,created_at&event_type=in.(checkout_started,checkout_complete,checkout_start,checkout_completed)&created_at=gte." +
       new Date(Date.now() - 7 * 24 * 3600_000).toISOString(),
   );
 
