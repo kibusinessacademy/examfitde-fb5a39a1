@@ -336,6 +336,20 @@ export function LeadQuizRunner({ slug }: Props) {
                 : "Es gibt klare Lücken — gar nicht schlimm. Hol dir jetzt deinen persönlichen Lernplan, der genau auf deine schwachen Themen zugeschnitten ist."}
             </p>
 
+            {attemptId && (
+              <Button
+                asChild
+                variant="default"
+                size="lg"
+                className="w-full"
+              >
+                <Link to={`/pruefungsreife-ergebnis/${attemptId}`}>
+                  Detailliertes Ergebnis & Empfehlung ansehen
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+            )}
+
             {!leadDone && (
               <form onSubmit={handleLeadSubmit} className="space-y-3">
                 <label className="block">
