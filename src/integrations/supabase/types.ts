@@ -92428,6 +92428,90 @@ export type Database = {
         }
         Relationships: []
       }
+      v_funnel_conversion_24h: {
+        Row: {
+          checkout_completion_rate: number | null
+          checkout_starts: number | null
+          checkouts_completed: number | null
+          full_funnel_conversion_rate: number | null
+          landing_to_quiz_rate: number | null
+          landing_views: number | null
+          lead_gate_shown: number | null
+          lead_gate_skip_to_checkout: number | null
+          lead_gate_start_diagnosis: number | null
+          lead_magnet_views: number | null
+          orphan_events_count: number | null
+          package_id: string | null
+          package_key: string | null
+          package_title: string | null
+          persona_type: string | null
+          quiz_completion_rate: number | null
+          quiz_completions: number | null
+          quiz_starts: number | null
+          quiz_to_result_rate: number | null
+          result_cta_clicks: number | null
+          result_to_checkout_rate: number | null
+          result_views: number | null
+          source_page: string | null
+        }
+        Relationships: []
+      }
+      v_funnel_conversion_30d: {
+        Row: {
+          checkout_completion_rate: number | null
+          checkout_starts: number | null
+          checkouts_completed: number | null
+          full_funnel_conversion_rate: number | null
+          landing_to_quiz_rate: number | null
+          landing_views: number | null
+          lead_gate_shown: number | null
+          lead_gate_skip_to_checkout: number | null
+          lead_gate_start_diagnosis: number | null
+          lead_magnet_views: number | null
+          orphan_events_count: number | null
+          package_id: string | null
+          package_key: string | null
+          package_title: string | null
+          persona_type: string | null
+          quiz_completion_rate: number | null
+          quiz_completions: number | null
+          quiz_starts: number | null
+          quiz_to_result_rate: number | null
+          result_cta_clicks: number | null
+          result_to_checkout_rate: number | null
+          result_views: number | null
+          source_page: string | null
+        }
+        Relationships: []
+      }
+      v_funnel_conversion_7d: {
+        Row: {
+          checkout_completion_rate: number | null
+          checkout_starts: number | null
+          checkouts_completed: number | null
+          full_funnel_conversion_rate: number | null
+          landing_to_quiz_rate: number | null
+          landing_views: number | null
+          lead_gate_shown: number | null
+          lead_gate_skip_to_checkout: number | null
+          lead_gate_start_diagnosis: number | null
+          lead_magnet_views: number | null
+          orphan_events_count: number | null
+          package_id: string | null
+          package_key: string | null
+          package_title: string | null
+          persona_type: string | null
+          quiz_completion_rate: number | null
+          quiz_completions: number | null
+          quiz_starts: number | null
+          quiz_to_result_rate: number | null
+          result_cta_clicks: number | null
+          result_to_checkout_rate: number | null
+          result_views: number | null
+          source_page: string | null
+        }
+        Relationships: []
+      }
       v_funnel_integrity_check: {
         Row: {
           attribution_quality_status: string | null
@@ -103478,6 +103562,44 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      admin_get_funnel_conversion: {
+        Args: { p_limit?: number; p_window?: string }
+        Returns: {
+          checkout_completion_rate: number
+          checkout_starts: number
+          checkouts_completed: number
+          full_funnel_conversion_rate: number
+          landing_to_quiz_rate: number
+          landing_views: number
+          lead_gate_shown: number
+          lead_gate_skip_to_checkout: number
+          lead_gate_start_diagnosis: number
+          lead_magnet_views: number
+          orphan_events_count: number
+          package_id: string
+          package_key: string
+          package_title: string
+          persona_type: string
+          quiz_completion_rate: number
+          quiz_completions: number
+          quiz_starts: number
+          quiz_to_result_rate: number
+          result_cta_clicks: number
+          result_to_checkout_rate: number
+          result_views: number
+          source_page: string
+          traffic_light: string
+        }[]
+      }
+      admin_get_funnel_orphan_summary: {
+        Args: { p_window?: string }
+        Returns: {
+          event_type: string
+          first_seen: string
+          last_seen: string
+          orphan_count: number
+        }[]
       }
       admin_get_hollow_published_packages: {
         Args: never
