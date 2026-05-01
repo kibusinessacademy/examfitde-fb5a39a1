@@ -819,6 +819,27 @@ Deno.serve(async (req) => {
 
           logStep("Invoice created", { invoiceNumber });
 
+          // 4b) Invoice items mirror (Loop B SSOT for /app/rechnungen)
+          if (dbInvoice?.id) {
+            const itemNet = Math.round(unitPriceCents / (1 + taxRate / 100));
+            const itemTax = unitPriceCents - itemNet;
+            const { error: itemErr } = await adminClient
+              .from('invoice_items')
+              .upsert({
+                invoice_id: dbInvoice.id,
+                order_id: order.id,
+                product_id: productId,
+                description: `${product.name} (${quantity}x)`,
+                quantity,
+                unit_price_cents: unitPriceCents,
+                tax_rate: taxRate,
+                tax_amount_cents: itemTax * quantity,
+                total_cents: unitPriceCents * quantity,
+              }, { onConflict: 'invoice_id,product_id', ignoreDuplicates: false });
+            if (itemErr) logStep("WARN: invoice_items upsert failed", { error: String(itemErr) });
+            else logStep("Invoice items mirrored", { invoiceId: dbInvoice.id });
+          }
+
           // 5) Ledger entries (SSOT)
           const ledgerEntries = [
             {
