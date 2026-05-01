@@ -80,9 +80,11 @@ for (const k of ["personaContext", "canonicalOverride", "onPersonaCtaClick", "Pr
 }
 
 // 6) CTA → Diagnose
-const pageSrc = readFileSync(pagePath, "utf8");
-if (pageSrc.includes("/pruefungsreife-check")) ok("Persona-CTA navigiert zur Diagnose/Quiz");
+const ctxSrc = readFileSync(ctxPath, "utf8");
+if (ctxSrc.includes("/pruefungsreife-check")) ok("Persona-CTA navigiert zur Diagnose/Quiz");
 else fail("Persona-CTA Ziel /pruefungsreife-check fehlt");
+if (pageSrc.includes("personaContext.diagnoseTargetPath")) ok("Page nutzt diagnoseTargetPath aus Context");
+else fail("Page nutzt diagnoseTargetPath nicht");
 
 console.log("");
 if (failed) {
