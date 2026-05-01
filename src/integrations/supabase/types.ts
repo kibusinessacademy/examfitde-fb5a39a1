@@ -106839,6 +106839,10 @@ export type Database = {
           total_lessons: number
         }[]
       }
+      fn_package_pricing_ready: {
+        Args: { p_package_id: string }
+        Returns: Json
+      }
       fn_package_publish_readiness: {
         Args: { p_package_id: string }
         Returns: Json

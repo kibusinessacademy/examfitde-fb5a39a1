@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 
 /**
- * Pricing Integrity Regression Guard
+ * Pricing Integrity Regression Guard (HARD GATE)
  *
  * Verifies the post-migration target state for pricing of published packages:
- *   - published_without_price       === 0
- *   - duplicate_product_cases       === 0
- *   - manual_review_cases           === 0
- *   - cluster: action_needed = 'none' must equal total_published_packages
+ *   - v_pricing_integrity_check.status                === 'green'
+ *   - v_pricing_integrity_check.published_without_price === 0
+ *   - v_pricing_integrity_check.duplicate_product_cases === 0
+ *   - v_pricing_integrity_check.manual_review_cases   === 0
+ *   - cluster: action_needed='none' === total_published_packages
  *
  * Source of truth:
  *   - public.v_pricing_integrity_check  (aggregate ampel)
@@ -72,6 +73,10 @@ const OK = (...m) => console.log("✅", ...m);
 const INFO = (...m) => console.log("•", ...m);
 
 async function main() {
+  console.log("─".repeat(70));
+  console.log("  PRICING INTEGRITY HARD GATE");
+  console.log("─".repeat(70));
+
   // 1. Aggregate ampel
   const ampel = await restGet(
     "v_pricing_integrity_check?select=*&limit=1",
@@ -102,14 +107,24 @@ async function main() {
     process.exit(1);
   }
 
-  INFO(
-    `Status=${row.status}  published=${row.total_published_packages}  ` +
-      `without_price=${row.published_without_price}  ` +
-      `duplicates=${row.duplicate_product_cases}  ` +
-      `manual_review=${row.manual_review_cases}`,
-  );
+  // Hard-Gate Output (immer sichtbar)
+  console.log("");
+  console.log("  status                    :", row.status);
+  console.log("  total_published_packages  :", row.total_published_packages);
+  console.log("  published_without_price   :", row.published_without_price);
+  console.log("  duplicate_product_cases   :", row.duplicate_product_cases);
+  console.log("  manual_review_cases       :", row.manual_review_cases);
+  console.log("  checked_at                :", row.checked_at);
+  console.log("");
 
   let failures = 0;
+
+  // HARD: status MUST be green
+  if (row.status !== "green") {
+    FAIL(`status='${row.status}' (expected 'green') — HARD GATE BLOCKED`);
+    failures++;
+  }
+
   if (row.published_without_price !== 0) {
     FAIL(`published_without_price=${row.published_without_price} (expected 0)`);
     failures++;
@@ -152,12 +167,30 @@ async function main() {
     );
   }
 
+  console.log("");
   if (failures > 0) {
     FAIL(`Pricing integrity FAILED with ${failures} drift(s)`);
+    console.error("");
+    console.error(
+      "  Remediation runbook:",
+    );
+    console.error(
+      "    1. SELECT * FROM v_pricing_backfill_dryrun WHERE action_needed <> 'none';",
+    );
+    console.error(
+      "    2. SELECT * FROM admin_seed_missing_product_prices(false);  -- preview",
+    );
+    console.error(
+      "    3. SELECT * FROM admin_seed_missing_product_prices(true);   -- apply",
+    );
+    console.error(
+      "    4. SELECT * FROM admin_merge_duplicate_certification_products(true);",
+    );
+    console.error("");
     process.exit(1);
   }
 
-  OK("Pricing integrity GREEN — all targets met");
+  OK("Pricing integrity GREEN — Hard Gate satisfied");
 }
 
 main().catch((err) => {
