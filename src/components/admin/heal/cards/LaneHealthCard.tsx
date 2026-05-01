@@ -42,9 +42,17 @@ export function LaneHealthCard() {
   const q = useQuery({
     queryKey: ["admin-lane-health"],
     queryFn: async () => {
+      // Primary: SECURITY DEFINER RPC with has_role gate
       const { data, error } = await supabase.rpc("admin_get_lane_health" as any);
-      if (error) throw error;
-      return (data ?? []) as LaneRow[];
+      if (!error && Array.isArray(data) && data.length > 0) {
+        return data as LaneRow[];
+      }
+      // Fallback: direct view query (works only if caller has SELECT grant or RLS allows)
+      const { data: viewData, error: viewErr } = await supabase
+        .from("v_admin_lane_health" as any)
+        .select("*");
+      if (viewErr && error) throw error;
+      return ((viewData ?? data ?? []) as unknown) as LaneRow[];
     },
     refetchInterval: 30_000,
   });
