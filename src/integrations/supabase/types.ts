@@ -103560,6 +103560,21 @@ export type Database = {
           reason_code: string
         }[]
       }
+      admin_get_council_deferred_overview: {
+        Args: never
+        Returns: {
+          age_seconds: number
+          defer_reason: string
+          deferred_at: string
+          error_codes: string[]
+          exam_questions_approved: number
+          exam_questions_total: number
+          fail_count: number
+          package_id: string
+          package_title: string
+          step_status: string
+        }[]
+      }
       admin_get_exam_pool_paused: {
         Args: never
         Returns: {
@@ -104274,6 +104289,10 @@ export type Database = {
             }
             Returns: Json
           }
+      admin_resolve_council_deferred: {
+        Args: { p_action: string; p_package_id: string; p_reason?: string }
+        Returns: Json
+      }
       admin_resolve_promote_hotloop: {
         Args: {
           p_attempt_threshold?: number
