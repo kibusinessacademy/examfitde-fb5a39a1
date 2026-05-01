@@ -33284,6 +33284,7 @@ export type Database = {
           attempts: number
           batch_cursor: Json | null
           completed_at: string | null
+          correlation_id: string | null
           cost_estimate_eur: number | null
           created_at: string
           error: string | null
@@ -33291,6 +33292,7 @@ export type Database = {
           fallback_count: number | null
           id: string
           idempotency_key: string | null
+          job_name: string | null
           job_type: string
           lane: string | null
           last_error: string | null
@@ -33312,6 +33314,7 @@ export type Database = {
           provider: string | null
           rate_limited_until: string | null
           result: Json | null
+          root_job_id: string | null
           run_after: string | null
           scheduled_at: string | null
           started_at: string | null
@@ -33323,6 +33326,7 @@ export type Database = {
           attempts?: number
           batch_cursor?: Json | null
           completed_at?: string | null
+          correlation_id?: string | null
           cost_estimate_eur?: number | null
           created_at?: string
           error?: string | null
@@ -33330,6 +33334,7 @@ export type Database = {
           fallback_count?: number | null
           id?: string
           idempotency_key?: string | null
+          job_name?: string | null
           job_type: string
           lane?: string | null
           last_error?: string | null
@@ -33351,6 +33356,7 @@ export type Database = {
           provider?: string | null
           rate_limited_until?: string | null
           result?: Json | null
+          root_job_id?: string | null
           run_after?: string | null
           scheduled_at?: string | null
           started_at?: string | null
@@ -33362,6 +33368,7 @@ export type Database = {
           attempts?: number
           batch_cursor?: Json | null
           completed_at?: string | null
+          correlation_id?: string | null
           cost_estimate_eur?: number | null
           created_at?: string
           error?: string | null
@@ -33369,6 +33376,7 @@ export type Database = {
           fallback_count?: number | null
           id?: string
           idempotency_key?: string | null
+          job_name?: string | null
           job_type?: string
           lane?: string | null
           last_error?: string | null
@@ -33390,6 +33398,7 @@ export type Database = {
           provider?: string | null
           rate_limited_until?: string | null
           result?: Json | null
+          root_job_id?: string | null
           run_after?: string | null
           scheduled_at?: string | null
           started_at?: string | null
@@ -105024,6 +105033,7 @@ export type Database = {
               attempts: number
               batch_cursor: Json | null
               completed_at: string | null
+              correlation_id: string | null
               cost_estimate_eur: number | null
               created_at: string
               error: string | null
@@ -105031,6 +105041,7 @@ export type Database = {
               fallback_count: number | null
               id: string
               idempotency_key: string | null
+              job_name: string | null
               job_type: string
               lane: string | null
               last_error: string | null
@@ -105052,6 +105063,7 @@ export type Database = {
               provider: string | null
               rate_limited_until: string | null
               result: Json | null
+              root_job_id: string | null
               run_after: string | null
               scheduled_at: string | null
               started_at: string | null
@@ -105076,6 +105088,7 @@ export type Database = {
               attempts: number
               batch_cursor: Json | null
               completed_at: string | null
+              correlation_id: string | null
               cost_estimate_eur: number | null
               created_at: string
               error: string | null
@@ -105083,6 +105096,7 @@ export type Database = {
               fallback_count: number | null
               id: string
               idempotency_key: string | null
+              job_name: string | null
               job_type: string
               lane: string | null
               last_error: string | null
@@ -105104,6 +105118,7 @@ export type Database = {
               provider: string | null
               rate_limited_until: string | null
               result: Json | null
+              root_job_id: string | null
               run_after: string | null
               scheduled_at: string | null
               started_at: string | null
@@ -105129,6 +105144,7 @@ export type Database = {
           attempts: number
           batch_cursor: Json | null
           completed_at: string | null
+          correlation_id: string | null
           cost_estimate_eur: number | null
           created_at: string
           error: string | null
@@ -105136,6 +105152,7 @@ export type Database = {
           fallback_count: number | null
           id: string
           idempotency_key: string | null
+          job_name: string | null
           job_type: string
           lane: string | null
           last_error: string | null
@@ -105157,6 +105174,7 @@ export type Database = {
           provider: string | null
           rate_limited_until: string | null
           result: Json | null
+          root_job_id: string | null
           run_after: string | null
           scheduled_at: string | null
           started_at: string | null
@@ -105181,6 +105199,7 @@ export type Database = {
           attempts: number
           batch_cursor: Json | null
           completed_at: string | null
+          correlation_id: string | null
           cost_estimate_eur: number | null
           created_at: string
           error: string | null
@@ -105188,6 +105207,7 @@ export type Database = {
           fallback_count: number | null
           id: string
           idempotency_key: string | null
+          job_name: string | null
           job_type: string
           lane: string | null
           last_error: string | null
@@ -105209,6 +105229,7 @@ export type Database = {
           provider: string | null
           rate_limited_until: string | null
           result: Json | null
+          root_job_id: string | null
           run_after: string | null
           scheduled_at: string | null
           started_at: string | null
@@ -105233,6 +105254,7 @@ export type Database = {
           attempts: number
           batch_cursor: Json | null
           completed_at: string | null
+          correlation_id: string | null
           cost_estimate_eur: number | null
           created_at: string
           error: string | null
@@ -105240,6 +105262,7 @@ export type Database = {
           fallback_count: number | null
           id: string
           idempotency_key: string | null
+          job_name: string | null
           job_type: string
           lane: string | null
           last_error: string | null
@@ -105261,6 +105284,7 @@ export type Database = {
           provider: string | null
           rate_limited_until: string | null
           result: Json | null
+          root_job_id: string | null
           run_after: string | null
           scheduled_at: string | null
           started_at: string | null
@@ -105286,6 +105310,7 @@ export type Database = {
           attempts: number
           batch_cursor: Json | null
           completed_at: string | null
+          correlation_id: string | null
           cost_estimate_eur: number | null
           created_at: string
           error: string | null
@@ -105293,6 +105318,7 @@ export type Database = {
           fallback_count: number | null
           id: string
           idempotency_key: string | null
+          job_name: string | null
           job_type: string
           lane: string | null
           last_error: string | null
@@ -105314,6 +105340,7 @@ export type Database = {
           provider: string | null
           rate_limited_until: string | null
           result: Json | null
+          root_job_id: string | null
           run_after: string | null
           scheduled_at: string | null
           started_at: string | null
@@ -105334,6 +105361,7 @@ export type Database = {
           attempts: number
           batch_cursor: Json | null
           completed_at: string | null
+          correlation_id: string | null
           cost_estimate_eur: number | null
           created_at: string
           error: string | null
@@ -105341,6 +105369,7 @@ export type Database = {
           fallback_count: number | null
           id: string
           idempotency_key: string | null
+          job_name: string | null
           job_type: string
           lane: string | null
           last_error: string | null
@@ -105362,6 +105391,7 @@ export type Database = {
           provider: string | null
           rate_limited_until: string | null
           result: Json | null
+          root_job_id: string | null
           run_after: string | null
           scheduled_at: string | null
           started_at: string | null
@@ -106629,6 +106659,7 @@ export type Database = {
           attempts: number
           batch_cursor: Json | null
           completed_at: string | null
+          correlation_id: string | null
           cost_estimate_eur: number | null
           created_at: string
           error: string | null
@@ -106636,6 +106667,7 @@ export type Database = {
           fallback_count: number | null
           id: string
           idempotency_key: string | null
+          job_name: string | null
           job_type: string
           lane: string | null
           last_error: string | null
@@ -106657,6 +106689,7 @@ export type Database = {
           provider: string | null
           rate_limited_until: string | null
           result: Json | null
+          root_job_id: string | null
           run_after: string | null
           scheduled_at: string | null
           started_at: string | null
