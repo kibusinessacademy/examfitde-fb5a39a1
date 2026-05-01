@@ -303,13 +303,18 @@ export function RecurringPatternsCard({ limit = 10 }: { limit?: number }) {
 }
 
 function PatternRow({
-  p, onAnalyze, onResolve, onDismiss, isAnalyzing,
+  p, onAnalyze, onResolve, onDismiss, onApply, onCreateTask,
+  isAnalyzing, isApplying, isCreatingTask,
 }: {
   p: NextBestAction;
   onAnalyze: (force?: boolean) => void;
   onResolve: (note?: string) => void;
   onDismiss: (reason?: string) => void;
+  onApply: () => void;
+  onCreateTask: (priority?: string) => void;
   isAnalyzing: boolean;
+  isApplying: boolean;
+  isCreatingTask: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const tone = severityTone(p.severity_score);
