@@ -1,6 +1,8 @@
 # Project Memory
 
 ## Core
+SQL-Disziplin (CI Hard-Block via sql-discipline-guard): NIEMALS COUNT(), SELECT INTO ohne *, RETURNING INTO ohne *, SECURITY DEFINER ohne REVOKE+GRANT, GRANT...authenticated auf admin_*/v_admin_*. Vor jeder Migration: Schema introspecten, Annahmen listen, Invariant-RPC am Ende. Siehe mem://architektur/ops/system-rules-v1 + docs/SYSTEM_RULES.md.
+Pipeline-Invariants: Idempotenz+Dedup, Artifact-Truth>Status, Fail-Fast statt Silent-Heal, Strict-Logging (action_type/target_id/result/reason/before/after), Guard>Repair, Backlog-Pflicht, kein Cross-Layer-Leak, Admin-Aktionen atomar, keine freien Status-Strings.
 - **DATENINTEGRITÄT SSOT — JEDER package_*-Job MUSS curriculum_id im payload haben.** `assert_job_payload` blockt sonst hart. Repair-RPCs MÜSSEN curriculum_id aus course_packages lesen UND bei NULL skippen (kein blinder enqueue). Cluster F (curriculum_id IS NULL) hat IMMER höchste Priorität in Diagnose-Views.
 - Frontend never calculates mastery logic; didactic calculations remain strictly server-side.
 - All internal/public tables must enforce strict RLS policies, filtering by `user_id` and `curriculum_id`.
