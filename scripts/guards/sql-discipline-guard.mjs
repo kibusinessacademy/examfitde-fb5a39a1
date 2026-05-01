@@ -20,10 +20,12 @@
  *
  * Allowlist: Zeilen mit Kommentar `-- lovable-sql-allow:<reason>` werden ignoriert.
  */
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { readdirSync, readFileSync, statSync, existsSync } from "node:fs";
 import { join, relative, extname } from "node:path";
 
 const ROOT = process.cwd();
+const BASELINE_PATH = join(ROOT, "scripts/guards/sql-discipline-baseline.json");
+const UPDATE_BASELINE = process.argv.includes("--update-baseline");
 const SCAN = [
   { dir: "supabase/migrations", exts: [".sql"] },
   { dir: "supabase/functions",  exts: [".sql", ".ts"] },
@@ -156,15 +158,48 @@ function main() {
     }
   }
 
-  if (allViolations.length === 0) {
-    console.log(`✅ SQL-Discipline Guard: ${scanned} files scanned, 0 violations.`);
+  // --- Baseline-Vergleich: bestehende Tech-Debt-Verstöße sind eingefroren.
+  // Nur NEUE Verstöße (relative zur Baseline) → Hard-Block.
+  // Update via:  node scripts/guards/sql-discipline-guard.mjs --update-baseline
+  let baseline = {};
+  if (existsSync(BASELINE_PATH)) {
+    try { baseline = JSON.parse(readFileSync(BASELINE_PATH, "utf8")); } catch {}
+  }
+
+  // Build current signatures
+  const current = {};
+  for (const f of allViolations) {
+    current[f.file] = f.violations.map(v => `${v.name}@${v.line}`).sort();
+  }
+
+  if (UPDATE_BASELINE) {
+    const sorted = Object.fromEntries(Object.entries(current).sort());
+    const { writeFileSync } = await import("node:fs");
+    writeFileSync(BASELINE_PATH, JSON.stringify(sorted, null, 2) + "\n");
+    console.log(`📝 Baseline updated: ${BASELINE_PATH}`);
+    console.log(`   Files: ${Object.keys(sorted).length}, Violations: ${Object.values(sorted).flat().length}`);
     process.exit(0);
   }
 
-  console.error("\n❌ SQL-Discipline Guard: VERSTÖSSE GEFUNDEN\n");
+  // Diff: new violations = in current but not in baseline
+  const newViolations = [];
+  for (const f of allViolations) {
+    const baseSet = new Set(baseline[f.file] || []);
+    const fresh = f.violations.filter(v => !baseSet.has(`${v.name}@${v.line}`));
+    if (fresh.length) newViolations.push({ file: f.file, violations: fresh });
+  }
+
+  const baselineCount = Object.values(baseline).flat().length;
+
+  if (newViolations.length === 0) {
+    console.log(`✅ SQL-Discipline Guard: ${scanned} files scanned, 0 NEW violations (${baselineCount} baseline tech-debt entries frozen).`);
+    process.exit(0);
+  }
+
+  console.error("\n❌ SQL-Discipline Guard: NEUE VERSTÖSSE GEFUNDEN (über Baseline hinaus)\n");
   console.error("Doku: docs/SYSTEM_RULES.md  |  Memory: mem://architektur/ops/system-rules-v1\n");
   let total = 0;
-  for (const f of allViolations) {
+  for (const f of newViolations) {
     console.error(`📄 ${f.file}`);
     for (const v of f.violations) {
       total++;
@@ -173,8 +208,9 @@ function main() {
     }
     console.error("");
   }
-  console.error(`Summary: ${total} violation(s) across ${allViolations.length} file(s). ${scanned} files scanned.`);
-  console.error(`\nFix oder explizit allowlisten via Kommentar: -- lovable-sql-allow:<reason>`);
+  console.error(`Summary: ${total} NEW violation(s) across ${newViolations.length} file(s). Baseline: ${baselineCount} entries.`);
+  console.error(`\nFixe die neuen Verstöße ODER (nur bei bewusster Tech-Debt-Annahme) Baseline aktualisieren:`);
+  console.error(`  node scripts/guards/sql-discipline-guard.mjs --update-baseline`);
   process.exit(1);
 }
 
