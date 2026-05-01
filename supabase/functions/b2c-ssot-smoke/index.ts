@@ -2,24 +2,25 @@
  * b2c-ssot-smoke
  * --------------
  * Synthetic Smoke für die SSOT-B2C-Pipeline.
- * Läuft mit service-role und prüft den vollen Order→Trigger-Pfad:
- *   1. orders (pending → items → paid)
- *   2. invoices
- *   3. invoice_items
- *   4. payments
- *   5. ledger_entries
- *   6. learner_course_grants
- *   7. entitlements
- * + Idempotenz-Re-Run via admin_smoke_replay_order_fulfillment.
  *
- * Aufruf (POST):
- *   { "user_id"?: uuid, "product_id"?: uuid, "cleanup"?: boolean }
- * Defaults:
- *   - user_id: neuester profiles-Eintrag
- *   - product_id: neuestes active product mit curriculum_id
- *   - cleanup: false (Order bleibt für /app/rechnungen-Verifizierung)
+ * Modi (POST body):
+ *   { "mode"?: "single" | "bundle" | "refund", ... }
  *
- * Antwort: { ok, order_id, checks: {...}, idempotency: {...}, failures: [] }
+ * mode="single" (default): 1 product, voller Order→paid-Pfad,
+ *   verifiziert 7 Artefakte + Idempotenz-Replay.
+ *
+ * mode="bundle": mehrere products in 1 Order
+ *   { "product_ids": uuid[] }  (default: top 2 active products mit curriculum_id)
+ *   Verifiziert: order_items=N, invoices=1, invoice_items>=N, payments=1,
+ *   ledger_entries>=1, learner_course_grants=N (1 pro product), entitlements=N
+ *   (1 pro distinct curriculum). Idempotenz-Replay.
+ *
+ * mode="refund": ruft single-mode intern auf, dann fn_revoke_grant_on_refund
+ *   und verifiziert: grants→refunded, entitlements valid_until<=now,
+ *   admin_actions Audit vorhanden, 2. Refund-Aufruf idempotent.
+ *
+ * Common params: { "user_id"?: uuid, "cleanup"?: boolean }
+ * Antwort: { ok, mode, order_id, checks, idempotency, failures }
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
