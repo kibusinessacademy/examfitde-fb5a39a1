@@ -103670,6 +103670,18 @@ export type Database = {
         Returns: Json
       }
       admin_heal_playbook_run: { Args: { p_dry_run?: boolean }; Returns: Json }
+      admin_heal_published_product_status: {
+        Args: { p_apply?: boolean }
+        Returns: {
+          action: string
+          package_id: string
+          package_title: string
+          product_id: string
+          product_status_after: string
+          product_status_before: string
+          product_title: string
+        }[]
+      }
       admin_heal_seo_dead_ends: {
         Args: { p_unpublish_unfixable?: boolean }
         Returns: Json
