@@ -1,134 +1,91 @@
 ---
-name: ExamFit System Rules v1 (SQL + Pipeline + Observability)
-description: Verbindliche Konstitution für SQL-Migrations, Queue/Step/Heal-Pipeline, Observability und Admin-Operationen. Anwendbar auf JEDE DB- oder Pipeline-Änderung.
+name: ExamFit System Rules (20 Regeln, verbindlich)
+description: Verbindliche Konstitution für SSOT, Prüfungslogik, SQL-Disziplin, Pipeline-Invariants, Governance, AI, Frontend und Lovable-Arbeitsweise. Anwendbar auf JEDE technische Änderung.
 type: preference
 ---
 
 # ExamFit System Rules v1
 
-**Verbindlich für alle SQL-Migrations, Edge-Functions, RPCs, Triggers, Cron-Jobs und Admin-RPCs.**
-Diese Regeln werden CI-seitig durch `scripts/guards/sql-discipline-guard.mjs` (Hard-Block) erzwungen.
+**Verbindlich für jede technische Änderung — SQL, Edge-Functions, RPCs, Triggers, Cron, Frontend, AI.**
+Repo-SSOT: `docs/SYSTEM_RULES.md`. CI-Enforcement: `scripts/guards/sql-discipline-guard.mjs`.
+
+## 1. Grundprinzip
+Prüfungslogisches Lernsystem (kein CMS). Priorität: **SSOT → Prüfungslogik → Didaktik → Reproduzierbarkeit → Automatisierung → UI**. Frontend ersetzt NIE Systemlogik.
+
+## 2. SSOT
+Genau eine Wahrheit pro Domäne. Verboten: Shadow-State, doppelte Business-Logik, direkte Tabellenreads im Client, freie Statusstrings, manuelle Workarounds ohne Audit. Pflicht: Views/RPCs als Zugriffsschicht, zentrale Statusdefinitionen, jede Mutation versioniert.
+
+## 3. Artifact Truth > Step Status
+`step.status='done'` ⇔ Ziel-Artifact materialisiert. Status allein ist KEIN Beweis.
+- `generate_exam_pool` → `exam_questions` rows
+- `generate_learning_content` → `content_hash` gesetzt
+- `generate_blueprint_variants` → Varianten existieren
+- `build_ai_tutor_index` → Index-Artefakte existieren
+- `generate_oral_exam` → Oral-Fragen existieren
+
+## 4. Idempotenz
+`ON CONFLICT`, Aktiv-Job-Dedup, Dedup VOR Unique-Index, Logs dedupliziert. Verboten: blindes INSERT, doppeltes Enqueue, Retry ohne Zustandsänderung, Trigger-Loops.
+
+## 5. Queue-Safety
+Job nur enqueuen wenn: DAG-Prereqs ✓, kein aktiver Doppel-Job ✓, kein Quarantine/Paused ✓, `run_after` ✓, Lane-Isolation ✓.
+- Aktiv: `status IN ('pending','queued','processing')`
+- Dedup-Key (min): `package_id + job_type + mode`
+
+## 6. DAG-Regel
+Hart. Keine Downstream-Jobs ohne erfüllte Upstream-Steps. Keine Governance-Finalisierung durch generische Healer. Keine Step-Reihenfolge im Frontend. Pflicht: DAG-Guard, auditierbarer Block, Loop-Counter, deduplizierte Logs.
+
+## 7. Governance-Isolation
+`run_integrity_check`, `quality_council`, `auto_publish` NUR durch eigene Edge-Function finalisierbar. Verboten: generische Auto-Healer, direkte Enqueue-Bypasses, Phantom-Done ohne `meta.executed=true`.
+
+## 8. Fail-Fast
+`NO_EFFECT` → kein Retry. `NO_PROGRESS` → Eskalation. `MATERIALIZATION_BLOCKED` → cancel statt retry. `REPAIR_EXHAUSTED` → Permanent-Fix-Task. Keine endlosen Retries, keine stillen Fehler.
+
+## 9. Auto-Heal
+Nur deterministische, dokumentierte Fixes. Darf: DAG-konformes Enqueue, stale Locks lösen, bekannte Blocker resetten, Repair-Jobs starten. Darf NIE: Qualitätsgrenzen heimlich senken, Content erfinden, Daten verschlechtern, Ursachen kaschieren, Governance-Steps finalisieren.
+
+## 10. Permanent-Fix-Backlog
+`heal_permanent_fix_tasks` Pflichtfelder: `pattern_key`, `cluster`, `package_id`, `priority`, `title`, `description`, `recommendation`, `status`. Dedup ist Pflicht.
+
+## 11. SQL-Regeln (CI Hard-Block)
+Vor jeder Migration: Schema, Spalten, Enum/Check, Duplikate, echte `job_type`/`step_key` prüfen.
+**Verboten:** `COUNT()`, `SELECT INTO` ohne `*`, `RETURNING INTO` ohne `*`, freie Statuswerte ohne Constraint, `SECURITY DEFINER` ohne `REVOKE/GRANT`, `GRANT … TO authenticated` auf `admin_*`/`v_admin_*`.
+**Pflicht:** `COUNT(*)`, `SELECT * INTO`, `RETURNING * INTO`, `REVOKE ALL FROM PUBLIC` + `GRANT EXECUTE TO service_role`, Admin-RPC mit `has_role(auth.uid(),'admin')`.
+
+## 12. Security
+Admin-Daten NIE direkt an `authenticated`. Verboten: Admin-Views an authenticated, interne Tabellen im Frontend, Service-Role-Logik im Client, Secrets im Repo. Erlaubt: Admin-RPC mit `has_role`, service_role-only interne Views, RLS-konforme Public Views.
+
+## 13. Logging-Contract
+Pro Mutation: `action_type`, `trigger_source`, `target_type`, `target_id`, `result_status`, `reason_code`, `before_state`, `after_state`, `metadata`. Logs dedupliziert.
+
+## 14. AI-Regel
+AI erzeugt KEINE neue Wahrheit. Darf: Vorschläge, Varianten aus Blueprints, Feedback erklären, Lernpfade empfehlen. Darf NIE: Curriculum verändern, Prüfungslogik erfinden, Fragen ohne Blueprint, Tutor-Antworten ohne SSOT-Kontext.
+
+## 15. Blueprint-Regel
+Blueprints = SSOT für Prüfungsfragen. Jede Frage referenziert: `blueprint_id`, `competency_id`, `learning_field_id`, Schwierigkeit, Prüfungsrelevanz, typische Fehler. Keine freie Einzelgenerierung.
+
+## 16. Prüfungssystem-Regel
+Optimierung auf Prüfungsreife, NICHT Content-Menge. Pflichtmetriken: Frageanzahl, LF-Coverage, Kompetenz-Coverage, Bloom-Verteilung, Schwierigkeitsverteilung, Kontext-Isolation, Prüfungsrelevanz.
+
+## 17. Frontend-Regel
+Anzeige- und Interaktionsschicht. Darf NIE: Business-Regeln entscheiden, Pipeline-Zustände berechnen, Tabellen direkt lesen, Status ableiten, Repairs orchestrieren. Nutzt: RPCs, geprüfte Views, typed Services, klare Admin-Actions.
+
+## 18. Testpflicht
+Jede Migration: Prüfquery oder Test-RPC. Pflichttests: Syntax, Security-Grants, Idempotenz, keine Duplikate, keine aktiven Jobs in Paused-State, Artifact Truth, DAG-Konsistenz.
+
+## 19. Lovable-Arbeitsweise
+Vor JEDER Änderung: (1) Annahmen auflisten, (2) DB-/Code-Realität prüfen, (3) Patch minimal bauen, (4) Guards ergänzen, (5) Tests/Prüfqueries liefern, (6) KEINE erfundenen Tabellen/Spalten/RPCs/Statuswerte.
+
+## 20. Goldene Regel
+**Guard vor Repair. Artifact vor Status. Fail-Fast vor Retry. SSOT vor UI. Prüfungslogik vor Content.**
 
 ---
 
-## A. SQL-Phasen-Workflow (PFLICHT vor jeder Migration)
+## Permanente Lovable-Direktive
 
-1. **Schema prüfen** — `supabase--read_query` auf `information_schema` / `pg_proc` / `pg_constraint`:
-   - existieren Tabellen, Spalten, Functions?
-   - Statusfelder = TEXT, ENUM, CHECK?
-   - bestehen Duplikate vor neuen UNIQUE-Indexes?
-   - heißen `job_type` / `step_key` / `status` exakt wie in `job_queue` / `package_steps`?
-2. **Annahmen listen** — vor SQL alle Annahmen explizit benennen + gegen DB verifizieren.
-3. **Migration schreiben** — strict, idempotent, dedupe-vor-unique, security-hardened.
-4. **Migration validieren** — am Ende der Migration Invariant-RPC oder Test-Query.
-5. **Pre-Deploy grep** —
-   ```
-   rg "COUNT\(\)|SELECT\s+INTO|RETURNING\s+INTO|SECURITY DEFINER|GRANT.*authenticated" supabase/migrations
-   ```
-
-## B. Verbotene SQL-Muster (CI Hard-Block)
-
-- `COUNT()` ohne `*` → IMMER `COUNT(*)`
-- `SELECT ... INTO v_var FROM ...` ohne `*` → IMMER `SELECT * INTO v_var FROM ...`
-- `RETURNING INTO v_var` ohne `*` → IMMER `RETURNING * INTO v_var`
-- harte Statuswerte (`'paused'`, `'merged_duplicate'`, `'failed_soft'`) ohne ENUM/CHECK-Prüfung
-- neue `job_type`-Namen ohne DB-Abgleich
-- `SECURITY DEFINER` ohne nachfolgendes `REVOKE ALL FROM PUBLIC` + gezieltes `GRANT EXECUTE`
-- Admin-Views direkt an `authenticated` (nur via RPC mit `has_role('admin')`)
-
-## C. Pflicht-Bestandteile jeder Migration
-
-- Syntax-Checks (Funktion lädt sauber)
-- Invariant-RPC oder Test-Query am Ende (`admin_test_*_invariants`)
-- Rollback-/Noop-Sicherheit (`IF NOT EXISTS`, `CREATE OR REPLACE`)
-- Dedup VOR jedem neuen Unique-Index
-- `REVOKE` + `GRANT EXECUTE TO service_role` für alle `SECURITY DEFINER` Funktionen
-
----
-
-## D. Pipeline-Invariants (15 Regeln)
-
-### 1. Determinismus
-Jede Pipeline-Operation reproduzierbar. Keine ungeseedete Randomness, keine impliziten SQL-Defaults, keine unversionierten Prompts/Blueprints. Generation IMMER mit `blueprint_id + version` (+ optional seed).
-
-### 2. Idempotenz (HART)
-Jede Mutation idempotent:
-- `ON CONFLICT DO NOTHING / UPDATE`
-- Dedup VOR Unique-Index
-- Aktiv-Job-Guard (`package_id + job_type` → kein zweiter aktiver Job)
-- Niemals "blindes INSERT", niemals doppeltes Enqueue.
-
-### 3. Queue-Safety
-Job darf nur existieren wenn:
-1. alle DAG-Prerequisites erfüllt
-2. kein identischer aktiver Job
-3. kein Quarantine/Paused-State
-4. `run_after` respektiert
-5. Lane-Isolation eingehalten
-
-### 4. Artifact Truth > Step Status
-`step.status='done'` nur wenn Ziel-Artifact materialisiert ist:
-- `exam_pool` done → `exam_questions` rows existieren
-- `learning_content` done → `content_hash` gesetzt
-- `tutor_index` done → Index-Rows existieren
-Verboten: Status ohne Materialisierung.
-
-### 5. Fail-Fast statt Silent-Heal
-`NO_PROGRESS` → Hard-Fail + Log + Eskalation in Backlog. Keine `NO_EFFECT`-Retries, keine "try again later" ohne Zustandsänderung.
-
-### 6. Healing überdeckt Ursache nicht
-Auto-Heal nur deterministische, dokumentierte Fixes. Constraint-Lockerungen NUR explizit, geloggt, reversibel.
-
-### 7. Strict Logging-Contract
-Pflichtfelder pro Log-Event:
-- `action_type`, `target_id`, `result_status`, `reason_code`
-- `before_state` / `after_state` bei Mutation
-
-### 8. Schema-Truth (SSOT hart)
-Frontend: KEINE Logik, KEINE Datentransformation, KEINE Entscheidungen. Alles via RPCs / SSOT-Views.
-
-### 9. Keine impliziten Status-Strings
-Statuswerte = ENUM ODER zentral dokumentiert. Verboten: freie Strings ohne Constraint.
-
-### 10. Admin-Aktionen atomar
-Admin-Op läuft vollständig oder gar nicht: cancel + reset + enqueue + log in EINER Transaktion.
-
-### 11. Guard > Repair
-Verhinderbare Fehler IMMER als Guard (DAG-Guard, Unique-Index, CHECK-Constraint, Trigger), niemals nur als Post-Repair.
-
-### 12. Kein magisches Verhalten
-Keine impliziten State-Wechsel, keine Trigger ohne Audit-Log, keine Side Effects ohne Eintrag.
-
-### 13. Backlog ist Pflicht
-Jeder unauflösbare Fehler → `heal_permanent_fix_tasks` mit `pattern_key`, `severity`, `cluster`, `recommendation`.
-
-### 14. Testbarkeit
-Jede Migration: Validierungs-Query ODER Test-RPC. Beweis statt Vertrauen.
-
-### 15. Kein Cross-Layer-Leak
-- Frontend → DB direkt: VERBOTEN
-- Edge Function → Tabellen ohne Guard: VERBOTEN
-- UI → interne Tabellen: VERBOTEN
-- Erlaubt: RPC-Layer + geprüfte Views
-
----
-
-## E. Arbeitsauftrag-Header (vor jeder SQL-Aktion)
-
-> Arbeite wie ein Senior Database Engineer.
-> 1. Liste alle Annahmen.
-> 2. Prüfe sie gegen Schema/DB.
-> 3. Schreibe erst dann die Migration.
-> 4. Liefere danach eine Prüfquery, die beweist, dass die Migration korrekt ist.
-> 5. Keine Chat-Artefakte: `COUNT()`, `SELECT INTO` ohne `*`, `RETURNING INTO` ohne `*` sind verboten.
-
-## F. ExamFit-Spezial
-
-Queue-, Step-, Governance- und Heal-Logik darf nur SSOT-konform verändert werden.
-Keine neuen `job_type`, `step_key`, `status`, `enum`-Werte ohne Live-Prüfung.
-Jeder Guard/Trigger muss loop-safe, deduped und auditierbar sein.
-
-## G. Bonus-Direktive: "System denkt wie Prüfer"
-
-Optimierung: Prüfungsrelevanz, Fehlervermeidung, IHK-Fallen.
-NICHT: Content-Menge, Vollständigkeit, "schöne Antworten".
+> Arbeite bei ExamFit wie ein Senior Database Engineer, Pipeline Architect und IHK-Prüfungsdidaktiker.
+> Keine technischen Annahmen ungeprüft verwenden.
+> Keine SQL-Migration ohne Schema-Prüfung.
+> Keine neuen job_type, step_key, status oder enum-Werte ohne Live-Abgleich.
+> Keine UI-Logik statt SSOT.
+> Jede Mutation muss idempotent, auditierbar und rollback-sicher sein.
+> Jeder Step ist nur done, wenn das Ziel-Artifact existiert.

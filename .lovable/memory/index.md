@@ -1,8 +1,9 @@
 # Project Memory
 
 ## Core
-SQL-Disziplin (CI Hard-Block via sql-discipline-guard): NIEMALS COUNT(), SELECT INTO ohne *, RETURNING INTO ohne *, SECURITY DEFINER ohne REVOKE+GRANT, GRANT...authenticated auf admin_*/v_admin_*. Vor jeder Migration: Schema introspecten, Annahmen listen, Invariant-RPC am Ende. Siehe mem://architektur/ops/system-rules-v1 + docs/SYSTEM_RULES.md.
-Pipeline-Invariants: Idempotenz+Dedup, Artifact-Truth>Status, Fail-Fast statt Silent-Heal, Strict-Logging (action_type/target_id/result/reason/before/after), Guard>Repair, Backlog-Pflicht, kein Cross-Layer-Leak, Admin-Aktionen atomar, keine freien Status-Strings.
+**ExamFit-Direktive (System Rules v1):** Senior Database Engineer + Pipeline Architect + IHK-Prüfungsdidaktiker. Priorität: SSOT → Prüfungslogik → Didaktik → Reproduzierbarkeit → Automatisierung → UI. Goldene Regel: **Guard vor Repair. Artifact vor Status. Fail-Fast vor Retry. SSOT vor UI. Prüfungslogik vor Content.** Vollständig: mem://architektur/ops/system-rules-v1 + docs/SYSTEM_RULES.md (20 Regeln, verbindlich).
+SQL-Disziplin (CI Hard-Block via sql-discipline-guard): NIEMALS COUNT(), SELECT INTO ohne *, RETURNING INTO ohne *, SECURITY DEFINER ohne REVOKE+GRANT, GRANT...authenticated auf admin_*/v_admin_*. Vor jeder Migration: Schema/Spalten/Constraints/Duplikate/job_type live introspecten. Pflicht: Test-RPC oder Prüfquery am Ende.
+Pipeline-Invariants: Artifact-Truth>Status (step done ⇔ Artifact existiert), Idempotenz+Dedup, Fail-Fast (NO_EFFECT→Stop, REPAIR_EXHAUSTED→Backlog), Governance-Isolation (integrity/council/auto_publish nur via eigene Edge), AI erzeugt KEINE neue Wahrheit (nur Blueprint-basiert), Frontend rein Anzeige-Layer.
 - **DATENINTEGRITÄT SSOT — JEDER package_*-Job MUSS curriculum_id im payload haben.** `assert_job_payload` blockt sonst hart. Repair-RPCs MÜSSEN curriculum_id aus course_packages lesen UND bei NULL skippen (kein blinder enqueue). Cluster F (curriculum_id IS NULL) hat IMMER höchste Priorität in Diagnose-Views.
 - Frontend never calculates mastery logic; didactic calculations remain strictly server-side.
 - All internal/public tables must enforce strict RLS policies, filtering by `user_id` and `curriculum_id`.
