@@ -104289,10 +104289,24 @@ export type Database = {
             }
             Returns: Json
           }
-      admin_resolve_council_deferred: {
-        Args: { p_action: string; p_package_id: string; p_reason?: string }
-        Returns: Json
-      }
+      admin_resolve_council_deferred:
+        | {
+            Args: { p_action: string; p_package_id: string; p_reason?: string }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_mode?: string
+              p_package_ids: string[]
+              p_reason?: string
+            }
+            Returns: {
+              action: string
+              job_id: string
+              note: string
+              package_id: string
+            }[]
+          }
       admin_resolve_promote_hotloop: {
         Args: {
           p_attempt_threshold?: number
