@@ -284,6 +284,7 @@ export default function HealCockpitPage() {
             <StuckPatternsCard />
             <HealStatusCard />
             <StaleDraftsCard />
+            <CouncilDeferredCard />
             <ExamPoolDriftLogCard />
             <TargetedHealCard />
             <BlockedPackagesCard />
