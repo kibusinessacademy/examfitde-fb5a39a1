@@ -241,6 +241,7 @@ Deno.serve(async (req) => {
 
     const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
     const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET");
+    const webhookTestSecret = Deno.env.get("STRIPE_WEBHOOK_TEST_SECRET"); // optional, only set in non-prod for smoke
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
@@ -259,15 +260,29 @@ Deno.serve(async (req) => {
     }
 
     let event: Stripe.Event;
+    let signatureSource: 'live' | 'test' = 'live';
     try {
-      event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Unknown error";
-      logStep("ERROR: Signature verification failed", { error: message });
-      return new Response(`Webhook signature verification failed: ${message}`, { status: 400 });
+      event = await stripe.webhooks.constructEventAsync(body, signature, webhookSecret);
+    } catch (errLive) {
+      // If a test secret is configured, try it as fallback (smoke / staging only)
+      if (webhookTestSecret) {
+        try {
+          event = await stripe.webhooks.constructEventAsync(body, signature, webhookTestSecret);
+          signatureSource = 'test';
+          logStep("Signature verified via TEST secret", { hint: "smoke/staging only" });
+        } catch (errTest) {
+          const message = errTest instanceof Error ? errTest.message : "Unknown error";
+          logStep("ERROR: Signature verification failed (live + test)", { error: message });
+          return new Response(`Webhook signature verification failed: ${message}`, { status: 400 });
+        }
+      } else {
+        const message = errLive instanceof Error ? errLive.message : "Unknown error";
+        logStep("ERROR: Signature verification failed", { error: message });
+        return new Response(`Webhook signature verification failed: ${message}`, { status: 400 });
+      }
     }
 
-    logStep("Event verified", { type: event.type, id: event.id });
+    logStep("Event verified", { event_type: event.type, event_id: event.id, livemode: event.livemode, signature_source: signatureSource });
 
     // Council 8: Log raw Stripe event for finance reconciliation (idempotent)
     try {
