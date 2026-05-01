@@ -42367,6 +42367,10 @@ export type Database = {
           notes: string | null
           status: string
           stripe_checkout_session_id: string | null
+          stripe_customer_id: string | null
+          stripe_fee_cents: number | null
+          stripe_invoice_id: string | null
+          stripe_invoice_pdf_url: string | null
           stripe_payment_intent_id: string | null
           subtotal_cents: number
           tax_cents: number
@@ -42395,6 +42399,10 @@ export type Database = {
           notes?: string | null
           status?: string
           stripe_checkout_session_id?: string | null
+          stripe_customer_id?: string | null
+          stripe_fee_cents?: number | null
+          stripe_invoice_id?: string | null
+          stripe_invoice_pdf_url?: string | null
           stripe_payment_intent_id?: string | null
           subtotal_cents?: number
           tax_cents?: number
@@ -42423,6 +42431,10 @@ export type Database = {
           notes?: string | null
           status?: string
           stripe_checkout_session_id?: string | null
+          stripe_customer_id?: string | null
+          stripe_fee_cents?: number | null
+          stripe_invoice_id?: string | null
+          stripe_invoice_pdf_url?: string | null
           stripe_payment_intent_id?: string | null
           subtotal_cents?: number
           tax_cents?: number
