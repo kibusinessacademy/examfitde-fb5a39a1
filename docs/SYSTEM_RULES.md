@@ -350,11 +350,13 @@ Jede Migration braucht mindestens eine Prüfquery oder Test-RPC.
 Lovable muss vor jeder technischen Änderung so arbeiten:
 
 1. Annahmen auflisten
-2. DB-/Code-Realität prüfen
-3. Patch minimal bauen
-4. Guards ergänzen
-5. Tests/Prüfqueries liefern
-6. keine erfundenen Tabellen, Spalten, RPCs oder Statuswerte
+2. **Schema-Realitäts-Check zuerst** — tatsächliche Spaltenstruktur, Spaltennamen, Typen, Enums, Constraints gegen die Live-DB prüfen (siehe Regel 11). Kein Code, keine Migration ohne diesen Schritt.
+3. **Mismatches & Schema-Drifts aktiv vermeiden** — Abweichungen zwischen Annahme/Code/Memory/DB sofort melden und konsolidieren, nicht überschreiben.
+4. DB-/Code-Realität insgesamt prüfen
+5. Patch minimal bauen
+6. Guards ergänzen
+7. Tests/Prüfqueries liefern
+8. keine erfundenen Tabellen, Spalten, RPCs oder Statuswerte
 
 ---
 
