@@ -16911,6 +16911,8 @@ export type Database = {
           legacy_exempt_reason: string | null
           locked_at: string | null
           manual_heal_cooldown_until: string | null
+          package_key: string | null
+          package_key_assigned_at: string | null
           persona_profile: string
           pipeline_mode: Database["public"]["Enums"]["pipeline_mode"]
           priority: number
@@ -16981,6 +16983,8 @@ export type Database = {
           legacy_exempt_reason?: string | null
           locked_at?: string | null
           manual_heal_cooldown_until?: string | null
+          package_key?: string | null
+          package_key_assigned_at?: string | null
           persona_profile?: string
           pipeline_mode?: Database["public"]["Enums"]["pipeline_mode"]
           priority?: number
@@ -17051,6 +17055,8 @@ export type Database = {
           legacy_exempt_reason?: string | null
           locked_at?: string | null
           manual_heal_cooldown_until?: string | null
+          package_key?: string | null
+          package_key_assigned_at?: string | null
           persona_profile?: string
           pipeline_mode?: Database["public"]["Enums"]["pipeline_mode"]
           priority?: number
@@ -39041,21 +39047,42 @@ export type Database = {
       ops_job_type_registry: {
         Row: {
           description: string | null
+          is_active: boolean
+          is_governance: boolean
+          job_name: string | null
           job_type: string
+          lane: string | null
           pool: string
           registered_at: string
+          requires_package_id: boolean
+          step_key: string | null
+          updated_at: string
         }
         Insert: {
           description?: string | null
+          is_active?: boolean
+          is_governance?: boolean
+          job_name?: string | null
           job_type: string
+          lane?: string | null
           pool?: string
           registered_at?: string
+          requires_package_id?: boolean
+          step_key?: string | null
+          updated_at?: string
         }
         Update: {
           description?: string | null
+          is_active?: boolean
+          is_governance?: boolean
+          job_name?: string | null
           job_type?: string
+          lane?: string | null
           pool?: string
           registered_at?: string
+          requires_package_id?: boolean
+          step_key?: string | null
+          updated_at?: string
         }
         Relationships: []
       }
@@ -106827,6 +106854,7 @@ export type Database = {
         Args: { p_title: string }
         Returns: string
       }
+      fn_normalize_identity_key: { Args: { p_input: string }; Returns: string }
       fn_package_has_valid_standalone_bundle: {
         Args: { p_package_id: string }
         Returns: boolean
@@ -109550,6 +109578,8 @@ export type Database = {
           legacy_exempt_reason: string | null
           locked_at: string | null
           manual_heal_cooldown_until: string | null
+          package_key: string | null
+          package_key_assigned_at: string | null
           persona_profile: string
           pipeline_mode: Database["public"]["Enums"]["pipeline_mode"]
           priority: number
@@ -110084,6 +110114,8 @@ export type Database = {
           legacy_exempt_reason: string | null
           locked_at: string | null
           manual_heal_cooldown_until: string | null
+          package_key: string | null
+          package_key_assigned_at: string | null
           persona_profile: string
           pipeline_mode: Database["public"]["Enums"]["pipeline_mode"]
           priority: number
