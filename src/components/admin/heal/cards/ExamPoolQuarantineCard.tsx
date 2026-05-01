@@ -63,7 +63,7 @@ export function ExamPoolQuarantineCard() {
 
   const restartMutation = useMutation({
     mutationFn: async (pkgId: string) => {
-      const { data, error } = await supabase.rpc("admin_exam_pool_restart" as never, { p_package_id: pkgId });
+      const { data, error } = await supabase.rpc("admin_exam_pool_restart" as never, { p_package_id: pkgId } as never);
       if (error) throw error;
       return data;
     },
