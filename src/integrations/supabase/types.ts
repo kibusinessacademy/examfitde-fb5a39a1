@@ -104146,10 +104146,23 @@ export type Database = {
           }
       admin_stripe_price_sync_apply: {
         Args: { p_dry_run?: boolean }
+        Returns: Json
+      }
+      admin_stripe_price_sync_preview: {
+        Args: never
         Returns: {
-          action: string
-          count_rows: number
-          detail: Json
+          access_months: number
+          action_needed: string
+          amount_cents: number
+          billing_type: string
+          currency: string
+          current_stripe_price_id: string
+          product_id: string
+          product_price_id: string
+          product_title: string
+          reason: string
+          suggested_stripe_price_id: string
+          suggested_tier_label: string
         }[]
       }
       admin_suggest_repair_action: {
