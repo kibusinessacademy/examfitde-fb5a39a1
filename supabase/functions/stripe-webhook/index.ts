@@ -633,7 +633,6 @@ Deno.serve(async (req) => {
                   amount_total: session.amount_total,
                 },
               });
-              } // end B2B-Block
             } // end else if (flow === 'pricing_plan')
 
             // ── PARTNER COMMISSION: resolve attribution & create commission ──
