@@ -115,7 +115,7 @@ test.describe('Stripe Smoke — paywall_variant', () => {
     // 6) Artefakt-Verifikation
     const { data: order, error: orderErr } = await admin
       .from('orders')
-      .select('id, status, buyer_user_id, total_amount_cents, currency, stripe_checkout_session_id')
+      .select('id, status, buyer_user_id, total_cents, currency, stripe_checkout_session_id')
       .eq('stripe_checkout_session_id', sessionId!)
       .maybeSingle();
     expect(orderErr).toBeNull();
