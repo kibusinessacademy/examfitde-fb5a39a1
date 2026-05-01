@@ -1,0 +1,37 @@
+name: stripe-smoke-b2c
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: 'Preview / Production URL'
+        required: false
+        default: 'https://examfitde.lovable.app'
+  schedule:
+    - cron: '37 6 * * 1'  # Mondays 06:37 UTC
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bunx playwright install --with-deps chromium
+      - name: Run Pfad 1 — paywall_variant
+        env:
+          BASE_URL: ${{ inputs.base_url || 'https://examfitde.lovable.app' }}
+          E2E_EMAIL: ${{ secrets.E2E_EMAIL }}
+          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: bunx playwright test --project=stripe-smoke
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stripe-smoke-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14
