@@ -103816,6 +103816,20 @@ export type Database = {
         Args: { _job_id: string; _reason?: string }
         Returns: Json
       }
+      admin_merge_duplicate_certification_products: {
+        Args: { p_apply?: boolean }
+        Returns: {
+          action: string
+          archive_has_price: boolean
+          archive_product_id: string
+          archive_pub_ref: boolean
+          archive_title: string
+          certification_id: string
+          keep_product_id: string
+          keep_reason: string
+          keep_title: string
+        }[]
+      }
       admin_minicheck_backfill_chunk: {
         Args: {
           p_curriculum_id: string
