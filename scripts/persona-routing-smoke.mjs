@@ -33,8 +33,10 @@ else {
   else fail("Whitelist-Guard fehlt");
   if (src.includes("lead_magnet_view")) ok("lead_magnet_view tracked");
   else fail("lead_magnet_view fehlt");
-  if (src.includes("event_alias") && src.includes("landing_view")) ok("landing_view alias tracked");
-  else fail("landing_view alias fehlt");
+ if (/track\(\s*["']landing_view["']/.test(src)) ok("landing_view als echtes Event getrackt");
+ else fail("landing_view fehlt oder wird als Alias verschickt");
+ if (!/event_alias/.test(src)) ok("kein event_alias-Workaround");
+ else fail("event_alias darf nicht mehr existieren");
   if (src.includes("packageId: product.packageId")) ok("packageId an Tracking gereicht");
   else fail("packageId nicht an Tracking gereicht");
   if (src.includes("persona,")) ok("persona an Tracking gereicht");
