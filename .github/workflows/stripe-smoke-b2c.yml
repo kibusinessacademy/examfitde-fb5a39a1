@@ -1,24 +1,35 @@
 name: stripe-smoke-b2c
 
+# ⚠️ DEAKTIVIERT 2026-05-01
+# Grund: STRIPE_SECRET_KEY ist im Edge-Function-Secret-Store als sk_live_...
+# konfiguriert. Hosted-Checkout liefert cs_live_-Sessions, die Test-Karte 4242
+# wird nicht akzeptiert UND ein echter Karten-Run würde Live-Verkehr auslösen.
+#
+# CI-Gate für B2C läuft stattdessen über b2c-ssot-server-smoke.yml
+# (synthetischer Order→Trigger→8-Artefakte-Pfad via b2c-ssot-smoke Edge Function).
+#
+# Re-Aktivierung erst nach einem der folgenden:
+#   (a) separater STRIPE_SECRET_KEY_TEST + STRIPE_WEBHOOK_SECRET_TEST
+#       + ENV-gesteuertes Switching in den Edge Functions
+#   (b) Stripe-Account temporär in Test-Mode (nur für Run, dann zurück)
+#
+# Specs (tests/e2e/stripe-smoke-*.spec.ts) bleiben für späteren Re-Enable im Repo.
+
 on:
-  push:
-    paths:
-      - 'tests/e2e/stripe-smoke-*.spec.ts'
-      - 'scripts/stripe-smoke.sh'
-      - '.github/workflows/stripe-smoke-b2c.yml'
-      - 'supabase/functions/stripe-webhook/**'
-      - 'supabase/functions/create-product-checkout/**'
   workflow_dispatch:
     inputs:
       base_url:
         description: 'Preview / Production URL'
         required: false
         default: 'https://examfitde.lovable.app'
-  schedule:
-    - cron: '37 6 * * 1'  # Mondays 06:37 UTC
+      i_understand_live_mode:
+        description: 'Type LIVE_MODE_OK to acknowledge real charges may occur'
+        required: true
+        default: 'NO'
 
 jobs:
   smoke:
+    if: ${{ inputs.i_understand_live_mode == 'LIVE_MODE_OK' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -28,7 +39,7 @@ jobs:
       - run: bunx playwright install --with-deps chromium
       - name: Run B2C Smokes (Pfad 1 paywall_variant + Pfad 2 product-checkout)
         env:
-          BASE_URL: ${{ inputs.base_url || 'https://examfitde.lovable.app' }}
+          BASE_URL: ${{ inputs.base_url }}
           E2E_EMAIL: ${{ secrets.E2E_EMAIL }}
           E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}

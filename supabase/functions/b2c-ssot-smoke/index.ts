@@ -193,14 +193,36 @@ Deno.serve(async (req) => {
       .in("invoice_id", ids);
     checks.invoice_items = c ?? 0;
   }
-  // grants/entitlements: fenster letzte 2min
-  const sinceIso = new Date(Date.now() - 120_000).toISOString();
+  // grants/entitlements: per order_id (nicht created_at — UPSERTs lassen created_at unverändert)
+  // Entitlement-Match per source_ref=order_id, da entitlements keine direkte order_id-FK hat.
   checks.learner_course_grants = await count("learner_course_grants", (q: any) =>
-    q.eq("user_id", userId).gte("created_at", sinceIso),
+    q.eq("order_id", orderId).eq("status", "active"),
   );
-  checks.entitlements = await count("entitlements", (q: any) =>
-    q.eq("user_id", userId).eq("product_id", productId).gte("created_at", sinceIso),
-  );
+  // Fallback für entitlements: Curriculum aus Order ableiten und matchen
+  const { data: orderProd } = await sb
+    .from("order_items")
+    .select("products(curriculum_id)")
+    .eq("order_id", orderId)
+    .limit(1)
+    .maybeSingle();
+  const curriculumId = (orderProd as any)?.products?.curriculum_id ?? null;
+  if (curriculumId) {
+    const { data: ent } = await sb
+      .from("entitlements")
+      .select("id, has_learning_course, has_exam_trainer, has_ai_tutor, has_oral_trainer, valid_until")
+      .eq("user_id", userId)
+      .eq("curriculum_id", curriculumId)
+      .gt("valid_until", new Date().toISOString())
+      .eq("has_learning_course", true)
+      .eq("has_exam_trainer", true)
+      .eq("has_ai_tutor", true)
+      .eq("has_oral_trainer", true)
+      .maybeSingle();
+    checks.entitlements = ent ? 1 : 0;
+  } else {
+    checks.entitlements = 0;
+    failures.push("curriculum_id not resolvable from order_items");
+  }
 
   for (const [k, v] of Object.entries(checks)) {
     if (v < 1) failures.push(`${k}=0`);
