@@ -266,6 +266,11 @@ Deno.serve(async (req) => {
       ok: true,
       checkout_url: session.url,
       order_id: order.id,
+      package_id: resolvedPackageId,
+      persona: resolvedPersona,
+      product_id: product.id,
+      price_id: price.id,
+      stripe_price_id: price.stripe_price_id ?? null,
     }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
