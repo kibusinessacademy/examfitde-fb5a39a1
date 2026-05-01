@@ -1,45 +1,50 @@
 ---
 name: Heal v3 Big Bang
-description: Top-3-Cluster Noise-Killer (DAG/SHADOW/STALE), SHADOW_STALLED Auto-Heal mit Backlog-Eskalation, generate_exam_pool 3-Stufen-Fallback, Per-Course adaptive AI-Heal-Plans
+description: Top-3-Cluster Noise-Killer + SHADOW Auto-Heal + 3-Stufen-Exam-Pool-Fallback + adaptive AI-Heal-Plans + Patch 1+2 (job_type-Fix, target_type-Fix, Loop-Counter in meta, Quarantäne-View, Stagnation-Alerting, Live-Regressionstests)
 type: feature
 ---
 
-## Problem-Diagnose (24h-Forensik)
-35.821 von 45.248 Heal-Events (79%) waren Noise — Re-Detections desselben Pakets:
-- `dag_guard_block` (17.676): DB-Trigger loggte jeden geblockten INSERT (statt 1× pro Signatur).
-- `progress_guard_shadow_stalled` (12.148): Guardian-Cron loggte alle 5min, Dedup nur für Notification, nicht für Log. Dazu: keine Heal-Action.
-- `guardian_stale_fail` (5.760): "always log" inklusive Skip-Status.
-Resultat: 2% scheinbare Heal-Erfolgsrate.
+## Patch 2 (final state)
 
-## Stufe 1 — Noise-Killer (90%+ Reduktion erwartet)
-- `fn_guard_dag_prerequisites`: Log nur 1×/5min pro signature.
-- `production-guardian` (G1): Log 1×/60min pro Pkg + ruft danach `guardian_heal_shadow_stalled`.
-- `production-guardian` (3b): `guardian_stale_fail` skipped nur 1×/h pro Pkg geloggt; applied immer.
+### Exam-Pool Fallback (`fn_exam_pool_fallback_progress`)
+Zählt + cancelt **alle 5 echten** job_types:
+`package_generate_exam_pool`, `package_repair_exam_pool_quality`, `package_validate_exam_pool`,
+`package_repair_exam_pool_competency_coverage`, `package_repair_exam_pool_lf_coverage`.
+3 Stufen: provider_switch (3) → constraint_relax (5) → paused (8).
+Bei `paused`: alle aktiven Jobs cancelled + Backlog-Task in `heal_permanent_fix_tasks` (pattern_key='exam_pool_paused', priority='critical').
 
-## Stufe 1.5 — Echte Heal-Action für SHADOW_STALLED
-RPC `guardian_heal_shadow_stalled(uuid)`:
-- Skip wenn Pkg >7 Tage alt (Mensch entscheidet)
-- Sonst: ältesten queued/processing/failed Step via `admin_retry_failed_step` retryen
-- Nach 3 Versuchen / 6h → `admin_create_permanent_fix_task` (priority=high)
-- Audit `action_type='shadow_stalled_auto_heal'`
+### Loop-Counter (DAG-Guard)
+`package_steps.meta.dag_block_counters[signature]` zählt jeden geblockten INSERT (unabhängig vom Log-Dedup). Schwelle 50 → step blocked. Log-Inserts dedupt auf 1×/5min.
 
-## Stufe 2 — generate_exam_pool 3-Stufen-Fallback
-Tabelle `exam_pool_fallback_state` + RPC `fn_exam_pool_fallback_progress(uuid)`:
-- 3 Fails/6h → `provider_switch` (model_override=openai/gpt-5-mini)
-- 5 Fails/6h → `constraint_relax` (lf_min=80, bloom relaxed)
-- 8 Fails/6h → `paused` + P1 Notification + Permanent-Fix-Task (critical)
-Worker müssen `model_override` und `constraint_overrides` aus diesem State respektieren.
+### Stagnation-Alert
+Cron `exam-pool-stagnation-alert-15min` (jobid 140, */15) ruft `fn_exam_pool_stagnation_alert`:
+- Fail-Burst: ≥5 fails/1h → critical Backlog-Task
+- Stagnation: aktive Jobs >30min ohne Update → critical Backlog-Task
+Dedup: skip wenn open critical-Task in 1h existiert.
 
-## Stufe 3 — Per-Course Adaptive AI-Heal-Plans
-Tabelle `course_heal_plans` + Edge-Function `course-heal-plan-generate`:
-- Trigger: initial bei Paket-Erstellung, manuell, oder nach Hard-Fail (attempts ≥ 3)
-- DB-Trigger `trg_invalidate_heal_plan_on_hard_fail` markiert alten Plan als inactive
-- Lovable AI Gateway (gemini-2.5-flash) via Tool-Call `submit_course_heal_plan`
-- RPC `fn_get_active_heal_plan(uuid)` für Engine-Lookup
+### Admin-Quarantäne
+View `v_admin_exam_pool_paused` listet alle paused/relax/switch Pakete + active_jobs + cancelled_jobs_6h + open_backlog_task_id.
+3 Admin-RPCs (alle has_role('admin')-gated, mit auto_heal_log Audit):
+- `admin_exam_pool_restart(uuid)` — Reset state→normal, schließt offene Tasks
+- `admin_exam_pool_cancel_all(uuid)` — Cancel alle aktiven Jobs
+- `admin_exam_pool_quarantine(uuid, text)` — Force paused + cancel + critical Task
 
-## UI
-- `CourseHealPlansCard` in HealCockpitPage Sektion 3 (nach PermanentFixBacklogCard).
-- Zeigt aktive Fallback-States (außer normal) + aktive Heal-Plans mit Confidence + Re-Generate-Button.
+UI: `ExamPoolQuarantineCard` in HealCockpitPage Sektion 3 (nach CourseHealPlansCard).
 
-## View
-`v_heal_noise_breakdown` zeigt pro action_type: events_24h, distinct_targets, applied/skipped/failed/detected, avg_events_per_target — direkter Noise-vs-Real Indikator.
+### Live-Regressionstests
+`admin_test_heal_v3_invariants()` prüft 5 Invariants gegen DB:
+1. `dag_guard_block` mit `target_type='job'` (post-2026-05-01 07:00 UTC) = 0
+2. `package_steps` mit `dag_block_counters` in meta (>0 = aktiv)
+3. paused Pakete mit aktiven exam_pool-Jobs = 0
+4. Beide Heal-Plan-Trigger existieren (= 2)
+5. `fn_get_active_heal_plan` hat 0 grants für `authenticated`
+Button im ExamPoolQuarantineCard: "Heal v3 Invariants prüfen".
+
+### Security
+- `fn_get_active_heal_plan` nur `service_role`
+- `admin_get_active_heal_plan` Wrapper für UI mit has_role-Check
+- Alle Admin-RPCs raise 42501 ohne admin-role
+
+## Datenbank-Spalten (wichtig, schema-drift-fest)
+`exam_pool_fallback_state`: package_id, fail_count_6h, current_stage, last_fail_at, last_stage_change_at, model_override, constraint_overrides, paused_reason, created_at, updated_at.
+`heal_permanent_fix_tasks`: pattern_key, cluster, package_id, title, description, status, priority, created_by, … (NICHT permanent_fix_backlog).
