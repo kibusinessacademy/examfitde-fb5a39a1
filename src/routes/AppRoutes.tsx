@@ -73,6 +73,7 @@ const FortbildungLandingPage = lazyRetry(() => import('@/pages/seo/FortbildungLa
 const ZertifizierungenLandingPage = lazyRetry(() => import('@/pages/seo/ZertifizierungenLandingPage'));
 const ProductLandingPage = lazyRetry(() => import('@/pages/seo/ProductLandingPage'));
 const ProductPage = lazyRetry(() => import('@/pages/product/ProductPage'));
+const ProductPersonaPage = lazyRetry(() => import('@/pages/product/ProductPersonaPage'));
 const DynamicProductLandingPage = lazyRetry(() => import('@/pages/landing/DynamicProductLandingPage'));
 const PersonaLandingPage = lazyRetry(() => import('@/pages/landing/PersonaLandingPage'));
 const PersonaLandingHubPage = lazyRetry(() => import('@/pages/landing/PersonaLandingHubPage'));
