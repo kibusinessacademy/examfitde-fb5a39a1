@@ -17,11 +17,12 @@ export default function AppInvoicesPage() {
     queryKey: ['app-invoices', user?.id],
     enabled: !!user?.id,
     queryFn: async () => {
+      // invoices.user_id existiert nicht — Join über orders.buyer_user_id
       const { data, error } = await supabase
         .from('invoices')
-        .select('id, invoice_number, total_cents, currency, status, pdf_url, issued_at, created_at')
-        .eq('user_id', user!.id)
-        .order('issued_at', { ascending: false, nullsFirst: false })
+        .select('id, invoice_number, total_gross_cents, status, pdf_url, issue_date, created_at, orders!inner(buyer_user_id, currency)')
+        .eq('orders.buyer_user_id', user!.id)
+        .order('issue_date', { ascending: false, nullsFirst: false })
         .limit(100);
       if (error) throw error;
       return data ?? [];
@@ -51,8 +52,8 @@ export default function AppInvoicesPage() {
               {invoices.map((inv: any) => (
                 <TableRow key={inv.id}>
                   <TableCell className="font-mono text-xs">{inv.invoice_number ?? inv.id.slice(0, 8)}</TableCell>
-                  <TableCell>{new Date(inv.issued_at ?? inv.created_at).toLocaleDateString('de-DE')}</TableCell>
-                  <TableCell>{formatCents(inv.total_cents ?? 0, inv.currency ?? 'EUR')}</TableCell>
+                  <TableCell>{new Date(inv.issue_date ?? inv.created_at).toLocaleDateString('de-DE')}</TableCell>
+                  <TableCell>{formatCents(inv.total_gross_cents ?? 0, inv.orders?.currency ?? 'EUR')}</TableCell>
                   <TableCell><Badge variant={inv.status === 'paid' ? 'default' : 'secondary'}>{inv.status}</Badge></TableCell>
                   <TableCell className="text-right">
                     {inv.pdf_url ? (

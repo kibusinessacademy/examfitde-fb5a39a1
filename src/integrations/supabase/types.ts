@@ -104406,6 +104406,10 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_smoke_replay_order_fulfillment: {
+        Args: { p_order_id: string }
+        Returns: Json
+      }
       admin_soft_reset_package: {
         Args: {
           p_package_id: string

@@ -434,273 +434,252 @@ Deno.serve(async (req) => {
           logStep("ERROR: B2B subscription fulfillment failed", { error: String(b2bSubErr) });
         }
       } else if (meta.checkout_source === 'create-payment') {
-        // ── NEW: Product-based payment fulfillment (B2C paywall + B2B pricing plan) ──
+        // ── B2C/B2B Product-Checkout fulfillment (SSOT via orders → trigger) ──
         try {
           const userId = meta.user_id;
-          const productId = meta.product_id;
-          const flow = meta.flow; // 'paywall_variant' or 'pricing_plan'
+          const rawProductId = meta.product_id;
+          const flow = meta.flow; // 'paywall_variant' | 'pricing_plan'
 
-          if (!userId || !productId) {
+          if (!userId || !rawProductId) {
             logStep("SKIP create-payment fulfillment (missing user_id/product_id)", { meta });
-          } else if (flow === 'paywall_variant') {
-            // ── B2C: Create personal entitlement ──
-            logStep("Fulfilling B2C paywall_variant purchase", { userId, productId });
+          } else {
+            // ── product_id Resolver+Validator (Loop C v2 Bug 1 Schutz) ──
+            // Validiert gegen products-Tabelle. Falls meta.product_id nicht in
+            // products existiert, versuchen via meta.curriculum_id zu resolven.
+            let productId: string | null = null;
+            let productTitle: string | null = null;
 
-            const durationDays = 365;
-            const validUntil = new Date();
-            validUntil.setDate(validUntil.getDate() + durationDays);
-
-            // Idempotency: check existing entitlement for this session
-            const { data: existingEnt } = await adminClient
-              .from('entitlements')
-              .select('id')
-              .eq('user_id', userId)
-              .eq('product_id', productId)
-              .eq('source_type', 'stripe')
-              .eq('source_ref', session.id)
+            const { data: byId } = await adminClient
+              .from('products')
+              .select('id, title')
+              .eq('id', rawProductId)
               .maybeSingle();
-
-            if (existingEnt) {
-              logStep("Entitlement already exists (idempotent)", { id: existingEnt.id });
-            } else {
-              await adminClient.from('entitlements').insert({
-                user_id: userId,
-                product_id: productId,
-                source_type: 'stripe',
-                source_ref: session.id,
-                valid_from: new Date().toISOString(),
-                valid_until: validUntil.toISOString(),
-              });
-              logStep("B2C entitlement created", { userId, productId, validUntil: validUntil.toISOString() });
-            }
-
-            // Record experiment conversion
-            if (meta.experiment_key && meta.variant_key) {
-              try {
-                await adminClient.rpc('record_experiment_conversion' as any, {
-                  p_user_id: userId,
-                  p_experiment_key: meta.experiment_key,
-                  p_variant_key: meta.variant_key,
-                  p_conversion_value_cents: parseInt(meta.price_cents || session.amount_total?.toString() || '0'),
-                });
-                logStep("Experiment conversion recorded");
-              } catch (convErr) {
-                logStep("WARN: Could not record experiment conversion", { error: String(convErr) });
+            if (byId?.id) {
+              productId = byId.id;
+              productTitle = byId.title ?? null;
+            } else if (meta.curriculum_id) {
+              const { data: byCurr } = await adminClient
+                .from('products')
+                .select('id, title')
+                .eq('curriculum_id', meta.curriculum_id)
+                .in('status', ['active', 'published'])
+                .order('updated_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+              if (byCurr?.id) {
+                productId = byCurr.id;
+                productTitle = byCurr.title ?? null;
+                logStep("product_id resolved via curriculum_id", { rawProductId, resolvedProductId: productId });
               }
             }
 
-            // Track checkout_complete event (SSOT)
-            await emitCheckoutCompleteEvent(adminClient, {
-              user_id: userId,
-              product_id: productId,
-              session_id: session.id,
-              flow,
-              extra: {
-                experiment_key: meta.experiment_key,
-                variant_key: meta.variant_key,
-                amount_total: session.amount_total,
-              },
-            });
+            if (!productId) {
+              logStep("ERROR: product_id konnte nicht in products-Tabelle resolved werden", {
+                rawProductId,
+                curriculumId: meta.curriculum_id,
+              });
+              return new Response(JSON.stringify({ received: true, error: "unknown_product_id" }), { status: 200 });
+            }
 
-          } else if (flow === 'pricing_plan') {
-            const audienceType = meta.audience_type || 'b2c';
+            const audienceType = (meta.audience_type || 'b2c').toLowerCase();
             const seatCount = parseInt(meta.seat_count || '1');
-            const durationDays = parseInt(meta.duration_days || '365');
-            const validUntil = new Date();
-            validUntil.setDate(validUntil.getDate() + durationDays);
+            const isB2cFlow =
+              flow === 'paywall_variant' ||
+              (flow === 'pricing_plan' && (audienceType === 'b2c' || seatCount <= 1));
 
-            if (audienceType === 'b2c' || seatCount <= 1) {
-              // ── B2C pricing_plan: Create personal entitlement (no org) ──
-              logStep("Fulfilling B2C pricing_plan purchase", { userId, productId, planKey: meta.plan_key });
+            if (isB2cFlow) {
+              // ── B2C SSOT: Order anlegen → Trigger erzeugt invoice/payment/ledger/grant/entitlement ──
+              logStep("Fulfilling B2C purchase via SSOT order pipeline", {
+                userId,
+                productId,
+                flow,
+                audienceType,
+              });
 
-              const { data: existingEnt } = await adminClient
-                .from('entitlements')
-                .select('id')
-                .eq('user_id', userId)
-                .eq('product_id', productId)
-                .eq('source_type', 'stripe')
-                .eq('source_ref', session.id)
-                .maybeSingle();
+              const { orderId, created } = await ensureB2cOrderForSession(adminClient, stripe, {
+                session,
+                user_id: userId,
+                product_id: productId,
+                description: productTitle ?? `Produkt ${productId}`,
+                quantity: 1,
+              });
 
-              if (existingEnt) {
-                logStep("Entitlement already exists (idempotent)", { id: existingEnt.id });
+              if (!orderId) {
+                logStep("ERROR: ensureB2cOrderForSession lieferte keine orderId");
               } else {
-                await adminClient.from('entitlements').insert({
-                  user_id: userId,
-                  product_id: productId,
-                  source_type: 'stripe',
-                  source_ref: session.id,
-                  valid_from: new Date().toISOString(),
-                  valid_until: validUntil.toISOString(),
-                });
-                logStep("B2C pricing_plan entitlement created", { userId, productId, validUntil: validUntil.toISOString() });
+                logStep(created ? "B2C order created (SSOT)" : "B2C order existed (idempotent)", { orderId });
+              }
+
+              // Experiment-Conversion bleibt hier (nicht über Trigger)
+              if (meta.experiment_key && meta.variant_key) {
+                try {
+                  await adminClient.rpc('record_experiment_conversion' as any, {
+                    p_user_id: userId,
+                    p_experiment_key: meta.experiment_key,
+                    p_variant_key: meta.variant_key,
+                    p_conversion_value_cents: parseInt(meta.price_cents || session.amount_total?.toString() || '0'),
+                  });
+                  logStep("Experiment conversion recorded");
+                } catch (convErr) {
+                  logStep("WARN: Could not record experiment conversion", { error: String(convErr) });
+                }
               }
 
               await emitCheckoutCompleteEvent(adminClient, {
                 user_id: userId,
                 product_id: productId,
                 session_id: session.id,
-                flow: 'pricing_plan_b2c',
+                flow: flow === 'paywall_variant' ? 'paywall_variant' : 'pricing_plan_b2c',
                 extra: {
-                  plan_key: meta.plan_key,
+                  order_id: orderId,
+                  experiment_key: meta.experiment_key ?? null,
+                  variant_key: meta.variant_key ?? null,
+                  plan_key: meta.plan_key ?? null,
                   amount_total: session.amount_total,
                 },
               });
 
-            } else {
-            // ── B2B: Create org + license + seats ──
-            logStep("Fulfilling B2B pricing_plan purchase", { userId, productId, planKey: meta.plan_key });
-
-
-
-
-            // Idempotency: check existing license for this session
-            const { data: existingLic } = await adminClient
-              .from('org_licenses')
-              .select('id')
-              .eq('source_ref', session.id)
-              .maybeSingle();
-
-            if (existingLic) {
-              logStep("Org license already exists (idempotent)", { id: existingLic.id });
-            } else {
-              // Find or create organization
-              let orgId: string | null = null;
-              const orgName = meta.org_name || 'Organisation';
-
-              // Check if user already owns an org
-              const { data: existingMembership } = await adminClient
-                .from('org_memberships')
-                .select('org_id')
-                .eq('user_id', userId)
-                .eq('role', 'owner')
-                .eq('status', 'active')
-                .limit(1)
+            } else if (flow === 'pricing_plan') {
+              // ── B2B pricing_plan: weiterhin org_license-Pfad (Sprint-2-Refactor) ──
+              const durationDays = parseInt(meta.duration_days || '365');
+              const validUntil = new Date();
+              validUntil.setDate(validUntil.getDate() + durationDays);
+              logStep("Fulfilling B2B pricing_plan purchase (legacy org_license pfad)", {
+                userId,
+                productId,
+                planKey: meta.plan_key,
+              });
+              // Idempotency: check existing license for this session
+              const { data: existingLic } = await adminClient
+                .from('org_licenses')
+                .select('id')
+                .eq('source_ref', session.id)
                 .maybeSingle();
 
-              if (existingMembership) {
-                orgId = existingMembership.org_id;
-                logStep("Using existing org", { orgId });
+              if (existingLic) {
+                logStep("Org license already exists (idempotent)", { id: existingLic.id });
               } else {
-                // Create new org
-                const { data: newOrg } = await adminClient
-                  .from('organizations')
-                  .insert({
-                    name: orgName,
-                    org_type: 'company',
-                  })
-                  .select('id')
-                  .single();
+                let orgId: string | null = null;
+                const orgName = meta.org_name || 'Organisation';
 
-                if (newOrg) {
-                  orgId = newOrg.id;
-                  // Add buyer as owner (idempotent via unique constraint)
-                  await adminClient.from('org_memberships').insert({
-                    org_id: orgId,
-                    user_id: userId,
-                    role: 'owner',
-                    status: 'active',
-                  }).then(() => {}).catch(() => {});
-                  logStep("Organization created", { orgId, orgName });
+                const { data: existingMembership } = await adminClient
+                  .from('org_memberships')
+                  .select('org_id')
+                  .eq('user_id', userId)
+                  .eq('role', 'owner')
+                  .eq('status', 'active')
+                  .limit(1)
+                  .maybeSingle();
+
+                if (existingMembership) {
+                  orgId = existingMembership.org_id;
+                  logStep("Using existing org", { orgId });
+                } else {
+                  const { data: newOrg } = await adminClient
+                    .from('organizations')
+                    .insert({ name: orgName, org_type: 'company' })
+                    .select('id')
+                    .single();
+                  if (newOrg) {
+                    orgId = newOrg.id;
+                    await adminClient.from('org_memberships').insert({
+                      org_id: orgId,
+                      user_id: userId,
+                      role: 'owner',
+                      status: 'active',
+                    }).then(() => {}).catch(() => {});
+                    logStep("Organization created", { orgId, orgName });
+                  }
+                }
+
+                if (orgId) {
+                  const { data: newLicense } = await adminClient
+                    .from('org_licenses')
+                    .insert({
+                      org_id: orgId,
+                      product_id: productId,
+                      seat_count: seatCount,
+                      seats_used: 0,
+                      starts_at: new Date().toISOString(),
+                      ends_at: validUntil.toISOString(),
+                      status: 'active',
+                      source_type: 'stripe',
+                      source_ref: session.id,
+                    })
+                    .select('id')
+                    .single();
+
+                  if (newLicense) {
+                    logStep("Org license created", { licenseId: newLicense.id, seatCount });
+                    await adminClient.from('org_license_seats').insert({
+                      license_id: newLicense.id,
+                      user_id: userId,
+                      claimed_at: new Date().toISOString(),
+                    });
+                    logStep("Buyer auto-assigned first seat");
+                  }
                 }
               }
 
-              if (orgId) {
-                // Create org_license
-                const { data: newLicense } = await adminClient
-                  .from('org_licenses')
-                  .insert({
-                    org_id: orgId,
-                    product_id: productId,
-                    seat_count: seatCount,
-                    seats_used: 0,
-                    starts_at: new Date().toISOString(),
-                    ends_at: validUntil.toISOString(),
-                    status: 'active',
-                    source_type: 'stripe',
-                    source_ref: session.id,
-                  })
-                  .select('id')
-                  .single();
+              await emitCheckoutCompleteEvent(adminClient, {
+                user_id: userId,
+                product_id: productId,
+                session_id: session.id,
+                flow,
+                extra: {
+                  plan_key: meta.plan_key,
+                  seat_count: meta.seat_count,
+                  audience_type: meta.audience_type,
+                  amount_total: session.amount_total,
+                },
+              });
+              } // end B2B-Block
+            } // end else if (flow === 'pricing_plan')
 
-                if (newLicense) {
-                  logStep("Org license created", { licenseId: newLicense.id, seatCount });
+            // ── PARTNER COMMISSION: resolve attribution & create commission ──
+            try {
+              const amountTotalCents = session.amount_total || 0;
+              const grossEur = amountTotalCents / 100;
+              const netEur = grossEur; // TODO: subtract VAT if needed
 
-                  // Auto-assign first seat to buyer
-                  await adminClient.from('org_license_seats').insert({
-                    license_id: newLicense.id,
-                    user_id: userId,
-                    claimed_at: new Date().toISOString(),
-                  });
-                  // Trigger will sync seats_used
-                  logStep("Buyer auto-assigned first seat");
-                }
+              const { data: attrRows } = await adminClient.rpc('fn_resolve_partner_attribution', {
+                _user_id: userId,
+                _visitor_id: null,
+                _org_id: (flow === 'pricing_plan' && meta.audience_type === 'b2b') ? null : null,
+                _consume: false,
+              });
+
+              if (attrRows && attrRows.length > 0) {
+                const attr = attrRows[0];
+                logStep("Partner attribution resolved", {
+                  attribution_id: attr.attribution_id,
+                  partner_id: attr.partner_id,
+                  partner_type: attr.partner_type,
+                  commission_mode: attr.commission_mode,
+                  commission_rate: attr.commission_rate,
+                });
+
+                const sourceRef = `checkout:${session.id}`;
+                const { data: commissionId } = await adminClient.rpc('fn_create_partner_commission', {
+                  _source_ref: sourceRef,
+                  _partner_id: attr.partner_id,
+                  _attribution_id: attr.attribution_id,
+                  _product_id: productId,
+                  _order_ref: session.id,
+                  _buyer_user_id: userId,
+                  _org_id: null,
+                  _gross_amount_eur: grossEur,
+                  _net_amount_eur: netEur,
+                  _commission_reason: `${flow} checkout`,
+                });
+                logStep("Partner commission created", { commissionId, sourceRef });
+              } else {
+                logStep("No partner attribution found for buyer", { userId });
               }
+            } catch (partnerErr) {
+              logStep("WARN: Partner commission creation failed (non-blocking)", { error: String(partnerErr) });
             }
-
-            // Track checkout_complete event (SSOT)
-            await emitCheckoutCompleteEvent(adminClient, {
-              user_id: userId,
-              product_id: productId,
-              session_id: session.id,
-              flow,
-              extra: {
-                plan_key: meta.plan_key,
-                seat_count: meta.seat_count,
-                audience_type: meta.audience_type,
-                amount_total: session.amount_total,
-              },
-            });
-            } // end B2B else
-          }
-
-          // ── PARTNER COMMISSION: resolve attribution & create commission ──
-          try {
-            const amountTotalCents = session.amount_total || 0;
-            const grossEur = amountTotalCents / 100;
-            const netEur = grossEur; // TODO: subtract VAT if needed
-
-            // Try to resolve partner attribution for this buyer
-            const { data: attrRows } = await adminClient.rpc('fn_resolve_partner_attribution', {
-              _user_id: userId,
-              _visitor_id: null,
-              _org_id: (flow === 'pricing_plan' && meta.audience_type === 'b2b') ? null : null,
-              _consume: false, // We consume inside fn_create_partner_commission
-            });
-
-            if (attrRows && attrRows.length > 0) {
-              const attr = attrRows[0];
-              logStep("Partner attribution resolved", {
-                attribution_id: attr.attribution_id,
-                partner_id: attr.partner_id,
-                partner_type: attr.partner_type,
-                commission_mode: attr.commission_mode,
-                commission_rate: attr.commission_rate,
-              });
-
-              const sourceRef = `checkout:${session.id}`;
-              const { data: commissionId } = await adminClient.rpc('fn_create_partner_commission', {
-                _source_ref: sourceRef,
-                _partner_id: attr.partner_id,
-                _attribution_id: attr.attribution_id,
-                _product_id: productId,
-                _order_ref: session.id,
-                _buyer_user_id: userId,
-                _org_id: null,
-                _gross_amount_eur: grossEur,
-                _net_amount_eur: netEur,
-                _commission_reason: `${flow} checkout`,
-              });
-
-              logStep("Partner commission created", { commissionId, sourceRef });
-            } else {
-              logStep("No partner attribution found for buyer", { userId });
-            }
-          } catch (partnerErr) {
-            // Non-blocking: commission failure must not break fulfillment
-            logStep("WARN: Partner commission creation failed (non-blocking)", { error: String(partnerErr) });
-          }
-
+          } // end if (userId && rawProductId)
         } catch (newFlowErr) {
           logStep("ERROR: create-payment fulfillment failed", { error: String(newFlowErr) });
         }
