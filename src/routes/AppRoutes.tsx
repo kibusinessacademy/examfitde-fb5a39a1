@@ -240,6 +240,10 @@ const AppRoutes = () => {
         <Route element={<SEOLayout />}>
           <Route path="/pruefungstraining" element={<PruefungstrainingHub />} />
           <Route path="/pruefungstraining/fachwirt/wirtschaftsfachwirt" element={<WirtschaftsfachwirtPage />} />
+          {/* Persona-Routing pro Produkt — drei Einstiegspfade, ein Produkt (SSOT). */}
+          <Route path="/pruefungstraining/:slug/azubi" element={<ProductPersonaPage />} />
+          <Route path="/pruefungstraining/:slug/betrieb" element={<ProductPersonaPage />} />
+          <Route path="/pruefungstraining/:slug/institution" element={<ProductPersonaPage />} />
           <Route path="/pruefungstraining/:category/:slug" element={<PruefungstrainingDetailPage />} />
           {/* SSOT-driven product page — replaces legacy detail page */}
           <Route path="/pruefungstraining/:slug" element={<ProductPage />} />
