@@ -169,6 +169,59 @@ export function RecurringPatternsCard({ limit = 10 }: { limit?: number }) {
       toast.error("Konnte nicht verworfen werden", { description: e.message }),
   });
 
+  const applyMutation = useMutation({
+    mutationFn: async ({ id }: { id: string }) => {
+      const { data, error } = await supabase.rpc(
+        "admin_heal_apply_recommendation" as never,
+        { p_recommendation_id: id } as never,
+      );
+      if (error) throw error;
+      const d = data as { error?: string; ok?: boolean; executed?: number; failed?: number; steps?: unknown[] };
+      if (d?.error) throw new Error(d.error);
+      return d as { ok: boolean; executed: number; failed: number; steps: unknown[] };
+    },
+    onSuccess: (res) => {
+      const failed = res.failed ?? 0;
+      if (failed > 0) {
+        toast.warning("Heal-Plan teilweise ausgeführt", {
+          description: `${res.executed} ok · ${failed} fehlgeschlagen`,
+        });
+      } else {
+        toast.success("Heal-Plan ausgeführt", {
+          description: `${res.executed} Schritt(e) erfolgreich`,
+        });
+      }
+      qc.invalidateQueries({ queryKey: ["heal-recurring-patterns"] });
+    },
+    onError: (e: Error) =>
+      toast.error("Heal-Plan konnte nicht ausgeführt werden", { description: e.message }),
+  });
+
+  const createTaskMutation = useMutation({
+    mutationFn: async ({ id, priority }: { id: string; priority?: string }) => {
+      const { data, error } = await supabase.rpc(
+        "admin_create_permanent_fix_task" as never,
+        { p_recommendation_id: id, p_priority: priority ?? "medium" } as never,
+      );
+      if (error) throw error;
+      const d = data as { error?: string; ok?: boolean; task_id?: string; reused?: boolean };
+      if (d?.error) throw new Error(d.error);
+      return d;
+    },
+    onSuccess: (res) => {
+      toast.success(
+        res.reused
+          ? "Vorhandene Permanent-Fix-Aufgabe geöffnet"
+          : "Permanent-Fix als Aufgabe gespeichert",
+        { description: "Sichtbar im Backlog oben im Heal-Hub." },
+      );
+      qc.invalidateQueries({ queryKey: ["heal-permanent-fix-tasks"] });
+    },
+    onError: (e: Error) =>
+      toast.error("Aufgabe konnte nicht erstellt werden", { description: e.message }),
+  });
+
+
   return (
     <Card className="border-amber-500/30">
       <CardHeader className="pb-2">
