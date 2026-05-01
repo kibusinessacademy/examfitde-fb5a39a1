@@ -13,10 +13,10 @@ export default function AppDownloadsPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('invoices')
-        .select('id, invoice_number, pdf_url, issued_at, created_at')
-        .eq('user_id', user!.id)
+        .select('id, invoice_number, pdf_url, issue_date, created_at, orders!inner(buyer_user_id)')
+        .eq('orders.buyer_user_id', user!.id)
         .not('pdf_url', 'is', null)
-        .order('issued_at', { ascending: false, nullsFirst: false });
+        .order('issue_date', { ascending: false, nullsFirst: false });
       if (error) throw error;
       return data ?? [];
     },
@@ -38,7 +38,7 @@ export default function AppDownloadsPage() {
               <CardContent className="p-4 flex items-center justify-between gap-4">
                 <div className="min-w-0">
                   <div className="font-medium text-text-primary">Rechnung {inv.invoice_number ?? inv.id.slice(0, 8)}</div>
-                  <div className="text-xs text-text-muted">{new Date(inv.issued_at ?? inv.created_at).toLocaleDateString('de-DE')}</div>
+                  <div className="text-xs text-text-muted">{new Date(inv.issue_date ?? inv.created_at).toLocaleDateString('de-DE')}</div>
                 </div>
                 <Button asChild size="sm" variant="outline">
                   <a href={inv.pdf_url} target="_blank" rel="noopener noreferrer">
