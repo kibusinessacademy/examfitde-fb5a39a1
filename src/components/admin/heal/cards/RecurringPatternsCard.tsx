@@ -91,23 +91,35 @@ export function RecurringPatternsCard({ limit = 10 }: { limit?: number }) {
       const { data, error } = await supabase.functions.invoke("heal-recommend", {
         body: { pattern_key, force: !!force },
       });
-      if (error) throw error;
+      // FunctionsHttpError: try to read body for the actual error message
+      if (error) {
+        let detail = error.message;
+        try {
+          const ctx = (error as { context?: Response }).context;
+          if (ctx && typeof ctx.json === "function") {
+            const body = await ctx.json();
+            if (body?.error) detail = `${body.error}${body.detail ? `: ${body.detail}` : ""}`;
+          }
+        } catch { /* ignore */ }
+        console.error("[heal-recommend] invoke error:", error, "detail=", detail);
+        throw new Error(detail);
+      }
       if ((data as { error?: string })?.error) {
-        throw new Error((data as { error: string }).error);
+        const d = data as { error: string; detail?: string };
+        throw new Error(`${d.error}${d.detail ? `: ${d.detail}` : ""}`);
       }
       return data as { ok: boolean; cached: boolean; recommendation: FullRecommendation };
     },
     onSuccess: (res) => {
+      const conf = res?.recommendation?.confidence ?? 0;
       toast.success(
-        res.cached ? "Vorhandene AI-Empfehlung geladen" : "AI-Empfehlung erstellt",
-        {
-          description: `Konfidenz ${(res.recommendation.confidence ?? 0) * 100}%`,
-        },
+        res?.cached ? "Vorhandene AI-Empfehlung geladen" : "AI-Empfehlung erstellt",
+        { description: `Konfidenz ${Math.round(conf * 100)}%` },
       );
       qc.invalidateQueries({ queryKey: ["heal-recurring-patterns"] });
     },
     onError: (e: Error) => {
-      const msg = e.message;
+      const msg = e?.message ?? "unknown_error";
       const friendly =
         msg === "rate_limited"
           ? "AI-Limit erreicht — bitte später erneut versuchen."
