@@ -43,6 +43,7 @@ export function LeadGateModal({
   diagnoseHref,
   onSkipToCheckout,
   source,
+  resolveReason,
 }: LeadGateModalProps) {
   const { track } = useTrackGrowthEvent();
   const shownRef = useRef(false);
@@ -58,13 +59,14 @@ export function LeadGateModal({
         metadata: {
           product_slug: productSlug ?? null,
           source: source ?? null,
+          reason: resolveReason ?? null,
         },
       });
     }
     if (!open) {
       shownRef.current = false;
     }
-  }, [open, packageId, persona, curriculumId, productSlug, source, track]);
+  }, [open, packageId, persona, curriculumId, productSlug, source, resolveReason, track]);
 
   const handleDiagnose = () => {
     track("lead_gate_start_diagnosis", {
