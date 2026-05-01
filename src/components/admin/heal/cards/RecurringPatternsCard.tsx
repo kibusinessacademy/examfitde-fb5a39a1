@@ -16,12 +16,17 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Brain, CheckCircle2, ChevronDown, ExternalLink, Flame,
-  Loader2, Sparkles, TrendingUp, X,
+  Loader2, Play, Sparkles, TrendingUp, Wrench, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
   Collapsible, CollapsibleContent, CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader,
+  AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Link } from "react-router-dom";
 
 type NextBestAction = {
