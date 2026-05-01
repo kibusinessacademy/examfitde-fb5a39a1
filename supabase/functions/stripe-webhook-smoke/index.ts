@@ -46,7 +46,7 @@ async function buildStripeSignatureHeader(secret: string, body: string): Promise
 }
 
 // ─── Pick a real product/curriculum/user so the webhook actually fulfills ───
-async function pickFixtures(admin: ReturnType<typeof createClient>) {
+async function pickFixtures(admin: any) {
   const { data: products } = await admin
     .from("products")
     .select("id, stripe_price_id, curriculum_id")
@@ -163,7 +163,7 @@ async function postSignedEvent(
 }
 
 async function verifyCheckoutEffects(
-  admin: ReturnType<typeof createClient>,
+  admin: any,
   f: CheckoutFixture,
 ): Promise<{ ok: boolean; checks: Record<string, unknown>; failures: string[] }> {
   const failures: string[] = [];
@@ -203,7 +203,7 @@ async function verifyCheckoutEffects(
 }
 
 async function verifyRefundEffects(
-  admin: ReturnType<typeof createClient>,
+  admin: any,
   paymentIntentId: string,
   userId: string,
   curriculumId: string,
@@ -245,7 +245,7 @@ async function verifyRefundEffects(
 }
 
 async function cleanupFixture(
-  admin: ReturnType<typeof createClient>,
+  admin: any,
   paymentIntentId: string,
 ) {
   // Best-effort cleanup. Order trigger cascades grants/entitlements via ON DELETE rules
