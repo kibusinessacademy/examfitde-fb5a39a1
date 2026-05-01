@@ -18,6 +18,7 @@ export type GrowthEventType =
   | 'product_select'
   | 'checkout_start'
   // SSOT v2 paketgebundene Funnel-Events
+  | 'landing_view'
   | 'lead_magnet_view'
   | 'lead_capture_view'
   | 'quiz_started'

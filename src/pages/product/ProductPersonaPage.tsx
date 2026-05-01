@@ -61,17 +61,17 @@ export default function ProductPersonaPage() {
       });
     }
 
-    // Separate landing_view ping for funnel parity
+    // Separate landing_view ping for funnel parity (echtes Event, kein Alias)
     if (trackedLeadMagnetRef.current !== key) {
       trackedLeadMagnetRef.current = key;
-      track("paywall_view" /* placeholder bucket — see metadata.event_alias */, {
+      track("landing_view", {
         packageId: product.packageId,
         persona,
         sourcePage: `/pruefungstraining/${product.canonicalSlug}/${persona}`,
         metadata: {
-          event_alias: "landing_view",
-          persona_type: persona,
+          landing_type: "product_persona",
           product_slug: product.canonicalSlug,
+          persona_type: persona,
         },
       });
     }
