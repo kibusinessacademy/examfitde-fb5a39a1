@@ -1455,6 +1455,47 @@ Deno.serve(async (req) => {
         } catch (subErr) {
           logStep("WARN: invoice.paid subscription handling failed", { error: String(subErr) });
         }
+      } else {
+        // Loop B: Non-subscription invoice.paid → mirror Stripe invoice into invoices table (best-effort, idempotent via UNIQUE on stripe_invoice_id)
+        try {
+          const stripeInvoiceId = invoice.id as string;
+          const hostedUrl = (invoice.hosted_invoice_url as string) || null;
+          const pdfUrl = (invoice.invoice_pdf as string) || hostedUrl;
+
+          // Find matching order via payment_intent or charge
+          const piId = typeof invoice.payment_intent === 'string'
+            ? invoice.payment_intent : invoice.payment_intent?.id;
+          let orderId: string | null = null;
+          if (piId) {
+            const { data: ord } = await adminClient
+              .from('orders')
+              .select('id')
+              .eq('stripe_payment_intent_id', piId)
+              .maybeSingle();
+            orderId = ord?.id || null;
+          }
+
+          if (!orderId) {
+            logStep("Skip invoice.paid mirror: no matching order", { stripeInvoiceId, piId });
+          } else {
+            // Update existing invoice row (created during checkout.session.completed) with PDF URL + paid status
+            const { error: upErr } = await adminClient
+              .from('invoices')
+              .update({
+                pdf_url: pdfUrl,
+                stripe_invoice_id: stripeInvoiceId,
+                status: 'paid',
+              })
+              .eq('order_id', orderId);
+            if (upErr) {
+              logStep("WARN: invoice mirror update failed", { error: String(upErr) });
+            } else {
+              logStep("Invoice mirrored from Stripe", { stripeInvoiceId, orderId, pdfUrl });
+            }
+          }
+        } catch (mirrorErr) {
+          logStep("WARN: invoice.paid mirror failed (non-blocking)", { error: String(mirrorErr) });
+        }
       }
     }
 
