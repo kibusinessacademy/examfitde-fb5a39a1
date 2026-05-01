@@ -189,13 +189,15 @@ Backlog-Dedup ist Pflicht.
 
 ## 11. SQL-Regeln
 
-**Vor jeder SQL-Migration:**
+**Vor jeder SQL-Migration ZWINGEND (Schema-Realitäts-Check):**
 
-1. Schema prüfen
-2. Spalten prüfen
-3. Enum/Check-Constraints prüfen
-4. existierende Duplikate prüfen
-5. echte `job_type` und `step_key` prüfen
+1. **Tatsächliche Spaltenstruktur prüfen** — `information_schema.columns` oder `\d table` gegen die Live-DB. Nie aus Erinnerung, nie aus `types.ts`, nie aus älteren Migrationen ableiten.
+2. **Exakte Spaltennamen & Typen verifizieren** — inkl. Casing, Singular/Plural, `_id` vs `id`, NULLability, Default. Kein „heißt bestimmt so".
+3. **Enum-/Check-Constraints prüfen** — `pg_enum`, `information_schema.check_constraints`. Nur existierende Werte verwenden.
+4. **Existierende Duplikate / Unique-Konflikte prüfen** — vor jedem `UNIQUE`-Index oder `ON CONFLICT`.
+5. **Echte `job_type`, `step_key`, `status`, `action_type` prüfen** — gegen Live-Enums und Registry-Tabellen, nie raten.
+6. **Mismatch-Verbot** — Bei jeder Abweichung zwischen Annahme und DB-Realität: STOPP, dokumentieren, neu planen. Niemals „passt schon" annehmen.
+7. **Schema-Drift-Verbot** — Keine parallelen Wahrheiten (z. B. Spalte heißt in einer Migration `price_cents`, in einer anderen `amount_cents`). Drift wird sofort konsolidiert, nicht nebenher geduldet.
 
 **Verboten:**
 
@@ -348,11 +350,13 @@ Jede Migration braucht mindestens eine Prüfquery oder Test-RPC.
 Lovable muss vor jeder technischen Änderung so arbeiten:
 
 1. Annahmen auflisten
-2. DB-/Code-Realität prüfen
-3. Patch minimal bauen
-4. Guards ergänzen
-5. Tests/Prüfqueries liefern
-6. keine erfundenen Tabellen, Spalten, RPCs oder Statuswerte
+2. **Schema-Realitäts-Check zuerst** — tatsächliche Spaltenstruktur, Spaltennamen, Typen, Enums, Constraints gegen die Live-DB prüfen (siehe Regel 11). Kein Code, keine Migration ohne diesen Schritt.
+3. **Mismatches & Schema-Drifts aktiv vermeiden** — Abweichungen zwischen Annahme/Code/Memory/DB sofort melden und konsolidieren, nicht überschreiben.
+4. DB-/Code-Realität insgesamt prüfen
+5. Patch minimal bauen
+6. Guards ergänzen
+7. Tests/Prüfqueries liefern
+8. keine erfundenen Tabellen, Spalten, RPCs oder Statuswerte
 
 ---
 

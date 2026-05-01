@@ -47,7 +47,15 @@ Nur deterministische, dokumentierte Fixes. Darf: DAG-konformes Enqueue, stale Lo
 `heal_permanent_fix_tasks` Pflichtfelder: `pattern_key`, `cluster`, `package_id`, `priority`, `title`, `description`, `recommendation`, `status`. Dedup ist Pflicht.
 
 ## 11. SQL-Regeln (CI Hard-Block)
-Vor jeder Migration: Schema, Spalten, Enum/Check, Duplikate, echte `job_type`/`step_key` prüfen.
+**Schema-Realitäts-Check ZUERST (Pflicht vor jeder Migration):**
+1. Tatsächliche Spaltenstruktur via `information_schema.columns` / Live-DB prüfen — nie aus Erinnerung, `types.ts` oder älteren Migrationen ableiten.
+2. Exakte Spaltennamen, Typen, Casing, NULLability, Defaults verifizieren.
+3. Enum-/Check-Constraints (`pg_enum`, `check_constraints`) prüfen, nur existierende Werte nutzen.
+4. Duplikate / Unique-Konflikte vor `UNIQUE`/`ON CONFLICT` prüfen.
+5. Echte `job_type`/`step_key`/`status`/`action_type` gegen Live-Enums prüfen.
+6. **Mismatch-Verbot**: Bei Abweichung Annahme↔DB STOPP, dokumentieren, neu planen.
+7. **Schema-Drift-Verbot**: keine parallelen Wahrheiten (z. B. `price_cents` vs `amount_cents`) — sofort konsolidieren.
+
 **Verboten:** `COUNT()`, `SELECT INTO` ohne `*`, `RETURNING INTO` ohne `*`, freie Statuswerte ohne Constraint, `SECURITY DEFINER` ohne `REVOKE/GRANT`, `GRANT … TO authenticated` auf `admin_*`/`v_admin_*`.
 **Pflicht:** `COUNT(*)`, `SELECT * INTO`, `RETURNING * INTO`, `REVOKE ALL FROM PUBLIC` + `GRANT EXECUTE TO service_role`, Admin-RPC mit `has_role(auth.uid(),'admin')`.
 
@@ -73,7 +81,7 @@ Anzeige- und Interaktionsschicht. Darf NIE: Business-Regeln entscheiden, Pipelin
 Jede Migration: Prüfquery oder Test-RPC. Pflichttests: Syntax, Security-Grants, Idempotenz, keine Duplikate, keine aktiven Jobs in Paused-State, Artifact Truth, DAG-Konsistenz.
 
 ## 19. Lovable-Arbeitsweise
-Vor JEDER Änderung: (1) Annahmen auflisten, (2) DB-/Code-Realität prüfen, (3) Patch minimal bauen, (4) Guards ergänzen, (5) Tests/Prüfqueries liefern, (6) KEINE erfundenen Tabellen/Spalten/RPCs/Statuswerte.
+Vor JEDER Änderung: (1) Annahmen auflisten, (2) **Schema-Realitäts-Check zuerst** — tatsächliche Spaltenstruktur/-namen/-typen/Enums gegen Live-DB prüfen (siehe Regel 11), (3) **Mismatches & Schema-Drifts aktiv vermeiden** — Abweichungen Annahme↔Code↔Memory↔DB sofort konsolidieren, (4) DB-/Code-Realität insgesamt prüfen, (5) Patch minimal, (6) Guards ergänzen, (7) Tests/Prüfqueries, (8) KEINE erfundenen Tabellen/Spalten/RPCs/Statuswerte.
 
 ## 20. Goldene Regel
 **Guard vor Repair. Artifact vor Status. Fail-Fast vor Retry. SSOT vor UI. Prüfungslogik vor Content.**
