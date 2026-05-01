@@ -145,15 +145,21 @@ for (const [name, q] of checks) {
   }
 }
 
-// 6. Idempotency-Probe: re-INSERT mit gleicher session-id muss UNIQUE-violation werfen
-//    (= bereits geheilt).
-let idempotent = false;
+// 6. Idempotency-Probe: 2. INSERT mit gleicher session_id muss durch UNIQUE scheitern.
+const dupSession = `
+INSERT INTO orders (
+  buyer_user_id, currency, country, tax_mode,
+  subtotal_cents, tax_cents, total_cents, status,
+  stripe_checkout_session_id, stripe_payment_intent_id
+) VALUES (
+  '${userId}', 'eur', 'DE', 'gross', ${subtotal}, ${tax}, ${totalCents}, 'pending',
+  '${sessionId}', '${piId}_dup'
+);`;
 try {
-  one(insertOrder);
+  sql(dupSession);
   FAIL("IDEMPOTENCY BROKEN: 2. Order mit gleicher session_id wurde akzeptiert");
   failures++;
-} catch (e) {
-  idempotent = true;
+} catch {
   OK("idempotency: 2. INSERT mit gleicher session_id rejected (UNIQUE constraint)");
 }
 
