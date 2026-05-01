@@ -103175,6 +103175,7 @@ export type Database = {
         Returns: Json
       }
       admin_exam_pool_restart: { Args: { p_package_id: string }; Returns: Json }
+      admin_exam_pool_unpause: { Args: { p_package_id: string }; Returns: Json }
       admin_execute_recommended_action: {
         Args: { _action_key: string; _dry_run?: boolean; _max_jobs?: number }
         Returns: Json
@@ -103256,6 +103257,31 @@ export type Database = {
           pct: number
           reason_code: string
         }[]
+      }
+      admin_get_exam_pool_paused: {
+        Args: never
+        Returns: {
+          active_jobs: number | null
+          cancelled_jobs_6h: number | null
+          constraint_overrides: Json | null
+          current_stage: string | null
+          fail_count_6h: number | null
+          last_fail_at: string | null
+          last_job_activity: string | null
+          last_stage_change_at: string | null
+          model_override: string | null
+          open_backlog_task_id: string | null
+          package_id: string | null
+          package_status: string | null
+          package_title: string | null
+          state_updated_at: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "v_admin_exam_pool_paused"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       admin_get_failed_clusters: {
         Args: { p_window_hours?: number }
@@ -106261,10 +106287,9 @@ export type Database = {
           reason: string
         }[]
       }
-      fn_exam_pool_fallback_progress: {
-        Args: { p_package_id: string }
-        Returns: Json
-      }
+      fn_exam_pool_fallback_progress:
+        | { Args: { p_package_id: string }; Returns: Json }
+        | { Args: { p_failed?: boolean; p_package_id: string }; Returns: Json }
       fn_exam_pool_stagnation_alert: { Args: never; Returns: Json }
       fn_exam_question_tier1_eligibility: {
         Args: {
