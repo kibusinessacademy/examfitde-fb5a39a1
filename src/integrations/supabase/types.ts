@@ -10205,6 +10205,7 @@ export type Database = {
           id: string
           intent: string | null
           metadata: Json
+          package_id: string | null
           page_path: string | null
           readiness_score: number | null
           risk_level: string | null
@@ -10221,6 +10222,7 @@ export type Database = {
           id?: string
           intent?: string | null
           metadata?: Json
+          package_id?: string | null
           page_path?: string | null
           readiness_score?: number | null
           risk_level?: string | null
@@ -10237,6 +10239,7 @@ export type Database = {
           id?: string
           intent?: string | null
           metadata?: Json
+          package_id?: string | null
           page_path?: string | null
           readiness_score?: number | null
           risk_level?: string | null
@@ -109419,6 +109422,7 @@ export type Database = {
         Args: { p_extra?: Json; p_new_status: string; p_package_id: string }
         Returns: undefined
       }
+      safe_uuid_from_text: { Args: { p_text: string }; Returns: string }
       scan_org_interventions: {
         Args: { p_org_id: string; p_product_id?: string }
         Returns: Json

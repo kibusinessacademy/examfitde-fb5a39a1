@@ -61,8 +61,10 @@ async function main() {
   let failures = 0;
 
   // 1. Letzte 7 Tage: pro event_type Counts + package_id-Coverage
+  // SSOT: top-level package_id (generated column) ist bevorzugter Lesepfad,
+  // metadata.package_id bleibt als Fallback (Backwards-Kompatibilität).
   const ev = await restGet(
-    "conversion_events?select=event_type,metadata,created_at&event_type=in.(checkout_started,checkout_complete,checkout_start,checkout_completed)&created_at=gte." +
+    "conversion_events?select=event_type,package_id,metadata,created_at&event_type=in.(checkout_started,checkout_complete,checkout_start,checkout_completed)&created_at=gte." +
       new Date(Date.now() - 7 * 24 * 3600_000).toISOString(),
   );
 
@@ -78,9 +80,11 @@ async function main() {
 
   for (const k of Object.keys(buckets)) {
     const rows = buckets[k];
-    const withPkg = rows.filter(
-      (r) => r.metadata?.package_id && /^[0-9a-f-]{36}$/i.test(r.metadata.package_id),
-    ).length;
+    const withPkg = rows.filter((r) => {
+      // Top-level package_id (generated column) bevorzugt, metadata als Fallback.
+      const pid = r.package_id ?? r.metadata?.package_id;
+      return pid && /^[0-9a-f-]{36}$/i.test(pid);
+    }).length;
     INFO(`${k.padEnd(20)}: total=${rows.length}  with_package_id=${withPkg}`);
   }
 
@@ -92,8 +96,12 @@ async function main() {
     const required = ["package_id", "product_id", "price_id", "source"];
     let missing = 0;
     for (const r of started) {
+      // Top-level package_id (generated column) zählt als erfüllt.
+      const hasPkg = r.package_id || r.metadata?.package_id;
       for (const k of required) {
-        if (!r.metadata?.[k]) {
+        if (k === "package_id") {
+          if (!hasPkg) { missing++; break; }
+        } else if (!r.metadata?.[k]) {
           missing++;
           break;
         }
