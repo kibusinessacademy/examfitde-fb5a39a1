@@ -139,7 +139,7 @@ function checkLines(file, content) {
   return violations;
 }
 
-function main() {
+async function main() {
   const allViolations = [];
   let scanned = 0;
 
