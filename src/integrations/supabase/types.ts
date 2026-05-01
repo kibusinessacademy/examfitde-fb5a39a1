@@ -90591,6 +90591,17 @@ export type Database = {
           },
         ]
       }
+      v_auto_heal_log_identity_health: {
+        Row: {
+          guard5_status: string | null
+          missing_action_type: number | null
+          missing_result_status: number | null
+          missing_target_type: number | null
+          non_system_without_target_id: number | null
+          total_24h: number | null
+        }
+        Relationships: []
+      }
       v_b2b_metrics: {
         Row: {
           avg_order_value: number | null
