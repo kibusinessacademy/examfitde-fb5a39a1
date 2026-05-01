@@ -26,12 +26,10 @@ import { execSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 
 function sql(query) {
-  const out = execSync(`psql -t -A -F'|' -c ${JSON.stringify(query)}`, { encoding: "utf8" });
-  return out
-    .trim()
-    .split("\n")
-    .filter(Boolean)
-    .map((l) => l.split("|"));
+  // psql interpretiert \n in -c als Backslash-Command — wir flatten zu einer Zeile.
+  const flat = String(query).replace(/\s+/g, " ").trim();
+  const out = execSync(`psql -t -A -F'|' -c ${JSON.stringify(flat)}`, { encoding: "utf8" });
+  return out.trim().split("\n").filter(Boolean).map((l) => l.split("|"));
 }
 
 function one(query) {
