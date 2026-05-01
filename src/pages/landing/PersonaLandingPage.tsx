@@ -147,7 +147,10 @@ export default function PersonaLandingPage({ personaType }: PersonaLandingProps)
     setCheckoutLoading(true);
     try {
       await TrackingEvents.ctaPrimaryClick(slug, config.ctaPrimary, price);
-      const result = await startProductCheckout(slug);
+      const result = await startProductCheckout(slug, {
+        source: "persona_landing",
+        persona_type: (config as any)?.persona ?? null,
+      });
       if (!result.ok) {
         toast.error(result.error ?? "Checkout konnte nicht gestartet werden.");
       } else if (result.already_entitled) {

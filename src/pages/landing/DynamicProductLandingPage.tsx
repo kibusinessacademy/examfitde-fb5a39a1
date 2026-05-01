@@ -180,7 +180,7 @@ export default function DynamicProductLandingPage() {
     setCheckoutLoading(true);
     try {
       await TrackingEvents.ctaPrimaryClick(slug, primaryCta, price);
-      const result = await startProductCheckout(slug);
+      const result = await startProductCheckout(slug, { source: "dynamic_product_landing" });
       if (!result.ok) {
         toast.error(result.error ?? "Checkout konnte nicht gestartet werden.");
       } else if (result.already_entitled) {
