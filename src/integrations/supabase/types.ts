@@ -2007,6 +2007,13 @@ export type Database = {
             foreignKeyName: "ai_tutor_context_index_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_queued_stall_candidates"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "ai_tutor_context_index_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_scheduler_fairness"
             referencedColumns: ["id"]
           },
@@ -5868,6 +5875,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_profit_forecast"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "blueprint_targets_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_queued_stall_candidates"
             referencedColumns: ["package_id"]
           },
           {
@@ -11529,6 +11543,13 @@ export type Database = {
             foreignKeyName: "council_sessions_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_queued_stall_candidates"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "council_sessions_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_scheduler_fairness"
             referencedColumns: ["id"]
           },
@@ -12791,6 +12812,13 @@ export type Database = {
             foreignKeyName: "course_heal_plans_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_queued_stall_candidates"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_heal_plans_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_scheduler_fairness"
             referencedColumns: ["id"]
           },
@@ -13794,6 +13822,13 @@ export type Database = {
             foreignKeyName: "course_package_build_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_queued_stall_candidates"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_build_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_scheduler_fairness"
             referencedColumns: ["id"]
           },
@@ -14553,6 +14588,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: true
             referencedRelation: "v_profit_forecast"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_locks_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_queued_stall_candidates"
             referencedColumns: ["package_id"]
           },
           {
@@ -15339,6 +15381,13 @@ export type Database = {
             foreignKeyName: "course_package_outputs_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_queued_stall_candidates"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_outputs_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_scheduler_fairness"
             referencedColumns: ["id"]
           },
@@ -16113,6 +16162,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_profit_forecast"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_plans_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_queued_stall_candidates"
             referencedColumns: ["package_id"]
           },
           {
@@ -16905,6 +16961,13 @@ export type Database = {
             columns: ["course_package_id"]
             isOneToOne: true
             referencedRelation: "v_profit_forecast"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_reviews_course_package_id_fkey"
+            columns: ["course_package_id"]
+            isOneToOne: true
+            referencedRelation: "v_queued_stall_candidates"
             referencedColumns: ["package_id"]
           },
           {
@@ -18267,6 +18330,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: true
             referencedRelation: "v_profit_forecast"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_regulatory_status_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_queued_stall_candidates"
             referencedColumns: ["package_id"]
           },
           {
@@ -19927,6 +19997,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_profit_forecast"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "curriculum_discovery_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_queued_stall_candidates"
             referencedColumns: ["package_id"]
           },
           {
@@ -24121,6 +24198,13 @@ export type Database = {
             foreignKeyName: "duplicate_detection_log_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_queued_stall_candidates"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "duplicate_detection_log_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_scheduler_fairness"
             referencedColumns: ["id"]
           },
@@ -25753,6 +25837,13 @@ export type Database = {
             foreignKeyName: "exam_blueprints_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_queued_stall_candidates"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_blueprints_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_scheduler_fairness"
             referencedColumns: ["id"]
           },
@@ -26684,6 +26775,13 @@ export type Database = {
             foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: true
+            referencedRelation: "v_queued_stall_candidates"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
             referencedRelation: "v_scheduler_fairness"
             referencedColumns: ["id"]
           },
@@ -27494,6 +27592,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_profit_forecast"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_validation_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_queued_stall_candidates"
             referencedColumns: ["package_id"]
           },
           {
@@ -28825,6 +28930,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_profit_forecast"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_questions_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_queued_stall_candidates"
             referencedColumns: ["package_id"]
           },
           {
@@ -31942,6 +32054,13 @@ export type Database = {
             foreignKeyName: "heal_snapshots_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_queued_stall_candidates"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_scheduler_fairness"
             referencedColumns: ["id"]
           },
@@ -32752,6 +32871,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_profit_forecast"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_queued_stall_candidates"
             referencedColumns: ["package_id"]
           },
           {
@@ -38220,6 +38346,13 @@ export type Database = {
             foreignKeyName: "minicheck_questions_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_queued_stall_candidates"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "minicheck_questions_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_scheduler_fairness"
             referencedColumns: ["id"]
           },
@@ -40596,6 +40729,13 @@ export type Database = {
             foreignKeyName: "oral_exam_blueprints_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_queued_stall_candidates"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "oral_exam_blueprints_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_scheduler_fairness"
             referencedColumns: ["id"]
           },
@@ -41550,6 +41690,13 @@ export type Database = {
             foreignKeyName: "oral_exam_session_templates_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_queued_stall_candidates"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "oral_exam_session_templates_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_scheduler_fairness"
             referencedColumns: ["id"]
           },
@@ -42461,6 +42608,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: true
             referencedRelation: "v_profit_forecast"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "oral_exam_sessionsets_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_queued_stall_candidates"
             referencedColumns: ["package_id"]
           },
           {
@@ -44832,6 +44986,13 @@ export type Database = {
             foreignKeyName: "package_content_shards_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_queued_stall_candidates"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_content_shards_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_scheduler_fairness"
             referencedColumns: ["id"]
           },
@@ -45642,6 +45803,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: true
             referencedRelation: "v_profit_forecast"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_leases_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_queued_stall_candidates"
             referencedColumns: ["package_id"]
           },
           {
@@ -46712,6 +46880,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_queued_stall_candidates"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_scheduler_fairness"
             referencedColumns: ["id"]
           },
@@ -47471,6 +47646,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_profit_forecast"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_tags_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_queued_stall_candidates"
             referencedColumns: ["package_id"]
           },
           {
@@ -49532,6 +49714,13 @@ export type Database = {
             foreignKeyName: "pipeline_lock_active_package_id_fkey"
             columns: ["active_package_id"]
             isOneToOne: false
+            referencedRelation: "v_queued_stall_candidates"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "pipeline_lock_active_package_id_fkey"
+            columns: ["active_package_id"]
+            isOneToOne: false
             referencedRelation: "v_scheduler_fairness"
             referencedColumns: ["id"]
           },
@@ -50721,6 +50910,13 @@ export type Database = {
             foreignKeyName: "premium_upgrade_runs_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_queued_stall_candidates"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "premium_upgrade_runs_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_scheduler_fairness"
             referencedColumns: ["id"]
           },
@@ -51707,6 +51903,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: true
             referencedRelation: "v_profit_forecast"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "priority_scores_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_queued_stall_candidates"
             referencedColumns: ["package_id"]
           },
           {
@@ -53270,6 +53473,13 @@ export type Database = {
             foreignKeyName: "product_pricing_overrides_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: true
+            referencedRelation: "v_queued_stall_candidates"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "product_pricing_overrides_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
             referencedRelation: "v_scheduler_fairness"
             referencedColumns: ["id"]
           },
@@ -54248,6 +54458,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_profit_forecast"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "production_quality_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_queued_stall_candidates"
             referencedColumns: ["package_id"]
           },
           {
@@ -57702,6 +57919,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_profit_forecast"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "question_blueprints_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_queued_stall_candidates"
             referencedColumns: ["package_id"]
           },
           {
@@ -63233,6 +63457,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_profit_forecast"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "standalone_artifact_versions_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_queued_stall_candidates"
             referencedColumns: ["package_id"]
           },
           {
@@ -70384,6 +70615,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_queued_stall_candidates"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_scheduler_fairness"
             referencedColumns: ["id"]
           },
@@ -72292,6 +72530,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_queued_stall_candidates"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_scheduler_fairness"
             referencedColumns: ["id"]
           },
@@ -73335,6 +73580,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_queued_stall_candidates"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_scheduler_fairness"
             referencedColumns: ["id"]
           },
@@ -74261,6 +74513,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_queued_stall_candidates"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_scheduler_fairness"
             referencedColumns: ["id"]
           },
@@ -75020,6 +75279,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_profit_forecast"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_queued_stall_candidates"
             referencedColumns: ["package_id"]
           },
           {
@@ -75794,6 +76060,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_profit_forecast"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_queued_stall_candidates"
             referencedColumns: ["package_id"]
           },
           {
@@ -76700,6 +76973,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_profit_forecast"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_queued_stall_candidates"
             referencedColumns: ["package_id"]
           },
           {
@@ -77694,6 +77974,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_queued_stall_candidates"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_scheduler_fairness"
             referencedColumns: ["id"]
           },
@@ -78587,6 +78874,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_profit_forecast"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_queued_stall_candidates"
             referencedColumns: ["package_id"]
           },
           {
@@ -79848,6 +80142,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_queued_stall_candidates"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_scheduler_fairness"
             referencedColumns: ["id"]
           },
@@ -80717,6 +81018,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_profit_forecast"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_queued_stall_candidates"
             referencedColumns: ["package_id"]
           },
           {
@@ -81728,6 +82036,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_queued_stall_candidates"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_scheduler_fairness"
             referencedColumns: ["id"]
           },
@@ -82562,6 +82877,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_queued_stall_candidates"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_scheduler_fairness"
             referencedColumns: ["id"]
           },
@@ -83317,6 +83639,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_profit_forecast"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_queued_stall_candidates"
             referencedColumns: ["package_id"]
           },
           {
@@ -84166,6 +84495,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_profit_forecast"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "council_sessions_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_queued_stall_candidates"
             referencedColumns: ["package_id"]
           },
           {
@@ -85034,6 +85370,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_queued_stall_candidates"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_scheduler_fairness"
             referencedColumns: ["id"]
           },
@@ -85792,6 +86135,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_profit_forecast"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_queued_stall_candidates"
             referencedColumns: ["package_id"]
           },
           {
@@ -86817,6 +87167,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_profit_forecast"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_queued_stall_candidates"
             referencedColumns: ["package_id"]
           },
           {
@@ -88640,6 +88997,13 @@ export type Database = {
             foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: true
+            referencedRelation: "v_queued_stall_candidates"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
             referencedRelation: "v_scheduler_fairness"
             referencedColumns: ["id"]
           },
@@ -90183,6 +90547,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_profit_forecast"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_queued_stall_candidates"
             referencedColumns: ["package_id"]
           },
           {
@@ -93139,6 +93510,18 @@ export type Database = {
         }
         Relationships: []
       }
+      v_heal_function_audit: {
+        Row: {
+          args: string | null
+          calls_enqueue: boolean | null
+          function_name: unknown
+          has_role_gate: boolean | null
+          is_security_definer: boolean | null
+          uses_drift_guard: boolean | null
+          uses_enqueue_source_tag: boolean | null
+        }
+        Relationships: []
+      }
       v_heal_kpi_overview: {
         Row: {
           active_pattern_count: number | null
@@ -95079,6 +95462,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_queued_stall_candidates"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_scheduler_fairness"
             referencedColumns: ["id"]
           },
@@ -96005,6 +96395,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_profit_forecast"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_queued_stall_candidates"
             referencedColumns: ["package_id"]
           },
           {
@@ -97041,6 +97438,13 @@ export type Database = {
             foreignKeyName: "package_content_shards_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_queued_stall_candidates"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_content_shards_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_scheduler_fairness"
             referencedColumns: ["id"]
           },
@@ -97971,6 +98375,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_profit_forecast"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_queued_stall_candidates"
             referencedColumns: ["package_id"]
           },
           {
@@ -98910,6 +99321,13 @@ export type Database = {
             foreignKeyName: "package_content_shards_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_queued_stall_candidates"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_content_shards_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_scheduler_fairness"
             referencedColumns: ["id"]
           },
@@ -99780,6 +100198,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_queued_stall_candidates"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_scheduler_fairness"
             referencedColumns: ["id"]
           },
@@ -100537,6 +100962,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_profit_forecast"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_queued_stall_candidates"
             referencedColumns: ["package_id"]
           },
           {
@@ -101305,6 +101737,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_profit_forecast"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_queued_stall_candidates"
             referencedColumns: ["package_id"]
           },
           {
@@ -102155,6 +102594,21 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      v_queued_stall_candidates: {
+        Row: {
+          active_jobs: number | null
+          blocked_reason: string | null
+          done_steps: number | null
+          open_steps: number | null
+          package_id: string | null
+          phantom_steps: number | null
+          status: string | null
+          title: string | null
+          track: Database["public"]["Enums"]["product_track"] | null
+          updated_at: string | null
+        }
+        Relationships: []
       }
       v_retry_loop_candidates: {
         Row: {
@@ -103263,6 +103717,13 @@ export type Database = {
             foreignKeyName: "standalone_artifact_versions_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_queued_stall_candidates"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "standalone_artifact_versions_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_scheduler_fairness"
             referencedColumns: ["id"]
           },
@@ -103293,6 +103754,20 @@ export type Database = {
           license_id: string | null
           risk_level: string | null
           status: string | null
+        }
+        Relationships: []
+      }
+      v_status_reverter_recent: {
+        Row: {
+          created_at: string | null
+          gate_layer_after: Json | null
+          id: string | null
+          notes: string | null
+          package_id: string | null
+          symptom_after: Json | null
+          symptom_before: Json | null
+          title: string | null
+          trigger_source: string | null
         }
         Relationships: []
       }
@@ -103858,6 +104333,10 @@ export type Database = {
         }
         Returns: string
       }
+      admin_apply_suggested_heal: {
+        Args: { p_package_id: string }
+        Returns: Json
+      }
       admin_approve_growth_action: {
         Args: { p_action_id: string }
         Returns: undefined
@@ -104346,6 +104825,24 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      admin_get_heal_function_audit: {
+        Args: never
+        Returns: {
+          args: string | null
+          calls_enqueue: boolean | null
+          function_name: unknown
+          has_role_gate: boolean | null
+          is_security_definer: boolean | null
+          uses_drift_guard: boolean | null
+          uses_enqueue_source_tag: boolean | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "v_heal_function_audit"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       admin_get_hollow_published_packages: {
         Args: never
         Returns: {
@@ -104564,9 +105061,50 @@ export type Database = {
           title: string
         }[]
       }
+      admin_get_queued_stall_candidates: {
+        Args: { p_limit?: number }
+        Returns: {
+          active_jobs: number | null
+          blocked_reason: string | null
+          done_steps: number | null
+          open_steps: number | null
+          package_id: string | null
+          phantom_steps: number | null
+          status: string | null
+          title: string | null
+          track: Database["public"]["Enums"]["product_track"] | null
+          updated_at: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "v_queued_stall_candidates"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       admin_get_run_integrity_runbook: {
         Args: { _package_id: string }
         Returns: Json
+      }
+      admin_get_status_reverter_recent: {
+        Args: { p_limit?: number }
+        Returns: {
+          created_at: string | null
+          gate_layer_after: Json | null
+          id: string | null
+          notes: string | null
+          package_id: string | null
+          symptom_after: Json | null
+          symptom_before: Json | null
+          title: string | null
+          trigger_source: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "v_status_reverter_recent"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       admin_has_recent_terminal_notification: {
         Args: { _job_type: string; _package_id: string; _within?: string }
@@ -105209,6 +105747,10 @@ export type Database = {
           suggested_stripe_price_id: string
           suggested_tier_label: string
         }[]
+      }
+      admin_suggest_heal_for_queued_stall: {
+        Args: { p_package_id: string }
+        Returns: Json
       }
       admin_suggest_repair_action: {
         Args: { _dry_run?: boolean; _package_id: string }
@@ -108442,6 +108984,10 @@ export type Database = {
         Returns: Json
       }
       fn_validate_bulk_import: { Args: { p_job_id: string }; Returns: Json }
+      fn_watch_enrichment_gates_and_kick_enrich: {
+        Args: { p_cooldown_minutes?: number; p_max_per_run?: number }
+        Returns: Json
+      }
       generate_compliance_report: {
         Args: { p_report_type: string }
         Returns: string
