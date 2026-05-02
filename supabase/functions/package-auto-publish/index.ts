@@ -438,7 +438,8 @@ Deno.serve(async (req) => {
     const isCoverageGap = /COVERAGE_GAP_BELOW_TRACK_THRESHOLD/i.test(msg);
     const isHollowGuard = /HOLLOW_PUBLISH|MISSING_ARTIFACTS/i.test(msg);
     const isCausalityFail = /HARD_FAIL_NO_CURRICULUM|CAUSALITY/i.test(msg);
-    const isTerminal = pgCode === "P0001" || isCoverageGap || isHollowGuard || isCausalityFail;
+    const isPricingGate = /PRICING_HARD_GATE_BLOCKED|PRICING_NO_ACTIVE_PRICE|PRICING_STRIPE_PRICE_ID_MISSING/i.test(msg);
+    const isTerminal = pgCode === "P0001" || isCoverageGap || isHollowGuard || isCausalityFail || isPricingGate;
 
     const blockReason = isCoverageGap
       ? "coverage_gap"
@@ -446,9 +447,11 @@ Deno.serve(async (req) => {
         ? "hollow_artifacts"
         : isCausalityFail
           ? "causality_fail"
-          : isTerminal
-            ? "publish_guard_terminal"
-            : null;
+          : isPricingGate
+            ? "pricing_config_missing"
+            : isTerminal
+              ? "publish_guard_terminal"
+              : null;
 
     try {
       await sb.from("package_steps").update({
