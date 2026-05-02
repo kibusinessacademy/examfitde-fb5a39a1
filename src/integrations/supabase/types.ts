@@ -104576,6 +104576,16 @@ export type Database = {
           step_key: string
         }[]
       }
+      admin_heal_step_job_coupling_v4: {
+        Args: { _step_keys?: string[] }
+        Returns: {
+          action: string
+          err: string
+          job_id: string
+          package_id: string
+          step_key: string
+        }[]
+      }
       admin_heal_zombie_locked_job: {
         Args: { _job_id: string; _reason?: string }
         Returns: Json
