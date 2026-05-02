@@ -53,20 +53,24 @@ async function rpcReadonly(q) {
 }
 
 async function pickFixture() {
-  // 1 published Produkt mit allen 3 Personas + canonical_slug.
-  const sql = `
-    SELECT vp.package_id::text AS package_id, vp.canonical_slug AS slug
-    FROM v_product_page_ssot vp
-    WHERE vp.canonical_slug IS NOT NULL
-      AND (
-        SELECT COUNT(*) FROM product_persona_overlays o
-        WHERE o.package_id = vp.package_id AND o.active = true
-      ) >= 3
-    LIMIT 1
-  `;
-  const r = await rpcReadonly(sql);
-  const row = Array.isArray(r.body) ? r.body[0] : null;
-  return row || null;
+  // anon REST: 1 published Produkt mit allen 3 Personas + canonical_slug
+  const r = await fetch(
+    `${SUPABASE_URL}/rest/v1/v_product_page_ssot?select=package_id,canonical_slug&canonical_slug=not.is.null&limit=50`,
+    { headers: { apikey: ANON_KEY, Authorization: `Bearer ${ANON_KEY}` } }
+  );
+  const candidates = await r.json().catch(() => []);
+  if (!Array.isArray(candidates)) return null;
+  for (const c of candidates) {
+    const ov = await fetch(
+      `${SUPABASE_URL}/rest/v1/product_persona_overlays?select=persona_type&active=eq.true&package_id=eq.${c.package_id}`,
+      { headers: { apikey: ANON_KEY, Authorization: `Bearer ${ANON_KEY}` } }
+    );
+    const rows = await ov.json().catch(() => []);
+    if (Array.isArray(rows) && rows.length >= 3) {
+      return { package_id: c.package_id, slug: c.canonical_slug };
+    }
+  }
+  return null;
 }
 
 console.log("[conversion-integrity-suite] start");
