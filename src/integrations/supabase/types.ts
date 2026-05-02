@@ -113725,7 +113725,7 @@ export type Database = {
         | "REPORT_VIEWER"
         | "IT_ADMIN"
       pipeline_mode: "factory" | "production"
-      product_persona: "azubi" | "betrieb" | "umschulung"
+      product_persona: "azubi" | "betrieb" | "institution"
       product_track:
         | "AUSBILDUNG_VOLL"
         | "EXAM_FIRST"
@@ -114106,7 +114106,7 @@ export const Constants = {
         "IT_ADMIN",
       ],
       pipeline_mode: ["factory", "production"],
-      product_persona: ["azubi", "betrieb", "umschulung"],
+      product_persona: ["azubi", "betrieb", "institution"],
       product_track: [
         "AUSBILDUNG_VOLL",
         "EXAM_FIRST",

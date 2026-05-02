@@ -45,5 +45,10 @@ export default defineConfig({
       testMatch: /stripe-smoke-.*\.spec\.ts/,
       timeout: 180_000,
     },
+    {
+      name: 'g3b',
+      testMatch: /g3b\..*\.spec\.ts/,
+      timeout: 90_000,
+    },
   ],
 });
