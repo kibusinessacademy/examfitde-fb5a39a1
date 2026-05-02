@@ -290,6 +290,18 @@ export async function reviveLearningContentStepIfDead(
   if (!step) return false;
   if (step.status === "done") return false;
 
+  // ── Track-Applicability Guard ──
+  // Never re-queue steps that were skipped because they're not applicable for this track.
+  // Otherwise the atomic-enqueue trigger fires → job hits phantom-block → infinite loop.
+  if (step.status === "skipped") {
+    const m = step.meta || {};
+    const isTrackSkip =
+      m.skipped_reason === "TRACK_NOT_APPLICABLE_LEARNING_CONTENT" ||
+      (typeof m.skip_reason === "string" && m.skip_reason.includes("not_applicable")) ||
+      (typeof m.skip_source === "string" && m.skip_source.startsWith("trg_auto_skip_not_applicable"));
+    if (isTrackSkip) return false;
+  }
+
   // ── Cooldown guard: don't double-revive ──
   const lastReviveAt = step.meta?.liveness_requeued_at;
   if (lastReviveAt) {
