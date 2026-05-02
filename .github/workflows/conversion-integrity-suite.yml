@@ -1,0 +1,30 @@
+name: Conversion Integrity Suite (Path E)
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"  # alle 6h
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "src/pages/product/ProductPersonaPage.tsx"
+      - "src/hooks/useProductPersonaOverlay.ts"
+      - "src/lib/landing/**"
+      - "supabase/migrations/**"
+      - "scripts/conversion-integrity-suite.mjs"
+
+jobs:
+  conversion-integrity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Run Path E suite
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          PROD_URL: https://examfitde.lovable.app
+        run: node scripts/conversion-integrity-suite.mjs
