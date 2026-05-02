@@ -1,6 +1,6 @@
 ---
-name: Control-Lane DAG-Drift Watchdog v1.4
-description: 10-min cron healt Control-Lane-Stillstand. v1.2 fixt Sub-RPC-Signaturen (TABLE-Return + Pflichtargs), v1.3 setzt service_role JWT-Claim, v1.4 chunked Pending-Enqueue (5er-Batches) damit Trigger-Recursion-Konflikte einzelne Pakete nicht den Gesamtlauf killen. Vollständiger sub_reports-JSON in metadata.
+name: Control-Lane DAG-Drift Watchdog v1.5
+description: 10-min cron healt Control-Lane-Stillstand. v1.5 entkoppelt Pending-Enqueue-Heiler — drei-phasen-Schreibweise (Kandidaten sammeln → cp.status updaten → Step-für-Step in eigener EXCEPTION-Boundary mit Re-Read+FOR UPDATE) eliminiert "tuple already modified by trigger". v1.4 chunked, v1.3 service_role-Claim, v1.2 Sub-RPC-Signaturen.
 type: feature
 ---
 
@@ -16,8 +16,9 @@ type: feature
   - `admin_heal_pending_enqueue_drift(uuid[],text,boolean)` hat **Pflichtargs** → mit `array_agg(package_id) WHERE status='pending_enqueue'` aufgerufen.
 - **v1.3:** Pending-Enqueue-RPC hat Auth-Gate (`admin OR service_role`). Watchdog läuft als Cron ohne Auth-Context → `set_config('request.jwt.claim.role','service_role',true)` lokal vor Aufruf.
 - **v1.4:** Pending-Enqueue chunked (5 Pakete/Batch). Trigger-Recursion-Fehler `tuple already modified` betrifft jetzt nur einzelne Chunks, Rest läuft durch. Vollständiger Per-Chunk-Report in `metadata.sub_reports.pending_enqueue_drift.chunks`.
+- **v1.5 (2026-05-02):** Root-Cause-Fix für `admin_heal_pending_enqueue_drift` selbst. Drei-Phasen-Schreibweise: (1) Kandidaten-Step-IDs ZUERST sammeln, (2) `course_packages.status='building'` updaten (Trigger dürfen feuern), (3) Step-für-Step in eigener `BEGIN/EXCEPTION`-Boundary mit `SELECT … FOR UPDATE` Re-Read — überspringt Steps, die der Trigger inzwischen vorgerückt hat (`already_progressed_by_trigger`). Per-Step-Errors strukturiert in `metadata.step_errors`. Audit `result_status='partial'` statt Crash. Live-Test 2026-05-02: 4/4 Pakete success, 26/26 Steps gehealed, 0 errors.
 
-**Validierung v1.4:** Initial-Run 34/44 Pending-Enqueue-Pakete OK + 4 Failed-QCs healed. 10 verbleibende Failures = Logik-Bug in `admin_heal_pending_enqueue_drift` (Heiler triggert eigenen Trigger), separat adressieren.
+**Validierung v1.4:** Initial-Run 34/44 Pending-Enqueue-Pakete OK + 4 Failed-QCs healed. 10 verbleibende Failures = Logik-Bug in `admin_heal_pending_enqueue_drift` (Heiler triggert eigenen Trigger), separat adressieren. — **Behoben mit v1.5.**
 
 **Sub-Report-Schema in `auto_heal_log.metadata`:**
 ```json
