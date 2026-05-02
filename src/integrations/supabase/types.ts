@@ -106714,6 +106714,14 @@ export type Database = {
             }
             Returns: Json
           }
+      fn_detect_and_heal_pipeline_step_drift_v3: {
+        Args: never
+        Returns: {
+          action: string
+          package_id: string
+          step_key: string
+        }[]
+      }
       fn_detect_and_heal_tail_step_enqueue_drift_v2: {
         Args: never
         Returns: {
