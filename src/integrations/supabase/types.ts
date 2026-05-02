@@ -110071,6 +110071,7 @@ export type Database = {
         Returns: string
       }
       fn_normalize_identity_key: { Args: { p_input: string }; Returns: string }
+      fn_package_demote_protected: { Args: { p_pkg_id: string }; Returns: Json }
       fn_package_has_active_stripe_price: {
         Args: { p_package_id: string }
         Returns: boolean
