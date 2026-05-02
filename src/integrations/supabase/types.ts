@@ -105971,6 +105971,10 @@ export type Database = {
           reason: string
         }[]
       }
+      admin_terminate_pricing_blocked_publish_jobs: {
+        Args: never
+        Returns: Json
+      }
       admin_test_heal_v3_invariants: { Args: never; Returns: Json }
       admin_unblock_packages_by_reason: {
         Args: {
@@ -108731,6 +108735,10 @@ export type Database = {
         Returns: string
       }
       fn_normalize_identity_key: { Args: { p_input: string }; Returns: string }
+      fn_package_has_active_stripe_price: {
+        Args: { p_package_id: string }
+        Returns: boolean
+      }
       fn_package_has_valid_standalone_bundle: {
         Args: { p_package_id: string }
         Returns: boolean
