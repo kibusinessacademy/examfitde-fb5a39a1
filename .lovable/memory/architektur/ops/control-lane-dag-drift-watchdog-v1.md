@@ -1,23 +1,41 @@
 ---
-name: Control-Lane DAG-Drift Watchdog v1.1
-description: 10-min cron healt Control-Lane-Stillstand bei DAG-Vorgänger-Hängern (quality_council). v1.1 Schema/Logik-Fix: target_id::text, metadata-Spalte, Skip nur bei frischer Aktivität (updated_at<10min), korrekte Cron-Schedule.
+name: Control-Lane DAG-Drift Watchdog v1.4
+description: 10-min cron healt Control-Lane-Stillstand. v1.2 fixt Sub-RPC-Signaturen (TABLE-Return + Pflichtargs), v1.3 setzt service_role JWT-Claim, v1.4 chunked Pending-Enqueue (5er-Batches) damit Trigger-Recursion-Konflikte einzelne Pakete nicht den Gesamtlauf killen. Vollständiger sub_reports-JSON in metadata.
 type: feature
 ---
 
-**Symptom:** control-Lane processing=0, completed_6h=0, pending wächst (74× package_auto_publish + 1× package_finalize_learning_content), während recovery+build laufen.
+**Symptom:** control-Lane processing=0, completed_6h=0, pending wächst (74× package_auto_publish).
 
-**Root-Cause:** `claim_pending_jobs_by_types` filtert über DAG-Prereqs. Wenn der Vorgänger-Step (`quality_council`) in `queued`/`failed`/`pending_enqueue` hängt, wird der control-Job nie claimed.
+**Root-Cause:** `claim_pending_jobs_by_types` filtert über DAG-Prereqs. Quality-Council/Pending-Enqueue blockiert → control nie claimed.
 
-**Fix v1 (strukturell):**
-- `v_control_lane_dag_drift` + `admin_get_control_lane_drift()`: forensische Sicht.
-- `fn_heal_control_lane_dag_drift()` (cron `*/10 * * * *`): verkettet `admin_heal_failed_quality_councils` + `admin_heal_pending_enqueue_drift` + `admin_nudge_atomic_trigger`.
-- `admin_heal_control_lane_drift()`: manueller Trigger.
+**Fix-Historie:**
+- **v1 (2026-05-02):** Watchdog `fn_heal_control_lane_dag_drift` + Cron `*/10 * * * *`.
+- **v1.1:** target_id::text, Skip nur bei processing+updated_at<10min (sonst stale-Job blockiert ewig), Cron-Reschedule idempotent.
+- **v1.2:** Sub-RPC-Signaturen korrigiert:
+  - `admin_heal_failed_quality_councils()` returnt `TABLE`, nicht jsonb → `SELECT COUNT(*) FROM ...()`.
+  - `admin_heal_pending_enqueue_drift(uuid[],text,boolean)` hat **Pflichtargs** → mit `array_agg(package_id) WHERE status='pending_enqueue'` aufgerufen.
+- **v1.3:** Pending-Enqueue-RPC hat Auth-Gate (`admin OR service_role`). Watchdog läuft als Cron ohne Auth-Context → `set_config('request.jwt.claim.role','service_role',true)` lokal vor Aufruf.
+- **v1.4:** Pending-Enqueue chunked (5 Pakete/Batch). Trigger-Recursion-Fehler `tuple already modified` betrifft jetzt nur einzelne Chunks, Rest läuft durch. Vollständiger Per-Chunk-Report in `metadata.sub_reports.pending_enqueue_drift.chunks`.
 
-**Fix v1.1 (2026-05-02) — 3 latente Bugs:**
-1. **target_id-Typ-Mismatch:** `auto_heal_log.target_id` ist `text`, nicht `uuid` → INSERT auf `nudge_failed`-Branch warf Exception, Loop wurde abgebrochen. Fix: `v_pkg::text`.
-2. **Stale-Processing-Skip-Falle:** Skip-Bedingung `processing>0` blockierte Heal dauerhaft, wenn ein einzelner stale Job hing. Fix: Skip nur bei `processing AND updated_at > now()-10min`. Stale processing wird geloggt (`control_lane_drift_stale_processing_detected`) aber heilt weiter.
-3. **Cron-Schedule:** `*/10 * * * *` per `cron.schedule` idempotent re-attached (unschedule+reschedule).
+**Validierung v1.4:** Initial-Run 34/44 Pending-Enqueue-Pakete OK + 4 Failed-QCs healed. 10 verbleibende Failures = Logik-Bug in `admin_heal_pending_enqueue_drift` (Heiler triggert eigenen Trigger), separat adressieren.
 
-**Trigger-Audit-Befund v1:** `fn_cancel_orphan_jobs_on_step_done` war als Trigger-Funktion definiert, aber an keiner Tabelle attached → entfernt.
+**Sub-Report-Schema in `auto_heal_log.metadata`:**
+```json
+{
+  "run_id": "...",
+  "pkgs_nudged": 50,
+  "queued_qc_nudged": 50,
+  "stale_processing_seen": 0,
+  "sub_reports": {
+    "failed_quality_councils": { "healed": 4, "error": null },
+    "pending_enqueue_drift": {
+      "input_pkgs": 44, "pkgs_processed_ok": 34, "pkgs_failed": 10,
+      "chunks": [{ "chunk_size": 5, "ok": true|false, "error": "...", "pkg_ids": [...] }]
+    }
+  }
+}
+```
 
-**Validierung v1.1:** Manueller Run nudged 50 queued QCs ohne Exceptions, target_id sauber als text geschrieben. Folge-TODO: `admin_heal_failed_quality_councils` und `admin_heal_pending_enqueue_drift` werfen Exceptions (returnen -1) — separate Forensik-Stufe.
+**result_status:** `success` wenn keine Sub-Errors, sonst `partial`.
+
+**TODO (separat):** `admin_heal_pending_enqueue_drift` selbst entkoppeln — Update auf `course_packages.status='building'` triggert orchestrate-after-step-Trigger, der wiederum dieselben package_steps anfasst, die der Heiler gerade resettet. Lösung: entweder Trigger-Recursion-Guard mit `pg_trigger_depth()` im Heiler oder zwei-phasen-Schreibweise (status erst, steps nach Commit).
