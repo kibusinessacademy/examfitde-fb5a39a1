@@ -1,6 +1,6 @@
 ---
-name: Control-Lane DAG-Drift Watchdog v1.4
-description: 10-min cron healt Control-Lane-Stillstand. v1.2 fixt Sub-RPC-Signaturen (TABLE-Return + Pflichtargs), v1.3 setzt service_role JWT-Claim, v1.4 chunked Pending-Enqueue (5er-Batches) damit Trigger-Recursion-Konflikte einzelne Pakete nicht den Gesamtlauf killen. Vollständiger sub_reports-JSON in metadata.
+name: Control-Lane DAG-Drift Watchdog v1.5
+description: 10-min cron healt Control-Lane-Stillstand. v1.5 entkoppelt Pending-Enqueue-Heiler — drei-phasen-Schreibweise (Kandidaten sammeln → cp.status updaten → Step-für-Step in eigener EXCEPTION-Boundary mit Re-Read+FOR UPDATE) eliminiert "tuple already modified by trigger". v1.4 chunked, v1.3 service_role-Claim, v1.2 Sub-RPC-Signaturen.
 type: feature
 ---
 
