@@ -21,10 +21,31 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-      - name: Run Path E suite
+      - name: Install deps
+        run: npm ci --no-audit --no-fund
+      - name: Run Path E suite (G1, G2, G3 shell, G4-G7)
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           PROD_URL: https://examfitde.lovable.app
         run: node scripts/conversion-integrity-suite.mjs
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+      - name: Run G3b — Persona Overlay Hydration (PROD)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          PROD_URL: https://examfitde.lovable.app
+          BASE_URL: https://examfitde.lovable.app
+        run: npx playwright test --project=g3b --reporter=list
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: g3b-playwright-report
+          path: |
+            playwright-report
+            test-results
+          retention-days: 7
+
