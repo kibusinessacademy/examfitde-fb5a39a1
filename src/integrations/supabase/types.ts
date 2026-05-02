@@ -92451,6 +92451,15 @@ export type Database = {
           },
         ]
       }
+      v_data_holes_ssot: {
+        Row: {
+          detail: string | null
+          hole_key: string | null
+          n: number | null
+          severity: string | null
+        }
+        Relationships: []
+      }
       v_data_integrity_audit: {
         Row: {
           approved: number | null
@@ -104857,6 +104866,15 @@ export type Database = {
           step_status: string
         }[]
       }
+      admin_get_data_holes_summary: {
+        Args: never
+        Returns: {
+          detail: string
+          hole_key: string
+          n: number
+          severity: string
+        }[]
+      }
       admin_get_dlq_recent: {
         Args: { p_limit?: number }
         Returns: {
@@ -110409,6 +110427,7 @@ export type Database = {
       is_admin: { Args: { p_uid: string }; Returns: boolean }
       is_admin_user: { Args: { check_uid: string }; Returns: boolean }
       is_code_locked: { Args: { p_code: string }; Returns: Json }
+      is_e2e_smoke_user: { Args: { p_user_id: string }; Returns: boolean }
       is_hollow_lesson: {
         Args: { p_content: Json; p_step?: string }
         Returns: boolean
