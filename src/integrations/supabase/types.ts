@@ -10222,6 +10222,36 @@ export type Database = {
         }
         Relationships: []
       }
+      conversion_event_violations: {
+        Row: {
+          attempted_metadata: Json | null
+          attempted_session_id: string | null
+          attempted_user_id: string | null
+          created_at: string
+          event_type: string
+          id: string
+          reason: string
+        }
+        Insert: {
+          attempted_metadata?: Json | null
+          attempted_session_id?: string | null
+          attempted_user_id?: string | null
+          created_at?: string
+          event_type: string
+          id?: string
+          reason?: string
+        }
+        Update: {
+          attempted_metadata?: Json | null
+          attempted_session_id?: string | null
+          attempted_user_id?: string | null
+          created_at?: string
+          event_type?: string
+          id?: string
+          reason?: string
+        }
+        Relationships: []
+      }
       conversion_events: {
         Row: {
           anonymous_id: string | null
@@ -104849,6 +104879,18 @@ export type Database = {
           blocker_step: string
           n_packages: number
           oldest_job_age_sec: number
+        }[]
+      }
+      admin_get_conversion_event_violations: {
+        Args: { p_hours?: number; p_limit?: number }
+        Returns: {
+          attempted_metadata: Json
+          attempted_session_id: string
+          attempted_user_id: string
+          created_at: string
+          event_type: string
+          id: string
+          reason: string
         }[]
       }
       admin_get_council_deferred_overview: {
