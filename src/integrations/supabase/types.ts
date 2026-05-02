@@ -33774,6 +33774,54 @@ export type Database = {
         }
         Relationships: []
       }
+      job_queue_dead_letter: {
+        Row: {
+          blocked_at: string
+          curriculum_id: string | null
+          id: string
+          job_intended_id: string | null
+          job_type: string
+          meta: Json | null
+          package_id: string | null
+          payload: Json | null
+          resolution: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          source: string | null
+          violations: string[] | null
+        }
+        Insert: {
+          blocked_at?: string
+          curriculum_id?: string | null
+          id?: string
+          job_intended_id?: string | null
+          job_type: string
+          meta?: Json | null
+          package_id?: string | null
+          payload?: Json | null
+          resolution?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          source?: string | null
+          violations?: string[] | null
+        }
+        Update: {
+          blocked_at?: string
+          curriculum_id?: string | null
+          id?: string
+          job_intended_id?: string | null
+          job_type?: string
+          meta?: Json | null
+          package_id?: string | null
+          payload?: Json | null
+          resolution?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          source?: string | null
+          violations?: string[] | null
+        }
+        Relationships: []
+      }
       job_retry_decisions: {
         Row: {
           attempts: number | null
@@ -104711,6 +104759,18 @@ export type Database = {
           step_status: string
         }[]
       }
+      admin_get_dlq_recent: {
+        Args: { p_limit?: number }
+        Returns: {
+          blocked_at: string
+          id: string
+          job_type: string
+          package_id: string
+          resolution: string
+          source: string
+          violations: string[]
+        }[]
+      }
       admin_get_exam_pool_paused: {
         Args: never
         Returns: {
@@ -105098,6 +105158,7 @@ export type Database = {
         Args: { _package_id: string }
         Returns: Json
       }
+      admin_get_ssot_dashboard: { Args: never; Returns: Json }
       admin_get_ssot_payload_violations: {
         Args: { p_hours?: number }
         Returns: {
@@ -105115,6 +105176,10 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      admin_get_ssot_verification: {
+        Args: { p_minutes?: number }
+        Returns: Json
       }
       admin_get_status_reverter_recent: {
         Args: { p_limit?: number }
@@ -105745,6 +105810,14 @@ export type Database = {
           p_reason?: string
           p_take_offline?: boolean
         }
+        Returns: Json
+      }
+      admin_ssot_payload_verification: {
+        Args: { p_minutes?: number }
+        Returns: Json
+      }
+      admin_ssot_producer_regression_test: {
+        Args: { p_minutes?: number }
         Returns: Json
       }
       admin_step_reset_detailed: {
