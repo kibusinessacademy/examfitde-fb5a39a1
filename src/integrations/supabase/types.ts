@@ -106714,6 +106714,14 @@ export type Database = {
             }
             Returns: Json
           }
+      fn_detect_and_heal_tail_step_enqueue_drift_v2: {
+        Args: never
+        Returns: {
+          action: string
+          package_id: string
+          step_key: string
+        }[]
+      }
       fn_detect_content_gaps: { Args: { p_cluster_id?: string }; Returns: Json }
       fn_detect_keyword_cannibalization: { Args: never; Returns: Json }
       fn_detect_publish_recovery_eligible: {
