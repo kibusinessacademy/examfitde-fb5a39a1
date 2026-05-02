@@ -108058,6 +108058,10 @@ export type Database = {
           stop_reason: string
         }[]
       }
+      fn_drift_cancel_cooldown_check: {
+        Args: { p_job_type: string; p_package_id: string }
+        Returns: boolean
+      }
       fn_dry_run_bulk_import: { Args: { p_job_id: string }; Returns: Json }
       fn_e2e_integrity_guard: { Args: { p_dry_run?: boolean }; Returns: Json }
       fn_effective_wip_state: {
