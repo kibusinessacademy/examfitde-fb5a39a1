@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 const SSOTHealthCard = lazy(() => import('@/components/admin/SSOTHealthCard'));
+const SSOTPayloadDashboardCard = lazy(() => import('@/components/admin/SSOTPayloadDashboardCard'));
 
 async function callKpiAI(payload: Record<string, unknown>) {
   const { data, error } = await supabase.functions.invoke('admin-ai-assistant', { body: payload });
@@ -194,6 +195,9 @@ export default function KPIPage() {
         <TabsContent value="quality" className="mt-4 space-y-4">
           <Suspense fallback={<Skeleton className="h-48 w-full" />}>
             <SSOTHealthCard />
+          </Suspense>
+          <Suspense fallback={<Skeleton className="h-56 w-full" />}>
+            <SSOTPayloadDashboardCard />
           </Suspense>
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
             <KpiCard title="Published" value={pipeline?.published ?? '—'} icon={ShieldCheck} tone="success" subtitle="Qualitätsgeprüft" />
