@@ -105155,6 +105155,10 @@ export type Database = {
         Args: { p_key: string; p_value: Json }
         Returns: Json
       }
+      admin_skip_track_drift_steps: {
+        Args: { p_package_id: string }
+        Returns: Json
+      }
       admin_smart_heal_bulk: {
         Args: {
           p_action?: string
@@ -105175,28 +105179,16 @@ export type Database = {
         }
         Returns: Json
       }
-      admin_step_reset_detailed:
-        | {
-            Args: {
-              p_allow_regression?: boolean
-              p_clear_exhaustion?: boolean
-              p_operator?: string
-              p_package_id: string
-              p_reason: string
-              p_step_keys: string[]
-            }
-            Returns: Json
-          }
-        | {
-            Args: {
-              p_nudge_atomic?: boolean
-              p_package_id: string
-              p_reason: string
-              p_source?: string
-              p_step_keys: string[]
-            }
-            Returns: Json
-          }
+      admin_step_reset_detailed: {
+        Args: {
+          p_nudge_atomic?: boolean
+          p_package_id: string
+          p_reason: string
+          p_source?: string
+          p_step_keys: string[]
+        }
+        Returns: Json
+      }
       admin_stripe_price_sync_apply: {
         Args: { p_dry_run?: boolean }
         Returns: Json
