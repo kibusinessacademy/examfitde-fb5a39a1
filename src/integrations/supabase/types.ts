@@ -102653,6 +102653,80 @@ export type Database = {
           },
         ]
       }
+      v_quality_gate_blocked_packages: {
+        Row: {
+          blueprint_coverage: number | null
+          competency_coverage: number | null
+          curriculum_id: string | null
+          failed_block_rules: string[] | null
+          full_report: Json | null
+          lf_coverage: number | null
+          minutes_since_report: number | null
+          package_id: string | null
+          package_status: string | null
+          report_at: string | null
+          title: string | null
+          total_questions: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_qc_backlog"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_qc_backlog_age"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
+        ]
+      }
       v_queued_stall_candidates: {
         Row: {
           active_jobs: number | null
@@ -104547,6 +104621,10 @@ export type Database = {
         Returns: Json
       }
       admin_check_publish_readiness: {
+        Args: { p_package_id: string }
+        Returns: Json
+      }
+      admin_classify_package_root_cause: {
         Args: { p_package_id: string }
         Returns: Json
       }
@@ -107927,6 +108005,7 @@ export type Database = {
           unique_pkgs: number
         }[]
       }
+      fn_auto_trigger_quality_gate_heal: { Args: never; Returns: Json }
       fn_auto_unblock_ready_packages: {
         Args: never
         Returns: {
@@ -108007,6 +108086,10 @@ export type Database = {
         Returns: Json
       }
       fn_classify_job_error: { Args: { _err: string }; Returns: string }
+      fn_classify_quality_gate_block: {
+        Args: { p_package_id: string }
+        Returns: Json
+      }
       fn_classify_unclassified_subcluster: {
         Args: { _err: string; _meta: Json }
         Returns: string
