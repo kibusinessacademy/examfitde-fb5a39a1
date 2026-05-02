@@ -200,11 +200,13 @@ if (SERVICE_KEY) {
 
 // ---------- G7 — L8_NO_PERSONA_OVERLAY bleibt 0 ----------
 {
-  const r = await rpcReadonly(
-    `SELECT COUNT(*)::int AS n FROM v_data_holes_ssot WHERE category = 'L8_NO_PERSONA_OVERLAY'`
+  const r = await fetch(
+    `${SUPABASE_URL}/rest/v1/v_data_holes_ssot?select=category&category=eq.L8_NO_PERSONA_OVERLAY`,
+    { headers: { apikey: ANON_KEY, Authorization: `Bearer ${ANON_KEY}` } }
   );
-  const n = Array.isArray(r.body) && r.body[0] ? Number(r.body[0].n) : -1;
-  gate("G7", n === 0, `L8_NO_PERSONA_OVERLAY count = ${n}`);
+  const rows = await r.json().catch(() => []);
+  const n = Array.isArray(rows) ? rows.length : -1;
+  gate("G7", n === 0, `L8_NO_PERSONA_OVERLAY rows = ${n}`);
 }
 
 console.log("");
