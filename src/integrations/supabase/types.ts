@@ -102937,6 +102937,18 @@ export type Database = {
         }
         Relationships: []
       }
+      v_ssot_payload_violations: {
+        Row: {
+          distinct_pkgs: number | null
+          hour_bucket: string | null
+          job_type: string | null
+          n: number | null
+          result_status: string | null
+          sample_violations: string[] | null
+          sources: string[] | null
+        }
+        Relationships: []
+      }
       v_standalone_artifact_health: {
         Row: {
           any_validation_passed: boolean | null
@@ -105085,6 +105097,24 @@ export type Database = {
       admin_get_run_integrity_runbook: {
         Args: { _package_id: string }
         Returns: Json
+      }
+      admin_get_ssot_payload_violations: {
+        Args: { p_hours?: number }
+        Returns: {
+          distinct_pkgs: number | null
+          hour_bucket: string | null
+          job_type: string | null
+          n: number | null
+          result_status: string | null
+          sample_violations: string[] | null
+          sources: string[] | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "v_ssot_payload_violations"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       admin_get_status_reverter_recent: {
         Args: { p_limit?: number }
@@ -108378,6 +108408,16 @@ export type Database = {
       fn_has_org_management_role: {
         Args: { p_org_id: string; p_roles?: string[]; p_user_id: string }
         Returns: boolean
+      }
+      fn_heal_assert_payload: {
+        Args: {
+          p_curriculum_id: string
+          p_enqueue_source: string
+          p_job_type: string
+          p_package_id: string
+          p_step_key: string
+        }
+        Returns: Json
       }
       fn_heal_ghost_completions:
         | { Args: never; Returns: Json }
