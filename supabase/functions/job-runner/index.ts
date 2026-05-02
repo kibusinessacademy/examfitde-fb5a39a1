@@ -1538,7 +1538,12 @@ Deno.serve(async (req) => {
           // Check if response explicitly says retry:false — this is a deterministic block
           const isNoRetry = typeof parsed === "object" && parsed && (parsed as any).retry === false;
 
-          if (isPermanent || isNoRetry) {
+          // CRITICAL FIX: edge functions also signal terminal with `terminal:true` (e.g. package-auto-publish
+          // publish_guard_terminal, COUNCIL_CONSISTENCY, DIDAKTIK_INCOMPLETE, PRICING_HARD_GATE).
+          // Without honoring this, runner retries 4x → reaper cancels → atomic-trigger requeues → infinite loop.
+          const isTerminalFlag = typeof parsed === "object" && parsed && (parsed as any).terminal === true;
+
+          if (isPermanent || isNoRetry || isTerminalFlag) {
             const label = isPermanent ? "PERMANENT" : "BLOCKED";
             console.warn(`[job-runner] ${fnName} 422 ${label} → terminal (no retry)`);
             finalState = {
