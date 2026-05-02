@@ -90,10 +90,10 @@ console.log(`  fixture = ${fx.slug} (${fx.package_id})`);
   for (const p of personas) {
     const url = `${PROD_URL}/pruefungstraining/${fx.slug}/${p}`;
     try {
-      const r = await fetch(url, { redirect: "manual" });
+      const r = await fetch(url, { redirect: "follow" });
       const ok = r.status === 200;
       if (!ok) allOk = false;
-      console.log(`     ${p}: HTTP ${r.status}`);
+      console.log(`     ${p}: HTTP ${r.status} (final ${r.url})`);
     } catch (e) {
       allOk = false;
       console.log(`     ${p}: fetch error ${e.message}`);
