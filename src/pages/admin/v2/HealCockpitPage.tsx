@@ -75,6 +75,8 @@ import { RecurringPatternsCard } from "@/components/admin/heal/cards/RecurringPa
 import { PermanentFixBacklogCard } from "@/components/admin/heal/cards/PermanentFixBacklogCard";
 import { CourseHealPlansCard } from "@/components/admin/heal/cards/CourseHealPlansCard";
 import { ExamPoolQuarantineCard } from "@/components/admin/heal/cards/ExamPoolQuarantineCard";
+import { PackagePipelineLiveCard } from "@/components/admin/heal/cards/PackagePipelineLiveCard";
+import { HealAuditLayersCard } from "@/components/admin/heal/cards/HealAuditLayersCard";
 
 // Queue-Detail-Tabs (lazy — schwer)
 const QueueLiveTab = lazy(() => import("@/pages/admin/v2/QueuePage"));
@@ -281,6 +283,8 @@ export default function HealCockpitPage() {
             <CourseHealPlansCard />
             <ExamPoolQuarantineCard />
             <SystemIntentsKpiCard />
+            <PackagePipelineLiveCard />
+            <HealAuditLayersCard />
             <StuckPatternsCard />
             <HealStatusCard />
             <StaleDraftsCard />
