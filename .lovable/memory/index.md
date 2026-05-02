@@ -18,6 +18,7 @@ Pipeline-Invariants: Artifact-Truth>Status (step done ⇔ Artifact existiert), I
 - Artefakt-Joins SSOT: Exam Questions, Oral, Handbook, MiniChecks über `curriculum_id`; Tutor Index über `package_id`.
 - **competencies hat KEINE curriculum_id** — Joins MÜSSEN über `learning_fields.curriculum_id` (siehe Memory).
 - **Causality-Drift-Prinzip**: Kein Step-State ohne Artefaktprüfung, kein Artefaktzustand ohne Reconciler zurück in Step-State.
+- **Pattern-Hunt-Pflicht bei Forensik:** Bei jeder Fehler-/Loop-/Stall-Diagnose IMMER zusätzlich auf ähnliche Muster scannen (job_type×last_error_code×source-Aggregation 6h/24h, Top-N Cancel/Fail-Cluster, gleiche Trigger/Cron-Quelle, gleicher Race-Typ). Heal NIE isoliert pro Symptom — immer Cluster-weit + neues Pattern Xn dokumentieren in mem://architektur/ops/.
 - **Routing-Parität**: Jeder Eintrag in content-runner WORKLOAD_KEY_MAP MUSS eine `llm_provider_routing_policies`-Zeile haben, sonst loopt PROVIDER_LOOP_GUARD endlos auf "unknown/unknown".
 - **HEAL-FIRST PRINZIP**: Bei Diagnosen IMMER direkt heilen statt nur analysieren oder nach Genehmigung fragen.
 - **NEW-COURSE-PFLICHT**: Jeder neue Kurs MUSS in dieser Reihenfolge: (1) `generate-certification`, (2) `init_course_package_steps` (28 Schritte), (3) `blueprint-fanout` → 24 Blueprints, (4) `admin_force_steps_done` für `auto_seed_exam_blueprints`+`validate_blueprints` (reason `pre_build_adoption_after_fanout`).
