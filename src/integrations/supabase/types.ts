@@ -107972,6 +107972,14 @@ export type Database = {
       }
       fn_derive_exam_part: { Args: { p_blueprint_id: string }; Returns: string }
       fn_detect_and_heal_cancel_loop_x3: { Args: never; Returns: Json }
+      fn_detect_and_heal_dag_enqueue_drift: {
+        Args: never
+        Returns: {
+          jobs_enqueued: number
+          packages_healed: number
+          steps_reset: number
+        }[]
+      }
       fn_detect_and_heal_exam_pool_enqueue_drift:
         | {
             Args: { p_dry_run?: boolean; p_max_per_run?: number }
