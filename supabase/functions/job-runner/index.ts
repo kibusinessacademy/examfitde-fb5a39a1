@@ -1544,7 +1544,7 @@ Deno.serve(async (req) => {
           const isTerminalFlag = typeof parsed === "object" && parsed && (parsed as any).terminal === true;
 
           if (isPermanent || isNoRetry || isTerminalFlag) {
-            const label = isPermanent ? "PERMANENT" : "BLOCKED";
+            const label = isPermanent ? "PERMANENT" : (isTerminalFlag ? "TERMINAL" : "BLOCKED");
             console.warn(`[job-runner] ${fnName} 422 ${label} → terminal (no retry)`);
             finalState = {
               status: "cancelled",
