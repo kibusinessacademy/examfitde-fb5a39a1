@@ -92232,6 +92232,16 @@ export type Database = {
         }
         Relationships: []
       }
+      v_control_lane_dag_drift: {
+        Row: {
+          blocked_job_type: string | null
+          blocker_status: string | null
+          blocker_step: string | null
+          job_created_at: string | null
+          package_id: string | null
+        }
+        Relationships: []
+      }
       v_cost_per_package: {
         Row: {
           avg_latency_ms: number | null
@@ -104744,6 +104754,16 @@ export type Database = {
           reason_code: string
         }[]
       }
+      admin_get_control_lane_drift: {
+        Args: never
+        Returns: {
+          blocked_job_type: string
+          blocker_status: string
+          blocker_step: string
+          n_packages: number
+          oldest_job_age_sec: number
+        }[]
+      }
       admin_get_council_deferred_overview: {
         Args: never
         Returns: {
@@ -105209,6 +105229,7 @@ export type Database = {
         Args: { p_recommendation_id: string }
         Returns: Json
       }
+      admin_heal_control_lane_drift: { Args: never; Returns: Json }
       admin_heal_exam_pool_too_small: {
         Args: {
           p_dry_run?: boolean
@@ -108492,6 +108513,7 @@ export type Database = {
         }
         Returns: Json
       }
+      fn_heal_control_lane_dag_drift: { Args: never; Returns: Json }
       fn_heal_ghost_completions:
         | { Args: never; Returns: Json }
         | { Args: { p_mode?: string }; Returns: Json }
