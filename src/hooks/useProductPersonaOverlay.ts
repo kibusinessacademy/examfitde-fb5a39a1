@@ -48,7 +48,6 @@ export function useProductPersonaOverlay(
     enabled: Boolean(packageId && persona),
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
-      console.log('[useProductPersonaOverlay] fetch', { packageId, persona });
       if (!packageId || !persona) return null;
 
       const { data, error } = await (supabase as any)
