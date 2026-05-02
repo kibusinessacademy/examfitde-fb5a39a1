@@ -33780,6 +33780,48 @@ export type Database = {
         }
         Relationships: []
       }
+      job_type_quarantine: {
+        Row: {
+          blocked_until: string
+          cancel_count: number
+          cleared_at: string | null
+          cleared_by: string | null
+          created_at: string
+          id: string
+          job_type: string
+          metadata: Json
+          reason: string
+          triggered_by: string
+          window_minutes: number
+        }
+        Insert: {
+          blocked_until: string
+          cancel_count: number
+          cleared_at?: string | null
+          cleared_by?: string | null
+          created_at?: string
+          id?: string
+          job_type: string
+          metadata?: Json
+          reason: string
+          triggered_by?: string
+          window_minutes: number
+        }
+        Update: {
+          blocked_until?: string
+          cancel_count?: number
+          cleared_at?: string | null
+          cleared_by?: string | null
+          created_at?: string
+          id?: string
+          job_type?: string
+          metadata?: Json
+          reason?: string
+          triggered_by?: string
+          window_minutes?: number
+        }
+        Relationships: []
+      }
       jobtype_limits: {
         Row: {
           job_type: string
@@ -93514,6 +93556,39 @@ export type Database = {
         }
         Relationships: []
       }
+      v_job_type_quarantine_active: {
+        Row: {
+          blocked_until: string | null
+          cancel_count: number | null
+          created_at: string | null
+          job_type: string | null
+          metadata: Json | null
+          minutes_remaining: number | null
+          reason: string | null
+          window_minutes: number | null
+        }
+        Insert: {
+          blocked_until?: string | null
+          cancel_count?: number | null
+          created_at?: string | null
+          job_type?: string | null
+          metadata?: Json | null
+          minutes_remaining?: never
+          reason?: string | null
+          window_minutes?: number | null
+        }
+        Update: {
+          blocked_until?: string | null
+          cancel_count?: number | null
+          created_at?: string | null
+          job_type?: string | null
+          metadata?: Json | null
+          minutes_remaining?: never
+          reason?: string | null
+          window_minutes?: number | null
+        }
+        Relationships: []
+      }
       v_latest_business_kpi: {
         Row: {
           active_campaigns: number | null
@@ -103938,6 +104013,10 @@ export type Database = {
         Args: { p_quarantine_id: string }
         Returns: boolean
       }
+      admin_clear_job_type_quarantine: {
+        Args: { p_job_type: string }
+        Returns: Json
+      }
       admin_close_orphan_governance_steps:
         | {
             Args: { p_dry_run?: boolean }
@@ -104322,6 +104401,25 @@ export type Database = {
           trigger_source: string
           ts: string
         }[]
+      }
+      admin_get_job_type_quarantine_active: {
+        Args: never
+        Returns: {
+          blocked_until: string | null
+          cancel_count: number | null
+          created_at: string | null
+          job_type: string | null
+          metadata: Json | null
+          minutes_remaining: number | null
+          reason: string | null
+          window_minutes: number | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "v_job_type_quarantine_active"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       admin_get_lane_health: {
         Args: never
@@ -107151,6 +107249,14 @@ export type Database = {
       fn_auto_heal_materialization_guard: { Args: never; Returns: Json }
       fn_auto_heal_stale_lock_exhausted: { Args: never; Returns: Json }
       fn_auto_heal_zombie_locked_jobs: { Args: never; Returns: Json }
+      fn_auto_quarantine_hot_cancel_loops: {
+        Args: {
+          p_block_minutes?: number
+          p_cancel_threshold?: number
+          p_window_minutes?: number
+        }
+        Returns: Json
+      }
       fn_auto_retry_failed_jobs: { Args: { _limit?: number }; Returns: Json }
       fn_auto_scaler_decide: {
         Args: never
@@ -107325,6 +107431,10 @@ export type Database = {
           _source_ref: string
         }
         Returns: string
+      }
+      fn_cron_enqueue_drift_guard: {
+        Args: { p_caller?: string; p_job_type: string; p_package_id: string }
+        Returns: Json
       }
       fn_derive_exam_part: { Args: { p_blueprint_id: string }; Returns: string }
       fn_detect_and_heal_cancel_loop_x3: { Args: never; Returns: Json }
