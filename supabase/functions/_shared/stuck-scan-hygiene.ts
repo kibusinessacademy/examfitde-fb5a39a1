@@ -670,17 +670,20 @@ export async function healFalseLivenessPackages(sb: SupabaseClient): Promise<str
             if (prot && (prot as { protected?: boolean }).protected) {
               console.log(`[stuck-scan] PROTECTED skip false-liveness normalize ${String(pkg.package_id).slice(0, 8)}: ${(prot as { reason?: string }).reason}`);
             } else {
-              const { error: resetErr } = await sb
-                .from("course_packages")
-                .update({
-                  status: "queued",
-                  updated_at: new Date().toISOString(),
-                  stuck_reason: null,
-                })
-                .eq("id", pkg.package_id)
-                .eq("status", "building");
-
-              if (!resetErr) {
+              // SAFE_PACKAGE_STATUS_DEMOTE: routed via admin_revert_building_to_queued
+              // (whitelisted source = stuck_scan_normalize, atomic protection re-check).
+              const { data: revRows, error: resetErr } = await sb.rpc(
+                "admin_revert_building_to_queued" as never,
+                {
+                  p_package_ids: [pkg.package_id],
+                  p_source: "stuck_scan_normalize",
+                  p_last_error: null,
+                  p_clear_stuck: true,
+                } as never,
+              );
+              const reverted = Array.isArray(revRows) &&
+                (revRows as Array<{ action: string }>).some(r => r.action === "reverted");
+              if (!resetErr && reverted) {
                 normalized.push(pkg.package_id);
                 console.warn(`[stuck-scan] 🎭→📦 FALSE-LIVENESS NORMALIZE: ${String(pkg.package_id).slice(0, 8)} "${pkg.title}" — building→queued (idle ${Math.round(idleMinutes)}min, 0 active jobs)`);
               }
@@ -719,17 +722,20 @@ export async function healFalseLivenessPackages(sb: SupabaseClient): Promise<str
           if (prot && (prot as { protected?: boolean }).protected) {
             console.log(`[stuck-scan] PROTECTED skip no-activity normalize ${String(pkg.package_id).slice(0, 8)}: ${(prot as { reason?: string }).reason}`);
           } else {
-            const { error: resetErr } = await sb
-              .from("course_packages")
-              .update({
-                status: "queued",
-                updated_at: new Date().toISOString(),
-                stuck_reason: null,
-              })
-              .eq("id", pkg.package_id)
-              .eq("status", "building");
-
-            if (!resetErr) {
+            // SAFE_PACKAGE_STATUS_DEMOTE: routed via admin_revert_building_to_queued
+            // (whitelisted source = stuck_scan_normalize, atomic protection re-check).
+            const { data: revRows, error: resetErr } = await sb.rpc(
+              "admin_revert_building_to_queued" as never,
+              {
+                p_package_ids: [pkg.package_id],
+                p_source: "stuck_scan_normalize",
+                p_last_error: null,
+                p_clear_stuck: true,
+              } as never,
+            );
+            const reverted = Array.isArray(revRows) &&
+              (revRows as Array<{ action: string }>).some(r => r.action === "reverted");
+            if (!resetErr && reverted) {
               normalized.push(pkg.package_id);
               console.warn(`[stuck-scan] 📦 NO-ACTIVITY NORMALIZE: ${String(pkg.package_id).slice(0, 8)} "${pkg.title}" — building→queued (idle ${Math.round(idleMinutes)}min, 0 active jobs)`);
             }
