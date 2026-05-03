@@ -106134,6 +106134,20 @@ export type Database = {
           sample_package_ids: string[]
         }[]
       }
+      admin_get_building_progress_48h: {
+        Args: never
+        Returns: {
+          build_progress: number
+          current_step: string
+          has_progress: boolean
+          jobs_done_48h: number
+          last_progress_at: string
+          package_id: string
+          pkg_updated_at: string
+          steps_done_48h: number
+          title: string
+        }[]
+      }
       admin_get_cancel_reason_breakdown: {
         Args: { p_hours?: number }
         Returns: {
