@@ -106600,6 +106600,20 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      admin_get_remaining_revert_producers: {
+        Args: { p_window_hours?: number }
+        Returns: {
+          apps: Json
+          client_addrs: Json
+          events: number
+          first_seen: string
+          last_seen: string
+          likely_cron: string
+          target_id: string
+          trigger_sources: Json
+          users: Json
+        }[]
+      }
       admin_get_run_integrity_runbook: {
         Args: { _package_id: string }
         Returns: Json
@@ -108912,6 +108926,7 @@ export type Database = {
         Args: { p_session_id: string }
         Returns: number
       }
+      cron_alert_remaining_revert_producers: { Args: never; Returns: Json }
       cron_record_tick_intent: {
         Args: { p_intent_type: string; p_source: string }
         Returns: Json
