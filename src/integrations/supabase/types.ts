@@ -106351,6 +106351,23 @@ export type Database = {
           orphan_count: number
         }[]
       }
+      admin_get_hard_block_events: {
+        Args: { p_hours?: number; p_limit?: number }
+        Returns: {
+          application_name: string
+          block_reason: string
+          build_progress: number
+          caller_query: string
+          client_addr: string
+          created_at: string
+          id: string
+          package_id: string
+          package_status: string
+          package_title: string
+          transition_source: string
+          usename: string
+        }[]
+      }
       admin_get_heal_audit_layers: {
         Args: { p_limit?: number; p_package_id?: string }
         Returns: {
@@ -107410,6 +107427,14 @@ export type Database = {
       admin_terminate_pricing_blocked_publish_jobs: {
         Args: never
         Returns: Json
+      }
+      admin_test_hard_block_building_to_queued: {
+        Args: never
+        Returns: {
+          detail: string
+          passed: boolean
+          test_name: string
+        }[]
       }
       admin_test_heal_v3_invariants: { Args: never; Returns: Json }
       admin_trigger_pricing_backfill_now: { Args: never; Returns: Json }
