@@ -107233,6 +107233,19 @@ export type Database = {
         Args: { p_package_id: string; p_reason?: string; p_step_key: string }
         Returns: Json
       }
+      admin_revert_building_to_queued: {
+        Args: {
+          p_clear_stuck?: boolean
+          p_last_error?: string
+          p_package_ids: string[]
+          p_source: string
+        }
+        Returns: {
+          action: string
+          package_id: string
+          reason: string
+        }[]
+      }
       admin_rollback_heal: {
         Args: {
           p_operator?: string
