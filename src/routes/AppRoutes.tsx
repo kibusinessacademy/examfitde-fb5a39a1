@@ -430,6 +430,7 @@ const AppRoutes = () => {
           <Route path="studio/:packageId" element={<CourseWorkspace />} />
           {/* === Heal Cockpit (SSOT — konsolidiert Queue + BlockerOps + HealStrategy) === */}
           <Route path="heal" element={<HealCockpitPage />} />
+          <Route path="forensics" element={<ForensicsPage />} />
           <Route path="synthetic-cohort" element={<SyntheticCohortPage />} />
           {/* Legacy redirects — alle alten Heal-/Queue-Hubs landen im Heal Cockpit */}
           <Route path="queue" element={<Navigate to="/admin/heal?queue_tab=live" replace />} />
