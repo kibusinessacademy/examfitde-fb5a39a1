@@ -248,6 +248,9 @@ Deno.serve(async (req) => {
     }
 
     // 8) Set to queued (build-course-package will pick it up)
+    // SAFE_PACKAGE_STATUS_DEMOTE: planning→queued is the canonical
+    // initial enqueue path of a freshly-created package, not a building→queued
+    // revert. Source filter `.eq("status","planning")` makes this provably safe.
     await sb
       .from("course_packages")
       .update({ status: "queued" })
