@@ -46,21 +46,39 @@ for (const file of files) {
   if (file.includes("supabase/migrations")) continue;
 
   const lines = readFileSync(file, "utf8").split("\n");
-  for (let i = 0; i < lines.length; i++) {
-    if (!UPDATE_RE.test(lines[i])) continue;
-    // Look ahead up to 30 lines for the closing ); to capture the object
-    const blockEnd = Math.min(lines.length, i + 30);
-    const block = lines.slice(i, blockEnd).join("\n");
-    const cutAtClose = block.indexOf("});");
-    const objText = cutAtClose >= 0 ? block.slice(0, cutAtClose + 3) : block;
+  const src = lines.join("\n");
+  // line offsets
+  const lineStart = [0];
+  for (let k = 0; k < src.length; k++) if (src[k] === "\n") lineStart.push(k + 1);
+
+  const re = /\.from\(\s*["'`]course_packages["'`]\s*\)\s*\.update\(/g;
+  let m;
+  while ((m = re.exec(src)) !== null) {
+    // find balanced paren end after re.lastIndex - 1 (the '(' position)
+    const openIdx = m.index + m[0].length - 1;
+    let depth = 1, j = openIdx + 1;
+    while (j < src.length && depth > 0) {
+      const ch = src[j];
+      if (ch === "(") depth++;
+      else if (ch === ")") depth--;
+      j++;
+    }
+    const objText = src.slice(openIdx, j);
     if (!STATUS_QUEUED_RE.test(objText)) continue;
 
-    // Look back WINDOW_BEFORE lines for any marker (and forward a few for SAFE comment on prior line)
-    const ctxStart = Math.max(0, i - WINDOW_BEFORE);
-    const ctx = lines.slice(ctxStart, i + 5).join("\n");
-    const hasMarker = MARKERS.some((m) => ctx.includes(m));
+    // line number of the .update( call
+    const callPos = m.index;
+    let lineNo = 1;
+    for (let k = 1; k < lineStart.length; k++) {
+      if (lineStart[k] > callPos) { lineNo = k; break; }
+      lineNo = k + 1;
+    }
+    const ctxStart = Math.max(0, lineNo - 1 - WINDOW_BEFORE);
+    const ctxEnd = Math.min(lines.length, lineNo + 5);
+    const ctx = lines.slice(ctxStart, ctxEnd).join("\n");
+    const hasMarker = MARKERS.some((mk) => ctx.includes(mk));
     if (!hasMarker) {
-      violations.push({ file, line: i + 1, snippet: lines[i].trim() });
+      violations.push({ file, line: lineNo, snippet: lines[lineNo - 1].trim() });
     }
   }
 }
