@@ -56,30 +56,45 @@ for (const p of fePersonas) {
 }
 if (ctxKeys.includes("umschulung")) fail("Legacy 'umschulung' im Copy-Context");
 
-// 2) DB-Enum (distinct persona_type aus overlays + hardcoded canonical set)
+// 2) DB-Enum direkt via pg_enum (RPC get_enum_values)
+const enumRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_enum_values`, {
+  method: "POST",
+  headers: {
+    apikey: ANON,
+    Authorization: `Bearer ${ANON}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({ enum_name: "product_persona" }),
+});
+if (!enumRes.ok) {
+  fail(`get_enum_values RPC failed: ${enumRes.status} ${await enumRes.text()}`);
+} else {
+  const dbEnum = (await enumRes.json() ?? []).slice().sort();
+  ok(`DB pg_enum product_persona: [${dbEnum.join(", ")}]`);
+
+  const missingInDb = fePersonas.filter((p) => !dbEnum.includes(p));
+  const extraInDb = dbEnum.filter((p) => !fePersonas.includes(p));
+  if (missingInDb.length === 0) ok("Alle FE-Personas existieren in DB-Enum");
+  else fail(`FE hat Personas ohne DB-Enum-Wert: ${missingInDb.join(", ")}`);
+
+  if (extraInDb.length === 0) ok("Keine Drift: DB-Enum ⊆ FE-Whitelist");
+  else fail(`DB-Enum enthält unbekannte Werte: ${extraInDb.join(", ")}`);
+
+  if (dbEnum.includes("umschulung")) fail("Legacy 'umschulung' im DB-Enum vorhanden");
+}
+
+// 2b) Overlay-Coverage (warn-only)
 const overlaysRes = await fetch(
-  `${SUPABASE_URL}/rest/v1/product_persona_overlays?select=persona_type`,
+  `${SUPABASE_URL}/rest/v1/product_persona_overlays?select=persona_type&is_active=eq.true`,
   { headers: { apikey: ANON, Authorization: `Bearer ${ANON}` } },
 );
-if (!overlaysRes.ok) {
-  fail(`product_persona_overlays unreachable: ${overlaysRes.status}`);
-} else {
+if (overlaysRes.ok) {
   const rows = await overlaysRes.json();
-  const dbValues = [...new Set(rows.map((r) => r.persona_type))].sort();
-  ok(`DB-Overlay persona_type: [${dbValues.join(", ")}]`);
-
-  // Drift-Check
-  const missingInDb = fePersonas.filter((p) => !dbValues.includes(p));
-  const extraInDb = dbValues.filter((p) => !fePersonas.includes(p));
-  // missingInDb ist nur Warnung (Overlays optional), extraInDb ist HARD FAIL
-  if (missingInDb.length === 0) ok("Alle FE-Personas haben mind. 1 Overlay-Row");
-  else console.log(`  ⚠ FE-Personas ohne Overlay-Row: ${missingInDb.join(", ")} (warn)`);
-
-  if (extraInDb.length === 0) ok("Keine Drift: DB hat keine unbekannten persona_type");
-  else fail(`DB enthält unbekannte persona_type: ${extraInDb.join(", ")}`);
-
-  if (dbValues.includes("umschulung"))
-    fail("Legacy 'umschulung' noch in product_persona_overlays vorhanden");
+  const overlayValues = [...new Set(rows.map((r) => r.persona_type))].sort();
+  ok(`Active overlay persona_type: [${overlayValues.join(", ")}]`);
+  const noOverlay = fePersonas.filter((p) => !overlayValues.includes(p));
+  if (noOverlay.length) console.log(`  ⚠ Personas ohne aktives Overlay: ${noOverlay.join(", ")} (warn)`);
+  if (overlayValues.includes("umschulung")) fail("Legacy 'umschulung' in product_persona_overlays");
 }
 
 // 3) Route-Guard Konsistenz
