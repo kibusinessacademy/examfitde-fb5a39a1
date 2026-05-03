@@ -23,3 +23,5 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y ripgrep
       - name: Run guard-package-status-demotes
         run: node scripts/guards/guard-package-status-demotes.mjs
+      - name: Run guard integration tests
+        run: node scripts/guards/__tests__/guard-package-status-demotes.test.mjs
