@@ -106260,6 +106260,22 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      admin_get_force_publish_log: {
+        Args: { p_limit?: number; p_search?: string; p_since?: string }
+        Returns: {
+          admin_email: string
+          admin_user: string
+          build_progress: number
+          cancelled_jobs: number
+          created_at: string
+          id: string
+          package_id: string
+          package_title: string
+          previous_status: string
+          reason: string
+          result_detail: string
+        }[]
+      }
       admin_get_funnel_conversion: {
         Args: { p_limit?: number; p_window?: string }
         Returns: {
