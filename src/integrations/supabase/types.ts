@@ -105993,6 +105993,7 @@ export type Database = {
               out_step_key: string
             }[]
           }
+      admin_count_hard_blocks_24h: { Args: never; Returns: number }
       admin_create_permanent_fix_task: {
         Args: { p_priority?: string; p_recommendation_id: string }
         Returns: Json
