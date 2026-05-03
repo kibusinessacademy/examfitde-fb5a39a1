@@ -26,7 +26,7 @@ const WINDOW_BEFORE = 25; // lines above the .update({ block start
 let files;
 try {
   const out = execSync(
-    `rg -l --type ts --type tsx --type js --type mjs 'course_packages' ${ROOTS.join(" ")}`,
+    `rg -l -g '*.ts' -g '*.tsx' -g '*.js' -g '*.mjs' 'course_packages' ${ROOTS.join(" ")}`,
     { encoding: "utf8" },
   );
   files = out.split("\n").filter(Boolean);
