@@ -109309,6 +109309,7 @@ export type Database = {
         Args: { p_admin_user_id?: string; p_job_id: string; p_reason?: string }
         Returns: Json
       }
+      fn_alert_hard_block_anomalies: { Args: never; Returns: Json }
       fn_alert_stale_admin_holds: { Args: never; Returns: number }
       fn_apply_business_goals_to_recommendations: {
         Args: never
