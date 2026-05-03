@@ -1,12 +1,49 @@
 import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Rocket, Search, AlertTriangle, Activity, ShieldAlert } from "lucide-react";
+import { Rocket, Search, AlertTriangle, Activity, ShieldAlert, Coins, Loader2 } from "lucide-react";
 import { ForcePublishButton } from "@/components/admin/heal/ForcePublishButton";
+import { toast } from "sonner";
+
+function PricingBackfillTrigger() {
+  const qc = useQueryClient();
+  const m = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.rpc("admin_trigger_pricing_backfill_now" as never);
+      if (error) throw error;
+      return data as { processed: number; created_prices: number; skipped: number; errors: unknown[] };
+    },
+    onSuccess: (r) => {
+      toast.success("Pricing-Backfill ausgeführt", {
+        description: `processed=${r.processed} · created=${r.created_prices} · skipped=${r.skipped}`,
+      });
+      qc.invalidateQueries({ queryKey: ["admin-building-progress-48h"] });
+    },
+    onError: (e: Error) => toast.error("Backfill fehlgeschlagen", { description: e.message }),
+  });
+  return (
+    <Card className="p-4 flex items-center justify-between gap-4 border-info/40 bg-info-bg-subtle">
+      <div className="flex items-center gap-2">
+        <Coins className="h-4 w-4 text-info" />
+        <div>
+          <div className="text-sm font-semibold">Pricing-Backfill (building/queued)</div>
+          <div className="text-xs text-muted-foreground">
+            Legt Default-Preise (24,90 € / 12 Mon.) für Pakete ohne aktiven Preis an.
+          </div>
+        </div>
+      </div>
+      <Button size="sm" variant="info" onClick={() => m.mutate()} disabled={m.isPending}>
+        {m.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Coins className="h-3.5 w-3.5" />}
+        Jetzt ausführen
+      </Button>
+    </Card>
+  );
+}
 
 // ─── Force-Publish log row ───────────────────────────────────────────────
 interface ForcePublishRow {
