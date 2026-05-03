@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Rocket, Search, AlertTriangle, Activity, ShieldAlert, Coins, Loader2 } from "lucide-react";
 import { ForcePublishButton } from "@/components/admin/heal/ForcePublishButton";
 import { RevertProducerDrilldownCard } from "@/components/admin/heal/RevertProducerDrilldownCard";
+import { HardBlockEventsPanel } from "@/components/admin/heal/HardBlockEventsPanel";
 import { toast } from "sonner";
 
 function PricingBackfillTrigger() {
@@ -191,6 +192,8 @@ export function ForcePublishLogPanel() {
       )}
 
       <RevertProducerDrilldownCard />
+
+      <HardBlockEventsPanel />
 
       {/* ── Remaining Producers (7d) ──────────────────────────────────── */}
       <Card className="p-4 space-y-3">
