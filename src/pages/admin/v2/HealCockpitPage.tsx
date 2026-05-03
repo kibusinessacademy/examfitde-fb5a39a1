@@ -58,6 +58,7 @@ import { StuckPatternsCard } from "@/components/admin/heal/cards/StuckPatternsCa
 import { HealStatusCard } from "@/components/admin/heal/cards/HealStatusCard";
 import { ExamPoolDriftLogCard } from "@/components/admin/heal/cards/ExamPoolDriftLogCard";
 import { StaleDraftsCard } from "@/components/admin/heal/cards/StaleDraftsCard";
+import { ForcePublishLogPanel } from "@/components/admin/heal/ForcePublishLogPanel";
 import { CouncilDeferredCard } from "@/components/admin/heal/cards/CouncilDeferredCard";
 import { SystemIntentsKpiCard } from "@/components/admin/heal/cards/SystemIntentsKpiCard";
 import { QueueDrainCard } from "@/components/admin/heal/cards/QueueDrainCard";
