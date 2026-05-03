@@ -111049,6 +111049,7 @@ export type Database = {
           unit_price_cents: number
         }[]
       }
+      get_enum_values: { Args: { enum_name: string }; Returns: string[] }
       get_evidence_pack: { Args: { p_pack_id: string }; Returns: Json }
       get_evidence_pack_storage_info: {
         Args: { p_pack_id: string }
