@@ -26,6 +26,7 @@ const guards = [
   "no-legacy-org-members-guard.mjs",
   "trigger-function-parity-guard.mjs",
   "sql-discipline-guard.mjs",
+  "guard-package-status-demotes.mjs",
 ];
 
 function run(entry) {
