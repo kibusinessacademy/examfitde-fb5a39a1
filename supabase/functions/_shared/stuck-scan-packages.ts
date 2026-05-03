@@ -146,6 +146,13 @@ export async function checkBuildingOrphans(sb: SupabaseClient) {
           ? (Date.now() - new Date(lastDone.finished_at).getTime()) / 60_000 : 999;
 
         if (lastDoneAge >= 3) {
+          // Protection-Gate: never demote build-complete/approved-rich packages
+          const { data: prot } = await sb.rpc("fn_package_demote_protected", { p_package_id: pkg.id });
+          if (prot && (prot as { protected?: boolean }).protected) {
+            buildingPkgResults.push({ package_id: pkg.id, action: `Skipped zombie demote: protected (${(prot as { reason?: string }).reason})` });
+            continue;
+          }
+          await sb.rpc("set_config" as never, { setting_name: "app.transition_source", new_value: "stuck_scan_zombie", is_local: true } as never).then(()=>{}, ()=>{});
           await sb.from("course_packages").update({
             status: "queued",
             updated_at: new Date(Date.now() - 5 * 60_000).toISOString(),
