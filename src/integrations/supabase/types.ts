@@ -11788,6 +11788,62 @@ export type Database = {
         }
         Relationships: []
       }
+      coupling_heal_v4_runs: {
+        Row: {
+          duration_ms: number | null
+          error_message: string | null
+          errors_count: number
+          finished_at: string | null
+          forensics: Json
+          healed_count: number
+          id: string
+          processed_count: number
+          retry_of: string | null
+          sqlstate: string | null
+          started_at: string
+          status: string
+          triggered_by: string
+        }
+        Insert: {
+          duration_ms?: number | null
+          error_message?: string | null
+          errors_count?: number
+          finished_at?: string | null
+          forensics?: Json
+          healed_count?: number
+          id?: string
+          processed_count?: number
+          retry_of?: string | null
+          sqlstate?: string | null
+          started_at?: string
+          status: string
+          triggered_by?: string
+        }
+        Update: {
+          duration_ms?: number | null
+          error_message?: string | null
+          errors_count?: number
+          finished_at?: string | null
+          forensics?: Json
+          healed_count?: number
+          id?: string
+          processed_count?: number
+          retry_of?: string | null
+          sqlstate?: string | null
+          started_at?: string
+          status?: string
+          triggered_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coupling_heal_v4_runs_retry_of_fkey"
+            columns: ["retry_of"]
+            isOneToOne: false
+            referencedRelation: "coupling_heal_v4_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       course_bundles: {
         Row: {
           bundle_price: number
@@ -106218,6 +106274,30 @@ export type Database = {
           step_status: string
         }[]
       }
+      admin_get_coupling_heal_v4_runs: {
+        Args: { _limit?: number }
+        Returns: {
+          duration_ms: number | null
+          error_message: string | null
+          errors_count: number
+          finished_at: string | null
+          forensics: Json
+          healed_count: number
+          id: string
+          processed_count: number
+          retry_of: string | null
+          sqlstate: string | null
+          started_at: string
+          status: string
+          triggered_by: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "coupling_heal_v4_runs"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       admin_get_data_holes_summary: {
         Args: never
         Returns: {
@@ -109569,6 +109649,10 @@ export type Database = {
         Returns: Json
       }
       fn_classify_job_error: { Args: { _err: string }; Returns: string }
+      fn_classify_pg_error: {
+        Args: { _msg: string; _sqlstate: string }
+        Returns: string
+      }
       fn_classify_quality_gate_block: {
         Args: { p_package_id: string }
         Returns: Json
@@ -109641,6 +109725,7 @@ export type Database = {
         Args: { p_curriculum_id?: string; p_user_id: string }
         Returns: Json
       }
+      fn_coupling_heal_v4_forensics: { Args: never; Returns: Json }
       fn_create_partner_commission: {
         Args: {
           _attribution_id?: string
@@ -110497,6 +110582,10 @@ export type Database = {
       fn_route_materialization_block: {
         Args: { p_job_id: string; p_last_error: string }
         Returns: boolean
+      }
+      fn_run_coupling_heal_v4_supervised: {
+        Args: { _retry_of?: string }
+        Returns: string
       }
       fn_run_generate_bridge_sweep: {
         Args: { p_limit?: number }
