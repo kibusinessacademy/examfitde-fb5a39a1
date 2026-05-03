@@ -11,6 +11,7 @@ import { MorningBriefing } from "@/components/admin/heal/MorningBriefing";
 import { HealWorklist } from "@/components/admin/heal/HealWorklist";
 import { BlockedPackagesCard } from "@/components/admin/heal/BlockedPackagesCard";
 import { HealClusterExplanationPanel } from "@/components/admin/heal/HealClusterExplanationPanel";
+import { CouplingHealV4Card } from "@/components/admin/heal/cards/CouplingHealV4Card";
 
 export function HealCockpitTabContent() {
   return (
@@ -30,6 +31,7 @@ export function HealCockpitTabContent() {
         </Button>
       </div>
       <MorningBriefing />
+      <CouplingHealV4Card />
       <HealClusterExplanationPanel />
       <BlockedPackagesCard
         detailHrefBuilder={(id) => `/admin/studio/${id}`}
