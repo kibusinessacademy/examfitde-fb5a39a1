@@ -107360,6 +107360,7 @@ export type Database = {
         Returns: Json
       }
       admin_test_heal_v3_invariants: { Args: never; Returns: Json }
+      admin_trigger_pricing_backfill_now: { Args: never; Returns: Json }
       admin_unblock_packages_by_reason: {
         Args: {
           p_dry_run?: boolean
@@ -109407,6 +109408,7 @@ export type Database = {
         Args: { p_package_id: string }
         Returns: Json
       }
+      fn_backfill_default_pricing_for_building: { Args: never; Returns: Json }
       fn_build_content_metrics_snapshot: { Args: never; Returns: Json }
       fn_build_growth_metrics_snapshot: { Args: never; Returns: Json }
       fn_build_learning_metrics_snapshot: { Args: never; Returns: Json }
