@@ -170,6 +170,7 @@ const CockpitPage = lazyRetry(() => import('@/pages/admin/v2/CockpitPage'));
 const AIAnalysisAuditPage = lazyRetry(() => import('@/pages/admin/v2/AIAnalysisAuditPage'));
 const SEOTestPage = lazyRetry(() => import('@/pages/admin/v2/SEOTestPage'));
 const HealCockpitPage = lazyRetry(() => import('@/pages/admin/v2/HealCockpitPage'));
+const ForensicsPage = lazyRetry(() => import('@/pages/admin/v2/ForensicsPage'));
 const SyntheticCohortPage = lazyRetry(() => import('@/pages/admin/v2/SyntheticCohortPage'));
 
 // ExamFit@work public pages
@@ -429,6 +430,7 @@ const AppRoutes = () => {
           <Route path="studio/:packageId" element={<CourseWorkspace />} />
           {/* === Heal Cockpit (SSOT — konsolidiert Queue + BlockerOps + HealStrategy) === */}
           <Route path="heal" element={<HealCockpitPage />} />
+          <Route path="forensics" element={<ForensicsPage />} />
           <Route path="synthetic-cohort" element={<SyntheticCohortPage />} />
           {/* Legacy redirects — alle alten Heal-/Queue-Hubs landen im Heal Cockpit */}
           <Route path="queue" element={<Navigate to="/admin/heal?queue_tab=live" replace />} />
