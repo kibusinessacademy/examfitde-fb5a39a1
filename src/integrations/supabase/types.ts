@@ -91905,6 +91905,29 @@ export type Database = {
         }
         Relationships: []
       }
+      v_admin_revert_producer_drilldown: {
+        Row: {
+          alert_at: string | null
+          application_name: string | null
+          approved_questions: number | null
+          apps: Json | null
+          build_progress: number | null
+          caller_query: string | null
+          client_addr: string | null
+          client_addrs: Json | null
+          event_count: number | null
+          last_block_at: string | null
+          last_seen: string | null
+          package_id: string | null
+          package_status: string | null
+          package_title: string | null
+          pending_tail_jobs: number | null
+          protection_reason: string | null
+          usename: string | null
+          users: Json | null
+        }
+        Relationships: []
+      }
       v_admin_sales_funnel_per_curriculum: {
         Row: {
           curriculum_id: string | null
@@ -106627,6 +106650,35 @@ export type Database = {
           trigger_sources: Json
           users: Json
         }[]
+      }
+      admin_get_revert_producer_drilldown: {
+        Args: never
+        Returns: {
+          alert_at: string | null
+          application_name: string | null
+          approved_questions: number | null
+          apps: Json | null
+          build_progress: number | null
+          caller_query: string | null
+          client_addr: string | null
+          client_addrs: Json | null
+          event_count: number | null
+          last_block_at: string | null
+          last_seen: string | null
+          package_id: string | null
+          package_status: string | null
+          package_title: string | null
+          pending_tail_jobs: number | null
+          protection_reason: string | null
+          usename: string | null
+          users: Json | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "v_admin_revert_producer_drilldown"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       admin_get_run_integrity_runbook: {
         Args: { _package_id: string }
