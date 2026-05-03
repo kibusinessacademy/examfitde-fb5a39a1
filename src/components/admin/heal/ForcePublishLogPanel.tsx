@@ -167,6 +167,7 @@ export function ForcePublishLogPanel() {
 
   return (
     <div className="space-y-4">
+      <PricingBackfillTrigger />
       {/* ── Active alerts (last 24h) ───────────────────────────────────── */}
       {alerts && alerts.length > 0 && (
         <Card className="p-4 border-destructive/50 bg-destructive/5">
