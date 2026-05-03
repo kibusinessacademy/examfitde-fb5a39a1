@@ -442,9 +442,12 @@ Deno.serve(async (req) => {
 
       // Case 1: All steps done but package still "failed" → reset to queued
       if (failedSteps.length === 0 && doneSteps.length === steps.length) {
+        // SAFE_PACKAGE_STATUS_DEMOTE: source is `failed` (not `building`),
+        // so this is a recovery transition, not a building→queued revert that
+        // could fight the protection guard.
         await sb.from("course_packages").update({
           status: "queued", stuck_reason: null,
-        }).eq("id", pkg.id);
+        }).eq("id", pkg.id).eq("status", "failed");
         await sb.from("course_package_locks").delete().eq("package_id", pkg.id);
         failedRecovered++;
         console.log(`[Watchdog] FAILED_RECOVERY: ${pkg.id.slice(0, 8)} all steps done → queued`);
