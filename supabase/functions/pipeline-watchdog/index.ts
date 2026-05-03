@@ -440,17 +440,21 @@ Deno.serve(async (req) => {
         }
 
         if (safeIds.length > 0) {
-          const { count } = await sb
-            .from("course_packages")
-            .update({
-              status: "queued",
-              updated_at: new Date().toISOString(),
-              last_error: "Watchdog: building without job/lease — reset to queued",
-            })
-            .in("id", safeIds)
-            .eq("status", "building");
-
-          healedZombies = count ?? safeIds.length;
+          // SAFE_PACKAGE_STATUS_DEMOTE: route through whitelisted RPC that
+          // sets app.transition_source = 'pipeline_watchdog_zombie_revert'
+          // and re-checks fn_package_demote_protected atomically.
+          const { data: revRows } = await sb.rpc(
+            "admin_revert_building_to_queued" as never,
+            {
+              p_package_ids: safeIds,
+              p_source: "pipeline_watchdog_zombie_revert",
+              p_last_error: "Watchdog: building without job/lease — reset to queued",
+              p_clear_stuck: false,
+            } as never,
+          );
+          healedZombies = Array.isArray(revRows)
+            ? (revRows as Array<{ action: string }>).filter(r => r.action === "reverted").length
+            : safeIds.length;
         }
       }
     }
