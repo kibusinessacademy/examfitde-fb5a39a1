@@ -1,0 +1,69 @@
+name: hard-block-debug-issue
+
+# Auto-creates a debug issue when the hard-block alert exceeds the warning
+# threshold, or on manual dispatch. Idempotent: comments on the existing open
+# issue instead of duplicating.
+
+on:
+  workflow_dispatch:
+    inputs:
+      block_count_24h:
+        description: "Override BLOCK_COUNT_24H"
+        required: false
+        default: "2969"
+  schedule:
+    # Hourly poll — only opens an issue if blocks > warning threshold (50).
+    - cron: "17 * * * *"
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  create-issue:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Query current 24h hard-block count
+        id: q
+        if: github.event_name == 'schedule'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "count=0" >> "$GITHUB_OUTPUT"
+            echo "⚠️  Supabase secrets missing — skipping count probe."
+            exit 0
+          fi
+          COUNT=$(curl -s -X POST "$SUPABASE_URL/rest/v1/rpc/admin_count_hard_blocks_24h" \
+            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{}' | tr -d '"' || echo "0")
+          echo "count=${COUNT:-0}" >> "$GITHUB_OUTPUT"
+
+      - name: Decide if issue should be opened
+        id: decide
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "open=true" >> "$GITHUB_OUTPUT"
+            echo "count=${{ github.event.inputs.block_count_24h }}" >> "$GITHUB_OUTPUT"
+          else
+            COUNT="${{ steps.q.outputs.count }}"
+            echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+            if [ "${COUNT:-0}" -gt 50 ]; then
+              echo "open=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "open=false" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
+      - name: Create / update debug issue
+        if: steps.decide.outputs.open == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BLOCK_COUNT_24H: ${{ steps.decide.outputs.count }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: node scripts/ci/create-hard-block-debug-issue.mjs
