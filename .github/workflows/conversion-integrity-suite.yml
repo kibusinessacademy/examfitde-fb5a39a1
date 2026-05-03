@@ -9,13 +9,27 @@ on:
       - "src/pages/product/ProductPersonaPage.tsx"
       - "src/hooks/useProductPersonaOverlay.ts"
       - "src/lib/landing/**"
+      - "src/lib/tracks.ts"
       - "supabase/migrations/**"
       - "scripts/conversion-integrity-suite.mjs"
+      - "scripts/persona-enum-contract.mjs"
+      - "scripts/enum-contract-guard.mjs"
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
 
 jobs:
   conversion-integrity:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      PROD_URL: https://examfitde.lovable.app
+      BASE_URL: https://examfitde.lovable.app
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -23,34 +37,78 @@ jobs:
           node-version: "20"
       - name: Install deps
         run: npm ci --no-audit --no-fund
+
+      # ── Guard 1: Persona Enum Contract ───────────────────────────────────
       - name: Persona Enum Contract (DB ↔ FE drift gate)
+        id: g_persona
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          node scripts/persona-enum-contract.mjs 2>&1 | tee /tmp/g_persona.log
+
+      - name: Report Persona Enum failure
+        if: steps.g_persona.outcome == 'failure'
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-        run: node scripts/persona-enum-contract.mjs
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GUARD_NAME: "Persona Enum Contract"
+          GUARD_LOG_PATH: /tmp/g_persona.log
+        run: node scripts/ci/guard-report-comment.mjs
+
+      # ── Guard 2: Generic Enum Contract ───────────────────────────────────
       - name: Generic Enum Contract Guard (product_persona, product_track, app_role)
+        id: g_enum
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          node scripts/enum-contract-guard.mjs 2>&1 | tee /tmp/g_enum.log
+
+      - name: Report Generic Enum failure
+        if: steps.g_enum.outcome == 'failure'
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-        run: node scripts/enum-contract-guard.mjs
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GUARD_NAME: "Generic Enum Contract Guard"
+          GUARD_LOG_PATH: /tmp/g_enum.log
+        run: node scripts/ci/guard-report-comment.mjs
+
+      # ── Path E Suite (G1, G2, G3 shell, G4-G7) ───────────────────────────
       - name: Run Path E suite (G1, G2, G3 shell, G4-G7)
+        id: g_pathE
+        continue-on-error: true
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          PROD_URL: https://examfitde.lovable.app
-        run: node scripts/conversion-integrity-suite.mjs
+        run: |
+          set -o pipefail
+          node scripts/conversion-integrity-suite.mjs 2>&1 | tee /tmp/g_pathE.log
+
+      - name: Report Path E suite failure
+        if: steps.g_pathE.outcome == 'failure'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GUARD_NAME: "Path E Suite (G1-G7)"
+          GUARD_LOG_PATH: /tmp/g_pathE.log
+        run: node scripts/ci/guard-report-comment.mjs
+
+      # ── G3b Playwright PROD ──────────────────────────────────────────────
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
+
       - name: Run G3b — Persona Overlay Hydration (PROD)
+        id: g_g3b
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          npx playwright test --project=g3b --reporter=list 2>&1 | tee /tmp/g_g3b.log
+
+      - name: Report G3b failure
+        if: steps.g_g3b.outcome == 'failure'
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-          PROD_URL: https://examfitde.lovable.app
-          BASE_URL: https://examfitde.lovable.app
-        run: npx playwright test --project=g3b --reporter=list
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GUARD_NAME: "G3b – Persona Overlay Hydration (PROD)"
+          GUARD_LOG_PATH: /tmp/g_g3b.log
+        run: node scripts/ci/guard-report-comment.mjs
+
       - name: Upload Playwright report on failure
-        if: failure()
+        if: steps.g_g3b.outcome == 'failure'
         uses: actions/upload-artifact@v4
         with:
           name: g3b-playwright-report
@@ -59,3 +117,29 @@ jobs:
             test-results
           retention-days: 7
 
+      # ── Aggregate guard reports as artifact ──────────────────────────────
+      - name: Upload guard-report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: guard-report
+          path: guard-report.md
+          if-no-files-found: ignore
+          retention-days: 14
+
+      # ── Final gate: fail the job if ANY guard failed ─────────────────────
+      - name: Final gate
+        if: always()
+        run: |
+          fail=0
+          for s in "${{ steps.g_persona.outcome }}" \
+                   "${{ steps.g_enum.outcome }}" \
+                   "${{ steps.g_pathE.outcome }}" \
+                   "${{ steps.g_g3b.outcome }}"; do
+            if [ "$s" = "failure" ]; then fail=1; fi
+          done
+          if [ "$fail" = "1" ]; then
+            echo "❌ Mindestens ein Guard ist fehlgeschlagen — siehe PR-Kommentare/Artifact."
+            exit 1
+          fi
+          echo "✅ Alle Guards grün."
