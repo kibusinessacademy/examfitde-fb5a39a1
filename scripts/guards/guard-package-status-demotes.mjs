@@ -18,20 +18,25 @@
 import { readFileSync } from "node:fs";
 import { execSync } from "node:child_process";
 
+import { existsSync } from "node:fs";
+
 const ROOTS = ["supabase/functions", "scripts", "src"];
 const MARKERS = ["fn_package_demote_protected", "admin_force_publish", "SAFE_PACKAGE_STATUS_DEMOTE"];
 const WINDOW_BEFORE = 25; // lines above the .update({ block start
 
-// 1) Collect candidate files via rg
-let files;
-try {
-  const out = execSync(
-    `rg -l -g '*.ts' -g '*.tsx' -g '*.js' -g '*.mjs' 'course_packages' ${ROOTS.join(" ")}`,
-    { encoding: "utf8" },
-  );
-  files = out.split("\n").filter(Boolean);
-} catch {
-  files = [];
+// 1) Collect candidate files via rg (only existing roots)
+const presentRoots = ROOTS.filter((r) => existsSync(r));
+let files = [];
+if (presentRoots.length > 0) {
+  try {
+    const out = execSync(
+      `rg -l -g '*.ts' -g '*.tsx' -g '*.js' -g '*.mjs' 'course_packages' ${presentRoots.join(" ")}`,
+      { encoding: "utf8" },
+    );
+    files = out.split("\n").filter(Boolean);
+  } catch {
+    files = [];
+  }
 }
 
 const violations = [];

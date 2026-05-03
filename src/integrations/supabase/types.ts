@@ -106134,6 +106134,20 @@ export type Database = {
           sample_package_ids: string[]
         }[]
       }
+      admin_get_building_progress_48h: {
+        Args: never
+        Returns: {
+          build_progress: number
+          current_step: string
+          has_progress: boolean
+          jobs_done_48h: number
+          last_progress_at: string
+          package_id: string
+          pkg_updated_at: string
+          steps_done_48h: number
+          title: string
+        }[]
+      }
       admin_get_cancel_reason_breakdown: {
         Args: { p_hours?: number }
         Returns: {
@@ -106599,6 +106613,20 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      admin_get_remaining_revert_producers: {
+        Args: { p_window_hours?: number }
+        Returns: {
+          apps: Json
+          client_addrs: Json
+          events: number
+          first_seen: string
+          last_seen: string
+          likely_cron: string
+          target_id: string
+          trigger_sources: Json
+          users: Json
+        }[]
       }
       admin_get_run_integrity_runbook: {
         Args: { _package_id: string }
@@ -108912,6 +108940,7 @@ export type Database = {
         Args: { p_session_id: string }
         Returns: number
       }
+      cron_alert_remaining_revert_producers: { Args: never; Returns: Json }
       cron_record_tick_intent: {
         Args: { p_intent_type: string; p_source: string }
         Returns: Json
