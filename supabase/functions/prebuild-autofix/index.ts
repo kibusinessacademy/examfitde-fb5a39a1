@@ -296,7 +296,12 @@ Deno.serve(async (req) => {
           .contains("payload", { package_id: packageId });
 
         if ((activeJobs ?? 0) === 0) {
-          if (!dryRun) {
+          // Protection-Gate
+          const { data: prot } = await sb.rpc("fn_package_demote_protected" as never, { p_package_id: packageId } as never);
+          const protectedFlag = (prot as { protected?: boolean } | null)?.protected ?? false;
+          if (protectedFlag) {
+            fixes.push({ fix: "STUCK_STATUS", status: "skipped", detail: `Protected from demote: ${(prot as { reason?: string }).reason}` });
+          } else if (!dryRun) {
             await sb.from("course_packages").update({ status: "queued" }).eq("id", packageId);
             fixes.push({ fix: "STUCK_STATUS", status: "applied", detail: "Reset from 'building' to 'queued' (0 active jobs, 0 leases)" });
           } else {
