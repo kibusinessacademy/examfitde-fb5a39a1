@@ -152,11 +152,15 @@ export async function checkBuildingOrphans(sb: SupabaseClient) {
             buildingPkgResults.push({ package_id: pkg.id, action: `Skipped zombie demote: protected (${(prot as { reason?: string }).reason})` });
             continue;
           }
-          await sb.rpc("set_config" as never, { setting_name: "app.transition_source", new_value: "stuck_scan_zombie", is_local: true } as never).then(()=>{}, ()=>{});
-          await sb.from("course_packages").update({
-            status: "queued",
-            updated_at: new Date(Date.now() - 5 * 60_000).toISOString(),
-          }).eq("id", pkg.id).eq("status", "building");
+          // SAFE_PACKAGE_STATUS_DEMOTE: routed through admin_revert_building_to_queued
+          // which sets app.transition_source = 'stuck_scan_zombie' atomically and
+          // re-checks fn_package_demote_protected to prevent races.
+          await sb.rpc("admin_revert_building_to_queued" as never, {
+            p_package_ids: [pkg.id],
+            p_source: "stuck_scan_zombie",
+            p_last_error: null,
+            p_clear_stuck: true,
+          } as never);
 
           await sb.from("package_leases").delete().eq("package_id", pkg.id);
 
