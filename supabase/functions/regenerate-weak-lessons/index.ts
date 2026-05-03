@@ -109,11 +109,17 @@ Deno.serve(async (req) => {
     const { data: wipOk } = await sb.rpc("check_wip_allows_build", { p_package_id: packageId });
     if (wipOk === false) {
       // WIP full — queue instead of force-building (runner will pick it up when slot opens)
-      await sb
-        .from("course_packages")
-        .update({ status: "queued" })
-        .eq("id", packageId);
-      console.warn(`[RegenerateWeak] WIP limit reached — queued ${packageId.slice(0, 8)} instead of building`);
+      // Protection-Gate: never demote build-complete/approved-rich packages
+      const { data: prot } = await sb.rpc("fn_package_demote_protected", { p_package_id: packageId });
+      if (prot && (prot as { protected?: boolean }).protected) {
+        console.warn(`[RegenerateWeak] PROTECTED skip queue-demote ${packageId.slice(0, 8)}: ${(prot as { reason?: string }).reason}`);
+      } else {
+        await sb
+          .from("course_packages")
+          .update({ status: "queued" })
+          .eq("id", packageId);
+        console.warn(`[RegenerateWeak] WIP limit reached — queued ${packageId.slice(0, 8)} instead of building`);
+      }
     } else {
       await sb
         .from("course_packages")

@@ -426,17 +426,32 @@ Deno.serve(async (req) => {
       }
 
       if (revertableIds.length > 0) {
-        const { count } = await sb
-          .from("course_packages")
-          .update({
-            status: "queued",
-            updated_at: new Date().toISOString(),
-            last_error: "Watchdog: building without job/lease — reset to queued",
-          })
-          .in("id", revertableIds)
-          .eq("status", "building");
+        // Protection-Gate: filter out build-complete/approved-rich packages
+        // before performing the building→queued revert. fn_package_demote_protected
+        // is the SSOT helper that prevents the cancel-storm loop.
+        const safeIds: string[] = [];
+        for (const id of revertableIds) {
+          const { data: prot } = await sb.rpc("fn_package_demote_protected", { p_package_id: id });
+          if (prot && (prot as { protected?: boolean }).protected) {
+            console.log(`[watchdog] PROTECTED skip zombie revert ${id.slice(0, 8)}: ${(prot as { reason?: string }).reason}`);
+            continue;
+          }
+          safeIds.push(id);
+        }
 
-        healedZombies = count ?? revertableIds.length;
+        if (safeIds.length > 0) {
+          const { count } = await sb
+            .from("course_packages")
+            .update({
+              status: "queued",
+              updated_at: new Date().toISOString(),
+              last_error: "Watchdog: building without job/lease — reset to queued",
+            })
+            .in("id", safeIds)
+            .eq("status", "building");
+
+          healedZombies = count ?? safeIds.length;
+        }
       }
     }
 

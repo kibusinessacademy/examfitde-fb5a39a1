@@ -257,13 +257,17 @@ Deno.serve(async (req) => {
               p_job_types: null,
             });
 
+            // SAFE_PACKAGE_STATUS_DEMOTE: source state at this point is `failed`
+            // (selected by outer query). failed→queued is a recovery, not a
+            // building→queued revert; protection guard does not apply.
             await sb.from("course_packages")
               .update({
                 status: "queued",
                 retry_count: retries + 1,
                 updated_at: new Date().toISOString(),
               })
-              .eq("id", pkg.id);
+              .eq("id", pkg.id)
+              .eq("status", "failed");
 
             actions.push(`Re-queued failed pkg "${pkg.title}" (no queued steps, retry ${retries + 1}/2)`);
           }

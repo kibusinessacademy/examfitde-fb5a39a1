@@ -1,0 +1,25 @@
+name: package-status-demote-guard
+
+on:
+  pull_request:
+    paths:
+      - "supabase/functions/**"
+      - "scripts/**"
+      - "src/**"
+      - "scripts/guards/guard-package-status-demotes.mjs"
+      - ".github/workflows/package-status-demote-guard.yml"
+  push:
+    branches: [main]
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install ripgrep
+        run: sudo apt-get update && sudo apt-get install -y ripgrep
+      - name: Run guard-package-status-demotes
+        run: node scripts/guards/guard-package-status-demotes.mjs
