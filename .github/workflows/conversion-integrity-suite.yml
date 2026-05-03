@@ -28,6 +28,11 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: node scripts/persona-enum-contract.mjs
+      - name: Generic Enum Contract Guard (product_persona, product_track, app_role)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: node scripts/enum-contract-guard.mjs
       - name: Run Path E suite (G1, G2, G3 shell, G4-G7)
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
