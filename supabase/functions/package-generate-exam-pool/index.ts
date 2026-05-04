@@ -1801,9 +1801,32 @@ Deno.serve(async (req) => {
       .eq("status", "approved")
       .in("competency_id", resolvedIds);
     if (tbpErr) throw tbpErr;
-    const bpsList = (targetBps ?? []) as BlueprintInfo[];
+    const bpsListRaw = (targetBps ?? []) as BlueprintInfo[];
+    // ── BP-Ordering Fix (2026-05-04): round-robin per competency_id ──────────
+    // Previously sequential ordering meant the first 2 BPs of the same comp ate
+    // the entire 40s budget, leaving 7 of 8 target competencies untouched.
+    const bpsByComp = new Map<string, BlueprintInfo[]>();
+    for (const bp of bpsListRaw) {
+      const cid = String(bp.competency_id ?? "__nocomp__");
+      if (!bpsByComp.has(cid)) bpsByComp.set(cid, []);
+      bpsByComp.get(cid)!.push(bp);
+    }
+    const compBuckets = Array.from(bpsByComp.values());
+    const bpsList: BlueprintInfo[] = [];
+    let added = true;
+    let idx = 0;
+    while (added) {
+      added = false;
+      for (const bucket of compBuckets) {
+        if (idx < bucket.length) {
+          bpsList.push(bucket[idx]);
+          added = true;
+        }
+      }
+      idx++;
+    }
     const compsWithBps = new Set(bpsList.map(b => b.competency_id).filter(Boolean));
-    console.log(`[ExamPool-v5][TARGETED_FILL] blueprints=${bpsList.length}, comps_with_bp=${compsWithBps.size}/${resolvedIds.length}`);
+    console.log(`[ExamPool-v5][TARGETED_FILL] blueprints=${bpsList.length} (round-robin), comps_with_bp=${compsWithBps.size}/${resolvedIds.length}`);
 
     if (bpsList.length === 0) {
       // ── Self-Heal Loop v1: auto-escalate to targeted_blueprint_fill ──────────
