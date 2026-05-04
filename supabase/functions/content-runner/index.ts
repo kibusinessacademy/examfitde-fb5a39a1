@@ -204,7 +204,7 @@ const LIGHT_JOB_TYPES = new Set([
 
 // deno-lint-ignore no-explicit-any
 async function dispatchJob(job: any, supabaseUrl: string, serviceKey: string, loopDeadlineMs?: number): Promise<{ ok: boolean; result?: any; error?: string; terminal?: boolean }> {
-  const edgeFn = edgeFunctionForJobType(job.job_type);
+  const edgeFn = edgeFunctionForJobType(job.job_type, job.payload);
   if (!edgeFn) {
     return { ok: false, error: `NO_EDGE_FUNCTION_MAPPING:${job.job_type}`, terminal: true };
   }
