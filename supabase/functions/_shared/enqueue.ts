@@ -25,6 +25,22 @@ export interface EnqueueOpts {
   run_after?: string | null;
   batch_cursor?: Record<string, unknown> | null;
   worker_pool?: WorkerPool; // override only if explicitly needed
+  /**
+   * SSOT enqueue_source tag. Set per call-site to identify the producer.
+   * If omitted, falls back to the SUPABASE_FUNCTION_NAME env or "edge_unknown".
+   * Required from 2026-05-09 (hard-block); currently audit-only via warn.
+   */
+  enqueue_source?: string;
+}
+
+function resolveEnqueueSource(explicit?: string): string {
+  if (explicit && explicit.length > 0) return explicit;
+  try {
+    // deno-lint-ignore no-explicit-any
+    const fn = (globalThis as any).Deno?.env?.get?.("SUPABASE_FUNCTION_NAME");
+    if (fn && typeof fn === "string" && fn.length > 0) return `edge:${fn}`;
+  } catch (_e) { /* ignore */ }
+  return "edge_unknown";
 }
 
 export interface EnqueueResult {
@@ -268,11 +284,17 @@ export async function enqueueJob(
     ? `${opts.job_type}:${packageId ?? "global"}:${JSON.stringify(opts.batch_cursor)}`
     : `${opts.job_type}:${packageId ?? "global"}`;
 
+  const resolvedSource = resolveEnqueueSource(opts.enqueue_source);
+  const payloadWithSource = {
+    ...(opts.payload ?? {}),
+    enqueue_source: (opts.payload as any)?.enqueue_source ?? resolvedSource,
+  };
+
   const row = {
     id: crypto.randomUUID(),
     job_type: opts.job_type,
     status: "pending",
-    payload: opts.payload ?? {},
+    payload: payloadWithSource,
     package_id: packageId,
     max_attempts: opts.max_attempts ?? 8,
     priority: opts.priority ?? 10,
