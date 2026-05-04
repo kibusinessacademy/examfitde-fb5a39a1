@@ -61,6 +61,7 @@ import { StaleDraftsCard } from "@/components/admin/heal/cards/StaleDraftsCard";
 import { ForcePublishLogPanel } from "@/components/admin/heal/ForcePublishLogPanel";
 import { CouncilDeferredCard } from "@/components/admin/heal/cards/CouncilDeferredCard";
 import { SystemIntentsKpiCard } from "@/components/admin/heal/cards/SystemIntentsKpiCard";
+import { DriftOverviewCard } from "@/components/admin/heal/cards/DriftOverviewCard";
 import { QueueDrainCard } from "@/components/admin/heal/cards/QueueDrainCard";
 import { BlockedPackagesCard } from "@/components/admin/heal/cards/BlockedPackagesCard";
 import { TriageCards } from "@/components/admin/heal/cards/TriageCards";
@@ -286,6 +287,7 @@ export default function HealCockpitPage() {
             <PermanentFixBacklogCard />
             <CourseHealPlansCard />
             <ExamPoolQuarantineCard />
+            <DriftOverviewCard />
             <SystemIntentsKpiCard />
             <PackagePipelineLiveCard />
             <HealAuditLayersCard />

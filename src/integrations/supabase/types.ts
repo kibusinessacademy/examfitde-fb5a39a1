@@ -106343,6 +106343,15 @@ export type Database = {
           violations: string[]
         }[]
       }
+      admin_get_drift_detail: {
+        Args: { p_kind: string }
+        Returns: {
+          detail: Json
+          package_id: string
+          title: string
+        }[]
+      }
+      admin_get_drift_overview: { Args: never; Returns: Json }
       admin_get_exam_pool_paused: {
         Args: never
         Returns: {
@@ -107036,6 +107045,25 @@ export type Database = {
           updated_at: string
         }[]
       }
+      admin_list_rpc_contracts: {
+        Args: { p_name_pattern?: string }
+        Returns: {
+          args: string
+          granted_to_anon: boolean
+          granted_to_authenticated: boolean
+          granted_to_service_role: boolean
+          proname: string
+          return_type: string
+          security_definer: boolean
+        }[]
+      }
+      admin_list_rpc_leaks: {
+        Args: never
+        Returns: {
+          grantee: string
+          proname: string
+        }[]
+      }
       admin_log_force_run: {
         Args: {
           p_action: string
@@ -107564,6 +107592,7 @@ export type Database = {
         }[]
       }
       admin_test_heal_v3_invariants: { Args: never; Returns: Json }
+      admin_test_lane_classification: { Args: { p_cases: Json }; Returns: Json }
       admin_trigger_pricing_backfill_now: { Args: never; Returns: Json }
       admin_unblock_packages_by_reason: {
         Args: {
