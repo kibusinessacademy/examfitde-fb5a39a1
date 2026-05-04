@@ -7,10 +7,13 @@ on:
       - "supabase/functions/**"
       - "scripts/security/**"
   schedule:
-    - cron: "17 3 * * *"  # nightly at 03:17 UTC
+    - cron: "17 3 * * *"
   workflow_dispatch: {}
 
 permissions: read-all
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
   migration-rls-gate:
@@ -42,50 +45,111 @@ jobs:
     timeout-minutes: 15
     name: View & Table Exposure Guard
     runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL || secrets.VITE_SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+      VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
+      - name: Check required secrets
+        id: secrets
+        shell: bash
+        run: |
+          missing=0
+          [ -z "${SUPABASE_URL:-}" ]              && { echo "❌ Missing SUPABASE_URL"; missing=1; }
+          [ -z "${SUPABASE_ANON_KEY:-}" ]         && { echo "❌ Missing SUPABASE_ANON_KEY"; missing=1; }
+          [ -z "${SUPABASE_SERVICE_ROLE_KEY:-}" ] && { echo "❌ Missing SUPABASE_SERVICE_ROLE_KEY"; missing=1; }
+          strict="false"
+          if [ "${{ github.event_name }}" = "schedule" ] || \
+             { [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; }; then
+            strict="true"
+          fi
+          if [ "$missing" -eq 1 ]; then
+            if [ "$strict" = "true" ]; then echo "::error::Missing secrets on protected run."; exit 1; fi
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::warning::View Exposure skipped — secrets missing."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
       - name: Run exposure guard
-        env:
-          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        if: steps.secrets.outputs.skip != 'true'
         run: node scripts/security/view-exposure-guard.mjs
 
   exam-integrity:
     timeout-minutes: 15
     name: Exam Integrity Check
     runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL || secrets.VITE_SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+      VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
+      - name: Check required secrets
+        id: secrets
+        shell: bash
+        run: |
+          missing=0
+          [ -z "${SUPABASE_URL:-}" ]              && { echo "❌ Missing SUPABASE_URL"; missing=1; }
+          [ -z "${SUPABASE_SERVICE_ROLE_KEY:-}" ] && { echo "❌ Missing SUPABASE_SERVICE_ROLE_KEY"; missing=1; }
+          strict="false"
+          if [ "${{ github.event_name }}" = "schedule" ] || \
+             { [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; }; then
+            strict="true"
+          fi
+          if [ "$missing" -eq 1 ]; then
+            if [ "$strict" = "true" ]; then echo "::error::Missing secrets on protected run."; exit 1; fi
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::warning::Exam Integrity skipped — secrets missing."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
       - name: Run exam integrity checks
-        env:
-          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        if: steps.secrets.outputs.skip != 'true'
         run: node scripts/security/exam-integrity-check.mjs
 
   rls-smoke:
     timeout-minutes: 15
     name: RLS Smoke (expanded)
     runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL || secrets.VITE_SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+      VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
+      - name: Check required secrets
+        id: secrets
+        shell: bash
+        run: |
+          missing=0
+          [ -z "${SUPABASE_URL:-}" ]      && { echo "❌ Missing SUPABASE_URL"; missing=1; }
+          [ -z "${SUPABASE_ANON_KEY:-}" ] && { echo "❌ Missing SUPABASE_ANON_KEY"; missing=1; }
+          strict="false"
+          if [ "${{ github.event_name }}" = "schedule" ] || \
+             { [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; }; then
+            strict="true"
+          fi
+          if [ "$missing" -eq 1 ]; then
+            if [ "$strict" = "true" ]; then echo "::error::Missing secrets on protected run."; exit 1; fi
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::warning::RLS Smoke skipped — secrets missing."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
       - name: Run expanded RLS smoke
-        env:
-          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        if: steps.secrets.outputs.skip != 'true'
         run: node scripts/rls-security-check.mjs
 
   alert-on-failure:

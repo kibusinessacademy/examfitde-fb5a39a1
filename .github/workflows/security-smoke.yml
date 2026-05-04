@@ -8,7 +8,7 @@ on:
 permissions: read-all
 
 env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
   smoke:
@@ -23,14 +23,40 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
-      - name: Verify required secrets
+
+      - name: Check required secrets
+        id: secrets
+        shell: bash
         run: |
           missing=0
-          [ -z "${SUPABASE_URL:-}" ] && { echo "::error::Missing SUPABASE_URL (or VITE_SUPABASE_URL)"; missing=1; }
-          [ -z "${SUPABASE_SERVICE_ROLE_KEY:-}" ] && { echo "::error::Missing SUPABASE_SERVICE_ROLE_KEY"; missing=1; }
-          [ -z "${VITE_SUPABASE_PUBLISHABLE_KEY:-}" ] && { echo "::error::Missing VITE_SUPABASE_PUBLISHABLE_KEY (or SUPABASE_ANON_KEY)"; missing=1; }
-          [ "$missing" = "1" ] && exit 1
-          echo "✅ Secrets present"
-      - run: |
+          [ -z "${SUPABASE_URL:-}" ]                  && { echo "❌ Missing SUPABASE_URL (or VITE_SUPABASE_URL)"; missing=1; }
+          [ -z "${SUPABASE_SERVICE_ROLE_KEY:-}" ]     && { echo "❌ Missing SUPABASE_SERVICE_ROLE_KEY"; missing=1; }
+          [ -z "${VITE_SUPABASE_PUBLISHABLE_KEY:-}" ] && { echo "❌ Missing VITE_SUPABASE_PUBLISHABLE_KEY (or SUPABASE_ANON_KEY)"; missing=1; }
+
+          strict="false"
+          if [ "${{ github.event_name }}" = "schedule" ] || \
+             { [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; }; then
+            strict="true"
+          fi
+
+          if [ "$missing" -eq 1 ]; then
+            if [ "$strict" = "true" ]; then
+              echo "::error::Required secrets missing on protected run (schedule/main) — failing hard."
+              exit 1
+            fi
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::warning::Security Smoke skipped — required Supabase secrets missing."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "✅ Secrets present"
+          fi
+
+      - name: Skip notice
+        if: steps.secrets.outputs.skip == 'true'
+        run: echo "Security Smoke skipped: missing required Supabase secrets."
+
+      - name: Run smoke
+        if: steps.secrets.outputs.skip != 'true'
+        run: |
           set -x
           node scripts/security/smoke.mjs

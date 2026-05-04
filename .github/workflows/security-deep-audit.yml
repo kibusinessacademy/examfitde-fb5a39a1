@@ -7,16 +7,52 @@ on:
 
 permissions: read-all
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   deep:
     timeout-minutes: 15
     runs-on: ubuntu-latest
     env:
-      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL || secrets.VITE_SUPABASE_URL }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
-      - run: node scripts/security/deep-audit.mjs
+
+      - name: Check required secrets
+        id: secrets
+        shell: bash
+        run: |
+          missing=0
+          [ -z "${SUPABASE_URL:-}" ]              && { echo "❌ Missing SUPABASE_URL (or VITE_SUPABASE_URL)"; missing=1; }
+          [ -z "${SUPABASE_SERVICE_ROLE_KEY:-}" ] && { echo "❌ Missing SUPABASE_SERVICE_ROLE_KEY"; missing=1; }
+
+          strict="false"
+          if [ "${{ github.event_name }}" = "schedule" ] || \
+             { [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; }; then
+            strict="true"
+          fi
+
+          if [ "$missing" -eq 1 ]; then
+            if [ "$strict" = "true" ]; then
+              echo "::error::Required secrets missing on protected run (schedule/main) — failing hard."
+              exit 1
+            fi
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::warning::Deep Audit skipped — required Supabase secrets missing."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "✅ Required secrets present"
+          fi
+
+      - name: Skip notice
+        if: steps.secrets.outputs.skip == 'true'
+        run: echo "Deep Audit skipped: missing required Supabase secrets."
+
+      - name: Run deep audit
+        if: steps.secrets.outputs.skip != 'true'
+        run: node scripts/security/deep-audit.mjs
