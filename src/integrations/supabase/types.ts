@@ -107552,6 +107552,10 @@ export type Database = {
         Args: { p_package_id: string }
         Returns: undefined
       }
+      admin_unstick_pending_enqueue_steps: {
+        Args: { p_package_ids: string[]; p_reason?: string }
+        Returns: Json
+      }
       admin_update_permanent_fix_task: {
         Args: {
           p_notes?: string
