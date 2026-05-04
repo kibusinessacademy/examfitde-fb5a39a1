@@ -222,6 +222,97 @@ Deno.serve(async (req) => {
   const p = body.payload || body;
 
   const curriculumId = p?.curriculum_id;
+  const packageId = p?.package_id ?? null;
+  const mode = p?.mode ?? null;
+  const targetCompetencyIds: string[] = Array.isArray(p?.target_competency_ids)
+    ? p.target_competency_ids.filter((x: unknown) => typeof x === "string" && x.length > 0)
+    : [];
+
+  // ═══════════════════════════════════════════════════════════════════
+  // MODE: targeted_blueprint_fill
+  // Loop over target_competency_ids, call seedOne per id, aggregate.
+  // No default fan-out, no step marking, no tail reset, no triggers.
+  // ═══════════════════════════════════════════════════════════════════
+  if (mode === "targeted_blueprint_fill") {
+    if (!curriculumId) {
+      return json({
+        status: "blocked",
+        reason: "MISSING_CURRICULUM_ID",
+        mode,
+        inserted_blueprints: 0,
+      }, 400);
+    }
+    if (targetCompetencyIds.length === 0) {
+      return json({
+        status: "blocked",
+        reason: "MISSING_TARGET_COMPETENCY_IDS",
+        mode,
+        inserted_blueprints: 0,
+      }, 400);
+    }
+
+    console.log(`[BP-Seed] mode=targeted_blueprint_fill curriculum=${curriculumId} package=${packageId} targets=${targetCompetencyIds.length}`);
+
+    let insertedBlueprints = 0;
+    const perCompetency: Array<{
+      competency_id: string;
+      seeded: number;
+      existing?: number;
+      facets?: string[];
+      skipped?: boolean;
+      error?: string;
+    }> = [];
+    const skipped: string[] = [];
+
+    for (const compId of targetCompetencyIds) {
+      try {
+        const r = await seedOneCompetency(sb, curriculumId, compId);
+        insertedBlueprints += r.seeded;
+        perCompetency.push({
+          competency_id: compId,
+          seeded: r.seeded,
+          existing: r.existing,
+          facets: r.facets_generated,
+          skipped: r.skipped,
+        });
+        if (r.skipped || r.seeded === 0) skipped.push(compId);
+      } catch (e: unknown) {
+        const msg = (e as Error)?.message || String(e);
+        console.error(`[BP-Seed] competency=${compId} error: ${msg}`);
+        perCompetency.push({ competency_id: compId, seeded: 0, error: msg });
+        skipped.push(compId);
+      }
+    }
+
+    if (insertedBlueprints === 0) {
+      return json({
+        status: "blocked",
+        reason: "NO_TARGETED_BLUEPRINTS_INSERTED",
+        mode,
+        package_id: packageId,
+        curriculum_id: curriculumId,
+        inserted_blueprints: 0,
+        target_competencies: targetCompetencyIds,
+        skipped,
+        per_competency: perCompetency,
+      }, 200);
+    }
+
+    return json({
+      status: "completed",
+      mode,
+      package_id: packageId,
+      curriculum_id: curriculumId,
+      inserted_blueprints: insertedBlueprints,
+      target_competencies: targetCompetencyIds,
+      skipped,
+      per_competency: perCompetency,
+    }, 200);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // LEGACY MODE: single competency (unchanged)
+  // ═══════════════════════════════════════════════════════════════════
   const competencyId = p?.competency_id;
 
   if (!curriculumId || !competencyId) {
