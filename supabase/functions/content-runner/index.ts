@@ -552,32 +552,69 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
 
       // ── TARGETED BLUEPRINT FILL SHORT-CIRCUIT ──
       // blueprint-seed-by-competency in mode 'targeted_blueprint_fill' produces real
-      // artifacts (question_blueprints rows). Treat inserted_blueprints>0 as success
-      // immediately; inserted_blueprints=0 as permanent failure (NO_TARGETED_BLUEPRINTS_INSERTED).
+      // artifacts (question_blueprints rows). Treat inserted_blueprints>0 as success.
+      // If inserted_blueprints=0 but the targeted competencies already have blueprints,
+      // complete as completed_existing_blueprints so the continuation trigger can fire.
       const isTargetedBlueprintFill =
-        edgeFn === "blueprint-seed-by-competency" &&
+        edgeFunctionForJobType(job.job_type, job.payload) === "blueprint-seed-by-competency" &&
         (job.payload as any)?.mode === "targeted_blueprint_fill";
 
       if (isTargetedBlueprintFill && result && typeof result === "object") {
         const insertedBP = Number(result.inserted_blueprints ?? 0);
         const nowTbf = new Date().toISOString();
-        if (insertedBP > 0) {
+        const targetCompetencyIds = Array.isArray(result.target_competency_ids)
+          ? result.target_competency_ids
+          : Array.isArray(result.target_competencies)
+            ? result.target_competencies
+            : Array.isArray((job.payload as any)?.target_competency_ids)
+              ? (job.payload as any).target_competency_ids
+              : [];
+        let existingBlueprints = 0;
+        if (insertedBP <= 0 && targetCompetencyIds.length > 0) {
+          const packageId = result.package_id ?? (job.payload as any)?.package_id ?? job.package_id;
+          const curriculumId = result.curriculum_id ?? (job.payload as any)?.curriculum_id;
+          let existingQuery = sb
+            .from("question_blueprints")
+            .select("id", { count: "exact", head: true })
+            .eq("package_id", packageId)
+            .in("competency_id", targetCompetencyIds);
+          if (curriculumId) existingQuery = existingQuery.eq("curriculum_id", curriculumId);
+          const { count, error: existingErr } = await existingQuery;
+          if (existingErr) console.warn(`[content-runner] targeted_blueprint_fill existing blueprint check failed: ${existingErr.message}`);
+          existingBlueprints = count ?? 0;
+        }
+        const completedExistingBlueprints = insertedBP <= 0 && existingBlueprints > 0;
+        const normalizedTargetedResult = completedExistingBlueprints
+          ? {
+              ...result,
+              status: "completed",
+              reason: "COMPLETED_EXISTING_BLUEPRINTS",
+              inserted_blueprints: 0,
+              existing_blueprints: existingBlueprints,
+              completed_existing_blueprints: true,
+              target_competency_ids: targetCompetencyIds,
+            }
+          : result;
+
+        if (insertedBP > 0 || completedExistingBlueprints) {
           await sb.from("job_queue").update({
             status: "completed",
             completed_at: nowTbf,
             updated_at: nowTbf,
             locked_at: null,
             locked_by: null,
-            result: result,
+            result: normalizedTargetedResult,
             attempts: (job.attempts ?? 0) + 1,
             meta: {
               ...(job.meta || {}),
               targeted_blueprint_fill_inserted: insertedBP,
+              targeted_blueprint_fill_existing: existingBlueprints,
+              completed_existing_blueprints: completedExistingBlueprints,
               targeted_blueprint_fill_short_circuit: true,
             },
           }).eq("id", job.id);
-          console.log(`[content-runner] ✅ ${job.job_type} (${shortId}) targeted_blueprint_fill completed — inserted_blueprints=${insertedBP}`);
-          return { id: job.id, ok: true, result, short_circuit: "targeted_blueprint_fill" };
+          console.log(`[content-runner] ✅ ${job.job_type} (${shortId}) targeted_blueprint_fill completed — inserted_blueprints=${insertedBP} existing_blueprints=${existingBlueprints}`);
+          return { id: job.id, ok: true, result: normalizedTargetedResult, short_circuit: "targeted_blueprint_fill" };
         } else {
           await sb.from("job_queue").update({
             status: "failed",
