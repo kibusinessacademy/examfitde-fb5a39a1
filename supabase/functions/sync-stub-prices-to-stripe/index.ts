@@ -26,16 +26,21 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const admin = createClient(supabaseUrl, serviceKey);
 
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) return json(401, { ok: false, error: "Unauthorized" }, origin);
-    const token = authHeader.replace("Bearer ", "");
-    const { data: userData } = await admin.auth.getUser(token);
-    if (!userData?.user) return json(401, { ok: false, error: "Invalid token" }, origin);
-    const { data: roleRow } = await admin.rpc("has_role", {
-      _user_id: userData.user.id,
-      _role: "admin",
-    });
-    if (!roleRow) return json(403, { ok: false, error: "Admin role required" }, origin);
+    // Auth: either admin user OR internal shared secret (for batch/cron heal)
+    const internalSecret = req.headers.get("x-internal-secret");
+    const expectedInternal = Deno.env.get("EDGE_INTERNAL_SHARED_SECRET");
+    const isInternal = expectedInternal && internalSecret === expectedInternal;
+    if (!isInternal) {
+      const authHeader = req.headers.get("Authorization");
+      if (!authHeader) return json(401, { ok: false, error: "Unauthorized" }, origin);
+      const token = authHeader.replace("Bearer ", "");
+      const { data: userData } = await admin.auth.getUser(token);
+      if (!userData?.user) return json(401, { ok: false, error: "Invalid token" }, origin);
+      const { data: roleRow } = await admin.rpc("has_role", {
+        _user_id: userData.user.id, _role: "admin",
+      });
+      if (!roleRow) return json(403, { ok: false, error: "Admin role required" }, origin);
+    }
 
     const body = await req.json().catch(() => ({}));
     const dryRun = Boolean(body.dry_run);
