@@ -90670,6 +90670,51 @@ export type Database = {
         }
         Relationships: []
       }
+      v_admin_package_repair_audit: {
+        Row: {
+          action_type: string | null
+          coverage_pct: string | null
+          created_at: string | null
+          detail: string | null
+          enqueue_source: string | null
+          job_type: string | null
+          metadata: Json | null
+          package_id: string | null
+          reason: string | null
+          result_status: string | null
+          trigger_source: string | null
+          violations: Json | null
+        }
+        Insert: {
+          action_type?: string | null
+          coverage_pct?: never
+          created_at?: string | null
+          detail?: never
+          enqueue_source?: never
+          job_type?: never
+          metadata?: Json | null
+          package_id?: never
+          reason?: never
+          result_status?: string | null
+          trigger_source?: string | null
+          violations?: never
+        }
+        Update: {
+          action_type?: string | null
+          coverage_pct?: never
+          created_at?: string | null
+          detail?: never
+          enqueue_source?: never
+          job_type?: never
+          metadata?: Json | null
+          package_id?: never
+          reason?: never
+          result_status?: string | null
+          trigger_source?: string | null
+          violations?: never
+        }
+        Relationships: []
+      }
       v_admin_packages_ssot: {
         Row: {
           approved_questions: number | null
@@ -106826,6 +106871,22 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      admin_get_package_repair_audit: {
+        Args: { p_hours?: number; p_package_id?: string }
+        Returns: {
+          action_type: string
+          coverage_pct: string
+          created_at: string
+          detail: string
+          enqueue_source: string
+          job_type: string
+          package_id: string
+          reason: string
+          result_status: string
+          trigger_source: string
+          violations: Json
+        }[]
+      }
       admin_get_pending_age_histogram: {
         Args: never
         Returns: {
@@ -107585,6 +107646,10 @@ export type Database = {
           title: string
           track_min_pct: number
         }[]
+      }
+      admin_run_post_repair_validation_sequence: {
+        Args: { p_package_id: string }
+        Returns: Json
       }
       admin_safe_requeue_integrity_check: {
         Args: { _package_id: string; _reason?: string }
@@ -111011,6 +111076,15 @@ export type Database = {
         }[]
       }
       fn_test_payload_validator: { Args: never; Returns: Json }
+      fn_test_ssot_validator_and_bronze_lock: {
+        Args: never
+        Returns: {
+          actual: string
+          expected: string
+          passed: boolean
+          test_name: string
+        }[]
+      }
       fn_track_min_coverage_thresholds: {
         Args: { p_track: string }
         Returns: {
