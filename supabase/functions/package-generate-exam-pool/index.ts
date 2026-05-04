@@ -2010,15 +2010,20 @@ Deno.serve(async (req) => {
     if (shouldContinue) {
       continuation.attempted = true;
       try {
-        // Active-Job-Dedup: refuse if a targeted_competency_fill job is already pending/processing
-        const { data: activeExisting } = await sb2
+        // Active-Job-Dedup: exclude SELF (currentJobId) — bug fix 2026-05-04.
+        // Also require enqueue_source=competency_coverage_repair to avoid colliding
+        // with unrelated targeted_fill jobs from other repair lanes.
+        let activeQuery = sb2
           .from("job_queue")
           .select("id")
           .eq("package_id", packageId)
           .eq("job_type", "package_generate_exam_pool")
           .in("status", ["pending", "queued", "processing", "running", "batch_pending"])
-          .contains("payload", { mode: "targeted_competency_fill" })
-          .limit(1);
+          .contains("payload", { mode: "targeted_competency_fill", enqueue_source: "competency_coverage_repair" });
+        if (currentJobId) {
+          activeQuery = activeQuery.neq("id", currentJobId);
+        }
+        const { data: activeExisting } = await activeQuery.limit(1);
 
         if ((activeExisting ?? []).length > 0) {
           continuation = {
@@ -2033,26 +2038,35 @@ Deno.serve(async (req) => {
             reason: "remaining_target_competencies_after_partial_success",
             package_id: packageId,
             curriculum_id: curriculumId,
+            course_id: p.course_id ?? null,
             certification_id: p.certification_id ?? null,
+            step_key: "generate_exam_pool",
             is_repair: true,
             mode: "targeted_competency_fill",
+            // Phantom-Guard + Tail-Reset-Trigger erkennen über _origin / enqueue_source.
+            _origin: "competency_coverage_repair",
+            _origin_job_id: p._origin_job_id ?? rootJobId ?? parentJobId ?? null,
+            enqueue_source: "competency_coverage_repair",
+            requeue_tail_after_success: true,
             target_competency_ids: remainingTargetCompetencyIds,
+            target_per_competency: Number(p.target_per_competency ?? p.min_questions_per_competency ?? 5),
             min_questions_per_competency: Number(p.min_questions_per_competency ?? 5),
             questions_per_blueprint: Number(p.questions_per_blueprint ?? 5),
             continuation_of_targeted_fill: true,
             continuation_depth: nextDepth,
             root_job_id: rootJobId ?? parentJobId ?? null,
-            parent_job_id: parentJobId,
+            parent_job_id: currentJobId ?? parentJobId,
           };
           const childMeta = {
-            manual_heal: true,
+            manual_heal: false,
+            origin: "targeted_fill_continuation",
             cluster: "targeted_fill_continuation",
             continuation_depth: nextDepth,
             remaining_target_competencies: remainingTargetCompetencyIds.length,
             root_job_id: rootJobId ?? parentJobId ?? null,
-            parent_job_id: parentJobId,
+            parent_job_id: currentJobId ?? parentJobId,
           };
-          const { error: insErr } = await sb2.from("job_queue").insert({
+          const { data: inserted, error: insErr } = await sb2.from("job_queue").insert({
             job_type: "package_generate_exam_pool",
             package_id: packageId,
             status: "pending",
@@ -2061,13 +2075,32 @@ Deno.serve(async (req) => {
             run_after: new Date(Date.now() + 15_000).toISOString(),
             payload: childPayload,
             meta: childMeta,
-          });
+          }).select("id").single();
           if (insErr) throw insErr;
+          // Audit: continuation enqueued
+          try {
+            await sb2.from("auto_heal_log").insert({
+              action_type: "targeted_competency_fill_continuation_enqueued",
+              target_type: "course_package",
+              target_id: packageId,
+              result_status: "success",
+              result_detail: `continuation depth=${nextDepth} remaining=${remainingTargetCompetencyIds.length}`,
+              metadata: {
+                package_id: packageId,
+                parent_job_id: currentJobId ?? parentJobId,
+                root_job_id: rootJobId ?? parentJobId ?? null,
+                child_job_id: inserted?.id ?? null,
+                continuation_depth: nextDepth,
+                remaining_target_competencies: remainingTargetCompetencyIds.length,
+              },
+            });
+          } catch (_auditErr) { /* non-fatal */ }
           continuation = {
             ...continuation,
             enqueued: true,
             reason: "CONTINUATION_ENQUEUED",
             continuation_depth_next: nextDepth,
+            child_job_id: inserted?.id ?? null,
           };
         }
       } catch (e) {
