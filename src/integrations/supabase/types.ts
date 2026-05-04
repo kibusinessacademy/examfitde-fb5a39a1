@@ -106027,6 +106027,10 @@ export type Database = {
         Args: { p_reason?: string; p_until?: string; p_user_id: string }
         Returns: undefined
       }
+      admin_bronze_targeted_repair_dispatch: {
+        Args: { p_package_id: string }
+        Returns: Json
+      }
       admin_bulk_depublish_hollow: {
         Args: { p_dry_run?: boolean; p_max_packages?: number }
         Returns: Json
@@ -110306,6 +110310,7 @@ export type Database = {
       fn_heal_remaining_packages_by_class: { Args: never; Returns: Json }
       fn_heal_track_step_drift: { Args: never; Returns: Json }
       fn_heal_upstream_hotspots: { Args: never; Returns: Json }
+      fn_is_bronze_locked: { Args: { p_package_id: string }; Returns: boolean }
       fn_is_qc_coverage_eligible: {
         Args: { p_qc_status: string; p_status?: string }
         Returns: boolean
