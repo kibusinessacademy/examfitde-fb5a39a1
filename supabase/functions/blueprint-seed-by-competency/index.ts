@@ -216,7 +216,7 @@ interface SeedOneResult {
 }
 
 async function seedOneCompetency(
-  sb: ReturnType<typeof createClient>,
+  sb: any,
   curriculumId: string,
   competencyId: string,
 ): Promise<SeedOneResult> {
