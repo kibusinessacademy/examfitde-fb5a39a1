@@ -37,8 +37,7 @@ jobs:
           [ -z "${ADMIN_TEST_JWT:-}" ] && echo "::warning::ADMIN_TEST_JWT missing — admin abuse checks will be skipped"
 
           strict="false"
-          if [ "${{ github.event_name }}" = "schedule" ] || \
-             { [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; }; then
+          if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ github.ref }}" = "refs/heads/main" ]; then
             strict="true"
           fi
 
