@@ -556,7 +556,7 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
       // If inserted_blueprints=0 but the targeted competencies already have blueprints,
       // complete as completed_existing_blueprints so the continuation trigger can fire.
       const isTargetedBlueprintFill =
-        edgeFunctionForJobType(job.job_type, job.payload) === "blueprint-seed-by-competency" &&
+        job.job_type === "package_generate_blueprint_variants" &&
         (job.payload as any)?.mode === "targeted_blueprint_fill";
 
       if (isTargetedBlueprintFill && result && typeof result === "object") {
