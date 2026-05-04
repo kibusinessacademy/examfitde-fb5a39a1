@@ -105841,6 +105841,7 @@ export type Database = {
       }
     }
     Functions: {
+      _admin_backfill_council_verdict_2026_05_04: { Args: never; Returns: Json }
       _admin_recheck_enqueue: {
         Args: {
           p_job_type: string
