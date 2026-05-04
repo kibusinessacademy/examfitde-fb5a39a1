@@ -550,6 +550,55 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
         return { id: job.id, ok: false, error: errorMsg, retry: true };
       }
 
+      // ── TARGETED BLUEPRINT FILL SHORT-CIRCUIT ──
+      // blueprint-seed-by-competency in mode 'targeted_blueprint_fill' produces real
+      // artifacts (question_blueprints rows). Treat inserted_blueprints>0 as success
+      // immediately; inserted_blueprints=0 as permanent failure (NO_TARGETED_BLUEPRINTS_INSERTED).
+      const isTargetedBlueprintFill =
+        edgeFn === "blueprint-seed-by-competency" &&
+        (job.payload as any)?.mode === "targeted_blueprint_fill";
+
+      if (isTargetedBlueprintFill && result && typeof result === "object") {
+        const insertedBP = Number(result.inserted_blueprints ?? 0);
+        const nowTbf = new Date().toISOString();
+        if (insertedBP > 0) {
+          await sb.from("job_queue").update({
+            status: "completed",
+            completed_at: nowTbf,
+            updated_at: nowTbf,
+            locked_at: null,
+            locked_by: null,
+            result: result,
+            attempts: (job.attempts ?? 0) + 1,
+            meta: {
+              ...(job.meta || {}),
+              targeted_blueprint_fill_inserted: insertedBP,
+              targeted_blueprint_fill_short_circuit: true,
+            },
+          }).eq("id", job.id);
+          console.log(`[content-runner] ✅ ${job.job_type} (${shortId}) targeted_blueprint_fill completed — inserted_blueprints=${insertedBP}`);
+          return { id: job.id, ok: true, result, short_circuit: "targeted_blueprint_fill" };
+        } else {
+          await sb.from("job_queue").update({
+            status: "failed",
+            completed_at: nowTbf,
+            updated_at: nowTbf,
+            locked_at: null,
+            locked_by: null,
+            last_error: "NO_TARGETED_BLUEPRINTS_INSERTED",
+            result: result,
+            attempts: (job.attempts ?? 0) + 1,
+            meta: {
+              ...(job.meta || {}),
+              targeted_blueprint_fill_inserted: 0,
+              exhaust_reason: "NO_TARGETED_BLUEPRINTS_INSERTED",
+            },
+          }).eq("id", job.id);
+          console.warn(`[content-runner] ⛔ ${job.job_type} (${shortId}) targeted_blueprint_fill blocked — inserted_blueprints=0`);
+          return { id: job.id, ok: false, error: "NO_TARGETED_BLUEPRINTS_INSERTED", short_circuit: "targeted_blueprint_fill" };
+        }
+      }
+
       // ── ZERO-PROGRESS GUARD ──
       // A job that returns ok=true but batch_complete=false with 0 sections written
       // is NOT a real success — it must be treated as transient to allow retry.
