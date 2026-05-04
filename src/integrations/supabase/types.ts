@@ -106145,6 +106145,10 @@ export type Database = {
         Args: { _package_id: string }
         Returns: Json
       }
+      admin_finalize_materialized_blueprint_variant_steps: {
+        Args: { p_package_ids: string[]; p_reason?: string }
+        Returns: Json
+      }
       admin_force_depublish_and_rebuild: {
         Args: { p_package_id: string }
         Returns: undefined
