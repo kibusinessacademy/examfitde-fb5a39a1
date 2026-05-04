@@ -418,6 +418,7 @@ Deno.serve(async (req) => {
       const result = await enqueueJob(sb, {
         job_type: "lesson_generate_competency_bundle",
         package_id: packageId,
+        enqueue_source: "package_generate_learning_content:competency_bundle_fanout",
         payload: {
           package_id: packageId,
           course_id: courseId,
