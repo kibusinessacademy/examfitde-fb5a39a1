@@ -106027,6 +106027,10 @@ export type Database = {
         Args: { p_reason?: string; p_until?: string; p_user_id: string }
         Returns: undefined
       }
+      admin_bronze_manual_approve_for_publish: {
+        Args: { p_package_id: string; p_reason?: string }
+        Returns: Json
+      }
       admin_bronze_targeted_repair_dispatch: {
         Args: { p_package_id: string }
         Returns: Json
@@ -106295,6 +106299,30 @@ export type Database = {
           packages: number
           primary_blocker: string
           sample_package_ids: string[]
+        }[]
+      }
+      admin_get_bronze_review_packages: {
+        Args: never
+        Returns: {
+          badge: string
+          bronze_started_at: string
+          course_title: string
+          failed_rules: Json
+          final_state: string
+          has_active_publish_job: boolean
+          integrity_passed: boolean
+          last_council_at: string
+          manual_approved_at: string
+          package_id: string
+          package_key: string
+          pricing_ready: boolean
+          repair_active: boolean
+          repair_attempts: number
+          requires_review: boolean
+          score: number
+          status: string
+          title: string
+          verdict: string
         }[]
       }
       admin_get_building_progress_48h: {
