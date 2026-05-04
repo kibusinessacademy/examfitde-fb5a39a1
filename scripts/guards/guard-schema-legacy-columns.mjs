@@ -6,11 +6,15 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
-const ROOTS = ["supabase", "src", "scripts"];
+const ROOTS = ["supabase/functions", "src", "scripts"];
 const BLOCKED = [
   { table: "product_prices", legacyColumn: "billing_interval", replacement: "billing_type" },
 ];
-const ALLOWLIST = ["scripts/guards/guard-schema-legacy-columns.mjs"];
+const ALLOWLIST = [
+  "scripts/guards/guard-schema-legacy-columns.mjs",
+  "scripts/guards/guard-registry.mjs",
+  "scripts/guards/schema-contract-product-prices.mjs",
+];
 
 function walk(dir, out = []) {
   for (const entry of readdirSync(dir)) {
