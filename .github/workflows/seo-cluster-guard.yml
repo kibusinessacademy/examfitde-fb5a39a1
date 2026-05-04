@@ -19,7 +19,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: "24"
       - name: Link & Canonical Audit
         run: node scripts/seo/link-and-canonical-audit.mjs
       - name: Sitemap ↔ Canonical Parity

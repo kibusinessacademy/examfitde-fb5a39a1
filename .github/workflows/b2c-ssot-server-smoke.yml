@@ -26,7 +26,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "24"
       - name: Stripe-Webhook Signed-Event Smoke (handler-level, fast-fail)
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
