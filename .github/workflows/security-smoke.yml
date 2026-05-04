@@ -34,8 +34,7 @@ jobs:
           [ -z "${VITE_SUPABASE_PUBLISHABLE_KEY:-}" ] && { echo "❌ Missing VITE_SUPABASE_PUBLISHABLE_KEY (or SUPABASE_ANON_KEY)"; missing=1; }
 
           strict="false"
-          if [ "${{ github.event_name }}" = "schedule" ] || \
-             { [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; }; then
+          if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ github.ref }}" = "refs/heads/main" ]; then
             strict="true"
           fi
 
