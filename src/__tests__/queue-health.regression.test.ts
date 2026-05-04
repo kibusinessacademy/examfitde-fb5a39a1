@@ -35,7 +35,7 @@ describe.skipIf(skip)("queue health classification", () => {
     expect(Array.isArray(data)).toBe(true);
   });
 
-  it("schema_drift_blocked is bounded (regression for billing_interval)", async () => {
+  it("schema_drift_blocked is bounded (regression: legacy schema-drift must not stall publish)", async () => {
     const { data } = await sb!.from("v_ops_queue_claimability")
       .select("claimability_status").eq("claimability_status", "schema_drift_blocked");
     expect((data || []).length).toBeLessThan(50);
