@@ -1190,33 +1190,35 @@ async function dedupeValidateAndInsert(
       typical_errors: resolvedTypicalErrors.length > 0 ? resolvedTypicalErrors : null,
     };
 
+    // ── Counter-truthfulness fix (2026-05-04): tag candidate, count AFTER insert ──
+    let pool: "exam" | "training_pass" | "training_gatefail";
     if (distractorGateFailed) {
       console.log(`[ExamPool-v5] ${qcReason}: ${finalQuestionType} question has ${rawDistractorMeta.length}/${requiredMeta} valid distractor_meta`);
+      pool = "training_gatefail";
       trainingBatch.push({
         ...baseRow,
         distractor_meta: { raw: rawDistractorMeta, gate_fail: true, qc_reason: qcReason, required: requiredMeta, actual: rawDistractorMeta.length, source_type: questionType, final_type: finalQuestionType },
         status: "draft",
         qc_status: "tier1_failed",
+        __pool: pool,
       });
-      gateFailed++;
       _qualityMetrics.candidates_gate_failed_distractor++;
       _qualityMetrics.rejection_reasons[`distractor_${qcReason}`] = (_qualityMetrics.rejection_reasons[`distractor_${qcReason}`] ?? 0) + 1;
     } else {
+      pool = assignedPool === "exam" ? "exam" : "training_pass";
       const targetBatch = assignedPool === "exam" ? examBatch : trainingBatch;
       targetBatch.push({
         ...baseRow,
         distractor_meta: { raw: rawDistractorMeta, gate_fail: false, qc_reason: null, required: requiredMeta, actual: rawDistractorMeta.length, source_type: questionType, final_type: finalQuestionType },
         status,
         qc_status: assignedPool === "exam" ? "approved" : "pending",
+        __pool: pool,
       });
       if (assignedPool === "exam") {
-        saved++;
         _qualityMetrics.candidates_accepted_exam++;
       } else {
-        training++;
         _qualityMetrics.candidates_accepted_training++;
       }
-      // Track quality scores for average
       _qualityMetrics.avg_quality_score = (
         (_qualityMetrics.avg_quality_score * (_qualityMetrics.candidates_accepted_exam + _qualityMetrics.candidates_accepted_training - 1) + qualityResult.score)
         / (_qualityMetrics.candidates_accepted_exam + _qualityMetrics.candidates_accepted_training)
@@ -1224,40 +1226,68 @@ async function dedupeValidateAndInsert(
     }
   }
 
-  // ── Batch insert all collected rows (exam + training) ──
+  // ── Batch insert all collected rows (exam + training) — count REAL inserts ──
   const allRows = [...examBatch, ...trainingBatch];
+  let insertedExam = 0;
+  let insertedTrainingPass = 0;
+  let insertedTrainingGate = 0;
+  let dupSkippedDb = 0;
   if (allRows.length > 0) {
     const BATCH_SIZE = 50;
     for (let i = 0; i < allRows.length; i += BATCH_SIZE) {
       const chunk = allRows.slice(i, i + BATCH_SIZE);
-      const { error } = await sb.from("exam_questions").insert(chunk);
+      const sanitized = chunk.map((r: any) => { const { __pool: _omit, ...rest } = r; return rest; });
+      const { data: insData, error } = await sb.from("exam_questions").insert(sanitized).select("id");
       if (error) {
         if (error.code === "23505") {
           console.log(`[ExamPool-v5] BATCH_DUP: falling back to individual inserts for ${chunk.length} rows`);
           for (const row of chunk) {
-            const { error: singleErr } = await sb.from("exam_questions").insert(row);
-            if (singleErr && singleErr.code !== "23505") {
+            const pool = row.__pool;
+            const { __pool: _o, ...payload } = row;
+            const { data: singleData, error: singleErr } = await sb.from("exam_questions").insert(payload).select("id");
+            if (singleErr) {
+              if (singleErr.code === "23505") {
+                dupSkippedDb++;
+                continue;
+              }
               const r = await handleDbFailure({ supabase: sb }, singleErr);
               if (r?.permanent) throw new Error(`SSOT_GUARD_PERMANENT:${r.hintKey || "unknown"}`);
+              continue;
+            }
+            if ((singleData ?? []).length > 0) {
+              if (pool === "exam") insertedExam++;
+              else if (pool === "training_pass") insertedTrainingPass++;
+              else insertedTrainingGate++;
             }
           }
         } else {
           const r = await handleDbFailure({ supabase: sb }, error);
           if (r?.permanent) throw new Error(`SSOT_GUARD_PERMANENT:${r.hintKey || "unknown"}`);
+          // chunk failed without 23505 — count nothing
+        }
+      } else {
+        // Whole-batch success: trust the chunk pool tags
+        for (const row of chunk) {
+          if (row.__pool === "exam") insertedExam++;
+          else if (row.__pool === "training_pass") insertedTrainingPass++;
+          else insertedTrainingGate++;
         }
       }
     }
   }
 
-  const persisted_total = examBatch.length + trainingBatch.length;
+  const saved = insertedExam;
+  const training = insertedTrainingPass;
+  const gateFailed = insertedTrainingGate;
+  const persisted_total = saved + training + gateFailed;
   const acceptedTotal = saved + training + gateFailed;
   const acceptRate = generatedTotal > 0 ? ((acceptedTotal / generatedTotal) * 100).toFixed(1) : "0.0";
-  console.log(`[ExamPool-v5] YIELD: generated=${generatedTotal}, persisted=${persisted_total}, exam_approved=${saved}, training=${training}, gateFailed=${gateFailed}, dups_skipped=${duplicates_skipped}, near_dups=${near_duplicates_skipped}, contamination=${rejectedContamination}, other=${rejectedOther}, acceptRate=${acceptRate}%`);
+  console.log(`[ExamPool-v5] YIELD: generated=${generatedTotal}, persisted=${persisted_total}, exam_approved=${saved}, training=${training}, gateFailed=${gateFailed}, dup_db=${dupSkippedDb}, dups_skipped=${duplicates_skipped}, near_dups=${near_duplicates_skipped}, contamination=${rejectedContamination}, other=${rejectedOther}, acceptRate=${acceptRate}%`);
   return {
     saved, training, gateFailed, generatedTotal, rejectedContamination, rejectedOther,
     acceptRate: parseFloat(acceptRate),
     exam_approved: saved, training_total: training + gateFailed,
-    persisted_total, duplicates_skipped, near_duplicates_skipped,
+    persisted_total, duplicates_skipped: duplicates_skipped + dupSkippedDb, near_duplicates_skipped,
   };
 }
 
