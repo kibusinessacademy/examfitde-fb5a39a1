@@ -1,14 +1,11 @@
 /**
  * NextActionCard — "Was jetzt klicken?"
  *
- * Deterministische Empfehlung basierend auf Lane-Health:
- * - Worker-Stillstand (pending>0, processing=0, completed_6h=0)  → Reap-Lane
- * - DAG-Backlog (pending>0, processing>0, completed_6h=0)        → Per-Step-Retry der blockierenden Tail-Steps
- * - slow drain (oldest > 1h)                                     → Stuck-Patterns Bulk-Promote
- * - alles grün                                                   → "Nichts zu tun"
- *
- * Reine UI-Logik, keine neuen RPCs. Verlinkt per onClick auf
- * vorhandene Aktionen über window-Events / smooth-scroll.
+ * v2: Diagnose statt Heuristik.
+ * Nutzt admin_get_queue_claimability_summary, um zwischen
+ * stale_processing, dag_blocked, pricing_blocked, schema_drift_blocked,
+ * package_not_building, phantom_step_done und claimable zu unterscheiden.
+ * Lane-Health liefert nur noch Heartbeat- und Claimable-Signale.
  */
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -27,6 +24,15 @@ interface LaneRow {
   last_completed_at: string | null;
   completed_6h: number;
   oldest_pending_sec: number | null;
+  dispatched_recent_5m?: number;
+  last_worker_activity_at?: string | null;
+}
+
+interface ClaimRow {
+  lane: string;
+  claimability_status: string;
+  job_count: number;
+  oldest_age_sec: number;
 }
 
 type Severity = "ok" | "info" | "warn" | "critical";
@@ -38,48 +44,85 @@ interface Recommendation {
   action?: { label: string; targetSelector?: string };
 }
 
-function buildRecommendation(lanes: LaneRow[]): Recommendation {
-  const stalled: string[] = [];
-  const dagBacklog: string[] = [];
-  const slow: string[] = [];
+function buildRecommendation(lanes: LaneRow[], claim: ClaimRow[]): Recommendation {
+  const sum = (status: string) =>
+    claim.filter((c) => c.claimability_status === status).reduce((a, c) => a + c.job_count, 0);
 
-  for (const l of lanes) {
-    const noCompletions = l.pending_cnt > 0 && l.completed_6h === 0;
-    if (noCompletions && l.processing_cnt === 0) stalled.push(l.lane);
-    else if (noCompletions && l.processing_cnt > 0) dagBacklog.push(l.lane);
-    else if ((l.oldest_pending_sec ?? 0) > 3600) slow.push(l.lane);
-  }
+  const stale = sum("stale_processing");
+  const dagBlocked = sum("dag_blocked");
+  const pricingBlocked = sum("pricing_blocked");
+  const schemaDrift = sum("schema_drift_blocked");
+  const phantom = sum("phantom_step_done");
+  const notBuilding = sum("package_not_building");
+  const claimable = sum("claimable_by_rpc_filters");
 
-  if (stalled.length > 0) {
+  // Echte Worker-Toten-Diagnose: claimable Jobs vorhanden, aber kein Heartbeat in 5 min
+  const stalledLanes = lanes.filter((l) => {
+    const recent = l.dispatched_recent_5m ?? 0;
+    const claimableInLane = claim
+      .filter((c) => c.lane === l.lane && c.claimability_status === "claimable_by_rpc_filters")
+      .reduce((a, c) => a + c.job_count, 0);
+    return claimableInLane > 0 && recent === 0;
+  });
+
+  if (stale > 0) {
     return {
       severity: "critical",
-      title: `Worker-Stillstand: ${stalled.join(", ")}`,
-      body:
-        `Keine Jobs werden bearbeitet (processing=0, completed_6h=0). ` +
-        `Klicke oben „Reap ${stalled.includes("control") ? "Control-Lane" : "All"}" um Zombie-Leases freizugeben.`,
+      title: `Stale Locks: ${stale} Jobs >10 min in processing`,
+      body: "Echte Zombie-Leases. Reap-Lane freigeben.",
       action: { label: "Zum Reap-Button (oben)", targetSelector: "[data-quick-reap]" },
     };
   }
 
-  if (dagBacklog.length > 0) {
+  if (stalledLanes.length > 0) {
+    return {
+      severity: "critical",
+      title: `Runner-Stillstand: ${stalledLanes.map((l) => l.lane).join(", ")}`,
+      body: "Claimable Jobs vorhanden, aber 0 Worker-Heartbeats in 5 min. Edge-Function prüfen.",
+      action: { label: "Edge-Function-Logs", targetSelector: '[data-section="ops"]' },
+    };
+  }
+
+  if (schemaDrift > 0) {
+    return {
+      severity: "critical",
+      title: `Schema-Drift: ${schemaDrift} Jobs blockiert`,
+      body: "Fehlende/falsche Spalten in der DB. Healer-Code an Schema angleichen.",
+    };
+  }
+
+  if (dagBlocked > 0) {
     return {
       severity: "warn",
-      title: `DAG-Backlog: ${dagBacklog.join(", ")}`,
-      body:
-        `Worker leben (processing>0), aber Jobs werden gefiltert weil vorgelagerte Tail-Steps ` +
-        `(meist package_run_integrity_check oder package_quality_council) failed/queued sind. ` +
-        `→ Sektion „Pakete heilen" → „Heal-Status pro Kurs" → Per-Step-Retry auf der roten Zeile.`,
+      title: `DAG-Blocked: ${dagBlocked} Jobs warten auf Parents`,
+      body: "Vorgelagerte Steps sind nicht done/skipped. → Heal-Status pro Kurs → Per-Step-Retry.",
       action: { label: 'Zu „Pakete heilen“', targetSelector: '[data-section="packages"]' },
     };
   }
 
-  if (slow.length > 0) {
+  if (pricingBlocked > 0) {
+    return {
+      severity: "warn",
+      title: `Pricing-Gate: ${pricingBlocked} Auto-Publish blockiert`,
+      body: "Pakete brauchen aktive product_prices mit stripe_price_id.",
+      action: { label: "Pricing-Backfill", targetSelector: '[data-section="pricing"]' },
+    };
+  }
+
+  if (notBuilding + phantom > 0) {
     return {
       severity: "info",
-      title: `Slow drain: ${slow.join(", ")}`,
-      body:
-        `Pakete liegen >1h pending. Wenn das nicht von alleine drainen sollte, ` +
-        `probiere „Pakete heilen" → „Stuck-Patterns" → Bulk-Promote.`,
+      title: `Gap-Sync nötig: ${notBuilding + phantom} Jobs verwaist`,
+      body: `${notBuilding} Pakete nicht building, ${phantom} Phantom-Steps. Gap-Sync aufräumen.`,
+      action: { label: "Gap-Sync starten", targetSelector: '[data-section="ops"]' },
+    };
+  }
+
+  if ((claim.find((c) => c.claimability_status === "claimable_by_rpc_filters")?.oldest_age_sec ?? 0) > 3600) {
+    return {
+      severity: "info",
+      title: `Slow drain: ${claimable} claimable, älteste >1h`,
+      body: "Worker drainen langsam. Stuck-Patterns Bulk-Promote prüfen.",
       action: { label: "Zu Stuck-Patterns", targetSelector: '[data-section="packages"]' },
     };
   }
@@ -109,7 +152,7 @@ function scrollTo(selector?: string) {
 }
 
 export function NextActionCard() {
-  const q = useQuery({
+  const lanesQ = useQuery({
     queryKey: ["admin-lane-health"],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("admin_get_lane_health" as any);
@@ -119,8 +162,18 @@ export function NextActionCard() {
     refetchInterval: 30_000,
   });
 
-  if (q.isLoading) return <Skeleton className="h-24 w-full" />;
-  const rec = buildRecommendation(q.data ?? []);
+  const claimQ = useQuery({
+    queryKey: ["admin-queue-claimability"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("admin_get_queue_claimability_summary" as any);
+      if (error) throw error;
+      return (data ?? []) as ClaimRow[];
+    },
+    refetchInterval: 30_000,
+  });
+
+  if (lanesQ.isLoading || claimQ.isLoading) return <Skeleton className="h-24 w-full" />;
+  const rec = buildRecommendation(lanesQ.data ?? [], claimQ.data ?? []);
   const tone = TONE[rec.severity];
 
   return (

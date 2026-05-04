@@ -97035,6 +97035,26 @@ export type Database = {
         }
         Relationships: []
       }
+      v_ops_queue_claimability: {
+        Row: {
+          claimability_status: string | null
+          created_at: string | null
+          id: string | null
+          job_type: string | null
+          lane: string | null
+          last_error: string | null
+          last_error_code: string | null
+          locked_at: string | null
+          package_status: string | null
+          resolved_package_id: string | null
+          run_after: string | null
+          status: string | null
+          step_key: string | null
+          step_status: Database["public"]["Enums"]["step_status"] | null
+          worker_pool: string | null
+        }
+        Relationships: []
+      }
       v_ops_redundant_seeding_pending: {
         Row: {
           blueprints: number | null
@@ -106661,6 +106681,15 @@ export type Database = {
           heal_eligible_cnt: number
           oldest_step_age_sec: number
           pkgs: number
+        }[]
+      }
+      admin_get_queue_claimability_summary: {
+        Args: never
+        Returns: {
+          claimability_status: string
+          job_count: number
+          lane: string
+          oldest_age_sec: number
         }[]
       }
       admin_get_queue_health_score: { Args: never; Returns: Json }
