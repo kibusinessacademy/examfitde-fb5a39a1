@@ -980,9 +980,7 @@ async function dedupeValidateAndInsert(
   exam_approved: number; training_total: number; persisted_total: number;
   duplicates_skipped: number; near_duplicates_skipped: number;
 }> {
-  let saved = 0;
-  let training = 0;
-  let gateFailed = 0;
+  // Counters set AFTER DB inserts (see post-batch reconciliation below)
   let rejectedContamination = 0;
   let rejectedOther = 0;
   let duplicates_skipped = 0;
@@ -1190,33 +1188,35 @@ async function dedupeValidateAndInsert(
       typical_errors: resolvedTypicalErrors.length > 0 ? resolvedTypicalErrors : null,
     };
 
+    // ── Counter-truthfulness fix (2026-05-04): tag candidate, count AFTER insert ──
+    let pool: "exam" | "training_pass" | "training_gatefail";
     if (distractorGateFailed) {
       console.log(`[ExamPool-v5] ${qcReason}: ${finalQuestionType} question has ${rawDistractorMeta.length}/${requiredMeta} valid distractor_meta`);
+      pool = "training_gatefail";
       trainingBatch.push({
         ...baseRow,
         distractor_meta: { raw: rawDistractorMeta, gate_fail: true, qc_reason: qcReason, required: requiredMeta, actual: rawDistractorMeta.length, source_type: questionType, final_type: finalQuestionType },
         status: "draft",
         qc_status: "tier1_failed",
+        __pool: pool,
       });
-      gateFailed++;
       _qualityMetrics.candidates_gate_failed_distractor++;
       _qualityMetrics.rejection_reasons[`distractor_${qcReason}`] = (_qualityMetrics.rejection_reasons[`distractor_${qcReason}`] ?? 0) + 1;
     } else {
+      pool = assignedPool === "exam" ? "exam" : "training_pass";
       const targetBatch = assignedPool === "exam" ? examBatch : trainingBatch;
       targetBatch.push({
         ...baseRow,
         distractor_meta: { raw: rawDistractorMeta, gate_fail: false, qc_reason: null, required: requiredMeta, actual: rawDistractorMeta.length, source_type: questionType, final_type: finalQuestionType },
         status,
         qc_status: assignedPool === "exam" ? "approved" : "pending",
+        __pool: pool,
       });
       if (assignedPool === "exam") {
-        saved++;
         _qualityMetrics.candidates_accepted_exam++;
       } else {
-        training++;
         _qualityMetrics.candidates_accepted_training++;
       }
-      // Track quality scores for average
       _qualityMetrics.avg_quality_score = (
         (_qualityMetrics.avg_quality_score * (_qualityMetrics.candidates_accepted_exam + _qualityMetrics.candidates_accepted_training - 1) + qualityResult.score)
         / (_qualityMetrics.candidates_accepted_exam + _qualityMetrics.candidates_accepted_training)
@@ -1224,40 +1224,68 @@ async function dedupeValidateAndInsert(
     }
   }
 
-  // ── Batch insert all collected rows (exam + training) ──
+  // ── Batch insert all collected rows (exam + training) — count REAL inserts ──
   const allRows = [...examBatch, ...trainingBatch];
+  let insertedExam = 0;
+  let insertedTrainingPass = 0;
+  let insertedTrainingGate = 0;
+  let dupSkippedDb = 0;
   if (allRows.length > 0) {
     const BATCH_SIZE = 50;
     for (let i = 0; i < allRows.length; i += BATCH_SIZE) {
       const chunk = allRows.slice(i, i + BATCH_SIZE);
-      const { error } = await sb.from("exam_questions").insert(chunk);
+      const sanitized = chunk.map((r: any) => { const { __pool: _omit, ...rest } = r; return rest; });
+      const { data: insData, error } = await sb.from("exam_questions").insert(sanitized).select("id");
       if (error) {
         if (error.code === "23505") {
           console.log(`[ExamPool-v5] BATCH_DUP: falling back to individual inserts for ${chunk.length} rows`);
           for (const row of chunk) {
-            const { error: singleErr } = await sb.from("exam_questions").insert(row);
-            if (singleErr && singleErr.code !== "23505") {
+            const pool = row.__pool;
+            const { __pool: _o, ...payload } = row;
+            const { data: singleData, error: singleErr } = await sb.from("exam_questions").insert(payload).select("id");
+            if (singleErr) {
+              if (singleErr.code === "23505") {
+                dupSkippedDb++;
+                continue;
+              }
               const r = await handleDbFailure({ supabase: sb }, singleErr);
               if (r?.permanent) throw new Error(`SSOT_GUARD_PERMANENT:${r.hintKey || "unknown"}`);
+              continue;
+            }
+            if ((singleData ?? []).length > 0) {
+              if (pool === "exam") insertedExam++;
+              else if (pool === "training_pass") insertedTrainingPass++;
+              else insertedTrainingGate++;
             }
           }
         } else {
           const r = await handleDbFailure({ supabase: sb }, error);
           if (r?.permanent) throw new Error(`SSOT_GUARD_PERMANENT:${r.hintKey || "unknown"}`);
+          // chunk failed without 23505 — count nothing
+        }
+      } else {
+        // Whole-batch success: trust the chunk pool tags
+        for (const row of chunk) {
+          if (row.__pool === "exam") insertedExam++;
+          else if (row.__pool === "training_pass") insertedTrainingPass++;
+          else insertedTrainingGate++;
         }
       }
     }
   }
 
-  const persisted_total = examBatch.length + trainingBatch.length;
+  const saved = insertedExam;
+  const training = insertedTrainingPass;
+  const gateFailed = insertedTrainingGate;
+  const persisted_total = saved + training + gateFailed;
   const acceptedTotal = saved + training + gateFailed;
   const acceptRate = generatedTotal > 0 ? ((acceptedTotal / generatedTotal) * 100).toFixed(1) : "0.0";
-  console.log(`[ExamPool-v5] YIELD: generated=${generatedTotal}, persisted=${persisted_total}, exam_approved=${saved}, training=${training}, gateFailed=${gateFailed}, dups_skipped=${duplicates_skipped}, near_dups=${near_duplicates_skipped}, contamination=${rejectedContamination}, other=${rejectedOther}, acceptRate=${acceptRate}%`);
+  console.log(`[ExamPool-v5] YIELD: generated=${generatedTotal}, persisted=${persisted_total}, exam_approved=${saved}, training=${training}, gateFailed=${gateFailed}, dup_db=${dupSkippedDb}, dups_skipped=${duplicates_skipped}, near_dups=${near_duplicates_skipped}, contamination=${rejectedContamination}, other=${rejectedOther}, acceptRate=${acceptRate}%`);
   return {
     saved, training, gateFailed, generatedTotal, rejectedContamination, rejectedOther,
     acceptRate: parseFloat(acceptRate),
     exam_approved: saved, training_total: training + gateFailed,
-    persisted_total, duplicates_skipped, near_duplicates_skipped,
+    persisted_total, duplicates_skipped: duplicates_skipped + dupSkippedDb, near_duplicates_skipped,
   };
 }
 
@@ -1773,9 +1801,32 @@ Deno.serve(async (req) => {
       .eq("status", "approved")
       .in("competency_id", resolvedIds);
     if (tbpErr) throw tbpErr;
-    const bpsList = (targetBps ?? []) as BlueprintInfo[];
+    const bpsListRaw = (targetBps ?? []) as BlueprintInfo[];
+    // ── BP-Ordering Fix (2026-05-04): round-robin per competency_id ──────────
+    // Previously sequential ordering meant the first 2 BPs of the same comp ate
+    // the entire 40s budget, leaving 7 of 8 target competencies untouched.
+    const bpsByComp = new Map<string, BlueprintInfo[]>();
+    for (const bp of bpsListRaw) {
+      const cid = String(bp.competency_id ?? "__nocomp__");
+      if (!bpsByComp.has(cid)) bpsByComp.set(cid, []);
+      bpsByComp.get(cid)!.push(bp);
+    }
+    const compBuckets = Array.from(bpsByComp.values());
+    const bpsList: BlueprintInfo[] = [];
+    let added = true;
+    let idx = 0;
+    while (added) {
+      added = false;
+      for (const bucket of compBuckets) {
+        if (idx < bucket.length) {
+          bpsList.push(bucket[idx]);
+          added = true;
+        }
+      }
+      idx++;
+    }
     const compsWithBps = new Set(bpsList.map(b => b.competency_id).filter(Boolean));
-    console.log(`[ExamPool-v5][TARGETED_FILL] blueprints=${bpsList.length}, comps_with_bp=${compsWithBps.size}/${resolvedIds.length}`);
+    console.log(`[ExamPool-v5][TARGETED_FILL] blueprints=${bpsList.length} (round-robin), comps_with_bp=${compsWithBps.size}/${resolvedIds.length}`);
 
     if (bpsList.length === 0) {
       // ── Self-Heal Loop v1: auto-escalate to targeted_blueprint_fill ──────────
