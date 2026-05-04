@@ -60622,6 +60622,60 @@ export type Database = {
         }
         Relationships: []
       }
+      rpc_revoke_plan: {
+        Row: {
+          applied_at: string | null
+          batch_name: string
+          created_at: string
+          dry_run_at: string | null
+          function_name: string
+          function_schema: string
+          function_signature: string
+          id: string
+          last_error: string | null
+          original_grants: Json | null
+          reason: string | null
+          rolled_back_at: string | null
+          status: string
+          target_roles: string[]
+          updated_at: string
+        }
+        Insert: {
+          applied_at?: string | null
+          batch_name: string
+          created_at?: string
+          dry_run_at?: string | null
+          function_name: string
+          function_schema?: string
+          function_signature: string
+          id?: string
+          last_error?: string | null
+          original_grants?: Json | null
+          reason?: string | null
+          rolled_back_at?: string | null
+          status?: string
+          target_roles?: string[]
+          updated_at?: string
+        }
+        Update: {
+          applied_at?: string | null
+          batch_name?: string
+          created_at?: string
+          dry_run_at?: string | null
+          function_name?: string
+          function_schema?: string
+          function_signature?: string
+          id?: string
+          last_error?: string | null
+          original_grants?: Json | null
+          reason?: string | null
+          rolled_back_at?: string | null
+          status?: string
+          target_roles?: string[]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       rpc_version_registry: {
         Row: {
           breaking_change_reason: string | null
@@ -110655,6 +110709,31 @@ export type Database = {
       fn_route_materialization_block: {
         Args: { p_job_id: string; p_last_error: string }
         Returns: boolean
+      }
+      fn_rpc_revoke_apply: {
+        Args: { p_batch: string }
+        Returns: {
+          error: string
+          function_signature: string
+          status: string
+        }[]
+      }
+      fn_rpc_revoke_dry_run: {
+        Args: { p_batch: string }
+        Returns: {
+          conflict_note: string
+          current_grants: string[]
+          function_signature: string
+          will_revoke_from: string[]
+        }[]
+      }
+      fn_rpc_revoke_rollback: {
+        Args: { p_batch: string }
+        Returns: {
+          error: string
+          function_signature: string
+          status: string
+        }[]
       }
       fn_run_coupling_heal_v4_supervised: {
         Args: { _retry_of?: string }
