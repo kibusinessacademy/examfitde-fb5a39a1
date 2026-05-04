@@ -1981,16 +1981,29 @@ Deno.serve(async (req) => {
     }
 
     // ── P1 Auto-Continuation: determine remaining targets after partial run ───
+    // FIX 2026-05-04: exam_questions uses qc_status (not status) for approval state.
+    // A target competency counts as "covered" only when it has ≥ target_per_competency
+    // approved questions — not just any single approved row.
+    const targetPerCompetency = Number(p.target_per_competency ?? p.min_questions_per_competency ?? 5);
     let remainingTargetCompetencyIds: string[] = [];
     try {
       const { data: approvedRows } = await sb2
         .from("exam_questions")
         .select("competency_id")
         .eq("curriculum_id", curriculumId)
-        .eq("status", "approved")
+        .eq("qc_status", "approved")
         .in("competency_id", resolvedIds);
-      const covered = new Set((approvedRows ?? []).map((r: any) => String(r.competency_id)));
-      remainingTargetCompetencyIds = resolvedIds.filter((id: string) => !covered.has(String(id)));
+      const counts = new Map<string, number>();
+      for (const r of (approvedRows ?? [])) {
+        const cid = String((r as any).competency_id);
+        counts.set(cid, (counts.get(cid) ?? 0) + 1);
+      }
+      remainingTargetCompetencyIds = resolvedIds.filter(
+        (id: string) => (counts.get(String(id)) ?? 0) < targetPerCompetency,
+      );
+      console.log(
+        `[ExamPool-v5][TARGETED_FILL] coverage_check resolved=${resolvedIds.length} approved_rows=${(approvedRows ?? []).length} target_per_comp=${targetPerCompetency} remaining=${remainingTargetCompetencyIds.length}`,
+      );
     } catch (e) {
       console.warn(`[ExamPool-v5][TARGETED_FILL] remaining-query failed: ${(e as Error)?.message ?? e}`);
     }
