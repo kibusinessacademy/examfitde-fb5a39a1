@@ -24,9 +24,9 @@ import { enqueueJob } from "../_shared/enqueue.ts";
  */
 
 const STEP_KEY = "repair_exam_pool_competency_coverage";
-const REPAIR_ACTION = "enqueue_competency_coverage_repair";
+const REPAIR_ACTION = "competency_coverage_repair";
 const DEFAULT_TARGET_PER_COMPETENCY = 5;
-const FANOUT_GLOBAL_CAP = 12;
+const COMPETENCY_BATCH_CAP = 60;  // max competencies per single targeted_competency_fill job
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -204,87 +204,88 @@ Deno.serve(async (req) => {
     });
   }
 
-  // ── Dedup against active fan-out jobs ──
-  const { data: activeFanouts } = await sb.from("job_queue")
-    .select("id, payload")
+  // ── Dedup against active targeted_competency_fill repair jobs ──
+  // The generator's targeted_competency_fill mode handles the per-competency loop internally;
+  // we enqueue ONE job per repair invocation with the full deficit set.
+  const { data: activeRepairs } = await sb.from("job_queue")
+    .select("id, payload, status")
     .eq("package_id", packageId)
     .eq("job_type", "package_generate_exam_pool")
-    .in("status", ["pending", "processing", "queued", "running"])
+    .in("status", ["pending", "processing", "queued", "running", "batch_pending"])
     .contains("payload", { _origin: REPAIR_ACTION });
-  const activeCompSet = new Set<string>();
-  for (const row of (activeFanouts ?? []) as Array<{ payload: Record<string, unknown> | null }>) {
-    const cid = row.payload?.competency_filter;
-    if (typeof cid === "string") activeCompSet.add(cid);
-  }
-  if ((activeFanouts?.length ?? 0) >= FANOUT_GLOBAL_CAP) {
+
+  if ((activeRepairs?.length ?? 0) > 0) {
+    await markDone(sb, packageId, {
+      skipped: "active_repair_job_exists",
+      active_count: activeRepairs!.length,
+      active_ids: activeRepairs!.map(r => (r as any).id),
+    });
     return json({
       status: "skipped",
-      reason: "active_fanout_cap_reached",
-      count: activeFanouts!.length,
+      reason: "active_targeted_competency_fill_job_exists",
+      count: activeRepairs!.length,
     });
   }
 
-  // ── Dispatch fan-out per deficit competency ──
-  const dispatched: Array<{
-    competency_id: string;
-    code: string;
-    deficit: number;
-    job_id: string;
-  }> = [];
-  const skipped: Array<{ competency_id: string; reason: string }> = [];
+  // ── Build single targeted_competency_fill payload ──
+  // Cap at COMPETENCY_BATCH_CAP per job; the worker handles continuation_depth internally.
+  const targetCompetencyIds = deficits
+    .slice(0, COMPETENCY_BATCH_CAP)
+    .map(d => d.competency_id);
+  const truncated = deficits.length > COMPETENCY_BATCH_CAP;
 
-  for (const d of deficits) {
-    if (activeCompSet.has(d.competency_id)) {
-      skipped.push({ competency_id: d.competency_id, reason: "active_fanout_for_competency" });
-      continue;
-    }
-    try {
-      const result = await enqueueJob(sb, {
-        job_type: "package_generate_exam_pool",
+  let dispatchedJobId: string | null = null;
+  let dispatchError: string | null = null;
+  try {
+    const result = await enqueueJob(sb, {
+      job_type: "package_generate_exam_pool",
+      package_id: packageId,
+      priority: 25,
+      payload: {
         package_id: packageId,
-        priority: 30,
-        batch_cursor: { comp_repair: d.competency_id, target_per_competency: targetPerCompetency },
-        payload: {
-          curriculum_id: curriculumId,
-          _fan_out: true,
-          competency_filter: d.competency_id,
-          learning_field_filter: d.learning_field_id,
-          competency_target_total: d.target_count,
-          _origin: REPAIR_ACTION,
-          _origin_job_id: jobId ?? null,
-          target_per_competency: targetPerCompetency,
-          deficit: d.deficit,
-        },
-      });
-      dispatched.push({
-        competency_id: d.competency_id,
-        code: d.code,
-        deficit: d.deficit,
-        job_id: (result as { id: string }).id,
-      });
-      activeCompSet.add(d.competency_id);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      console.warn(`[comp-cov-repair] enqueue failed for ${d.code}: ${msg}`);
-      skipped.push({ competency_id: d.competency_id, reason: `enqueue_failed: ${msg}` });
-    }
-  }
-
-  if (dispatched.length === 0) {
-    await markBlocked(sb, packageId, "no_jobs_dispatched", {
-      deficits_count: deficits.length,
-      skipped,
+        curriculum_id: curriculumId,
+        // Use the worker's existing P0 SCOPED REPAIR BRANCH (mode='targeted_competency_fill')
+        mode: "targeted_competency_fill",
+        is_repair: true,
+        target_competency_ids: targetCompetencyIds,
+        target_per_competency: targetPerCompetency,
+        // Identity / SSOT contract
+        step_key: "generate_exam_pool",
+        enqueue_source: REPAIR_ACTION,
+        _origin: REPAIR_ACTION,
+        _origin_job_id: jobId ?? null,
+        // Continuation lineage
+        continuation_depth: 0,
+        root_job_id: jobId ?? null,
+        parent_job_id: jobId ?? null,
+        // Tail-step downstream signal (consumed by trg_competency_repair_completion → resets validate→auto_publish)
+        requeue_tail_after_success: true,
+        deficit_total: deficits.reduce((s, d) => s + d.deficit, 0),
+      },
     });
-    return json({ status: "blocked", reason: "no_jobs_dispatched", skipped });
+    dispatchedJobId = (result as { id: string }).id;
+  } catch (e) {
+    dispatchError = e instanceof Error ? e.message : String(e);
+    console.warn(`[comp-cov-repair] enqueue failed: ${dispatchError}`);
   }
 
-  // ── Audit log ──
+  if (!dispatchedJobId) {
+    await markBlocked(sb, packageId, "no_job_dispatched", {
+      deficits_count: deficits.length,
+      target_competency_ids: targetCompetencyIds,
+      error: dispatchError,
+    });
+    return json({ status: "blocked", reason: "no_job_dispatched", error: dispatchError });
+  }
+
+  // ── Audit log: competency_filter_generation_started ──
   await sb.from("auto_heal_log").insert({
-    action_type: REPAIR_ACTION,
+    action_type: "competency_filter_generation_started",
+    target_type: "course_package",
+    target_id: packageId,
     result_status: "success",
     result_detail:
-      `dispatched ${dispatched.length}/${deficits.length} competency fan-out jobs ` +
-      `(skipped ${skipped.length})`,
+      `enqueued targeted_competency_fill job for ${targetCompetencyIds.length}/${deficits.length} deficit competencies`,
     metadata: {
       package_id: packageId,
       curriculum_id: curriculumId,
@@ -292,29 +293,31 @@ Deno.serve(async (req) => {
       target_per_competency: targetPerCompetency,
       competencies_total: competencies.length,
       deficits_count: deficits.length,
-      dispatched_count: dispatched.length,
-      skipped_count: skipped.length,
-      dispatched,
-      skipped,
+      target_competency_ids_count: targetCompetencyIds.length,
+      truncated,
+      generation_job_id: dispatchedJobId,
+      total_deficit: deficits.reduce((s, d) => s + d.deficit, 0),
     },
   });
 
   await markDone(sb, packageId, {
-    dispatched_count: dispatched.length,
+    generation_job_id: dispatchedJobId,
+    target_competency_ids_count: targetCompetencyIds.length,
     deficits_count: deficits.length,
-    skipped_count: skipped.length,
+    truncated,
     target_per_competency: targetPerCompetency,
-    pending_followup: "fan_out_completion_triggers_validate_exam_pool",
+    pending_followup: "targeted_competency_fill_completion_resets_tail_steps",
   });
 
   return json({
     status: "dispatched",
+    mode: "targeted_competency_fill",
     competencies_total: competencies.length,
     deficits: deficits.length,
-    dispatched: dispatched.length,
-    skipped: skipped.length,
+    target_competency_ids_count: targetCompetencyIds.length,
+    truncated,
     target_per_competency: targetPerCompetency,
-    jobs: dispatched,
-    next: "fan-out completion will re-trigger validate_exam_pool via job-runner",
+    generation_job_id: dispatchedJobId,
+    next: "generator runs targeted_competency_fill; on completion trigger resets validate_exam_pool→auto_publish",
   });
 });
