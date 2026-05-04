@@ -9,18 +9,53 @@ on:
 
 permissions: read-all
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   rls:
     timeout-minutes: 15
     name: RLS Security Check
     runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL || secrets.VITE_SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
-      - name: Run RLS security regression checks
-        env:
-          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+
+      - name: Check required secrets
+        id: secrets
+        shell: bash
+        run: |
+          missing=0
+          [ -z "${SUPABASE_URL:-}" ]      && { echo "❌ Missing SUPABASE_URL (or VITE_SUPABASE_URL)"; missing=1; }
+          [ -z "${SUPABASE_ANON_KEY:-}" ] && { echo "❌ Missing SUPABASE_ANON_KEY (or VITE_SUPABASE_PUBLISHABLE_KEY)"; missing=1; }
+
+          strict="false"
+          if [ "${{ github.event_name }}" = "schedule" ] || \
+             { [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; }; then
+            strict="true"
+          fi
+
+          if [ "$missing" -eq 1 ]; then
+            if [ "$strict" = "true" ]; then
+              echo "::error::Required secrets missing on protected run (schedule/main) — failing hard."
+              exit 1
+            fi
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::warning::RLS Regression skipped — required Supabase secrets missing."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "✅ Required secrets present"
+          fi
+
+      - name: Skip notice
+        if: steps.secrets.outputs.skip == 'true'
+        run: echo "RLS Regression skipped: missing required Supabase secrets."
+
+      - name: Run RLS regression
+        if: steps.secrets.outputs.skip != 'true'
         run: node scripts/rls-security-check.mjs
