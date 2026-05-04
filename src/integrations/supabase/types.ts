@@ -111869,6 +111869,10 @@ export type Database = {
         Args: { p_new_status: string; p_old_status: string }
         Returns: boolean
       }
+      fn_is_redundant_content_step: {
+        Args: { p_package_id: string; p_step_key: string }
+        Returns: boolean
+      }
       fn_is_repair_action_eligible: {
         Args: { p_package_id: string; p_repair_action: string }
         Returns: Json
