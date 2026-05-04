@@ -284,11 +284,17 @@ export async function enqueueJob(
     ? `${opts.job_type}:${packageId ?? "global"}:${JSON.stringify(opts.batch_cursor)}`
     : `${opts.job_type}:${packageId ?? "global"}`;
 
+  const resolvedSource = resolveEnqueueSource(opts.enqueue_source);
+  const payloadWithSource = {
+    ...(opts.payload ?? {}),
+    enqueue_source: (opts.payload as any)?.enqueue_source ?? resolvedSource,
+  };
+
   const row = {
     id: crypto.randomUUID(),
     job_type: opts.job_type,
     status: "pending",
-    payload: opts.payload ?? {},
+    payload: payloadWithSource,
     package_id: packageId,
     max_attempts: opts.max_attempts ?? 8,
     priority: opts.priority ?? 10,
