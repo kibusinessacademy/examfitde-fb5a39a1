@@ -110517,6 +110517,12 @@ export type Database = {
         Args: { p_dry_run?: boolean; p_package_id: string }
         Returns: Json
       }
+      fn_reconcile_pricing_heal_tasks: {
+        Args: never
+        Returns: {
+          closed_count: number
+        }[]
+      }
       fn_reconcile_publish_governance_drift: {
         Args: { p_dry_run?: boolean }
         Returns: Json
