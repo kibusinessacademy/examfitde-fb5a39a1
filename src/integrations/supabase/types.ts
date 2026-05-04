@@ -93862,6 +93862,18 @@ export type Database = {
         }
         Relationships: []
       }
+      v_enqueue_source_missing_callers_24h: {
+        Row: {
+          application_name: string | null
+          caller_session_user: string | null
+          first_seen: string | null
+          job_type: string | null
+          last_seen: string | null
+          sample_query_snippet: string | null
+          warn_count: number | null
+        }
+        Relationships: []
+      }
       v_entitlement_migration_audit: {
         Row: {
           duplicate_current_count: number | null
@@ -106439,6 +106451,18 @@ export type Database = {
         }[]
       }
       admin_get_drift_overview: { Args: never; Returns: Json }
+      admin_get_enqueue_source_missing_callers: {
+        Args: never
+        Returns: {
+          application_name: string
+          caller_session_user: string
+          first_seen: string
+          job_type: string
+          last_seen: string
+          sample_query_snippet: string
+          warn_count: number
+        }[]
+      }
       admin_get_exam_pool_paused: {
         Args: never
         Returns: {
