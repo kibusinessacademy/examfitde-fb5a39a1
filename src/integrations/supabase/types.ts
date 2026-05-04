@@ -111855,6 +111855,13 @@ export type Database = {
       get_shard_progress: { Args: { p_fanout_id: string }; Returns: Json }
       get_ship_level: { Args: { p_authority_index: number }; Returns: string }
       get_step_prerequisite: { Args: { p_step_key: string }; Returns: string }
+      get_table_columns: {
+        Args: { p_schema: string; p_table: string }
+        Returns: {
+          column_name: string
+          data_type: string
+        }[]
+      }
       get_track_pipeline_steps: {
         Args: { p_package_id: string }
         Returns: Json
