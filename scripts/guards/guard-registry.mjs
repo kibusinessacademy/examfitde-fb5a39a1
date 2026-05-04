@@ -56,14 +56,27 @@ export const GUARDS = [
 
   // ===== Existing guards (re-exposed via registry) =====
   { id: "schema.ssot-guard", severity: "error", owner: "platform", phase: "pr",
-    command: "node scripts/guards/ssot-guard.mjs",
-    description: "Legacy SSOT guard — RPC presence, table reads, etc." },
+    command: "node scripts/guards/ssot-guard.mjs", description: "Legacy SSOT guard." },
   { id: "ssot.canonical-identity", severity: "error", owner: "platform", phase: "pr",
-    command: "node scripts/guards/canonical-identity-contract-guard.mjs",
-    description: "Canonical identity contract (package_key, job_name, correlation_id)." },
+    command: "node scripts/guards/canonical-identity-contract-guard.mjs", description: "Identity contract." },
   { id: "regression.no-direct-done-write", severity: "error", owner: "pipeline", phase: "pr",
-    command: "node scripts/guards/no-direct-done-write-guard.mjs",
-    description: "No direct status='done' writes outside completion helper." },
+    command: "node scripts/guards/no-direct-done-write-guard.mjs", description: "No direct status='done' writes." },
+
+  // ===== P1 =====
+  { id: "p1.client-table-access", severity: "error", owner: "platform", phase: "pr",
+    command: "node scripts/guards/guard-client-table-access.mjs",
+    description: "No direct .from('<internal>') in client code." },
+  { id: "p1.pricing-publish-gate", severity: "warn", owner: "platform", phase: "nightly",
+    command: "node scripts/guards/guard-pricing-publish-gate.mjs",
+    description: "Untracked pricing-orphan packages aging > 2h." },
+  { id: "p1.artifact-materialization", severity: "error", owner: "pipeline", phase: "nightly",
+    command: "node scripts/guards/guard-artifact-materialization.mjs",
+    description: "generate_* done ⇒ artifact rows exist." },
+
+  // ===== P2 =====
+  { id: "p2.seo-cluster", severity: "warn", owner: "growth", phase: "nightly",
+    command: "node scripts/seo/quality-gate.mjs",
+    description: "SEO copy / cluster drift." },
 ];
 
 function parseArgs() {
