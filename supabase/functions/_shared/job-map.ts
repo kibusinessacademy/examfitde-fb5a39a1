@@ -480,8 +480,34 @@ export function poolForJobType(jobType: string): WorkerPool {
   return JOB_DEFINITIONS[jobType]?.pool ?? "default";
 }
 
-/** Returns the edge function name for a given job type, or null if not dispatched. */
-export function edgeFunctionForJobType(jobType: string): string | null {
+/**
+ * Payload-aware route overrides.
+ * Triggered when (job_type, payload.mode) matches — bypasses the default
+ * JOB_DEFINITIONS edgeFunction mapping. Used for narrow recovery flows.
+ */
+const PAYLOAD_MODE_ROUTE_OVERRIDES: Array<{
+  jobType: string;
+  mode: string;
+  edgeFunction: string;
+}> = [
+  {
+    jobType: "package_generate_blueprint_variants",
+    mode: "targeted_blueprint_fill",
+    edgeFunction: "blueprint-seed-by-competency",
+  },
+];
+
+/** Returns the edge function name for a given job type, or null if not dispatched.
+ * Optional payload enables payload.mode-based route overrides (e.g. targeted_blueprint_fill).
+ */
+// deno-lint-ignore no-explicit-any
+export function edgeFunctionForJobType(jobType: string, payload?: any): string | null {
+  if (payload && typeof payload === "object" && typeof payload.mode === "string") {
+    const override = PAYLOAD_MODE_ROUTE_OVERRIDES.find(
+      (r) => r.jobType === jobType && r.mode === payload.mode,
+    );
+    if (override) return override.edgeFunction;
+  }
   return JOB_DEFINITIONS[jobType]?.edgeFunction ?? null;
 }
 
