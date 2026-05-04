@@ -204,6 +204,147 @@ Regeln:
   }));
 }
 
+// ── Per-competency seed core (shared by single + targeted modes) ────
+
+interface SeedOneResult {
+  seeded: number;
+  existing: number;
+  facets_generated: string[];
+  skipped: boolean;
+  competency_code?: string;
+  beruf?: string;
+}
+
+async function seedOneCompetency(
+  sb: ReturnType<typeof createClient>,
+  curriculumId: string,
+  competencyId: string,
+): Promise<SeedOneResult> {
+  // 1) Load competency + learning field
+  const { data: comp, error: compErr } = await sb
+    .from("competencies")
+    .select("id, learning_field_id, code, title, description, taxonomy_level, bloom_level")
+    .eq("id", competencyId)
+    .single();
+
+  if (compErr || !comp) {
+    throw new Error(`Competency not found: ${compErr?.message ?? competencyId}`);
+  }
+
+  const { data: lf } = await sb
+    .from("learning_fields")
+    .select("id, code, title, exam_part")
+    .eq("id", comp.learning_field_id)
+    .single();
+
+  // 2) Load curriculum + beruf name
+  const { data: curriculum } = await sb
+    .from("curricula")
+    .select("id, title, beruf_id")
+    .eq("id", curriculumId)
+    .single();
+
+  let berufName = "Fachkraft";
+  if (curriculum?.beruf_id) {
+    const { data: beruf } = await sb
+      .from("berufe")
+      .select("bezeichnung_kurz")
+      .eq("id", curriculum.beruf_id)
+      .single();
+    if (beruf?.bezeichnung_kurz) berufName = beruf.bezeichnung_kurz;
+  }
+
+  // 3) Load existing blueprints (live only)
+  const { data: existingBps } = await sb
+    .from("question_blueprints")
+    .select("id, cognitive_level, status")
+    .eq("curriculum_id", curriculumId)
+    .eq("competency_id", competencyId)
+    .in("status", ["approved", "review"]);
+
+  const existingCogLevels = new Set((existingBps || []).map((b: any) => b.cognitive_level));
+
+  // 4) Determine missing facets
+  const baseCognitive = normCognitive(comp.bloom_level || comp.taxonomy_level);
+  const cogOrder: Cognitive[] = ["remember", "understand", "apply", "analyze", "evaluate"];
+  const baseIdx = cogOrder.indexOf(baseCognitive);
+
+  const targetLevels: Cognitive[] = [baseCognitive];
+  if (baseIdx > 0) targetLevels.push(cogOrder[baseIdx - 1]);
+  if (baseIdx < cogOrder.length - 1) targetLevels.push(cogOrder[baseIdx + 1]);
+
+  const missingFacets = FACETS.filter(
+    (f) => targetLevels.includes(f.cognitive) && !existingCogLevels.has(f.cognitive),
+  );
+
+  if (missingFacets.length === 0) {
+    console.log(`[BP-Seed] No missing facets for competency ${comp.code} — already covered`);
+    return {
+      seeded: 0,
+      existing: existingBps?.length || 0,
+      facets_generated: [],
+      skipped: true,
+      competency_code: comp.code,
+      beruf: berufName,
+    };
+  }
+
+  // 5) Generate templates via AI
+  const templates = await generateTemplates(
+    berufName,
+    comp.title,
+    comp.description,
+    lf?.title || "Lernfeld",
+    missingFacets,
+  );
+
+  // 6) Build + insert rows
+  const rows = missingFacets.map((facet, i) => ({
+    curriculum_id: curriculumId,
+    learning_field_id: comp.learning_field_id,
+    competency_id: comp.id,
+    name: `${comp.title} — ${facet.suffix}`,
+    canonical_statement: comp.title,
+    cognitive_level: facet.cognitive,
+    knowledge_type: facet.knowledge_type,
+    exam_context_type: facet.exam_context_type,
+    didactic_intent: facet.didactic_intent,
+    allowed_question_types: facet.question_types,
+    decision_structure: facet.decision_structure,
+    question_template: templates[i]?.question_template || `Frage zu ${comp.title} (${facet.cognitive})`,
+    explanation_template: templates[i]?.explanation_template || `Erklärung zu ${comp.title}`,
+    typical_errors: templates[i]?.typical_errors || [],
+    trap_spec: {
+      ...(templates[i]?.trap_spec || {}),
+      difficulty_default: DIFFICULTY_BY_COGNITIVE[facet.cognitive],
+    },
+    typical_exam_trap: templates[i]?.typical_exam_trap || `Typische Falle bei ${comp.title}`,
+    exam_relevance_score: calcRelevanceScore(facet.cognitive),
+    estimated_time_seconds: calcEstimatedTime(facet.cognitive),
+    real_world_context: facet.cognitive !== "remember",
+    oral_extension: lf?.exam_part ? { exam_part: lf.exam_part } : null,
+    status: "draft",
+    version: "4.0.0",
+  }));
+
+  const { error: insErr } = await sb.from("question_blueprints").insert(rows);
+  if (insErr && insErr.code !== "23505") {
+    throw new Error(`Insert failed: ${insErr.message}`);
+  }
+
+  const seeded = insErr?.code === "23505" ? 0 : rows.length;
+  console.log(`[BP-Seed] ✅ Seeded ${seeded} blueprints for ${comp.code} "${comp.title}" (${berufName})`);
+
+  return {
+    seeded,
+    existing: existingBps?.length || 0,
+    facets_generated: missingFacets.map((f) => f.suffix),
+    skipped: false,
+    competency_code: comp.code,
+    beruf: berufName,
+  };
+}
+
 // ── Main Handler ────────────────────────────────────────────────────
 
 Deno.serve(async (req) => {
