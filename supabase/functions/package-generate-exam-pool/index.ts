@@ -980,9 +980,7 @@ async function dedupeValidateAndInsert(
   exam_approved: number; training_total: number; persisted_total: number;
   duplicates_skipped: number; near_duplicates_skipped: number;
 }> {
-  let saved = 0;
-  let training = 0;
-  let gateFailed = 0;
+  // Counters set AFTER DB inserts (see post-batch reconciliation below)
   let rejectedContamination = 0;
   let rejectedOther = 0;
   let duplicates_skipped = 0;
