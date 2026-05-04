@@ -12,6 +12,7 @@ import { HealWorklist } from "@/components/admin/heal/HealWorklist";
 import { BlockedPackagesCard } from "@/components/admin/heal/BlockedPackagesCard";
 import { HealClusterExplanationPanel } from "@/components/admin/heal/HealClusterExplanationPanel";
 import { CouplingHealV4Card } from "@/components/admin/heal/cards/CouplingHealV4Card";
+import { BronzeReviewCard } from "@/components/admin/heal/cards/BronzeReviewCard";
 
 export function HealCockpitTabContent() {
   return (
@@ -31,6 +32,7 @@ export function HealCockpitTabContent() {
         </Button>
       </div>
       <MorningBriefing />
+      <BronzeReviewCard />
       <CouplingHealV4Card />
       <HealClusterExplanationPanel />
       <BlockedPackagesCard
