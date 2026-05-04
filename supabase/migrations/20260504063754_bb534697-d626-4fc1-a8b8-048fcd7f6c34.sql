@@ -1,0 +1,1 @@
+GRANT EXECUTE ON FUNCTION public._admin_backfill_council_verdict_2026_05_04() TO service_role;
