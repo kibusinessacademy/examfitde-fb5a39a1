@@ -63811,6 +63811,48 @@ export type Database = {
           },
         ]
       }
+      ssot_validator_failure_log: {
+        Row: {
+          auto_derived: Json
+          created_at: string
+          enqueue_source: string | null
+          id: string
+          job_id: string | null
+          job_type: string
+          missing_fields: string[]
+          package_id: string | null
+          payload_snapshot: Json | null
+          violations: string[]
+          was_critical: boolean
+        }
+        Insert: {
+          auto_derived?: Json
+          created_at?: string
+          enqueue_source?: string | null
+          id?: string
+          job_id?: string | null
+          job_type: string
+          missing_fields?: string[]
+          package_id?: string | null
+          payload_snapshot?: Json | null
+          violations?: string[]
+          was_critical?: boolean
+        }
+        Update: {
+          auto_derived?: Json
+          created_at?: string
+          enqueue_source?: string | null
+          id?: string
+          job_id?: string | null
+          job_type?: string
+          missing_fields?: string[]
+          package_id?: string | null
+          payload_snapshot?: Json | null
+          violations?: string[]
+          was_critical?: boolean
+        }
+        Relationships: []
+      }
       standalone_artifact_versions: {
         Row: {
           artifact_kind: string
@@ -104546,6 +104588,18 @@ export type Database = {
         }
         Relationships: []
       }
+      v_ssot_validator_failures_24h: {
+        Row: {
+          enqueue_source: string | null
+          first_seen: string | null
+          job_type: string | null
+          last_seen: string | null
+          missing_field: string | null
+          n: number | null
+          n_critical: number | null
+        }
+        Relationships: []
+      }
       v_standalone_artifact_health: {
         Row: {
           any_validation_passed: boolean | null
@@ -105997,6 +106051,10 @@ export type Database = {
           table_name: string
         }[]
       }
+      admin_auto_bronze_approve_eligible_packages: {
+        Args: { p_dry_run?: boolean; p_limit?: number }
+        Returns: Json
+      }
       admin_auto_heal_remaining: {
         Args: { p_dry_run?: boolean; p_max_packages?: number }
         Returns: {
@@ -106953,6 +107011,18 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      admin_get_ssot_validator_failures: {
+        Args: { p_window_hours?: number }
+        Returns: {
+          enqueue_source: string
+          first_seen: string
+          job_type: string
+          last_seen: string
+          missing_field: string
+          n: number
+          n_critical: number
+        }[]
       }
       admin_get_ssot_verification: {
         Args: { p_minutes?: number }
@@ -110940,6 +111010,7 @@ export type Database = {
           test_name: string
         }[]
       }
+      fn_test_payload_validator: { Args: never; Returns: Json }
       fn_track_min_coverage_thresholds: {
         Args: { p_track: string }
         Returns: {
