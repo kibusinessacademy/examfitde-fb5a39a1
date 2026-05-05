@@ -285,12 +285,14 @@ export function RecurringPatternsCard({ limit = 10 }: { limit?: number }) {
                 aiMutation.mutate({ pattern_key: p.pattern_key, force })
               }
               onResolve={(note) =>
-                p.active_recommendation_id &&
-                resolveMutation.mutate({ id: p.active_recommendation_id, note })
+                p.active_recommendation_id
+                  ? resolveMutation.mutate({ id: p.active_recommendation_id, note })
+                  : snoozeMutation.mutate({ cluster: p.cluster, target_id: p.target_id, note: note ?? "resolved from cockpit (no recommendation)" })
               }
               onDismiss={(reason) =>
-                p.active_recommendation_id &&
-                dismissMutation.mutate({ id: p.active_recommendation_id, reason })
+                p.active_recommendation_id
+                  ? dismissMutation.mutate({ id: p.active_recommendation_id, reason })
+                  : snoozeMutation.mutate({ cluster: p.cluster, target_id: p.target_id, note: reason ?? "dismissed from cockpit (no recommendation)" })
               }
               onApply={() =>
                 p.active_recommendation_id &&
