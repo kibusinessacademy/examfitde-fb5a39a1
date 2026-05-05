@@ -109865,6 +109865,7 @@ export type Database = {
               out_step_key: string
             }[]
           }
+      admin_completion_burst: { Args: { _limit?: number }; Returns: Json }
       admin_continuation_cap_override: {
         Args: { p_disable: boolean }
         Returns: boolean
