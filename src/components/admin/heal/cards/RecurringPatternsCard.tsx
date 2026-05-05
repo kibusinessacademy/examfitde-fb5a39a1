@@ -503,6 +503,29 @@ function PatternRow({
           </div>
         )}
 
+        {!p.has_active_recommendation && (
+          <div className="flex items-center gap-2 pt-1 border-t flex-wrap">
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs"
+              onClick={() => onResolve("acknowledged from cockpit (no recommendation)")}
+            >
+              <CheckCircle2 className="h-3 w-3 mr-1" />
+              Als gelöst markieren
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 text-xs"
+              onClick={() => onDismiss("not relevant (no recommendation)")}
+            >
+              <X className="h-3 w-3 mr-1" />
+              Verwerfen
+            </Button>
+          </div>
+        )}
+
         {(p.dominant_error || p.package_last_error) && (
           <CollapsibleTrigger asChild>
             <button className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors">
