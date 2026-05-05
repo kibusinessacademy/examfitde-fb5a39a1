@@ -17,7 +17,8 @@ required machen will, ergänzt ihn hier *und* synchronisiert anschließend
 | `badge-visual-regression` | `.github/workflows/badge-visual-regression.yml` | Pixel-Snapshots der Status-Badges. **Required ab 2026-05-05.** |
 | `learner-course-readiness` | `.github/workflows/learner-course-readiness.yml` | DB-Gate: published Courses ohne Module/Lessons → block. Baseline `--max-empty=34`. |
 | `learner-course-smoke` | `.github/workflows/learner-course-smoke.yml` | Playwright Smoke auf 8 Sample-Courses (PR) / volles Set (nightly). |
-| `learner-progress-persistence` | `.github/workflows/learner-progress-persistence.yml` | Login → Lesson abschließen → Reload → Fortschritt persistiert. Plus Negative-States (anon, ohne Lizenz, leerer Kurs). |
+| `qa-pins-validation` | `.github/workflows/qa-pins-validation.yml` | Validiert `E2E_QA_COURSE_ID` / `E2E_QA_LESSON_ID` gegen Live-Daten (existiert, published, ready, lesson gehört zum Kurs). |
+| `learner-progress-persistence` | `.github/workflows/learner-progress-persistence.yml` | readiness → qa-pins → Login → Lesson abschließen → Reload → Fortschritt persistiert. Plus Negative-States. Klassifizierter Retry (nur transient infra). |
 
 ## Optional / Nightly
 

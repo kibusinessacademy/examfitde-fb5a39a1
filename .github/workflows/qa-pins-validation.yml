@@ -1,0 +1,30 @@
+name: qa-pins-validation
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/guards/qa-pins-validation.mjs'
+      - '.github/workflows/qa-pins-validation.yml'
+      - '.github/workflows/learner-progress-persistence.yml'
+  schedule:
+    # Daily — catches data drift even when no PR touches the spec.
+    - cron: '11 4 * * *'
+  workflow_dispatch:
+
+permissions: read-all
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      E2E_QA_COURSE_ID: ${{ secrets.E2E_QA_COURSE_ID }}
+      E2E_QA_LESSON_ID: ${{ secrets.E2E_QA_LESSON_ID }}
+      E2E_QA_ALLACCESS_EMAIL: ${{ secrets.E2E_QA_ALLACCESS_EMAIL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - run: node scripts/guards/qa-pins-validation.mjs
