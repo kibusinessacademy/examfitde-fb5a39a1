@@ -108,7 +108,7 @@ describe("auto-heal-log-migrate --sql mode", () => {
     );
     const inserts = stdout.match(/INSERT INTO public\.auto_heal_log/g) || [];
     expect(inserts.length).toBe(3);
-    expect(stdout.indexOf("BEGIN;")).toBeLessThan(stdout.indexOf("INSERT"));
-    expect(stdout.lastIndexOf("INSERT")).toBeLessThan(stdout.indexOf("COMMIT;"));
+    expect(stdout.indexOf("BEGIN;")).toBeLessThan(stdout.indexOf("INSERT INTO"));
+    expect(stdout.lastIndexOf("INSERT INTO")).toBeLessThan(stdout.indexOf("COMMIT;"));
   });
 });
