@@ -160,12 +160,15 @@
     --text-tertiary: 215 14% 62%;
     --text-quaternary: 215 12% 48%;
     --text-on-petrol: 0 0% 100%;
+    --text-on-gradient: 0 0% 100%;
 
     /* ── Surface Hierarchy v2 (Dark) ── */
     --surface-sunken: 222 60% 4%;
     --surface-default: 181 64% 12%;
     --surface-raised: 181 50% 16%;
     --surface-overlay: 181 50% 18%;
+    --scrim: 0 0% 0%;
+    --track-subtle: 0 0% 100%;
 
     /* ── Border Hierarchy v2 (Dark) ── */
     --border-subtle: 181 50% 18%;
