@@ -165,7 +165,7 @@ export default function CourseDetailPage() {
     const { data: modulesData } = await supabase
       .from("modules")
       .select("*")
-      .eq("course_id", courseData.id)
+      .eq("course_id", (courseData as any).id)
       .order("sort_order");
 
     if (modulesData) {
