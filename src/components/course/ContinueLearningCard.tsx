@@ -42,19 +42,11 @@ export function ContinueLearningCard({
       </CardHeader>
 
       <CardContent className="space-y-4">
-        <div
-          role="progressbar"
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={progress.progress_percent}
-          aria-label={`Kursfortschritt: ${progress.progress_percent}%`}
-        >
-          <CourseProgressBar
-            summary={progress.summary}
-            progressPercent={progress.progress_percent}
-            showDetails={false}
-          />
-        </div>
+        <CourseProgressBar
+          summary={progress.summary}
+          progressPercent={progress.progress_percent}
+          showDetails={false}
+        />
 
         {/* Lessons needing review */}
         {progress.summary.needs_review > 0 && (
