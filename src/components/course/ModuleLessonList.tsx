@@ -238,25 +238,36 @@ export function ModuleLessonList({
             )}
           >
             <CardHeader
-              className="cursor-pointer hover:bg-muted/30 transition-colors"
+              role="button"
+              tabIndex={0}
+              aria-expanded={isExpanded}
+              aria-controls={`module-panel-${module.id}`}
+              aria-label={`Modul ${index + 1}: ${module.title}, ${isExpanded ? 'eingeklappt' : 'ausklappen'}`}
+              className="cursor-pointer hover:bg-muted/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-md"
               onClick={() => toggleModule(module.id)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  toggleModule(module.id);
+                }
+              }}
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div className={cn(
                     "w-10 h-10 rounded-xl flex items-center justify-center font-bold transition-colors",
-                    showOnlyReview && moduleReviewCount > 0 
-                      ? "bg-orange-500 text-white" 
+                    showOnlyReview && moduleReviewCount > 0
+                      ? "bg-orange-500 text-white"
                       : "gradient-primary text-primary-foreground"
-                  )}>
+                  )} aria-hidden="true">
                     {index + 1}
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
                       <CardTitle className="text-lg">{module.title}</CardTitle>
                       {moduleReviewCount > 0 && !showOnlyReview && (
-                        <Badge variant="outline" className="border-orange-500/50 text-orange-500 text-xs">
-                          <RotateCcw className="h-3 w-3 mr-1" />
+                        <Badge variant="outline" className="border-orange-500/50 text-orange-500 text-xs" aria-label={`${moduleReviewCount} Lektionen zur Wiederholung`}>
+                          <RotateCcw className="h-3 w-3 mr-1" aria-hidden="true" />
                           {moduleReviewCount}
                         </Badge>
                       )}
@@ -275,13 +286,19 @@ export function ModuleLessonList({
                     </div>
                   )}
                   {isExpanded ? (
-                    <ChevronUp className="h-5 w-5 text-muted-foreground" />
+                    <ChevronUp className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
                   ) : (
-                    <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                    <ChevronDown className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
                   )}
                 </div>
               </div>
-              {isEnrolled && !showOnlyReview && <Progress value={moduleProgress} className="h-1 mt-4" />}
+              {isEnrolled && !showOnlyReview && (
+                <Progress
+                  value={moduleProgress}
+                  className="h-1 mt-4"
+                  aria-label={`Modul-Fortschritt ${moduleProgress} Prozent`}
+                />
+              )}
             </CardHeader>
 
             {isExpanded && (
