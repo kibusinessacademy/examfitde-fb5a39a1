@@ -50,7 +50,7 @@ if (wfRes.status === 404) {
   process.exit(1);
 }
 if (wfRes.status === 401 || wfRes.status === 403) {
-  console.error(`❌ ${wfRes.status} — token rejected. Check expiry and scopes (`repo` + `workflow`).`);
+  console.error(`❌ ${wfRes.status} — token rejected. Check expiry and scopes (repo + workflow).`);
   process.exit(1);
 }
 if (!wfRes.ok) {
