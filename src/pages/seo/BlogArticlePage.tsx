@@ -236,7 +236,7 @@ export default function BlogArticlePage() {
                 </div>
               )}
               {answerBlocks.mistake_block && (
-                <div className="p-4 bg-destructive/5 rounded-lg border border-destructive/20">
+                <div className="p-4 bg-destructive-bg-subtle rounded-lg border border-destructive/20">
                   <h2 className="text-sm font-semibold text-destructive mb-1 flex items-center gap-1">
                     <AlertTriangle className="h-4 w-4" /> Typischer Fehler
                   </h2>
