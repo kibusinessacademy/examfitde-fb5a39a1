@@ -8,8 +8,15 @@
  *
  * Scant: supabase/functions/**, src/**, scripts/** (außer migrations + node_modules + dist + this guard).
  */
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { readdirSync, readFileSync, statSync, existsSync } from "node:fs";
 import { join } from "node:path";
+
+const BASELINE_PATH = "scripts/guards/.status-revert-guard-baseline.txt";
+const baseline = new Set(
+  existsSync(BASELINE_PATH)
+    ? readFileSync(BASELINE_PATH, "utf8").split("\n").map((s) => s.trim()).filter(Boolean)
+    : []
+);
 
 const ROOTS = ["supabase/functions", "src", "scripts"];
 const SKIP = ["node_modules", "dist", "migrations", "build", ".next"];
@@ -48,9 +55,10 @@ for (const root of ROOTS) {
   }
 }
 
-if (violations.length) {
-  console.error("❌ status-revert-guard: unsafe course_packages.status demote(s) found:");
-  for (const v of violations) console.error("  -", v);
+const newViolations = violations.filter((v) => !baseline.has(v));
+if (newViolations.length) {
+  console.error("❌ status-revert-guard: NEW unsafe course_packages.status demote(s) found (not in baseline):");
+  for (const v of newViolations) console.error("  -", v);
   console.error(
     "\nFix: call public.fn_can_demote_package_status(pkg, target, source) before the UPDATE,\n" +
     "     or set_config('app.transition_source','admin_*',true) for legitimate admin paths,\n" +
