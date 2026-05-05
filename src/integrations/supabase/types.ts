@@ -62033,11 +62033,13 @@ export type Database = {
       }
       seo_content_pages: {
         Row: {
+          canonical_check_status: string | null
           content_md: string | null
           created_at: string
           curriculum_id: string | null
           faq_json: Json | null
           id: string
+          last_canonical_check: string | null
           meta_description: string | null
           package_id: string | null
           page_type: string
@@ -62049,11 +62051,13 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          canonical_check_status?: string | null
           content_md?: string | null
           created_at?: string
           curriculum_id?: string | null
           faq_json?: Json | null
           id?: string
+          last_canonical_check?: string | null
           meta_description?: string | null
           package_id?: string | null
           page_type: string
@@ -62065,11 +62069,13 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          canonical_check_status?: string | null
           content_md?: string | null
           created_at?: string
           curriculum_id?: string | null
           faq_json?: Json | null
           id?: string
+          last_canonical_check?: string | null
           meta_description?: string | null
           package_id?: string | null
           page_type?: string
@@ -95362,6 +95368,21 @@ export type Database = {
         }
         Relationships: []
       }
+      v_funnel_dropoff_per_lead_magnet: {
+        Row: {
+          package_id: string | null
+          persona: string | null
+          step_add_to_cart: number | null
+          step_checkout_complete: number | null
+          step_checkout_start: number | null
+          step_lead_capture: number | null
+          step_pricing: number | null
+          step_quiz_complete: number | null
+          step_quiz_start: number | null
+          step_view: number | null
+        }
+        Relationships: []
+      }
       v_funnel_integrity_check: {
         Row: {
           attribution_quality_status: string | null
@@ -104973,6 +104994,22 @@ export type Database = {
         }
         Relationships: []
       }
+      v_seo_canonical_drift: {
+        Row: {
+          canonical_check_status: string | null
+          drift_severity: string | null
+          last_canonical_check: string | null
+          package_id: string | null
+          package_key: string | null
+          page_id: string | null
+          page_status: string | null
+          persona_type: string | null
+          pkg_is_published: boolean | null
+          pkg_status: string | null
+          slug: string | null
+        }
+        Relationships: []
+      }
       v_seo_dead_end_drift: {
         Row: {
           auto_repairable: boolean | null
@@ -108037,6 +108074,29 @@ export type Database = {
           traffic_light: string
         }[]
       }
+      admin_get_funnel_dropoff_heatmap: {
+        Args: { p_days?: number }
+        Returns: {
+          dropoff_cart_to_checkout: number
+          dropoff_checkout_to_complete: number
+          dropoff_lead_to_pricing: number
+          dropoff_pricing_to_cart: number
+          dropoff_quiz_to_lead: number
+          dropoff_view_to_quiz: number
+          overall_conversion: number
+          package_id: string
+          package_key: string
+          persona: string
+          step_add_to_cart: number
+          step_checkout_complete: number
+          step_checkout_start: number
+          step_lead_capture: number
+          step_pricing: number
+          step_quiz_complete: number
+          step_quiz_start: number
+          step_view: number
+        }[]
+      }
       admin_get_funnel_orphan_summary: {
         Args: { p_window?: string }
         Returns: {
@@ -109142,6 +109202,14 @@ export type Database = {
         Returns: Json
       }
       admin_seo_brief_to_queue: { Args: { p_brief_id: string }; Returns: Json }
+      admin_seo_canonical_drift_summary: {
+        Args: never
+        Returns: {
+          drift_severity: string
+          page_count: number
+        }[]
+      }
+      admin_seo_canonical_parity_run: { Args: never; Returns: Json }
       admin_seo_compute_overview: { Args: never; Returns: Json }
       admin_seo_create_draft_package: {
         Args: { p_curriculum_id: string; p_title: string; p_track?: string }

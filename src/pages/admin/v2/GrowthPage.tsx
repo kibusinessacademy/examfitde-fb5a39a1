@@ -25,6 +25,8 @@ const RefreshQueueManager = lazy(() => import('@/components/admin/growth/Refresh
 const SEOAuditManager = lazy(() => import('@/components/admin/growth/SEOAuditManager'));
 const LlmVisibilityCard = lazy(() => import('@/features/admin/components/LlmVisibilityCard').then(m => ({ default: m.LlmVisibilityCard })));
 const SeoDeadEndDriftCard = lazy(() => import('@/features/admin/components/SeoDeadEndDriftCard').then(m => ({ default: m.SeoDeadEndDriftCard })));
+const SeoCanonicalParityCard = lazy(() => import('@/components/admin/growth/SeoCanonicalParityCard'));
+const FunnelDropoffHeatmapCard = lazy(() => import('@/components/admin/growth/FunnelDropoffHeatmapCard'));
 const SEODiscoveryManager = lazy(() => import('@/components/admin/growth/SEODiscoveryManager'));
 const GrowthLoopManager = lazy(() => import('@/components/admin/growth/GrowthLoopManager'));
 const PromoCodesPanel = lazy(() => import('@/components/admin/marketing/AdminPromoCodesPanel'));
@@ -117,6 +119,7 @@ export default function GrowthPage() {
         <TabsContent value="dashboard" className="mt-4 space-y-4">
           <Suspense fallback={<Loading />}><GrowthDashboardOverview onTabSwitch={setTab} /></Suspense>
           <Suspense fallback={<Loading />}><FunnelAnalyticsCard /></Suspense>
+          <Suspense fallback={<Loading />}><FunnelDropoffHeatmapCard /></Suspense>
           <Suspense fallback={<Loading />}><PlatformIntegrityCard /></Suspense>
           <Suspense fallback={<Loading />}><FunnelIntegrityCard /></Suspense>
           <Suspense fallback={<Loading />}><GrowthSeoCommandCenter /></Suspense>
@@ -128,6 +131,7 @@ export default function GrowthPage() {
         <TabsContent value="pages" className="mt-4"><Suspense fallback={<Loading />}><ContentPageEditor /></Suspense></TabsContent>
         <TabsContent value="links" className="mt-4"><Suspense fallback={<Loading />}><InternalLinkManager /></Suspense></TabsContent>
         <TabsContent value="audit" className="mt-4 space-y-4">
+          <Suspense fallback={<Loading />}><SeoCanonicalParityCard /></Suspense>
           <Suspense fallback={<Loading />}><SeoDeadEndDriftCard /></Suspense>
           <Suspense fallback={<Loading />}><LlmVisibilityCard /></Suspense>
           <Suspense fallback={<Loading />}><SEOAuditManager /></Suspense>

@@ -4,6 +4,7 @@ import { Loader2 } from "lucide-react";
 import { useProductPageSSOT } from "@/hooks/useProductPageSSOT";
 import { useResolvePaywall } from "@/hooks/useResolvePaywall";
 import { useProductPersonaOverlay } from "@/hooks/useProductPersonaOverlay";
+import { useBuyCtaExperiment } from "@/hooks/useBuyCtaExperiment";
 import { ProductPageTemplate } from "@/components/product/ProductPageTemplate";
 import { trackEvent } from "@/lib/tracking/track";
 import { useTrackGrowthEvent } from "@/hooks/useTrackGrowthEvent";
@@ -34,6 +35,7 @@ export default function ProductPersonaPage() {
     triggerContext: "product_page_view",
   });
   const { data: overlay } = useProductPersonaOverlay(product?.packageId ?? null, persona);
+  const { variant: ctaVariant, label: ctaVariantLabel, experimentId: ctaExperimentId } = useBuyCtaExperiment();
 
   // ────────────────────────────────────────────────────────────────────────
   // Overlay-Merge (Presentation-only).
@@ -47,7 +49,11 @@ export default function ProductPersonaPage() {
   // ────────────────────────────────────────────────────────────────────────
   const mergedProduct: ProductPageSSOT | null = useMemo(() => {
     if (!product) return null;
-    if (!overlay) return product;
+    if (!overlay) {
+      // No persona overlay → still apply A/B CTA variant if assigned
+      if (!ctaVariantLabel) return product;
+      return { ...product, ctas: { ...product.ctas, primaryLabel: ctaVariantLabel } };
+    }
 
     return {
       ...product,
@@ -60,7 +66,8 @@ export default function ProductPersonaPage() {
           : product.painCopy,
       ctas: {
         ...product.ctas,
-        primaryLabel: overlay.primaryCta || product.ctas.primaryLabel,
+        primaryLabel:
+          ctaVariantLabel || overlay.primaryCta || product.ctas.primaryLabel,
         secondaryLabel: overlay.secondaryCta ?? product.ctas.secondaryLabel,
       },
       uspItems:
@@ -79,7 +86,7 @@ export default function ProductPersonaPage() {
         ogDescription: overlay.seoDescription || product.seo.ogDescription,
       },
     };
-  }, [product, overlay]);
+  }, [product, overlay, ctaVariantLabel]);
 
   // Override personaContext SEO methods if overlay provides them
   const effectivePersonaContext: ProductPersonaContext = useMemo(() => {
@@ -148,6 +155,10 @@ export default function ProductPersonaPage() {
         cta_type: "persona_diagnose",
         target_path: personaContext.diagnoseTargetPath,
         overlay_active: Boolean(overlay),
+        experiment_name: ctaExperimentId ? "buy_cta_persona_v1" : null,
+        experiment_id: ctaExperimentId,
+        experiment_variant: ctaVariant,
+        cta_label: ctaVariantLabel,
       },
     });
     const params = new URLSearchParams({
@@ -157,7 +168,7 @@ export default function ProductPersonaPage() {
       source: `product_persona_${persona}`,
     });
     navigate(`${personaContext.diagnoseTargetPath}?${params.toString()}`);
-  }, [product, persona, personaContext, navigate, track, overlay]);
+  }, [product, persona, personaContext, navigate, track, overlay, ctaExperimentId, ctaVariant, ctaVariantLabel]);
 
   const handleCtaClick = useCallback(
     (ctaType: string) => {
