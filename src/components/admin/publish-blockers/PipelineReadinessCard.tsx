@@ -167,6 +167,63 @@ export default function PipelineReadinessCard() {
       toast({ title: 'Requeue fehlgeschlagen', description: err?.message, variant: 'destructive' }),
   });
 
+  // --- MiniCheck retry/requeue ---
+  const minicheckJobs = useQuery({
+    enabled: !!activeCourse?.course_id,
+    queryKey: ['admin-minicheck-jobs-for-course', activeCourse?.course_id],
+    queryFn: async (): Promise<CourseJob[]> => {
+      const { data, error } = await supabase.rpc(
+        'admin_get_minicheck_jobs_for_course' as any,
+        { _course_id: activeCourse!.course_id } as any,
+      );
+      if (error) throw error;
+      return (data ?? []) as CourseJob[];
+    },
+  });
+
+  const retryMcMut = useMutation({
+    mutationFn: async (jobId: string) => {
+      const { data, error } = await supabase.rpc(
+        'admin_retry_minicheck_job' as any,
+        { _job_id: jobId } as any,
+      );
+      if (error) throw error;
+      return data as { ok: boolean; error?: string };
+    },
+    onSuccess: (data) => {
+      if (!data?.ok) {
+        toast({ title: 'MC-Retry abgelehnt', description: data?.error ?? 'unknown', variant: 'destructive' });
+        return;
+      }
+      toast({ title: 'MiniCheck-Job auf pending zurückgesetzt' });
+      qc.invalidateQueries({ queryKey: ['admin-minicheck-jobs-for-course'] });
+      qc.invalidateQueries({ queryKey: ['admin-course-pipeline-readiness'] });
+    },
+    onError: (err: any) =>
+      toast({ title: 'MC-Retry fehlgeschlagen', description: err?.message, variant: 'destructive' }),
+  });
+
+  const requeueMcMut = useMutation({
+    mutationFn: async (courseId: string) => {
+      const { data, error } = await supabase.rpc(
+        'admin_requeue_minicheck_jobs_for_course' as any,
+        { _course_id: courseId } as any,
+      );
+      if (error) throw error;
+      return data as { ok: boolean; jobs_requeued?: number };
+    },
+    onSuccess: (data) => {
+      toast({
+        title: 'MiniCheck Bulk-Requeue ausgeführt',
+        description: `${data?.jobs_requeued ?? 0} Job(s) auf pending gesetzt.`,
+      });
+      qc.invalidateQueries({ queryKey: ['admin-minicheck-jobs-for-course'] });
+      qc.invalidateQueries({ queryKey: ['admin-course-pipeline-readiness'] });
+    },
+    onError: (err: any) =>
+      toast({ title: 'MC-Requeue fehlgeschlagen', description: err?.message, variant: 'destructive' }),
+  });
+
   return (
     <Card>
       <CardHeader>
@@ -271,6 +328,22 @@ export default function PipelineReadinessCard() {
                           <span className="ml-1">Requeue {r.failed_jobs}</span>
                         </Button>
                       )}
+                      {(r.minichecks_total === 0 || r.primary_blocker === 'MINICHECKS_MISSING') && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={requeueMcMut.isPending}
+                          onClick={() => requeueMcMut.mutate(r.course_id)}
+                          title="Failed/cancelled MiniCheck-Jobs auf pending zurücksetzen"
+                        >
+                          {requeueMcMut.isPending && requeueMcMut.variables === r.course_id ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Repeat className="h-3 w-3" />
+                          )}
+                          <span className="ml-1">MC Requeue</span>
+                        </Button>
+                      )}
                       <Dialog
                         open={activeCourse?.course_id === r.course_id}
                         onOpenChange={(o) => setActiveCourse(o ? r : null)}
@@ -280,9 +353,9 @@ export default function PipelineReadinessCard() {
                         </DialogTrigger>
                         <DialogContent className="max-w-3xl">
                           <DialogHeader>
-                            <DialogTitle>Backfill-Jobs · {r.title}</DialogTitle>
+                            <DialogTitle>Backfill- &amp; MiniCheck-Jobs · {r.title}</DialogTitle>
                             <DialogDescription>
-                              Pro Job einzeln retry; Bulk via Requeue-Button in der Tabelle.
+                              Pro Job einzeln Retry; Bulk via Requeue-Buttons in der Tabelle. Alle Aktionen werden in <code>auto_heal_log</code> auditiert.
                             </DialogDescription>
                           </DialogHeader>
                           {courseJobs.isLoading ? (
@@ -339,6 +412,66 @@ export default function PipelineReadinessCard() {
                               </Table>
                             </div>
                           )}
+
+                          <div className="mt-4">
+                            <div className="text-xs uppercase tracking-wider text-text-tertiary mb-2">
+                              MiniCheck-Jobs
+                            </div>
+                            {minicheckJobs.isLoading ? (
+                              <div className="flex items-center gap-2 text-text-secondary">
+                                <Loader2 className="h-4 w-4 animate-spin" /> lade …
+                              </div>
+                            ) : (minicheckJobs.data ?? []).length === 0 ? (
+                              <div className="text-sm text-text-secondary">Keine MiniCheck-Jobs für diesen Kurs.</div>
+                            ) : (
+                              <div className="max-h-[40vh] overflow-auto">
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow>
+                                      <TableHead>Type</TableHead>
+                                      <TableHead>Status</TableHead>
+                                      <TableHead className="text-right">Att</TableHead>
+                                      <TableHead>Last Error</TableHead>
+                                      <TableHead className="text-right">Aktion</TableHead>
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {(minicheckJobs.data ?? []).map((j) => (
+                                      <TableRow key={j.job_id}>
+                                        <TableCell className="text-xs font-mono">{j.job_type}</TableCell>
+                                        <TableCell>
+                                          <Badge variant={jobStatusVariant(j.status)} className="font-mono">
+                                            {j.status}
+                                          </Badge>
+                                        </TableCell>
+                                        <TableCell className="text-right font-mono">{j.attempts}</TableCell>
+                                        <TableCell className="text-xs text-text-tertiary max-w-[280px] truncate">
+                                          {j.last_error ?? '—'}
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                          {(j.status === 'failed' || j.status === 'cancelled') && (
+                                            <Button
+                                              size="sm"
+                                              variant="outline"
+                                              disabled={retryMcMut.isPending}
+                                              onClick={() => retryMcMut.mutate(j.job_id)}
+                                            >
+                                              {retryMcMut.isPending && retryMcMut.variables === j.job_id ? (
+                                                <Loader2 className="h-3 w-3 animate-spin" />
+                                              ) : (
+                                                <Repeat className="h-3 w-3" />
+                                              )}
+                                              <span className="ml-1">Retry</span>
+                                            </Button>
+                                          )}
+                                        </TableCell>
+                                      </TableRow>
+                                    ))}
+                                  </TableBody>
+                                </Table>
+                              </div>
+                            )}
+                          </div>
                         </DialogContent>
                       </Dialog>
                     </div>
