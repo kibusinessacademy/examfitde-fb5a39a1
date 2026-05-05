@@ -110,9 +110,9 @@ export default function InstallPage() {
   return (
     <div className="min-h-screen bg-background">
       {/* Hero Section */}
-      <div className="gradient-hero text-white py-16 md:py-24 px-4">
+      <div className="gradient-hero text-text-on-gradient py-16 md:py-24 px-4">
         <div className="max-w-4xl mx-auto text-center">
-          <div className="inline-flex items-center gap-2 bg-white/10 rounded-full px-4 py-2 mb-6">
+          <div className="inline-flex items-center gap-2 bg-text-on-gradient/10 rounded-full px-4 py-2 mb-6">
             <Download className="h-4 w-4" />
             <span className="text-sm font-medium">Kostenlos installieren</span>
           </div>
@@ -136,19 +136,19 @@ export default function InstallPage() {
               Jetzt installieren
             </Button>
           ) : isIOS ? (
-            <div className="bg-white/10 rounded-lg p-6 max-w-md mx-auto">
+            <div className="bg-text-on-gradient/10 rounded-lg p-6 max-w-md mx-auto">
               <p className="font-medium mb-4">So installierst du ExamFit auf iOS:</p>
               <ol className="text-left space-y-3 text-sm">
                 <li className="flex items-start gap-3">
-                  <span className="bg-white/20 rounded-full w-6 h-6 flex items-center justify-center flex-shrink-0 text-xs font-bold">1</span>
+                  <span className="bg-text-on-gradient/20 rounded-full w-6 h-6 flex items-center justify-center flex-shrink-0 text-xs font-bold">1</span>
                   <span>Tippe auf <Share className="inline h-4 w-4 mx-1" /> (Teilen) in der Safari-Leiste</span>
                 </li>
                 <li className="flex items-start gap-3">
-                  <span className="bg-white/20 rounded-full w-6 h-6 flex items-center justify-center flex-shrink-0 text-xs font-bold">2</span>
+                  <span className="bg-text-on-gradient/20 rounded-full w-6 h-6 flex items-center justify-center flex-shrink-0 text-xs font-bold">2</span>
                   <span>Scrolle und wähle <PlusSquare className="inline h-4 w-4 mx-1" /> "Zum Home-Bildschirm"</span>
                 </li>
                 <li className="flex items-start gap-3">
-                  <span className="bg-white/20 rounded-full w-6 h-6 flex items-center justify-center flex-shrink-0 text-xs font-bold">3</span>
+                  <span className="bg-text-on-gradient/20 rounded-full w-6 h-6 flex items-center justify-center flex-shrink-0 text-xs font-bold">3</span>
                   <span>Tippe auf "Hinzufügen" – fertig!</span>
                 </li>
               </ol>
