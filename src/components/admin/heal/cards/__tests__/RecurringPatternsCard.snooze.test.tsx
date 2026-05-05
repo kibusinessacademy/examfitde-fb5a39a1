@@ -85,7 +85,7 @@ describe("RecurringPatternsCard — snooze fallback (no active_recommendation_id
   }
 
   it("invokes admin_heal_pattern_snooze on Resolve when no recommendation exists", async () => {
-    await openRowAndClick(/als gelöst markieren|gelöst|resolve/i);
+    await clickButton(/als gelöst markieren|gelöst|resolve/i);
 
     await waitFor(() => {
       const calls = rpcMock.mock.calls.map((c) => c[0]);
@@ -104,7 +104,7 @@ describe("RecurringPatternsCard — snooze fallback (no active_recommendation_id
   });
 
   it("invokes admin_heal_pattern_snooze on Dismiss when no recommendation exists", async () => {
-    await openRowAndClick(/verwerfen|dismiss/i);
+    await clickButton(/verwerfen|dismiss/i);
 
     await waitFor(() => {
       const calls = rpcMock.mock.calls.map((c) => c[0]);
