@@ -112017,6 +112017,14 @@ export type Database = {
         }
         Returns: Json
       }
+      fn_can_demote_package_status: {
+        Args: {
+          p_package_id: string
+          p_source?: string
+          p_target_status: string
+        }
+        Returns: Json
+      }
       fn_cancel_pending_enqueue_step: {
         Args: { p_package_id: string; p_reason?: string; p_step_key: string }
         Returns: Json
