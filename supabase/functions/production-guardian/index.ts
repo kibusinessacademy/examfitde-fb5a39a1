@@ -985,15 +985,22 @@ Deno.serve(async (req) => {
           warnings.push(`G4: ${z.zombie_class} — ${z.title}`);
         }
 
-        await sb.from("auto_heal_log").insert({
-          action_type: `zombie_detected_${String(z.zombie_class).toLowerCase()}`,
-          target_type: "course_package",
-          target_id: z.package_id,
-          trigger_source: "production-guardian",
-          result_status: "detected",
-          result_detail: `${z.zombie_class}: jobs=${z.active_jobs}, completed_1h=${z.completed_jobs_1h}, batch_fails=${z.batch_submit_fails_1h}`,
-          metadata: z,
+        // Throttle audit-spam via fn_should_log_zombie (30min cooldown per package+class)
+        const { data: shouldLog } = await sb.rpc("fn_should_log_zombie", {
+          p_package_id: z.package_id,
+          p_zombie_class: String(z.zombie_class),
         });
+        if (shouldLog === true) {
+          await sb.from("auto_heal_log").insert({
+            action_type: `zombie_detected_${String(z.zombie_class).toLowerCase()}`,
+            target_type: "course_package",
+            target_id: z.package_id,
+            trigger_source: "production-guardian",
+            result_status: "detected",
+            result_detail: `${z.zombie_class}: jobs=${z.active_jobs}, completed_1h=${z.completed_jobs_1h}, batch_fails=${z.batch_submit_fails_1h}`,
+            metadata: z,
+          });
+        }
       }
 
       // ── G4b: AUTO-TERMINATE POISONED_LOOP (3-Strike Policy) ──
