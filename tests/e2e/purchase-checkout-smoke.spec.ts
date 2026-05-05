@@ -6,34 +6,18 @@
  * checkout URL (cs_test_*). Stops short of paying the card.
  */
 import { test, expect } from "@playwright/test";
-import { SERVICE_KEY, SUPABASE_URL } from "./helpers/service-key";
+import { HAS_ADMIN_PATH, SUPABASE_URL, e2eHelper } from "./helpers/service-key";
 
-const URL_BASE = SUPABASE_URL;
-const SERVICE = SERVICE_KEY;
 const EMAIL = process.env.E2E_GRANT_LEARNER_EMAIL ?? "e2e+grant@examfit-smoke.local";
 const PASSWORD = process.env.E2E_GRANT_LEARNER_PASSWORD ?? "SmokeTest_E2E_2026!";
 
-async function rpc(name: string, body: Record<string, unknown> = {}, key = SERVICE) {
-  const r = await fetch(`${URL_BASE}/rest/v1/rpc/${name}`, {
-    method: "POST",
-    headers: {
-      apikey: key,
-      Authorization: `Bearer ${key}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-  });
-  if (!r.ok) throw new Error(`${name} → ${r.status}: ${(await r.text()).slice(0, 300)}`);
-  return r.json();
-}
-
 test.describe("Purchase checkout smoke (sellable course)", () => {
-  test.skip(!URL_BASE || !SERVICE, "Supabase env (URL + service key alias) required");
+  test.skip(!SUPABASE_URL || !HAS_ADMIN_PATH, "E2E_HELPER_TOKEN or service-role alias required");
 
   test("first sellable course → product page renders + checkout URL returned", async ({ page }) => {
-    const sellable = await rpc("public_sellable_courses");
-    test.skip(!sellable?.length, "no sellable course available");
-    const target = sellable[0];
+    const { courses } = await e2eHelper<{ ok: boolean; courses: any[] }>({ op: "sellable_courses" });
+    test.skip(!courses?.length, "no sellable course available");
+    const target = courses[0];
     const slug: string | undefined = target.product_slug || target.slug;
 
     if (slug) {

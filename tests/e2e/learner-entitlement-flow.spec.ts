@@ -12,44 +12,29 @@
  *   E2E_GRANT_LEARNER_PASSWORD (default: SmokeTest_E2E_2026!)
  */
 import { test, expect } from "@playwright/test";
-import { SERVICE_KEY, SUPABASE_URL } from "./helpers/service-key";
+import { HAS_ADMIN_PATH, SUPABASE_URL, e2eHelper } from "./helpers/service-key";
 
-const URL_BASE = SUPABASE_URL;
-const SERVICE = SERVICE_KEY;
 const ANON = process.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_ANON_KEY!;
 const EMAIL = process.env.E2E_GRANT_LEARNER_EMAIL ?? "e2e+grant@examfit-smoke.local";
 const PASSWORD = process.env.E2E_GRANT_LEARNER_PASSWORD ?? "SmokeTest_E2E_2026!";
 
-async function rpc(name: string, body: Record<string, unknown> = {}, key = SERVICE) {
-  const r = await fetch(`${URL_BASE}/rest/v1/rpc/${name}`, {
-    method: "POST",
-    headers: {
-      apikey: key,
-      Authorization: `Bearer ${key}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-  });
-  const txt = await r.text();
-  if (!r.ok) throw new Error(`${name} → ${r.status}: ${txt.slice(0, 300)}`);
-  return txt ? JSON.parse(txt) : null;
-}
-
 test.describe("Entitlement → CTA → Lesson (launch gate)", () => {
-  test.skip(!URL_BASE || !SERVICE || !ANON, "Supabase env required");
+  test.skip(!SUPABASE_URL || !HAS_ADMIN_PATH || !ANON, "E2E_HELPER_TOKEN or service-role alias required");
 
   test("grant user sees continue-CTA, opens lesson, progress persists", async ({ page }) => {
     // 1. Pick a sellable course and ensure grant exists for the test learner.
-    const sellable = await rpc("public_sellable_courses");
-    test.skip(!sellable?.length, "no sellable course available");
+    const sellableResp = await e2eHelper<{ ok: boolean; courses: any[] }>({ op: "sellable_courses" });
+    const sellable = sellableResp?.courses ?? [];
+    test.skip(!sellable.length, "no sellable course available");
     const target = sellable[0];
 
-    const grant = await rpc("admin_create_test_purchase_grant", {
-      _course_id: target.course_id,
-      _user_email: EMAIL,
-      _reason: "playwright entitlement-flow",
+    const grantResp = await e2eHelper<{ ok: boolean; grant: any }>({
+      op: "create_test_grant",
+      course_id: target.course_id,
+      email: EMAIL,
+      reason: "playwright entitlement-flow",
     });
-    expect(grant?.ok, `grant failed: ${JSON.stringify(grant)}`).toBe(true);
+    expect(grantResp?.grant?.ok, `grant failed: ${JSON.stringify(grantResp)}`).toBe(true);
 
     // 2. Login as grant user via UI.
     await page.goto("/auth");
