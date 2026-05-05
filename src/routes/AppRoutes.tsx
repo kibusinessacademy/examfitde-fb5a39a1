@@ -172,6 +172,7 @@ const SEOTestPage = lazyRetry(() => import('@/pages/admin/v2/SEOTestPage'));
 const HealCockpitPage = lazyRetry(() => import('@/pages/admin/v2/HealCockpitPage'));
 const ForensicsPage = lazyRetry(() => import('@/pages/admin/v2/ForensicsPage'));
 const SyntheticCohortPage = lazyRetry(() => import('@/pages/admin/v2/SyntheticCohortPage'));
+const AuditReportsPage = lazyRetry(() => import('@/pages/admin/v2/AuditReportsPage'));
 
 // ExamFit@work public pages
 const WorkHomePage = lazyRetry(() => import('@/pages/work/WorkHomePage'));
@@ -457,6 +458,7 @@ const AppRoutes = () => {
           <Route path="test" element={<TestAreaPage />} />
           <Route path="ops/ai-analysis-audit" element={<AIAnalysisAuditPage />} />
           <Route path="ops/seo-test" element={<SEOTestPage />} />
+          <Route path="ops/audit-reports" element={<AuditReportsPage />} />
           <Route path="*" element={<Navigate to="/admin/command" replace />} />
         </Route>
 
