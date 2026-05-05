@@ -253,7 +253,7 @@ export default function SupportPanel({ open, onOpenChange }: { open: boolean; on
           <div className="space-y-5 mt-4">
             {/* KPIs */}
             <div className="grid grid-cols-3 gap-2">
-              <div className={cn("rounded-lg border p-2 text-center", openTickets.length > 0 ? "border-warning/30 bg-warning/5" : "border-border")}>
+              <div className={cn("rounded-lg border p-2 text-center", openTickets.length > 0 ? "border-warning-border bg-warning-bg-subtle" : "border-border")}>
                 <div className="text-lg font-bold text-foreground">{openTickets.length}</div>
                 <div className="text-[10px] text-muted-foreground">Offen</div>
               </div>
