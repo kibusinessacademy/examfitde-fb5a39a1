@@ -310,9 +310,9 @@ export default function SupportPanel({ open, onOpenChange }: { open: boolean; on
                 <div className="space-y-1.5 max-h-48 ">
                   {notifications.slice(0, 15).map((n: any) => {
                     const sevCls: Record<string, string> = {
-                      critical: 'border-destructive/30 bg-destructive/5',
-                      high: 'border-destructive/30 bg-destructive/5',
-                      medium: 'border-warning/30 bg-warning/5',
+                      critical: 'border-destructive-border bg-destructive-bg-subtle',
+                      high: 'border-destructive-border bg-destructive-bg-subtle',
+                      medium: 'border-warning-border bg-warning-bg-subtle',
                       low: 'border-border bg-card',
                       info: 'border-border bg-card',
                     };
