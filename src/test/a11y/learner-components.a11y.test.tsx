@@ -1,10 +1,11 @@
+import React from "react";
 import { describe, it, expect } from "vitest";
 import { render } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { axe, toHaveNoViolations } from "jest-axe";
 import { ContinueLearningCard } from "@/components/course/ContinueLearningCard";
 import { ModuleLessonList } from "@/components/course/ModuleLessonList";
-import { LessonHeader } from "@/components/lesson/LessonHeader";
+import LessonHeader from "@/components/lesson/LessonHeader";
 
 expect.extend(toHaveNoViolations);
 
@@ -21,16 +22,11 @@ const fakeProgress = {
 } as any;
 
 const fakeModules = [
-  {
-    id: "m1",
-    title: "Modul 1",
-    description: "Beschreibung",
-    sort_order: 1,
-    lessons: [
-      { id: "l1", title: "Lesson 1", sort_order: 1, status: "not_started" as const, locked: false },
-      { id: "l2", title: "Lesson 2", sort_order: 2, status: "completed" as const, locked: false },
-    ],
-  },
+  { id: "m1", title: "Modul 1", description: "Beschreibung", sort_order: 1 },
+];
+const fakeLessons = [
+  { id: "l1", title: "Lesson 1", step: "einstieg", duration_minutes: 10, module_id: "m1", sort_order: 1 },
+  { id: "l2", title: "Lesson 2", step: "verstehen", duration_minutes: 12, module_id: "m1", sort_order: 2 },
 ];
 
 describe("A11y regression: Learner components", () => {
@@ -43,7 +39,13 @@ describe("A11y regression: Learner components", () => {
 
   it("ModuleLessonList has no a11y violations", async () => {
     const { container } = render(
-      wrap(<ModuleLessonList courseId="c1" modules={fakeModules as any} />)
+      wrap(
+        <ModuleLessonList
+          modules={fakeModules as any}
+          lessons={fakeLessons as any}
+          isEnrolled={true}
+        />
+      )
     );
     expect(await axe(container)).toHaveNoViolations();
   });
@@ -54,11 +56,10 @@ describe("A11y regression: Learner components", () => {
         <LessonHeader
           courseId="c1"
           courseTitle="Test Kurs"
-          lessonTitle="Lektion A"
-          currentIndex={1}
+          moduleTitle="Modul 1"
+          progress={40}
+          currentIndex={2}
           totalLessons={5}
-          prevLessonId={null}
-          nextLessonId="l2"
         />
       )
     );
