@@ -109062,6 +109062,10 @@ export type Database = {
         Args: { p_package_id: string }
         Returns: undefined
       }
+      admin_force_publish_course_for_test: {
+        Args: { _course_id: string }
+        Returns: Json
+      }
       admin_force_publish_package: {
         Args: { p_package_id: string; p_reason?: string }
         Returns: Json
