@@ -57,9 +57,12 @@ export default function CourseDetailPage() {
     'learning_course'
   );
 
-  // Use the course progress hook for enrolled users
+  // Effective access: explicit enrollment OR active product entitlement (grant)
+  const hasAccess = isEnrolled || hasLearningAccess === true;
+
+  // Use the course progress hook for users with access
   const { data: courseProgress, isLoading: progressLoading } = useCourseProgress(
-    isEnrolled ? slug : undefined
+    hasAccess ? slug : undefined
   );
 
   // Derive competency progress from lessons
@@ -309,7 +312,7 @@ export default function CourseDetailPage() {
 
           {/* Enrollment / Progress Bar */}
           <div className="p-6 border-t border-border">
-            {isEnrolled ? (
+            {hasAccess ? (
               <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                 <div className="flex-1 w-full md:w-auto">
                   {courseProgress ? (
@@ -324,7 +327,7 @@ export default function CourseDetailPage() {
                 <div className="flex gap-3">
                   <Button onClick={handleContinue} className="gradient-primary text-primary-foreground shadow-glow-sm" data-testid="course-continue-btn">
                     <PlayCircle className="h-4 w-4 mr-2" />
-                    {progressPercent > 0 ? "Fortsetzen" : "Training starten"}
+                    {progressPercent > 0 ? "Training fortsetzen" : "Lektion starten"}
                   </Button>
                   {course.curriculum_id && (
                     <Button
@@ -399,21 +402,21 @@ export default function CourseDetailPage() {
         </Accordion>
 
         {/* Continue Learning Card for enrolled users with progress */}
-        {isEnrolled && courseProgress && progressPercent > 0 && (
+        {hasAccess && courseProgress && progressPercent > 0 && (
           <div className="mb-8">
             <ContinueLearningCard courseId={course.id} courseTitle={course.title} progress={courseProgress} />
           </div>
         )}
 
         {/* Competency Progress Section */}
-        {isEnrolled && <div className="mb-8"><CompetencyProgressGrid competencies={competencyProgress} /></div>}
+        {hasAccess && <div className="mb-8"><CompetencyProgressGrid competencies={competencyProgress} /></div>}
 
         {/* Modules List */}
         <ModuleLessonList
           modules={modules}
           lessons={lessons}
           lessonProgress={courseProgress?.lessons}
-          isEnrolled={isEnrolled}
+          isEnrolled={hasAccess}
           defaultExpandedModuleId={modules[0]?.id}
         />
       </div>
