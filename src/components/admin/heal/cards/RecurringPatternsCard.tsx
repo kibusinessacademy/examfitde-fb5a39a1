@@ -32,6 +32,7 @@ import { Link } from "react-router-dom";
 type NextBestAction = {
   pattern_key: string;
   cluster: string;
+  target_id: string;
   package_id: string | null;
   package_title: string | null;
   package_status: string | null;
@@ -169,6 +170,24 @@ export function RecurringPatternsCard({ limit = 10 }: { limit?: number }) {
       toast.error("Konnte nicht verworfen werden", { description: e.message }),
   });
 
+  // Snooze (works even when no active recommendation exists — pattern comes from auto_heal_log directly)
+  const snoozeMutation = useMutation({
+    mutationFn: async ({ cluster, target_id, hours, note }: { cluster: string; target_id: string; hours?: number; note?: string }) => {
+      const { data, error } = await supabase.rpc(
+        "admin_heal_pattern_snooze" as never,
+        { p_cluster: cluster, p_target_id: target_id, p_hours: hours ?? 168, p_note: note ?? null } as never,
+      );
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("Pattern gesnoozt (7 Tage) — verschwindet aus der Liste");
+      qc.invalidateQueries({ queryKey: ["heal-recurring-patterns"] });
+    },
+    onError: (e: Error) =>
+      toast.error("Snooze fehlgeschlagen", { description: e.message }),
+  });
+
   const applyMutation = useMutation({
     mutationFn: async ({ id }: { id: string }) => {
       const { data, error } = await supabase.rpc(
@@ -267,12 +286,14 @@ export function RecurringPatternsCard({ limit = 10 }: { limit?: number }) {
                 aiMutation.mutate({ pattern_key: p.pattern_key, force })
               }
               onResolve={(note) =>
-                p.active_recommendation_id &&
-                resolveMutation.mutate({ id: p.active_recommendation_id, note })
+                p.active_recommendation_id
+                  ? resolveMutation.mutate({ id: p.active_recommendation_id, note })
+                  : snoozeMutation.mutate({ cluster: p.cluster, target_id: p.target_id, note: note ?? "resolved from cockpit (no recommendation)" })
               }
               onDismiss={(reason) =>
-                p.active_recommendation_id &&
-                dismissMutation.mutate({ id: p.active_recommendation_id, reason })
+                p.active_recommendation_id
+                  ? dismissMutation.mutate({ id: p.active_recommendation_id, reason })
+                  : snoozeMutation.mutate({ cluster: p.cluster, target_id: p.target_id, note: reason ?? "dismissed from cockpit (no recommendation)" })
               }
               onApply={() =>
                 p.active_recommendation_id &&

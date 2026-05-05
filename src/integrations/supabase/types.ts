@@ -31519,6 +31519,36 @@ export type Database = {
         }
         Relationships: []
       }
+      heal_pattern_snoozes: {
+        Row: {
+          cluster: string
+          created_at: string
+          created_by: string | null
+          expires_at: string
+          id: string
+          note: string | null
+          target_id: string
+        }
+        Insert: {
+          cluster: string
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string
+          id?: string
+          note?: string | null
+          target_id: string
+        }
+        Update: {
+          cluster?: string
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string
+          id?: string
+          note?: string | null
+          target_id?: string
+        }
+        Relationships: []
+      }
       heal_permanent_fix_tasks: {
         Row: {
           assigned_to: string | null
@@ -108672,6 +108702,15 @@ export type Database = {
         Args: { p_pattern_key: string }
         Returns: Json
       }
+      admin_heal_pattern_snooze: {
+        Args: {
+          p_cluster: string
+          p_hours?: number
+          p_note?: string
+          p_target_id: string
+        }
+        Returns: Json
+      }
       admin_heal_pending_enqueue_drift: {
         Args: {
           p_dry_run?: boolean
@@ -111577,6 +111616,10 @@ export type Database = {
         Returns: Json
       }
       fn_derive_exam_part: { Args: { p_blueprint_id: string }; Returns: string }
+      fn_detect_and_heal_building_zombies: {
+        Args: { p_dry_run?: boolean; p_min_age_hours?: number }
+        Returns: Json
+      }
       fn_detect_and_heal_cancel_loop_x3: { Args: never; Returns: Json }
       fn_detect_and_heal_dag_enqueue_drift: {
         Args: never
