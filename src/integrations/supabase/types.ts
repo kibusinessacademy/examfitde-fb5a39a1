@@ -112242,6 +112242,16 @@ export type Database = {
         }
         Returns: undefined
       }
+      fn_log_bronze_locked_enqueue_blocked: {
+        Args: {
+          p_caller?: string
+          p_enqueue_source?: string
+          p_job_type: string
+          p_package_id: string
+          p_payload?: Json
+        }
+        Returns: undefined
+      }
       fn_log_guardrail_event: {
         Args: { p_details: Json; p_guard_key: string }
         Returns: undefined
