@@ -1,0 +1,53 @@
+name: Dead Column Guard
+
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/**"
+      - "scripts/dead-column-candidates.json"
+      - "scripts/dead-column-audit.mjs"
+  workflow_dispatch:
+
+permissions: read-all
+
+jobs:
+  guard:
+    name: Refuse DROP COLUMN if column still referenced
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with: { node-version: "24" }
+
+      - name: Detect DROP COLUMN diffs
+        id: detect
+        shell: bash
+        run: |
+          set -e
+          BASE="${{ github.event.pull_request.base.sha || 'HEAD~1' }}"
+          # Find newly-added DROP COLUMN statements only
+          DIFF=$(git diff --no-color "$BASE" -- supabase/migrations | grep -E '^\+' | grep -iE 'DROP\s+COLUMN' || true)
+          if [ -z "$DIFF" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "No DROP COLUMN statements detected. Skipping."
+            exit 0
+          fi
+          echo "$DIFF"
+          # Extract candidate table.column pairs (best-effort regex)
+          echo "$DIFF" | grep -oiE 'ALTER TABLE\s+(public\.)?[a-z0-9_]+\s+DROP\s+COLUMN\s+[a-z0-9_]+' \
+            | awk '{print tolower($0)}' | sort -u > /tmp/dropcols.txt || true
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+
+      - name: Run dead-column audit (hard-fail on unsafe)
+        if: steps.detect.outputs.skip != 'true'
+        env:
+          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          HARD_FAIL_ON_UNSAFE: "1"
+        run: |
+          # Install ripgrep
+          sudo apt-get update -qq && sudo apt-get install -y ripgrep
+          node scripts/dead-column-audit.mjs
