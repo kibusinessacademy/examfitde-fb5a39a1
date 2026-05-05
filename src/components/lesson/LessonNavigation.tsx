@@ -55,6 +55,7 @@ export default function LessonNavigation({
             onClick={onComplete}
             disabled={completing}
             className="gradient-primary text-primary-foreground shadow-glow"
+            data-testid="lesson-complete-btn"
           >
             {completing ? (
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -64,7 +65,7 @@ export default function LessonNavigation({
             Als abgeschlossen markieren
           </Button>
         ) : (
-          <Badge className="bg-success-bg-subtle text-success border-0 py-2 px-4">
+          <Badge className="bg-success-bg-subtle text-success border-0 py-2 px-4" data-testid="lesson-completed-badge">
             <CheckCircle className="h-4 w-4 mr-2" />
             Abgeschlossen
           </Badge>

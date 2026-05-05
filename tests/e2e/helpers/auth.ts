@@ -13,6 +13,18 @@ export const TEST_USERS = {
     email: 'smoke_no_entitlement@examfit.test',
     password: process.env.TEST_USER_PASSWORD || 'TestPass_Smoke1!',
   },
+  // QA "all-access" learner: full entitlement across all published courses.
+  // Used by progress-persistence + golden-path learner regressions.
+  qa_allaccess: {
+    email:
+      process.env.E2E_QA_ALLACCESS_EMAIL ||
+      process.env.E2E_TEST_USER_EMAIL ||
+      'qa_allaccess@examfit.test',
+    password:
+      process.env.E2E_QA_ALLACCESS_PASSWORD ||
+      process.env.E2E_TEST_USER_PASSWORD ||
+      'TestPass_QAAllAccess!',
+  },
 };
 
 /**
