@@ -1,0 +1,26 @@
+---
+name: Course Publish Readiness Guard v1
+description: BEFORE-Trigger auf public.courses blockt status→published wenn curriculum_id, modules oder lessons fehlen. Bypass nur via session GUC app.transition_source='admin_force_publish'. Jeder Block + Bypass im auto_heal_log.
+type: feature
+---
+
+## Ziel
+Verhindert, dass neue Empty-/Phantom-Courses je wieder published werden. Komplementär zu Empty-Courses-Ratchet (heilt Bestand).
+
+## Mechanik
+- Trigger `trg_guard_course_publish_readiness` BEFORE INSERT OR UPDATE OF status ON public.courses
+- Funktion `fn_guard_course_publish_readiness()` (SECURITY DEFINER, search_path=public)
+- Pflicht beim Wechsel auf `published`:
+  - `curriculum_id IS NOT NULL`
+  - ≥1 row in `modules WHERE course_id=NEW.id`
+  - ≥1 row in `lessons l JOIN modules m ON m.id=l.module_id WHERE m.course_id=NEW.id`
+- Block: `RAISE EXCEPTION 'COURSE_PUBLISH_READINESS_BLOCKED'` (ERRCODE check_violation)
+- Bypass: `SELECT set_config('app.transition_source','admin_force_publish',true);` in derselben Transaktion
+
+## Audit-Contract (auto_heal_log)
+- Block: `action_type='course_publish_readiness_blocked'`, `result_status='blocked'`, `target_type='course'`, `target_id=course.id`, `metadata={modules,lessons,curriculum_id,missing[],source}`
+- Bypass: `action_type='course_publish_readiness_bypassed'`, `result_status='bypassed'` (gleiche metadata)
+
+## Nicht betroffen
+- Bereits published Kurse (UPDATE OLD.status='published' → return)
+- Andere Statuswechsel (draft, archived, etc.)
