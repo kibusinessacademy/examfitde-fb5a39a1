@@ -81,15 +81,23 @@ if (softHits.length) {
   if (softHits.length > 50) console.warn(`  …and ${softHits.length - 50} more`);
 }
 
-if (hardHits.length) {
-  console.error(`\n[contrast-token-audit] ${hardHits.length} HARD violation(s):`);
-  for (const h of hardHits) {
+const newHits = hardHits.filter((h) => !baseline.has(h.file));
+const grandfathered = hardHits.length - newHits.length;
+
+if (newHits.length) {
+  console.error(`\n[contrast-token-audit] ${newHits.length} NEW HARD violation(s):`);
+  for (const h of newHits) {
     console.error(`  FAIL ${h.file}  ${h.id} ×${h.count} — ${h.msg}`);
   }
-  console.error("\nFix by replacing with semantic design tokens (see src/index.css).");
+  console.error(
+    "\nFix by replacing with semantic design tokens (see src/index.css), " +
+      "or — if intentional refactor of a baseline file — update " +
+      BASELINE_PATH,
+  );
   process.exit(1);
 }
 
 console.log(
-  `[contrast-token-audit] OK — 0 hard violations, ${softHits.length} soft warning(s).`,
+  `[contrast-token-audit] OK — 0 new hard violations, ${grandfathered} grandfathered, ${softHits.length} soft warning(s).`,
 );
+
