@@ -113136,6 +113136,13 @@ export type Database = {
         }[]
       }
       get_ai_cost_summary: { Args: never; Returns: Json }
+      get_approved_question_counts: {
+        Args: { p_curriculum_ids: string[] }
+        Returns: {
+          cnt: number
+          curriculum_id: string
+        }[]
+      }
       get_artifact_threshold: {
         Args: { p_artifact: string; p_context?: Json; p_step_key: string }
         Returns: number
