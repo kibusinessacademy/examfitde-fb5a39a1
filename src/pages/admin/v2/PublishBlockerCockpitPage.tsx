@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Loader2, RefreshCcw, ShieldAlert, Zap } from 'lucide-react';
+import PipelineReadinessCard from '@/components/admin/publish-blockers/PipelineReadinessCard';
 
 type BlockedRow = {
   log_id: string;
@@ -198,6 +199,9 @@ export default function PublishBlockerCockpitPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* ── Pipeline readiness (Phase 1: warn-only) ── */}
+      <PipelineReadinessCard />
 
       {/* ── Blocked publish attempts ── */}
       <Card>
