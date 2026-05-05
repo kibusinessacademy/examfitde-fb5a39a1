@@ -67,14 +67,33 @@ test.describe("Entitlement → CTA → Lesson (launch gate)", () => {
     await expect(continueBtn).toHaveText(/training fortsetzen|lektion starten/i);
     await expect(page.getByRole("button", { name: /jetzt einschreiben/i })).toHaveCount(0);
 
-    // 5. Click → land on lesson player.
+    // 5. Click → land on lesson player + LessonPlayer renders.
     await continueBtn.click();
     await page.waitForURL(/\/lesson\//, { timeout: 15_000 });
-    expect(page.url()).toMatch(/\/lesson\//);
+    await expect(page.getByTestId("lesson-player")).toBeVisible({ timeout: 20_000 });
 
     // 6. Reload and assert lesson player still renders (progress hook re-hydrates).
     await page.reload();
     await page.waitForLoadState("domcontentloaded");
+    await expect(page.getByTestId("lesson-player")).toBeVisible({ timeout: 20_000 });
     expect(page.url()).toMatch(/\/lesson\//);
+  });
+
+  test("anonymous visitor cannot reach LessonPlayer", async ({ browser }) => {
+    const ctx = await browser.newContext({ storageState: undefined });
+    const page = await ctx.newPage();
+    try {
+      const sellable = await rpc("public_sellable_courses");
+      test.skip(!sellable?.length, "no sellable course available");
+      const target = sellable[0];
+      await page.goto(`/course/${target.course_id}`);
+      const cta = page
+        .getByRole("button", { name: /anmelden|jetzt einschreiben|lizenz/i })
+        .first();
+      await expect(cta).toBeVisible({ timeout: 20_000 });
+      await expect(page.getByTestId("course-continue-btn")).toHaveCount(0);
+    } finally {
+      await ctx.close();
+    }
   });
 });
