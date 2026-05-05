@@ -153,6 +153,9 @@ export default function PublishBlockerCockpitPage() {
         </Button>
       </div>
 
+      {/* ── Launch Readiness Overall ── */}
+      <LaunchReadinessDashboardCard />
+
       {/* ── Skeleton-backfill follow-up jobs ── */}
       <Card>
         <CardHeader>
