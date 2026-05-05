@@ -78,7 +78,10 @@ export default {
           tertiary: "hsl(var(--text-tertiary))",
           quaternary: "hsl(var(--text-quaternary))",
           "on-petrol": "hsl(var(--text-on-petrol))",
+          "on-gradient": "hsl(var(--text-on-gradient))",
         },
+        scrim: "hsl(var(--scrim))",
+        "track-subtle": "hsl(var(--track-subtle))",
         // ── Surface Hierarchy v2 ──
         surface: {
           sunken: "hsl(var(--surface-sunken))",
