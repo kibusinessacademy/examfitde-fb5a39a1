@@ -24,6 +24,7 @@
  *   2 = config / network / RPC error (block CI, distinguishable in logs)
  */
 import fs from "node:fs";
+import { renderLearnerGateTable, appendStepSummary } from "../ci/_lib/step-summary.mjs";
 
 const URL_BASE = process.env.VITE_SUPABASE_URL;
 const ANON =
@@ -156,6 +157,29 @@ try {
 
   fs.writeFileSync("./qa-pins-validation.json", JSON.stringify(report, null, 2));
   if (SUMMARY) fs.appendFileSync(SUMMARY, md(report, failures));
+
+  // Unified Learner-Gate row (matches learner-progress-summary columns).
+  const c2 = report.course || {};
+  const l2 = report.lesson || {};
+  appendStepSummary(
+    renderLearnerGateTable(
+      [
+        {
+          workflow: "qa-pins-validation",
+          status: failures.length ? "❌ fail" : "✅ pass",
+          course_id: COURSE_ID,
+          course_title: c2.title,
+          lesson_id: LESSON_ID || "—",
+          progress_before: "—",
+          progress_after: "—",
+          lesson_status_after: l2.status || "—",
+          retry_reason: "—",
+          notes: failures.length ? failures.join("; ") : "all pins valid",
+        },
+      ],
+      { title: "Learner Gate — QA Pins" },
+    ),
+  );
 
   console.log("─── QA Pins Validation ───");
   console.log(JSON.stringify(report, null, 2));
