@@ -38,7 +38,9 @@ jobs:
       VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
       VITE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      # Canonical name + sandbox/CI alias. Specs read both via service-key resolver.
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || secrets.SRK_E2E }}
+      SRK_E2E: ${{ secrets.SRK_E2E || secrets.SUPABASE_SERVICE_ROLE_KEY }}
       E2E_GRANT_LEARNER_EMAIL: ${{ secrets.E2E_GRANT_LEARNER_EMAIL || 'e2e+grant@examfit-smoke.local' }}
       E2E_GRANT_LEARNER_PASSWORD: ${{ secrets.E2E_GRANT_LEARNER_PASSWORD || 'SmokeTest_E2E_2026!' }}
 
