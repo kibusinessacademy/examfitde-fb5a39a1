@@ -109880,7 +109880,7 @@ export type Database = {
         Returns: Json
       }
       admin_create_test_purchase_grant: {
-        Args: { _course_id: string; _reason: string; _user_email: string }
+        Args: { _course_id: string; _reason?: string; _user_email: string }
         Returns: Json
       }
       admin_decide_security_review: {
